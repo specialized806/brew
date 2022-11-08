@@ -282,20 +282,36 @@ module Formulary
     string.to_sym
   end
 
-  # A {FormulaLoader} returns instances of formulae.
-  # Subclasses implement loaders for particular sources of formulae.
-  class FormulaLoader
-    include Context
-
+  # Pseudo-loader which will raise a {FormulaUnavailableError} when trying to load the corresponding formula.
+  class NullLoader
     # The formula's name
     attr_reader :name
+
+    def initialize(name)
+      @name = name
+    end
+
+    def get_formula(*)
+      raise FormulaUnavailableError, name
+    end
+
+    def klass(*)
+      raise FormulaUnavailableError, name
+    end
+  end
+
+  # A {FormulaLoader} returns instances of formulae.
+  # Subclasses implement loaders for particular sources of formulae.
+  class FormulaLoader < NullLoader
+    include Context
+
     # The formula's ruby file's path or filename
     attr_reader :path
     # The name used to install the formula
     attr_reader :alias_path
 
     def initialize(name, path)
-      @name = name
+      super name
       @path = path.resolved_path
     end
 
@@ -480,17 +496,6 @@ module Formulary
     rescue MethodDeprecatedError => e
       e.issues_url = tap.issues_url || tap.to_s
       raise
-    end
-  end
-
-  # Pseudo-loader which will raise a {FormulaUnavailableError} when trying to load the corresponding formula.
-  class NullLoader < FormulaLoader
-    def initialize(name)
-      super name, Formulary.core_path(name)
-    end
-
-    def get_formula(*)
-      raise FormulaUnavailableError, name
     end
   end
 
@@ -679,15 +684,15 @@ module Formulary
       return AliasAPILoader.new(ref) if Homebrew::API::Formula.all_aliases.key?(ref)
     end
 
-    formula_with_that_name = core_path(ref)
-    return FormulaLoader.new(ref, formula_with_that_name) if formula_with_that_name.file?
+    formula_with_that_name = core_path(ref) if CoreTap.instance.installed?
+    return FormulaLoader.new(ref, formula_with_that_name) if formula_with_that_name&.file?
 
     possible_alias = if pathname_ref.absolute?
       pathname_ref
-    else
+    elsif CoreTap.instance.installed?
       core_alias_path(ref)
     end
-    return AliasLoader.new(possible_alias) if possible_alias.symlink?
+    return AliasLoader.new(possible_alias) if possible_alias&.symlink?
 
     possible_tap_formulae = tap_paths(ref)
     raise TapFormulaAmbiguityError.new(ref, possible_tap_formulae) if possible_tap_formulae.size > 1
@@ -698,7 +703,9 @@ module Formulary
       return FormulaLoader.new(name, path)
     end
 
-    return TapLoader.new("#{CoreTap.instance}/#{ref}", from: from) if CoreTap.instance.formula_renames.key?(ref)
+    if CoreTap.instance.installed? && CoreTap.instance.formula_renames.key?(ref)
+      return TapLoader.new("#{CoreTap.instance}/#{ref}", from: from)
+    end
 
     possible_taps = Tap.select { |tap| tap.formula_renames.key?(ref) }
 

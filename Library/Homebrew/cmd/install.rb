@@ -183,6 +183,11 @@ module Homebrew
       formulae, casks = args.named.to_formulae_and_casks
                             .partition { |formula_or_cask| formula_or_cask.is_a?(Formula) }
     rescue FormulaOrCaskUnavailableError, Cask::CaskUnavailableError => e
+      if !CoreTap.instance.installed? && !EnvConfig.install_from_api?
+        CoreTap.instance.install
+        retry
+      end
+
       retry if Tap.install_default_cask_tap_if_necessary(force: args.cask?)
 
       raise e

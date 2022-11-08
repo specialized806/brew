@@ -1777,12 +1777,16 @@ class Formula
   # an array of all core {Formula} names
   # @private
   def self.core_names
+    return [] unless CoreTap.instance.installed?
+
     CoreTap.instance.formula_names
   end
 
   # an array of all core {Formula} files
   # @private
   def self.core_files
+    return [] unless CoreTap.instance.installed?
+
     CoreTap.instance.formula_files
   end
 
