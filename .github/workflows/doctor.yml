@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - run: brew test-bot --only-cleanup-before
         if: !contains(matrix.runner, github.run_id)

@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - name: Install vale
         run: brew install vale
@@ -48,7 +48,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - name: Checkout Homebrew/rubydoc.brew.sh
         uses: actions/checkout@main

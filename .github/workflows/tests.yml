@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - name: Cache Bundler RubyGems
         uses: actions/cache@v1
@@ -52,7 +52,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - run: brew test-bot --only-cleanup-before
 
@@ -146,7 +146,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - name: Configure Git user
         uses: Homebrew/actions/git-user-config@master
@@ -167,7 +167,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - name: Build Docker image
         run: |
@@ -237,7 +237,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - name: Cache Bundler RubyGems
         uses: actions/cache@v1
@@ -293,7 +293,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - run: brew test-bot --only-cleanup-before
 
@@ -309,7 +309,7 @@ jobs:
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@setup-homebrew-improvements
 
       - run: brew test-bot --only-cleanup-before
 
