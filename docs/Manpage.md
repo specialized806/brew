@@ -18,7 +18,7 @@ Linux distribution to your home directory without requiring `sudo`.
 
 **cask**: Homebrew package definition that installs macOS native applications
 
-**keg**: installation destination directory of a given **formula** version e.g. `/usr/local/Cellar/foo/0.1`
+**keg**: installation destination directory of a given **formula** version e.g. /usr/local/Cellar/foo/0.1`
 
 **rack**: directory containing one or more versioned kegs e.g. `/usr/local/Cellar/foo`
 
