@@ -214,11 +214,9 @@ module Homebrew
     invalid_groups = groups - valid_gem_groups
     raise ArgumentError, "Invalid gem groups: #{invalid_groups.join(", ")}" unless invalid_groups.empty?
 
+    setup_gem_environment!
     # Tests should not modify the state of the repository.
-    if ENV["HOMEBREW_TESTS"]
-      setup_gem_environment!
-      return
-    end
+    return if ENV["HOMEBREW_TESTS"]
 
     # Combine the passed groups with the ones stored in settings.
     groups |= (user_gem_groups & valid_gem_groups)
