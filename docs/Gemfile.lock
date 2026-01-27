@@ -1,3 +1,10 @@
+GIT
+  remote: https://github.com/Bo98/yard.git
+  revision: 62a50d2fd54f2d23365b14553323c1f90b946d1f
+  ref: 62a50d2fd54f2d23365b14553323c1f90b946d1f
+  specs:
+    yard (0.9.38)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -206,7 +213,6 @@ GEM
       ethon (>= 0.9.0, < 0.16.0)
     unicode-display_width (2.6.0)
     webrick (1.9.2)
-    yard (0.9.38)
     yard-sorbet (0.9.0)
       sorbet-runtime
       yard
@@ -239,7 +245,7 @@ DEPENDENCIES
   rake
   redcarpet
   webrick
-  yard
+  yard!
   yard-sorbet
 
 CHECKSUMS
@@ -342,13 +348,13 @@ CHECKSUMS
   typhoeus (1.5.0) sha256=120b67ed1ef515e6c0e938176db880f15b0916f038e78ce2a66290f3f1de3e3b
   unicode-display_width (2.6.0) sha256=12279874bba6d5e4d2728cef814b19197dbb10d7a7837a869bab65da943b7f5a
   webrick (1.9.2) sha256=beb4a15fc474defed24a3bda4ffd88a490d517c9e4e6118c3edce59e45864131
-  yard (0.9.38) sha256=721fb82afb10532aa49860655f6cc2eaa7130889df291b052e1e6b268283010f
+  yard (0.9.38)
   yard-sorbet (0.9.0) sha256=03d1aa461b9e9c82b886919a13aa3e09fcf4d1852239d2967ed97e92723ffe21
   yell (2.2.2) sha256=1d166f3cc3b6dc49a59778ea7156ed6d8de794c15106d48ffd6cbb061b9b26bc
   zeitwerk (2.7.5) sha256=d8da92128c09ea6ec62c949011b00ed4a20242b255293dd66bf41545398f73dd
 
 RUBY VERSION
-  ruby 3.4.8
+  ruby 4.0.1
 
 BUNDLED WITH
-  4.0.2
+  4.0.3
