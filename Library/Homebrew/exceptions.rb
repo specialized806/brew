@@ -82,7 +82,7 @@ class LegacyDSLError < StandardError
 
   def initialize(attr, value)
     @attr = attr
-    super "legacy DSL is used: #{attr} (#{value.inspect})"
+    super "A legacy DSL was used: #{attr} (#{value.inspect})"
   end
 end
 
