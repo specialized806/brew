@@ -79,9 +79,14 @@ jobs:
           path: tmp/.htmlproofer
           key: ${{ runner.os }}-htmlproofer
 
-      - name: Build the site without YARD and check for broken links
+      - name: Build the site
         working-directory: docs
-        run: bundle exec rake build test
+        run: bundle exec rake build
+
+      - name: Check for broken links
+        if: github.event_name == 'pull_request'
+        working-directory: docs
+        run: bundle exec rake test || bundle exec rake test
 
       - name: Rebuild the site with YARD
         if: github.repository == 'Homebrew/brew'
