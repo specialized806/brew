@@ -8,6 +8,10 @@ RSpec.describe Homebrew::FreePort do
 
   describe "#free_port" do
     it "returns a free TCP/IP port" do
+      # IANA recommends:
+      # - User ports:   1024–49151
+      # - Dynamic ports: 49152–65535
+      # For this test we accept any free port in the full 1024–65535 range.
       min_port = 1024
       max_port = 65535
       port = instance.free_port
