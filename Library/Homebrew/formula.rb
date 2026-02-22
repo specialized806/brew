@@ -1884,7 +1884,7 @@ class Formula
     params(
       root:     T.any(String, Pathname),
       path:     T.any(String, Pathname),
-      features: T.nilable(T.any(Symbol, String, T::Array[String])),
+      features: T.nilable(T.any(String, T::Array[String])),
     ).returns(T::Array[String])
   }
   def std_cargo_args(root: prefix, path: ".", features: nil)
