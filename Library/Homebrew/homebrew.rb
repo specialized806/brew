@@ -74,17 +74,18 @@ module Homebrew
     _system(cmd, argv0, *args, **options)
   end
 
-  # `Module` and `Regexp` are global variables used as types here so they don't need to be imported
+  # Uses $times global to share timing data between wrapped methods and the at_exit reporter.
   # rubocop:disable Style/GlobalVars
   sig { params(the_module: T::Module[T.anything], pattern: Regexp).void }
   def self.inject_dump_stats!(the_module, pattern)
-    @injected_dump_stat_modules ||= T.let({}, T.nilable(T::Hash[T::Module[T.anything], T::Array[String]]))
+    @injected_dump_stat_modules ||= T.let({}, T.nilable(T::Hash[T::Module[T.anything], T::Array[Symbol]]))
     @injected_dump_stat_modules[the_module] ||= []
     injected_methods = @injected_dump_stat_modules.fetch(the_module)
     wrapper = Module.new
     the_module.instance_methods.grep(pattern).each do |name|
       next if injected_methods.include? name
 
+      injected_methods << name
       wrapper.define_method(name) do |*args, &block|
         require "time"
 
