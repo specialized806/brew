@@ -81,25 +81,24 @@ module Homebrew
     @injected_dump_stat_modules ||= T.let({}, T.nilable(T::Hash[T::Module[T.anything], T::Array[String]]))
     @injected_dump_stat_modules[the_module] ||= []
     injected_methods = @injected_dump_stat_modules.fetch(the_module)
-    the_module.module_eval do
-      instance_methods.grep(pattern).each do |name|
-        next if injected_methods.include? name
+    wrapper = Module.new
+    the_module.instance_methods.grep(pattern).each do |name|
+      next if injected_methods.include? name
 
-        method = instance_method(name)
-        define_method(name) do |*args, &block|
-          require "time"
+      wrapper.define_method(name) do |*args, &block|
+        require "time"
 
-          time = Time.now
+        time = Time.now
 
-          begin
-            method.bind_call(self, *args, &block)
-          ensure
-            $times[name] ||= 0
-            $times[name] += Time.now - time
-          end
+        begin
+          super(*args, &block)
+        ensure
+          $times[name] ||= 0
+          $times[name] += Time.now - time
         end
       end
     end
+    the_module.prepend(wrapper)
 
     return unless $times.nil?
 
