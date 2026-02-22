@@ -12,6 +12,7 @@ RSpec.describe Homebrew::FreePort do
       # - User ports:   1024–49151
       # - Dynamic ports: 49152–65535
       # For this test we accept any free port in the full 1024–65535 range.
+      # http://www.iana.org/assignments/port-numbers
       min_port = 1024
       max_port = 65535
       port = instance.free_port
