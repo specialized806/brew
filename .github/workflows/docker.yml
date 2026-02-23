@@ -78,12 +78,11 @@ jobs:
                 )
               fi
             elif [[ "${GITHUB_EVENT_NAME}" == "push" &&
-                    ("${GITHUB_REF}" == "refs/heads/main") &&
-                    "${version}" == "22.04" ]]; then
-              tags+=(
-                "ghcr.io/homebrew/brew:main"
-                "ghcr.io/homebrew/ubuntu${version}:main"
-              )
+                    ("${GITHUB_REF}" == "refs/heads/main") ]]; then
+              if [[ "${version}" == "22.04" ]]; then
+                tags+=("ghcr.io/homebrew/brew:main")
+              fi
+              tags+=("ghcr.io/homebrew/ubuntu${version}:main")
             fi
 
             if [[ "${#tags[@]}" -ne 0 ]]; then
