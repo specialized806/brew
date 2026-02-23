@@ -57,5 +57,15 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect(formula_rack/"0.1").not_to exist
   end
 
+  it "catches cask upgrade errors and sets Homebrew.failed" do
+    allow(Cask::Upgrade).to receive(:upgrade_casks!).and_raise(Cask::CaskError.new("test cask error"))
+
+    cmd = described_class.new(["--cask"])
+    expect { cmd.send(:upgrade_outdated_casks!, []) }
+      .to output(/test cask error/).to_stderr
+
+    expect(Homebrew).to have_failed
+  end
+
   it_behaves_like "reinstall_pkgconf_if_needed"
 end

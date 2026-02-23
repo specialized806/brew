@@ -292,18 +292,22 @@ module Homebrew
           end
 
           if !Homebrew::EnvConfig.no_install_upgrade? && installed_casks.any?
-            Cask::Upgrade.upgrade_casks!(
-              *installed_casks,
-              force:          args.force?,
-              dry_run:        args.dry_run?,
-              binaries:       args.binaries?,
-              quarantine:     args.quarantine?,
-              require_sha:    args.require_sha?,
-              skip_cask_deps: args.skip_cask_deps?,
-              verbose:        args.verbose?,
-              quiet:          args.quiet?,
-              args:,
-            )
+            begin
+              Cask::Upgrade.upgrade_casks!(
+                *installed_casks,
+                force:          args.force?,
+                dry_run:        args.dry_run?,
+                binaries:       args.binaries?,
+                quarantine:     args.quarantine?,
+                require_sha:    args.require_sha?,
+                skip_cask_deps: args.skip_cask_deps?,
+                verbose:        args.verbose?,
+                quiet:          args.quiet?,
+                args:,
+              )
+            rescue => e
+              ofail e
+            end
           end
         end
 
