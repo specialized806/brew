@@ -307,6 +307,9 @@ module Homebrew
           quiet:               args.quiet?,
           args:,
         )
+      rescue => e
+        ofail e
+        false
       end
     end
   end

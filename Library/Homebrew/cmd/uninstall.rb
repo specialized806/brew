@@ -64,20 +64,24 @@ module Homebrew
         Cask::Uninstall.check_dependent_casks(*casks, named_args: args.named) unless args.ignore_dependencies?
         return if Homebrew.failed?
 
-        if args.zap?
-          casks.each do |cask|
-            odebug "Zapping Cask #{cask}"
+        begin
+          if args.zap?
+            casks.each do |cask|
+              odebug "Zapping Cask #{cask}"
 
-            raise Cask::CaskNotInstalledError, cask if !cask.installed? && !args.force?
+              raise Cask::CaskNotInstalledError, cask if !cask.installed? && !args.force?
 
-            Cask::Installer.new(cask, verbose: args.verbose?, force: args.force?).zap
+              Cask::Installer.new(cask, verbose: args.verbose?, force: args.force?).zap
+            end
+          else
+            Cask::Uninstall.uninstall_casks(
+              *casks,
+              verbose: args.verbose?,
+              force:   args.force?,
+            )
           end
-        else
-          Cask::Uninstall.uninstall_casks(
-            *casks,
-            verbose: args.verbose?,
-            force:   args.force?,
-          )
+        rescue => e
+          ofail e
         end
 
         if ENV["HOMEBREW_AUTOREMOVE"].present?

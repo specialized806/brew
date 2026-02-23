@@ -204,16 +204,20 @@ module Homebrew
 
         if casks.any?
           Install.ask_casks casks if args.ask?
-          Cask::Reinstall.reinstall_casks(
-            *casks,
-            binaries:       args.binaries?,
-            verbose:        args.verbose?,
-            force:          args.force?,
-            require_sha:    args.require_sha?,
-            skip_cask_deps: args.skip_cask_deps?,
-            quarantine:     args.quarantine?,
-            zap:            args.zap?,
-          )
+          begin
+            Cask::Reinstall.reinstall_casks(
+              *casks,
+              binaries:       args.binaries?,
+              verbose:        args.verbose?,
+              force:          args.force?,
+              require_sha:    args.require_sha?,
+              skip_cask_deps: args.skip_cask_deps?,
+              quarantine:     args.quarantine?,
+              zap:            args.zap?,
+            )
+          rescue => e
+            ofail e
+          end
         end
 
         Cleanup.periodic_clean!
