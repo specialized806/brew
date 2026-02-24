@@ -23,13 +23,23 @@ RSpec.describe Homebrew::Cmd::UninstallCmd do
     allow(Homebrew::Uninstall).to receive(:uninstall_kegs)
     allow(Homebrew::Cleanup).to receive(:autoremove)
 
-    cask = instance_double(Cask::Cask, token: "test-cask")
+    cask = Cask::Cask.new("test-cask")
     cmd = described_class.new(["test-cask"])
-    allow(cmd.args.named).to receive(:to_kegs_to_casks).and_return([[], [cask]])
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable).and_return([cask])
 
     expect { cmd.run }
       .to output(/test cask error/).to_stderr
 
     expect(Homebrew).to have_failed
+  end
+
+  it "uninstalls valid items and reports errors for unavailable ones", :integration_test do
+    setup_test_formula "testball", tab_attributes: { installed_on_request: true }
+
+    expect(HOMEBREW_CELLAR/"testball").to exist
+    expect { brew "uninstall", "testball", "nonexistent" }
+      .to output(/Uninstalling .*testball/).to_stdout
+      .and be_a_failure
+    expect(HOMEBREW_CELLAR/"testball").not_to exist
   end
 end
