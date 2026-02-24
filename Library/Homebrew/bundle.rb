@@ -41,7 +41,12 @@ module Homebrew
 
       sig { returns(T::Boolean) }
       def mas_installed?
-        @mas_installed ||= which_formula?("mas")
+        @mas_installed ||= which_mas.present?
+      end
+
+      sig { returns(T.nilable(Pathname)) }
+      def which_mas
+        @which_mas ||= which("mas", ORIGINAL_PATHS)
       end
 
       sig { returns(T::Boolean) }
@@ -160,6 +165,7 @@ module Homebrew
 
       sig { void }
       def reset!
+        @which_mas = T.let(nil, T.nilable(Pathname))
         @mas_installed = T.let(nil, T.nilable(T::Boolean))
         @vscode_installed = T.let(nil, T.nilable(T::Boolean))
         @which_vscode = T.let(nil, T.nilable(Pathname))
