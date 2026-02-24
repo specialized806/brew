@@ -30,7 +30,7 @@ class LinkageCacheStore < CacheStore
   #
   # @param hash_values [Hash] hash containing KVPs of { :type => Hash }
   # @return [nil]
-  sig { params(hash_values: T::Hash[Symbol, T.untyped]).void }
+  sig { params(hash_values: T::Hash[Symbol, T.anything]).void }
   def update!(hash_values)
     hash_values.each_key do |type|
       next if HASH_LINKAGE_TYPES.include?(type)
