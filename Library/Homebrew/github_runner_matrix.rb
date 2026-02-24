@@ -230,7 +230,9 @@ class GitHubRunnerMatrix
 
       skip_intel_runner = !@all_supported && macos_version > NEWEST_HOMEBREW_CORE_INTEL_MACOS_RUNNER
       skip_intel_runner &&= @dependent_matrix || @testing_formulae.none? do |testing_formula|
-        testing_formula.formula.bottle_specification.tag?(Utils::Bottles.tag(macos_version.to_sym))
+        bottle_spec = testing_formula.formula.bottle_specification
+        bottle_spec.tag?(Utils::Bottles.tag(macos_version.to_sym), no_older_versions: true) &&
+          !bottle_spec.tag?(Utils::Bottles.tag(:all), no_older_versions: true)
       end
       next if skip_intel_runner
 
