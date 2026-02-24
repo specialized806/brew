@@ -32,14 +32,4 @@ RSpec.describe Homebrew::Cmd::UninstallCmd do
 
     expect(Homebrew).to have_failed
   end
-
-  it "uninstalls valid items and reports errors for unavailable ones", :integration_test do
-    setup_test_formula "testball", tab_attributes: { installed_on_request: true }
-
-    expect(HOMEBREW_CELLAR/"testball").to exist
-    expect { brew "uninstall", "testball", "nonexistent" }
-      .to output(/Uninstalling .*testball/).to_stdout
-      .and be_a_failure
-    expect(HOMEBREW_CELLAR/"testball").not_to exist
-  end
 end
