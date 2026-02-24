@@ -57,7 +57,7 @@ module Homebrew
           when Keg
             all_kegs << item
           when Array
-            all_kegs.concat(item)
+            all_kegs += item
           end
         end
 
