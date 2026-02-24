@@ -39,6 +39,27 @@ RSpec.describe Cask::DSL, :cask, :no_api do
     end
   end
 
+  describe "when a Cask includes a removed method" do
+    let(:attempt_removed_method) do
+      Cask::Cask.new("removed-method-cask") do
+        appcast "https://example.com/appcast.xml"
+      end
+    end
+
+    it "prints a warning instead of an error" do
+      expect do
+        expect { attempt_removed_method }.not_to output.to_stdout
+      end.to output(/Warning: Ignoring removed method 'appcast' in Cask removed-method-cask\./).to_stderr
+    end
+
+    it "does not set Homebrew.failed" do
+      expect do
+        attempt_removed_method
+      end.not_to raise_error
+      expect(Homebrew).not_to be_failed
+    end
+  end
+
   describe "header line" do
     context "when invalid" do
       let(:token) { "invalid-header-format" }
