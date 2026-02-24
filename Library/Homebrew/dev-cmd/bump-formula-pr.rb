@@ -82,6 +82,9 @@ module Homebrew
                     description: "Exclude these Python packages when finding resources."
         comma_array "--bump-synced=",
                     hidden: true
+        flag   "--resource-versions=",
+               description: "JSON-encoded resource version data from `brew bump`.",
+               hidden:      true
 
         conflicts "--dry-run", "--write-only"
         conflicts "--no-audit", "--strict"
@@ -381,6 +384,7 @@ module Homebrew
             alias_rename.map! { |a| tap.alias_dir/a }
           end
 
+          resource_update_results = {}
           unless args.dry_run?
             resources_checked = PyPI.update_python_resources! formula,
                                                               version:                  new_formula_version.to_s,
@@ -391,18 +395,43 @@ module Homebrew
                                                               silent:                   args.quiet?,
                                                               ignore_non_pypi_packages: true
 
-            update_matching_version_resources! commit_formula,
-                                               version: new_formula_version.to_s
+            resource_update_results.merge!(
+              update_matching_version_resources!(commit_formula, version: new_formula_version.to_s),
+            )
+
+            resource_versions = parse_resource_versions_arg
+            if resource_versions.present?
+              resource_update_results.merge!(
+                update_resources!(commit_formula, resource_versions:),
+              )
+            end
           end
 
-          if resources_checked.nil? && commit_formula.resources.any? do |resource|
-            resource.livecheck.formula != :parent && !resource.name.start_with?("homebrew-")
+          successfully_updated = resource_update_results.select { |_, v| v == :success }.keys
+          failed_updates = resource_update_results.reject { |_, v| v == :success }
+
+          # Check if there are any resources that still need manual update
+          unchecked_resources = commit_formula.resources.select do |resource|
+            next false if resource.name.start_with?("homebrew-")
+            next false if successfully_updated.include?(resource.name)
+            next false if resource.livecheck.formula == :parent
+            next false if resource.livecheck_defined? && !resource.livecheck.skip?
+
+            true
           end
+
+          if resources_checked.nil? && (unchecked_resources.any? || failed_updates.any?)
             formula_pr_message += <<~EOS
 
 
               - [ ] `resource` blocks have been checked for updates.
             EOS
+
+            if failed_updates.any?
+              formula_pr_message += "#{failed_updates.map do |name, status|
+                "  - Resource `#{name}` failed to auto-update (#{status})."
+              end.join("\n")}\n"
+            end
           end
 
           if new_url =~ %r{^https://github\.com/([\w-]+)/([\w-]+)/archive/refs/tags/(v?[.0-9]+)\.tar\.}
@@ -561,64 +590,91 @@ module Homebrew
 
       sig {
         params(
-          formula: Formula,
-          version: String,
-        ).void
+          formula:     Formula,
+          resource:    Resource,
+          new_version: String,
+        ).returns(Symbol)
       }
-      def update_matching_version_resources!(formula, version:)
-        formula.resources.select { |r| r.livecheck.formula == :parent }.each do |resource|
-          new_url = update_url(resource.url, resource.version.to_s, version)
+      def update_resource_block!(formula, resource, new_version)
+        old_url = T.must(resource.url)
+        new_url = update_url(old_url, resource.version.to_s, new_version)
 
-          if new_url == resource.url
-            opoo <<~EOS
-              You need to bump resource "#{resource.name}" manually since the new URL
-              and old URL are both:
-                #{new_url}
-            EOS
-            next
-          end
-
-          new_mirrors = resource.mirrors.map do |mirror|
-            update_url(mirror, resource.version.to_s, version)
-          end
-          resource_path, forced_version = fetch_resource_and_forced_version(resource, version, new_url)
-          Utils::Tar.validate_file(resource_path)
-          new_hash = resource_path.sha256
-
-          inreplace_regex = /
-            [ ]+resource\ "#{resource.name}"\ do\s+
-              url\ .*\s+
-              (mirror\ .*\s+)*
-              sha256\ .*\s+
-              (version\ .*\s+)?
-              (\#.*\s+)*
-              livecheck\ do\s+
-                formula\ :parent\s+
-              end\s+
-              ((\#.*\s+)*
-              patch\ (.*\ )?do\s+
-                url\ .*\s+
-                sha256\ .*\s+
-              end\s+)*
-            end\s
-          /x
-
-          leading_spaces = T.must(formula.path.read.match(/^( +)resource "#{resource.name}"/)).captures.first
-          new_resource_block = <<~EOS
-            #{leading_spaces}resource "#{resource.name}" do
-            #{leading_spaces}  url "#{new_url}"#{new_mirrors.map { |m| "\n#{leading_spaces}  mirror \"#{m}\"" }.join}
-            #{leading_spaces}  sha256 "#{new_hash}"
-            #{"#{leading_spaces}  version \"#{version}\"\n" if forced_version}
-            #{leading_spaces}  livecheck do
-            #{leading_spaces}    formula :parent
-            #{leading_spaces}  end
-            #{leading_spaces}end
+        if new_url == old_url
+          opoo <<~EOS
+            You need to bump resource "#{resource.name}" manually since the new URL
+            and old URL are both:
+              #{new_url}
           EOS
+          return :url_unchanged
+        end
 
-          Utils::Inreplace.inreplace formula.path do |s|
-            s.sub! inreplace_regex, new_resource_block
+        new_mirrors = resource.mirrors.map do |mirror|
+          update_url(mirror, resource.version.to_s, new_version)
+        end
+        resource_path, forced_version = fetch_resource_and_forced_version(resource, new_version, new_url)
+        Utils::Tar.validate_file(resource_path)
+        new_hash = resource_path.sha256
+
+        escaped_name = Regexp.escape(resource.name)
+
+        Utils::Inreplace.inreplace formula.path do |s|
+          leading_spaces = T.must(s.inreplace_string.match(/^( +)resource "#{escaped_name}"/)).captures.first
+          inreplace_regex =
+            /^#{leading_spaces}resource "#{escaped_name}" do\n.*?^#{leading_spaces}end\n/m
+
+          s.inreplace_string.sub!(inreplace_regex) do |block|
+            block = block.sub(
+              /^(#{leading_spaces}  url )"#{Regexp.escape(old_url)}"/,
+              "\\1\"#{new_url}\"",
+            )
+
+            resource.mirrors.each_with_index do |old_mirror, i|
+              next if new_mirrors[i].blank?
+
+              block = block.sub(
+                /^(#{leading_spaces}  mirror )"#{Regexp.escape(old_mirror)}"/,
+                "\\1\"#{new_mirrors[i]}\"",
+              )
+            end
+
+            old_checksum = resource.checksum&.hexdigest
+            if old_checksum.present?
+              block = block.sub(
+                /^(#{leading_spaces}  sha256 )"#{old_checksum}"/,
+                "\\1\"#{new_hash}\"",
+              )
+            end
+
+            if forced_version
+              block = if block.match?(/^#{leading_spaces}  version "/)
+                block.sub(/^(#{leading_spaces}  version )"[^"]*"/, "\\1\"#{new_version}\"")
+              else
+                block.sub(
+                  /^(#{leading_spaces}  sha256 "[0-9a-f]+")\n/,
+                  "\\1\n#{leading_spaces}  version \"#{new_version}\"\n",
+                )
+              end
+            end
+
+            block
           end
         end
+
+        :success
+      end
+
+      sig {
+        params(
+          formula: Formula,
+          version: String,
+        ).returns(T::Hash[String, Symbol])
+      }
+      def update_matching_version_resources!(formula, version:)
+        results = {}
+        formula.resources.select { |r| r.livecheck.formula == :parent }.each do |resource|
+          results[resource.name] = update_resource_block!(formula, resource, version)
+        end
+        results
       end
 
       sig { params(formula: Formula, contents: T.nilable(String)).returns(Version) }
@@ -698,6 +754,55 @@ module Homebrew
         return if Version.new(new_alias_version) <= Version.new(old_alias_version)
 
         [versioned_alias, "#{name}@#{new_alias_version}"]
+      end
+
+      sig { returns(T.nilable(T::Hash[String, T::Hash[Symbol, T.nilable(String)]])) }
+      def parse_resource_versions_arg
+        return if args.resource_versions.blank?
+
+        require "json"
+        resource_data = JSON.parse(T.must(args.resource_versions))
+        resource_data.to_h do |r|
+          [r["name"], { current_version: r["current_version"], latest_version: r["latest_version"] }]
+        end
+      rescue JSON::ParserError => e
+        opoo "Failed to parse --resource-versions JSON: #{e.message}"
+        nil
+      end
+
+      sig {
+        params(
+          formula:           Formula,
+          resource_versions: T::Hash[String, T::Hash[Symbol, T.nilable(String)]],
+        ).returns(T::Hash[String, Symbol])
+      }
+      def update_resources!(formula, resource_versions:)
+        results = {}
+
+        formula.resources.each do |resource|
+          version_data = resource_versions[resource.name]
+          next if version_data.blank?
+
+          current_version = version_data[:current_version]
+          latest_version = version_data[:latest_version]
+
+          if current_version.blank? || latest_version.blank?
+            opoo "Could not determine versions for resource \"#{resource.name}\""
+            results[resource.name] = :version_unknown
+            next
+          end
+
+          ohai "Updating resource \"#{resource.name}\" from #{current_version} to #{latest_version}"
+
+          begin
+            results[resource.name] = update_resource_block!(formula, resource, latest_version)
+          rescue => e
+            opoo "Failed to update resource \"#{resource.name}\": #{e}"
+            results[resource.name] = :fetch_failed
+          end
+        end
+
+        results
       end
 
       sig {
