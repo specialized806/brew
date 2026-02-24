@@ -666,10 +666,11 @@ module Homebrew
           bump_pr_args << "--bump-synced=#{outdated_synced_formulae.join(",")}"
         end
 
-        # Pass resource version info to bump-formula-pr for formulae
+        # Pass all livecheck-checked resources to bump-formula-pr, including
+        # up-to-date and failed ones, so it can track what was checked
         if version_info.type == :formula && resource_versions.present?
           require "json"
-          resource_data = resource_versions.select(&:outdated).map do |rv|
+          resource_data = resource_versions.map do |rv|
             { name: rv.name, current_version: rv.current_version, latest_version: rv.latest_version }
           end
           bump_pr_args << "--resource-versions=#{resource_data.to_json}" if resource_data.present?

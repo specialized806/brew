@@ -407,15 +407,14 @@ module Homebrew
             end
           end
 
-          successfully_updated = resource_update_results.select { |_, v| v == :success }.keys
-          failed_updates = resource_update_results.reject { |_, v| v == :success }
+          checked_statuses = [:success, :up_to_date]
+          failed_updates = resource_update_results.reject { |_, v| checked_statuses.include?(v) }
 
-          # Check if there are any resources that still need manual update
+          # Check if there are any resources that still need manual update:
           unchecked_resources = commit_formula.resources.select do |resource|
             next false if resource.name.start_with?("homebrew-")
-            next false if successfully_updated.include?(resource.name)
+            next false if resource_update_results.key?(resource.name)
             next false if resource.livecheck.formula == :parent
-            next false if resource.livecheck_defined? && !resource.livecheck.skip?
 
             true
           end
@@ -789,6 +788,11 @@ module Homebrew
           if current_version.blank? || latest_version.blank?
             opoo "Could not determine versions for resource \"#{resource.name}\""
             results[resource.name] = :version_unknown
+            next
+          end
+
+          if current_version == latest_version
+            results[resource.name] = :up_to_date
             next
           end
 
