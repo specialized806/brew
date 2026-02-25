@@ -705,7 +705,7 @@ module Cask
     end
 
     def respond_to_missing?(*)
-      true
+      false
     end
 
     sig { returns(T.nilable(MacOSVersion)) }

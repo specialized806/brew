@@ -281,7 +281,7 @@ RSpec.describe Cask::CaskLoader, :cask do
       it "raises CaskUnreadableError when loaded from installed caskfile" do
         loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
         loader.instance_variable_set(:@from_installed_caskfile, true)
-        expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError)
+        expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError, /appcast/)
       end
     end
   end
