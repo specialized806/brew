@@ -19,44 +19,11 @@ RSpec.describe Cask::DSL, :cask, :no_api do
       end
     end
 
-    it "prints an error that it has encountered an unexpected method" do
-      expected = Regexp.compile(<<~EOS.lines.map(&:chomp).join)
-        (?m)
-        Error: Unexpected method 'future_feature' called on Cask unexpected-method-cask\\.
-        .*
-        https://github.com/Homebrew/homebrew-cask#reporting-bugs
-      EOS
-
-      expect do
-        expect { attempt_unknown_method }.not_to output.to_stdout
-      end.to output(expected).to_stderr
-    end
-
-    it "simply warns, instead of throwing an exception" do
-      expect do
-        attempt_unknown_method
-      end.not_to raise_error
-    end
-  end
-
-  describe "when a Cask includes a removed method" do
-    let(:attempt_removed_method) do
-      Cask::Cask.new("removed-method-cask") do
-        appcast "https://example.com/appcast.xml"
-      end
-    end
-
-    it "prints a warning instead of an error" do
-      expect do
-        expect { attempt_removed_method }.not_to output.to_stdout
-      end.to output(/Warning: Ignoring removed method 'appcast' in Cask removed-method-cask\./).to_stderr
-    end
-
-    it "does not set Homebrew.failed" do
-      expect do
-        attempt_removed_method
-      end.not_to raise_error
-      expect(Homebrew).not_to be_failed
+    it "raises a CaskInvalidError" do
+      expect { attempt_unknown_method }.to raise_error(
+        Cask::CaskInvalidError,
+        /undefined method 'future_feature' for Cask 'unexpected-method-cask'/,
+      )
     end
   end
 

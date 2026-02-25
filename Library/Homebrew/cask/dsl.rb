@@ -118,13 +118,6 @@ module Cask
       *ARTIFACT_BLOCK_CLASSES.flat_map { |klass| [klass.dsl_key, klass.uninstall_dsl_key] },
     ]).freeze
 
-    # Methods that were once part of the Cask DSL but have been removed.
-    # These emit a warning instead of producing an error,
-    # so that casks installed before the removal can still be managed.
-    REMOVED_METHODS = Set.new([
-      :appcast,
-    ]).freeze
-
     include OnSystem::MacOSAndLinux
 
     attr_reader :cask, :token, :no_autobump_message, :artifacts, :deprecation_date, :deprecation_reason,
@@ -709,12 +702,7 @@ module Cask
 
     def method_missing(method, *)
       if method
-        if REMOVED_METHODS.include?(method)
-          opoo "Ignoring removed method '#{method}' in Cask #{token}."
-        else
-          Utils.method_missing_message(method, token)
-        end
-        nil
+        raise NoMethodError, "undefined method '#{method}' for Cask '#{token}'"
       else
         super
       end

@@ -237,6 +237,53 @@ RSpec.describe Cask::CaskLoader, :cask do
     end
   end
 
+  describe "FromPathLoader" do
+    describe "loading a cask with a removed DSL method" do
+      let(:tmpdir) { mktmpdir }
+      let(:cask_token) { "removed-method-cask" }
+      let(:cask_file) { tmpdir/"#{cask_token}.rb" }
+      let(:cask_content) do
+        <<~RUBY
+          cask "#{cask_token}" do
+            version "1.0.0"
+            sha256 "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+            url "https://example.com/app.dmg"
+            appcast "https://example.com/appcast.xml"
+            name "Removed Method Cask"
+            homepage "https://example.com"
+
+            app "App.app"
+          end
+        RUBY
+      end
+
+      before do
+        tmpdir.mkpath
+        cask_file.write(cask_content)
+      end
+
+      after do
+        tmpdir.rmtree if tmpdir.exist?
+      end
+
+      it "raises CaskInvalidError" do
+        loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
+        expect { loader.load(config: nil) }.to raise_error(Cask::CaskInvalidError)
+      end
+
+      it "does not set Homebrew.failed" do
+        loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
+        begin
+          loader.load(config: nil)
+        rescue Cask::CaskInvalidError
+          # expected
+        end
+        expect(Homebrew).not_to be_failed
+      end
+    end
+  end
+
   describe "FromPathLoader with symlinked taps" do
     let(:cask_token) { "testcask" }
     let(:tmpdir) { mktmpdir }
