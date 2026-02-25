@@ -26,11 +26,11 @@ module Homebrew
         const :version_name, String
         const :current_version, BumpVersionParser
         const :new_version, BumpVersionParser
+        const :resource_versions, T::Array[ResourceVersionInfo], default: []
         const :repology_latest, T.any(String, Version)
         const :newer_than_upstream, T::Hash[Symbol, T::Boolean], default: {}
         const :duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
         const :maybe_duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
-        const :resource_versions, T::Array[ResourceVersionInfo], default: []
       end
 
       cmd_args do
@@ -455,11 +455,11 @@ module Homebrew
           version_name:,
           current_version:,
           new_version:,
+          resource_versions:,
           repology_latest:,
           newer_than_upstream:,
           duplicate_pull_requests:,
           maybe_duplicate_pull_requests:,
-          resource_versions:,
         )
       end
 
@@ -489,7 +489,7 @@ module Homebrew
             verbose:   false,
           )
 
-          if resource_info.blank? || resource_info[:status] == "error"
+          if resource_info.empty? || resource_info[:status] == "error"
             resource_versions << ResourceVersionInfo.new(
               name:            resource.name,
               current_version: resource.version.to_s,
@@ -587,18 +587,16 @@ module Homebrew
 
         # Display resource version info for formulae
         resource_versions = version_info.resource_versions
-        if resource_versions.present?
-          puts "Resources with livecheck:"
-          resource_versions.each do |rv|
-            status = if rv.latest_version.nil?
-              "#{Tty.red}error getting version#{Tty.reset}"
-            elsif rv.outdated
-              "#{rv.current_version} -> #{Tty.green}#{rv.latest_version}#{Tty.reset}"
-            else
-              "#{rv.current_version} #{Tty.green}(up to date)#{Tty.reset}"
-            end
-            puts "  #{rv.name}: #{status}"
+        puts "Resources with livecheck:" if resource_versions.present?
+        resource_versions.each do |rv|
+          status = if rv.latest_version.nil?
+            "#{Tty.red}error getting version#{Tty.reset}"
+          elsif rv.outdated
+            "#{rv.current_version} -> #{Tty.green}#{rv.latest_version}#{Tty.reset}"
+          else
+            "#{rv.current_version} #{Tty.green}(up to date)#{Tty.reset}"
           end
+          puts "  #{rv.name}: #{status}"
         end
 
         if !args.no_pull_requests? &&
@@ -668,12 +666,12 @@ module Homebrew
 
         # Pass all livecheck-checked resources to bump-formula-pr, including
         # up-to-date and failed ones, so it can track what was checked
-        if version_info.type == :formula && resource_versions.present?
+        if version_info.type == :formula && !resource_versions.empty?
           require "json"
           resource_data = resource_versions.map do |rv|
             { name: rv.name, current_version: rv.current_version, latest_version: rv.latest_version }
           end
-          bump_pr_args << "--resource-versions=#{resource_data.to_json}" if resource_data.present?
+          bump_pr_args << "--resource-versions=#{resource_data.to_json}"
         end
 
         result = system HOMEBREW_BREW_FILE, *bump_pr_args
