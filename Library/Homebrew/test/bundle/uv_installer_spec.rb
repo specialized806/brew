@@ -27,24 +27,22 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
       before do
         allow(described_class).to receive(:installed_packages).and_return([
           {
-            name:      "mkdocs",
-            specifier: "<2.0",
-            with:      ["mkdocs-material<10"],
+            name: "mkdocs",
+            with: ["mkdocs-material<10"],
           },
         ])
       end
 
       it "skips install" do
         expect(Homebrew::Bundle).not_to receive(:system)
-        expect(described_class.preinstall!("mkdocs", specifier: "<2.0", with: ["mkdocs-material<10"])).to be(false)
+        expect(described_class.preinstall!("mkdocs", with: ["mkdocs-material<10"])).to be(false)
       end
 
       it "skips install for package with no options" do
         allow(described_class).to receive(:installed_packages).and_return([
           {
-            name:      "ruff",
-            specifier: nil,
-            with:      [],
+            name: "ruff",
+            with: [],
           },
         ])
 
@@ -55,17 +53,15 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
       it "treats matching with requirements as installed" do
         allow(described_class).to receive(:installed_packages).and_return([
           {
-            name:      "ruff",
-            specifier: "<0.15",
-            with:      ["httpx>=0.27"],
+            name: "ruff",
+            with: ["httpx>=0.27"],
           },
         ])
 
         expect(
           described_class.package_installed?(
             "ruff",
-            specifier: "<0.15",
-            with:      ["httpx>=0.27"],
+            with: ["httpx>=0.27"],
           ),
         ).to be(true)
       end
@@ -73,9 +69,8 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
       it "treats extras with different ordering as installed" do
         allow(described_class).to receive(:installed_packages).and_return([
           {
-            name:      "fastapi[all,standard]",
-            specifier: nil,
-            with:      [],
+            name: "fastapi[all,standard]",
+            with: [],
           },
         ])
 
@@ -87,19 +82,14 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
       end
     end
 
-    context "when package is installed but options differ" do
+    context "when package is installed but with options differ" do
       before do
         allow(described_class).to receive(:installed_packages).and_return([
           {
-            name:      "mkdocs",
-            specifier: "<2.0",
-            with:      ["mkdocs-material<10"],
+            name: "mkdocs",
+            with: ["mkdocs-material<10"],
           },
         ])
-      end
-
-      it "does not treat mismatched specifier as installed" do
-        expect(described_class.package_installed?("mkdocs", specifier: "<1.9")).to be(false)
       end
 
       it "does not treat mismatched with dependencies as installed" do
@@ -123,12 +113,12 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
 
       it "installs package with all supported options" do
         expect(Homebrew::Bundle).to receive(:system)
-          .with("/tmp/uv/bin/uv", "tool", "install", "mkdocs<2.0",
+          .with("/tmp/uv/bin/uv", "tool", "install", "mkdocs",
                 "--with", "mkdocs-material<10",
                 verbose: false).and_return(true)
 
-        expect(described_class.preinstall!("mkdocs", specifier: "<2.0", with: ["mkdocs-material<10"])).to be(true)
-        expect(described_class.install!("mkdocs", specifier: "<2.0", with: ["mkdocs-material<10"])).to be(true)
+        expect(described_class.preinstall!("mkdocs", with: ["mkdocs-material<10"])).to be(true)
+        expect(described_class.install!("mkdocs", with: ["mkdocs-material<10"])).to be(true)
       end
     end
   end

@@ -11,14 +11,13 @@ module Homebrew
 
       sig {
         params(
-          name:      String,
-          verbose:   T::Boolean,
-          specifier: T.nilable(String),
-          with:      T::Array[String],
-          _options:  T.anything,
+          name:     String,
+          verbose:  T::Boolean,
+          with:     T::Array[String],
+          _options: T.anything,
         ).returns(T::Boolean)
       }
-      def self.preinstall!(name, verbose: false, specifier: nil, with: [], **_options)
+      def self.preinstall!(name, verbose: false, with: [], **_options)
         unless Bundle.uv_installed?
           puts "Installing uv. It is not currently installed." if verbose
           Bundle.brew("install", "--formula", "uv", verbose:)
@@ -26,7 +25,7 @@ module Homebrew
           raise "Unable to install #{name} uv tool. uv installation failed." unless Bundle.uv_installed?
         end
 
-        if package_installed?(name, specifier:, with:)
+        if package_installed?(name, with:)
           puts "Skipping install of #{name} uv tool. It is already installed." if verbose
           return false
         end
@@ -40,18 +39,17 @@ module Homebrew
           preinstall: T::Boolean,
           verbose:    T::Boolean,
           force:      T::Boolean,
-          specifier:  T.nilable(String),
           with:       T::Array[String],
           _options:   T.anything,
         ).returns(T::Boolean)
       }
-      def self.install!(name, preinstall: true, verbose: false, force: false, specifier: nil, with: [], **_options)
+      def self.install!(name, preinstall: true, verbose: false, force: false, with: [], **_options)
         return true unless preinstall
 
         puts "Installing #{name} uv tool. It is not currently installed." if verbose
 
         uv = T.must(Bundle.which_uv)
-        args = ["tool", "install", requirement(name, specifier)]
+        args = ["tool", "install", name]
         normalized_with = normalize_with(with)
         normalized_with.each do |requirement|
           args << "--with"
@@ -61,24 +59,22 @@ module Homebrew
         success = Bundle.system uv.to_s, *args, verbose: verbose
         return false unless success
 
-        installed_packages << normalized_options(name, specifier:, with:)
+        installed_packages << normalized_options(name, with:)
         true
       end
 
       sig {
         params(
-          package:   String,
-          specifier: T.nilable(String),
-          with:      T::Array[String],
+          package: String,
+          with:    T::Array[String],
         ).returns(T::Boolean)
       }
-      def self.package_installed?(package, specifier: nil, with: [])
-        desired = normalized_options(package, specifier:, with:)
+      def self.package_installed?(package, with: [])
+        desired = normalized_options(package, with:)
         installed_packages.any? do |installed|
           installed_name = T.cast(installed[:name], String)
           installed_with = T.cast(installed[:with] || [], T::Array[String])
           installed_name == desired[:name] &&
-            installed[:specifier] == desired[:specifier] &&
             installed_with == desired[:with]
         end
       end
@@ -88,11 +84,6 @@ module Homebrew
         require "bundle/uv_dumper"
         @installed_packages ||= T.let(Homebrew::Bundle::UvDumper.packages,
                                       T.nilable(T::Array[T::Hash[Symbol, T.untyped]]))
-      end
-
-      sig { params(name: String, specifier: T.nilable(String)).returns(String) }
-      def self.requirement(name, specifier)
-        "#{name}#{specifier}"
       end
 
       sig { params(with: T::Array[String]).returns(T::Array[String]) }
@@ -120,16 +111,14 @@ module Homebrew
 
       sig {
         params(
-          name:      String,
-          specifier: T.nilable(String),
-          with:      T::Array[String],
+          name: String,
+          with: T::Array[String],
         ).returns(T::Hash[Symbol, T.untyped])
       }
-      def self.normalized_options(name, specifier:, with:)
+      def self.normalized_options(name, with:)
         {
-          name:      normalize_name(name),
-          specifier: specifier.presence,
-          with:      normalize_with(with),
+          name: normalize_name(name),
+          with: normalize_with(with),
         }
       end
     end

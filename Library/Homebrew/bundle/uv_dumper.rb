@@ -14,7 +14,7 @@ module Homebrew
         @packages ||= T.let(nil, T.nilable(T::Array[T::Hash[Symbol, T.untyped]]))
         @packages ||= if Bundle.uv_installed?
           uv = Bundle.which_uv
-          output = `#{uv} tool list --show-version-specifiers --show-with --show-extras 2>/dev/null`
+          output = `#{uv} tool list --show-with --show-extras 2>/dev/null`
           parse_tool_list(output)
         else
           []
@@ -39,15 +39,13 @@ module Homebrew
           name = T.must(match[1])
           extras_raw = line[/\[extras:\s*([^\]]+)\]/, 1]
           name = name_with_extras(name, extras_raw)
-          specifier = line[/\[required:\s*([^\]]+)\]/, 1]
           with_raw = line[/\[with:\s*([^\]]+)\]/, 1]
 
           with = parse_with_requirements(with_raw)
 
           entries << {
-            name:      name,
-            specifier: specifier,
-            with:      with,
+            name: name,
+            with: with,
           }
         end
 
@@ -96,12 +94,10 @@ module Homebrew
       sig { params(package: T::Hash[Symbol, T.untyped]).returns(String) }
       def self.build_entry(package)
         name = T.cast(package[:name], String)
-        specifier = T.cast(package[:specifier], T.nilable(String))
         with = T.cast(package[:with], T::Array[String])
 
         line = "uv #{quote(name)}"
         options = []
-        options << "specifier: #{quote(specifier)}" if specifier.present?
         if with.present?
           formatted_with = with.map { |requirement| quote(requirement) }.join(", ")
           options << "with: [#{formatted_with}]"

@@ -13,19 +13,19 @@ RSpec.describe Homebrew::Bundle::Checker::UvChecker do
       allow(Homebrew::Bundle::UvInstaller).to receive(:package_installed?).and_return(false)
       expect(
         checker.installed_and_up_to_date?(
-          { name: "mkdocs", options: { specifier: "<2.0", with: ["mkdocs-material<10"] } },
+          { name: "mkdocs", options: { with: ["mkdocs-material<10"] } },
         ),
       ).to be(false)
     end
 
     it "returns true when package and options match" do
       expect(Homebrew::Bundle::UvInstaller).to receive(:package_installed?)
-        .with("mkdocs", specifier: "<2.0", with: ["mkdocs-material<10"])
+        .with("mkdocs", with: ["mkdocs-material<10"])
         .and_return(true)
 
       expect(
         checker.installed_and_up_to_date?(
-          { name: "mkdocs", options: { specifier: "<2.0", with: ["mkdocs-material<10"] } },
+          { name: "mkdocs", options: { with: ["mkdocs-material<10"] } },
         ),
       ).to be(true)
     end
@@ -34,7 +34,7 @@ RSpec.describe Homebrew::Bundle::Checker::UvChecker do
   describe "#failure_reason" do
     it "returns a package-specific message" do
       expect(
-        checker.failure_reason({ name: "mkdocs", options: { specifier: "<2.0" } }, no_upgrade: false),
+        checker.failure_reason({ name: "mkdocs", options: { with: ["mkdocs-material<10"] } }, no_upgrade: false),
       ).to eq("uv Tool mkdocs needs to be installed.")
     end
   end
@@ -43,17 +43,17 @@ RSpec.describe Homebrew::Bundle::Checker::UvChecker do
     let(:entries) do
       [
         Homebrew::Bundle::Dsl::Entry.new(:uv, "ruff"),
-        Homebrew::Bundle::Dsl::Entry.new(:uv, "mkdocs", specifier: "<2.0", with: ["mkdocs-material<10"]),
+        Homebrew::Bundle::Dsl::Entry.new(:uv, "mkdocs", with: ["mkdocs-material<10"]),
         Homebrew::Bundle::Dsl::Entry.new(:brew, "wget"),
       ]
     end
 
     it "checks uv entries and passes normalized options to installer checks" do
       expect(Homebrew::Bundle::UvInstaller).to receive(:package_installed?)
-        .with("ruff", specifier: nil, with: [])
+        .with("ruff", with: [])
         .and_return(true)
       expect(Homebrew::Bundle::UvInstaller).to receive(:package_installed?)
-        .with("mkdocs", specifier: "<2.0", with: ["mkdocs-material<10"])
+        .with("mkdocs", with: ["mkdocs-material<10"])
         .and_return(true)
 
       actionable = checker.find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)

@@ -34,8 +34,7 @@ module Homebrew
           options = T.cast(package[:options], T::Hash[Symbol, T.untyped])
           Homebrew::Bundle::UvInstaller.package_installed?(
             T.cast(package[:name], String),
-            specifier: T.cast(options[:specifier], T.nilable(String)),
-            with:      T.cast(options[:with] || [], T::Array[String]),
+            with: T.cast(options[:with] || [], T::Array[String]),
           )
         end
       end

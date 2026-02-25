@@ -9,7 +9,6 @@ RSpec.describe Homebrew::Bundle::UvDumper do
   let(:uv_tool_list_command) do
     [
       "uv tool list",
-      "--show-version-specifiers",
       "--show-with",
       "--show-extras",
       "2>/dev/null",
@@ -36,7 +35,7 @@ RSpec.describe Homebrew::Bundle::UvDumper do
 
     it "returns normalized package entries sorted by package name" do
       allow(described_class).to receive(:`).with(uv_tool_list_command).and_return(<<~OUTPUT)
-        ruff v0.14.14 [required: <0.15]
+        ruff v0.14.14
         - ruff
         mkdocs v1.6.1 [with: mkdocs-material<10]
         - mkdocs
@@ -44,34 +43,23 @@ RSpec.describe Homebrew::Bundle::UvDumper do
 
       expect(dumper.packages).to eql([
         {
-          name:      "mkdocs",
-          specifier: nil,
-          with:      ["mkdocs-material<10"],
+          name: "mkdocs",
+          with: ["mkdocs-material<10"],
         },
         {
-          name:      "ruff",
-          specifier: "<0.15",
-          with:      [],
+          name: "ruff",
+          with: [],
         },
       ])
     end
 
     it "dumps correct Brewfile entries" do
       allow(described_class).to receive(:`).with(uv_tool_list_command).and_return(<<~OUTPUT)
-        ruff v0.14.14 [required: <0.15] [with: httpx>=0.27]
+        ruff v0.14.14 [with: httpx>=0.27]
         - ruff
       OUTPUT
 
-      expect(dumper.dump).to eql('uv "ruff", specifier: "<0.15", with: ["httpx>=0.27"]')
-    end
-
-    it "dumps specifier-only Brewfile entries" do
-      allow(described_class).to receive(:`).with(uv_tool_list_command).and_return(<<~OUTPUT)
-        ruff v0.14.14 [required: <0.15]
-        - ruff
-      OUTPUT
-
-      expect(dumper.dump).to eql('uv "ruff", specifier: "<0.15"')
+      expect(dumper.dump).to eql('uv "ruff", with: ["httpx>=0.27"]')
     end
 
     it "handles tools with no optional metadata" do
