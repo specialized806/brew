@@ -277,6 +277,12 @@ RSpec.describe Cask::CaskLoader, :cask do
         expect { loader.load(config: nil) }.to raise_error(Cask::CaskInvalidError)
         expect(Homebrew).not_to be_failed
       end
+
+      it "raises CaskUnreadableError when loaded from installed caskfile" do
+        loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
+        loader.instance_variable_set(:@from_installed_caskfile, true)
+        expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError)
+      end
     end
   end
 

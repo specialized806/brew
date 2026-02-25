@@ -164,6 +164,13 @@ from_installed_caskfile: @from_installed_caskfile).load(config:)
           error = CaskUnreadableError.new(token, e.message)
           error.set_backtrace e.backtrace
           raise error
+        rescue CaskInvalidError => e
+          if @from_installed_caskfile
+            error = CaskUnreadableError.new(token, e.reason)
+            error.set_backtrace e.backtrace
+            raise error
+          end
+          raise
         end
       end
 
