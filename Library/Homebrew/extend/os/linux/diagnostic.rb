@@ -137,7 +137,7 @@ module OS
           return if ENV["HOMEBREW_GLIBC_TESTING"] || ENV["CI"] || ENV["HOMEBREW_TEST_BOT"].present?
 
           <<~EOS
-            Your system glibc #{OS::Linux::Glibc.system_version} is older than the next CI version.
+            Your system glibc #{OS::Linux::Glibc.system_version} is older than #{OS::LINUX_GLIBC_NEXT_CI_VERSION}.
             An upcoming brew release will automatically install a newer version.
 
             We recommend updating to a newer version via your distribution's
