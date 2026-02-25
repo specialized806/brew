@@ -274,11 +274,7 @@ RSpec.describe Cask::CaskLoader, :cask do
 
       it "does not set Homebrew.failed" do
         loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
-        begin
-          loader.load(config: nil)
-        rescue Cask::CaskInvalidError
-          # expected
-        end
+        expect { loader.load(config: nil) }.to raise_error(Cask::CaskInvalidError)
         expect(Homebrew).not_to be_failed
       end
     end

@@ -701,11 +701,7 @@ module Cask
     end
 
     def method_missing(method, *)
-      if method
-        raise NoMethodError, "undefined method '#{method}' for Cask '#{token}'"
-      else
-        super
-      end
+      raise NoMethodError, "undefined method '#{method}' for Cask '#{token}'"
     end
 
     def respond_to_missing?(*)
