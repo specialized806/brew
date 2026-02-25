@@ -25,7 +25,7 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     allow(ENV).to receive(:[]).and_return(nil)
 
     expect(checks.check_glibc_next_version)
-      .to match(/Your system glibc .+ is older than the next CI version/)
+      .to match("Your system glibc 2.35 is older than 2.39")
   end
 
   specify "#check_kernel_minimum_version" do
