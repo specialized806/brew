@@ -17,6 +17,7 @@ module Homebrew
         const :current_version, String
         const :latest_version, T.nilable(String)
         const :outdated, T::Boolean
+        const :newer_than_upstream, T::Boolean
       end
 
       class VersionBumpInfo < T::Struct
@@ -491,10 +492,11 @@ module Homebrew
 
           if resource_info.empty? || resource_info[:status] == "error"
             resource_versions << ResourceVersionInfo.new(
-              name:            resource.name,
-              current_version: resource.version.to_s,
-              latest_version:  nil,
-              outdated:        false,
+              name:                resource.name,
+              current_version:     resource.version.to_s,
+              latest_version:      nil,
+              outdated:            false,
+              newer_than_upstream: false,
             )
             next
           end
@@ -503,10 +505,11 @@ module Homebrew
           next if version_info.blank?
 
           resource_versions << ResourceVersionInfo.new(
-            name:            resource.name,
-            current_version: version_info[:current],
-            latest_version:  version_info[:latest],
-            outdated:        version_info[:outdated] == true,
+            name:                resource.name,
+            current_version:     version_info[:current],
+            latest_version:      version_info[:latest],
+            outdated:            version_info[:outdated] == true,
+            newer_than_upstream: version_info[:newer_than_upstream] == true,
           )
         end
 
@@ -591,6 +594,8 @@ module Homebrew
         resource_versions.each do |rv|
           status = if rv.latest_version.nil?
             "#{Tty.red}error getting version#{Tty.reset}"
+          elsif rv.newer_than_upstream
+            "#{rv.current_version} -> #{Tty.red}#{rv.latest_version}#{Tty.reset}#{NEWER_THAN_UPSTREAM_MSG}"
           elsif rv.outdated
             "#{rv.current_version} -> #{Tty.green}#{rv.latest_version}#{Tty.reset}"
           else
