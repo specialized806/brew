@@ -6,6 +6,8 @@ This is a Ruby based repository with Bash scripts for faster execution.
 It is primarily responsible for providing the `brew` command for the Homebrew package manager.
 Please follow these guidelines when contributing:
 
+When running commands in this repository, use `./bin/brew` (not a system `brew` on `PATH`).
+
 ## Code Standards
 
 ### Required Before Each Commit
@@ -14,10 +16,11 @@ Please follow these guidelines when contributing:
   Individual files/directories cannot be checked.
   `./bin/brew typecheck` is fast enough to just be run globally every time.
 - Run `./bin/brew style --fix --changed` to lint code formatting using RuboCop.
-  Individual files can be checked/fixed by passing them as arguments e.g. `./bin/brew style --fix Library/Homebrew/cmd/reinstall.rb``
+  Individual files can be checked/fixed by passing them as arguments e.g. `./bin/brew style --fix Library/Homebrew/cmd/reinstall.rb`
 - Run `./bin/brew tests --online  --changed` to ensure that RSpec unit tests are passing (although some online tests may be flaky so can be ignored if they pass on a rerun).
   Individual test files can be passed with `--only` e.g. to test `Library/Homebrew/cmd/reinstall.rb` with `Library/Homebrew/test/cmd/reinstall_spec.rb` run `./bin/brew tests --only=cmd/reinstall`.
-- All of the above can be run with the `brew-mcp-server`
+- Shortcut: `./bin/brew lgtm --online` runs all of the required checks above in one command.
+- All of the above can be run via the Homebrew MCP Server (launch with `./bin/brew mcp-server`).
 
 ### Sandbox Setup
 
