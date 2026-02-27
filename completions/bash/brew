@@ -1357,6 +1357,23 @@ _brew_generate_man_completions() {
   esac
 }
 
+_brew_generate_zap() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --name
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_gist_logs() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3410,6 +3427,7 @@ _brew() {
     generate-cask-ci-matrix) _brew_generate_cask_ci_matrix ;;
     generate-formula-api) _brew_generate_formula_api ;;
     generate-man-completions) _brew_generate_man_completions ;;
+    generate-zap) _brew_generate_zap ;;
     gist-logs) _brew_gist_logs ;;
     home) _brew_home ;;
     homepage) _brew_homepage ;;

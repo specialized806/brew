@@ -922,6 +922,14 @@ __fish_brew_complete_arg 'generate-man-completions' -l quiet -d 'Make some outpu
 __fish_brew_complete_arg 'generate-man-completions' -l verbose -d 'Make some output more verbose'
 
 
+__fish_brew_complete_cmd 'generate-zap' 'Generate a `zap` stanza for a cask by scanning the system for associated files and directories'
+__fish_brew_complete_arg 'generate-zap' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'generate-zap' -l help -d 'Show this message'
+__fish_brew_complete_arg 'generate-zap' -l name -d 'Treat the argument as a raw application name instead of a cask token'
+__fish_brew_complete_arg 'generate-zap' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'generate-zap' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'gist-logs' 'Upload logs for a failed build of formula to a new Gist'
 __fish_brew_complete_arg 'gist-logs' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'gist-logs' -l help -d 'Show this message'

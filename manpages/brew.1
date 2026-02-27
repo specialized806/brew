@@ -1774,6 +1774,17 @@ Generate Homebrew\[u2019]s manpages and shell completions\.
 .TP
 \fB\-\-no\-exit\-code\fP
 Exit with code 0 even if no changes were made\.
+.SS "\fBgenerate\-zap\fP \fR[\fB\-\-name\fP] \fIcask_or_name\fP"
+Generate a \fBzap\fP stanza for a cask by scanning the system for associated files and directories\.
+.P
+Accepts a cask token (e\.g\. \fBfirefox\fP) or, with \fB\-\-name\fP, a raw application name string (e\.g\. \fBFirefox\fP)\. When a cask token is given, the application name is resolved from the cask\[u2019]s \fBapp\fP artifact\.
+.P
+The target application should have been launched at least once so that preference files and caches exist on disk\.
+.P
+Outputs \fBtrash\fP, \fBdelete\fP, and \fBrmdir\fP directives suitable for pasting into a cask definition\.
+.TP
+\fB\-\-name\fP
+Treat the argument as a raw application name instead of a cask token\.
 .SS "\fBinstall\-bundler\-gems\fP \fR[\fB\-\-groups=\fP] \fR[\fB\-\-add\-groups=\fP]"
 Install Homebrew\[u2019]s Bundler gems\.
 .TP
