@@ -22,7 +22,7 @@ class CodesignRequirement < Requirement
 
   satisfy(build_env: false) do
     T.bind(self, CodesignRequirement)
-    odeprecated "CodesignRequirement"
+    odisabled "CodesignRequirement"
     mktemp do
       FileUtils.cp "/usr/bin/false", "codesign_check"
       quiet_system "/usr/bin/codesign", "-f", "-s", identity,

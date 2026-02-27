@@ -50,9 +50,6 @@ module Homebrew
                             "`--strict` and `--online`."
         switch "--[no-]signing",
                description: "Audit for app signatures, which are required by macOS on ARM."
-        switch "--token-conflicts",
-               description: "Audit for token conflicts.",
-               hidden:      true
         switch "--changed",
                description: "Check files that were changed from the `main` branch."
         flag   "--tap=",
@@ -98,8 +95,6 @@ module Homebrew
 
       sig { override.void }
       def run
-        odisabled "`brew audit --token-conflicts`" if args.token_conflicts?
-
         Formulary.enable_factory_cache!
 
         os_arch_combinations = args.os_arch_combinations

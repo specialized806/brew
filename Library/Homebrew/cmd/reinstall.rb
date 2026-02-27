@@ -88,8 +88,8 @@ module Homebrew
             env:         :cask_opts_require_sha,
           }],
           [:switch, "--[no-]quarantine", {
-            env:         :cask_opts_quarantine,
-            odeprecated: true,
+            env:       :cask_opts_quarantine,
+            odisabled: true,
           }],
           [:switch, "--adopt", {
             description: "Adopt existing artifacts in the destination that are identical to those being installed. " \

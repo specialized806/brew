@@ -255,7 +255,7 @@ module OS
 
       sig { returns(T::Boolean) }
       def self.separate_header_package?
-        odeprecated "MacOS::CLT.separate_header_package?"
+        odisabled "MacOS::CLT.separate_header_package?"
         true
       end
 

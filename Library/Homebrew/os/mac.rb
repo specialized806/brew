@@ -104,7 +104,7 @@ module OS
 
     sig { returns(T::Boolean) }
     def self.sdk_root_needed?
-      odeprecated "OS::Mac.sdk_root_needed?"
+      odisabled "OS::Mac.sdk_root_needed?"
       true
     end
 
