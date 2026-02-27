@@ -2809,6 +2809,25 @@ Generate Homebrew's manpages and shell completions.
 
 : Exit with code 0 even if no changes were made.
 
+### `generate-zap` \[`--name`\] *`cask_or_name`*
+
+Generate a `zap` stanza for a cask by scanning the system for associated files
+and directories.
+
+Accepts a cask token (e.g. `firefox`) or, with `--name`, a raw application name
+string (e.g. `Firefox`). When a cask token is given, the application name is
+resolved from the cask's `app` artifact.
+
+The target application should have been launched at least once so that
+preference files and caches exist on disk.
+
+Outputs `trash`, `delete`, and `rmdir` directives suitable for pasting into a
+cask definition.
+
+`--name`
+
+: Treat the argument as a raw application name instead of a cask token.
+
 ### `install-bundler-gems` \[`--groups=`\] \[`--add-groups=`\]
 
 Install Homebrew's Bundler gems.

@@ -180,6 +180,7 @@ __brew_internal_commands() {
     'generate-cask-ci-matrix:Generate a GitHub Actions matrix for a given pull request URL or list of cask names'
     'generate-formula-api:Generate `homebrew/core` API data files for https://formulae.brew.sh'
     'generate-man-completions:Generate Homebrew'\''s manpages and shell completions'
+    'generate-zap:Generate a `zap` stanza for a cask by scanning the system for associated files and directories'
     'gist-logs:Upload logs for a failed build of formula to a new Gist'
     'help:Outputs the usage instructions for `brew` command'
     'home:Open a formula or cask'\''s homepage in a browser, or open Homebrew'\''s own homepage if no argument is provided'
@@ -1158,6 +1159,16 @@ _brew_generate_man_completions() {
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
     '--no-exit-code[Exit with code 0 even if no changes were made]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
+}
+
+# brew generate-zap
+_brew_generate_zap() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--name[Treat the argument as a raw application name instead of a cask token]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
 }
