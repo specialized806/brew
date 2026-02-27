@@ -12,7 +12,8 @@ exclude:
   - Rakefile
   - vale-styles
   - vendor
-
+include:
+  - _*.html
 plugins:
   - jekyll-optional-front-matter
   - jekyll-redirect-from
