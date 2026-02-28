@@ -606,7 +606,7 @@ class Reporter
 
       # This means it is a cask
       if Array(report[:DC]).include? full_name
-        next unless (HOMEBREW_PREFIX/"Caskroom"/new_name).exist?
+        next unless (HOMEBREW_PREFIX/"Caskroom"/name).exist?
 
         new_tap = Tap.fetch(new_tap_name)
         new_tap.ensure_installed!
@@ -617,11 +617,8 @@ class Reporter
         next if (HOMEBREW_CELLAR/new_name.split("/").last).directory?
 
         ohai "Installing #{new_name}..."
-        system HOMEBREW_BREW_FILE, "install", new_full_name
         begin
-          unless Formulary.factory(new_full_name).keg_only?
-            system HOMEBREW_BREW_FILE, "link", new_full_name, "--overwrite"
-          end
+          system HOMEBREW_BREW_FILE, "install", "--overwrite", new_full_name
         # Rescue any possible exception types.
         rescue Exception => e # rubocop:disable Lint/RescueException
           if Homebrew::EnvConfig.developer?
