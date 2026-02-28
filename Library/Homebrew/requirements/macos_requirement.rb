@@ -144,10 +144,16 @@ class MacOSRequirement < Requirement
     end
   end
 
-  def to_json(options)
+  sig { returns(T::Hash[String, T::Array[String]]) }
+  def to_h
     comp = @comparator.to_s
-    return { comp => @version.map(&:to_s) }.to_json(options) if @version.is_a?(Array)
+    return { comp => @version.map(&:to_s) } if @version.is_a?(Array)
 
-    { comp => [@version.to_s] }.to_json(options)
+    { comp => [@version.to_s] }
+  end
+
+  sig { params(options: T.untyped).returns(String) }
+  def to_json(options)
+    to_h.to_json(options)
   end
 end

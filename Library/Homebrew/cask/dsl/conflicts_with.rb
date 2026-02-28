@@ -33,9 +33,14 @@ module Cask
         super(conflicts)
       end
 
+      sig { returns(T::Hash[Symbol, T::Array[String]]) }
+      def to_h
+        __getobj__.transform_values(&:to_a)
+      end
+
       sig { params(generator: T.anything).returns(String) }
       def to_json(generator)
-        __getobj__.transform_values(&:to_a).to_json(generator)
+        to_h.to_json(generator)
       end
     end
   end

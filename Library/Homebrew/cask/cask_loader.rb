@@ -368,6 +368,8 @@ from_installed_caskfile: @from_installed_caskfile).load(config:)
           loader:          self,
         }
 
+        tap_git_head = json_cask["tap_git_head"]
+
         if (tap_string = cask_struct.tap_string)
           cask_options[:tap] = Tap.fetch(tap_string)
         end
@@ -411,7 +413,7 @@ from_installed_caskfile: @from_installed_caskfile).load(config:)
 
           caveats cask_struct.caveats(appdir:) if cask_struct.caveats?
         end
-        api_cask.populate_from_api!(cask_struct)
+        api_cask.populate_from_api!(cask_struct, tap_git_head:)
         api_cask
       end
     end
