@@ -701,16 +701,11 @@ module Cask
     end
 
     def method_missing(method, *)
-      if method
-        Utils.method_missing_message(method, token)
-        nil
-      else
-        super
-      end
+      raise NoMethodError, "undefined method '#{method}' for Cask '#{token}'"
     end
 
     def respond_to_missing?(*)
-      true
+      false
     end
 
     sig { returns(T.nilable(MacOSVersion)) }
