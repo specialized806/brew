@@ -25,14 +25,15 @@ module Cask
         skip_cask_deps: T::Boolean, binaries: T::Boolean, verbose: T::Boolean, zap: T::Boolean,
         require_sha: T::Boolean, upgrade: T::Boolean, reinstall: T::Boolean, installed_as_dependency: T::Boolean,
         installed_on_request: T::Boolean, quarantine: T::Boolean, verify_download_integrity: T::Boolean,
-        quiet: T::Boolean, download_queue: T.nilable(Homebrew::DownloadQueue)
+        quiet: T::Boolean, download_queue: Homebrew::DownloadQueue, defer_fetch: T::Boolean
       ).void
     }
     def initialize(cask, command: SystemCommand, force: false, adopt: false,
                    skip_cask_deps: false, binaries: true, verbose: false,
                    zap: false, require_sha: false, upgrade: false, reinstall: false,
                    installed_as_dependency: false, installed_on_request: true,
-                   quarantine: true, verify_download_integrity: true, quiet: false, download_queue: nil)
+                   quarantine: true, verify_download_integrity: true, quiet: false,
+                   download_queue: Homebrew.default_download_queue, defer_fetch: false)
       @cask = cask
       @command = command
       @force = force
@@ -50,6 +51,7 @@ module Cask
       @verify_download_integrity = verify_download_integrity
       @quiet = quiet
       @download_queue = download_queue
+      @defer_fetch = T.let(defer_fetch, T::Boolean)
       @ran_prelude = T.let(false, T::Boolean)
     end
 
@@ -118,7 +120,7 @@ module Cask
       forbidden_cask_and_formula_check
       forbidden_cask_artifacts_check
 
-      download(quiet:, timeout:) if @download_queue.nil?
+      download(quiet:, timeout:) unless @defer_fetch
 
       satisfy_cask_and_formula_dependencies
     end
@@ -853,7 +855,6 @@ on_request: true)
     sig { void }
     def enqueue_downloads
       download_queue = @download_queue
-      return if download_queue.nil?
 
       # FIXME: We need to load Cask source before enqueuing to support
       # language-specific URLs, but this will block the main process.
@@ -861,7 +862,7 @@ on_request: true)
         if @cask.languages.any?
           load_cask_from_source_api!
         else
-          Homebrew::API::Cask.source_download(@cask, download_queue:)
+          Homebrew::API::Cask.source_download(@cask, download_queue:, enqueue: true)
         end
       end
 

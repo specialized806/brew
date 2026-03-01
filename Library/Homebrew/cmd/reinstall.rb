@@ -146,6 +146,8 @@ module Homebrew
         end
 
         formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
+        shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
+        casks_prefetched = T.let(false, T::Boolean)
 
         unless formulae.empty?
           Install.perform_preinstall_checks_once
@@ -192,7 +194,43 @@ module Homebrew
           # Main block: if asking the user is enabled, show dependency and size information.
           Install.ask_formulae(formulae_installers, dependants, args: args) if args.ask?
 
-          valid_formula_installers = Install.fetch_formulae(formulae_installers)
+          valid_formula_installers = if casks.any?
+            shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
+            begin
+              Install.show_combined_fetch_downloads_heading(
+                formula_names: formulae_installers.map { |fi| fi.formula.name },
+                cask_names:    casks.map(&:full_name),
+              )
+
+              valid_formula_installers = Install.enqueue_formulae(formulae_installers,
+                                                                  download_queue: shared_download_queue)
+
+              require "cask/installer"
+              fetch_cask_installers = casks.map do |cask|
+                Cask::Installer.new(
+                  cask,
+                  binaries:       args.binaries?,
+                  verbose:        args.verbose?,
+                  force:          args.force?,
+                  skip_cask_deps: args.skip_cask_deps?,
+                  require_sha:    args.require_sha?,
+                  reinstall:      true,
+                  quarantine:     args.quarantine?,
+                  zap:            args.zap?,
+                  download_queue: shared_download_queue,
+                  defer_fetch:    true,
+                )
+              end
+              Install.enqueue_cask_installers(fetch_cask_installers)
+              shared_download_queue.fetch
+              casks_prefetched = true
+              valid_formula_installers
+            ensure
+              shared_download_queue.shutdown
+            end
+          else
+            Install.fetch_formulae(formulae_installers)
+          end
 
           exit 1 if Homebrew.failed?
 
@@ -230,6 +268,8 @@ module Homebrew
               skip_cask_deps: args.skip_cask_deps?,
               quarantine:     args.quarantine?,
               zap:            args.zap?,
+              skip_prefetch:  casks_prefetched,
+              download_queue: nil,
             )
           rescue => e
             ofail e

@@ -90,7 +90,7 @@ begin
     cmd_class = Homebrew::AbstractCommand.command(cmd)
     Homebrew.running_command = cmd
     if cmd_class
-      if !Homebrew::EnvConfig.no_install_from_api? && Homebrew::EnvConfig.download_concurrency > 1
+      unless Homebrew::EnvConfig.no_install_from_api?
         require "api"
         Homebrew::API.fetch_api_files!
       end
