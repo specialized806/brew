@@ -20,6 +20,8 @@ module RuboCop
             url_string = url_node.source
           else
             url_string_node = parameters(url_node).first
+            next unless url_string_node
+
             url_string = string_content(url_string_node)
           end
 
@@ -32,7 +34,7 @@ module RuboCop
         end
       end
 
-      def audit_url(type, urls, mirrors, livecheck_url: false)
+      def audit_url(type, urls, mirrors, livecheck_urls: [])
         @type = type
 
         # URLs must be ASCII; IDNs must be punycode
@@ -56,7 +58,7 @@ module RuboCop
 
         apache_pattern = %r{^https?://(?:[^/]*\.)?apache\.org/(?:dyn/closer\.cgi\?path=/?|dist/)(.*)}i
         audit_urls(urls, apache_pattern) do |match, url|
-          next if url == livecheck_url
+          next if livecheck_urls.include?(url)
 
           problem "#{url} should be: https://www.apache.org/dyn/closer.lua?path=#{match[1]}"
         end
@@ -160,7 +162,7 @@ module RuboCop
 
           problem "Don't use \"/download\" in SourceForge URLs (`url` is #{url})." if url.end_with?("/download")
 
-          if url.match?(%r{^https?://(sourceforge|sf)\.}) && url != livecheck_url
+          if url.match?(%r{^https?://(sourceforge|sf)\.}) && !livecheck_urls.include?(url)
             problem "Use \"https://downloads.sourceforge.net\" to get geolocation (`url` is #{url})."
           end
 
