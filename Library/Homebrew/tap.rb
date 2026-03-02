@@ -1037,7 +1037,6 @@ class Tap
 
     @autobump ||= T.let(autobump_packages.select do |_, p|
       next if p["disabled"]
-      next if p["deprecated"] && p["deprecation_reason"] != "fails_gatekeeper_check"
       next if p["skip_livecheck"]
 
       p["autobump"] == true
