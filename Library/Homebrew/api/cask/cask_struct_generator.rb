@@ -53,7 +53,7 @@ module Homebrew
 
           hash["ruby_source_checksum"] = {
             sha256: hash.dig("ruby_source_checksum", :sha256),
-          }
+          }.compact
 
           hash["ruby_source_path"] = hash["ruby_source_path"]&.to_s
 
