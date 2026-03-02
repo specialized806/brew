@@ -680,6 +680,9 @@ module Homebrew
         nil
       end
 
+      # TODO: Add support for resources using `tag` and/or `revision` instead of
+      # `url`+`sha256`, resource URLs with options, and resources inside `on_os`
+      # or `on_arch` blocks.
       sig {
         params(
           formula:     Formula,
@@ -688,6 +691,8 @@ module Homebrew
         ).returns(Symbol)
       }
       def update_resource_block!(formula, resource, new_version)
+        ohai "Updating resource \"#{resource.name}\" from #{resource.version} to #{new_version}"
+
         old_url = T.must(resource.url)
         new_url = update_url(old_url, resource.version.to_s, new_version)
 
@@ -795,8 +800,6 @@ module Homebrew
             results[resource.name] = :up_to_date
             next
           end
-
-          ohai "Updating resource \"#{resource.name}\" from #{current_version} to #{latest_version}"
 
           begin
             results[resource.name] = update_resource_block!(formula, resource, latest_version)
