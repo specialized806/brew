@@ -474,11 +474,21 @@ module Homebrew
         resource_versions = []
 
         formula.resources.each do |resource|
-          # Only check resources that have an explicit livecheck block defined
-          # (not those that reference :parent)
           next unless resource.livecheck_defined?
           next if resource.livecheck.skip?
-          next if resource.livecheck.formula == :parent
+
+          # Resources that reference :parent track the formula version directly
+          if resource.livecheck.formula == :parent
+            current = resource.version.to_s
+            resource_versions << ResourceVersionInfo.new(
+              name:                resource.name,
+              current_version:     current,
+              latest_version:      formula_latest_version,
+              outdated:            Version.new(current) < Version.new(formula_latest_version),
+              newer_than_upstream: Version.new(current) > Version.new(formula_latest_version),
+            )
+            next
+          end
 
           resource_info = Livecheck.resource_version(
             resource,
@@ -595,11 +605,11 @@ module Homebrew
           status = if rv.latest_version.nil?
             "#{Tty.red}unable to get versions#{Tty.reset}"
           elsif rv.newer_than_upstream
-            "#{rv.current_version} -> #{Tty.red}#{rv.latest_version}#{Tty.reset}#{NEWER_THAN_UPSTREAM_MSG}"
+            "#{Tty.red}#{rv.current_version}#{Tty.reset} -> #{rv.latest_version}#{NEWER_THAN_UPSTREAM_MSG}"
           elsif rv.outdated
             "#{rv.current_version} -> #{Tty.green}#{rv.latest_version}#{Tty.reset}"
           else
-            "#{rv.current_version} #{Tty.green}(up to date)#{Tty.reset}"
+            "#{rv.current_version} -> #{rv.latest_version}"
           end
           puts "  #{rv.name}: #{status}"
         end
