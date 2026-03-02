@@ -19,12 +19,19 @@ module RuboCop
           mirrors = find_every_func_call_by_name(body_node, :mirror)
 
           # Identify livecheck URLs, to skip some checks for them
-          livecheck_url = if (livecheck = find_every_func_call_by_name(body_node, :livecheck).first) &&
-                             (livecheck_url = find_every_func_call_by_name(livecheck.parent, :url).first)
-            string_content(parameters(livecheck_url).first)
+          livecheck_urls = []
+          find_every_func_call_by_name(body_node, :livecheck).each do |livecheck_node|
+            livecheck_url = find_every_func_call_by_name(livecheck_node.parent, :url).first
+            next unless livecheck_url
+
+            livecheck_url_argument = parameters(livecheck_url).first
+            next unless livecheck_url_argument
+            next if livecheck_url_argument.type == :sym
+
+            livecheck_urls << string_content(livecheck_url_argument)
           end
 
-          audit_url(:formula, urls, mirrors, livecheck_url:)
+          audit_url(:formula, urls, mirrors, livecheck_urls:)
 
           return if formula_tap != "homebrew-core"
 
@@ -53,20 +60,26 @@ module RuboCop
           # deprecated/disabled formulae using http:// URLs
           return if method_called_ever?(body_node, :deprecate!) || method_called_ever?(body_node, :disable!)
 
-          urls = find_every_func_call_by_name(body_node, :url)
+          # Identify livecheck URLs, to skip checking them
+          livecheck_urls = []
+          find_every_func_call_by_name(body_node, :livecheck).each do |livecheck_node|
+            livecheck_url = find_every_func_call_by_name(livecheck_node.parent, :url).first
+            next unless livecheck_url
 
-          # Identify livecheck URL to skip checking it (symbols like :homepage are implicitly skipped)
-          livecheck_url = if (livecheck = find_every_func_call_by_name(body_node, :livecheck).first) &&
-                             (livecheck_url_node = find_every_func_call_by_name(livecheck.parent, :url).first)
-            string_content(parameters(livecheck_url_node).first)
+            livecheck_url_argument = parameters(livecheck_url).first
+            next unless livecheck_url_argument
+            next if livecheck_url_argument.type == :sym
+
+            livecheck_urls << string_content(livecheck_url_argument)
           end
 
-          urls.each do |url_node|
+          find_every_func_call_by_name(body_node, :url).each do |url_node|
             url_string_node = parameters(url_node).first
-            url_string = string_content(url_string_node)
+            next unless url_string_node
 
+            url_string = string_content(url_string_node)
             next unless url_string.start_with?("http://")
-            next if url_string == livecheck_url
+            next if livecheck_urls.include?(url_string)
 
             offending_node(url_string_node)
             problem "Formulae in homebrew/core should not use http:// URLs" do |corrector|

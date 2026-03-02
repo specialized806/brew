@@ -245,5 +245,61 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
         end
       RUBY
     end
+
+    it "does not report offenses that are skipped for `livecheck` block URLs" do
+      source = <<~RUBY
+        class Foo < Formula
+          desc "foo"
+          url "https://brew.sh/test-0.0.1.tgz"
+
+          # This URL will trigger the 'Use "https://downloads.sourceforge.net"
+          # to get geolocation' cop unless it's skipped for the `livecheck`
+          # block URL.
+          livecheck do
+            url "https://sourceforge.net/projects/homebrew/rss?path=/brew"
+          end
+
+          resource "foo" do
+            url "https://brew.sh/foo-1.0.tar.gz"
+
+            # This URL will trigger the 'Use "https://downloads.sourceforge.net"
+            # to get geolocation' cop unless it's skipped for all `livecheck`
+            # block URLs (not just the main `livecheck` block).
+            livecheck do
+              url "https://sourceforge.net/projects/homebrew/rss?path=/resource"
+            end
+          end
+
+          resource "livecheck-url-symbol" do
+            url "https://brew.sh/livecheck-url-no-argument-1.0.tar.gz"
+
+            # URL symbols shouldn't be checked..
+            livecheck do
+              url :url
+            end
+          end
+
+          resource "livecheck-no-url" do
+            url "https://brew.sh/livecheck-no-url-1.0.tar.gz"
+
+            # No URL is present when `skip` is used.
+            livecheck do
+              skip "No version information available"
+            end
+          end
+
+          resource "livecheck-url-no-arg" do
+            url "https://brew.sh/livecheck-url-no-arg-1.0.tar.gz"
+
+            # This shouldn't ever happen but this is simply to exercise a guard.
+            livecheck do
+              url
+            end
+          end
+        end
+      RUBY
+
+      expect(inspect_source(source)).to eq([])
+    end
   end
 end
