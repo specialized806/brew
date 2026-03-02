@@ -11,13 +11,13 @@ class MacOSRequirement < Requirement
 
   # Keep these around as empty arrays so we can keep the deprecation/disabling code the same.
   # Treat these like odeprecated/odisabled in terms of deprecation/disabling.
-  DISABLED_MACOS_VERSIONS = T.let([].freeze, T::Array[Symbol])
-  DEPRECATED_MACOS_VERSIONS = T.let([
+  DISABLED_MACOS_VERSIONS = T.let([
     :mojave,
     :high_sierra,
     :sierra,
     :el_capitan,
   ].freeze, T::Array[Symbol])
+  DEPRECATED_MACOS_VERSIONS = T.let([].freeze, T::Array[Symbol])
 
   def initialize(tags = [], comparator: ">=")
     @version = begin

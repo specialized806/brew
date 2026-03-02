@@ -11,21 +11,9 @@ module Cask
     class ConflictsWith < SimpleDelegator
       VALID_KEYS = [:cask].freeze
 
-      ODISABLED_KEYS = [
-        :formula,
-        :macos,
-        :arch,
-        :x11,
-        :java,
-      ].freeze
-
       sig { params(options: T.anything).void }
       def initialize(**options)
-        options.assert_valid_keys(*VALID_KEYS, *ODISABLED_KEYS)
-
-        options.keys.intersection(ODISABLED_KEYS).each do |key|
-          ::Utils::Output.odisabled "conflicts_with #{key}:"
-        end
+        options.assert_valid_keys(*VALID_KEYS)
 
         conflicts = options.transform_values { |v| Set.new(Kernel.Array(v)) }
         conflicts.default = Set.new

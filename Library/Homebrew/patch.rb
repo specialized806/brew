@@ -66,8 +66,8 @@ class EmbeddedPatch
   def apply
     data = contents.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX)
     if data.gsub!("HOMEBREW_PREFIX", HOMEBREW_PREFIX)
-      odeprecated "patch with HOMEBREW_PREFIX placeholder",
-                  "patch with @@HOMEBREW_PREFIX@@ placeholder"
+      odisabled "patch with HOMEBREW_PREFIX placeholder",
+                "patch with @@HOMEBREW_PREFIX@@ placeholder"
     end
     args = %W[-g 0 -f -#{strip}]
     Utils.safe_popen_write("patch", *args) { |p| p.write(data) }

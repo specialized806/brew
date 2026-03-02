@@ -487,14 +487,6 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         expect { cask }.to raise_error(Cask::CaskInvalidError)
       end
     end
-
-    context "with disabled conflicts_with key" do
-      let(:token) { "conflicts-with-disabled-key" }
-
-      it "loads but shows disabled warning for disabled key" do
-        expect { cask.conflicts_with }.to raise_error(Cask::CaskInvalidError, /is disabled/)
-      end
-    end
   end
 
   describe "installer stanza" do

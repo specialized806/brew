@@ -109,8 +109,8 @@ module Homebrew
             env:         :cask_opts_require_sha,
           }],
           [:switch, "--[no-]quarantine", {
-            env:         :cask_opts_quarantine,
-            odeprecated: true,
+            env:       :cask_opts_quarantine,
+            odisabled: true,
           }],
         ].each do |args|
           options = args.pop

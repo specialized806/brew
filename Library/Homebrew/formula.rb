@@ -1625,7 +1625,7 @@ class Formula
 
   sig { returns(T::Boolean) }
   def skip_cxxstdlib_check?
-    odeprecated "`Formula#skip_cxxstdlib_check?`"
+    odisabled "`Formula#skip_cxxstdlib_check?`"
     false
   end
 
@@ -4207,7 +4207,7 @@ class Formula
     def option(name, description = "")
       case name
       when Symbol
-        odeprecated "`option :#{name}`"
+        odisabled "`option :#{name}`"
       else
         specs.each { |spec| spec.option(name, description) }
       end
@@ -4389,7 +4389,7 @@ class Formula
     # @api public
     sig { params(check_type: Symbol).void }
     def cxxstdlib_check(check_type)
-      odeprecated "`cxxstdlib_check :skip`"
+      odisabled "`cxxstdlib_check :skip`"
       define_method(:skip_cxxstdlib_check?) { true } if check_type == :skip
     end
 
@@ -4442,7 +4442,7 @@ class Formula
     # @api public
     sig { params(_standards: Symbol).void }
     def needs(*_standards)
-      odeprecated "`needs :openmp`", '`depends_on "gcc"`'
+      odisabled "`needs :openmp`", '`depends_on "gcc"`'
     end
 
     # A test is required for new formulae and makes us happy.

@@ -146,9 +146,9 @@ module Homebrew
       end
 
       sig {
-        params(cmd: T.nilable(T.class_of(Homebrew::AbstractCommand)), block: T.nilable(T.proc.bind(Parser).void)).void
+        params(cmd: T.class_of(Homebrew::AbstractCommand), block: T.nilable(T.proc.bind(Parser).void)).void
       }
-      def initialize(cmd = nil, &block)
+      def initialize(cmd, &block)
         @parser = T.let(OptionParser.new, OptionParser)
         @parser.summary_indent = "  "
         # Disable default handling of `--version` switch.
@@ -156,26 +156,10 @@ module Homebrew
         # Disable default handling of `--help` switch.
         @parser.base.long.delete("help")
 
-        @args = T.let((cmd&.args_class || Args).new, Args)
+        @args = T.let((cmd.args_class || Args).new, Args)
 
-        if cmd
-          @command_name = T.let(cmd.command_name, String)
-          @is_dev_cmd = T.let(cmd.dev_cmd?, T::Boolean)
-        else
-          # FIXME: remove once commands are all subclasses of `AbstractCommand`:
-          # Filter out Sorbet runtime type checking method calls.
-          cmd_location = caller_locations.select do |location|
-            T.must(location.path).exclude?("/gems/sorbet-runtime-")
-          end.fetch(1)
-          @command_name = T.let(T.must(cmd_location.label).chomp("_args").tr("_", "-"), String)
-          @is_dev_cmd = T.let(T.must(cmd_location.absolute_path).start_with?(Commands::HOMEBREW_DEV_CMD_PATH.to_s),
-                              T::Boolean)
-          odisabled(
-            "`brew #{@command_name}'. This command needs to be refactored, as it is written in a style that",
-            "subclassing of `Homebrew::AbstractCommand' ( see https://docs.brew.sh/External-Commands )",
-            disable_for_developers: false,
-          )
-        end
+        @command_name = T.let(cmd.command_name, String)
+        @is_dev_cmd = T.let(cmd.dev_cmd?, T::Boolean)
 
         @constraints = T.let([], T::Array[[String, String]])
         @conflicts = T.let([], T::Array[T::Array[String]])
@@ -215,14 +199,14 @@ module Homebrew
         return if global_switch
 
         if disable
-          # this odeprecated should turn into odisabled in 5.1.0
-          odeprecated "disable:", "odisabled:"
+          # this odisabled should be removed in 5.2.0
+          odisabled "disable:", "odisabled:"
           odisabled = disable
         end
         if !odeprecated && !odisabled && replacement
-          # this odeprecated should turn into odisabled in 5.1.0
-          odeprecated "replacement: without :odeprecated or :odisabled",
-                      "replacement: with :odeprecated or :odisabled"
+          # this odisabled should be removed in 5.2.0
+          odisabled "replacement: without :odeprecated or :odisabled",
+                    "replacement: with :odeprecated or :odisabled"
           odeprecated = true
         end
         hidden = true if odisabled || odeprecated
