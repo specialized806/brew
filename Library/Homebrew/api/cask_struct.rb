@@ -26,6 +26,9 @@ module Homebrew
         :homepage,
       ].freeze
 
+      EMPTY_BLOCK = T.let(-> {}.freeze, T.proc.void)
+      EMPTY_BLOCK_PLACEHOLDER = :empty_block
+
       ArtifactArgs = T.type_alias do
         [
           Symbol,
@@ -77,11 +80,20 @@ module Homebrew
       const :ruby_source_checksum, T::Hash[Symbol, String]
       const :ruby_source_path, T.nilable(String)
       const :sha256, T.any(String, Symbol)
-      const :tap_git_head, T.nilable(String)
       const :tap_string, T.nilable(String)
       const :url_args, T::Array[String], default: []
       const :url_kwargs, T::Hash[Symbol, T.anything], default: {}
       const :version, T.any(String, Symbol)
+
+      sig { params(other: T.anything).returns(T::Boolean) }
+      def ==(other)
+        case other
+        when CaskStruct
+          serialize == other.serialize
+        else
+          false
+        end
+      end
 
       sig { params(appdir: T.any(Pathname, String)).returns(T::Array[ArtifactArgs]) }
       def artifacts(appdir:)
@@ -91,6 +103,87 @@ module Homebrew
       sig { params(appdir: T.any(Pathname, String)).returns(T.nilable(String)) }
       def caveats(appdir:)
         deep_remove_placeholders(raw_caveats, appdir.to_s)
+      end
+
+      sig { returns(T::Hash[String, T.untyped]) }
+      def serialize
+        hash = self.class.decorator.all_props.filter_map do |prop|
+          next if PREDICATES.any? { |predicate| prop == :"#{predicate}_present" }
+
+          [prop.to_s, send(prop)]
+        end.to_h
+
+        hash["raw_artifacts"] = raw_artifacts.map do |artifact|
+          serialize_artifact_args(artifact)
+        end
+
+        hash = ::Utils.deep_stringify_symbols(hash)
+        ::Utils.deep_compact_blank(hash)
+      end
+
+      sig { params(hash: T::Hash[String, T.untyped]).returns(CaskStruct) }
+      def self.deserialize(hash)
+        hash = ::Utils.deep_unstringify_symbols(hash)
+
+        PREDICATES.each do |name|
+          source_value = case name
+          when :auto_updates then hash["auto_updates"]
+          when :caveats      then hash["raw_caveats"]
+          when :conflicts    then hash["conflicts_with_args"]
+          when :desc         then hash["desc"]
+          when :homepage     then hash["homepage"]
+          else                    hash["#{name}_args"]
+          end
+
+          hash["#{name}_present"] = source_value.present?
+        end
+
+        hash["raw_artifacts"] = if (raw_artifacts = hash["raw_artifacts"])
+          raw_artifacts.map { |artifact| deserialize_artifact_args(artifact) }
+        end
+
+        from_hash(hash)
+      end
+
+      sig { params(artifact: ArtifactArgs).returns(T::Array[T.untyped]) }
+      def serialize_artifact_args(artifact)
+        key, args, kwargs, block = artifact
+
+        # We can't serialize Procs, so always use an empty block placeholder to be deserialized as `-> {}`.
+        block = EMPTY_BLOCK_PLACEHOLDER unless block.nil?
+
+        [key, args, kwargs, block]
+      end
+
+      # Format artifact args pairs into proper [key, args, kwargs, block] format since serialization removed blanks.
+      sig {
+          params(
+            args: T.any(
+              [Symbol],
+              [Symbol, T::Array[T.anything]],
+              [Symbol, T::Hash[Symbol, T.anything]],
+              [Symbol, Symbol],
+              [Symbol, T::Array[T.anything], T::Hash[Symbol, T.anything]],
+              [Symbol, T::Array[T.anything], Symbol],
+              [Symbol, T::Hash[Symbol, T.anything], Symbol],
+              [Symbol, T::Array[T.anything], T::Hash[Symbol, T.anything], Symbol],
+            ),
+          ).returns(ArtifactArgs)
+      }
+      def self.deserialize_artifact_args(args)
+        case args
+        in [key]                                                        then [key, [], {}, nil]
+        in [key, Array => array]                                        then [key, array, {}, nil]
+        in [key, Hash => hash]                                          then [key, [], hash, nil]
+        in [key, EMPTY_BLOCK_PLACEHOLDER]                               then [key, [], {}, EMPTY_BLOCK]
+        in [key, Array => array, Hash => hash]                          then [key, array, hash, nil]
+        in [key, Array => array, EMPTY_BLOCK_PLACEHOLDER]               then [key, array, {}, EMPTY_BLOCK]
+        in [key, Hash => hash, EMPTY_BLOCK_PLACEHOLDER]                 then [key, [], hash, EMPTY_BLOCK]
+        in [key, Array => array, Hash => hash, EMPTY_BLOCK_PLACEHOLDER] then [key, array, hash, EMPTY_BLOCK]
+        else
+          # The block argument should only ever be EMPTY_BLOCK_PLACEHOLDER or nil, so we should never reach this case.
+          raise "Invalid artifact args: #{args.inspect}"
+        end
       end
 
       private

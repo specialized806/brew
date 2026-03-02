@@ -355,7 +355,9 @@ from_installed_caskfile: @from_installed_caskfile).load(config:)
           Homebrew::API::Cask.all_casks.fetch(token)
         end
 
-        cask_struct = Homebrew::API::Cask.generate_cask_struct_hash(json_cask, ignore_types: @from_installed_caskfile)
+        cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
+          json_cask, ignore_types: @from_installed_caskfile
+        )
 
         cask_options = {
           loaded_from_api: true,
@@ -365,6 +367,8 @@ from_installed_caskfile: @from_installed_caskfile).load(config:)
           config:,
           loader:          self,
         }
+
+        tap_git_head = json_cask["tap_git_head"]
 
         if (tap_string = cask_struct.tap_string)
           cask_options[:tap] = Tap.fetch(tap_string)
@@ -409,7 +413,7 @@ from_installed_caskfile: @from_installed_caskfile).load(config:)
 
           caveats cask_struct.caveats(appdir:) if cask_struct.caveats?
         end
-        api_cask.populate_from_api!(cask_struct)
+        api_cask.populate_from_api!(cask_struct, tap_git_head:)
         api_cask
       end
     end
