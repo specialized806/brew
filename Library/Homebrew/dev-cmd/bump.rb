@@ -590,10 +590,10 @@ module Homebrew
 
         # Display resource version info for formulae
         resource_versions = version_info.resource_versions
-        puts "Resources with livecheck:" if resource_versions.present?
+        puts "Resources with livecheck:" unless resource_versions.empty?
         resource_versions.each do |rv|
           status = if rv.latest_version.nil?
-            "#{Tty.red}error getting version#{Tty.reset}"
+            "#{Tty.red}unable to get versions#{Tty.reset}"
           elsif rv.newer_than_upstream
             "#{rv.current_version} -> #{Tty.red}#{rv.latest_version}#{Tty.reset}#{NEWER_THAN_UPSTREAM_MSG}"
           elsif rv.outdated

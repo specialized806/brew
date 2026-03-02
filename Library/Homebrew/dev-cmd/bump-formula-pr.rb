@@ -419,7 +419,7 @@ module Homebrew
             true
           end
 
-          if resources_checked.nil? && (unchecked_resources.any? || failed_updates.any?)
+          if resources_checked.nil? && (failed_updates.any? || unchecked_resources.any?)
             formula_pr_message += <<~EOS
 
 
@@ -587,6 +587,99 @@ module Homebrew
         [resource.fetch, forced_version]
       end
 
+      sig { params(formula: Formula, contents: T.nilable(String)).returns(Version) }
+      def formula_version(formula, contents = nil)
+        spec = :stable
+        name = formula.name
+        path = formula.path
+        if contents.present?
+          Formulary.from_contents(name, path, contents, spec).version
+        else
+          Formulary::FormulaLoader.new(name, path).get_formula(spec).version
+        end
+      end
+
+      sig {
+        params(formula: Formula, tap_remote_repo: String, state: T.nilable(String),
+               version: T.nilable(String)).void
+      }
+      def check_pull_requests(formula, tap_remote_repo, state: nil, version: nil)
+        tap = formula.tap
+        return if tap.nil?
+
+        # if we haven't already found open requests, try for an exact match across all pull requests
+        GitHub.check_for_duplicate_pull_requests(
+          formula.name, tap_remote_repo,
+          version:,
+          state:,
+          file:         formula.path.relative_path_from(tap.path).to_s,
+          quiet:        args.quiet?,
+          official_tap: tap.official?
+        )
+      end
+
+      sig {
+        params(formula: Formula, tap_remote_repo: String, version: T.nilable(String), url: T.nilable(String),
+               tag: T.nilable(String)).void
+      }
+      def check_new_version(formula, tap_remote_repo, version: nil, url: nil, tag: nil)
+        if version.nil?
+          specs = {}
+          specs[:tag] = tag if tag.present?
+          return if url.blank?
+
+          version = Version.detect(url, **specs).to_s
+          return if version.blank?
+        end
+
+        check_throttle(formula, version)
+        check_pull_requests(formula, tap_remote_repo, version:) unless args.write_only?
+      end
+
+      sig { params(formula: Formula, new_version: String).void }
+      def check_throttle(formula, new_version)
+        tap = formula.tap
+        return if tap.nil?
+
+        throttled_rate = formula.livecheck.throttle
+        return if throttled_rate.blank?
+
+        formula_suffix = Version.new(new_version).patch.to_i
+        return if formula_suffix.modulo(throttled_rate).zero?
+
+        odie "#{formula} should only be updated every #{throttled_rate} releases on multiples of #{throttled_rate}"
+      end
+
+      sig { params(formula: Formula, new_formula_version: Version).returns(T.nilable(T::Array[String])) }
+      def alias_update_pair(formula, new_formula_version)
+        versioned_alias = formula.aliases.grep(/^.*@\d+(\.\d+)?$/).first
+        return if versioned_alias.nil?
+
+        name, old_alias_version = versioned_alias.split("@")
+        return if old_alias_version.blank?
+
+        new_alias_regex = (old_alias_version.split(".").length == 1) ? /^\d+/ : /^\d+\.\d+/
+        new_alias_version, = *new_formula_version.to_s.match(new_alias_regex)
+        return if new_alias_version.blank?
+        return if Version.new(new_alias_version) <= Version.new(old_alias_version)
+
+        [versioned_alias, "#{name}@#{new_alias_version}"]
+      end
+
+      sig { returns(T.nilable(T::Hash[String, T::Hash[Symbol, T.nilable(String)]])) }
+      def parse_resource_versions_arg
+        return if (resource_versions = args.resource_versions).blank?
+
+        require "json"
+        resource_data = JSON.parse(resource_versions)
+        resource_data.to_h do |r|
+          [r["name"], { current_version: r["current_version"], latest_version: r["latest_version"] }]
+        end
+      rescue JSON::ParserError => e
+        opoo "Failed to parse --resource-versions JSON: #{e.message}"
+        nil
+      end
+
       sig {
         params(
           formula:     Formula,
@@ -674,99 +767,6 @@ module Homebrew
           results[resource.name] = update_resource_block!(formula, resource, version)
         end
         results
-      end
-
-      sig { params(formula: Formula, contents: T.nilable(String)).returns(Version) }
-      def formula_version(formula, contents = nil)
-        spec = :stable
-        name = formula.name
-        path = formula.path
-        if contents.present?
-          Formulary.from_contents(name, path, contents, spec).version
-        else
-          Formulary::FormulaLoader.new(name, path).get_formula(spec).version
-        end
-      end
-
-      sig {
-        params(formula: Formula, tap_remote_repo: String, state: T.nilable(String),
-               version: T.nilable(String)).void
-      }
-      def check_pull_requests(formula, tap_remote_repo, state: nil, version: nil)
-        tap = formula.tap
-        return if tap.nil?
-
-        # if we haven't already found open requests, try for an exact match across all pull requests
-        GitHub.check_for_duplicate_pull_requests(
-          formula.name, tap_remote_repo,
-          version:,
-          state:,
-          file:         formula.path.relative_path_from(tap.path).to_s,
-          quiet:        args.quiet?,
-          official_tap: tap.official?
-        )
-      end
-
-      sig {
-        params(formula: Formula, tap_remote_repo: String, version: T.nilable(String), url: T.nilable(String),
-               tag: T.nilable(String)).void
-      }
-      def check_new_version(formula, tap_remote_repo, version: nil, url: nil, tag: nil)
-        if version.nil?
-          specs = {}
-          specs[:tag] = tag if tag.present?
-          return if url.blank?
-
-          version = Version.detect(url, **specs).to_s
-          return if version.blank?
-        end
-
-        check_throttle(formula, version)
-        check_pull_requests(formula, tap_remote_repo, version:) unless args.write_only?
-      end
-
-      sig { params(formula: Formula, new_version: String).void }
-      def check_throttle(formula, new_version)
-        tap = formula.tap
-        return if tap.nil?
-
-        throttled_rate = formula.livecheck.throttle
-        return if throttled_rate.blank?
-
-        formula_suffix = Version.new(new_version).patch.to_i
-        return if formula_suffix.modulo(throttled_rate).zero?
-
-        odie "#{formula} should only be updated every #{throttled_rate} releases on multiples of #{throttled_rate}"
-      end
-
-      sig { params(formula: Formula, new_formula_version: Version).returns(T.nilable(T::Array[String])) }
-      def alias_update_pair(formula, new_formula_version)
-        versioned_alias = formula.aliases.grep(/^.*@\d+(\.\d+)?$/).first
-        return if versioned_alias.nil?
-
-        name, old_alias_version = versioned_alias.split("@")
-        return if old_alias_version.blank?
-
-        new_alias_regex = (old_alias_version.split(".").length == 1) ? /^\d+/ : /^\d+\.\d+/
-        new_alias_version, = *new_formula_version.to_s.match(new_alias_regex)
-        return if new_alias_version.blank?
-        return if Version.new(new_alias_version) <= Version.new(old_alias_version)
-
-        [versioned_alias, "#{name}@#{new_alias_version}"]
-      end
-
-      sig { returns(T.nilable(T::Hash[String, T::Hash[Symbol, T.nilable(String)]])) }
-      def parse_resource_versions_arg
-        return if args.resource_versions.blank?
-
-        require "json"
-        resource_data = JSON.parse(T.must(args.resource_versions))
-        resource_data.to_h do |r|
-          [r["name"], { current_version: r["current_version"], latest_version: r["latest_version"] }]
-        end
-      rescue JSON::ParserError => e
-        opoo "Failed to parse --resource-versions JSON: #{e.message}"
-        nil
       end
 
       sig {
