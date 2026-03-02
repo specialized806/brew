@@ -244,6 +244,7 @@ module Homebrew
           "libfuse.2.dylib", # MacFuse
           "libfuse3.*.dylib", # MacFuse
           "libfuse_ino64.2.dylib", # MacFuse
+          "libfuse-t*.dylib", # FUSE-T
           "libmacfuse_i32.2.dylib", # OSXFuse MacFuse compatibility layer
           "libmacfuse_i64.2.dylib", # OSXFuse MacFuse compatibility layer
           "libosxfuse_i32.2.dylib", # OSXFuse
@@ -275,6 +276,7 @@ module Homebrew
         # Static libs which are generally OK should be added to this list,
         # with a short description of the software they come with.
         allow_list = [
+          "libfuse-t*.a", # FUSE-T
           "libntfs-3g.a", # NTFS-3G
           "libntfs.a", # NTFS-3G
           "libublio.a", # NTFS-3G
@@ -303,6 +305,7 @@ module Homebrew
         allow_list = [
           "fuse.pc", # OSXFuse/MacFuse
           "fuse3.pc", # OSXFuse/MacFuse
+          "fuse-t.pc", # FUSE-T
           "macfuse.pc", # OSXFuse MacFuse compatibility layer
           "osxfuse.pc", # OSXFuse
           "libntfs-3g.pc", # NTFS-3G
