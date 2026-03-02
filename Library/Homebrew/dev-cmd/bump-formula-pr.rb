@@ -407,8 +407,9 @@ module Homebrew
             end
           end
 
-          checked_statuses = [:success, :up_to_date]
+          checked_statuses = [:success, :up_to_date, :downgraded]
           failed_updates = resource_update_results.reject { |_, v| checked_statuses.include?(v) }
+          downgraded_resources = resource_update_results.select { |_, v| v == :downgraded }
 
           # Check if there are any resources that still need manual update:
           unchecked_resources = commit_formula.resources.select do |resource|
@@ -431,6 +432,16 @@ module Homebrew
                 "  - Resource `#{name}` failed to auto-update (#{status})."
               end.join("\n")}\n"
             end
+          end
+
+          if downgraded_resources.any?
+            resource_names = downgraded_resources.keys.map { |name| "`#{name}`" }.join(", ")
+            verb = (downgraded_resources.size == 1) ? "was" : "were"
+            formula_pr_message += <<~EOS
+
+
+              **Warning:** #{resource_names} #{verb} downgraded to match the latest upstream version.
+            EOS
           end
 
           if new_url =~ %r{^https://github\.com/([\w-]+)/([\w-]+)/archive/refs/tags/(v?[.0-9]+)\.tar\.}
@@ -801,8 +812,11 @@ module Homebrew
             next
           end
 
+          is_downgraded = Version.new(current_version) > Version.new(latest_version)
+
           begin
-            results[resource.name] = update_resource_block!(formula, resource, latest_version)
+            update_resource_block!(formula, resource, latest_version)
+            results[resource.name] = is_downgraded ? :downgraded : :success
           rescue => e
             opoo "Failed to update resource \"#{resource.name}\": #{e}"
             results[resource.name] = :fetch_failed
