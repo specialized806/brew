@@ -1453,6 +1453,19 @@ RSpec.describe Homebrew::FormulaAuditor do
 
         expect(auditor.problems).to be_empty
       end
+
+      it "ignores missing dependent revision bumps for unsupported platform" do
+        allow(target_formula).to receive(:valid_platform?).and_return(false)
+        stub_committed_info(
+          auditor,
+          default:   [{ compatibility_version: 1 }, { compatibility_version: 1 }],
+          overrides: { dependent_formula => [{ revision: 2 }, { revision: 2 }] },
+        )
+
+        auditor.audit_compatibility_version
+
+        expect(auditor.problems).to be_empty
+      end
     end
   end
 

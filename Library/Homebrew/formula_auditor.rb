@@ -963,6 +963,7 @@ module Homebrew
 
       compatibility_increment = current_compatibility_version - previous_compatibility_version
       return if compatibility_increment.zero?
+      return unless formula.valid_platform?
 
       dependent_revision_bumps = changed_formulae_paths(tap).filter_map do |path|
         changed_formula = Formulary.factory(path)
