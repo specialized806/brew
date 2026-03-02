@@ -10,7 +10,8 @@ module Cask
     sig {
       params(
         casks: ::Cask::Cask, verbose: T::Boolean, force: T::Boolean, skip_cask_deps: T::Boolean, binaries: T::Boolean,
-        require_sha: T::Boolean, quarantine: T::Boolean, zap: T::Boolean
+        require_sha: T::Boolean, quarantine: T::Boolean, zap: T::Boolean, skip_prefetch: T::Boolean,
+        download_queue: T.nilable(Homebrew::DownloadQueue)
       ).void
     }
     def self.reinstall_casks(
@@ -21,25 +22,51 @@ module Cask
       binaries: false,
       require_sha: false,
       quarantine: false,
-      zap: false
+      zap: false,
+      skip_prefetch: false,
+      download_queue: nil
     )
       require "cask/installer"
 
       quarantine = true if quarantine.nil?
-
-      download_queue = Homebrew::DownloadQueue.new_if_concurrency_enabled(pour: true)
-      cask_installers = casks.map do |cask|
-        Installer.new(cask, binaries:, verbose:, force:, skip_cask_deps:, require_sha:, reinstall: true,
-                      quarantine:, zap:, download_queue:)
+      created_download_queue = T.let(false, T::Boolean)
+      if download_queue.nil?
+        if skip_prefetch
+          download_queue = Homebrew.default_download_queue
+        else
+          download_queue = Homebrew::DownloadQueue.new(pour: true)
+          created_download_queue = true
+        end
       end
 
-      if download_queue
-        cask_installers.each(&:prelude)
+      cask_installers = T.let([], T::Array[Installer])
+      begin
+        cask_installers = casks.map do |cask|
+          Installer.new(
+            cask,
+            binaries:,
+            verbose:,
+            force:,
+            skip_cask_deps:,
+            require_sha:,
+            reinstall:      true,
+            quarantine:,
+            zap:,
+            download_queue:,
+            defer_fetch:    true,
+          )
+        end
 
-        oh1 "Fetching downloads for: #{casks.map { |cask| Formatter.identifier(cask.full_name) }.to_sentence}",
-            truncate: false
-        cask_installers.each(&:enqueue_downloads)
-        download_queue.fetch
+        unless skip_prefetch
+          cask_installers.each(&:prelude)
+
+          oh1 "Fetching downloads for: #{casks.map { |cask| Formatter.identifier(cask.full_name) }.to_sentence}",
+              truncate: false
+          cask_installers.each(&:enqueue_downloads)
+          download_queue.fetch
+        end
+      ensure
+        download_queue.shutdown if created_download_queue
       end
 
       exit 1 if Homebrew.failed?

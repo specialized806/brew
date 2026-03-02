@@ -17,13 +17,6 @@ module Homebrew
   class DownloadQueue
     include Utils::Output::Mixin
 
-    sig { params(retries: Integer, force: T::Boolean, pour: T::Boolean).returns(T.nilable(DownloadQueue)) }
-    def self.new_if_concurrency_enabled(retries: 1, force: false, pour: false)
-      return if Homebrew::EnvConfig.download_concurrency <= 1
-
-      new(retries:, force:, pour:)
-    end
-
     sig { params(retries: Integer, force: T::Boolean, pour: T::Boolean).void }
     def initialize(retries: 1, force: false, pour: false)
       @concurrency = T.let(EnvConfig.download_concurrency, Integer)
@@ -387,5 +380,19 @@ module Homebrew
         FRAMES.fetch(@i)
       end
     end
+  end
+
+  sig { returns(DownloadQueue) }
+  def self.default_download_queue
+    @default_download_queue ||= T.let(DownloadQueue.new, T.nilable(DownloadQueue))
+  end
+
+  sig { void }
+  def self.shutdown_default_download_queue
+    @default_download_queue&.shutdown
+  end
+
+  at_exit do
+    Homebrew.shutdown_default_download_queue
   end
 end

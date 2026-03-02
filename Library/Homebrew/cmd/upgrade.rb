@@ -14,6 +14,12 @@ require "reinstall"
 module Homebrew
   module Cmd
     class UpgradeCmd < AbstractCommand
+      class FormulaeUpgradeContext < T::Struct
+        const :formulae_to_install, T::Array[Formula]
+        const :formulae_installer, T::Array[FormulaInstaller]
+        const :dependants, Homebrew::Upgrade::Dependents
+      end
+
       cmd_args do
         description <<~EOS
           Upgrade outdated casks and outdated, unpinned formulae using the same options they were originally
@@ -136,6 +142,9 @@ module Homebrew
           [],
           T::Array[T.any(FormulaOrCaskUnavailableError, NoSuchKegError)],
         )
+        @prefetched_formulae_upgrade_context = T.let(nil, T.nilable(FormulaeUpgradeContext))
+        prefetched_formulae_names = T.let([], T::Array[String])
+        prefetched_cask_names = T.let([], T::Array[String])
 
         if args.named.present?
           args.named.to_formulae_and_casks_and_unavailable(method: :resolve).each do |item|
@@ -163,8 +172,42 @@ module Homebrew
 
         formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
 
-        upgrade_outdated_formulae!(formulae) unless only_upgrade_casks
-        upgrade_outdated_casks!(casks) unless only_upgrade_formulae
+        prefetched_casks = T.let(false, T::Boolean)
+        shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
+        if !args.dry_run? && !only_upgrade_formulae && !only_upgrade_casks
+          shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
+          begin
+            upgrade_outdated_formulae!(
+              formulae,
+              prefetch_only:          true,
+              download_queue:         shared_download_queue,
+              prefetch_names:         prefetched_formulae_names,
+              show_downloads_heading: false,
+            )
+            prefetched_casks = prefetch_outdated_casks!(
+              casks,
+              download_queue:         shared_download_queue,
+              prefetch_names:         prefetched_cask_names,
+              show_downloads_heading: false,
+            )
+            Install.show_combined_fetch_downloads_heading(
+              formula_names: prefetched_formulae_names,
+              cask_names:    prefetched_cask_names,
+            )
+            shared_download_queue.fetch
+          ensure
+            shared_download_queue.shutdown
+          end
+        end
+
+        upgrade_outdated_formulae!(formulae, use_prefetched: true) unless only_upgrade_casks
+        unless only_upgrade_formulae
+          upgrade_outdated_casks!(
+            casks,
+            skip_prefetch:  prefetched_casks,
+            download_queue: nil,
+          )
+        end
 
         unavailable_errors.each { |e| ofail e }
 
@@ -177,10 +220,8 @@ module Homebrew
 
       private
 
-      sig { params(formulae: T::Array[Formula]).returns(T::Boolean) }
-      def upgrade_outdated_formulae!(formulae)
-        return false if args.cask?
-
+      sig { params(formulae: T::Array[Formula]).returns(T.nilable(FormulaeUpgradeContext)) }
+      def formulae_upgrade_context(formulae)
         if args.build_from_source?
           unless DevelopmentTools.installed?
             raise BuildFlagsError.new(["--build-from-source"], bottled: formulae.all?(&:bottled?))
@@ -211,7 +252,7 @@ module Homebrew
           end
         end
 
-        return false if outdated.blank?
+        return if outdated.blank?
 
         pinned = outdated.select(&:pinned?)
         outdated -= pinned
@@ -269,7 +310,7 @@ module Homebrew
           verbose:                    args.verbose?,
         )
 
-        return false if formulae_installer.blank?
+        return if formulae_installer.blank?
 
         dependants = Upgrade.dependants(
           formulae_to_install,
@@ -290,12 +331,64 @@ module Homebrew
         # Main block: if asking the user is enabled, show dependency and size information.
         Install.ask_formulae(formulae_installer, dependants, args: args) if args.ask?
 
-        Upgrade.upgrade_formulae(formulae_installer,
-                                 dry_run: args.dry_run?,
-                                 verbose: args.verbose?)
+        FormulaeUpgradeContext.new(
+          formulae_to_install:,
+          formulae_installer:  formulae_installer,
+          dependants:,
+        )
+      end
+
+      sig {
+        params(
+          formulae:               T::Array[Formula],
+          prefetch_only:          T::Boolean,
+          use_prefetched:         T::Boolean,
+          download_queue:         T.nilable(Homebrew::DownloadQueue),
+          prefetch_names:         T.nilable(T::Array[String]),
+          show_downloads_heading: T::Boolean,
+        ).returns(T::Boolean)
+      }
+      def upgrade_outdated_formulae!(formulae, prefetch_only: false, use_prefetched: false,
+                                     download_queue: nil,
+                                     prefetch_names: nil,
+                                     show_downloads_heading: true)
+        return false if args.cask?
+
+        use_prefetched_context = use_prefetched && @prefetched_formulae_upgrade_context
+        context = if use_prefetched_context
+          @prefetched_formulae_upgrade_context
+        else
+          formulae_upgrade_context(formulae)
+        end
+        return false if context.blank?
+
+        if prefetch_only
+          prefetch_download_queue = download_queue || Homebrew.default_download_queue
+          valid_formula_installers = Install.enqueue_formulae(context.formulae_installer,
+                                                              download_queue: prefetch_download_queue)
+          if show_downloads_heading
+            Install.show_combined_fetch_downloads_heading(
+              formula_names: valid_formula_installers.map { |fi| fi.formula.name },
+            )
+          end
+          prefetch_names&.replace(valid_formula_installers.map { |fi| fi.formula.name })
+          @prefetched_formulae_upgrade_context = FormulaeUpgradeContext.new(
+            formulae_to_install: context.formulae_to_install,
+            formulae_installer:  valid_formula_installers,
+            dependants:          context.dependants,
+          )
+          return valid_formula_installers.present?
+        end
+
+        Upgrade.upgrade_formulae(
+          context.formulae_installer,
+          dry_run: args.dry_run?,
+          verbose: args.verbose?,
+          fetch:   !use_prefetched_context,
+        )
 
         Upgrade.upgrade_dependents(
-          dependants, formulae_to_install,
+          context.dependants, context.formulae_to_install,
           flags:                      args.flags_only,
           dry_run:                    args.dry_run?,
           force_bottle:               args.force_bottle?,
@@ -309,11 +402,71 @@ module Homebrew
           verbose:                    args.verbose?
         )
 
+        @prefetched_formulae_upgrade_context = nil if use_prefetched_context
         true
       end
 
-      sig { params(casks: T::Array[Cask::Cask]).returns(T::Boolean) }
-      def upgrade_outdated_casks!(casks)
+      sig {
+        params(casks: T::Array[Cask::Cask], download_queue: Homebrew::DownloadQueue,
+               prefetch_names: T.nilable(T::Array[String]),
+               show_downloads_heading: T::Boolean)
+          .returns(T::Boolean)
+      }
+      def prefetch_outdated_casks!(casks, download_queue:, prefetch_names: nil, show_downloads_heading: true)
+        return false if args.formula?
+
+        outdated_casks = Cask::Upgrade.outdated_casks(
+          casks,
+          args:,
+          force:               args.force?,
+          quiet:               args.quiet?,
+          greedy:              args.greedy?,
+          greedy_latest:       args.greedy_latest?,
+          greedy_auto_updates: args.greedy_auto_updates?,
+        )
+        return false if outdated_casks.empty?
+
+        manual_installer_casks = outdated_casks.select do |cask|
+          cask.artifacts.any? do |artifact|
+            artifact.is_a?(Cask::Artifact::Installer) && artifact.manual_install
+          end
+        end
+        outdated_casks -= manual_installer_casks
+        return false if outdated_casks.empty?
+
+        require "cask/installer"
+        fetchable_cask_installers = outdated_casks.map do |cask|
+          Cask::Installer.new(
+            cask,
+            binaries:       args.binaries?,
+            verbose:        args.verbose?,
+            force:          args.force?,
+            skip_cask_deps: args.skip_cask_deps?,
+            require_sha:    args.require_sha?,
+            upgrade:        true,
+            quarantine:     args.quarantine?,
+            download_queue:,
+            defer_fetch:    true,
+          )
+        end
+        cask_names = outdated_casks.map(&:full_name)
+        prefetch_names&.replace(cask_names)
+        Install.show_combined_fetch_downloads_heading(cask_names:) if show_downloads_heading
+        Install.enqueue_cask_installers(fetchable_cask_installers)
+
+        true
+      rescue => e
+        ofail e
+        false
+      end
+
+      sig {
+        params(casks: T::Array[Cask::Cask], skip_prefetch: T::Boolean,
+               download_queue: T.nilable(Homebrew::DownloadQueue))
+          .returns(T::Boolean)
+      }
+      def upgrade_outdated_casks!(casks, skip_prefetch: false,
+                                  download_queue: nil)
         return false if args.formula?
 
         Install.ask_casks casks if args.ask?
@@ -331,6 +484,8 @@ module Homebrew
           skip_cask_deps:      args.skip_cask_deps?,
           verbose:             args.verbose?,
           quiet:               args.quiet?,
+          skip_prefetch:,
+          download_queue:,
           args:,
         )
       rescue => e

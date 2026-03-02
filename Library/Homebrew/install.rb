@@ -329,24 +329,39 @@ module Homebrew
         end
       end
 
-      sig { params(formula_installers: T::Array[FormulaInstaller]).returns(T::Array[FormulaInstaller]) }
-      def fetch_formulae(formula_installers)
+      sig {
+        params(
+          formula_installers:      T::Array[FormulaInstaller],
+          download_queue:          T.nilable(Homebrew::DownloadQueue),
+          fetch_after_enqueue:     T::Boolean,
+          shutdown_download_queue: T::Boolean,
+          show_downloads_heading:  T::Boolean,
+        ).returns(T::Array[FormulaInstaller])
+      }
+      def fetch_formulae(
+        formula_installers,
+        download_queue: nil,
+        fetch_after_enqueue: true,
+        shutdown_download_queue: true,
+        show_downloads_heading: true
+      )
         formulae_names_to_install = formula_installers.map { |fi| fi.formula.name }
         return formula_installers if formulae_names_to_install.empty?
 
-        formula_sentence = formulae_names_to_install.map { |name| Formatter.identifier(name) }.to_sentence
-        oh1 "Fetching downloads for: #{formula_sentence}", truncate: false
-        if EnvConfig.download_concurrency > 1
-          download_queue = Homebrew::DownloadQueue.new(pour: true)
-          formula_installers.each do |fi|
-            fi.download_queue = download_queue
-          end
+        download_queue = T.let(download_queue || Homebrew::DownloadQueue.new(pour: true), Homebrew::DownloadQueue)
+
+        if show_downloads_heading
+          formula_sentence = formulae_names_to_install.map { |name| Formatter.identifier(name) }.to_sentence
+          oh1 "Fetching downloads for: #{formula_sentence}", truncate: false
+        end
+        formula_installers.each do |fi|
+          fi.download_queue = download_queue
         end
 
         valid_formula_installers = formula_installers.dup
 
         begin
-          [:prelude_fetch, :prelude, :fetch].each do |step|
+          [:prelude_fetch, :prelude, :enqueue_fetch].each do |step|
             valid_formula_installers.select! do |fi|
               fi.public_send(step)
               true
@@ -357,13 +372,41 @@ module Homebrew
               ofail "#{fi.formula}: #{e}"
               false
             end
-            download_queue&.fetch
+            next if step == :enqueue_fetch && !fetch_after_enqueue
+
+            download_queue.fetch
           end
         ensure
-          download_queue&.shutdown
+          download_queue.shutdown if shutdown_download_queue
         end
 
         valid_formula_installers
+      end
+
+      sig { params(formula_installers: T::Array[FormulaInstaller], download_queue: Homebrew::DownloadQueue).returns(T::Array[FormulaInstaller]) }
+      def enqueue_formulae(formula_installers, download_queue:)
+        fetch_formulae(
+          formula_installers,
+          download_queue:,
+          fetch_after_enqueue:     false,
+          shutdown_download_queue: false,
+          show_downloads_heading:  false,
+        )
+      end
+
+      sig { params(formula_names: T::Array[String], cask_names: T::Array[String]).void }
+      def show_combined_fetch_downloads_heading(formula_names: [], cask_names: [])
+        combined_fetch_targets = formula_names.map { |name| Formatter.identifier(name) } +
+                                 cask_names.map { |name| Formatter.identifier(name) }
+        return if combined_fetch_targets.empty?
+
+        oh1 "Fetching downloads for: #{combined_fetch_targets.to_sentence}", truncate: false
+      end
+
+      sig { params(cask_installers: T::Array[T.untyped]).void }
+      def enqueue_cask_installers(cask_installers)
+        cask_installers.each(&:prelude)
+        cask_installers.each(&:enqueue_downloads)
       end
 
       sig {

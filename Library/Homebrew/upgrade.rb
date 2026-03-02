@@ -112,9 +112,12 @@ module Homebrew
         end
       end
 
-      sig { params(formula_installers: T::Array[FormulaInstaller], dry_run: T::Boolean, verbose: T::Boolean).void }
-      def upgrade_formulae(formula_installers, dry_run: false, verbose: false)
-        valid_formula_installers = if dry_run
+      sig {
+        params(formula_installers: T::Array[FormulaInstaller], dry_run: T::Boolean, verbose: T::Boolean,
+               fetch: T::Boolean).void
+      }
+      def upgrade_formulae(formula_installers, dry_run: false, verbose: false, fetch: true)
+        valid_formula_installers = if dry_run || !fetch
           formula_installers
         else
           Install.fetch_formulae(formula_installers)
