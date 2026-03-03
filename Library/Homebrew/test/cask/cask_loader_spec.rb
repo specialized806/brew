@@ -284,6 +284,72 @@ RSpec.describe Cask::CaskLoader, :cask do
         expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError, /appcast/)
       end
     end
+
+    describe "loading a cask JSON file with removed conflicts_with keys" do
+      let(:tmpdir) { mktmpdir }
+      let(:cask_token) { "removed-conflicts-key-cask" }
+      let(:cask_file) { tmpdir/"#{cask_token}.json" }
+      let(:cask_content) do
+        <<~JSON
+          {
+            "token": "#{cask_token}",
+            "full_token": "#{cask_token}",
+            "tap": "homebrew/cask",
+            "name": [],
+            "desc": null,
+            "homepage": "https://example.com",
+            "url": "https://example.com/#{cask_token}.zip",
+            "version": "1.0.0",
+            "installed": null,
+            "outdated": false,
+            "sha256": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            "artifacts": [
+              {
+                "app": [
+                  "App.app"
+                ]
+              }
+            ],
+            "caveats": null,
+            "depends_on": {},
+            "conflicts_with": {
+              "formula": [
+                "some-formula"
+              ]
+            },
+            "container": null,
+            "rename": [],
+            "auto_updates": null,
+            "tap_git_head": "abcdef1234567890abcdef1234567890abcdef12",
+            "languages": [],
+            "ruby_source_path": "Casks/#{cask_token}.rb",
+            "ruby_source_checksum": {
+              "sha256": "d3c19b564ee5a17f22191599ad795a6cc9c4758d0e1269f2d13207155b378dea"
+            }
+          }
+        JSON
+      end
+
+      before do
+        tmpdir.mkpath
+        cask_file.write(cask_content)
+      end
+
+      after do
+        tmpdir.rmtree if tmpdir.exist?
+      end
+
+      it "raises CaskInvalidError" do
+        loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
+        expect { loader.load(config: nil) }.to raise_error(Cask::CaskInvalidError, /Unknown key: :formula/)
+      end
+
+      it "raises CaskUnreadableError when loaded from installed caskfile" do
+        loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
+        loader.instance_variable_set(:@from_installed_caskfile, true)
+        expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError, /Unknown key: :formula/)
+      end
+    end
   end
 
   describe "FromPathLoader with symlinked taps" do

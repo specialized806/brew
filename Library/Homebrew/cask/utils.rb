@@ -139,14 +139,5 @@ module Cask
           #{Formatter.url(BUG_REPORTS_URL)}
       EOS
     end
-
-    sig { params(method: Symbol, token: String, section: T.nilable(String)).void }
-    def self.method_missing_message(method, token, section = nil)
-      message = "Unexpected method '#{method}' called "
-      message << "during #{section} " if section
-      message << "on Cask #{token}."
-
-      ofail "#{message}\n#{error_message_with_suggestions}"
-    end
   end
 end
