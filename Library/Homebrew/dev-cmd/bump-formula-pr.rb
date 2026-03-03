@@ -420,15 +420,13 @@ module Homebrew
             true
           end
 
+          formula_checkboxes = []
+
           if resources_checked.nil? && (failed_updates.any? || unchecked_resources.any?)
-            formula_pr_message += <<~EOS
-
-
-              - [ ] `resource` blocks have been checked for updates.
-            EOS
+            formula_checkboxes << "- [ ] `resource` blocks have been checked for updates."
 
             if failed_updates.any?
-              formula_pr_message += "#{failed_updates.map do |name, status|
+              formula_checkboxes << "#{failed_updates.map do |name, status|
                 "  - Resource `#{name}` failed to auto-update (#{status})."
               end.join("\n")}\n"
             end
@@ -437,19 +435,21 @@ module Homebrew
           if downgraded_resources.any?
             resource_names = downgraded_resources.keys.map { |name| "`#{name}`" }.join(", ")
             verb = (downgraded_resources.size == 1) ? "was" : "were"
-            formula_pr_message += <<~EOS
-
-
-              **Warning:** #{resource_names} #{verb} downgraded to match the latest upstream version.
-            EOS
+            formula_checkboxes <<
+              "**Warning:** #{resource_names} #{verb} " \
+              "downgraded to match the latest upstream version."
           end
 
           annotation_comments = %w[TODO FIXME]
           if annotation_comments.any? { |s| new_contents.include?("#{s}:") }
+            formula_checkboxes << "- [ ] TODO and FIXME comments have been checked."
+          end
+
+          if formula_checkboxes.present?
             formula_pr_message += <<~EOS
 
 
-              - [ ] TODO and FIXME comments have been checked.
+              #{formula_checkboxes.join("\n")}
             EOS
           end
 
