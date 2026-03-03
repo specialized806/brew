@@ -85,5 +85,32 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect(Homebrew).to have_failed
   end
 
+  it "does not print removed caveats method errors for installed casks", :cask do
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+    installer = InstallHelper.install_with_caskfile(cask)
+    installed_caskfile = installer.metadata_subdir/"#{cask.token}.rb"
+    expect(installed_caskfile).to exist
+
+    installed_caskfile.write(
+      installed_caskfile.read.sub(
+        /\nend\n\z/,
+        <<~RUBY,
+            caveats do
+              discontinued
+            end
+          end
+        RUBY
+      ),
+    )
+
+    (CoreCaskTap.instance.cask_dir/"local-caffeine.rb").unlink
+    CoreCaskTap.instance.clear_cache
+
+    cmd = described_class.new(["--cask", "--dry-run"])
+
+    expect { cmd.send(:upgrade_outdated_casks!, []) }
+      .to not_to_output(/Unexpected method 'discontinued' called during caveats on Cask local-caffeine\./).to_stderr
+  end
+
   it_behaves_like "reinstall_pkgconf_if_needed"
 end

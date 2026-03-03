@@ -152,8 +152,21 @@ module Cask
         if !self.class.invalid_path?(path, valid_extnames: %w[.json]) &&
            (from_json = JSON.parse(@content).presence) &&
            from_json.is_a?(Hash)
-          return FromAPILoader.new(token, from_json:, path:,
-from_installed_caskfile: @from_installed_caskfile).load(config:)
+          begin
+            return FromAPILoader.new(
+              token,
+              from_json:,
+              path:,
+              from_installed_caskfile: @from_installed_caskfile,
+            ).load(config:)
+          rescue CaskInvalidError => e
+            if @from_installed_caskfile
+              error = CaskUnreadableError.new(token, e.reason)
+              error.set_backtrace e.backtrace
+              raise error
+            end
+            raise
+          end
         end
 
         begin
