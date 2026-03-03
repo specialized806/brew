@@ -12,6 +12,14 @@ module Homebrew
       LIVECHECK_MESSAGE_REGEX = /^(?:error:|skipped|unable to get(?: throttled)? versions)/i
       NEWER_THAN_UPSTREAM_MSG = " (newer than upstream)"
 
+      class ResourceVersionInfo < T::Struct
+        const :name, String
+        const :current_version, String
+        const :latest_version, T.nilable(String)
+        const :outdated, T::Boolean
+        const :newer_than_upstream, T::Boolean
+      end
+
       class VersionBumpInfo < T::Struct
         const :type, Symbol
         const :deprecated, T::Hash[Symbol, T::Boolean], default: {}
@@ -19,6 +27,7 @@ module Homebrew
         const :version_name, String
         const :current_version, BumpVersionParser
         const :new_version, BumpVersionParser
+        const :resource_versions, T::Array[ResourceVersionInfo], default: []
         const :repology_latest, T.any(String, Version)
         const :newer_than_upstream, T::Hash[Symbol, T::Boolean], default: {}
         const :duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
@@ -409,6 +418,13 @@ module Homebrew
           deprecated = { general: deprecated[:arm] || deprecated[:intel] || false }
         end
 
+        # Collect resource version info for formulae with resources that have explicit livecheck blocks
+        resource_versions = if formula_or_cask.is_a?(Formula) && new_version.general.is_a?(Version)
+          collect_resource_versions(formula_or_cask, new_version.general.to_s)
+        else
+          []
+        end
+
         if !args.no_pull_requests? &&
            (new_version.general != "unable to get versions") &&
            (new_version.general != "skipped") &&
@@ -440,11 +456,74 @@ module Homebrew
           version_name:,
           current_version:,
           new_version:,
+          resource_versions:,
           repology_latest:,
           newer_than_upstream:,
           duplicate_pull_requests:,
           maybe_duplicate_pull_requests:,
         )
+      end
+
+      sig {
+        params(
+          formula:                Formula,
+          formula_latest_version: String,
+        ).returns(T::Array[ResourceVersionInfo])
+      }
+      def collect_resource_versions(formula, formula_latest_version)
+        resource_versions = []
+
+        formula.resources.each do |resource|
+          next unless resource.livecheck_defined?
+          next if resource.livecheck.skip?
+
+          # Resources that reference :parent track the formula version directly
+          if resource.livecheck.formula == :parent
+            current = resource.version.to_s
+            resource_versions << ResourceVersionInfo.new(
+              name:                resource.name,
+              current_version:     current,
+              latest_version:      formula_latest_version,
+              outdated:            Version.new(current) < Version.new(formula_latest_version),
+              newer_than_upstream: Version.new(current) > Version.new(formula_latest_version),
+            )
+            next
+          end
+
+          resource_info = Livecheck.resource_version(
+            resource,
+            formula_latest_version,
+            json:      true,
+            full_name: false,
+            debug:     false,
+            quiet:     true,
+            verbose:   false,
+          )
+
+          if resource_info.empty? || resource_info[:status] == "error"
+            resource_versions << ResourceVersionInfo.new(
+              name:                resource.name,
+              current_version:     resource.version.to_s,
+              latest_version:      nil,
+              outdated:            false,
+              newer_than_upstream: false,
+            )
+            next
+          end
+
+          version_info = resource_info[:version]
+          next if version_info.blank?
+
+          resource_versions << ResourceVersionInfo.new(
+            name:                resource.name,
+            current_version:     version_info[:current],
+            latest_version:      version_info[:latest],
+            outdated:            version_info[:outdated] == true,
+            newer_than_upstream: version_info[:newer_than_upstream] == true,
+          )
+        end
+
+        resource_versions
       end
 
       sig {
@@ -518,6 +597,23 @@ module Homebrew
             EOS
           end
         end
+
+        # Display resource version info for formulae
+        resource_versions = version_info.resource_versions
+        puts "Resources with livecheck:" unless resource_versions.empty?
+        resource_versions.each do |rv|
+          status = if rv.latest_version.nil?
+            "#{Tty.red}unable to get versions#{Tty.reset}"
+          elsif rv.newer_than_upstream
+            "#{Tty.red}#{rv.current_version}#{Tty.reset} -> #{rv.latest_version}#{NEWER_THAN_UPSTREAM_MSG}"
+          elsif rv.outdated
+            "#{rv.current_version} -> #{Tty.green}#{rv.latest_version}#{Tty.reset}"
+          else
+            "#{rv.current_version} -> #{rv.latest_version}"
+          end
+          puts "  #{rv.name}: #{status}"
+        end
+
         if !args.no_pull_requests? &&
            (new_version.general != "unable to get versions") &&
            (new_version.general != "skipped") &&
@@ -581,6 +677,16 @@ module Homebrew
 
         if args.bump_synced? && outdated_synced_formulae.present?
           bump_pr_args << "--bump-synced=#{outdated_synced_formulae.join(",")}"
+        end
+
+        # Pass all livecheck-checked resources to bump-formula-pr, including
+        # up-to-date and failed ones, so it can track what was checked
+        if version_info.type == :formula && !resource_versions.empty?
+          require "json"
+          resource_data = resource_versions.map do |rv|
+            { name: rv.name, current_version: rv.current_version, latest_version: rv.latest_version }
+          end
+          bump_pr_args << "--resource-versions=#{resource_data.to_json}"
         end
 
         result = system HOMEBREW_BREW_FILE, *bump_pr_args
