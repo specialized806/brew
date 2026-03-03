@@ -77,6 +77,11 @@ module Homebrew
       end
 
       def install_change_state!(no_upgrade:, verbose:, force:)
+        if (tap_with_name = Tap.with_formula_name(@full_name))
+          tap, = tap_with_name
+          tap.ensure_installed!
+        end
+
         return false unless resolve_conflicts!(verbose:)
 
         if installed?
