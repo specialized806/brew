@@ -8,6 +8,7 @@ module Homebrew
       def self.from_hash(cask_hash, ignore_types: false)
         return super(cask_hash) if ignore_types
 
+        cask_hash = ::Cask::Cask.deep_remove_placeholders(cask_hash)
         cask_hash = cask_hash.transform_keys(&:to_sym)
                              .slice(*decorator.all_props)
                              .compact_blank

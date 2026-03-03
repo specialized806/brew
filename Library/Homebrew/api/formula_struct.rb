@@ -9,6 +9,7 @@ module Homebrew
     class FormulaStruct < T::Struct
       sig { params(formula_hash: T::Hash[String, T.untyped]).returns(FormulaStruct) }
       def self.from_hash(formula_hash)
+        formula_hash = ::Formula.deep_remove_placeholders(formula_hash)
         formula_hash = formula_hash.transform_keys(&:to_sym)
                                    .slice(*decorator.all_props)
                                    .compact_blank
