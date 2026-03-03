@@ -444,6 +444,15 @@ module Homebrew
             EOS
           end
 
+          annotation_comments = %w[TODO FIXME]
+          if annotation_comments.any? { |s| new_contents.include?("#{s}:") }
+            formula_pr_message += <<~EOS
+
+
+              - [ ] TODO and FIXME comments have been checked.
+            EOS
+          end
+
           if new_url =~ %r{^https://github\.com/([\w-]+)/([\w-]+)/archive/refs/tags/(v?[.0-9]+)\.tar\.}
             owner = Regexp.last_match(1)
             repo = Regexp.last_match(2)
