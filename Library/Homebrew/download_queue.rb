@@ -26,6 +26,7 @@ module Homebrew
       @pour = pour
       @pool = T.let(Concurrent::FixedThreadPool.new(concurrency), Concurrent::FixedThreadPool)
       @tty = T.let($stdout.tty?, T::Boolean)
+      @dumb_tty = T.let(ENV["TERM"] == "dumb", T::Boolean)
       @spinner = T.let(nil, T.nilable(Spinner))
       @symlink_targets = T.let({}, T::Hash[Pathname, T::Set[Downloadable]])
       @downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
@@ -96,7 +97,7 @@ module Homebrew
             next 1 if bottle_manifest_error?(downloadable, exception)
 
             message = downloadable.download_queue_message
-            if tty
+            if tty_with_cursor_move_support?
               message = message_with_progress(downloadable, future, message, message_length_max)
               stdout_print_and_flush "#{status} #{message}#{"\n" unless last}"
             elsif status
@@ -193,7 +194,7 @@ module Homebrew
 
     sig { params(message: String).void }
     def stdout_print_and_flush_if_tty(message)
-      stdout_print_and_flush(message) if $stdout.tty?
+      stdout_print_and_flush(message) if tty_with_cursor_move_support?
     end
 
     sig { params(message: String).void }
@@ -260,6 +261,11 @@ module Homebrew
     sig { returns(T::Boolean) }
     attr_reader :tty
 
+    sig { returns(T::Boolean) }
+    def tty_with_cursor_move_support?
+      tty && !@dumb_tty
+    end
+
     sig { returns(T::Hash[Downloadable, Concurrent::Promises::Future]) }
     def downloads
       @downloads ||= T.let({}, T.nilable(T::Hash[Downloadable, Concurrent::Promises::Future]))
@@ -281,7 +287,7 @@ module Homebrew
           "✘"
         end
       when :pending, :processing
-        "#{Tty.blue}#{spinner}#{Tty.reset}" if tty
+        "#{Tty.blue}#{spinner}#{Tty.reset}" if tty_with_cursor_move_support?
       else
         raise future.state.to_s
       end
