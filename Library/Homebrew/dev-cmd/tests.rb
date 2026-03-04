@@ -265,6 +265,9 @@ module Homebrew
           ENV.delete(env)
         end
 
+        # TODO: remove this once we kill `HOMEBREW_REALLY_USE_INTERNAL_API`.
+        ENV.delete("HOMEBREW_REALLY_USE_INTERNAL_API")
+
         # Fetch JSON API files if needed.
         require "api"
         Homebrew::API.fetch_api_files!
