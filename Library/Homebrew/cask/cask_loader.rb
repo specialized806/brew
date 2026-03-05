@@ -362,11 +362,7 @@ module Cask
 
       def load(config:)
         json_cask = from_json
-        json_cask ||= if Homebrew::EnvConfig.use_internal_api?
-          Homebrew::API::Internal.cask_hashes.fetch(token)
-        else
-          Homebrew::API::Cask.all_casks.fetch(token)
-        end
+        json_cask ||= Homebrew::API::Cask.all_casks.fetch(token)
 
         cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
           json_cask, ignore_types: @from_installed_caskfile
