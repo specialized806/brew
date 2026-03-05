@@ -255,6 +255,7 @@ module Homebrew
             next unless old_version
 
             bump_version = new_version.send(arch) || new_version.general
+            next unless bump_version
 
             old_version_regex = old_version.latest? ? ":latest" : %Q(["']#{Regexp.escape(old_version.to_s)}["'])
             replacement_pairs << [/version\s+#{old_version_regex}/m,
