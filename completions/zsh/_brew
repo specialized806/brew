@@ -2036,6 +2036,7 @@ _brew_style() {
     '(--except-cops)--only-cops[Specify a comma-separated cops list to check for violations of only the listed RuboCop cops]' \
     '--quiet[Make some output more quiet]' \
     '--reset-cache[Reset the RuboCop cache]' \
+    '--todo[Add `rubocop:todo` comments for RuboCop violations that remain after auto-correction. Requires `--fix`]' \
     '--verbose[Make some output more verbose]' \
     - file \
     '*:file:__brew_formulae_or_ruby_files' \

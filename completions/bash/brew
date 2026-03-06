@@ -2531,6 +2531,7 @@ _brew_style() {
       --only-cops
       --quiet
       --reset-cache
+      --todo
       --verbose
       "
       return

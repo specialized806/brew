@@ -19,6 +19,10 @@ module Homebrew
         EOS
         switch "--fix",
                description: "Fix style violations automatically using RuboCop's auto-correct feature."
+        switch "--todo",
+               depends_on:  "--fix",
+               description: "Add `rubocop:todo` comments for RuboCop violations that remain after auto-correction. " \
+                            "Requires `--fix`."
         switch "--display-cop-names",
                description: "Include the RuboCop cop name for each violation in the output.",
                hidden:      true
@@ -69,6 +73,7 @@ module Homebrew
 
         options = {
           fix:         args.fix?,
+          todo:        args.todo?,
           reset_cache: args.reset_cache?,
           debug:       args.debug?,
           verbose:     args.verbose?,

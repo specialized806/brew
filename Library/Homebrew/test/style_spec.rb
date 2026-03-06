@@ -49,4 +49,27 @@ RSpec.describe Homebrew::Style do
       expect(style_result).to be true
     end
   end
+
+  describe ".run_rubocop" do
+    let(:dir) { mktmpdir }
+    let(:ruby_file) { dir/"test.rb" }
+
+    before do
+      ruby_file.write <<~RUBY
+        class Test
+        end
+      RUBY
+    end
+
+    it "passes --disable-uncorrectable when --todo is enabled" do
+      result = double(status: double(exitstatus: 0), stdout: '{"files":[]}')
+
+      expect(described_class).to receive(:system_command) do |_cmd, args:, **|
+        expect(args).to include("--disable-uncorrectable")
+        result
+      end
+
+      described_class.run_rubocop([ruby_file], :json, fix: true, todo: true)
+    end
+  end
 end

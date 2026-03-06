@@ -3254,6 +3254,11 @@ core code and all formulae.
 
 : Fix style violations automatically using RuboCop's auto-correct feature.
 
+`--todo`
+
+: Add `rubocop:todo` comments for RuboCop violations that remain after
+  auto-correction. Requires `--fix`.
+
 `--reset-cache`
 
 : Reset the RuboCop cache.
