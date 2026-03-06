@@ -20,6 +20,8 @@ inherit_mode:
     - Exclude
 
 AllCops:
+  # Only bump this after the first tagged brew release with a new Ruby version,
+  # otherwise taps will be prompted to use newer Ruby syntax too early.
   TargetRubyVersion: 3.4
   NewCops: enable
   Include:

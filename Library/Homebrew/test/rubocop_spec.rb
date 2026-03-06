@@ -25,17 +25,4 @@ RSpec.describe "RuboCop" do
       expect(status).to be_a_success
     end
   end
-
-  context "with TargetRubyVersion" do
-    it "matches .ruby-version" do
-      rubocop_config_path = HOMEBREW_LIBRARY_PATH.parent/".rubocop.yml"
-      rubocop_config = YAML.unsafe_load_file(rubocop_config_path)
-      target_ruby_version = rubocop_config.dig("AllCops", "TargetRubyVersion")
-
-      ruby_version_path = HOMEBREW_LIBRARY_PATH/".ruby-version"
-      ruby_version = ruby_version_path.read.strip.to_f
-
-      expect(target_ruby_version).to eq(ruby_version)
-    end
-  end
 end

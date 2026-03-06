@@ -1,10 +1,11 @@
-# When bumping, run `brew vendor-gems --update=--ruby`
-# When bumping to a new major/minor version, also update the bounds in the Gemfile
+# When bumping, run `brew vendor-gems --update=--ruby`.
+# When bumping to a new major/minor version, also update the bounds in the Gemfile.
+# Also make sure that vendored gems have been committed for the new Ruby version by updating .gitignore.
 # HOMEBREW_LIBRARY set by bin/brew
 # shellcheck disable=SC2154
-export HOMEBREW_REQUIRED_RUBY_VERSION="3.4"
+export HOMEBREW_REQUIRED_RUBY_VERSION="4.0"
 HOMEBREW_PORTABLE_RUBY_VERSION="$(cat "${HOMEBREW_LIBRARY}/Homebrew/vendor/portable-ruby-version")"
-export HOMEBREW_BUNDLER_VERSION="2.6.9"
+export HOMEBREW_BUNDLER_VERSION="4.0.3"
 
 # Disable Ruby options we don't need.
 export HOMEBREW_RUBY_DISABLE_OPTIONS="--disable=gems,rubyopt"
