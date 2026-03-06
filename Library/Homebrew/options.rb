@@ -50,7 +50,7 @@ class Option
 end
 
 # A deprecated formula option.
-class DeprecatedOption
+class DeprecatedOption # rubocop:todo Style/OneClassPerFile
   sig { returns(String) }
   attr_reader :old, :current
 
@@ -83,7 +83,7 @@ class DeprecatedOption
 end
 
 # A collection of formula options.
-class Options
+class Options # rubocop:todo Style/OneClassPerFile
   include Enumerable
   extend T::Generic
 

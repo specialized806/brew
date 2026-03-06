@@ -17,7 +17,7 @@ module CompilerConstants
 end
 
 # Class for checking compiler compatibility for a formula.
-class CompilerFailure
+class CompilerFailure # rubocop:todo Style/OneClassPerFile
   sig { returns(Symbol) }
   attr_reader :type
 
@@ -97,7 +97,7 @@ class CompilerFailure
 end
 
 # Class for selecting a compiler for a formula.
-class CompilerSelector
+class CompilerSelector # rubocop:todo Style/OneClassPerFile
   include CompilerConstants
 
   class Compiler < T::Struct

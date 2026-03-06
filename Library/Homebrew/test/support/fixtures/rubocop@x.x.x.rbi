@@ -7,7 +7,7 @@ class Parser::Source::Comment
   include ::RuboCop::Ext::Comment
 end
 
-class Parser::Source::Range
+class Parser::Source::Range # rubocop:todo Style/OneClassPerFile
   include ::RuboCop::Ext::Range
 end
 
@@ -17,7 +17,7 @@ RuboCop::CLI::STATUS_SUCCESS = T.let(T.unsafe(nil).freeze, Integer)
 
 RuboCop::CommentConfig::CONFIG_DISABLED_LINE_RANGE_MIN = T.let(T.unsafe(nil).freeze, Float)
 
-class RuboCop::Config
+class RuboCop::Config # rubocop:todo Style/OneClassPerFile
   include ::RuboCop::PathUtil
   include ::RuboCop::FileFinder
   extend ::RuboCop::SimpleForwardable
@@ -33,7 +33,7 @@ end
 
 RuboCop::Token = RuboCop::AST::Token
 
-class RuboCop::Cop::Base
+class RuboCop::Cop::Base # rubocop:todo Style/OneClassPerFile
   include ::RuboCop::AST::Sexp
   include ::RuboCop::PathUtil
   include ::RuboCop::Cop::Util
@@ -49,17 +49,17 @@ class RuboCop::Cop::Base
   def initialize(config = T.unsafe(nil), options = T.unsafe(nil)); end
 end
 
-class RuboCop::Cop::SomeUnusedCop < RuboCop::Cop::Base
+class RuboCop::Cop::SomeUnusedCop < RuboCop::Cop::Base # rubocop:todo Style/OneClassPerFile
   def on_send(_node); end
 end
 
-module RuboCop::Cop::UnusedModule; end
+module RuboCop::Cop::UnusedModule; end # rubocop:todo Style/OneClassPerFile
 
-class CompletelyUnrelated
+class CompletelyUnrelated # rubocop:todo Style/OneClassPerFile
   def bananas; end
 end
 
-module RuboCop::Version
+module RuboCop::Version # rubocop:todo Style/OneClassPerFile
   class << self
     # @api private
     #

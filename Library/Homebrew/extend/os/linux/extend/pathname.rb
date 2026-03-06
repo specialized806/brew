@@ -20,7 +20,7 @@ end
 
 BinaryPathname.singleton_class.prepend(ELFPathname::ClassMethods)
 
-module OS
+module OS # rubocop:todo Style/OneClassPerFile
   module Linux
     module Pathname
       module ClassMethods

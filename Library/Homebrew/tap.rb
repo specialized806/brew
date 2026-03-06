@@ -1238,7 +1238,7 @@ class Tap
   end
 end
 
-class AbstractCoreTap < Tap
+class AbstractCoreTap < Tap # rubocop:todo Style/OneClassPerFile
   extend T::Helpers
 
   abstract!
@@ -1279,7 +1279,7 @@ class AbstractCoreTap < Tap
 end
 
 # A specialized {Tap} class for the core formulae.
-class CoreTap < AbstractCoreTap
+class CoreTap < AbstractCoreTap # rubocop:todo Style/OneClassPerFile
   class << self
     Elem = type_member(:out) { { fixed: Tap } }
   end
@@ -1484,7 +1484,7 @@ class CoreTap < AbstractCoreTap
 end
 
 # A specialized {Tap} class for homebrew-cask.
-class CoreCaskTap < AbstractCoreTap
+class CoreCaskTap < AbstractCoreTap # rubocop:todo Style/OneClassPerFile
   class << self
     Elem = type_member(:out) { { fixed: Tap } }
   end
@@ -1572,7 +1572,7 @@ class CoreCaskTap < AbstractCoreTap
 end
 
 # Permanent configuration per {Tap} using `git-config(1)`.
-class TapConfig
+class TapConfig # rubocop:todo Style/OneClassPerFile
   sig { returns(Tap) }
   attr_reader :tap
 

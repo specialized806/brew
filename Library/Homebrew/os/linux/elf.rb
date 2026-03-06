@@ -301,7 +301,7 @@ module ELFShim
   end
 end
 
-module OS
+module OS # rubocop:todo Style/OneClassPerFile
   module Linux
     # Helper functions for working with ELF objects.
     #

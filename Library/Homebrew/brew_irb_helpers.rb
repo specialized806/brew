@@ -21,7 +21,7 @@ class String
   end
 end
 
-class Symbol
+class Symbol # rubocop:todo Style/OneClassPerFile
   # @!visibility private
   sig { params(args: Integer).returns(Formula) }
   def f(*args)
