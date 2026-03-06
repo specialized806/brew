@@ -1190,7 +1190,7 @@ Example: [dropbox.rb](https://github.com/Homebrew/homebrew-cask/blob/974a55ade77
 
 #### `zap` creation
 
-The simplest method is to use [@nrlquaker's CreateZap](https://github.com/nrlquaker/homebrew-createzap), which can automatically generate the stanza. In a few instances it may fail to pick up anything and manual creation may be required.
+The simplest method is to use `brew generate-zap`, which scans the system for associated files and directories to automatically generate the stanza. The target application should have been launched at least once so that preference files and caches exist on disk. In a few instances it may fail to pick up anything and manual creation may be required.
 
 Manual creation can be facilitated with:
 
