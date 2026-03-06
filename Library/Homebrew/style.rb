@@ -40,6 +40,7 @@ module Homebrew
 
     def self.check_style_impl(files, output_type,
                               fix: false,
+                              todo: false,
                               except_cops: nil, only_cops: nil,
                               display_cop_names: false,
                               reset_cache: false,
@@ -75,6 +76,7 @@ module Homebrew
       else
         run_rubocop(ruby_files, output_type,
                     fix:,
+                    todo:,
                     except_cops:, only_cops:,
                     display_cop_names:,
                     reset_cache:,
@@ -108,7 +110,8 @@ module Homebrew
     RUBOCOP = (HOMEBREW_LIBRARY_PATH/"utils/rubocop.rb").freeze
 
     def self.run_rubocop(files, output_type,
-                         fix: false, except_cops: nil, only_cops: nil, display_cop_names: false, reset_cache: false,
+                         fix: false, todo: false, except_cops: nil, only_cops: nil, display_cop_names: false,
+                         reset_cache: false,
                          debug: false, verbose: false)
       require "warnings"
 
@@ -122,6 +125,7 @@ module Homebrew
         --force-exclusion
       ]
       args << "--autocorrect-all" if fix
+      args << "--disable-uncorrectable" if todo
 
       args += ["--extra-details"] if verbose
 
