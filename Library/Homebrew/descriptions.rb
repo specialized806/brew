@@ -88,9 +88,7 @@ class Descriptions
   def short_name_counts
     @short_name_counts ||= T.let(
       short_names.values
-                 .each_with_object(Hash.new(0)) do |name, counts|
-        counts[name] += 1
-      end,
+                 .tally,
       T.nilable(T::Hash[String, Integer]),
     )
   end

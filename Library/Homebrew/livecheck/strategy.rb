@@ -161,7 +161,7 @@ module Homebrew
         # Sort usable strategies in descending order by priority, using the
         # DEFAULT_PRIORITY when a strategy doesn't contain a PRIORITY constant
         usable_strategies.sort_by do |strategy|
-          (strategy.const_defined?(:PRIORITY) ? -strategy.const_get(:PRIORITY) : -DEFAULT_PRIORITY)
+          strategy.const_defined?(:PRIORITY) ? -strategy.const_get(:PRIORITY) : -DEFAULT_PRIORITY
         end
       end
 

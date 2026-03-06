@@ -876,9 +876,9 @@ class Tap
   # Mapping from aliases to formula names.
   sig { overridable.returns(T::Hash[String, String]) }
   def alias_table
-    @alias_table ||= T.let(alias_files.each_with_object({}) do |alias_file, alias_table|
-      alias_table[alias_file_to_name(alias_file)] = formula_file_to_name(alias_file.resolved_path)
-    end, T.nilable(T::Hash[String, String]))
+    @alias_table ||= T.let(alias_files.to_h do |alias_file|
+                             [alias_file_to_name(alias_file), formula_file_to_name(alias_file.resolved_path)]
+                           end, T.nilable(T::Hash[String, String]))
   end
 
   # Mapping from formula names to aliases.

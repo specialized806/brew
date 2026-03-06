@@ -402,7 +402,7 @@ on_request: true)
 
       raise CaskError,
             "Cask #{@cask} depends on hardware architecture being one of " \
-            "[#{@cask.depends_on.arch.map(&:to_s).join(", ")}], " \
+            "[#{@cask.depends_on.arch.join(", ")}], " \
             "but you are running #{@current_arch}."
     end
 
@@ -450,7 +450,7 @@ on_request: true)
         return
       end
 
-      ohai "Installing dependencies: #{missing_formulae_and_casks.map(&:to_s).join(", ")}"
+      ohai "Installing dependencies: #{missing_formulae_and_casks.join(", ")}"
       cask_installers = T.let([], T::Array[Installer])
       formula_installers = T.let([], T::Array[FormulaInstaller])
 
@@ -638,7 +638,7 @@ on_request: true)
     def zap
       load_installed_caskfile!
       uninstall_artifacts
-      if (zap_stanzas = @cask.artifacts.select { |a| a.is_a?(Artifact::Zap) }).empty?
+      if (zap_stanzas = @cask.artifacts.grep(Artifact::Zap)).empty?
         opoo "No zap stanza present for Cask '#{@cask}'"
       else
         ohai "Dispatching zap stanza"

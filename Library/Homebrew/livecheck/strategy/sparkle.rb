@@ -53,7 +53,6 @@ module Homebrew
           :bundle_version,
           # @api public
           :minimum_system_version,
-          keyword_init: true,
         ) do
           extend Forwardable
 

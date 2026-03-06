@@ -165,7 +165,7 @@ module Homebrew
                           .values
                           .select { |items| items.length > 1 }
                           .flatten
-                          .select { |item| item.is_a?(Cask::Cask) }
+                          .grep(Cask::Cask)
       end
 
       ambiguous_names = []

@@ -179,7 +179,7 @@ class Options
 
   sig { returns(String) }
   def to_s
-    @options.map(&:to_s).join(" ")
+    @options.join(" ")
   end
 
   sig { returns(String) }

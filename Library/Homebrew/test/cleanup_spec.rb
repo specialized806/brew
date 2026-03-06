@@ -276,7 +276,7 @@ RSpec.describe Homebrew::Cleanup do
   end
 
   describe "::cleanup_logs" do
-    let(:path) { (HOMEBREW_LOGS/"delete_me") }
+    let(:path) { HOMEBREW_LOGS/"delete_me" }
 
     before do
       path.mkpath
@@ -408,9 +408,9 @@ RSpec.describe Homebrew::Cleanup do
     end
 
     context "when cleaning old files in HOMEBREW_CACHE" do
-      let(:bottle) { (HOMEBREW_CACHE/"testball--0.0.1.tag.bottle.tar.gz") }
-      let(:testball) { (HOMEBREW_CACHE/"testball--0.0.1") }
-      let(:testball_resource) { (HOMEBREW_CACHE/"testball--rsrc--0.0.1.txt") }
+      let(:bottle) { HOMEBREW_CACHE/"testball--0.0.1.tag.bottle.tar.gz" }
+      let(:testball) { HOMEBREW_CACHE/"testball--0.0.1" }
+      let(:testball_resource) { HOMEBREW_CACHE/"testball--rsrc--0.0.1.txt" }
 
       before do
         FileUtils.touch bottle
@@ -446,7 +446,7 @@ RSpec.describe Homebrew::Cleanup do
     end
 
     context "when the cache path is a bottle manifest file" do
-      let(:bottle_manifest_path) { (HOMEBREW_CACHE/"testball_bottle_manifest--1.0.bottle_manifest.json") }
+      let(:bottle_manifest_path) { HOMEBREW_CACHE/"testball_bottle_manifest--1.0.bottle_manifest.json" }
 
       before do
         HOMEBREW_CACHE.mkpath
@@ -495,9 +495,9 @@ RSpec.describe Homebrew::Cleanup do
 
   describe "::cleanup_python_site_packages" do
     context "when cleaning up Python modules" do
-      let(:foo_module) { (HOMEBREW_PREFIX/"lib/python3.99/site-packages/foo") }
-      let(:foo_pycache) { (foo_module/"__pycache__") }
-      let(:foo_pyc) { (foo_pycache/"foo.cypthon-399.pyc") }
+      let(:foo_module) { HOMEBREW_PREFIX/"lib/python3.99/site-packages/foo" }
+      let(:foo_pycache) { foo_module/"__pycache__" }
+      let(:foo_pyc) { foo_pycache/"foo.cypthon-399.pyc" }
 
       before do
         foo_pycache.mkpath
