@@ -15,7 +15,6 @@ module Homebrew
       :builtin_command_descriptions,
       :completion_functions,
       :function_mappings,
-      keyword_init: true,
     )
 
     COMPLETIONS_DIR = T.let((HOMEBREW_REPOSITORY/"completions").freeze, Pathname)

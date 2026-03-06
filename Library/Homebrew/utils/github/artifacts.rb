@@ -23,7 +23,7 @@ module GitHub
 end
 
 # Strategy for downloading an artifact from GitHub Actions.
-class GitHubArtifactDownloadStrategy < AbstractFileDownloadStrategy
+class GitHubArtifactDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, artifact_id: String, token: String).void }
   def initialize(url, artifact_id, token:)
     super(url, "artifact", artifact_id)

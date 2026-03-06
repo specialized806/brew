@@ -38,7 +38,7 @@ module Cask
 
       sig { override.returns(String) }
       def summarize
-        directives.keys.map(&:to_s).join(", ")
+        directives.keys.join(", ")
       end
 
       private

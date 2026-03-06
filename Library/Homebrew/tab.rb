@@ -177,7 +177,7 @@ class AbstractTab
   end
 end
 
-class Tab < AbstractTab
+class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   # Check whether the formula was poured from a bottle.
   #
   # @api internal

@@ -69,7 +69,7 @@ RSpec.describe Formula do
 
     context "when in a Tap" do
       let(:tap) { Tap.fetch("foo", "bar") }
-      let(:path) { (tap.path/"Formula/#{name}.rb") }
+      let(:path) { tap.path/"Formula/#{name}.rb" }
       let(:full_name) { "#{tap.user}/#{tap.repository}/#{name}" }
       let(:full_alias_name) { "#{tap.user}/#{tap.repository}/#{alias_name}" }
 
@@ -1345,7 +1345,7 @@ RSpec.describe Formula do
 
         pour_bottle? do
           reason "false reason"
-          satisfy { (var == etc) }
+          satisfy { var == etc }
         end
       end
 
@@ -1509,11 +1509,11 @@ RSpec.describe Formula do
   end
 
   describe "#outdated_kegs" do
-    let(:outdated_prefix) { (HOMEBREW_CELLAR/"#{f.name}/1.11") }
-    let(:same_prefix) { (HOMEBREW_CELLAR/"#{f.name}/1.20") }
-    let(:greater_prefix) { (HOMEBREW_CELLAR/"#{f.name}/1.21") }
-    let(:head_prefix) { (HOMEBREW_CELLAR/"#{f.name}/HEAD") }
-    let(:old_alias_target_prefix) { (HOMEBREW_CELLAR/"#{old_formula.name}/1.0") }
+    let(:outdated_prefix) { HOMEBREW_CELLAR/"#{f.name}/1.11" }
+    let(:same_prefix) { HOMEBREW_CELLAR/"#{f.name}/1.20" }
+    let(:greater_prefix) { HOMEBREW_CELLAR/"#{f.name}/1.21" }
+    let(:head_prefix) { HOMEBREW_CELLAR/"#{f.name}/HEAD" }
+    let(:old_alias_target_prefix) { HOMEBREW_CELLAR/"#{old_formula.name}/1.0" }
 
     let(:f) do
       formula do

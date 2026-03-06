@@ -9,17 +9,17 @@ require "utils/output"
 
 # Stubs needed to keep Sorbet happy.
 module MachOShim; end
-module ELFShim; end
+module ELFShim; end # rubocop:todo Style/OneClassPerFile
 
 # @api private
-module BinaryPathname
+module BinaryPathname # rubocop:todo Style/OneClassPerFile
   sig { params(path: T.any(Pathname, String, MachOShim, ELFShim)).returns(T.any(MachOShim, ELFShim)) }
   def self.wrap(path) = raise NotImplementedError
 end
 
 # Homebrew extends Ruby's `Pathname` to make our code more readable.
 # @see https://ruby-doc.org/stdlib-2.6.3/libdoc/pathname/rdoc/Pathname.html Ruby's Pathname API
-class Pathname
+class Pathname # rubocop:todo Style/OneClassPerFile
   include SystemCommand::Mixin
   include DiskUsageExtension
   include Utils::Output::Mixin

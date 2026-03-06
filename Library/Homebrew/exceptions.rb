@@ -1,6 +1,9 @@
 # typed: true # rubocop:todo Sorbet/StrictSigil
 # frozen_string_literal: true
 
+# We intentionally want to have many exceptions in this file.
+# rubocop:disable Style/OneClassPerFile
+
 require "utils/output"
 
 # Raised when a command is used wrong.
@@ -812,3 +815,5 @@ class CyclicDependencyError < RuntimeError
     EOS
   end
 end
+
+# rubocop:enable Style/OneClassPerFile

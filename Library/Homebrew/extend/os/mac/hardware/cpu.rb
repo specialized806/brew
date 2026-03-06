@@ -65,7 +65,7 @@ end
 
 Hardware::CPU.singleton_class.prepend(OS::Mac::Hardware::CPU::ClassMethods)
 
-module Hardware
+module Hardware # rubocop:todo Style/OneClassPerFile
   class CPU
     class << self
       sig { returns(Integer) }

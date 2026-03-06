@@ -42,7 +42,7 @@ class Dependencies < SimpleDelegator
 end
 
 # A collection of requirements.
-class Requirements < SimpleDelegator
+class Requirements < SimpleDelegator # rubocop:todo Style/OneClassPerFile
   def initialize(*args)
     super(Set.new(args))
   end

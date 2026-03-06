@@ -20,7 +20,7 @@ end
 
 BinaryPathname.singleton_class.prepend(MachOPathname::ClassMethods)
 
-module OS
+module OS # rubocop:todo Style/OneClassPerFile
   module Mac
     module Pathname
       module ClassMethods

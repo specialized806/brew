@@ -409,7 +409,7 @@ module Cask
 
     sig { void }
     def audit_generic_artifacts
-      cask.artifacts.select { |a| a.is_a?(Artifact::Artifact) }.each do |artifact|
+      cask.artifacts.grep(Artifact::Artifact).each do |artifact|
         unless artifact.target.absolute?
           add_error "target must be absolute path for #{artifact.class.english_name} #{artifact.source}"
         end

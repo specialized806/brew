@@ -6,7 +6,7 @@ class InfluxDBClient3
   def query(*args); end
 end
 
-module PyCall
+module PyCall # rubocop:todo Style/OneClassPerFile
   def self.init(*args); end
 
   module Import

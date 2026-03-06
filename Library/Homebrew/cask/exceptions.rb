@@ -17,7 +17,7 @@ module Cask
     def to_s
       <<~EOS
         Problems with multiple casks:
-        #{@errors.map(&:to_s).join("\n")}
+        #{@errors.join("\n")}
       EOS
     end
   end

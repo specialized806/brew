@@ -16,7 +16,7 @@ class Integer
 end
 
 # https://github.com/sorbet/sorbet/pull/9847
-class IO
+class IO # rubocop:todo Style/OneClassPerFile
   # Waits until IO is readable and returns a truthy value, or a falsy value when
   # times out. Returns a truthy value immediately when buffered data is available.
   #

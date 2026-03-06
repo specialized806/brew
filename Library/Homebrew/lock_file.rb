@@ -29,6 +29,8 @@ class LockFile
 
       path.dirname.mkpath
 
+      # We are opening and closing the file appropriately so this is safe.
+      # rubocop:disable Style/FileOpen
       begin
         lockfile = begin
           File.open(path, File::RDWR | File::CREAT)
@@ -65,6 +67,7 @@ class LockFile
       lockfile.close
       raise OperationInProgressError, @locked_path
     end
+    # rubocop:enable Style/FileOpen
   end
 
   sig { params(unlink: T::Boolean).void }
@@ -89,7 +92,7 @@ class LockFile
 end
 
 # A lock file for a formula.
-class FormulaLock < LockFile
+class FormulaLock < LockFile # rubocop:todo Style/OneClassPerFile
   sig { params(rack_name: String).void }
   def initialize(rack_name)
     super(:formula, HOMEBREW_CELLAR/rack_name)
@@ -97,7 +100,7 @@ class FormulaLock < LockFile
 end
 
 # A lock file for a cask.
-class CaskLock < LockFile
+class CaskLock < LockFile # rubocop:todo Style/OneClassPerFile
   sig { params(cask_token: String).void }
   def initialize(cask_token)
     super(:cask, HOMEBREW_PREFIX/"Caskroom/#{cask_token}")
@@ -105,7 +108,7 @@ class CaskLock < LockFile
 end
 
 # A lock file for a download.
-class DownloadLock < LockFile
+class DownloadLock < LockFile # rubocop:todo Style/OneClassPerFile
   sig { params(download_path: Pathname).void }
   def initialize(download_path)
     super(:download, download_path)

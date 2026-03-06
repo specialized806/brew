@@ -297,7 +297,7 @@ class Dependency
 end
 
 # A dependency that's marked as "installed" on macOS
-class UsesFromMacOSDependency < Dependency
+class UsesFromMacOSDependency < Dependency # rubocop:todo Style/OneClassPerFile
   attr_reader :bounds
 
   sig { params(name: String, tags: T::Array[Symbol], bounds: T::Hash[Symbol, Symbol]).void }

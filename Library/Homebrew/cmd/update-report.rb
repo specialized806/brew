@@ -370,7 +370,7 @@ end
 
 require "extend/os/cmd/update-report"
 
-class Reporter
+class Reporter # rubocop:todo Style/OneClassPerFile
   include Utils::Output::Mixin
 
   Report = T.type_alias do
@@ -774,7 +774,7 @@ class Reporter
   end
 end
 
-class ReporterHub
+class ReporterHub # rubocop:todo Style/OneClassPerFile
   include Utils::Output::Mixin
 
   sig { returns(T::Array[Reporter]) }

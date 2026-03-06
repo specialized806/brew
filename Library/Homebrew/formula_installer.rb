@@ -347,7 +347,7 @@ class FormulaInstaller
     begin
       bottle_tab_attributes = formula.bottle_tab_attributes
       raw_deps = bottle_tab_attributes.fetch("runtime_dependencies", []).then { |deps| deps || [] }
-      @bottle_tab_runtime_dependencies = raw_deps.each_with_object({}) { |dep, h| h[dep["full_name"]] = dep }.freeze
+      @bottle_tab_runtime_dependencies = raw_deps.to_h { |dep| [dep["full_name"], dep] }.freeze
 
       if (bottle_tag = formula.bottle_for_tag(Utils::Bottles.tag)&.tag) &&
          bottle_tag.system != :all
@@ -727,7 +727,7 @@ on_request: installed_on_request?, options:)
     unsatisfied_reqs = Hash.new { |h, k| h[k] = [] }
     formulae = [formula]
     formula_deps_map = formula.recursive_dependencies
-                              .each_with_object({}) { |dep, h| h[dep.name] = dep }
+                              .to_h { |dep| [dep.name, dep] }
 
     while (f = formulae.pop)
       runtime_requirements = runtime_requirements(f)

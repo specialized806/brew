@@ -405,7 +405,7 @@ end
 # The context in which a {Resource#stage} occurs. Supports access to both
 # the {Resource} and associated {Mktemp} in a single block argument. The interface
 # is back-compatible with {Resource} itself as used in that context.
-class ResourceStageContext
+class ResourceStageContext # rubocop:todo Style/OneClassPerFile
   extend Forwardable
 
   # The {Resource} that is being staged.

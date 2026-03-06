@@ -13,7 +13,7 @@ RSpec.describe Cask::Artifact::PreflightBlock, :cask do
         end
       end
 
-      cask.artifacts.select { |a| a.is_a?(described_class) }.each do |artifact|
+      cask.artifacts.grep(described_class).each do |artifact|
         artifact.install_phase(command: NeverSudoSystemCommand, force: false)
       end
 
@@ -34,7 +34,7 @@ RSpec.describe Cask::Artifact::PreflightBlock, :cask do
         end
       end
 
-      cask.artifacts.select { |a| a.is_a?(described_class) }.each do |artifact|
+      cask.artifacts.grep(described_class).each do |artifact|
         artifact.uninstall_phase(command: NeverSudoSystemCommand, force: false)
       end
 

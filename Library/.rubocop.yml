@@ -381,6 +381,18 @@ Style/FetchEnvVar:
     - "/**/Formula/**/*.rb"
     - "**/Formula/**/*.rb"
 
+# Doesn't make sense for formulae with e.g. requirements.
+Style/OneClassPerFile:
+  Exclude:
+    - "**/*.rbi"
+    - "Taps/*/*/*.rb"
+    - "/**/Abstract/**/*.rb"
+    - "**/Abstract/**/*.rb"
+    - "/**/Formula/**/*.rb"
+    - "**/Formula/**/*.rb"
+    - "/**/developer/bin/*"
+    - "**/developer/bin/*"
+
 # Not used for casks and formulae.
 Style/FrozenStringLiteralComment:
   EnforcedStyle: always

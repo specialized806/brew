@@ -23,7 +23,7 @@ require "utils/timer"
 require "github_packages"
 
 # @abstract Abstract superclass for all download strategies.
-class AbstractDownloadStrategy
+class AbstractDownloadStrategy # rubocop:todo Style/OneClassPerFile
   extend T::Helpers
   include FileUtils
   include Context
@@ -203,7 +203,7 @@ class AbstractDownloadStrategy
 end
 
 # @abstract Abstract superclass for all download strategies downloading from a version control system.
-class VCSDownloadStrategy < AbstractDownloadStrategy
+class VCSDownloadStrategy < AbstractDownloadStrategy # rubocop:todo Style/OneClassPerFile
   abstract!
 
   sig { override.returns(Pathname) }
@@ -303,7 +303,7 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
 end
 
 # @abstract Abstract superclass for all download strategies downloading a single file.
-class AbstractFileDownloadStrategy < AbstractDownloadStrategy
+class AbstractFileDownloadStrategy < AbstractDownloadStrategy # rubocop:todo Style/OneClassPerFile
   abstract!
 
   # Path for storing an incomplete download while the download is still in progress.
@@ -431,7 +431,7 @@ end
 # Strategy for downloading files using `curl`.
 #
 # @api public
-class CurlDownloadStrategy < AbstractFileDownloadStrategy
+class CurlDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/OneClassPerFile
   include Utils::Curl
 
   # url, basename, time, file_size, content_type, is_redirection
@@ -701,7 +701,7 @@ end
 # Strategy for downloading a file using Homebrew's `curl`.
 #
 # @api public
-class HomebrewCurlDownloadStrategy < CurlDownloadStrategy
+class HomebrewCurlDownloadStrategy < CurlDownloadStrategy # rubocop:todo Style/OneClassPerFile
   private
 
   sig {
@@ -726,7 +726,7 @@ end
 # Strategy for downloading a file from an GitHub Packages URL.
 #
 # @api public
-class CurlGitHubPackagesDownloadStrategy < CurlDownloadStrategy
+class CurlGitHubPackagesDownloadStrategy < CurlDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(resolved_basename: String).returns(T.nilable(String)) }
   attr_writer :resolved_basename
 
@@ -760,7 +760,7 @@ end
 # Strategy for downloading a file from an Apache Mirror URL.
 #
 # @api public
-class CurlApacheMirrorDownloadStrategy < CurlDownloadStrategy
+class CurlApacheMirrorDownloadStrategy < CurlDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { returns(T::Array[String]) }
   def mirrors
     combined_mirrors
@@ -809,7 +809,7 @@ end
 # Query parameters on the URL are converted into POST parameters.
 #
 # @api public
-class CurlPostDownloadStrategy < CurlDownloadStrategy
+class CurlPostDownloadStrategy < CurlDownloadStrategy # rubocop:todo Style/OneClassPerFile
   private
 
   sig {
@@ -833,7 +833,7 @@ end
 # (Useful for downloading `.jar` files.)
 #
 # @api public
-class NoUnzipCurlDownloadStrategy < CurlDownloadStrategy
+class NoUnzipCurlDownloadStrategy < CurlDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { override.params(_block: T.nilable(T.proc.void)).void }
   def stage(&_block)
     UnpackStrategy::Uncompressed.new(cached_location)
@@ -844,7 +844,7 @@ class NoUnzipCurlDownloadStrategy < CurlDownloadStrategy
 end
 
 # Strategy for extracting local binary packages.
-class LocalBottleDownloadStrategy < AbstractFileDownloadStrategy
+class LocalBottleDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/OneClassPerFile
   # TODO: Call `super` here
   # rubocop:disable Lint/MissingSuper
   sig { params(path: Pathname).void }
@@ -862,7 +862,7 @@ end
 # Strategy for downloading a Subversion repository.
 #
 # @api public
-class SubversionDownloadStrategy < VCSDownloadStrategy
+class SubversionDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
@@ -981,7 +981,7 @@ end
 # Strategy for downloading a Git repository.
 #
 # @api public
-class GitDownloadStrategy < VCSDownloadStrategy
+class GitDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPerFile
   MINIMUM_COMMIT_HASH_LENGTH = 7
 
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
@@ -1268,7 +1268,7 @@ end
 # Strategy for downloading a Git repository from GitHub.
 #
 # @api public
-class GitHubGitDownloadStrategy < GitDownloadStrategy
+class GitHubGitDownloadStrategy < GitDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, name: String, version: T.nilable(Version), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
@@ -1329,7 +1329,7 @@ end
 # Strategy for downloading a CVS repository.
 #
 # @api public
-class CVSDownloadStrategy < VCSDownloadStrategy
+class CVSDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
@@ -1422,7 +1422,7 @@ end
 # Strategy for downloading a Mercurial repository.
 #
 # @api public
-class MercurialDownloadStrategy < VCSDownloadStrategy
+class MercurialDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
@@ -1510,7 +1510,7 @@ end
 # Strategy for downloading a Bazaar repository.
 #
 # @api public
-class BazaarDownloadStrategy < VCSDownloadStrategy
+class BazaarDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
@@ -1576,7 +1576,7 @@ end
 # Strategy for downloading a Fossil repository.
 #
 # @api public
-class FossilDownloadStrategy < VCSDownloadStrategy
+class FossilDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPerFile
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
@@ -1630,7 +1630,7 @@ class FossilDownloadStrategy < VCSDownloadStrategy
 end
 
 # Helper class for detecting a download strategy from a URL.
-class DownloadStrategyDetector
+class DownloadStrategyDetector # rubocop:todo Style/OneClassPerFile
   sig {
     params(url: String, using: T.nilable(T.any(Symbol, T::Class[AbstractDownloadStrategy])))
       .returns(T::Class[AbstractDownloadStrategy])

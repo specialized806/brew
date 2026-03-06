@@ -5,7 +5,7 @@ require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::DevCmd::DetermineTestRunners do
   def get_runners(file)
-    runner_line = File.open(file).first
+    runner_line = File.open(file, &:first)
     json_text = runner_line[/runners=(.*)/, 1]
     runner_hash = JSON.parse(json_text)
     runner_hash.map { |item| item["runner"].delete_suffix(ephemeral_suffix) }

@@ -189,7 +189,7 @@ end
 # {CacheStore} provides methods to mutate and fetch data from a persistent
 # storage mechanism.
 #
-class CacheStore
+class CacheStore # rubocop:todo Style/OneClassPerFile
   extend T::Helpers
 
   abstract!

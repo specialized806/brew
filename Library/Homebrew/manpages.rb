@@ -17,7 +17,6 @@ module Homebrew
       :project_leader,
       :lead_maintainers,
       :maintainers,
-      keyword_init: true,
     )
 
     SOURCE_PATH = T.let((HOMEBREW_LIBRARY_PATH/"manpages").freeze, Pathname)

@@ -97,7 +97,7 @@ end
 # {CaskDescriptionCacheStore} provides methods to fetch and mutate cask descriptions used
 # by the `brew desc` and `brew search` commands.
 #
-class CaskDescriptionCacheStore < DescriptionCacheStore
+class CaskDescriptionCacheStore < DescriptionCacheStore # rubocop:todo Style/OneClassPerFile
   # If the database is empty `update!` it with all known casks.
   #
   # @return [nil]

@@ -29,7 +29,6 @@ module Homebrew
 
         Item = Struct.new(
           :bundle_version,
-          keyword_init: true,
         ) do
           extend Forwardable
 
