@@ -626,18 +626,11 @@ class Formula
   # Returns any other `@`-versioned formulae names for any Formula (including versioned formulae).
   sig { returns(T::Array[String]) }
   def versioned_formulae_names
-    name_prefix = unversioned_formula_name || name
-
-    versioned_names = if (formula_tap = tap)
-      formula_tap.prefix_to_versioned_formulae_names.fetch(name_prefix, [])
+    versioned_names = if tap
+      name_prefix = name.gsub(/(@[\d.]+)?$/, "")
+      T.must(tap).prefix_to_versioned_formulae_names.fetch(name_prefix, [])
     elsif path.exist?
-      versioned_formula_glob = if name_prefix.end_with?("-full")
-        "#{name_prefix.delete_suffix("-full")}@*-full.rb"
-      else
-        "#{name_prefix}@*.rb"
-      end
-
-      Pathname.glob((path.dirname/versioned_formula_glob).to_s)
+      Pathname.glob(path.to_s.gsub(/(@[\d.]+)?\.rb$/, "@*.rb"))
               .map { |path| path.basename(".rb").to_s }
               .sort
     else
@@ -657,94 +650,6 @@ class Formula
     rescue FormulaUnavailableError
       nil
     end.sort_by(&:version).reverse
-  end
-
-  sig { returns(T.nilable(String)) }
-  def unversioned_formula_name
-    return unless versioned_formula?
-
-    name.sub(/@[\d.]+(?=-full$|$)/, "")
-  end
-
-  # Returns the sibling `-full` or non-`-full` formula names for any Formula.
-  sig { returns(T::Array[String]) }
-  def full_formulae_names
-    [
-      if name.end_with?("-full")
-        name.delete_suffix("-full")
-      else
-        "#{name}-full"
-      end,
-    ]
-  end
-
-  # Returns sibling `-full` or non-`-full` Formula objects for any Formula.
-  sig { returns(T::Array[Formula]) }
-  def full_formulae
-    full_formulae_names.filter_map do |formula_name|
-      Formula[formula_name]
-    rescue FormulaUnavailableError
-      nil
-    end.sort_by(&:version).reverse
-  end
-
-  sig { returns(T.nilable(String)) }
-  def link_overwrite_reason
-    installed_overwrite_formulae = link_overwrite_formulae.select(&:any_version_installed?)
-    return if installed_overwrite_formulae.empty?
-
-    reason_formulae = installed_overwrite_formulae.select(&:linked?)
-    status = if reason_formulae.empty?
-      reason_formulae = installed_overwrite_formulae
-      "installed"
-    else
-      "linked"
-    end
-
-    "#{reason_formulae.map(&:full_name).to_sentence} #{reason_formulae.one? ? "is" : "are"} already #{status}"
-  end
-
-  sig { returns(T::Array[String]) }
-  def link_overwrite_related_formula_names
-    [*versioned_formulae_names, *full_formulae_names, unversioned_formula_name].compact
-  end
-
-  # Returns sibling Formula names whose prefix links should be replaced when this Formula is linked.
-  sig { returns(T::Array[String]) }
-  def link_overwrite_formulae_names
-    formula_names = T.let(Set.new, T::Set[String])
-    pending_formula_names = T.let([name], T::Array[String])
-
-    pending_formula_names.each do |current_name|
-      current_formula = begin
-        if current_name == name
-          self
-        else
-          Formula[current_name]
-        end
-      rescue FormulaUnavailableError
-        next
-      end
-
-      current_formula.link_overwrite_related_formula_names.each do |related_formula_name|
-        next if related_formula_name == name
-        next unless formula_names.add?(related_formula_name)
-
-        pending_formula_names << related_formula_name
-      end
-    end
-
-    formula_names.to_a.sort
-  end
-
-  # Returns sibling Formulae whose prefix links should be replaced when this Formula is linked.
-  sig { returns(T::Array[Formula]) }
-  def link_overwrite_formulae
-    link_overwrite_formulae_names.filter_map do |formula_name|
-      Formula[formula_name]
-    rescue FormulaUnavailableError
-      nil
-    end
   end
 
   # Whether this {Formula} is version-synced with other formulae.
