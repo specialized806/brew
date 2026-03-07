@@ -337,7 +337,7 @@ module GitHub
       artifacts
       .group_by { |art| art["name"] }
       .select { |name| File.fnmatch?(artifact_pattern, name, File::FNM_EXTGLOB) }
-      .map { |_, arts| arts.last }
+      .map { |_, arts| arts.max_by { |art| art["created_at"] } }
 
     if matching_artifacts.empty?
       raise API::Error, <<~EOS
