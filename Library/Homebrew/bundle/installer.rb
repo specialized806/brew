@@ -77,7 +77,7 @@ module Homebrew
 
         if (fetchable_names = fetchable_formulae_and_casks(installable_entries, no_upgrade:).presence)
           fetchable_names_joined = fetchable_names.join(", ")
-          Formatter.success("Fetching #{fetchable_names_joined}") unless quiet
+          puts Formatter.success("Fetching #{fetchable_names_joined}") unless quiet
           unless Bundle.brew("fetch", *fetchable_names, verbose:)
             $stderr.puts Formatter.error "`brew bundle` failed! Failed to fetch #{fetchable_names_joined}"
             return false
