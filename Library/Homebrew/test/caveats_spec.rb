@@ -176,6 +176,12 @@ RSpec.describe Caveats do
         expect(caveats).to include("keg-only")
       end
 
+      it "omits keg-only caveats when the formula is linked" do
+        allow(f).to receive(:linked?).and_return(true)
+
+        expect(caveats).to be_empty
+      end
+
       it "gives command to be run when f.bin is a directory" do
         Pathname.new(f.bin).mkpath
         expect(caveats).to include(f.opt_bin.to_s)

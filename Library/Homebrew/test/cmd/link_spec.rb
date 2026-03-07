@@ -18,4 +18,36 @@ RSpec.describe Homebrew::Cmd::Link do
       .and be_a_success
     expect(HOMEBREW_PREFIX/"bin/testfile").to be_a_file
   end
+
+  {
+    "@-versioned" => "testball-link-output@1.0",
+    "-full"       => "testball-link-output-full",
+  }.each do |formula_type, formula_name|
+    it "does not print keg-only output when linking a #{formula_type} formula", :integration_test do
+      formula_content = <<~RUBY
+        keg_only :versioned_formula
+
+        def caveats
+          "unexpected caveat output"
+        end
+
+        def post_install
+          puts "unexpected post_install output"
+        end
+      RUBY
+
+      setup_test_formula formula_name, formula_content, tab_attributes: { installed_on_request: true }
+      Formula[formula_name].bin.mkpath
+      FileUtils.touch Formula[formula_name].bin/"link-output-test"
+      Formula[formula_name].any_installed_keg.unlink
+      unexpected_output = /unexpected caveat output|unexpected post_install output|
+                           If you need to have this software first in your PATH|keg-only/x
+
+      expect { brew "link", formula_name }
+        .to not_to_output(unexpected_output).to_stdout
+        .and not_to_output.to_stderr
+        .and be_a_success
+      expect(HOMEBREW_PREFIX/"bin/link-output-test").to be_a_file
+    end
+  end
 end

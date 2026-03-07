@@ -113,7 +113,10 @@ class FormulaInstaller
     @overwrite = overwrite
     @keep_tmp = keep_tmp
     @debug_symbols = debug_symbols
-    @link_keg = T.let(!formula.keg_only? || link_keg, T::Boolean)
+    @installed_as_dependency = installed_as_dependency
+    @installed_on_request = installed_on_request
+    link_keg ||= !formula.keg_only? || auto_link_versioned_keg_only?
+    @link_keg = T.let(link_keg, T::Boolean)
     @show_header = show_header
     @ignore_deps = ignore_deps
     @only_deps = only_deps
@@ -131,8 +134,6 @@ class FormulaInstaller
     @verbose = verbose
     @quiet = quiet
     @debug = debug
-    @installed_as_dependency = installed_as_dependency
-    @installed_on_request = installed_on_request
     @options = options
     @requirement_messages = T.let([], T::Array[String])
     @poured_bottle = T.let(false, T::Boolean)
@@ -937,6 +938,24 @@ on_request: installed_on_request?, options:)
     Homebrew.messages.record_caveats(formula.name, caveats)
   end
 
+  sig { returns(T.nilable(String)) }
+  def link_manual_command_warning
+    return if installed_as_dependency?
+    return unless formula.keg_only?
+    return unless formula.keg_only_reason.versioned_formula?
+    return if link_keg
+    return if formula.linked?
+
+    reason = formula.link_overwrite_reason
+    return if reason.blank?
+
+    <<~EOS
+      #{formula.full_name} was installed but not linked because #{reason}.
+      To link this version, run:
+        brew link #{formula.full_name}
+    EOS
+  end
+
   sig { void }
   def finish
     return if only_deps?
@@ -952,6 +971,8 @@ on_request: installed_on_request?, options:)
       end
     else
       link(keg)
+      warning = link_manual_command_warning
+      opoo warning if !quiet? && warning.present?
     end
 
     install_service
@@ -1162,7 +1183,7 @@ on_request: installed_on_request?, options:)
       keg.remove_linked_keg_record
     end
 
-    Homebrew::Unlink.unlink_versioned_formulae(formula, verbose: verbose?)
+    Homebrew::Unlink.unlink_link_overwrite_formulae(formula, verbose: verbose?)
 
     link_overwrite_backup = {} # Hash: conflict file -> backup file
     backup_dir = HOMEBREW_CACHE/"Backup"
@@ -1700,6 +1721,17 @@ on_request: installed_on_request?, options:)
   end
 
   private
+
+  sig { returns(T::Boolean) }
+  def auto_link_versioned_keg_only?
+    return false if installed_as_dependency?
+    return false unless formula.keg_only?
+    return false unless formula.keg_only_reason.versioned_formula?
+    return false if formula.any_version_installed?
+    return false if formula.link_overwrite_formulae.any?(&:any_version_installed?)
+
+    true
+  end
 
   sig { void }
   def lock

@@ -199,6 +199,16 @@ RSpec.describe Tap do
     expect(homebrew_foo_tap).not_to have_formula_file("Formula/baz.sh")
   end
 
+  describe "#prefix_to_versioned_formulae_names" do
+    it "groups versioned full formulae with their matching full formula" do
+      homebrew_foo_tap.instance_variable_set(:@prefix_to_versioned_formulae_names, nil)
+      allow(homebrew_foo_tap).to receive(:formula_names).and_return(["foo@2.0", "foo-full", "foo@2.0-full"])
+
+      expect(homebrew_foo_tap.prefix_to_versioned_formulae_names)
+        .to include("foo" => ["foo@2.0"], "foo-full" => ["foo@2.0-full"])
+    end
+  end
+
   describe "#remote" do
     it "returns the remote URL", :needs_network do
       setup_git_repo

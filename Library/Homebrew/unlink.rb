@@ -5,9 +5,8 @@ module Homebrew
   # Provides helper methods for unlinking formulae and kegs with consistent output.
   module Unlink
     sig { params(formula: Formula, verbose: T::Boolean).void }
-    def self.unlink_versioned_formulae(formula, verbose: false)
-      formula.versioned_formulae
-             .select(&:keg_only?)
+    def self.unlink_link_overwrite_formulae(formula, verbose: false)
+      formula.link_overwrite_formulae
              .select(&:linked?)
              .filter_map(&:any_installed_keg)
              .select(&:directory?)
