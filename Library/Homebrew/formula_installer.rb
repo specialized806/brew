@@ -52,7 +52,7 @@ class FormulaInstaller
   sig {
     params(
       formula:                    Formula,
-      link_keg:                   T.nilable(T::Boolean),
+      link_keg:                   T::Boolean,
       installed_as_dependency:    T::Boolean,
       installed_on_request:       T::Boolean,
       show_header:                T::Boolean,
@@ -81,7 +81,7 @@ class FormulaInstaller
   }
   def initialize(
     formula,
-    link_keg: nil,
+    link_keg: false,
     installed_as_dependency: false,
     installed_on_request: false,
     show_header: false,
@@ -115,7 +115,7 @@ class FormulaInstaller
     @debug_symbols = debug_symbols
     @installed_as_dependency = installed_as_dependency
     @installed_on_request = installed_on_request
-    link_keg = !formula.keg_only? || auto_link_versioned_keg_only? if link_keg.nil?
+    link_keg ||= !formula.keg_only? || auto_link_versioned_keg_only?
     @link_keg = T.let(link_keg, T::Boolean)
     @show_header = show_header
     @ignore_deps = ignore_deps

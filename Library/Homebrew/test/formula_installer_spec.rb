@@ -84,12 +84,43 @@ RSpec.describe FormulaInstaller do
   end
 
   describe "linking defaults" do
-    it "links non-keg-only formulae by default" do
+    it "links non-keg-only formulae when link_keg is false" do
       ordinary_formula = formula "homebrew-link-default" do
         url "foo-1.0"
       end
 
-      expect(described_class.new(ordinary_formula).link_keg).to be true
+      expect(described_class.new(ordinary_formula, link_keg: false).link_keg).to be true
+    end
+
+    it "links non-keg-only dependencies even when they were not previously linked" do
+      dependency_formula = formula "homebrew-link-default-dependency" do
+        url "foo-1.0"
+      end
+      dependency = instance_double(Dependency, to_formula: dependency_formula, name: dependency_formula.name,
+                                               options: Options.new)
+      installer = described_class.new(Testball.new)
+      child_installer = nil
+
+      allow(dependency_formula).to receive_messages(
+        linked_keg:                Pathname("/tmp/nonexistent-linked-keg"),
+        latest_version_installed?: false,
+        tap:                       nil,
+        any_version_installed?:    false,
+      )
+      allow(installer).to receive(:oh1)
+      allow(described_class).to receive(:new).and_wrap_original do |original, formula, **kwargs|
+        instance = original.call(formula, **kwargs)
+        next instance if formula != dependency_formula
+
+        child_installer = instance
+        allow(instance).to receive_messages(prelude: true, install: true, finish: true)
+        instance
+      end
+
+      installer.send(:install_dependency, dependency)
+
+      expect(child_installer).to be_installed_as_dependency
+      expect(child_installer&.link_keg).to be true
     end
   end
 
