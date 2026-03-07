@@ -844,7 +844,7 @@ class Tap
   def prefix_to_versioned_formulae_names
     @prefix_to_versioned_formulae_names ||= T.let(formula_names
                                                   .select { |name| name.include?("@") }
-                                                  .group_by { |name| name.sub(/@[\d.]+(?=-full$|$)/, "") }
+                                                  .group_by { |name| name.gsub(/(@[\d.]+)?$/, "") }
                                                   .transform_values(&:sort)
                                                   .freeze, T.nilable(T::Hash[String, T::Array[String]]))
   end

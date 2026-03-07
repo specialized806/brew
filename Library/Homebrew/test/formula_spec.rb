@@ -158,26 +158,12 @@ RSpec.describe Formula do
       end
     end
 
-    let(:f_full) do
-      formula "foo-full" do
-        url "foo-full-1.0"
-      end
-    end
-
-    let(:f_full2) do
-      formula "foo@2.0-full" do
-        url "foo-full-2.0"
-      end
-    end
-
     before do
       # don't try to load/fetch gcc/glibc
       allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
 
       allow(Formulary).to receive(:load_formula_from_path).with(f2.name, f2.path).and_return(f2)
       allow(Formulary).to receive(:factory).with(f2.name).and_return(f2)
-      allow(Formulary).to receive(:load_formula_from_path).with(f_full2.name, f_full2.path).and_return(f_full2)
-      allow(Formulary).to receive(:factory).with(f_full2.name).and_return(f_full2)
       allow(f).to receive(:versioned_formulae_names).and_return([f2.name])
     end
 
@@ -191,152 +177,6 @@ RSpec.describe Formula do
       FileUtils.touch f.path
       FileUtils.touch f2.path
       expect(f2.versioned_formulae).to be_empty
-    end
-
-    it "returns versioned full formulae for the matching full formula" do
-      allow(f_full).to receive(:tap).and_return(nil)
-      FileUtils.touch f_full.path
-      FileUtils.touch f_full2.path
-      expect(f_full.versioned_formulae).to eq [f_full2]
-    end
-  end
-
-  describe "#full_formulae_names" do
-    let(:f) do
-      formula "foo" do
-        url "foo-1.0"
-      end
-    end
-
-    let(:f_full) do
-      formula "foo-full" do
-        url "foo-full-1.0"
-      end
-    end
-
-    let(:f_versioned) do
-      formula "foo@2.0" do
-        url "foo-2.0"
-      end
-    end
-
-    it "returns sibling full and non-full names" do
-      expect(f.full_formulae_names).to eq ["foo-full"]
-      expect(f_full.full_formulae_names).to eq ["foo"]
-      expect(f_versioned.full_formulae_names).to eq ["foo@2.0-full"]
-    end
-  end
-
-  describe "#full_formulae" do
-    let(:f) do
-      formula "foo" do
-        url "foo-1.0"
-      end
-    end
-
-    let(:f_full) do
-      formula "foo-full" do
-        url "foo-full-1.0"
-      end
-    end
-
-    before do
-      allow(Formulary).to receive(:load_formula_from_path).with(f_full.name, f_full.path).and_return(f_full)
-      allow(Formulary).to receive(:factory).with(f_full.name).and_return(f_full)
-      allow(f).to receive(:full_formulae_names).and_return([f_full.name])
-    end
-
-    it "returns array with sibling full formulae" do
-      FileUtils.touch f.path
-      FileUtils.touch f_full.path
-      expect(f.full_formulae).to eq [f_full]
-    end
-  end
-
-  describe "#unversioned_formula_name" do
-    let(:f) do
-      formula "foo" do
-        url "foo-1.0"
-      end
-    end
-
-    let(:f_full) do
-      formula "foo@2.0-full" do
-        url "foo-full-2.0"
-      end
-    end
-
-    let(:f_versioned) do
-      formula "foo@2.0" do
-        url "foo-2.0"
-      end
-    end
-
-    it "returns the matching unversioned sibling name" do
-      expect(f.unversioned_formula_name).to be_nil
-      expect(f_versioned.unversioned_formula_name).to eq("foo")
-      expect(f_full.unversioned_formula_name).to eq("foo-full")
-    end
-  end
-
-  describe "#link_overwrite_reason" do
-    it "explains why a formula was not linked" do
-      f = formula "foo@2.0" do
-        url "foo-2.0"
-      end
-      other_formula = formula "foo" do
-        url "foo-1.0"
-      end
-      allow(other_formula).to receive_messages(any_version_installed?: true, linked?: true)
-      allow(f).to receive(:link_overwrite_formulae).and_return([other_formula])
-
-      expect(f.link_overwrite_reason).to eq("foo is already linked")
-    end
-  end
-
-  describe "#link_overwrite_formulae_names" do
-    let(:f) do
-      formula "foo" do
-        url "foo-1.0"
-      end
-    end
-
-    let(:f_full) do
-      formula "foo-full" do
-        url "foo-full-1.0"
-      end
-    end
-
-    let(:f_versioned) do
-      formula "foo@2.0" do
-        url "foo-2.0"
-      end
-    end
-
-    let(:f_versioned_full) do
-      formula "foo@2.0-full" do
-        url "foo-full-2.0"
-      end
-    end
-
-    before do
-      [f, f_full, f_versioned, f_versioned_full].each do |formula|
-        allow(Formulary).to receive(:load_formula_from_path).with(formula.name, formula.path).and_return(formula)
-        allow(Formulary).to receive(:factory).with(formula.name).and_return(formula)
-        FileUtils.touch formula.path
-      end
-
-      allow(f).to receive_messages(versioned_formulae_names: [f_versioned.name], full_formulae_names: [f_full.name])
-      allow(f_full).to receive_messages(versioned_formulae_names: [], full_formulae_names: [f.name])
-      allow(f_versioned).to receive_messages(versioned_formulae_names: [],
-                                             full_formulae_names:      [f_versioned_full.name])
-      allow(f_versioned_full).to receive_messages(versioned_formulae_names: [],
-                                                  full_formulae_names:      [f_versioned.name])
-    end
-
-    it "includes direct full and unversioned siblings while excluding the current formula" do
-      expect(f_versioned.link_overwrite_formulae_names)
-        .to eq(["foo", f_full.name, f_versioned_full.name])
     end
   end
 

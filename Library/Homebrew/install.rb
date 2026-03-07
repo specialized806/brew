@@ -181,7 +181,7 @@ module Homebrew
             msg = <<~EOS
               #{msg}, it's just not linked.
               To link this version, run:
-                brew link #{formula.full_name}
+                brew link #{formula}
             EOS
           else
             msg = if quiet
