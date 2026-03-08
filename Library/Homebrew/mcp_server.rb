@@ -147,7 +147,7 @@ module Homebrew
           properties: {
             only:      {
               type:        "string",
-              description: "Specific tests to run (comma-seperated) e.g. for `<file>_spec.rb` pass `<file>`. " \
+              description: "Specific tests to run (comma-separated) e.g. for `<file>_spec.rb` pass `<file>`. " \
                            "Appending `:<line_number>` will start at a specific line",
             },
             fail_fast: {
