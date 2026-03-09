@@ -630,18 +630,14 @@ class Formula
 
     versioned_names = if (formula_tap = tap)
       formula_tap.prefix_to_versioned_formulae_names.fetch(name_prefix, [])
-    elsif path.exist?
+    else
       versioned_formula_glob = if name_prefix.end_with?("-full")
         "#{name_prefix.delete_suffix("-full")}@*-full.rb"
       else
         "#{name_prefix}@*.rb"
       end
 
-      Pathname.glob((path.dirname/versioned_formula_glob).to_s)
-              .map { |path| path.basename(".rb").to_s }
-              .sort
-    else
-      raise "Either tap or path is required to list versioned formulae"
+      formula_names_for_glob(versioned_formula_glob)
     end
 
     versioned_names.reject do |versioned_name|
@@ -666,16 +662,36 @@ class Formula
     name.sub(/@[\d.]+(?=-full$|$)/, "")
   end
 
+  sig { params(glob: String).returns(T::Array[String]) }
+  def formula_names_for_glob(glob)
+    @formula_names_for_glob ||= T.let({}, T.nilable(T::Hash[String, T::Array[String]]))
+    @formula_names_for_glob[glob] ||= if (formula_tap = tap)
+      formula_name = File.basename(glob, ".rb")
+      if formula_tap.formula_files_by_name.key?(formula_name)
+        [formula_name]
+      else
+        []
+      end
+    elsif path.exist?
+      Pathname.glob((path.dirname/glob).to_s)
+              .map { |path| path.basename(".rb").to_s }
+              .sort
+    else
+      raise "Either tap or path is required to list sibling formulae"
+    end
+  end
+  private :formula_names_for_glob
+
   # Returns the sibling `-full` or non-`-full` formula names for any Formula.
   sig { returns(T::Array[String]) }
   def full_formulae_names
-    [
-      if name.end_with?("-full")
-        name.delete_suffix("-full")
-      else
-        "#{name}-full"
-      end,
-    ]
+    sibling_name = if name.end_with?("-full")
+      name.delete_suffix("-full")
+    else
+      "#{name}-full"
+    end
+
+    formula_names_for_glob("#{sibling_name}.rb")
   end
 
   # Returns sibling `-full` or non-`-full` Formula objects for any Formula.
@@ -747,6 +763,38 @@ class Formula
     end
   end
 
+  sig { params(path: Pathname).returns(T.nilable(T.any(String, Symbol))) }
+  def link_overwrite_keg_name(path)
+    # Don't overwrite files not created by Homebrew.
+    return if path.stat.uid != HOMEBREW_ORIGINAL_BREW_FILE.stat.uid
+
+    keg = Keg.for(path)
+    # This keg doesn't belong to any current core/tap formula, most likely coming from a DIY install.
+    return if keg.tab.tap.nil?
+
+    keg.name
+  rescue NotAKegError, Errno::ENOENT
+    # File doesn't belong to any keg.
+    :missing
+  end
+
+  sig {
+    params(keg_name: T.nilable(T.any(String, Symbol)), overwrite_formulae: T::Array[Formula]).returns(T::Boolean)
+  }
+  def implied_link_overwrite?(keg_name, overwrite_formulae)
+    return false if overwrite_formulae.empty?
+    return false if keg_name.nil?
+
+    case keg_name
+    when :missing
+      # File doesn't belong to any keg, so implied overwrites do not apply.
+      false
+    else
+      overwrite_formulae.any? do |formula|
+        formula.possible_names.include?(keg_name)
+      end
+    end
+  end
   # Whether this {Formula} is version-synced with other formulae.
   sig { returns(T::Boolean) }
   def synced_with_other_formulae?
@@ -1599,39 +1647,37 @@ class Formula
   end
 
   # @see .link_overwrite
+  # Explicit `link_overwrite` paths may also be implied for related formula families.
   sig { params(path: Pathname).returns(T::Boolean) }
   def link_overwrite?(path)
-    # Don't overwrite files not created by Homebrew.
-    return false if path.stat.uid != HOMEBREW_ORIGINAL_BREW_FILE.stat.uid
-
-    # Don't overwrite files belong to other keg except when that
+    # Don't overwrite files that belong to another keg except when that
     # keg's formula is deleted.
-    begin
-      keg = Keg.for(path)
-    rescue NotAKegError, Errno::ENOENT
-      # file doesn't belong to any keg.
-    else
-      tab_tap = keg.tab.tap
-      # this keg doesn't below to any core/tap formula, most likely coming from a DIY install.
-      return false if tab_tap.nil?
-
+    case keg_name = link_overwrite_keg_name(path)
+    when String
       begin
-        f = Formulary.factory(keg.name)
+        f = Formulary.factory(keg_name)
       rescue FormulaUnavailableError
         # formula for this keg is deleted, so defer to allowlist
       rescue TapFormulaAmbiguityError
         return false # this keg belongs to another formula
       else
-        # this keg belongs to another unrelated formula
-        return false unless f.possible_names.include?(keg.name)
+        # Ensure `keg_name` maps cleanly to the resolved formula via `possible_names`.
+        return false unless f.possible_names.include?(keg_name)
       end
+    when :missing
+      # File doesn't belong to any keg, so defer to overwrite checks below.
+    else
+      return false
     end
+
     to_check = path.relative_path_from(HOMEBREW_PREFIX).to_s
-    T.must(self.class.link_overwrite_paths).any? do |p|
+    return true if T.must(self.class.link_overwrite_paths).any? do |p|
       p.to_s == to_check ||
-        to_check.start_with?("#{p.to_s.chomp("/")}/") ||
-        /^#{Regexp.escape(p.to_s).gsub('\*', ".*?")}$/.match?(to_check)
+      to_check.start_with?("#{p.to_s.chomp("/")}/") ||
+      /^#{Regexp.escape(p.to_s).gsub('\*', ".*?")}$/.match?(to_check)
     end
+
+    implied_link_overwrite?(keg_name, link_overwrite_formulae)
   end
 
   # Whether this {Formula} is deprecated (i.e. warns on installation).

@@ -220,10 +220,33 @@ RSpec.describe Formula do
       end
     end
 
-    it "returns sibling full and non-full names" do
+    let(:f_versioned_full) do
+      formula "foo@2.0-full" do
+        url "foo-full-2.0"
+      end
+    end
+
+    before do
+      [f, f_full, f_versioned].each do |formula|
+        allow(formula).to receive(:tap).and_return(nil)
+        FileUtils.touch formula.path
+      end
+    end
+
+    it "returns only existing sibling full and non-full names" do
       expect(f.full_formulae_names).to eq ["foo-full"]
       expect(f_full.full_formulae_names).to eq ["foo"]
-      expect(f_versioned.full_formulae_names).to eq ["foo@2.0-full"]
+      expect(f_versioned.full_formulae_names).to eq []
+
+      allow(f_versioned_full).to receive(:tap).and_return(nil)
+      FileUtils.touch f_versioned_full.path
+      f_versioned_with_full = formula "foo@2.0" do
+        url "foo-2.0"
+      end
+      allow(f_versioned_with_full).to receive(:tap).and_return(nil)
+      FileUtils.touch f_versioned_with_full.path
+
+      expect(f_versioned_with_full.full_formulae_names).to eq ["foo@2.0-full"]
     end
   end
 
@@ -337,6 +360,146 @@ RSpec.describe Formula do
     it "includes direct full and unversioned siblings while excluding the current formula" do
       expect(f_versioned.link_overwrite_formulae_names)
         .to eq(["foo", f_full.name, f_versioned_full.name])
+    end
+  end
+
+  describe "#link_overwrite?" do
+    let(:versioned_formula) do
+      formula "foo@22" do
+        url "foo-22.0"
+      end
+    end
+
+    let(:related_formula) do
+      formula "foo" do
+        url "foo-1.0"
+      end
+    end
+
+    let(:conflict_file) { HOMEBREW_PREFIX/"lib/formula_spec/node_modules/npm/LICENSE" }
+
+    before do
+      allow(versioned_formula).to receive(:link_overwrite_formulae).and_return([related_formula])
+      conflict_file.dirname.mkpath
+      FileUtils.touch conflict_file
+    end
+
+    after do
+      FileUtils.rm_f conflict_file
+      conflict_file.dirname.rmdir_if_possible
+      conflict_file.dirname.parent.rmdir_if_possible
+      conflict_file.dirname.parent.parent.rmdir_if_possible
+    end
+
+    it "does not allow untracked conflicts for related formula families" do
+      expect(versioned_formula.link_overwrite?(conflict_file)).to be false
+    end
+
+    it "returns false when the conflict is not Homebrew-managed" do
+      allow(versioned_formula).to receive(:link_overwrite_keg_name).and_return(nil)
+
+      expect(versioned_formula.link_overwrite?(HOMEBREW_PREFIX/"bin/foo")).to be false
+    end
+
+    it "returns false for ambiguous keg names" do
+      allow(versioned_formula).to receive(:link_overwrite_keg_name).and_return("foo")
+      ambiguity_loaders = [
+        instance_double(Formulary::FormulaLoader, tap: instance_double(Tap, to_s: "homebrew/core")),
+        instance_double(Formulary::FormulaLoader, tap: instance_double(Tap, to_s: "homebrew/other")),
+      ]
+      allow(Formulary).to receive(:factory).with("foo")
+                                           .and_raise(TapFormulaAmbiguityError.new("foo", ambiguity_loaders))
+
+      expect(versioned_formula.link_overwrite?(HOMEBREW_PREFIX/"bin/foo")).to be false
+    end
+
+    it "returns false for unrelated keg names" do
+      unrelated_formula = formula "bar" do
+        url "bar-1.0"
+      end
+      allow(versioned_formula).to receive(:link_overwrite_keg_name).and_return("bar")
+      allow(Formulary).to receive(:factory).with("bar").and_return(unrelated_formula)
+      allow(unrelated_formula).to receive(:possible_names).and_return(["baz"])
+
+      expect(versioned_formula.link_overwrite?(HOMEBREW_PREFIX/"bin/bar")).to be false
+    end
+
+    it "allows explicit link_overwrite paths" do
+      formula_with_explicit_overwrite = formula "baz" do
+        url "baz-1.0"
+        link_overwrite "bin/baz"
+      end
+      allow(formula_with_explicit_overwrite).to receive(:link_overwrite_keg_name).and_return("baz")
+      allow(Formulary).to receive(:factory).with("baz").and_return(formula_with_explicit_overwrite)
+
+      expect(formula_with_explicit_overwrite.link_overwrite?(HOMEBREW_PREFIX/"bin/baz")).to be true
+    end
+
+    it "allows existing related keg names through implied overwrites" do
+      allow(versioned_formula).to receive(:link_overwrite_keg_name).and_return("foo")
+      allow(Formulary).to receive(:factory).with("foo").and_return(related_formula)
+
+      expect(versioned_formula.link_overwrite?(HOMEBREW_PREFIX/"bin/foo")).to be true
+    end
+
+    it "allows deleted related keg names through implied overwrites" do
+      allow(versioned_formula).to receive(:link_overwrite_keg_name).and_return("foo-old")
+      allow(Formulary).to receive(:factory).with("foo-old").and_raise(FormulaUnavailableError.new("foo-old"))
+      allow(related_formula).to receive_messages(oldnames: ["foo-old"], aliases: [])
+
+      expect(versioned_formula.link_overwrite?(HOMEBREW_PREFIX/"bin/foo")).to be true
+    end
+
+    it "returns false for missing conflicts without explicit or implied overwrites" do
+      formula_without_overwrites = formula "qux" do
+        url "qux-1.0"
+      end
+      allow(formula_without_overwrites).to receive_messages(link_overwrite_keg_name: :missing,
+                                                            link_overwrite_formulae: [])
+
+      expect(formula_without_overwrites.link_overwrite?(HOMEBREW_PREFIX/"bin/qux")).to be false
+    end
+  end
+
+  describe "#implied_link_overwrite?" do
+    let(:versioned_formula) do
+      formula "foo@22" do
+        url "foo-22.0"
+      end
+    end
+
+    let(:related_formula) do
+      formula "foo" do
+        url "foo-1.0"
+      end
+    end
+
+    before do
+      allow(related_formula).to receive_messages(oldnames: ["foo-old"], aliases: ["foo-alias"])
+    end
+
+    it "does not allow missing conflicts without actual related formulae" do
+      expect(versioned_formula.implied_link_overwrite?(:missing, [])).to be false
+    end
+
+    it "does not allow non-Homebrew conflicts" do
+      expect(versioned_formula.implied_link_overwrite?(nil, [related_formula])).to be false
+    end
+
+    it "does not allow missing conflicts even when related formulae exist" do
+      expect(versioned_formula.implied_link_overwrite?(:missing, [related_formula])).to be false
+    end
+
+    it "allows related keg names via oldnames" do
+      expect(versioned_formula.implied_link_overwrite?("foo-old", [related_formula])).to be true
+    end
+
+    it "allows related keg names via aliases" do
+      expect(versioned_formula.implied_link_overwrite?("foo-alias", [related_formula])).to be true
+    end
+
+    it "does not allow unrelated keg names" do
+      expect(versioned_formula.implied_link_overwrite?("bar", [related_formula])).to be false
     end
   end
 
