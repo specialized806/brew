@@ -18,7 +18,7 @@ but the command isn't limited to any one location.
   petere/postgresql
   ```
 
-* It should be noted: `brew tap` will not output anything if no taps were added yet. That is the case after a fresh install of homebrew.
+* It should be noted: `brew tap` will not output anything if no taps were added yet. That is the case after a fresh install of Homebrew.
 
 * `brew tap <user>/<repo>` makes a clone of the repository at
   `https://github.com/<user>/homebrew-<repo>` into `$(brew --repository)/Library/Taps`.
