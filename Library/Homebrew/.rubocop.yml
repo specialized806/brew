@@ -7,7 +7,7 @@ Bundler/GemFilename:
 Homebrew/MoveToExtendOS:
   Enabled: true
   Exclude:
-    - "{extend,test,requirements}/**/*"
+    - "{test,requirements}/**/*"
     - "os.rb"
 
 # We don't use Sorbet for RSpec tests so let's disable this there.
