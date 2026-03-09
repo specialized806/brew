@@ -380,7 +380,7 @@ module OS
 
       sig { returns(T.nilable(String)) }
       def self.detect_version_from_clang_version
-        clang_version = detect_clang_version
+        clang_version = detect_clang_version&.sub(/\A(\d+)(\d)(\d)\..*/, "\\1.\\2.\\3")
         return if clang_version.nil?
 
         MacOS::Xcode.detect_version_from_clang_version(Version.new(clang_version))
