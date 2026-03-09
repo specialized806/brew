@@ -18,7 +18,7 @@ class Dependencies < SimpleDelegator
   def select(&blk); end
 end
 
-class Requirements < SimpleDelegator # rubocop:todo Style/OneClassPerFile
+class Requirements < SimpleDelegator
   include Enumerable
   include Kernel
 

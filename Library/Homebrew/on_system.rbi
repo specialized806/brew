@@ -5,7 +5,7 @@ module OnSystem::MacOSOnly
   def on_arch_conditional(arm: nil, intel: nil); end
 end
 
-module OnSystem::MacOSAndLinux # rubocop:todo Style/OneClassPerFile
+module OnSystem::MacOSAndLinux
   sig {
     params(
       macos: T.nilable(T.any(T::Array[T.any(String, Pathname)], String, Pathname)),

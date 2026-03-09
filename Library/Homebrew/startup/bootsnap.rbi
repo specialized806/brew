@@ -22,7 +22,7 @@ module Homebrew
   end
 end
 
-module Bootsnap # rubocop:todo Style/OneClassPerFile
+module Bootsnap
   sig {
     params(
       cache_dir:          String,

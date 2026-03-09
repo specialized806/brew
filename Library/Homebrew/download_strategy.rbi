@@ -10,7 +10,7 @@ end
 
 # This is a third-party implementation.
 # rubocop:disable Style/OptionalBooleanParameter
-class Mechanize::HTTP::ContentDispositionParser # rubocop:todo Style/OneClassPerFile
+class Mechanize::HTTP::ContentDispositionParser
   sig {
     params(content_disposition: String, header: T::Boolean)
       .returns(T.nilable(Mechanize::HTTP::ContentDisposition))
