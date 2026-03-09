@@ -6,12 +6,13 @@ module Homebrew
   module Unlink
     sig { params(formula: Formula, verbose: T::Boolean).void }
     def self.unlink_link_overwrite_formulae(formula, verbose: false)
-      formula.link_overwrite_formulae
-             .select(&:linked?)
-             .filter_map(&:any_installed_keg)
-             .select(&:directory?)
-             .each do |keg|
-        unlink(keg, verbose:)
+      overwrite_formulae = formula.link_overwrite_formulae.select(&:linked?)
+      overwrite_formulae.select!(&:keg_only?) unless formula.keg_only?
+
+      overwrite_formulae.filter_map(&:any_installed_keg)
+                        .select(&:directory?)
+                        .each do |keg|
+         unlink(keg, verbose:)
       end
     end
 
