@@ -5,6 +5,7 @@ require "abstract_command"
 require "bump_version_parser"
 require "cask"
 require "cask/download"
+require "livecheck/livecheck_version"
 require "utils/tar"
 
 module Homebrew
@@ -148,11 +149,22 @@ module Homebrew
 
         if new_version.present?
           # For simplicity, our naming defers to the arm version if multiple architectures are specified
-          branch_version = new_version.arm || new_version.general
+          branch_version = new_version.arm || new_version.intel || new_version.general
           if branch_version.is_a?(Cask::DSL::Version)
             commit_version = shortened_version(branch_version, cask:)
             branch_name = "bump-#{cask.token}-#{branch_version.tr(",:", "-")}"
             commit_message ||= "#{cask.token} #{commit_version}"
+
+            # Append an arch-only suffix to the branch name and parenthetical to
+            # the commit title if the cask is multi-arch but only one arch is
+            # being updated
+            if new_version.arm && !new_version.intel
+              branch_name += "-arm-only"
+              commit_message += " (arm only)"
+            elsif new_version.intel && !new_version.arm
+              branch_name += "-intel-only"
+              commit_message += " (intel only)"
+            end
           end
           replacement_pairs = replace_version_and_checksum(cask, new_hash, new_version, replacement_pairs)
         end
@@ -198,8 +210,8 @@ module Homebrew
         end
       end
 
-      sig { params(cask: Cask::Cask).returns(T::Array[[Symbol, Symbol]]) }
-      def generate_system_options(cask)
+      sig { params(cask: Cask::Cask, new_version: BumpVersionParser).returns(T::Array[[Symbol, Symbol]]) }
+      def generate_system_options(cask, new_version)
         current_os = Homebrew::SimulateSystem.current_os
         current_os_is_macos = MacOSVersion::SYMBOLS.include?(current_os)
         newest_macos = MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
@@ -210,7 +222,15 @@ module Homebrew
         # `:macos` values (when used), as a generic `:macos` value won't apply
         # to on_system blocks referencing macOS versions.
         os_values = []
-        arch_values = depends_on_archs.presence || []
+
+        if new_version.arm || new_version.intel
+          arch_values = []
+          arch_values << :arm if new_version.arm
+          arch_values << :intel if new_version.intel
+        else
+          arch_values = depends_on_archs.presence || []
+        end
+
         if cask.on_system_blocks_exist?
           OnSystem::BASE_OS_OPTIONS.each do |os|
             os_values << if os == :macos
@@ -220,13 +240,27 @@ module Homebrew
             end
           end
 
-          arch_values = OnSystem::ARCH_OPTIONS if arch_values.empty?
+          arch_values = OnSystem::ARCH_OPTIONS.dup if arch_values.empty?
         else
           # Architecture is only relevant if on_system blocks are present or
           # the cask uses `depends_on arch`, otherwise we default to ARM for
           # consistency.
           os_values << (current_os_is_macos ? current_os : newest_macos)
           arch_values << :arm if arch_values.empty?
+        end
+
+        if arch_values.length > 1 && !new_version.general
+          # We sort arch values in descending order by version to mitigate the
+          # issue where updating multiple arch-specific versions can lead to
+          # incorrect version changes in the cask (e.g. ARM is version 1.2.3,
+          # Intel is updated to 1.2.3, ARM is updated to 1.2.4 and this
+          # incorrectly replaces the 1.2.3 version for both archs). This is
+          # something that should be handled by better version replacement logic
+          # but this is a workaround for now.
+          arch_values = arch_values.sort_by do |type|
+            new_version_value = Version.new(new_version.send(type) || "0")
+            Livecheck::LivecheckVersion.create(cask, new_version_value)
+          end.reverse
         end
 
         os_values.product(arch_values)
@@ -241,7 +275,7 @@ module Homebrew
         ).returns(T::Array[[T.any(Regexp, String), T.any(Pathname, String)]])
       }
       def replace_version_and_checksum(cask, new_hash, new_version, replacement_pairs)
-        generate_system_options(cask).each do |os, arch|
+        generate_system_options(cask, new_version).each do |os, arch|
           SimulateSystem.with(os:, arch:) do
             # Handle the cask being invalid for specific os/arch combinations
             old_cask = begin
@@ -314,7 +348,7 @@ module Homebrew
         throttle_rate = cask.livecheck.throttle
         return unless throttle_rate
 
-        version = new_version.arm || new_version.general || new_version.intel
+        version = new_version.arm || new_version.intel || new_version.general
         return unless version.is_a?(Cask::DSL::Version)
 
         version_patch = version.patch.to_i

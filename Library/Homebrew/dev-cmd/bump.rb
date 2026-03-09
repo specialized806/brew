@@ -426,26 +426,38 @@ module Homebrew
         end
 
         if !args.no_pull_requests? &&
-           (new_version.general != "unable to get versions") &&
-           (new_version.general != "skipped") &&
-           (new_version != current_version) &&
            !newer_than_upstream.all? { |_k, v| v == true }
-          # We use the ARM version for the pull request version. This is
-          # consistent with the behavior of bump-cask-pr.
-          pull_request_version = if multiple_versions[:new]
-            new_version.arm.to_s
-          else
-            new_version.general.to_s
+          pull_request_version = nil
+          if (new_version_arm = new_version.arm) &&
+             (new_version_arm != "unable to get versions") &&
+             (new_version_arm != "skipped") &&
+             (new_version_arm != current_version.arm)
+            # We use the ARM version for the pull request version even if there
+            # are multiple arch versions to be consistent with the behavior of
+            # bump-cask-pr.
+            pull_request_version = new_version_arm.to_s
+          elsif (new_version_intel = new_version.intel) &&
+                (new_version_intel != "unable to get versions") &&
+                (new_version_intel != "skipped") &&
+                (new_version_intel != current_version.intel)
+            pull_request_version = new_version_intel.to_s
+          elsif (new_version_general = new_version.general) &&
+                (new_version_general != "unable to get versions") &&
+                (new_version_general != "skipped") &&
+                (new_version_general != current_version.general)
+            pull_request_version = new_version_general.to_s
           end
 
-          duplicate_pull_requests = retrieve_pull_requests(
-            formula_or_cask,
-            name,
-            version: pull_request_version,
-          )
+          if pull_request_version
+            duplicate_pull_requests = retrieve_pull_requests(
+              formula_or_cask,
+              name,
+              version: pull_request_version,
+            )
 
-          maybe_duplicate_pull_requests = if duplicate_pull_requests.nil?
-            retrieve_pull_requests(formula_or_cask, name)
+            maybe_duplicate_pull_requests = if duplicate_pull_requests.nil?
+              retrieve_pull_requests(formula_or_cask, name)
+            end
           end
         end
 
@@ -659,11 +671,30 @@ module Homebrew
 
         return if duplicate_pull_requests.present?
 
-        version_args = if multiple_versions[:new]
-          %W[--version-arm=#{new_version.arm} --version-intel=#{new_version.intel}]
-        else
-          "--version=#{new_version.general}"
+        version_args = []
+        if multiple_versions[:current] && multiple_versions[:new]
+          if (new_version_arm = new_version.arm) &&
+             new_version_arm != "unable to get versions" &&
+             new_version_arm != "skipped" &&
+             current_version.arm &&
+             new_version_arm > current_version.arm
+            version_args << "--version-arm=#{new_version_arm}"
+          end
+          if (new_version_intel = new_version.intel) &&
+             new_version_intel != "unable to get versions" &&
+             new_version_intel != "skipped" &&
+             current_version.intel &&
+             new_version_intel > current_version.intel
+            version_args << "--version-intel=#{new_version_intel}"
+          end
+        elsif multiple_versions[:current]
+          opoo "`#{name}` needs to be manually updated using one version"
+        elsif multiple_versions[:new]
+          opoo "`#{name}` needs to be manually updated using arch-specific versions"
+        elsif new_version.general
+          version_args << "--version=#{new_version.general}"
         end
+        return if version_args.blank?
 
         bump_pr_args = [
           "bump-#{version_info.type}-pr",
