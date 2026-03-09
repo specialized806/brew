@@ -121,7 +121,7 @@ export_homebrew_env_file() {
   bin_brew_exported_vars_regex="^($(
     IFS='|'
     echo "${BIN_BREW_EXPORTED_VARS[*]}"
-  ))"
+  ))(=|$)"
 
   while read -r line
   do
