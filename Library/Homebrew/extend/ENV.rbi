@@ -5,7 +5,7 @@ module EnvActivation
 end
 
 # @!visibility private
-class Sorbet # rubocop:todo Style/OneClassPerFile
+class Sorbet
   module Private
     module Static
       class ENVClass
