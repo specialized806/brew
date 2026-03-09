@@ -31,6 +31,8 @@ When running commands in this repository, use `./bin/brew` (not a system `brew` 
 - Write new code (using Sorbet `sig` type signatures and `typed: strict` for new files, but never for RSpec/test/`*_spec.rb` files)
 - Write new tests (avoid more than one `:integration_test` per file for speed).
   Write fast tests by preferring a single `expect` per unit test and combine expectations in a single test when it is an integration test or has non-trivial `before` for test setup.
+- When adding or tightening tests, verify them with a red/green cycle using the exact `--only=file:line` target for the example you changed.
+- Formula classes created in specs may be frozen; avoid stubbing class methods on them with RSpec mocks and prefer instance-level stubs or test setup that does not require class-method stubbing.
 - Keep comments minimal; prefer self-documenting code through strings, variable names, etc. over more comments.
 
 ## Repository Structure
