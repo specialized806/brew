@@ -61,6 +61,22 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     end
   end
 
+  let(:c_arm_intel) do
+    Cask::Cask.new("test") do
+      on_arm do
+        version "0.0.2,3"
+      end
+      on_intel do
+        version "0.0.1,2"
+      end
+
+      url "https://brew.sh/test-#{version}.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+    end
+  end
+
   it_behaves_like "parseable arguments"
 
   describe "::generate_system_options" do
@@ -68,15 +84,17 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     # the host macOS version instead of the default (the newest macOS version).
     let(:older_macos) { :big_sur }
 
+    let(:new_version) { Homebrew::BumpVersionParser.new(general: "1.2.3") }
+
     context "when cask does not have on_system blocks/calls or `depends_on arch`" do
       it "returns an array only including macOS/ARM" do
         Homebrew::SimulateSystem.with(os: :linux) do
-          expect(bump_cask_pr.send(:generate_system_options, c))
+          expect(bump_cask_pr.send(:generate_system_options, c, new_version))
             .to eq([[newest_macos, :arm]])
         end
 
         Homebrew::SimulateSystem.with(os: older_macos) do
-          expect(bump_cask_pr.send(:generate_system_options, c))
+          expect(bump_cask_pr.send(:generate_system_options, c, new_version))
             .to eq([[older_macos, :arm]])
         end
       end
@@ -85,12 +103,12 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     context "when cask does not have on_system blocks/calls but has `depends_on arch`" do
       it "returns an array only including macOS/`depends_on arch` value" do
         Homebrew::SimulateSystem.with(os: :linux, arch: :arm) do
-          expect(bump_cask_pr.send(:generate_system_options, c_depends_on_intel))
+          expect(bump_cask_pr.send(:generate_system_options, c_depends_on_intel, new_version))
             .to eq([[newest_macos, :intel]])
         end
 
         Homebrew::SimulateSystem.with(os: older_macos, arch: :arm) do
-          expect(bump_cask_pr.send(:generate_system_options, c_depends_on_intel))
+          expect(bump_cask_pr.send(:generate_system_options, c_depends_on_intel, new_version))
             .to eq([[older_macos, :intel]])
         end
       end
@@ -99,7 +117,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     context "when cask has on_system blocks/calls but does not have `depends_on arch`" do
       it "returns an array with combinations of `OnSystem::BASE_OS_OPTIONS` and `OnSystem::ARCH_OPTIONS`" do
         Homebrew::SimulateSystem.with(os: :linux) do
-          expect(bump_cask_pr.send(:generate_system_options, c_on_system))
+          expect(bump_cask_pr.send(:generate_system_options, c_on_system, new_version))
             .to eq([
               [newest_macos, :intel],
               [newest_macos, :arm],
@@ -109,7 +127,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
         end
 
         Homebrew::SimulateSystem.with(os: older_macos) do
-          expect(bump_cask_pr.send(:generate_system_options, c_on_system))
+          expect(bump_cask_pr.send(:generate_system_options, c_on_system, new_version))
             .to eq([
               [older_macos, :intel],
               [older_macos, :arm],
@@ -123,7 +141,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     context "when cask has on_system blocks/calls and `depends_on arch`" do
       it "returns an array with combinations of `OnSystem::BASE_OS_OPTIONS` and `depends_on arch` value" do
         Homebrew::SimulateSystem.with(os: :linux, arch: :arm) do
-          expect(bump_cask_pr.send(:generate_system_options, c_on_system_depends_on_intel))
+          expect(bump_cask_pr.send(:generate_system_options, c_on_system_depends_on_intel, new_version))
             .to eq([
               [newest_macos, :intel],
               [:linux, :intel],
@@ -131,10 +149,73 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
         end
 
         Homebrew::SimulateSystem.with(os: older_macos, arch: :arm) do
-          expect(bump_cask_pr.send(:generate_system_options, c_on_system_depends_on_intel))
+          expect(bump_cask_pr.send(:generate_system_options, c_on_system_depends_on_intel, new_version))
             .to eq([
               [older_macos, :intel],
               [:linux, :intel],
+            ])
+        end
+      end
+    end
+
+    context "when cask has arch-specific versions" do
+      let(:new_version_arm) { Homebrew::BumpVersionParser.new(arm: "1.2.3") }
+      let(:new_version_intel) { Homebrew::BumpVersionParser.new(intel: "1.2.3") }
+      let(:new_version_arm_intel) { Homebrew::BumpVersionParser.new(arm: "1.2.3", intel: "1.2.2") }
+      let(:new_version_intel_arm) { Homebrew::BumpVersionParser.new(arm: "1.2.2", intel: "1.2.3") }
+
+      it "returns an array only using archs of arch-specific versions" do
+        Homebrew::SimulateSystem.with(os: :linux) do
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_arm))
+            .to eq([
+              [newest_macos, :arm],
+              [:linux, :arm],
+            ])
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_intel))
+            .to eq([
+              [newest_macos, :intel],
+              [:linux, :intel],
+            ])
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_arm_intel))
+            .to eq([
+              [newest_macos, :arm],
+              [newest_macos, :intel],
+              [:linux, :arm],
+              [:linux, :intel],
+            ])
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_intel_arm))
+            .to eq([
+              [newest_macos, :intel],
+              [newest_macos, :arm],
+              [:linux, :intel],
+              [:linux, :arm],
+            ])
+        end
+
+        Homebrew::SimulateSystem.with(os: older_macos) do
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_arm))
+            .to eq([
+              [older_macos, :arm],
+              [:linux, :arm],
+            ])
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_intel))
+            .to eq([
+              [older_macos, :intel],
+              [:linux, :intel],
+            ])
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_arm_intel))
+            .to eq([
+              [older_macos, :arm],
+              [older_macos, :intel],
+              [:linux, :arm],
+              [:linux, :intel],
+            ])
+          expect(bump_cask_pr.send(:generate_system_options, c_arm_intel, new_version_intel_arm))
+            .to eq([
+              [older_macos, :intel],
+              [older_macos, :arm],
+              [:linux, :intel],
+              [:linux, :arm],
             ])
         end
       end
