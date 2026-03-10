@@ -25,6 +25,20 @@ RSpec.describe Homebrew::DevCmd::Bump do
     RUBY
   end
 
+  let(:c_latest) do
+    Cask::CaskLoader.load(+<<-RUBY)
+      cask "latest_cask" do
+        version :latest
+        sha256 :no_check
+
+        url "https://brew.sh/test.dmg"
+        name "Latest Cask"
+        desc "Latest cask"
+        homepage "https://brew.sh"
+      end
+    RUBY
+  end
+
   it_behaves_like "parseable arguments"
 
   describe "formula", :integration_test, :needs_homebrew_curl, :needs_network do
@@ -48,6 +62,14 @@ RSpec.describe Homebrew::DevCmd::Bump do
       .to output(/Invalid usage/).to_stderr
       .and not_to_output.to_stdout
       .and be_a_failure
+  end
+
+  describe "::skip_ineligible_formulae!" do
+    it "prints a legible message for casks using `version :latest`" do
+      expect { expect(bump.send(:skip_ineligible_formulae!, c_latest)).to be(true) }
+        .to output(/Cask uses `version :latest` so `brew bump` cannot check it\./).to_stdout
+        .and not_to_output.to_stderr
+    end
   end
 
   describe "::compare_versions" do

@@ -230,9 +230,13 @@ module Homebrew
           name = formula_or_cask.name
           text = "Formula is #{formula_or_cask.disabled? ? "disabled" : "HEAD-only"} so not accepting updates.\n"
         else
-          skip = formula_or_cask.disabled?
+          skip = formula_or_cask.disabled? || formula_or_cask.version.latest?
           name = formula_or_cask.token
-          text = "Cask is disabled so not accepting updates.\n"
+          text = if formula_or_cask.disabled?
+            "Cask is disabled so not accepting updates.\n"
+          else
+            "Cask uses `version :latest` so `brew bump` cannot check it.\n"
+          end
         end
         if (tap = formula_or_cask.tap) && !tap.allow_bump?(name)
           skip = true
