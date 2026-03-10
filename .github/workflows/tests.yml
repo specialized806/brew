@@ -52,6 +52,7 @@ jobs:
         uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
           install: shellcheck shfmt
+          workflow-key: tests-syntax
 
       - name: Cache style cache
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
@@ -268,12 +269,14 @@ jobs:
         uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
           install: subversion curl
+          workflow-key: tests-tests-online
 
       - name: Install brew tests macOS dependencies
         if: runner.os != 'Linux'
         uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
           install: subversion gnupg
+          workflow-key: tests-tests-macos
           uninstall: true
 
         # brew tests doesn't like world writable directories
@@ -380,6 +383,7 @@ jobs:
       - uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
           install: gnu-tar
+          workflow-key: test-bot
           uninstall: true
 
       - name: Setup environment variables

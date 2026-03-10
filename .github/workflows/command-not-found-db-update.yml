@@ -29,6 +29,7 @@ jobs:
         uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
           install: oras
+          workflow-key: command-not-found-db-update
           uninstall: true
 
       - name: Pull executables.txt from GitHub Packages

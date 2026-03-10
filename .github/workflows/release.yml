@@ -55,6 +55,7 @@ jobs:
         uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
           install: pandoc
+          workflow-key: release
           uninstall: true
 
       - name: Create and unlock temporary macOS keychain
