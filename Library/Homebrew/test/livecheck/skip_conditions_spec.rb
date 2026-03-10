@@ -626,6 +626,17 @@ RSpec.describe Homebrew::Livecheck::SkipConditions do
           "test_skip_with_messages: skipped - Not maintained, Archived upstream\n",
         ).to_stdout
           .and not_to_output.to_stderr
+
+        expect do
+          skip_conditions.print_skip_information(
+            formula:  "test_error_with_messages",
+            status:   "error",
+            messages: ["URL could not be fetched", "GitHub API rate limit exceeded"],
+          )
+        end.to output(
+          "test_error_with_messages: URL could not be fetched, GitHub API rate limit exceeded\n",
+        ).to_stdout
+          .and not_to_output.to_stderr
       end
     end
 
