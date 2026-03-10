@@ -282,7 +282,7 @@ cask_args appdir: "~/Applications", require_sha: true
 # This also runs `brew link --overwrite nginx-full` and `brew services restart nginx-full` afterwards.
 brew "denji/nginx/nginx-full", link: :overwrite, args: ["with-rmtp"], restart_service: :always
 
-# Runs `brew install mysql@5.6`, `brew services restart mysql@5.6` only if it was was installed or upgraded,
+# Runs `brew install mysql@5.6`, `brew services restart mysql@5.6` only if it was installed or upgraded,
 # `brew link mysql@5.6` and `brew unlink mysql` (if `mysql` is installed)
 brew "mysql@5.6", restart_service: :changed, link: true, conflicts_with: ["mysql"]
 
