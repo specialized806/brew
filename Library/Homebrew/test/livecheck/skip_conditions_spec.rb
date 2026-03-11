@@ -617,15 +617,10 @@ RSpec.describe Homebrew::Livecheck::SkipConditions do
           .and not_to_output.to_stderr
 
         expect do
-          skip_conditions.print_skip_information(
-            formula:  "test_skip_with_messages",
-            status:   "skipped",
-            messages: ["Not maintained", "Archived upstream"],
-          )
+          skip_conditions.print_skip_information(status_hashes[:formula][:skip_with_messages])
         end.to output(
-          "test_skip_with_messages: skipped - Not maintained, Archived upstream\n",
-        ).to_stdout
-          .and not_to_output.to_stderr
+          "test_skip_with_messages: skipped - First message; Second message\n",
+        ).to_stdout.and not_to_output.to_stderr
 
         expect do
           skip_conditions.print_skip_information(status_hashes[:formula][:error_with_messages])
