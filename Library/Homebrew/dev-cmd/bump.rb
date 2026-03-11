@@ -279,7 +279,7 @@ module Homebrew
 
         if skip_info.present?
           return "#{skip_info[:status]}" \
-                 "#{" - #{skip_info[:messages].join(", ")}" if skip_info[:messages].present?}"
+                 "#{" - #{skip_info[:messages].join("; ")}" if skip_info[:messages].present?}"
         end
 
         version_info = Livecheck.latest_version(
