@@ -55,7 +55,7 @@ module Homebrew
           require "json"
 
           begin
-            JSON.parse(content)
+            JSON.parse(content, allow_duplicate_key: true)
           rescue JSON::ParserError
             raise "Content could not be parsed as JSON."
           end
