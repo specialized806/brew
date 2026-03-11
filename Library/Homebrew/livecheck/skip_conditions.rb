@@ -325,7 +325,7 @@ module Homebrew
         return unless name
 
         if skip_hash[:messages].is_a?(Array) && skip_hash[:messages].any?
-          messages = skip_hash[:messages].join(", ")
+          messages = skip_hash[:messages].join("; ")
           if skip_hash[:status] == "skipped"
             puts "#{Tty.red}#{name}#{Tty.reset}: skipped - #{messages}"
           else
