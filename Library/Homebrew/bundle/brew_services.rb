@@ -6,6 +6,8 @@ require "services/system"
 module Homebrew
   module Bundle
     module BrewServices
+      extend Utils::Output::Mixin
+
       def self.reset!
         @started_services = nil
       end
@@ -54,6 +56,9 @@ module Homebrew
 
       def self.started_services
         @started_services ||= begin
+          if !Homebrew::Services::System.launchctl? && !Homebrew::Services::System.systemctl?
+            odie Homebrew::Services::System::MISSING_DAEMON_MANAGER_EXCEPTION_MESSAGE
+          end
           states_to_skip = %w[stopped none]
           Utils.safe_popen_read(HOMEBREW_BREW_FILE, "services", "list").lines.filter_map do |line|
             name, state, _plist = line.split(/\s+/)
