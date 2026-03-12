@@ -2,7 +2,9 @@
 
 require "test/support/fixtures/testball"
 require "cleanup"
+require "utils/autoremove"
 require "cask/cache"
+require "uninstall"
 require "fileutils"
 
 RSpec.describe Homebrew::Cleanup do
@@ -92,6 +94,31 @@ RSpec.describe Homebrew::Cleanup do
         cleanup.cleanup_formula formula_zero_dot_two
         expect(cleanup.unremovable_kegs).to contain_exactly(formula_zero_dot_one.installed_kegs[0])
       end
+    end
+  end
+
+  describe "::autoremove" do
+    let(:removable_keg) { instance_double(Keg, name: "libthai") }
+    let(:removable_formula) do
+      instance_double(Formula, name: "libthai", full_name: "libthai", any_installed_keg: removable_keg)
+    end
+
+    before do
+      allow(Formula).to receive(:clear_cache)
+      allow(Formula).to receive(:installed).and_return([removable_formula])
+      allow(Cask::Caskroom).to receive(:casks).and_return([])
+      allow(Homebrew::EnvConfig).to receive(:no_cleanup_formulae).and_return([])
+      allow(Utils::Autoremove).to receive(:removable_formulae).with([removable_formula],
+                                                                    []).and_return([removable_formula])
+      allow(InstalledDependents).to receive(:find_some_installed_dependents)
+        .with([removable_keg])
+        .and_return([[removable_keg], ["pango"]])
+    end
+
+    it "does not print or uninstall formulae required by installed dependents" do
+      expect(Homebrew::Uninstall).not_to receive(:uninstall_kegs)
+
+      expect { described_class.autoremove }.not_to output.to_stdout
     end
   end
 
