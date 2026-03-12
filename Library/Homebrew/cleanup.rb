@@ -3,6 +3,7 @@
 
 require "utils/bottles"
 require "utils/output"
+require "installed_dependents"
 
 require "formula"
 require "cask/cask_loader"
@@ -782,6 +783,11 @@ module Homebrew
       casks = Cask::Caskroom.casks
 
       removable_formulae = Utils::Autoremove.removable_formulae(formulae, casks)
+      if (candidate_kegs = removable_formulae.filter_map(&:any_installed_keg).presence) &&
+         (required_kegs, = InstalledDependents.find_some_installed_dependents(candidate_kegs)) &&
+         (required_names = Set.new(required_kegs.map(&:name)).presence)
+        removable_formulae.reject! { |formula| required_names.include?(formula.name) }
+      end
 
       return if removable_formulae.blank?
 
