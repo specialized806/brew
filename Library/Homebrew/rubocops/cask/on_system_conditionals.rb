@@ -67,6 +67,7 @@ module RuboCop
           end
 
           return if !nodes.key?(:arm) || !nodes.key?(:intel)
+          return if nodes[:arm][:node].parent != nodes[:intel][:node].parent
 
           offending_node(nodes[:arm][:node])
           replacement_string = "sha256 arm: #{nodes[:arm][:value].inspect}, intel: #{nodes[:intel][:value].inspect}"
@@ -87,6 +88,7 @@ module RuboCop
           end
 
           return if !nodes.key?(:arm) || !nodes.key?(:intel)
+          return if nodes[:arm][:node].parent != nodes[:intel][:node].parent
 
           arm_version = nodes[:arm][:version_value]
           intel_version = nodes[:intel][:version_value]

@@ -220,6 +220,59 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
     end
   end
 
+  context "when `on_arch` blocks are nested inside `on_os` blocks" do
+    it "reports an offense when `on_arch` blocks with identical versions are inside an `on_os` block" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_sonoma :or_newer do
+            on_intel do
+              version "1.0.0"
+              sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+            end
+            on_arm do
+            ^^^^^^^^^ Don't nest identical `version` stanzas, or only `sha256` stanzas, in `on_intel` and `on_arm` blocks
+              version "1.0.0"
+              sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+            end
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask 'foo' do
+          on_sonoma :or_newer do
+            version "1.0.0"
+            sha256 arm: "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b", intel: "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+          end
+        end
+      CASK
+    end
+
+    it "reports an offense when `on_arch` blocks with only `sha256` are inside an `on_os` block" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_sonoma :or_newer do
+            on_intel do
+              sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+            end
+            on_arm do
+            ^^^^^^^^^ Don't nest only the `sha256` stanzas in `on_intel` and `on_arm` blocks
+              sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+            end
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask 'foo' do
+          on_sonoma :or_newer do
+            sha256 arm: "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b", intel: "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+          end
+        end
+      CASK
+    end
+  end
+
   context "when auditing loose `Hardware::CPU` method calls" do
     it "reports an offense when `Hardware::CPU.arm?` is used" do
       expect_offense <<~CASK
