@@ -7,6 +7,7 @@ require "installed_dependents"
 
 require "formula"
 require "cask/cask_loader"
+
 module Homebrew
   # Helper class for cleaning up the Homebrew cache.
   class Cleanup
@@ -782,11 +783,9 @@ module Homebrew
       casks = Cask::Caskroom.casks
 
       removable_formulae = Utils::Autoremove.removable_formulae(formulae, casks)
-      candidate_kegs = removable_formulae.filter_map(&:any_installed_keg)
-
-      if (result = InstalledDependents.find_some_installed_dependents(candidate_kegs))
-        required_kegs, = result
-        required_names = required_kegs.map(&:name).uniq
+      if (candidate_kegs = removable_formulae.filter_map(&:any_installed_keg).presence) &&
+         (required_kegs, = InstalledDependents.find_some_installed_dependents(candidate_kegs)) &&
+         (required_names = Set.new(required_kegs.map(&:name)).presence)
         removable_formulae.reject! { |formula| required_names.include?(formula.name) }
       end
 
