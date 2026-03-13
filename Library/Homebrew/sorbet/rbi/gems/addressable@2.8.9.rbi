@@ -30,7 +30,6 @@ end
 
 Addressable::IDNA::ACE_MAX_LENGTH = T.let(T.unsafe(nil), Integer)
 Addressable::IDNA::ACE_PREFIX = T.let(T.unsafe(nil), String)
-Addressable::IDNA::COMPOSITION_TABLE = T.let(T.unsafe(nil), Hash)
 Addressable::IDNA::PUNYCODE_BASE = T.let(T.unsafe(nil), Integer)
 Addressable::IDNA::PUNYCODE_DAMP = T.let(T.unsafe(nil), Integer)
 Addressable::IDNA::PUNYCODE_DELIMITER = T.let(T.unsafe(nil), Integer)

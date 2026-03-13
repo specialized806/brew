@@ -609,6 +609,7 @@ class JSON::Validator
     def clear_cache; end
     def default_validator; end
     def deregister_format_validator(format, versions = T.unsafe(nil)); end
+    def ensure_ruby_json_backends!; end
     def fully_validate(schema, data, opts = T.unsafe(nil)); end
     def fully_validate_json(schema, data, opts = T.unsafe(nil)); end
     def fully_validate_schema(schema, opts = T.unsafe(nil)); end
@@ -616,6 +617,7 @@ class JSON::Validator
     def json_backend; end
     def json_backend=(backend); end
     def merge_missing_values(source, destination); end
+    def multi_json_deprecation_warning!; end
     def parse(s); end
     def register_default_validator(v); end
     def register_format_validator(format, validation_proc, versions = T.unsafe(nil)); end
@@ -627,6 +629,8 @@ class JSON::Validator
     def schema_reader; end
     def schema_reader=(reader); end
     def schemas; end
+    def use_multi_json=(value); end
+    def use_multi_json?; end
     def validate(schema, data, opts = T.unsafe(nil)); end
     def validate!(schema, data, opts = T.unsafe(nil)); end
     def validate2(schema, data, opts = T.unsafe(nil)); end
@@ -638,6 +642,10 @@ class JSON::Validator
     def validator_for_name(schema_name, raise_not_found = T.unsafe(nil)); end
     def validator_for_uri(schema_uri, raise_not_found = T.unsafe(nil)); end
     def validators; end
+
+    private
+
+    def reset_multi_json_deprecation_warning!; end
   end
 end
 
