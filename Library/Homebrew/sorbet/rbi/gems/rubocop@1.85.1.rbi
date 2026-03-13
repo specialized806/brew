@@ -4137,7 +4137,6 @@ class RuboCop::ResultCache
   def any_symlink?(path); end
   def context_checksum(team, options); end
   def file_checksum(file, config_store); end
-  def relevant_options_digest(options); end
   def symlink_protection_triggered?(path); end
 
   class << self
@@ -4146,6 +4145,7 @@ class RuboCop::ResultCache
     def cleanup(config_store, verbose, cache_root_override = T.unsafe(nil)); end
     def inhibit_cleanup; end
     def inhibit_cleanup=(_arg0); end
+    def relevant_options_digest(options); end
     def rubocop_required_features; end
     def rubocop_required_features=(_arg0); end
     def source_checksum; end

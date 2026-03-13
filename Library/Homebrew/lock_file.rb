@@ -29,8 +29,6 @@ class LockFile
 
       path.dirname.mkpath
 
-      # We are opening and closing the file appropriately so this is safe.
-      # rubocop:disable Style/FileOpen
       begin
         lockfile = begin
           File.open(path, File::RDWR | File::CREAT)
@@ -67,7 +65,6 @@ class LockFile
       lockfile.close
       raise OperationInProgressError, @locked_path
     end
-    # rubocop:enable Style/FileOpen
   end
 
   sig { params(unlink: T::Boolean).void }

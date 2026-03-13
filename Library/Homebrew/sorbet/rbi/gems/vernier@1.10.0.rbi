@@ -157,6 +157,7 @@ class Vernier::Middleware
   def call(env); end
 end
 
+Vernier::Middleware::HOOKS = T.let(T.unsafe(nil), Array)
 module Vernier::Output; end
 
 class Vernier::Output::Cpuprofile
@@ -274,6 +275,40 @@ class Vernier::Output::Firefox::Thread
   def thread_category; end
 end
 
+class Vernier::Output::Markdown
+  def initialize(profile, top_n: T.unsafe(nil), lines_per_file: T.unsafe(nil)); end
+
+  def output; end
+
+  private
+
+  def build_files; end
+  def build_hotspots; end
+  def build_summary; end
+  def build_threads; end
+  def build_title; end
+  def escape_markdown(text); end
+  def filter_filename(filename); end
+  def format_code_span(text); end
+  def format_location(file, line); end
+  def get_stack_table(thread); end
+  def get_thread_main(thread); end
+  def get_thread_name(thread); end
+  def get_thread_tid(thread); end
+  def get_threads; end
+  def live_profile?; end
+  def main_thread; end
+  def read_source_line(filename, line_no); end
+  def resolve_filename(filename); end
+  def thread_count; end
+  def top_functions_table(title, funcs, total, sort_key); end
+  def total_samples; end
+  def truncate_code(code, max_length: T.unsafe(nil)); end
+end
+
+Vernier::Output::Markdown::DEFAULT_LINES_PER_FILE = T.let(T.unsafe(nil), Integer)
+Vernier::Output::Markdown::DEFAULT_TOP_N = T.let(T.unsafe(nil), Integer)
+
 class Vernier::Output::Top
   def initialize(profile, row_limit); end
 
@@ -355,6 +390,7 @@ class Vernier::Result
   def to_cpuprofile; end
   def to_firefox(gzip: T.unsafe(nil)); end
   def to_gecko(gzip: T.unsafe(nil)); end
+  def to_markdown(top_n: T.unsafe(nil), lines_per_file: T.unsafe(nil)); end
   def total_bytes; end
   def total_samples; end
   def total_unique_samples; end
