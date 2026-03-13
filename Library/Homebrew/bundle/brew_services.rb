@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "services/system"
+require "utils/output"
 
 module Homebrew
   module Bundle
