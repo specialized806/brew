@@ -17,6 +17,14 @@ RSpec.describe Homebrew::Bundle::BrewServices do
       EOS
       expect(described_class.started_services).to contain_exactly("nginx", "mysql")
     end
+
+    it "exits with error when no daemon manager is available" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: false)
+      expect do
+        described_class.started_services
+      end.to raise_error(SystemExit)
+        .and output(/supported only on macOS or Linux/).to_stderr
+    end
   end
 
   context "when brew-services is installed" do
