@@ -26,8 +26,7 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
         end
       CASK
 
-      # FIXME: Infinite loop alternating between `if Hardware::CPU.intel?` and `on_intel do`.
-      expect_correction <<~CASK, loop: false
+      expect_correction <<~CASK
         cask 'foo' do
           postflight do
             if Hardware::CPU.intel?
@@ -50,8 +49,7 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
         end
       CASK
 
-      # FIXME: Infinite loop alternating between `if MacOS.version == :monterey` and `on_monterey do`.
-      expect_correction <<~CASK, loop: false
+      expect_correction <<~CASK
         cask 'foo' do
           postflight do
             if MacOS.version == :monterey
@@ -74,8 +72,7 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
         end
       CASK
 
-      # FIXME: Infinite loop alternating between `if MacOS.version <= :monterey` and `on_monterey :or_older do`.
-      expect_correction <<~CASK, loop: false
+      expect_correction <<~CASK
         cask 'foo' do
           postflight do
             if MacOS.version <= :monterey
