@@ -142,6 +142,23 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
       CASK
     end
 
+    it "reports an offense but does not autocorrect when an `on_arch` block includes comments" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_intel do
+            # comment
+            sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+          end
+          on_arm do
+          ^^^^^^^^^ Don't nest only the `sha256` stanzas in `on_intel` and `on_arm` blocks
+            sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
     it "accepts when there is also a `version` stanza inside the `on_arch` blocks with different versions" do
       expect_no_offenses <<~CASK
         cask 'foo' do
@@ -217,6 +234,25 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
           sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
         end
       CASK
+    end
+
+    it "reports an offense but does not autocorrect when an `on_arch` block includes comments" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_intel do
+            version "1.0.0"
+            # comment
+            sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+          end
+          on_arm do
+          ^^^^^^^^^ Don't nest identical `version` stanzas in `on_intel` and `on_arm` blocks
+            version "1.0.0"
+            sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+          end
+        end
+      CASK
+
+      expect_no_corrections
     end
   end
 

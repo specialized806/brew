@@ -64,7 +64,8 @@ module RuboCop
 
           sha256_on_arch_stanzas(cask_body) do |node, method, value|
             arch = method.to_s.delete_prefix("on_").to_sym
-            grouped_nodes[node.parent][arch] = { node:, value: }
+            ast_node = T.cast(node, RuboCop::AST::Node)
+            grouped_nodes[ast_node.parent][arch] = { node: ast_node, value: }
           end
 
           grouped_nodes.each_value do |nodes|
@@ -72,6 +73,10 @@ module RuboCop
 
             offending_node(nodes[:arm][:node])
             replacement_string = "sha256 arm: #{nodes[:arm][:value].inspect}, intel: #{nodes[:intel][:value].inspect}"
+            if comments_in_node_ranges?(nodes[:arm][:node], nodes[:intel][:node])
+              problem "Don't nest only the `sha256` stanzas in `on_intel` and `on_arm` blocks"
+              next
+            end
 
             problem "Don't nest only the `sha256` stanzas in `on_intel` and `on_arm` blocks" do |corrector|
               corrector.replace(nodes[:arm][:node].source_range, replacement_string)
@@ -86,7 +91,12 @@ module RuboCop
 
           version_and_sha256_on_arch_stanzas(cask_body) do |block_node, arch_method, version_value, sha256_value|
             arch = arch_method.to_s.delete_prefix("on_").to_sym
-            grouped_nodes[block_node.parent][arch] = { node: block_node, version_value:, sha256_value: }
+            ast_block_node = T.cast(block_node, RuboCop::AST::Node)
+            grouped_nodes[ast_block_node.parent][arch] = {
+              node:          ast_block_node,
+              version_value:,
+              sha256_value:,
+            }
           end
 
           grouped_nodes.each_value do |nodes|
@@ -112,9 +122,26 @@ module RuboCop
             replacement = "#{version_str}\n#{indent}#{sha256_str}"
 
             offending_node(arm_node)
+            if comments_in_node_ranges?(arm_node, intel_node)
+              problem "Don't nest identical `version` stanzas in `on_intel` and `on_arm` blocks"
+              next
+            end
+
             problem "Don't nest identical `version` stanzas in `on_intel` and `on_arm` blocks" do |corrector|
               corrector.replace(arm_node.source_range, replacement)
               corrector.remove(range_by_whole_lines(intel_node.source_range, include_final_newline: true))
+            end
+          end
+        end
+
+        sig { params(nodes: RuboCop::AST::Node).returns(T::Boolean) }
+        def comments_in_node_ranges?(*nodes)
+          processed_source.comments.any? do |comment|
+            comment_range = comment.loc.expression
+
+            nodes.any? do |node|
+              node_range = node.source_range
+              node_range.begin_pos <= comment_range.begin_pos && comment_range.end_pos <= node_range.end_pos
             end
           end
         end
