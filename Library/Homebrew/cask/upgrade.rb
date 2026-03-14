@@ -256,10 +256,8 @@ module Cask
       new_artifacts_installed = false
 
       begin
-        oh1 <<~EOS
-          Upgrading #{Formatter.identifier(old_cask)}
-            #{old_cask.version} -> #{new_cask.version}
-        EOS
+        oh1 "Upgrading #{Formatter.identifier(old_cask)}"
+        puts "  #{old_cask.version} -> #{new_cask.version}"
 
         # Start new cask's installation steps
         new_cask_installer.check_conflicts
