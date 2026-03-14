@@ -45,7 +45,7 @@ module RuboCop
           end
 
           audit_arch_conditionals(cask_body, allowed_blocks: FLIGHT_STANZA_NAMES)
-          audit_macos_version_conditionals(cask_body, recommend_on_system: false)
+          audit_macos_version_conditionals(cask_body, recommend_on_system: false, allowed_blocks: FLIGHT_STANZA_NAMES)
           simplify_sha256_stanzas
           audit_identical_sha256_across_architectures
         end
