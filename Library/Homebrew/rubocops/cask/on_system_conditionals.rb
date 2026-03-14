@@ -60,60 +60,62 @@ module RuboCop
 
         sig { void }
         def simplify_sha256_stanzas
-          nodes = {}
+          grouped_nodes = Hash.new { |hash, key| hash[key] = {} }
 
           sha256_on_arch_stanzas(cask_body) do |node, method, value|
-            nodes[method.to_s.delete_prefix("on_").to_sym] = { node:, value: }
+            arch = method.to_s.delete_prefix("on_").to_sym
+            grouped_nodes[node.parent][arch] = { node:, value: }
           end
 
-          return if !nodes.key?(:arm) || !nodes.key?(:intel)
-          return if nodes[:arm][:node].parent != nodes[:intel][:node].parent
+          grouped_nodes.each_value do |nodes|
+            next if !nodes.key?(:arm) || !nodes.key?(:intel)
 
-          offending_node(nodes[:arm][:node])
-          replacement_string = "sha256 arm: #{nodes[:arm][:value].inspect}, intel: #{nodes[:intel][:value].inspect}"
+            offending_node(nodes[:arm][:node])
+            replacement_string = "sha256 arm: #{nodes[:arm][:value].inspect}, intel: #{nodes[:intel][:value].inspect}"
 
-          problem "Don't nest only the `sha256` stanzas in `on_intel` and `on_arm` blocks" do |corrector|
-            corrector.replace(nodes[:arm][:node].source_range, replacement_string)
-            corrector.remove(range_by_whole_lines(nodes[:intel][:node].source_range, include_final_newline: true))
+            problem "Don't nest only the `sha256` stanzas in `on_intel` and `on_arm` blocks" do |corrector|
+              corrector.replace(nodes[:arm][:node].source_range, replacement_string)
+              corrector.remove(range_by_whole_lines(nodes[:intel][:node].source_range, include_final_newline: true))
+            end
           end
         end
 
         sig { void }
         def simplify_arch_version_stanzas
-          nodes = {}
+          grouped_nodes = Hash.new { |hash, key| hash[key] = {} }
 
           version_and_sha256_on_arch_stanzas(cask_body) do |block_node, arch_method, version_value, sha256_value|
             arch = arch_method.to_s.delete_prefix("on_").to_sym
-            nodes[arch] = { node: block_node, version_value:, sha256_value: }
+            grouped_nodes[block_node.parent][arch] = { node: block_node, version_value:, sha256_value: }
           end
 
-          return if !nodes.key?(:arm) || !nodes.key?(:intel)
-          return if nodes[:arm][:node].parent != nodes[:intel][:node].parent
+          grouped_nodes.each_value do |nodes|
+            next if !nodes.key?(:arm) || !nodes.key?(:intel)
 
-          arm_version = nodes[:arm][:version_value]
-          intel_version = nodes[:intel][:version_value]
+            arm_version = nodes[:arm][:version_value]
+            intel_version = nodes[:intel][:version_value]
 
-          return if arm_version != intel_version
+            next if arm_version != intel_version
 
-          arm_sha = nodes[:arm][:sha256_value]
-          intel_sha = nodes[:intel][:sha256_value]
-          arm_node = nodes[:arm][:node]
-          intel_node = nodes[:intel][:node]
+            arm_sha = nodes[:arm][:sha256_value]
+            intel_sha = nodes[:intel][:sha256_value]
+            arm_node = nodes[:arm][:node]
+            intel_node = nodes[:intel][:node]
 
-          indent = " " * arm_node.loc.column
-          version_str = "version #{arm_version.inspect}"
-          sha256_str = if arm_sha == intel_sha
-            "sha256 #{arm_sha.inspect}"
-          else
-            "sha256 arm: #{arm_sha.inspect}, intel: #{intel_sha.inspect}"
-          end
-          replacement = "#{version_str}\n#{indent}#{sha256_str}"
+            indent = " " * arm_node.loc.column
+            version_str = "version #{arm_version.inspect}"
+            sha256_str = if arm_sha == intel_sha
+              "sha256 #{arm_sha.inspect}"
+            else
+              "sha256 arm: #{arm_sha.inspect}, intel: #{intel_sha.inspect}"
+            end
+            replacement = "#{version_str}\n#{indent}#{sha256_str}"
 
-          offending_node(arm_node)
-          problem "Don't nest identical `version` stanzas, or only `sha256` " \
-                  "stanzas, in `on_intel` and `on_arm` blocks" do |corrector|
-            corrector.replace(arm_node.source_range, replacement)
-            corrector.remove(range_by_whole_lines(intel_node.source_range, include_final_newline: true))
+            offending_node(arm_node)
+            problem "Don't nest identical `version` stanzas in `on_intel` and `on_arm` blocks" do |corrector|
+              corrector.replace(arm_node.source_range, replacement)
+              corrector.remove(range_by_whole_lines(intel_node.source_range, include_final_newline: true))
+            end
           end
         end
 
