@@ -263,6 +263,7 @@ module Homebrew
           if labels.include?("ci-skip-repository")
             audit_exceptions << %w[github_repository github_prerelease_version
                                    gitlab_repository gitlab_prerelease_version
+                                   forgejo_repository forgejo_prerelease_version
                                    bitbucket_repository]
           end
 
