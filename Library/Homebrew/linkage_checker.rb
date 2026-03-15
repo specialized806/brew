@@ -123,9 +123,18 @@ class LinkageChecker
   sig { params(file: String).returns(T::Boolean) }
   def broken_dylibs_allowed?(file)
     formula = self.formula
-    return false if formula.nil? || formula.name != "julia"
+    return false if formula.nil?
 
-    file.start_with?("#{formula.prefix.realpath}/share/julia/compiled/")
+    case formula.name
+    when "julia"
+      file.start_with?("#{formula.prefix.realpath}/share/julia/compiled/")
+    when "cyan"
+      file.match?(
+        %r{\A#{Regexp.escape(formula.prefix.realpath.to_s)}/libexec/lib/python\d+\.\d+/site-packages/cyan/extras/},
+      )
+    else
+      false
+    end
   end
 
   sig { params(rebuild_cache: T::Boolean).void }
