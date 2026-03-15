@@ -7,15 +7,15 @@ module Cask
   module Artifact
     # Artifact corresponding to the `binary` stanza.
     class Binary < Symlinked
-      sig { params(command: T.nilable(T.class_of(SystemCommand)), options: T.untyped).void }
-      def link(command: nil, **options)
+      sig { params(command: T.class_of(SystemCommand), options: T.anything).void }
+      def link(command:, **options)
         super
         return if source.executable?
 
         if source.writable?
           FileUtils.chmod "+x", source
         else
-          T.must(command).run!("chmod", args: ["+x", source], sudo: true)
+          command.run!("chmod", args: ["+x", source], sudo: true)
         end
       end
     end
