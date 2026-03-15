@@ -1,4 +1,4 @@
-# typed: true # rubocop:todo Sorbet/StrictSigil
+# typed: strict
 # frozen_string_literal: true
 
 require "cask/artifact/moved"
@@ -12,6 +12,7 @@ module Cask
         "Spotlight metadata importer"
       end
 
+      sig { params(options: T.untyped).void }
       def install_phase(**options)
         super
         reload_spotlight(**options)
@@ -19,8 +20,9 @@ module Cask
 
       private
 
-      def reload_spotlight(command: nil, **_)
-        command.run!("/usr/bin/mdimport", args: ["-r", target])
+      sig { params(command: T.nilable(T.class_of(SystemCommand)), _options: T.untyped).void }
+      def reload_spotlight(command: nil, **_options)
+        T.must(command).run!("/usr/bin/mdimport", args: ["-r", target])
       end
     end
   end
