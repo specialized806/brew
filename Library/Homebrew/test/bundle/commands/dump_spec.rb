@@ -12,7 +12,8 @@ require "bundle/uv_dumper"
 RSpec.describe Homebrew::Bundle::Commands::Dump do
   subject(:dump) do
     described_class.run(global:, file: nil, describe: false, force:, no_restart: false, taps: true, formulae: true,
-                        casks: true, mas: true, vscode: true, go: true, cargo: true, uv: true, flatpak: false)
+                        casks: true, mas: true, vscode: true, cargo: true, flatpak: false,
+                        extension_types: { go: true, uv: true })
   end
 
   let(:force) { false }

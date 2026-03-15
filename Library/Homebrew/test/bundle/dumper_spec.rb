@@ -10,6 +10,7 @@ require "bundle/vscode_extension_dumper"
 require "bundle/brew_services"
 require "bundle/go_dumper"
 require "bundle/cargo_dumper"
+require "bundle/flatpak_dumper"
 require "bundle/uv_dumper"
 require "cask"
 
@@ -55,11 +56,28 @@ RSpec.describe Homebrew::Bundle::Dumper do
   it "generates output" do
     expect(dumper.build_brewfile(
              describe: false, no_restart: false, formulae: true, taps: true, casks: true, mas: true,
-             vscode: true, go: true, cargo: true, uv: true, flatpak: false
+             vscode: true, cargo: true, flatpak: false, extension_types: { go: true, uv: true }
            )).to eql("cask \"google-chrome\"\ncask \"java\"\ncask \"homebrew/cask-versions/iterm2-beta\"\n")
   end
 
   it "determines the brewfile correctly" do
     expect(dumper.brewfile_path).to eql(Pathname.new(Dir.pwd).join("Brewfile"))
+  end
+
+  it "preserves the legacy extension dump order" do
+    allow(Homebrew::Bundle::GoDumper).to receive(:dump).and_return('go "github.com/charmbracelet/crush"')
+    allow(Homebrew::Bundle::CargoDumper).to receive(:dump).and_return('cargo "ripgrep"')
+    allow(Homebrew::Bundle::UvDumper).to receive(:dump).and_return('uv "mkdocs"')
+    allow(Homebrew::Bundle::FlatpakDumper).to receive(:dump).and_return('flatpak "org.gnome.Calculator"')
+
+    expect(dumper.build_brewfile(
+             describe: false, no_restart: false, formulae: false, taps: false, casks: false, mas: false,
+             vscode: false, cargo: true, flatpak: true, extension_types: { go: true, uv: true }
+           )).to eql(<<~BREWFILE)
+             go "github.com/charmbracelet/crush"
+             cargo "ripgrep"
+             uv "mkdocs"
+             flatpak "org.gnome.Calculator"
+           BREWFILE
   end
 end

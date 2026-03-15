@@ -11,17 +11,20 @@ module Homebrew
         PACKAGE_TYPE_NAME = "Flatpak"
 
         sig {
-          params(entries: T::Array[Homebrew::Bundle::Dsl::Entry], exit_on_first_error: T::Boolean,
-                 no_upgrade: T::Boolean, verbose: T::Boolean).returns(T::Array[String])
+          params(entries: T::Array[Object], exit_on_first_error: T::Boolean,
+                 no_upgrade: T::Boolean, verbose: T::Boolean).returns(T::Array[Object])
         }
         def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
           super
         end
 
         # Override to return entry hashes with options instead of just names
-        sig { params(entries: T::Array[Bundle::Dsl::Entry]).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
+        # TODO: Replace these `T.untyped` flatpak hashes once flatpak entries are
+        # normalized into a typed package shape like the extension classes use.
+        sig { params(entries: T::Array[Object]).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
         def format_checkable(entries)
           checkable_entries(entries).map do |entry|
+            entry = T.cast(entry, Dsl::Entry)
             { name: entry.name, options: entry.options || {} }
           end
         end

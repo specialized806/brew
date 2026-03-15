@@ -15,7 +15,10 @@ module Homebrew
         end
 
         def format_checkable(entries)
-          checkable_entries(entries).to_h { |e| [e.options[:id], e.name] }
+          checkable_entries(entries).to_h do |entry|
+            entry = T.cast(entry, Dsl::Entry)
+            [entry.options[:id], entry.name]
+          end
         end
 
         def exit_early_check(app_ids_with_names, no_upgrade:)

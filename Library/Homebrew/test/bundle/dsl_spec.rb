@@ -102,6 +102,14 @@ RSpec.describe Homebrew::Bundle::Dsl do
     end
   end
 
+  context "with extension entries" do
+    it "accepts positional option hashes for extensions" do
+      dsl = dsl_from_string 'uv "mkdocs", { with: ["mkdocs-material<10"] }'
+      expect(dsl.entries[0].name).to eql("mkdocs")
+      expect(dsl.entries[0].options).to eql(with: ["mkdocs-material<10"])
+    end
+  end
+
   context "with invalid input" do
     it "handles completely invalid code" do
       expect { dsl_from_string "abcdef" }.to raise_error(RuntimeError)
@@ -119,6 +127,24 @@ RSpec.describe Homebrew::Bundle::Dsl do
       expect { dsl_from_string "cask 'foo', ['bad_option']" }.to raise_error(RuntimeError)
       expect { dsl_from_string "tap 'foo', ['bad_clone_target']" }.to raise_error(RuntimeError)
       expect { dsl_from_string "flatpak 'foo', ['bad_option']" }.to raise_error(RuntimeError)
+    end
+
+    it "errors on unknown go options" do
+      expect do
+        dsl_from_string 'go "github.com/charmbracelet/crush", with: ["github.com/charmbracelet/gum"]'
+      end.to raise_error(RuntimeError, /unknown options\(\[:with\]\) for go/)
+    end
+
+    it "errors on invalid uv with options" do
+      expect do
+        dsl_from_string 'uv "mkdocs", with: "mkdocs-material<10"'
+      end.to raise_error(RuntimeError, /options\[:with\].*Array of String objects/)
+      expect do
+        dsl_from_string 'uv "mkdocs", with: [1]'
+      end.to raise_error(RuntimeError, /options\[:with\].*Array of String objects/)
+      expect do
+        dsl_from_string 'uv "mkdocs", with: false'
+      end.to raise_error(RuntimeError, /options\[:with\].*Array of String objects/)
     end
   end
 
