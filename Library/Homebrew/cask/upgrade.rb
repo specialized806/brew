@@ -257,6 +257,7 @@ module Cask
 
       begin
         oh1 "Upgrading #{Formatter.identifier(old_cask)}"
+        puts "  #{old_cask.version} -> #{new_cask.version}"
 
         # Start new cask's installation steps
         new_cask_installer.check_conflicts
