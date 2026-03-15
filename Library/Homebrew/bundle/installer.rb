@@ -6,11 +6,10 @@ require "bundle/formula_installer"
 require "bundle/cask_installer"
 require "bundle/mac_app_store_installer"
 require "bundle/vscode_extension_installer"
-require "bundle/go_installer"
 require "bundle/cargo_installer"
-require "bundle/uv_installer"
 require "bundle/flatpak_installer"
 require "bundle/tap_installer"
+require "bundle/extensions"
 require "bundle/skipper"
 
 module Homebrew
@@ -55,13 +54,8 @@ module Homebrew
             Homebrew::Bundle::MacAppStoreInstaller
           when :vscode
             Homebrew::Bundle::VscodeExtensionInstaller
-          when :go
-            Homebrew::Bundle::GoInstaller
           when :cargo
             Homebrew::Bundle::CargoInstaller
-          when :uv
-            options = entry.options
-            Homebrew::Bundle::UvInstaller
           when :flatpak
             options = entry.options
             Homebrew::Bundle::FlatpakInstaller
@@ -69,6 +63,12 @@ module Homebrew
             verb = "Tapping"
             options = entry.options
             Homebrew::Bundle::TapInstaller
+          else
+            extension = Homebrew::Bundle.extension(type)
+            next if extension.nil? || !extension.install_supported?
+
+            options = entry.options
+            extension
           end
           next if cls.nil?
 

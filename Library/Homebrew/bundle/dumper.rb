@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "bundle/dsl"
+require "bundle/extensions"
 
 module Homebrew
   module Bundle
@@ -15,29 +17,26 @@ module Homebrew
 
       sig {
         params(
-          describe:   T::Boolean,
-          no_restart: T::Boolean,
-          formulae:   T::Boolean,
-          taps:       T::Boolean,
-          casks:      T::Boolean,
-          mas:        T::Boolean,
-          vscode:     T::Boolean,
-          go:         T::Boolean,
-          cargo:      T::Boolean,
-          uv:         T::Boolean,
-          flatpak:    T::Boolean,
+          describe:        T::Boolean,
+          no_restart:      T::Boolean,
+          formulae:        T::Boolean,
+          taps:            T::Boolean,
+          casks:           T::Boolean,
+          mas:             T::Boolean,
+          vscode:          T::Boolean,
+          cargo:           T::Boolean,
+          flatpak:         T::Boolean,
+          extension_types: Homebrew::Bundle::ExtensionTypes,
         ).returns(String)
       }
-      def self.build_brewfile(describe:, no_restart:, formulae:, taps:, casks:, mas:, vscode:, go:, cargo:,
-                              uv:, flatpak:)
+      def self.build_brewfile(describe:, no_restart:, formulae:, taps:, casks:, mas:, vscode:, cargo:, flatpak:,
+                              extension_types: {})
         require "bundle/tap_dumper"
         require "bundle/formula_dumper"
         require "bundle/cask_dumper"
         require "bundle/mac_app_store_dumper"
         require "bundle/vscode_extension_dumper"
-        require "bundle/go_dumper"
         require "bundle/cargo_dumper"
-        require "bundle/uv_dumper"
         require "bundle/flatpak_dumper"
 
         content = []
@@ -46,37 +45,46 @@ module Homebrew
         content << CaskDumper.dump(describe:) if casks
         content << MacAppStoreDumper.dump if mas
         content << VscodeExtensionDumper.dump if vscode
-        content << GoDumper.dump if go
+        if extension_types.fetch(:go, false) && (go = Homebrew::Bundle.extension(:go))
+          content << go.dump
+        end
         content << CargoDumper.dump if cargo
-        content << UvDumper.dump if uv
+        if extension_types.fetch(:uv, false) && (uv = Homebrew::Bundle.extension(:uv))
+          content << uv.dump
+        end
         content << FlatpakDumper.dump if flatpak
+        Homebrew::Bundle.extensions.select(&:dump_supported?).each do |extension|
+          next if [:go, :uv].include?(extension.type)
+          next unless extension_types.fetch(extension.type, false)
+
+          content << extension.dump
+        end
         "#{content.reject(&:empty?).join("\n")}\n"
       end
 
       sig {
         params(
-          global:     T::Boolean,
-          file:       T.nilable(String),
-          describe:   T::Boolean,
-          force:      T::Boolean,
-          no_restart: T::Boolean,
-          formulae:   T::Boolean,
-          taps:       T::Boolean,
-          casks:      T::Boolean,
-          mas:        T::Boolean,
-          vscode:     T::Boolean,
-          go:         T::Boolean,
-          cargo:      T::Boolean,
-          uv:         T::Boolean,
-          flatpak:    T::Boolean,
+          global:          T::Boolean,
+          file:            T.nilable(String),
+          describe:        T::Boolean,
+          force:           T::Boolean,
+          no_restart:      T::Boolean,
+          formulae:        T::Boolean,
+          taps:            T::Boolean,
+          casks:           T::Boolean,
+          mas:             T::Boolean,
+          vscode:          T::Boolean,
+          cargo:           T::Boolean,
+          flatpak:         T::Boolean,
+          extension_types: Homebrew::Bundle::ExtensionTypes,
         ).void
       }
       def self.dump_brewfile(global:, file:, describe:, force:, no_restart:, formulae:, taps:, casks:, mas:,
-                             vscode:, go:, cargo:, uv:, flatpak:)
+                             vscode:, cargo:, flatpak:, extension_types: {})
         path = brewfile_path(global:, file:)
         can_write_to_brewfile?(path, force:)
         content = build_brewfile(
-          describe:, no_restart:, taps:, formulae:, casks:, mas:, vscode:, go:, cargo:, uv:, flatpak:,
+          describe:, no_restart:, taps:, formulae:, casks:, mas:, vscode:, cargo:, flatpak:, extension_types:,
         )
         write_file path, content
       end

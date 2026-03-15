@@ -100,7 +100,7 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
     context "when package is not installed" do
       before do
         allow(Homebrew::Bundle).to receive(:which_uv).and_return(Pathname.new("/tmp/uv/bin/uv"))
-        allow(described_class).to receive(:installed_packages).and_return([])
+        allow(described_class).to receive_messages(packages: [], installed_packages: [])
       end
 
       it "installs package with no options" do
@@ -119,6 +119,17 @@ RSpec.describe Homebrew::Bundle::UvInstaller do
 
         expect(described_class.preinstall!("mkdocs", with: ["mkdocs-material<10"])).to be(true)
         expect(described_class.install!("mkdocs", with: ["mkdocs-material<10"])).to be(true)
+      end
+
+      it "updates dump output after install in the same process" do
+        expect(Homebrew::Bundle).to receive(:system)
+          .with("/tmp/uv/bin/uv", "tool", "install", "mkdocs",
+                "--with", "mkdocs-material<10",
+                verbose: false).and_return(true)
+
+        described_class.install!("mkdocs", with: ["mkdocs-material<10"])
+
+        expect(Homebrew::Bundle::UvDumper.dump).to eql('uv "mkdocs", with: ["mkdocs-material<10"]')
       end
     end
   end

@@ -1,88 +1,37 @@
 # typed: true
 # frozen_string_literal: true
 
+require "bundle/checker/base"
+require "bundle/dsl"
+require "bundle/extensions"
+
 module Homebrew
   module Bundle
     module Checker
-      class Base
-        # Implement these in any subclass
-        # PACKAGE_TYPE = :pkg
-        # PACKAGE_TYPE_NAME = "Package"
-
-        def exit_early_check(packages, no_upgrade:)
-          work_to_be_done = packages.find do |pkg|
-            !installed_and_up_to_date?(pkg, no_upgrade:)
-          end
-
-          Array(work_to_be_done)
-        end
-
-        def failure_reason(name, no_upgrade:)
-          reason = if no_upgrade && Bundle.upgrade_formulae.exclude?(name)
-            "needs to be installed."
-          else
-            "needs to be installed or updated."
-          end
-          "#{self.class.const_get(:PACKAGE_TYPE_NAME)} #{name} #{reason}"
-        end
-
-        def full_check(packages, no_upgrade:)
-          packages.reject { |pkg| installed_and_up_to_date?(pkg, no_upgrade:) }
-                  .map { |pkg| failure_reason(pkg, no_upgrade:) }
-        end
-
-        def checkable_entries(all_entries)
-          require "bundle/skipper"
-          all_entries.select { |e| e.type == self.class.const_get(:PACKAGE_TYPE) }
-                     .reject(&Bundle::Skipper.method(:skip?))
-        end
-
-        def format_checkable(entries)
-          checkable_entries(entries).map(&:name)
-        end
-
-        def installed_and_up_to_date?(_pkg, no_upgrade: false)
-          raise NotImplementedError
-        end
-
-        def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
-          requested = format_checkable entries
-
-          if exit_on_first_error
-            exit_early_check(requested, no_upgrade:)
-          else
-            full_check(requested, no_upgrade:)
-          end
-        end
-      end
-
       CheckResult = Struct.new :work_to_be_done, :errors
+      CheckStep = T.type_alias { Symbol }
 
-      CHECKS = {
-        taps_to_tap:               "Taps",
-        casks_to_install:          "Casks",
-        extensions_to_install:     "VSCode Extensions",
-        apps_to_install:           "Apps",
-        formulae_to_install:       "Formulae",
-        formulae_to_start:         "Services",
-        go_packages_to_install:    "Go Packages",
-        cargo_packages_to_install: "Cargo Packages",
-        uv_packages_to_install:    "uv Tools",
-        flatpaks_to_install:       "Flatpaks",
-      }.freeze
+      CORE_CHECKS = T.let([
+        :taps_to_tap,
+        :casks_to_install,
+        :extensions_to_install,
+        :apps_to_install,
+        :formulae_to_install,
+        :formulae_to_start,
+        :registered_extensions_to_install,
+        :cargo_packages_to_install,
+        :flatpaks_to_install,
+      ].freeze, T::Array[CheckStep])
 
       def self.check(global: false, file: nil, exit_on_first_error: false, no_upgrade: false, verbose: false)
         require "bundle/brewfile"
         @dsl ||= Brewfile.read(global:, file:)
 
-        check_method_names = CHECKS.keys
-
         errors = []
         enumerator = exit_on_first_error ? :find : :map
 
-        work_to_be_done = check_method_names.public_send(enumerator) do |check_method|
-          check_errors =
-            send(check_method, exit_on_first_error:, no_upgrade:, verbose:)
+        work_to_be_done = check_steps.public_send(enumerator) do |check_step|
+          check_errors = run_check_step(check_step, exit_on_first_error:, no_upgrade:, verbose:)
           any_errors = check_errors.any?
           errors.concat(check_errors) if any_errors
           any_errors
@@ -141,14 +90,6 @@ module Homebrew
         )
       end
 
-      def self.go_packages_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        require "bundle/go_checker"
-        Homebrew::Bundle::Checker::GoChecker.new.find_actionable(
-          @dsl.entries,
-          exit_on_first_error:, no_upgrade:, verbose:,
-        )
-      end
-
       def self.cargo_packages_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
         require "bundle/cargo_checker"
         Homebrew::Bundle::Checker::CargoChecker.new.find_actionable(
@@ -165,12 +106,22 @@ module Homebrew
         )
       end
 
-      def self.uv_packages_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        require "bundle/uv_checker"
-        Homebrew::Bundle::Checker::UvChecker.new.find_actionable(
-          @dsl.entries,
-          exit_on_first_error:, no_upgrade:, verbose:,
-        )
+      def self.registered_extensions_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
+        errors = T.let([], T::Array[Object])
+
+        Homebrew::Bundle.extensions.each do |extension|
+          check_errors = extension.check(
+            @dsl.entries,
+            exit_on_first_error:, no_upgrade:, verbose:,
+          )
+          next if check_errors.empty?
+
+          return check_errors if exit_on_first_error
+
+          errors.concat(check_errors)
+        end
+
+        errors
       end
 
       def self.reset!
@@ -186,6 +137,24 @@ module Homebrew
         Homebrew::Bundle::MacAppStoreDumper.reset!
         Homebrew::Bundle::TapDumper.reset!
         Homebrew::Bundle::BrewServices.reset!
+        Homebrew::Bundle.extensions.each(&:reset!)
+      end
+
+      sig { returns(T::Array[CheckStep]) }
+      def self.check_steps
+        CORE_CHECKS
+      end
+
+      sig {
+        params(
+          check_step:          CheckStep,
+          exit_on_first_error: T::Boolean,
+          no_upgrade:          T::Boolean,
+          verbose:             T::Boolean,
+        ).returns(T::Array[Object])
+      }
+      def self.run_check_step(check_step, exit_on_first_error:, no_upgrade:, verbose:)
+        public_send(check_step, exit_on_first_error:, no_upgrade:, verbose:)
       end
     end
   end

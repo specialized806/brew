@@ -16,6 +16,16 @@ RSpec.describe Homebrew::Bundle::GoInstaller do
                         .and_return(true)
       expect { described_class.preinstall!("github.com/charmbracelet/crush") }.to raise_error(RuntimeError)
     end
+
+    it "preserves upgrade_formulae while bootstrapping Go" do
+      Homebrew::Bundle.upgrade_formulae = "foo,bar"
+
+      expect(Homebrew::Bundle).to \
+        receive(:system).with(HOMEBREW_BREW_FILE, "install", "--formula", "go", verbose: false)
+                        .and_return(true)
+      expect { described_class.preinstall!("github.com/charmbracelet/crush") }.to raise_error(RuntimeError)
+      expect(Homebrew::Bundle.upgrade_formulae).to eql(["foo", "bar"])
+    end
   end
 
   context "when Go is installed" do
@@ -38,7 +48,7 @@ RSpec.describe Homebrew::Bundle::GoInstaller do
     context "when package is not installed" do
       before do
         allow(Homebrew::Bundle).to receive(:which_go).and_return(Pathname.new("go"))
-        allow(described_class).to receive(:installed_packages).and_return([])
+        allow(described_class).to receive_messages(packages: [], installed_packages: [])
       end
 
       it "installs package" do
@@ -47,6 +57,16 @@ RSpec.describe Homebrew::Bundle::GoInstaller do
                           .and_return(true)
         expect(described_class.preinstall!("github.com/charmbracelet/crush")).to be(true)
         expect(described_class.install!("github.com/charmbracelet/crush")).to be(true)
+      end
+
+      it "updates dump output after install in the same process" do
+        expect(Homebrew::Bundle).to \
+          receive(:system).with("go", "install", "github.com/charmbracelet/crush@latest", verbose: false)
+                          .and_return(true)
+
+        described_class.install!("github.com/charmbracelet/crush")
+
+        expect(Homebrew::Bundle::GoDumper.dump).to eql('go "github.com/charmbracelet/crush"')
       end
     end
   end

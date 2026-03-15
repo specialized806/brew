@@ -62,6 +62,8 @@ module Homebrew
         @which_vscode ||= which("code-insiders", ORIGINAL_PATHS)
       end
 
+      # TODO: Remove these go helpers once the bundle extension specs stop
+      # stubbing them directly.
       sig { returns(T.nilable(Pathname)) }
       def which_go
         @which_go ||= which("go", ORIGINAL_PATHS)
@@ -82,6 +84,8 @@ module Homebrew
         @cargo_installed ||= which_cargo.present?
       end
 
+      # TODO: Remove these uv helpers once the bundle extension specs stop
+      # stubbing them directly.
       sig { returns(T.nilable(Pathname)) }
       def which_uv
         @which_uv ||= which("uv", ORIGINAL_PATHS)

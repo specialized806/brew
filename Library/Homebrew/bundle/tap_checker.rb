@@ -9,7 +9,7 @@ module Homebrew
         PACKAGE_TYPE_NAME = "Tap"
 
         sig {
-          params(entries: T::Array[Homebrew::Bundle::Dsl::Entry], exit_on_first_error: T::Boolean,
+          params(entries: T::Array[Object], exit_on_first_error: T::Boolean,
                  no_upgrade: T::Boolean, verbose: T::Boolean).returns(T::Array[String])
         }
         def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)

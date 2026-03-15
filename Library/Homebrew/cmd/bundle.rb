@@ -2,15 +2,54 @@
 # frozen_string_literal: true
 
 require "abstract_command"
+require "bundle/dsl"
+require "bundle/extensions"
 
 module Homebrew
   module Cmd
     class Bundle < AbstractCommand
+      sig { params(args: Args, extension: T.class_of(Homebrew::Bundle::Extension)).returns(T::Boolean) }
+      def self.extension_selected?(args, extension)
+        args.public_send(extension.predicate_method)
+      end
+
+      sig { params(args: Args, extension: T.class_of(Homebrew::Bundle::Extension)).returns(T::Boolean) }
+      def self.extension_dump_disabled?(args, extension)
+        args.public_send(extension.dump_disable_predicate_method)
+      end
+
+      BUNDLE_EXTENSIONS = T.let(Homebrew::Bundle.extensions.dup.freeze, T::Array[T.class_of(Homebrew::Bundle::Extension)])
+      BUNDLE_SOURCES_DESCRIPTION = T.let(
+        [
+          "Homebrew",
+          "Homebrew Cask",
+          "Mac App Store",
+          "Visual Studio Code (and forks/variants)",
+          *BUNDLE_EXTENSIONS.map(&:banner_name),
+          "Cargo packages",
+          "Flatpak",
+        ].to_sentence.freeze,
+        String,
+      )
+      BUNDLE_ADD_FLAGS_DESCRIPTION = T.let(
+        ["`--cask`", "`--tap`", "`--vscode`", *BUNDLE_EXTENSIONS.select(&:add_supported?).map do |extension|
+          "`--#{extension.flag}`"
+        end].to_sentence.freeze,
+        String,
+      )
+      BUNDLE_REMOVE_FLAGS_DESCRIPTION = T.let(
+        ["`--formula`", "`--cask`", "`--tap`", "`--mas`", "`--vscode`", "`--cargo`", "`--flatpak`",
+         *BUNDLE_EXTENSIONS.select(&:remove_supported?).map do |extension|
+ "`--#{extension.flag}`"
+         end].to_sentence.freeze,
+        String,
+      )
+
       cmd_args do
         usage_banner <<~EOS
           `bundle` [<subcommand>]
 
-          Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools and Flatpak.
+          Bundler for non-Ruby dependencies from #{BUNDLE_SOURCES_DESCRIPTION}.
 
           Note: Flatpak support is only available on Linux.
 
@@ -48,10 +87,10 @@ module Homebrew
           Edit the `Brewfile` in your editor.
 
           `brew bundle add` <name> [...]:
-          Add entries to your `Brewfile`. Adds formulae by default. Use `--cask`, `--tap`, `--vscode` or `--uv` to add the corresponding entry instead.
+          Add entries to your `Brewfile`. Adds formulae by default. Use #{BUNDLE_ADD_FLAGS_DESCRIPTION} to add the corresponding entry instead.
 
           `brew bundle remove` <name> [...]:
-          Remove entries that match `name` from your `Brewfile`. Use `--formula`, `--cask`, `--tap`, `--mas`, `--vscode` or `--uv` to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names.
+          Remove entries that match `name` from your `Brewfile`. Use #{BUNDLE_REMOVE_FLAGS_DESCRIPTION} to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names.
 
           `brew bundle exec` [`--check`] [`--no-secrets`] <command>:
           Run an external command in an isolated build environment based on the `Brewfile` dependencies.
@@ -109,29 +148,28 @@ module Homebrew
                description: "`list` or `dump` Mac App Store dependencies."
         switch "--vscode",
                description: "`list`, `dump` or `cleanup` VSCode (and forks/variants) extensions."
-        switch "--go",
-               description: "`list` or `dump` Go packages."
         switch "--cargo",
                description: "`list` or `dump` Cargo packages."
-        switch "--uv",
-               description: "`list` or `dump` uv tools."
         switch "--flatpak",
                description: "`list` or `dump` Flatpak packages. Note: Linux only."
+        BUNDLE_EXTENSIONS.each do |extension|
+          switch "--#{extension.flag}",
+                 description: extension.switch_description
+        end
         switch "--no-vscode",
                description: "`dump` without VSCode (and forks/variants) extensions.",
                env:         :bundle_dump_no_vscode
-        switch "--no-go",
-               description: "`dump` without Go packages.",
-               env:         :bundle_dump_no_go
         switch "--no-cargo",
                description: "`dump` without Cargo packages.",
                env:         :bundle_dump_no_cargo
-        switch "--no-uv",
-               description: "`dump` without uv tools.",
-               env:         :bundle_dump_no_uv
         switch "--no-flatpak",
                description: "`dump` without Flatpak packages.",
                env:         :bundle_dump_no_flatpak
+        BUNDLE_EXTENSIONS.each do |extension|
+          switch "--no-#{extension.flag}",
+                 description: extension.dump_disable_description,
+                 env:         extension.dump_disable_env
+        end
         switch "--describe",
                description: "`dump` adds a description comment above each line, unless the " \
                             "dependency does not have a description.",
@@ -150,14 +188,14 @@ module Homebrew
 
         conflicts "--all", "--no-vscode"
         conflicts "--vscode", "--no-vscode"
-        conflicts "--all", "--no-go"
-        conflicts "--go", "--no-go"
         conflicts "--all", "--no-cargo"
         conflicts "--cargo", "--no-cargo"
-        conflicts "--all", "--no-uv"
-        conflicts "--uv", "--no-uv"
         conflicts "--all", "--no-flatpak"
         conflicts "--flatpak", "--no-flatpak"
+        BUNDLE_EXTENSIONS.each do |extension|
+          conflicts "--all", "--no-#{extension.flag}"
+          conflicts "--#{extension.flag}", "--no-#{extension.flag}"
+        end
         conflicts "--install", "--upgrade"
         conflicts "--file", "--global"
 
@@ -199,8 +237,9 @@ module Homebrew
         zap = args.zap?
         Homebrew::Bundle.upgrade_formulae = args.upgrade_formulae
 
-        no_type_args = [args.formulae?, args.casks?, args.taps?, args.mas?, args.vscode?, args.go?,
-                        args.cargo?, args.uv?, args.flatpak?].none?
+        no_type_args = ([args.formulae?, args.casks?, args.taps?, args.mas?, args.vscode?, args.cargo?,
+                         args.flatpak?] +
+                        BUNDLE_EXTENSIONS.map { |extension| self.class.extension_selected?(args, extension) }).none?
 
         if args.install?
           if [nil, "install", "upgrade"].include?(subcommand)
@@ -243,25 +282,9 @@ module Homebrew
             no_type_args
           end
 
-          go = if args.no_go?
-            false
-          elsif args.go?
-            true
-          else
-            no_type_args
-          end
-
           cargo = if args.no_cargo?
             false
           elsif args.cargo?
-            true
-          else
-            no_type_args
-          end
-
-          uv = if args.no_uv?
-            false
-          elsif args.uv?
             true
           else
             no_type_args
@@ -285,10 +308,13 @@ module Homebrew
             casks:      args.casks? || no_type_args,
             mas:        args.mas? || no_type_args,
             vscode:,
-            go:,
             cargo:,
-            uv:,
-            flatpak:
+            flatpak:,
+            extension_types: BUNDLE_EXTENSIONS.select(&:dump_supported?).to_h do |extension|
+              disabled = self.class.extension_dump_disabled?(args, extension)
+              enabled = !disabled && (self.class.extension_selected?(args, extension) || no_type_args)
+              [extension.type, enabled]
+            end
           )
         when "edit"
           require "bundle/brewfile"
@@ -307,19 +333,22 @@ module Homebrew
           require "bundle/commands/check"
           Homebrew::Bundle::Commands::Check.run(global:, file:, no_upgrade:, verbose:)
         when "list"
+          extension_list_options = BUNDLE_EXTENSIONS.to_h do |extension|
+            [extension.type, self.class.extension_selected?(args, extension) || args.all?]
+          end
+
           require "bundle/commands/list"
           Homebrew::Bundle::Commands::List.run(
             global:,
             file:,
-            formulae: args.formulae? || args.all? || no_type_args,
-            casks:    args.casks? || args.all?,
-            taps:     args.taps? || args.all?,
-            mas:      args.mas? || args.all?,
-            vscode:   args.vscode? || args.all?,
-            go:       args.go? || args.all?,
-            cargo:    args.cargo? || args.all?,
-            uv:       args.uv? || args.all?,
-            flatpak:  args.flatpak? || args.all?,
+            formulae:        args.formulae? || args.all? || no_type_args,
+            casks:           args.casks? || args.all?,
+            taps:            args.taps? || args.all?,
+            mas:             args.mas? || args.all?,
+            vscode:          args.vscode? || args.all?,
+            cargo:           args.cargo? || args.all?,
+            flatpak:         args.flatpak? || args.all?,
+            extension_types: extension_list_options,
           )
         when "add", "remove"
           # We intentionally omit the s from `brews`, `casks`, and `taps` for ease of handling later.
@@ -329,12 +358,13 @@ module Homebrew
             tap:     args.taps?,
             mas:     args.mas?,
             vscode:  args.vscode?,
-            go:      args.go?,
             cargo:   args.cargo?,
-            uv:      args.uv?,
             flatpak: args.flatpak?,
-            none:    no_type_args,
           }
+          BUNDLE_EXTENSIONS.each do |extension|
+            type_hash[extension.type] = self.class.extension_selected?(args, extension)
+          end
+          type_hash[:none] = no_type_args
           selected_types = type_hash.select { |_, v| v }.keys
           raise UsageError, "`#{subcommand}` supports only one type of entry at a time." if selected_types.count != 1
 
@@ -344,6 +374,12 @@ module Homebrew
             when :none then :brew
             when :mas then raise UsageError, "`add` does not support `--mas`."
             else t
+            end
+
+            extension = Homebrew::Bundle.extension(type)
+            if extension && !extension.add_supported?
+              raise UsageError,
+                    "`add` does not support `--#{extension.flag}`."
             end
 
             require "bundle/commands/add"
