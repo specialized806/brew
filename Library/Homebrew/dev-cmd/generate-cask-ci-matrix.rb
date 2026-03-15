@@ -261,8 +261,9 @@ module Homebrew
           audit_exceptions << "min_os" if labels.include?("ci-skip-livecheck-min-os")
 
           if labels.include?("ci-skip-repository")
-            audit_exceptions << %w[github_repository github_prerelease_version
-                                   gitlab_repository gitlab_prerelease_version
+            audit_exceptions << %w[github_repository github_repository_archived github_prerelease_version
+                                   gitlab_repository gitlab_repository_archived gitlab_prerelease_version
+                                   forgejo_repository forgejo_repository_archived forgejo_prerelease_version
                                    bitbucket_repository]
           end
 
