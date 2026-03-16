@@ -6,15 +6,21 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Missing do
   it_behaves_like "parseable arguments"
 
-  it "does not report missing deps when tab has no runtime dependency data", :integration_test, :no_api do
+  it "prints missing dependencies", :integration_test, :no_api do
     setup_test_formula "foo"
     setup_test_formula "bar"
 
     (HOMEBREW_CELLAR/"bar/1.0").mkpath
+    (HOMEBREW_CELLAR/"bar/1.0/INSTALL_RECEIPT.json").write(
+      JSON.generate({
+        "homebrew_version"     => "1.1.6",
+        "runtime_dependencies" => [{ "full_name" => "foo", "version" => "1.0" }],
+      }),
+    )
 
     expect { brew "missing" }
-      .to be_a_success
-      .and not_to_output.to_stdout
+      .to output("foo\n").to_stdout
       .and not_to_output.to_stderr
+      .and be_a_failure
   end
 end
