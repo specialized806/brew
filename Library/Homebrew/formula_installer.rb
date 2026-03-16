@@ -1416,6 +1416,7 @@ on_request: installed_on_request?, options:)
   sig { params(quiet: T::Boolean, enqueue: T::Boolean).void }
   def fetch_bottle_tab(quiet: false, enqueue: false)
     return if @fetch_bottle_tab
+    return if formula.local_bottle_path.present?
 
     if (bottle = formula.bottle) &&
        (manifest_resource = bottle.github_packages_manifest_resource) &&

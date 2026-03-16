@@ -122,7 +122,7 @@ module Utils
         tabfile = keg/AbstractTab::FILENAME
         bottle_json_path = formula.local_bottle_path&.sub(/\.(\d+\.)?tar\.gz$/, ".json")
 
-        if (tab_attributes = formula.bottle_tab_attributes.presence)
+        if bottle_json_path.nil? && (tab_attributes = formula.bottle_tab_attributes.presence)
           tab = Tab.from_file_content(tab_attributes.to_json, tabfile)
           return tab if tab.built_on["os"] == HOMEBREW_SYSTEM
         elsif !tabfile.exist? && bottle_json_path&.exist?
