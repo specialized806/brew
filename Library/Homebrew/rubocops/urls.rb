@@ -10,6 +10,7 @@ module RuboCop
       # This cop audits `url`s and `mirror`s in formulae.
       class Urls < FormulaCop
         include UrlHelper
+        extend AutoCorrector
 
         sig { override.params(formula_nodes: FormulaNodes).void }
         def audit_formula(formula_nodes)
