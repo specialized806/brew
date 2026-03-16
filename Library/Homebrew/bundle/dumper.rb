@@ -3,7 +3,7 @@
 
 require "fileutils"
 require "bundle/dsl"
-require "bundle/extensions"
+require "bundle/package_types"
 
 module Homebrew
   module Bundle
@@ -28,21 +28,20 @@ module Homebrew
       }
       def self.build_brewfile(describe:, no_restart:, formulae:, taps:, casks:, extension_types: {},
                               **extra_extension_types)
-        require "bundle/tap_dumper"
-        require "bundle/formula_dumper"
-        require "bundle/cask_dumper"
-
         # TODO: Remove `extra_extension_types` once all callers pass a single
         # `extension_types:` hash instead of legacy per-extension keywords.
-        extension_types = extension_types.merge(extra_extension_types)
+        selected_package_types = extension_types.merge(extra_extension_types)
+        # TODO: Remove this legacy core-type mapping once the dump command
+        # passes a single package-type selection hash instead of separate
+        # `taps`, `formulae`, and `casks` booleans.
+        selected_package_types[:tap] = taps
+        selected_package_types[:brew] = formulae
+        selected_package_types[:cask] = casks
         content = []
-        content << TapDumper.dump if taps
-        content << FormulaDumper.dump(describe:, no_restart:) if formulae
-        content << CaskDumper.dump(describe:) if casks
-        Homebrew::Bundle.extensions.select(&:dump_supported?).each do |extension|
-          next unless extension_types.fetch(extension.type, false)
+        Homebrew::Bundle.dump_package_types.select(&:dump_supported?).each do |package_type|
+          next unless selected_package_types.fetch(package_type.type, false)
 
-          content << extension.dump
+          content << package_type.dump_output(describe:, no_restart:)
         end
         "#{content.reject(&:empty?).join("\n")}\n"
       end

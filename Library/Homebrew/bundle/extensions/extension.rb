@@ -83,17 +83,137 @@ module Homebrew
 
     ExtensionTypes = T.type_alias { T::Hash[Symbol, T::Boolean] }
 
-    class Extension < Homebrew::Bundle::Checker::Base
+    class PackageType < Homebrew::Bundle::Checker::Base
+      extend T::Helpers
+
+      abstract!
+
+      sig { params(subclass: T.class_of(Homebrew::Bundle::PackageType)).void }
+      def self.inherited(subclass)
+        super
+        return if subclass.name == "Homebrew::Bundle::Extension"
+
+        Homebrew::Bundle.register_package_type(subclass)
+      end
+
+      sig { returns(Symbol) }
+      def self.type
+        T.cast(const_get(:PACKAGE_TYPE), Symbol)
+      end
+
+      sig { returns(T::Boolean) }
+      def self.dump_supported?
+        true
+      end
+
+      sig { returns(T::Boolean) }
+      def self.install_supported?
+        true
+      end
+
+      sig { params(_name: String, _options: T::Hash[Symbol, Object]).returns(String) }
+      def self.install_verb(_name = "", _options = {})
+        "Installing"
+      end
+
+      sig {
+        params(
+          name:       String,
+          options:    T::Hash[Symbol, Object],
+          no_upgrade: T::Boolean,
+        ).returns(T.nilable(String))
+      }
+      def self.fetchable_name(name, options = {}, no_upgrade: false)
+        _ = name
+        _ = options
+        _ = no_upgrade
+
+        nil
+      end
+
+      sig { returns(T::Boolean) }
+      def self.check_supported?
+        true
+      end
+
+      sig { abstract.void }
+      def self.reset!; end
+
+      sig {
+        params(
+          entries:             T::Array[Object],
+          exit_on_first_error: T::Boolean,
+          no_upgrade:          T::Boolean,
+          verbose:             T::Boolean,
+        ).returns(T::Array[Object])
+      }
+      def self.check(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
+        new.find_actionable(entries, exit_on_first_error:, no_upgrade:, verbose:)
+      end
+
+      sig { abstract.returns(String) }
+      def self.dump; end
+
+      sig { params(describe: T::Boolean, no_restart: T::Boolean).returns(String) }
+      def self.dump_output(describe: false, no_restart: false)
+        _ = describe
+        _ = no_restart
+
+        dump
+      end
+    end
+
+    class << self
+      sig { params(package_type: T.class_of(PackageType)).void }
+      def register_package_type(package_type)
+        @package_types ||= T.let([], T.nilable(T::Array[T.class_of(PackageType)]))
+        @package_types.reject! { |registered| registered.name == package_type.name }
+        @package_types << package_type
+      end
+
+      sig { returns(T::Array[T.class_of(PackageType)]) }
+      def package_types
+        @package_types ||= T.let([], T.nilable(T::Array[T.class_of(PackageType)]))
+        @package_types
+      end
+
+      sig { params(type: T.any(Symbol, String)).returns(T.nilable(T.class_of(PackageType))) }
+      def package_type(type)
+        requested_type = type.to_sym
+        package_types.find { |registered| registered.type == requested_type }
+      end
+
+      sig { returns(T::Array[T.class_of(PackageType)]) }
+      def dump_package_types
+        core_package_types = [:tap, :brew, :cask].filter_map { |type| package_type(type) }
+        (core_package_types + (package_types - core_package_types)).uniq
+      end
+
+      sig { returns(T::Array[T.class_of(PackageType)]) }
+      def check_package_types
+        # TODO: Remove this legacy ordering shim once package-type order can be
+        # inferred entirely from registration without changing `brew bundle check`
+        # behavior for taps, casks, extensions, and formulae.
+        taps = package_type(:tap)
+        casks = package_type(:cask)
+        formulae = package_type(:brew)
+        core_package_types = [taps, casks, formulae].compact
+
+        [taps, casks, *(package_types - core_package_types), formulae].compact
+      end
+    end
+
+    class Extension < Homebrew::Bundle::PackageType
       extend T::Helpers
 
       EntryOptions = T.type_alias { T::Hash[Symbol, Object] }
 
       abstract!
 
-      sig { params(subclass: T.class_of(Homebrew::Bundle::Extension)).void }
+      sig { override.params(subclass: T.class_of(Homebrew::Bundle::PackageType)).void }
       def self.inherited(subclass)
         super
-        Homebrew::Bundle.register_extension(subclass)
+        Homebrew::Bundle.register_extension(T.cast(subclass, T.class_of(Homebrew::Bundle::Extension)))
       end
 
       sig { returns(Symbol) }
@@ -199,6 +319,26 @@ module Homebrew
         true
       end
 
+      sig { params(_name: String, _options: T::Hash[Symbol, Object]).returns(String) }
+      def self.install_verb(_name = "", _options = {})
+        "Installing"
+      end
+
+      sig {
+        params(
+          name:       String,
+          options:    T::Hash[Symbol, Object],
+          no_upgrade: T::Boolean,
+        ).returns(T.nilable(String))
+      }
+      def self.fetchable_name(name, options = {}, no_upgrade: false)
+        _ = name
+        _ = options
+        _ = no_upgrade
+
+        nil
+      end
+
       sig { returns(T.nilable(String)) }
       def self.cleanup_heading
         nil
@@ -245,9 +385,17 @@ module Homebrew
         nil
       end
 
-      sig { returns(String) }
+      sig { override.returns(String) }
       def self.dump
         packages.map { |package| dump_entry(package) }.join("\n")
+      end
+
+      sig { params(describe: T::Boolean, no_restart: T::Boolean).returns(String) }
+      def self.dump_output(describe: false, no_restart: false)
+        _ = describe
+        _ = no_restart
+
+        dump
       end
 
       sig {
@@ -270,6 +418,11 @@ module Homebrew
       sig { returns(T.nilable(Symbol)) }
       def self.legacy_cleanup_method
         nil
+      end
+
+      sig { returns(Symbol) }
+      def self.legacy_check_step
+        :registered_extensions_to_install
       end
 
       sig { params(_items: T::Array[String]).void }
@@ -394,6 +547,15 @@ module Homebrew
       def extension(type)
         requested_type = type.to_sym
         extensions.find { |registered| registered.type == requested_type }
+      end
+
+      sig {
+        params(
+          type: T.any(Symbol, String),
+        ).returns(T.nilable(T.any(T.class_of(PackageType), T.class_of(Extension))))
+      }
+      def installable(type)
+        package_type(type) || extension(type)
       end
     end
   end
