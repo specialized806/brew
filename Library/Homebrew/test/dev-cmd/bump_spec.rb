@@ -152,4 +152,35 @@ RSpec.describe Homebrew::DevCmd::Bump do
       })
     end
   end
+
+  describe "::message?" do
+    let(:version) { Version.new("1.2.3") }
+    let(:cask_version) { Cask::DSL::Version.new("1.2.3,4") }
+    let(:message_strings) do
+      [
+        "error: message",
+        "skipped",
+        "skipped - deprecated",
+        "unable to get versions",
+        "unable to get throttled versions",
+      ]
+    end
+
+    it "returns false when value is not a `Cask::DSL::Version` or string" do
+      expect(bump.send(:message?, version)).to be(false)
+      expect(bump.send(:message?, nil)).to be(false)
+    end
+
+    it "returns false when `Cask::DSL::Version` or string is not a message" do
+      expect(bump.send(:message?, cask_version)).to be(false)
+      expect(bump.send(:message?, "Not a message string")).to be(false)
+    end
+
+    it "returns true when `Cask::DSL::Version` or string is a message" do
+      message_strings.each do |message_string|
+        expect(bump.send(:message?, Cask::DSL::Version.new(message_string))).to be(true)
+        expect(bump.send(:message?, message_string)).to be(true)
+      end
+    end
+  end
 end
