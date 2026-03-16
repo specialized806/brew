@@ -2803,16 +2803,27 @@ class Formula
   end
 
   # Returns a list of formulae depended on by this formula that aren't
-  # installed.
+  # installed. Only trusts tab data for dependency information; when the tab
+  # has no runtime dependency data (nil), treats the dependency list as
+  # unknown and returns empty rather than falling back to formula definitions.
+  # This prevents stale or missing tab data from incorrectly blocking
+  # uninstalls.
   sig { params(hide: T::Array[String]).returns(T::Array[Dependency]) }
   def missing_dependencies(hide: [])
-    runtime_dependencies(read_from_tab: true, undeclared: true).select do |f|
-      hide.include?(f.name) || f.to_installed_formula.installed_prefixes.none?
+    tab_deps = any_installed_keg&.runtime_dependencies
+    return [] if tab_deps.nil?
+
+    tab_deps.filter_map do |d|
+      next unless d.is_a?(Hash)
+
+      full_name = d["full_name"]
+      next unless full_name
+
+      dep = Dependency.new(full_name)
+      dep if hide.include?(dep.name) || dep.to_installed_formula.installed_prefixes.none?
+    rescue FormulaUnavailableError
+      nil
     end
-  # If we're still getting unavailable formulae at this stage the best we can
-  # do is just return no results.
-  rescue FormulaUnavailableError
-    []
   end
 
   sig { returns(T.nilable(String)) }
