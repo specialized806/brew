@@ -302,4 +302,38 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
       expect(inspect_source(source)).to eq([])
     end
   end
+
+  context "when auditing Apache URLs" do
+    let(:expected_url) { "https://www.apache.org/dyn/closer.lua?path=apr/apr-1.7.6.tar.bz2" }
+
+    shared_examples "offense" do |url|
+      it "registers an offense and corrects" do
+        message = "FormulaAudit/Urls: #{url} should be: #{expected_url}"
+
+        expect_offense(<<~RUBY, url:, message:)
+          class Foo < Formula
+            desc "foo"
+            url "#{url}"
+            ^^^^^#{"^" * url.size}^ #{message}
+          end
+        RUBY
+
+        expect_correction(<<~RUBY)
+          class Foo < Formula
+            desc "foo"
+            url "#{expected_url}"
+          end
+        RUBY
+      end
+    end
+
+    it_behaves_like "offense", "https://dist.apache.org/repos/dist/release/apr/apr-1.7.6.tar.bz2"
+    it_behaves_like "offense", "https://dlcdn.apache.org/apr/apr-1.7.6.tar.bz2"
+    it_behaves_like "offense", "https://downloads.apache.org/apr/apr-1.7.6.tar.bz2"
+    it_behaves_like "offense", "https://www.apache.org/dyn/closer.cgi?path=/apr/apr-1.7.6.tar.bz2"
+    it_behaves_like "offense", "https://www.apache.org/dyn/mirrors.cgi?path=apr/apr-1.7.6.tar.bz2"
+    it_behaves_like "offense", "https://www.apache.org/dyn/mirrors.cgi?filename=/apr/apr-1.7.6.tar.bz2"
+    it_behaves_like "offense",
+                    "https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=apr/apr-1.7.6.tar.bz2"
+  end
 end
