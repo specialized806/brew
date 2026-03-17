@@ -22,7 +22,7 @@ module Homebrew
           when :brew
             Formulary.factory(arg)
           when :cask
-            Cask::CaskLoader.load(arg)
+            ::Cask::CaskLoader.load(arg)
           end
 
           "#{type} \"#{arg}\""

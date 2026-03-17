@@ -13,6 +13,11 @@ module Homebrew
       BANNER_NAME = "Mac App Store dependencies"
 
       class << self
+        sig { override.returns(Symbol) }
+        def legacy_check_step
+          :apps_to_install
+        end
+
         sig { override.returns(T::Boolean) }
         def add_supported?
           false

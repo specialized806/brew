@@ -3,7 +3,8 @@
 
 require "bundle/checker/base"
 require "bundle/dsl"
-require "bundle/extensions"
+require "bundle/package_types"
+require "bundle/brew_services"
 
 module Homebrew
   module Bundle
@@ -15,6 +16,7 @@ module Homebrew
         :taps_to_tap,
         :casks_to_install,
         :registered_extensions_to_install,
+        :apps_to_install,
         :formulae_to_install,
         :formulae_to_start,
       ].freeze, T::Array[CheckStep])
@@ -38,38 +40,8 @@ module Homebrew
         CheckResult.new work_to_be_done, errors
       end
 
-      def self.casks_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        require "bundle/cask_checker"
-        Homebrew::Bundle::Checker::CaskChecker.new.find_actionable(
-          @dsl.entries,
-          exit_on_first_error:, no_upgrade:, verbose:,
-        )
-      end
-
-      def self.formulae_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        require "bundle/brew_checker"
-        Homebrew::Bundle::Checker::BrewChecker.new.find_actionable(
-          @dsl.entries,
-          exit_on_first_error:, no_upgrade:, verbose:,
-        )
-      end
-
-      def self.taps_to_tap(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        require "bundle/tap_checker"
-        Homebrew::Bundle::Checker::TapChecker.new.find_actionable(
-          @dsl.entries,
-          exit_on_first_error:, no_upgrade:, verbose:,
-        )
-      end
-
       def self.apps_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        _ = exit_on_first_error
-        _ = no_upgrade
-        _ = verbose
-
-        # TODO: Remove this legacy no-op once callers and tests stop referencing
-        # the old dedicated app check phase.
-        []
+        extension_errors(:apps_to_install, exit_on_first_error:, no_upgrade:, verbose:)
       end
 
       def self.extensions_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
@@ -83,17 +55,52 @@ module Homebrew
       end
 
       def self.formulae_to_start(exit_on_first_error: false, no_upgrade: false, verbose: false)
-        require "bundle/brew_service_checker"
-        Homebrew::Bundle::Checker::BrewServiceChecker.new.find_actionable(
+        # TODO: Keep this separate until service checks can be modeled as part of
+        # the `brew` package type without pretending services are standalone
+        # package entries.
+        Homebrew::Bundle::Brew::Services.new.find_actionable(
           @dsl.entries,
           exit_on_first_error:, no_upgrade:, verbose:,
         )
       end
 
+      def self.taps_to_tap(exit_on_first_error: false, no_upgrade: false, verbose: false)
+        # TODO: Remove this legacy wrapper once callers and tests stop
+        # referencing the old dedicated tap check phase.
+        package_type_errors(:tap, exit_on_first_error:, no_upgrade:, verbose:)
+      end
+
+      def self.casks_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
+        # TODO: Remove this legacy wrapper once callers and tests stop
+        # referencing the old dedicated cask check phase.
+        package_type_errors(:cask, exit_on_first_error:, no_upgrade:, verbose:)
+      end
+
+      def self.formulae_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
+        # TODO: Remove this legacy wrapper once callers and tests stop
+        # referencing the old dedicated formula check phase.
+        package_type_errors(:brew, exit_on_first_error:, no_upgrade:, verbose:)
+      end
+
       def self.registered_extensions_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
+        # TODO: Remove this legacy wrapper once callers and tests stop
+        # referencing the old dedicated extension check phase.
+        extension_errors(:registered_extensions_to_install, exit_on_first_error:, no_upgrade:, verbose:)
+      end
+
+      sig {
+        params(
+          step:                Symbol,
+          exit_on_first_error: T::Boolean,
+          no_upgrade:          T::Boolean,
+          verbose:             T::Boolean,
+        ).returns(T::Array[Object])
+      }
+      def self.extension_errors(step, exit_on_first_error:, no_upgrade:, verbose:)
+        matching_extensions = Homebrew::Bundle.extensions.select { |extension| extension.legacy_check_step == step }
         errors = T.let([], T::Array[Object])
 
-        Homebrew::Bundle.extensions.each do |extension|
+        matching_extensions.each do |extension|
           check_errors = extension.check(
             @dsl.entries,
             exit_on_first_error:, no_upgrade:, verbose:,
@@ -109,22 +116,29 @@ module Homebrew
       end
 
       def self.reset!
-        require "bundle/cask_dumper"
-        require "bundle/formula_dumper"
-        require "bundle/tap_dumper"
-        require "bundle/brew_services"
-
         @dsl = nil
-        Homebrew::Bundle::CaskDumper.reset!
-        Homebrew::Bundle::FormulaDumper.reset!
-        Homebrew::Bundle::TapDumper.reset!
-        Homebrew::Bundle::BrewServices.reset!
+        Homebrew::Bundle.package_types.each(&:reset!)
         Homebrew::Bundle.extensions.each(&:reset!)
       end
 
       sig { returns(T::Array[CheckStep]) }
       def self.check_steps
         CORE_CHECKS
+      end
+
+      sig {
+        params(
+          type:                Symbol,
+          exit_on_first_error: T::Boolean,
+          no_upgrade:          T::Boolean,
+          verbose:             T::Boolean,
+        ).returns(T::Array[Object])
+      }
+      def self.package_type_errors(type, exit_on_first_error:, no_upgrade:, verbose:)
+        package_type = Homebrew::Bundle.package_type(type)
+        return [] if package_type.nil?
+
+        package_type.check(@dsl.entries, exit_on_first_error:, no_upgrade:, verbose:)
       end
 
       sig {
