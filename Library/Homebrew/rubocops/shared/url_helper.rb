@@ -56,11 +56,23 @@ module RuboCop
           problem "Please don't use \"fossies.org\" in the `url` (using as a mirror is fine)"
         end
 
-        apache_pattern = %r{^https?://(?:[^/]*\.)?apache\.org/(?:dyn/closer\.cgi\?path=/?|dist/)(.*)}i
-        audit_urls(urls, apache_pattern) do |match, url|
+        apache_pattern = %r{
+          ^https?://
+          (?:dist\.apache\.org/repos/dist/release/
+            |(?:dlcdn|downloads)\.apache\.org/
+            |(?:[^/]*\.)?apache\.org/
+             (?:dyn/(?:.*/)?(?:closer|mirrors)\.cgi\?(?:action=download&)?(?:filename|path)=/?
+               |dist/))
+          (.*)
+        }ix
+        audit_urls(urls, apache_pattern) do |match, url, index|
           next if livecheck_urls.include?(url)
 
-          problem "#{url} should be: https://www.apache.org/dyn/closer.lua?path=#{match[1]}"
+          fixed = "https://www.apache.org/dyn/closer.lua?path=#{match[1]}"
+          url_parameter_node = parameters(urls.fetch(index)).first
+          problem "#{url} should be: #{fixed}" do |corrector|
+            corrector.replace(url_parameter_node.source_range, "\"#{fixed}\"")
+          end
         end
 
         version_control_pattern = %r{^(cvs|bzr|hg|fossil)://}
