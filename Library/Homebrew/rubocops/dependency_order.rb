@@ -43,8 +43,10 @@ module RuboCop
         end
 
         def ensure_dependency_order(nodes)
-          ordered = nodes.sort_by { |node| dependency_name(node).downcase }
-          ordered = sort_dependencies_by_type(ordered)
+          name_node_pairs = nodes.map { |node| [dependency_name(node), node] }
+          name_node_pairs.select! { |name, _| name } # skip nodes with invalid dependency name
+          name_node_pairs.sort_by! { |name, _| name.downcase }
+          ordered = sort_dependencies_by_type(name_node_pairs.map { |_, node| node })
           sort_conditional_dependencies!(ordered)
           verify_order_in_source(ordered)
         end
@@ -143,8 +145,8 @@ module RuboCop
 
         # Node pattern method to extract `name` in `depends_on :name` or `uses_from_macos :name`
         def_node_search :dependency_name_node, <<~EOS
-          {(send nil? {:depends_on :uses_from_macos} {(hash (pair $_ _) ...) $({str sym} _) $(const nil? _)} ...)
-           (if _ (send nil? :depends_on {(hash (pair $_ _)) $({str sym} _) $(const nil? _)}) nil?)}
+          {(send nil? {:depends_on :uses_from_macos} {(hash (pair $_ _) ...) $({str sym dstr} ...) $(const nil? _)} ...)
+           (if _ (send nil? :depends_on {(hash (pair $_ _)) $({str sym dstr} ...) $(const nil? _)}) nil?)}
         EOS
 
         # Node pattern method to extract `name` in `build.with? :name`
