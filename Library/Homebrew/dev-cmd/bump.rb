@@ -278,8 +278,12 @@ module Homebrew
         )
 
         if skip_info.present?
-          return "#{skip_info[:status]}" \
-                 "#{" - #{skip_info[:messages].join("; ")}" if skip_info[:messages].present?}"
+          skip_status = skip_info[:status]
+          skip_messages = skip_info[:messages]
+          skip_message = skip_messages.join("; ") if skip_messages.present?
+          return "error: #{skip_message}" if skip_status == "error" && skip_message
+
+          return "skipped - #{skip_message || skip_status}"
         end
 
         version_info = Livecheck.latest_version(
@@ -369,10 +373,9 @@ module Homebrew
             new_version_value = if (livecheck_latest_is_a_version &&
                                     Livecheck::LivecheckVersion.create(formula_or_cask, livecheck_latest) >=
                                     Livecheck::LivecheckVersion.create(formula_or_cask, current_version_value)) ||
-                                   current_version_value == "latest"
+                                   current_version_value == "latest" ||
+                                   message?(livecheck_latest)
               livecheck_latest
-            elsif livecheck_latest.is_a?(String) && livecheck_latest.start_with?("skipped")
-              "skipped"
             elsif repology_latest_is_a_version &&
                   !formula_or_cask_has_livecheck &&
                   repology_latest > current_version_value &&
@@ -433,21 +436,18 @@ module Homebrew
            !newer_than_upstream.all? { |_k, v| v == true }
           pull_request_version = nil
           if (new_version_arm = new_version.arm) &&
-             (new_version_arm != "unable to get versions") &&
-             (new_version_arm != "skipped") &&
+             !message?(new_version_arm) &&
              (new_version_arm != current_version.arm)
             # We use the ARM version for the pull request version even if there
             # are multiple arch versions to be consistent with the behavior of
             # bump-cask-pr.
             pull_request_version = new_version_arm.to_s
           elsif (new_version_intel = new_version.intel) &&
-                (new_version_intel != "unable to get versions") &&
-                (new_version_intel != "skipped") &&
+                !message?(new_version_intel) &&
                 (new_version_intel != current_version.intel)
             pull_request_version = new_version_intel.to_s
           elsif (new_version_general = new_version.general) &&
-                (new_version_general != "unable to get versions") &&
-                (new_version_general != "skipped") &&
+                !message?(new_version_general) &&
                 (new_version_general != current_version.general)
             pull_request_version = new_version_general.to_s
           end
@@ -631,8 +631,7 @@ module Homebrew
         end
 
         if !args.no_pull_requests? &&
-           (new_version.general != "unable to get versions") &&
-           (new_version.general != "skipped") &&
+           !message?(new_version.general) &&
            !versions_equal &&
            !all_newer_than_upstream
           if duplicate_pull_requests
@@ -652,8 +651,7 @@ module Homebrew
         end
 
         if !args.open_pr? ||
-           (new_version.general == "unable to get versions") ||
-           (new_version.general == "skipped") ||
+           message?(new_version.general) ||
            all_newer_than_upstream
           return
         end
@@ -678,15 +676,13 @@ module Homebrew
         version_args = []
         if multiple_versions[:current] && multiple_versions[:new]
           if (new_version_arm = new_version.arm) &&
-             new_version_arm != "unable to get versions" &&
-             new_version_arm != "skipped" &&
+             !message?(new_version_arm) &&
              current_version.arm &&
              new_version_arm > current_version.arm
             version_args << "--version-arm=#{new_version_arm}"
           end
           if (new_version_intel = new_version.intel) &&
-             new_version_intel != "unable to get versions" &&
-             new_version_intel != "skipped" &&
+             !message?(new_version_intel) &&
              current_version.intel &&
              new_version_intel > current_version.intel
             version_args << "--version-intel=#{new_version_intel}"
@@ -745,8 +741,7 @@ module Homebrew
           end
 
           new_version_value = new_version.send(type)
-          if new_version_value.is_a?(String) &&
-             new_version_value.match?(LIVECHECK_MESSAGE_REGEX)
+          if message?(new_version_value)
             # Store a string, so we can easily tell when a value is a message
             # rather than a version
             new_versions[type] = new_version_value.to_s
@@ -801,6 +796,13 @@ module Homebrew
         end
 
         { multiple_versions:, newer_than_upstream: }
+      end
+
+      sig { params(value: T.nilable(T.any(Version, Cask::DSL::Version, String))).returns(T::Boolean) }
+      def message?(value)
+        return false if !value.is_a?(Cask::DSL::Version) && !value.is_a?(String)
+
+        value.match?(LIVECHECK_MESSAGE_REGEX)
       end
 
       sig {
