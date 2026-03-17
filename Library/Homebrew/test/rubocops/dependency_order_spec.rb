@@ -279,5 +279,32 @@ RSpec.describe RuboCop::Cop::FormulaAudit::DependencyOrder do
         end
       RUBY
     end
+
+    it "handles dynamic strings in depends_on" do
+      expect_offense(<<~'RUBY')
+        class Foo < Formula
+          homepage "https://brew.sh"
+          url "https://brew.sh/foo-1.0.tgz"
+
+          BAR_VERSION = 1
+
+          depends_on "foo"
+          depends_on "bar@#{BAR_VERSION}"
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/DependencyOrder: `dependency "bar@#{BAR_VERSION}"` (line 8) should be put before `dependency "foo"` (line 7)
+        end
+      RUBY
+    end
+
+    it "does not error on invalid depends_on" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          homepage "https://brew.sh"
+          url "https://brew.sh/foo-1.0.tgz"
+          depends_on "apple"
+          depends_on 1
+          depends_on "bar"
+        end
+      RUBY
+    end
   end
 end
