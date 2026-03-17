@@ -103,8 +103,11 @@ module Utils
         rescue Errno::ENOENT
           $stderr.puts "brew: command not found: #{cmd}" if options[:err] != :close
           exit! 127
-        rescue SystemCallError
-          $stderr.puts "brew: exec failed: #{cmd}" if options[:err] != :close
+        rescue SystemCallError => e
+          if options[:err] != :close
+            require "utils"
+            $stderr.puts "brew: exec failed (#{Utils.demodulize(e.class.name)}): #{cmd}"
+          end
           exit! 1
         end
       end
