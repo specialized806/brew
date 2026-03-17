@@ -115,6 +115,17 @@ then
   HOMEBREW_TEMP="${HOMEBREW_DEFAULT_TEMP}"
 fi
 
+# brew shellenv needs HOMEBREW_MACOS_VERSION_NUMERIC
+if [[ -n "${HOMEBREW_MACOS}" ]]
+then
+  HOMEBREW_MACOS_VERSION="$(/usr/bin/sw_vers -productVersion)"
+
+  IFS=. read -r -a MACOS_VERSION_ARRAY < <(printf '%s' "${HOMEBREW_MACOS_VERSION}")
+  printf -v HOMEBREW_MACOS_VERSION_NUMERIC "%02d%02d%02d" "${MACOS_VERSION_ARRAY[@]}"
+
+  unset MACOS_VERSION_ARRAY
+fi
+
 # commands that take a single or no arguments.
 # HOMEBREW_LIBRARY set by bin/brew
 # shellcheck disable=SC2154
@@ -583,16 +594,6 @@ setup_curl
 
 HOMEBREW_API_DEFAULT_DOMAIN="https://formulae.brew.sh/api"
 HOMEBREW_BOTTLE_DEFAULT_DOMAIN="https://ghcr.io/v2/homebrew/core"
-
-if [[ -n "${HOMEBREW_MACOS}" ]]
-then
-  HOMEBREW_MACOS_VERSION="$(/usr/bin/sw_vers -productVersion)"
-
-  IFS=. read -r -a MACOS_VERSION_ARRAY < <(printf '%s' "${HOMEBREW_MACOS_VERSION}")
-  printf -v HOMEBREW_MACOS_VERSION_NUMERIC "%02d%02d%02d" "${MACOS_VERSION_ARRAY[@]}"
-
-  unset MACOS_VERSION_ARRAY
-fi
 
 # TODO: bump version when new macOS is released or announced and update references in:
 # - docs/Installation.md
