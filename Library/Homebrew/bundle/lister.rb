@@ -8,18 +8,12 @@ module Homebrew
   module Bundle
     module Lister
       sig {
-        params(entries: T::Array[Object], formulae: T::Boolean, casks: T::Boolean, taps: T::Boolean,
-               extension_types: Homebrew::Bundle::ExtensionTypes,
-               extra_extension_types: Homebrew::Bundle::ExtensionTypes).void.checked(:never)
+        params(entries: T::Array[Dsl::Entry], formulae: T::Boolean, casks: T::Boolean, taps: T::Boolean,
+               extension_types: Homebrew::Bundle::ExtensionTypes).void
       }
-      def self.list(entries, formulae:, casks:, taps:, extension_types: {}, **extra_extension_types)
-        # TODO: Remove `extra_extension_types` once all callers pass a single
-        # `extension_types:` hash instead of legacy per-extension keywords.
-        merged_extension_types = T.cast(extension_types.merge(extra_extension_types),
-                                        Homebrew::Bundle::ExtensionTypes)
+      def self.list(entries, formulae:, casks:, taps:, extension_types: {})
         entries.each do |entry|
-          entry = T.cast(entry, Dsl::Entry)
-          puts entry.name if show?(entry.type, formulae:, casks:, taps:, extension_types: merged_extension_types)
+          puts entry.name if show?(entry.type, formulae:, casks:, taps:, extension_types:)
         end
       end
 

@@ -22,20 +22,23 @@ module Homebrew
           "rust"
         end
 
+        sig { override.returns(T.nilable(Pathname)) }
+        def package_manager_executable
+          which("cargo", ORIGINAL_PATHS)
+        end
+
         sig { override.returns(T::Array[String]) }
         def packages
           packages = @packages
           return packages if packages
 
-          @packages = if Bundle.cargo_installed?
-            cargo = Bundle.which_cargo
-            return [] if cargo.nil?
-            return [] if cargo.to_s.start_with?("/") && !cargo.exist?
-
+          @packages = if (cargo = package_manager_executable) &&
+                         (!cargo.to_s.start_with?("/") || cargo.exist?)
             parse_package_list(`#{cargo} install --list`)
-          else
-            []
           end
+          return [] if @packages.nil?
+
+          @packages
         end
 
         sig {
@@ -76,17 +79,6 @@ module Homebrew
         end
         private :parse_package_list
       end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate cargo dumper/installer/checker constants.
-    CargoDumper = Cargo
-    CargoInstaller = Cargo
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate cargo checker constant.
-      CargoChecker = Homebrew::Bundle::Cargo
     end
   end
 end

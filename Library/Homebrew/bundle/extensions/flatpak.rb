@@ -23,14 +23,7 @@ module Homebrew
           "flatpaks"
         end
 
-        sig { override.returns(T.nilable(Symbol)) }
-        def legacy_cleanup_method
-          # TODO: Remove this legacy cleanup hook once the direct cleanup specs
-          # stop stubbing the old command-level flatpak helper.
-          :flatpaks_to_uninstall
-        end
-
-        sig { override.params(name: String, options: Homebrew::Bundle::Extension::EntryOptions).returns(Dsl::Entry) }
+        sig { override.params(name: String, options: Homebrew::Bundle::EntryInputOptions).returns(Dsl::Entry) }
         def entry(name, options = {})
           unknown_options = options.keys - [:remote, :url]
           raise "unknown options(#{unknown_options.inspect}) for flatpak" if unknown_options.present?
@@ -67,10 +60,7 @@ module Homebrew
           remote_urls = @remote_urls
           return remote_urls if remote_urls
 
-          @remote_urls = if Bundle.flatpak_installed?
-            flatpak = Bundle.which_flatpak
-            return {} if flatpak.nil?
-
+          @remote_urls = if (flatpak = package_manager_executable)
             output = `#{flatpak} remote-list --system --columns=name,url 2>/dev/null`.chomp
             urls = {}
             output.split("\n").each do |line|
@@ -82,9 +72,10 @@ module Homebrew
               urls[name] = url if name && url
             end
             urls
-          else
-            {}
           end
+          return {} if @remote_urls.nil?
+
+          @remote_urls
         end
 
         sig { returns(T::Array[Package]) }
@@ -92,10 +83,7 @@ module Homebrew
           packages_with_remotes = @packages_with_remotes
           return packages_with_remotes if packages_with_remotes
 
-          @packages_with_remotes = if Bundle.flatpak_installed?
-            flatpak = Bundle.which_flatpak
-            return [] if flatpak.nil?
-
+          @packages_with_remotes = if (flatpak = package_manager_executable)
             # List applications with their origin remote
             # Using --app to filter applications only
             # Using --columns=application,origin to get app IDs and their remotes
@@ -113,9 +101,10 @@ module Homebrew
               package
             end
             packages.sort_by { |pkg| pkg[:name].to_s }
-          else
-            []
           end
+          return [] if @packages_with_remotes.nil?
+
+          @packages_with_remotes
         end
 
         sig { override.returns(T::Array[String]) }
@@ -174,7 +163,7 @@ module Homebrew
             verbose:    T::Boolean,
             remote:     String,
             url:        T.nilable(String),
-            _options:   T.anything,
+            _options:   Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
         def preinstall!(name, with: nil, no_upgrade: false, verbose: false, remote: "flathub", url: nil, **_options)
@@ -182,7 +171,7 @@ module Homebrew
           _ = no_upgrade
           _ = url
 
-          return false unless Bundle.flatpak_installed?
+          return false unless package_manager_installed?
 
           # Check if package is installed at all (regardless of remote)
           if package_installed?(name)
@@ -194,7 +183,7 @@ module Homebrew
         end
 
         sig {
-          params(
+          override.params(
             name:       String,
             with:       T.nilable(T::Array[String]),
             preinstall: T::Boolean,
@@ -203,7 +192,7 @@ module Homebrew
             force:      T::Boolean,
             remote:     String,
             url:        T.nilable(String),
-            _options:   T.anything,
+            _options:   Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
         def install!(name, with: nil, preinstall: true, no_upgrade: false, verbose: false, force: false,
@@ -212,10 +201,10 @@ module Homebrew
           _ = no_upgrade
           _ = force
 
-          return true unless Bundle.flatpak_installed?
+          return true unless package_manager_installed?
           return true unless preinstall
 
-          flatpak = Bundle.which_flatpak.to_s
+          flatpak = package_manager_executable.to_s
 
           # 3-tier remote handling:
           # - Tier 1: no URL → use named remote (default: flathub)
@@ -364,7 +353,7 @@ module Homebrew
 
         sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
         def cleanup_items(entries)
-          return [].freeze unless Bundle.flatpak_installed?
+          return [].freeze unless package_manager_installed?
 
           kept_flatpaks = entries.filter_map do |entry|
             entry = T.cast(entry, Dsl::Entry)
@@ -389,7 +378,7 @@ module Homebrew
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
           entry = T.cast(entry, Dsl::Entry)
-          { name: entry.name, options: entry.options || {} }
+          { name: entry.name, options: entry.options }
         end
       end
 
@@ -433,35 +422,6 @@ module Homebrew
         end
 
         self.class.package_installed?(name, remote: actual_remote)
-      end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate flatpak dumper/installer/checker constants.
-    FlatpakDumper = Flatpak
-    FlatpakInstaller = Flatpak
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate flatpak checker constant.
-      FlatpakChecker = Homebrew::Bundle::Flatpak
-    end
-
-    module Commands
-      module Cleanup
-        class << self
-          # TODO: Remove this legacy helper once the direct cleanup specs stop
-          # stubbing the old command-level flatpak helper.
-          sig { params(global: T::Boolean, file: T.nilable(String)).returns(T::Array[String]) }
-          def flatpaks_to_uninstall(global: false, file: nil)
-            _ = global
-            _ = file
-            dsl = Homebrew::Bundle::Commands::Cleanup.dsl
-            raise "call `run` or `read_dsl_from_brewfile!` first" if dsl.nil?
-
-            Homebrew::Bundle::Flatpak.cleanup_items(dsl.entries)
-          end
-        end
       end
     end
   end

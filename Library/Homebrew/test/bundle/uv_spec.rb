@@ -2,7 +2,7 @@
 
 require "bundle"
 require "bundle/dsl"
-require "bundle/uv"
+require "bundle/extensions/uv"
 
 RSpec.describe Homebrew::Bundle::Uv do
   describe "checking" do
@@ -86,7 +86,7 @@ RSpec.describe Homebrew::Bundle::Uv do
     context "when uv is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:uv_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns empty packages and dump output" do
@@ -98,7 +98,7 @@ RSpec.describe Homebrew::Bundle::Uv do
     context "when uv is installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(uv_installed?: true, which_uv: Pathname.new("uv"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("uv"))
       end
 
       it "returns normalized package entries sorted by package name" do
@@ -181,7 +181,7 @@ RSpec.describe Homebrew::Bundle::Uv do
     context "when uv is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:uv_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "tries to install uv" do
@@ -194,7 +194,7 @@ RSpec.describe Homebrew::Bundle::Uv do
 
     context "when uv is installed" do
       before do
-        allow(Homebrew::Bundle).to receive(:uv_installed?).and_return(true)
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("uv"))
       end
 
       context "when package is installed with matching options" do
@@ -273,7 +273,7 @@ RSpec.describe Homebrew::Bundle::Uv do
 
       context "when package is not installed" do
         before do
-          allow(Homebrew::Bundle).to receive(:which_uv).and_return(Pathname.new("/tmp/uv/bin/uv"))
+          allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("/tmp/uv/bin/uv"))
           allow(described_class).to receive_messages(packages: [], installed_packages: [])
         end
 

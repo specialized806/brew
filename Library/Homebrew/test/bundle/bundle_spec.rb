@@ -40,19 +40,6 @@ RSpec.describe Homebrew::Bundle do
     end
   end
 
-  context "when checking for mas", :needs_macos do
-    before do
-      described_class.instance_variable_set(:@mas_installed, nil)
-      described_class.instance_variable_set(:@which_mas, nil)
-    end
-
-    it "finds it when present" do
-      allow(described_class).to receive(:which).with("mas",
-                                                     ORIGINAL_PATHS).and_return(Pathname("/opt/homebrew/bin/mas"))
-      expect(described_class.mas_installed?).to be(true)
-    end
-  end
-
   describe ".mark_as_installed_on_request!", :no_api do
     subject(:mark_installed!) { described_class.mark_as_installed_on_request!(entries) }
 

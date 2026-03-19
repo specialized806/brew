@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require "bundle"
-require "bundle/mac_app_store"
+require "bundle/dsl"
+require "bundle/extensions/mac_app_store"
 
 RSpec.describe Homebrew::Bundle::MacAppStore do
   describe "dumping" do
@@ -10,7 +11,7 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
     context "when mas is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:mas_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns empty list" do
@@ -25,8 +26,7 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
     context "when there is no apps" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(mas_installed?: true, which_mas: Pathname.new("mas"))
-        allow(described_class).to receive(:`).and_return("")
+        allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"), "`": "")
       end
 
       it "returns empty list" do
@@ -41,8 +41,12 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
     context "when apps `foo`, `bar` and `baz` are installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(mas_installed?: true, which_mas: Pathname.new("mas"))
-        allow(described_class).to receive(:`).and_return("123 foo (1.0)\n456 bar (2.0)\n789 baz (3.0)")
+        allow(described_class).to receive_messages(
+          package_manager_executable: Pathname.new("mas"),
+          "`":                        "123 foo (1.0)\n" \
+                                      "456 bar (2.0)\n" \
+                                      "789 baz (3.0)",
+        )
       end
 
       it "returns list %w[foo bar baz]" do
@@ -53,7 +57,7 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
     context "when apps `foo`, `bar`, `baz` and `qux` are installed including right-justified IDs" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(mas_installed?: true, which_mas: Pathname.new("mas"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("mas"))
         allow(described_class).to receive(:`).and_return("123 foo (1.0)\n456 bar (2.0)\n789 baz (3.0)")
         allow(described_class).to receive(:`).and_return("123 foo (1.0)\n456 bar (2.0)\n789 baz (3.0)\n 10 qux (4.0)")
       end
@@ -138,8 +142,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(mas_installed?: true, which_mas: Pathname.new("mas"))
-        allow(described_class).to receive(:`).and_return(invalid_mas_output)
+        allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"),
+                                                   "`":                        invalid_mas_output)
       end
 
       it "returns only valid apps" do
@@ -170,8 +174,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(mas_installed?: true, which_mas: Pathname.new("mas"))
-        allow(described_class).to receive(:`).and_return(new_mas_output)
+        allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"),
+                                                   "`":                        new_mas_output)
       end
 
       it "parses the app names without trailing whitespace" do
@@ -201,7 +205,7 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
     context "when mas is not installed" do
       before do
-        allow(Homebrew::Bundle).to receive(:mas_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "tries to install mas" do
@@ -221,7 +225,7 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
     context "when mas is installed" do
       before do
-        allow(Homebrew::Bundle).to receive_messages(mas_installed?: true, which_mas: Pathname.new("mas"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("mas"))
       end
 
       describe ".outdated_app_ids" do

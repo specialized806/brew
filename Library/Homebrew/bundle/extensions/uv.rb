@@ -16,7 +16,7 @@ module Homebrew
       BANNER_NAME = "uv tools"
 
       class << self
-        sig { override.params(name: String, options: Homebrew::Bundle::Extension::EntryOptions).returns(Dsl::Entry) }
+        sig { override.params(name: String, options: Homebrew::Bundle::EntryInputOptions).returns(Dsl::Entry) }
         def entry(name, options = {})
           unknown_options = options.keys - [:with]
           raise "unknown options(#{unknown_options.inspect}) for uv" if unknown_options.present?
@@ -44,15 +44,13 @@ module Homebrew
           packages = @packages
           return packages if packages
 
-          @packages = if Bundle.uv_installed?
-            uv = Bundle.which_uv
-            return [] if uv.nil?
-
+          @packages = if (uv = package_manager_executable)
             output = `#{uv} tool list --show-with --show-extras 2>/dev/null`
             parse_tool_list(output)
-          else
-            []
           end
+          return [] if @packages.nil?
+
+          @packages
         end
 
         sig { override.params(package: Object).returns(String) }
@@ -231,17 +229,6 @@ module Homebrew
           self.class.package_record(entry.name, with:)
         end
       end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate uv dumper/installer/checker constants.
-    UvDumper = Uv
-    UvInstaller = Uv
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate uv checker constant.
-      UvChecker = Homebrew::Bundle::Uv
     end
   end
 end

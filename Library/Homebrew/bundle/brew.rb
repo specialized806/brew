@@ -8,7 +8,6 @@ require "bundle/package_type"
 
 module Homebrew
   module Bundle
-    # TODO: refactor into multiple modules
     class Brew < Homebrew::Bundle::PackageType
       extend Utils::Output::Mixin
 
@@ -154,7 +153,7 @@ module Homebrew
 
             args = f[:args].map { |arg| "\"#{arg}\"" }.sort.join(", ")
             brewline += ", args: [#{args}]" unless f[:args].empty?
-            brewline += ", restart_service: :changed" if !no_restart && BrewServices.started?(f[:full_name])
+            brewline += ", restart_service: :changed" if !no_restart && Services.started?(f[:full_name])
             brewline += ", link: #{f[:link?]}" unless f[:link?].nil?
             brewline
           end.join("\n")
@@ -415,7 +414,7 @@ module Homebrew
 
       def start_service_needed?
         require "bundle/brew_services"
-        start_service? && !BrewServices.started?(@full_name)
+        start_service? && !Services.started?(@full_name)
       end
 
       def restart_service?
@@ -436,14 +435,14 @@ module Homebrew
       def service_change_state!(verbose:)
         require "bundle/brew_services"
 
-        file = BrewServices.versioned_service_file(@name)
+        file = Services.versioned_service_file(@name)
 
         if restart_service_needed?
           puts "Restarting #{@name} service." if verbose
-          BrewServices.restart(@full_name, file:, verbose:)
+          Services.restart(@full_name, file:, verbose:)
         elsif start_service_needed?
           puts "Starting #{@name} service." if verbose
-          BrewServices.start(@full_name, file:, verbose:)
+          Services.start(@full_name, file:, verbose:)
         else
           true
         end
@@ -539,7 +538,7 @@ module Homebrew
 
           require "bundle/brew_services"
           puts "Stopping #{conflict} service (if it is running)." if verbose
-          BrewServices.stop(conflict, verbose:)
+          Services.stop(conflict, verbose:)
         end
 
         true
@@ -587,17 +586,6 @@ module Homebrew
           fetch(node.downcase).sort.each(&block)
         end
       end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate brew dumper/installer/checker constants.
-    FormulaInstaller = Brew
-    FormulaDumper = Brew
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate brew checker constant.
-      BrewChecker = Homebrew::Bundle::Brew
     end
   end
 end

@@ -11,30 +11,30 @@ RSpec.describe Homebrew::Bundle::Installer do
 
   before do
     allow(Homebrew::Bundle::Skipper).to receive(:skip?).and_return(false)
-    allow(Homebrew::Bundle::FormulaInstaller).to receive_messages(formula_upgradable?: false, install!: true)
-    allow(Homebrew::Bundle::FormulaInstaller).to receive_messages(formula_installed_and_up_to_date?: false,
-                                                                  preinstall!:                       true)
-    allow(Homebrew::Bundle::CaskInstaller).to receive_messages(cask_upgradable?: false, install!: true)
-    allow(Homebrew::Bundle::CaskInstaller).to receive_messages(installable_or_upgradable?: true, preinstall!: true)
-    allow(Homebrew::Bundle::TapInstaller).to receive_messages(preinstall!: true, install!: true, installed_taps: [])
+    allow(Homebrew::Bundle::Brew).to receive_messages(formula_upgradable?: false, install!: true)
+    allow(Homebrew::Bundle::Brew).to receive_messages(formula_installed_and_up_to_date?: false,
+                                                      preinstall!:                       true)
+    allow(Homebrew::Bundle::Cask).to receive_messages(cask_upgradable?: false, install!: true)
+    allow(Homebrew::Bundle::Cask).to receive_messages(installable_or_upgradable?: true, preinstall!: true)
+    allow(Homebrew::Bundle::Tap).to receive_messages(preinstall!: true, install!: true, installed_taps: [])
   end
 
   it "prefetches installable formulae and casks before installing" do
-    allow(Homebrew::Bundle::TapInstaller).to receive(:installed_taps).and_return(["homebrew/cask"])
-    allow(Homebrew::Bundle::FormulaInstaller).to receive(:formula_installed_and_up_to_date?)
+    allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["homebrew/cask"])
+    allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
       .with("mysql", no_upgrade: false).and_return(false)
-    allow(Homebrew::Bundle::CaskInstaller).to receive(:installable_or_upgradable?)
+    allow(Homebrew::Bundle::Cask).to receive(:installable_or_upgradable?)
       .with("google-chrome", no_upgrade: false, **cask_options).and_return(true)
 
     expect(Homebrew::Bundle).to receive(:brew)
       .with("fetch", "mysql", "homebrew/cask/google-chrome", verbose: false)
       .ordered
       .and_return(true)
-    expect(Homebrew::Bundle::FormulaInstaller).to receive(:preinstall!)
+    expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
       .with("mysql", no_upgrade: false, verbose: false)
       .ordered
       .and_return(true)
-    expect(Homebrew::Bundle::CaskInstaller).to receive(:preinstall!)
+    expect(Homebrew::Bundle::Cask).to receive(:preinstall!)
       .with("google-chrome", **cask_options, no_upgrade: false, verbose: false)
       .ordered
       .and_return(true)
@@ -43,7 +43,7 @@ RSpec.describe Homebrew::Bundle::Installer do
   end
 
   it "skips fetching when no formulae or casks need installation or upgrade" do
-    allow(Homebrew::Bundle::FormulaInstaller).to receive(:formula_installed_and_up_to_date?)
+    allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
       .with("mysql", no_upgrade: true).and_return(true)
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
@@ -55,7 +55,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
     tapped_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "homebrew/foo/bar")
 
-    allow(Homebrew::Bundle::FormulaInstaller).to receive(:formula_installed_and_up_to_date?)
+    allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
       .with("homebrew/foo/bar", no_upgrade: false).and_return(false)
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)

@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require "bundle"
-require "bundle/cargo"
+require "bundle/dsl"
+require "bundle/extensions/cargo"
 
 RSpec.describe Homebrew::Bundle::Cargo do
   describe "dumping" do
@@ -10,7 +11,7 @@ RSpec.describe Homebrew::Bundle::Cargo do
     context "when cargo is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:cargo_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns an empty list" do
@@ -25,7 +26,7 @@ RSpec.describe Homebrew::Bundle::Cargo do
     context "when cargo is installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(cargo_installed?: true, which_cargo: Pathname.new("cargo"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("cargo"))
       end
 
       it "returns package list" do
@@ -49,7 +50,7 @@ RSpec.describe Homebrew::Bundle::Cargo do
     context "when Cargo is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:cargo_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "tries to install rust" do
@@ -62,7 +63,7 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
     context "when Cargo is installed" do
       before do
-        allow(Homebrew::Bundle).to receive(:cargo_installed?).and_return(true)
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("cargo"))
       end
 
       context "when package is installed" do
@@ -79,8 +80,8 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
       context "when package is not installed" do
         before do
-          allow(Homebrew::Bundle).to receive(:which_cargo).and_return(Pathname.new("/tmp/rust/bin/cargo"))
-          allow(described_class).to receive(:installed_packages).and_return([])
+          allow(described_class).to receive_messages(package_manager_executable: Pathname.new("/tmp/rust/bin/cargo"),
+                                                     installed_packages:         [])
         end
 
         it "installs package" do

@@ -291,12 +291,12 @@ RSpec.describe Homebrew::Bundle::Brew do
 
         context "when service is already running" do
           before do
-            allow(Homebrew::Bundle::BrewServices).to receive(:started?).with(formula_name).and_return(true)
+            allow(Homebrew::Bundle::Brew::Services).to receive(:started?).with(formula_name).and_return(true)
           end
 
           context "with a successful installation" do
             it "start service" do
-              expect(Homebrew::Bundle::BrewServices).not_to receive(:start)
+              expect(Homebrew::Bundle::Brew::Services).not_to receive(:start)
               described_class.preinstall!(formula_name, start_service: true)
               described_class.install!(formula_name, start_service: true)
             end
@@ -304,7 +304,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
           context "with a skipped installation" do
             it "start service" do
-              expect(Homebrew::Bundle::BrewServices).not_to receive(:start)
+              expect(Homebrew::Bundle::Brew::Services).not_to receive(:start)
               described_class.install!(formula_name, preinstall: false, start_service: true)
             end
           end
@@ -312,12 +312,12 @@ RSpec.describe Homebrew::Bundle::Brew do
 
         context "when service is not running" do
           before do
-            allow(Homebrew::Bundle::BrewServices).to receive(:started?).with(formula_name).and_return(false)
+            allow(Homebrew::Bundle::Brew::Services).to receive(:started?).with(formula_name).and_return(false)
           end
 
           context "with a successful installation" do
             it "start service" do
-              expect(Homebrew::Bundle::BrewServices).to \
+              expect(Homebrew::Bundle::Brew::Services).to \
                 receive(:start).with(formula_name, file: nil, verbose: false).and_return(true)
               described_class.preinstall!(formula_name, start_service: true)
               described_class.install!(formula_name, start_service: true)
@@ -326,7 +326,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
           context "with a skipped installation" do
             it "start service" do
-              expect(Homebrew::Bundle::BrewServices).to \
+              expect(Homebrew::Bundle::Brew::Services).to \
                 receive(:start).with(formula_name, file: nil, verbose: false).and_return(true)
               described_class.install!(formula_name, preinstall: false, start_service: true)
             end
@@ -343,7 +343,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
         context "with a successful installation" do
           it "restart service" do
-            expect(Homebrew::Bundle::BrewServices).to \
+            expect(Homebrew::Bundle::Brew::Services).to \
               receive(:restart).with(formula_name, file: nil, verbose: false).and_return(true)
             described_class.preinstall!(formula_name, restart_service: :always)
             described_class.install!(formula_name, restart_service: :always)
@@ -352,7 +352,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
         context "with a skipped installation" do
           it "restart service" do
-            expect(Homebrew::Bundle::BrewServices).to \
+            expect(Homebrew::Bundle::Brew::Services).to \
               receive(:restart).with(formula_name, file: nil, verbose: false).and_return(true)
             described_class.install!(formula_name, preinstall: false, restart_service: :always)
           end
@@ -460,10 +460,10 @@ RSpec.describe Homebrew::Bundle::Brew do
                                                             verbose:).and_return(true)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql56",
                                                             verbose:).and_return(true)
-          expect(Homebrew::Bundle::BrewServices).to receive(:stop).with("mysql55", verbose:).and_return(true)
-          expect(Homebrew::Bundle::BrewServices).to receive(:stop).with("mysql56", verbose:).and_return(true)
-          expect(Homebrew::Bundle::BrewServices).to receive(:restart).with(formula_name, file:    nil,
-                                                                                         verbose:).and_return(true)
+          expect(Homebrew::Bundle::Brew::Services).to receive(:stop).with("mysql55", verbose:).and_return(true)
+          expect(Homebrew::Bundle::Brew::Services).to receive(:stop).with("mysql56", verbose:).and_return(true)
+          expect(Homebrew::Bundle::Brew::Services).to receive(:restart).with(formula_name, file:    nil,
+                                                                                           verbose:).and_return(true)
           described_class.preinstall!(formula_name, restart_service: :always, conflicts_with: ["mysql56"])
           described_class.install!(formula_name, restart_service: :always, conflicts_with: ["mysql56"])
         end
@@ -476,10 +476,10 @@ RSpec.describe Homebrew::Bundle::Brew do
                                                             verbose:).and_return(true)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql56",
                                                             verbose:).and_return(true)
-          expect(Homebrew::Bundle::BrewServices).to receive(:stop).with("mysql55", verbose:).and_return(true)
-          expect(Homebrew::Bundle::BrewServices).to receive(:stop).with("mysql56", verbose:).and_return(true)
-          expect(Homebrew::Bundle::BrewServices).to receive(:restart).with(formula_name, file:    nil,
-                                                                                         verbose:).and_return(true)
+          expect(Homebrew::Bundle::Brew::Services).to receive(:stop).with("mysql55", verbose:).and_return(true)
+          expect(Homebrew::Bundle::Brew::Services).to receive(:stop).with("mysql56", verbose:).and_return(true)
+          expect(Homebrew::Bundle::Brew::Services).to receive(:restart).with(formula_name, file:    nil,
+                                                                                           verbose:).and_return(true)
           described_class.preinstall!(formula_name, restart_service: :always, conflicts_with: ["mysql56"],
           verbose: true)
           described_class.install!(formula_name, restart_service: :always, conflicts_with: ["mysql56"],
@@ -567,7 +567,7 @@ RSpec.describe Homebrew::Bundle::Brew do
       end
 
       it "did not call restart service" do
-        expect(Homebrew::Bundle::BrewServices).not_to receive(:restart)
+        expect(Homebrew::Bundle::Brew::Services).not_to receive(:restart)
         described_class.preinstall!(formula_name, restart_service: true)
       end
     end
@@ -737,7 +737,7 @@ RSpec.describe Homebrew::Bundle::Brew do
     describe "#start_service_needed?" do
       context "when a service is already started" do
         before do
-          allow(Homebrew::Bundle::BrewServices).to receive(:started?).with(formula_name).and_return(true)
+          allow(Homebrew::Bundle::Brew::Services).to receive(:started?).with(formula_name).and_return(true)
         end
 
         it "is false by default" do
@@ -763,7 +763,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
       context "when a service is not started" do
         before do
-          allow(Homebrew::Bundle::BrewServices).to receive(:started?).with(formula_name).and_return(false)
+          allow(Homebrew::Bundle::Brew::Services).to receive(:started?).with(formula_name).and_return(false)
         end
 
         it "is false by default" do

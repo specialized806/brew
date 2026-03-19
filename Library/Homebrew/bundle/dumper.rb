@@ -17,23 +17,16 @@ module Homebrew
 
       sig {
         params(
-          describe:              T::Boolean,
-          no_restart:            T::Boolean,
-          formulae:              T::Boolean,
-          taps:                  T::Boolean,
-          casks:                 T::Boolean,
-          extension_types:       Homebrew::Bundle::ExtensionTypes,
-          extra_extension_types: Homebrew::Bundle::ExtensionTypes,
-        ).returns(String).checked(:never)
+          describe:        T::Boolean,
+          no_restart:      T::Boolean,
+          formulae:        T::Boolean,
+          taps:            T::Boolean,
+          casks:           T::Boolean,
+          extension_types: Homebrew::Bundle::ExtensionTypes,
+        ).returns(String)
       }
-      def self.build_brewfile(describe:, no_restart:, formulae:, taps:, casks:, extension_types: {},
-                              **extra_extension_types)
-        # TODO: Remove `extra_extension_types` once all callers pass a single
-        # `extension_types:` hash instead of legacy per-extension keywords.
-        selected_package_types = extension_types.merge(extra_extension_types)
-        # TODO: Remove this legacy core-type mapping once the dump command
-        # passes a single package-type selection hash instead of separate
-        # `taps`, `formulae`, and `casks` booleans.
+      def self.build_brewfile(describe:, no_restart:, formulae:, taps:, casks:, extension_types: {})
+        selected_package_types = extension_types.dup
         selected_package_types[:tap] = taps
         selected_package_types[:brew] = formulae
         selected_package_types[:cask] = casks
@@ -48,24 +41,23 @@ module Homebrew
 
       sig {
         params(
-          global:                T::Boolean,
-          file:                  T.nilable(String),
-          describe:              T::Boolean,
-          force:                 T::Boolean,
-          no_restart:            T::Boolean,
-          formulae:              T::Boolean,
-          taps:                  T::Boolean,
-          casks:                 T::Boolean,
-          extension_types:       Homebrew::Bundle::ExtensionTypes,
-          extra_extension_types: Homebrew::Bundle::ExtensionTypes,
-        ).void.checked(:never)
+          global:          T::Boolean,
+          file:            T.nilable(String),
+          describe:        T::Boolean,
+          force:           T::Boolean,
+          no_restart:      T::Boolean,
+          formulae:        T::Boolean,
+          taps:            T::Boolean,
+          casks:           T::Boolean,
+          extension_types: Homebrew::Bundle::ExtensionTypes,
+        ).void
       }
       def self.dump_brewfile(global:, file:, describe:, force:, no_restart:, formulae:, taps:, casks:,
-                             extension_types: {}, **extra_extension_types)
+                             extension_types: {})
         path = brewfile_path(global:, file:)
         can_write_to_brewfile?(path, force:)
         content = build_brewfile(
-          describe:, no_restart:, taps:, formulae:, casks:, extension_types:, **extra_extension_types,
+          describe:, no_restart:, taps:, formulae:, casks:, extension_types:,
         )
         write_file path, content
       end

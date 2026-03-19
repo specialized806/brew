@@ -8,6 +8,13 @@ require "bundle/skipper"
 module Homebrew
   module Bundle
     module Installer
+      class InstallableEntry < T::Struct
+        const :name, String
+        const :options, Homebrew::Bundle::EntryOptions
+        const :verb, String
+        const :cls, T.class_of(Homebrew::Bundle::PackageType)
+      end
+
       sig {
         params(
           entries:    T::Array[Dsl::Entry],
@@ -29,13 +36,12 @@ module Homebrew
           next if Homebrew::Bundle::Skipper.skip? entry
 
           name = entry.name
-          args = [name]
-          options = T.cast(entry.options, T::Hash[Symbol, Object])
+          options = entry.options
           type = entry.type
           cls = Homebrew::Bundle.installable(type)
           next if cls.nil? || !cls.install_supported?
 
-          { name:, args:, options:, verb: cls.install_verb(name, options), type:, cls: }
+          InstallableEntry.new(name:, options:, verb: cls.install_verb(name, options), cls:)
         end
 
         if (fetchable_names = fetchable_formulae_and_casks(installable_entries, no_upgrade:).presence)
@@ -48,13 +54,12 @@ module Homebrew
         end
 
         installable_entries.each do |entry|
-          name = entry.fetch(:name)
-          args = entry.fetch(:args)
-          options = entry.fetch(:options)
-          verb = entry.fetch(:verb)
-          cls = entry.fetch(:cls)
+          name = entry.name
+          options = entry.options
+          verb = entry.verb
+          cls = entry.cls
 
-          preinstall = if cls.preinstall!(*args, **options, no_upgrade:, verbose:)
+          preinstall = if cls.preinstall!(name, **options, no_upgrade:, verbose:)
             puts Formatter.success("#{verb} #{name}")
             true
           else
@@ -62,7 +67,7 @@ module Homebrew
             false
           end
 
-          if cls.install!(*args, **options,
+          if cls.install!(name, **options,
                          preinstall:, no_upgrade:, verbose:, force:)
             success += 1
           else
@@ -89,22 +94,13 @@ module Homebrew
 
       sig {
         params(
-          entries:    T::Array[{ name:    String,
-                                 args:    T::Array[T.anything],
-                                 options: T::Hash[Symbol, Object],
-                                 verb:    String,
-                                 type:    Symbol,
-                                 cls:     T.any(T.class_of(Homebrew::Bundle::PackageType),
-                                                T.class_of(Homebrew::Bundle::Extension)) }],
+          entries:    T::Array[InstallableEntry],
           no_upgrade: T::Boolean,
         ).returns(T::Array[String])
       }
       def self.fetchable_formulae_and_casks(entries, no_upgrade:)
         entries.filter_map do |entry|
-          name = entry.fetch(:name)
-          options = entry.fetch(:options)
-          cls = entry.fetch(:cls)
-          cls.fetchable_name(name, options, no_upgrade:)
+          entry.cls.fetchable_name(entry.name, entry.options, no_upgrade:)
         end
       end
     end

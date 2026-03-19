@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require "bundle"
-require "bundle/flatpak"
+require "bundle/dsl"
+require "bundle/extensions/flatpak"
 
 RSpec.describe Homebrew::Bundle::Flatpak do
   describe "checking" do
@@ -94,7 +95,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
 
     context "when on macOS", :needs_macos do
       it "flatpak is not available" do
-        expect(Homebrew::Bundle.flatpak_installed?).to be(false)
+        expect(described_class.package_manager_installed?).to be(false)
       end
     end
   end
@@ -105,7 +106,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
     context "when flatpak is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:flatpak_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns an empty list and dumps an empty string" do
@@ -117,8 +118,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
     context "when flatpak is installed", :needs_linux do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(flatpak_installed?: true,
-                                                    which_flatpak:      Pathname.new("flatpak"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
       end
 
       it "returns remote URLs" do
@@ -232,7 +232,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
     context "when Flatpak is not installed", :needs_linux do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:flatpak_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns false without attempting installation" do
@@ -244,7 +244,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
 
     context "when Flatpak is installed", :needs_linux do
       before do
-        allow(Homebrew::Bundle).to receive(:flatpak_installed?).and_return(true)
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
       end
 
       context "when package is installed" do
@@ -261,7 +261,6 @@ RSpec.describe Homebrew::Bundle::Flatpak do
 
       context "when package is not installed" do
         before do
-          allow(Homebrew::Bundle).to receive(:which_flatpak).and_return(Pathname.new("flatpak"))
           allow(described_class).to receive(:installed_packages).and_return([])
         end
 

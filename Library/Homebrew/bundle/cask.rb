@@ -236,16 +236,5 @@ module Homebrew
         self.class.cask_installed_and_up_to_date?(cask, no_upgrade:)
       end
     end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate cask dumper/installer/checker constants.
-    CaskInstaller = Cask
-    CaskDumper = Cask
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate cask checker constant.
-      CaskChecker = Homebrew::Bundle::Cask
-    end
   end
 end

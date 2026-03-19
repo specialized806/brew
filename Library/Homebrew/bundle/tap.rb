@@ -17,8 +17,17 @@ module Homebrew
           @installed_taps = T.let(nil, T.nilable(T::Array[String]))
         end
 
-        sig { params(name: String, verbose: T::Boolean, _options: T.anything).returns(T::Boolean) }
-        def preinstall!(name, verbose: false, **_options)
+        sig {
+          override.params(
+            name:       String,
+            no_upgrade: T::Boolean,
+            verbose:    T::Boolean,
+            _options:   Homebrew::Bundle::EntryOption,
+          ).returns(T::Boolean)
+        }
+        def preinstall!(name, no_upgrade: false, verbose: false, **_options)
+          _ = no_upgrade
+
           if installed_taps.include? name
             puts "Skipping install of #{name} tap. It is already installed." if verbose
             return false
@@ -28,16 +37,20 @@ module Homebrew
         end
 
         sig {
-          params(
+          override.params(
             name:         String,
             preinstall:   T::Boolean,
+            no_upgrade:   T::Boolean,
             verbose:      T::Boolean,
             force:        T::Boolean,
             clone_target: T.nilable(String),
-            _options:     T.anything,
+            _options:     Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
-        def install!(name, preinstall: true, verbose: false, force: false, clone_target: nil, **_options)
+        def install!(name, preinstall: true, no_upgrade: false, verbose: false, force: false, clone_target: nil,
+                     **_options)
+          _ = no_upgrade
+
           return true unless preinstall
 
           puts "Installing #{name} tap. It is not currently installed." if verbose
@@ -61,7 +74,7 @@ module Homebrew
           true
         end
 
-        sig { override.params(_name: String, _options: T::Hash[Symbol, Object]).returns(String) }
+        sig { override.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(String) }
         def install_verb(_name = "", _options = {})
           "Tapping"
         end
@@ -128,23 +141,12 @@ module Homebrew
         (requested_taps - current_taps).map { |entry| "Tap #{entry} needs to be tapped." }
       end
 
-      sig { override.params(package: T.untyped, no_upgrade: T::Boolean).returns(T::Boolean) }
+      sig { override.params(package: Object, no_upgrade: T::Boolean).returns(T::Boolean) }
       def installed_and_up_to_date?(package, no_upgrade: false)
         _ = no_upgrade
 
         self.class.installed_taps.include?(T.cast(package, String))
       end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate tap dumper/installer/checker constants.
-    TapInstaller = Tap
-    TapDumper = Tap
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate tap checker constant.
-      TapChecker = Homebrew::Bundle::Tap
     end
   end
 end

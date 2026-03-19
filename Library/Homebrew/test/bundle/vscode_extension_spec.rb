@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require "bundle"
-require "bundle/vscode_extension"
+require "bundle/dsl"
+require "bundle/extensions/vscode_extension"
 require "extend/kernel"
 
 RSpec.describe Homebrew::Bundle::VscodeExtension do
@@ -11,8 +12,7 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
     context "when vscode is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:vscode_installed?).and_return(false)
-        allow(described_class).to receive(:`).and_return("")
+        allow(described_class).to receive_messages(package_manager_executable: nil, "`": "")
       end
 
       it "returns an empty list" do
@@ -27,7 +27,7 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
     context "when vscode is installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:which_vscode).and_return(Pathname.new("code"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("code"))
       end
 
       it "returns package list" do
@@ -55,7 +55,8 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
     context "when VSCode is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(vscode_installed?: false, cask_installed?: true)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
+        allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(true)
       end
 
       it "tries to install vscode" do
@@ -68,7 +69,7 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
 
     context "when VSCode is installed" do
       before do
-        allow(Homebrew::Bundle).to receive(:which_vscode).and_return(Pathname("code"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname("code"))
       end
 
       context "when extension is installed" do

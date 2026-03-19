@@ -29,13 +29,13 @@ RSpec.describe Homebrew::Bundle::Commands::List do
       formulae:        formulae,
       casks:           casks,
       taps:            taps,
-      mas:             mas,
-      vscode:          vscode,
-      cargo:           cargo,
-      flatpak:         false,
       extension_types: {
-        go: go,
-        uv: uv,
+        mas:     mas,
+        vscode:  vscode,
+        cargo:   cargo,
+        flatpak: false,
+        go:      go,
+        uv:      uv,
       },
     )
   end

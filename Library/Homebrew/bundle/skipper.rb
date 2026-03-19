@@ -9,11 +9,12 @@ module Homebrew
       class << self
         sig { params(entry: Dsl::Entry, silent: T::Boolean).returns(T::Boolean) }
         def skip?(entry, silent: false)
-          require "bundle/formula_dumper"
+          require "bundle/brew"
 
+          full_name = entry.options[:full_name]
           return true if @failed_taps&.any? do |tap|
             prefix = "#{tap}/"
-            entry.name.start_with?(prefix) || entry.options[:full_name]&.start_with?(prefix)
+            entry.name.start_with?(prefix) || (full_name.is_a?(String) && full_name.start_with?(prefix))
           end
 
           entry_type_skips = Array(skipped_entries[entry.type])
