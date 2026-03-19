@@ -3,7 +3,7 @@
 require "bundle"
 require "bundle/brew_services"
 
-RSpec.describe Homebrew::Bundle::BrewServices do
+RSpec.describe Homebrew::Bundle::Brew::Services do
   describe ".started_services" do
     before do
       described_class.reset!

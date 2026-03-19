@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 require "bundle"
-require "bundle/go"
+require "bundle/dsl"
+require "bundle/extensions/go"
 
 RSpec.describe Homebrew::Bundle::Go do
   describe "dumping" do
@@ -10,7 +11,7 @@ RSpec.describe Homebrew::Bundle::Go do
     context "when go is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:go_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns an empty list" do
@@ -25,7 +26,7 @@ RSpec.describe Homebrew::Bundle::Go do
     context "when go is installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:which_go).and_return(Pathname.new("go"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("go"))
       end
 
       it "returns package list" do
@@ -51,7 +52,7 @@ RSpec.describe Homebrew::Bundle::Go do
     context "when Go is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:go_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "tries to install go" do
@@ -74,7 +75,7 @@ RSpec.describe Homebrew::Bundle::Go do
 
     context "when Go is installed" do
       before do
-        allow(Homebrew::Bundle).to receive(:go_installed?).and_return(true)
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("go"))
       end
 
       context "when package is installed" do
@@ -91,7 +92,6 @@ RSpec.describe Homebrew::Bundle::Go do
 
       context "when package is not installed" do
         before do
-          allow(Homebrew::Bundle).to receive(:which_go).and_return(Pathname.new("go"))
           allow(described_class).to receive_messages(packages: [], installed_packages: [])
         end
 

@@ -1,18 +1,29 @@
 # typed: true # rubocop:todo Sorbet/StrictSigil
 # frozen_string_literal: true
 
+require "bundle/package_type"
+
 module Homebrew
   module Bundle
     class Dsl
       class Entry
-        attr_reader :type, :name, :options
+        sig { returns(Symbol) }
+        attr_reader :type
 
+        sig { returns(String) }
+        attr_reader :name
+
+        sig { returns(Homebrew::Bundle::EntryOptions) }
+        attr_reader :options
+
+        sig { params(type: Symbol, name: String, options: Homebrew::Bundle::EntryOptions).void }
         def initialize(type, name, options = {})
           @type = type
           @name = name
           @options = options
         end
 
+        sig { returns(String) }
         def to_s
           name
         end

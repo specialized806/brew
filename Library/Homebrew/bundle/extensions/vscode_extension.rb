@@ -22,13 +22,6 @@ module Homebrew
           "VSCode extensions"
         end
 
-        sig { override.returns(T.nilable(Symbol)) }
-        def legacy_cleanup_method
-          # TODO: Remove this legacy cleanup hook once the direct cleanup specs
-          # stop stubbing the old command-level VSCode helper.
-          :vscode_extensions_to_uninstall
-        end
-
         sig { override.params(name: String, with: T.nilable(T::Array[String])).returns(Object) }
         def package_record(name, with: nil)
           _ = with
@@ -36,22 +29,28 @@ module Homebrew
           name.downcase
         end
 
+        sig { override.returns(T.nilable(Pathname)) }
+        def package_manager_executable
+          which("code", ORIGINAL_PATHS) ||
+            which("codium", ORIGINAL_PATHS) ||
+            which("cursor", ORIGINAL_PATHS) ||
+            which("code-insiders", ORIGINAL_PATHS)
+        end
+
         sig { returns(T::Array[String]) }
         def extensions
           extensions = @extensions
           return extensions if extensions
 
-          @extensions = if Bundle.vscode_installed?
-            vscode = Bundle.which_vscode
-            return [] if vscode.nil?
-
+          @extensions = if (vscode = package_manager_executable)
             Bundle.exchange_uid_if_needed! do
               ENV["WSL_DISTRO_NAME"] = ENV.fetch("HOMEBREW_WSL_DISTRO_NAME", nil)
               `"#{vscode}" --list-extensions 2>/dev/null`
             end.split("\n").map(&:downcase)
-          else
-            []
           end
+          return [] if @extensions.nil?
+
+          @extensions
         end
 
         sig { override.returns(T::Array[String]) }
@@ -85,18 +84,19 @@ module Homebrew
         end
 
         sig {
-          params(
+          override.params(
             name:       String,
             with:       T.nilable(T::Array[String]),
             no_upgrade: T::Boolean,
             verbose:    T::Boolean,
+            _options:   Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
-        def preinstall!(name, with: nil, no_upgrade: false, verbose: false)
+        def preinstall!(name, with: nil, no_upgrade: false, verbose: false, **_options)
           _ = with
           _ = no_upgrade
 
-          if !Bundle.vscode_installed? && Bundle.cask_installed?
+          if !package_manager_installed? && Bundle.cask_installed?
             puts "Installing visual-studio-code. It is not currently installed." if verbose
             Bundle.system(HOMEBREW_BREW_FILE, "install", "--cask", "visual-studio-code", verbose:)
           end
@@ -106,7 +106,9 @@ module Homebrew
             return false
           end
 
-          raise "Unable to install #{name} VSCode extension. VSCode is not installed." unless Bundle.vscode_installed?
+          unless package_manager_installed?
+            raise "Unable to install #{name} VSCode extension. VSCode is not installed."
+          end
 
           true
         end
@@ -121,7 +123,7 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          vscode = Bundle.which_vscode
+          vscode = package_manager_executable
           return false if vscode.nil?
 
           Bundle.exchange_uid_if_needed! do
@@ -130,16 +132,18 @@ module Homebrew
         end
 
         sig {
-          params(
+          override.params(
             name:       String,
             with:       T.nilable(T::Array[String]),
             preinstall: T::Boolean,
             no_upgrade: T::Boolean,
             verbose:    T::Boolean,
             force:      T::Boolean,
+            _options:   Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
-        def install!(name, with: nil, preinstall: true, no_upgrade: false, verbose: false, force: false)
+        def install!(name, with: nil, preinstall: true, no_upgrade: false, verbose: false, force: false,
+                     **_options)
           _ = with
           _ = no_upgrade
           _ = force
@@ -174,42 +178,13 @@ module Homebrew
 
         sig { params(extensions: T::Array[String]).void }
         def cleanup!(extensions)
-          vscode = Bundle.which_vscode
+          vscode = package_manager_executable
           return if vscode.nil?
 
           Bundle.exchange_uid_if_needed! do
             extensions.each do |extension|
               Kernel.system(vscode.to_s, "--uninstall-extension", extension)
             end
-          end
-        end
-      end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate vscode extension dumper/installer/checker constants.
-    VscodeExtensionDumper = VscodeExtension
-    VscodeExtensionInstaller = VscodeExtension
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate vscode extension checker constant.
-      VscodeExtensionChecker = Homebrew::Bundle::VscodeExtension
-    end
-
-    module Commands
-      module Cleanup
-        class << self
-          # TODO: Remove this legacy helper once the direct cleanup specs stop
-          # stubbing the old command-level VSCode helper.
-          sig { params(global: T::Boolean, file: T.nilable(String)).returns(T::Array[String]) }
-          def vscode_extensions_to_uninstall(global: false, file: nil)
-            _ = global
-            _ = file
-            dsl = Homebrew::Bundle::Commands::Cleanup.dsl
-            raise ArgumentError, "@dsl is unset!" if dsl.nil?
-
-            Homebrew::Bundle::VscodeExtension.cleanup_items(dsl.entries)
           end
         end
       end

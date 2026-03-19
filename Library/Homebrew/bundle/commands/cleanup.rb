@@ -9,47 +9,37 @@ module Homebrew
   module Bundle
     module Commands
       # Uninstalls formulae, casks, taps, VSCode extensions and Flatpak packages not listed in the Brewfile.
-      # TODO: refactor into multiple modules
       module Cleanup
         def self.reset!
-          require "bundle/cask_dumper"
-          require "bundle/formula_dumper"
-          require "bundle/tap_dumper"
+          require "bundle/cask"
+          require "bundle/brew"
+          require "bundle/tap"
           require "bundle/brew_services"
 
           @dsl = nil
           @kept_casks = nil
           @kept_formulae = nil
-          Homebrew::Bundle::CaskDumper.reset!
-          Homebrew::Bundle::FormulaDumper.reset!
-          Homebrew::Bundle::TapDumper.reset!
-          Homebrew::Bundle::BrewServices.reset!
+          Homebrew::Bundle::Cask.reset!
+          Homebrew::Bundle::Brew.reset!
+          Homebrew::Bundle::Tap.reset!
+          Homebrew::Bundle::Brew::Services.reset!
           Homebrew::Bundle.extensions.each(&:reset!)
         end
 
         def self.run(global: false, file: nil, force: false, zap: false, dsl: nil,
-                     formulae: true, casks: true, taps: true, extension_types: {}, **extra_extension_types)
+                     formulae: true, casks: true, taps: true, extension_types: {})
           read_dsl_from_brewfile!(global:, file:, dsl:)
 
-          # TODO: Remove `extra_extension_types` once all callers pass a single
-          # `extension_types:` hash instead of legacy per-extension keywords.
           extension_types = Homebrew::Bundle.extensions.select(&:cleanup_supported?).to_h do |extension|
             [extension.type, true]
           end.merge(extension_types)
-             .merge(extra_extension_types)
           casks = casks ? casks_to_uninstall(global:, file:) : []
           formulae = formulae ? formulae_to_uninstall(global:, file:) : []
           taps = taps ? taps_to_untap(global:, file:) : []
           cleanup_extensions = Homebrew::Bundle.extensions.select(&:cleanup_supported?).filter_map do |extension|
             next unless extension_types.fetch(extension.type, false)
 
-            cleanup_method = extension.legacy_cleanup_method
-            items = if cleanup_method.nil?
-              extension.cleanup_items(@dsl.entries)
-            else
-              public_send(cleanup_method, global:, file:)
-            end
-            [extension, items]
+            [extension, extension.cleanup_items(@dsl.entries)]
           end
           if force
             if casks.any?
@@ -134,8 +124,8 @@ module Homebrew
         def self.casks_to_uninstall(global: false, file: nil)
           raise ArgumentError, "@dsl is unset!" unless @dsl
 
-          require "bundle/cask_dumper"
-          Homebrew::Bundle::CaskDumper.cask_names - kept_casks(global:, file:)
+          require "bundle/cask"
+          Homebrew::Bundle::Cask.cask_names - kept_casks(global:, file:)
         end
 
         def self.formulae_to_uninstall(global: false, file: nil)
@@ -143,11 +133,10 @@ module Homebrew
 
           kept_formulae = self.kept_formulae(global:, file:)
 
-          require "bundle/formula_dumper"
-          require "bundle/formula_installer"
-          current_formulae = Homebrew::Bundle::FormulaDumper.formulae
+          require "bundle/brew"
+          current_formulae = Homebrew::Bundle::Brew.formulae
           current_formulae.reject! do |f|
-            Homebrew::Bundle::FormulaInstaller.formula_in_array?(f[:full_name], kept_formulae)
+            Homebrew::Bundle::Brew.formula_in_array?(f[:full_name], kept_formulae)
           end
 
           # Don't try to uninstall formulae with keepme references
@@ -160,20 +149,20 @@ module Homebrew
         end
 
         private_class_method def self.kept_formulae(global: false, file: nil)
-          require "bundle/formula_dumper"
-          require "bundle/cask_dumper"
+          require "bundle/brew"
+          require "bundle/cask"
 
           @kept_formulae ||= begin
             kept_formulae = @dsl.entries.select { |e| e.type == :brew }.map(&:name)
-            kept_formulae += Homebrew::Bundle::CaskDumper.formula_dependencies(kept_casks)
+            kept_formulae += Homebrew::Bundle::Cask.formula_dependencies(kept_casks)
             kept_formulae.map! do |f|
-              Homebrew::Bundle::FormulaDumper.formula_aliases.fetch(
+              Homebrew::Bundle::Brew.formula_aliases.fetch(
                 f,
-                Homebrew::Bundle::FormulaDumper.formula_oldnames.fetch(f, f),
+                Homebrew::Bundle::Brew.formula_oldnames.fetch(f, f),
               )
             end
 
-            kept_formulae + recursive_dependencies(Homebrew::Bundle::FormulaDumper.formulae, kept_formulae)
+            kept_formulae + recursive_dependencies(Homebrew::Bundle::Brew.formulae, kept_formulae)
           end
         end
 
@@ -182,7 +171,7 @@ module Homebrew
 
           kept_casks = @dsl.entries.select { |e| e.type == :cask }.flat_map(&:name)
           kept_casks.map! do |c|
-            Homebrew::Bundle::CaskDumper.cask_oldnames.fetch(c, c)
+            Homebrew::Bundle::Cask.cask_oldnames.fetch(c, c)
           end
           @kept_casks = kept_casks
         end
@@ -218,12 +207,12 @@ module Homebrew
         def self.taps_to_untap(global: false, file: nil)
           raise ArgumentError, "@dsl is unset!" unless @dsl
 
-          require "bundle/tap_dumper"
+          require "bundle/tap"
 
           kept_formulae = self.kept_formulae(global:, file:).filter_map { lookup_formula(it) }
           kept_taps = @dsl.entries.select { |e| e.type == :tap }.map(&:name)
           kept_taps += kept_formulae.filter_map(&:tap).map(&:name)
-          current_taps = Homebrew::Bundle::TapDumper.tap_names
+          current_taps = Homebrew::Bundle::Tap.tap_names
           current_taps - kept_taps - IGNORED_TAPS
         end
 

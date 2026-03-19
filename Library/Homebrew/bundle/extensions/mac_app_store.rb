@@ -6,7 +6,11 @@ require "bundle/extensions/extension"
 module Homebrew
   module Bundle
     class MacAppStore < Extension
-      App = T.type_alias { { id: String, name: String } }
+      class App < T::Struct
+        const :id, String
+        const :name, String
+      end
+      CheckablePackages = T.type_alias { T.any(T::Array[Object], T::Hash[Integer, String]) }
 
       PACKAGE_TYPE = :mas
       PACKAGE_TYPE_NAME = "App"
@@ -28,7 +32,7 @@ module Homebrew
           false
         end
 
-        sig { override.params(name: String, options: Homebrew::Bundle::Extension::EntryOptions).returns(Dsl::Entry) }
+        sig { override.params(name: String, options: Homebrew::Bundle::EntryInputOptions).returns(Dsl::Entry) }
         def entry(name, options = {})
           id = options[:id]
           raise "options[:id](#{id}) should be an Integer object" unless id.is_a? Integer
@@ -49,10 +53,7 @@ module Homebrew
           apps = @apps
           return apps if apps
 
-          @apps = if Bundle.mas_installed?
-            mas = Bundle.which_mas
-            return [] if mas.nil?
-
+          @apps = if (mas = package_manager_executable)
             `#{mas} list 2>/dev/null`.split("\n").filter_map do |app|
               app_details = app.match(/\A\s*(?<id>\d+)\s+(?<name>.*?)\s+\((?<version>[\d.]*)\)\Z/)
               next if app_details.nil?
@@ -65,9 +66,10 @@ module Homebrew
               # Strip unprintable characters
               [id, name.gsub(/[[:cntrl:]]|\p{C}/, "")]
             end
-          else
-            []
           end
+          return [] if @apps.nil?
+
+          @apps
         end
 
         sig { returns(T::Array[String]) }
@@ -80,7 +82,7 @@ module Homebrew
           packages = @packages
           return packages if packages
 
-          @packages = apps.sort_by { |_, name| name.downcase }.map { |id, name| { id:, name: } }
+          @packages = apps.sort_by { |_, name| name.downcase }.map { |id, name| App.new(id:, name:) }
         end
 
         sig { override.returns(T::Array[App]) }
@@ -99,7 +101,7 @@ module Homebrew
         sig { override.params(package: Object).returns(String) }
         def dump_entry(package)
           app = T.cast(package, App)
-          "mas #{quote(app[:name])}, id: #{app[:id]}"
+          "mas #{quote(app.name)}, id: #{app.id}"
         end
 
         sig { params(id: Integer).returns(T::Boolean) }
@@ -125,26 +127,24 @@ module Homebrew
           outdated_app_ids = @outdated_app_ids
           return outdated_app_ids if outdated_app_ids
 
-          @outdated_app_ids = if Bundle.mas_installed?
-            mas = Bundle.which_mas
-            return [] if mas.nil?
-
+          @outdated_app_ids = if (mas = package_manager_executable)
             `#{mas} outdated 2>/dev/null`.split("\n").map do |app|
               app.split(" ", 2).first.to_s
             end
-          else
-            []
           end
+          return [] if @outdated_app_ids.nil?
+
+          @outdated_app_ids
         end
 
         sig {
-          params(
+          override.params(
             name:       String,
             id:         T.nilable(Integer),
             with:       T.nilable(T::Array[String]),
             no_upgrade: T::Boolean,
             verbose:    T::Boolean,
-            options:    Object,
+            options:    Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
         def preinstall!(name, id = nil, with: nil, no_upgrade: false, verbose: false, **options)
@@ -152,10 +152,10 @@ module Homebrew
           id ||= T.cast(options[:id], T.nilable(Integer))
           raise ArgumentError, "missing keyword: id" if id.nil?
 
-          unless Bundle.mas_installed?
+          unless package_manager_installed?
             puts "Installing mas. It is not currently installed." if verbose
             Bundle.system(HOMEBREW_BREW_FILE, "install", "mas", verbose:)
-            raise "Unable to install #{name} app. mas installation failed." unless Bundle.mas_installed?
+            raise "Unable to install #{name} app. mas installation failed." unless package_manager_installed?
           end
 
           if app_id_installed?(id) &&
@@ -168,7 +168,7 @@ module Homebrew
         end
 
         sig {
-          params(
+          override.params(
             name:       String,
             id:         T.nilable(Integer),
             with:       T.nilable(T::Array[String]),
@@ -176,7 +176,7 @@ module Homebrew
             no_upgrade: T::Boolean,
             verbose:    T::Boolean,
             force:      T::Boolean,
-            options:    Object,
+            options:    Homebrew::Bundle::EntryOption,
           ).returns(T::Boolean)
         }
         def install!(name, id = nil, with: nil, preinstall: true, no_upgrade: false, verbose: false, force: false,
@@ -190,7 +190,7 @@ module Homebrew
 
           return true unless preinstall
 
-          mas = Bundle.which_mas
+          mas = package_manager_executable
           return false if mas.nil?
 
           if app_id_installed?(id)
@@ -204,33 +204,34 @@ module Homebrew
           return false unless Bundle.system(mas, "get", id.to_s, verbose:)
 
           apps << [id.to_s, name] unless apps.any? { |app_id, _app_name| app_id.to_i == id }
-          packages << { id: id.to_s, name: } unless packages.any? { |app| app[:id].to_i == id }
+          packages << App.new(id: id.to_s, name:) unless packages.any? { |app| app.id.to_i == id }
           installed_app_ids << id.to_s unless installed_app_ids.include?(id.to_s)
           true
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T.untyped) }
+      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
       def format_checkable(entries)
-        checkable_entries(entries).to_h do |entry|
+        checkable_entries(entries).map do |entry|
           entry = T.cast(entry, Dsl::Entry)
           [T.cast(entry.options.fetch(:id), Integer), entry.name]
         end
       end
 
-      sig { override.params(packages: T.untyped, no_upgrade: T::Boolean).returns(T::Array[T.untyped]) }
+      sig { override.params(packages: CheckablePackages, no_upgrade: T::Boolean).returns(T::Array[Object]) }
       def exit_early_check(packages, no_upgrade:)
-        work_to_be_done = packages.find do |id, _name|
+        work_to_be_done = (packages.is_a?(Hash) ? packages.to_a : packages).find do |id, _name|
           !installed_and_up_to_date?(id, no_upgrade:)
         end
 
         Array(work_to_be_done)
       end
 
-      sig { override.params(packages: T.untyped, no_upgrade: T::Boolean).returns(T::Array[String]) }
+      sig { override.params(packages: CheckablePackages, no_upgrade: T::Boolean).returns(T::Array[String]) }
       def full_check(packages, no_upgrade:)
-        packages.reject { |id, _name| installed_and_up_to_date?(id, no_upgrade:) }
-                .map { |_id, name| failure_reason(name, no_upgrade:) }
+        (packages.is_a?(Hash) ? packages.to_a : packages)
+          .reject { |id, _name| installed_and_up_to_date?(id, no_upgrade:) }
+          .map { |_id, name| failure_reason(name, no_upgrade:) }
       end
 
       sig { override.params(package: Object, no_upgrade: T::Boolean).returns(String) }
@@ -243,17 +244,6 @@ module Homebrew
       def installed_and_up_to_date?(package, no_upgrade: false)
         self.class.app_id_installed_and_up_to_date?(T.cast(package, Integer), no_upgrade:)
       end
-    end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate Mac App Store dumper/installer/checker constants.
-    MacAppStoreDumper = MacAppStore
-    MacAppStoreInstaller = MacAppStore
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate Mac App Store checker constant.
-      MacAppStoreChecker = Homebrew::Bundle::MacAppStore
     end
   end
 end

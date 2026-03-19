@@ -2,30 +2,24 @@
 
 require "bundle"
 require "bundle/commands/dump"
-require "bundle/cask_dumper"
-require "bundle/formula_dumper"
-require "bundle/tap_dumper"
-require "bundle/vscode_extension_dumper"
-require "bundle/cargo_dumper"
-require "bundle/uv_dumper"
 
 RSpec.describe Homebrew::Bundle::Commands::Dump do
   subject(:dump) do
     described_class.run(global:, file: nil, describe: false, force:, no_restart: false, taps: true, formulae: true,
-                        casks: true, mas: true, vscode: true, cargo: true, flatpak: false,
-                        extension_types: { go: true, uv: true })
+                        casks: true, extension_types: { mas: true, vscode: true, cargo: true, flatpak: false,
+                                                       go: true, uv: true })
   end
 
   let(:force) { false }
   let(:global) { false }
 
   before do
-    Homebrew::Bundle::CaskDumper.reset!
-    Homebrew::Bundle::FormulaDumper.reset!
-    Homebrew::Bundle::TapDumper.reset!
-    Homebrew::Bundle::VscodeExtensionDumper.reset!
-    allow(Homebrew::Bundle::CargoDumper).to receive(:dump).and_return("")
-    allow(Homebrew::Bundle::UvDumper).to receive(:dump).and_return("")
+    Homebrew::Bundle::Cask.reset!
+    Homebrew::Bundle::Brew.reset!
+    Homebrew::Bundle::Tap.reset!
+    Homebrew::Bundle::VscodeExtension.reset!
+    allow(Homebrew::Bundle::Cargo).to receive(:dump).and_return("")
+    allow(Homebrew::Bundle::Uv).to receive(:dump).and_return("")
     allow(Formulary).to receive(:factory).and_call_original
     allow(Formulary).to receive(:factory).with("rust").and_return(
       instance_double(Formula, opt_bin: Pathname.new("/tmp/rust/bin")),
@@ -45,9 +39,9 @@ RSpec.describe Homebrew::Bundle::Commands::Dump do
     end
 
     it "exits before doing any work" do
-      expect(Homebrew::Bundle::TapDumper).not_to receive(:dump)
-      expect(Homebrew::Bundle::FormulaDumper).not_to receive(:dump)
-      expect(Homebrew::Bundle::CaskDumper).not_to receive(:dump)
+      expect(Homebrew::Bundle::Tap).not_to receive(:dump)
+      expect(Homebrew::Bundle::Brew).not_to receive(:dump)
+      expect(Homebrew::Bundle::Cask).not_to receive(:dump)
       expect do
         dump
       end.to raise_error(RuntimeError)

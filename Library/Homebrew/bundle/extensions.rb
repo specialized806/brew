@@ -4,8 +4,7 @@
 require "bundle/extensions/extension"
 
 extensions_dir = File.join(__dir__, "extensions")
-# TODO: Remove this legacy load order once the dump output order no longer
-# needs to match the pre-extension refactor section ordering.
+# Preserve the historical Brewfile section order for dumped extension entries.
 legacy_order = %w[mac_app_store vscode_extension go cargo uv flatpak].freeze
 extension_files = Dir.glob(File.join(extensions_dir, "*.rb")).sort_by do |file|
   basename = File.basename(file, ".rb")

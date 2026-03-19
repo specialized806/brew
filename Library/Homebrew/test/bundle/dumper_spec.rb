@@ -2,16 +2,7 @@
 
 require "bundle"
 require "bundle/dumper"
-require "bundle/formula_dumper"
-require "bundle/tap_dumper"
-require "bundle/cask_dumper"
-require "bundle/mac_app_store_dumper"
-require "bundle/vscode_extension_dumper"
 require "bundle/brew_services"
-require "bundle/go_dumper"
-require "bundle/cargo_dumper"
-require "bundle/flatpak_dumper"
-require "bundle/uv_dumper"
 require "cask"
 
 RSpec.describe Homebrew::Bundle::Dumper do
@@ -20,18 +11,18 @@ RSpec.describe Homebrew::Bundle::Dumper do
   before do
     ENV["HOMEBREW_BUNDLE_FILE"] = ""
 
-    allow(Homebrew::Bundle).to \
-      receive_messages(cask_installed?: true, mas_installed?: false, vscode_installed?: false)
-    allow(Homebrew::Bundle).to receive_messages(go_installed?: false, cargo_installed?: false, uv_installed?: false)
-    Homebrew::Bundle::FormulaDumper.reset!
-    Homebrew::Bundle::TapDumper.reset!
-    Homebrew::Bundle::CaskDumper.reset!
-    Homebrew::Bundle::MacAppStoreDumper.reset!
-    Homebrew::Bundle::VscodeExtensionDumper.reset!
-    Homebrew::Bundle::GoDumper.reset!
-    Homebrew::Bundle::CargoDumper.reset!
-    Homebrew::Bundle::UvDumper.reset!
-    Homebrew::Bundle::BrewServices.reset!
+    allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(true)
+    allow(Homebrew::Bundle::MacAppStore).to receive(:package_manager_executable).and_return(nil)
+    allow(Homebrew::Bundle::VscodeExtension).to receive(:package_manager_executable).and_return(nil)
+    Homebrew::Bundle::Brew.reset!
+    Homebrew::Bundle::Tap.reset!
+    Homebrew::Bundle::Cask.reset!
+    Homebrew::Bundle::MacAppStore.reset!
+    Homebrew::Bundle::VscodeExtension.reset!
+    Homebrew::Bundle::Go.reset!
+    Homebrew::Bundle::Cargo.reset!
+    Homebrew::Bundle::Uv.reset!
+    Homebrew::Bundle::Brew::Services.reset!
 
     chrome     = instance_double(Cask::Cask,
                                  full_name: "google-chrome",
@@ -47,16 +38,16 @@ RSpec.describe Homebrew::Bundle::Dumper do
                                  config:    nil)
 
     allow(Cask::Caskroom).to receive(:casks).and_return([chrome, java, iterm2beta])
-    allow(Homebrew::Bundle::GoDumper).to receive(:`).and_return("")
-    allow(Homebrew::Bundle::CargoDumper).to receive(:`).and_return("")
-    allow(Homebrew::Bundle::UvDumper).to receive(:`).and_return("")
+    allow(Homebrew::Bundle::Go).to receive_messages(package_manager_executable: nil, "`": "")
+    allow(Homebrew::Bundle::Cargo).to receive_messages(package_manager_executable: nil, "`": "")
+    allow(Homebrew::Bundle::Uv).to receive_messages(package_manager_executable: nil, "`": "")
     allow(Tap).to receive(:select).and_return([])
   end
 
   it "generates output" do
     expect(dumper.build_brewfile(
-             describe: false, no_restart: false, formulae: true, taps: true, casks: true, mas: true,
-             vscode: true, cargo: true, flatpak: false, extension_types: { go: true, uv: true }
+             describe: false, no_restart: false, formulae: true, taps: true, casks: true,
+             extension_types: { mas: true, vscode: true, cargo: true, flatpak: false, go: true, uv: true }
            )).to eql("cask \"google-chrome\"\ncask \"java\"\ncask \"homebrew/cask-versions/iterm2-beta\"\n")
   end
 
@@ -65,14 +56,14 @@ RSpec.describe Homebrew::Bundle::Dumper do
   end
 
   it "preserves the legacy extension dump order" do
-    allow(Homebrew::Bundle::GoDumper).to receive(:dump).and_return('go "github.com/charmbracelet/crush"')
-    allow(Homebrew::Bundle::CargoDumper).to receive(:dump).and_return('cargo "ripgrep"')
-    allow(Homebrew::Bundle::UvDumper).to receive(:dump).and_return('uv "mkdocs"')
-    allow(Homebrew::Bundle::FlatpakDumper).to receive(:dump).and_return('flatpak "org.gnome.Calculator"')
+    allow(Homebrew::Bundle::Go).to receive(:dump).and_return('go "github.com/charmbracelet/crush"')
+    allow(Homebrew::Bundle::Cargo).to receive(:dump).and_return('cargo "ripgrep"')
+    allow(Homebrew::Bundle::Uv).to receive(:dump).and_return('uv "mkdocs"')
+    allow(Homebrew::Bundle::Flatpak).to receive(:dump).and_return('flatpak "org.gnome.Calculator"')
 
     expect(dumper.build_brewfile(
-             describe: false, no_restart: false, formulae: false, taps: false, casks: false, mas: false,
-             vscode: false, cargo: true, flatpak: true, extension_types: { go: true, uv: true }
+             describe: false, no_restart: false, formulae: false, taps: false, casks: false,
+             extension_types: { mas: false, vscode: false, cargo: true, flatpak: true, go: true, uv: true }
            )).to eql(<<~BREWFILE)
              go "github.com/charmbracelet/crush"
              cargo "ripgrep"

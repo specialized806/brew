@@ -1,212 +1,14 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "bundle/package_type"
+
 module Homebrew
   module Bundle
-    module Checker
-      class Base
-        # Implement these in any subclass
-        # PACKAGE_TYPE = :pkg
-        # PACKAGE_TYPE_NAME = "Package"
-        # TODO: Replace these `T.untyped` checker-base signatures once the
-        # remaining non-extension checkers share a typed package model.
-
-        sig { params(packages: T.untyped, no_upgrade: T::Boolean).returns(T::Array[T.untyped]) }
-        def exit_early_check(packages, no_upgrade:)
-          work_to_be_done = packages.find do |pkg|
-            !installed_and_up_to_date?(pkg, no_upgrade:)
-          end
-
-          Array(work_to_be_done)
-        end
-
-        sig { params(name: T.untyped, no_upgrade: T::Boolean).returns(String) }
-        def failure_reason(name, no_upgrade:)
-          reason = if no_upgrade && Bundle.upgrade_formulae.exclude?(name)
-            "needs to be installed."
-          else
-            "needs to be installed or updated."
-          end
-          "#{self.class.const_get(:PACKAGE_TYPE_NAME)} #{name} #{reason}"
-        end
-
-        sig { params(packages: T.untyped, no_upgrade: T::Boolean).returns(T::Array[String]) }
-        def full_check(packages, no_upgrade:)
-          packages.reject { |pkg| installed_and_up_to_date?(pkg, no_upgrade:) }
-                  .map { |pkg| failure_reason(pkg, no_upgrade:) }
-        end
-
-        sig { params(all_entries: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
-        def checkable_entries(all_entries)
-          require "bundle/skipper"
-          all_entries.filter_map do |entry|
-            entry = T.cast(entry, Dsl::Entry)
-            next if entry.type != self.class.const_get(:PACKAGE_TYPE)
-            next if Bundle::Skipper.skip?(entry)
-
-            entry
-          end
-        end
-
-        sig { params(entries: T::Array[T.untyped]).returns(T.untyped) }
-        def format_checkable(entries)
-          checkable_entries(entries).map do |entry|
-            entry = T.cast(entry, Dsl::Entry)
-            entry.name
-          end
-        end
-
-        sig { params(_pkg: T.untyped, no_upgrade: T::Boolean).returns(T::Boolean) }
-        def installed_and_up_to_date?(_pkg, no_upgrade: false)
-          raise NotImplementedError
-        end
-
-        sig {
-          params(
-            entries:             T::Array[T.untyped],
-            exit_on_first_error: T::Boolean,
-            no_upgrade:          T::Boolean,
-            verbose:             T::Boolean,
-          ).returns(T::Array[T.untyped])
-        }
-        def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
-          requested = format_checkable(entries)
-
-          if exit_on_first_error
-            exit_early_check(requested, no_upgrade:)
-          else
-            full_check(requested, no_upgrade:)
-          end
-        end
-      end
-    end
-
     ExtensionTypes = T.type_alias { T::Hash[Symbol, T::Boolean] }
-
-    class PackageType < Homebrew::Bundle::Checker::Base
-      extend T::Helpers
-
-      abstract!
-
-      sig { params(subclass: T.class_of(Homebrew::Bundle::PackageType)).void }
-      def self.inherited(subclass)
-        super
-        return if subclass.name == "Homebrew::Bundle::Extension"
-
-        Homebrew::Bundle.register_package_type(subclass)
-      end
-
-      sig { returns(Symbol) }
-      def self.type
-        T.cast(const_get(:PACKAGE_TYPE), Symbol)
-      end
-
-      sig { returns(T::Boolean) }
-      def self.dump_supported?
-        true
-      end
-
-      sig { returns(T::Boolean) }
-      def self.install_supported?
-        true
-      end
-
-      sig { params(_name: String, _options: T::Hash[Symbol, Object]).returns(String) }
-      def self.install_verb(_name = "", _options = {})
-        "Installing"
-      end
-
-      sig {
-        params(
-          name:       String,
-          options:    T::Hash[Symbol, Object],
-          no_upgrade: T::Boolean,
-        ).returns(T.nilable(String))
-      }
-      def self.fetchable_name(name, options = {}, no_upgrade: false)
-        _ = name
-        _ = options
-        _ = no_upgrade
-
-        nil
-      end
-
-      sig { returns(T::Boolean) }
-      def self.check_supported?
-        true
-      end
-
-      sig { abstract.void }
-      def self.reset!; end
-
-      sig {
-        params(
-          entries:             T::Array[Object],
-          exit_on_first_error: T::Boolean,
-          no_upgrade:          T::Boolean,
-          verbose:             T::Boolean,
-        ).returns(T::Array[Object])
-      }
-      def self.check(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
-        new.find_actionable(entries, exit_on_first_error:, no_upgrade:, verbose:)
-      end
-
-      sig { abstract.returns(String) }
-      def self.dump; end
-
-      sig { params(describe: T::Boolean, no_restart: T::Boolean).returns(String) }
-      def self.dump_output(describe: false, no_restart: false)
-        _ = describe
-        _ = no_restart
-
-        dump
-      end
-    end
-
-    class << self
-      sig { params(package_type: T.class_of(PackageType)).void }
-      def register_package_type(package_type)
-        @package_types ||= T.let([], T.nilable(T::Array[T.class_of(PackageType)]))
-        @package_types.reject! { |registered| registered.name == package_type.name }
-        @package_types << package_type
-      end
-
-      sig { returns(T::Array[T.class_of(PackageType)]) }
-      def package_types
-        @package_types ||= T.let([], T.nilable(T::Array[T.class_of(PackageType)]))
-        @package_types
-      end
-
-      sig { params(type: T.any(Symbol, String)).returns(T.nilable(T.class_of(PackageType))) }
-      def package_type(type)
-        requested_type = type.to_sym
-        package_types.find { |registered| registered.type == requested_type }
-      end
-
-      sig { returns(T::Array[T.class_of(PackageType)]) }
-      def dump_package_types
-        core_package_types = [:tap, :brew, :cask].filter_map { |type| package_type(type) }
-        (core_package_types + (package_types - core_package_types)).uniq
-      end
-
-      sig { returns(T::Array[T.class_of(PackageType)]) }
-      def check_package_types
-        # TODO: Remove this legacy ordering shim once package-type order can be
-        # inferred entirely from registration without changing `brew bundle check`
-        # behavior for taps, casks, extensions, and formulae.
-        taps = package_type(:tap)
-        casks = package_type(:cask)
-        formulae = package_type(:brew)
-        core_package_types = [taps, casks, formulae].compact
-
-        [taps, casks, *(package_types - core_package_types), formulae].compact
-      end
-    end
 
     class Extension < Homebrew::Bundle::PackageType
       extend T::Helpers
-
-      EntryOptions = T.type_alias { T::Hash[Symbol, Object] }
 
       abstract!
 
@@ -240,7 +42,7 @@ module Homebrew
         end
       end
 
-      sig { params(name: String, options: EntryOptions).returns(Dsl::Entry) }
+      sig { params(name: String, options: Homebrew::Bundle::EntryInputOptions).returns(Dsl::Entry) }
       def self.entry(name, options = {})
         raise "unknown options(#{options.keys.inspect}) for #{type}" if options.present?
 
@@ -262,16 +64,14 @@ module Homebrew
         flag
       end
 
-      # TODO: Route these through each extension once the go/uv specs stop
-      # stubbing `Homebrew::Bundle.which_*` and `*_installed?` directly.
       sig { returns(T::Boolean) }
       def self.package_manager_installed?
-        Bundle.public_send(:"#{type}_installed?")
+        package_manager_executable.present?
       end
 
       sig { returns(T.nilable(Pathname)) }
       def self.package_manager_executable
-        Bundle.public_send(:"which_#{type}")
+        which(package_manager_name, ORIGINAL_PATHS)
       end
 
       sig { returns(String) }
@@ -319,7 +119,7 @@ module Homebrew
         true
       end
 
-      sig { params(_name: String, _options: T::Hash[Symbol, Object]).returns(String) }
+      sig { params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(String) }
       def self.install_verb(_name = "", _options = {})
         "Installing"
       end
@@ -327,7 +127,7 @@ module Homebrew
       sig {
         params(
           name:       String,
-          options:    T::Hash[Symbol, Object],
+          options:    Homebrew::Bundle::EntryOptions,
           no_upgrade: T::Boolean,
         ).returns(T.nilable(String))
       }
@@ -352,8 +152,6 @@ module Homebrew
       sig { abstract.void }
       def self.reset!; end
 
-      # TODO: Replace these `T.untyped` package collections once extensions can
-      # share a typed package interface without breaking Sorbet override checks.
       sig { abstract.returns(T::Array[T.untyped]) }
       def self.packages; end
 
@@ -410,14 +208,9 @@ module Homebrew
         new.find_actionable(entries, exit_on_first_error:, no_upgrade:, verbose:)
       end
 
-      sig { params(_entries: T::Array[Object]).returns(T::Array[String]) }
+      sig { params(_entries: T::Array[Dsl::Entry]).returns(T::Array[String]) }
       def self.cleanup_items(_entries)
         []
-      end
-
-      sig { returns(T.nilable(Symbol)) }
-      def self.legacy_cleanup_method
-        nil
       end
 
       sig { returns(Symbol) }
@@ -441,14 +234,15 @@ module Homebrew
       end
 
       sig {
-        params(
+        override.params(
           name:       String,
           with:       T.nilable(T::Array[String]),
           no_upgrade: T::Boolean,
           verbose:    T::Boolean,
+          _options:   Homebrew::Bundle::EntryOption,
         ).returns(T::Boolean)
       }
-      def self.preinstall!(name, with: nil, no_upgrade: false, verbose: false)
+      def self.preinstall!(name, with: nil, no_upgrade: false, verbose: false, **_options)
         _ = no_upgrade
 
         unless package_manager_installed?
@@ -479,16 +273,18 @@ module Homebrew
       end
 
       sig {
-        params(
+        override.params(
           name:       String,
           with:       T.nilable(T::Array[String]),
           preinstall: T::Boolean,
           no_upgrade: T::Boolean,
           verbose:    T::Boolean,
           force:      T::Boolean,
+          _options:   Homebrew::Bundle::EntryOption,
         ).returns(T::Boolean)
       }
-      def self.install!(name, with: nil, preinstall: true, no_upgrade: false, verbose: false, force: false)
+      def self.install!(name, with: nil, preinstall: true, no_upgrade: false, verbose: false, force: false,
+                        **_options)
         _ = no_upgrade
         _ = force
 
@@ -552,7 +348,7 @@ module Homebrew
       sig {
         params(
           type: T.any(Symbol, String),
-        ).returns(T.nilable(T.any(T.class_of(PackageType), T.class_of(Extension))))
+        ).returns(T.nilable(T.class_of(PackageType)))
       }
       def installable(type)
         package_type(type) || extension(type)

@@ -129,13 +129,5 @@ module Homebrew
         end
       end
     end
-
-    BrewServices = Brew::Services
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate brew service checker constant.
-      BrewServiceChecker = Homebrew::Bundle::Brew::Services
-    end
   end
 end
