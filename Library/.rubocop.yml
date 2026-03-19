@@ -113,10 +113,6 @@ Layout/HashAlignment:
   EnforcedHashRocketStyle: table
   EnforcedColonStyle: table
 
-# TODO: undisable when fixed: https://github.com/rubocop/rubocop/issues/14747
-Layout/IndentationWidth:
-  Enabled: false
-
 # Need to allow #: for external commands.
 Layout/LeadingCommentSpace:
   Exclude:

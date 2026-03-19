@@ -12,7 +12,7 @@ module Homebrew
       overwrite_formulae.filter_map(&:any_installed_keg)
                         .select(&:directory?)
                         .each do |keg|
-         unlink(keg, verbose:)
+        unlink(keg, verbose:)
       end
     end
 
