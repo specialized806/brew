@@ -137,10 +137,10 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       "uses_from_macos_bounds"   => [],
     }
 
-    described_class.generate_formula_struct_hash(hash)
+    struct = described_class.generate_formula_struct_hash(hash)
 
-    expect(hash["head_dependencies"]).not_to be_empty
-    expect(hash["head_dependencies"]).to eq hash["stable_dependencies"]
+    expect(struct.head_dependencies).not_to be_empty
+    expect(struct.head_dependencies).to eq struct.stable_dependencies
   end
 
   specify "::symbolize_dependency_hash" do
