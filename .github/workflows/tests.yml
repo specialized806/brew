@@ -355,6 +355,7 @@ jobs:
             file \
             g++ \
             git-core \
+            jq \
             less \
             locales \
             make \
