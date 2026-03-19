@@ -436,7 +436,7 @@ module Homebrew
 
         name_width = (items.map { |item| item.name.length } + [5]).max
         size_width = (items.map do |item|
- Formatter.disk_usage_readable(item.size).length
+          Formatter.disk_usage_readable(item.size).length
         end + [total_size_str.length]).max
 
         items.each do |item|

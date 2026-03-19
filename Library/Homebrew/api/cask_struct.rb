@@ -158,18 +158,18 @@ module Homebrew
 
       # Format artifact args pairs into proper [key, args, kwargs, block] format since serialization removed blanks.
       sig {
-          params(
-            args: T.any(
-              [Symbol],
-              [Symbol, T::Array[T.anything]],
-              [Symbol, T::Hash[Symbol, T.anything]],
-              [Symbol, Symbol],
-              [Symbol, T::Array[T.anything], T::Hash[Symbol, T.anything]],
-              [Symbol, T::Array[T.anything], Symbol],
-              [Symbol, T::Hash[Symbol, T.anything], Symbol],
-              [Symbol, T::Array[T.anything], T::Hash[Symbol, T.anything], Symbol],
-            ),
-          ).returns(ArtifactArgs)
+        params(
+          args: T.any(
+            [Symbol],
+            [Symbol, T::Array[T.anything]],
+            [Symbol, T::Hash[Symbol, T.anything]],
+            [Symbol, Symbol],
+            [Symbol, T::Array[T.anything], T::Hash[Symbol, T.anything]],
+            [Symbol, T::Array[T.anything], Symbol],
+            [Symbol, T::Hash[Symbol, T.anything], Symbol],
+            [Symbol, T::Array[T.anything], T::Hash[Symbol, T.anything], Symbol],
+          ),
+        ).returns(ArtifactArgs)
       }
       def self.deserialize_artifact_args(args)
         case args
