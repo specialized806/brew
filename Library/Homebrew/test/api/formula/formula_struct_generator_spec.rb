@@ -122,6 +122,21 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
     ).to eq [[], []]
   end
 
+  specify "::generate_formula_struct_hash falls back to stable deps when head_dependencies is absent" do
+    hash = {
+      "dependencies"             => ["foo"],
+      "recommended_dependencies" => [],
+      "optional_dependencies"    => [],
+      "uses_from_macos"          => [],
+      "uses_from_macos_bounds"   => [],
+    }
+
+    described_class.generate_formula_struct_hash(hash)
+
+    expect(hash["head_dependencies"]).not_to be_empty
+    expect(hash["head_dependencies"]).to eq hash["stable_dependencies"]
+  end
+
   specify "::symbolize_dependency_hash" do
     output = described_class.symbolize_dependency_hash(raw_dependency_hash)
     expect(output).to eq symbolized_dependency_hash

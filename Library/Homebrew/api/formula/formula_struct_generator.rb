@@ -164,8 +164,9 @@ module Homebrew
             :stable,
           )
 
+          head_dependency_hash = hash["head_dependencies"] || stable_dependency_hash
           head_dependencies, head_uses_from_macos = process_dependencies_and_requirements(
-            hash["head_dependencies"],
+            head_dependency_hash,
             hash["requirements_array"],
             :head,
           )
