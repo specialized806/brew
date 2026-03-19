@@ -127,7 +127,7 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       "desc"                     => "Test formula",
       "homepage"                 => "https://example.com",
       "license"                  => "MIT",
-      "ruby_source_checksum"     => "abc123",
+      "ruby_source_checksum"     => { "sha256" => "abc123" },
       "versions"                 => { "stable" => "1.0.0" },
       "urls"                     => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
       "dependencies"             => ["foo"],
