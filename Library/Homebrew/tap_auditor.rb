@@ -11,14 +11,15 @@ module Homebrew
     def initialize(tap, strict:)
       Homebrew.with_no_api_env do
         tap.clear_cache if Homebrew::EnvConfig.automatically_set_no_install_from_api?
-        @name                         = tap.name
-        @path                         = tap.path
-        @tap_audit_exceptions         = tap.audit_exceptions
-        @tap_style_exceptions         = tap.style_exceptions
-        @tap_synced_versions_formulae = tap.synced_versions_formulae
-        @tap_autobump                 = tap.autobump
-        @tap_official                 = tap.official?
-        @problems                     = []
+        @name                                           = tap.name
+        @path                                           = tap.path
+        @tap_audit_exceptions                           = tap.audit_exceptions
+        @tap_style_exceptions                           = tap.style_exceptions
+        @tap_synced_versions_formulae                   = tap.synced_versions_formulae
+        @tap_disabled_new_usr_local_relocation_formulae = tap.disabled_new_usr_local_relocation_formulae
+        @tap_autobump                                   = tap.autobump
+        @tap_official                                   = tap.official?
+        @problems                                       = []
 
         @cask_tokens = tap.cask_tokens.map do |cask_token|
           cask_token.split("/").last
@@ -59,6 +60,8 @@ module Homebrew
       check_renames "cask_renames.json", @cask_renames, @cask_tokens
       check_formula_list ".github/autobump.txt", @tap_autobump unless @tap_official
       check_formula_list "synced_versions_formulae", @tap_synced_versions_formulae.flatten
+      check_formula_list "disabled_new_usr_local_relocation_formulae.json",
+                         @tap_disabled_new_usr_local_relocation_formulae
     end
 
     sig { void }
