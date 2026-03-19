@@ -164,6 +164,7 @@ module Homebrew
             :stable,
           )
 
+          # hash["head_dependencies"] is always present unless the stable and head deps are identical
           head_dependency_hash = hash["head_dependencies"] || stable_dependency_hash
           head_dependencies, head_uses_from_macos = process_dependencies_and_requirements(
             head_dependency_hash,

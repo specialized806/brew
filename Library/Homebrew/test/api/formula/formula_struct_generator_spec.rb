@@ -129,6 +129,7 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       "optional_dependencies"    => [],
       "uses_from_macos"          => [],
       "uses_from_macos_bounds"   => [],
+      "urls"                     => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
     }
 
     described_class.generate_formula_struct_hash(hash)
