@@ -124,12 +124,17 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
 
   specify "::generate_formula_struct_hash falls back to stable deps when head_dependencies is absent" do
     hash = {
+      "desc"                     => "Test formula",
+      "homepage"                 => "https://example.com",
+      "license"                  => "MIT",
+      "ruby_source_checksum"     => "abc123",
+      "versions"                 => { "stable" => "1.0.0" },
+      "urls"                     => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
       "dependencies"             => ["foo"],
       "recommended_dependencies" => [],
       "optional_dependencies"    => [],
       "uses_from_macos"          => [],
       "uses_from_macos_bounds"   => [],
-      "urls"                     => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
     }
 
     described_class.generate_formula_struct_hash(hash)
