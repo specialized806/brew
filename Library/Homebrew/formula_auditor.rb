@@ -1122,7 +1122,7 @@ module Homebrew
 
     def linux_only_gcc_dep?(formula)
       odie "`#linux_only_gcc_dep?` works only on Linux!" if Homebrew::SimulateSystem.simulating_or_running_on_macos?
-      return false if formula.deps.map(&:name).exclude?("gcc")
+      return false if formula.deps.none? { |dep| dep.name == "gcc" && !dep.implicit? }
 
       variations = formula.to_hash_with_variations["variations"]
       # The formula has no variations, so all OS-version-arch triples depend on GCC.
