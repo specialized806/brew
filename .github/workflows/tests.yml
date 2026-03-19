@@ -329,7 +329,7 @@ jobs:
             container: ghcr.io/homebrew/ubuntu24.04:latest
           - name: test-bot (Linux x86_64)
             runs-on: ubuntu-latest
-            container: ghcr.io/homebrew/ubuntu22.04:main
+            container: ghcr.io/homebrew/brew:main
           # Use Debian Old Stable for testing Homebrew's glibc support.
           - name: test-bot (Linux Homebrew glibc)
             runs-on: ubuntu-latest

@@ -300,7 +300,7 @@ module Homebrew
 
             if runner.fetch(:symbol) == :linux
               runner_output[:container] = {
-                image:   "ghcr.io/homebrew/ubuntu22.04:main",
+                image:   "ghcr.io/homebrew/brew:main",
                 options: "--user=linuxbrew",
               }
             end
