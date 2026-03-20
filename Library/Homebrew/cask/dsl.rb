@@ -555,6 +555,9 @@ module Cask
       @caveats
     end
 
+    sig { returns(DSL::Caveats) }
+    def caveats_object = @caveats
+
     # Asserts that the cask artifacts auto-update.
     #
     # @api public

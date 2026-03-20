@@ -421,6 +421,12 @@ module Cask
           end
 
           caveats cask_struct.caveats(appdir:) if cask_struct.caveats?
+
+          if cask_struct.caveats_rosetta
+            caveats do
+              T.unsafe(self).requires_rosetta
+            end
+          end
         end
         api_cask.populate_from_api!(cask_struct, tap_git_head:)
         api_cask
