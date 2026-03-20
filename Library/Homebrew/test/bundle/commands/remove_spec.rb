@@ -25,7 +25,12 @@ RSpec.describe Homebrew::Bundle::Commands::Remove do
     end
 
     before do
-      stub_formula_loader formula("hello") { url "hello-1.0" }
+      stub_formula_loader(
+        formula("hello") do
+          url "hello-1.0"
+          desc "Program providing model for GNU coding standards and practices"
+        end,
+      )
     end
 
     it "removes entries from the given Brewfile" do
@@ -48,6 +53,27 @@ RSpec.describe Homebrew::Bundle::Commands::Remove do
 
         expect(File.read(file)).to eq <<~BREWFILE
           # Get a file from an HTTP, HTTPS or FTP server
+          brew "curl"
+        BREWFILE
+      end
+    end
+
+    context "when the entry has a preceding comment that's not the entry's description" do
+      let(:content) do
+        <<~BREWFILE
+          # Look at all these nice packages!
+          brew "hello"
+          # cURL is awesome!
+          brew "curl"
+        BREWFILE
+      end
+
+      it "removes the entry but not the preceding comment" do
+        expect { remove }.not_to raise_error
+
+        expect(File.read(file)).to eq <<~BREWFILE
+          # Look at all these nice packages!
+          # cURL is awesome!
           brew "curl"
         BREWFILE
       end

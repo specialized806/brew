@@ -31,7 +31,8 @@ module Homebrew
 
         content.split("\n").compact.each do |line|
           if line.match?(entry_regex)
-            new_lines.pop if new_lines.last&.match?(/^\s*#\s+\w+/)
+            name = line[entry_regex, 2]
+            remove_package_description_comment(new_lines, name)
           else
             new_lines << line
           end
@@ -53,12 +54,35 @@ module Homebrew
 
       sig { params(formula_name: String, raise_error: T::Boolean).returns(T::Array[String]) }
       def self.possible_names(formula_name, raise_error: true)
-        formula = Formulary.factory(formula_name)
-        [formula_name, formula.name, formula.full_name, *formula.aliases, *formula.oldnames].compact.uniq
-      rescue FormulaUnavailableError
-        raise if raise_error
+        return [] if (formula = find_formula_or_cask(formula_name, raise_error:)).nil?
+        return [] unless formula.is_a?(Formula)
 
-        []
+        [formula_name, formula.name, formula.full_name, *formula.aliases, *formula.oldnames].compact.uniq
+      end
+
+      sig { params(lines: T::Array[String], package_name: String).void }
+      def self.remove_package_description_comment(lines, package_name)
+        comment = lines.last&.match(/^\s*#\s+(?<desc>.+)$/)&.[](:desc)
+        return unless comment
+
+        lines.pop if find_formula_or_cask(package_name)&.desc == comment
+      end
+
+      sig { params(name: String, raise_error: T::Boolean).returns(T.nilable(T.any(Formula, ::Cask::Cask))) }
+      def self.find_formula_or_cask(name, raise_error: false)
+        formula = begin
+          Formulary.factory(name)
+        rescue FormulaUnavailableError
+          raise if raise_error
+        end
+
+        return formula if formula.present?
+
+        begin
+          ::Cask::CaskLoader.load(name)
+        rescue ::Cask::CaskUnavailableError
+          raise if raise_error
+        end
       end
     end
   end
