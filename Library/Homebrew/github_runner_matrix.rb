@@ -90,7 +90,7 @@ class GitHubRunnerMatrix
   sig { params(arch: Symbol).returns(LinuxRunnerSpec) }
   def linux_runner_spec(arch)
     linux_runner = case arch
-    when :arm64 then "ubuntu-22.04-arm"
+    when :arm64 then OS::LINUX_CI_ARM_RUNNER
     when :x86_64 then ENV.fetch("HOMEBREW_LINUX_RUNNER", "ubuntu-latest")
     else raise "Unknown Linux architecture: #{arch}"
     end

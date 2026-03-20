@@ -47,6 +47,7 @@ module OS
 
   # See Linux-CI.md
   LINUX_CI_OS_VERSION = "Ubuntu 22.04"
+  LINUX_CI_ARM_RUNNER = "ubuntu-22.04-arm"
   LINUX_GLIBC_CI_VERSION = "2.35"
   LINUX_GLIBC_NEXT_CI_VERSION = "2.39" # users below this version will be warned by `brew doctor`
   LINUX_GCC_CI_VERSION = "12" # https://packages.ubuntu.com/jammy/gcc-12

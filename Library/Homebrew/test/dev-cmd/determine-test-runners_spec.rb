@@ -16,7 +16,8 @@ RSpec.describe Homebrew::DevCmd::DetermineTestRunners do
     FileUtils.rm_f github_output
   end
 
-  let(:linux_runner) { "ubuntu-22.04" }
+  let(:arm_linux_runner) { OS::LINUX_CI_ARM_RUNNER }
+  let(:linux_runner) { "ubuntu-latest" }
   # We need to make sure we write to a different path for each example.
   let(:github_output) { "#{TEST_TMPDIR}/github_output#{DetermineRunnerTestHelper.new.number}" }
   let(:ephemeral_suffix) { "-12345" }
@@ -41,7 +42,7 @@ RSpec.describe Homebrew::DevCmd::DetermineTestRunners do
     end
 
     out << linux_runner
-    out << "#{linux_runner}-arm"
+    out << arm_linux_runner
 
     out
   end
