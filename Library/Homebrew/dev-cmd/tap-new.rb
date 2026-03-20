@@ -83,8 +83,12 @@ module Homebrew
             test-bot:
               strategy:
                 matrix:
-                  os: [ ubuntu-22.04, macos-15-intel, macos-26 ]
+                  os: [ macos-15-intel, macos-26 ]
+                  include:
+                    - os: ubuntu-latest
+                      container: ghcr.io/homebrew/brew:main
               runs-on: ${{ matrix.os }}
+              container: ${{ matrix.container }}
               permissions:
                 actions: read
                 checks: read
@@ -149,7 +153,7 @@ module Homebrew
           jobs:
             pr-pull:
               if: contains(github.event.pull_request.labels.*.name, '<%= label %>')
-              runs-on: ubuntu-22.04
+              runs-on: ubuntu-latest
               permissions:
                 actions: read
                 checks: read
