@@ -890,6 +890,25 @@ case "${HOMEBREW_COMMAND}" in
   lc) HOMEBREW_COMMAND="livecheck" ;;
   tc) HOMEBREW_COMMAND="typecheck" ;;
 esac
+if [[ ("${HOMEBREW_COMMAND}" == "audit" || "${HOMEBREW_COMMAND}" == "lgtm" ||
+      "${HOMEBREW_COMMAND}" == "style" || "${HOMEBREW_COMMAND}" == "tests") &&
+      "${HOMEBREW_CACHE}" != "${HOMEBREW_REPOSITORY}/tmp/cache" ]]
+then
+  if [[ -d "${HOMEBREW_CACHE}" && ! -w "${HOMEBREW_CACHE}" ]] ||
+     [[ ! -d "${HOMEBREW_CACHE}" && ! -w "${HOMEBREW_CACHE%/*}" ]]
+  then
+    original_cache="${HOMEBREW_CACHE}"
+    HOMEBREW_CACHE="${HOMEBREW_REPOSITORY}/tmp/cache"
+    printf 'Warning: HOMEBREW_CACHE is not writable at %s; using %s for Homebrew cache files instead.\n' \
+      "${original_cache}" "${HOMEBREW_CACHE}" >&2
+    mkdir -p "${HOMEBREW_CACHE}/api"
+    if [[ -d "${original_cache}/api" ]]
+    then
+      cp -R "${original_cache}/api/." "${HOMEBREW_CACHE}/api/" &>/dev/null || true
+    fi
+    export HOMEBREW_CACHE
+  fi
+fi
 
 # Set HOMEBREW_DEV_CMD_RUN for users who have run a development command.
 # This makes them behave like HOMEBREW_DEVELOPERs for brew update.
