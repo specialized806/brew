@@ -2535,7 +2535,7 @@ class Formula
 
     (core_names + tap_files).filter_map do |name_or_file|
       Formulary.factory(name_or_file)
-    rescue FormulaUnavailableError, FormulaUnreadableError => e
+    rescue FormulaUnavailableError, FormulaUnreadableError, FormulaSpecificationError => e
       # Don't let one broken formula break commands. But do complain.
       onoe "Failed to import: #{name_or_file}"
       $stderr.puts e
