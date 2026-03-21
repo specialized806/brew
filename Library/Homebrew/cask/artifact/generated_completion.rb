@@ -2,6 +2,9 @@
 # frozen_string_literal: true
 
 require "cask/artifact/abstract_artifact"
+require "cask/artifact/bashcompletion"
+require "cask/artifact/fishcompletion"
+require "cask/artifact/zshcompletion"
 require "extend/hash/keys"
 require "utils/shell_completion"
 
@@ -135,11 +138,11 @@ module Cask
       def completion_script_path(shell)
         case shell
         when :bash
-          config.bash_completion/resolved_base_name
+          BashCompletion.new(cask, resolved_base_name).resolve_target(resolved_base_name)
         when :zsh
-          config.zsh_completion/"_#{resolved_base_name}"
+          ZshCompletion.new(cask, resolved_base_name).resolve_target(resolved_base_name)
         when :fish
-          config.fish_completion/"#{resolved_base_name}.fish"
+          FishCompletion.new(cask, resolved_base_name).resolve_target(resolved_base_name)
         when :pwsh
           HOMEBREW_PREFIX/"share/pwsh/completions"/"_#{resolved_base_name}.ps1"
         else
