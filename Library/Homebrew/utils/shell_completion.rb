@@ -53,5 +53,19 @@ module Utils
         "#{format}#{shell}"
       end
     end
+
+    sig {
+      params(
+        commands:        T::Array[T.any(Pathname, String)],
+        shell_parameter: T.nilable(T.any(String, T::Array[String])),
+        env:             T::Hash[String, String],
+      ).returns(String)
+    }
+    def self.generate_completion_output(commands, shell_parameter, env)
+      args = T.let(commands + Array(shell_parameter), T::Array[T.any(Pathname, String)])
+      options = T.let({}, T::Hash[Symbol, Symbol])
+      options[:err] = :err unless ENV["HOMEBREW_STDERR"]
+      Utils.safe_popen_read(env, *args, **options)
+    end
   end
 end

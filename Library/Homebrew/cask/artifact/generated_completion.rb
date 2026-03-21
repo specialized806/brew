@@ -94,16 +94,13 @@ module Cask
             shell_parameter_format, shell, executable.to_s, popen_read_env
           )
 
-          popen_read_args = commands.dup
-          popen_read_args[0] = executable
-          popen_read_args.concat(Array(shell_parameter))
-
-          popen_read_options = T.let({}, T::Hash[Symbol, Symbol])
-          popen_read_options[:err] = :err unless ENV["HOMEBREW_STDERR"]
-
           script_path = completion_script_path(shell)
           script_path.dirname.mkpath
-          script_path.write(::Utils.safe_popen_read(popen_read_env, *popen_read_args, **popen_read_options))
+          script_path.write(::Utils::ShellCompletion.generate_completion_output(
+                              [executable, *commands[1..]],
+                              shell_parameter,
+                              popen_read_env,
+                            ))
         rescue => e
           opoo "Failed to generate #{shell} completions from #{executable}: #{e}"
         end
