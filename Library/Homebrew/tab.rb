@@ -18,20 +18,12 @@ class AbstractTab
   Cache = type_template { { fixed: T::Hash[T.any(Pathname, String), T.untyped] } }
   # rubocop:enable Style/MutableConstant
 
-  abstract!
-
   FILENAME = "INSTALL_RECEIPT.json"
 
   RuntimeDependencies = T.type_alias do
     T.nilable(T.any(T::Array[String], T::Array[T::Hash[String, T.untyped]], T::Hash[String, T.untyped],
                     T::Hash[Symbol, T.untyped]))
   end
-
-  # Check whether the formula or cask was installed as a dependency.
-  #
-  # @api internal
-  sig { returns(T::Boolean) }
-  attr_accessor :installed_as_dependency
 
   # Check whether the formula or cask was installed on request.
   #
@@ -72,7 +64,6 @@ class AbstractTab
   # TODO: Update attributes to only accept symbol keys (kwargs style).
   sig { params(attributes: T.any(T::Hash[String, T.untyped], T::Hash[Symbol, T.untyped])).void }
   def initialize(attributes = {})
-    @installed_as_dependency = T.let(false, T::Boolean)
     @installed_on_request = T.let(false, T::Boolean)
     @installed_on_request_present = T.let(false, T::Boolean)
     @homebrew_version = T.let(nil, T.nilable(String))
@@ -87,8 +78,6 @@ class AbstractTab
 
     attributes.each do |key, value|
       case key.to_sym
-      when :installed_as_dependency
-        @installed_as_dependency = value.nil? ? false : value
       when :installed_on_request
         @installed_on_request = value.nil? ? false : value
         @installed_on_request_present = true
@@ -105,7 +94,6 @@ class AbstractTab
   def self.create(formula_or_cask)
     attributes = {
       "homebrew_version"         => HOMEBREW_VERSION,
-      "installed_as_dependency"  => false,
       "installed_on_request"     => false,
       "loaded_from_api"          => formula_or_cask.loaded_from_api?,
       "loaded_from_internal_api" => formula_or_cask.loaded_from_internal_api?,
@@ -151,7 +139,6 @@ class AbstractTab
   def self.empty
     attributes = {
       "homebrew_version"         => HOMEBREW_VERSION,
-      "installed_as_dependency"  => false,
       "installed_on_request"     => false,
       "loaded_from_api"          => false,
       "loaded_from_internal_api" => false,
@@ -575,7 +562,6 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
       "poured_from_bottle"       => poured_from_bottle,
       "loaded_from_api"          => loaded_from_api,
       "loaded_from_internal_api" => loaded_from_internal_api,
-      "installed_as_dependency"  => installed_as_dependency,
       "installed_on_request"     => installed_on_request,
       "changed_files"            => changed_files&.map(&:to_s),
       "time"                     => time,

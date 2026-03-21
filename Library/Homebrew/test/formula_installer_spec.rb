@@ -137,7 +137,7 @@ RSpec.describe FormulaInstaller do
 
       installer.send(:install_dependency, dependency)
 
-      expect(child_installer).to be_installed_as_dependency
+      expect(child_installer).not_to be_installed_on_request
       expect(child_installer&.link_keg).to be true
     end
   end

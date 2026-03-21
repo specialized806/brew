@@ -264,7 +264,7 @@ module Homebrew
 
       sig {
         params(formulae_to_install: T::Array[Formula], installed_on_request: T::Boolean,
-               installed_as_dependency: T::Boolean, build_bottle: T::Boolean, force_bottle: T::Boolean,
+               build_bottle: T::Boolean, force_bottle: T::Boolean,
                bottle_arch: T.nilable(String), ignore_deps: T::Boolean, only_deps: T::Boolean,
                include_test_formulae: T::Array[String], build_from_source_formulae: T::Array[String],
                cc: T.nilable(String), git: T::Boolean, interactive: T::Boolean, keep_tmp: T::Boolean,
@@ -275,7 +275,6 @@ module Homebrew
       def formula_installers(
         formulae_to_install,
         installed_on_request: true,
-        installed_as_dependency: false,
         build_bottle: false,
         force_bottle: false,
         bottle_arch: nil,
@@ -305,7 +304,6 @@ module Homebrew
             formula,
             options:                    build_options.used_options,
             installed_on_request:,
-            installed_as_dependency:,
             build_bottle:,
             force_bottle:,
             bottle_arch:,
@@ -411,7 +409,7 @@ module Homebrew
 
       sig {
         params(formula_installers: T::Array[FormulaInstaller], installed_on_request: T::Boolean,
-               installed_as_dependency: T::Boolean, build_bottle: T::Boolean, force_bottle: T::Boolean,
+               build_bottle: T::Boolean, force_bottle: T::Boolean,
                bottle_arch: T.nilable(String), ignore_deps: T::Boolean, only_deps: T::Boolean,
                include_test_formulae: T::Array[String], build_from_source_formulae: T::Array[String],
                cc: T.nilable(String), git: T::Boolean, interactive: T::Boolean, keep_tmp: T::Boolean,
@@ -422,7 +420,6 @@ module Homebrew
       def install_formulae(
         formula_installers,
         installed_on_request: true,
-        installed_as_dependency: false,
         build_bottle: false,
         force_bottle: false,
         bottle_arch: nil,

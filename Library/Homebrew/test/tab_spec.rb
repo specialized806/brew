@@ -19,12 +19,6 @@ RSpec.describe Tab do
     end
   end
 
-  matcher :be_installed_as_dependency do
-    match do |actual|
-      actual.installed_as_dependency == true
-    end
-  end
-
   matcher :be_installed_on_request do
     match do |actual|
       actual.installed_on_request == true
@@ -50,7 +44,6 @@ RSpec.describe Tab do
       "unused_options"          => unused_options.as_flags,
       "built_as_bottle"         => false,
       "poured_from_bottle"      => true,
-      "installed_as_dependency" => false,
       "installed_on_request"    => true,
       "changed_files"           => [],
       "time"                    => time,
@@ -113,7 +106,6 @@ RSpec.describe Tab do
     expect(tab.changed_files).to be_nil
     expect(tab).not_to be_built_as_bottle
     expect(tab).not_to be_poured_from_bottle
-    expect(tab).not_to be_installed_as_dependency
     expect(tab).not_to be_installed_on_request
     expect(tab).not_to be_loaded_from_api
     expect(tab).not_to be_loaded_from_internal_api
@@ -283,7 +275,6 @@ RSpec.describe Tab do
     expect(tab.time).to eq(time)
     expect(tab).not_to be_built_as_bottle
     expect(tab).to be_poured_from_bottle
-    expect(tab).not_to be_installed_as_dependency
     expect(tab).to be_installed_on_request
     expect(tab).not_to be_loaded_from_api
     expect(tab).not_to be_loaded_from_internal_api
@@ -302,7 +293,6 @@ RSpec.describe Tab do
       expect(tab.changed_files).to eq(changed_files)
       expect(tab).not_to be_built_as_bottle
       expect(tab).to be_poured_from_bottle
-      expect(tab).not_to be_installed_as_dependency
       expect(tab).to be_installed_on_request
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api
@@ -333,7 +323,6 @@ RSpec.describe Tab do
       expect(tab.changed_files).to eq(changed_files)
       expect(tab).not_to be_built_as_bottle
       expect(tab).to be_poured_from_bottle
-      expect(tab).not_to be_installed_as_dependency
       expect(tab).to be_installed_on_request
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api
@@ -358,7 +347,6 @@ RSpec.describe Tab do
       expect(tab.unused_options.sort).to eq(unused_options.sort)
       expect(tab).not_to be_built_as_bottle
       expect(tab).to be_poured_from_bottle
-      expect(tab).not_to be_installed_as_dependency
       expect(tab).not_to be_installed_on_request
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api

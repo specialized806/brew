@@ -211,7 +211,7 @@ module Homebrew
           require "bundle/brew_services"
 
           requested_formula = formulae.select do |f|
-            f[:installed_on_request?] || !f[:installed_as_dependency?]
+            f[:installed_on_request?]
           end
           requested_formula.map do |f|
             brewline = if describe && f[:desc].present?
@@ -320,7 +320,6 @@ module Homebrew
               nil
             end.to_s
             args << "HEAD" if version.start_with?("HEAD")
-            installed_as_dependency = tab.installed_as_dependency
             installed_on_request = tab.installed_on_request
             runtime_dependencies = if (runtime_deps = tab.runtime_dependencies)
               T.cast(runtime_deps, T::Array[T::Hash[String, T.untyped]]).filter_map { |d| d["full_name"] }
@@ -344,7 +343,6 @@ module Homebrew
             any_version_installed?:   formula.any_version_installed?,
             args:                     Array(args).uniq,
             version:,
-            installed_as_dependency?: installed_as_dependency || false,
             installed_on_request?:    installed_on_request || false,
             dependencies:             runtime_dependencies,
             build_dependencies:       formula.deps.select(&:build?).map(&:name).uniq,

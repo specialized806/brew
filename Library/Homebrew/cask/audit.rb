@@ -651,7 +651,7 @@ module Cask
 
         install_options = {
           show_header:             true,
-          installed_as_dependency: true,
+          installed_on_request: false,
           installed_on_request:    false,
           verbose:                 false,
         }.compact

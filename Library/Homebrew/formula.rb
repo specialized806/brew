@@ -2931,7 +2931,6 @@ class Formula
         "poured_from_bottle"      => tab.poured_from_bottle,
         "time"                    => tab.time,
         "runtime_dependencies"    => tab.runtime_dependencies,
-        "installed_as_dependency" => tab.installed_as_dependency,
         "installed_on_request"    => tab.installed_on_request,
       }
     end

@@ -136,7 +136,9 @@ module Homebrew
 
             statuses = []
             statuses << "installed on request" if args.installed_on_request? && tab.installed_on_request
-            statuses << "installed as dependency" if args.installed_as_dependency? && tab.installed_as_dependency
+            # TODO: Uncomment to deprecate in a future release:
+            # odeprecated "brew list --installed-as-dependency", "brew list --no-installed-on-request"
+            statuses << "installed as dependency" if args.installed_as_dependency? && !tab.installed_on_request
             statuses << "poured from bottle" if args.poured_from_bottle? && tab.poured_from_bottle
             statuses << "built from source" if args.built_from_source? && !tab.poured_from_bottle
             next if statuses.empty?
