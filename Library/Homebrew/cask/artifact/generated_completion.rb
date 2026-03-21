@@ -3,6 +3,7 @@
 
 require "cask/artifact/abstract_artifact"
 require "extend/hash/keys"
+require "utils/shell_completion"
 
 module Cask
   module Artifact
@@ -28,7 +29,7 @@ module Cask
         raise CaskInvalidError.new(cask.token, "'#{dsl_key}' requires at least one command") if args.empty?
 
         commands = args.to_a
-        resolved_shells = shells || default_completion_shells(shell_parameter_format)
+        resolved_shells = shells || ::Utils::ShellCompletion.default_completion_shells(shell_parameter_format)
 
         unsupported_shells = resolved_shells - SUPPORTED_SHELLS
         unless unsupported_shells.empty?
@@ -89,7 +90,9 @@ module Cask
 
         shells.each do |shell|
           popen_read_env = { "SHELL" => shell.to_s }
-          shell_parameter = completion_shell_parameter(shell, executable.to_s, popen_read_env)
+          shell_parameter = ::Utils::ShellCompletion.completion_shell_parameter(
+            shell_parameter_format, shell, executable.to_s, popen_read_env
+          )
 
           popen_read_args = commands.dup
           popen_read_args[0] = executable
@@ -146,53 +149,6 @@ module Cask
           raise ArgumentError, "unsupported shell: #{shell}"
         end
       end
-
-      sig {
-        params(
-          shell:      Symbol,
-          executable: String,
-          env:        T::Hash[String, String],
-        ).returns(T.nilable(T.any(String, T::Array[String])))
-      }
-      def completion_shell_parameter(shell, executable, env)
-        shell_parameter = (shell == :pwsh) ? "powershell" : shell.to_s
-
-        case shell_parameter_format
-        when nil
-          shell_parameter
-        when :arg
-          "--shell=#{shell_parameter}"
-        when :clap
-          env["COMPLETE"] = shell_parameter
-          nil
-        when :click
-          prog_name = File.basename(executable).upcase.tr("-", "_")
-          env["_#{prog_name}_COMPLETE"] = "#{shell_parameter}_source"
-          nil
-        when :cobra
-          ["completion", shell_parameter]
-        when :flag
-          "--#{shell_parameter}"
-        when :none
-          nil
-        when :typer
-          env["_TYPER_COMPLETE_TEST_DISABLE_SHELL_DETECTION"] = "1"
-          ["--show-completion", shell_parameter]
-        else
-          "#{shell_parameter_format}#{shell}"
-        end
-      end
-
-      sig { params(format: T.nilable(T.any(Symbol, String))).returns(T::Array[Symbol]) }
-      def self.default_completion_shells(format)
-        case format
-        when :cobra, :typer
-          [:bash, :zsh, :fish, :pwsh]
-        else
-          [:bash, :zsh, :fish]
-        end
-      end
-      private_class_method :default_completion_shells
     end
   end
 end
