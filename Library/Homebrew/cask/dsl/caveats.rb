@@ -52,7 +52,8 @@ module Cask
       sig { returns(String) }
       def to_s_without_conditional
         unconditional = @built_in_caveats.reject do |key, _|
-          name = T.unsafe(key).is_a?(Array) ? T.unsafe(key).first : key
+          next unless key
+          name = key.is_a?(Array) ? key.first : key
           CONDITIONAL_CAVEATS.include?(name)
         end
         (@custom_caveats + unconditional.values).join("\n")

@@ -424,7 +424,7 @@ module Cask
 
           if cask_struct.caveats_rosetta
             caveats do
-              T.unsafe(self).requires_rosetta
+              send(:requires_rosetta)
             end
           end
         end

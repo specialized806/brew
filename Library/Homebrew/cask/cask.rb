@@ -537,8 +537,8 @@ module Cask
     # and evaluated at install time instead.
     sig { returns(T.nilable(String)) }
     def caveats_for_api
-      text = Tty.strip_ansi(caveats_object.to_s_without_conditional)
-      text.presence
+      Tty.strip_ansi(caveats_object.to_s_without_conditional)
+         .presence
     end
 
     sig { returns(T.nilable(Homebrew::BundleVersion)) }
