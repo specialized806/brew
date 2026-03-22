@@ -121,7 +121,7 @@ module Homebrew
 
         kubectl = which_krew
         @krew_installed = T.let(
-          kubectl.present? && system(kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL),
+          kubectl.present? && Kernel.system(kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL),
           T.nilable(T::Boolean),
         )
       end
