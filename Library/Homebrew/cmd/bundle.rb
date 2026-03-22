@@ -151,7 +151,7 @@ module Homebrew
         switch "--describe",
                description: "`dump` and `add` add a description comment above each line, unless the " \
                             "dependency does not have a description.",
-               env:         :bundle_dump_describe
+               env:         :bundle_describe
         switch "--no-restart",
                description: "`dump` does not add `restart_service` to formula lines."
         switch "--zap",
@@ -195,6 +195,12 @@ module Homebrew
 
         if args.no_secrets? && !ENV["HOMEBREW_BUNDLE_NO_SECRETS"] && BUNDLE_EXEC_COMMANDS.exclude?(subcommand)
           raise UsageError, "`--no-secrets` can be used only with #{BUNDLE_EXEC_COMMANDS.join(", ")}."
+        end
+
+        if !args.describe? && ENV["HOMEBREW_BUNDLE_DUMP_DESCRIBE"]
+          opoo "`HOMEBREW_BUNDLE_DUMP_DESCRIBE` is deprecated. Use `HOMEBREW_BUNDLE_DESCRIBE` instead."
+          # odeprecated "HOMEBREW_BUNDLE_DUMP_DESCRIBE", "HOMEBREW_BUNDLE_DESCRIBE"
+          ENV["HOMEBREW_BUNDLE_DESCRIBE"] = ENV.fetch("HOMEBREW_BUNDLE_DUMP_DESCRIBE")
         end
 
         global = args.global?
