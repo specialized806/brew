@@ -11,7 +11,7 @@ RSpec.describe Homebrew::Bundle::Krew do
     context "when krew is not installed" do
       before do
         described_class.reset!
-        allow(described_class).to receive(:package_manager_installed?).and_return(false)
+        allow(Homebrew::Bundle).to receive(:krew_installed?).and_return(false)
       end
 
       it "returns an empty list" do
@@ -26,12 +26,12 @@ RSpec.describe Homebrew::Bundle::Krew do
     context "when krew is installed" do
       before do
         described_class.reset!
-        allow(described_class).to receive_messages(package_manager_installed?: true,
-                                                   package_manager_executable: Pathname.new("kubectl"))
+        allow(Homebrew::Bundle).to receive_messages(krew_installed?: true,
+                                                    which_krew:      Pathname.new("kubectl"))
       end
 
       it "returns plugin list" do
-        allow(described_class).to receive(:`).with("kubectl krew list 2>/dev/null").and_return(<<~EOS)
+        allow(described_class).to receive(:`).and_return(<<~EOS)
           PLUGIN   VERSION
           ctx      v0.9.5
           ns       v0.9.5
@@ -42,13 +42,13 @@ RSpec.describe Homebrew::Bundle::Krew do
       end
 
       it "handles empty output" do
-        allow(described_class).to receive(:`).with("kubectl krew list 2>/dev/null").and_return("")
+        allow(described_class).to receive(:`).and_return("")
 
         expect(dumper.packages).to be_empty
       end
 
       it "handles header-only output" do
-        allow(described_class).to receive(:`).with("kubectl krew list 2>/dev/null").and_return("PLUGIN   VERSION\n")
+        allow(described_class).to receive(:`).and_return("PLUGIN   VERSION\n")
 
         expect(dumper.packages).to be_empty
       end
@@ -64,7 +64,7 @@ RSpec.describe Homebrew::Bundle::Krew do
     context "when kubectl is not found" do
       before do
         described_class.reset!
-        allow(described_class).to receive(:package_manager_executable).and_return(nil)
+        allow(described_class).to receive_messages(package_manager_executable: nil, package_manager_installed?: false)
       end
 
       it "tries to install krew" do
