@@ -15,21 +15,28 @@ module Homebrew
         def reset!
           @packages = T.let(nil, T.nilable(T::Array[String]))
           @installed_packages = T.let(nil, T.nilable(T::Array[String]))
-        end
-
-        sig { override.returns(String) }
-        def package_manager_name
-          "krew"
+          @krew_installed = T.let(nil, T.nilable(T::Boolean))
         end
 
         sig { override.returns(T.nilable(Pathname)) }
         def package_manager_executable
-          Bundle.which_krew
+          @package_manager_executable ||= T.let(which("kubectl", ORIGINAL_PATHS), T.nilable(Pathname))
         end
 
         sig { override.returns(T::Boolean) }
         def package_manager_installed?
-          Bundle.krew_installed?
+          return @krew_installed unless @krew_installed.nil?
+
+          kubectl = package_manager_executable
+          T.must(@krew_installed = T.let(
+            if kubectl.present?
+              env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
+              Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL)
+            else
+              false
+            end,
+            T.nilable(T::Boolean),
+          ))
         end
 
         sig { override.returns(T::Array[String]) }
@@ -37,8 +44,8 @@ module Homebrew
           packages = @packages
           return packages if packages
 
-          @packages = if Bundle.krew_installed?
-            kubectl = Bundle.which_krew
+          @packages = if package_manager_installed?
+            kubectl = package_manager_executable
             return [] if kubectl.nil?
 
             env = { "PATH" => "#{kubectl.dirname}:#{ENV.fetch("PATH")}" }

@@ -11,7 +11,7 @@ RSpec.describe Homebrew::Bundle::Krew do
     context "when krew is not installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive(:krew_installed?).and_return(false)
+        allow(described_class).to receive(:package_manager_installed?).and_return(false)
       end
 
       it "returns an empty list" do
@@ -26,8 +26,8 @@ RSpec.describe Homebrew::Bundle::Krew do
     context "when krew is installed" do
       before do
         described_class.reset!
-        allow(Homebrew::Bundle).to receive_messages(krew_installed?: true,
-                                                    which_krew:      Pathname.new("kubectl"))
+        allow(described_class).to receive_messages(package_manager_installed?: true,
+                                                   package_manager_executable: Pathname.new("kubectl"))
       end
 
       it "returns plugin list" do
@@ -100,9 +100,12 @@ RSpec.describe Homebrew::Bundle::Krew do
         end
 
         it "installs plugin" do
-          expect(Homebrew::Bundle).to receive(:system)
-            .with("/usr/local/bin/kubectl", "krew", "install", "ctx", verbose: false)
-            .and_return(true)
+          expect(Homebrew::Bundle).to receive(:system) do |*args, verbose:|
+            expect(ENV.fetch("PATH", "")).to start_with("/usr/local/bin:")
+            expect(args).to eq(["/usr/local/bin/kubectl", "krew", "install", "ctx"])
+            expect(verbose).to be(false)
+            true
+          end
           expect(described_class.preinstall!("ctx")).to be(true)
           expect(described_class.install!("ctx")).to be(true)
         end

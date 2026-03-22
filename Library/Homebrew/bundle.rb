@@ -39,29 +39,6 @@ module Homebrew
         system(HOMEBREW_BREW_FILE, *args, verbose:)
       end
 
-      # TODO: Remove these krew helpers once the bundle extension specs stop
-      # stubbing them directly.
-      sig { returns(T.nilable(Pathname)) }
-      def which_krew
-        @which_krew ||= which("kubectl", ORIGINAL_PATHS)
-      end
-
-      sig { returns(T::Boolean) }
-      def krew_installed?
-        return @krew_installed unless @krew_installed.nil?
-
-        kubectl = which_krew
-        T.must(@krew_installed = T.let(
-          if kubectl.present?
-            env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
-            Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL)
-          else
-            false
-          end,
-          T.nilable(T::Boolean),
-        ))
-      end
-
       sig { returns(T::Boolean) }
       def cask_installed?
         @cask_installed ||= File.directory?("#{HOMEBREW_PREFIX}/Caskroom") &&
@@ -145,8 +122,6 @@ module Homebrew
 
       sig { void }
       def reset!
-        @which_krew = T.let(nil, T.nilable(Pathname))
-        @krew_installed = T.let(nil, T.nilable(T::Boolean))
         @cask_installed = T.let(nil, T.nilable(T::Boolean))
         @formula_versions_from_env = T.let(nil, T.nilable(T::Hash[String, String]))
         @upgrade_formulae = T.let(nil, T.nilable(T::Array[String]))
