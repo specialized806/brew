@@ -329,7 +329,7 @@ class Migrator
     old_pin_link_record = self.old_pin_link_record
     return unless old_pin_link_record
 
-    # `old_pin_record` is a relative symlink and when we try to to read it
+    # `old_pin_record` is a relative symlink and when we try to read it
     # from <dir> we actually try to find file
     # <dir>/../<...>/../Cellar/name/version.
     # To repin formula we need to update the link thus that it points to
