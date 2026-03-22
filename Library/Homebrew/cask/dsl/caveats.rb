@@ -53,6 +53,7 @@ module Cask
       def to_s_without_conditional
         unconditional = @built_in_caveats.reject do |key, _|
           next unless key
+
           name = key.is_a?(Array) ? key.first : key
           CONDITIONAL_CAVEATS.include?(name)
         end
