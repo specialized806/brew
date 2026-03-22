@@ -95,7 +95,12 @@ RSpec.describe Homebrew::Bundle::Krew do
 
       context "when plugin is not installed" do
         before do
-          allow(described_class).to receive(:installed_packages).and_return([])
+          described_class.reset!
+          allow(described_class).to receive_messages(
+            package_manager_executable: Pathname.new("/usr/local/bin/kubectl"),
+            package_manager_installed?: true,
+            installed_packages:         [],
+          )
         end
 
         it "installs plugin" do
