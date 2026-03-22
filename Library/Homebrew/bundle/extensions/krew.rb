@@ -15,6 +15,7 @@ module Homebrew
         def reset!
           @packages = T.let(nil, T.nilable(T::Array[String]))
           @installed_packages = T.let(nil, T.nilable(T::Array[String]))
+          @package_manager_executable = T.let(nil, T.nilable(Pathname))
           @krew_installed = T.let(nil, T.nilable(T::Boolean))
         end
 
@@ -86,9 +87,7 @@ module Homebrew
           output.lines.filter_map do |line|
             line = line.strip
             next if line.empty?
-            next if line.start_with?("PLUGIN")
 
-            # kubectl krew list output format: "PLUGIN  VERSION"
             name = line.split(/\s+/).first
             name.presence
           end.uniq

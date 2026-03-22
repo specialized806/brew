@@ -31,24 +31,13 @@ RSpec.describe Homebrew::Bundle::Krew do
       end
 
       it "returns plugin list" do
-        allow(described_class).to receive(:`).and_return(<<~EOS)
-          PLUGIN   VERSION
-          ctx      v0.9.5
-          ns       v0.9.5
-          neat     v2.0.4
-        EOS
+        allow(described_class).to receive(:`).and_return("ctx\nneat\nns\n")
 
-        expect(dumper.packages).to eql(%w[ctx ns neat])
+        expect(dumper.packages).to eql(%w[ctx neat ns])
       end
 
       it "handles empty output" do
         allow(described_class).to receive(:`).and_return("")
-
-        expect(dumper.packages).to be_empty
-      end
-
-      it "handles header-only output" do
-        allow(described_class).to receive(:`).and_return("PLUGIN   VERSION\n")
 
         expect(dumper.packages).to be_empty
       end
