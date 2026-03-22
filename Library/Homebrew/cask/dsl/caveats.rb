@@ -20,7 +20,7 @@ module Cask
       sig { params(args: T.anything).void }
       def initialize(*args)
         super
-        @built_in_caveats = T.let({}, T::Hash[Symbol, String])
+        @built_in_caveats = T.let({}, T::Hash[T::Array[Symbol], String])
         @custom_caveats = T.let([], T::Array[String])
         @discontinued = T.let(false, T::Boolean)
         @invoked_caveats = T.let(Set.new, T::Set[Symbol])
@@ -52,10 +52,8 @@ module Cask
       sig { returns(String) }
       def to_s_without_conditional
         unconditional = @built_in_caveats.reject do |key, _|
-          next unless key
-
-          name = key.is_a?(Array) ? key.first : key
-          CONDITIONAL_CAVEATS.include?(name)
+          name = key.first
+          name && CONDITIONAL_CAVEATS.include?(name)
         end
         (@custom_caveats + unconditional.values).join("\n")
       end
