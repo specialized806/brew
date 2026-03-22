@@ -527,7 +527,7 @@ module Utils
       file = Tempfile.new.tap(&:close)
 
       # Convert specs to options. This is mostly key-value options,
-      # unless the value is a boolean in which case treat as as flag.
+      # unless the value is a boolean in which case treat as a flag.
       specs = specs.flat_map do |option, argument|
         next [] if argument == false # No flag.
 
