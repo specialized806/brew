@@ -39,75 +39,6 @@ module Homebrew
         system(HOMEBREW_BREW_FILE, *args, verbose:)
       end
 
-      # TODO: Move these extension-specific executable helpers into the
-      # extension classes once the remaining direct spec stubs can be removed.
-      sig { returns(T::Boolean) }
-      def mas_installed?
-        @mas_installed ||= which_mas.present?
-      end
-
-      sig { returns(T.nilable(Pathname)) }
-      def which_mas
-        @which_mas ||= which("mas", ORIGINAL_PATHS)
-      end
-
-      sig { returns(T::Boolean) }
-      def vscode_installed?
-        @vscode_installed ||= which_vscode.present?
-      end
-
-      sig { returns(T.nilable(Pathname)) }
-      def which_vscode
-        @which_vscode ||= which("code", ORIGINAL_PATHS)
-        @which_vscode ||= which("codium", ORIGINAL_PATHS)
-        @which_vscode ||= which("cursor", ORIGINAL_PATHS)
-        @which_vscode ||= which("code-insiders", ORIGINAL_PATHS)
-      end
-
-      # TODO: Remove these go helpers once the bundle extension specs stop
-      # stubbing them directly.
-      sig { returns(T.nilable(Pathname)) }
-      def which_go
-        @which_go ||= which("go", ORIGINAL_PATHS)
-      end
-
-      sig { returns(T::Boolean) }
-      def go_installed?
-        @go_installed ||= which_go.present?
-      end
-
-      sig { returns(T.nilable(Pathname)) }
-      def which_cargo
-        @which_cargo ||= which("cargo", ORIGINAL_PATHS)
-      end
-
-      sig { returns(T::Boolean) }
-      def cargo_installed?
-        @cargo_installed ||= which_cargo.present?
-      end
-
-      # TODO: Remove these uv helpers once the bundle extension specs stop
-      # stubbing them directly.
-      sig { returns(T.nilable(Pathname)) }
-      def which_uv
-        @which_uv ||= which("uv", ORIGINAL_PATHS)
-      end
-
-      sig { returns(T::Boolean) }
-      def uv_installed?
-        @uv_installed ||= which_uv.present?
-      end
-
-      sig { returns(T.nilable(Pathname)) }
-      def which_flatpak
-        @which_flatpak ||= which("flatpak", ORIGINAL_PATHS)
-      end
-
-      sig { returns(T::Boolean) }
-      def flatpak_installed?
-        @flatpak_installed ||= which_flatpak.present?
-      end
-
       # TODO: Remove these krew helpers once the bundle extension specs stop
       # stubbing them directly.
       sig { returns(T.nilable(Pathname)) }
@@ -117,10 +48,10 @@ module Homebrew
 
       sig { returns(T::Boolean) }
       def krew_installed?
-        return @krew_installed if defined?(@krew_installed)
+        return @krew_installed unless @krew_installed.nil?
 
         kubectl = which_krew
-        @krew_installed = T.let(
+        T.must(@krew_installed = T.let(
           if kubectl.present?
             env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
             Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL)
@@ -128,7 +59,7 @@ module Homebrew
             false
           end,
           T.nilable(T::Boolean),
-        )
+        ))
       end
 
       sig { returns(T::Boolean) }
@@ -214,18 +145,6 @@ module Homebrew
 
       sig { void }
       def reset!
-        @which_mas = T.let(nil, T.nilable(Pathname))
-        @mas_installed = T.let(nil, T.nilable(T::Boolean))
-        @vscode_installed = T.let(nil, T.nilable(T::Boolean))
-        @which_vscode = T.let(nil, T.nilable(Pathname))
-        @which_go = T.let(nil, T.nilable(Pathname))
-        @go_installed = T.let(nil, T.nilable(T::Boolean))
-        @which_cargo = T.let(nil, T.nilable(Pathname))
-        @cargo_installed = T.let(nil, T.nilable(T::Boolean))
-        @which_uv = T.let(nil, T.nilable(Pathname))
-        @uv_installed = T.let(nil, T.nilable(T::Boolean))
-        @which_flatpak = T.let(nil, T.nilable(Pathname))
-        @flatpak_installed = T.let(nil, T.nilable(T::Boolean))
         @which_krew = T.let(nil, T.nilable(Pathname))
         @krew_installed = T.let(nil, T.nilable(T::Boolean))
         @cask_installed = T.let(nil, T.nilable(T::Boolean))

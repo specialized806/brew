@@ -18,7 +18,7 @@ RSpec.describe Homebrew::Bundle::Krew do
         expect(dumper.packages).to be_empty
       end
 
-      it "dumps an empty string" do
+      it "dumps an empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -26,8 +26,8 @@ RSpec.describe Homebrew::Bundle::Krew do
     context "when krew is installed" do
       before do
         described_class.reset!
-        allow(described_class).to receive(:package_manager_installed?).and_return(true)
-        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("kubectl"))
+        allow(described_class).to receive_messages(package_manager_installed?: true,
+                                                   package_manager_executable: Pathname.new("kubectl"))
       end
 
       it "returns plugin list" do

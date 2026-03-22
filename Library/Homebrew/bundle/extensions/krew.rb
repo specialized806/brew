@@ -85,7 +85,7 @@ module Homebrew
 
             # kubectl krew list output format: "PLUGIN  VERSION"
             name = line.split(/\s+/).first
-            name if name && !name.empty?
+            name.presence
           end.uniq
         end
         private :parse_plugin_list
