@@ -1,0 +1,112 @@
+# frozen_string_literal: true
+
+require "bundle"
+require "bundle/dsl"
+require "bundle/extensions/krew"
+
+RSpec.describe Homebrew::Bundle::Krew do
+  describe "dumping" do
+    subject(:dumper) { described_class }
+
+    context "when krew is not installed" do
+      before do
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_installed?).and_return(false)
+      end
+
+      it "returns an empty list" do
+        expect(dumper.packages).to be_empty
+      end
+
+      it "dumps an empty string" do
+        expect(dumper.dump).to eql("")
+      end
+    end
+
+    context "when krew is installed" do
+      before do
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_installed?).and_return(true)
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("kubectl"))
+      end
+
+      it "returns plugin list" do
+        allow(described_class).to receive(:`).with("kubectl krew list 2>/dev/null").and_return(<<~EOS)
+          PLUGIN   VERSION
+          ctx      v0.9.5
+          ns       v0.9.5
+          neat     v2.0.4
+        EOS
+
+        expect(dumper.packages).to eql(%w[ctx ns neat])
+      end
+
+      it "handles empty output" do
+        allow(described_class).to receive(:`).with("kubectl krew list 2>/dev/null").and_return("")
+
+        expect(dumper.packages).to be_empty
+      end
+
+      it "handles header-only output" do
+        allow(described_class).to receive(:`).with("kubectl krew list 2>/dev/null").and_return("PLUGIN   VERSION\n")
+
+        expect(dumper.packages).to be_empty
+      end
+
+      it "dumps plugin list" do
+        allow(dumper).to receive(:packages).and_return(["ctx", "ns", "neat"])
+        expect(dumper.dump).to eql("krew \"ctx\"\nkrew \"ns\"\nkrew \"neat\"")
+      end
+    end
+  end
+
+  describe "installing" do
+    context "when kubectl is not found" do
+      before do
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
+      end
+
+      it "tries to install krew" do
+        expect(Homebrew::Bundle).to \
+          receive(:system).with(HOMEBREW_BREW_FILE, "install", "--formula", "krew", verbose: false)
+                          .and_return(true)
+        expect { described_class.preinstall!("ctx") }.to raise_error(RuntimeError)
+      end
+    end
+
+    context "when kubectl and krew are installed" do
+      before do
+        allow(described_class).to receive_messages(
+          package_manager_executable: Pathname.new("/usr/local/bin/kubectl"),
+          package_manager_installed?: true,
+        )
+      end
+
+      context "when plugin is installed" do
+        before do
+          allow(described_class).to receive(:installed_packages).and_return(["ctx"])
+        end
+
+        it "skips" do
+          expect(Homebrew::Bundle).not_to receive(:system)
+          expect(described_class.preinstall!("ctx")).to be(false)
+        end
+      end
+
+      context "when plugin is not installed" do
+        before do
+          allow(described_class).to receive(:installed_packages).and_return([])
+        end
+
+        it "installs plugin" do
+          expect(Homebrew::Bundle).to receive(:system)
+            .with("/usr/local/bin/kubectl", "krew", "install", "ctx", verbose: false)
+            .and_return(true)
+          expect(described_class.preinstall!("ctx")).to be(true)
+          expect(described_class.install!("ctx")).to be(true)
+        end
+      end
+    end
+  end
+end

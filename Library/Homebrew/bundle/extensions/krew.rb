@@ -22,6 +22,16 @@ module Homebrew
           "krew"
         end
 
+        sig { override.returns(T.nilable(Pathname)) }
+        def package_manager_executable
+          Bundle.which_krew
+        end
+
+        sig { override.returns(T::Boolean) }
+        def package_manager_installed?
+          Bundle.krew_installed?
+        end
+
         sig { override.returns(T::Array[String]) }
         def packages
           packages = @packages

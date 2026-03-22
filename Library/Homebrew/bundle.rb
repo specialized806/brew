@@ -125,6 +125,7 @@ module Homebrew
           T.nilable(T::Boolean),
         )
       end
+
       sig { returns(T::Boolean) }
       def cask_installed?
         @cask_installed ||= File.directory?("#{HOMEBREW_PREFIX}/Caskroom") &&
