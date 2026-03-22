@@ -14,6 +14,7 @@ require "utils/gzip"
 require "utils/inreplace"
 require "utils/shebang"
 require "utils/shell"
+require "utils/shell_completion"
 require "utils/git_repository"
 require "build_environment"
 require "build_options"
@@ -2407,7 +2408,7 @@ class Formula
   def generate_completions_from_executable(*commands,
                                            base_name: nil,
                                            shell_parameter_format: nil,
-                                           shells: default_completion_shells(shell_parameter_format))
+                                           shells: Utils::ShellCompletion.default_completion_shells(shell_parameter_format))
     executable = commands.first.to_s
     base_name ||= File.basename(executable) if executable.start_with?(bin.to_s, sbin.to_s)
     base_name ||= name
@@ -2423,75 +2424,17 @@ class Formula
       popen_read_env = { "SHELL" => shell.to_s }
       script_path = completion_script_path_map[shell]
 
-      shell_parameter = completion_shell_parameter(
+      shell_parameter = Utils::ShellCompletion.completion_shell_parameter(
         shell_parameter_format,
         shell,
         executable,
         popen_read_env,
       )
 
-      popen_read_args = %w[]
-      popen_read_args << commands
-      popen_read_args << shell_parameter if shell_parameter.present?
-      popen_read_args.flatten!
-
-      popen_read_options = {}
-      popen_read_options[:err] = :err unless ENV["HOMEBREW_STDERR"]
-
       script_path.dirname.mkpath
-      script_path.write Utils.safe_popen_read(popen_read_env, *popen_read_args, **popen_read_options)
+      script_path.write Utils::ShellCompletion.generate_completion_output(commands, shell_parameter, popen_read_env)
     end
   end
-
-  sig { params(format: T.nilable(T.any(Symbol, String))).returns(T::Array[Symbol]) }
-  def default_completion_shells(format)
-    case format
-    when :cobra, :typer
-      [:bash, :zsh, :fish, :pwsh]
-    else
-      [:bash, :zsh, :fish]
-    end
-  end
-  private :default_completion_shells
-
-  sig {
-    params(
-      format:     T.nilable(T.any(Symbol, String)),
-      shell:      Symbol,
-      executable: String,
-      env:        T::Hash[String, String],
-    ).returns(T.nilable(T.any(String, T::Array[String])))
-  }
-  def completion_shell_parameter(format, shell, executable, env)
-    # Go's cobra and Rust's clap accept "powershell".
-    shell_parameter = (shell == :pwsh) ? "powershell" : shell.to_s
-
-    case format
-    when nil
-      shell_parameter
-    when :arg
-      "--shell=#{shell_parameter}"
-    when :clap
-      env["COMPLETE"] = shell_parameter
-      nil
-    when :click
-      prog_name = File.basename(executable).upcase.tr("-", "_")
-      env["_#{prog_name}_COMPLETE"] = "#{shell_parameter}_source"
-      nil
-    when :cobra
-      ["completion", shell_parameter]
-    when :flag
-      "--#{shell_parameter}"
-    when :none
-      nil
-    when :typer
-      env["_TYPER_COMPLETE_TEST_DISABLE_SHELL_DETECTION"] = "1"
-      ["--show-completion", shell_parameter]
-    else
-      "#{format}#{shell}"
-    end
-  end
-  private :completion_shell_parameter
 
   # An array of all core {Formula} names.
   sig { returns(T::Array[String]) }

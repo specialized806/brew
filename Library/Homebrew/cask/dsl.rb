@@ -61,6 +61,7 @@ module Cask
       Artifact::ZshCompletion,
       Artifact::FishCompletion,
       Artifact::BashCompletion,
+      Artifact::GeneratedCompletion,
       Artifact::Uninstall,
       Artifact::Zap,
     ].freeze

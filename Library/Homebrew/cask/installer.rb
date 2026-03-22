@@ -333,6 +333,7 @@ on_request: true)
           artifact,
           T.any(
             Artifact::AbstractFlightBlock,
+            Artifact::GeneratedCompletion,
             Artifact::Installer,
             Artifact::KeyboardLayout,
             Artifact::Mdimporter,
@@ -600,6 +601,7 @@ on_request: true)
             artifact,
             T.any(
               Artifact::AbstractFlightBlock,
+              Artifact::GeneratedCompletion,
               Artifact::KeyboardLayout,
               Artifact::Moved,
               Artifact::Qlplugin,
