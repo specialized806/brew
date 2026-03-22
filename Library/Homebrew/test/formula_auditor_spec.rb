@@ -485,6 +485,60 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
   end
 
+  describe "#audit_node_modules" do
+    let(:fa) do
+      formula_auditor("foo", <<~RUBY, core_tap:)
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          homepage "https://brew.sh"
+        end
+      RUBY
+    end
+    let(:node_modules) { fa.formula.libexec/"lib/node_modules" }
+    let(:reject_package) { "@anthropic-ai/claude-agent-sdk" }
+    let(:audit_message) { "uses #{reject_package} which has an incompatible license" }
+
+    context "when core tap" do
+      let(:core_tap) { true }
+
+      it "detects unacceptable npm packages" do
+        (node_modules/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems.first[:message]).to match audit_message
+      end
+
+      it "detects unacceptable npm packages in nested node_modules" do
+        (node_modules/"foo/node_modules/bar/node_modules"/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems.first[:message]).to match audit_message
+      end
+
+      it "detects unacceptable npm packages in .pnpm hoisted directory" do
+        (node_modules/".pnpm/node_modules"/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems.first[:message]).to match audit_message
+      end
+
+      it "skips audit when no node_modules" do
+        fa.formula.libexec.mkpath
+        fa.audit_node_modules
+        expect(fa.problems).to be_empty
+      end
+    end
+
+    context "when non-core tap" do
+      let(:core_tap) { false }
+
+      it "skips audit" do
+        (node_modules/reject_package).mkpath
+        (node_modules/"foo/node_modules/bar/node_modules"/reject_package).mkpath
+        (node_modules/".pnpm/node_modules"/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems).to be_empty
+      end
+    end
+  end
+
   describe "#audit_file" do
     specify "no issue" do
       fa = formula_auditor "foo", <<~RUBY
