@@ -41,7 +41,9 @@ module Homebrew
             kubectl = Bundle.which_krew
             return [] if kubectl.nil?
 
-            parse_plugin_list(`#{kubectl} krew list 2>/dev/null`)
+            env = { "PATH" => "#{kubectl.dirname}:#{ENV.fetch("PATH")}" }
+            output = with_env(env) { `#{kubectl} krew list 2>/dev/null` }
+            parse_plugin_list(output)
           else
             []
           end
@@ -57,10 +59,13 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          kubectl = Bundle.which_krew
+          kubectl = package_manager_executable
           return false if kubectl.nil?
 
-          Bundle.system(kubectl.to_s, "krew", "install", name, verbose:)
+          env = { "PATH" => "#{kubectl.dirname}:#{ENV.fetch("PATH")}" }
+          with_env(env) do
+            Bundle.system(kubectl.to_s, "krew", "install", name, verbose:)
+          end
         end
 
         sig { override.returns(T::Array[String]) }

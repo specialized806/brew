@@ -121,7 +121,12 @@ module Homebrew
 
         kubectl = which_krew
         @krew_installed = T.let(
-          kubectl.present? && Kernel.system(kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL),
+          if kubectl.present?
+            env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
+            Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL)
+          else
+            false
+          end,
           T.nilable(T::Boolean),
         )
       end
