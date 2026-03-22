@@ -91,16 +91,5 @@ module Homebrew
         private :parse_plugin_list
       end
     end
-
-    # TODO: Remove these compatibility aliases once bundle callers and tests
-    # stop requiring separate krew dumper/installer/checker constants.
-    KrewDumper = Krew
-    KrewInstaller = Krew
-
-    module Checker
-      # TODO: Remove this compatibility alias once bundle callers and tests stop
-      # requiring a separate krew checker constant.
-      KrewChecker = Homebrew::Bundle::Krew
-    end
   end
 end
