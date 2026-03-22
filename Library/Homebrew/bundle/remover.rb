@@ -54,8 +54,8 @@ module Homebrew
 
       sig { params(formula_name: String, raise_error: T::Boolean).returns(T::Array[String]) }
       def self.possible_names(formula_name, raise_error: true)
-        return [] if (formula = find_formula_or_cask(formula_name, raise_error:)).nil?
-        return [] unless formula.is_a?(Formula)
+        formula = find_formula_or_cask(formula_name, raise_error:)
+        return [] if formula.nil? || !formula.is_a?(Formula)
 
         [formula_name, formula.name, formula.full_name, *formula.aliases, *formula.oldnames].compact.uniq
       end
@@ -64,8 +64,9 @@ module Homebrew
       def self.remove_package_description_comment(lines, package_name)
         comment = lines.last&.match(/^\s*#\s+(?<desc>.+)$/)&.[](:desc)
         return unless comment
+        return if find_formula_or_cask(package_name)&.desc != comment
 
-        lines.pop if find_formula_or_cask(package_name)&.desc == comment
+        lines.pop
       end
 
       sig { params(name: String, raise_error: T::Boolean).returns(T.nilable(T.any(Formula, ::Cask::Cask))) }
