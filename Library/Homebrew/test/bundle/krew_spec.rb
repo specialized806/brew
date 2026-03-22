@@ -62,6 +62,16 @@ RSpec.describe Homebrew::Bundle::Krew do
                           .and_return(true)
         expect { described_class.preinstall!("ctx") }.to raise_error(RuntimeError)
       end
+
+      it "preserves upgrade_formulae while bootstrapping krew" do
+        Homebrew::Bundle.upgrade_formulae = "foo,bar"
+
+        expect(Homebrew::Bundle).to \
+          receive(:system).with(HOMEBREW_BREW_FILE, "install", "--formula", "krew", verbose: false)
+                          .and_return(true)
+        expect { described_class.preinstall!("ctx") }.to raise_error(RuntimeError)
+        expect(Homebrew::Bundle.upgrade_formulae).to eql(["foo", "bar"])
+      end
     end
 
     context "when kubectl and krew are installed" do
@@ -97,6 +107,18 @@ RSpec.describe Homebrew::Bundle::Krew do
           end
           expect(described_class.preinstall!("ctx")).to be(true)
           expect(described_class.install!("ctx")).to be(true)
+        end
+
+        it "updates dump output after install" do
+          expect(Homebrew::Bundle).to receive(:system) do |*args, verbose:|
+            expect(args).to eq(["/usr/local/bin/kubectl", "krew", "install", "ctx"])
+            expect(verbose).to be(false)
+            true
+          end
+
+          described_class.install!("ctx")
+
+          expect(described_class.dump).to eql('krew "ctx"')
         end
       end
     end

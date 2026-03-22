@@ -47,7 +47,7 @@ module Homebrew
 
           @packages = if package_manager_installed?
             kubectl = T.must(package_manager_executable)
-            env = { "PATH" => "#{kubectl.dirname}:#{ENV.fetch("PATH")}" }
+            env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
             output = with_env(env) { `#{kubectl} krew list 2>/dev/null` }
             parse_plugin_list(output)
           else
