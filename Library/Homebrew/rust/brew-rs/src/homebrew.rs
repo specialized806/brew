@@ -112,3 +112,73 @@ fn list_directories(path: &Path) -> BrewResult<Vec<String>> {
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
         .collect())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{list_files, read_lines};
+    use std::env;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::process;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn trims_and_filters_empty_lines() {
+        let tempdir = TestDir::new_in(&env::temp_dir());
+        let path = tempdir.path().join("names.txt");
+        fs::write(&path, "foo\n\n bar \n").unwrap();
+
+        assert_eq!(
+            read_lines(&path).unwrap(),
+            vec!["foo".to_string(), "bar".to_string()]
+        );
+    }
+
+    #[test]
+    fn lists_files_in_sorted_order() {
+        let tempdir = TestDir::new_in(&env::temp_dir());
+        let root = tempdir.path();
+
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("b.txt"), "").unwrap();
+        fs::write(root.join("nested/a.txt"), "").unwrap();
+
+        let files = list_files(root).unwrap();
+        let files = files
+            .iter()
+            .map(|path| path.strip_prefix(root).unwrap().display().to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(files, vec!["b.txt".to_string(), "nested/a.txt".to_string()]);
+    }
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new_in(root: &Path) -> Self {
+            static COUNTER: AtomicU64 = AtomicU64::new(0);
+            let path = root.join(format!(
+                "brew-rs-homebrew-{}-{}-{}",
+                process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
+                COUNTER.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+}

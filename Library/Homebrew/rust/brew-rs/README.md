@@ -20,8 +20,8 @@ export HOMEBREW_DEVELOPER=1
 export HOMEBREW_EXPERIMENTAL_RUST_FRONTEND=1
 ```
 
-Before running `rake`, add Homebrew's portable Ruby to `PATH` and install
-`rake` there if needed:
+From the repository root, before running `rake`, add Homebrew's portable Ruby to
+`PATH` and install `rake` there if needed:
 
 ```bash
 portable_ruby_bindir="$PWD/Library/Homebrew/vendor/portable-ruby/current/bin"
@@ -35,9 +35,10 @@ export PATH="${portable_ruby_bindir}:${PATH}"
 
 ## Build
 
+From the repository root:
+
 ```bash
-cd Library/Homebrew/rust/brew-rs
-rake build
+./bin/brew vendor-install brew-rs
 ```
 
 ## Enable
@@ -58,19 +59,20 @@ prints a handoff warning before delegating back to Ruby.
 
 ```bash
 cd Library/Homebrew/rust/brew-rs
-rake check
+cargo fmt --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
 ```
 
 ## Homebrew Checks
 
 ```bash
-HOMEBREW_NO_AUTO_UPDATE=1 ./bin/brew tests --only=cmd/brew_rs --no-parallel
 HOMEBREW_NO_AUTO_UPDATE=1 ./bin/brew typecheck
 HOMEBREW_NO_AUTO_UPDATE=1 ./bin/brew lgtm
 ```
 
-The `cmd/brew_rs` integration spec is intentionally small because integration
-tests are slow. It currently covers the Rust-owned `search` and `list` flows.
+The Rust frontend tests now live in the `brew-rs` crate and the dedicated
+`brew-rs` GitHub Actions workflow instead of `brew tests`.
 
 ## Benchmark
 
@@ -79,16 +81,13 @@ the commands currently gated through `brew-rs`.
 
 `rake` should be run with Homebrew's portable Ruby bin directory at the front
 of `PATH`. The benchmark prints the normal `hyperfine` output along with each
-command's stdout/stderr. Outside the default Homebrew prefix it benchmarks
-`search`, `info`, and `list`, then skips `install`, `reinstall`, `upgrade`,
-`uninstall`, and `update`. On a default-prefix Tier 1 install it runs the
-write benchmarks for real.
+command's stdout/stderr. Right now it only benchmarks commands with meaningful
+Rust implementations: `search` and `list <installed formula>`.
 
-Right now only `search` and `list` do meaningful work in Rust. The `info`
-benchmark measures Rust dispatch plus an immediate handoff back to Ruby, and
-the mutating-command benchmarks do the same for the existing Ruby/Bash install
-path. If the vendored binary is missing, the benchmark task builds it first
-with `vendor-install`.
+It prefers the workflow-installed `rust` formula for the `list` benchmark and
+falls back to the first installed formula if `rust` is unavailable. If the
+vendored binary is missing, the benchmark task builds it first with
+`vendor-install`.
 
 ```bash
 brew install hyperfine

@@ -42,3 +42,35 @@ fn simplify_string(value: &str) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Matcher, simplify_string};
+
+    #[test]
+    fn parses_regex_queries() {
+        let matcher = Matcher::try_from("/test.*/").unwrap();
+        assert!(matches!(matcher, Matcher::Regex(_)));
+    }
+
+    #[test]
+    fn rejects_invalid_regex_queries() {
+        let error = match Matcher::try_from("/[/") {
+            Ok(_) => panic!("expected invalid regex query to fail"),
+            Err(error) => error,
+        };
+
+        assert!(error.to_string().contains("is not a valid regex"));
+    }
+
+    #[test]
+    fn matches_simplified_plain_text_queries() {
+        let matcher = Matcher::try_from("foo-bar").unwrap();
+        assert!(matcher.matches("Foo Bar"));
+    }
+
+    #[test]
+    fn simplify_string_keeps_only_matching_characters() {
+        assert_eq!(simplify_string("Foo+Bar@1!"), "foo+bar@1");
+    }
+}

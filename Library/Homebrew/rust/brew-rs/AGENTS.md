@@ -1,16 +1,21 @@
 # Rust Frontend Notes
 
-- Build and install `brew-rs` through `./bin/brew vendor-install brew-rs`.
+- From the repository root, build and install `brew-rs` through `./bin/brew vendor-install brew-rs`.
 - Keep the vendored binary at `Library/Homebrew/vendor/brew-rs/brew-rs`.
 - `brew.sh` should stay a thin gate and dispatch layer.
 - Prefer reusing existing Homebrew Ruby and Bash behavior for correctness in v1 instead of mirroring complex logic in Rust.
 - Respect existing Homebrew cache, Cellar, Caskroom, logs, temp, and metadata paths.
 - Keep Rust command entrypoints in `src/commands/` with one file per command where practical.
-- Before running `rake`, prepend `Library/Homebrew/vendor/portable-ruby/current/bin` to `PATH` and install `rake` there if it is missing.
-- Run tasks from `Library/Homebrew/rust/brew-rs` with `rake ...`.
-- Use `rake build` to vendor the binary locally.
-- Use `rake check` for Rust formatting, lint, and Rust tests.
+- From the repository root, prepend `Library/Homebrew/vendor/portable-ruby/current/bin` to `PATH` and install `rake` there if it is missing.
+- From the repository root, run `./bin/brew vendor-install brew-rs` to vendor the binary locally.
+- Run `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings`, and `cargo test --locked` from `Library/Homebrew/rust/brew-rs`.
+- Before adding Rust parity tests or benchmarks for a command, inspect `Library/Homebrew/brew.sh` for shell fast paths and gate/dispatch behavior so you target invocations that actually reach `brew-rs`.
 - Use `BREW_RS_STAGE_REPOSITORY=/path/to/Homebrew rake stage` to stage into another checkout.
 - Use `rake benchmark` for Ruby vs Rust benchmarks.
+- Use `rake benchmark:check` for the CI benchmark gate.
+- Benchmarks should cover only commands with meaningful Rust implementations, not commands that immediately hand back to the Ruby backend.
+- The `list` benchmark should prefer a formula the workflow already installs, currently `rust`, and only fall back to another installed formula when needed.
+- The benchmark's Ruby baseline must explicitly unset `HOMEBREW_EXPERIMENTAL_RUST_FRONTEND` because the `brew-rs` workflow exports it globally.
+- In GitHub Actions, `setup-homebrew` provides the checkout that the job should use; paths under `GITHUB_WORKSPACE` may point at a different tree.
 - Run `./bin/brew typecheck` and `./bin/brew lgtm` for repo-wide verification.
 - Outside the default prefix, benchmarks should cover read commands and skip mutating commands.
