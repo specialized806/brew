@@ -520,7 +520,7 @@ __fish_brew_complete_arg 'bundle' -l cask -d '`list`, `dump` or `cleanup` Homebr
 __fish_brew_complete_arg 'bundle' -l check -d 'Check that all dependencies in the Brewfile are installed before running `exec`, `sh`, or `env`. Enabled by default if `$HOMEBREW_BUNDLE_CHECK` is set'
 __fish_brew_complete_arg 'bundle' -l cleanup -d '`install` performs cleanup operation, same as running `cleanup --force`. Enabled by default if `$HOMEBREW_BUNDLE_INSTALL_CLEANUP` is set and `--global` is passed'
 __fish_brew_complete_arg 'bundle' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'bundle' -l describe -d '`dump` adds a description comment above each line, unless the dependency does not have a description. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_DESCRIBE` is set'
+__fish_brew_complete_arg 'bundle' -l describe -d '`dump` and `add` add a description comment above each line, unless the dependency does not have a description. Enabled by default if `$HOMEBREW_BUNDLE_DESCRIBE` is set'
 __fish_brew_complete_arg 'bundle' -l file -d 'Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout'
 __fish_brew_complete_arg 'bundle' -l flatpak -d '`list`, `dump` or `cleanup` Flatpak packages. Note: Linux only'
 __fish_brew_complete_arg 'bundle' -l force -d '`install` runs with `--force`/`--overwrite`. `dump` overwrites an existing `Brewfile`. `cleanup` actually performs its cleanup operations'

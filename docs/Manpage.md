@@ -344,9 +344,9 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 `--describe`
 
-: `dump` adds a description comment above each line, unless the dependency does
-  not have a description. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_DESCRIBE`
-  is set.
+: `dump` and `add` add a description comment above each line, unless the
+  dependency does not have a description. Enabled by default if
+  `$HOMEBREW_BUNDLE_DESCRIBE` is set.
 
 `--no-restart`
 
