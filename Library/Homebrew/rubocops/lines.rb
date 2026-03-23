@@ -316,6 +316,19 @@ module RuboCop
         end
       end
 
+      # This cop makes sure that formulae do not depend on `libiconv` in homebrew/core.
+      class LibiconvCheck < FormulaCop
+        sig { override.params(formula_nodes: FormulaNodes).void }
+        def audit_formula(formula_nodes)
+          return if formula_nodes.body_node.nil?
+          return if formula_tap != "homebrew-core"
+          return if @formula_name == "neomutt"
+          return unless depends_on?("libiconv")
+
+          problem "Formulae in homebrew/core should not use `#{T.must(@offensive_node).source}`."
+        end
+      end
+
       # This cop makes sure that formulae do not depend on `*-full` formulae in homebrew/core.
       class FullDependencyCheck < FormulaCop
         sig { override.params(formula_nodes: FormulaNodes).void }
