@@ -1,6 +1,7 @@
 use crate::BrewResult;
 use crate::commands;
 use crate::delegate;
+use crate::utils::formatter;
 use std::env;
 use std::process::ExitCode;
 
@@ -8,7 +9,7 @@ pub(crate) fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(error) => {
-            eprintln!("{error}");
+            formatter::error(&error.to_string());
             ExitCode::FAILURE
         }
     }

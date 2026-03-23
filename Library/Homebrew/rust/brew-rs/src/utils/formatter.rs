@@ -1,16 +1,5 @@
-use crate::utils::tty;
+use crate::utils::tty::{self, AnsiBuilder};
 use std::io::{self, IsTerminal};
-
-#[allow(unused)]
-pub enum Color {
-    Red,
-    Green,
-    Yellow,
-    Blue,
-    Magenta,
-    Cyan,
-    Default,
-}
 
 pub fn ohai(string: &str) {
     let title = if io::stdout().is_terminal() {
@@ -18,14 +7,30 @@ pub fn ohai(string: &str) {
     } else {
         string
     };
-    println!("{}", headline(title, Color::Blue));
+    println!("{}", headline(title, &tty::blue()));
 }
 
-fn arrow(string: &str, color: Color) -> String {
-    prefix("==>", string, color)
+pub fn warning(string: &str) {
+    eprintln!(
+        "{warning}Warning{reset}: {string}",
+        warning = AnsiBuilder::new().yellow().underline(),
+        reset = tty::reset(),
+    );
 }
 
-fn headline(string: &str, color: Color) -> String {
+pub fn error(string: &str) {
+    eprintln!(
+        "{error}Error{reset}: {string}",
+        error = tty::red(),
+        reset = tty::reset(),
+    );
+}
+
+fn arrow(string: &str, escape_sequence: &AnsiBuilder) -> String {
+    prefix("==>", string, escape_sequence)
+}
+
+fn headline(string: &str, escape_sequence: &AnsiBuilder) -> String {
     arrow(
         format!(
             "{bold}{string}{reset}",
@@ -33,32 +38,17 @@ fn headline(string: &str, color: Color) -> String {
             reset = tty::reset(),
         )
         .as_str(),
-        color,
+        escape_sequence,
     )
 }
 
-fn prefix(prefix: &str, string: &str, color: Color) -> String {
-    let tty_color = match color {
-        Color::Red => tty::red(),
-        Color::Green => tty::green(),
-        Color::Yellow => tty::yellow(),
-        Color::Blue => tty::blue(),
-        Color::Magenta => tty::magenta(),
-        Color::Cyan => tty::cyan(),
-        Color::Default => tty::default(),
-    };
-
-    if prefix.is_empty() {
-        return format!(
-            "{color}{string}{reset}",
-            color = tty_color,
-            reset = tty::reset()
-        );
+fn prefix(prefix: &str, string: &str, escape_sequence: &AnsiBuilder) -> String {
+    if prefix.trim().is_empty() {
+        return format!("{escape_sequence}{string}{reset}", reset = tty::reset());
     }
 
     format!(
-        "{color}{prefix}{reset} {string}",
-        color = tty_color,
+        "{escape_sequence}{prefix}{reset} {string}",
         reset = tty::reset()
     )
 }
