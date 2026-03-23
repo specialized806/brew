@@ -5,6 +5,7 @@ mod commands;
 mod delegate;
 mod homebrew;
 mod matcher;
+mod utils;
 
 use anyhow::Result;
 use std::process::ExitCode;

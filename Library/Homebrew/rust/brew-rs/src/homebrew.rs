@@ -1,4 +1,5 @@
 use crate::BrewResult;
+use crate::utils::formatter::ohai;
 use anyhow::{Context, anyhow};
 use std::env;
 use std::fs;
@@ -24,6 +25,14 @@ pub(crate) fn prefix_path() -> BrewResult<PathBuf> {
 
 pub(crate) fn brew_file() -> BrewResult<PathBuf> {
     env_path("HOMEBREW_BREW_FILE")
+}
+
+pub(crate) fn brew_no_color() -> bool {
+    env_bool("HOMEBREW_NO_COLOR")
+}
+
+pub(crate) fn brew_color() -> bool {
+    env_bool("HOMEBREW_COLOR")
 }
 
 pub(crate) fn read_lines(path: &Path) -> BrewResult<Vec<String>> {
@@ -64,10 +73,10 @@ pub(crate) fn print_sections(formulae: &[String], casks: &[String]) {
     let stdout_is_tty = io::stdout().is_terminal();
 
     if stdout_is_tty && !formulae.is_empty() && !casks.is_empty() {
-        println!("Formulae");
+        ohai("Formulae");
         println!("{}", formulae.join("\n"));
         println!();
-        println!("Casks");
+        ohai("Casks");
         println!("{}", casks.join("\n"));
         return;
     }
@@ -87,6 +96,25 @@ fn env_path(name: &str) -> BrewResult<PathBuf> {
     env::var_os(name)
         .map(PathBuf::from)
         .ok_or_else(|| anyhow!("{name} is not set"))
+}
+
+fn env_bool(name: &str) -> bool {
+    env::var_os(name)
+        .map(|string| {
+            if string.is_empty() {
+                return false;
+            }
+
+            if let Some(string) = string.to_str() {
+                return !matches!(
+                    string.trim().to_lowercase().as_str(),
+                    "0" | "false" | "off" | "no" | "nil"
+                );
+            }
+
+            false
+        })
+        .unwrap_or(false)
 }
 
 fn list_directories(path: &Path) -> BrewResult<Vec<String>> {
