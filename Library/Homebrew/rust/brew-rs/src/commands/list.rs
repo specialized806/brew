@@ -129,3 +129,88 @@ fn list_paths(path: &Path) -> BrewResult<Vec<String>> {
         .map(|path| path.display().to_string())
         .collect())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{FormulaPaths, current_keg_path, list_cask_paths, list_formula_paths};
+    use std::env;
+    use std::fs;
+    use std::os::unix::fs::symlink;
+    use std::path::{Path, PathBuf};
+    use std::process;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn resolves_the_current_keg_from_opt() {
+        let tempdir = TestDir::new_in(&env::current_dir().unwrap());
+        let prefix = tempdir.path().join("prefix");
+        let rack = tempdir.path().join("Cellar/foo");
+        let linked_keg = rack.join("1.0");
+
+        fs::create_dir_all(prefix.join("opt")).unwrap();
+        fs::create_dir_all(&linked_keg).unwrap();
+        symlink(&linked_keg, prefix.join("opt/foo")).unwrap();
+
+        assert_eq!(
+            current_keg_path(&prefix, &rack, "foo").unwrap(),
+            Some(linked_keg)
+        );
+    }
+
+    #[test]
+    fn delegates_when_multiple_versions_are_installed_without_a_linked_keg() {
+        let tempdir = TestDir::new_in(&env::current_dir().unwrap());
+        let prefix = tempdir.path().join("prefix");
+        let cellar = tempdir.path().join("Cellar");
+        let rack = cellar.join("foo");
+
+        fs::create_dir_all(prefix.join("opt")).unwrap();
+        fs::create_dir_all(rack.join("1.0")).unwrap();
+        fs::create_dir_all(rack.join("2.0")).unwrap();
+
+        assert!(matches!(
+            list_formula_paths(&cellar, &prefix, "foo").unwrap(),
+            FormulaPaths::Delegate
+        ));
+    }
+
+    #[test]
+    fn returns_none_for_missing_casks() {
+        let tempdir = TestDir::new_in(&env::current_dir().unwrap());
+        assert!(
+            list_cask_paths(tempdir.path(), "missing")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new_in(root: &Path) -> Self {
+            static COUNTER: AtomicU64 = AtomicU64::new(0);
+            let path = root.join(format!(
+                "brew-rs-list-{}-{}-{}",
+                process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
+                COUNTER.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+}

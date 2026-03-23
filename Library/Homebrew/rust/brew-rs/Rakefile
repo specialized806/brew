@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "json"
 require "open3"
 require "pathname"
 require "rake"
@@ -12,6 +13,12 @@ module BrewRsTasks
   ROOT = Pathname(__dir__).join("../../../..").realpath.freeze
   RUST_DIR = Pathname(__dir__).realpath.freeze
   BREW = (ROOT/"bin/brew").to_s.freeze
+  BENCHMARK_MAX_SLOWDOWN = 1.25
+
+  def brew_executable
+    prefix_brew = ROOT.parent/"bin/brew"
+    prefix_brew.executable? ? prefix_brew.to_s : BREW
+  end
 
   def executable_on_path?(command)
     ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).any? do |directory|
@@ -41,7 +48,18 @@ module BrewRsTasks
   end
 
   def shell_command(*command, env: {})
-    Shellwords.join(["env"] + env.map { |key, value| "#{key}=#{value}" } + command)
+    env_unsets = []
+    env_assignments = []
+
+    env.each do |key, value|
+      if value.nil?
+        env_unsets += ["-u", key]
+      else
+        env_assignments << "#{key}=#{value}"
+      end
+    end
+
+    Shellwords.join(["env"] + env_unsets + env_assignments + command)
   end
 
   def frontend_env
@@ -53,9 +71,10 @@ module BrewRsTasks
 
   def benchmark_env(current_prefix:, default_prefix:)
     env = {
-      "HOMEBREW_DEVELOPER"          => "1",
-      "HOMEBREW_NO_AUTO_UPDATE"     => "1",
-      "HOMEBREW_NO_INSTALL_CLEANUP" => "1",
+      "HOMEBREW_DEVELOPER"                  => "1",
+      "HOMEBREW_EXPERIMENTAL_RUST_FRONTEND" => nil,
+      "HOMEBREW_NO_AUTO_UPDATE"             => "1",
+      "HOMEBREW_NO_INSTALL_CLEANUP"         => "1",
     }
     env["HOMEBREW_INTEGRATION_TEST"] = "1" if current_prefix != default_prefix
     env
@@ -74,177 +93,178 @@ module BrewRsTasks
     end
   end
 
-  def run_benchmark(title, ruby_command:, rust_command:, prepare: nil, cleanup: nil, runs: 3, warmup: 1)
-    command = ["hyperfine", "--show-output", "--runs", runs.to_s, "--warmup", warmup.to_s]
+  def run_benchmark(title, ruby_command:, rust_command:, prepare: nil, cleanup: nil, runs: 3, warmup: 1,
+                    export_json: nil)
+    command = ["hyperfine", "--runs", runs.to_s, "--warmup", warmup.to_s]
     command += ["--prepare", prepare] if prepare
     command += ["--cleanup", cleanup] if cleanup
+    command += ["--export-json", export_json.to_s] if export_json
     command += [ruby_command, rust_command]
 
     puts
     puts "==> #{title}"
     run_command(*command)
+
+    return if export_json.nil?
+
+    JSON.parse(Pathname(export_json).read).fetch("results")
+  rescue RuntimeError
+    {
+      "Ruby" => ruby_command,
+      "Rust" => rust_command,
+    }.each do |label, benchmark_command|
+      puts
+      puts "==> #{title} (#{label} debug)"
+      system("bash", "-lc", benchmark_command, exception: false)
+    end
+
+    raise
+  end
+
+  def benchmark_suite(common_env:, rust_env:)
+    list_formula = begin
+      capture_command(brew_executable, "list", "--versions", "rust", env: common_env).split.first
+    rescue RuntimeError
+      nil
+    end
+    list_formula ||= capture_command(brew_executable, "list", env: common_env).lines.first.to_s.strip
+    abort "brew list benchmarks require at least one installed formula" if list_formula.empty?
+    list_slug = list_formula.gsub(/[^A-Za-z0-9.+@_-]+/, "-")
+
+    [
+      {
+        slug:         "search-jq",
+        title:        "brew search jq",
+        ruby_command: shell_command(brew_executable, "search", "jq", env: common_env),
+        rust_command: shell_command(brew_executable, "search", "jq", env: rust_env),
+        runs:         5,
+        warmup:       2,
+      },
+      {
+        slug:         "list-#{list_slug}",
+        title:        "brew list #{list_formula}",
+        ruby_command: shell_command(brew_executable, "list", list_formula, env: common_env),
+        rust_command: shell_command(brew_executable, "list", list_formula, env: rust_env),
+        runs:         5,
+        warmup:       2,
+      },
+    ]
+  end
+
+  def benchmark_context
+    abort "hyperfine is required. Install it with: brew install hyperfine" unless executable_on_path?("hyperfine")
+
+    binary_path = ROOT/"Library/Homebrew/vendor/brew-rs/brew-rs"
+    Rake::Task["build"].invoke unless binary_path.executable?
+    abort "Rust frontend binary is missing at #{binary_path}" unless binary_path.executable?
+
+    current_prefix = capture_command(brew_executable, "--prefix")
+    current_default_prefix = default_prefix
+    common_env = benchmark_env(
+      current_prefix: current_prefix,
+      default_prefix: current_default_prefix,
+    )
+    rust_env = common_env.merge("HOMEBREW_EXPERIMENTAL_RUST_FRONTEND" => "1")
+
+    [
+      benchmark_suite(
+        common_env: common_env,
+        rust_env:   rust_env,
+      ),
+      BENCHMARK_MAX_SLOWDOWN,
+    ]
+  end
+
+  def benchmark_markdown_row(title:, ruby_mean:, rust_mean:, max_slowdown:)
+    slowdown = ruby_mean.zero? ? Float::INFINITY : rust_mean / ruby_mean
+    status = (slowdown <= max_slowdown) ? "PASS" : "FAIL"
+
+    {
+      title:    title,
+      slowdown: slowdown,
+      status:   status,
+      markdown: "| #{title} | #{format("%.3f s", ruby_mean)} | #{format("%.3f s", rust_mean)} | " \
+                "#{format("%.2fx", slowdown)} | #{status} |",
+    }
+  end
+
+  def write_benchmark_summary(rows, output_dir)
+    summary = [
+      "# brew-rs benchmark summary",
+      "",
+      "| Benchmark | Ruby mean | Rust mean | Rust/Ruby | Status |",
+      "| --- | ---: | ---: | ---: | --- |",
+      *rows.map { |row| row.fetch(:markdown) },
+      "",
+    ].join("\n")
+
+    File.write(output_dir/"summary.md", summary)
+    File.write(output_dir/"summary.json", JSON.pretty_generate(rows))
+
+    return unless ENV["GITHUB_STEP_SUMMARY"]
+
+    File.open(ENV.fetch("GITHUB_STEP_SUMMARY"), "a") { |file| file.puts(summary) }
   end
 end
 
 desc "Build and vendor brew-rs through Homebrew vendor-install"
 task :build do
-  BrewRsTasks.run_command(BrewRsTasks::BREW, "vendor-install", "brew-rs", env: BrewRsTasks.frontend_env)
+  BrewRsTasks.run_command(BrewRsTasks.brew_executable, "vendor-install", "brew-rs", env: BrewRsTasks.frontend_env)
 end
-
-desc "Check brew-rs formatting"
-task :fmt do
-  BrewRsTasks.run_command(
-    "cargo",
-    "fmt",
-    "--manifest-path",
-    (BrewRsTasks::RUST_DIR/"Cargo.toml").to_s,
-    "--check",
-  )
-end
-
-desc "Lint brew-rs"
-task :clippy do
-  BrewRsTasks.run_command(
-    "cargo",
-    "clippy",
-    "--manifest-path",
-    (BrewRsTasks::RUST_DIR/"Cargo.toml").to_s,
-    "--all-targets",
-    "--locked",
-    "--",
-    "-D",
-    "warnings",
-  )
-end
-
-desc "Run brew-rs Rust tests"
-task :test do
-  BrewRsTasks.run_command(
-    "cargo",
-    "test",
-    "--manifest-path",
-    (BrewRsTasks::RUST_DIR/"Cargo.toml").to_s,
-    "--locked",
-  )
-end
-
-desc "Run brew-rs build, formatting, lint, and Rust tests"
-task check: [:build, :fmt, :clippy, :test]
 
 desc "Benchmark brew-rs against the existing frontend"
 task :benchmark do
-  unless BrewRsTasks.executable_on_path?("hyperfine")
-    abort "hyperfine is required. Install it with: brew install hyperfine"
+  benchmarks, = BrewRsTasks.benchmark_context
+
+  benchmarks.each do |benchmark|
+    BrewRsTasks.run_benchmark(
+      benchmark.fetch(:title),
+      ruby_command: benchmark.fetch(:ruby_command),
+      rust_command: benchmark.fetch(:rust_command),
+      prepare:      benchmark[:prepare],
+      cleanup:      benchmark[:cleanup],
+      runs:         benchmark.fetch(:runs),
+      warmup:       benchmark.fetch(:warmup),
+    )
   end
+end
 
-  binary_path = BrewRsTasks::ROOT/"Library/Homebrew/vendor/brew-rs/brew-rs"
-  Rake::Task["build"].invoke unless binary_path.executable?
+namespace :benchmark do
+  desc "Benchmark brew-rs and fail if Rust regresses against Ruby"
+  task :check do
+    benchmarks, max_slowdown = BrewRsTasks.benchmark_context
+    output_dir = BrewRsTasks::RUST_DIR/"benchmark-results"
+    FileUtils.rm_rf(output_dir)
+    FileUtils.mkdir_p(output_dir)
+    rows = benchmarks.map do |benchmark|
+      results = BrewRsTasks.run_benchmark(
+        benchmark.fetch(:title),
+        ruby_command: benchmark.fetch(:ruby_command),
+        rust_command: benchmark.fetch(:rust_command),
+        prepare:      benchmark[:prepare],
+        cleanup:      benchmark[:cleanup],
+        runs:         benchmark.fetch(:runs),
+        warmup:       benchmark.fetch(:warmup),
+        export_json:  output_dir.join("#{benchmark.fetch(:slug)}.json"),
+      )
+      ruby_result, rust_result = results
 
-  abort "Rust frontend binary is missing at #{binary_path}" unless binary_path.executable?
+      BrewRsTasks.benchmark_markdown_row(
+        title:        benchmark.fetch(:title),
+        ruby_mean:    ruby_result.fetch("mean"),
+        rust_mean:    rust_result.fetch("mean"),
+        max_slowdown: max_slowdown,
+      )
+    end
 
-  current_prefix = BrewRsTasks.capture_command(BrewRsTasks::BREW, "--prefix")
-  current_default_prefix = BrewRsTasks.default_prefix
-  common_env = BrewRsTasks.benchmark_env(
-    current_prefix: current_prefix,
-    default_prefix: current_default_prefix,
-  )
-  rust_env = common_env.merge("HOMEBREW_EXPERIMENTAL_RUST_FRONTEND" => "1")
-  formula_name = ENV.fetch("BREW_RS_BENCHMARK_FORMULA", "hello")
+    BrewRsTasks.write_benchmark_summary(rows, output_dir)
 
-  BrewRsTasks.run_benchmark(
-    "brew search jq",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "search", "jq", env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "search", "jq", env: rust_env),
-    runs:         5,
-    warmup:       2,
-  )
-
-  BrewRsTasks.run_benchmark(
-    "brew info git",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "info", "git", env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "info", "git", env: rust_env),
-    runs:         5,
-    warmup:       2,
-  )
-
-  BrewRsTasks.run_benchmark(
-    "brew list",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "list", env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "list", env: rust_env),
-    runs:         5,
-    warmup:       2,
-  )
-
-  if current_prefix != current_default_prefix
-    puts
-    puts "==> Skipping write benchmarks outside the default prefix (#{current_default_prefix})"
-    next
+    failures = rows.select { |row| row.fetch(:status) == "FAIL" }
+    if failures.any?
+      abort "brew-rs benchmark regressions exceeded #{format("%.2fx", max_slowdown)}: " \
+            "#{failures.map { |row| row.fetch(:title) }.join(", ")}"
+    end
   end
-
-  cleanup_command =
-    "#{BrewRsTasks.shell_command(BrewRsTasks::BREW, "uninstall", "--force", formula_name,
-                                 env: common_env)} &>/dev/null || true"
-  ensure_installed_command =
-    "#{BrewRsTasks.shell_command(BrewRsTasks::BREW, "list", "--versions", formula_name, env: common_env)} " \
-    "&>/dev/null || " \
-    "#{BrewRsTasks.shell_command(BrewRsTasks::BREW, "install", formula_name, env: common_env)} &>/dev/null"
-
-  BrewRsTasks.run_benchmark(
-    "brew install #{formula_name}",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "install", formula_name, env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "install", formula_name, env: rust_env),
-    prepare:      cleanup_command,
-    cleanup:      cleanup_command,
-    runs:         2,
-    warmup:       0,
-  )
-
-  BrewRsTasks.run_benchmark(
-    "brew upgrade #{formula_name}",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "upgrade", formula_name, env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "upgrade", formula_name, env: rust_env),
-    prepare:      ensure_installed_command,
-    runs:         2,
-    warmup:       0,
-  )
-
-  BrewRsTasks.run_benchmark(
-    "brew reinstall #{formula_name}",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "reinstall", formula_name, env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "reinstall", formula_name, env: rust_env),
-    prepare:      ensure_installed_command,
-    runs:         2,
-    warmup:       0,
-  )
-
-  BrewRsTasks.run_benchmark(
-    "brew uninstall #{formula_name}",
-    ruby_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "uninstall", formula_name, env: common_env),
-    rust_command: BrewRsTasks.shell_command(BrewRsTasks::BREW, "uninstall", formula_name, env: rust_env),
-    prepare:      ensure_installed_command,
-    runs:         2,
-    warmup:       0,
-  )
-
-  BrewRsTasks.run_benchmark(
-    "brew update --quiet --force",
-    ruby_command: BrewRsTasks.shell_command(
-      BrewRsTasks::BREW,
-      "update",
-      "--quiet",
-      "--force",
-      env: common_env,
-    ),
-    rust_command: BrewRsTasks.shell_command(
-      BrewRsTasks::BREW,
-      "update",
-      "--quiet",
-      "--force",
-      env: rust_env,
-    ),
-    runs:         1,
-    warmup:       0,
-  )
 end
 
 desc "Stage brew-rs into another Homebrew checkout and build it there"

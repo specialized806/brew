@@ -58,3 +58,47 @@ fn matched_names(names: &[String], matcher: &Matcher) -> Vec<String> {
         .map(|(name, _)| name.to_string())
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::matched_names;
+    use crate::matcher::Matcher;
+
+    #[test]
+    fn returns_plain_text_matches_before_fuzzy_results() {
+        let names = vec!["testball".to_string(), "another".to_string()];
+        let matcher = Matcher::try_from("testball").unwrap();
+
+        assert_eq!(
+            matched_names(&names, &matcher),
+            vec!["testball".to_string()]
+        );
+    }
+
+    #[test]
+    fn returns_fuzzy_matches_for_long_plain_text_queries() {
+        let names = vec!["testball".to_string(), "other".to_string()];
+        let matcher = Matcher::try_from("testbal").unwrap();
+
+        assert_eq!(
+            matched_names(&names, &matcher),
+            vec!["testball".to_string()]
+        );
+    }
+
+    #[test]
+    fn does_not_use_fuzzy_matching_for_short_queries() {
+        let names = vec!["foo-bar".to_string()];
+        let matcher = Matcher::try_from("fb").unwrap();
+
+        assert!(matched_names(&names, &matcher).is_empty());
+    }
+
+    #[test]
+    fn does_not_use_fuzzy_matching_for_regex_queries() {
+        let names = vec!["testball".to_string()];
+        let matcher = Matcher::try_from("/foo/").unwrap();
+
+        assert!(matched_names(&names, &matcher).is_empty());
+    }
+}

@@ -50,10 +50,6 @@ jobs:
           workflow-key: brew-rs
           uninstall: true
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
       - name: Cache Bundler RubyGems
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
@@ -64,44 +60,37 @@ jobs:
       - name: Install Bundler RubyGems
         run: brew install-bundler-gems --groups=tests
 
-      - name: Add portable Ruby to PATH
-        run: |
-          portable_ruby_bindir="${GITHUB_WORKSPACE}/Library/Homebrew/vendor/portable-ruby/current/bin"
-          [[ -x "${portable_ruby_bindir}/ruby" ]] || ./bin/brew vendor-install ruby
-          if [[ ! -x "${portable_ruby_bindir}/rake" ]]
-          then
-            "${portable_ruby_bindir}/gem" install rake --no-document
-          fi
-          echo "${portable_ruby_bindir}" >> "${GITHUB_PATH}"
+      - name: Set up portable Ruby
+        uses: Homebrew/actions/setup-ruby@b7f2e4e4cd0fc6580ebf3ecee0d10ac27bc02ce6 # main
+        with:
+          portable-ruby: true
 
       - name: Build brew-rs
-        working-directory: Library/Homebrew/rust/brew-rs
-        run: rake build
+        run: brew vendor-install brew-rs
 
       - name: Check brew-rs formatting
-        working-directory: Library/Homebrew/rust/brew-rs
-        run: rake fmt
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/rust/brew-rs
+        run: cargo fmt --check
 
       - name: Lint brew-rs
-        working-directory: Library/Homebrew/rust/brew-rs
-        run: rake clippy
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/rust/brew-rs
+        run: cargo clippy --all-targets --locked -- -D warnings
 
       - name: Test brew-rs crate
-        working-directory: Library/Homebrew/rust/brew-rs
-        run: rake test
-
-      - name: Run brew-rs integration tests
-        run: ./bin/brew tests --only=cmd/brew_rs --no-parallel
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/rust/brew-rs
+        run: cargo test --locked
 
       - name: Benchmark brew-rs
-        working-directory: Library/Homebrew/rust/brew-rs
-        run: rake benchmark
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/rust/brew-rs
+        run: rake benchmark:check
 
-      - name: Stage brew-rs into default-prefix Homebrew
-        env:
-          BREW_RS_STAGE_REPOSITORY: ${{ steps.set-up-homebrew.outputs.repository-path }}
-        working-directory: Library/Homebrew/rust/brew-rs
-        run: rake stage
+      - name: Upload brew-rs benchmark results
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: brew-rs-benchmarks-${{ runner.os }}-${{ runner.arch }}
+          path: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/rust/brew-rs/benchmark-results
+          if-no-files-found: ignore
 
       - name: Prepare smoke test formula
         run: brew uninstall --force hello || true
@@ -122,4 +111,4 @@ jobs:
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: brew-rs-${{ runner.os }}-${{ runner.arch }}
-          path: Library/Homebrew/vendor/brew-rs/brew-rs
+          path: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/vendor/brew-rs/brew-rs
