@@ -424,7 +424,8 @@ module Cask
 
           if cask_struct.caveats_rosetta
             caveats do
-              send(:requires_rosetta)
+              # Dynamically defined via `caveat :requires_rosetta` — Sorbet can't resolve it.
+              public_send(:requires_rosetta) # rubocop:disable Style/SendWithLiteralMethodName
             end
           end
         end
