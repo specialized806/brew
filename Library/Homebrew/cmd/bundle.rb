@@ -149,9 +149,9 @@ module Homebrew
                  env:         extension.dump_disable_env
         end
         switch "--describe",
-               description: "`dump` adds a description comment above each line, unless the " \
+               description: "`dump` and `add` add a description comment above each line, unless the " \
                             "dependency does not have a description.",
-               env:         :bundle_dump_describe
+               env:         :bundle_describe
         switch "--no-restart",
                description: "`dump` does not add `restart_service` to formula lines."
         switch "--zap",
@@ -195,6 +195,12 @@ module Homebrew
 
         if args.no_secrets? && !ENV["HOMEBREW_BUNDLE_NO_SECRETS"] && BUNDLE_EXEC_COMMANDS.exclude?(subcommand)
           raise UsageError, "`--no-secrets` can be used only with #{BUNDLE_EXEC_COMMANDS.join(", ")}."
+        end
+
+        if !args.describe? && (dump_describe = ENV["HOMEBREW_BUNDLE_DUMP_DESCRIBE"].presence)
+          opoo "`HOMEBREW_BUNDLE_DUMP_DESCRIBE` is deprecated. Use `HOMEBREW_BUNDLE_DESCRIBE` instead."
+          # odeprecated "HOMEBREW_BUNDLE_DUMP_DESCRIBE", "HOMEBREW_BUNDLE_DESCRIBE"
+          ENV["HOMEBREW_BUNDLE_DESCRIBE"] = dump_describe
         end
 
         global = args.global?
@@ -319,7 +325,7 @@ module Homebrew
             end
 
             require "bundle/commands/add"
-            Homebrew::Bundle::Commands::Add.run(*named_args, type:, global:, file:)
+            Homebrew::Bundle::Commands::Add.run(*named_args, type:, global:, file:, describe: args.describe?)
           else
             require "bundle/commands/remove"
             Homebrew::Bundle::Commands::Remove.run(*named_args, type: selected_types.first, global:, file:)
