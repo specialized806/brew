@@ -163,8 +163,8 @@ class GitHubRunnerMatrix
       @runners << create_runner(:linux, :arm64)
 
       x86_64_spec = MacOSRunnerSpec.new(
-        name:    "macOS 10.15 x86_64",
-        runner:  "10.15-#{github_run_id}",
+        name:    "macOS 10.15-cross x86_64",
+        runner:  "10.15-cross-#{github_run_id}",
         timeout: GITHUB_ACTIONS_LONG_TIMEOUT,
         cleanup: true,
       )
@@ -173,7 +173,7 @@ class GitHubRunnerMatrix
 
       # odisabled: remove support for Big Sur September (or later) 2027
       arm64_spec = MacOSRunnerSpec.new(
-        name:    "macOS 11-arm64-cross",
+        name:    "macOS 11-cross arm64",
         runner:  "11-arm64-cross-#{github_run_id}",
         timeout: GITHUB_ACTIONS_LONG_TIMEOUT,
         cleanup: true,
