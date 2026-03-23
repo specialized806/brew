@@ -109,6 +109,9 @@ class Cask::Cask
   def font(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def generate_completions_from_executable(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def homepage(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
