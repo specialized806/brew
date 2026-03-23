@@ -29,15 +29,14 @@ module Homebrew
           return @krew_installed unless @krew_installed.nil?
 
           kubectl = package_manager_executable
-          T.must(@krew_installed = T.let(
-            if kubectl.present?
-              env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
-              Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL)
-            else
-              false
-            end,
-            T.nilable(T::Boolean),
-          ))
+          result = if kubectl.present?
+            env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
+            Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL) == true
+          else
+            false
+          end
+          @krew_installed = T.let(result, T.nilable(T::Boolean))
+          result
         end
 
         sig { override.returns(T::Array[String]) }
@@ -45,8 +44,8 @@ module Homebrew
           packages = @packages
           return packages if packages
 
-          @packages = if package_manager_installed?
-            kubectl = T.must(package_manager_executable)
+          kubectl = package_manager_executable
+          @packages = if package_manager_installed? && kubectl
             env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
             output = with_env(env) { `#{kubectl} krew list 2>/dev/null` }
             parse_plugin_list(output)
