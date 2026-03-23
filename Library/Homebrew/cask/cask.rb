@@ -128,6 +128,9 @@ module Cask
 
     def_delegators :@dsl, *::Cask::DSL::DSL_METHODS
 
+    sig { returns(DSL::Caveats) }
+    def caveats_object = @dsl.caveats_object
+
     sig { params(caskroom_path: Pathname).returns(T::Array[[String, String]]) }
     def timestamped_versions(caskroom_path: self.caskroom_path)
       pattern = metadata_timestamped_path(version: "*", timestamp: "*", caskroom_path:).to_s
@@ -433,7 +436,8 @@ module Cask
         "outdated"                        => outdated?,
         "sha256"                          => sha256,
         "artifacts"                       => artifacts_list,
-        "caveats"                         => (Tty.strip_ansi(caveats) unless caveats.empty?),
+        "caveats"                         => caveats_for_api,
+        "caveats_rosetta"                 => caveats_object.invoked?(:requires_rosetta) || nil,
         "depends_on"                      => depends_on,
         "conflicts_with"                  => conflicts_with,
         "container"                       => container&.pairs,
@@ -526,6 +530,16 @@ module Cask
     end
 
     private
+
+    # Returns caveats text for API serialization, excluding conditional
+    # built-in caveats that depend on the current machine's state.
+    # These are stored as separate boolean fields (e.g. caveats_rosetta)
+    # and evaluated at install time instead.
+    sig { returns(T.nilable(String)) }
+    def caveats_for_api
+      Tty.strip_ansi(caveats_object.to_s_without_conditional)
+         .presence
+    end
 
     sig { returns(T.nilable(Homebrew::BundleVersion)) }
     def bundle_version

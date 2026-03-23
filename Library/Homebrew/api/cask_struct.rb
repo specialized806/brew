@@ -68,6 +68,7 @@ module Homebrew
 
       # Changes to this struct must be mirrored in Homebrew::API::Cask.generate_cask_struct_hash
       const :auto_updates, T::Boolean, default: false
+      const :caveats_rosetta, T::Boolean, default: false
       const :conflicts_with_args, T::Hash[Symbol, T::Array[String]], default: {}
       const :container_args, T::Hash[Symbol, T.any(Symbol, T.anything)], default: {}
       const :depends_on_args, DependsOnArgs, default: {}
