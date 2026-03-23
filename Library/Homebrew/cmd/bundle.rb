@@ -197,10 +197,10 @@ module Homebrew
           raise UsageError, "`--no-secrets` can be used only with #{BUNDLE_EXEC_COMMANDS.join(", ")}."
         end
 
-        if !args.describe? && ENV["HOMEBREW_BUNDLE_DUMP_DESCRIBE"]
+        if !args.describe? && (dump_describe = ENV["HOMEBREW_BUNDLE_DUMP_DESCRIBE"].presence)
           opoo "`HOMEBREW_BUNDLE_DUMP_DESCRIBE` is deprecated. Use `HOMEBREW_BUNDLE_DESCRIBE` instead."
           # odeprecated "HOMEBREW_BUNDLE_DUMP_DESCRIBE", "HOMEBREW_BUNDLE_DESCRIBE"
-          ENV["HOMEBREW_BUNDLE_DESCRIBE"] = ENV.fetch("HOMEBREW_BUNDLE_DUMP_DESCRIBE")
+          ENV["HOMEBREW_BUNDLE_DESCRIBE"] = dump_describe
         end
 
         global = args.global?
