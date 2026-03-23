@@ -472,7 +472,7 @@ class Cmd
   end
 
   def oso_prefix?
-    config.include?("o") && !configure? && !debug_symbols?
+    !configure? && !debug_symbols?
   end
 
   def ld_classic?
