@@ -166,7 +166,7 @@ module Homebrew
         formulae = Array(formulae).reject { |f| f.deprecated? || f.disabled? } if formulae.present?
         all_formulae = Array(all_formulae).reject { |f| f.deprecated? || f.disabled? } if all_formulae.present?
 
-        # Remove portable formulae as they are are handled differently
+        # Remove portable formulae as they are handled differently
         formulae = formulae.reject { |f| PORTABLE_FORMULAE.include?(f.name) } if formulae.present?
         all_formulae = all_formulae.reject { |f| PORTABLE_FORMULAE.include?(f.name) } if all_formulae.present?
 

@@ -136,6 +136,12 @@ export_homebrew_env_file() {
     # forbid overriding variables that are set in this file
     [[ "${line}" =~ ${BIN_BREW_EXPORTED_VARS_REGEX} ]] && continue
 
+    if [[ "${line}" == HOMEBREW_EXPERIMENTAL_RUST_FRONTEND=* ]]
+    then
+      echo "Warning: Ignoring HOMEBREW_EXPERIMENTAL_RUST_FRONTEND. This cannot be set in an env file." >&2
+      continue
+    fi
+
     export "${line?}"
   done <"${env_file}"
 }

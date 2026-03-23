@@ -454,6 +454,28 @@ module Homebrew
       EOS
     end
 
+    sig { void }
+    def audit_node_modules
+      return unless @core_tap
+
+      node_modules = formula.libexec/"lib/node_modules"
+      return unless node_modules.directory?
+
+      incompatible_license_packages = %w[
+        @anthropic-ai/claude-agent-sdk
+      ]
+
+      incompatible_license_packages.each do |package|
+        # Search for package in all nested node_modules. Also including dot match for .pnpm hoisted packages
+        next if node_modules.glob("{**/node_modules/,}#{package}/", File::FNM_DOTMATCH).empty?
+
+        problem <<~EOS
+          Formula #{formula.name} uses #{package} which has an incompatible license.
+          All installed npm dependencies must satisfy #{Formatter.url("https://docs.brew.sh/License-Guidelines")}
+        EOS
+      end
+    end
+
     def audit_conflicts
       tap = formula.tap
       formula.conflicts.each do |conflict|

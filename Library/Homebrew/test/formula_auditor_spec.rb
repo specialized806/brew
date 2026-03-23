@@ -485,6 +485,60 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
   end
 
+  describe "#audit_node_modules" do
+    let(:fa) do
+      formula_auditor("foo", <<~RUBY, core_tap:)
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          homepage "https://brew.sh"
+        end
+      RUBY
+    end
+    let(:node_modules) { fa.formula.libexec/"lib/node_modules" }
+    let(:reject_package) { "@anthropic-ai/claude-agent-sdk" }
+    let(:audit_message) { "uses #{reject_package} which has an incompatible license" }
+
+    context "when core tap" do
+      let(:core_tap) { true }
+
+      it "detects unacceptable npm packages" do
+        (node_modules/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems.first[:message]).to match audit_message
+      end
+
+      it "detects unacceptable npm packages in nested node_modules" do
+        (node_modules/"foo/node_modules/bar/node_modules"/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems.first[:message]).to match audit_message
+      end
+
+      it "detects unacceptable npm packages in .pnpm hoisted directory" do
+        (node_modules/".pnpm/node_modules"/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems.first[:message]).to match audit_message
+      end
+
+      it "skips audit when no node_modules" do
+        fa.formula.libexec.mkpath
+        fa.audit_node_modules
+        expect(fa.problems).to be_empty
+      end
+    end
+
+    context "when non-core tap" do
+      let(:core_tap) { false }
+
+      it "skips audit" do
+        (node_modules/reject_package).mkpath
+        (node_modules/"foo/node_modules/bar/node_modules"/reject_package).mkpath
+        (node_modules/".pnpm/node_modules"/reject_package).mkpath
+        fa.audit_node_modules
+        expect(fa.problems).to be_empty
+      end
+    end
+  end
+
   describe "#audit_file" do
     specify "no issue" do
       fa = formula_auditor "foo", <<~RUBY
@@ -1737,6 +1791,81 @@ RSpec.describe Homebrew::FormulaAuditor do
       mkdir_p fa.formula.prefix
       fa.audit_deprecate_disable
       expect(fa.problems).to be_empty
+    end
+  end
+
+  describe "#audit_gcc_dependency" do
+    let(:formula_text) do
+      <<~RUBY
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          homepage "https://brew.sh"
+
+          on_linux do
+            depends_on "gcc"
+          end
+        end
+      RUBY
+    end
+
+    context "when running on macOS" do
+      before do
+        allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_linux?).and_return(false)
+      end
+
+      it "skips the audit" do
+        fa = formula_auditor "foo", formula_text, new_formula: false, core_tap: true
+        fa.audit_gcc_dependency
+        expect(fa.problems).to be_empty
+      end
+    end
+
+    context "when running on Linux" do
+      around do |example|
+        Homebrew::SimulateSystem.with os: :linux do
+          example.run
+        end
+      end
+
+      it "detects a Linux-only GCC dependency" do
+        fa = formula_auditor "foo", formula_text, new_formula: false, core_tap: true
+        fa.audit_gcc_dependency
+        expect(fa.problems.first[:message])
+          .to match "Formulae in homebrew/core should not have a Linux-only dependency on GCC"
+      end
+
+      it "allows a Linux-only GCC dependency when formula has an audit exception" do
+        tap_audit_exceptions = { linux_only_gcc_dependency_allowlist: ["foo"] }
+        fa = formula_auditor("foo", formula_text, new_formula: false, core_tap: true, tap_audit_exceptions:)
+        fa.audit_gcc_dependency
+        expect(fa.problems).to be_empty
+      end
+
+      it "allows a Linux-only GCC dependency when implicit" do
+        fa = formula_auditor "foo", formula_text, new_formula: false, core_tap: true
+        allow(fa.formula).to receive(:deps).and_return([Dependency.new("gcc", [:implicit])])
+        fa.audit_gcc_dependency
+        expect(fa.problems).to be_empty
+      end
+
+      it "allows a Linux-only GCC dependency in a non-core tap" do
+        fa = formula_auditor "foo", formula_text, new_formula: false, core_tap: false
+        fa.audit_gcc_dependency
+        expect(fa.problems).to be_empty
+      end
+
+      it "allows a non-OS-specific GCC dependency" do
+        fa = formula_auditor "foo", <<~RUBY, new_formula: false, core_tap: true
+          class Foo < Formula
+            url "https://brew.sh/foo-1.0.tgz"
+            homepage "https://brew.sh"
+
+            depends_on "gcc"
+          end
+        RUBY
+        fa.audit_gcc_dependency
+        expect(fa.problems).to be_empty
+      end
     end
   end
 end

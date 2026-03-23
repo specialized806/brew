@@ -256,7 +256,7 @@ Behaviour and usage of `target:` is [the same as with `app`](#renaming-the-targe
 ### Stanza: `rename`
 
 The `rename` stanza provides a convenience method to rename files to provide more practical access to them.
-This stanza should be used sparingly, and is reserved for scenarios where a the path of a file/directory is impossible to pre-determine.
+This stanza should be used sparingly, and is reserved for scenarios where the path of a file/directory is impossible to pre-determine.
 
 The example below can be used when the `pkg` path has a value such as timestamp that can't be detected without extracting the archive it is distributed within.
 
