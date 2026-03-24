@@ -5,6 +5,19 @@ require "bundle/dsl"
 require "bundle/extensions/cargo"
 
 RSpec.describe Homebrew::Bundle::Cargo do
+  around do |example|
+    with_env({
+      "HOMEBREW_CARGO_HOME"         => "~/.cargo",
+      "HOMEBREW_CARGO_INSTALL_ROOT" => "~/.cargo/bin",
+      "HOMEBREW_RUSTUP_HOME"        => "~/.rustup",
+      "CARGO_HOME"                  => nil,
+      "CARGO_INSTALL_ROOT"          => nil,
+      "RUSTUP_HOME"                 => nil,
+    }) do
+      example.run
+    end
+  end
+
   describe "dumping" do
     subject(:dumper) { described_class }
 
@@ -30,11 +43,16 @@ RSpec.describe Homebrew::Bundle::Cargo do
       end
 
       it "returns package list" do
-        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
-          ripgrep v13.0.0:
-              rg
-          bat v0.24.0 (/Users/test/.cargo/bin/bat)
-        EOS
+        expect(described_class).to receive(:`).with("cargo install --list") do
+          expect(ENV.fetch("CARGO_HOME", nil)).to eq("~/.cargo")
+          expect(ENV.fetch("CARGO_INSTALL_ROOT", nil)).to eq("~/.cargo/bin")
+          expect(ENV.fetch("RUSTUP_HOME", nil)).to eq("~/.rustup")
+          <<~EOS
+            ripgrep v13.0.0:
+                rg
+            bat v0.24.0 (/Users/test/.cargo/bin/bat)
+          EOS
+        end
 
         expect(dumper.packages).to eql(%w[ripgrep bat])
       end
@@ -86,6 +104,9 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
         it "installs package" do
           expect(Homebrew::Bundle).to receive(:system) do |*args, verbose:|
+            expect(ENV.fetch("CARGO_HOME", nil)).to eq("~/.cargo")
+            expect(ENV.fetch("CARGO_INSTALL_ROOT", nil)).to eq("~/.cargo/bin")
+            expect(ENV.fetch("RUSTUP_HOME", nil)).to eq("~/.rustup")
             expect(ENV.fetch("PATH", "")).to start_with("/tmp/rust/bin:")
             expect(args).to eq(["/tmp/rust/bin/cargo", "install", "--locked", "ripgrep"])
             expect(verbose).to be(false)

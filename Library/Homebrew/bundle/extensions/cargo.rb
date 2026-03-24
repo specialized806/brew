@@ -34,7 +34,9 @@ module Homebrew
 
           @packages = if (cargo = package_manager_executable) &&
                          (!cargo.to_s.start_with?("/") || cargo.exist?)
-            parse_package_list(`#{cargo} install --list`)
+            with_env(cargo_env(cargo)) do
+              parse_package_list(`#{cargo} install --list`)
+            end
           end
           return [] if @packages.nil?
 
@@ -54,8 +56,7 @@ module Homebrew
           cargo = package_manager_executable
           return false if cargo.nil?
 
-          env = { "PATH" => "#{cargo.dirname}:#{ENV.fetch("PATH")}" }
-          with_env(env) do
+          with_env(cargo_env(cargo)) do
             Bundle.system(cargo.to_s, "install", "--locked", name, verbose:)
           end
         end
@@ -78,6 +79,17 @@ module Homebrew
           end.uniq
         end
         private :parse_package_list
+
+        sig { params(cargo: Pathname).returns(T::Hash[String, String]) }
+        def cargo_env(cargo)
+          {
+            "CARGO_HOME"         => ENV.fetch("HOMEBREW_CARGO_HOME", nil),
+            "CARGO_INSTALL_ROOT" => ENV.fetch("HOMEBREW_CARGO_INSTALL_ROOT", nil),
+            "PATH"               => "#{cargo.dirname}:#{ENV.fetch("PATH")}",
+            "RUSTUP_HOME"        => ENV.fetch("HOMEBREW_RUSTUP_HOME", nil),
+          }.compact
+        end
+        private :cargo_env
       end
     end
   end
