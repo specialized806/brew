@@ -687,11 +687,13 @@ _brew_bundle() {
       --no-cargo
       --no-flatpak
       --no-go
+      --no-npm
       --no-restart
       --no-secrets
       --no-upgrade
       --no-uv
       --no-vscode
+      --npm
       --quiet
       --services
       --tap
