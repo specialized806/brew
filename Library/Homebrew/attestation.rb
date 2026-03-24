@@ -165,7 +165,7 @@ module Homebrew
       # in a single attestation, so we check every subject in each attestation
       # and select the first attestation with a matching subject.
       # In particular, this happens with v2.0.0 and later of the
-      # `actions/attest-build-provenance` action.
+      # `actions/attest` action.
       subject = bottle.filename.to_s if subject.blank?
 
       attestation = if bottle.tag.to_sym == :all
