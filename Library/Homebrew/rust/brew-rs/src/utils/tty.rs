@@ -122,3 +122,42 @@ pub fn truncate(string: &str) -> &str {
 
     &string[..end]
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ansi_builder() {
+        let expected = if colorful_output() {
+            "\x1B[31;1;4m"
+        } else {
+            ""
+        };
+        assert_eq!(
+            expected,
+            AnsiBuilder::new()
+                .red()
+                .bold()
+                .underline()
+                .to_string()
+                .as_str()
+        );
+    }
+
+    #[test]
+    fn test_truncate() {
+        let w = width();
+
+        if w < 4 {
+            let string = "some string that is longer than 4 characters for sure";
+            assert_eq!(string.len(), truncate(string).len());
+            return;
+        }
+
+        let not_trimmed = "a".repeat(w - 4);
+        assert_eq!(not_trimmed.len(), truncate(&not_trimmed).len());
+        let trimmed = "a".repeat(w);
+        assert_eq!(trimmed.len() - 4, truncate(&trimmed).len());
+    }
+}

@@ -52,3 +52,47 @@ fn prefix(prefix: &str, string: &str, escape_sequence: &AnsiBuilder) -> String {
         reset = tty::reset()
     )
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_prefix() {
+        let empty_prefix = "     ";
+        let non_empty_prefix = "==>";
+        let escape_sequence = AnsiBuilder::new().yellow().bold();
+        assert_eq!(
+            format!(
+                "{custom_color}test{reset}",
+                custom_color = &escape_sequence,
+                reset = tty::reset()
+            ),
+            prefix(empty_prefix, "test", &escape_sequence)
+        );
+        assert_eq!(
+            format!(
+                "{custom_color}{non_empty_prefix}{reset} test",
+                custom_color = &escape_sequence,
+                reset = tty::reset()
+            ),
+            prefix(non_empty_prefix, "test", &escape_sequence)
+        );
+    }
+
+    #[test]
+    fn test_headline() {
+        let test = "1234foobar";
+        let escape_sequence = AnsiBuilder::new().underline().red();
+
+        assert_eq!(
+            format!(
+                "{color}==>{reset} {bold}{test}{reset}",
+                color = &escape_sequence,
+                bold = tty::bold(),
+                reset = tty::reset(),
+            ),
+            headline(test, &escape_sequence)
+        );
+    }
+}
