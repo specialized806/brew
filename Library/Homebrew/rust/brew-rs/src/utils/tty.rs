@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 
 // Color codes
 const RED: &str = "31";
+const GREEN: &str = "32";
 const YELLOW: &str = "33";
 const BLUE: &str = "34";
 
@@ -73,11 +74,32 @@ macro_rules! ansi_methods_and_functions {
 
 ansi_methods_and_functions! {
     red => RED,
+    green => GREEN,
     yellow => YELLOW,
     blue => BLUE,
     reset => RESET,
     bold => BOLD,
     underline => UNDERLINE,
+}
+
+pub fn move_cursor_up(line_count: usize) -> String {
+    format!("\x1B[{line_count}A")
+}
+
+pub fn clear_to_end() -> String {
+    "\x1B[K".to_string()
+}
+
+pub fn clear_entire_line() -> String {
+    "\x1B[2K".to_string()
+}
+
+pub fn hide_cursor() -> String {
+    "\x1B[?25l".to_string()
+}
+
+pub fn show_cursor() -> String {
+    "\x1B[?25h".to_string()
 }
 
 pub fn width() -> usize {
