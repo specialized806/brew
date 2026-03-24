@@ -504,7 +504,7 @@ __fish_brew_complete_arg 'bump-unversioned-casks' -a '(__fish_brew_suggest_casks
 __fish_brew_complete_arg 'bump-unversioned-casks' -a '(__fish_brew_suggest_taps_installed)'
 
 
-__fish_brew_complete_cmd 'bundle' 'Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools and Flatpak packages'
+__fish_brew_complete_cmd 'bundle' 'Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages and npm packages'
 __fish_brew_complete_sub_cmd 'bundle' 'install'
 __fish_brew_complete_sub_cmd 'bundle' 'dump'
 __fish_brew_complete_sub_cmd 'bundle' 'cleanup'
@@ -533,11 +533,13 @@ __fish_brew_complete_arg 'bundle' -l mas -d '`list` or `dump` Mac App Store depe
 __fish_brew_complete_arg 'bundle' -l no-cargo -d '`dump` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set'
 __fish_brew_complete_arg 'bundle' -l no-flatpak -d '`dump` without Flatpak packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set'
 __fish_brew_complete_arg 'bundle' -l no-go -d '`dump` without Go packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_GO` is set'
+__fish_brew_complete_arg 'bundle' -l no-npm -d '`dump` without npm packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set'
 __fish_brew_complete_arg 'bundle' -l no-restart -d '`dump` does not add `restart_service` to formula lines'
 __fish_brew_complete_arg 'bundle' -l no-secrets -d 'Attempt to remove secrets from the environment before `exec`, `sh`, or `env`. Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set'
 __fish_brew_complete_arg 'bundle' -l no-upgrade -d '`install` does not run `brew upgrade` on outdated dependencies. `check` does not check for outdated dependencies. Note they may still be upgraded by `brew install` if needed. Enabled by default if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set'
 __fish_brew_complete_arg 'bundle' -l no-uv -d '`dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV` is set'
 __fish_brew_complete_arg 'bundle' -l no-vscode -d '`dump` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set'
+__fish_brew_complete_arg 'bundle' -l npm -d '`list` or `dump` npm packages'
 __fish_brew_complete_arg 'bundle' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'bundle' -l services -d 'Temporarily start services while running the `exec` or `sh` command. Enabled by default if `$HOMEBREW_BUNDLE_SERVICES` is set'
 __fish_brew_complete_arg 'bundle' -l tap -d '`list`, `dump` or `cleanup` Homebrew tap dependencies'
