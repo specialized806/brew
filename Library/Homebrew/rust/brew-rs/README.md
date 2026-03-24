@@ -21,15 +21,11 @@ export HOMEBREW_EXPERIMENTAL_RUST_FRONTEND=1
 ```
 
 From the repository root, before running `rake`, add Homebrew's portable Ruby to
-`PATH` and install `rake` there if needed:
+`PATH`:
 
 ```bash
 portable_ruby_bindir="$PWD/Library/Homebrew/vendor/portable-ruby/current/bin"
 [[ -x "${portable_ruby_bindir}/ruby" ]] || ./bin/brew vendor-install ruby
-if [[ ! -x "${portable_ruby_bindir}/rake" ]]
-then
-  "${portable_ruby_bindir}/gem" install rake --no-document
-fi
 export PATH="${portable_ruby_bindir}:${PATH}"
 ```
 

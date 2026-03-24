@@ -88,8 +88,7 @@ module UnpackStrategy
 
   sig { params(extension: String).returns(T.nilable(UnpackStrategyType)) }
   def self.from_extension(extension)
-    strategies.sort_by { |s| s.extensions.map(&:length).max || 0 }
-              .reverse
+    strategies.sort_by { |s| -(s.extensions.map(&:length).max || 0) }
               .find { |s| extension.end_with?(*s.extensions) }
   end
 
