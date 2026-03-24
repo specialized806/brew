@@ -10,6 +10,10 @@ pub(crate) fn cache_api_path() -> BrewResult<PathBuf> {
     Ok(env_path("HOMEBREW_CACHE")?.join("api"))
 }
 
+pub(crate) fn cache_path() -> BrewResult<PathBuf> {
+    env_path("HOMEBREW_CACHE")
+}
+
 pub(crate) fn cellar_path() -> BrewResult<PathBuf> {
     env_path("HOMEBREW_CELLAR")
 }

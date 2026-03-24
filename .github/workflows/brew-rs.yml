@@ -93,7 +93,8 @@ jobs:
           if-no-files-found: ignore
 
       - name: Prepare smoke test formula
-        run: brew uninstall --force hello || true
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
+        run: Library/Homebrew/rust/brew-rs/run-brew-rs-experimental.sh uninstall --force hello || true
 
       - name: Smoke-test brew-rs install
         run: brew install hello

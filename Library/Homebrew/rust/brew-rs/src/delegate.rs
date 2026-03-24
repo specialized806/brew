@@ -13,6 +13,15 @@ pub(crate) fn run_with_warning(args: &[String], command_name: &str) -> BrewResul
     run_command(args)
 }
 
+pub(crate) fn run_with_reason(
+    args: &[String],
+    command_name: &str,
+    reason: &str,
+) -> BrewResult<ExitCode> {
+    eprintln!("Warning: brew-rs is handing {command_name} back to the Ruby backend: {reason}");
+    run_command(args)
+}
+
 fn run_command(args: &[String]) -> BrewResult<ExitCode> {
     let status = Command::new(homebrew::brew_file()?)
         .args(args)
