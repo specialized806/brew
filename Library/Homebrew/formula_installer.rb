@@ -1729,7 +1729,10 @@ on_request: installed_on_request?, options:)
     return false unless formula.keg_only?
     return false unless formula.keg_only_reason.versioned_formula?
     return false if formula.any_version_installed?
-    return false if formula.link_overwrite_formulae.any?(&:any_version_installed?)
+    return false if formula.link_overwrite_formulae.any? do |related_formula|
+      related_formula.any_version_installed? ||
+      (related_formula.name == formula.unversioned_formula_name && related_formula.keg_only?)
+    end
 
     true
   end

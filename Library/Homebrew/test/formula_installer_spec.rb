@@ -135,7 +135,8 @@ RSpec.describe FormulaInstaller do
     end
 
     before do
-      allow(keg_only_formula).to receive_messages(any_version_installed?: false, link_overwrite_formulae: [])
+      allow(keg_only_formula).to receive_messages(any_version_installed?:  false,
+                                                  link_overwrite_formulae: [])
     end
 
     it "links by default when no sibling variants are installed" do
@@ -178,6 +179,18 @@ RSpec.describe FormulaInstaller do
         url "foo-1.0"
       end
       allow(unversioned_formula).to receive(:any_version_installed?).and_return(true)
+      allow(keg_only_formula).to receive(:link_overwrite_formulae).and_return([unversioned_formula])
+
+      fi = described_class.new(keg_only_formula)
+
+      expect(fi.link_keg).to be false
+    end
+
+    it "does not link by default when the unversioned sibling is keg-only" do
+      unversioned_formula = formula base_name do
+        url "foo-1.0"
+        keg_only "some reason"
+      end
       allow(keg_only_formula).to receive(:link_overwrite_formulae).and_return([unversioned_formula])
 
       fi = described_class.new(keg_only_formula)
