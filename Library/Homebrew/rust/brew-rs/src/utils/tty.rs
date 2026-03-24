@@ -82,26 +82,38 @@ ansi_methods_and_functions! {
     underline => UNDERLINE,
 }
 
-pub fn move_cursor_up(line_count: usize) -> String {
-    format!("\x1B[{line_count}A")
+pub struct MoveCursorUp(pub usize);
+
+impl fmt::Display for MoveCursorUp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\x1B[{}A", self.0)
+    }
 }
 
-pub fn clear_to_end() -> String {
-    "\x1B[K".to_string()
+#[inline]
+pub fn move_cursor_up(line_count: usize) -> MoveCursorUp {
+    MoveCursorUp(line_count)
 }
 
-pub fn clear_entire_line() -> String {
-    "\x1B[2K".to_string()
+#[inline]
+pub fn clear_to_end() -> &'static str {
+    "\x1B[K"
 }
 
-pub fn hide_cursor() -> String {
-    "\x1B[?25l".to_string()
+#[inline]
+pub fn clear_entire_line() -> &'static str {
+    "\x1B[2K"
 }
 
-pub fn show_cursor() -> String {
-    "\x1B[?25h".to_string()
+#[inline]
+pub fn hide_cursor() -> &'static str {
+    "\x1B[?25l"
 }
 
+#[inline]
+pub fn show_cursor() -> &'static str {
+    "\x1B[?25h"
+}
 pub fn width() -> usize {
     *TTY_WIDTH.get_or_init(|| {
         if let Ok(command) = Command::new("/bin/stty").arg("size").output() {
