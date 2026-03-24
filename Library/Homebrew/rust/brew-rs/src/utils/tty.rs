@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 
 // Color codes
 const RED: &str = "31";
+const GREEN: &str = "32";
 const YELLOW: &str = "33";
 const BLUE: &str = "34";
 
@@ -73,6 +74,7 @@ macro_rules! ansi_methods_and_functions {
 
 ansi_methods_and_functions! {
     red => RED,
+    green => GREEN,
     yellow => YELLOW,
     blue => BLUE,
     reset => RESET,
@@ -80,6 +82,38 @@ ansi_methods_and_functions! {
     underline => UNDERLINE,
 }
 
+pub struct MoveCursorUp(pub usize);
+
+impl fmt::Display for MoveCursorUp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\x1B[{}A", self.0)
+    }
+}
+
+#[inline]
+pub fn move_cursor_up(line_count: usize) -> MoveCursorUp {
+    MoveCursorUp(line_count)
+}
+
+#[inline]
+pub fn clear_to_end() -> &'static str {
+    "\x1B[K"
+}
+
+#[inline]
+pub fn clear_entire_line() -> &'static str {
+    "\x1B[2K"
+}
+
+#[inline]
+pub fn hide_cursor() -> &'static str {
+    "\x1B[?25l"
+}
+
+#[inline]
+pub fn show_cursor() -> &'static str {
+    "\x1B[?25h"
+}
 pub fn width() -> usize {
     *TTY_WIDTH.get_or_init(|| {
         if let Ok(command) = Command::new("/bin/stty").arg("size").output() {

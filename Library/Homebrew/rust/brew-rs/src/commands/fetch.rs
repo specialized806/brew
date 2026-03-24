@@ -1,6 +1,7 @@
 use crate::BrewResult;
 use crate::delegate;
 use crate::homebrew;
+use crate::utils::tty;
 use anyhow::{Context, anyhow, bail};
 use rayon::prelude::*;
 use reqwest::blocking::Client;
@@ -22,9 +23,6 @@ use std::time::{Duration, Instant};
 use url::Url;
 
 const FETCH_RETRIES: usize = 2;
-const ANSI_BLUE: &str = "\x1b[34m";
-const ANSI_GREEN: &str = "\x1b[32m";
-const ANSI_RESET: &str = "\x1b[0m";
 const CONNECT_TIMEOUT_SECS: u64 = 15;
 const REQUEST_TIMEOUT_SECS: u64 = 600;
 const FALSY_ENV_VALUES: [&str; 5] = ["false", "no", "off", "nil", "0"];
@@ -87,7 +85,6 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
         );
     }
 
-    let tty_output = io::stdout().is_terminal();
     let download_threads = download_concurrency(bottles.len());
     let show_progress = should_render_progress(download_progress_enabled(), download_threads);
     let progress = bottles
@@ -116,7 +113,7 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
                 .par_iter()
                 .zip(progress.par_iter())
                 .try_for_each(|(bottle, progress)| {
-                    fetch_bottle(bottle, client.as_ref(), progress, show_progress, tty_output)
+                    fetch_bottle(bottle, client.as_ref(), progress, show_progress)
                 })
         });
 
@@ -388,7 +385,6 @@ fn fetch_bottle(
     client: &Client,
     progress: &Arc<Mutex<DownloadProgress>>,
     show_progress: bool,
-    tty_output: bool,
 ) -> BrewResult<()> {
     if bottle.cached_download.exists() {
         update_download_phase(progress, "verifying");
@@ -396,7 +392,7 @@ fn fetch_bottle(
         ensure_symlink(bottle)?;
         mark_download_complete(progress);
         if !show_progress {
-            print_downloaded_bottle(bottle, tty_output);
+            print_downloaded_bottle(bottle);
         }
         return Ok(());
     }
@@ -437,7 +433,7 @@ fn fetch_bottle(
             ensure_symlink(bottle)?;
             mark_download_complete(progress);
             if !show_progress {
-                print_downloaded_bottle(bottle, tty_output);
+                print_downloaded_bottle(bottle);
             }
             Ok(())
         })();
@@ -456,12 +452,12 @@ fn fetch_bottle(
     Err(last_error.unwrap_or_else(|| anyhow!("Failed to fetch {}", bottle.formula_name)))
 }
 
-fn print_downloaded_bottle(bottle: &BottleFetch, tty_output: bool) {
-    let status = if tty_output {
-        format!("{ANSI_GREEN}✔︎{ANSI_RESET}")
-    } else {
-        "✔︎".to_string()
-    };
+fn print_downloaded_bottle(bottle: &BottleFetch) {
+    let status = format!(
+        "{green}✔︎{reset}",
+        green = tty::green(),
+        reset = tty::reset(),
+    );
     println!(
         "{status} Bottle {} ({})",
         bottle.display_name, bottle.display_version
@@ -959,7 +955,7 @@ impl ProgressRenderer {
                 .filter_map(|entry| entry.lock().ok().map(|entry| entry.message.len()))
                 .max()
                 .unwrap_or(0);
-            let _ = write!(stdout, "\x1b[?25l");
+            let _ = write!(stdout, "{}", tty::hide_cursor());
             let mut rendered_lines = 0;
             let mut printed_done = vec![false; progress.len()];
 
@@ -981,16 +977,23 @@ impl ProgressRenderer {
                     .filter_map(|(index, entry)| {
                         if entry.done {
                             if !printed_done[index] {
-                                let _ =
-                                    writeln!(stdout, "{ANSI_GREEN}✔︎{ANSI_RESET} {}", entry.message);
+                                let _ = writeln!(
+                                    stdout,
+                                    "{green}✔︎{reset} {message}",
+                                    green = tty::green(),
+                                    reset = tty::reset(),
+                                    message = entry.message
+                                );
                                 printed_done[index] = true;
                             }
                             return None;
                         }
 
                         Some(format!(
-                            "{ANSI_BLUE}{}{ANSI_RESET} {}",
+                            "{}{}{} {}",
+                            tty::blue(),
                             spinner.frame(),
+                            tty::reset(),
                             format_progress_message(
                                 &entry.message,
                                 entry.phase,
@@ -1005,7 +1008,7 @@ impl ProgressRenderer {
 
                 rendered_lines = pending_lines.len();
                 for (index, line) in pending_lines.iter().enumerate() {
-                    let _ = write!(stdout, "{line}\x1b[K");
+                    let _ = write!(stdout, "{line}{clear}", clear = tty::clear_to_end());
                     if index + 1 < pending_lines.len() {
                         let _ = writeln!(stdout);
                     }
@@ -1019,14 +1022,14 @@ impl ProgressRenderer {
                 if rendered_lines == 1 {
                     let _ = write!(stdout, "\r");
                 } else if rendered_lines > 1 {
-                    let _ = write!(stdout, "\x1b[{}A\r", rendered_lines - 1);
+                    let _ = write!(stdout, "{}\r", tty::move_cursor_up(rendered_lines - 1));
                 }
 
                 thread::sleep(Duration::from_millis(50));
             }
 
             clear_rendered_lines(&mut stdout, rendered_lines);
-            let _ = write!(stdout, "\x1b[?25h");
+            let _ = write!(stdout, "{}", tty::show_cursor());
             let _ = stdout.flush();
         });
 
@@ -1046,18 +1049,18 @@ fn clear_rendered_lines(stdout: &mut impl Write, lines: usize) {
 
     let _ = write!(stdout, "\r");
     if lines > 1 {
-        let _ = write!(stdout, "\x1b[{}A", lines - 1);
+        let _ = write!(stdout, "{}", tty::move_cursor_up(lines - 1));
     }
 
     for index in 0..lines {
-        let _ = write!(stdout, "\x1b[2K");
+        let _ = write!(stdout, "{}", tty::clear_entire_line());
         if index + 1 < lines {
             let _ = writeln!(stdout);
         }
     }
 
     if lines > 1 {
-        let _ = write!(stdout, "\x1b[{}A", lines - 1);
+        let _ = write!(stdout, "{}", tty::move_cursor_up(lines - 1));
     }
     let _ = write!(stdout, "\r");
 }
