@@ -56,12 +56,26 @@ end
         path
     }
 
+    fn formula_api_path(&self, name: &str) -> PathBuf {
+        self.cache.join("api/formula").join(format!("{name}.json"))
+    }
+
     fn ruby_command(&self) -> Command {
         let mut command = Command::new(&self.brew_file);
         command.current_dir(repo_root());
         for (key, value) in self.common_env() {
             command.env(key, value);
         }
+        command
+    }
+
+    fn gated_rust_command(&self) -> Command {
+        let mut command = Command::new(&self.brew_file);
+        command.current_dir(repo_root());
+        for (key, value) in self.common_env() {
+            command.env(key, value);
+        }
+        command.env("HOMEBREW_EXPERIMENTAL_RUST_FRONTEND", "1");
         command
     }
 
@@ -74,7 +88,7 @@ end
         command
     }
 
-    fn common_env(&self) -> [(OsString, OsString); 9] {
+    fn common_env(&self) -> [(OsString, OsString); 13] {
         [
             (
                 "HOMEBREW_BREW_FILE".into(),
@@ -90,13 +104,23 @@ end
                 self.cellar.clone().into_os_string(),
             ),
             ("HOMEBREW_DEVELOPER".into(), OsString::from("1")),
+            ("HOMEBREW_LINUX".into(), OsString::from("1")),
+            (
+                "HOMEBREW_MACOS_VERSION_NUMERIC".into(),
+                OsString::from("000000"),
+            ),
             ("HOMEBREW_NO_AUTO_UPDATE".into(), OsString::from("1")),
             ("HOMEBREW_NO_COLOR".into(), OsString::from("1")),
             ("HOMEBREW_NO_ENV_HINTS".into(), OsString::from("1")),
             (
+                "HOMEBREW_PHYSICAL_PROCESSOR".into(),
+                OsString::from("x86_64"),
+            ),
+            (
                 "HOMEBREW_PREFIX".into(),
                 self.prefix.clone().into_os_string(),
             ),
+            ("HOMEBREW_SYSTEM".into(), OsString::from("Linux")),
         ]
     }
 }
@@ -120,6 +144,30 @@ fn search_uses_the_rust_search_flow() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         "testball\n\nlocal-caffeine\n"
+    );
+}
+
+#[test]
+fn brew_sh_routes_supported_commands_to_brew_rs_outside_the_default_prefix() {
+    let context = TestContext::new();
+    let api_cache = context.cache.join("api");
+
+    fs::create_dir_all(&api_cache).unwrap();
+    fs::write(api_cache.join("formula_names.txt"), "testball\n").unwrap();
+    fs::write(api_cache.join("cask_names.txt"), "").unwrap();
+
+    let output = context
+        .gated_rust_command()
+        .args(["search", "testbal"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "testball\n");
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("using the experimental brew-rs Rust frontend."),
     );
 }
 
@@ -225,6 +273,241 @@ fn list_uses_the_linked_keg_when_listing_formula_files() {
     assert_eq!(rust_output.stdout, ruby_output.stdout);
 }
 
+#[test]
+fn fetch_downloads_a_homebrew_core_bottle_to_the_homebrew_cache() {
+    let context = TestContext::new();
+    let bottle_source = context
+        .prefix
+        .join("testball--1.0.x86_64_linux.bottle.tar.gz");
+    let bottle_contents = b"testball bottle";
+    let bottle_sha256 = sha256_hex(bottle_contents);
+    let bottle_url_sha256 = sha256_hex(format!("file://{}", bottle_source.display()).as_bytes());
+
+    fs::write(&bottle_source, bottle_contents).unwrap();
+    fs::create_dir_all(context.formula_api_path("testball").parent().unwrap()).unwrap();
+    fs::write(
+        context.formula_api_path("testball"),
+        format!(
+            r#"{{
+  "name": "testball",
+  "full_name": "testball",
+  "tap": "homebrew/core",
+  "versions": {{
+    "stable": "1.0"
+  }},
+  "revision": 0,
+  "bottle": {{
+    "stable": {{
+      "rebuild": 0,
+      "files": {{
+        "x86_64_linux": {{
+          "url": "file://{}",
+          "sha256": "{}"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+            bottle_source.display(),
+            bottle_sha256,
+        ),
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["fetch", "testball"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(stdout.contains("Bottle testball (1.0)"), "{stdout}");
+    assert!(context.cache.join("testball--1.0").is_symlink());
+    assert_eq!(
+        fs::read_link(context.cache.join("testball--1.0")).unwrap(),
+        PathBuf::from(format!(
+            "downloads/{bottle_url_sha256}--testball--1.0.x86_64_linux.bottle.tar.gz"
+        ))
+    );
+    assert_eq!(
+        fs::read(context.cache.join("downloads").join(format!(
+            "{bottle_url_sha256}--testball--1.0.x86_64_linux.bottle.tar.gz"
+        )),)
+        .unwrap(),
+        bottle_contents
+    );
+}
+
+#[test]
+fn fetch_downloads_multiple_bottles_in_one_invocation() {
+    let context = TestContext::new();
+
+    for name in ["testball1", "testball2"] {
+        let bottle_source = context
+            .prefix
+            .join(format!("{name}--1.0.x86_64_linux.bottle.tar.gz"));
+        let bottle_contents = format!("{name} bottle");
+        let bottle_sha256 = sha256_hex(bottle_contents.as_bytes());
+
+        fs::write(&bottle_source, bottle_contents).unwrap();
+        fs::create_dir_all(context.formula_api_path(name).parent().unwrap()).unwrap();
+        fs::write(
+            context.formula_api_path(name),
+            format!(
+                r#"{{
+  "name": "{name}",
+  "full_name": "{name}",
+  "tap": "homebrew/core",
+  "versions": {{
+    "stable": "1.0"
+  }},
+  "revision": 0,
+  "bottle": {{
+    "stable": {{
+      "rebuild": 0,
+      "files": {{
+        "x86_64_linux": {{
+          "url": "file://{}",
+          "sha256": "{}"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+                bottle_source.display(),
+                bottle_sha256,
+            ),
+        )
+        .unwrap();
+    }
+
+    let output = context
+        .rust_command()
+        .env("HOMEBREW_DOWNLOAD_CONCURRENCY", "2")
+        .args(["fetch", "testball1", "testball2"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(stdout.contains("Bottle testball1 (1.0)"), "{stdout}");
+    assert!(stdout.contains("Bottle testball2 (1.0)"), "{stdout}");
+    assert!(context.cache.join("testball1--1.0").is_symlink());
+    assert!(context.cache.join("testball2--1.0").is_symlink());
+}
+
+#[test]
+fn fetch_deduplicates_duplicate_formula_names() {
+    let context = TestContext::new();
+
+    let bottle_source = context
+        .prefix
+        .join("testball--1.0.x86_64_linux.bottle.tar.gz");
+    let bottle_contents = b"testball bottle";
+    let bottle_sha256 = sha256_hex(bottle_contents);
+
+    fs::write(&bottle_source, bottle_contents).unwrap();
+    fs::create_dir_all(context.formula_api_path("testball").parent().unwrap()).unwrap();
+    fs::write(
+        context.formula_api_path("testball"),
+        format!(
+            r#"{{
+  "name": "testball",
+  "full_name": "testball",
+  "tap": "homebrew/core",
+  "versions": {{
+    "stable": "1.0"
+  }},
+  "revision": 0,
+  "bottle": {{
+    "stable": {{
+      "rebuild": 0,
+      "files": {{
+        "x86_64_linux": {{
+          "url": "file://{}",
+          "sha256": "{}"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+            bottle_source.display(),
+            bottle_sha256,
+        ),
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["fetch", "testball", "testball"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout.clone()).unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(
+        stdout.matches("Bottle testball (1.0)").count(),
+        1,
+        "{stdout}"
+    );
+}
+
+#[test]
+fn fetch_delegates_to_ruby_with_a_reason_when_flags_are_used() {
+    let context = TestContext::new();
+
+    let output = context
+        .rust_command()
+        .args(["fetch", "--help"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(String::from_utf8(output.stderr).unwrap().contains(
+        "Warning: brew-rs is handing fetch back to the Ruby backend: flags are not yet supported."
+    ),);
+}
+
+#[test]
+fn fetch_delegates_to_ruby_with_a_reason_when_a_bottle_is_unavailable() {
+    let context = TestContext::new();
+
+    fs::create_dir_all(context.formula_api_path("testball").parent().unwrap()).unwrap();
+    fs::write(
+        context.formula_api_path("testball"),
+        r#"{
+  "name": "testball",
+  "full_name": "testball",
+  "tap": "homebrew/core",
+  "versions": {
+    "stable": "1.0"
+  },
+  "revision": 0,
+  "bottle": {
+    "stable": {
+      "rebuild": 0,
+      "files": {}
+    }
+  }
+}"#,
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["fetch", "testball"])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "{output:?}");
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("Warning: brew-rs is handing fetch back to the Ruby backend: `testball` does not have a bottle for `x86_64_linux`."),
+    );
+}
+
 fn new_tempdir() -> TestDir {
     let root = repo_root().join("tmp");
     fs::create_dir_all(&root).unwrap();
@@ -259,6 +542,12 @@ impl TestDir {
     fn path(&self) -> &Path {
         &self.0
     }
+}
+
+fn sha256_hex(input: impl AsRef<[u8]>) -> String {
+    use sha2::Digest;
+
+    format!("{:x}", sha2::Sha256::digest(input.as_ref()))
 }
 
 impl Drop for TestDir {

@@ -301,14 +301,9 @@ rust-frontend-enabled() {
   fi
 
   case "${HOMEBREW_COMMAND}" in
-    search | info | list | install | reinstall | update | upgrade | uninstall) ;;
+    fetch | search | info | list | install | reinstall | update | upgrade | uninstall) ;;
     *) return 1 ;;
   esac
-
-  if [[ -z "${HOMEBREW_INTEGRATION_TEST:-}" && "${HOMEBREW_PREFIX}" != "${HOMEBREW_DEFAULT_PREFIX}" ]]
-  then
-    return 1
-  fi
 
   if [[ -n "${HOMEBREW_MACOS}" ]]
   then
