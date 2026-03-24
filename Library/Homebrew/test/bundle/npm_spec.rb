@@ -108,8 +108,10 @@ RSpec.describe Homebrew::Bundle::Npm do
 
       context "when package is not installed" do
         before do
-          allow(described_class).to receive_messages(package_manager_executable: Pathname.new("/opt/homebrew/bin/npm"),
-                                                     installed_packages:         [])
+          allow(described_class).to receive_messages(
+            package_manager_executable: Pathname.new("/opt/homebrew/bin/npm"),
+            installed_packages:         [],
+          )
         end
 
         it "installs package" do
