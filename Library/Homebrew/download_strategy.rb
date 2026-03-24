@@ -512,8 +512,8 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/O
         else
           begin
             _fetch(url:, resolved_url: T.must(resolved_url), timeout: Utils::Timer.remaining!(end_time))
-          rescue ErrorDuringExecution
-            raise CurlDownloadStrategyError, url
+          rescue ErrorDuringExecution => e
+            raise CurlDownloadStrategyError.new(url, e.stderr.strip)
           end
           cached_location.dirname.mkpath
           temporary_path.rename(cached_location.to_s)
@@ -646,8 +646,9 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/O
 
     if Homebrew::EnvConfig.no_insecure_redirect? &&
        url.start_with?("https://") && !resolved_url.start_with?("https://")
-      $stderr.puts "HTTPS to HTTP redirect detected and `$HOMEBREW_NO_INSECURE_REDIRECT` is set."
-      raise CurlDownloadStrategyError, url
+      error_message = "HTTPS to HTTP redirect detected and `$HOMEBREW_NO_INSECURE_REDIRECT` is set."
+      $stderr.puts error_message unless quiet?
+      raise CurlDownloadStrategyError.new(url, error_message)
     end
 
     _curl_download resolved_url, temporary_path, timeout
@@ -801,7 +802,7 @@ class CurlApacheMirrorDownloadStrategy < CurlDownloadStrategy # rubocop:todo Sty
     json = curl_output("--silent", "--location", "#{url}&asjson=1").stdout
     T.must(@apache_mirrors = T.let(JSON.parse(json), T.nilable(T::Hash[String, T.untyped])))
   rescue JSON::ParserError
-    raise CurlDownloadStrategyError, "Couldn't determine mirror, try again later."
+    raise CurlDownloadStrategyError.new(url, "Couldn't determine mirror, try again later.")
   end
 end
 

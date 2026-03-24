@@ -658,18 +658,21 @@ end
 
 # Raised in {CurlDownloadStrategy#fetch}.
 class CurlDownloadStrategyError < RuntimeError
-  def initialize(url)
+  sig { params(url: String, details: T.nilable(String)).void }
+  def initialize(url, details = nil)
+    suffix = "\n#{details}" if details.present?
     case url
     when %r{^file://(.+)}
-      super "File does not exist: #{Regexp.last_match(1)}"
+      super "File cannot be read: #{Regexp.last_match(1)}#{suffix}"
     else
-      super "Download failed: #{url}"
+      super "Download failed: #{url}#{suffix}"
     end
   end
 end
 
 # Raised in {HomebrewCurlDownloadStrategy#fetch}.
 class HomebrewCurlDownloadStrategyError < CurlDownloadStrategyError
+  sig { params(url: String).void }
   def initialize(url)
     super "Homebrew-installed `curl` is not installed for: #{url}"
   end
