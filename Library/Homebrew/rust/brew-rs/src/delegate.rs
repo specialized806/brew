@@ -1,5 +1,6 @@
 use crate::BrewResult;
 use crate::homebrew;
+use crate::utils::formatter;
 use anyhow::Context;
 use std::process::ExitCode;
 use std::process::{Command, Stdio};
@@ -9,7 +10,9 @@ pub(crate) fn run(args: &[String]) -> BrewResult<ExitCode> {
 }
 
 pub(crate) fn run_with_warning(args: &[String], command_name: &str) -> BrewResult<ExitCode> {
-    eprintln!("Warning: brew-rs is handing {command_name} back to the Ruby backend.");
+    formatter::warning(
+        format!("brew-rs is handing {command_name} back to the Ruby backend.").as_str(),
+    );
     run_command(args)
 }
 
