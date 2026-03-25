@@ -9,6 +9,8 @@ module Homebrew
   module Search
     extend Utils::Output::Mixin
 
+    QUERY_REGEX = %r{^/(.*)/$}
+
     SearchBlockType = T.type_alias do
       T.nilable(
         T.proc
@@ -35,7 +37,7 @@ module Homebrew
 
     sig { params(query: String).returns(T.any(Regexp, String)) }
     def self.query_regexp(query)
-      if (m = query.match(%r{^/(.*)/$}))
+      if (m = query.match(QUERY_REGEX))
         Regexp.new(T.must(m[1]))
       else
         query
