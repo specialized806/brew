@@ -631,6 +631,8 @@ fn build_client() -> BrewResult<Client> {
     Client::builder()
         .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .gzip(true)
+        .deflate(true)
         .build()
         .context("Failed to build an HTTP client")
 }
