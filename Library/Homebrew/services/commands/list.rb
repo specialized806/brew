@@ -18,6 +18,7 @@ module Homebrew
           formulae = Formulae.services_list
           if formulae.blank?
             opoo "No services available to control with `#{Services::Cli.bin}`" if $stderr.tty?
+            puts "[]" if json
             return
           end
 
