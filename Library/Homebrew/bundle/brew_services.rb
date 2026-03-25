@@ -64,11 +64,10 @@ module Homebrew
                 odie Homebrew::Services::System::MISSING_DAEMON_MANAGER_EXCEPTION_MESSAGE
               end
               states_to_skip = %w[stopped none]
-              Utils.safe_popen_read(HOMEBREW_BREW_FILE, "services", "list").lines.filter_map do |line|
-                name, state, _plist = line.split(/\s+/)
-                next if states_to_skip.include? state
 
-                name
+              services_list = JSON.parse(Utils.safe_popen_read(HOMEBREW_BREW_FILE, "services", "list", "--json"))
+              services_list.filter_map do |hash|
+                hash.fetch("name") if states_to_skip.exclude?(hash.fetch("status"))
               end
             end
           end
