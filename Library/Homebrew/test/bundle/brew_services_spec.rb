@@ -11,9 +11,20 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
 
     it "returns started services" do
       allow(Utils).to receive(:safe_popen_read).and_return <<~EOS
-        nginx  started  homebrew.mxcl.nginx.plist
-        apache stopped  homebrew.mxcl.apache.plist
-        mysql  started  homebrew.mxcl.mysql.plist
+        [
+          {
+            "name": "nginx",
+            "status": "started"
+          },
+          {
+            "name": "apache",
+            "status": "stopped"
+          },
+          {
+            "name": "mysql",
+            "status": "started"
+          }
+        ]
       EOS
       expect(described_class.started_services).to contain_exactly("nginx", "mysql")
     end
