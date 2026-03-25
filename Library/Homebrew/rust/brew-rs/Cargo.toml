@@ -25,3 +25,6 @@ sha2 = "0.10.9"
 url = "2.5.7"
 # Traverse installed formula and cask state under existing Homebrew paths.
 walkdir = "2.5.0"
+
+[profile.release]
+strip = "symbols"
