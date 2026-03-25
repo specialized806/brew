@@ -27,6 +27,7 @@ end
 class Module
   def append_features(constant); end
   def autoload(const_name, path); end
+  def const_added(cname); end
   def extend_object(obj); end
   def method_added(method_name); end
   def prepend_features(constant); end
@@ -841,9 +842,7 @@ class Tapioca::Dsl::Compiler
   extend T::Generic
   include ::Tapioca::SorbetHelper
   include ::Tapioca::RBIHelper
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
-  extend ::Tapioca::Runtime::AttachedClassOf
   extend ::Tapioca::Runtime::Reflection
 
   abstract!
@@ -1099,7 +1098,6 @@ class Tapioca::Gem::Listeners::Base
 end
 
 class Tapioca::Gem::Listeners::DynamicMixins < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1112,7 +1110,6 @@ class Tapioca::Gem::Listeners::DynamicMixins < ::Tapioca::Gem::Listeners::Base
 end
 
 class Tapioca::Gem::Listeners::ForeignConstants < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1130,7 +1127,6 @@ end
 class Tapioca::Gem::Listeners::Methods < ::Tapioca::Gem::Listeners::Base
   include ::Tapioca::SorbetHelper
   include ::Tapioca::RBIHelper
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1185,7 +1181,6 @@ class Tapioca::Gem::Listeners::Methods < ::Tapioca::Gem::Listeners::Base
 end
 
 class Tapioca::Gem::Listeners::Mixins < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1220,7 +1215,6 @@ class Tapioca::Gem::Listeners::Mixins < ::Tapioca::Gem::Listeners::Base
 end
 
 class Tapioca::Gem::Listeners::RemoveEmptyPayloadScopes < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1243,7 +1237,6 @@ class Tapioca::Gem::Listeners::SorbetEnums < ::Tapioca::Gem::Listeners::Base
 end
 
 class Tapioca::Gem::Listeners::SorbetHelpers < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1279,7 +1272,6 @@ class Tapioca::Gem::Listeners::SorbetRequiredAncestors < ::Tapioca::Gem::Listene
 end
 
 class Tapioca::Gem::Listeners::SorbetSignatures < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
   include ::Tapioca::SorbetHelper
   include ::Tapioca::RBIHelper
@@ -1302,7 +1294,6 @@ end
 Tapioca::Gem::Listeners::SorbetSignatures::TYPE_PARAMETER_MATCHER = T.let(T.unsafe(nil), Regexp)
 
 class Tapioca::Gem::Listeners::SorbetTypeVariables < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1337,7 +1328,6 @@ class Tapioca::Gem::Listeners::SourceLocation < ::Tapioca::Gem::Listeners::Base
 end
 
 class Tapioca::Gem::Listeners::Subconstants < ::Tapioca::Gem::Listeners::Base
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   private
@@ -1417,7 +1407,6 @@ class Tapioca::Gem::NodeAdded < ::Tapioca::Gem::Event
 end
 
 class Tapioca::Gem::Pipeline
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
   include ::Tapioca::SorbetHelper
   include ::Tapioca::RBIHelper
@@ -1750,6 +1739,29 @@ end
 
 Tapioca::Gemfile::GemSpec::IGNORED_GEMS = T.let(T.unsafe(nil), Array)
 Tapioca::Gemfile::Spec = T.type_alias { T.any(::Bundler::StubSpecification, ::Gem::Specification) }
+module Tapioca::Helpers; end
+
+class Tapioca::Helpers::PackageURL
+  def initialize(type:, name:, namespace: T.unsafe(nil), version: T.unsafe(nil), qualifiers: T.unsafe(nil), subpath: T.unsafe(nil)); end
+
+  def deconstruct; end
+  def deconstruct_keys(_keys); end
+  def name; end
+  def namespace; end
+  def qualifiers; end
+  def scheme; end
+  def subpath; end
+  def to_h; end
+  def to_s; end
+  def type; end
+  def version; end
+
+  class << self
+    def parse(string); end
+  end
+end
+
+class Tapioca::Helpers::PackageURL::InvalidPackageURL < ::ArgumentError; end
 Tapioca::LIB_ROOT_DIR = T.let(T.unsafe(nil), String)
 module Tapioca::Loaders; end
 
@@ -2071,12 +2083,7 @@ module Tapioca::Runtime
   end
 end
 
-module Tapioca::Runtime::AttachedClassOf
-  def attached_class_of(singleton_class); end
-end
-
 class Tapioca::Runtime::DynamicMixinCompiler
-  include ::Tapioca::Runtime::AttachedClassOf
   include ::Tapioca::Runtime::Reflection
 
   def initialize(constant); end
@@ -2120,13 +2127,12 @@ end
 Tapioca::Runtime::NOOP_METHOD = T.let(T.unsafe(nil), Proc)
 
 module Tapioca::Runtime::Reflection
-  include ::Tapioca::Runtime::AttachedClassOf
-  extend ::Tapioca::Runtime::AttachedClassOf
   extend ::Tapioca::Runtime::Reflection
 
   def abstract_type_of(constant); end
   def ancestors_of(constant); end
   def are_equal?(object, other); end
+  def attached_class_of(singleton_class); end
   def class_of(object); end
   def const_source_location(constant_name); end
   def constant_defined?(constant); end
@@ -2211,7 +2217,6 @@ end
 
 module Tapioca::Runtime::Trackers::ConstantDefinition
   extend ::Tapioca::Runtime::Trackers::Tracker
-  extend ::Tapioca::Runtime::AttachedClassOf
   extend ::Tapioca::Runtime::Reflection
 
   class << self
@@ -2219,6 +2224,8 @@ module Tapioca::Runtime::Trackers::ConstantDefinition
     def disable!; end
     def files_for(klass); end
     def locations_for(klass); end
+    def register(constant, loc); end
+    def register_cname(cname, namespace, locations); end
   end
 end
 
@@ -2300,41 +2307,6 @@ Tapioca::SorbetHelper::SORBET_EXE_PATH_ENV_VAR = T.let(T.unsafe(nil), String)
 Tapioca::SorbetHelper::SORBET_GEM_SPEC = T.let(T.unsafe(nil), Gem::Specification)
 Tapioca::SorbetHelper::SORBET_PAYLOAD_URL = T.let(T.unsafe(nil), String)
 Tapioca::SorbetHelper::SPOOM_CONTEXT = T.let(T.unsafe(nil), Spoom::Context)
-
-class Tapioca::SourceURI < ::URI::File
-  sig { params(v: T.nilable(::String)).returns(T::Boolean) }
-  def check_host(v); end
-
-  sig { returns(T.nilable(::String)) }
-  def gem_name; end
-
-  sig { returns(T.nilable(::String)) }
-  def gem_version; end
-
-  sig { returns(T.nilable(::String)) }
-  def line_number; end
-
-  sig { params(v: T.nilable(::String)).void }
-  def set_path(v); end
-
-  sig { returns(::String) }
-  def to_s; end
-
-  class << self
-    sig do
-      params(
-        gem_name: ::String,
-        gem_version: T.nilable(::String),
-        path: ::String,
-        line_number: T.nilable(::String)
-      ).returns(T.attached_class)
-    end
-    def build(gem_name:, gem_version:, path:, line_number:); end
-  end
-end
-
-Tapioca::SourceURI::COMPONENT = T.let(T.unsafe(nil), Array)
-Tapioca::SourceURI::PARSER = T.let(T.unsafe(nil), URI::RFC2396_Parser)
 module Tapioca::Static; end
 
 class Tapioca::Static::RequiresCompiler
@@ -2361,7 +2333,6 @@ end
 
 module Tapioca::Static::SymbolLoader
   extend ::Tapioca::SorbetHelper
-  extend ::Tapioca::Runtime::AttachedClassOf
   extend ::Tapioca::Runtime::Reflection
 
   class << self
