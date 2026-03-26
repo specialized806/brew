@@ -162,20 +162,19 @@ module GitHub
     sig { returns(T.nilable(String)) }
     def self.github_cli_token
       require "utils/uid"
-      Utils::UID.drop_euid do
-        # Avoid `Formula["gh"].opt_bin` so this method works even with `HOMEBREW_DISABLE_LOAD_FORMULA`.
-        env = {
-          "PATH" => PATH.new(HOMEBREW_PREFIX/"opt/gh/bin", ENV.fetch("PATH")),
-          "HOME" => Utils::UID.uid_home,
-        }.compact
-        gh_out, _, result = system_command("gh",
-                                           args:         ["auth", "token", "--hostname", "github.com"],
-                                           env:,
-                                           print_stderr: false).to_a
-        return unless result.success?
+      # Avoid `Formula["gh"].opt_bin` so this method works even with `HOMEBREW_DISABLE_LOAD_FORMULA`.
+      env = {
+        "PATH" => PATH.new(HOMEBREW_PREFIX/"opt/gh/bin", ENV.fetch("PATH")),
+        "HOME" => Utils::UID.uid_home,
+      }.compact
+      gh_out, _, result = system_command("gh",
+                                         args:            ["auth", "token", "--hostname", "github.com"],
+                                         env:,
+                                         print_stderr:    false,
+                                         run_as_real_uid: true).to_a
+      return unless result.success?
 
-        gh_out.chomp.presence
-      end
+      gh_out.chomp.presence
     end
 
     # Gets the password field from `git-credential-osxkeychain` for github.com,
@@ -183,26 +182,25 @@ module GitHub
     sig { returns(T.nilable(String)) }
     def self.keychain_username_password
       require "utils/uid"
-      Utils::UID.drop_euid do
-        git_credential_out, _, result = system_command("git",
-                                                       args:         ["credential-osxkeychain", "get"],
-                                                       input:        ["protocol=https\n", "host=github.com\n"],
-                                                       env:          { "HOME" => Utils::UID.uid_home }.compact,
-                                                       print_stderr: false).to_a
-        return unless result.success?
+      git_credential_out, _, result = system_command("git",
+                                                     args:            ["credential-osxkeychain", "get"],
+                                                     input:           ["protocol=https\n", "host=github.com\n"],
+                                                     env:             { "HOME" => Utils::UID.uid_home }.compact,
+                                                     print_stderr:    false,
+                                                     run_as_real_uid: true).to_a
+      return unless result.success?
 
-        git_credential_out.force_encoding("ASCII-8BIT")
-        github_username = git_credential_out[/^username=(.+)/, 1]
-        github_password = git_credential_out[/^password=(.+)/, 1]
-        return unless github_username
+      git_credential_out.force_encoding("ASCII-8BIT")
+      github_username = git_credential_out[/^username=(.+)/, 1]
+      github_password = git_credential_out[/^password=(.+)/, 1]
+      return unless github_username
 
-        # Don't use passwords from the keychain unless they look like
-        # GitHub Personal Access Tokens:
-        #   https://github.com/Homebrew/brew/issues/6862#issuecomment-572610344
-        return unless GITHUB_PERSONAL_ACCESS_TOKEN_REGEX.match?(github_password)
+      # Don't use passwords from the keychain unless they look like
+      # GitHub Personal Access Tokens:
+      #   https://github.com/Homebrew/brew/issues/6862#issuecomment-572610344
+      return unless GITHUB_PERSONAL_ACCESS_TOKEN_REGEX.match?(github_password)
 
-        github_password.presence
-      end
+      github_password.presence
     end
 
     sig { returns(T.nilable(String)) }
