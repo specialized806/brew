@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::fs;
-use std::os::unix::fs::symlink;
+use std::os::unix::fs::{PermissionsExt, symlink};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::process::Command;
@@ -505,6 +505,236 @@ fn fetch_delegates_to_ruby_with_a_reason_when_a_bottle_is_unavailable() {
         String::from_utf8(output.stderr)
             .unwrap()
             .contains("Warning: brew-rs is handing fetch back to the Ruby backend: `testball` does not have a bottle for `x86_64_linux`."),
+    );
+}
+
+#[test]
+fn install_pours_and_links_a_basic_bottle_without_persisting_tab_or_sbom() {
+    let context = TestContext::new();
+    let bottle_staging_root = context.cache.join("bottle-staging");
+    let bottle_root = bottle_staging_root.join("testball/1.0");
+    let bottle_source = context
+        .cache
+        .join("testball--1.0.x86_64_linux.bottle.tar.gz");
+
+    fs::create_dir_all(bottle_root.join("bin")).unwrap();
+    fs::create_dir_all(bottle_root.join(".brew")).unwrap();
+    fs::write(bottle_root.join("INSTALL_RECEIPT.json"), "{}").unwrap();
+    fs::write(bottle_root.join("sbom.spdx.json"), "{}").unwrap();
+    fs::write(
+        bottle_root.join(".brew/testball.rb"),
+        "class Testball < Formula\nend\n",
+    )
+    .unwrap();
+    fs::write(bottle_root.join("bin/testball"), "#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(
+        bottle_root.join("bin/testball"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+
+    let status = Command::new("tar")
+        .args([
+            "-czf",
+            bottle_source.to_str().unwrap(),
+            "-C",
+            bottle_staging_root.to_str().unwrap(),
+            "testball",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let bottle_sha256 = sha256_hex(fs::read(&bottle_source).unwrap());
+
+    fs::create_dir_all(context.formula_api_path("testball").parent().unwrap()).unwrap();
+    fs::write(
+        context.formula_api_path("testball"),
+        format!(
+            r#"{{
+  "name": "testball",
+  "full_name": "testball",
+  "tap": "homebrew/core",
+  "versions": {{
+    "stable": "1.0"
+  }},
+  "revision": 0,
+  "post_install_defined": false,
+  "dependencies": [],
+  "build_dependencies": [],
+  "recommended_dependencies": [],
+  "optional_dependencies": [],
+  "uses_from_macos": [],
+  "bottle": {{
+    "stable": {{
+      "rebuild": 0,
+      "files": {{
+        "x86_64_linux": {{
+          "url": "file://{}",
+          "sha256": "{}",
+          "cellar": ":any_skip_relocation"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+            bottle_source.display(),
+            bottle_sha256,
+        ),
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["install", "testball"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(
+        !String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("Warning: brew-rs is handing install back to the Ruby backend."),
+    );
+    assert!(context.cellar.join("testball/1.0/bin/testball").exists());
+    assert!(context.prefix.join("bin/testball").exists());
+    assert!(context.prefix.join("opt/testball").is_symlink());
+    assert!(
+        !context
+            .cellar
+            .join("testball/1.0/INSTALL_RECEIPT.json")
+            .exists()
+    );
+    assert!(!context.cellar.join("testball/1.0/sbom.spdx.json").exists());
+}
+
+#[test]
+fn install_cleans_up_when_a_bottle_extracts_an_unexpected_prefix() {
+    let context = TestContext::new();
+    let bottle_staging_root = context.cache.join("bottle-staging");
+    let bottle_root = bottle_staging_root.join("wrongball/1.0");
+    let bottle_source = context
+        .cache
+        .join("testball--1.0.x86_64_linux.bottle.tar.gz");
+
+    fs::create_dir_all(bottle_root.join("bin")).unwrap();
+    fs::write(bottle_root.join("bin/testball"), "#!/bin/sh\nexit 0\n").unwrap();
+    fs::set_permissions(
+        bottle_root.join("bin/testball"),
+        std::fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+
+    let status = Command::new("tar")
+        .args([
+            "-czf",
+            bottle_source.to_str().unwrap(),
+            "-C",
+            bottle_staging_root.to_str().unwrap(),
+            "wrongball",
+        ])
+        .status()
+        .unwrap();
+    assert!(status.success());
+
+    let bottle_sha256 = sha256_hex(fs::read(&bottle_source).unwrap());
+
+    fs::create_dir_all(context.formula_api_path("testball").parent().unwrap()).unwrap();
+    fs::write(
+        context.formula_api_path("testball"),
+        format!(
+            r#"{{
+  "name": "testball",
+  "full_name": "testball",
+  "tap": "homebrew/core",
+  "versions": {{
+    "stable": "1.0"
+  }},
+  "revision": 0,
+  "post_install_defined": false,
+  "dependencies": [],
+  "build_dependencies": [],
+  "recommended_dependencies": [],
+  "optional_dependencies": [],
+  "uses_from_macos": [],
+  "bottle": {{
+    "stable": {{
+      "rebuild": 0,
+      "files": {{
+        "x86_64_linux": {{
+          "url": "file://{}",
+          "sha256": "{}",
+          "cellar": ":any_skip_relocation"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+            bottle_source.display(),
+            bottle_sha256,
+        ),
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["install", "testball"])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "{output:?}");
+    assert!(!context.cellar.join("testball").exists());
+    assert!(!context.cellar.join("wrongball").exists());
+}
+
+#[test]
+fn install_delegates_to_ruby_with_a_reason_when_post_install_is_defined() {
+    let context = TestContext::new();
+
+    fs::create_dir_all(context.formula_api_path("testball").parent().unwrap()).unwrap();
+    fs::write(
+        context.formula_api_path("testball"),
+        r#"{
+  "name": "testball",
+  "full_name": "testball",
+  "tap": "homebrew/core",
+  "versions": {
+    "stable": "1.0"
+  },
+  "revision": 0,
+  "post_install_defined": true,
+  "dependencies": [],
+  "build_dependencies": [],
+  "recommended_dependencies": [],
+  "optional_dependencies": [],
+  "uses_from_macos": [],
+  "bottle": {
+    "stable": {
+      "rebuild": 0,
+      "files": {
+        "x86_64_linux": {
+          "url": "file:///tmp/testball--1.0.x86_64_linux.bottle.tar.gz",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "cellar": ":any_skip_relocation"
+        }
+      }
+    }
+  }
+}"#,
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["install", "testball"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr.clone()).unwrap();
+
+    assert!(
+        stderr
+            .contains("Warning: brew-rs is handing install back to the Ruby backend: `testball` defines `post_install`."),
+        "{output:?}"
     );
 }
 
