@@ -331,7 +331,7 @@ This must be done with solutions outside or built on top of `brew bundle` instea
 
 ## Adding New Packages Support
 
-`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools, Flatpak packages and krew (kubectl plugins).
+`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins.
 
 We are interested in contributions for other packages' installers/checkers/dumpers but they must:
 

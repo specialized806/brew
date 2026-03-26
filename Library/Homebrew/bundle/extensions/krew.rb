@@ -30,8 +30,8 @@ module Homebrew
 
           kubectl = package_manager_executable
           result = if kubectl.present?
-            env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
-            Kernel.system(env, kubectl.to_s, "krew", "version", out: File::NULL, err: File::NULL) == true
+            Kernel.system(package_manager_env(kubectl), kubectl.to_s, "krew", "version",
+                          out: File::NULL, err: File::NULL) == true
           else
             false
           end
@@ -46,8 +46,7 @@ module Homebrew
 
           kubectl = package_manager_executable
           @packages = if package_manager_installed? && kubectl
-            env = { "PATH" => "#{kubectl.dirname}:#{ORIGINAL_PATHS.join(":")}" }
-            output = with_env(env) { `#{kubectl} krew list 2>/dev/null` }
+            output = with_env(package_manager_env(kubectl)) { `#{kubectl} krew list 2>/dev/null` }
             parse_plugin_list(output)
           else
             []
@@ -67,8 +66,7 @@ module Homebrew
           kubectl = package_manager_executable
           return false if kubectl.nil?
 
-          env = { "PATH" => "#{kubectl.dirname}:#{ENV.fetch("PATH")}" }
-          with_env(env) do
+          with_env(package_manager_env(kubectl)) do
             Bundle.system(kubectl.to_s, "krew", "install", name, verbose:)
           end
         end

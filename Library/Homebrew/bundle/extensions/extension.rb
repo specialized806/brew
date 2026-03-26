@@ -74,6 +74,11 @@ module Homebrew
         which(package_manager_name, ORIGINAL_PATHS)
       end
 
+      sig { params(executable: Pathname).returns(T::Hash[String, String]) }
+      def self.package_manager_env(executable)
+        { "PATH" => "#{executable.dirname}:#{ORIGINAL_PATHS.join(":")}" }
+      end
+
       sig { returns(String) }
       def self.package_description
         check_label.downcase

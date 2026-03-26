@@ -14,11 +14,8 @@ RSpec.describe Homebrew::Bundle::Krew do
         allow(described_class).to receive(:package_manager_installed?).and_return(false)
       end
 
-      it "returns an empty list" do
+      it "returns an empty list and dumps an empty string" do
         expect(dumper.packages).to be_empty
-      end
-
-      it "dumps an empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
