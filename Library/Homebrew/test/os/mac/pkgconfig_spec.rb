@@ -45,7 +45,7 @@ RSpec.describe "pkg-config", :needs_ci, type: :system do
   it "returns the correct version for expat" do
     version = File.foreach("#{sdk}/usr/include/expat.h")
                   .lazy
-                  .grep(/^#define XML_(MAJOR|MINOR|MICRO)_VERSION (\d+)$/) do
+                  .grep(/^\s*#\s*define XML_(MAJOR|MINOR|MICRO)_VERSION (\d+)$/) do
                     { Regexp.last_match(1).downcase => Regexp.last_match(2) }
                   end
                   .reduce(:merge!)
