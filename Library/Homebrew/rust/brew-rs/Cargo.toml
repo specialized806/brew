@@ -9,10 +9,10 @@ rust-version = "1.85"
 anyhow = "1.0.100"
 # Download multiple bottles in parallel without hand-rolled worker plumbing.
 rayon = "1.11.0"
-# Perform bottle and API downloads over HTTP(S).
-reqwest = { version = "0.12.24", default-features = false, features = ["blocking", "rustls-tls"] }
 # Supports `brew search /REGEX/` matching.
 regex = "1.12.2"
+# Perform bottle and API downloads over HTTP(S).
+reqwest = { version = "0.12.24", default-features = false, features = ["blocking", "deflate", "gzip", "rustls-tls"] }
 # Adds fuzzy fallback suggestions for plain `brew search` queries.
 rust-fuzzy-search = "0.1.1"
 # Deserialize structured Homebrew API and metadata payloads.
