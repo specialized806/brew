@@ -134,7 +134,7 @@ module Cask
 
         path = Pathname(path).expand_path
 
-        @token = path.basename(path.extname).to_s
+        @token = path.basename(path.extname).basename(".internal").to_s
         @path = path
         @tap = Tap.from_path(path) || Homebrew::API.tap_from_source_download(path)
         @from_installed_caskfile = false
@@ -153,11 +153,13 @@ module Cask
            (from_json = JSON.parse(@content).presence) &&
            from_json.is_a?(Hash)
           begin
+            from_internal_json = path.to_s.end_with?(".internal.json")
             return FromAPILoader.new(
               token,
               from_json:,
               path:,
               from_installed_caskfile: @from_installed_caskfile,
+              from_internal_json:,
             ).load(config:)
           rescue CaskInvalidError => e
             if @from_installed_caskfile
@@ -350,34 +352,75 @@ module Cask
           from_json:               T.nilable(T::Hash[String, T.untyped]),
           path:                    T.nilable(Pathname),
           from_installed_caskfile: T::Boolean,
+          from_internal_json:      T::Boolean,
         ).void
       }
-      def initialize(token, from_json: T.unsafe(nil), path: nil, from_installed_caskfile: false)
+      def initialize(token, from_json: T.unsafe(nil), path: nil, from_installed_caskfile: false,
+                     from_internal_json: false)
         @token = token.sub(%r{^homebrew/(?:homebrew-)?cask/}i, "")
-        @sourcefile_path = path || Homebrew::API.cached_cask_json_file_path
+        @sourcefile_path = if path
+          path
+        elsif from_json
+          from_internal_json ? Homebrew::API::Internal.cached_cask_json_file_path : Homebrew::API::Cask.cached_json_file_path
+        else
+          Homebrew::API.cached_cask_json_file_path
+        end
         @path = path || CaskLoader.default_path(@token)
         @from_json = from_json
         @from_installed_caskfile = from_installed_caskfile
+        @from_internal_json = from_internal_json
       end
 
       def load(config:)
-        if !from_json && Homebrew::EnvConfig.use_internal_api?
-          cask_struct = Homebrew::API::Internal.cask_struct(token)
-          api_source = Homebrew::API::Internal.cask_hashes.fetch(token)
-          tap_git_head = Homebrew::API::Internal.cask_tap_git_head
-
-          load_from_struct(config:, cask_struct:, api_source:, tap_git_head:, internal_api: true)
+        if (api_source = from_json)
+          if @from_internal_json
+            load_from_internal_json(config:, api_source:)
+          else
+            load_from_json(config:, api_source:)
+          end
+        elsif Homebrew::EnvConfig.use_internal_api?
+          load_from_internal_api(config:)
         else
-          api_source = from_json || Homebrew::API::Cask.all_casks.fetch(token)
-          tap_git_head = api_source["tap_git_head"]
-          cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
-            api_source, ignore_types: @from_installed_caskfile
-          )
-          load_from_struct(config:, cask_struct:, api_source:, tap_git_head:)
+          load_from_api(config:)
         end
       end
 
       private
+
+      def load_from_api(config:)
+        api_source = Homebrew::API::Cask.all_casks.fetch(token)
+        tap_git_head = api_source["tap_git_head"]
+        cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
+          api_source, ignore_types: @from_installed_caskfile
+        )
+
+        load_from_struct(config:, cask_struct:, api_source:, tap_git_head:)
+      end
+
+      def load_from_internal_api(config:)
+        cask_struct = Homebrew::API::Internal.cask_struct(token)
+        api_source = Homebrew::API::Internal.cask_hashes.fetch(token)
+        tap_git_head = Homebrew::API::Internal.cask_tap_git_head
+
+        load_from_struct(config:, cask_struct:, api_source:, tap_git_head:, internal_api: true)
+      end
+
+      def load_from_json(config:, api_source:)
+        tap_git_head = api_source["tap_git_head"]
+        cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
+          api_source, ignore_types: @from_installed_caskfile
+        )
+
+        load_from_struct(config:, cask_struct:, api_source:, tap_git_head:)
+      end
+
+      def load_from_internal_json(config:, api_source:)
+        api_source = api_source.dup
+        tap_git_head = api_source.delete("tap_git_head")
+        cask_struct = Homebrew::API::CaskStruct.deserialize(api_source)
+
+        load_from_struct(config:, cask_struct:, api_source:, tap_git_head:, internal_api: true)
+      end
 
       sig {
         params(
@@ -497,7 +540,7 @@ module Cask
         token = if ref.is_a?(String)
           ref
         elsif ref.is_a?(Pathname)
-          ref.basename(ref.extname).to_s
+          ref.basename(ref.extname).basename(".internal").to_s
         end
         return unless token
 

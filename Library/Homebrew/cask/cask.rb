@@ -261,7 +261,7 @@ module Cask
       caskfile_dir = metadata_main_container_path(caskroom_path: installed_caskroom_path)
                      .join(*installed_version, "Casks")
 
-      ["json", "rb"]
+      ["internal.json", "json", "rb"]
         .map { |ext| caskfile_dir.join("#{installed_token}.#{ext}") }
         .find(&:exist?)
     end
