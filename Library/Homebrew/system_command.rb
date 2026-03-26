@@ -195,6 +195,7 @@ class SystemCommand
     @args = args
 
     raise ArgumentError, "`sudo_as_root` cannot be set if sudo is false" if !sudo && sudo_as_root
+    raise ArgumentError, "`reset_uid` and `run_as_real_uid` cannot both be true" if reset_uid && run_as_real_uid
 
     if print_stdout.is_a?(Symbol) && print_stdout != :debug
       raise ArgumentError, "`print_stdout` is not a valid symbol"
