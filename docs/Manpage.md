@@ -138,7 +138,7 @@ and are now no longer needed.
 
 Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store
 dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo
-packages, uv tools, Flatpak packages and npm packages.
+packages, uv tools, Flatpak packages, Krew plugins and npm packages.
 
 Note: Flatpak support is only available on Linux.
 
@@ -193,16 +193,16 @@ By default, only Homebrew formula dependencies are listed.
 `brew bundle add` *`name`* \[...\]
 
 : Add entries to your `Brewfile`. Adds formulae by default. Use `--cask`,
-  `--tap`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak` and `--npm` to add
-  the corresponding entry instead.
+  `--tap`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak`, `--krew` and
+  `--npm` to add the corresponding entry instead.
 
 `brew bundle remove` *`name`* \[...\]
 
 : Remove entries that match `name` from your `Brewfile`. Use `--formula`,
-  `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak`
-  and `--npm` to remove only entries of the corresponding type. Passing
-  `--formula` also removes matches against formula aliases and old formula
-  names.
+  `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`,
+  `--flatpak`, `--krew` and `--npm` to remove only entries of the corresponding
+  type. Passing `--formula` also removes matches against formula aliases and old
+  formula names.
 
 `brew bundle exec` \[`--check`\] \[`--no-secrets`\] *`command`*
 
@@ -317,6 +317,10 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : `list`, `dump` or `cleanup` Flatpak packages. Note: Linux only.
 
+`--krew`
+
+: `list` or `dump` Krew plugins.
+
 `--npm`
 
 : `list` or `dump` npm packages.
@@ -345,6 +349,11 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : `dump` without Flatpak packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set.
+
+`--no-krew`
+
+: `dump` without Krew plugins. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_KREW` is set.
 
 `--no-npm`
 
