@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use reqwest::blocking::Client;
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
 use serde::Deserialize;
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -49,7 +50,7 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
     let api_cache = homebrew::cache_api_path()?;
     let aliases = load_aliases(&api_cache.join("formula_aliases.txt"))?;
     let bottle_tag = current_bottle_tag()?;
-    let client = Arc::new(build_client()?);
+    let client = build_client()?;
     let mut signed_cache_formulae = None;
     let mut bottles = Vec::with_capacity(args.len() - 1);
     let mut cached_downloads = HashSet::with_capacity(args.len() - 1);
@@ -63,7 +64,8 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
             &bottle_tag,
             &client,
         )? {
-            Resolution::Bottle(bottle) => {
+            Resolution::Bottle(resolved) => {
+                let bottle = resolved.bottle.clone();
                 if cached_downloads.insert(bottle.cached_download.clone()) {
                     bottles.push(bottle);
                 }
@@ -74,6 +76,12 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
         }
     }
 
+    fetch_bottles(&bottles, &client)?;
+
+    Ok(ExitCode::SUCCESS)
+}
+
+pub(crate) fn fetch_bottles(bottles: &[BottleFetch], client: &Client) -> BrewResult<()> {
     if bottles.len() > 1 {
         println!(
             "Fetching: {}",
@@ -113,7 +121,7 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
                 .par_iter()
                 .zip(progress.par_iter())
                 .try_for_each(|(bottle, progress)| {
-                    fetch_bottle(bottle, client.as_ref(), progress, show_progress)
+                    fetch_bottle(bottle, client, progress, show_progress)
                 })
         });
 
@@ -121,25 +129,30 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
         renderer.stop();
     }
 
-    result?;
-
-    Ok(ExitCode::SUCCESS)
+    result
 }
 
-enum Resolution {
-    Bottle(BottleFetch),
+pub(crate) enum Resolution {
+    Bottle(Box<ResolvedBottle>),
     Delegate(String),
 }
 
 #[derive(Clone, Debug)]
-struct BottleFetch {
-    formula_name: String,
-    display_name: String,
-    display_version: String,
-    bottle_url: String,
-    bottle_sha256: String,
-    cached_download: PathBuf,
-    symlink_path: PathBuf,
+pub(crate) struct ResolvedBottle {
+    pub(crate) formula: FormulaJson,
+    pub(crate) bottle: BottleFetch,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct BottleFetch {
+    pub(crate) formula_name: String,
+    pub(crate) display_name: String,
+    pub(crate) display_version: String,
+    pub(crate) bottle_url: String,
+    pub(crate) bottle_sha256: String,
+    pub(crate) bottle_cellar: Option<String>,
+    pub(crate) cached_download: PathBuf,
+    pub(crate) symlink_path: PathBuf,
 }
 
 #[derive(Clone)]
@@ -151,36 +164,58 @@ struct DownloadProgress {
     done: bool,
 }
 
-#[derive(Deserialize, Clone)]
-struct FormulaJson {
-    name: String,
-    full_name: String,
-    tap: String,
-    versions: Versions,
-    revision: u32,
-    bottle: Option<BottleMetadata>,
+#[derive(Deserialize, Clone, Debug)]
+pub(crate) struct FormulaJson {
+    pub(crate) name: String,
+    pub(crate) full_name: String,
+    pub(crate) tap: String,
+    pub(crate) versions: Versions,
+    pub(crate) revision: u32,
+    #[serde(default)]
+    pub(crate) post_install_defined: Option<bool>,
+    #[serde(default)]
+    pub(crate) dependencies: Vec<Value>,
+    #[serde(default)]
+    pub(crate) build_dependencies: Vec<Value>,
+    #[serde(default)]
+    pub(crate) test_dependencies: Vec<Value>,
+    #[serde(default)]
+    pub(crate) recommended_dependencies: Vec<Value>,
+    #[serde(default)]
+    pub(crate) optional_dependencies: Vec<Value>,
+    #[serde(default)]
+    pub(crate) uses_from_macos: Vec<Value>,
+    #[serde(default)]
+    pub(crate) caveats: Option<String>,
+    #[serde(default)]
+    pub(crate) keg_only_reason: Option<Value>,
+    #[serde(default)]
+    pub(crate) service: Option<Value>,
+    pub(crate) bottle: Option<BottleMetadata>,
 }
 
-#[derive(Deserialize, Clone)]
-struct Versions {
-    stable: String,
+#[derive(Deserialize, Clone, Debug)]
+pub(crate) struct Versions {
+    pub(crate) stable: String,
 }
 
-#[derive(Deserialize, Clone)]
-struct BottleMetadata {
-    stable: Option<BottleStable>,
+#[derive(Deserialize, Clone, Debug)]
+pub(crate) struct BottleMetadata {
+    pub(crate) stable: Option<BottleStable>,
 }
 
-#[derive(Deserialize, Clone)]
-struct BottleStable {
-    rebuild: u32,
-    files: HashMap<String, BottleFile>,
+#[derive(Deserialize, Clone, Debug)]
+pub(crate) struct BottleStable {
+    pub(crate) rebuild: u32,
+    pub(crate) files: HashMap<String, BottleFile>,
 }
 
-#[derive(Deserialize, Clone)]
-struct BottleFile {
-    url: String,
-    sha256: String,
+#[derive(Deserialize, Clone, Debug)]
+pub(crate) struct BottleFile {
+    pub(crate) url: String,
+    pub(crate) sha256: String,
+    #[serde(default)]
+    pub(crate) cellar: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -188,7 +223,7 @@ struct SignedPayload {
     payload: String,
 }
 
-fn resolve_bottle(
+pub(crate) fn resolve_bottle(
     name: &str,
     aliases: &HashMap<String, String>,
     api_cache: &Path,
@@ -246,25 +281,29 @@ fn resolve_bottle(
     // Match the path split used by `Bottle#root_url` and `AbstractFileDownloadStrategy`
     // in `Library/Homebrew/bottle.rb`, `Library/Homebrew/utils/bottles.rb`,
     // and `Library/Homebrew/download_strategy.rb`.
-    Ok(Resolution::Bottle(BottleFetch {
-        formula_name: formula.full_name.clone(),
-        display_name: formula.name.clone(),
-        display_version: pkg_version(&formula.versions.stable, formula.revision),
-        bottle_url: bottle_file.url.clone(),
-        bottle_sha256: bottle_file.sha256.to_ascii_lowercase(),
-        cached_download: cache_path.join("downloads").join(format!(
-            "{}--{bottle_name}",
-            sha256_hex_str(&bottle_file.url)
-        )),
-        symlink_path: cache_path.join(format!(
-            "{}--{}",
-            formula.name,
-            pkg_version(&formula.versions.stable, formula.revision)
-        )),
-    }))
+    Ok(Resolution::Bottle(Box::new(ResolvedBottle {
+        formula: formula.clone(),
+        bottle: BottleFetch {
+            formula_name: formula.full_name.clone(),
+            display_name: formula.name.clone(),
+            display_version: pkg_version(&formula.versions.stable, formula.revision),
+            bottle_url: bottle_file.url.clone(),
+            bottle_sha256: bottle_file.sha256.to_ascii_lowercase(),
+            bottle_cellar: bottle_file.cellar.clone(),
+            cached_download: cache_path.join("downloads").join(format!(
+                "{}--{bottle_name}",
+                sha256_hex_str(&bottle_file.url)
+            )),
+            symlink_path: cache_path.join(format!(
+                "{}--{}",
+                formula.name,
+                pkg_version(&formula.versions.stable, formula.revision)
+            )),
+        },
+    })))
 }
 
-fn load_formula_json(
+pub(crate) fn load_formula_json(
     name: &str,
     api_cache: &Path,
     signed_cache_formulae: &mut Option<HashMap<String, FormulaJson>>,
@@ -613,7 +652,7 @@ fn verify_checksum(path: &Path, expected: &str) -> BrewResult<()> {
     )
 }
 
-fn load_aliases(path: &Path) -> BrewResult<HashMap<String, String>> {
+pub(crate) fn load_aliases(path: &Path) -> BrewResult<HashMap<String, String>> {
     if !path.exists() {
         return Ok(HashMap::new());
     }
@@ -627,7 +666,7 @@ fn load_aliases(path: &Path) -> BrewResult<HashMap<String, String>> {
         .collect())
 }
 
-fn build_client() -> BrewResult<Client> {
+pub(crate) fn build_client() -> BrewResult<Client> {
     Client::builder()
         .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
@@ -647,7 +686,7 @@ fn api_domains() -> Vec<String> {
     }
 }
 
-fn current_bottle_tag() -> BrewResult<String> {
+pub(crate) fn current_bottle_tag() -> BrewResult<String> {
     if env_flag("HOMEBREW_LINUX")
         || env::var("HOMEBREW_SYSTEM")
             .map(|system| system == "Linux")
@@ -720,7 +759,7 @@ fn bottle_basename(
     }
 }
 
-fn pkg_version(version: &str, revision: u32) -> String {
+pub(crate) fn pkg_version(version: &str, revision: u32) -> String {
     if revision == 0 {
         version.to_string()
     } else {
@@ -736,7 +775,7 @@ fn download_concurrency(requested_downloads: usize) -> usize {
     )
 }
 
-fn is_simple_formula_name(name: &str) -> bool {
+pub(crate) fn is_simple_formula_name(name: &str) -> bool {
     !name.is_empty()
         && !name.contains('/')
         && !name.contains(':')
