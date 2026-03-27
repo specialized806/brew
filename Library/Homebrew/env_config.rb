@@ -279,6 +279,10 @@ module Homebrew
         description: "If set, require `brew` to be invoked by the value of " \
                      "`$HOMEBREW_FORCE_BREW_WRAPPER` for non-trivial `brew` commands.",
       },
+      HOMEBREW_FORCE_BREW_WRAPPER_HELP_MESSAGE:  {
+        description: "If set, appended to the `$HOMEBREW_FORCE_BREW_WRAPPER` error message to provide " \
+                     "additional help or context to the user.",
+      },
       HOMEBREW_FORCE_VENDOR_RUBY:                {
         description: "If set, always use Homebrew's vendored, relocatable Ruby version even if the system version " \
                      "of Ruby is new enough.",
