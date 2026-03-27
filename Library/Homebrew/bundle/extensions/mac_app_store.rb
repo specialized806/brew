@@ -190,8 +190,7 @@ module Homebrew
 
           return true unless preinstall
 
-          mas = package_manager_executable
-          return false if mas.nil?
+          mas = package_manager_executable!
 
           if app_id_installed?(id)
             puts "Upgrading #{name} app. It is installed but not up-to-date." if verbose

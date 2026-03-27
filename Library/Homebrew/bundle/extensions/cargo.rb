@@ -53,8 +53,7 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          cargo = package_manager_executable
-          return false if cargo.nil?
+          cargo = package_manager_executable!
 
           with_env(cargo_env(cargo)) do
             Bundle.system(cargo.to_s, "install", "--locked", name, verbose:)
