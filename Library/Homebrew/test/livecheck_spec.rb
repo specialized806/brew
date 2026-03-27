@@ -132,6 +132,17 @@ RSpec.describe Livecheck do
     end
   end
 
+  describe "#throttle_max_age_days" do
+    it "returns nil if not set" do
+      expect(livecheck_f.throttle_max_age_days).to be_nil
+    end
+
+    it "returns the Integer if set" do
+      livecheck_f.throttle_max_age_days(1)
+      expect(livecheck_f.throttle_max_age_days).to eq(1)
+    end
+  end
+
   describe "#url" do
     let(:url_string) { "https://brew.sh" }
     let(:referer_url) { "https://example.com/referer" }
@@ -308,15 +319,16 @@ RSpec.describe Livecheck do
     it "returns a Hash of all instance variables" do
       expect(livecheck_f.to_hash).to eq(
         {
-          "options"  => Homebrew::Livecheck::Options.new.to_hash,
-          "cask"     => nil,
-          "formula"  => nil,
-          "regex"    => nil,
-          "skip"     => false,
-          "skip_msg" => nil,
-          "strategy" => nil,
-          "throttle" => nil,
-          "url"      => nil,
+          "options"               => Homebrew::Livecheck::Options.new.to_hash,
+          "cask"                  => nil,
+          "formula"               => nil,
+          "regex"                 => nil,
+          "skip"                  => false,
+          "skip_msg"              => nil,
+          "strategy"              => nil,
+          "throttle"              => nil,
+          "throttle_max_age_days" => nil,
+          "url"                   => nil,
         },
       )
     end

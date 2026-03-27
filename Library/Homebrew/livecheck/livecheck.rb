@@ -7,6 +7,7 @@ require "livecheck/livecheck_version"
 require "livecheck/skip_conditions"
 require "livecheck/strategy"
 require "addressable"
+require "utils/git"
 require "utils/output"
 
 module Homebrew
@@ -627,6 +628,8 @@ module Homebrew
       livecheck_strategy = livecheck.strategy || referenced_livecheck&.strategy
       livecheck_strategy_block = livecheck.strategy_block || referenced_livecheck&.strategy_block
       livecheck_throttle = livecheck.throttle || referenced_livecheck&.throttle
+      livecheck_throttle_max_age_days = livecheck.throttle_max_age_days ||
+                                        referenced_livecheck&.throttle_max_age_days
 
       referenced_package = referenced_formula_or_cask || formula_or_cask
 
@@ -644,6 +647,7 @@ module Homebrew
         end
         puts "livecheck block?: #{livecheck_defined ? "Yes" : "No"}"
         puts "Throttle:         #{livecheck_throttle}" if livecheck_throttle
+        puts "Throttle Max Age: #{livecheck_throttle_max_age_days} day(s)" if livecheck_throttle_max_age_days
 
         livecheck_references.each do |ref_formula_or_cask|
           case ref_formula_or_cask
@@ -778,11 +782,19 @@ module Homebrew
         }
 
         if livecheck_throttle
-          match_version_map.keep_if { |_match, version| version.patch.to_i.modulo(livecheck_throttle).zero? }
-          version_info[:latest_throttled] = if match_version_map.blank?
-            nil
+          throttled_match_version_map = match_version_map.select do |_match, version|
+            version.patch.to_i.modulo(livecheck_throttle).zero?
+          end
+
+          if throttled_match_version_map.present?
+            version_info[:latest_throttled] = Version.new(
+              throttled_match_version_map.values.max_by { |v| LivecheckVersion.create(formula_or_cask, v) },
+            )
+          elsif livecheck_throttle_max_age_days &&
+                throttle_max_age_elapsed?(formula_or_cask, livecheck_throttle_max_age_days)
+            version_info[:latest_throttled] = version_info[:latest]
           else
-            Version.new(match_version_map.values.max_by { |v| LivecheckVersion.create(formula_or_cask, v) })
+            version_info[:latest_throttled] = nil
           end
 
           if debug
@@ -790,11 +802,15 @@ module Homebrew
             puts "Matched Throttled Versions:"
 
             if verbose
-              match_version_map.each do |match, version|
+              throttled_match_version_map.each do |match, version|
                 puts "#{match} => #{version.inspect}"
               end
             else
-              puts match_version_map.values.join(", ")
+              puts throttled_match_version_map.values.join(", ")
+            end
+
+            if version_info[:latest_throttled] == version_info[:latest] && throttled_match_version_map.blank?
+              puts "Using latest version because throttle interval elapsed"
             end
           end
         end
@@ -829,6 +845,9 @@ module Homebrew
           version_info[:meta][:regex] = regex.inspect if regex.present?
           version_info[:meta][:cached] = true if strategy_data[:cached] == true
           version_info[:meta][:throttle] = livecheck_throttle if livecheck_throttle
+          if livecheck_throttle_max_age_days
+            version_info[:meta][:throttle_max_age_days] = livecheck_throttle_max_age_days
+          end
         end
 
         return version_info
@@ -1061,6 +1080,49 @@ module Homebrew
         end
       end
       resource_version_info
+    end
+
+    sig { params(package_or_resource: T.any(Formula, Cask::Cask), max_age_days: Integer).returns(T::Boolean) }
+    private_class_method def self.throttle_max_age_elapsed?(package_or_resource, max_age_days)
+      return false if max_age_days <= 0
+
+      last_updated_timestamp = formula_or_cask_last_updated_timestamp(package_or_resource)
+      return false if last_updated_timestamp.nil?
+
+      elapsed_seconds = Time.now.to_i - last_updated_timestamp
+      elapsed_seconds >= (max_age_days * 24 * 60 * 60)
+    end
+
+    sig { params(package_or_resource: T.any(Formula, Cask::Cask)).returns(T.nilable(Integer)) }
+    private_class_method def self.formula_or_cask_last_updated_timestamp(package_or_resource)
+      tap = package_or_resource.tap
+      return if tap.nil?
+      return unless tap.git?
+      return unless Utils::Git.available?
+
+      sourcefile = case package_or_resource
+      when Formula
+        package_or_resource.path
+      when Cask::Cask
+        package_or_resource.sourcefile_path
+      end
+      return if sourcefile.nil?
+
+      relative_sourcefile = sourcefile.relative_path_from(tap.path).to_s
+      timestamp = Utils.popen_read(
+        Utils::Git.git,
+        "log",
+        "-1",
+        "--format=%ct",
+        "--",
+        relative_sourcefile,
+        chdir: tap.path,
+      ).chomp.presence
+      return if timestamp.nil?
+
+      Integer(timestamp, exception: false)
+    rescue ArgumentError
+      nil
     end
   end
 end

@@ -76,6 +76,45 @@ RSpec.describe Homebrew::Livecheck do
     RUBY
   end
 
+  let(:f_throttle_max_age) do
+    formula("test_throttle_max_age") do
+      desc "Test formula"
+      homepage "https://brew.sh"
+      url "https://brew.sh/test-0.0.1.tgz"
+
+      livecheck do
+        throttle 10
+        throttle_max_age_days 1
+      end
+    end
+  end
+
+  let(:f_throttle_only) do
+    formula("test_throttle_only") do
+      desc "Test formula"
+      homepage "https://brew.sh"
+      url "https://brew.sh/test-0.0.1.tgz"
+
+      livecheck do
+        throttle 10
+      end
+    end
+  end
+
+  let(:test_strategy) do
+    Class.new do
+      def self.find_versions(url:, regex: nil, options: nil)
+        {
+          matches: {
+            "one" => Version.new("1.2.1"),
+            "two" => Version.new("1.2.2"),
+          },
+          regex:   nil,
+        }
+      end
+    end
+  end
+
   describe "::livecheck_strategy_names" do
     context "when provided with a strategy class" do
       it "returns demodulized class name" do
@@ -328,6 +367,44 @@ RSpec.describe Homebrew::Livecheck do
 
     it "returns `false` if URL string does not contain a domain" do
       expect(livecheck.use_homebrew_curl?(f_homebrew_curl, "test")).to be(false)
+    end
+  end
+
+  describe "::latest_version" do
+    before do
+      allow(Homebrew::Livecheck::Strategy).to receive_messages(
+        from_url:    [test_strategy],
+        from_symbol: nil,
+      )
+      allow(livecheck).to receive_messages(
+        livecheck_strategy_names:           "TestStrategy",
+        livecheck_find_versions_parameters: [:url, :regex, :options],
+      )
+    end
+
+    it "returns latest_throttled as nil when no throttled version and max age is not elapsed" do
+      allow(livecheck).to receive(:throttle_max_age_elapsed?).and_return(false)
+
+      result = livecheck.latest_version(f_throttle_max_age)
+
+      expect(result[:latest]).to eq(Version.new("1.2.2"))
+      expect(result[:latest_throttled]).to be_nil
+    end
+
+    it "returns latest as latest_throttled when max age is elapsed" do
+      allow(livecheck).to receive(:throttle_max_age_elapsed?).and_return(true)
+
+      result = livecheck.latest_version(f_throttle_max_age)
+
+      expect(result[:latest]).to eq(Version.new("1.2.2"))
+      expect(result[:latest_throttled]).to eq(Version.new("1.2.2"))
+    end
+
+    it "does not apply max age behavior when throttle_max_age_days is not set" do
+      result = livecheck.latest_version(f_throttle_only)
+
+      expect(result[:latest]).to eq(Version.new("1.2.2"))
+      expect(result[:latest_throttled]).to be_nil
     end
   end
 end

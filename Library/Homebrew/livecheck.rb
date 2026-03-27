@@ -41,6 +41,7 @@ class Livecheck
     @strategy = T.let(nil, T.nilable(Symbol))
     @strategy_block = T.let(nil, T.nilable(Proc))
     @throttle = T.let(nil, T.nilable(Integer))
+    @throttle_max_age_days = T.let(nil, T.nilable(Integer))
     @url = T.let(nil, T.nilable(T.any(String, Symbol)))
   end
 
@@ -161,6 +162,24 @@ class Livecheck
     end
   end
 
+  # Sets the `@throttle_max_age_days` instance variable to the provided
+  # `Integer` or returns the `@throttle_max_age_days` instance variable when
+  # no argument is provided.
+  sig {
+    params(
+      # Maximum number of days before allowing a non-multiple update.
+      days: Integer,
+    ).returns(T.nilable(Integer))
+  }
+  def throttle_max_age_days(days = T.unsafe(nil))
+    case days
+    when nil
+      @throttle_max_age_days
+    when Integer
+      @throttle_max_age_days = days
+    end
+  end
+
   # Sets the `@url` instance variable to the provided argument or returns the
   # `@url` instance variable when no argument is provided. The argument can be
   # a `String` (a URL) or a supported `Symbol` corresponding to a URL in the
@@ -220,15 +239,16 @@ class Livecheck
   sig { returns(T::Hash[String, T.untyped]) }
   def to_hash
     {
-      "options"  => @options.to_hash,
-      "cask"     => @referenced_cask_name,
-      "formula"  => @referenced_formula_name,
-      "regex"    => @regex,
-      "skip"     => @skip,
-      "skip_msg" => @skip_msg,
-      "strategy" => @strategy,
-      "throttle" => @throttle,
-      "url"      => @url,
+      "options"               => @options.to_hash,
+      "cask"                  => @referenced_cask_name,
+      "formula"               => @referenced_formula_name,
+      "regex"                 => @regex,
+      "skip"                  => @skip,
+      "skip_msg"              => @skip_msg,
+      "strategy"              => @strategy,
+      "throttle"              => @throttle,
+      "throttle_max_age_days" => @throttle_max_age_days,
+      "url"                   => @url,
     }
   end
 end
