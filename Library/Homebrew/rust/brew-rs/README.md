@@ -103,6 +103,18 @@ brew uninstall hello
 brew update --quiet --force
 ```
 
+Current install smoke test:
+`aview` was the real dependency-bearing formula used to validate the
+current Rust install path because its `aalib` dependency stays inside the
+supported bottle-only slice. `libaacs` still delegates back to Ruby
+because it has `build_dependencies`, `uses_from_macos`, `post_install`,
+and a `:any` bottle that still needs relocation support. I did not find a
+current real formula with a `>=2` dependency tree that also stays inside
+the current Rust install boundary, so `aview` is the closest real-world
+smoke test for now. In this environment I had to prime the cache with
+Ruby `brew fetch aalib aview` first because Ruby could fetch those GHCR
+bottles while the Rust downloader still failed against GHCR.
+
 ## Next Steps
 
 The current plan is to keep correctness-sensitive install lifecycle work in

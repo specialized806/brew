@@ -4,6 +4,8 @@ use crate::delegate;
 use crate::homebrew;
 use crate::utils::formatter;
 use anyhow::{Context, anyhow, bail};
+use reqwest::blocking::Client;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
@@ -46,34 +48,217 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
         Resolution::Delegate(reason) => return delegate::run_with_reason(args, "install", &reason),
     };
 
-    if let Some(reason) = basic_install_delegate_reason(&resolved)? {
-        return delegate::run_with_reason(args, "install", &reason);
-    }
+    let install_plan = match resolve_install_plan(
+        *resolved,
+        &aliases,
+        &api_cache,
+        &mut signed_cache_formulae,
+        &bottle_tag,
+        &client,
+    )? {
+        InstallPlan::Actions(actions) => actions,
+        InstallPlan::Delegate(reason) => {
+            return delegate::run_with_reason(args, "install", &reason);
+        }
+    };
 
     // TODO: Add argument parity for multi-formula installs, local formula paths, taps, and flags.
     // TODO: Add `FormulaInstaller#check_install_sanity`, locking, and conflict checks before mutating the Cellar.
-    // TODO: Add dependency resolution and installation instead of requiring a leaf bottle formula.
     // TODO: Add relocation and dynamic linkage handling for bottles that are not `:any_skip_relocation`.
     // TODO: Add `post_install`, `Tab` writes, SBOM writes, services, caveats, and global post-install hooks.
     // TODO: Replace the temporary Ruby `brew link` reuse with Rust parity for `Keg#link`.
     // TODO: Validate bottle archive entries before extraction instead of trusting `tar` to keep paths contained.
 
-    fetch::fetch_bottles(std::slice::from_ref(&resolved.bottle), &client)?;
-    pour_bottle(&resolved)?;
-    link_installed_keg(&resolved.formula.name)
+    fetch::fetch_bottles(
+        &install_plan
+            .iter()
+            .filter_map(|action| match action {
+                InstallAction::Pour(resolved) => Some(resolved.bottle.clone()),
+                InstallAction::Link(_) => None,
+            })
+            .collect::<Vec<_>>(),
+        &client,
+    )?;
+
+    for action in install_plan {
+        let exit_code = match action {
+            InstallAction::Link(formula_name) => link_installed_keg(&formula_name)?,
+            InstallAction::Pour(resolved) => {
+                pour_bottle(&resolved)?;
+                link_installed_keg(&resolved.formula.name)?
+            }
+        };
+        if exit_code != ExitCode::SUCCESS {
+            return Ok(exit_code);
+        }
+    }
+
+    Ok(ExitCode::SUCCESS)
+}
+
+enum InstallPlan {
+    Actions(Vec<InstallAction>),
+    Delegate(String),
+}
+
+enum InstallAction {
+    Link(String),
+    Pour(Box<ResolvedBottle>),
+}
+
+struct InstallState {
+    exact_prefix_exists: bool,
+    linked_state_exists: bool,
+    rack_exists: bool,
+}
+
+struct InstallPlanner<'a> {
+    aliases: &'a HashMap<String, String>,
+    api_cache: &'a Path,
+    signed_cache_formulae: &'a mut Option<HashMap<String, FormulaJson>>,
+    bottle_tag: &'a str,
+    client: &'a Client,
+    visiting: HashSet<String>,
+    planned: HashSet<String>,
+    actions: Vec<InstallAction>,
+}
+
+impl<'a> InstallPlanner<'a> {
+    fn new(
+        aliases: &'a HashMap<String, String>,
+        api_cache: &'a Path,
+        signed_cache_formulae: &'a mut Option<HashMap<String, FormulaJson>>,
+        bottle_tag: &'a str,
+        client: &'a Client,
+    ) -> Self {
+        Self {
+            aliases,
+            api_cache,
+            signed_cache_formulae,
+            bottle_tag,
+            client,
+            visiting: HashSet::new(),
+            planned: HashSet::new(),
+            actions: Vec::new(),
+        }
+    }
+
+    fn resolve(mut self, resolved: ResolvedBottle) -> BrewResult<InstallPlan> {
+        match self.append_install_actions(resolved, true)? {
+            Some(reason) => Ok(InstallPlan::Delegate(reason)),
+            None => Ok(InstallPlan::Actions(self.actions)),
+        }
+    }
+
+    fn append_install_actions(
+        &mut self,
+        resolved: ResolvedBottle,
+        root_formula: bool,
+    ) -> BrewResult<Option<String>> {
+        if self.planned.contains(&resolved.formula.full_name) {
+            return Ok(None);
+        }
+        if !self.visiting.insert(resolved.formula.full_name.clone()) {
+            return Ok(Some(format!(
+                "`{}` has cyclic dependencies.",
+                resolved.formula.full_name
+            )));
+        }
+
+        let install_state = install_state(&resolved.formula)?;
+        if !root_formula && install_state.exact_prefix_exists {
+            if !install_state.linked_state_exists && resolved.formula.keg_only_reason.is_none() {
+                self.actions
+                    .push(InstallAction::Link(resolved.formula.name.clone()));
+            }
+            self.planned.insert(resolved.formula.full_name.clone());
+            self.visiting.remove(&resolved.formula.full_name);
+            return Ok(None);
+        }
+
+        if let Some(reason) = basic_install_delegate_reason(&resolved)? {
+            self.visiting.remove(&resolved.formula.full_name);
+            return Ok(Some(reason));
+        }
+
+        for dependency in &resolved.formula.dependencies {
+            let dependency_name = dependency.as_str().ok_or_else(|| {
+                anyhow!("Missing dependency name for {}", resolved.formula.full_name)
+            })?;
+            let dependency = match fetch::resolve_bottle(
+                dependency_name,
+                self.aliases,
+                self.api_cache,
+                self.signed_cache_formulae,
+                self.bottle_tag,
+                self.client,
+            )? {
+                Resolution::Bottle(resolved) => resolved,
+                Resolution::Delegate(reason) => {
+                    self.visiting.remove(&resolved.formula.full_name);
+                    return Ok(Some(reason));
+                }
+            };
+            if let Some(reason) = self.append_install_actions(*dependency, false)? {
+                self.visiting.remove(&resolved.formula.full_name);
+                return Ok(Some(reason));
+            }
+        }
+
+        self.planned.insert(resolved.formula.full_name.clone());
+        self.visiting.remove(&resolved.formula.full_name);
+        self.actions.push(InstallAction::Pour(Box::new(resolved)));
+
+        Ok(None)
+    }
+}
+
+fn resolve_install_plan(
+    resolved: ResolvedBottle,
+    aliases: &HashMap<String, String>,
+    api_cache: &Path,
+    signed_cache_formulae: &mut Option<HashMap<String, FormulaJson>>,
+    bottle_tag: &str,
+    client: &Client,
+) -> BrewResult<InstallPlan> {
+    InstallPlanner::new(
+        aliases,
+        api_cache,
+        signed_cache_formulae,
+        bottle_tag,
+        client,
+    )
+    .resolve(resolved)
+}
+
+fn install_state(formula: &FormulaJson) -> BrewResult<InstallState> {
+    let prefix = homebrew::prefix_path()?;
+
+    Ok(InstallState {
+        exact_prefix_exists: installed_prefix(formula)?.exists(),
+        linked_state_exists: path_exists_or_is_symlink(&prefix.join("opt").join(&formula.name))?
+            || path_exists_or_is_symlink(&prefix.join("var/homebrew/linked").join(&formula.name))?,
+        rack_exists: homebrew::cellar_path()?.join(&formula.name).exists(),
+    })
 }
 
 fn basic_install_delegate_reason(resolved: &ResolvedBottle) -> BrewResult<Option<String>> {
     let formula = &resolved.formula;
 
-    if !formula.dependencies.is_empty()
-        || !formula.build_dependencies.is_empty()
+    if formula.dependencies.iter().any(|dependency| {
+        !dependency
+            .as_str()
+            .is_some_and(fetch::is_simple_formula_name)
+    }) || !formula.build_dependencies.is_empty()
         || !formula.test_dependencies.is_empty()
         || !formula.recommended_dependencies.is_empty()
         || !formula.optional_dependencies.is_empty()
         || !formula.uses_from_macos.is_empty()
     {
-        return Ok(Some(format!("`{}` has dependencies.", formula.full_name)));
+        return Ok(Some(format!(
+            "`{}` has unsupported dependency metadata.",
+            formula.full_name
+        )));
     }
 
     match formula.post_install_defined {
@@ -121,18 +306,15 @@ fn basic_install_delegate_reason(resolved: &ResolvedBottle) -> BrewResult<Option
         return Ok(Some(format!("`{}` defines caveats.", formula.full_name)));
     }
 
-    let rack = homebrew::cellar_path()?.join(&formula.name);
-    if rack.exists() {
+    let install_state = install_state(formula)?;
+    if install_state.rack_exists {
         return Ok(Some(format!(
             "reinstalls and upgrades for `{}` are not yet supported.",
             formula.full_name
         )));
     }
 
-    let prefix = homebrew::prefix_path()?;
-    if path_exists_or_is_symlink(&prefix.join("opt").join(&formula.name))?
-        || path_exists_or_is_symlink(&prefix.join("var/homebrew/linked").join(&formula.name))?
-    {
+    if install_state.linked_state_exists {
         return Ok(Some(format!(
             "`{}` already has linked install state.",
             formula.full_name

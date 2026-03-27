@@ -609,6 +609,114 @@ fn install_pours_and_links_a_basic_bottle_without_persisting_tab_or_sbom() {
 }
 
 #[test]
+fn install_pours_and_links_a_bottle_formula_with_a_simple_runtime_dependency() {
+    let context = TestContext::new();
+    let bottle_staging_root = context.cache.join("bottle-staging");
+
+    for name in ["depball", "testball"] {
+        let bottle_root = bottle_staging_root.join(format!("{name}/1.0"));
+        let bottle_source = context
+            .cache
+            .join(format!("{name}--1.0.x86_64_linux.bottle.tar.gz"));
+
+        fs::create_dir_all(bottle_root.join("bin")).unwrap();
+        fs::create_dir_all(bottle_root.join(".brew")).unwrap();
+        fs::write(
+            bottle_root.join(format!("bin/{name}")),
+            "#!/bin/sh\nexit 0\n",
+        )
+        .unwrap();
+        fs::write(
+            bottle_root.join(format!(".brew/{name}.rb")),
+            if name == "depball" {
+                "class Depball < Formula\nend\n".to_string()
+            } else {
+                "class Testball < Formula\nend\n".to_string()
+            },
+        )
+        .unwrap();
+        fs::set_permissions(
+            bottle_root.join(format!("bin/{name}")),
+            std::fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
+
+        let status = Command::new("tar")
+            .args([
+                "-czf",
+                bottle_source.to_str().unwrap(),
+                "-C",
+                bottle_staging_root.to_str().unwrap(),
+                name,
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        fs::create_dir_all(context.formula_api_path(name).parent().unwrap()).unwrap();
+        fs::write(
+            context.formula_api_path(name),
+            format!(
+                r#"{{
+  "name": "{name}",
+  "full_name": "{name}",
+  "tap": "homebrew/core",
+  "versions": {{
+    "stable": "1.0"
+  }},
+  "revision": 0,
+  "post_install_defined": false,
+  "dependencies": [{dependencies}],
+  "build_dependencies": [],
+  "recommended_dependencies": [],
+  "optional_dependencies": [],
+  "uses_from_macos": [],
+  "bottle": {{
+    "stable": {{
+      "rebuild": 0,
+      "files": {{
+        "x86_64_linux": {{
+          "url": "file://{}",
+          "sha256": "{}",
+          "cellar": ":any_skip_relocation"
+        }}
+      }}
+    }}
+  }}
+}}"#,
+                bottle_source.display(),
+                sha256_hex(fs::read(&bottle_source).unwrap()),
+                dependencies = if name == "testball" {
+                    "\"depball\""
+                } else {
+                    ""
+                },
+            ),
+        )
+        .unwrap();
+    }
+
+    let output = context
+        .rust_command()
+        .args(["install", "testball"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    assert!(
+        !String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("Warning: brew-rs is handing install back to the Ruby backend."),
+    );
+    assert!(context.cellar.join("depball/1.0/bin/depball").exists());
+    assert!(context.prefix.join("bin/depball").exists());
+    assert!(context.prefix.join("opt/depball").is_symlink());
+    assert!(context.cellar.join("testball/1.0/bin/testball").exists());
+    assert!(context.prefix.join("bin/testball").exists());
+    assert!(context.prefix.join("opt/testball").is_symlink());
+}
+
+#[test]
 fn install_cleans_up_when_a_bottle_extracts_an_unexpected_prefix() {
     let context = TestContext::new();
     let bottle_staging_root = context.cache.join("bottle-staging");
