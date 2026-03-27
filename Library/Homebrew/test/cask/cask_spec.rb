@@ -37,12 +37,24 @@ RSpec.describe Cask::Cask, :cask do
     it "returns an instance of the Cask from a specific file location" do
       c = Cask::CaskLoader.load("#{tap_path}/Casks/local-caffeine.rb")
       expect(c).to be_a(described_class)
+      expect(c).not_to be_loaded_from_api
+      expect(c).not_to be_loaded_from_internal_api
       expect(c.token).to eq("local-caffeine")
     end
 
     it "returns an instance of the Cask from a JSON file" do
       c = Cask::CaskLoader.load("#{TEST_FIXTURE_DIR}/cask/caffeine.json")
       expect(c).to be_a(described_class)
+      expect(c).to be_loaded_from_api
+      expect(c).not_to be_loaded_from_internal_api
+      expect(c.token).to eq("caffeine")
+    end
+
+    it "returns an instance of the Cask from an internal JSON file" do
+      c = Cask::CaskLoader.load("#{TEST_FIXTURE_DIR}/cask/caffeine.internal.json")
+      expect(c).to be_a(described_class)
+      expect(c).to be_loaded_from_api
+      expect(c).to be_loaded_from_internal_api
       expect(c.token).to eq("caffeine")
     end
 
@@ -584,6 +596,7 @@ RSpec.describe Cask::Cask, :cask do
         hash = cask.to_hash_with_variations
 
         expect(cask.loaded_from_api?).to be true
+        expect(cask.loaded_from_internal_api?).to be false
         expect(hash).to be_a(Hash)
         expect(JSON.pretty_generate(hash)).to eq(expected_json)
       end
