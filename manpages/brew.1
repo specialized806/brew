@@ -83,7 +83,7 @@ Uninstall formulae that were only installed as a dependency of another formula a
 \fB\-n\fP, \fB\-\-dry\-run\fP
 List what would be uninstalled, but do not actually uninstall anything\.
 .SS "\fBbundle\fP \fR[\fIsubcommand\fP]"
-Bundler for non\-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages and npm packages\.
+Bundler for non\-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, Krew plugins and npm packages\.
 .P
 Note: Flatpak support is only available on Linux\.
 .TP
@@ -121,10 +121,10 @@ By default, only Homebrew formula dependencies are listed\.
 Edit the \fBBrewfile\fP in your editor\.
 .TP
 \fBbrew bundle add\fP \fIname\fP [\.\.\.]
-Add entries to your \fBBrewfile\fP\&\. Adds formulae by default\. Use \fB\-\-cask\fP, \fB\-\-tap\fP, \fB\-\-vscode\fP, \fB\-\-go\fP, \fB\-\-cargo\fP, \fB\-\-uv\fP, \fB\-\-flatpak\fP and \fB\-\-npm\fP to add the corresponding entry instead\.
+Add entries to your \fBBrewfile\fP\&\. Adds formulae by default\. Use \fB\-\-cask\fP, \fB\-\-tap\fP, \fB\-\-vscode\fP, \fB\-\-go\fP, \fB\-\-cargo\fP, \fB\-\-uv\fP, \fB\-\-flatpak\fP, \fB\-\-krew\fP and \fB\-\-npm\fP to add the corresponding entry instead\.
 .TP
 \fBbrew bundle remove\fP \fIname\fP [\.\.\.]
-Remove entries that match \fBname\fP from your \fBBrewfile\fP\&\. Use \fB\-\-formula\fP, \fB\-\-cask\fP, \fB\-\-tap\fP, \fB\-\-mas\fP, \fB\-\-vscode\fP, \fB\-\-go\fP, \fB\-\-cargo\fP, \fB\-\-uv\fP, \fB\-\-flatpak\fP and \fB\-\-npm\fP to remove only entries of the corresponding type\. Passing \fB\-\-formula\fP also removes matches against formula aliases and old formula names\.
+Remove entries that match \fBname\fP from your \fBBrewfile\fP\&\. Use \fB\-\-formula\fP, \fB\-\-cask\fP, \fB\-\-tap\fP, \fB\-\-mas\fP, \fB\-\-vscode\fP, \fB\-\-go\fP, \fB\-\-cargo\fP, \fB\-\-uv\fP, \fB\-\-flatpak\fP, \fB\-\-krew\fP and \fB\-\-npm\fP to remove only entries of the corresponding type\. Passing \fB\-\-formula\fP also removes matches against formula aliases and old formula names\.
 .TP
 \fBbrew bundle exec\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP] \fIcommand\fP
 Run an external command in an isolated build environment based on the \fBBrewfile\fP dependencies\.
@@ -197,6 +197,9 @@ Temporarily start services while running the \fBexec\fP or \fBsh\fP command\. En
 \fB\-\-flatpak\fP
 \fBlist\fP, \fBdump\fP or \fBcleanup\fP Flatpak packages\. Note: Linux only\.
 .TP
+\fB\-\-krew\fP
+\fBlist\fP or \fBdump\fP Krew plugins\.
+.TP
 \fB\-\-npm\fP
 \fBlist\fP or \fBdump\fP npm packages\.
 .TP
@@ -214,6 +217,9 @@ Temporarily start services while running the \fBexec\fP or \fBsh\fP command\. En
 .TP
 \fB\-\-no\-flatpak\fP
 \fBdump\fP without Flatpak packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK\fP is set\.
+.TP
+\fB\-\-no\-krew\fP
+\fBdump\fP without Krew plugins\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_KREW\fP is set\.
 .TP
 \fB\-\-no\-npm\fP
 \fBdump\fP without npm packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_NPM\fP is set\.

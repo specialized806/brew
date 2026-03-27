@@ -683,10 +683,12 @@ _brew_bundle() {
       --go
       --help
       --install
+      --krew
       --mas
       --no-cargo
       --no-flatpak
       --no-go
+      --no-krew
       --no-npm
       --no-restart
       --no-secrets

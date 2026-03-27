@@ -504,7 +504,7 @@ __fish_brew_complete_arg 'bump-unversioned-casks' -a '(__fish_brew_suggest_casks
 __fish_brew_complete_arg 'bump-unversioned-casks' -a '(__fish_brew_suggest_taps_installed)'
 
 
-__fish_brew_complete_cmd 'bundle' 'Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages and npm packages'
+__fish_brew_complete_cmd 'bundle' 'Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, Krew plugins and npm packages'
 __fish_brew_complete_sub_cmd 'bundle' 'install'
 __fish_brew_complete_sub_cmd 'bundle' 'dump'
 __fish_brew_complete_sub_cmd 'bundle' 'cleanup'
@@ -529,10 +529,12 @@ __fish_brew_complete_arg 'bundle' -l global -d 'Read from or write to the `Brewf
 __fish_brew_complete_arg 'bundle' -l go -d '`list` or `dump` Go packages'
 __fish_brew_complete_arg 'bundle' -l help -d 'Show this message'
 __fish_brew_complete_arg 'bundle' -l install -d 'Run `install` before continuing to other operations, e.g. `exec`'
+__fish_brew_complete_arg 'bundle' -l krew -d '`list` or `dump` Krew plugins'
 __fish_brew_complete_arg 'bundle' -l mas -d '`list` or `dump` Mac App Store dependencies'
 __fish_brew_complete_arg 'bundle' -l no-cargo -d '`dump` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set'
 __fish_brew_complete_arg 'bundle' -l no-flatpak -d '`dump` without Flatpak packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set'
 __fish_brew_complete_arg 'bundle' -l no-go -d '`dump` without Go packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_GO` is set'
+__fish_brew_complete_arg 'bundle' -l no-krew -d '`dump` without Krew plugins. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_KREW` is set'
 __fish_brew_complete_arg 'bundle' -l no-npm -d '`dump` without npm packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set'
 __fish_brew_complete_arg 'bundle' -l no-restart -d '`dump` does not add `restart_service` to formula lines'
 __fish_brew_complete_arg 'bundle' -l no-secrets -d 'Attempt to remove secrets from the environment before `exec`, `sh`, or `env`. Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set'
