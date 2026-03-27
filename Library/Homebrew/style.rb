@@ -4,6 +4,7 @@
 require "shellwords"
 require "source_location"
 require "system_command"
+require "tap"
 require "utils/output"
 
 module Homebrew
@@ -289,9 +290,24 @@ module Homebrew
 
     def self.run_actionlint!(files)
       files = github_workflow_files if files.blank?
+
+      tap_configs = files.filter_map do |f|
+        tap = Tap.from_path(f)
+        next unless tap
+
+        tap_config = tap.path/".github/actionlint.yaml"
+        tap_config if tap_config.exist?
+      end.uniq
+
+      config_file = if tap_configs.one?
+        tap_configs.first
+      else
+        HOMEBREW_REPOSITORY/".github/actionlint.yaml"
+      end
+
       # the ignore is to avoid false positives in e.g. actions, homebrew-test-bot
       system actionlint, "-shellcheck", shellcheck,
-             "-config-file", HOMEBREW_REPOSITORY/".github/actionlint.yaml",
+             "-config-file", config_file,
              "-ignore", "image: string; options: string",
              "-ignore", "label .* is unknown",
              *files
