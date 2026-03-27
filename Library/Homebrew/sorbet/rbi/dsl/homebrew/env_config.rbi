@@ -148,6 +148,9 @@ module Homebrew::EnvConfig
     sig { returns(T.nilable(::String)) }
     def force_brew_wrapper; end
 
+    sig { returns(T.nilable(::String)) }
+    def force_brew_wrapper_help_message; end
+
     sig { returns(T::Boolean) }
     def force_brewed_ca_certificates?; end
 
