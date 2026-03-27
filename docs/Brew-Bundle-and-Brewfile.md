@@ -56,7 +56,7 @@ brew bundle check || brew bundle install
 
 ### Types
 
-As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, VSCode extensions, Go packages, Cargo packages, uv tools and Flatpak packages and to start background services with `brew services`.
+As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, VSCode extensions, Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins and to start background services with `brew services`.
 
 ```ruby
 tap "apple/apple"
@@ -68,6 +68,7 @@ vscode "editorconfig.editorconfig"
 go "github.com/charmbracelet/crush"
 cargo "ripgrep"
 uv "mkdocs"
+krew "ctx"
 flatpak "com.visualstudio.code"
 flatpak "org.godotengine.Godot", remote: "flathub-beta", url: "https://dl.flathub.org/beta-repo/"
 flatpak "io.github.dvlv.boxbuddyrs", remote: "flathub-beta"
@@ -330,7 +331,7 @@ This must be done with solutions outside or built on top of `brew bundle` instea
 
 ## Adding New Packages Support
 
-`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools and Flatpak packages.
+`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins.
 
 We are interested in contributions for other packages' installers/checkers/dumpers but they must:
 
