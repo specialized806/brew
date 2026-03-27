@@ -658,6 +658,22 @@ class TestProf::MemoryProf::Configuration
   def top_count=(value); end
 end
 
+TestProf::MemoryProf::Configuration::MODES = T.let(T.unsafe(nil), Array)
+
+class TestProf::MemoryProf::GCPrinter < ::TestProf::MemoryProf::Printer
+  private
+
+  def gc_time(item); end
+  def mode; end
+  def print_items(items); end
+  def print_total; end
+end
+
+class TestProf::MemoryProf::GCTracker < ::TestProf::MemoryProf::Tracker
+  def supported?; end
+  def track; end
+end
+
 class TestProf::MemoryProf::Printer
   include ::TestProf::Logging
 
@@ -813,15 +829,15 @@ TestProf::RSpecStamp::EXAMPLE_RXP = T.let(T.unsafe(nil), Regexp)
 module TestProf::RSpecStamp::Parser
   class << self
     def parse(code); end
-
-    private
-
-    def parse_arg(res, arg); end
-    def parse_const(expr); end
-    def parse_hash(res, hash_arg); end
-    def parse_literal(expr); end
-    def parse_value(expr); end
   end
+end
+
+class TestProf::RSpecStamp::Parser::Prism
+  def parse(code); end
+
+  private
+
+  def parse_htag_value(node); end
 end
 
 class TestProf::RSpecStamp::Parser::Result
@@ -965,33 +981,62 @@ module TestProf::TPSProf
   class << self
     def config; end
     def configure; end
+    def handle_group_strictly(group_info); end
   end
 end
 
 class TestProf::TPSProf::Configuration
   def initialize; end
 
+  def custom_strict_handler; end
+  def max_examples_count; end
+  def max_examples_count=(_arg0); end
+  def max_group_time; end
+  def max_group_time=(_arg0); end
+  def min_examples_count; end
+  def min_examples_count=(_arg0); end
+  def min_group_time; end
+  def min_group_time=(_arg0); end
+  def min_target_tps; end
+  def min_target_tps=(_arg0); end
+  def min_tps; end
+  def min_tps=(_arg0); end
+  def mode; end
+  def mode=(_arg0); end
   def reporter; end
   def reporter=(_arg0); end
-  def threshold; end
-  def threshold=(_arg0); end
+  def strict_handler; end
+  def strict_handler=(val); end
   def top_count; end
   def top_count=(_arg0); end
 
   private
 
+  def default_strict_handler(group_info); end
   def resolve_reporter(format); end
 end
 
-class TestProf::TPSProf::Profiler
-  def initialize(top_count, threshold: T.unsafe(nil)); end
+class TestProf::TPSProf::Error < ::StandardError; end
+class TestProf::TPSProf::GroupInfo < ::Struct; end
 
+class TestProf::TPSProf::Profiler
+  extend ::Forwardable
+
+  def initialize(top_count, config); end
+
+  def config; end
   def example_finished(id); end
   def example_started(id); end
-  def group_finished(id); end
+  def group_finished(group); end
   def group_started(id); end
   def groups; end
-  def threshold; end
+  def max_examples_count(*_arg0, **_arg1, &_arg2); end
+  def max_group_time(*_arg0, **_arg1, &_arg2); end
+  def min_examples_count(*_arg0, **_arg1, &_arg2); end
+  def min_group_time(*_arg0, **_arg1, &_arg2); end
+  def min_target_tps(*_arg0, **_arg1, &_arg2); end
+  def min_tps(*_arg0, **_arg1, &_arg2); end
+  def mode(*_arg0, **_arg1, &_arg2); end
   def top_count; end
   def total_count; end
   def total_time; end
