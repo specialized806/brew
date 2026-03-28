@@ -183,7 +183,7 @@ jobs:
 
       - name: Check for uncommitted RubyGems
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
-        run: git diff --stat --exit-code Library/Homebrew/vendor/bundle/ruby
+        run: git diff --stat --exit-code Library/Homebrew/vendor/bundle
 
   update-test:
     name: ${{ matrix.name }}
