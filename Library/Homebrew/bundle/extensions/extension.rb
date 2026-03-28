@@ -84,8 +84,8 @@ module Homebrew
         { "PATH" => "#{executable.dirname}:#{ORIGINAL_PATHS.join(":")}" }
       end
 
-      sig { params(blk: T.proc.params(executable: Pathname).returns(T.untyped)).returns(T.untyped) }
-      def self.with_package_manager_env(&blk)
+      sig { params(_blk: T.proc.params(executable: Pathname).returns(T.untyped)).returns(T.untyped) }
+      def self.with_package_manager_env(&_blk)
         executable = package_manager_executable!
         with_env(package_manager_env(executable)) { yield executable }
       end
