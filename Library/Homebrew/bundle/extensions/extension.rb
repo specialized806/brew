@@ -87,7 +87,7 @@ module Homebrew
       sig { params(blk: T.proc.params(executable: Pathname).returns(T.untyped)).returns(T.untyped) }
       def self.with_package_manager_env(&blk)
         executable = package_manager_executable!
-        with_env(package_manager_env(executable)) { blk.call(executable) }
+        with_env(package_manager_env(executable)) { yield executable }
       end
 
       sig { returns(String) }
