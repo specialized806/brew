@@ -667,9 +667,16 @@ pub(crate) fn load_aliases(path: &Path) -> BrewResult<HashMap<String, String>> {
 }
 
 pub(crate) fn build_client() -> BrewResult<Client> {
+    let pkg_name_and_version = format!("{}/{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    let user_agent = match env_value("HOMEBREW_USER_AGENT") {
+        Some(brew_ua) => format!("{brew_ua} {pkg_name_and_version}"),
+        None => pkg_name_and_version,
+    };
+
     Client::builder()
         .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
         .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .user_agent(user_agent)
         .gzip(true)
         .deflate(true)
         .build()
