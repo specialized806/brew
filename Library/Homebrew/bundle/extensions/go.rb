@@ -72,8 +72,7 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          go = package_manager_executable
-          return false if go.nil?
+          go = package_manager_executable!
 
           Bundle.system(go.to_s, "install", "#{name}@latest", verbose:)
         end

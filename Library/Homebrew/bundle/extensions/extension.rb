@@ -74,9 +74,24 @@ module Homebrew
         which(package_manager_name, ORIGINAL_PATHS)
       end
 
+      sig { returns(Pathname) }
+      def self.package_manager_executable!
+        package_manager_executable || raise("#{package_manager_name} is not installed")
+      end
+
       sig { params(executable: Pathname).returns(T::Hash[String, String]) }
       def self.package_manager_env(executable)
         { "PATH" => "#{executable.dirname}:#{ORIGINAL_PATHS.join(":")}" }
+      end
+
+      sig {
+        type_parameters(:U)
+          .params(_blk: T.proc.params(executable: Pathname).returns(T.type_parameter(:U)))
+          .returns(T.type_parameter(:U))
+      }
+      def self.with_package_manager_env(&_blk)
+        executable = package_manager_executable!
+        with_env(package_manager_env(executable)) { yield executable }
       end
 
       sig { returns(String) }

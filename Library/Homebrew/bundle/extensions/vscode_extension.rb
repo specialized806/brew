@@ -123,8 +123,7 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          vscode = package_manager_executable
-          return false if vscode.nil?
+          vscode = package_manager_executable!
 
           Bundle.exchange_uid_if_needed! do
             Bundle.system(vscode, "--install-extension", name, verbose:)
