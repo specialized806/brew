@@ -183,7 +183,13 @@ jobs:
 
       - name: Check for uncommitted RubyGems
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
-        run: git diff --stat --exit-code Library/Homebrew/vendor/bundle/ruby
+        run: |
+          git diff --stat --exit-code Library/Homebrew/vendor/bundle
+          if [ -n "$(git status --porcelain -- Library/Homebrew/vendor/bundle)" ]; then
+            echo "Untracked or unstaged files found:"
+            git status --porcelain -- Library/Homebrew/vendor/bundle
+            exit 1
+          fi
 
   update-test:
     name: ${{ matrix.name }}
