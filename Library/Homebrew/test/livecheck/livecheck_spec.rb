@@ -11,6 +11,7 @@ RSpec.describe Homebrew::Livecheck do
   let(:livecheck_url) { "https://formulae.brew.sh/api/formula/ruby.json" }
   let(:stable_url) { "https://brew.sh/test-0.0.1.tgz" }
   let(:resource_url) { "https://brew.sh/foo-1.0.tar.gz" }
+  let(:brew_regex) { /href=.*?test[._-]v?(\d+(?:\.\d+)+)\.(?:t|dmg)/i }
 
   let(:f) do
     formula("test") do
@@ -74,44 +75,6 @@ RSpec.describe Homebrew::Livecheck do
         desc "Test cask with no checkable URLs"
       end
     RUBY
-  end
-
-  let(:f_throttle_rate) do
-    formula("test_throttle_rate") do
-      desc "Test formula"
-      homepage "https://brew.sh"
-      url "https://brew.sh/test-0.0.1.tgz"
-
-      livecheck do
-        throttle 10
-      end
-    end
-  end
-
-  let(:f_throttle_rate_and_days) do
-    formula("test_throttle_rate_and_days") do
-      desc "Test formula"
-      homepage "https://brew.sh"
-      url "https://brew.sh/test-0.0.1.tgz"
-
-      livecheck do
-        throttle 10, days: 1
-      end
-    end
-  end
-
-  let(:test_strategy) do
-    Class.new do
-      def self.find_versions(url:, regex: nil, options: nil)
-        {
-          matches: {
-            "one" => Version.new("1.2.1"),
-            "two" => Version.new("1.2.2"),
-          },
-          regex:   nil,
-        }
-      end
-    end
   end
 
   describe "::livecheck_strategy_names" do
@@ -370,40 +333,214 @@ RSpec.describe Homebrew::Livecheck do
   end
 
   describe "::latest_version" do
-    before do
-      allow(Homebrew::Livecheck::Strategy).to receive_messages(
-        from_url:    [test_strategy],
-        from_symbol: nil,
-      )
-      allow(livecheck).to receive_messages(
-        livecheck_strategy_names:           "TestStrategy",
-        livecheck_find_versions_parameters: [:url, :regex, :options],
-      )
+    let(:f_throttle_rate) do
+      formula("test_throttle_rate") do
+        desc "Test formula"
+        homepage "https://brew.sh"
+        url "https://brew.sh/test-0.0.1.tgz"
+
+        livecheck do
+          url :homepage
+          regex(/href=.*?test[._-]v?(\d+(?:\.\d+)+)\.(?:t|dmg)/i)
+          throttle 4
+        end
+      end
     end
 
-    it "returns latest_throttled as nil when there is no throttled version and throttle interval has not elapsed" do
+    let(:f_throttle_days) do
+      formula("test_throttle_days") do
+        desc "Test formula"
+        homepage "https://brew.sh"
+        url "https://brew.sh/test-0.0.1.tgz"
+
+        livecheck do
+          url :homepage
+          regex(/href=.*?test[._-]v?(\d+(?:\.\d+)+)\.(?:t|dmg)/i)
+          throttle days: 1
+        end
+      end
+    end
+
+    let(:f_throttle_rate_and_days) do
+      formula("test_throttle_rate_and_days") do
+        desc "Test formula"
+        homepage "https://brew.sh"
+        url "https://brew.sh/test-0.0.1.tgz"
+
+        livecheck do
+          url :homepage
+          regex(/href=.*?test[._-]v?(\d+(?:\.\d+)+)\.(?:t|dmg)/i)
+          throttle 4, days: 1
+        end
+      end
+    end
+
+    let(:c_throttle_rate) do
+      Cask::CaskLoader.load(+<<-RUBY)
+        cask "test_throttle_rate" do
+          version "0.0.1"
+
+          url "https://brew.sh/test-0.0.1.tgz"
+          name "Test"
+          desc "Test cask"
+          homepage "https://brew.sh"
+
+          livecheck do
+            url :homepage
+            regex(/href=.*?test[._-]v?(\d+(?:.\d+)+).(?:t|dmg)/i)
+            throttle 4
+          end
+        end
+      RUBY
+    end
+
+    let(:c_throttle_days) do
+      Cask::CaskLoader.load(+<<-RUBY)
+        cask "test_throttle_days" do
+          version "0.0.1"
+
+          url "https://brew.sh/test-0.0.1.tgz"
+          name "Test"
+          desc "Test cask"
+          homepage "https://brew.sh"
+
+          livecheck do
+            url :homepage
+            regex(/href=.*?test[._-]v?(\d+(?:.\d+)+).(?:t|dmg)/i)
+            throttle days: 1
+          end
+        end
+      RUBY
+    end
+
+    let(:c_throttle_rate_and_days) do
+      Cask::CaskLoader.load(+<<-RUBY)
+        cask "test_throttle_rate_and_days" do
+          version "0.0.1"
+
+          url "https://brew.sh/test-0.0.1.tgz"
+          name "Test"
+          desc "Test cask"
+          homepage "https://brew.sh"
+
+          livecheck do
+            url :homepage
+            regex(/href=.*?test[._-]v?(\d+(?:.\d+)+).(?:t|dmg)/i)
+            throttle 4, days: 1
+          end
+        end
+      RUBY
+    end
+
+    let(:page_match) { Homebrew::Livecheck::Strategy::PageMatch }
+    let(:base_match_data) do
+      {
+        matches: {
+          "0.0.1" => Version.new("0.0.1"),
+          "0.0.2" => Version.new("0.0.2"),
+        },
+        url:     homepage_url,
+        regex:   brew_regex,
+      }
+    end
+
+    it "sets `latest_throttled` to the highest throttled version" do
+      match_data = base_match_data.merge({
+        matches: {
+          "0.0.3" => Version.new("0.0.3"),
+          "0.0.4" => Version.new("0.0.4"),
+          "0.0.5" => Version.new("0.0.5"),
+        },
+      })
+      allow(page_match).to receive(:find_versions).and_return(match_data)
+
+      f_result = nil
+      expect { f_result = livecheck.latest_version(f_throttle_rate, debug: true, verbose: true) }
+        .to output(
+          a_string_matching(/Throttle: +4 versions/)
+          .and(matching(/Matched Throttled Versions:\n0.0.4 => #<Version 0.0.4>/)),
+        ).to_stdout
+      expect(f_result[:latest]).to eq(Version.new("0.0.5"))
+      expect(f_result[:latest_throttled]).to eq(Version.new("0.0.4"))
+
+      c_result = nil
+      expect { c_result = livecheck.latest_version(c_throttle_rate, debug: true) }
+        .to output(
+          a_string_matching(/Throttle: +4 versions/)
+          .and(matching(/Matched Throttled Versions:\n0.0.4/)),
+        ).to_stdout
+      expect(c_result[:latest]).to eq(Version.new("0.0.5"))
+      expect(c_result[:latest_throttled]).to eq(Version.new("0.0.4"))
+    end
+
+    it "does not set `latest_throttled` when there are no throttled versions and throttle interval has not elapsed" do
+      allow(page_match).to receive(:find_versions).and_return(base_match_data)
       allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
+      latest_version = Version.new("0.0.2")
 
-      result = livecheck.latest_version(f_throttle_rate_and_days)
+      f_result = nil
+      expect { f_result = livecheck.latest_version(f_throttle_rate_and_days, debug: true) }
+        .to output(a_string_matching(/Throttle: +4 versions or 1 day/)).to_stdout
+      expect(f_result[:latest]).to eq(latest_version)
+      expect(f_result[:latest_throttled]).to be_nil
 
-      expect(result[:latest]).to eq(Version.new("1.2.2"))
-      expect(result[:latest_throttled]).to be_nil
+      c_result = livecheck.latest_version(c_throttle_rate_and_days)
+      expect(c_result[:latest]).to eq(latest_version)
+      expect(c_result[:latest_throttled]).to be_nil
     end
 
-    it "returns latest as latest_throttled when throttle interval has elapsed" do
+    it "sets `latest_throttled` to `latest` when there are no throttled versions and throttle interval has elapsed" do
+      allow(page_match).to receive(:find_versions).and_return(base_match_data)
       allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(true)
+      latest_version = Version.new("0.0.2")
 
-      result = livecheck.latest_version(f_throttle_rate_and_days)
+      f_result = nil
+      expect { f_result = livecheck.latest_version(f_throttle_days, debug: true) }
+        .to output(
+          a_string_matching(/Throttle: +1 day/)
+          .and(
+            matching(/Matched Throttled Versions:\n#{Regexp.escape(latest_version)} \(throttle interval elapsed\)/),
+          ),
+        ).to_stdout
+      expect(f_result[:latest]).to eq(latest_version)
+      expect(f_result[:latest_throttled]).to eq(latest_version)
 
-      expect(result[:latest]).to eq(Version.new("1.2.2"))
-      expect(result[:latest_throttled]).to eq(Version.new("1.2.2"))
+      f_result2 = livecheck.latest_version(f_throttle_rate_and_days)
+      expect(f_result2[:latest]).to eq(latest_version)
+      expect(f_result2[:latest_throttled]).to eq(latest_version)
+
+      c_result = livecheck.latest_version(c_throttle_days)
+      expect(c_result[:latest]).to eq(latest_version)
+      expect(c_result[:latest_throttled]).to eq(latest_version)
+
+      c_result2 = livecheck.latest_version(c_throttle_rate_and_days)
+      expect(c_result2[:latest]).to eq(latest_version)
+      expect(c_result2[:latest_throttled]).to eq(latest_version)
+    end
+  end
+
+  describe "::throttle_interval_elapsed" do
+    it "returns false if days is not positive" do
+      expect(livecheck.send(:throttle_interval_elapsed?, f, 0)).to be(false)
+      expect(livecheck.send(:throttle_interval_elapsed?, f, -1)).to be(false)
     end
 
-    it "does not apply throttle interval behavior when throttle_days is not set" do
-      result = livecheck.latest_version(f_throttle_rate)
+    it "returns false if last_updated_timestamp can't be determined" do
+      allow(livecheck).to receive(:formula_or_cask_last_updated_timestamp).and_return(nil)
 
-      expect(result[:latest]).to eq(Version.new("1.2.2"))
-      expect(result[:latest_throttled]).to be_nil
+      expect(livecheck.send(:throttle_interval_elapsed?, f, 4)).to be(false)
+    end
+
+    it "returns false if throttle interval has not elapsed" do
+      allow(livecheck).to receive(:formula_or_cask_last_updated_timestamp).and_return(Time.now.to_i)
+
+      expect(livecheck.send(:throttle_interval_elapsed?, f, 4)).to be(false)
+    end
+
+    it "returns true if throttle interval has elapsed" do
+      allow(livecheck).to receive(:formula_or_cask_last_updated_timestamp).and_return(Time.now.to_i - 518400)
+
+      expect(livecheck.send(:throttle_interval_elapsed?, f, 4)).to be(true)
     end
   end
 end
