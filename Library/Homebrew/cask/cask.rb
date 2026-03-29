@@ -339,12 +339,15 @@ module Cask
         return installed_version if (greedy || greedy_latest) && outdated_download_sha?
 
         return
-      elsif auto_updates && !greedy && !greedy_auto_updates
-        return
       end
 
-      # not outdated unless there is a different version on tap
       return if installed_version == version
+
+      if auto_updates && !greedy && !greedy_auto_updates
+        return installed_version if auto_updates_bundle_outdated?
+
+        return
+      end
 
       installed_version
     end
@@ -557,6 +560,58 @@ module Cask
                              (plist = Pathname("#{bundle}/Contents/Info.plist")) && plist.exist? && plist.readable?
         Homebrew::BundleVersion.from_info_plist(plist)
       end
+    end
+
+    sig { returns(T.nilable(Artifact::App)) }
+    def single_app_artifact
+      app_artifacts = artifacts.grep(Artifact::App)
+      return unless app_artifacts.one?
+
+      app_artifacts.first
+    end
+
+    sig { returns(T.nilable(Pathname)) }
+    def installed_app_info_plist
+      return unless (app_artifact = single_app_artifact)
+
+      info_plist = app_artifact.target/"Contents/Info.plist"
+      info_plist if info_plist.exist? && info_plist.readable?
+    end
+
+    sig { params(first: T.nilable(String), second: T.nilable(String)).returns(T.nilable(Integer)) }
+    def compare_version_strings(first, second)
+      return if first.blank? || second.blank?
+
+      Version.new(first) <=> Version.new(second)
+    rescue
+      nil
+    end
+
+    sig { returns(T::Boolean) }
+    def auto_updates_bundle_outdated?
+      return false if !auto_updates || version.latest?
+      return false unless installed_app_info_plist
+
+      tap_short_version = version.csv.first.to_s.presence || version.to_s
+
+      begin
+        installed_short_version = bundle_short_version
+        installed_bundle_version = bundle_long_version
+      rescue ErrorDuringExecution
+        return false
+      end
+
+      short_comparison = compare_version_strings(installed_short_version, tap_short_version)
+      return true if short_comparison == -1
+      return false if short_comparison == 1
+
+      build_comparisons = version.csv.filter_map do |candidate|
+        compare_version_strings(installed_bundle_version, candidate.to_s)
+      end
+      return false if build_comparisons.empty?
+      return false if build_comparisons.include?(0)
+
+      build_comparisons.include?(-1)
     end
 
     def api_to_local_hash(hash)

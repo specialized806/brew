@@ -2,6 +2,58 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Cask, :cask do
+  def write_info_plist(path, short_version: nil, bundle_version: nil, contents: nil)
+    info_plist = path/"Contents/Info.plist"
+    info_plist.dirname.mkpath
+
+    if contents
+      info_plist.write(contents)
+      return
+    end
+
+    entries = []
+    if short_version
+      entries << <<~PLIST.chomp
+        <key>CFBundleShortVersionString</key>
+        <string>#{short_version}</string>
+      PLIST
+    end
+    if bundle_version
+      entries << <<~PLIST.chomp
+        <key>CFBundleVersion</key>
+        <string>#{bundle_version}</string>
+      PLIST
+    end
+
+    info_plist.write <<~PLIST
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+      #{entries.join("\n")}
+      </dict>
+      </plist>
+    PLIST
+  end
+
+  def write_auto_updates_cask(path, version:, artifacts:, token: "auto-updates-bundle-check")
+    path.write <<~RUBY
+      cask "#{token}" do
+        version "#{version}"
+        sha256 "5633c3a0f2e572cbf021507dec78c50998b398c343232bdfc7e26221d0a5db4d"
+
+        url "file://#{TEST_FIXTURE_DIR}/cask/MyFancyApp.zip"
+        homepage "https://brew.sh/MyFancyApp"
+
+        auto_updates true
+
+        #{artifacts.join("\n  ")}
+      end
+    RUBY
+
+    Cask::CaskLoader.load(path)
+  end
+
   let(:cask) { described_class.new("versioned-cask") }
 
   context "when multiple versions are installed" do
@@ -138,6 +190,93 @@ RSpec.describe Cask::Cask, :cask do
         include_examples "versioned casks", "1.2.4",
                          "1.2.3" => "1.2.3",
                          "1.2.4" => nil
+      end
+    end
+
+    describe "auto-updating versioned casks with bundle metadata" do
+      let(:dir) { Pathname(mktmpdir) }
+      let(:cask_file) { dir/"auto-updates-bundle-check.rb" }
+      let(:artifacts) { ['app "MyFancyApp.app"'] }
+
+      it "is outdated when the installed short version is lower than the tap version" do
+        tap_version = "2.61"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.57", bundle_version: "2057")
+
+        expect(cask.outdated_version).to eq("2.57")
+      end
+
+      it "is outdated when the short version matches and the bundle version is lower than a CSV candidate" do
+        tap_version = "2.61,3000"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.61", bundle_version: "2057")
+
+        expect(cask.outdated_version).to eq("2.57")
+      end
+
+      it "is not outdated when the short version matches and the bundle version matches any CSV candidate" do
+        tap_version = "2.61,3000,2057"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.61", bundle_version: "2057")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
+      it "is not outdated when the installed short version is higher than the tap version" do
+        tap_version = "2.61"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.62", bundle_version: "2057")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
+      it "is not outdated when the installed cask version already matches the tap version" do
+        tap_version = "2.61"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.61")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.57", bundle_version: "2057")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
+      it "is not outdated when the short version matches and the bundle version is higher than all CSV candidates" do
+        tap_version = "2.61,2056,2055"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.61", bundle_version: "2057")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
+      it "matches a bundle version candidate that is not first in the CSV list" do
+        tap_version = "2.61,3000,2057"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.61", bundle_version: "2057")
+
+        expect(cask.version.csv.first).not_to eq("2057")
+        expect(cask.outdated_version).to be_nil
+      end
+
+      it "is not outdated when the app bundle metadata cannot be read" do
+        tap_version = "2.61"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
+      it "falls back to the bundle version when the short version is missing" do
+        tap_version = "2.61,3000"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", bundle_version: "2057")
+
+        expect(cask.outdated_version).to eq("2.57")
       end
     end
 
