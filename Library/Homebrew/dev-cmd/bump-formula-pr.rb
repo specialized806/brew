@@ -422,7 +422,7 @@ module Homebrew
 
           formula_checkboxes = []
 
-          if resources_checked.nil? && (failed_updates.any? || unchecked_resources.any?)
+          if failed_updates.any? || (resources_checked.nil? && unchecked_resources.any?)
             formula_checkboxes << "- [ ] `resource` blocks have been checked for updates."
 
             if failed_updates.any?
@@ -579,6 +579,8 @@ module Homebrew
       sig { params(old_url: String, old_version: String, new_version: String).returns(String) }
       def update_url(old_url, old_version, new_version)
         new_url = old_url.gsub(old_version, new_version)
+        new_url.gsub!(old_version.tr(".", "_"), new_version.tr(".", "_")) if old_version.include?(".")
+
         return new_url if (old_version_parts = old_version.split(".")).length < 2
         return new_url if (new_version_parts = new_version.split(".")).length != old_version_parts.length
 
