@@ -819,7 +819,7 @@ module Homebrew
             end
 
             if version_info[:latest_throttled] == version_info[:latest] && throttled_match_version_map.blank?
-              puts "Using latest version because throttle interval elapsed"
+              puts "#{version_info[:latest_throttled]} (throttle interval elapsed)"
             end
           end
         end
