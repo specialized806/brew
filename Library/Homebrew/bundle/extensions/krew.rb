@@ -44,10 +44,10 @@ module Homebrew
           packages = @packages
           return packages if packages
 
-          kubectl = package_manager_executable
-          @packages = if package_manager_installed? && kubectl
-            output = with_env(package_manager_env(kubectl)) { `#{kubectl} krew list 2>/dev/null` }
-            parse_plugin_list(output)
+          @packages = if package_manager_installed?
+            with_package_manager_env do |kubectl|
+              parse_plugin_list(`#{kubectl} krew list 2>/dev/null`)
+            end
           else
             []
           end
@@ -63,10 +63,7 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          kubectl = package_manager_executable
-          return false if kubectl.nil?
-
-          with_env(package_manager_env(kubectl)) do
+          with_package_manager_env do |kubectl|
             Bundle.system(kubectl.to_s, "krew", "install", name, verbose:)
           end
         end

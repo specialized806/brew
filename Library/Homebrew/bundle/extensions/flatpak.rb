@@ -204,7 +204,7 @@ module Homebrew
           return true unless package_manager_installed?
           return true unless preinstall
 
-          flatpak = package_manager_executable.to_s
+          flatpak = package_manager_executable!.to_s
 
           # 3-tier remote handling:
           # - Tier 1: no URL → use named remote (default: flathub)

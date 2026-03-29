@@ -51,8 +51,7 @@ module Homebrew
         def install_package!(name, with: nil, verbose: false)
           _ = with
 
-          npm = package_manager_executable
-          return false if npm.nil?
+          npm = package_manager_executable!
 
           Bundle.system(npm.to_s, "install", "-g", name, verbose:)
         end

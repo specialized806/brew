@@ -71,8 +71,7 @@ module Homebrew
           ).returns(T::Boolean)
         }
         def install_package!(name, with: nil, verbose: false)
-          uv = package_manager_executable
-          return false if uv.nil?
+          uv = package_manager_executable!
 
           args = ["tool", "install", name]
           normalize_with(with || []).each do |requirement|
