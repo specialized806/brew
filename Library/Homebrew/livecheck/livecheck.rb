@@ -788,9 +788,11 @@ module Homebrew
           latest: Version.new(match_version_map.values.max_by { |v| LivecheckVersion.create(formula_or_cask, v) }),
         }
 
-        if livecheck_throttle
-          throttled_match_version_map = match_version_map.select do |_match, version|
-            version.patch.to_i.modulo(livecheck_throttle).zero?
+        if livecheck_throttle || livecheck_throttle_days
+          if livecheck_throttle
+            throttled_match_version_map = match_version_map.select do |_match, version|
+              version.patch.to_i.modulo(livecheck_throttle).zero?
+            end
           end
 
           if throttled_match_version_map.present?
@@ -812,7 +814,7 @@ module Homebrew
               throttled_match_version_map.each do |match, version|
                 puts "#{match} => #{version.inspect}"
               end
-            else
+            elsif throttled_match_version_map.present?
               puts throttled_match_version_map.values.join(", ")
             end
 
