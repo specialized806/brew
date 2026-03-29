@@ -330,8 +330,11 @@ module PyPI
       input_packages << extra_package unless input_packages.include? extra_package
     end
 
-    formula.resources.each do |resource|
-      if !print_only && !resource.url.start_with?(PYTHONHOSTED_URL_PREFIX)
+    unless print_only
+      formula.resources.each do |resource|
+        next if resource.url.start_with?(PYTHONHOSTED_URL_PREFIX)
+        next if resource.livecheck_defined?
+
         odie "\"#{formula.name}\" contains non-PyPI resources. Please update the resources manually."
       end
     end
