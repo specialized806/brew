@@ -50,7 +50,7 @@ end
 class MCP::Client
   def initialize(transport:); end
 
-  def call_tool(tool:, arguments: T.unsafe(nil)); end
+  def call_tool(name: T.unsafe(nil), tool: T.unsafe(nil), arguments: T.unsafe(nil), progress_token: T.unsafe(nil)); end
   def get_prompt(name:); end
   def prompts; end
   def read_resource(uri:); end
@@ -87,6 +87,29 @@ class MCP::Client::RequestHandlerError < ::StandardError
   def original_error; end
   def request; end
 end
+
+class MCP::Client::Stdio
+  def initialize(command:, args: T.unsafe(nil), env: T.unsafe(nil), read_timeout: T.unsafe(nil)); end
+
+  def args; end
+  def close; end
+  def command; end
+  def env; end
+  def send_request(request:); end
+  def start; end
+
+  private
+
+  def ensure_running!; end
+  def initialize_session; end
+  def raise_connection_error!(method, params); end
+  def read_response(request); end
+  def wait_for_readable!(method, params); end
+  def write_message(message); end
+end
+
+MCP::Client::Stdio::CLOSE_TIMEOUT = T.let(T.unsafe(nil), Integer)
+MCP::Client::Stdio::STDERR_READ_SIZE = T.let(T.unsafe(nil), Integer)
 
 class MCP::Client::Tool
   def initialize(name:, description:, input_schema:, output_schema: T.unsafe(nil)); end
@@ -230,6 +253,12 @@ MCP::Methods::SAMPLING_CREATE_MESSAGE = T.let(T.unsafe(nil), String)
 MCP::Methods::TOOLS_CALL = T.let(T.unsafe(nil), String)
 MCP::Methods::TOOLS_LIST = T.let(T.unsafe(nil), String)
 
+class MCP::Progress
+  def initialize(server:, progress_token:); end
+
+  def report(progress, total: T.unsafe(nil), message: T.unsafe(nil)); end
+end
+
 class MCP::Prompt
   class << self
     def arguments(value = T.unsafe(nil)); end
@@ -361,6 +390,7 @@ class MCP::Server
   def name; end
   def name=(_arg0); end
   def notify_log_message(data:, level:, logger: T.unsafe(nil)); end
+  def notify_progress(progress_token:, progress:, total: T.unsafe(nil), message: T.unsafe(nil)); end
   def notify_prompts_list_changed; end
   def notify_resources_list_changed; end
   def notify_tools_list_changed; end
@@ -391,9 +421,9 @@ class MCP::Server
   private
 
   def accepts_server_context?(method_object); end
-  def call_prompt_template_with_args(prompt, args); end
+  def call_prompt_template_with_args(prompt, args, server_context); end
   def call_tool(request); end
-  def call_tool_with_args(tool, arguments); end
+  def call_tool_with_args(tool, arguments, context, progress_token: T.unsafe(nil)); end
   def configure_logging_level(request); end
   def default_capabilities; end
   def error_tool_response(text); end
@@ -408,6 +438,7 @@ class MCP::Server
   def read_resource_no_content(request); end
   def report_exception(exception, server_context = T.unsafe(nil)); end
   def schema_contains_ref?(schema); end
+  def server_context_with_meta(request); end
   def server_info; end
   def validate!; end
   def validate_tool_name!; end
@@ -465,7 +496,6 @@ class MCP::Server::Transports::StreamableHTTPTransport < ::MCP::Transport
   def missing_session_id_response; end
   def not_acceptable_response(required_types); end
   def notification?(body); end
-  def notification_request?(body_string); end
   def parse_accept_header(header); end
   def parse_request_body(body_string); end
   def response?(body); end
@@ -474,6 +504,7 @@ class MCP::Server::Transports::StreamableHTTPTransport < ::MCP::Transport
   def send_response_to_stream(stream, response, session_id); end
   def send_to_stream(stream, data); end
   def session_active_with_stream?(session_id); end
+  def session_already_connected_response; end
   def session_exists?(session_id); end
   def session_not_found_response; end
   def setup_sse_stream(session_id); end
@@ -487,6 +518,17 @@ MCP::Server::Transports::StreamableHTTPTransport::REQUIRED_POST_ACCEPT_TYPES = T
 MCP::Server::Transports::StreamableHTTPTransport::STREAM_WRITE_ERRORS = T.let(T.unsafe(nil), Array)
 MCP::Server::UNSUPPORTED_PROPERTIES_UNTIL_2025_03_26 = T.let(T.unsafe(nil), Array)
 MCP::Server::UNSUPPORTED_PROPERTIES_UNTIL_2025_06_18 = T.let(T.unsafe(nil), Array)
+
+class MCP::ServerContext
+  def initialize(context, progress:); end
+
+  def method_missing(name, *_arg1, **_arg2, &_arg3); end
+  def report_progress(progress, total: T.unsafe(nil), message: T.unsafe(nil)); end
+
+  private
+
+  def respond_to_missing?(name, include_private = T.unsafe(nil)); end
+end
 
 module MCP::StringUtils
   extend ::MCP::StringUtils
