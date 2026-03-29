@@ -543,4 +543,42 @@ RSpec.describe Homebrew::Livecheck do
       expect(livecheck.send(:throttle_interval_elapsed?, f, 4)).to be(true)
     end
   end
+
+  describe "::formula_or_cask_last_updated_timestamp" do
+    let(:tap_path) { Pathname("/tmp/homebrew-core") }
+    let(:tap) { instance_double(Tap, git?: true, path: tap_path) }
+
+    it "uses FormulaVersions to find the latest version update commit for formulae" do
+      formula_versions = instance_double(FormulaVersions)
+      stable_same_version = instance_double(SoftwareSpec, version: Version.new("0.0.1"))
+      stable_previous_version = instance_double(SoftwareSpec, version: Version.new("0.0.0"))
+      historical_formula_same = instance_double(Formula, stable: stable_same_version)
+      historical_formula_previous = instance_double(Formula, stable: stable_previous_version)
+
+      allow(f).to receive(:tap).and_return(tap)
+      allow(Utils::Git).to receive(:available?).and_return(true)
+      allow(FormulaVersions).to receive(:new).with(f).and_return(formula_versions)
+      allow(formula_versions).to receive(:rev_list).with("HEAD")
+                                                   .and_yield("aaa111", "Formula/t/test.rb")
+                                                   .and_yield("bbb222", "Formula/t/test.rb")
+      allow(formula_versions).to receive(:formula_at_revision).with("aaa111", "Formula/t/test.rb")
+                                                              .and_yield(historical_formula_same)
+      allow(formula_versions).to receive(:formula_at_revision).with("bbb222", "Formula/t/test.rb")
+                                                              .and_yield(historical_formula_previous)
+      allow(Utils).to receive(:popen_read).and_return("1711731600\n")
+
+      expect(livecheck.send(:formula_or_cask_last_updated_timestamp, f)).to eq(1711731600)
+    end
+
+    it "falls back to latest file commit timestamp for casks" do
+      allow(c).to receive_messages(
+        tap:             tap,
+        sourcefile_path: tap_path/"Casks/test.rb",
+      )
+      allow(Utils::Git).to receive(:available?).and_return(true)
+      allow(Utils).to receive(:popen_read).and_return("1711731600\n")
+
+      expect(livecheck.send(:formula_or_cask_last_updated_timestamp, c)).to eq(1711731600)
+    end
+  end
 end

@@ -6,6 +6,7 @@ require "livecheck/error"
 require "livecheck/livecheck_version"
 require "livecheck/skip_conditions"
 require "livecheck/strategy"
+require "formula_versions"
 require "addressable"
 require "utils/git"
 require "utils/output"
@@ -1096,6 +1097,50 @@ module Homebrew
       return unless tap.git?
       return unless Utils::Git.available?
 
+      if package_or_resource.is_a?(Formula)
+        timestamp = formula_last_version_update_timestamp(package_or_resource, tap:)
+        return timestamp if timestamp.present?
+      end
+
+      formula_or_cask_last_commit_timestamp(package_or_resource, tap)
+    end
+
+    sig { params(formula: Formula, tap: Tap).returns(T.nilable(Integer)) }
+    private_class_method def self.formula_last_version_update_timestamp(formula, tap:)
+      stable = formula.stable
+      return if stable.blank?
+
+      current_version = stable.version
+      version_update_revision = T.let(nil, T.nilable(String))
+      found_current_version = T.let(false, T::Boolean)
+
+      formula_versions = FormulaVersions.new(formula)
+      catch(:version_update_revision_found) do
+        formula_versions.rev_list("HEAD") do |revision, path|
+          formula_versions.formula_at_revision(revision, path) do |historical_formula|
+            historical_stable = historical_formula.stable
+            next if historical_stable.blank?
+
+            if historical_stable.version == current_version
+              found_current_version = true
+              version_update_revision = revision
+            elsif found_current_version
+              throw :version_update_revision_found
+            end
+          end
+        rescue MacOSVersion::Error, LegacyDSLError
+          break
+        end
+      end
+      return if version_update_revision.nil?
+
+      timestamp_for_revision(tap.path, version_update_revision)
+    end
+
+    sig {
+      params(package_or_resource: T.any(Formula, Cask::Cask), tap: Tap).returns(T.nilable(Integer))
+    }
+    private_class_method def self.formula_or_cask_last_commit_timestamp(package_or_resource, tap)
       sourcefile = case package_or_resource
       when Formula
         package_or_resource.path
@@ -1113,6 +1158,23 @@ module Homebrew
         "--",
         relative_sourcefile,
         chdir: tap.path,
+      ).chomp.presence
+      return if timestamp.nil?
+
+      Integer(timestamp, exception: false)
+    rescue ArgumentError
+      nil
+    end
+
+    sig { params(repository_path: Pathname, revision: String).returns(T.nilable(Integer)) }
+    private_class_method def self.timestamp_for_revision(repository_path, revision)
+      timestamp = Utils.popen_read(
+        Utils::Git.git,
+        "show",
+        "-s",
+        "--format=%ct",
+        revision,
+        chdir: repository_path,
       ).chomp.presence
       return if timestamp.nil?
 
