@@ -76,27 +76,26 @@ RSpec.describe Homebrew::Livecheck do
     RUBY
   end
 
-  let(:f_throttle_max_age) do
-    formula("test_throttle_max_age") do
+  let(:f_throttle_rate) do
+    formula("test_throttle_rate") do
       desc "Test formula"
       homepage "https://brew.sh"
       url "https://brew.sh/test-0.0.1.tgz"
 
       livecheck do
         throttle 10
-        throttle_max_age_days 1
       end
     end
   end
 
-  let(:f_throttle_only) do
-    formula("test_throttle_only") do
+  let(:f_throttle_rate_and_days) do
+    formula("test_throttle_rate_and_days") do
       desc "Test formula"
       homepage "https://brew.sh"
       url "https://brew.sh/test-0.0.1.tgz"
 
       livecheck do
-        throttle 10
+        throttle 10, days: 1
       end
     end
   end
@@ -382,26 +381,26 @@ RSpec.describe Homebrew::Livecheck do
       )
     end
 
-    it "returns latest_throttled as nil when no throttled version and max age is not elapsed" do
-      allow(livecheck).to receive(:throttle_max_age_elapsed?).and_return(false)
+    it "returns latest_throttled as nil when there is no throttled version and throttle interval has not elapsed" do
+      allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
 
-      result = livecheck.latest_version(f_throttle_max_age)
+      result = livecheck.latest_version(f_throttle_rate_and_days)
 
       expect(result[:latest]).to eq(Version.new("1.2.2"))
       expect(result[:latest_throttled]).to be_nil
     end
 
-    it "returns latest as latest_throttled when max age is elapsed" do
-      allow(livecheck).to receive(:throttle_max_age_elapsed?).and_return(true)
+    it "returns latest as latest_throttled when throttle interval has elapsed" do
+      allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(true)
 
-      result = livecheck.latest_version(f_throttle_max_age)
+      result = livecheck.latest_version(f_throttle_rate_and_days)
 
       expect(result[:latest]).to eq(Version.new("1.2.2"))
       expect(result[:latest_throttled]).to eq(Version.new("1.2.2"))
     end
 
-    it "does not apply max age behavior when throttle_max_age_days is not set" do
-      result = livecheck.latest_version(f_throttle_only)
+    it "does not apply throttle interval behavior when throttle_days is not set" do
+      result = livecheck.latest_version(f_throttle_rate)
 
       expect(result[:latest]).to eq(Version.new("1.2.2"))
       expect(result[:latest_throttled]).to be_nil

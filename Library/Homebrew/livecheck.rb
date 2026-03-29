@@ -29,6 +29,11 @@ class Livecheck
   sig { returns(T.nilable(Proc)) }
   attr_reader :strategy_block
 
+  # The number of days from the last version update before a new version can be
+  # surfaced.
+  sig { returns(T.nilable(Integer)) }
+  attr_reader :throttle_days
+
   sig { params(package_or_resource: T.any(Cask::Cask, T.class_of(Formula), Resource)).void }
   def initialize(package_or_resource)
     @package_or_resource = package_or_resource
@@ -41,7 +46,7 @@ class Livecheck
     @strategy = T.let(nil, T.nilable(Symbol))
     @strategy_block = T.let(nil, T.nilable(Proc))
     @throttle = T.let(nil, T.nilable(Integer))
-    @throttle_max_age_days = T.let(nil, T.nilable(Integer))
+    @throttle_days = T.let(nil, T.nilable(Integer))
     @url = T.let(nil, T.nilable(T.any(String, Symbol)))
   end
 
@@ -146,37 +151,28 @@ class Livecheck
   end
 
   # Sets the `@throttle` instance variable to the provided `Integer` or returns
-  # the `@throttle` instance variable when no argument is provided.
+  # the `@throttle` instance variable when no argument is provided. The `days`
+  # argument will set `@throttle_days`.
+  #
+  # If both a throttle rate and days are provided, then the throttle days are
+  # used as a fallback when a new throttled version doesn't appear before the
+  # throttle interval ends.
   sig {
     params(
       # Throttle rate of version patch number to use for bumpable versions.
       rate: Integer,
+      # Maximum number of days before allowing a non-multiple update.
+      days: T.nilable(Integer),
     ).returns(T.nilable(Integer))
   }
-  def throttle(rate = T.unsafe(nil))
+  def throttle(rate = T.unsafe(nil), days: nil)
+    @throttle_days = days unless days.nil?
+
     case rate
     when nil
       @throttle
     when Integer
       @throttle = rate
-    end
-  end
-
-  # Sets the `@throttle_max_age_days` instance variable to the provided
-  # `Integer` or returns the `@throttle_max_age_days` instance variable when
-  # no argument is provided.
-  sig {
-    params(
-      # Maximum number of days before allowing a non-multiple update.
-      days: Integer,
-    ).returns(T.nilable(Integer))
-  }
-  def throttle_max_age_days(days = T.unsafe(nil))
-    case days
-    when nil
-      @throttle_max_age_days
-    when Integer
-      @throttle_max_age_days = days
     end
   end
 
@@ -239,16 +235,16 @@ class Livecheck
   sig { returns(T::Hash[String, T.untyped]) }
   def to_hash
     {
-      "options"               => @options.to_hash,
-      "cask"                  => @referenced_cask_name,
-      "formula"               => @referenced_formula_name,
-      "regex"                 => @regex,
-      "skip"                  => @skip,
-      "skip_msg"              => @skip_msg,
-      "strategy"              => @strategy,
-      "throttle"              => @throttle,
-      "throttle_max_age_days" => @throttle_max_age_days,
-      "url"                   => @url,
+      "options"       => @options.to_hash,
+      "cask"          => @referenced_cask_name,
+      "formula"       => @referenced_formula_name,
+      "regex"         => @regex,
+      "skip"          => @skip,
+      "skip_msg"      => @skip_msg,
+      "strategy"      => @strategy,
+      "throttle"      => @throttle,
+      "throttle_days" => @throttle_days,
+      "url"           => @url,
     }
   end
 end
