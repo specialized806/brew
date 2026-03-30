@@ -130,6 +130,11 @@ RSpec.describe Livecheck do
       livecheck_f.throttle(10)
       expect(livecheck_f.throttle).to eq(10)
     end
+
+    it "sets @throttle_days to provided Integer" do
+      livecheck_f.throttle(days: 1)
+      expect(livecheck_f.throttle_days).to eq(1)
+    end
   end
 
   describe "#url" do
@@ -308,15 +313,16 @@ RSpec.describe Livecheck do
     it "returns a Hash of all instance variables" do
       expect(livecheck_f.to_hash).to eq(
         {
-          "options"  => Homebrew::Livecheck::Options.new.to_hash,
-          "cask"     => nil,
-          "formula"  => nil,
-          "regex"    => nil,
-          "skip"     => false,
-          "skip_msg" => nil,
-          "strategy" => nil,
-          "throttle" => nil,
-          "url"      => nil,
+          "options"       => Homebrew::Livecheck::Options.new.to_hash,
+          "cask"          => nil,
+          "formula"       => nil,
+          "regex"         => nil,
+          "skip"          => false,
+          "skip_msg"      => nil,
+          "strategy"      => nil,
+          "throttle"      => nil,
+          "throttle_days" => nil,
+          "url"           => nil,
         },
       )
     end
