@@ -124,14 +124,14 @@ module Homebrew
           end
           new_tap_new_name ||= name
 
-          message += if !same_tap
+          message += if same_tap
+            "You can install it by running:\n"
+          else
             <<~EOS
               You can access it again by running:
                 brew tap #{new_tap_name}
               And then you can install it by running:
             EOS
-          else
-            "You can install it by running:\n"
           end
           message += "  brew #{install_cmd} #{new_tap_new_name}\n"
           break
