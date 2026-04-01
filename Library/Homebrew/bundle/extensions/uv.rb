@@ -212,6 +212,37 @@ module Homebrew
           end
         end
         private :package_with
+
+        sig { override.returns(String) }
+        def cleanup_heading
+          "uv tools"
+        end
+
+        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
+        def cleanup_items(entries)
+          return [].freeze unless package_manager_installed?
+
+          kept_tools = entries.filter_map do |entry|
+            entry = T.cast(entry, Dsl::Entry)
+            entry.name if entry.type == type
+          end
+
+          return [].freeze if kept_tools.empty?
+
+          installed_names = packages.map { |pkg| dump_name(pkg) }
+          installed_names - kept_tools
+        end
+
+        sig { params(items: T::Array[String]).void }
+        def cleanup!(items)
+          uv = package_manager_executable
+          return if uv.nil?
+
+          items.each do |name|
+            Bundle.system(uv.to_s, "tool", "uninstall", name, verbose: false)
+          end
+          puts "Uninstalled #{items.size} uv tool#{"s" if items.size != 1}"
+        end
       end
 
       sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }

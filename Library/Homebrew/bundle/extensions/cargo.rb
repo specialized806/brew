@@ -68,6 +68,38 @@ module Homebrew
           @installed_packages = packages.dup
         end
 
+        sig { override.returns(String) }
+        def cleanup_heading
+          "Cargo packages"
+        end
+
+        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
+        def cleanup_items(entries)
+          return [].freeze unless package_manager_installed?
+
+          kept_packages = entries.filter_map do |entry|
+            entry = T.cast(entry, Dsl::Entry)
+            entry.name if entry.type == type
+          end
+
+          return [].freeze if kept_packages.empty?
+
+          packages - kept_packages
+        end
+
+        sig { params(items: T::Array[String]).void }
+        def cleanup!(items)
+          cargo = package_manager_executable
+          return if cargo.nil?
+
+          with_env(cargo_env(cargo)) do
+            items.each do |name|
+              Bundle.system(cargo.to_s, "uninstall", name, verbose: false)
+            end
+          end
+          puts "Uninstalled #{items.size} Cargo package#{"s" if items.size != 1}"
+        end
+
         sig { params(output: String).returns(T::Array[String]) }
         def parse_package_list(output)
           output.lines.filter_map do |line|

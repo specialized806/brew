@@ -84,6 +84,54 @@ module Homebrew
 
           @installed_packages = packages.dup
         end
+
+        sig { override.returns(String) }
+        def cleanup_heading
+          "Go packages"
+        end
+
+        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
+        def cleanup_items(entries)
+          return [].freeze unless package_manager_installed?
+
+          kept_packages = entries.filter_map do |entry|
+            entry = T.cast(entry, Dsl::Entry)
+            entry.name if entry.type == type
+          end
+
+          return [].freeze if kept_packages.empty?
+
+          packages - kept_packages
+        end
+
+        sig { params(items: T::Array[String]).void }
+        def cleanup!(items)
+          go = package_manager_executable
+          return if go.nil?
+
+          gobin = `#{go} env GOBIN`.chomp
+          gopath = `#{go} env GOPATH`.chomp
+          bin_dir = gobin.empty? ? "#{gopath}/bin" : gobin
+          return unless File.directory?(bin_dir)
+
+          removed = 0
+          Dir.glob("#{bin_dir}/*").each do |binary|
+            next if !File.executable?(binary) || File.directory?(binary) || File.symlink?(binary)
+
+            output = `#{go} version -m "#{binary}" 2>/dev/null`
+            next if output.empty?
+
+            path_line = output.split("\n").find { |line| line.strip.start_with?("path\t") }
+            next unless path_line
+
+            module_path = path_line.split("\t")[2]&.strip
+            next unless items.include?(module_path)
+
+            FileUtils.rm_f(binary)
+            removed += 1
+          end
+          puts "Uninstalled #{removed} Go package#{"s" if removed != 1}"
+        end
       end
     end
   end
