@@ -64,34 +64,9 @@ module Homebrew
           @installed_packages = packages.dup
         end
 
-        sig { override.returns(String) }
-        def cleanup_heading
-          "npm packages"
-        end
-
-        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
-        def cleanup_items(entries)
-          return [].freeze unless package_manager_installed?
-
-          kept_packages = entries.filter_map do |entry|
-            entry = T.cast(entry, Dsl::Entry)
-            entry.name if entry.type == type
-          end
-
-          return [].freeze if kept_packages.empty?
-
-          packages - kept_packages
-        end
-
-        sig { params(items: T::Array[String]).void }
-        def cleanup!(items)
-          npm = package_manager_executable
-          return if npm.nil?
-
-          items.each do |name|
-            Bundle.system(npm.to_s, "uninstall", "-g", name, verbose: false)
-          end
-          puts "Uninstalled #{items.size} npm package#{"s" if items.size != 1}"
+        sig { override.params(name: String, executable: Pathname).void }
+        def uninstall_package!(name, executable: Pathname.new(""))
+          Bundle.system(executable.to_s, "uninstall", "-g", name, verbose: false)
         end
 
         sig { params(output: String).returns(T::Array[String]) }

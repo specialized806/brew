@@ -85,26 +85,7 @@ module Homebrew
           @installed_packages = packages.dup
         end
 
-        sig { override.returns(String) }
-        def cleanup_heading
-          "Go packages"
-        end
-
-        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
-        def cleanup_items(entries)
-          return [].freeze unless package_manager_installed?
-
-          kept_packages = entries.filter_map do |entry|
-            entry = T.cast(entry, Dsl::Entry)
-            entry.name if entry.type == type
-          end
-
-          return [].freeze if kept_packages.empty?
-
-          packages - kept_packages
-        end
-
-        sig { params(items: T::Array[String]).void }
+        sig { override.params(items: T::Array[String]).void }
         def cleanup!(items)
           go = package_manager_executable
           return if go.nil?
@@ -130,7 +111,7 @@ module Homebrew
             FileUtils.rm_f(binary)
             removed += 1
           end
-          puts "Uninstalled #{removed} Go package#{"s" if removed != 1}"
+          puts "Uninstalled #{removed} #{banner_name}#{"s" if removed != 1}"
         end
       end
     end
