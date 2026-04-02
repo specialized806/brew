@@ -263,7 +263,8 @@ RSpec.describe Cask::Uninstall, :cask do
 
       expect do
         described_class.check_dependent_casks(
-          local_transmission, depends_on_cask,
+          local_transmission,
+          depends_on_cask,
           named_args: ["local-transmission-zip", "with-depends-on-cask"],
         )
       end.not_to output.to_stderr
@@ -282,7 +283,8 @@ RSpec.describe Cask::Uninstall, :cask do
 
       expect do
         described_class.check_dependent_casks(
-          local_transmission, depends_on_cask,
+          local_transmission,
+          depends_on_cask,
           named_args: ["local-transmission-zip", "with-depends-on-cask"],
         )
       end.to output(/Refusing to uninstall/).to_stderr
