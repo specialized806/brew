@@ -161,7 +161,7 @@ module Homebrew
 
       sig { returns(T.nilable(String)) }
       def self.cleanup_heading
-        banner_name
+        nil
       end
 
       sig { returns(T::Boolean) }

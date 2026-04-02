@@ -39,6 +39,11 @@ module Homebrew
           @installed_packages = T.let(nil, T.nilable(T::Array[Tool]))
         end
 
+        sig { override.returns(T.nilable(String)) }
+        def cleanup_heading
+          banner_name
+        end
+
         sig { override.returns(T::Array[Tool]) }
         def packages
           packages = @packages

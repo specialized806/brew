@@ -17,6 +17,11 @@ module Homebrew
           @installed_packages = T.let(nil, T.nilable(T::Array[String]))
         end
 
+        sig { override.returns(T.nilable(String)) }
+        def cleanup_heading
+          banner_name
+        end
+
         sig { override.returns(String) }
         def package_manager_name
           "rust"
