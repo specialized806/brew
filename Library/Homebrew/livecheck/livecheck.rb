@@ -856,6 +856,8 @@ module Homebrew
           version_info[:meta][:cached] = true if strategy_data[:cached] == true
           version_info[:meta][:throttle] = livecheck_throttle if livecheck_throttle
           version_info[:meta][:throttle_days] = livecheck_throttle_days if livecheck_throttle_days
+
+          version_info[:content] = strategy_data[:content] if strategy_data[:content] && strategy_name == "Pypi"
         end
 
         return version_info

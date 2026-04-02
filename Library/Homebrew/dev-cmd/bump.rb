@@ -4,11 +4,28 @@
 require "abstract_command"
 require "bump_version_parser"
 require "livecheck/livecheck"
+require "utils/curl"
 require "utils/repology"
 
 module Homebrew
   module DevCmd
     class Bump < AbstractCommand
+      MIN_RELEASE_AGE_DAYS = 1
+      DEFAULT_CURL_ARGS = T.let([
+        "--compressed",
+        "--fail-with-body",
+        "--location",
+        "--max-redirs",
+        "5",
+        "--silent",
+      ].freeze, T::Array[String])
+      DEFAULT_CURL_OPTIONS = T.let({
+        connect_timeout: 15,
+        max_time:        55,
+        timeout:         60,
+        retries:         0,
+      }.freeze, T::Hash[Symbol, T.untyped])
+
       LIVECHECK_MESSAGE_REGEX = /^(?:error:|skipped|unable to get(?: throttled)? versions)/i
       NEWER_THAN_UPSTREAM_MSG = " (newer than upstream)"
 
@@ -250,9 +267,12 @@ module Homebrew
       end
 
       sig {
-        params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T.any(Version, String))
+        params(
+          formula_or_cask: T.any(Formula, Cask::Cask),
+          current:         T.nilable(T.any(Version, Cask::DSL::Version)),
+        ).returns(T.any(Version, String))
       }
-      def livecheck_result(formula_or_cask)
+      def livecheck_result(formula_or_cask, current)
         name = Livecheck.package_or_resource_name(formula_or_cask)
 
         referenced_formula_or_cask, = Livecheck.resolve_livecheck_reference(
@@ -294,7 +314,7 @@ module Homebrew
         return "unable to get versions" if version_info.blank?
 
         if !version_info.key?(:latest_throttled)
-          Version.new(version_info[:latest])
+          version_with_cooldown(version_info, current) || Version.new(version_info[:latest])
         elsif version_info[:latest_throttled].nil?
           "unable to get throttled versions"
         else
@@ -367,7 +387,7 @@ module Homebrew
             deprecated[version_key] = loaded_formula_or_cask.deprecated?
             formula_or_cask_has_livecheck = loaded_formula_or_cask.livecheck_defined?
 
-            livecheck_latest = livecheck_result(loaded_formula_or_cask)
+            livecheck_latest = livecheck_result(loaded_formula_or_cask, current_version_value)
             livecheck_latest_is_a_version = livecheck_latest.is_a?(Version)
 
             new_version_value = if (livecheck_latest_is_a_version &&
@@ -837,6 +857,83 @@ module Homebrew
             Cask::CaskLoader.load(qualified_name)
           else
             Formulary.factory(qualified_name)
+          end
+        end
+      end
+
+      # Identifies the highest upstream version that has been released before
+      # the cooldown interval.
+      #
+      # @param version_info the return hash from `Livecheck.latest_version`
+      # @param current the current version
+      sig {
+        params(
+          version_info: T::Hash[Symbol, T.untyped],
+          current:      T.nilable(T.any(Version, Cask::DSL::Version)),
+        ).returns(T.nilable(Version))
+      }
+      def version_with_cooldown(version_info, current = nil)
+        return unless current
+
+        latest = Version.new(version_info[:latest]) if version_info[:latest]
+        return unless latest
+        return if latest <= current
+
+        strategy = T.cast(version_info.dig(:meta, :strategy), T.nilable(String))
+        case strategy
+        when "Npm"
+          url = version_info.dig(:meta, :url, :strategy)&.delete_suffix("/latest")
+          return unless url
+
+          stdout, _stderr, status = Utils::Curl.curl_output(*DEFAULT_CURL_ARGS, url, **DEFAULT_CURL_OPTIONS)
+          return unless status.success?
+          return if (content = stdout.scrub).blank?
+
+          json = Homebrew::Livecheck::Strategy::Json.parse_json(content)
+          release_dates = json["time"]&.except("created", "modified")
+          return unless release_dates.present?
+
+          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          release_dates.sort_by { |k, _| Version.new(k) }.reverse_each do |version_str, date_str|
+            version = Version.new(version_str)
+            return version if version_str == current.to_s
+
+            date = DateTime.parse(date_str)
+            return version if date < cooldown_interval
+          end
+        when "Pypi"
+          url = version_info.dig(:meta, :url, :strategy)
+          original_url = version_info.dig(:meta, :url, :original)
+          return if !url || !original_url
+
+          suffix = Homebrew::Livecheck::Strategy::Pypi::URL_MATCH_REGEX.match(original_url)&.[](:suffix)
+          return unless suffix
+
+          content = version_info[:content]
+          unless content
+            stdout, _stderr, status = Utils::Curl.curl_output(*DEFAULT_CURL_ARGS, url, **DEFAULT_CURL_OPTIONS)
+            return unless status.success?
+
+            content = stdout.scrub
+          end
+          return if content.blank?
+
+          json = Homebrew::Livecheck::Strategy::Json.parse_json(content)
+          return unless (releases = json["releases"])
+
+          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          releases.sort_by { |k, _| Version.new(k) }.reverse_each do |version_str, assets|
+            version = Version.new(version_str)
+            return version if version_str == current.to_s
+
+            assets.each do |asset|
+              next if asset["yanked"]
+              next unless asset["url"]&.end_with?(suffix)
+              next unless (date_str = asset["upload_time_iso_8601"])
+
+              date = DateTime.parse(date_str)
+              return version if date < cooldown_interval
+            end
           end
         end
       end
