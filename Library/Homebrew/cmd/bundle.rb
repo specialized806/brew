@@ -243,7 +243,8 @@ module Homebrew
         case subcommand
         when nil, "install", "upgrade"
           require "bundle/commands/install"
-          Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, jobs:, quiet: args.quiet?)
+          Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, jobs:,
+                                                  quiet: args.quiet?)
 
           cleanup = if ENV.fetch("HOMEBREW_BUNDLE_INSTALL_CLEANUP", nil)
             args.global?

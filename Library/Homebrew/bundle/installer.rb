@@ -4,7 +4,6 @@
 require "bundle/dsl"
 require "bundle/package_types"
 require "bundle/skipper"
-require "set"
 
 module Homebrew
   module Bundle
@@ -60,7 +59,7 @@ module Homebrew
 
           if formula_entries.size > 1
             formula_success, formula_failure = parallel_install_formulae!(
-              formula_entries, jobs:, no_upgrade:, verbose:, force:, quiet:,
+              formula_entries, jobs:, no_upgrade:, verbose:, force:, quiet:
             )
             success += formula_success
             failure += formula_failure
@@ -154,22 +153,23 @@ module Homebrew
 
       sig {
         params(
-          entries:     T::Array[InstallableEntry],
-          jobs:        Integer,
-          no_upgrade:  T::Boolean,
-          verbose:     T::Boolean,
-          force:       T::Boolean,
-          quiet:       T::Boolean,
+          entries:    T::Array[InstallableEntry],
+          jobs:       Integer,
+          no_upgrade: T::Boolean,
+          verbose:    T::Boolean,
+          force:      T::Boolean,
+          quiet:      T::Boolean,
         ).returns([Integer, Integer])
       }
       def self.parallel_install_formulae!(entries, jobs:, no_upgrade:, verbose:, force:, quiet:)
         dependency_map = T.let({}, T::Hash[String, T::Set[String]])
-        entry_name_map = T.let({}, T::Hash[String, String])
-
-        entries.each do |entry|
-          entry_name_map[entry.name] = entry.name
-          entry_name_map[T.must(entry.name.split("/").last)] = entry.name
-        end
+        entry_name_map = T.let(
+          entries.each_with_object({}) do |entry, map|
+            map[entry.name] = entry.name
+            map[T.must(entry.name.split("/").last)] = entry.name
+          end,
+          T::Hash[String, String],
+        )
 
         entries.each do |entry|
           formula = Homebrew::Bundle::Brew.formulae_by_full_name(entry.name)
@@ -253,7 +253,7 @@ module Homebrew
         if output_mutex.nil?
           yield
         else
-          output_mutex.synchronize { yield }
+          output_mutex.synchronize(&block)
         end
       end
       private_class_method :with_output_lock

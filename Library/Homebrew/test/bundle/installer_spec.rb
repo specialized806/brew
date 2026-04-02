@@ -84,13 +84,19 @@ RSpec.describe Homebrew::Bundle::Installer do
     end
 
     it "installs independent formulae in parallel with jobs > 1" do
-      alpha_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true, install!: true)
-      beta_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true, install!: true)
+      alpha_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true)
+      beta_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true)
 
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
       allow(Homebrew::Bundle::Brew).to receive(:new).with("alpha", {}).and_return(alpha_installer)
       allow(Homebrew::Bundle::Brew).to receive(:new).with("beta", {}).and_return(beta_installer)
+      expect(alpha_installer).to receive(:install!)
+        .with(preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .and_return(true)
+      expect(beta_installer).to receive(:install!)
+        .with(preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .and_return(true)
 
       success, failure = described_class.send(
         :parallel_install_formulae!,
@@ -100,8 +106,6 @@ RSpec.describe Homebrew::Bundle::Installer do
 
       expect(success).to eq(2)
       expect(failure).to eq(0)
-      expect(alpha_installer).to have_received(:install!)
-      expect(beta_installer).to have_received(:install!)
     end
 
     it "serializes dependent formulae" do
@@ -117,7 +121,8 @@ RSpec.describe Homebrew::Bundle::Installer do
         true
       end
 
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: ["beta"] })
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha")
+                                                                      .and_return({ dependencies: ["beta"] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
       allow(Homebrew::Bundle::Brew).to receive(:new).with("alpha", {}).and_return(alpha_installer)
       allow(Homebrew::Bundle::Brew).to receive(:new).with("beta", {}).and_return(beta_installer)
@@ -134,11 +139,16 @@ RSpec.describe Homebrew::Bundle::Installer do
     end
 
     it "falls back to sequential with jobs=1" do
-      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?).with("mysql", no_upgrade: false).and_return(false)
-      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?).with("redis", no_upgrade: false).and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?).with("mysql",
+                                                                                        no_upgrade: false)
+                                                                                  .and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?).with("redis",
+                                                                                        no_upgrade: false)
+                                                                                  .and_return(false)
 
       expect(described_class).not_to receive(:parallel_install_formulae!)
-      expect(Homebrew::Bundle).to receive(:brew).with("fetch", "mysql", "redis", verbose: false).ordered.and_return(true)
+      expect(Homebrew::Bundle).to receive(:brew).with("fetch", "mysql", "redis",
+                                                      verbose: false).ordered.and_return(true)
       expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
         .with("mysql", no_upgrade: false, verbose: false).ordered.and_return(true)
       expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
