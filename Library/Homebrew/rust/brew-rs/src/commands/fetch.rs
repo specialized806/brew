@@ -529,29 +529,39 @@ fn download_http_url(
     destination: &Path,
     progress: &Arc<Mutex<DownloadProgress>>,
 ) -> BrewResult<()> {
+    let auth_header = resolve_http_auth(url);
     let mut request = client.get(url.as_str());
-    if should_send_github_packages_auth(url) {
-        if let Some(auth) = env_value("HOMEBREW_GITHUB_PACKAGES_AUTH") {
-            let mut headers = HeaderMap::new();
-            headers.insert(
-                AUTHORIZATION,
-                HeaderValue::from_str(&auth)
-                    .context("Failed to build GitHub Packages authorization header")?,
-            );
-            request = request.headers(headers);
-        }
+    if let Some(auth) = &auth_header {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(auth).context("Failed to build authorization header")?,
+        );
+        request = request.headers(headers);
     }
 
     let mut response = request
         .send()
-        .with_context(|| format!("Failed to download {}", url))?
+        .with_context(|| format!("Failed to download {url}"))?
         .error_for_status()
-        .with_context(|| format!("Failed to download {}", url))?;
+        .with_context(|| format!("Failed to download {url}"))?;
     update_download_total(progress, response.content_length());
     let mut output = File::create(destination)
         .with_context(|| format!("Failed to create {}", destination.display()))?;
     copy_stream(&mut response, &mut output, progress)?;
     Ok(())
+}
+
+const GHCR_ANONYMOUS_TOKEN: &str = "Bearer QQ==";
+
+fn resolve_http_auth(url: &Url) -> Option<String> {
+    if !should_send_github_packages_auth(url) {
+        return None;
+    }
+    Some(
+        env_value("HOMEBREW_GITHUB_PACKAGES_AUTH")
+            .unwrap_or_else(|| GHCR_ANONYMOUS_TOKEN.to_string()),
+    )
 }
 
 fn copy_stream(
