@@ -1,5 +1,5 @@
 ---
-last_review_date: "2025-11-10"
+last_review_date: "2026-04-03"
 ---
 
 # Support Tiers
@@ -7,6 +7,8 @@ last_review_date: "2025-11-10"
 Homebrew defines three support tiers to help users understand how well Homebrew is expected to work on different systems.
 
 These tiers describe the level of compatibility, automation coverage, and community support that the project actively maintains. They also set expectations for how we handle issues, pull requests, and regressions.
+
+These tiers describe Homebrew support for the host system itself, not a guarantee that every third-party formula or cask will remain runnable on that system forever. Package-specific policies, such as the phaseout for Rosetta-dependent casks on Apple Silicon, are documented separately in [Acceptable Casks](Acceptable-Casks.md).
 
 ## Tier 1
 
@@ -157,3 +159,9 @@ The following timeline outlines expected Tier classifications based on Apple’s
 
   Intel x86_64:
   - Unsupported: all macOS versions
+
+### Rosetta 2
+
+Apple has also announced that Rosetta 2 will remain available as a general-purpose compatibility tool through macOS 27, with only a narrower legacy-games-focused subset planned beyond that.
+
+This does not change the support tier of an otherwise supported Apple Silicon Mac, but it does shorten the expected support window for x86_64-only casks that rely on [`requires_rosetta`](Cask-Cookbook.md#caveats-requires_rosetta). See [Acceptable Casks](Acceptable-Casks.md) for the expected acceptance, deprecation, and removal timeline for those casks.
