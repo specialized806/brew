@@ -373,14 +373,7 @@ class FormulaInstaller
 
   sig { void }
   def verify_deps_exist
-    begin
-      compute_dependencies
-    rescue TapFormulaUnavailableError => e
-      raise if e.tap.installed?
-
-      e.tap.ensure_installed!
-      retry if e.tap.installed? # It may have not installed if it's a core tap.
-    end
+    compute_dependencies
   rescue FormulaUnavailableError => e
     e.dependent = formula.full_name
     raise

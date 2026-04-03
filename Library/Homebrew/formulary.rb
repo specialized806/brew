@@ -1173,7 +1173,6 @@ module Formulary
           new_name = new_tap_name
         end
       end
-      new_tap.ensure_installed!
       new_tapped_name = "#{new_tap}/#{new_name}"
 
       if tapped_name != new_tapped_name
