@@ -4,6 +4,7 @@
 require "bundle"
 require "bundle/dsl"
 require "bundle/installer"
+require "bundle/parallel_installer"
 
 RSpec.describe Homebrew::Bundle::Installer do
   let(:formula_entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql") }
@@ -84,25 +85,19 @@ RSpec.describe Homebrew::Bundle::Installer do
     end
 
     it "installs independent formulae in parallel with jobs > 1" do
-      alpha_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true)
-      beta_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true)
-
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:new).with("alpha", {}).and_return(alpha_installer)
-      allow(Homebrew::Bundle::Brew).to receive(:new).with("beta", {}).and_return(beta_installer)
-      expect(alpha_installer).to receive(:install!)
-        .with(preinstall: true, no_upgrade: false, verbose: false, force: false)
+      expect(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("alpha", preinstall: true, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
-      expect(beta_installer).to receive(:install!)
-        .with(preinstall: true, no_upgrade: false, verbose: false, force: false)
+      expect(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("beta", preinstall: true, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
 
-      success, failure = described_class.send(
-        :parallel_install_formulae!,
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
         [alpha_entry, beta_entry],
         jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      )
+      ).run!
 
       expect(success).to eq(2)
       expect(failure).to eq(0)
@@ -110,28 +105,19 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     it "serializes dependent formulae" do
       install_order = []
-      alpha_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true)
-      beta_installer = instance_double(Homebrew::Bundle::Brew, preinstall!: true)
-      allow(alpha_installer).to receive(:install!) do
-        install_order << "alpha"
-        true
-      end
-      allow(beta_installer).to receive(:install!) do
-        install_order << "beta"
+      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
+        install_order << name
         true
       end
 
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha")
                                                                       .and_return({ dependencies: ["beta"] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:new).with("alpha", {}).and_return(alpha_installer)
-      allow(Homebrew::Bundle::Brew).to receive(:new).with("beta", {}).and_return(beta_installer)
 
-      success, failure = described_class.send(
-        :parallel_install_formulae!,
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
         [alpha_entry, beta_entry],
         jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      )
+      ).run!
 
       expect(success).to eq(2)
       expect(failure).to eq(0)
@@ -146,7 +132,7 @@ RSpec.describe Homebrew::Bundle::Installer do
                                                                                         no_upgrade: false)
                                                                                   .and_return(false)
 
-      expect(described_class).not_to receive(:parallel_install_formulae!)
+      expect(Homebrew::Bundle::ParallelInstaller).not_to receive(:new)
       expect(Homebrew::Bundle).to receive(:brew).with("fetch", "mysql", "redis",
                                                       verbose: false).ordered.and_return(true)
       expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
