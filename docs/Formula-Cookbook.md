@@ -184,6 +184,18 @@ When a dependent of a formula fails to build against a new version of that depen
 
 [`revision`](/rubydoc/Formula.html#revision-class_method)s are also used for formulae that move from the system OpenSSL to the Homebrew-shipped OpenSSL without any other changes to that formula. This ensures users aren’t left exposed to the potential security issues of the outdated OpenSSL. An example of this can be seen in [this commit](https://github.com/Homebrew/homebrew-core/commit/0d4453a91923e6118983961e18d0609e9828a1a4).
 
+#### `compatibility_version`
+
+Use [`compatibility_version`](/rubydoc/Formula.html#compatibility_version-class_method) to record whether a formula update remains compatible with already-built dependents. Homebrew records this in installed tabs so later installs and upgrades can avoid rebuilding dependents unnecessarily when the installed dependency is still known to be compatible. This exists both to reduce the number of dependency upgrades users need and to avoid unnecessary dependent [`revision`](/rubydoc/Formula.html#revision-class_method) bumps.
+
+Bump `compatibility_version` by `1` when a formula update requires any recursive dependent formula to receive a [`revision`](/rubydoc/Formula.html#revision-class_method) bump in the same pull request. If only some dependents need rebuilding, still bump `compatibility_version`; only the dependents that actually need rebuilding should receive a `revision` bump.
+
+Do not change `compatibility_version` for updates that do not require dependent `revision` bumps. It should never decrease and should only increment by `1` at a time.
+
+[`brew audit`](Manpage.md) checks this relationship in both directions. If a formula's `compatibility_version` increases, at least one recursive dependent in the same pull request must also increase `revision` by `1`. If a formula's `revision` increases because a changed recursive dependency also changed versions, that dependency must increase `compatibility_version` by `1`.
+
+These checks are based on dependent `revision` bumps in the pull request, not on general ABI analysis. Homebrew cannot automatically detect every compatibility break that is not covered by linkage or formula tests, so maintainers may still need to bump `compatibility_version` and dependent `revision`s manually when they know a rebuild is required.
+
 ### Version scheme changes
 
 Sometimes formulae have version schemes that change such that a direct comparison between two versions no longer produces the correct result. For example, a project might be version `13` and then decide to become `1.0.0`. As `13` is translated to `13.0.0` by our versioning system by default this requires intervention.
