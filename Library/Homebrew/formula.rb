@@ -910,7 +910,7 @@ class Formula
   # exists and is not empty.
   sig { returns(T::Boolean) }
   def latest_version_installed?
-    (dir = latest_installed_prefix).directory? && !dir.children.empty?
+    (dir = latest_installed_prefix).directory? && !dir.empty?
   end
 
   # If at least one version of {Formula} is installed.

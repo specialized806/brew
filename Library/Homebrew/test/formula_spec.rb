@@ -639,15 +639,15 @@ RSpec.describe Formula do
       expect(f).not_to be_latest_version_installed
     end
 
-    it "returns false if the #latest_installed_prefix does not have children" do
+    it "returns false if the #latest_installed_prefix is empty" do
       allow(f).to receive(:latest_installed_prefix)
-        .and_return(instance_double(Pathname, directory?: true, children: []))
+        .and_return(instance_double(Pathname, directory?: true, empty?: true))
       expect(f).not_to be_latest_version_installed
     end
 
-    it "returns true if the #latest_installed_prefix has children" do
+    it "returns true if the #latest_installed_prefix is not empty" do
       allow(f).to receive(:latest_installed_prefix)
-        .and_return(instance_double(Pathname, directory?: true, children: [double]))
+        .and_return(instance_double(Pathname, directory?: true, empty?: false))
       expect(f).to be_latest_version_installed
     end
   end
