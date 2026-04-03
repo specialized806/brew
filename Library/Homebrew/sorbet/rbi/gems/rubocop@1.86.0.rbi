@@ -1141,6 +1141,8 @@ RuboCop::Cop::Layout::EmptyLinesAroundArguments::MSG = T.let(T.unsafe(nil), Stri
 
 RuboCop::Cop::Layout::EmptyLinesAroundAttributeAccessor::MSG = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Layout::EmptyLinesAroundAttributeAccessor::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
+
 RuboCop::Cop::Layout::EmptyLinesAroundBeginBody::KIND = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Layout::EmptyLinesAroundBlockBody::KIND = T.let(T.unsafe(nil), String)
@@ -1338,6 +1340,8 @@ RuboCop::Cop::Layout::SpaceBeforeFirstArg::MSG = T.let(T.unsafe(nil), String)
 RuboCop::Cop::Layout::SpaceInLambdaLiteral::MSG_REQUIRE_NO_SPACE = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Layout::SpaceInLambdaLiteral::MSG_REQUIRE_SPACE = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Layout::SpaceInLambdaLiteral::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
 
 RuboCop::Cop::Layout::SpaceInsideArrayLiteralBrackets::EMPTY_MSG = T.let(T.unsafe(nil), String)
 
@@ -1905,6 +1909,8 @@ RuboCop::Cop::Lint::TopLevelReturnWithArgument::MSG = T.let(T.unsafe(nil), Strin
 
 RuboCop::Cop::Lint::TrailingCommaInAttributeDeclaration::MSG = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Lint::TrailingCommaInAttributeDeclaration::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
+
 RuboCop::Cop::Lint::TripleQuotes::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::UnderscorePrefixedVariableName::MSG = T.let(T.unsafe(nil), String)
@@ -2264,19 +2270,22 @@ class RuboCop::Cop::Registry
   def names; end
   def names_for_department(department); end
   def options; end
-  def print_warning(name, path); end
+  def print_department_missing_warning(name, path); end
   def qualified_cop_name(name, path, warn: T.unsafe(nil)); end
   def qualify_badge(badge); end
   def select(&block); end
   def sort!; end
   def to_h; end
   def unqualified_cop_names; end
+  def warnings; end
+  def warnings?(path); end
   def with_department(department); end
   def without_department(department); end
 
   private
 
   def clear_enrollment_queue; end
+  def emit_warning(path, message); end
   def initialize_copy(reg); end
   def registered?(badge); end
   def resolve_badge(given_badge, real_badge, source_path, warn: T.unsafe(nil)); end
@@ -4146,6 +4155,7 @@ class RuboCop::ResultCache
     def inhibit_cleanup; end
     def inhibit_cleanup=(_arg0); end
     def relevant_options_digest(options); end
+    def reset_config_cache; end
     def rubocop_required_features; end
     def rubocop_required_features=(_arg0); end
     def source_checksum; end
