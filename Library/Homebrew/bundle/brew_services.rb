@@ -100,9 +100,16 @@ module Homebrew
           _ = no_upgrade
 
           return true unless formula_needs_to_start?(entry_to_formula(formula))
-          return true if self.class.started?(formula.name)
 
-          old_name = lookup_old_name(formula.name)
+          name = formula.name
+          return true if self.class.started?(name)
+
+          # `brew services list` returns base names, so fall back to the last
+          # path component for tap-qualified entries (e.g., "user/tap/formula").
+          base_name = name.split("/").last
+          return true if base_name != name && self.class.started?(base_name)
+
+          old_name = lookup_old_name(name)
           return true if old_name && self.class.started?(old_name)
 
           false
