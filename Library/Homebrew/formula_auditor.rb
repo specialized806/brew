@@ -957,8 +957,9 @@ module Homebrew
       end
       return if missing_compatibility_bumps.empty? || !formula.core_formula?
 
-      problem "`revision` increased but recursive dependencies must increase `compatibility_version` by 1: " \
-              "#{missing_compatibility_bumps.join(", ")}."
+      problem "`revision` increased but changed recursive dependencies must increase `compatibility_version` by 1 " \
+              "in the same PR: #{missing_compatibility_bumps.join(", ")}. " \
+              "See #{Formatter.url("https://docs.brew.sh/Formula-Cookbook#compatibility_version")}."
     end
 
     def audit_compatibility_version
@@ -1006,7 +1007,9 @@ module Homebrew
 
       problem "`compatibility_version` increased from #{previous_compatibility_version} to " \
               "#{current_compatibility_version} but no recursive dependent formulae increased " \
-              "`revision` by 1 in this PR."
+              "`revision` by 1 in this PR. Only bump `compatibility_version` when at least one recursive " \
+              "dependent needs a `revision` bump. " \
+              "See #{Formatter.url("https://docs.brew.sh/Formula-Cookbook#compatibility_version")}."
     end
 
     def audit_version_scheme

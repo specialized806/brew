@@ -1493,7 +1493,11 @@ RSpec.describe Homebrew::FormulaAuditor do
         auditor.audit_compatibility_version
 
         expect(auditor.problems).to include(
-          a_hash_including(message: a_string_matching(/no recursive dependent formulae increased `revision` by 1/)),
+          a_hash_including(
+            message: a_string_matching(
+              %r{no recursive dependent formulae increased `revision` by 1.*https://docs\.brew\.sh/Formula-Cookbook#compatibility_version},
+            ),
+          ),
         )
       end
 
@@ -1641,7 +1645,9 @@ RSpec.describe Homebrew::FormulaAuditor do
 
           expect(auditor.problems).to include(
             a_hash_including(
-              message: a_string_matching(/must increase `compatibility_version` by 1: foo \(1 to 2\)/),
+              message: a_string_matching(
+                %r{must increase `compatibility_version` by 1 in the same PR: foo \(1 to 2\).*https://docs\.brew\.sh/Formula-Cookbook#compatibility_version},
+              ),
             ),
           )
         end
