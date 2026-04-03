@@ -54,35 +54,15 @@ module Homebrew
           end
         end
 
-        if jobs > 1
-          formula_entries, other_entries = installable_entries.partition { |entry| entry.cls == Homebrew::Bundle::Brew }
+        if jobs > 1 && installable_entries.size > 1
+          require "bundle/parallel_installer"
 
-          if formula_entries.size > 1
-            require "bundle/parallel_installer"
-
-            parallel = ParallelInstaller.new(
-              formula_entries, jobs:, no_upgrade:, verbose:, force:, quiet:
-            )
-            formula_success, formula_failure = parallel.run!
-            success += formula_success
-            failure += formula_failure
-          else
-            formula_entries.each do |entry|
-              if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
-                success += 1
-              else
-                failure += 1
-              end
-            end
-          end
-
-          other_entries.each do |entry|
-            if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
-              success += 1
-            else
-              failure += 1
-            end
-          end
+          parallel = ParallelInstaller.new(
+            installable_entries, jobs:, no_upgrade:, verbose:, force:, quiet:
+          )
+          parallel_success, parallel_failure = parallel.run!
+          success += parallel_success
+          failure += parallel_failure
         else
           installable_entries.each do |entry|
             if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
