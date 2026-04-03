@@ -639,7 +639,7 @@ fn verify_checksum(path: &Path, expected: &str) -> BrewResult<()> {
         hasher.update(&buffer[..read]);
     }
 
-    let actual = format!("{:x}", hasher.finalize());
+    let actual = lower_hex(hasher.finalize());
     if actual == expected {
         return Ok(());
     }
@@ -1138,8 +1138,16 @@ impl Spinner {
     }
 }
 
+fn lower_hex(value: impl AsRef<[u8]>) -> String {
+    value
+        .as_ref()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 fn sha256_hex_str(value: &str) -> String {
-    format!("{:x}", Sha256::digest(value.as_bytes()))
+    lower_hex(Sha256::digest(value.as_bytes()))
 }
 
 #[cfg(test)]
@@ -1148,7 +1156,8 @@ mod tests {
         bottle_basename, format_disk_usage_readable_size, format_progress_message,
         is_homebrew_core_tap, is_simple_formula_name, is_truthy_env_value,
         parse_download_concurrency, parse_formula_json_from_signed_cache, pkg_version,
-        should_render_progress, should_send_github_packages_auth_for_host, temporary_download_path,
+        sha256_hex_str, should_render_progress, should_send_github_packages_auth_for_host,
+        temporary_download_path,
     };
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
@@ -1310,6 +1319,14 @@ mod tests {
             false,
             true,
         ));
+    }
+
+    #[test]
+    fn formats_sha256_values_as_lowercase_hex() {
+        assert_eq!(
+            sha256_hex_str("Homebrew"),
+            "bc49b968dbe459ee5b7d2299c057a3724d4088c1fc6bb0be8ac8f9aaf2c50020"
+        );
     }
 
     #[test]
