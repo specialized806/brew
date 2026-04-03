@@ -110,6 +110,7 @@ Unsupported configurations include:
 
 - FreeBSD
 - macOS Mojave 10.14 and earlier
+- Multi-user Homebrew environments where multiple users share the same installation
 - Beowulf clusters
 - Nokia 3210s
 - CPUs built inside of Minecraft
@@ -122,6 +123,8 @@ Packages installed from third-party taps outside the Homebrew GitHub organizatio
 While Homebrew may assist third-party maintainers in resolving issues related to the formula, cask, or tap system itself, it does not provide support for the behavior or operation of third-party software.
 
 Bugs that occur only when using third-party formulae or casks may be closed without investigation.
+
+If you are using a Homebrew wrapper, get support from and file issues with that wrapper instead of Homebrew unless the same problem is reproducible when running Homebrew directly.
 
 ## Future macOS Support
 

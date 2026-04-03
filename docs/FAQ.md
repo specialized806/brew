@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-01-23"
+last_review_date: "2026-04-03"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -108,7 +108,7 @@ The prefix `/opt/homebrew` was chosen to allow installations in `/opt/homebrew` 
 
 ## Why is the default installation prefix `/home/linuxbrew/.linuxbrew` on Linux?
 
-The prefix `/home/linuxbrew/.linuxbrew` was chosen so that users without admin access can still benefit from precompiled binaries via a `linuxbrew` role account. If you do not yourself have admin privileges, consider asking your admin staff to create a `linuxbrew` role account for you with home directory `/home/linuxbrew`.
+The prefix `/home/linuxbrew/.linuxbrew` was chosen to avoid writing to system-owned directories after installation while still allowing most precompiled binaries (bottles) to be used. Homebrew is designed for single-user installations rather than shared role accounts. See [Support Tiers](Support-Tiers.md#unsupported) for unsupported multi-user environments.
 
 ## Why does Homebrew say sudo is bad?
 
