@@ -97,20 +97,52 @@ module Homebrew
           map[normalize_formula_name(entry.name)] = entry.name
         end
 
-        @entries.each_with_object({}) do |entry, map|
-          dependency_names = if entry.cls == Homebrew::Bundle::Brew
+        # Brewfile-level dependencies: which entries depend on other entries.
+        brewfile_deps = T.let({}, T::Hash[String, T::Array[String]])
+        @entries.each do |entry|
+          brewfile_deps[entry.name] = if entry.cls == Homebrew::Bundle::Brew
             formula = Homebrew::Bundle::Brew.formulae_by_full_name(entry.name)
             formula = Homebrew::Bundle::Brew.formulae_by_name(entry.name) if formula.blank?
             T.cast(formula.fetch(:dependencies, []), T::Array[String])
           else
             []
           end
+        end
 
-          mapped_dependencies = dependency_names.each_with_object(Set.new) do |dependency, pending|
-            dependency_name = entry_name_map[dependency] || entry_name_map[normalize_formula_name(dependency)]
-            pending << dependency_name if dependency_name.present? && dependency_name != entry.name
+        # Full recursive dependency sets. `brew install` acquires file locks on
+        # ALL recursive deps (including build deps), so entries that share any
+        # transitive dep must be serialized to avoid lock conflicts.
+        require "formula"
+        recursive_deps = T.let({}, T::Hash[String, T::Set[String]])
+        @entries.each do |entry|
+          recursive_deps[entry.name] = if entry.cls == Homebrew::Bundle::Brew
+            Formula[entry.name].recursive_dependencies.to_set(&:name)
+          else
+            Set.new
           end
-          map[entry.name] = mapped_dependencies
+        rescue FormulaUnavailableError
+          recursive_deps[entry.name] = Set.new
+        end
+
+        @entries.each_with_object({}) do |entry, map|
+          # Explicit Brewfile ordering: entry A depends on Brewfile entry B.
+          depends_on = T.must(brewfile_deps[entry.name]).each_with_object(Set.new) do |dep, set|
+            name = entry_name_map[dep] || entry_name_map[normalize_formula_name(dep)]
+            set << name if name.present? && name != entry.name
+          end
+
+          # Implicit lock conflicts: entries sharing any recursive dep must be
+          # serialized. The later entry (by Brewfile order) waits for the earlier.
+          entry_rdeps = T.must(recursive_deps[entry.name])
+          @entries.each do |earlier|
+            break if earlier.name == entry.name
+            next if depends_on.include?(earlier.name)
+
+            earlier_rdeps = T.must(recursive_deps[earlier.name])
+            depends_on << earlier.name if entry_rdeps.intersect?(earlier_rdeps)
+          end
+
+          map[entry.name] = depends_on
         end
       end
 
