@@ -303,15 +303,15 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 `--go`
 
-: `list` or `dump` Go packages.
+: `list`, `dump` or `cleanup` Go packages.
 
 `--cargo`
 
-: `list` or `dump` Cargo packages.
+: `list`, `dump` or `cleanup` Cargo packages.
 
 `--uv`
 
-: `list` or `dump` uv tools.
+: `list`, `dump` or `cleanup` uv tools.
 
 `--flatpak`
 
@@ -323,7 +323,7 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 `--npm`
 
-: `list` or `dump` npm packages.
+: `list`, `dump` or `cleanup` npm packages.
 
 `--no-vscode`
 

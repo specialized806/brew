@@ -671,7 +671,7 @@ _brew_bump_unversioned_casks() {
 _brew_bundle() {
   _arguments \
     '(--no-vscode --no-go --no-cargo --no-uv --no-flatpak --no-krew --no-npm)--all[`list` all dependencies]' \
-    '(--no-cargo)--cargo[`list` or `dump` Cargo packages]' \
+    '(--no-cargo)--cargo[`list`, `dump` or `cleanup` Cargo packages]' \
     '--cask[`list`, `dump` or `cleanup` Homebrew cask dependencies]' \
     '--check[Check that all dependencies in the Brewfile are installed before running `exec`, `sh`, or `env`. Enabled by default if `$HOMEBREW_BUNDLE_CHECK` is set]' \
     '--cleanup[`install` performs cleanup operation, same as running `cleanup --force`. Enabled by default if `$HOMEBREW_BUNDLE_INSTALL_CLEANUP` is set and `--global` is passed]' \
@@ -682,7 +682,7 @@ _brew_bundle() {
     '--force[`install` runs with `--force`/`--overwrite`. `dump` overwrites an existing `Brewfile`. `cleanup` actually performs its cleanup operations]' \
     '--formula[`list`, `dump` or `cleanup` Homebrew formula dependencies]' \
     '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-    '(--no-go)--go[`list` or `dump` Go packages]' \
+    '(--no-go)--go[`list`, `dump` or `cleanup` Go packages]' \
     '--help[Show this message]' \
     '(--upgrade)--install[Run `install` before continuing to other operations, e.g. `exec`]' \
     '(--no-krew)--krew[`list` or `dump` Krew plugins]' \
@@ -697,13 +697,13 @@ _brew_bundle() {
     '--no-upgrade[`install` does not run `brew upgrade` on outdated dependencies. `check` does not check for outdated dependencies. Note they may still be upgraded by `brew install` if needed. Enabled by default if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \
     '(--all --uv)--no-uv[`dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV` is set]' \
     '(--all --vscode)--no-vscode[`dump` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set]' \
-    '(--no-npm)--npm[`list` or `dump` npm packages]' \
+    '(--no-npm)--npm[`list`, `dump` or `cleanup` npm packages]' \
     '--quiet[Make some output more quiet]' \
     '--services[Temporarily start services while running the `exec` or `sh` command. Enabled by default if `$HOMEBREW_BUNDLE_SERVICES` is set]' \
     '--tap[`list`, `dump` or `cleanup` Homebrew tap dependencies]' \
     '(--install)--upgrade[`install` runs `brew upgrade` on outdated dependencies, even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \
     '--upgrade-formulae[`install` runs `brew upgrade` on any of these comma-separated formulae, even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \
-    '(--no-uv)--uv[`list` or `dump` uv tools]' \
+    '(--no-uv)--uv[`list`, `dump` or `cleanup` uv tools]' \
     '--verbose[`install` prints output from commands as they are run. `check` lists all missing dependencies]' \
     '(--no-vscode)--vscode[`list`, `dump` or `cleanup` VSCode (and forks/variants) extensions]' \
     '--zap[`cleanup` casks using the `zap` command instead of `uninstall`]' \
