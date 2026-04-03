@@ -56,23 +56,33 @@ module Cask
       end
     end
 
+    sig { params(cask_upgrades: T::Array[String], dry_run: T.nilable(T::Boolean)).void }
+    def self.show_upgrade_summary(cask_upgrades, dry_run: false)
+      return if cask_upgrades.empty?
+
+      verb = dry_run ? "Would upgrade" : "Upgrading"
+      oh1 "#{verb} #{cask_upgrades.count} outdated #{::Utils.pluralize("package", cask_upgrades.count)}:"
+      puts cask_upgrades.join("\n")
+    end
+
     sig {
       params(
-        casks:               Cask,
-        args:                Homebrew::CLI::Args,
-        force:               T.nilable(T::Boolean),
-        greedy:              T.nilable(T::Boolean),
-        greedy_latest:       T.nilable(T::Boolean),
-        greedy_auto_updates: T.nilable(T::Boolean),
-        dry_run:             T.nilable(T::Boolean),
-        skip_cask_deps:      T.nilable(T::Boolean),
-        verbose:             T.nilable(T::Boolean),
-        quiet:               T.nilable(T::Boolean),
-        binaries:            T.nilable(T::Boolean),
-        quarantine:          T.nilable(T::Boolean),
-        require_sha:         T.nilable(T::Boolean),
-        skip_prefetch:       T::Boolean,
-        download_queue:      T.nilable(Homebrew::DownloadQueue),
+        casks:                Cask,
+        args:                 Homebrew::CLI::Args,
+        force:                T.nilable(T::Boolean),
+        greedy:               T.nilable(T::Boolean),
+        greedy_latest:        T.nilable(T::Boolean),
+        greedy_auto_updates:  T.nilable(T::Boolean),
+        dry_run:              T.nilable(T::Boolean),
+        skip_cask_deps:       T.nilable(T::Boolean),
+        verbose:              T.nilable(T::Boolean),
+        quiet:                T.nilable(T::Boolean),
+        binaries:             T.nilable(T::Boolean),
+        quarantine:           T.nilable(T::Boolean),
+        require_sha:          T.nilable(T::Boolean),
+        skip_prefetch:        T::Boolean,
+        show_upgrade_summary: T::Boolean,
+        download_queue:       T.nilable(Homebrew::DownloadQueue),
       ).returns(T::Boolean)
     }
     def self.upgrade_casks!(
@@ -90,6 +100,7 @@ module Cask
       quarantine: nil,
       require_sha: nil,
       skip_prefetch: false,
+      show_upgrade_summary: true,
       download_queue: nil
     )
       quarantine = true if quarantine.nil?
@@ -138,6 +149,10 @@ module Cask
 
       return false if upgradable_casks.empty?
 
+      cask_upgrades = upgradable_casks.map do |(old_cask, new_cask)|
+        "#{new_cask.full_name} #{old_cask.version} -> #{new_cask.version}"
+      end
+
       created_download_queue = T.let(false, T::Boolean)
       download_queue ||= if !dry_run && !skip_prefetch
         created_download_queue = true
@@ -170,15 +185,10 @@ module Cask
         end
       end
 
-      verb = dry_run ? "Would upgrade" : "Upgrading"
-      oh1 "#{verb} #{upgradable_casks.count} outdated #{::Utils.pluralize("package", upgradable_casks.count)}:"
+      show_upgrade_summary(cask_upgrades, dry_run:) if show_upgrade_summary
+      return true if dry_run
 
       caught_exceptions = []
-
-      puts upgradable_casks
-        .map { |(old_cask, new_cask)| "#{new_cask.full_name} #{old_cask.version} -> #{new_cask.version}" }
-        .join("\n")
-      return true if dry_run
 
       download_queue ||= Homebrew.default_download_queue
 
