@@ -885,7 +885,10 @@ impl TestDir {
 fn sha256_hex(input: impl AsRef<[u8]>) -> String {
     use sha2::Digest;
 
-    format!("{:x}", sha2::Sha256::digest(input.as_ref()))
+    sha2::Sha256::digest(input.as_ref())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 impl Drop for TestDir {
