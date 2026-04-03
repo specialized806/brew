@@ -515,15 +515,24 @@ module Cask
                                                  Homebrew::SimulateSystem.current_arch.to_s) ||
                        cask.tap&.audit_exception(:signing_audit_skiplist, cask.token, "all")
 
-      extract_artifacts do |artifacts, tmpdir|
-        is_container = artifacts.any? { |a| a.is_a?(Artifact::App) || a.is_a?(Artifact::Pkg) }
+      extract_artifacts(include_manual_installers: true) do |artifacts, tmpdir|
+        is_container = artifacts.any? do |artifact|
+          artifact.is_a?(Artifact::App) || artifact.is_a?(Artifact::Pkg) ||
+            (artifact.is_a?(Artifact::Installer) && [".app", ".pkg"].include?(artifact.path.extname.downcase))
+        end
 
         any_signing_failure = artifacts.any? do |artifact|
           next false if artifact.is_a?(Artifact::Binary) && is_container == true
 
-          artifact_path = artifact.is_a?(Artifact::Pkg) ? artifact.path : artifact.source
+          artifact_path = case artifact
+          when Artifact::Pkg, Artifact::Installer
+            artifact.path
+          else
+            artifact.source
+          end
 
-          path = tmpdir/artifact_path.relative_path_from(cask.staged_path)
+          artifact_path = artifact_path.relative_path_from(cask.staged_path) if artifact_path.absolute?
+          path = tmpdir/artifact_path
 
           unless Quarantine.detect(path)
             odebug "#{path} does not have quarantine attributes, skipping signing audit"
@@ -537,6 +546,16 @@ module Cask
             next opoo "gktool not found, skipping app signing audit" unless which("gktool")
 
             system_command("gktool", args: ["scan", path], print_stderr: false)
+          when Artifact::Installer
+            if artifact.path.extname.downcase == ".app"
+              next opoo "gktool not found, skipping app signing audit" unless which("gktool")
+
+              system_command("gktool", args: ["scan", path], print_stderr: false)
+            elsif artifact.path.extname.downcase == ".pkg"
+              system_command("spctl", args: ["--assess", "--type", "install", path], print_stderr: false)
+            else
+              next false
+            end
           when Artifact::Binary
             # Shell scripts cannot be signed, so we skip them
             next false if path.text_executable?
@@ -585,18 +604,25 @@ module Cask
 
     sig {
       params(
-        _block: T.nilable(T.proc.params(
-          arg0: T::Array[T.any(Artifact::Pkg, Artifact::Relocated)],
+        include_manual_installers: T::Boolean,
+        _block:                    T.nilable(T.proc.params(
+          arg0: T::Array[T.any(Artifact::Installer, Artifact::Pkg, Artifact::Relocated)],
           arg1: Pathname,
         ).void),
       ).void
     }
-    def extract_artifacts(&_block)
+    def extract_artifacts(include_manual_installers: false, &_block)
       return unless online?
       return if (download = self.download).nil?
 
       artifacts = cask.artifacts.select do |artifact|
-        artifact.is_a?(Artifact::Pkg) || artifact.is_a?(Artifact::App) || artifact.is_a?(Artifact::Binary)
+        artifact.is_a?(Artifact::Pkg) ||
+          artifact.is_a?(Artifact::App) ||
+          artifact.is_a?(Artifact::Binary) ||
+          (include_manual_installers &&
+            artifact.is_a?(Artifact::Installer) &&
+            artifact.manual_install &&
+            [".app", ".pkg"].include?(artifact.path.extname.downcase))
       end
 
       if @artifacts_extracted && @tmpdir
@@ -886,6 +912,8 @@ module Cask
 
       extract_artifacts do |artifacts, tmpdir|
         artifacts.each do |artifact|
+          next if artifact.is_a?(Artifact::Installer)
+
           artifact_path = artifact.is_a?(Artifact::Pkg) ? artifact.path : artifact.source
           path = tmpdir/artifact_path.relative_path_from(cask.staged_path)
 
