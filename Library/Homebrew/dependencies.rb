@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "delegate"
+require "dependency"
+require "requirement"
 
 # A collection of dependencies.
 class Dependencies < SimpleDelegator
