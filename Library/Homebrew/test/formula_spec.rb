@@ -2502,5 +2502,19 @@ RSpec.describe Formula do
       expect(described_class.all(eval_all: true)).to eq([])
     end
   end
+
+  describe "#std_pip_args" do
+    let(:f) do
+      formula do
+        url "foo-1.0"
+      end
+    end
+
+    it "filters packages uploaded within the last day" do
+      allow(f).to receive(:time).and_return(Time.utc(2026, 4, 4, 12, 0, 0))
+
+      expect(f.std_pip_args).to include("--uploaded-prior-to=2026-04-03T12:00:00Z")
+    end
+  end
 end
 # rubocop:enable Lint/DuplicateMethods
