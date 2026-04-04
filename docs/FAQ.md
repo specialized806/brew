@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-03"
+last_review_date: "2026-04-04"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -35,11 +35,17 @@ To stop something from being updated/upgraded:
 
     brew pin <formula>
 
+If you also do not want Homebrew to automatically learn about newer versions until you choose to, disable auto-updating entirely:
+
+    export HOMEBREW_NO_AUTO_UPDATE=1
+
+For the tradeoffs and alternatives, see [Locking installed formulae at specific versions](Versions.md#locking-installed-formulae-at-specific-versions).
+
 To allow that formulae to update again:
 
     brew unpin <formula>
 
-Note that pinned, outdated formulae that another formula depends on need to be upgraded when required, as we do not allow formulae to be built against outdated versions. If this is not desired, you can instead use `brew version-install` to install your own copy of the formula from [your own tap](How-to-Create-and-Maintain-a-Tap.md).
+Note that pinned, outdated formulae that another formula depends on need to be upgraded when required, as we do not allow formulae to be built against outdated versions. If this is not desired, see [Locking installed formulae at specific versions](Versions.md#locking-installed-formulae-at-specific-versions) instead.
 
 ## How do I uninstall Homebrew?
 
