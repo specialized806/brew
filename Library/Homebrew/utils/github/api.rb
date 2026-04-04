@@ -56,6 +56,14 @@ module GitHub
       end
     end
 
+    # Error when the Git repository to be queried is empty.
+    class GitRepositoryIsEmptyError < Error
+      sig { params(github_message: String).void }
+      def initialize(github_message)
+        super(nil, github_message)
+      end
+    end
+
     # Error when the requested URL is not found.
     class HTTPNotFoundError < Error
       sig { params(github_message: String).void }
@@ -152,6 +160,7 @@ module GitHub
 
     ERRORS = T.let([
       AuthenticationFailedError,
+      GitRepositoryIsEmptyError,
       HTTPNotFoundError,
       RateLimitExceededError,
       Error,
@@ -465,6 +474,10 @@ module GitHub
         raise MissingAuthenticationError if credentials_type == :none && scopes.present?
 
         raise HTTPNotFoundError, message
+      when "409"
+        raise GitRepositoryIsEmptyError, message if message.downcase.include? "git repository is empty"
+
+        raise Error, message
       when "422"
         errors = json&.[]("errors") || []
         raise ValidationFailedError.new(message, errors)

@@ -899,6 +899,8 @@ module GitHub
       end
     end
     commits
+  rescue GitHub::API::GitRepositoryIsEmptyError
+    []
   end
 
   sig {
