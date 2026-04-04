@@ -1,5 +1,5 @@
 use crate::BrewResult;
-use crate::commands;
+use crate::cmd;
 use crate::delegate;
 use crate::utils::formatter;
 use std::env;
@@ -22,15 +22,15 @@ fn run() -> BrewResult<ExitCode> {
     }
 
     match args[0].as_str() {
-        "fetch" => commands::fetch::run(&args),
-        "search" => commands::search::run(&args),
-        "info" => commands::info::run(&args),
-        "list" => commands::list::run(&args),
-        "install" => commands::install::run(&args),
-        "reinstall" => commands::reinstall::run(&args),
-        "update" => commands::update::run(&args),
-        "upgrade" => commands::upgrade::run(&args),
-        "uninstall" => commands::uninstall::run(&args),
+        "fetch" => cmd::fetch::run(&args),
+        "search" => cmd::search::run(&args),
+        "info" => cmd::info::run(&args),
+        "list" => cmd::list::run(&args),
+        "install" => cmd::install::run(&args),
+        "reinstall" => cmd::reinstall::run(&args),
+        "update" => cmd::update::run(&args),
+        "upgrade" => cmd::upgrade::run(&args),
+        "uninstall" => cmd::uninstall::run(&args),
         _ => delegate::run(&args),
     }
 }

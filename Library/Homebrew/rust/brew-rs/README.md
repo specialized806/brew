@@ -11,6 +11,21 @@ delegate back to the existing Ruby frontend for correctness.
 It is intentionally built through `brew vendor-install brew-rs`, which runs
 standard Cargo commands under the hood instead of a bespoke build wrapper.
 
+## Porting Rule
+
+When Rust takes ownership of behavior that already exists in Homebrew Ruby or
+Bash, prefer to mirror the comparable Homebrew source file and filename when it
+is practical. Keep command entrypoints in `src/cmd/` for
+`Library/Homebrew/cmd/*.rb` and in `src/dev_cmd/` for
+`Library/Homebrew/dev-cmd/*.rb`. For example, keep work that corresponds to
+`Library/Homebrew/download_queue.rb` in `src/download_queue.rs`.
+
+Treat that filename mirroring as the default for new Rust ports. Only diverge
+when the Homebrew side has no clear single-file analogue or when a Rust-specific
+split keeps the code materially simpler. When Rust and Homebrew already share a
+clear concept name, prefer matching the Rust module, function, and type names
+too, for example `Search.search_names` to `search::search_names`.
+
 ## Pre-step
 
 Export both Rust frontend gate variables before building or running `brew-rs`:
@@ -122,6 +137,12 @@ Ruby while moving the heavy bottle path into Rust in small slices.
 
 - Keep `brew.sh` as a thin gate and dispatch layer.
 - Keep using existing Homebrew paths, caches, and metadata formats.
+- Keep command entrypoints under `src/cmd/` and `src/dev_cmd/` so they mirror
+  `Library/Homebrew/cmd/` and `Library/Homebrew/dev-cmd/`.
+- Mirror the comparable Homebrew filename in Rust when practical, for example
+  `download_queue.rb` to `download_queue.rs`, so ports stay easy to compare.
+- Match Rust module, function, and type names to the comparable Homebrew names
+  when the mapping is clear and does not make the Rust code worse.
 - Move more read-only behavior into Rust when it produces clear wins.
 - For formula installs, move bottle fetch and pour into Rust first.
 - Keep `post_install` and the more involved finish/finalization steps in Ruby

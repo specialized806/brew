@@ -191,7 +191,7 @@ mod tests {
         fn new_in(root: &Path) -> Self {
             static COUNTER: AtomicU64 = AtomicU64::new(0);
             let path = root.join(format!(
-                "brew-rs-homebrew-{}-{}-{}",
+                "brew-rs-global-{}-{}-{}",
                 process::id(),
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)

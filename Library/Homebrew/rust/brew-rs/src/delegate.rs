@@ -1,5 +1,5 @@
 use crate::BrewResult;
-use crate::homebrew;
+use crate::global;
 use crate::utils::formatter;
 use anyhow::Context;
 use std::process::ExitCode;
@@ -26,7 +26,7 @@ pub(crate) fn run_with_reason(
 }
 
 fn run_command(args: &[String]) -> BrewResult<ExitCode> {
-    let status = Command::new(homebrew::brew_file()?)
+    let status = Command::new(global::brew_file()?)
         .args(args)
         .env_remove("HOMEBREW_EXPERIMENTAL_RUST_FRONTEND")
         .stdin(Stdio::inherit())

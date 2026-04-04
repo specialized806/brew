@@ -1,7 +1,7 @@
 use crate::BrewResult;
-use crate::delegate;
+use crate::cmd;
 use std::process::ExitCode;
 
 pub fn run(args: &[String]) -> BrewResult<ExitCode> {
-    delegate::run_with_warning(args, "info")
+    cmd::run_with_warning(args, "info")
 }

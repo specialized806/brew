@@ -1,6 +1,6 @@
 use crate::BrewResult;
 use crate::delegate;
-use crate::homebrew;
+use crate::global;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -14,14 +14,14 @@ pub fn run(args: &[String]) -> BrewResult<ExitCode> {
         return delegate::run(args);
     }
 
-    let cellar = homebrew::cellar_path()?;
-    let prefix = homebrew::prefix_path()?;
-    let caskroom = homebrew::caskroom_path()?;
+    let cellar = global::cellar_path()?;
+    let prefix = global::prefix_path()?;
+    let caskroom = global::caskroom_path()?;
 
     if args.len() == 1 {
-        let formulae = homebrew::installed_names(&cellar)?;
-        let casks = homebrew::installed_names(&caskroom)?;
-        homebrew::print_sections(&formulae, &casks);
+        let formulae = global::installed_names(&cellar)?;
+        let casks = global::installed_names(&caskroom)?;
+        global::print_sections(&formulae, &casks);
         return Ok(ExitCode::SUCCESS);
     }
 
@@ -72,7 +72,7 @@ enum FormulaPaths {
 
 fn list_formula_paths(cellar: &Path, prefix: &Path, name: &str) -> BrewResult<FormulaPaths> {
     let rack = cellar.join(name);
-    let versions = homebrew::installed_versions(&rack)?;
+    let versions = global::installed_versions(&rack)?;
     if versions.is_empty() {
         return Ok(FormulaPaths::Missing);
     }
@@ -124,7 +124,7 @@ fn list_cask_paths(caskroom: &Path, name: &str) -> BrewResult<Option<Vec<String>
 }
 
 fn list_paths(path: &Path) -> BrewResult<Vec<String>> {
-    Ok(homebrew::list_files(path)?
+    Ok(global::list_files(path)?
         .into_iter()
         .map(|path| path.display().to_string())
         .collect())

@@ -1,4 +1,4 @@
-use crate::homebrew;
+use crate::global;
 use std::fmt;
 use std::io::{self, IsTerminal};
 use std::process::Command;
@@ -23,10 +23,10 @@ pub struct AnsiBuilder {
 }
 
 fn colorful_output() -> bool {
-    if homebrew::brew_no_color() {
+    if global::brew_no_color() {
         return false;
     }
-    if homebrew::brew_color() {
+    if global::brew_color() {
         return true;
     }
     io::stdout().is_terminal()
