@@ -463,6 +463,7 @@ module Homebrew
 
       incompatible_license_packages = %w[
         @anthropic-ai/claude-agent-sdk
+        @github/copilot
       ]
 
       incompatible_license_packages.each do |package|
