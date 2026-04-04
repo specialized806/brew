@@ -9,17 +9,14 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it_behaves_like "parseable arguments"
 
-  it "does not install an explicitly requested tap when a formula is unavailable" do
+  it "installs an explicitly requested tap before resolving a formula" do
     cmd = described_class.new(["user/repo/foo"])
     tap = Tap.fetch("user", "repo")
 
     allow(Tap).to receive(:with_formula_name).with("user/repo/foo").and_return([tap, "foo"])
-    allow(Tap).to receive(:with_cask_token).with("user/repo/foo").and_return(nil)
-    allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false)
-                                                            .and_raise(TapFormulaUnavailableError.new(tap, "foo"))
-    allow(CoreCaskTap.instance).to receive(:installed?).and_return(true)
-
-    expect(tap).not_to receive(:ensure_installed!)
+    expect(tap).to receive(:ensure_installed!).ordered
+    expect(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).ordered
+                                                             .and_raise(TapFormulaUnavailableError.new(tap, "foo"))
 
     expect { cmd.run }.to output(/If you trust this tap/).to_stderr
 

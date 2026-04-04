@@ -186,6 +186,16 @@ module Homebrew
           odisabled "`brew install --env`", "`env :std` in specific formula files"
         end
 
+        args.named.each do |name|
+          if (tap_with_name = Tap.with_formula_name(name))
+            tap, = tap_with_name
+          elsif (tap_with_token = Tap.with_cask_token(name))
+            tap, = tap_with_token
+          end
+
+          tap&.ensure_installed!
+        end
+
         if args.ignore_dependencies?
           opoo <<~EOS
             #{Tty.bold}`--ignore-dependencies` is an unsupported Homebrew developer option!#{Tty.reset}
