@@ -616,7 +616,6 @@ module Cask
             new_token = new_tap_name
           end
         end
-        new_tap.ensure_installed!
         new_tapped_token = "#{new_tap}/#{new_token}"
 
         if tapped_token != new_tapped_token
