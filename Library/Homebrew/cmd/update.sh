@@ -502,10 +502,8 @@ homebrew-update() {
         [[ "${option}" == *f* ]] && HOMEBREW_UPDATE_FORCE=1
         ;;
       *)
-        odie <<EOS
-This command updates brew itself, and does not take formula names.
-Use \`brew upgrade $@\` instead.
-EOS
+        opoo "Use \`brew upgrade $*\` to upgrade formulae; running it instead."
+        exec "${HOMEBREW_BREW_FILE}" upgrade "$@"
         ;;
     esac
   done
