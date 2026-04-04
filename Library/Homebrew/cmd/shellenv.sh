@@ -27,7 +27,6 @@ homebrew-shellenv() {
     # PATH is already set but zsh's fpath is not inherited by child shells.
     if [[ "${HOMEBREW_SHELL_NAME}" == "zsh" ]] || [[ "${HOMEBREW_SHELL_NAME}" == "-zsh" ]]
     then
-      echo "fpath[1,0]=\"${HOMEBREW_PREFIX}/share/zsh/site-functions\";"
       echo "export FPATH;"
     fi
     return
