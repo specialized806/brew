@@ -4,6 +4,7 @@
 require "utils/inreplace"
 require "utils/output"
 require "utils/ast"
+require "time"
 
 # Helper functions for updating PyPI resources.
 module PyPI
@@ -510,9 +511,12 @@ module PyPI
   def self.pip_report(packages, python_name: "python", print_stderr: false)
     return [] if packages.blank?
 
+    # Delay packages published in the last day so resource resolution is less
+    # likely to pick a freshly compromised PyPI release.
     command = [
       Formula[python_name].opt_libexec/"bin/python", "-m", "pip", "install", "-q", "--disable-pip-version-check",
-      "--dry-run", "--ignore-installed", "--report=/dev/stdout", *packages.map(&:to_s)
+      "--dry-run", "--ignore-installed", "--uploaded-prior-to=#{(Time.now.utc - (24 * 60 * 60)).iso8601(0)}",
+      "--report=/dev/stdout", *packages.map(&:to_s)
     ]
     options = {}
     options[:err] = :err if print_stderr
