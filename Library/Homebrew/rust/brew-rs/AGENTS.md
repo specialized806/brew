@@ -7,7 +7,9 @@
 - Keep the Rust `fetch` command bottle-only for simple named `homebrew/core` formulae; anything that needs source fetching, cask support, flags, or more complex argument handling should delegate back to Ruby with an explicit reason.
 - When changing Rust `fetch`, keep its bottle naming, cache paths, retry behavior, and fallback boundaries aligned with `Library/Homebrew/cmd/fetch.rb`, `Library/Homebrew/fetch.rb`, `Library/Homebrew/bottle.rb`, `Library/Homebrew/download_queue.rb`, `Library/Homebrew/retryable_download.rb`, and `Library/Homebrew/download_strategy.rb`.
 - Respect existing Homebrew cache, Cellar, Caskroom, logs, temp, and metadata paths.
-- Keep Rust command entrypoints in `src/commands/` with one file per command where practical.
+- Keep Rust command entrypoints in `src/cmd/` for `Library/Homebrew/cmd/*.rb` and `src/dev_cmd/` for `Library/Homebrew/dev-cmd/*.rb`, with one file per command where practical.
+- Keep command files thin when possible and move shared logic into mirrored helper files such as `src/fetch.rs`, `src/formula_installer.rs`, or `src/download_queue.rs`.
+- When a Homebrew Ruby module, class, or method already provides a clear name for the Rust port, prefer matching that Rust module, type, or function name too when it keeps the code natural.
 - From the repository root, prepend `Library/Homebrew/vendor/portable-ruby/current/bin` to `PATH` and install `rake` there if it is missing.
 - From the repository root, run `./bin/brew vendor-install brew-rs` to vendor the binary locally.
 - Use `./run-brew-rs-experimental.sh ...` from `Library/Homebrew/rust/brew-rs` when you want a self-locating helper that skips `vendor-install` entirely when the vendored `brew-rs` binary is already up-to-date, rebuilds only when `Cargo.toml`, `Cargo.lock`, or `src/` changed, runs `brew update` when the Rust-backed API cache is missing, and then runs `brew` with `HOMEBREW_EXPERIMENTAL_RUST_FRONTEND=1`.

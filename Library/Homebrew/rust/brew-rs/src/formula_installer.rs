@@ -1,7 +1,6 @@
 use crate::BrewResult;
-use crate::commands::fetch::{self, BottleFetch, FormulaJson, Resolution, ResolvedBottle};
-use crate::delegate;
-use crate::homebrew;
+use crate::fetch::{self, BottleFetch, FormulaJson, Resolution, ResolvedBottle};
+use crate::global;
 use crate::utils::formatter;
 use anyhow::{Context, anyhow, bail};
 use reqwest::blocking::Client;
@@ -11,97 +10,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn run(args: &[String]) -> BrewResult<ExitCode> {
-    if args.len() != 2 {
-        return delegate::run_with_reason(
-            args,
-            "install",
-            "only a single simple named formula argument is supported.",
-        );
-    }
-    if args[1].starts_with('-') {
-        return delegate::run_with_reason(args, "install", "flags are not yet supported.");
-    }
-    if !fetch::is_simple_formula_name(&args[1]) {
-        return delegate::run_with_reason(
-            args,
-            "install",
-            "only a single simple named formula argument is supported.",
-        );
-    }
-
-    let api_cache = homebrew::cache_api_path()?;
-    let aliases = fetch::load_aliases(&api_cache.join("formula_aliases.txt"))?;
-    let bottle_tag = fetch::current_bottle_tag()?;
-    let client = fetch::build_client()?;
-    let mut signed_cache_formulae = None;
-
-    let resolved = match fetch::resolve_bottle(
-        &args[1],
-        &aliases,
-        &api_cache,
-        &mut signed_cache_formulae,
-        &bottle_tag,
-        &client,
-    )? {
-        Resolution::Bottle(resolved) => resolved,
-        Resolution::Delegate(reason) => return delegate::run_with_reason(args, "install", &reason),
-    };
-
-    let install_plan = match resolve_install_plan(
-        *resolved,
-        &aliases,
-        &api_cache,
-        &mut signed_cache_formulae,
-        &bottle_tag,
-        &client,
-    )? {
-        InstallPlan::Actions(actions) => actions,
-        InstallPlan::Delegate(reason) => {
-            return delegate::run_with_reason(args, "install", &reason);
-        }
-    };
-
-    // TODO: Add argument parity for multi-formula installs, local formula paths, taps, and flags.
-    // TODO: Add `FormulaInstaller#check_install_sanity`, locking, and conflict checks before mutating the Cellar.
-    // TODO: Add relocation and dynamic linkage handling for bottles that are not `:any_skip_relocation`.
-    // TODO: Add `post_install`, `Tab` writes, SBOM writes, services, caveats, and global post-install hooks.
-    // TODO: Replace the temporary Ruby `brew link` reuse with Rust parity for `Keg#link`.
-    // TODO: Validate bottle archive entries before extraction instead of trusting `tar` to keep paths contained.
-
-    fetch::fetch_bottles(
-        &install_plan
-            .iter()
-            .filter_map(|action| match action {
-                InstallAction::Pour(resolved) => Some(resolved.bottle.clone()),
-                InstallAction::Link(_) => None,
-            })
-            .collect::<Vec<_>>(),
-        &client,
-    )?;
-
-    for action in install_plan {
-        let exit_code = match action {
-            InstallAction::Link(formula_name) => link_installed_keg(&formula_name)?,
-            InstallAction::Pour(resolved) => {
-                pour_bottle(&resolved)?;
-                link_installed_keg(&resolved.formula.name)?
-            }
-        };
-        if exit_code != ExitCode::SUCCESS {
-            return Ok(exit_code);
-        }
-    }
-
-    Ok(ExitCode::SUCCESS)
-}
-
-enum InstallPlan {
+pub(crate) enum InstallPlan {
     Actions(Vec<InstallAction>),
     Delegate(String),
 }
 
-enum InstallAction {
+pub(crate) enum InstallAction {
     Link(String),
     Pour(Box<ResolvedBottle>),
 }
@@ -213,7 +127,7 @@ impl<'a> InstallPlanner<'a> {
     }
 }
 
-fn resolve_install_plan(
+pub(crate) fn resolve_install_plan(
     resolved: ResolvedBottle,
     aliases: &HashMap<String, String>,
     api_cache: &Path,
@@ -232,13 +146,13 @@ fn resolve_install_plan(
 }
 
 fn install_state(formula: &FormulaJson) -> BrewResult<InstallState> {
-    let prefix = homebrew::prefix_path()?;
+    let prefix = global::prefix_path()?;
 
     Ok(InstallState {
         exact_prefix_exists: installed_prefix(formula)?.exists(),
         linked_state_exists: path_exists_or_is_symlink(&prefix.join("opt").join(&formula.name))?
             || path_exists_or_is_symlink(&prefix.join("var/homebrew/linked").join(&formula.name))?,
-        rack_exists: homebrew::cellar_path()?.join(&formula.name).exists(),
+        rack_exists: global::cellar_path()?.join(&formula.name).exists(),
     })
 }
 
@@ -331,8 +245,8 @@ fn path_exists_or_is_symlink(path: &Path) -> BrewResult<bool> {
             .unwrap_or(false))
 }
 
-fn pour_bottle(resolved: &ResolvedBottle) -> BrewResult<()> {
-    let cellar = homebrew::cellar_path()?;
+pub(crate) fn pour_bottle(resolved: &ResolvedBottle) -> BrewResult<()> {
+    let cellar = global::cellar_path()?;
     let rack = cellar.join(&resolved.formula.name);
     let formula_prefix = installed_prefix(&resolved.formula)?;
     let staging_root = cellar.join(format!(
@@ -411,7 +325,7 @@ fn pour_bottle(resolved: &ResolvedBottle) -> BrewResult<()> {
 }
 
 fn installed_prefix(formula: &FormulaJson) -> BrewResult<PathBuf> {
-    Ok(homebrew::cellar_path()?
+    Ok(global::cellar_path()?
         .join(&formula.name)
         .join(fetch::pkg_version(
             &formula.versions.stable,
@@ -462,8 +376,8 @@ fn cleanup_failed_pour(formula_prefix: &Path, staging_root: &Path) -> BrewResult
     Ok(())
 }
 
-fn link_installed_keg(formula_name: &str) -> BrewResult<ExitCode> {
-    let status = Command::new(homebrew::brew_file()?)
+pub(crate) fn link_installed_keg(formula_name: &str) -> BrewResult<ExitCode> {
+    let status = Command::new(global::brew_file()?)
         .arg("link")
         .arg(formula_name)
         .env_remove("HOMEBREW_EXPERIMENTAL_RUST_FRONTEND")

@@ -1,17 +1,20 @@
 #![forbid(unsafe_code)]
 
-mod app;
-mod commands;
+mod brew;
+mod cmd;
 mod delegate;
-mod homebrew;
-mod matcher;
+mod download_queue;
+mod fetch;
+mod formula_installer;
+mod global;
+mod search;
 mod utils;
 
 use anyhow::Result;
 use std::process::ExitCode;
 
 pub fn main() -> ExitCode {
-    app::main()
+    brew::main()
 }
 
 type BrewResult<T> = Result<T>;

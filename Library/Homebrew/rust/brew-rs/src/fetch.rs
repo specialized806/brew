@@ -1,6 +1,6 @@
 use crate::BrewResult;
-use crate::delegate;
-use crate::homebrew;
+use crate::download_queue::{self, SharedDownloadProgress};
+use crate::global;
 use crate::utils::tty;
 use anyhow::{Context, anyhow, bail};
 use rayon::prelude::*;
@@ -9,77 +9,21 @@ use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
 use std::fs::{self, File};
-use std::io::{self, IsTerminal, Read, Write};
+use std::io::{Read, Write};
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread::{self, available_parallelism};
-use std::time::{Duration, Instant};
+use std::thread::available_parallelism;
+use std::time::Duration;
 use url::Url;
 
 const FETCH_RETRIES: usize = 2;
 const CONNECT_TIMEOUT_SECS: u64 = 15;
 const REQUEST_TIMEOUT_SECS: u64 = 600;
 const FALSY_ENV_VALUES: [&str; 5] = ["false", "no", "off", "nil", "0"];
-
-pub fn run(args: &[String]) -> BrewResult<ExitCode> {
-    if args.len() < 2 {
-        return delegate::run_with_reason(
-            args,
-            "fetch",
-            "only simple named formula arguments are supported.",
-        );
-    }
-    if args[1..].iter().any(|arg| arg.starts_with('-')) {
-        return delegate::run_with_reason(args, "fetch", "flags are not yet supported.");
-    }
-    if args[1..].iter().any(|arg| !is_simple_formula_name(arg)) {
-        return delegate::run_with_reason(
-            args,
-            "fetch",
-            "only simple named formula arguments are supported.",
-        );
-    }
-
-    let api_cache = homebrew::cache_api_path()?;
-    let aliases = load_aliases(&api_cache.join("formula_aliases.txt"))?;
-    let bottle_tag = current_bottle_tag()?;
-    let client = build_client()?;
-    let mut signed_cache_formulae = None;
-    let mut bottles = Vec::with_capacity(args.len() - 1);
-    let mut cached_downloads = HashSet::with_capacity(args.len() - 1);
-
-    for name in &args[1..] {
-        match resolve_bottle(
-            name,
-            &aliases,
-            &api_cache,
-            &mut signed_cache_formulae,
-            &bottle_tag,
-            &client,
-        )? {
-            Resolution::Bottle(resolved) => {
-                let bottle = resolved.bottle.clone();
-                if cached_downloads.insert(bottle.cached_download.clone()) {
-                    bottles.push(bottle);
-                }
-            }
-            Resolution::Delegate(reason) => {
-                return delegate::run_with_reason(args, "fetch", &reason);
-            }
-        }
-    }
-
-    fetch_bottles(&bottles, &client)?;
-
-    Ok(ExitCode::SUCCESS)
-}
 
 pub(crate) fn fetch_bottles(bottles: &[BottleFetch], client: &Client) -> BrewResult<()> {
     if bottles.len() > 1 {
@@ -94,23 +38,18 @@ pub(crate) fn fetch_bottles(bottles: &[BottleFetch], client: &Client) -> BrewRes
     }
 
     let download_threads = download_concurrency(bottles.len());
-    let show_progress = should_render_progress(download_progress_enabled(), download_threads);
+    let show_progress =
+        download_queue::should_render_progress(download_queue::download_progress_enabled());
     let progress = bottles
         .iter()
         .map(|bottle| {
-            Arc::new(Mutex::new(DownloadProgress {
-                message: format!(
-                    "Bottle {} ({})",
-                    bottle.display_name, bottle.display_version
-                ),
-                phase: "downloading",
-                fetched_size: 0,
-                total_size: None,
-                done: false,
-            }))
+            download_queue::new_download_progress(format!(
+                "Bottle {} ({})",
+                bottle.display_name, bottle.display_version
+            ))
         })
         .collect::<Vec<_>>();
-    let renderer = show_progress.then(|| ProgressRenderer::start(&progress));
+    let renderer = show_progress.then(|| download_queue::ProgressRenderer::start(&progress));
 
     let result = rayon::ThreadPoolBuilder::new()
         .num_threads(download_threads)
@@ -153,15 +92,6 @@ pub(crate) struct BottleFetch {
     pub(crate) bottle_cellar: Option<String>,
     pub(crate) cached_download: PathBuf,
     pub(crate) symlink_path: PathBuf,
-}
-
-#[derive(Clone)]
-struct DownloadProgress {
-    message: String,
-    phase: &'static str,
-    fetched_size: u64,
-    total_size: Option<u64>,
-    done: bool,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -268,7 +198,7 @@ pub(crate) fn resolve_bottle(
         )));
     };
 
-    let cache_path = homebrew::cache_path()?;
+    let cache_path = global::cache_path()?;
     let bottle_name = bottle_basename(
         &formula.name,
         &formula.versions.stable,
@@ -422,14 +352,14 @@ fn download_formula_json(name: &str, client: &Client) -> BrewResult<Option<Vec<u
 fn fetch_bottle(
     bottle: &BottleFetch,
     client: &Client,
-    progress: &Arc<Mutex<DownloadProgress>>,
+    progress: &SharedDownloadProgress,
     show_progress: bool,
 ) -> BrewResult<()> {
     if bottle.cached_download.exists() {
-        update_download_phase(progress, "verifying");
+        download_queue::update_download_phase(progress, "verifying");
         verify_checksum(&bottle.cached_download, &bottle.bottle_sha256)?;
         ensure_symlink(bottle)?;
-        mark_download_complete(progress);
+        download_queue::mark_download_complete(progress);
         if !show_progress {
             print_downloaded_bottle(bottle);
         }
@@ -450,7 +380,7 @@ fn fetch_bottle(
                     .with_context(|| format!("Failed to remove {}", temporary_path.display()))?;
             }
 
-            update_download_phase(progress, "downloading");
+            download_queue::update_download_phase(progress, "downloading");
             match Url::parse(&bottle.bottle_url).context("Failed to parse bottle URL")? {
                 url if url.scheme() == "file" => {
                     copy_file_url(&url, &temporary_path, progress)?;
@@ -460,7 +390,7 @@ fn fetch_bottle(
                 }
             }
 
-            update_download_phase(progress, "verifying");
+            download_queue::update_download_phase(progress, "verifying");
             verify_checksum(&temporary_path, &bottle.bottle_sha256)?;
             fs::rename(&temporary_path, &bottle.cached_download).with_context(|| {
                 format!(
@@ -470,7 +400,7 @@ fn fetch_bottle(
                 )
             })?;
             ensure_symlink(bottle)?;
-            mark_download_complete(progress);
+            download_queue::mark_download_complete(progress);
             if !show_progress {
                 print_downloaded_bottle(bottle);
             }
@@ -506,14 +436,14 @@ fn print_downloaded_bottle(bottle: &BottleFetch) {
 fn copy_file_url(
     url: &Url,
     destination: &Path,
-    progress: &Arc<Mutex<DownloadProgress>>,
+    progress: &SharedDownloadProgress,
 ) -> BrewResult<()> {
     let source = url
         .to_file_path()
         .map_err(|_| anyhow!("Failed to convert {url} to a file path"))?;
     let mut input =
         File::open(&source).with_context(|| format!("Failed to open {}", source.display()))?;
-    update_download_total(
+    download_queue::update_download_total(
         progress,
         input.metadata().ok().map(|metadata| metadata.len()),
     );
@@ -527,7 +457,7 @@ fn download_http_url(
     client: &Client,
     url: &Url,
     destination: &Path,
-    progress: &Arc<Mutex<DownloadProgress>>,
+    progress: &SharedDownloadProgress,
 ) -> BrewResult<()> {
     let auth_header = resolve_http_auth(url);
     let mut request = client.get(url.as_str());
@@ -545,7 +475,7 @@ fn download_http_url(
         .with_context(|| format!("Failed to download {url}"))?
         .error_for_status()
         .with_context(|| format!("Failed to download {url}"))?;
-    update_download_total(progress, response.content_length());
+    download_queue::update_download_total(progress, response.content_length());
     let mut output = File::create(destination)
         .with_context(|| format!("Failed to create {}", destination.display()))?;
     copy_stream(&mut response, &mut output, progress)?;
@@ -567,7 +497,7 @@ fn resolve_http_auth(url: &Url) -> Option<String> {
 fn copy_stream(
     input: &mut dyn Read,
     output: &mut dyn Write,
-    progress: &Arc<Mutex<DownloadProgress>>,
+    progress: &SharedDownloadProgress,
 ) -> BrewResult<()> {
     let mut buffer = [0_u8; 16 * 1024];
     loop {
@@ -580,35 +510,10 @@ fn copy_stream(
         output
             .write_all(&buffer[..read])
             .context("Failed to write download data")?;
-        increment_downloaded_size(progress, read as u64);
+        download_queue::increment_downloaded_size(progress, read as u64);
     }
     output.flush().context("Failed to flush download data")?;
     Ok(())
-}
-
-fn update_download_total(progress: &Arc<Mutex<DownloadProgress>>, total_size: Option<u64>) {
-    if let Ok(mut progress) = progress.lock() {
-        progress.total_size = total_size;
-        progress.fetched_size = 0;
-    }
-}
-
-fn update_download_phase(progress: &Arc<Mutex<DownloadProgress>>, phase: &'static str) {
-    if let Ok(mut progress) = progress.lock() {
-        progress.phase = phase;
-    }
-}
-
-fn increment_downloaded_size(progress: &Arc<Mutex<DownloadProgress>>, bytes: u64) {
-    if let Ok(mut progress) = progress.lock() {
-        progress.fetched_size += bytes;
-    }
-}
-
-fn mark_download_complete(progress: &Arc<Mutex<DownloadProgress>>) {
-    if let Ok(mut progress) = progress.lock() {
-        progress.done = true;
-    }
 }
 
 fn ensure_symlink(bottle: &BottleFetch) -> BrewResult<()> {
@@ -667,7 +572,7 @@ pub(crate) fn load_aliases(path: &Path) -> BrewResult<HashMap<String, String>> {
         return Ok(HashMap::new());
     }
 
-    Ok(homebrew::read_lines(path)?
+    Ok(global::read_lines(path)?
         .into_iter()
         .filter_map(|line| {
             line.split_once('|')
@@ -871,283 +776,6 @@ fn temporary_download_path(path: &Path) -> PathBuf {
     PathBuf::from(incomplete)
 }
 
-fn download_progress_enabled() -> bool {
-    io::stdout().is_terminal() && env::var("TERM").map(|term| term != "dumb").unwrap_or(true)
-}
-
-fn should_render_progress(tty_with_cursor_support: bool, _download_threads: usize) -> bool {
-    tty_with_cursor_support
-}
-
-fn terminal_width() -> usize {
-    env::var("COLUMNS")
-        .ok()
-        .and_then(|columns| columns.parse::<usize>().ok())
-        .or_else(|| {
-            tty_command_output("/bin/stty size </dev/tty 2>/dev/null").and_then(|size| {
-                size.split_whitespace()
-                    .nth(1)
-                    .and_then(|width| width.parse::<usize>().ok())
-            })
-        })
-        .or_else(|| {
-            tty_command_output("/usr/bin/tput cols 2>/dev/null")
-                .and_then(|width| width.parse::<usize>().ok())
-        })
-        .filter(|columns| *columns > 0)
-        .unwrap_or(80)
-}
-
-fn tty_command_output(command: &str) -> Option<String> {
-    let output = Command::new("/bin/sh")
-        .arg("-c")
-        .arg(command)
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-
-    let output = String::from_utf8(output.stdout).ok()?;
-    let output = output.trim();
-    if output.is_empty() {
-        return None;
-    }
-
-    Some(output.to_string())
-}
-
-fn format_progress_message(
-    message: &str,
-    phase: &str,
-    fetched_size: u64,
-    total_size: Option<u64>,
-    width: usize,
-    message_length_max: usize,
-) -> String {
-    let available_width = width.saturating_sub(2);
-    let formatted_fetched_size = format_disk_usage_readable_size(fetched_size);
-    let formatted_total_size = total_size
-        .map(format_disk_usage_readable_size)
-        .unwrap_or_else(|| "-".repeat(7));
-    let mut progress = format!(
-        " {:phase_width$} {formatted_fetched_size}/{formatted_total_size}",
-        capitalize_phase(phase),
-        phase_width = 11,
-    );
-    let bar_length = 4
-        .max(available_width.saturating_sub(progress.len() + message_length_max.saturating_add(1)));
-
-    if phase == "downloading" && total_size.is_some() {
-        let total_size = total_size.unwrap_or(1);
-        let percent = (fetched_size as f64 / total_size.max(1) as f64).clamp(0.0, 1.0);
-        let used = ((percent * bar_length as f64).round() as usize).min(bar_length);
-        progress = format!(
-            " {}{}{}",
-            "#".repeat(used),
-            " ".repeat(bar_length - used),
-            progress
-        );
-    }
-
-    let message_width = available_width.saturating_sub(progress.len());
-    let mut truncated_message = message.chars().take(message_width).collect::<String>();
-    let padding = message_width.saturating_sub(truncated_message.chars().count());
-    truncated_message.push_str(&" ".repeat(padding));
-
-    format!("{truncated_message}{progress}")
-}
-
-fn capitalize_phase(phase: &str) -> String {
-    let mut characters = phase.chars();
-    match characters.next() {
-        Some(first) => format!("{}{}", first.to_ascii_uppercase(), characters.as_str()),
-        None => String::new(),
-    }
-}
-
-fn format_disk_usage_readable_size(size_in_bytes: u64) -> String {
-    let (size, unit) = disk_usage_readable_size_unit(size_in_bytes as f64);
-    format!("{size:>5.1}{unit:>2}")
-}
-
-fn disk_usage_readable_size_unit(size_in_bytes: f64) -> (f64, &'static str) {
-    let mut size = size_in_bytes;
-    let mut unit = "B";
-
-    for next_unit in ["KB", "MB", "GB"] {
-        if round_to_precision(size, 1) < 1000.0 {
-            break;
-        }
-
-        size /= 1000.0;
-        unit = next_unit;
-    }
-
-    (size, unit)
-}
-
-fn round_to_precision(value: f64, precision: u32) -> f64 {
-    let multiplier = 10_f64.powi(precision as i32);
-    (value * multiplier).round() / multiplier
-}
-
-struct ProgressRenderer {
-    active: Arc<AtomicBool>,
-    handle: thread::JoinHandle<()>,
-}
-
-impl ProgressRenderer {
-    fn start(progress: &[Arc<Mutex<DownloadProgress>>]) -> Self {
-        let active = Arc::new(AtomicBool::new(true));
-        let progress = progress.to_vec();
-        let thread_active = Arc::clone(&active);
-
-        let handle = thread::spawn(move || {
-            let mut stdout = io::stdout();
-            let mut spinner = Spinner::new();
-            let mut initial_render = true;
-            let terminal_width = terminal_width();
-            let message_length_max = progress
-                .iter()
-                .filter_map(|entry| entry.lock().ok().map(|entry| entry.message.len()))
-                .max()
-                .unwrap_or(0);
-            let _ = write!(stdout, "{}", tty::hide_cursor());
-            let mut rendered_lines = 0;
-            let mut printed_done = vec![false; progress.len()];
-
-            loop {
-                if initial_render {
-                    thread::sleep(Duration::from_millis(50));
-                    initial_render = false;
-                }
-
-                clear_rendered_lines(&mut stdout, rendered_lines);
-
-                let snapshots = progress
-                    .iter()
-                    .filter_map(|entry| entry.lock().ok().map(|entry| entry.clone()))
-                    .collect::<Vec<_>>();
-                let pending_lines = snapshots
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, entry)| {
-                        if entry.done {
-                            if !printed_done[index] {
-                                let _ = writeln!(
-                                    stdout,
-                                    "{green}✔︎{reset} {message}",
-                                    green = tty::green(),
-                                    reset = tty::reset(),
-                                    message = entry.message
-                                );
-                                printed_done[index] = true;
-                            }
-                            return None;
-                        }
-
-                        Some(format!(
-                            "{}{}{} {}",
-                            tty::blue(),
-                            spinner.frame(),
-                            tty::reset(),
-                            format_progress_message(
-                                &entry.message,
-                                entry.phase,
-                                entry.fetched_size,
-                                entry.total_size,
-                                terminal_width,
-                                message_length_max,
-                            )
-                        ))
-                    })
-                    .collect::<Vec<_>>();
-
-                rendered_lines = pending_lines.len();
-                for (index, line) in pending_lines.iter().enumerate() {
-                    let _ = write!(stdout, "{line}{clear}", clear = tty::clear_to_end());
-                    if index + 1 < pending_lines.len() {
-                        let _ = writeln!(stdout);
-                    }
-                }
-                let _ = stdout.flush();
-
-                if !thread_active.load(Ordering::Relaxed) {
-                    break;
-                }
-
-                if rendered_lines == 1 {
-                    let _ = write!(stdout, "\r");
-                } else if rendered_lines > 1 {
-                    let _ = write!(stdout, "{}\r", tty::move_cursor_up(rendered_lines - 1));
-                }
-
-                thread::sleep(Duration::from_millis(50));
-            }
-
-            clear_rendered_lines(&mut stdout, rendered_lines);
-            let _ = write!(stdout, "{}", tty::show_cursor());
-            let _ = stdout.flush();
-        });
-
-        Self { active, handle }
-    }
-
-    fn stop(self) {
-        self.active.store(false, Ordering::Relaxed);
-        let _ = self.handle.join();
-    }
-}
-
-fn clear_rendered_lines(stdout: &mut impl Write, lines: usize) {
-    if lines == 0 {
-        return;
-    }
-
-    let _ = write!(stdout, "\r");
-    if lines > 1 {
-        let _ = write!(stdout, "{}", tty::move_cursor_up(lines - 1));
-    }
-
-    for index in 0..lines {
-        let _ = write!(stdout, "{}", tty::clear_entire_line());
-        if index + 1 < lines {
-            let _ = writeln!(stdout);
-        }
-    }
-
-    if lines > 1 {
-        let _ = write!(stdout, "{}", tty::move_cursor_up(lines - 1));
-    }
-    let _ = write!(stdout, "\r");
-}
-
-struct Spinner {
-    start: Instant,
-    index: usize,
-}
-
-impl Spinner {
-    fn new() -> Self {
-        Self {
-            start: Instant::now(),
-            index: 0,
-        }
-    }
-
-    fn frame(&mut self) -> &'static str {
-        const FRAMES: [&str; 10] = ["⠋", "⠙", "⠚", "⠞", "⠖", "⠦", "⠴", "⠲", "⠳", "⠓"];
-
-        if self.start.elapsed() >= Duration::from_millis(100) {
-            self.start = Instant::now();
-            self.index = (self.index + 1) % FRAMES.len();
-        }
-
-        FRAMES[self.index]
-    }
-}
-
 fn lower_hex(value: impl AsRef<[u8]>) -> String {
     value
         .as_ref()
@@ -1163,11 +791,9 @@ fn sha256_hex_str(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        bottle_basename, format_disk_usage_readable_size, format_progress_message,
-        is_homebrew_core_tap, is_simple_formula_name, is_truthy_env_value,
+        bottle_basename, is_homebrew_core_tap, is_simple_formula_name, is_truthy_env_value,
         parse_download_concurrency, parse_formula_json_from_signed_cache, pkg_version,
-        sha256_hex_str, should_render_progress, should_send_github_packages_auth_for_host,
-        temporary_download_path,
+        sha256_hex_str, should_send_github_packages_auth_for_host, temporary_download_path,
     };
     use std::ffi::OsString;
     use std::os::unix::ffi::{OsStrExt, OsStringExt};
@@ -1253,50 +879,6 @@ mod tests {
         assert!(!is_truthy_env_value(Some("No")));
         assert!(is_truthy_env_value(Some("1")));
         assert!(is_truthy_env_value(Some("true")));
-    }
-
-    #[test]
-    fn matches_homebrews_disk_usage_alignment() {
-        assert_eq!(format_disk_usage_readable_size(0), "  0.0 B");
-        assert_eq!(format_disk_usage_readable_size(11_700_000), " 11.7MB");
-    }
-
-    #[test]
-    fn formats_progress_lines_like_homebrews_download_queue() {
-        assert_eq!(
-            format_progress_message(
-                "Bottle ffmpeg (8.1)",
-                "downloading",
-                11_000_000,
-                Some(11_700_000),
-                80,
-                19,
-            ),
-            "Bottle ffmpeg (8.1) ############################   Downloading  11.0MB/ 11.7MB"
-        );
-    }
-
-    #[test]
-    fn progress_messages_fill_the_available_width() {
-        assert_eq!(
-            format_progress_message(
-                "Bottle ffmpeg (8.1)",
-                "downloading",
-                11_000_000,
-                Some(11_700_000),
-                120,
-                19,
-            )
-            .chars()
-            .count(),
-            118
-        );
-    }
-
-    #[test]
-    fn renders_live_progress_for_single_downloads_when_tty_support_is_available() {
-        assert!(should_render_progress(true, 1));
-        assert!(!should_render_progress(false, 1));
     }
 
     #[test]
