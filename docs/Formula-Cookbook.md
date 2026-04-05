@@ -1,5 +1,5 @@
 ---
-last_review_date: "1970-01-01"
+last_review_date: "2026-04-05"
 ---
 
 # Formula Cookbook
@@ -118,6 +118,14 @@ There are plenty of others; check `/usr/lib` for them.
 We generally try not to duplicate system libraries and complicated tools in core Homebrew but we do duplicate some commonly used tools.
 
 Special exceptions are OpenSSL and LibreSSL. Things that use either *should* be built using Homebrew’s shipped equivalent and our BrewTestBot's post-install `audit` will warn if it detects you haven't done this.
+
+For `Homebrew/homebrew-core`, keep dependencies minimal and context-dependent.
+Prefer dependencies needed to build, test or satisfy current core dependents,
+and avoid adding optional upstream features that bring in large recursive
+dependency trees. When a formula needs both a light default build and a maximal
+build, maintainers may prefer a separate `*-full` formula instead. See the
+[dependency policy in the `Homebrew/homebrew-core` Maintainer
+Guide]({% link Homebrew-homebrew-core-Maintainer-Guide.md %}#dependencies-and-full-variants).
 
 **Important:** `$(brew --prefix)/bin` is NOT in the `PATH` during formula installation. If you have dependencies at build time, you must specify them and `brew` will add them to the `PATH` or create a [`Requirement`](/rubydoc/Requirement.html).
 
