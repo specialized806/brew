@@ -46,6 +46,9 @@ module Homebrew
       raise "#{query} is not a valid regex."
     end
 
+    sig { params(_cask: Cask::Cask).returns(T::Boolean) }
+    def self.ignore_cask?(_cask) = false
+
     T::Sig::WithoutRuntime.sig {
       params(
         string_or_regex: T.any(Regexp, String),
@@ -148,7 +151,8 @@ module Homebrew
     def self.search_casks(string_or_regex)
       if string_or_regex.is_a?(String) && string_or_regex.match?(HOMEBREW_TAP_CASK_REGEX)
         return begin
-          [Cask::CaskLoader.load(string_or_regex).token]
+          matched_cask = Cask::CaskLoader.load(string_or_regex)
+          ignore_cask?(matched_cask) ? [] : [matched_cask.token]
         rescue Cask::CaskUnavailableError
           []
         end
@@ -169,8 +173,10 @@ module Homebrew
                                            .correct(string_or_regex)
       end
 
-      results.sort.map do |name|
+      results.sort.filter_map do |name|
         cask = Cask::CaskLoader.load(name)
+        next if ignore_cask?(cask)
+
         display_name = if cask.installed?
           pretty_installed(cask.full_name)
         else
@@ -245,3 +251,5 @@ module Homebrew
     end
   end
 end
+
+require "extend/os/search"

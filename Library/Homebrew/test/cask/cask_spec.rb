@@ -392,6 +392,12 @@ RSpec.describe Cask::Cask, :cask do
     end
   end
 
+  describe "#supports_linux?" do
+    it "returns false when Linux support is not explicitly declared" do
+      expect(Cask::CaskLoader.load("with-non-executable-binary").supports_linux?).to be false
+    end
+  end
+
   describe "#to_h" do
     let(:expected_json) { (TEST_FIXTURE_DIR/"cask/everything.json").read.strip }
 
