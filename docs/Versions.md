@@ -1,10 +1,16 @@
 ---
-last_review_date: "2026-04-04"
+last_review_date: "2026-04-05"
 ---
 
 # Formulae Versions
 
 [homebrew/core](https://github.com/homebrew/homebrew-core) supports multiple versions of formulae by using a special naming format. For example, the formula for GCC 9 is named `gcc@9.rb` and begins with `class GccAT9 < Formula`.
+
+This page is about versioned formulae such as `foo@1.2`. Formula variants such
+as `foo-full` are not versioned formulae: they are separate formulae used to
+provide a different dependency or feature trade-off and follow the
+[`Homebrew/homebrew-core` dependency policy]({% link Homebrew-homebrew-core-Maintainer-Guide.md %}#dependencies-and-full-variants)
+instead.
 
 ## Acceptable versioned formulae
 
