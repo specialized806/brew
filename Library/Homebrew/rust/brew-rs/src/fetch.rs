@@ -102,6 +102,12 @@ pub(crate) struct FormulaJson {
     pub(crate) versions: Versions,
     pub(crate) revision: u32,
     #[serde(default)]
+    pub(crate) desc: Option<String>,
+    #[serde(default)]
+    pub(crate) homepage: Option<String>,
+    #[serde(default)]
+    pub(crate) license: Option<String>,
+    #[serde(default)]
     pub(crate) post_install_defined: Option<bool>,
     #[serde(default)]
     pub(crate) dependencies: Vec<Value>,
@@ -122,11 +128,37 @@ pub(crate) struct FormulaJson {
     #[serde(default)]
     pub(crate) service: Option<Value>,
     pub(crate) bottle: Option<BottleMetadata>,
+    #[serde(default)]
+    pub(crate) keg_only: Option<bool>,
+    #[serde(default)]
+    pub(crate) deprecated: Option<bool>,
+    #[serde(default)]
+    pub(crate) disabled: Option<bool>,
+    #[serde(default)]
+    pub(crate) deprecation_reason: Option<String>,
+    #[serde(default)]
+    pub(crate) disable_reason: Option<String>,
+    #[serde(default)]
+    pub(crate) deprecation_date: Option<String>,
+    #[serde(default)]
+    pub(crate) disable_date: Option<String>,
+    #[serde(default)]
+    pub(crate) conflicts_with: Vec<String>,
+    #[serde(default)]
+    pub(crate) conflicts_with_reasons: Vec<Option<String>>,
+    #[serde(default)]
+    pub(crate) ruby_source_path: Option<String>,
+    #[serde(default)]
+    pub(crate) analytics: Option<Value>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub(crate) struct Versions {
     pub(crate) stable: String,
+    #[serde(default)]
+    pub(crate) head: Option<String>,
+    #[serde(default)]
+    pub(crate) bottle: Option<bool>,
 }
 
 #[derive(Deserialize, Clone, Debug)]

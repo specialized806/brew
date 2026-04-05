@@ -191,7 +191,7 @@ fn search_uses_fuzzy_fallback_when_plain_text_search_has_no_exact_matches() {
 }
 
 #[test]
-fn info_matches_the_ruby_backend_output() {
+fn info_delegates_to_ruby_for_formula_paths() {
     let context = TestContext::new();
     let formula = context.formula_path();
 
@@ -209,10 +209,114 @@ fn info_matches_the_ruby_backend_output() {
     assert!(ruby_output.status.success());
     assert!(rust_output.status.success());
     assert_eq!(rust_output.stdout, ruby_output.stdout);
+    let stderr = String::from_utf8(rust_output.stderr).unwrap();
     assert!(
-        String::from_utf8(rust_output.stderr)
-            .unwrap()
-            .contains("Warning: brew-rs is handing info back to the Ruby backend.")
+        stderr.contains("handing info back to the Ruby backend"),
+        "expected delegation warning, got: {stderr}"
+    );
+}
+
+#[test]
+fn info_displays_formula_metadata_from_api_cache() {
+    let context = TestContext::new();
+    let formula_dir = context.cache.join("api/formula");
+    fs::create_dir_all(&formula_dir).unwrap();
+    fs::write(
+        formula_dir.join("testball.json"),
+        r#"{
+            "name": "testball",
+            "full_name": "testball",
+            "tap": "homebrew/core",
+            "desc": "A test formula",
+            "homepage": "https://brew.sh",
+            "license": "MIT",
+            "versions": { "stable": "1.0", "head": "HEAD", "bottle": true },
+            "revision": 0,
+            "ruby_source_path": "Formula/t/testball.rb",
+            "dependencies": ["dep-a"],
+            "build_dependencies": ["dep-b"],
+            "recommended_dependencies": [],
+            "optional_dependencies": [],
+            "test_dependencies": [],
+            "uses_from_macos": [],
+            "conflicts_with": [],
+            "conflicts_with_reasons": [],
+            "keg_only": false,
+            "deprecated": false,
+            "disabled": false,
+            "post_install_defined": false,
+            "analytics": {
+                "install": { "30d": { "testball": 100 }, "90d": { "testball": 300 }, "365d": { "testball": 1000 } },
+                "install_on_request": { "30d": { "testball": 90 }, "90d": { "testball": 270 }, "365d": { "testball": 900 } },
+                "build_error": { "30d": { "testball": 1 } }
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let output = context
+        .rust_command()
+        .args(["info", "testball"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("testball"), "missing formula name");
+    assert!(stdout.contains("stable 1.0"), "missing version");
+    assert!(stdout.contains("(bottled)"), "missing bottled marker");
+    assert!(stdout.contains("A test formula"), "missing description");
+    assert!(stdout.contains("https://brew.sh"), "missing homepage");
+    assert!(stdout.contains("MIT"), "missing license");
+    assert!(stdout.contains("Not installed"), "missing install status");
+    assert!(stdout.contains("Build: dep-b"), "missing build deps");
+    assert!(stdout.contains("Required: dep-a"), "missing required deps");
+    assert!(stdout.contains("HEAD"), "missing HEAD option");
+    assert!(
+        stdout.contains("install: 100 (30 days)"),
+        "missing analytics"
+    );
+}
+
+#[test]
+#[ignore] // requires network access
+fn info_matches_the_ruby_backend_output_for_api_cached_formula() {
+    let context = TestContext::new();
+
+    let formula = "hello";
+
+    let ruby_output = context
+        .ruby_command()
+        .args(["info", formula])
+        .output()
+        .unwrap();
+    let rust_output = context
+        .rust_command()
+        .args(["info", formula])
+        .output()
+        .unwrap();
+
+    assert!(
+        ruby_output.status.success(),
+        "ruby failed: {}",
+        String::from_utf8_lossy(&ruby_output.stderr)
+    );
+    assert!(
+        rust_output.status.success(),
+        "rust failed: {}",
+        String::from_utf8_lossy(&rust_output.stderr)
+    );
+
+    let ruby_stdout = String::from_utf8(ruby_output.stdout).unwrap();
+    let rust_stdout = String::from_utf8(rust_output.stdout).unwrap();
+
+    assert!(
+        !ruby_stdout.is_empty(),
+        "ruby produced no output — test is vacuous"
+    );
+    assert_eq!(
+        rust_stdout, ruby_stdout,
+        "\n--- RUBY ---\n{ruby_stdout}\n--- RUST ---\n{rust_stdout}"
     );
 }
 
