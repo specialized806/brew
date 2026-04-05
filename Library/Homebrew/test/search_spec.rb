@@ -95,7 +95,14 @@ RSpec.describe Homebrew::Search do
 
   describe "#search_casks" do
     let(:cask) do
-      instance_double(Cask::Cask, full_name: "testball", installed?: false, deprecated?: false, disabled?: false)
+      instance_double(
+        Cask::Cask,
+        full_name:       "testball",
+        installed?:      false,
+        deprecated?:     false,
+        disabled?:       false,
+        supports_linux?: true,
+      )
     end
 
     before do
@@ -116,6 +123,12 @@ RSpec.describe Homebrew::Search do
 
     it "does not annotate normal casks", :needs_macos do
       expect(described_class.search_casks(/testball/)).to eq(["testball"])
+    end
+
+    it "hides macOS-only casks on Linux", :needs_linux do
+      allow(cask).to receive(:supports_linux?).and_return(false)
+
+      expect(described_class.search_casks(/testball/)).to eq([])
     end
   end
 

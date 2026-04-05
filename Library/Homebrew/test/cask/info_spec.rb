@@ -17,6 +17,13 @@ RSpec.describe Cask::Info, :cask do
     "#{Tty.bold}#{string} #{Formatter.success("✔")}#{Tty.reset}"
   end
 
+  def requirements_section(string)
+    <<~EOS.chomp
+      #{ohai_title "Requirements"}
+      Required: #{string}
+    EOS
+  end
+
   def mock_cask_installed(cask_name)
     cask = Cask::CaskLoader.load(cask_name)
     allow(cask).to receive(:installed?).and_return(true)
@@ -44,6 +51,7 @@ RSpec.describe Cask::Info, :cask do
       Transmission
       ==> Description
       BitTorrent client
+      #{requirements_section("macOS")}
       ==> Artifacts
       Transmission.app (App)
     EOS
@@ -65,6 +73,7 @@ RSpec.describe Cask::Info, :cask do
       #{Formatter.error("None")}
       #{ohai_title "Dependencies"}
       #{uninstalled("local-caffeine (cask)")}, #{installed("local-transmission-zip (cask)")}
+      #{requirements_section(installed("macOS"))}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)
     EOS
@@ -72,6 +81,12 @@ RSpec.describe Cask::Info, :cask do
 
   it "prints cask and formulas dependencies if the Cask has both" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    arch_requirements = if Hardware::CPU.arm?
+      "#{uninstalled("x86_64 architecture")}, #{installed("arm64 architecture")}"
+    else
+      "#{installed("x86_64 architecture")}, #{uninstalled("arm64 architecture")}"
+    end
+
     expect do
       described_class.info(Cask::CaskLoader.load("with-depends-on-everything"), args:)
     end.to output(<<~EOS).to_stdout
@@ -85,6 +100,7 @@ RSpec.describe Cask::Info, :cask do
       #{Formatter.error("None")}
       #{ohai_title "Dependencies"}
       #{uninstalled("unar")}, #{uninstalled("local-caffeine (cask)")}, #{uninstalled("with-depends-on-cask (cask)")}
+      #{requirements_section("#{arch_requirements}, #{installed("macOS")}")}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)
     EOS
@@ -102,6 +118,7 @@ RSpec.describe Cask::Info, :cask do
       AutoUpdates
       ==> Description
       None
+      #{requirements_section("macOS")}
       ==> Artifacts
       AutoUpdates.app (App)
     EOS
@@ -119,6 +136,7 @@ RSpec.describe Cask::Info, :cask do
       None
       ==> Description
       None
+      #{requirements_section("macOS")}
       ==> Artifacts
       Caffeine.app (App)
       ==> Caveats
@@ -146,6 +164,7 @@ RSpec.describe Cask::Info, :cask do
       None
       ==> Description
       None
+      #{requirements_section("macOS")}
       ==> Artifacts
       Caffeine.app (App)
     EOS
@@ -163,6 +182,7 @@ RSpec.describe Cask::Info, :cask do
       None
       ==> Description
       None
+      #{requirements_section("macOS")}
       ==> Languages
       zh, en-US
       ==> Artifacts
@@ -182,6 +202,7 @@ RSpec.describe Cask::Info, :cask do
       None
       ==> Description
       None
+      #{requirements_section("macOS")}
       ==> Artifacts
       Caffeine.app (App)
     EOS
@@ -213,6 +234,7 @@ RSpec.describe Cask::Info, :cask do
         Transmission
         ==> Description
         BitTorrent client
+        #{requirements_section(installed("macOS"))}
         ==> Artifacts
         Transmission.app (App)
       EOS
@@ -250,9 +272,28 @@ RSpec.describe Cask::Info, :cask do
         Transmission
         ==> Description
         BitTorrent client
+        #{requirements_section(installed("macOS"))}
         ==> Artifacts
         Transmission.app (App)
       EOS
     end
+  end
+
+  it "shows requirements" do
+    expect do
+      described_class.info(Cask::CaskLoader.load("with-non-executable-binary"), args:)
+    end.to output(<<~EOS).to_stdout
+      ==> with-non-executable-binary: 1.2.3
+      https://brew.sh/with-binary
+      Not installed
+      From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-non-executable-binary.rb
+      ==> Name
+      None
+      ==> Description
+      None
+      #{requirements_section("macOS")}
+      ==> Artifacts
+      naked_non_executable (Binary)
+    EOS
   end
 end

@@ -28,6 +28,8 @@ module Cask
       output << desc_info(cask)
       deps = deps_info(cask)
       output << deps if deps
+      requirements = requirements_info(cask)
+      output << requirements if requirements
       language = language_info(cask)
       output << language if language
       output << "#{artifact_info(cask)}\n"
@@ -129,6 +131,47 @@ module Cask
     sig { params(dep: String, installed: T::Boolean).returns(String) }
     def self.decorate_dependency(dep, installed:)
       installed ? pretty_installed(dep) : pretty_uninstalled(dep)
+    end
+
+    sig { params(cask: Cask).returns(T.nilable(String)) }
+    def self.requirements_info(cask)
+      require "cask_dependent"
+
+      requirements = CaskDependent.new(cask).requirements.grep_v(CaskDependent::Requirement)
+      return if requirements.empty?
+
+      supports_linux = cask.supports_linux?
+      oldest_allowed = MacOSVersion.new(HOMEBREW_MACOS_OLDEST_ALLOWED)
+      output = "#{ohai_title("Requirements")}\n"
+      %w[build required recommended optional].each do |type|
+        reqs = case type
+        when "build"
+          requirements.select(&:build?)
+        when "required"
+          requirements.select(&:required?)
+        when "recommended"
+          requirements.select(&:recommended?)
+        when "optional"
+          requirements.select(&:optional?)
+        else
+          []
+        end
+        next if reqs.empty?
+
+        output << "#{type.capitalize}: #{reqs.map do |requirement|
+          requires_macos = requirement.is_a?(MacOSRequirement) && !supports_linux
+          requirement_s = if requires_macos && requirement.comparator == ">=" && requirement.version == oldest_allowed
+            "macOS"
+          elsif requires_macos
+            requirement.display_s.delete_suffix(" (or Linux)")
+          else
+            requirement.display_s
+          end
+          installed = requirement.satisfied?
+          installed ? pretty_installed(requirement_s) : pretty_uninstalled(requirement_s)
+        end.join(", ")}\n"
+      end
+      output
     end
 
     sig { params(cask: Cask).returns(T.nilable(String)) }
