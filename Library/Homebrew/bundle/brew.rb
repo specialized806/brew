@@ -126,6 +126,21 @@ module Homebrew
           @pinned_formulae ||= formulae.filter_map { |f| f[:name] if f[:pinned?] }
         end
 
+        sig { params(name: String).returns(T::Array[String]) }
+        def brewfile_dependencies(name)
+          formula = formulae_by_full_name(name)
+          formula = formulae_by_name(name) if formula.blank?
+          formula.fetch(:dependencies, [])
+        end
+
+        sig { params(name: String).returns(T::Set[String]) }
+        def recursive_dep_names(name)
+          require "formula"
+          Formula[name].recursive_dependencies.to_set(&:name)
+        rescue FormulaUnavailableError
+          Set.new
+        end
+
         sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
         def formulae
           return @formulae if @formulae

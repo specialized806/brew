@@ -65,7 +65,7 @@ module Homebrew
 
           batch.each do |entry|
             installed = begin
-              T.cast(futures.fetch(entry).value!, T::Boolean)
+              !futures.fetch(entry).value!.nil?
             rescue => e
               write_output(Formatter.error("Installing #{entry.name} has failed!"), stream: $stderr)
               write_output("[#{entry.name}] #{e.message}", stream: $stderr) if @verbose
@@ -100,45 +100,53 @@ module Homebrew
         # Brewfile-level dependencies: which entries depend on other entries.
         brewfile_deps = T.let({}, T::Hash[String, T::Array[String]])
         @entries.each do |entry|
-          brewfile_deps[entry.name] = if entry.cls == Homebrew::Bundle::Brew
-            formula = Homebrew::Bundle::Brew.formulae_by_full_name(entry.name)
-            formula = Homebrew::Bundle::Brew.formulae_by_name(entry.name) if formula.blank?
-            T.cast(formula.fetch(:dependencies, []), T::Array[String])
+          deps = case entry.cls.name
+          when "Homebrew::Bundle::Brew"
+            Homebrew::Bundle::Brew.brewfile_dependencies(entry.name)
+          when "Homebrew::Bundle::Cask"
+            Homebrew::Bundle::Cask.formula_dependencies([entry.name])
           else
             []
           end
+
+          # Implicit tap dependency: entries from non-default taps depend on
+          # the tap entry being installed first.
+          tap_prefix = entry.name.include?("/") ? entry.name.split("/").first(2).join("/") : nil
+          if tap_prefix && entry.cls != Homebrew::Bundle::Tap
+            deps = deps.dup
+            deps << tap_prefix
+          end
+
+          brewfile_deps[entry.name] = deps
         end
 
         # Full recursive dependency sets. `brew install` acquires file locks on
         # ALL recursive deps (including build deps), so entries that share any
         # transitive dep must be serialized to avoid lock conflicts.
-        require "formula"
         recursive_deps = T.let({}, T::Hash[String, T::Set[String]])
         @entries.each do |entry|
           recursive_deps[entry.name] = if entry.cls == Homebrew::Bundle::Brew
-            Formula[entry.name].recursive_dependencies.to_set(&:name)
+            Homebrew::Bundle::Brew.recursive_dep_names(entry.name)
           else
             Set.new
           end
-        rescue FormulaUnavailableError
-          recursive_deps[entry.name] = Set.new
         end
 
         @entries.each_with_object({}) do |entry, map|
           # Explicit Brewfile ordering: entry A depends on Brewfile entry B.
-          depends_on = T.must(brewfile_deps[entry.name]).each_with_object(Set.new) do |dep, set|
+          depends_on = brewfile_deps.fetch(entry.name).each_with_object(Set.new) do |dep, set|
             name = entry_name_map[dep] || entry_name_map[normalize_formula_name(dep)]
             set << name if name.present? && name != entry.name
           end
 
           # Implicit lock conflicts: entries sharing any recursive dep must be
           # serialized. The later entry (by Brewfile order) waits for the earlier.
-          entry_rdeps = T.must(recursive_deps[entry.name])
+          entry_rdeps = recursive_deps.fetch(entry.name)
           @entries.each do |earlier|
             break if earlier.name == entry.name
             next if depends_on.include?(earlier.name)
 
-            earlier_rdeps = T.must(recursive_deps[earlier.name])
+            earlier_rdeps = recursive_deps.fetch(earlier.name)
             depends_on << earlier.name if entry_rdeps.intersect?(earlier_rdeps)
           end
 
@@ -148,7 +156,7 @@ module Homebrew
 
       sig { params(name: String).returns(String) }
       def normalize_formula_name(name)
-        T.must(name.split("/").last)
+        name.split("/").fetch(-1)
       end
 
       sig { params(entry: Installer::InstallableEntry).returns(T::Boolean) }
