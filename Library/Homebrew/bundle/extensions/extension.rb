@@ -139,7 +139,7 @@ module Homebrew
         true
       end
 
-      sig { params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(String) }
+      sig { override.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(String) }
       def self.install_verb(_name = "", _options = {})
         "Installing"
       end
