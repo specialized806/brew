@@ -876,7 +876,6 @@ EOS
   # a popup window asking the user to install the CLT
   if [[ -n "${XCODE_SELECT_PATH}" ]]
   then
-    # TODO: this is fairly slow, figure out if there's a faster way.
     XCRUN_OUTPUT="$(/usr/bin/xcrun --find clang 2>&1)"
     XCRUN_STATUS="$?"
 
