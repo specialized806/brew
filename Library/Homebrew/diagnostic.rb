@@ -612,19 +612,42 @@ module Homebrew
         return if ENV["CI"]
         return unless Utils::Git.available?
 
-        commands = Tap.installed.filter_map do |tap|
-          next if tap.git_repository.default_origin_branch?
+        deprecated_master = []
+        commands = []
 
-          "git -C $(brew --repo #{tap.name}) checkout #{tap.git_repository.origin_branch_name}"
+        brew_repo = GitRepository.new(HOMEBREW_REPOSITORY)
+        deprecated_master << "Homebrew/brew" if brew_repo.branch_name == "master"
+
+        Tap.installed.each do |tap|
+          if tap.git_repository.branch_name == "master" && tap.official?
+            deprecated_master << tap.name
+          elsif !tap.git_repository.default_origin_branch?
+            commands << "git -C $(brew --repo #{tap.name}) checkout #{tap.git_repository.origin_branch_name}"
+          end
         end
 
-        return if commands.blank?
+        message = +""
 
-        <<~EOS
-          Some taps are not on the default git origin branch and may not receive
-          updates. If this is a surprise to you, check out the default branch with:
-            #{commands.join("\n  ")}
-        EOS
+        if deprecated_master.any?
+          message << <<~EOS
+            The following repositories are on the deprecated "master" branch.
+            The "master" branch sync will stop and this warning will become an error
+            when Homebrew 5.2.0 is released (no earlier than 2026-06-10).
+            Run `brew update` to migrate to "main":
+              #{deprecated_master.join("\n  ")}
+          EOS
+        end
+
+        if commands.any?
+          message << "\n" if deprecated_master.any?
+          message << <<~EOS
+            Some taps are not on the default git origin branch and may not receive
+            updates. If this is a surprise to you, check out the default branch with:
+              #{commands.join("\n  ")}
+          EOS
+        end
+
+        message.presence
       end
 
       sig { returns(T.nilable(String)) }
