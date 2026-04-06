@@ -99,17 +99,19 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
     end
 
     it "matches a tap-qualified formula by base name" do
-      entry = double(name: "some-tap/tap/mailhog", options: { restart_service: true })
+      entry = instance_double(Homebrew::Bundle::Dsl::Entry, name:    "some-tap/tap/mailhog",
+                                                            options: { restart_service: true })
       expect(services.installed_and_up_to_date?(entry)).to be(true)
     end
 
     it "matches a non-tap-qualified formula by name" do
-      entry = double(name: "mailhog", options: { restart_service: true })
+      entry = instance_double(Homebrew::Bundle::Dsl::Entry, name: "mailhog", options: { restart_service: true })
       expect(services.installed_and_up_to_date?(entry)).to be(true)
     end
 
     it "returns false when service is not started" do
-      entry = double(name: "some-tap/tap/nginx", options: { restart_service: true })
+      entry = instance_double(Homebrew::Bundle::Dsl::Entry, name:    "some-tap/tap/nginx",
+                                                            options: { restart_service: true })
       expect(services.installed_and_up_to_date?(entry)).to be(false)
     end
   end
