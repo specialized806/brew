@@ -34,6 +34,174 @@ RSpec.describe Homebrew::Cmd::Info do
       .and be_a_success
   end
 
+  it "prints inline summary information for formulae" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+
+      option "with-foo", "Build with foo"
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Installs from source: yes/).to_stdout
+      .and not_to_output(/Metadata/).to_stdout
+      .and not_to_output(/supports macOS and Linux/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "prints required, recursive runtime, and dependent counts in the dependencies section" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+    direct_dependency = formula.deps.required.first
+    direct_runtime_dependency = instance_double(
+      Dependency,
+      to_formula: instance_double(Formula, any_version_installed?: true),
+    )
+    transitive_runtime_dependency = instance_double(
+      Dependency,
+      to_formula: instance_double(Formula, any_version_installed?: false),
+    )
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    expect(formula).to receive(:runtime_dependencies).and_return(
+      [direct_runtime_dependency, transitive_runtime_dependency],
+    )
+    allow(formula).to receive_messages(
+      core_formula?:                        false,
+      runtime_installed_formula_dependents: [instance_double(Formula)],
+    )
+    allow(direct_dependency).to receive(:satisfied?).and_return(true)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(
+        /==> Dependencies\nRequired \(1\): .*bar.*\nRecursive Runtime \(2\): 1 .*✔, 1 .*✘\nDependents: 1/,
+      ).to_stdout
+      .and not_to_output(/^Dependencies: /).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "omits build dependencies when a formula would pour from a bottle" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+
+      depends_on "bar" => :build
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive_messages(
+      core_formula?:          false,
+      recursive_dependencies: [],
+      stable:                 instance_double(
+        SoftwareSpec,
+        version:  Version.new("0.1"),
+        bottled?: true,
+      ),
+      pour_bottle?:           true,
+    )
+
+    expect { info.send(:info_formula, formula) }
+      .to not_to_output(/Build \(1\): .*bar.*/).to_stdout
+      .and not_to_output(/==> Dependencies/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "prints Linux requirements through the requirements section" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+
+      depends_on :linux
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Requirements\nRequired: .*Linux/).to_stdout
+      .and not_to_output(/supports Linux/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "hides source install metadata for formulae that only run on another OS" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+
+      if OS.mac?
+        depends_on :linux
+      else
+        depends_on macos: :sonoma
+      end
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to not_to_output(/Installs from source: yes/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  describe "::installation_status" do
+    it "prints on-request installs explicitly" do
+      expect(described_class.installation_status(instance_double(Tab, installed_on_request: true)))
+        .to eq("Installed (on request)")
+    end
+
+    it "treats non-requested installs as dependency installs" do
+      expect(described_class.installation_status(instance_double(Tab, installed_on_request: false)))
+        .to eq("Installed (as dependency)")
+    end
+  end
+
+  describe "::metadata_lines" do
+    before { allow($stdout).to receive(:tty?).and_return(true) }
+
+    it "returns summary lines for pinned formulae" do
+      formula = instance_double(
+        Formula,
+        any_version_installed?: true,
+        pinned?:                true,
+        pinned_version:         "1.0",
+      )
+
+      mktmpdir do |dir|
+        pin_path = Pathname(dir/"testball")
+        pin_path.write("pin")
+        pin_time = Time.at(1_720_189_900)
+        File.utime(pin_time, pin_time, pin_path)
+        allow(FormulaPin).to receive(:new).with(formula).and_return(instance_double(FormulaPin, path: pin_path))
+
+        expect(described_class.metadata_lines(formula)).to eq([
+          "Pinned: 1.0 on #{pin_time.strftime("%Y-%m-%d at %H:%M:%S")}",
+        ])
+      end
+    end
+  end
+
   describe "::github_remote_path" do
     let(:remote) { "https://github.com/Homebrew/homebrew-core" }
 
