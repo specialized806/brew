@@ -36,6 +36,18 @@ module Cask
       paths.any?
     end
 
+    # Return tokens for Caskroom directories missing expected installed metadata.
+    sig { returns(T::Array[String]) }
+    def self.corrupt_cask_dirs
+      paths.reject { |p| caskfile?(p) }.map { |p| p.basename.to_s }
+    end
+
+    sig { params(cask_path: Pathname).returns(T::Boolean) }
+    def self.caskfile?(cask_path)
+      Pathname.glob(cask_path/".metadata"/"*"/"*"/"Casks"/"*.{rb,json}").any?
+    end
+    private_class_method :caskfile?
+
     sig { void }
     def self.ensure_caskroom_exists
       return if path.exist?
