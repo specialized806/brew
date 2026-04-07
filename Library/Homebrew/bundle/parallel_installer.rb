@@ -92,26 +92,27 @@ module Homebrew
 
       sig { returns(T::Hash[String, T::Set[String]]) }
       def build_dependency_map
+        # Phase 1: Map both full and short names so dep lookups work either way.
         entry_name_map = @entries.each_with_object({}) do |entry, map|
           map[entry.name] = entry.name
           map[normalize_formula_name(entry.name)] = entry.name
         end
 
-        # Brewfile-level dependencies: which entries depend on other entries.
+        # Phase 2: Direct dependencies declared in the Brewfile. Determines
+        # install ordering (entry A must finish before entry B starts).
         brewfile_deps = T.let({}, T::Hash[String, T::Array[String]])
         @entries.each do |entry|
           deps = case entry.cls.name
           when "Homebrew::Bundle::Brew"
-            Homebrew::Bundle::Brew.brewfile_dependencies(entry.name)
+            Homebrew::Bundle::Brew.formula_dep_names(entry.name)
           when "Homebrew::Bundle::Cask"
             Homebrew::Bundle::Cask.formula_dependencies([entry.name])
           else
             []
           end
 
-          # Implicit tap dependency: entries from non-default taps depend on
-          # the tap entry being installed first.
-          tap_prefix = entry.name.include?("/") ? entry.name.split("/").first(2).join("/") : nil
+          # Entries from non-default taps depend on the tap being installed first.
+          tap_prefix = entry.name.split("/").first(2).join("/") if entry.name.include?("/")
           if tap_prefix && entry.cls != Homebrew::Bundle::Tap
             deps = deps.dup
             deps << tap_prefix
@@ -120,27 +121,31 @@ module Homebrew
           brewfile_deps[entry.name] = deps
         end
 
-        # Full recursive dependency sets. `brew install` acquires file locks on
-        # ALL recursive deps (including build deps), so entries that share any
-        # transitive dep must be serialized to avoid lock conflicts.
+        # Phase 3: Recursive dependency sets for lock conflict detection.
+        # `brew install` acquires file locks on ALL recursive deps (including
+        # build deps), so entries sharing any transitive dep must be serialized.
+        # Casks can depend on other casks transitively, so we walk those too.
+        cask_names = T.let(@entries.select { |e| e.cls == Homebrew::Bundle::Cask }.to_set(&:name), T::Set[String])
         recursive_deps = T.let({}, T::Hash[String, T::Set[String]])
         @entries.each do |entry|
-          recursive_deps[entry.name] = if entry.cls == Homebrew::Bundle::Brew
+          recursive_deps[entry.name] = case entry.cls.name
+          when "Homebrew::Bundle::Brew"
             Homebrew::Bundle::Brew.recursive_dep_names(entry.name)
+          when "Homebrew::Bundle::Cask"
+            cask_dep_names(entry.name, cask_names)
           else
             Set.new
           end
         end
 
+        # Phase 4: Merge explicit ordering and implicit lock conflicts.
         @entries.each_with_object({}) do |entry, map|
-          # Explicit Brewfile ordering: entry A depends on Brewfile entry B.
           depends_on = brewfile_deps.fetch(entry.name).each_with_object(Set.new) do |dep, set|
             name = entry_name_map[dep] || entry_name_map[normalize_formula_name(dep)]
             set << name if name.present? && name != entry.name
           end
 
-          # Implicit lock conflicts: entries sharing any recursive dep must be
-          # serialized. The later entry (by Brewfile order) waits for the earlier.
+          # Later entries wait for earlier ones when they share any recursive dep.
           entry_rdeps = recursive_deps.fetch(entry.name)
           @entries.each do |earlier|
             break if earlier.name == entry.name
@@ -157,6 +162,21 @@ module Homebrew
       sig { params(name: String).returns(String) }
       def normalize_formula_name(name)
         name.split("/").fetch(-1)
+      end
+
+      # Walk cask-on-cask dependencies transitively, returning the set of
+      # cask names (from the Brewfile) that this cask depends on.
+      sig { params(name: String, cask_names: T::Set[String]).returns(T::Set[String]) }
+      def cask_dep_names(name, cask_names)
+        return Set.new unless Bundle.cask_installed?
+
+        require "cask/cask_loader"
+        cask = ::Cask::CaskLoader.load(name)
+        direct = Array(cask.depends_on[:cask]).to_set
+        # Only include deps that are also in the Brewfile.
+        direct & cask_names
+      rescue ::Cask::CaskUnavailableError
+        Set.new
       end
 
       sig { params(entry: Installer::InstallableEntry).returns(T::Boolean) }

@@ -127,9 +127,9 @@ module Homebrew
         end
 
         sig { params(name: String).returns(T::Array[String]) }
-        def brewfile_dependencies(name)
-          formula = formulae_by_full_name(name)
-          formula = formulae_by_name(name) if formula.blank?
+        def formula_dep_names(name)
+          formula = formulae_by_full_name(name).presence
+          formula ||= formulae_by_name(name)
           formula.fetch(:dependencies, [])
         end
 
