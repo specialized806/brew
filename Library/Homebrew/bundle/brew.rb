@@ -126,11 +126,15 @@ module Homebrew
           @pinned_formulae ||= formulae.filter_map { |f| f[:name] if f[:pinned?] }
         end
 
+        sig { params(name: String).returns(T::Hash[Symbol, T.untyped]) }
+        def find_formula(name)
+          formula = formulae_by_full_name(name).presence
+          formula || formulae_by_name(name)
+        end
+
         sig { params(name: String).returns(T::Array[String]) }
         def formula_dep_names(name)
-          formula = formulae_by_full_name(name).presence
-          formula ||= formulae_by_name(name)
-          formula.fetch(:dependencies, [])
+          find_formula(name).fetch(:dependencies, [])
         end
 
         # Returns recursive dependency names for lock conflict detection.
@@ -142,18 +146,17 @@ module Homebrew
           require "formula"
           f = Formula[name]
           if include_build
-            f.recursive_dependencies.to_set(&:name)
+            f.recursive_dependencies
           else
-            f.runtime_dependencies.to_set(&:name)
-          end
+            f.runtime_dependencies
+          end.to_set(&:name)
         rescue FormulaUnavailableError
           Set.new
         end
 
         sig { params(name: String).returns(T::Boolean) }
         def formula_bottled?(name)
-          formula = formulae_by_full_name(name).presence
-          formula ||= formulae_by_name(name)
+          formula = find_formula(name)
           return false if formula.blank?
 
           formula.fetch(:bottled, false)

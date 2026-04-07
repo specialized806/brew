@@ -27,6 +27,10 @@ module Homebrew
         @quiet = quiet
         @pool = T.let(Concurrent::FixedThreadPool.new(jobs), Concurrent::FixedThreadPool)
         @output_mutex = T.let(Mutex.new, Mutex)
+        # Cask installs may trigger interactive sudo prompts that write
+        # directly to the terminal.  Serialize them so Password: prompts
+        # don't interleave with status output from other workers.
+        @cask_install_mutex = T.let(Mutex.new, Mutex)
       end
 
       sig { returns([Integer, Integer]) }
@@ -183,6 +187,17 @@ module Homebrew
 
       sig { params(entry: Installer::InstallableEntry).returns(T::Boolean) }
       def install_entry!(entry)
+        # Cask installs can trigger sudo password prompts that write directly
+        # to the terminal, causing interleaved output with other workers.
+        if entry.cls == Homebrew::Bundle::Cask
+          @cask_install_mutex.synchronize { do_install_entry!(entry) }
+        else
+          do_install_entry!(entry)
+        end
+      end
+
+      sig { params(entry: Installer::InstallableEntry).returns(T::Boolean) }
+      def do_install_entry!(entry)
         name = entry.name
         options = entry.options
         verb = entry.verb
