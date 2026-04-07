@@ -133,12 +133,30 @@ module Homebrew
           formula.fetch(:dependencies, [])
         end
 
-        sig { params(name: String).returns(T::Set[String]) }
-        def recursive_dep_names(name)
+        # Returns recursive dependency names for lock conflict detection.
+        # When pouring bottles, only runtime deps acquire keg locks so build
+        # deps like cmake don't serialize unrelated bottle pours.  When
+        # building from source all deps (including build) must be considered.
+        sig { params(name: String, include_build: T::Boolean).returns(T::Set[String]) }
+        def recursive_dep_names(name, include_build: true)
           require "formula"
-          Formula[name].recursive_dependencies.to_set(&:name)
+          f = Formula[name]
+          if include_build
+            f.recursive_dependencies.to_set(&:name)
+          else
+            f.runtime_dependencies.to_set(&:name)
+          end
         rescue FormulaUnavailableError
           Set.new
+        end
+
+        sig { params(name: String).returns(T::Boolean) }
+        def formula_bottled?(name)
+          formula = formulae_by_full_name(name).presence
+          formula ||= formulae_by_name(name)
+          return false if formula.blank?
+
+          formula.fetch(:bottled, false)
         end
 
         sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }

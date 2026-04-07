@@ -122,15 +122,17 @@ module Homebrew
         end
 
         # Phase 3: Recursive dependency sets for lock conflict detection.
-        # `brew install` acquires file locks on ALL recursive deps (including
-        # build deps), so entries sharing any transitive dep must be serialized.
-        # Casks can depend on other casks transitively, so we walk those too.
+        # Only include build deps when building from source.  Pouring bottles
+        # only locks runtime deps, so a shared build dep like cmake won't
+        # serialize unrelated bottle pours.
         cask_names = T.let(@entries.select { |e| e.cls == Homebrew::Bundle::Cask }.to_set(&:name), T::Set[String])
         recursive_deps = T.let({}, T::Hash[String, T::Set[String]])
         @entries.each do |entry|
           recursive_deps[entry.name] = case entry.cls.name
           when "Homebrew::Bundle::Brew"
-            Homebrew::Bundle::Brew.recursive_dep_names(entry.name)
+            building_from_source = Array(entry.options[:args]).any? { |a| a.to_s == "build-from-source" } ||
+                                   !Homebrew::Bundle::Brew.formula_bottled?(entry.name)
+            Homebrew::Bundle::Brew.recursive_dep_names(entry.name, include_build: building_from_source)
           when "Homebrew::Bundle::Cask"
             cask_dep_names(entry.name, cask_names)
           else
