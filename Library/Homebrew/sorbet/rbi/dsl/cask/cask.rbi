@@ -154,6 +154,9 @@ class Cask::Cask
   def on_system_block_min_os(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T::Boolean) }
+  def on_os_blocks_exist?(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T::Boolean) }
   def on_system_blocks_exist?(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }

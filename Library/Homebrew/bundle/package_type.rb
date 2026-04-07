@@ -38,7 +38,7 @@ module Homebrew
         true
       end
 
-      sig { params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(String) }
+      sig { overridable.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(String) }
       def self.install_verb(_name = "", _options = {})
         "Installing"
       end
@@ -115,7 +115,7 @@ module Homebrew
         Array(work_to_be_done)
       end
 
-      sig { params(name: Object, no_upgrade: T::Boolean).returns(String) }
+      sig { overridable.params(name: Object, no_upgrade: T::Boolean).returns(String) }
       def failure_reason(name, no_upgrade:)
         reason = if no_upgrade && Bundle.upgrade_formulae.exclude?(name)
           "needs to be installed."
