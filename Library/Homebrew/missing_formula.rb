@@ -108,24 +108,32 @@ module Homebrew
           new_tap_user, new_tap_repo, new_tap_new_name = new_tap.split("/")
           new_tap_name = "#{new_tap_user}/#{new_tap_repo}"
 
-          message = <<~EOS
-            It was migrated from #{old_tap} to #{new_tap}.
-          EOS
+          same_tap = new_tap == name
+
+          message = if same_tap
+            "It was migrated from a formula to a cask.\n"
+          else
+            "It was migrated from #{old_tap} to #{new_tap}.\n"
+          end
           break if new_tap_name == CoreTap.instance.name
 
-          install_cmd = if new_tap_name.start_with?("homebrew/cask")
+          install_cmd = if new_tap_name.start_with?("homebrew/cask") || same_tap
             "install --cask"
           else
             "install"
           end
           new_tap_new_name ||= name
 
-          message += <<~EOS
-            You can access it again by running:
-              brew tap #{new_tap_name}
-            And then you can install it by running:
-              brew #{install_cmd} #{new_tap_new_name}
-          EOS
+          message += if same_tap
+            "You can install it by running:\n"
+          else
+            <<~EOS
+              You can access it again by running:
+                brew tap #{new_tap_name}
+              And then you can install it by running:
+            EOS
+          end
+          message += "  brew #{install_cmd} #{new_tap_new_name}\n"
           break
         end
 
