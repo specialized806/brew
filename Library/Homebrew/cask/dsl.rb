@@ -3,7 +3,6 @@
 
 require "autobump_constants"
 require "locale"
-require "lazy_object"
 require "livecheck"
 require "utils/output"
 

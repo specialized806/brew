@@ -1,8 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "homebrew"
-
 module Utils
   # Removes the rightmost segment from the constant expression in the string.
   #

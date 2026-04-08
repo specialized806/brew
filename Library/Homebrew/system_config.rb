@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "hardware"
-require "software_spec"
+require "tap"
 require "development_tools"
 require "extend/ENV"
 require "system_command"

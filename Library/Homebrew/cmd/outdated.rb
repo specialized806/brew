@@ -3,7 +3,6 @@
 
 require "abstract_command"
 require "formula"
-require "keg"
 require "cask/caskroom"
 require "api"
 

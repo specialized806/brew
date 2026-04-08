@@ -1,8 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "on_system"
-
 module Cask
   class DSL
     # Superclass for all stanzas which take a block.

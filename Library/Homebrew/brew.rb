@@ -60,7 +60,6 @@ begin
   ENV["PATH"] = path.to_s
 
   require "commands"
-  require "warnings"
 
   internal_cmd = T.let(false, T::Boolean)
   external_ruby_v2_cmd = T.let(false, T::Boolean)

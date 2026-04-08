@@ -1,10 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "cxxstdlib"
 require "json"
 require "development_tools"
-require "cachable"
 require "utils/curl"
 require "utils/output"
 

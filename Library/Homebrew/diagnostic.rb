@@ -2,16 +2,15 @@
 # frozen_string_literal: true
 
 require "keg"
-require "language/python"
 require "formula"
 require "formulary"
 require "version"
 require "development_tools"
 require "utils/shell"
 require "utils/output"
-require "system_config"
 require "cask/caskroom"
 require "cask/quarantine"
+require "git_repository"
 require "system_command"
 
 module Homebrew

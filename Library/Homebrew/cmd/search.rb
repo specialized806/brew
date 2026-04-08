@@ -4,7 +4,6 @@
 require "abstract_command"
 require "formula"
 require "missing_formula"
-require "descriptions"
 require "search"
 
 module Homebrew

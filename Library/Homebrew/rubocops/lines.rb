@@ -1,7 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "macos_version"
 require "rubocops/extend/formula_cop"
 require "rubocops/shared/on_system_conditionals_helper"
 
