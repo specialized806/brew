@@ -3,6 +3,7 @@
 
 require "concurrent/executors"
 require "concurrent/promises"
+require "monitor"
 require "bundle/package_types"
 
 module Homebrew
@@ -26,7 +27,7 @@ module Homebrew
         @force = force
         @quiet = quiet
         @pool = T.let(Concurrent::FixedThreadPool.new(jobs), Concurrent::FixedThreadPool)
-        @output_mutex = T.let(Mutex.new, Mutex)
+        @output_mutex = T.let(Monitor.new, Monitor)
         # Cask installs may trigger interactive sudo prompts that write
         # directly to the terminal.  Serialize them so Password: prompts
         # don't interleave with status output from other workers.
@@ -188,9 +189,14 @@ module Homebrew
       sig { params(entry: Installer::InstallableEntry).returns(T::Boolean) }
       def install_entry!(entry)
         # Cask installs can trigger sudo password prompts that write directly
-        # to the terminal, causing interleaved output with other workers.
+        # to /dev/tty.  Hold the output lock for the entire install so that
+        # status messages from parallel formula workers don't interleave with
+        # the Password: prompt.  Monitor is reentrant, so write_output calls
+        # inside do_install_entry! can re-acquire the lock on the same thread.
         if entry.cls == Homebrew::Bundle::Cask
-          @cask_install_mutex.synchronize { do_install_entry!(entry) }
+          @cask_install_mutex.synchronize do
+            @output_mutex.synchronize { do_install_entry!(entry) }
+          end
         else
           do_install_entry!(entry)
         end
