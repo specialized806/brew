@@ -114,7 +114,7 @@ class SBOM
     return true if validation_errors.empty?
 
     opoo "SBOM validation errors:"
-    validation_errors.each(&:puts)
+    validation_errors.each { |error| $stderr.puts error }
 
     odie "Failed to validate SBOM against JSON schema!" if ENV["HOMEBREW_ENFORCE_SBOM"]
 
@@ -254,7 +254,7 @@ class SBOM
         versionInfo:      stable_version.to_s,
         filesAnalyzed:    false,
         licenseDeclared:  assert_value(nil),
-        builtDate:        source_modified_time.to_s,
+        builtDate:        source_modified_time.iso8601,
         licenseConcluded: assert_value(license),
         downloadLocation: bottle_info.fetch("url"),
         copyrightText:    assert_value(nil),
@@ -287,7 +287,7 @@ class SBOM
         versionInfo:      spec_version.to_s,
         filesAnalyzed:    false,
         licenseDeclared:  assert_value(nil),
-        builtDate:        source_modified_time.to_s,
+        builtDate:        source_modified_time.iso8601,
         licenseConcluded: assert_value(license),
         downloadLocation: source.url,
         copyrightText:    assert_value(nil),
