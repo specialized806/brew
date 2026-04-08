@@ -348,6 +348,7 @@ module Homebrew
         end
         Cleanup.autoremove(dry_run: dry_run?) unless Homebrew::EnvConfig.no_autoremove?
 
+        cleanup_corrupt_cask_dirs
         cleanup_cache
         cleanup_empty_api_source_directories
         cleanup_bootsnap
@@ -409,6 +410,19 @@ module Homebrew
       rm_ds_store([formula.rack]) if ds_store
       cleanup_cache_db(formula.rack) if cache_db
       cleanup_lockfiles(FormulaLock.new(formula.name).path)
+    end
+
+    sig { void }
+    def cleanup_corrupt_cask_dirs
+      Cask::Caskroom.corrupt_cask_dirs.each do |token|
+        corrupt_path = Cask::Caskroom.path/token
+        if dry_run?
+          puts "Would remove corrupt cask directory: #{corrupt_path}"
+        else
+          ohai "Removing corrupt cask directory: #{corrupt_path}"
+          FileUtils.rm_rf corrupt_path
+        end
+      end
     end
 
     sig { params(cask: Cask::Cask, ds_store: T::Boolean).void }

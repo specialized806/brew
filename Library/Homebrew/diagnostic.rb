@@ -1050,6 +1050,21 @@ module Homebrew
       end
 
       sig { returns(T.nilable(String)) }
+      def check_cask_corrupt_dirs
+        corrupt = Cask::Caskroom.corrupt_cask_dirs
+        return if corrupt.empty?
+
+        corrupt_dirs = corrupt.map { |t| "#{Cask::Caskroom.path}/#{t}" }
+
+        <<~EOS
+          Some directories in the Caskroom do not have valid metadata.
+          They may be left over from a manual or incomplete uninstall:
+            #{corrupt_dirs.join("\n  ")}
+          Run `brew cleanup` to remove them.
+        EOS
+      end
+
+      sig { returns(T.nilable(String)) }
       def check_cask_taps
         error_tap_paths = []
 
