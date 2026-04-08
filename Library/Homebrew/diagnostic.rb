@@ -1057,7 +1057,7 @@ module Homebrew
         corrupt_dirs = corrupt.map { |t| "#{Cask::Caskroom.path}/#{t}" }
 
         <<~EOS
-          Some directories in the Caskroom do not have valid installed metadata.
+          Some directories in the Caskroom do not have valid metadata.
           They may be left over from a manual or incomplete uninstall:
             #{corrupt_dirs.join("\n  ")}
           Run `brew cleanup` to remove them.
