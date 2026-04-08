@@ -114,7 +114,7 @@ class SBOM
     return true if validation_errors.empty?
 
     opoo "SBOM validation errors:"
-    validation_errors.each(&:puts)
+    validation_errors.each { |error| $stderr.puts error }
 
     odie "Failed to validate SBOM against JSON schema!" if ENV["HOMEBREW_ENFORCE_SBOM"]
 
