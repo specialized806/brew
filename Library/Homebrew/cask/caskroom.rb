@@ -39,14 +39,14 @@ module Cask
     # Return tokens for Caskroom directories missing expected installed metadata.
     sig { returns(T::Array[String]) }
     def self.corrupt_cask_dirs
-      paths.filter_map { |p| p.basename.to_s if caskfile?(p) }
+      paths.filter_map { |p| p.basename.to_s if cask_with_metadata?(p) }
     end
 
     sig { params(cask_path: Pathname).returns(T::Boolean) }
     def self.cask_with_metadata?(cask_path)
       Pathname.glob(cask_path/".metadata"/"*"/"*"/"Casks"/"*.{rb,json}").any?
     end
-    private_class_method :caskfile?
+    private_class_method :cask_with_metadata?
 
     sig { void }
     def self.ensure_caskroom_exists
