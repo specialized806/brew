@@ -324,10 +324,10 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
       expect(service.timed?).to be(false)
     end
 
-    it "returns nil if no service" do
+    it "returns false if no service" do
       allow(service).to receive(:service?).once.and_return(false)
 
-      expect(service.timed?).to be_nil
+      expect(service.timed?).to be(false)
     end
   end
 
@@ -350,10 +350,10 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
       expect(service.keep_alive?).to be(false)
     end
 
-    it "returns nil if no service" do
+    it "returns false if no service" do
       allow(service).to receive(:service?).once.and_return(false)
 
-      expect(service.keep_alive?).to be_nil
+      expect(service.keep_alive?).to be(false)
     end
   end
 
@@ -383,7 +383,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
         pid:          nil,
         registered:   false,
         running:      false,
-        schedulable:  nil,
+        schedulable:  false,
         service_name: "plist-mysql-test",
         status:       :none,
         user:         nil,
@@ -405,7 +405,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
         pid:          nil,
         registered:   true,
         running:      false,
-        schedulable:  nil,
+        schedulable:  false,
         service_name: "plist-mysql-test",
         status:       :none,
         user:         nil,

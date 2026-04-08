@@ -50,17 +50,27 @@ module Homebrew
       end
 
       # Delegate access to `formula.service.timed?`.
-      # TODO: this should either be T::Boolean or renamed to `timed`
-      sig { returns(T.nilable(T::Boolean)) }
+      sig { returns(T::Boolean) }
       def timed?
-        @timed ||= T.let((load_service.timed? if service?), T.nilable(T::Boolean))
+        @timed ||= T.let(
+          if service?
+            load_service.timed?
+          else
+            false
+          end, T.nilable(T::Boolean)
+        )
       end
 
       # Delegate access to `formula.service.keep_alive?`.
-      # TODO: this should either be T::Boolean or renamed to `keep_alive`
-      sig { returns(T.nilable(T::Boolean)) }
+      sig { returns(T::Boolean) }
       def keep_alive?
-        @keep_alive ||= T.let((load_service.keep_alive? if service?), T.nilable(T::Boolean))
+        @keep_alive ||= T.let(
+          if service?
+            load_service.keep_alive?
+          else
+            false
+          end, T.nilable(T::Boolean)
+        )
       end
 
       # service_name delegates with formula.plist_name or formula.service_name
