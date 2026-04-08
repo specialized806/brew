@@ -80,7 +80,7 @@ A formula should be removed if it does not meet the criteria for [acceptable for
 
 ### When to remove casks
 
-A cask should be removed if it does not meet the criteria for [acceptable casks](Acceptable-Casks.md) or has been disabled for over a year.
+A cask should be removed if it has been disabled for over a year, or immediately in exceptional circumstances.
 
 ### Deprecate and Disable Reasons
 
