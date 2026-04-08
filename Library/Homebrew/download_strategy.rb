@@ -367,12 +367,6 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy # rubocop:todo Sty
   private
 
   sig { returns(String) }
-  def resolved_url
-    resolved_url, = resolved_url_and_basename
-    resolved_url
-  end
-
-  sig { returns(String) }
   def resolved_basename
     _, resolved_basename = resolved_url_and_basename
     resolved_basename

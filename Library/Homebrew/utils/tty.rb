@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 # Various helper functions for interacting with TTYs.
 module Tty
   @stream = T.let($stdout, T.nilable(T.any(IO, StringIO)))
@@ -58,11 +60,6 @@ module Tty
     sig { params(string: String).returns(String) }
     def strip_ansi(string)
       string.gsub(/\033\[\d+(;\d+)*m/, "")
-    end
-
-    sig { params(line_count: Integer).returns(String) }
-    def move_cursor_up(line_count)
-      "\033[#{line_count}A"
     end
 
     sig { params(line_count: Integer).returns(String) }

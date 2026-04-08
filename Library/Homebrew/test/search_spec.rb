@@ -109,7 +109,7 @@ RSpec.describe Homebrew::Search do
     let(:tab) { instance_double(Cask::Tab, installed_on_request: false, installed_as_dependency: false) }
     let(:cask) do
       instance_double(Cask::Cask, full_name: "testball", installed?: false, deprecated?: false, disabled?: false,
-                                   supports_macos?: true, supports_linux?: true, depends_on:)
+                                   supports_linux?: true, depends_on:)
     end
 
     before do
