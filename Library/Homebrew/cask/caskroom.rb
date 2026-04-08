@@ -44,7 +44,7 @@ module Cask
 
     sig { params(cask_path: Pathname).returns(T::Boolean) }
     def self.cask_with_metadata?(cask_path)
-      Pathname.glob(cask_path/".metadata"/"*"/"*"/"Casks"/"*.{rb,json}").any?
+      cask_path.glob(".metadata/*/*/Casks/*.{rb,json}").any?
     end
     private_class_method :cask_with_metadata?
 
