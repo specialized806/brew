@@ -1331,7 +1331,7 @@ The full list can be found in the [`SharedEnvExtension` module](/rubydoc/SharedE
 
 ### Deprecating and disabling a formula
 
-See our [Deprecating, Disabling and Removing Formulae](Deprecating-Disabling-and-Removing-Formulae.md) documentation for more information about how and when to deprecate or disable a formula.
+See our [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md) documentation for more information about how and when to deprecate or disable a formula, cask or Homebrew code.
 
 ## Updating formulae
 

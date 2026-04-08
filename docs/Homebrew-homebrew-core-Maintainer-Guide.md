@@ -129,7 +129,7 @@ Formulae that:
 
 should not be removed from Homebrew. The exception to this rule are [versioned formulae](Versions.md) for which there are higher standards of usage and a maximum number of versions for a given formula.
 
-For more information about deprecating, disabling and removing formulae, see the [Deprecating, Disabling and Removing Formulae](Deprecating-Disabling-and-Removing-Formulae.md) page.
+For more information about deprecating, disabling and removing formulae, see the [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md#formulae-and-casks) page.
 
 ## Detailed merge checklist
 
