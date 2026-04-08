@@ -4,6 +4,23 @@
 require "cask/upgrade"
 
 RSpec.describe Cask::Upgrade, :cask do
+  def write_info_plist(path, short_version:, bundle_version:)
+    info_plist = path/"Contents/Info.plist"
+    info_plist.dirname.mkpath
+    info_plist.write <<~PLIST
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>CFBundleShortVersionString</key>
+        <string>#{short_version}</string>
+        <key>CFBundleVersion</key>
+        <string>#{bundle_version}</string>
+      </dict>
+      </plist>
+    PLIST
+  end
+
   let(:version_latest_paths) do
     [
       version_latest.config.appdir.join("Caffeine Mini.app"),
@@ -40,11 +57,23 @@ RSpec.describe Cask::Upgrade, :cask do
       ].each do |cask_name|
         InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path(cask_name)))
       end
+
+      write_info_plist(auto_updates_path, short_version: "2.57", bundle_version: "2057")
     end
 
-    describe 'without --greedy it ignores the Casks with "version latest" or "auto_updates true"' do
-      it "would update all the installed Casks when no token is provided" do
+    describe "without --greedy" do
+      it 'includes "auto_updates true" casks when the installed bundle version is older than the tap version' do
         expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+          expect(dry_run).to be(true)
+          expect(cask_upgrades).to include(
+            "local-caffeine 1.2.2 -> 1.2.3",
+            "local-transmission-zip 2.60 -> 2.61",
+            "auto-updates 2.57 -> 2.61",
+            "renamed-app 1.0.0 -> 2.0.0",
+          )
+          expect(cask_upgrades.grep(/version-latest/)).to be_empty
+        end
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -75,8 +104,27 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(renamed_app.installed_version).to eq "1.0.0"
       end
 
+      it 'excludes "auto_updates true" casks when the installed bundle matches the tap version' do
+        write_info_plist(auto_updates_path, short_version: "2.61", bundle_version: "2061")
+
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+          expect(dry_run).to be(true)
+          expect(cask_upgrades).to include(
+            "local-caffeine 1.2.2 -> 1.2.3",
+            "local-transmission-zip 2.60 -> 2.61",
+            "renamed-app 1.0.0 -> 2.0.0",
+          )
+          expect(cask_upgrades.grep(/auto-updates/)).to be_empty
+        end
+
+        described_class.upgrade_casks!(dry_run: true, args:)
+      end
+
       it "would update only the Casks specified in the command line" do
         expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
+          .with(["local-caffeine 1.2.2 -> 1.2.3"], dry_run: true)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -99,6 +147,8 @@ RSpec.describe Cask::Upgrade, :cask do
 
       it 'would update "auto_updates" and "latest" Casks when their tokens are provided in the command line' do
         expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
+          .with(["local-caffeine 1.2.2 -> 1.2.3", "auto-updates 2.57 -> 2.61"], dry_run: true)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -181,6 +231,8 @@ RSpec.describe Cask::Upgrade, :cask do
 
       it 'would update outdated Casks with "auto_updates true"' do
         expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
+          .with(["auto-updates 2.57 -> 2.61"], dry_run: true)
 
         expect(auto_updates).to be_installed
         expect(auto_updates_path).to be_a_directory
@@ -195,6 +247,8 @@ RSpec.describe Cask::Upgrade, :cask do
 
       it 'would update outdated Casks with "version latest"' do
         expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
+          .with(["version-latest latest -> latest"], dry_run: true)
 
         expect(version_latest).to be_installed
         expect(version_latest_paths).to all be_a_directory
