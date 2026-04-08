@@ -73,18 +73,6 @@ module SystemConfig
       end
     end
 
-    sig { params(path: T.nilable(Pathname)).returns(String) }
-    def describe_path(path)
-      return "N/A" if path.nil?
-
-      realpath = path.realpath
-      if realpath == path
-        path.to_s
-      else
-        "#{path} => #{realpath}"
-      end
-    end
-
     sig { returns(String) }
     def describe_homebrew_ruby
       "#{RUBY_VERSION} => #{RUBY_PATH}"
