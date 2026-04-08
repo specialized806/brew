@@ -84,6 +84,17 @@ RSpec.describe Homebrew::Bundle::Skipper do
       end
     end
 
+    context "with a platform-agnostic cask on Linux", :needs_linux do
+      let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:cask, "testball") }
+
+      it "does not skip" do
+        allow(Cask::CaskLoader).to receive(:load).with("testball").and_return(
+          instance_double(Cask::Cask, supports_linux?: true),
+        )
+        expect(skipper.skip?(entry)).to be false
+      end
+    end
+
     context "with a listed formula in a failed tap" do
       let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "org/repo/formula") }
 

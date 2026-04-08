@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 raise "This needs to be required before Cachable gets loaded normally." if defined?(Cachable)

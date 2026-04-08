@@ -393,8 +393,24 @@ RSpec.describe Cask::Cask, :cask do
   end
 
   describe "#supports_linux?" do
-    it "returns false when Linux support is not explicitly declared" do
-      expect(Cask::CaskLoader.load("with-non-executable-binary").supports_linux?).to be false
+    it "reflects whether the cask has only platform-agnostic artifacts" do
+      expect(Cask::CaskLoader.load("with-non-executable-binary").supports_linux?).to be true
+      expect(Cask::CaskLoader.load("basic-cask").supports_linux?).to be false
+      expect(Cask::CaskLoader.load("with-installer-manual").supports_linux?).to be false
+
+      arch_only_cask = described_class.new("arch-only-binary") do
+        version "1.0"
+        sha256 arm: "aaaa", intel: "bbbb"
+
+        url "https://brew.sh/test-#{version}.tar.gz"
+        name "Arch Only Binary"
+        desc "Cask with arch-only sha256 and a binary artifact"
+        homepage "https://brew.sh"
+
+        binary "some-tool"
+      end
+
+      expect(arch_only_cask.supports_linux?).to be true
     end
   end
 
