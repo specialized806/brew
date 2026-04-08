@@ -1,8 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "utils/output"
-
 # Various helper functions for interacting with TTYs.
 module Tty
   @stream = T.let($stdout, T.nilable(T.any(IO, StringIO)))

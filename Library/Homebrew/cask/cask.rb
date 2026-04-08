@@ -7,7 +7,6 @@ require "cask/config"
 require "cask/dsl"
 require "cask/metadata"
 require "cask/tab"
-require "utils/bottles"
 require "utils/output"
 require "api_hashable"
 

@@ -4,7 +4,6 @@
 require "json"
 require "time"
 require "unpack_strategy"
-require "lazy_object"
 require "lock_file"
 require "system_command"
 require "utils/output"

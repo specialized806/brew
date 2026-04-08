@@ -7,7 +7,6 @@ require "install"
 require "upgrade"
 require "cask/utils"
 require "cask/upgrade"
-require "cask/macos"
 require "api"
 require "reinstall"
 

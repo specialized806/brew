@@ -12,7 +12,6 @@ require "system_command"
 require "utils/backtrace"
 require "formula_name_cask_token_auditor"
 require "utils/curl"
-require "utils/git"
 require "utils/shared_audits"
 require "utils/output"
 

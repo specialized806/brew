@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require "formula"
-require "formula_versions"
 require "search"
 require "cask/cask_loader"
 
