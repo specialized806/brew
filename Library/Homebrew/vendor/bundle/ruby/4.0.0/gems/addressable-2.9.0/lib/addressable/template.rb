@@ -39,6 +39,8 @@ module Addressable
       "(?>(?:[#{variable_char_class}]|%[a-fA-F0-9][a-fA-F0-9])+)"
     RESERVED =
       "(?:[#{anything}]|%[a-fA-F0-9][a-fA-F0-9])"
+    RESERVED_NO_COMMA =
+      "(?:[#{anything.delete(',')}]|%[a-fA-F0-9][a-fA-F0-9])"
     UNRESERVED =
       "(?:[#{
         Addressable::URI::CharacterClasses::UNRESERVED
@@ -985,7 +987,8 @@ module Addressable
         _, operator, varlist = *expansion.match(EXPRESSION)
         leader = Regexp.escape(LEADERS.fetch(operator, ''))
         joiner = Regexp.escape(JOINERS.fetch(operator, ','))
-        combined = varlist.split(',').map do |varspec|
+        varspecs = varlist.split(',')
+        combined = varspecs.map do |varspec|
           _, name, modifier = *varspec.match(VARSPEC)
 
           result = processor && processor.respond_to?(:match) ? processor.match(name) : nil
@@ -1011,7 +1014,15 @@ module Addressable
               "#{ UNRESERVED }*?"
             end
             if modifier == '*'
-              "(?<#{name}>#{group}(?:#{joiner}?#{group})*)?"
+              seg = case operator
+                    when '+', '#' then "#{RESERVED_NO_COMMA}*+"
+                    else group
+                    end
+              joiner_pattern = operator.nil? ? joiner : "#{joiner}?"
+              "(?<#{name}>#{seg}(?:#{joiner_pattern}#{seg})*)?"
+            elsif varspecs.size > 1 && (operator == '+' || operator == '#') &&
+                  varspec != varspecs.last
+              "(?<#{name}>#{RESERVED_NO_COMMA}*+)?"
             else
               "(?<#{name}>#{group})?"
             end
