@@ -55,7 +55,7 @@ module Homebrew
         return @timed unless @timed.nil?
 
         @timed = T.let(service? && load_service.timed?, T.nilable(T::Boolean))
-        T.must(@timed)
+        @timed || false
       end
 
       # Delegate access to `formula.service.keep_alive?`.
@@ -64,7 +64,7 @@ module Homebrew
         return @keep_alive unless @keep_alive.nil?
 
         @keep_alive = T.let(service? && load_service.keep_alive?, T.nilable(T::Boolean))
-        T.must(@keep_alive)
+        @keep_alive || false
       end
 
       # service_name delegates with formula.plist_name or formula.service_name
