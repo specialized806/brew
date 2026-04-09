@@ -67,22 +67,37 @@ RSpec.describe Homebrew::Cmd::Info do
       depends_on "bar"
     end
     direct_dependency = formula.deps.required.first
-    direct_runtime_dependency = instance_double(
-      Dependency,
-      to_formula: instance_double(Formula, any_version_installed?: true),
-    )
-    transitive_runtime_dependency = instance_double(
-      Dependency,
-      to_formula: instance_double(Formula, any_version_installed?: false),
-    )
+
+    # Simulate an installed keg with tab runtime dependencies
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.runtime_dependencies = [
+      { "full_name" => "installed-dep", "version" => "1.0" },
+      { "full_name" => "missing-dep", "version" => "2.0" },
+    ]
+    tab.write
+
+    # Create a rack for the installed dependency
+    installed_dep_path = HOMEBREW_CELLAR/"installed-dep/1.0"
+    installed_dep_path.mkpath
+    installed_dep_tab = Tab.empty
+    installed_dep_tab.tabfile = installed_dep_path/AbstractTab::FILENAME
+    installed_dep_tab.write
+
+    # Create a dependent keg whose tab references testball
+    dependent_keg_path = HOMEBREW_CELLAR/"some-dependent/1.0"
+    dependent_keg_path.mkpath
+    dependent_tab = Tab.empty
+    dependent_tab.tabfile = dependent_keg_path/AbstractTab::FILENAME
+    dependent_tab.runtime_dependencies = [
+      { "full_name" => "testball", "version" => "0.1" },
+    ]
+    dependent_tab.write
+
     allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
-    expect(formula).to receive(:runtime_dependencies).and_return(
-      [direct_runtime_dependency, transitive_runtime_dependency],
-    )
-    allow(formula).to receive_messages(
-      core_formula?:                        false,
-      runtime_installed_formula_dependents: [instance_double(Formula)],
-    )
+    allow(formula).to receive(:core_formula?).and_return(false)
     allow(direct_dependency).to receive(:satisfied?).and_return(true)
 
     expect { info.send(:info_formula, formula) }

@@ -88,22 +88,13 @@ module Cask
 
       formula_deps = Array(depends_on[:formula]).map do |dep|
         name = dep.to_s
-        installed = begin
-          Formula[name].any_version_installed?
-        rescue FormulaUnavailableError
-          false
-        end
-        decorate_dependency(name, installed:)
+        rack = HOMEBREW_CELLAR/name.split("/").last
+        decorate_dependency(name, installed: rack.directory? && !rack.subdirs.empty?)
       end
 
       cask_deps = Array(depends_on[:cask]).map do |dep|
         name = dep.to_s
-        installed = begin
-          CaskLoader.load(name).installed?
-        rescue CaskUnavailableError
-          false
-        end
-        decorate_dependency("#{name} (cask)", installed:)
+        decorate_dependency("#{name} (cask)", installed: (Caskroom.path/name).directory?)
       end
 
       all_deps = formula_deps + cask_deps
@@ -120,15 +111,11 @@ module Cask
       )
       unless recursive_count.zero?
         installed_count = formula_dependencies.count do |name|
-          Formula[name].any_version_installed?
-        rescue FormulaUnavailableError
-          false
-        end +
-                          cask_dependencies.count do |name|
-                            CaskLoader.load(name).installed?
-                                            rescue CaskUnavailableError
-                                              false
-                          end
+          rack = HOMEBREW_CELLAR/name.split("/").last
+          rack.directory? && !rack.subdirs.empty?
+        end + cask_dependencies.count do |name|
+          (Caskroom.path/name).directory?
+        end
         lines << "Recursive Runtime (#{recursive_count}): " \
                  "#{Homebrew::Cmd::Info.dependency_status_counts(installed_count, recursive_count)}"
       end

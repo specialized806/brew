@@ -7,6 +7,7 @@ require "caveats"
 require "options"
 require "formula"
 require "formula_pin"
+require "keg"
 require "tab"
 require "json"
 require "cask/cask_loader"
@@ -180,6 +181,30 @@ module Homebrew
           "#{total_count - installed_count} #{Formatter.error("✘")}"
       end
 
+      sig { params(full_name: String, name: String).returns(Integer) }
+      def self.count_installed_dependents(full_name, name)
+        Formula.racks.count do |rack|
+          keg = Keg.from_rack(rack)
+          next false unless keg
+
+          tab_path = keg/AbstractTab::FILENAME
+          next false unless tab_path.file?
+
+          # Fast path: skip JSON parsing when the formula name
+          # does not appear anywhere in the raw receipt.
+          content = File.read(tab_path)
+          next false unless content.include?(name)
+
+          tab_deps = Tab.from_file_content(content, tab_path).runtime_dependencies
+          next false unless tab_deps
+
+          tab_deps.any? do |dep|
+            dep_full_name = dep["full_name"]
+            dep_full_name == full_name || dep_full_name&.split("/")&.last == name
+          end
+        end
+      end
+
       sig { params(formula: T.untyped).returns(T::Array[String]) }
       def self.formula_metadata_lines(formula)
         metadata = T.let([], T::Array[String])
@@ -249,26 +274,36 @@ module Homebrew
       }
       def self.collect_cask_dependency_names(cask, formula_dependencies, cask_dependencies, visited_casks)
         cask.depends_on.formula.each do |name|
-          dependency = Dependency.new(name.to_s)
-          formula_dependencies << dependency.name
-          dependency.to_formula.runtime_dependencies.each do |runtime_dependency|
-            formula_dependencies << runtime_dependency.name
+          dep_name = name.to_s
+          formula_dependencies << dep_name
+          rack = HOMEBREW_CELLAR/dep_name.split("/").last
+          next unless rack.directory?
+
+          keg = Keg.from_rack(rack)
+          next unless keg
+
+          tab_deps = Tab.for_keg(keg).runtime_dependencies
+          tab_deps&.each do |runtime_dep|
+            dep_full_name = runtime_dep["full_name"]
+            formula_dependencies << dep_full_name if dep_full_name
           end
-        rescue FormulaUnavailableError
-          next
         end
 
         cask.depends_on.cask.each do |name|
-          dependency = Cask::CaskLoader.load(name.to_s)
-          next if visited_casks.include?(dependency.token)
+          token = name.to_s
+          next if visited_casks.include?(token)
 
-          cask_dependencies << dependency.token
-          visited_casks << dependency.token
-          collect_cask_dependency_names(dependency, formula_dependencies, cask_dependencies, visited_casks)
-        rescue Cask::CaskUnavailableError
-          next
+          cask_dependencies << token
+          visited_casks << token
+          begin
+            dependency = Cask::CaskLoader.load(token)
+            collect_cask_dependency_names(dependency, formula_dependencies, cask_dependencies, visited_casks)
+          rescue Cask::CaskUnavailableError
+            next
+          end
         end
       end
+
       private_class_method :formula_metadata_lines, :formatted_time, :formula_pinned_time,
                            :formula_installs_from_source?, :cask_requirements_lines
 
@@ -494,8 +529,12 @@ module Homebrew
         metadata = self.class.metadata_lines(formula)
         puts metadata if metadata.present?
 
-        runtime_dependencies = formula.runtime_dependencies
-        installed_dependents = formula.runtime_installed_formula_dependents.count
+        tab_runtime_deps = kegs.last&.runtime_dependencies
+        installed_dependents = if $stdout.tty? && kegs.any?
+          self.class.count_installed_dependents(formula.full_name, formula.name)
+        else
+          0
+        end
         dependency_lines = %w[build required recommended optional].filter_map do |type|
           next if type == "build" &&
                   (kegs.all? { |keg| keg.tab.poured_from_bottle } ||
@@ -506,17 +545,19 @@ module Homebrew
           deps = formula.deps.send(type).uniq
           "#{type.capitalize} (#{deps.count}): #{decorate_dependencies deps}" unless deps.empty?
         end
-        if dependency_lines.present? || runtime_dependencies.present? || installed_dependents.positive?
+        if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.positive?
           ohai "Dependencies"
           puts dependency_lines
-          unless runtime_dependencies.empty?
-            installed_dependencies = runtime_dependencies.count do |dependency|
-              dependency.to_formula.any_version_installed?
-            rescue FormulaUnavailableError
-              false
+          if tab_runtime_deps.present?
+            installed_count = tab_runtime_deps.count do |dep|
+              dep_name = dep["full_name"]&.split("/")&.last
+              next false unless dep_name
+
+              rack = HOMEBREW_CELLAR/dep_name
+              rack.directory? && !rack.subdirs.empty?
             end
-            puts "Recursive Runtime (#{runtime_dependencies.count}): " \
-                 "#{self.class.dependency_status_counts(installed_dependencies, runtime_dependencies.count)}"
+            puts "Recursive Runtime (#{tab_runtime_deps.count}): " \
+                 "#{self.class.dependency_status_counts(installed_count, tab_runtime_deps.count)}"
           end
           puts "Dependents: #{installed_dependents}" if installed_dependents.positive?
         end
