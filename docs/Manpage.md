@@ -4539,6 +4539,11 @@ command execution (e.g. `$(cat file)`).
 
 : If set, `brew update` will not show the list of newly added formulae/casks.
 
+`HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS`
+
+: If set, `brew upgrade` will not automatically upgrade casks with `auto_updates
+  true`. Does not affect `--greedy` or `--greedy-auto-updates` upgrades.
+
 `HOMEBREW_NO_VERIFY_ATTESTATIONS`
 
 : If set, Homebrew will not verify cryptographic attestations of build
