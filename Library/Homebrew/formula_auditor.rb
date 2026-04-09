@@ -891,12 +891,12 @@ module Homebrew
       current_version = formula.stable.version
       current_version_scheme = formula.version_scheme
 
-      previous_version_info, origin_head_version_info = committed_version_info
+      previous_version_info, base_ref_version_info = committed_version_info
 
-      if (origin_head_version = origin_head_version_info[:version]) &&
-         current_version < origin_head_version &&
+      if (base_ref_version = base_ref_version_info[:version]) &&
+         current_version < base_ref_version &&
          current_version_scheme == previous_version_info[:version_scheme]
-        problem "Stable: version should not decrease (from #{origin_head_version} to #{current_version})"
+        problem "Stable: version should not decrease (from #{base_ref_version} to #{current_version})"
       end
     end
 
@@ -913,19 +913,19 @@ module Homebrew
       current_version = formula.stable.version
       current_revision = formula.revision
 
-      previous_version_info, origin_head_version_info = committed_version_info
+      previous_version_info, base_ref_version_info = committed_version_info
 
       previous_version = previous_version_info[:version]
       previous_revision = previous_version_info[:revision]
-      origin_head_version = origin_head_version_info[:version]
-      origin_head_revision = origin_head_version_info[:revision]
+      base_ref_version = base_ref_version_info[:version]
+      base_ref_revision = base_ref_version_info[:revision]
 
-      if (previous_version != origin_head_version || current_version != origin_head_version) &&
-         !current_revision.zero? && current_revision == origin_head_revision && current_revision == previous_revision
+      if (previous_version != base_ref_version || current_version != base_ref_version) &&
+         !current_revision.zero? && current_revision == base_ref_revision && current_revision == previous_revision
         problem "`revision #{current_revision}` should be removed"
       elsif current_version == previous_version && previous_revision && current_revision < previous_revision
         problem "`revision` should not decrease (from #{previous_revision} to #{current_revision})"
-      elsif origin_head_revision && current_revision > (origin_head_revision + 1)
+      elsif base_ref_revision && current_revision > (base_ref_revision + 1)
         problem "`revision` should only increment by 1"
       end
 
@@ -941,15 +941,15 @@ module Homebrew
       missing_compatibility_bumps = changed_dependency_paths.filter_map do |path|
         changed_formula = Formulary.factory(path)
         # Each changed dependency that updates its version must raise its compatibility_version by exactly one.
-        _, origin_head_dependency_version_info = committed_version_info(formula: changed_formula)
-        previous_dependency_version = origin_head_dependency_version_info[:version]
+        _, base_ref_dependency_version_info = committed_version_info(formula: changed_formula)
+        previous_dependency_version = base_ref_dependency_version_info[:version]
         current_dependency_version = changed_formula.stable&.version
         if previous_dependency_version.present? && current_dependency_version.present? &&
            current_dependency_version == previous_dependency_version
           next
         end
 
-        previous_compatibility_version = origin_head_dependency_version_info[:compatibility_version] || 0
+        previous_compatibility_version = base_ref_dependency_version_info[:compatibility_version] || 0
         current_compatibility_version = changed_formula.compatibility_version || 0
         next if current_compatibility_version == previous_compatibility_version + 1
 
@@ -970,10 +970,10 @@ module Homebrew
       return if tap.nil?
       return unless tap.git?
 
-      _, origin_head_version_info = committed_version_info
-      return if origin_head_version_info.empty?
+      _, base_ref_version_info = committed_version_info
+      return if base_ref_version_info.empty?
 
-      previous_compatibility_version = origin_head_version_info[:compatibility_version] || 0
+      previous_compatibility_version = base_ref_version_info[:compatibility_version] || 0
       current_compatibility_version = formula.compatibility_version || previous_compatibility_version
 
       if current_compatibility_version < previous_compatibility_version
@@ -997,8 +997,8 @@ module Homebrew
         # Only formulae that depend (recursively) on the audited formula can justify the bump.
         next unless dependencies.include?(formula.name)
 
-        _, origin_head_dependent_version_info = committed_version_info(formula: changed_formula)
-        previous_revision = origin_head_dependent_version_info[:revision] || 0
+        _, base_ref_dependent_version_info = committed_version_info(formula: changed_formula)
+        previous_revision = base_ref_dependent_version_info[:revision] || 0
         current_revision = changed_formula.revision
         next if current_revision != previous_revision + 1
 
@@ -1021,8 +1021,8 @@ module Homebrew
 
       current_version_scheme = formula.version_scheme
 
-      _, origin_head_version_info = committed_version_info
-      previous_version_scheme = origin_head_version_info[:version_scheme]
+      _, base_ref_version_info = committed_version_info
+      previous_version_scheme = base_ref_version_info[:version_scheme]
       return if previous_version_scheme.nil?
 
       if current_version_scheme < previous_version_scheme
@@ -1042,13 +1042,13 @@ module Homebrew
       current_checksum = formula.stable.checksum
       current_url = formula.stable.url
 
-      _, origin_head_version_info = committed_version_info
-      origin_head_checksum = origin_head_version_info[:checksum]
+      _, base_ref_version_info = committed_version_info
+      base_ref_checksum = base_ref_version_info[:checksum]
 
-      if current_version == origin_head_version_info[:version] &&
-         current_url == origin_head_version_info[:url] &&
-         current_checksum.present? && origin_head_checksum.present? &&
-         current_checksum != origin_head_checksum
+      if current_version == base_ref_version_info[:version] &&
+         current_url == base_ref_version_info[:url] &&
+         current_checksum.present? && base_ref_checksum.present? &&
+         current_checksum != base_ref_checksum
         problem(
           "stable sha256 changed without the url/version also changing; " \
           "please create an issue upstream to rule out malicious " \
@@ -1172,7 +1172,7 @@ module Homebrew
     def changed_formulae_paths(tap, only_names: [].freeze)
       return [] unless tap.git?
 
-      base_ref = "origin/HEAD"
+      base_ref = git_audit_base_ref(tap)
       changed_paths = Utils.safe_popen_read(Utils::Git.git, "-C", tap.path, "diff", "--name-only", base_ref)
                            .lines
                            .filter_map do |line|
@@ -1200,20 +1200,22 @@ module Homebrew
     def committed_version_info(formula: @formula)
       empty_result = [{}, {}]
       return empty_result unless @git
-      return empty_result unless formula.tap # skip formula not from core or any taps
-      return empty_result unless formula.tap.git? # git log is required
+
+      tap = formula.tap
+      return empty_result unless tap # skip formula not from core or any taps
+      return empty_result unless tap.git? # git log is required
       return empty_result if formula.stable.blank?
 
       return @committed_version_info_cache[formula.full_name] if @committed_version_info_cache.key?(formula.full_name)
 
       previous_version_info = {}
-      origin_head_version_info = {}
+      base_ref_version_info = {}
 
       current_version = formula.stable.version
       current_revision = formula.revision
 
       fv = FormulaVersions.new(formula)
-      fv.rev_list("origin/HEAD") do |revision, path|
+      fv.rev_list(git_audit_base_ref(tap)) do |revision, path|
         begin
           fv.formula_at_revision(revision, path) do |f|
             stable = f.stable
@@ -1225,12 +1227,12 @@ module Homebrew
             previous_version_info[:version_scheme] = f.version_scheme
             previous_version_info[:compatibility_version] = f.compatibility_version
 
-            origin_head_version_info[:url] ||= stable.url
-            origin_head_version_info[:version]  ||= previous_version_info[:version]
-            origin_head_version_info[:checksum] ||= previous_version_info[:checksum]
-            origin_head_version_info[:revision] ||= previous_version_info[:revision]
-            origin_head_version_info[:version_scheme] ||= previous_version_info[:version_scheme]
-            origin_head_version_info[:compatibility_version] ||= previous_version_info[:compatibility_version]
+            base_ref_version_info[:url] ||= stable.url
+            base_ref_version_info[:version]  ||= previous_version_info[:version]
+            base_ref_version_info[:checksum] ||= previous_version_info[:checksum]
+            base_ref_version_info[:revision] ||= previous_version_info[:revision]
+            base_ref_version_info[:version_scheme] ||= previous_version_info[:version_scheme]
+            base_ref_version_info[:compatibility_version] ||= previous_version_info[:compatibility_version]
           end
         rescue MacOSVersion::Error, LegacyDSLError
           break
@@ -1241,9 +1243,17 @@ module Homebrew
       end
 
       previous_version_info.compact!
-      origin_head_version_info.compact!
+      base_ref_version_info.compact!
 
-      @committed_version_info_cache[formula.full_name] = [previous_version_info, origin_head_version_info]
+      @committed_version_info_cache[formula.full_name] = [previous_version_info, base_ref_version_info]
+    end
+
+    sig { params(tap: Tap).returns(String) }
+    def git_audit_base_ref(tap)
+      @git_audit_base_ref_cache ||= {}
+      @git_audit_base_ref_cache[tap.path] ||= Utils.popen_read(Utils::Git.git, "-C", tap.path, "merge-base",
+                                                               "origin/HEAD", "HEAD").chomp.presence
+      @git_audit_base_ref_cache[tap.path] ||= "origin/HEAD"
     end
   end
 end
