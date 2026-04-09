@@ -25,6 +25,7 @@ module Homebrew
         timeout:         60,
         retries:         0,
       }.freeze, T::Hash[Symbol, T.untyped])
+      PYPI_UNSTABLE_VERSION_REGEX = /^(?:\d+!)?\d+(?:\.\d+)*(?:a|b|rc)\d+|\.dev\d+$/i
 
       LIVECHECK_MESSAGE_REGEX = /^(?:error:|skipped|unable to get(?: throttled)? versions)/i
       NEWER_THAN_UPSTREAM_MSG = " (newer than upstream)"
@@ -927,10 +928,14 @@ module Homebrew
           json = Homebrew::Livecheck::Strategy::Json.parse_json(content)
           return unless (releases = json["releases"])
 
+          current_str = current.to_s
+          current_is_prerelease = current_str.match?(PYPI_UNSTABLE_VERSION_REGEX)
           cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
           releases.sort_by { |k, _| Version.new(k) }.reverse_each do |version_str, assets|
             version = Version.new(version_str)
-            return version if version_str == current.to_s
+            return version if version_str == current_str
+            next if (version > latest) || (version < current)
+            next if !current_is_prerelease && version_str.match?(PYPI_UNSTABLE_VERSION_REGEX)
 
             assets.each do |asset|
               next if asset["yanked"]
