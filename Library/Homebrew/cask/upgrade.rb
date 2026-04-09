@@ -123,28 +123,48 @@ module Cask
 
       return false if outdated_casks.empty?
 
-      if casks.empty? && !greedy && greedy_casks.empty?
+      if !Homebrew::EnvConfig.no_env_hints? && casks.empty? && !greedy && greedy_casks.empty?
+        output_hint = false
+        if !greedy_auto_updates && outdated_casks.any?(&:auto_updates)
+          puts "Homebrew will now attempt to upgrade casks with `auto_updates true`."
+          puts "Disable this behaviour with `HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1`."
+          output_hint ||= true
+        end
         if !greedy_auto_updates && !greedy_latest
-          ohai "Some casks with 'auto_updates true' or 'version :latest' " \
-               "may still require '--greedy' to be upgraded."
+          puts "Some casks with `auto_updates true` or `version :latest` may still require `--greedy`,"
+          puts "`HOMEBREW_UPGRADE_GREEDY` or `HOMEBREW_UPGRADE_GREEDY_CASKS` to be upgraded."
+          output_hint ||= true
         end
         if greedy_auto_updates && !greedy_latest
-          ohai "Casks with 'version :latest' will not be upgraded; pass `--greedy-latest` to upgrade them."
+          puts "Casks with `version :latest` will not be upgraded; pass `--greedy-latest` to upgrade them."
+          output_hint ||= true
         end
         if !greedy_auto_updates && greedy_latest
-          ohai "Some casks with 'auto_updates true' may still require '--greedy-auto-updates' to be upgraded."
+          puts "Some casks with `auto_updates true` may still require `--greedy-auto-updates` to be upgraded."
+          output_hint ||= true
         end
+        puts "Hide these hints with `HOMEBREW_NO_ENV_HINTS=1` (see `man brew`)." if output_hint
       end
 
-      upgradable_casks = outdated_casks.map do |c|
-        unless c.installed?
-          odie <<~EOS
-            The cask '#{c.token}' was affected by a bug and cannot be upgraded as-is. To fix this, run:
-              brew reinstall --cask --force #{c.token}
-          EOS
+      upgradable_casks = outdated_casks.filter_map do |c|
+        invalid_cask = !c.installed?
+
+        invalid_cask ||= begin
+          loaded_cask = CaskLoader.load(c.installed_caskfile)
+          false
+        rescue CaskInvalidError, CaskUnavailableError
+          true
         end
 
-        [CaskLoader.load(c.installed_caskfile), c]
+        if invalid_cask
+          opoo <<~EOS
+            The cask '#{c.token}' cannot be upgraded as-is. To fix this, run:
+            brew reinstall --cask --force #{c.token}
+          EOS
+          next
+        end
+
+        [loaded_cask, c]
       end
 
       return false if upgradable_casks.empty?

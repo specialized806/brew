@@ -453,6 +453,11 @@ module Homebrew
         description: "If set, `brew update` will not show the list of newly added formulae/casks.",
         boolean:     true,
       },
+      HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:    {
+        description: "If set, `brew upgrade` will not automatically upgrade casks with `auto_updates true`. " \
+                     "Does not affect `--greedy` or `--greedy-auto-updates` upgrades.",
+        boolean:     true,
+      },
       HOMEBREW_NO_VERIFY_ATTESTATIONS:           {
         description: "If set, Homebrew will not verify cryptographic attestations of build provenance for bottles " \
                      "from homebrew-core.",
