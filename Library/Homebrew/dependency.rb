@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "dependable"
+require "utils"
 
 # A dependency on another Homebrew formula.
 #
@@ -119,7 +120,7 @@ class Dependency
   end
 
   def option_names
-    [name.split("/").last].freeze
+    [Utils.name_from_full_name(name)].freeze
   end
 
   sig { overridable.returns(T::Boolean) }

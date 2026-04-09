@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils"
 require "utils/output"
 require "bundle/package_type"
 
@@ -143,9 +144,8 @@ module Homebrew
         sig { params(name: String, options: Homebrew::Bundle::EntryOptions, no_upgrade: T::Boolean).returns(T.nilable(String)) }
         def fetchable_name(name, options = {}, no_upgrade: false)
           full_name = T.cast(options.fetch(:full_name, name), String)
-          user, repository, = full_name.split("/", 3)
-          return if user.present? && repository.present? &&
-                    Homebrew::Bundle::Tap.installed_taps.exclude?("#{user}/#{repository}")
+          return if (tap_name = Utils.tap_from_full_name(full_name)) &&
+                    Homebrew::Bundle::Tap.installed_taps.exclude?(tap_name)
           return unless installable_or_upgradable?(name, no_upgrade:, **options)
 
           full_name
@@ -163,7 +163,7 @@ module Homebrew
         def cask_in_array?(cask, array)
           return true if array.include?(cask)
 
-          array.include?(cask.split("/").last)
+          array.include?(Utils.name_from_full_name(cask))
         end
 
         sig { params(cask: String).returns(T::Boolean) }
@@ -171,7 +171,7 @@ module Homebrew
           return true if cask_in_array?(cask, installed_casks)
 
           old_name = cask_oldnames[cask]
-          old_name ||= cask_oldnames[cask.split("/").fetch(-1)]
+          old_name ||= cask_oldnames[Utils.name_from_full_name(cask)]
           return false unless old_name
           return false unless cask_in_array?(old_name, installed_casks)
 
@@ -242,8 +242,7 @@ module Homebrew
 
             oldnames.each do |oldname|
               hash[oldname] = c.full_name
-              if c.full_name.include? "/" # tap cask
-                tap_name = c.full_name.rpartition("/").first
+              if (tap_name = Utils.tap_from_full_name(c.full_name))
                 hash["#{tap_name}/#{oldname}"] = c.full_name
               end
             end

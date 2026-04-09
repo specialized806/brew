@@ -124,7 +124,7 @@ module Homebrew
 
           # `brew services list` returns base names, so fall back to the last
           # path component for tap-qualified entries (e.g., "user/tap/formula").
-          base_name = name.split("/").fetch(-1)
+          base_name = Utils.name_from_full_name(name)
           return true if base_name != name && self.class.started?(base_name)
 
           old_name = lookup_old_name(name)
@@ -147,7 +147,7 @@ module Homebrew
         def lookup_old_name(service_name)
           @old_names ||= T.let(Homebrew::Bundle::Brew.formula_oldnames, T.nilable(T::Hash[String, String]))
           old_name = @old_names[service_name]
-          old_name ||= @old_names[service_name.split("/").fetch(-1)]
+          old_name ||= @old_names[Utils.name_from_full_name(service_name)]
           old_name
         end
 

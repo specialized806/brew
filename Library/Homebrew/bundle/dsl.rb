@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "bundle/package_type"
+require "utils"
 
 module Homebrew
   module Bundle
@@ -125,8 +126,7 @@ module Homebrew
 
       sig { params(name: String).returns(String) }
       def self.sanitize_cask_name(name)
-        name = name.split("/").fetch(-1) if name.include?("/")
-        name.downcase
+        Utils.name_from_full_name(name).downcase
       end
 
       sig {

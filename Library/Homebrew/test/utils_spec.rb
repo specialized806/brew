@@ -37,6 +37,34 @@ RSpec.describe Utils do
     end
   end
 
+  describe ".name_from_full_name" do
+    it "returns the package name for a full name" do
+      expect(described_class.name_from_full_name("homebrew/core/wget")).to eq("wget")
+    end
+
+    it "returns untapped names unchanged" do
+      expect(described_class.name_from_full_name("wget")).to eq("wget")
+    end
+
+    it "does not treat taps as full names" do
+      expect(described_class.name_from_full_name("homebrew/core")).to eq("homebrew/core")
+    end
+  end
+
+  describe ".tap_from_full_name" do
+    it "returns the tap for a full name" do
+      expect(described_class.tap_from_full_name("homebrew/core/wget")).to eq("homebrew/core")
+    end
+
+    it "returns nil for untapped names" do
+      expect(described_class.tap_from_full_name("wget")).to be_nil
+    end
+
+    it "returns nil for tap names" do
+      expect(described_class.tap_from_full_name("homebrew/core")).to be_nil
+    end
+  end
+
   specify ".parse_author!" do
     parse_error_msg = /Unable to parse name and email/
 

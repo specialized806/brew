@@ -7,5 +7,4 @@ class Hash
     ).returns(T::Hash[Hash::K, T.type_parameter(:Out)])
   }
   def deep_transform_values(&block); end
-
 end

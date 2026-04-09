@@ -854,7 +854,7 @@ class Formula
   def aliases
     @aliases ||= T.let(
       if (tap = self.tap)
-        tap.alias_reverse_table.fetch(full_name, []).map { it.split("/").fetch(-1) }
+        tap.alias_reverse_table.fetch(full_name, []).map { Utils.name_from_full_name(it) }
       else
         []
       end, T.nilable(T::Array[String])
@@ -2463,7 +2463,7 @@ class Formula
   sig { returns(T::Array[String]) }
   def self.names
     @names ||= T.let((core_names + tap_names.map do |name|
-      name.split("/").fetch(-1)
+      Utils.name_from_full_name(name)
     end).uniq.sort, T.nilable(T::Array[String]))
   end
 
@@ -2549,7 +2549,7 @@ class Formula
   sig { returns(T::Array[String]) }
   def self.aliases
     @aliases ||= T.let((core_aliases + tap_aliases.map do |name|
-      name.split("/").fetch(-1)
+      Utils.name_from_full_name(name)
     end).uniq.sort, T.nilable(T::Array[String]))
   end
 

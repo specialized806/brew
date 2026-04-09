@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils"
 require "utils/output"
 
 module Language
@@ -223,7 +224,7 @@ module Language
       def needs_python?(python)
         return true if build.with?(python)
 
-        (requirements.to_a | deps).any? { |r| r.name.split("/").last == python && r.required? }
+        (requirements.to_a | deps).any? { |r| Utils.name_from_full_name(r.name) == python && r.required? }
       end
 
       # Helper method for the common case of installing a Python application.
