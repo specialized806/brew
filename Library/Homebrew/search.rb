@@ -55,10 +55,13 @@ module Homebrew
         # These must define `cask?`, `eval_all?`, and `formula?` methods.
         # Since only one command is typically loaded at a time, this alias is not expected to be available at runtime.
         args:            T.any(Homebrew::Cmd::Desc::Args, Homebrew::Cmd::SearchCmd::Args),
-        search_type:     Descriptions::SearchField,
+        search_type:     T.nilable(Descriptions::SearchField),
       ).void
     }
-    def self.search_descriptions(string_or_regex, args, search_type: Descriptions::SearchField::Description)
+    def self.search_descriptions(string_or_regex, args, search_type: nil)
+      require "descriptions"
+
+      search_type ||= Descriptions::SearchField::Description
       both = !args.formula? && !args.cask?
       eval_all = args.eval_all? || Homebrew::EnvConfig.eval_all?
 
