@@ -762,13 +762,13 @@ Print output in JSON format\. There are two versions: \fBv1\fP and \fBv2\fP\&\. 
 Fetch the upstream repository to detect if the HEAD installation of the formula is outdated\. Otherwise, the repository\[u2019]s HEAD will only be checked for updates when a new stable or development version has been released\.
 .TP
 \fB\-g\fP, \fB\-\-greedy\fP
-Also include outdated casks with \fBauto_updates true\fP or \fBversion :latest\fP\&\. Enabled by default if \fB$HOMEBREW_UPGRADE_GREEDY\fP is set\.
+Also include outdated casks with \fBversion :latest\fP and \fBauto_updates true\fP casks that would otherwise be skipped\. Enabled by default if \fB$HOMEBREW_UPGRADE_GREEDY\fP is set\.
 .TP
 \fB\-\-greedy\-latest\fP
 Also include outdated casks including those with \fBversion :latest\fP\&\.
 .TP
 \fB\-\-greedy\-auto\-updates\fP
-Also include outdated casks including those with \fBauto_updates true\fP\&\.
+Also include outdated \fBauto_updates true\fP casks that would otherwise be skipped\.
 .SS "\fBpin\fP \fIinstalled_formula\fP \fR[\.\.\.]"
 Pin the specified \fIformula\fP, preventing them from being upgraded when issuing the \fBbrew upgrade\fP \fIformula\fP command\. See also \fBunpin\fP\&\.
 .P
@@ -1130,13 +1130,13 @@ Treat all named arguments as casks\. If no named arguments are specified, upgrad
 Skip installing cask dependencies\.
 .TP
 \fB\-g\fP, \fB\-\-greedy\fP
-Also include casks with \fBauto_updates true\fP or \fBversion :latest\fP\&\. Enabled by default if \fB$HOMEBREW_UPGRADE_GREEDY\fP is set\.
+Also include casks with \fBversion :latest\fP and \fBauto_updates true\fP casks that would otherwise be skipped\. Enabled by default if \fB$HOMEBREW_UPGRADE_GREEDY\fP is set\.
 .TP
 \fB\-\-greedy\-latest\fP
 Also include casks with \fBversion :latest\fP\&\.
 .TP
 \fB\-\-greedy\-auto\-updates\fP
-Also include casks with \fBauto_updates true\fP\&\.
+Also include \fBauto_updates true\fP casks that would otherwise be skipped\.
 .TP
 \fB\-\-[no\-]binaries\fP
 Disable/enable linking of helper executables (default: enabled)\. Enabled by default if \fB$HOMEBREW_CASK_OPTS_BINARIES\fP is set\.
