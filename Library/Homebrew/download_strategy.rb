@@ -1062,7 +1062,7 @@ class GitDownloadStrategy < VCSDownloadStrategy # rubocop:todo Style/OneClassPer
 
   sig { override.returns(T::Boolean) }
   def repo_valid?
-    silent_command("git", args: ["--git-dir", git_dir, "status", "-s"]).success?
+    silent_command("git", args: ["-C", cached_location, "status", "-s"]).success?
   end
 
   sig { returns(T::Boolean) }
