@@ -1223,8 +1223,9 @@ otherwise.
 
 `-g`, `--greedy`
 
-: Also include outdated casks with `auto_updates true` or `version :latest`.
-  Enabled by default if `$HOMEBREW_UPGRADE_GREEDY` is set.
+: Also include outdated casks with `version :latest` and `auto_updates true`
+  casks that would otherwise be skipped. Enabled by default if
+  `$HOMEBREW_UPGRADE_GREEDY` is set.
 
 `--greedy-latest`
 
@@ -1232,7 +1233,8 @@ otherwise.
 
 `--greedy-auto-updates`
 
-: Also include outdated casks including those with `auto_updates true`.
+: Also include outdated `auto_updates true` casks that would otherwise be
+  skipped.
 
 ### `pin` *`installed_formula`* \[...\]
 
@@ -1830,8 +1832,9 @@ for the upgraded formulae or, every 30 days, for all formulae.
 
 `-g`, `--greedy`
 
-: Also include casks with `auto_updates true` or `version :latest`. Enabled by
-  default if `$HOMEBREW_UPGRADE_GREEDY` is set.
+: Also include casks with `version :latest` and `auto_updates true` casks that
+  would otherwise be skipped. Enabled by default if `$HOMEBREW_UPGRADE_GREEDY`
+  is set.
 
 `--greedy-latest`
 
@@ -1839,7 +1842,7 @@ for the upgraded formulae or, every 30 days, for all formulae.
 
 `--greedy-auto-updates`
 
-: Also include casks with `auto_updates true`.
+: Also include `auto_updates true` casks that would otherwise be skipped.
 
 `--[no-]binaries`
 
