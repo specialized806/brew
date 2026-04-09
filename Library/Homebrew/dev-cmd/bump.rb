@@ -891,14 +891,20 @@ module Homebrew
 
           json = Homebrew::Livecheck::Strategy::Json.parse_json(content)
           release_dates = json["time"]&.except("created", "modified")
+                                      &.transform_values { |v| DateTime.parse(v) }
           return unless release_dates.present?
 
+          current_str = current.to_s
+          current_is_prerelease = current_str.include?("-")
           cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
-          release_dates.sort_by { |k, _| Version.new(k) }.reverse_each do |version_str, date_str|
+          release_dates.sort_by { |_, date| date }.reverse_each do |version_str, date|
             version = Version.new(version_str)
-            return version if version_str == current.to_s
+            return version if version_str == current_str
+            next if (version > latest) || (version < current)
 
-            date = DateTime.parse(date_str)
+            # TODO: Properly handle prerelease version comparison
+            next if !current_is_prerelease && version_str.include?("-")
+
             return version if date < cooldown_interval
           end
         when "Pypi"
