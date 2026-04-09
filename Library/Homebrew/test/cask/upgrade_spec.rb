@@ -104,6 +104,23 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(renamed_app.installed_version).to eq "1.0.0"
       end
 
+      it 'excludes "auto_updates true" casks when HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS is set' do
+        allow(Homebrew::EnvConfig).to receive(:no_upgrade_auto_updates_casks?).and_return(true)
+
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+          expect(dry_run).to be(true)
+          expect(cask_upgrades).to include(
+            "local-caffeine 1.2.2 -> 1.2.3",
+            "local-transmission-zip 2.60 -> 2.61",
+            "renamed-app 1.0.0 -> 2.0.0",
+          )
+          expect(cask_upgrades.grep(/auto-updates/)).to be_empty
+        end
+
+        described_class.upgrade_casks!(dry_run: true, args:)
+      end
+
       it 'excludes "auto_updates true" casks when the installed bundle matches the tap version' do
         write_info_plist(auto_updates_path, short_version: "2.61", bundle_version: "2061")
 
@@ -264,6 +281,55 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(version_latest.installed_version).to eq "latest"
         expect(version_latest.outdated_download_sha?).to be(true)
       end
+    end
+  end
+
+  context "when a cask has broken metadata" do
+    before do
+      [
+        "outdated/local-caffeine",
+        "outdated/auto-updates",
+      ].each do |cask_name|
+        InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path(cask_name)))
+      end
+
+      write_info_plist(auto_updates_path, short_version: "2.57", bundle_version: "2057")
+    end
+
+    it "warns and skips when the installed caskfile raises CaskInvalidError" do
+      allow(Cask::CaskLoader).to receive(:load).and_call_original
+      allow(Cask::CaskLoader).to receive(:load).with(auto_updates.installed_caskfile)
+                                               .and_raise(Cask::CaskInvalidError.new(auto_updates.token,
+                                                                                     "broken DSL"))
+
+      expect do
+        described_class.upgrade_casks!(dry_run: true, args:)
+      end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
+    end
+
+    it "warns and skips when the installed caskfile raises CaskUnreadableError" do
+      allow(Cask::CaskLoader).to receive(:load).and_call_original
+      allow(Cask::CaskLoader).to receive(:load).with(auto_updates.installed_caskfile)
+                                               .and_raise(Cask::CaskUnreadableError.new(auto_updates.token,
+                                                                                        "syntax error"))
+
+      expect do
+        described_class.upgrade_casks!(dry_run: true, args:)
+      end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
+    end
+
+    it "warns and skips when the cask is not fully installed" do
+      # Stub installed? to return false after outdated detection
+      # to simulate a cask with a broken metadata directory
+      installed_calls = 0
+      allow(auto_updates).to receive(:installed?) do
+        installed_calls += 1
+        installed_calls <= 1
+      end
+
+      expect do
+        described_class.upgrade_casks!(auto_updates, dry_run: true, args:)
+      end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
     end
   end
 
