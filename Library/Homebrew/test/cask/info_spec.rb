@@ -32,6 +32,7 @@ RSpec.describe Cask::Info, :cask do
     allow(described_class).to receive(:installation_info).and_wrap_original do |method, arg, **kwargs|
       (arg.token == cask_name) ? "Installed" : method.call(arg, **kwargs)
     end
+    (Cask::Caskroom.path/cask_name).mkpath
   end
 
   before do
