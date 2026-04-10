@@ -313,6 +313,7 @@ class RuboCop::Config
   def department_of(qualified_cop_name); end
   def enable_cop?(qualified_cop_name, cop_options); end
   def gem_version_to_major_minor_float(gem_version); end
+  def match_relative_or_absolute_path?(pattern, relative_file_path, absolute_file_path); end
   def read_gem_versions_from_target_lockfile; end
   def read_rails_version_from_bundler_lock_file; end
   def target_rails_version_from_bundler_lock_file; end
@@ -3276,6 +3277,8 @@ RuboCop::Cop::Style::RedundantLineContinuation::LINE_CONTINUATION = T.let(T.unsa
 RuboCop::Cop::Style::RedundantLineContinuation::LINE_CONTINUATION_PATTERN = T.let(T.unsafe(nil), Regexp)
 
 RuboCop::Cop::Style::RedundantLineContinuation::MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Style::RedundantLineContinuation::STRING_LITERAL_BEGIN_TOKENS = T.let(T.unsafe(nil), Array)
 
 RuboCop::Cop::Style::RedundantMinMaxBy::MSG_BLOCK = T.let(T.unsafe(nil), String)
 
