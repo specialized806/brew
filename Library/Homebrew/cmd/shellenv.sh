@@ -24,11 +24,6 @@ homebrew-shellenv() {
 
   if [[ "${HOMEBREW_PATH%%:"${HOMEBREW_PREFIX}"/sbin*}" == "${HOMEBREW_PREFIX}/bin" ]]
   then
-    # PATH is already set but zsh's fpath is not inherited by child shells.
-    if [[ "${HOMEBREW_SHELL_NAME}" == "zsh" ]] || [[ "${HOMEBREW_SHELL_NAME}" == "-zsh" ]]
-    then
-      echo "export FPATH;"
-    fi
     return
   fi
 
