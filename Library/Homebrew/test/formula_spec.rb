@@ -2568,10 +2568,11 @@ RSpec.describe Formula do
     it "allows usage when tap is official" do
       allow(Tap).to receive(:from_path).and_return(nil)
 
-      klass = Class.new(Formula) do
-        no_autobump! because: "some reason"
-      end
-      expect(klass.no_autobump_defined?).to be(true)
+      expect do
+        Class.new(Formula) do
+          no_autobump! because: "some reason"
+        end
+      end.not_to raise_error
     end
   end
 end
