@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-04"
+last_review_date: "2026-04-10"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -80,6 +80,15 @@ Which is usually: `~/Library/Caches/Homebrew`
 ## My Mac `.app`s don’t find Homebrew utilities
 
 GUI apps on macOS don't have Homebrew's prefix in their `PATH` by default. You can fix this by running `sudo launchctl config user path "$(brew --prefix)/bin:${PATH}"` and then rebooting, as documented in `man launchctl`. Note that this sets the `launchctl` `PATH` for *all users*.
+
+## Why does Homebrew update more frequently after I run a developer command?
+
+Running a developer command (e.g. `brew edit`, `brew create`) enables Homebrew's developer mode. This means:
+
+* Homebrew may auto-run `brew update` before some commands every hour instead of every 24 hours.
+* Updates track the latest commit on `main` instead of the latest stable tag.
+
+To switch back to the default behavior, run `brew developer off`. If you only want to switch back to stable tags, set `HOMEBREW_UPDATE_TO_TAG=1` in your shell environment. To control auto-update frequency, use `HOMEBREW_AUTO_UPDATE_SECS`; to disable auto-updates entirely, set `HOMEBREW_NO_AUTO_UPDATE=1`.
 
 ## How do I contribute to Homebrew?
 
