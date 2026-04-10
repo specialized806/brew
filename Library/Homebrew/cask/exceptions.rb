@@ -1,4 +1,4 @@
-# typed: true # rubocop:todo Sorbet/StrictSigil
+# typed: strict
 # frozen_string_literal: true
 
 module Cask
@@ -7,10 +7,11 @@ module Cask
 
   # Cask error containing multiple other errors.
   class MultipleCaskErrors < CaskError
+    sig { params(errors: T::Array[StandardError]).void }
     def initialize(errors)
       super()
 
-      @errors = errors
+      @errors = T.let(errors, T::Array[StandardError])
     end
 
     sig { returns(String) }
@@ -30,11 +31,12 @@ module Cask
     sig { returns(String) }
     attr_reader :reason
 
+    sig { params(token: T.any(String, Symbol, Cask), reason: T.nilable(Object)).void }
     def initialize(token, reason = nil)
       super()
 
-      @token = token.to_s
-      @reason = reason.to_s
+      @token = T.let(token.to_s, String)
+      @reason = T.let(reason.to_s, String)
     end
   end
 
@@ -48,8 +50,10 @@ module Cask
 
   # Error when a cask cannot be installed.
   class CaskCannotBeInstalledError < AbstractCaskErrorWithToken
+    sig { returns(String) }
     attr_reader :message
 
+    sig { params(token: T.any(String, Symbol, Cask), message: String).void }
     def initialize(token, message)
       super(token)
       @message = message
@@ -63,8 +67,10 @@ module Cask
 
   # Error when a cask conflicts with another cask.
   class CaskConflictError < AbstractCaskErrorWithToken
+    sig { returns(Cask) }
     attr_reader :conflicting_cask
 
+    sig { params(token: T.any(String, Symbol, Cask), conflicting_cask: Cask).void }
     def initialize(token, conflicting_cask)
       super(token)
       @conflicting_cask = conflicting_cask
@@ -94,8 +100,10 @@ module Cask
 
   # Error when a cask in a specific tap is not available.
   class TapCaskUnavailableError < CaskUnavailableError
+    sig { returns(Tap) }
     attr_reader :tap
 
+    sig { params(tap: Tap, token: String).void }
     def initialize(tap, token)
       super("#{tap}/#{token}")
       @tap = tap
@@ -122,6 +130,7 @@ module Cask
 
     sig { params(token: String, loaders: T::Array[CaskLoader::FromNameLoader]).void }
     def initialize(token, loaders)
+      @token = token
       @loaders = loaders
 
       taps = loaders.map(&:tap)
@@ -178,6 +187,7 @@ module Cask
 
   # Error when a cask token does not match the file name.
   class CaskTokenMismatchError < CaskInvalidError
+    sig { params(token: T.any(String, Symbol, Cask), header_token: String).void }
     def initialize(token, header_token)
       super(token, "Token '#{header_token}' in header line does not match the file name.")
     end
@@ -185,8 +195,13 @@ module Cask
 
   # Error during quarantining of a file.
   class CaskQuarantineError < CaskError
-    attr_reader :path, :reason
+    sig { returns(T.any(String, Pathname)) }
+    attr_reader :path
 
+    sig { returns(String) }
+    attr_reader :reason
+
+    sig { params(path: T.any(String, Pathname), reason: String).void }
     def initialize(path, reason)
       super()
 

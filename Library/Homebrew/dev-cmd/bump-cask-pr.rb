@@ -83,10 +83,12 @@ module Homebrew
           retry
         end
 
-        odie "This cask is not in a tap!" if cask.tap.blank?
-        odie "This cask's tap is not a Git repository!" unless cask.tap.git?
+        tap = cask.tap
+        odie "This cask is not in a tap!" if tap.nil?
 
-        odie <<~EOS unless cask.tap.allow_bump?(cask.token)
+        odie "This cask's tap is not a Git repository!" unless tap.git?
+
+        odie <<~EOS unless tap.allow_bump?(cask.token)
           Whoops, the #{cask.token} cask has its version update
           pull requests automatically opened by BrewTestBot every ~3 hours!
           We'd still love your contributions, though, so try another one
@@ -131,7 +133,10 @@ module Homebrew
         branch_name = "bump-#{cask.token}"
         commit_message = nil
 
-        old_contents = File.read(cask.sourcefile_path)
+        sourcefile_path = cask.sourcefile_path
+        raise "unexpected nil cask.sourcefile_path" unless sourcefile_path
+
+        old_contents = File.read(sourcefile_path)
 
         if new_base_url
           commit_message ||= "#{cask.token}: update URL"
@@ -174,7 +179,7 @@ module Homebrew
 
         # Remove nested arrays where elements are identical
         replacement_pairs = replacement_pairs.reject { |pair| pair[0] == pair[1] }.uniq.compact
-        Utils::Inreplace.inreplace_pairs(cask.sourcefile_path,
+        Utils::Inreplace.inreplace_pairs(sourcefile_path,
                                          replacement_pairs,
                                          read_only_run: args.dry_run?,
                                          silent:        args.quiet?)
@@ -275,11 +280,14 @@ module Homebrew
         ).returns(T::Array[[T.any(Regexp, String), T.any(Pathname, String)]])
       }
       def replace_version_and_checksum(cask, new_hash, new_version, replacement_pairs)
+        cask_sourcefile_path = cask.sourcefile_path
+        raise "unexpected nil cask.sourcefile_path" unless cask_sourcefile_path
+
         generate_system_options(cask, new_version).each do |os, arch|
           SimulateSystem.with(os:, arch:) do
             # Handle the cask being invalid for specific os/arch combinations
             old_cask = begin
-              Cask::CaskLoader.load(cask.sourcefile_path)
+              Cask::CaskLoader.load(cask_sourcefile_path)
             rescue Cask::CaskInvalidError, Cask::CaskUnreadableError
               raise unless cask.on_system_blocks_exist?
             end
@@ -296,7 +304,7 @@ module Homebrew
                                   "version #{bump_version.latest? ? ":latest" : %Q("#{bump_version}")}"]
 
             # We are replacing our version here so we can get the new hash
-            tmp_contents = Utils::Inreplace.inreplace_pairs(cask.sourcefile_path,
+            tmp_contents = Utils::Inreplace.inreplace_pairs(cask_sourcefile_path,
                                                             replacement_pairs.uniq.compact,
                                                             read_only_run: true,
                                                             silent:        true)
@@ -359,11 +367,17 @@ module Homebrew
 
       sig { params(cask: Cask::Cask, new_version: BumpVersionParser).void }
       def check_pull_requests(cask, new_version:)
-        tap_remote_repo = cask.tap.full_name || cask.tap.remote_repository
+        tap = cask.tap
+        raise "unexpected nil cask.tap" unless tap
 
-        file = cask.sourcefile_path.relative_path_from(cask.tap.path).to_s
+        tap_remote_repo = tap.full_name || tap.remote_repository
+
+        sourcefile_path = cask.sourcefile_path
+        raise "unexpected nil cask.sourcefile_path" unless sourcefile_path
+
+        file = sourcefile_path.relative_path_from(tap.path).to_s
         quiet = args.quiet?
-        official_tap = cask.tap.official?
+        official_tap = tap.official?
         GitHub.check_for_duplicate_pull_requests(cask.token, tap_remote_repo,
                                                  state: "open", file:, quiet:, official_tap:)
 
@@ -398,17 +412,23 @@ module Homebrew
         end
         return unless failed_audit
 
-        cask.sourcefile_path.atomic_write(old_contents)
+        sourcefile_path = cask.sourcefile_path
+        raise "unexpected nil cask.sourcefile_path" unless sourcefile_path
+
+        sourcefile_path.atomic_write(old_contents)
         odie "`brew audit` failed!"
       end
 
       sig { params(cask: Cask::Cask, old_contents: String).void }
       def run_cask_style(cask, old_contents)
+        sourcefile_path = cask.sourcefile_path
+        raise "unexpected nil cask.sourcefile_path" unless sourcefile_path
+
         if args.dry_run?
           if args.no_style?
             ohai "Skipping `brew style --fix`"
           else
-            ohai "brew style --fix #{cask.sourcefile_path.basename}"
+            ohai "brew style --fix #{sourcefile_path.basename}"
           end
           return
         end
@@ -416,12 +436,12 @@ module Homebrew
         if args.no_style?
           ohai "Skipping `brew style --fix`"
         else
-          system HOMEBREW_BREW_FILE, "style", "--fix", cask.sourcefile_path
+          system HOMEBREW_BREW_FILE, "style", "--fix", sourcefile_path.to_s
           failed_style = !$CHILD_STATUS.success?
         end
         return unless failed_style
 
-        cask.sourcefile_path.atomic_write(old_contents)
+        sourcefile_path.atomic_write(old_contents)
         odie "`brew style --fix` failed!"
       end
     end

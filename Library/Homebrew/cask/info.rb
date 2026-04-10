@@ -41,7 +41,7 @@ module Cask
     def self.info(cask, args:)
       puts get_info(cask)
 
-      return unless cask.tap.core_cask_tap?
+      return unless cask.tap&.core_cask_tap?
 
       require "utils/analytics"
       ::Utils::Analytics.cask_output(cask, args:)
@@ -177,12 +177,12 @@ module Cask
 
     sig { params(cask: Cask).returns(T.nilable(String)) }
     def self.repo_info(cask)
-      return if cask.tap.nil?
+      return unless (tap = cask.tap)
 
-      url = if cask.tap.custom_remote? && !cask.tap.remote.nil?
-        cask.tap.remote
+      url = if tap.custom_remote? && !tap.remote.nil?
+        tap.remote
       else
-        "#{cask.tap.default_remote}/blob/HEAD/#{cask.tap.relative_cask_path(cask.token)}"
+        "#{tap.default_remote}/blob/HEAD/#{tap.relative_cask_path(cask.token)}"
       end
 
       "From: #{Formatter.url(url)}"

@@ -128,7 +128,10 @@ module Homebrew
 
           # Create a copy of the cask that overrides the artifact URL with the
           # provided URL and supported `livecheck` block URL options
-          cask_copy = Cask::CaskLoader.load(cask.sourcefile_path)
+          sourcefile_path = cask.sourcefile_path
+          raise "unexpected nil cask.sourcefile_path" unless sourcefile_path
+
+          cask_copy = Cask::CaskLoader.load(sourcefile_path)
           cask_copy.allow_reassignment = true
           cask_copy.url(url, **url_kwargs)
           cask_copy

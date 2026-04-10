@@ -501,7 +501,7 @@ module Cask
       url = cask.url
       return if url.nil?
 
-      return if !cask.tap.official? && !signing?
+      return if !cask.tap&.official? && !signing?
       return if cask.deprecated? && cask.deprecation_reason != :fails_gatekeeper_check
 
       unless Quarantine.available?
@@ -575,7 +575,7 @@ module Cask
             #{result.merged_output}
           EOS
 
-          if cask.tap.official?
+          if cask.tap&.official?
             signing_failure_message += <<~EOS
               The homebrew/cask tap requires all casks to be signed and notarized by Apple.
               Please contact the upstream developer and ask them to sign and notarize their software.
@@ -1165,7 +1165,7 @@ module Cask
 
     sig { void }
     def audit_conflicts_with
-      return if !cask.tap.official? || cask.conflicts_with.nil?
+      return if !cask.tap&.official? || cask.conflicts_with.nil?
 
       Homebrew.with_no_api_env do
         nonexisting_conflicting_casks = cask.conflicts_with.fetch(:cask, Set.new) - core_cask_tokens
@@ -1177,8 +1177,7 @@ module Cask
 
     sig { void }
     def audit_denylist
-      return unless cask.tap
-      return unless cask.tap.official?
+      return unless cask.tap&.official?
       return unless (reason = Denylist.reason(cask.token))
 
       add_error "#{cask.token} is not allowed: #{reason}"
@@ -1187,9 +1186,8 @@ module Cask
     sig { void }
     def audit_reverse_migration
       return unless new_cask?
-      return unless cask.tap
-      return unless cask.tap.official?
-      return unless cask.tap.tap_migrations.key?(cask.token)
+      return unless cask.tap&.official?
+      return unless cask.tap&.tap_migrations&.key?(cask.token)
 
       add_error "#{cask.token} is listed in tap_migrations.json"
     end
@@ -1254,11 +1252,11 @@ module Cask
 
     sig { void }
     def audit_cask_path
-      return unless cask.tap.core_cask_tap?
+      return unless (tap = cask.tap)&.core_cask_tap?
 
-      expected_path = cask.tap.new_cask_path(cask.token)
+      expected_path = tap.new_cask_path(cask.token)
 
-      return if cask.sourcefile_path.to_s.end_with?(expected_path)
+      return if cask.sourcefile_path.to_s.end_with?(expected_path.to_s)
 
       add_error "Cask should be located in '#{expected_path}'"
     end
