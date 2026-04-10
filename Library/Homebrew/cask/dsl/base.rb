@@ -16,7 +16,7 @@ module Cask
       sig { params(cask: Cask, command: T.class_of(SystemCommand)).void }
       def initialize(cask, command = SystemCommand)
         @cask = cask
-        @command = T.let(command, T.class_of(SystemCommand))
+        @command = command
       end
 
       def_delegators :@cask, :token, :version, :caskroom_path, :staged_path, :appdir, :language, :arch

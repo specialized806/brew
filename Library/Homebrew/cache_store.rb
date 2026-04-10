@@ -52,7 +52,7 @@ class CacheStoreDatabase
   # @return [nil]
   sig { params(type: Symbol).void }
   def initialize(type)
-    @type = T.let(type, Symbol)
+    @type = type
     @dirty = T.let(false, T.nilable(T::Boolean))
   end
 
@@ -198,7 +198,7 @@ class CacheStore # rubocop:todo Style/OneClassPerFile
   # @return [nil]
   sig { params(database: CacheStoreDatabase).void }
   def initialize(database)
-    @database = T.let(database, CacheStoreDatabase)
+    @database = database
   end
 
   protected

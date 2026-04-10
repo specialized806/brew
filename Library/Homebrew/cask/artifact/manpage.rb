@@ -27,7 +27,7 @@ module Cask
 
       sig { params(cask: Cask, source: T.any(String, Pathname), section: String).void }
       def initialize(cask, source, section)
-        @section = T.let(section, String)
+        @section = section
 
         super(cask, source)
       end
