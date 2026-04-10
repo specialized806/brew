@@ -161,7 +161,7 @@ module Cask
         invalid_cask = !c.installed?
 
         invalid_cask ||= begin
-          loaded_cask = CaskLoader.load(c.installed_caskfile)
+          loaded_cask = CaskLoader.load(T.must(c.installed_caskfile))
           false
         rescue CaskInvalidError, CaskUnavailableError
           true

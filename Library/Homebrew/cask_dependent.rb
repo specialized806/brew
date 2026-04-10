@@ -8,7 +8,10 @@ class CaskDependent
   # Defines a dependency on another cask
   class Requirement < ::Requirement
     satisfy(build_env: false) do
-      Cask::CaskLoader.load(cask).installed?
+      cask_token = cask
+      raise "unexpected nil cask" unless cask_token
+
+      Cask::CaskLoader.load(cask_token).installed?
     end
   end
 

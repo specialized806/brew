@@ -185,7 +185,7 @@ module Homebrew
       end
 
       results.sort.filter_map do |name|
-        cask = Cask::CaskLoader.load(name)
+        cask = Cask::CaskLoader.load(name.to_s)
         next if ignore_cask?(cask)
 
         display_name = if cask.installed?

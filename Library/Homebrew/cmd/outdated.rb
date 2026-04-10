@@ -155,8 +155,11 @@ module Homebrew
           else
             c = formula_or_cask
 
-            c.outdated_info(upgrade_greedy_cask?(args.greedy?, formula_or_cask),
-                            verbose?, true, args.greedy_latest?, args.greedy_auto_updates?)
+            T.cast(
+              c.outdated_info(upgrade_greedy_cask?(args.greedy?, formula_or_cask),
+                              verbose?, true, args.greedy_latest?, args.greedy_auto_updates?),
+              T::Hash[Symbol, T.untyped],
+            )
           end
         end
       end

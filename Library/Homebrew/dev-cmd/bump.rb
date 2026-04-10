@@ -147,7 +147,7 @@ module Homebrew
             casks = args.formula? ? [] : Cask::Caskroom.casks
             formulae + casks
           elsif args.named.present?
-            args.named.to_formulae_and_casks_with_taps
+            T.cast(args.named.to_formulae_and_casks_with_taps, T::Array[T.any(Formula, Cask::Cask)])
           elsif eval_all
             formulae = args.cask? ? [] : Formula.all(eval_all:)
             casks = args.formula? ? [] : Cask::Cask.all(eval_all:)
@@ -158,15 +158,15 @@ module Homebrew
                   "`HOMEBREW_EVAL_ALL=1` set!"
           end
 
-          if args.start_with
+          if (start_with = args.start_with)
             formulae_and_casks.select! do |formula_or_cask|
-              name = formula_or_cask.respond_to?(:token) ? formula_or_cask.token : formula_or_cask.name
-              name.start_with?(args.start_with)
+              name = formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+              name.start_with?(start_with)
             end
           end
 
           formulae_and_casks = formulae_and_casks.sort_by do |formula_or_cask|
-            formula_or_cask.respond_to?(:token) ? formula_or_cask.token : formula_or_cask.name
+            formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
           end
 
           formulae_and_casks -= excluded_autobump
@@ -334,6 +334,8 @@ module Homebrew
       }
       def retrieve_pull_requests(formula_or_cask, name, version: nil)
         tap_remote_repo = formula_or_cask.tap&.remote_repository || formula_or_cask.tap&.full_name
+        odie "unexpected nil tap remote repository" if tap_remote_repo.nil?
+
         pull_requests = begin
           GitHub.fetch_pull_requests(name, tap_remote_repo, version:)
         rescue GitHub::API::ValidationFailedError => e
@@ -379,9 +381,15 @@ module Homebrew
             # correct version for the current arch
             if formula_or_cask.is_a?(Formula)
               loaded_formula_or_cask = formula_or_cask
-              current_version_value = T.must(loaded_formula_or_cask.stable).version
+              stable = loaded_formula_or_cask.stable
+              raise "unexpected nil stable" unless stable
+
+              current_version_value = stable.version
             else
-              loaded_formula_or_cask = Cask::CaskLoader.load(formula_or_cask.sourcefile_path)
+              sourcefile_path = formula_or_cask.sourcefile_path
+              raise "unexpected nil sourcefile_path" unless sourcefile_path
+
+              loaded_formula_or_cask = Cask::CaskLoader.load(sourcefile_path)
               current_version_value = Version.new(loaded_formula_or_cask.version)
             end
 

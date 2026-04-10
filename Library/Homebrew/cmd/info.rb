@@ -331,7 +331,7 @@ module Homebrew
           when Formula
             Utils::Analytics.formula_output(obj, args:) if obj.core_formula?
           when Cask::Cask
-            Utils::Analytics.cask_output(obj, args:) if obj.tap.core_cask_tap?
+            Utils::Analytics.cask_output(obj, args:) if obj.tap&.core_cask_tap?
           when FormulaOrCaskUnavailableError
             Utils::Analytics.output(filter: obj.name, args:)
           else
@@ -431,6 +431,7 @@ module Homebrew
 
       sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(String) }
       def github_info(formula_or_cask)
+        tap = T.let(nil, T.nilable(Tap))
         path = case formula_or_cask
         when Formula
           formula = formula_or_cask
@@ -443,14 +444,18 @@ module Homebrew
           tap = cask.tap
           return cask.sourcefile_path.to_s if tap.blank? || tap.remote.blank?
 
-          if cask.sourcefile_path.blank? || cask.sourcefile_path.extname != ".rb"
+          sourcefile_path = cask.sourcefile_path
+          if sourcefile_path.blank? || sourcefile_path.extname != ".rb"
             return "#{tap.default_remote}/blob/HEAD/#{tap.relative_cask_path(cask.token)}"
           end
 
-          cask.sourcefile_path.relative_path_from(tap.path)
+          sourcefile_path.relative_path_from(tap.path)
         end
 
-        github_remote_path(tap.remote, path.to_s)
+        remote = tap.remote
+        raise "unexpected nil tap.remote" unless remote
+
+        github_remote_path(remote, path.to_s)
       end
 
       sig { params(formula: Formula).void }
