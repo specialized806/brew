@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 RSpec.describe "brew shellenv", type: :system do
-  it "prints export statements including FPATH for zsh", :integration_test do
+  it "prints export statements", :integration_test do
     expect { brew_sh "shellenv", "zsh", "HOMEBREW_PATH" => "/usr/bin:/usr/sbin" }
       .to output(/export FPATH/).to_stdout
       .and not_to_output.to_stderr
