@@ -1053,13 +1053,12 @@ module Homebrew
         corrupt = Cask::Caskroom.corrupt_cask_dirs
         return if corrupt.empty?
 
-        corrupt_dirs = corrupt.map { |t| "#{Cask::Caskroom.path}/#{t}" }
-
         <<~EOS
           Some directories in the Caskroom do not have valid metadata.
-          They may be left over from a manual or incomplete uninstall:
-            #{corrupt_dirs.join("\n  ")}
-          Run `brew cleanup` to remove them.
+            #{corrupt.map { |token| "#{Cask::Caskroom.path}/#{token}" }.join("\n  ")}
+          The following #{Utils.pluralize("cask", corrupt.count)} cannot be upgraded as-is.
+          To fix this, run:
+            #{corrupt.map { |token| "brew reinstall --cask --force #{token}" }.join("\n  ")}
         EOS
       end
 
