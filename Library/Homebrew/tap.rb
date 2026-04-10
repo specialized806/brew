@@ -1238,6 +1238,7 @@ class Tap
   end
 end
 
+# An abstract {Tap} class for the homebrew-core and homebrew-cask.
 class AbstractCoreTap < Tap # rubocop:todo Style/OneClassPerFile
   extend T::Helpers
 

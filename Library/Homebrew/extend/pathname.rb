@@ -8,18 +8,24 @@ require "extend/pathname/write_mkpath_extension"
 require "utils/output"
 
 # Stubs needed to keep Sorbet happy.
+# rubocop:disable Style/OneClassPerFile
+
+# {Pathname} extension for dealing with Mach-O files.
 module MachOShim; end
-module ELFShim; end # rubocop:todo Style/OneClassPerFile
+
+# {Pathname} extension for dealing with ELF files.
+module ELFShim; end
 
 # @api private
-module BinaryPathname # rubocop:todo Style/OneClassPerFile
+module BinaryPathname
   sig { params(path: T.any(Pathname, String, MachOShim, ELFShim)).returns(T.any(MachOShim, ELFShim)) }
   def self.wrap(path) = raise NotImplementedError
 end
 
 # Homebrew extends Ruby's `Pathname` to make our code more readable.
 # @see https://ruby-doc.org/stdlib-2.6.3/libdoc/pathname/rdoc/Pathname.html Ruby's Pathname API
-class Pathname # rubocop:todo Style/OneClassPerFile
+# TODO: move all of these to other modules e.g. Utils.
+class Pathname
   include SystemCommand::Mixin
   include DiskUsageExtension
   include Utils::Output::Mixin
@@ -495,4 +501,6 @@ class Pathname # rubocop:todo Style/OneClassPerFile
       end
   end
 end
+# rubocop:enable Style/OneClassPerFile
+#
 require "extend/os/pathname"
