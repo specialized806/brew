@@ -440,7 +440,7 @@ module Homebrew
           casks,
           args:,
           force:               args.force?,
-          quiet:               args.quiet?,
+          quiet:               true,
           greedy:              args.greedy?,
           greedy_latest:       args.greedy_latest?,
           greedy_auto_updates: args.greedy_auto_updates?,
