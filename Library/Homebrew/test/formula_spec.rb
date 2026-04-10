@@ -7,7 +7,6 @@ require "formula"
 PHASES = [:build, :postinstall, :test].freeze
 
 # These tests need to duplicate methods.
-# rubocop:disable Lint/DuplicateMethods
 RSpec.describe Formula do
   alias_matcher :follow_installed_alias, :be_follow_installed_alias
   alias_matcher :have_any_version_installed, :be_any_version_installed
@@ -2517,4 +2516,3 @@ RSpec.describe Formula do
     end
   end
 end
-# rubocop:enable Lint/DuplicateMethods
