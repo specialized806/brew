@@ -34,7 +34,7 @@ module Homebrew
               full_name = dep["full_name"]
               next unless full_name
 
-              base_name(full_name)
+              Utils.name_from_full_name(full_name)
             end
           else
             # Fallback for installations without tab runtime_dependencies.
@@ -43,7 +43,9 @@ module Homebrew
         end
 
         # Add direct cask formula dependency names; their transitive deps are already in dep_names.
-        cask_dep_names = Cask::Caskroom.casks.flat_map { |cask| CaskDependent.new(cask).deps.map { |dep| base_name(dep.name) } }
+        cask_dep_names = Cask::Caskroom.casks.flat_map do |cask|
+          CaskDependent.new(cask).deps.map { |dep| Utils.name_from_full_name(dep.name) }
+        end
 
         dep_names = T.let((formula_dep_names + cask_dep_names).to_set, T::Set[String])
 
@@ -57,11 +59,6 @@ module Homebrew
       end
 
       private
-
-      sig { params(full_name: String).returns(String) }
-      def base_name(full_name)
-        full_name.include?("/") ? full_name.rpartition("/").last : full_name
-      end
 
       sig { params(formula: Formula).returns(T::Boolean) }
       def installed_on_request?(formula)

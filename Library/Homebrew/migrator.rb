@@ -4,6 +4,7 @@
 require "lock_file"
 require "keg"
 require "tab"
+require "utils"
 require "utils/output"
 
 # Helper class for migrating a formula from an old to a new name.
@@ -197,8 +198,7 @@ class Migrator
     new_tap = if (old_tap = self.old_tap)
       old_tap_user, = old_tap.user
       if (migrate_tap = old_tap.tap_migrations[oldname])
-        new_tap_user, new_tap_repo = migrate_tap.split("/")
-        "#{new_tap_user}/#{new_tap_repo}"
+        Utils.tap_from_full_name(migrate_tap) || (migrate_tap if migrate_tap.include?("/"))
       end
     end
 

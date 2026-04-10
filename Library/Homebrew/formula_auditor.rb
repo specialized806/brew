@@ -5,6 +5,7 @@ require "deprecate_disable"
 require "formula_versions"
 require "formula_name_cask_token_auditor"
 require "resource_auditor"
+require "utils"
 require "utils/shared_audits"
 require "utils/output"
 require "utils/git"
@@ -308,7 +309,7 @@ module Homebrew
             next
           end
 
-          if dep_f.oldnames.include?(dep.name.split("/").last)
+          if dep_f.oldnames.include?(Utils.name_from_full_name(dep.name))
             problem "Dependency '#{dep.name}' was renamed; use new name '#{dep_f.name}'."
           end
 

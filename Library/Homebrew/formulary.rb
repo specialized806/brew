@@ -1129,7 +1129,7 @@ module Formulary
     if (possible_alias = tap.alias_table[alias_table_key].presence)
       # FIXME: Remove the need to split the name and instead make
       #        the alias table only contain short names.
-      name = possible_alias.split("/").fetch(-1)
+      name = Utils.name_from_full_name(possible_alias)
       type = :alias
     elsif (new_name = tap.formula_renames[name].presence)
       old_name = tap.core_tap? ? name : tapped_name

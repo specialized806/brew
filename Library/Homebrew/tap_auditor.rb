@@ -1,6 +1,8 @@
 # typed: true # rubocop:todo Sorbet/StrictSigil
 # frozen_string_literal: true
 
+require "utils"
+
 module Homebrew
   # Auditor for checking common violations in {Tap}s.
   class TapAuditor
@@ -22,15 +24,15 @@ module Homebrew
         @problems                                       = []
 
         @cask_tokens = tap.cask_tokens.map do |cask_token|
-          cask_token.split("/").last
+          Utils.name_from_full_name(cask_token)
         end
         @formula_aliases = tap.aliases.map do |formula_alias|
-          formula_alias.split("/").last
+          Utils.name_from_full_name(formula_alias)
         end
         @formula_renames = tap.formula_renames
         @cask_renames = tap.cask_renames
         @formula_names = tap.formula_names.map do |formula_name|
-          formula_name.split("/").last
+          Utils.name_from_full_name(formula_name)
         end
       end
     end
