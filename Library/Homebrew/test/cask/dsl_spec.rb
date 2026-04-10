@@ -159,6 +159,16 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         expect(cask.no_autobump_message).to eq("some reason")
       end
     end
+
+    context "when used in an unofficial tap" do
+      it "raises an error" do
+        expect do
+          Cask::Cask.new("test-cask", tap: Tap.fetch("someone", "repo")) do
+            no_autobump! because: "some reason"
+          end
+        end.to raise_error(Cask::CaskInvalidError, /official Homebrew taps/)
+      end
+    end
   end
 
   describe "language stanza" do

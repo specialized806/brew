@@ -4675,12 +4675,15 @@ class Formula
 
     # Exclude the formula from the autobump list.
     #
-    # TODO: limit this method to the official taps only
-    #       (e.g. raise an error if `!tap.official?`)
-    #
     # @api public
     sig { params(because: T.any(String, Symbol)).void }
     def no_autobump!(because:)
+      caller_path = caller_locations(1, 1)&.first&.path
+      if caller_path
+        tap = Tap.from_path(caller_path)
+        raise "no_autobump! can only be used in official Homebrew taps." if tap && !tap.official?
+      end
+
       if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because)
         raise ArgumentError, "'because' argument should use valid symbol or a string!"
       end

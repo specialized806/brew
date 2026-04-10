@@ -678,12 +678,14 @@ module Cask
 
     # Excludes the cask from autobump list.
     #
-    # TODO: limit this method to the official taps only
-    #       (e.g. raise an error if `!tap.official?`)
-    #
     # @api public
     sig { params(because: T.any(String, Symbol)).void }
     def no_autobump!(because:)
+      tap = @cask.tap
+      if tap && !tap.official?
+        raise CaskInvalidError.new(cask, "'no_autobump!' can only be used in official Homebrew taps.")
+      end
+
       if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because)
         raise ArgumentError, "'because' argument should use valid symbol or a string!"
       end
