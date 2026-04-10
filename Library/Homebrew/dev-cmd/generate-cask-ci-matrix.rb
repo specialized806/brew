@@ -154,6 +154,31 @@ module Homebrew
         filtered_runners.merge(linux_runners)
       end
 
+      sig {
+        params(
+          runners:  T::Array[T::Hash[Symbol, T.any(Symbol, String)]],
+          multi_os: T::Boolean,
+        ).returns(T::Array[[T::Hash[Symbol, T.any(Symbol, String)], T.any(Symbol, String), T::Boolean]])
+      }
+      def runner_arch_pairs(runners:, multi_os:)
+        macos_archs = runners.reject { |r| r.fetch(:symbol) == :linux }.map { |r| r.fetch(:arch) }.uniq
+        linux_archs = runners.select { |r| r.fetch(:symbol) == :linux }.map { |r| r.fetch(:arch) }.uniq
+        product_archs = macos_archs | linux_archs
+        runners.product(product_archs).filter_map do |runner, arch|
+          native_runner_arch = arch == runner.fetch(:arch)
+          # we don't need to run simulated archs on Linux or macOS Sequoia
+          # because they exist as real GitHub hosted runners
+          next if runner.fetch(:symbol) == :linux && !native_runner_arch
+          next if runner.fetch(:symbol) == :sequoia && !native_runner_arch
+          # skip macOS runners simulating architectures not supported on macOS
+          next if runner.fetch(:symbol) != :linux && !native_runner_arch && macos_archs.exclude?(arch)
+          # if it's just a single OS test then we can just use the two real arch runners
+          next if !native_runner_arch && !multi_os
+
+          [runner, arch, native_runner_arch]
+        end
+      end
+
       private
 
       sig { params(cask: Cask::Cask, os: Symbol).returns(T::Array[Symbol]) }
@@ -274,16 +299,7 @@ module Homebrew
           cask = Cask::CaskLoader.load(path.expand_path)
 
           runners, multi_os = runners(cask:)
-          runners.product(architectures(cask:, os: :macos)).filter_map do |runner, arch|
-            native_runner_arch = arch == runner.fetch(:arch)
-            # we don't need to run simulated archs on Linux or macOS Sequoia
-            # because they exist as real GitHub hosted runner
-            next if runner.fetch(:symbol) == :linux && !native_runner_arch
-            next if runner.fetch(:symbol) == :sequoia && !native_runner_arch
-
-            # If it's just a single OS test then we can just use the two real arch runners.
-            next if !native_runner_arch && !multi_os
-
+          runner_arch_pairs(runners:, multi_os:).map do |runner, arch, native_runner_arch|
             arch_args = native_runner_arch ? [] : ["--arch=#{arch}"]
             runner_output = {
               name:         "test #{cask_token} (#{runner.fetch(:name)}, #{arch})",
