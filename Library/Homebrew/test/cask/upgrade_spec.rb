@@ -333,6 +333,18 @@ RSpec.describe Cask::Upgrade, :cask do
     end
   end
 
+  it "warns and skips disabled casks" do
+    cask = Cask::CaskLoader.load(cask_path("livecheck/livecheck-disabled"))
+    InstallHelper.stub_cask_installation(cask)
+    allow(cask).to receive(:outdated?).with(greedy: true).and_return(true)
+
+    expect(described_class).not_to receive(:upgrade_cask)
+
+    expect do
+      described_class.upgrade_casks!(cask, dry_run: true, args:)
+    end.to output(/Not upgrading livecheck-disabled, it is disabled/).to_stderr
+  end
+
   context "when an upgrade failed" do
     # These tests perform actual upgrades and test rollback behavior,
     # so they need full real installations.

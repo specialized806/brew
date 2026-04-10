@@ -3,6 +3,7 @@
 
 require "env_config"
 require "cask/config"
+require "deprecate_disable"
 require "utils/output"
 
 module Cask
@@ -35,6 +36,11 @@ module Cask
 
       if casks.empty?
         Caskroom.casks(config: Config.from_args(args)).select do |cask|
+          if cask.disabled?
+            opoo "Not upgrading #{cask.token}, it is #{DeprecateDisable.message(cask)}" unless quiet
+            next false
+          end
+
           cask_greedy = greedy || greedy_casks.include?(cask.token)
           cask.outdated?(greedy: cask_greedy, greedy_latest:,
                          greedy_auto_updates:)
@@ -42,6 +48,11 @@ module Cask
       else
         casks.select do |cask|
           raise CaskNotInstalledError, cask if !cask.installed? && !force
+
+          if cask.disabled?
+            opoo "Not upgrading #{cask.token}, it is #{DeprecateDisable.message(cask)}" unless quiet
+            next false
+          end
 
           if cask.outdated?(greedy: true)
             true
