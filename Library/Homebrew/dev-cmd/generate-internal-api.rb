@@ -4,6 +4,7 @@
 require "abstract_command"
 require "fileutils"
 require "formula"
+require "cask/cask"
 
 module Homebrew
   module DevCmd
