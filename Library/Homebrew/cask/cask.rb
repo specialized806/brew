@@ -605,6 +605,10 @@ module Cask
         return false
       end
 
+      return false if [installed_short_version, installed_bundle_version].any? do |installed_plist_version|
+        compare_version_strings(installed_plist_version, tap_short_version)&.zero?
+      end
+
       short_comparison = compare_version_strings(installed_short_version, tap_short_version)
       return true if short_comparison == -1
       return false if short_comparison == 1
