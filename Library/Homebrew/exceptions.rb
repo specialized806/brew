@@ -1,4 +1,4 @@
-# typed: true # rubocop:todo Sorbet/StrictSigil
+# typed: strict
 # frozen_string_literal: true
 
 # We intentionally want to have many exceptions in this file.
@@ -10,12 +10,14 @@ require "utils/output"
 #
 # @api internal
 class UsageError < RuntimeError
+  sig { returns(T.nilable(String)) }
   attr_reader :reason
 
+  sig { params(reason: T.nilable(String)).void }
   def initialize(reason = nil)
     super
 
-    @reason = reason
+    @reason = T.let(reason, T.nilable(String))
   end
 
   sig { returns(String) }
@@ -28,6 +30,7 @@ end
 
 # Raised when a command expects a formula and none was specified.
 class FormulaUnspecifiedError < UsageError
+  sig { void }
   def initialize
     super "this command requires a formula argument"
   end
@@ -35,6 +38,7 @@ end
 
 # Raised when a command expects a formula or cask and none was specified.
 class FormulaOrCaskUnspecifiedError < UsageError
+  sig { void }
   def initialize
     super "this command requires a formula or cask argument"
   end
@@ -42,6 +46,7 @@ end
 
 # Raised when a command expects a keg and none was specified.
 class KegUnspecifiedError < UsageError
+  sig { void }
   def initialize
     super "this command requires a keg argument"
   end
@@ -58,11 +63,16 @@ class NotAKegError < RuntimeError; end
 
 # Raised when a keg doesn't exist.
 class NoSuchKegError < RuntimeError
-  attr_reader :name, :tap
+  sig { returns(String) }
+  attr_reader :name
 
+  sig { returns(T.nilable(Tap)) }
+  attr_reader :tap
+
+  sig { params(name: String, tap: T.nilable(Tap)).void }
   def initialize(name, tap: nil)
-    @name = name
-    @tap = tap
+    @name = T.let(name, String)
+    @tap = T.let(tap, T.nilable(Tap))
     message = "No such keg: #{HOMEBREW_CELLAR}/#{name}"
     message += " from tap #{tap}" if tap
     super message
@@ -71,20 +81,27 @@ end
 
 # Raised when an invalid attribute is used in a formula.
 class FormulaValidationError < StandardError
-  attr_reader :attr, :formula
+  sig { returns(T.any(Symbol, String)) }
+  attr_reader :attr
 
+  sig { returns(String) }
+  attr_reader :formula
+
+  sig { params(formula: String, attr: T.any(Symbol, String), value: T.untyped).void }
   def initialize(formula, attr, value)
-    @attr = attr
-    @formula = formula
+    @attr = T.let(attr, T.any(Symbol, String))
+    @formula = T.let(formula, String)
     super "invalid attribute for formula '#{formula}': #{attr} (#{value.inspect})"
   end
 end
 
 class LegacyDSLError < StandardError
+  sig { returns(Symbol) }
   attr_reader :attr
 
+  sig { params(attr: Symbol, value: T.untyped).void }
   def initialize(attr, value)
-    @attr = attr
+    @attr = T.let(attr, Symbol)
     super "A legacy DSL was used: #{attr} (#{value.inspect})"
   end
 end
@@ -93,23 +110,26 @@ class FormulaSpecificationError < StandardError; end
 
 # Raised when a deprecated method is used.
 class MethodDeprecatedError < StandardError
+  sig { returns(T.nilable(String)) }
   attr_accessor :issues_url
 end
 
 # Raised when neither a formula nor a cask with the given name is available.
 class FormulaOrCaskUnavailableError < RuntimeError
+  sig { returns(String) }
   attr_reader :name
 
+  sig { params(name: String).void }
   def initialize(name)
     super()
 
-    @name = name
+    @name = T.let(name, String)
 
     # Store the state of these envs at the time the exception is thrown.
     # This is so we do the fuzzy search for "did you mean" etc under that same mode,
     # in case the list of formulae are different.
-    @without_api = Homebrew::EnvConfig.no_install_from_api?
-    @auto_without_api = Homebrew::EnvConfig.automatically_set_no_install_from_api?
+    @without_api = T.let(Homebrew::EnvConfig.no_install_from_api?, T::Boolean)
+    @auto_without_api = T.let(Homebrew::EnvConfig.automatically_set_no_install_from_api?, T::Boolean)
   end
 
   sig { returns(String) }
@@ -134,11 +154,13 @@ end
 
 # Raised when a formula or cask in a specific tap is not available.
 class TapFormulaOrCaskUnavailableError < FormulaOrCaskUnavailableError
+  sig { returns(Tap) }
   attr_reader :tap
 
+  sig { params(tap: Tap, name: String).void }
   def initialize(tap, name)
     super "#{tap}/#{name}"
-    @tap = tap
+    @tap = T.let(tap, Tap)
   end
 
   sig { returns(String) }
@@ -156,6 +178,7 @@ end
 #
 # @api internal
 class FormulaUnavailableError < FormulaOrCaskUnavailableError
+  sig { returns(T.nilable(String)) }
   attr_accessor :dependent
 
   sig { returns(T.nilable(String)) }
@@ -171,7 +194,18 @@ end
 
 # Shared methods for formula class errors.
 module FormulaClassUnavailableErrorModule
-  attr_reader :path, :class_name, :class_list
+  extend T::Helpers
+
+  abstract!
+
+  sig { abstract.returns(T.any(Pathname, String)) }
+  def path; end
+
+  sig { abstract.returns(String) }
+  def class_name; end
+
+  sig { abstract.returns(T::Array[T.untyped]) }
+  def class_list; end
 
   sig { returns(String) }
   def to_s
@@ -195,6 +229,7 @@ module FormulaClassUnavailableErrorModule
     end
   end
 
+  sig { params(class_list: T::Array[T.untyped]).returns(String) }
   def format_list(class_list)
     class_list.map { |klass| klass.name.split("::").last }.join(", ")
   end
@@ -204,10 +239,20 @@ end
 class FormulaClassUnavailableError < FormulaUnavailableError
   include FormulaClassUnavailableErrorModule
 
+  sig { override.returns(T.any(Pathname, String)) }
+  attr_reader :path
+
+  sig { override.returns(String) }
+  attr_reader :class_name
+
+  sig { override.returns(T::Array[T.untyped]) }
+  attr_reader :class_list
+
+  sig { params(name: String, path: T.any(Pathname, String), class_name: String, class_list: T::Array[T.untyped]).void }
   def initialize(name, path, class_name, class_list)
-    @path = path
-    @class_name = class_name
-    @class_list = class_list
+    @path = T.let(path, T.any(Pathname, String))
+    @class_name = T.let(class_name, String)
+    @class_list = T.let(class_list, T::Array[T.untyped])
     super name
   end
 end
@@ -216,9 +261,11 @@ end
 module FormulaUnreadableErrorModule
   extend T::Helpers
 
+  abstract!
   requires_ancestor { FormulaOrCaskUnavailableError }
 
-  attr_reader :formula_error
+  sig { abstract.returns(Exception) }
+  def formula_error; end
 
   sig { returns(String) }
   def to_s
@@ -230,21 +277,33 @@ end
 class FormulaUnreadableError < FormulaUnavailableError
   include FormulaUnreadableErrorModule
 
+  sig { override.returns(Exception) }
+  attr_reader :formula_error
+
+  sig { params(name: String, error: Exception).void }
   def initialize(name, error)
     super(name)
-    @formula_error = error
+    @formula_error = T.let(error, Exception)
     set_backtrace(error.backtrace)
   end
 end
 
 # Raised when a formula in a specific tap is unavailable.
 class TapFormulaUnavailableError < FormulaUnavailableError
-  attr_reader :tap, :user, :repository
+  sig { returns(Tap) }
+  attr_reader :tap
 
+  sig { returns(String) }
+  attr_reader :user
+
+  sig { returns(String) }
+  attr_reader :repository
+
+  sig { params(tap: Tap, name: String).void }
   def initialize(tap, name)
-    @tap = tap
-    @user = tap.user
-    @repository = tap.repository
+    @tap = T.let(tap, Tap)
+    @user = T.let(tap.user, String)
+    @repository = T.let(tap.repository, String)
     super "#{tap}/#{name}"
   end
 
@@ -263,12 +322,20 @@ end
 class TapFormulaClassUnavailableError < TapFormulaUnavailableError
   include FormulaClassUnavailableErrorModule
 
-  attr_reader :tap
+  sig { override.returns(T.any(Pathname, String)) }
+  attr_reader :path
 
+  sig { override.returns(String) }
+  attr_reader :class_name
+
+  sig { override.returns(T::Array[T.untyped]) }
+  attr_reader :class_list
+
+  sig { params(tap: Tap, name: String, path: T.any(Pathname, String), class_name: String, class_list: T::Array[T.untyped]).void }
   def initialize(tap, name, path, class_name, class_list)
-    @path = path
-    @class_name = class_name
-    @class_list = class_list
+    @path = T.let(path, T.any(Pathname, String))
+    @class_name = T.let(class_name, String)
+    @class_list = T.let(class_list, T::Array[T.untyped])
     super tap, name
   end
 end
@@ -277,21 +344,33 @@ end
 class TapFormulaUnreadableError < TapFormulaUnavailableError
   include FormulaUnreadableErrorModule
 
+  sig { override.returns(Exception) }
+  attr_reader :formula_error
+
+  sig { params(tap: Tap, name: String, error: Exception).void }
   def initialize(tap, name, error)
     super(tap, name)
-    @formula_error = error
+    @formula_error = T.let(error, Exception)
     set_backtrace(error.backtrace)
   end
 end
 
 # Raised when a formula with the same name is found in multiple taps.
 class TapFormulaAmbiguityError < RuntimeError
-  attr_reader :name, :taps, :loaders
+  sig { returns(String) }
+  attr_reader :name
 
+  sig { returns(T::Array[Tap]) }
+  attr_reader :taps
+
+  sig { returns(T::Array[T.untyped]) }
+  attr_reader :loaders
+
+  sig { params(name: String, loaders: T::Array[T.untyped]).void }
   def initialize(name, loaders)
-    @name = name
-    @loaders = loaders
-    @taps = loaders.map(&:tap)
+    @name = T.let(name, String)
+    @loaders = T.let(loaders, T::Array[T.untyped])
+    @taps = T.let(loaders.map(&:tap), T::Array[Tap])
 
     formulae = taps.map { |tap| "#{tap}/#{name}" }
     formula_list = formulae.map { |f| "\n       * #{f}" }.join
@@ -306,10 +385,12 @@ end
 
 # Raised when a tap is unavailable.
 class TapUnavailableError < RuntimeError
+  sig { returns(String) }
   attr_reader :name
 
+  sig { params(name: String).void }
   def initialize(name)
-    @name = name
+    @name = T.let(name, String)
 
     message = "No available tap #{name}.\n"
     if [CoreTap.instance.name, CoreCaskTap.instance.name].include?(name)
@@ -329,16 +410,25 @@ end
 
 # Raised when a tap's remote does not match the actual remote.
 class TapRemoteMismatchError < RuntimeError
-  attr_reader :name, :expected_remote, :actual_remote
+  sig { returns(String) }
+  attr_reader :name
 
+  sig { returns(T.nilable(String)) }
+  attr_reader :expected_remote
+
+  sig { returns(T.any(Pathname, String)) }
+  attr_reader :actual_remote
+
+  sig { params(name: String, expected_remote: T.nilable(String), actual_remote: T.any(Pathname, String)).void }
   def initialize(name, expected_remote, actual_remote)
-    @name = name
-    @expected_remote = expected_remote
-    @actual_remote = actual_remote
+    @name = T.let(name, String)
+    @expected_remote = T.let(expected_remote, T.nilable(String))
+    @actual_remote = T.let(actual_remote, T.any(Pathname, String))
 
     super message
   end
 
+  sig { returns(String) }
   def message
     <<~EOS
       Tap #{name} remote mismatch.
@@ -349,6 +439,7 @@ end
 
 # Raised when the remote of homebrew/core does not match HOMEBREW_CORE_GIT_REMOTE.
 class TapCoreRemoteMismatchError < TapRemoteMismatchError
+  sig { override.returns(String) }
   def message
     <<~EOS
       Tap #{name} remote does not match `$HOMEBREW_CORE_GIT_REMOTE`.
@@ -360,10 +451,12 @@ end
 
 # Raised when a tap is already installed.
 class TapAlreadyTappedError < RuntimeError
+  sig { returns(String) }
   attr_reader :name
 
+  sig { params(name: String).void }
   def initialize(name)
-    @name = name
+    @name = T.let(name, String)
 
     super <<~EOS
       Tap #{name} already tapped.
@@ -373,10 +466,12 @@ end
 
 # Raised when run `brew tap --custom-remote` without a remote URL.
 class TapNoCustomRemoteError < RuntimeError
+  sig { returns(String) }
   attr_reader :name
 
+  sig { params(name: String).void }
   def initialize(name)
-    @name = name
+    @name = T.let(name, String)
 
     super <<~EOS
       Tap #{name} with option `--custom-remote` but without a remote URL.
@@ -405,6 +500,7 @@ class CannotInstallFormulaError < RuntimeError; end
 
 # Raised when a formula installation was already attempted.
 class FormulaInstallationAlreadyAttemptedError < RuntimeError
+  sig { params(formula: Formula).void }
   def initialize(formula)
     super "Formula installation already attempted: #{formula.full_name}"
   end
@@ -412,6 +508,7 @@ end
 
 # Raised when there are unsatisfied requirements.
 class UnsatisfiedRequirements < RuntimeError
+  sig { params(reqs: T.untyped).void }
   def initialize(reqs)
     if reqs.length == 1
       super "An unsatisfied requirement failed this build."
@@ -423,14 +520,20 @@ end
 
 # Raised when a formula conflicts with another one.
 class FormulaConflictError < RuntimeError
-  attr_reader :formula, :conflicts
+  sig { returns(Formula) }
+  attr_reader :formula
 
+  sig { returns(T::Array[T.untyped]) }
+  attr_reader :conflicts
+
+  sig { params(formula: Formula, conflicts: T::Array[T.untyped]).void }
   def initialize(formula, conflicts)
-    @formula = formula
-    @conflicts = conflicts
+    @formula = T.let(formula, Formula)
+    @conflicts = T.let(conflicts, T::Array[T.untyped])
     super message
   end
 
+  sig { params(conflict: T.untyped).returns(String) }
   def conflict_message(conflict)
     message = []
     message << "  #{conflict.name}"
@@ -457,6 +560,7 @@ end
 
 # Raise when the Python version cannot be detected automatically.
 class FormulaUnknownPythonError < RuntimeError
+  sig { params(formula: T.untyped).void }
   def initialize(formula)
     super <<~EOS
       The version of Python to use with the virtualenv in the `#{formula.full_name}` formula
@@ -470,6 +574,7 @@ end
 
 # Raise when two Python versions are detected simultaneously.
 class FormulaAmbiguousPythonError < RuntimeError
+  sig { params(formula: T.untyped).void }
   def initialize(formula)
     super <<~EOS
       The version of Python to use with the virtualenv in the `#{formula.full_name}` formula
@@ -485,8 +590,20 @@ end
 class BuildError < RuntimeError
   include Utils::Output::Mixin
 
-  attr_reader :cmd, :args, :env
-  attr_accessor :formula, :options
+  sig { returns(T.any(String, Pathname)) }
+  attr_reader :cmd
+
+  sig { returns(T::Array[T.any(String, Integer, Pathname, Symbol)]) }
+  attr_reader :args
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  attr_reader :env
+
+  sig { returns(T.nilable(Formula)) }
+  attr_accessor :formula
+
+  sig { returns(T.nilable(T::Array[String])) }
+  attr_accessor :options
 
   sig {
     params(
@@ -497,22 +614,26 @@ class BuildError < RuntimeError
     ).void
   }
   def initialize(formula, cmd, args, env)
-    @formula = formula
-    @cmd = cmd
-    @args = args
-    @env = env
+    @formula = T.let(formula, T.nilable(Formula))
+    @cmd = T.let(cmd, T.any(String, Pathname))
+    @args = T.let(args, T::Array[T.any(String, Integer, Pathname, Symbol)])
+    @env = T.let(env, T::Hash[String, T.untyped])
+    @options = T.let(nil, T.nilable(T::Array[String]))
     pretty_args = Array(args).map { |arg| arg.to_s.gsub(/[\\ ]/, "\\\\\\0") }.join(" ")
     super "Failed executing: #{cmd} #{pretty_args}".strip
   end
 
   sig { returns(T::Array[T.untyped]) }
   def issues
-    @issues ||= fetch_issues
+    @issues ||= T.let(fetch_issues, T.nilable(T::Array[T.untyped]))
   end
 
   sig { returns(T::Array[T.untyped]) }
   def fetch_issues
     return [] if ENV["HOMEBREW_NO_BUILD_ERROR_ISSUES"].present?
+
+    formula = self.formula
+    return [] unless formula
 
     GitHub.issues_for_formula(formula.name, tap: formula.tap, state: "open", type: "issue")
   rescue GitHub::API::Error => e
@@ -523,6 +644,8 @@ class BuildError < RuntimeError
   sig { params(verbose: T::Boolean).void }
   def dump(verbose: false)
     puts
+    formula = self.formula
+    return unless formula
 
     if verbose
       require "system_config"
@@ -543,7 +666,8 @@ class BuildError < RuntimeError
       end
     end
 
-    if formula.tap
+    formula_tap = formula.tap
+    if formula_tap
       if OS.not_tier_one_configuration?
         <<~EOS
           This is not a Tier 1 configuration:
@@ -551,9 +675,9 @@ class BuildError < RuntimeError
           #{Formatter.bold("Do not report any issues to Homebrew/* repositories!")}
           Read the above document instead before opening any issues or PRs.
         EOS
-      elsif formula.tap.official?
+      elsif formula_tap.official?
         puts Formatter.error(Formatter.url(OS::ISSUES_URL), label: "READ THIS")
-      elsif (issues_url = formula.tap.issues_url)
+      elsif (issues_url = formula_tap.issues_url)
         puts <<~EOS
           If reporting this issue please do so at (not Homebrew/* repositories):
             #{Formatter.url(issues_url)}
@@ -561,7 +685,7 @@ class BuildError < RuntimeError
       else
         puts <<~EOS
           If reporting this issue please do so to (not Homebrew/* repositories):
-            #{formula.tap}
+            #{formula_tap}
         EOS
       end
     else
@@ -593,6 +717,7 @@ end
 # Raised if the formula or its dependencies are not bottled and are being
 # installed in a situation where a bottle is required.
 class UnbottledError < RuntimeError
+  sig { params(formulae: T::Array[Formula]).void }
   def initialize(formulae)
     require "utils"
 
@@ -611,6 +736,7 @@ end
 # if the user passes any flags/environment that would case a bottle-only
 # installation on a system without build tools to fail.
 class BuildFlagsError < RuntimeError
+  sig { params(flags: T::Array[String], bottled: T::Boolean).void }
   def initialize(flags, bottled: true)
     if flags.length > 1
       flag_text = "flags"
@@ -640,6 +766,7 @@ end
 # Raised by {CompilerSelector} if the formula fails with all of
 # the compilers available on the user's system.
 class CompilerSelectionError < RuntimeError
+  sig { params(formula: T.any(Formula, SoftwareSpec)).void }
   def initialize(formula)
     super <<~EOS
       #{formula.full_name} cannot be built with any available compilers.
@@ -650,14 +777,16 @@ end
 
 # Raised in {Downloadable#fetch}.
 class DownloadError < RuntimeError
+  sig { returns(Exception) }
   attr_reader :cause
 
+  sig { params(downloadable: T.untyped, cause: Exception).void }
   def initialize(downloadable, cause)
     super <<~EOS
       Failed to download resource #{downloadable.download_queue_name.inspect}
       #{cause.message}
     EOS
-    @cause = cause
+    @cause = T.let(cause, Exception)
     set_backtrace(cause.backtrace)
   end
 end
@@ -686,12 +815,27 @@ end
 
 # Raised by {Kernel#safe_system} in `utils.rb`.
 class ErrorDuringExecution < RuntimeError
-  attr_reader :cmd, :status, :output
+  sig { returns(T::Array[T.untyped]) }
+  attr_reader :cmd
 
+  sig { returns(T.untyped) }
+  attr_reader :status
+
+  sig { returns(T.nilable(T::Array[T.untyped])) }
+  attr_reader :output
+
+  sig {
+    params(
+      cmd:     T::Array[T.untyped],
+      status:  T.untyped,
+      output:  T.nilable(T::Array[T.untyped]),
+      secrets: T::Array[String],
+    ).void
+  }
   def initialize(cmd, status:, output: nil, secrets: [])
-    @cmd = cmd
-    @status = status
-    @output = output
+    @cmd = T.let(cmd, T::Array[T.untyped])
+    @status = T.let(status, T.untyped)
+    @output = T.let(output, T.nilable(T::Array[T.untyped]))
 
     raise ArgumentError, "Status cannot be nil." if status.nil?
 
@@ -736,7 +880,7 @@ class ErrorDuringExecution < RuntimeError
       end
 
       s << " Here's the output:\n"
-      s << output.map(&format_output_line).join
+      s << Array(output).map(&format_output_line).join
       s << "\n" unless s.end_with?("\n")
     end
 
@@ -754,10 +898,12 @@ class ChecksumMissingError < ArgumentError; end
 
 # Raised by {Pathname#verify_checksum} when verification fails.
 class ChecksumMismatchError < RuntimeError
+  sig { returns(T.untyped) }
   attr_reader :expected
 
+  sig { params(path: T.any(Pathname, String), expected: T.untyped, actual: T.untyped).void }
   def initialize(path, expected, actual)
-    @expected = expected
+    @expected = T.let(expected, T.untyped)
 
     super <<~EOS
       SHA-256 mismatch
@@ -771,6 +917,7 @@ end
 
 # Raised when a resource is missing.
 class ResourceMissingError < ArgumentError
+  sig { params(formula: T.untyped, resource: T.untyped).void }
   def initialize(formula, resource)
     super "#{formula.full_name} does not define resource #{resource.inspect}"
   end
@@ -778,6 +925,7 @@ end
 
 # Raised when a resource is specified multiple times.
 class DuplicateResourceError < ArgumentError
+  sig { params(resource: T.untyped).void }
   def initialize(resource)
     super "Resource #{resource.inspect} is defined more than once"
   end
@@ -788,6 +936,7 @@ class MissingApplyError < RuntimeError; end
 
 # Raised when a bottle does not contain a formula file.
 class BottleFormulaUnavailableError < RuntimeError
+  sig { params(bottle_path: T.any(Pathname, String), formula_path: T.any(Pathname, String)).void }
   def initialize(bottle_path, formula_path)
     super <<~EOS
       This bottle does not contain the formula file:
@@ -799,10 +948,12 @@ end
 
 # Raised when a `Utils.safe_fork` exits with a non-zero code.
 class ChildProcessError < RuntimeError
+  sig { returns(Process::Status) }
   attr_reader :status
 
+  sig { params(status: Process::Status).void }
   def initialize(status)
-    @status = status
+    @status = T.let(status, Process::Status)
 
     super "Forked child process failed: #{status}"
   end
@@ -810,6 +961,7 @@ end
 
 # Raised when `detected_perl_shebang` etc cannot detect the shebang.
 class ShebangDetectionError < RuntimeError
+  sig { params(type: String, reason: String).void }
   def initialize(type, reason)
     super "Cannot detect #{type} shebang: #{reason}."
   end
@@ -817,6 +969,7 @@ end
 
 # Raised when one or more formulae have cyclic dependencies.
 class CyclicDependencyError < RuntimeError
+  sig { params(strongly_connected_components: T::Array[T.untyped]).void }
   def initialize(strongly_connected_components)
     super <<~EOS
       The following packages contain cyclic dependencies:

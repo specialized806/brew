@@ -173,7 +173,7 @@ class ExternalPatch # rubocop:todo Style/OneClassPerFile
         patch_files << children.fetch(0).basename
       end
       dir = base_dir
-      dir /= resource.directory if resource.directory.present?
+      dir /= T.must(resource.directory) if resource.directory.present?
       dir.cd do
         patch_files.each do |patch_file|
           ohai "Applying #{patch_file}"
@@ -189,7 +189,8 @@ class ExternalPatch # rubocop:todo Style/OneClassPerFile
     end
   rescue ErrorDuringExecution => e
     onoe e
-    f = resource.owner.owner
+    spec_owner = T.cast(T.must(resource.owner), SoftwareSpec).owner
+    f = spec_owner.is_a?(::Formula) ? spec_owner : nil
     cmd, *args = e.cmd
     raise BuildError.new(f, cmd, args, ENV.to_hash)
   end

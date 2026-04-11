@@ -121,9 +121,8 @@ module Homebrew
 
       if @fetch
         unless @head
-          r = Resource.new
+          r = Resource.new(@name)
           r.url(@url)
-          r.owner = self
           filepath = r.fetch
           html_doctype_prefix = "<!doctype html"
           # Number of bytes to read from file start to ensure it is not HTML.

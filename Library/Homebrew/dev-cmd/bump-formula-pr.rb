@@ -601,7 +601,10 @@ module Homebrew
         resource.owner = if formula_or_resource.is_a?(Formula)
           Resource.new(formula_or_resource.name)
         else
-          Resource.new(formula_or_resource.owner.name)
+          owner = formula_or_resource.owner
+          raise "Owner of Resource#{formula_or_resource.name} is nil" if owner.nil?
+
+          Resource.new(owner.name)
         end
         forced_version = new_version && new_version != resource.version.to_s
         resource.version(new_version) if forced_version
@@ -734,7 +737,7 @@ module Homebrew
         Utils::Tar.validate_file(resource_path)
         new_hash = resource_path.sha256
 
-        escaped_name = Regexp.escape(resource.name)
+        escaped_name = Regexp.escape(resource.name.to_s)
 
         Utils::Inreplace.inreplace formula.path do |s|
           leading_spaces = T.must(s.inreplace_string.match(/^( +)resource "#{escaped_name}"/)).captures.first

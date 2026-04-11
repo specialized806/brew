@@ -1,4 +1,4 @@
-# typed: true # rubocop:todo Sorbet/StrictSigil
+# typed: strict
 # frozen_string_literal: true
 
 require "downloadable"
@@ -16,12 +16,29 @@ class Resource
   include OnSystem::MacOSAndLinux
   include Utils::Output::Mixin
 
-  attr_reader :source_modified_time, :patches, :owner
+  sig { returns(T.nilable(Time)) }
+  attr_reader :source_modified_time
+
+  sig { returns(T::Array[T.any(EmbeddedPatch, ExternalPatch)]) }
+  attr_reader :patches
+
+  sig { returns(T.nilable(T.any(::Formula, Resource, SoftwareSpec))) }
+  attr_reader :owner
+
+  sig { params(checksum: T.nilable(Checksum)).returns(T.nilable(Checksum)) }
   attr_writer :checksum
-  attr_accessor :download_strategy
+
+  sig { override.returns(T::Class[AbstractDownloadStrategy]) }
+  def download_strategy
+    @download_strategy || super
+  end
+
+  sig { params(download_strategy: T.nilable(T::Class[AbstractDownloadStrategy])).void }
+  attr_writer :download_strategy
 
   # Formula name must be set after the DSL, as we have no access to the
   # formula name before initialization of the formula.
+  sig { returns(T.nilable(String)) }
   attr_accessor :name
 
   sig { params(name: T.nilable(String), block: T.nilable(T.proc.bind(Resource).void)).void }
@@ -29,13 +46,13 @@ class Resource
     super()
     # Generally ensure this is synced with `initialize_dup` and `freeze`
     # (excluding simple objects like integers & booleans, weak refs like `owner` or permafrozen objects)
-    @name = name
-    @source_modified_time = nil
-    @patches = []
-    @owner = nil
-    @livecheck = Livecheck.new(self)
-    @livecheck_defined = false
-    @insecure = false
+    @name = T.let(name, T.nilable(String))
+    @source_modified_time = T.let(nil, T.nilable(Time))
+    @patches = T.let([], T::Array[T.any(EmbeddedPatch, ExternalPatch)])
+    @owner = T.let(nil, T.nilable(T.any(::Formula, Resource, SoftwareSpec)))
+    @livecheck = T.let(Livecheck.new(self), Livecheck)
+    @livecheck_defined = T.let(false, T::Boolean)
+    @insecure = T.let(false, T::Boolean)
     instance_eval(&block) if block
   end
 
@@ -47,6 +64,7 @@ class Resource
     @livecheck = @livecheck.dup
   end
 
+  sig { override.returns(T.self_type) }
   def freeze
     @name.freeze
     @patches.freeze
@@ -54,8 +72,9 @@ class Resource
     super
   end
 
+  sig { params(owner: T.nilable(T.any(::Formula, Resource, SoftwareSpec))).void }
   def owner=(owner)
-    @owner = owner
+    @owner = T.let(owner, T.nilable(T.any(::Formula, Resource, SoftwareSpec)))
     patches.each { |p| p.owner = owner }
   end
 
@@ -68,6 +87,13 @@ class Resource
   # dir using {Mktemp} so that works with all subtypes.
   #
   # @api public
+  sig {
+    params(
+      target:        T.nilable(T.any(String, Pathname)),
+      debug_symbols: T::Boolean,
+      block:         T.nilable(T.proc.params(arg0: ResourceStageContext).void),
+    ).void
+  }
   def stage(target = nil, debug_symbols: false, &block)
     raise ArgumentError, "Target directory or block is required" if !target && !block_given?
 
@@ -78,16 +104,19 @@ class Resource
     unpack(target, debug_symbols:, &block)
   end
 
+  sig { void }
   def prepare_patches
-    patches.grep(DATAPatch) { |p| p.path = owner.owner.path }
+    patches.grep(DATAPatch) { |p| p.path = T.cast(T.cast(T.must(owner), SoftwareSpec).owner, ::Formula).path }
   end
 
+  sig { params(skip_downloaded: T::Boolean).void }
   def fetch_patches(skip_downloaded: false)
-    external_patches = patches.select(&:external?)
+    external_patches = patches.grep(ExternalPatch)
     external_patches.reject!(&:downloaded?) if skip_downloaded
     external_patches.each(&:fetch)
   end
 
+  sig { void }
   def apply_patches
     return if patches.empty?
 
@@ -99,14 +128,21 @@ class Resource
   # If block is given, yield to that block with `|stage|`, where stage
   # is a {ResourceStageContext}.
   # A target or a block must be given, but not both.
-  def unpack(target = nil, debug_symbols: false)
+  sig {
+    params(
+      target:        T.nilable(T.any(String, Pathname)),
+      debug_symbols: T::Boolean,
+      block:         T.nilable(T.proc.params(arg0: ResourceStageContext).void),
+    ).void
+  }
+  def unpack(target = nil, debug_symbols: false, &block)
     current_working_directory = Pathname.pwd
     stage_resource(download_name, debug_symbols:) do |staging|
       downloader.stage do
         @source_modified_time = downloader.source_modified_time.freeze
         apply_patches
-        if block_given?
-          yield ResourceStageContext.new(self, staging)
+        if block
+          yield(ResourceStageContext.new(self, staging))
         elsif target
           target = Pathname(target)
           target = current_working_directory/target if target.relative?
@@ -118,6 +154,7 @@ class Resource
 
   Partial = Struct.new(:resource, :files)
 
+  sig { params(files: T.untyped).returns(Partial) }
   def files(*files)
     Partial.new(self, files)
   end
@@ -151,6 +188,7 @@ class Resource
   #   regex /foo-(\d+(?:\.\d+)+)\.tar/
   # end
   # ```
+  sig { params(block: T.nilable(T.proc.bind(Livecheck).void)).returns(T.untyped) }
   def livecheck(&block)
     return @livecheck unless block
 
@@ -167,6 +205,7 @@ class Resource
     @livecheck_defined == true
   end
 
+  sig { params(val: String).returns(Checksum) }
   def sha256(val)
     @checksum = Checksum.new(val)
   end
@@ -199,25 +238,43 @@ class Resource
     end
   end
 
+  sig { params(val: String).returns(T::Array[String]) }
   def mirror(val)
     mirrors << val
   end
 
+  sig {
+    params(
+      strip: T.any(Symbol, String),
+      src:   T.nilable(T.any(Symbol, String)),
+      block: T.nilable(T.proc.bind(Resource::Patch).void),
+    ).returns(T::Array[T.any(EmbeddedPatch, ExternalPatch)])
+  }
   def patch(strip = :p1, src = nil, &block)
     p = ::Patch.create(strip, src, &block)
     patches << p
   end
 
+  sig { returns(T.nilable(T.any(T::Class[AbstractDownloadStrategy], Symbol))) }
   def using
     @url&.using
   end
 
+  sig { returns(T::Hash[Symbol, T.untyped]) }
   def specs
     @url&.specs || {}.freeze
   end
 
   protected
 
+  sig {
+    type_parameters(:U)
+      .params(
+        prefix:        String,
+        debug_symbols: T::Boolean,
+        block:         T.proc.params(arg0: Mktemp).returns(T.type_parameter(:U)),
+      ).returns(T.type_parameter(:U))
+  }
   def stage_resource(prefix, debug_symbols: false, &block)
     Mktemp.new(prefix, retain_in_cache: debug_symbols).run(&block)
   end
@@ -226,17 +283,19 @@ class Resource
 
   sig { override.returns(String) }
   def download_name
-    return owner.name if name.nil?
+    current_owner = owner
+    return T.must(T.must(current_owner).name) if name.nil?
 
     # Removes /s from resource names; this allows Go package names
     # to be used as resource names without confusing software that
     # interacts with {download_name}, e.g. `github.com/foo/bar`.
-    escaped_name = name.tr("/", "-")
-    return escaped_name if owner.nil?
+    escaped_name = T.must(name).tr("/", "-")
+    return escaped_name if current_owner.nil?
 
-    "#{owner.name}--#{escaped_name}"
+    "#{T.must(current_owner.name)}--#{escaped_name}"
   end
 
+  sig { override.returns(T::Array[String]) }
   def determine_url_mirrors
     extra_urls = []
     url = T.must(self.url)
@@ -269,9 +328,10 @@ class Resource
 
   # A local resource that doesn't need to be downloaded.
   class Local < Resource
+    sig { params(path: String).void }
     def initialize(path)
       super(File.basename(path))
-      @downloader = LocalBottleDownloadStrategy.new(path)
+      @downloader = T.let(LocalBottleDownloadStrategy.new(Pathname(path)), LocalBottleDownloadStrategy)
     end
   end
 
@@ -286,8 +346,15 @@ class Resource
 
   # A resource containing a Go package.
   class Go < Resource
-    def stage(target, &block)
-      super(target/name, &block)
+    sig {
+      override.params(
+        target:        T.nilable(T.any(String, Pathname)),
+        debug_symbols: T::Boolean,
+        block:         T.nilable(T.proc.params(arg0: ResourceStageContext).void),
+      ).void
+    }
+    def stage(target = nil, debug_symbols: false, &block)
+      super(Pathname(T.must(target))/T.must(name), debug_symbols:, &block)
     end
   end
 
@@ -295,19 +362,24 @@ class Resource
   class BottleManifest < Resource
     class Error < RuntimeError; end
 
+    sig { returns(Bottle) }
     attr_reader :bottle
 
+    sig { params(bottle: Bottle).void }
     def initialize(bottle)
       super("#{bottle.name}_bottle_manifest")
-      @bottle = bottle
-      @manifest_annotations = nil
+      @bottle = T.let(bottle, Bottle)
+      @manifest_annotations = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
     end
 
-    def verify_download_integrity(_filename)
+    sig { override.params(filename: Pathname).void }
+    def verify_download_integrity(filename)
       # We don't have a checksum, but we can at least try parsing it.
+      _ = filename
       tab
     end
 
+    sig { returns(T::Hash[String, T.untyped]) }
     def tab
       tab = manifest_annotations["sh.brew.tab"]
       raise Error, "Couldn't find tab from manifest." if tab.blank?
@@ -337,8 +409,10 @@ class Resource
 
     private
 
+    sig { returns(T::Hash[String, T.untyped]) }
     def manifest_annotations
-      return @manifest_annotations unless @manifest_annotations.nil?
+      cached = @manifest_annotations
+      return cached unless cached.nil?
 
       json = begin
         JSON.parse(cached_download.read)
@@ -353,35 +427,39 @@ class Resource
       manifests_annotations = manifests.filter_map { |m| m["annotations"] }
       raise Error, "Missing 'annotations' section." if manifests_annotations.blank?
 
-      bottle_digest = bottle.resource.checksum.hexdigest
-      image_ref = GitHubPackages.version_rebuild(bottle.resource.version, bottle.rebuild, bottle.tag.to_s)
-      manifest_annotations = manifests_annotations.find do |m|
+      bottle_digest = T.must(bottle.resource.checksum).hexdigest
+      image_ref = GitHubPackages.version_rebuild(T.must(bottle.resource.version), bottle.rebuild, bottle.tag.to_s)
+      result = manifests_annotations.find do |m|
         next if m["sh.brew.bottle.digest"] != bottle_digest
 
         m["org.opencontainers.image.ref.name"] == image_ref
       end
-      raise Error, "Couldn't find manifest matching bottle checksum." if manifest_annotations.blank?
+      raise Error, "Couldn't find manifest matching bottle checksum." if result.blank?
 
-      @manifest_annotations = manifest_annotations
+      @manifest_annotations = result
     end
   end
 
   # A resource containing a patch.
   class Patch < Resource
+    sig { returns(T::Array[T.any(String, Pathname)]) }
     attr_reader :patch_files
 
+    sig { params(block: T.nilable(T.proc.bind(Resource::Patch).void)).void }
     def initialize(&block)
-      @patch_files = []
-      @directory = nil
+      @patch_files = T.let([], T::Array[T.any(String, Pathname)])
+      @directory = T.let(nil, T.nilable(T.any(String, Pathname)))
       super "patch", &block
     end
 
+    sig { params(paths: T.any(String, Pathname, T::Array[T.any(String, Pathname)])).void }
     def apply(*paths)
       paths.flatten!
-      @patch_files.concat(paths)
+      @patch_files.concat(T.cast(paths, T::Array[T.any(String, Pathname)]))
       @patch_files.uniq!
     end
 
+    sig { params(val: T.nilable(T.any(String, Pathname))).returns(T.nilable(T.any(String, Pathname))) }
     def directory(val = nil)
       return @directory if val.nil?
 
@@ -409,17 +487,20 @@ class ResourceStageContext # rubocop:todo Style/OneClassPerFile
   extend Forwardable
 
   # The {Resource} that is being staged.
+  sig { returns(Resource) }
   attr_reader :resource
 
   # The {Mktemp} in which {#resource} is staged.
+  sig { returns(Mktemp) }
   attr_reader :staging
 
   def_delegators :@resource, :version, :url, :mirrors, :specs, :using, :source_modified_time
   def_delegators :@staging, :retain!
 
+  sig { params(resource: Resource, staging: Mktemp).void }
   def initialize(resource, staging)
-    @resource = resource
-    @staging = staging
+    @resource = T.let(resource, Resource)
+    @staging = T.let(staging, Mktemp)
   end
 
   sig { returns(String) }
