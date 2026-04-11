@@ -43,6 +43,10 @@ RSpec.describe Cask::Upgrade, :cask do
     parser.args
   end
 
+  before do
+    allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(true)
+  end
+
   context "when the upgrade is a dry run" do
     # Use stub installation for dry-run tests since they mock upgrade_cask
     # and only need to verify installation state, not perform real upgrades.
@@ -105,7 +109,7 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it 'excludes "auto_updates true" casks when HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS is set' do
-        allow(Homebrew::EnvConfig).to receive(:no_upgrade_auto_updates_casks?).and_return(true)
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(false)
 
         expect(described_class).not_to receive(:upgrade_cask)
         expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
@@ -119,6 +123,18 @@ RSpec.describe Cask::Upgrade, :cask do
         end
 
         described_class.upgrade_casks!(dry_run: true, args:)
+      end
+
+      it "raises if HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS and HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS are set" do
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_call_original
+
+        with_env(
+          "HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"    => "1",
+          "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
+        ) do
+          expect { described_class.upgrade_casks!(dry_run: true, args:) }
+            .to raise_error(UsageError, /cannot both be set/i)
+        end
       end
 
       it 'excludes "auto_updates true" casks when the installed bundle matches the tap version' do

@@ -32,6 +32,9 @@ module Cask
     }
     def self.outdated_casks(casks, args:, force:, quiet:,
                             greedy: false, greedy_latest: false, greedy_auto_updates: false)
+      # Validate mutually exclusive opt-in/opt-out env vars before we start
+      # selecting casks so `brew upgrade` errors consistently.
+      Homebrew::EnvConfig.upgrade_auto_updates_casks?
       greedy = true if Homebrew::EnvConfig.upgrade_greedy?
 
       if casks.empty?

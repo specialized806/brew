@@ -550,6 +550,9 @@ module Cask
     HASH_KEYS_TO_SKIP = T.let(%w[outdated installed versions].freeze, T::Array[String])
     private_constant :HASH_KEYS_TO_SKIP
 
+    AUTO_UPDATES_BAD_BUNDLE_VERSIONS = %w[0.0].freeze
+    private_constant :AUTO_UPDATES_BAD_BUNDLE_VERSIONS
+
     sig { returns(T::Hash[String, T.untyped]) }
     def to_hash_with_variations
       if loaded_from_internal_api?
@@ -676,7 +679,7 @@ module Cask
 
     sig { returns(T::Boolean) }
     def auto_updates_bundle_outdated?
-      return false if Homebrew::EnvConfig.no_upgrade_auto_updates_casks?
+      return false unless Homebrew::EnvConfig.upgrade_auto_updates_casks?
       return false if !auto_updates || version.latest?
       return false unless installed_app_info_plist
 
@@ -688,6 +691,7 @@ module Cask
       rescue ErrorDuringExecution
         return false
       end
+      installed_bundle_version = nil if AUTO_UPDATES_BAD_BUNDLE_VERSIONS.include?(installed_bundle_version)
 
       return false if [installed_short_version, installed_bundle_version].any? do |installed_plist_version|
         compare_version_strings(installed_plist_version, tap_short_version)&.zero?
