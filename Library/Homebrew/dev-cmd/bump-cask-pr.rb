@@ -221,19 +221,15 @@ module Homebrew
         current_os_is_macos = MacOSVersion::SYMBOLS.include?(current_os)
         newest_macos = MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
 
-        depends_on_archs = cask.depends_on.arch&.filter_map { |arch| arch[:type] }&.uniq
-
         # NOTE: We substitute the newest macOS (e.g. `:sequoia`) in place of
         # `:macos` values (when used), as a generic `:macos` value won't apply
         # to on_system blocks referencing macOS versions.
         os_values = []
 
+        arch_values = []
         if new_version.arm || new_version.intel
-          arch_values = []
           arch_values << :arm if new_version.arm
           arch_values << :intel if new_version.intel
-        else
-          arch_values = depends_on_archs.presence || []
         end
 
         if cask.on_system_blocks_exist?
@@ -245,13 +241,18 @@ module Homebrew
             end
           end
 
+          # `depends_on arch:` may be scoped to an `on_os` block, so arch
+          # filtering is deferred to `replace_version_and_checksum`.
           arch_values = OnSystem::ARCH_OPTIONS.dup if arch_values.empty?
         else
           # Architecture is only relevant if on_system blocks are present or
           # the cask uses `depends_on arch`, otherwise we default to ARM for
           # consistency.
           os_values << (current_os_is_macos ? current_os : newest_macos)
-          arch_values << :arm if arch_values.empty?
+          if arch_values.empty?
+            depends_on_archs = cask.depends_on.arch&.filter_map { |arch| arch[:type] }&.uniq
+            arch_values = depends_on_archs.presence || [:arm]
+          end
         end
 
         if arch_values.length > 1 && !new_version.general
@@ -292,6 +293,10 @@ module Homebrew
               raise unless cask.on_system_blocks_exist?
             end
             next if old_cask.nil?
+
+            # Skip archs excluded by the reloaded cask's `depends_on arch:`.
+            reloaded_archs = old_cask.depends_on.arch&.filter_map { |a| a[:type] }&.uniq
+            next if reloaded_archs.present? && reloaded_archs.exclude?(arch)
 
             old_version = old_cask.version
             next unless old_version
