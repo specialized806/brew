@@ -11,7 +11,7 @@ module Cask
     def initialize(errors)
       super()
 
-      @errors = T.let(errors, T::Array[StandardError])
+      @errors = errors
     end
 
     sig { returns(String) }

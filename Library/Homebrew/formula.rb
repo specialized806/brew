@@ -268,7 +268,7 @@ class Formula
 
     @force_bottle = force_bottle
 
-    @tap = T.let(tap, T.nilable(Tap))
+    @tap = tap
     @tap ||= if path == Formulary.core_path(name)
       CoreTap.instance
     else

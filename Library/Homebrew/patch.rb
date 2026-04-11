@@ -50,7 +50,7 @@ class EmbeddedPatch # rubocop:todo Style/OneClassPerFile
 
   sig { params(strip: T.any(String, Symbol)).void }
   def initialize(strip)
-    @strip = T.let(strip, T.any(String, Symbol))
+    @strip = strip
     @owner = T.let(nil, T.nilable(Owner))
   end
 
@@ -114,7 +114,7 @@ class StringPatch < EmbeddedPatch # rubocop:todo Style/OneClassPerFile
   sig { params(strip: T.any(String, Symbol), str: String).void }
   def initialize(strip, str)
     super(strip)
-    @str = T.let(str, String)
+    @str = str
   end
 
   sig { override.returns(String) }
@@ -141,7 +141,7 @@ class ExternalPatch # rubocop:todo Style/OneClassPerFile
 
   sig { params(strip: T.any(String, Symbol), block: T.nilable(T.proc.bind(Resource::Patch).void)).void }
   def initialize(strip, &block)
-    @strip    = T.let(strip, T.any(String, Symbol))
+    @strip    = strip
     @resource = T.let(Resource::Patch.new(&block), Resource::Patch)
   end
 

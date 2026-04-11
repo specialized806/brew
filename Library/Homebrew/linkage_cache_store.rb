@@ -13,7 +13,7 @@ class LinkageCacheStore < CacheStore
   # @return [nil]
   sig { params(keg_path: String, database: CacheStoreDatabase).void }
   def initialize(keg_path, database)
-    @keg_path = T.let(keg_path, String)
+    @keg_path = keg_path
     super(database)
   end
 

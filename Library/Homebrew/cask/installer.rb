@@ -51,7 +51,7 @@ module Cask
       @verify_download_integrity = verify_download_integrity
       @quiet = quiet
       @download_queue = download_queue
-      @defer_fetch = T.let(defer_fetch, T::Boolean)
+      @defer_fetch = defer_fetch
       @ran_prelude = T.let(false, T::Boolean)
       @cask_and_formula_dependencies = T.let(nil, T.nilable(T::Array[T.any(Formula, ::Cask::Cask)]))
     end

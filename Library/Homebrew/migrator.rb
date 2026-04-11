@@ -147,10 +147,10 @@ class Migrator
 
   sig { params(formula: Formula, oldname: String, force: T::Boolean).void }
   def initialize(formula, oldname, force: false)
-    @oldname = T.let(oldname, String)
+    @oldname = oldname
     @newname = T.let(formula.name, String)
 
-    @formula = T.let(formula, Formula)
+    @formula = formula
     @old_cellar = T.let(HOMEBREW_CELLAR/oldname, Pathname)
     raise MigratorNoOldpathError, oldname unless old_cellar.exist?
 

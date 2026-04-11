@@ -843,7 +843,7 @@ class LocalBottleDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo 
   # rubocop:disable Lint/MissingSuper
   sig { params(path: Pathname).void }
   def initialize(path)
-    @cached_location = T.let(path, Pathname)
+    @cached_location = path
   end
   # rubocop:enable Lint/MissingSuper
 
@@ -1266,7 +1266,7 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy # rubocop:todo Style/OneCl
   sig { params(url: String, name: String, version: T.nilable(Version), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
-    @version = T.let(version, T.nilable(Version))
+    @version = version
 
     match_data = %r{^https?://github\.com/(?<user>[^/]+)/(?<repo>[^/]+)\.git$}.match(@url)
     return unless match_data
