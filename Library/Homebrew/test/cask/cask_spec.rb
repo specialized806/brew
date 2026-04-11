@@ -198,6 +198,10 @@ RSpec.describe Cask::Cask, :cask do
       let(:cask_file) { dir/"auto-updates-bundle-check.rb" }
       let(:artifacts) { ['app "MyFancyApp.app"'] }
 
+      before do
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(true)
+      end
+
       it "is outdated when the installed short version is lower than the tap version" do
         tap_version = "2.61"
         cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
@@ -304,6 +308,15 @@ RSpec.describe Cask::Cask, :cask do
         write_info_plist(cask.config.appdir/"MyFancyApp.app", bundle_version: "2057")
 
         expect(cask.outdated_version).to eq("2.57")
+      end
+
+      it "ignores bad bundle versions when the short version is missing" do
+        tap_version = "2026.406.0"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2025.816.0")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", bundle_version: "0.0")
+
+        expect(cask.outdated_version).to be_nil
       end
     end
 
