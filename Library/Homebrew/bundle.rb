@@ -20,9 +20,13 @@ module Homebrew
       def system(cmd, *args, verbose: false)
         return super cmd, *args if verbose
 
+        # Make sure homebrew's bin is part of the PATH
+        # This is essential for bundle extensions calling brew-installed dependencies
+        env = { "PATH" => "#{ENV.fetch("PATH", nil)}:#{HOMEBREW_PREFIX}/bin/" }
+
         logs = []
         success = T.let(false, T::Boolean)
-        IO.popen([cmd, *args], err: [:child, :out]) do |pipe|
+        IO.popen(env, [cmd, *args], err: [:child, :out]) do |pipe|
           while (buf = pipe.gets)
             logs << buf
           end
