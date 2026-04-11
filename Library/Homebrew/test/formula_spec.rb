@@ -2562,17 +2562,17 @@ RSpec.describe Formula do
         Class.new(Formula) do
           no_autobump! because: "some reason"
         end
-      end.to raise_error(RuntimeError, /official Homebrew taps/)
+      end.to raise_error(ArgumentError, /official Homebrew taps/)
     end
 
     it "allows usage when tap is official" do
-      allow(Tap).to receive(:from_path).and_return(nil)
+      official_tap = Tap.fetch("Homebrew", "core")
+      allow(Tap).to receive(:from_path).and_return(official_tap)
 
-      expect do
-        Class.new(Formula) do
-          no_autobump! because: "some reason"
-        end
-      end.not_to raise_error
+      klass = Class.new(Formula) do
+        no_autobump! because: "some reason"
+      end
+      expect(klass.autobump?).to be(false)
     end
   end
 end
