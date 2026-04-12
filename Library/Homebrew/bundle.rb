@@ -20,9 +20,13 @@ module Homebrew
       def system(cmd, *args, verbose: false)
         return super cmd, *args if verbose
 
+        env = {}
+
         # Make sure homebrew's bin is part of the PATH
-        # This is essential for bundle extensions calling brew-installed dependencies
-        env = { "PATH" => "#{ENV.fetch("PATH", nil)}:#{HOMEBREW_PREFIX}/bin/" }
+        # This is essential for the npm bundle extension that calls node as brew-installed dependency
+        if Npm.package_manager_executable && cmd.to_s == Npm.package_manager_executable.to_s
+          env = { "PATH" => "#{ENV.fetch("PATH", nil)}:#{HOMEBREW_PREFIX}/bin/" }
+        end
 
         logs = []
         success = T.let(false, T::Boolean)
