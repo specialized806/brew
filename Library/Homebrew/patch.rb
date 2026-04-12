@@ -5,8 +5,6 @@ require "resource"
 require "erb"
 require "utils/output"
 
-Owner = T.type_alias { T.any(Formula, Resource, SoftwareSpec) }
-
 # Helper module for creating patches.
 module Patch
   sig {
@@ -42,7 +40,7 @@ class EmbeddedPatch # rubocop:todo Style/OneClassPerFile
 
   abstract!
 
-  sig { params(owner: T.nilable(Owner)).returns(T.nilable(Owner)) }
+  sig { params(owner: T.nilable(Resource::Owner)).returns(T.nilable(Resource::Owner)) }
   attr_writer :owner
 
   sig { returns(T.any(String, Symbol)) }
@@ -51,7 +49,7 @@ class EmbeddedPatch # rubocop:todo Style/OneClassPerFile
   sig { params(strip: T.any(String, Symbol)).void }
   def initialize(strip)
     @strip = strip
-    @owner = T.let(nil, T.nilable(Owner))
+    @owner = T.let(nil, T.nilable(Resource::Owner))
   end
 
   sig { returns(T::Boolean) }
@@ -150,7 +148,7 @@ class ExternalPatch # rubocop:todo Style/OneClassPerFile
     true
   end
 
-  sig { params(owner: T.nilable(Owner)).void }
+  sig { params(owner: T.nilable(Resource::Owner)).void }
   def owner=(owner)
     resource.owner = owner
     resource.version(resource.checksum&.hexdigest || ERB::Util.url_encode(resource.url))

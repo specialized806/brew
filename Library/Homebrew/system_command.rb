@@ -34,7 +34,7 @@ class SystemCommand
         print_stderr:    T.any(T::Boolean, Symbol),
         debug:           T.nilable(T::Boolean),
         verbose:         T.nilable(T::Boolean),
-        secrets:         T.any(String, T::Array[T.nilable(String)]),
+        secrets:         T.any(String, T::Array[String]),
         chdir:           T.any(String, Pathname),
         reset_uid:       T::Boolean,
         run_as_real_uid: T::Boolean,
@@ -63,7 +63,7 @@ class SystemCommand
         print_stderr:    T.any(T::Boolean, Symbol),
         debug:           T.nilable(T::Boolean),
         verbose:         T.nilable(T::Boolean),
-        secrets:         T.any(String, T::Array[T.nilable(String)]),
+        secrets:         T.any(String, T::Array[String]),
         chdir:           T.any(String, Pathname),
         reset_uid:       T::Boolean,
         run_as_real_uid: T::Boolean,
@@ -93,7 +93,7 @@ class SystemCommand
       print_stderr:    T.any(T::Boolean, Symbol),
       debug:           T.nilable(T::Boolean),
       verbose:         T.nilable(T::Boolean),
-      secrets:         T.any(String, T::Array[T.nilable(String)]),
+      secrets:         T.any(String, T::Array[String]),
       chdir:           T.nilable(T.any(String, Pathname)),
       reset_uid:       T::Boolean,
       run_as_real_uid: T::Boolean,
@@ -120,7 +120,7 @@ class SystemCommand
       print_stderr:    T.any(T::Boolean, Symbol),
       debug:           T.nilable(T::Boolean),
       verbose:         T.nilable(T::Boolean),
-      secrets:         T.any(String, T::Array[T.nilable(String)]),
+      secrets:         T.any(String, T::Array[String]),
       chdir:           T.nilable(T.any(String, Pathname)),
       reset_uid:       T::Boolean,
       run_as_real_uid: T::Boolean,
@@ -180,7 +180,7 @@ class SystemCommand
       print_stderr:    T.any(T::Boolean, Symbol),
       debug:           T.nilable(T::Boolean),
       verbose:         T.nilable(T::Boolean),
-      secrets:         T.any(String, T::Array[T.nilable(String)]),
+      secrets:         T.any(String, T::Array[String]),
       chdir:           T.nilable(T.any(String, Pathname)),
       reset_uid:       T::Boolean,
       run_as_real_uid: T::Boolean,
@@ -218,7 +218,7 @@ class SystemCommand
     @print_stderr = print_stderr
     @debug = debug
     @verbose = verbose
-    @secrets = T.let((Array(secrets).compact + ENV.sensitive_environment.values).uniq, T::Array[String])
+    @secrets = T.let((Array(secrets) + ENV.sensitive_environment.values).uniq, T::Array[String])
     @chdir = chdir
     @reset_uid = reset_uid
     @run_as_real_uid = run_as_real_uid
@@ -244,7 +244,7 @@ class SystemCommand
   sig { returns(T.nilable(T.any(String, Pathname))) }
   attr_reader :chdir
 
-  sig { returns(T::Hash[String, T.untyped]) }
+  sig { returns(T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))]) }
   attr_reader :env
 
   sig { returns(T::Boolean) }

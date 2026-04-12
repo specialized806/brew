@@ -191,7 +191,7 @@ class CacheStore # rubocop:todo Style/OneClassPerFile
 
   sig { params(database: CacheStoreDatabase[Key, Value]).void }
   def initialize(database)
-    @database = T.let(database, CacheStoreDatabase[Key, Value])
+    @database = database
   end
 
   protected

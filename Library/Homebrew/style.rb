@@ -118,10 +118,10 @@ module Homebrew
       actionlint_result ||= run_actionlint!(actionlint_files)
 
       if output_type == :json
-        Offenses.new(T.cast(rubocop_result,
-                            T::Array[T::Hash[String,
-                                             T.untyped]]) + T.cast(shellcheck_result,
-                                                                   T::Array[T::Hash[String, T.untyped]]))
+        Offenses.new(
+          T.cast(rubocop_result, T::Array[T::Hash[String, T.untyped]]) +
+          T.cast(shellcheck_result, T::Array[T::Hash[String, T.untyped]]),
+        )
       else
         rubocop_result && !!shellcheck_result && shfmt_result && actionlint_result
       end

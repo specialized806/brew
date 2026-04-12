@@ -29,12 +29,14 @@ module Homebrew
         sig { returns(T.nilable(Integer)) }
         def parse_variable
           @src = T.let(@src, T.nilable(Kramdown::Utils::StringScanner))
-          @src = T.must(@src)
+          raise "Ronn src is nil" if @src.nil?
+
           start_line_number = @src.current_line_number
           @src.scan(VARIABLE_REGEX)
           variable = @src[1]
           @tree = T.let(@tree, T.nilable(Kramdown::Element))
-          @tree = T.must(@tree)
+          raise "Ronn tree is nil" if @tree.nil?
+
           if variable == "br"
             @src.skip(/\n/)
             @tree.children << Element.new(:br, nil, nil, location: start_line_number)

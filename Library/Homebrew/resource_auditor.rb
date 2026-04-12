@@ -29,7 +29,7 @@ module Homebrew
     sig { returns(T::Hash[Symbol, T.untyped]) }
     attr_reader :specs
 
-    sig { returns(T.nilable(T.any(::Formula, Cask::Cask, Resource, SoftwareSpec))) }
+    sig { returns(T.nilable(Resource::Owner)) }
     attr_reader :owner
 
     sig { returns(Symbol) }
@@ -38,8 +38,20 @@ module Homebrew
     sig { returns(T::Array[String]) }
     attr_reader :problems
 
-    sig { params(resource: T.any(Resource, SoftwareSpec), spec_name: Symbol, options: T::Hash[Symbol, T.untyped]).void }
-    def initialize(resource, spec_name, options = {})
+    sig {
+      params(
+        resource:          T.any(Resource, SoftwareSpec),
+        spec_name:         Symbol,
+        online:            T.nilable(T::Boolean),
+        strict:            T.nilable(T::Boolean),
+        only:              T.nilable(T::Array[String]),
+        except:            T.nilable(T::Array[String]),
+        core_tap:          T.nilable(T::Boolean),
+        use_homebrew_curl: T::Boolean,
+      ).void
+    }
+    def initialize(resource, spec_name, online: nil, strict: nil, only: nil, except: nil, core_tap: nil,
+                   use_homebrew_curl: false)
       @name     = T.let(resource.name, T.nilable(String))
       @version  = T.let(resource.version, T.nilable(Version))
       @checksum = T.let(resource.checksum, T.nilable(Checksum))
@@ -47,14 +59,14 @@ module Homebrew
       @mirrors  = T.let(resource.mirrors, T::Array[String])
       @using    = T.let(resource.using, T.nilable(T.any(T::Class[AbstractDownloadStrategy], Symbol)))
       @specs    = T.let(resource.specs, T::Hash[Symbol, T.untyped])
-      @owner    = T.let(resource.owner, T.nilable(T.any(::Formula, Cask::Cask, Resource, SoftwareSpec)))
+      @owner    = T.let(resource.owner, T.nilable(T.any(Cask::Cask, Resource::Owner)))
       @spec_name = T.let(spec_name, Symbol)
-      @online    = T.let(options[:online], T.nilable(T::Boolean))
-      @strict    = T.let(options[:strict], T.nilable(T::Boolean))
-      @only      = T.let(options[:only], T.nilable(T::Array[String]))
-      @except    = T.let(options[:except], T.nilable(T::Array[String]))
-      @core_tap  = T.let(options[:core_tap], T.nilable(T::Boolean))
-      @use_homebrew_curl = T.let(options[:use_homebrew_curl], T.nilable(T::Boolean))
+      @online    = online
+      @strict    = strict
+      @only      = only
+      @except    = except
+      @core_tap  = core_tap
+      @use_homebrew_curl = use_homebrew_curl
       @problems = T.let([], T::Array[String])
     end
 
@@ -76,16 +88,16 @@ module Homebrew
 
     sig { void }
     def audit_version
-      if version.nil?
+      if (version_text = version).nil?
         problem "Missing version"
-      elsif (formula_owner = owner).is_a?(::Formula) && !version.to_s.match?(GitHubPackages::VALID_OCI_TAG_REGEX) &&
+      elsif (formula_owner = owner).is_a?(::Formula) &&
+            !version_text.to_s.match?(GitHubPackages::VALID_OCI_TAG_REGEX) &&
             (formula_owner.core_formula? ||
             (formula_owner.bottle_defined? &&
               GitHubPackages::URL_REGEX.match?(formula_owner.bottle_specification.root_url)))
         problem "`version #{version}` does not match #{GitHubPackages::VALID_OCI_TAG_REGEX.source}"
-      elsif !T.must(version).detected_from_url?
-        version_text = version
-        version_url = Version.detect(url.to_s, **specs)
+      elsif !version_text.detected_from_url?
+        version_url = Version.detect(url!, **specs)
         if version_url.to_s == version_text.to_s && version.instance_of?(Version)
           problem "`version #{version_text}` is redundant with version scanned from URL"
         end
@@ -94,7 +106,7 @@ module Homebrew
 
     sig { void }
     def audit_download_strategy
-      url_strategy = DownloadStrategyDetector.detect(url.to_s)
+      url_strategy = DownloadStrategyDetector.detect(url!)
 
       if (using == :git || url_strategy == GitDownloadStrategy) && specs[:tag] && !specs[:revision]
         problem "Git should specify `revision:` when a `tag:` is specified."
@@ -107,8 +119,8 @@ module Homebrew
 
         problem "Redundant `module:` value in URL" if mod == name
 
-        if url.to_s.match?(%r{:[^/]+$})
-          mod = url.to_s.split(":").last
+        if url!.match?(%r{:[^/]+$})
+          mod = url!.split(":").last
 
           if mod == name
             problem "Redundant CVS module appended to URL"
@@ -145,17 +157,17 @@ module Homebrew
 
     sig { void }
     def audit_resource_name_matches_pypi_package_name_in_url
-      return unless url.to_s.match?(%r{^https?://files\.pythonhosted\.org/packages/})
+      return unless url!.match?(%r{^https?://files\.pythonhosted\.org/packages/})
       # Skip the top-level package name as we only care about `resource "foo"` blocks.
-      return if name == T.must(owner).name
+      return if name == owner!.name
 
-      if url.to_s.end_with? ".whl"
-        path = URI(url.to_s).path
+      if url!.end_with? ".whl"
+        path = URI(url!).path
         return unless path.present?
 
         pypi_package_name, = File.basename(path).split("-", 2)
       else
-        url.to_s =~ %r{/(?<package_name>[^/]+)-}
+        url =~ %r{/(?<package_name>[^/]+)-}
         pypi_package_name = Regexp.last_match(:package_name).to_s
       end
 
@@ -170,12 +182,12 @@ module Homebrew
     def audit_urls
       urls = [url.to_s] + mirrors
 
-      curl_dep = self.class.curl_deps.include?(T.must(owner).name)
+      curl_dep = self.class.curl_deps.include?(owner!.name)
       # Ideally `ca-certificates` would not be excluded here, but sourcing a HTTP mirror was tricky.
       # Instead, we have logic elsewhere to pass `--insecure` to curl when downloading the certs.
       # TODO: try remove the OS/env conditional
       if Homebrew::SimulateSystem.simulating_or_running_on_macos? && spec_name == :stable &&
-         T.must(owner).name != "ca-certificates" && curl_dep && !urls.find { |u| u.start_with?("http://") }
+         owner!.name != "ca-certificates" && curl_dep && !urls.find { |u| u.start_with?("http://") }
         problem "Should always include at least one HTTP mirror"
       end
 
@@ -199,7 +211,7 @@ module Homebrew
             url,
             "source URL",
             specs:,
-            use_homebrew_curl: @use_homebrew_curl == true,
+            use_homebrew_curl: @use_homebrew_curl,
           ))
             problem http_content_problem
           end
@@ -226,7 +238,7 @@ module Homebrew
       return if specs[:tag].present?
       return if specs[:revision].present?
       # Skip `resource` URLs as they use SHAs instead of branch specifiers.
-      return if name != T.must(owner).name
+      return if name != owner!.name
       return unless url.to_s.end_with?(".git")
       return unless Utils::Git.remote_exists?(url.to_s)
 
@@ -247,6 +259,18 @@ module Homebrew
     sig { params(text: String).void }
     def problem(text)
       @problems << text
+    end
+
+    private
+
+    sig { returns(Resource::Owner) }
+    def owner!
+      owner || raise("ResourceAuditor owner is nil")
+    end
+
+    sig { returns(String) }
+    def url!
+      url || raise("ResourceAuditor URL is nil")
     end
   end
 end

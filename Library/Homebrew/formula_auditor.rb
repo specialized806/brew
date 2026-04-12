@@ -31,29 +31,47 @@ module Homebrew
     sig { returns(T::Array[T.any(String, T::Hash[Symbol, T.untyped])]) }
     attr_reader :new_formula_problems
 
-    sig { params(formula: Formula, options: T::Hash[Symbol, T.untyped]).void }
-    def initialize(formula, options = {})
-      @formula = T.let(formula, Formula)
+    sig {
+      params(
+        formula:             Formula,
+        new_formula:         T.nilable(T::Boolean),
+        strict:              T.nilable(T::Boolean),
+        online:              T.nilable(T::Boolean),
+        git:                 T.nilable(T::Boolean),
+        display_cop_names:   T.nilable(T::Boolean),
+        only:                T.nilable(T::Array[String]),
+        except:              T.nilable(T::Array[String]),
+        style_offenses:      T.nilable(T::Array[Style::Offense]),
+        core_tap:            T.nilable(T::Boolean),
+        tap_audit:           T.nilable(T::Boolean),
+        spdx_license_data:   T.nilable(T::Hash[String, T.untyped]),
+        spdx_exception_data: T.nilable(T::Hash[String, T.untyped]),
+      ).void
+    }
+    def initialize(formula, new_formula: nil, strict: nil, online: nil, git: nil, display_cop_names: nil, only: nil,
+                   except: nil, style_offenses: nil, core_tap: nil, tap_audit: nil, spdx_license_data: nil,
+                   spdx_exception_data: nil)
+      @formula = formula
       @versioned_formula = T.let(formula.versioned_formula?, T::Boolean)
-      @new_formula_inclusive = T.let(options[:new_formula], T.nilable(T::Boolean))
-      @new_formula = options[:new_formula] && !@versioned_formula
-      @strict = T.let(options[:strict], T.nilable(T::Boolean))
-      @online = T.let(options[:online], T.nilable(T::Boolean))
-      @git = T.let(options[:git], T.nilable(T::Boolean))
-      @display_cop_names = T.let(options[:display_cop_names], T.nilable(T::Boolean))
-      @only = T.let(options[:only], T.nilable(T::Array[String]))
-      @except = T.let(options[:except], T.nilable(T::Array[String]))
+      @new_formula_inclusive = new_formula
+      @new_formula = new_formula && !@versioned_formula
+      @strict = strict
+      @online = online
+      @git = git
+      @display_cop_names = display_cop_names
+      @only = only
+      @except = except
       # Accept precomputed style offense results, for efficiency
-      @style_offenses = T.let(options[:style_offenses], T.nilable(T::Array[Style::Offense]))
+      @style_offenses = style_offenses
       # Allow the formula tap to be set as homebrew/core, for testing purposes
-      @core_tap = T.let(formula.tap&.core_tap? == true || options[:core_tap] == true, T::Boolean)
+      @core_tap = T.let(formula.tap&.core_tap? || core_tap || false, T::Boolean)
       @problems = T.let([], T::Array[T.any(String, T::Hash[Symbol, T.untyped])])
       @new_formula_problems = T.let([], T::Array[T.any(String, T::Hash[Symbol, T.untyped])])
       @text = T.let(formula.path.open("rb", &:read), String)
       @specs = T.let(%w[stable head].filter_map { |s| formula.send(s) }, T::Array[SoftwareSpec])
-      @spdx_license_data = T.let(options[:spdx_license_data], T.nilable(T::Hash[String, T.untyped]))
-      @spdx_exception_data = T.let(options[:spdx_exception_data], T.nilable(T::Hash[String, T.untyped]))
-      @tap_audit = T.let(options[:tap_audit], T.nilable(T::Boolean))
+      @spdx_license_data = spdx_license_data
+      @spdx_exception_data = spdx_exception_data
+      @tap_audit = tap_audit
       @committed_version_info_cache = T.let({}, T::Hash[String, T.untyped])
     end
 
@@ -298,7 +316,10 @@ module Homebrew
         stable = formula.stable
         raise "Stable is nil for formula #{formula.name}" if stable.nil?
 
-        tag = SharedAudits.github_tag_from_url(stable.url.to_s)
+        url = stable.url
+        raise "Stable URL is nil for formula #{formula.name}" if url.nil?
+
+        tag = SharedAudits.github_tag_from_url(url)
         tag ||= stable.specs[:tag]
         github_license = GitHub.get_repo_license(user, repo, ref: tag)
         return unless github_license
@@ -644,7 +665,7 @@ module Homebrew
       return if formula.deprecated? || formula.disabled?
 
       name = if formula.versioned_formula?
-        T.must(formula.name.split("@").first)
+        formula.name.split("@").fetch(0)
       else
         formula.name
       end
@@ -846,7 +867,7 @@ module Homebrew
 
       stable = formula.stable
       return unless stable
-      return unless stable.url
+      return unless (url = stable.url)
 
       version = stable.version
       problem "Stable: version (#{version}) is set to a string without a digit" unless /\d/.match?(version.to_s)
@@ -856,7 +877,7 @@ module Homebrew
         problem "Stable: non-HEAD version (#{stable_version_string}) should not begin with `HEAD`"
       end
 
-      stable_url_version = Version.parse(stable.url.to_s)
+      stable_url_version = Version.parse(url)
       stable_url_minor_version = stable_url_version.minor.to_i
 
       formula_suffix = stable.version.patch.to_i
@@ -865,7 +886,7 @@ module Homebrew
         problem "Should only be updated every #{throttled_rate} releases on multiples of #{throttled_rate}"
       end
 
-      case (url = stable.url.to_s)
+      case url
       when /[\d._-](alpha|beta|rc\d)/
         matched = Regexp.last_match(1)
         version_prefix = stable_version_string.sub(/\d+$/, "")
@@ -1083,12 +1104,11 @@ module Homebrew
       return unless @git
       return unless formula.tap # skip formula not from core or any taps
       return unless formula.tap!.git? # git log is required
-      return if formula.stable.blank?
+      return unless (current_stable = formula.stable)
 
-      current_stable = T.must(formula.stable)
       current_version = current_stable.version
       current_checksum = current_stable.checksum
-      current_url = current_stable.url.to_s
+      current_url = current_stable.url
 
       _, base_ref_version_info = committed_version_info
       base_ref_checksum = base_ref_version_info[:checksum]

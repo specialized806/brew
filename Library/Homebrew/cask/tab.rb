@@ -126,7 +126,9 @@ module Cask
       elsif loaded_from_api
         s << "using the formulae.brew.sh API"
       end
-      s << Time.at(T.must(time)).strftime("on %Y-%m-%d at %H:%M:%S") if time
+      if (t = time)
+        s << Time.at(t).strftime("on %Y-%m-%d at %H:%M:%S")
+      end
       s.join(" ")
     end
   end

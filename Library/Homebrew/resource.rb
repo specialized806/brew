@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "downloadable"
+require "formula_creator"
 require "mktemp"
 require "livecheck"
 require "on_system"
@@ -16,13 +17,15 @@ class Resource
   include OnSystem::MacOSAndLinux
   include Utils::Output::Mixin
 
+  Owner = T.type_alias { T.any(Cask::Cask, ::Formula, Resource, SoftwareSpec, Homebrew::FormulaCreator) }
+
   sig { returns(T.nilable(Time)) }
   attr_reader :source_modified_time
 
   sig { returns(T::Array[T.any(EmbeddedPatch, ExternalPatch)]) }
   attr_reader :patches
 
-  sig { returns(T.nilable(T.any(::Formula, Resource, SoftwareSpec))) }
+  sig { returns(T.nilable(Owner)) }
   attr_reader :owner
 
   sig { params(checksum: T.nilable(Checksum)).returns(T.nilable(Checksum)) }
@@ -49,7 +52,7 @@ class Resource
     @name = T.let(name, T.nilable(String))
     @source_modified_time = T.let(nil, T.nilable(Time))
     @patches = T.let([], T::Array[T.any(EmbeddedPatch, ExternalPatch)])
-    @owner = T.let(nil, T.nilable(T.any(::Formula, Resource, SoftwareSpec)))
+    @owner = T.let(nil, T.nilable(Owner))
     @livecheck = T.let(Livecheck.new(self), Livecheck)
     @livecheck_defined = T.let(false, T::Boolean)
     @insecure = T.let(false, T::Boolean)
@@ -72,9 +75,9 @@ class Resource
     super
   end
 
-  sig { params(owner: T.nilable(T.any(::Formula, Resource, SoftwareSpec))).void }
+  sig { params(owner: T.nilable(Owner)).void }
   def owner=(owner)
-    @owner = T.let(owner, T.nilable(T.any(::Formula, Resource, SoftwareSpec)))
+    @owner = T.let(owner, T.nilable(Owner))
     patches.each { |p| p.owner = owner }
   end
 
@@ -283,16 +286,19 @@ class Resource
 
   sig { override.returns(String) }
   def download_name
-    current_owner = owner
-    return T.must(T.must(current_owner).name) if name.nil?
+    owner_name = owner&.name
+    resource_name = name
+    if resource_name.nil?
+      raise "Resource name and owner name are both nil" if owner_name.nil?
 
-    # Removes /s from resource names; this allows Go package names
-    # to be used as resource names without confusing software that
-    # interacts with {download_name}, e.g. `github.com/foo/bar`.
-    escaped_name = T.must(name).tr("/", "-")
-    return escaped_name if current_owner.nil?
-
-    "#{T.must(current_owner.name)}--#{escaped_name}"
+      owner_name
+    else
+      # Removes /s from resource names; this allows Go package names
+      # to be used as resource names without confusing software that
+      # interacts with {download_name}, e.g. `github.com/foo/bar`.
+      escaped_name = resource_name.tr("/", "-")
+      owner_name ? "#{owner_name}--#{escaped_name}" : escaped_name
+    end
   end
 
   sig { override.returns(T::Array[String]) }
@@ -346,15 +352,20 @@ class Resource
 
   # A resource containing a Go package.
   class Go < Resource
+    # This is a legacy override that should be refactored for compatibility with the parent class.
+    # rubocop:disable Sorbet/AllowIncompatibleOverride
     sig {
-      override.params(
-        target:        T.nilable(T.any(String, Pathname)),
-        debug_symbols: T::Boolean,
-        block:         T.nilable(T.proc.params(arg0: ResourceStageContext).void),
+      override(allow_incompatible: true).params(
+        target: Pathname,
+        block:  T.nilable(T.proc.params(arg0: ResourceStageContext).void),
       ).void
     }
-    def stage(target = nil, debug_symbols: false, &block)
-      super(Pathname(T.must(target))/T.must(name), debug_symbols:, &block)
+    # rubocop:enable Sorbet/AllowIncompatibleOverride
+    def stage(target, &block)
+      resource_name = name
+      raise "Resource name is nil" if resource_name.nil?
+
+      super(target/resource_name, &block)
     end
   end
 
@@ -368,14 +379,13 @@ class Resource
     sig { params(bottle: Bottle).void }
     def initialize(bottle)
       super("#{bottle.name}_bottle_manifest")
-      @bottle = T.let(bottle, Bottle)
+      @bottle = bottle
       @manifest_annotations = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
     end
 
-    sig { override.params(filename: Pathname).void }
-    def verify_download_integrity(filename)
+    sig { override.params(_filename: Pathname).void }
+    def verify_download_integrity(_filename)
       # We don't have a checksum, but we can at least try parsing it.
-      _ = filename
       tab
     end
 
@@ -427,16 +437,22 @@ class Resource
       manifests_annotations = manifests.filter_map { |m| m["annotations"] }
       raise Error, "Missing 'annotations' section." if manifests_annotations.blank?
 
-      bottle_digest = T.must(bottle.resource.checksum).hexdigest
-      image_ref = GitHubPackages.version_rebuild(T.must(bottle.resource.version), bottle.rebuild, bottle.tag.to_s)
-      result = manifests_annotations.find do |m|
+      checksum = bottle.resource.checksum
+      raise "Checksum is nil" if checksum.nil?
+
+      bottle_digest = checksum.hexdigest
+      version = bottle.resource.version
+      raise "Version is nil" if version.nil?
+
+      image_ref = GitHubPackages.version_rebuild(version, bottle.rebuild, bottle.tag.to_s)
+      manifests_annotation = manifests_annotations.find do |m|
         next if m["sh.brew.bottle.digest"] != bottle_digest
 
         m["org.opencontainers.image.ref.name"] == image_ref
       end
-      raise Error, "Couldn't find manifest matching bottle checksum." if result.blank?
+      raise Error, "Couldn't find manifest matching bottle checksum." if manifests_annotation.blank?
 
-      @manifest_annotations = result
+      @manifest_annotations = manifests_annotation
     end
   end
 
@@ -454,8 +470,7 @@ class Resource
 
     sig { params(paths: T.any(String, Pathname, T::Array[T.any(String, Pathname)])).void }
     def apply(*paths)
-      paths.flatten!
-      @patch_files.concat(T.cast(paths, T::Array[T.any(String, Pathname)]))
+      @patch_files.concat(paths.flatten)
       @patch_files.uniq!
     end
 

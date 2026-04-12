@@ -359,7 +359,7 @@ class UsesFromMacOSDependency < Dependency # rubocop:todo Style/OneClassPerFile
   def initialize(name, tags = [], bounds:)
     super(name, tags)
 
-    @bounds = T.let(bounds, T::Hash[Symbol, Symbol])
+    @bounds = bounds
   end
 
   sig { override.params(other: BasicObject).returns(T::Boolean) }
