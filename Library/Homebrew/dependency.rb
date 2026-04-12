@@ -228,7 +228,8 @@ class Dependency
       end
     end
 
-    sig {
+    # CaskDependent may not be initialized yet, so we don't use a runtime sig
+    T::Sig::WithoutRuntime.sig {
       params(
         dependent: T.any(Formula, CaskDependent),
         dep:       Dependency,

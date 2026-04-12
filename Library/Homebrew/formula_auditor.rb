@@ -53,7 +53,7 @@ module Homebrew
       @specs = T.let(%w[stable head].filter_map { |s| formula.send(s) }, T::Array[SoftwareSpec])
       @spdx_license_data = T.let(options[:spdx_license_data], T.nilable(T::Hash[String, T.untyped]))
       @spdx_exception_data = T.let(options[:spdx_exception_data], T.nilable(T::Hash[String, T.untyped]))
-      @tap_audit = T.let(options[:tap_audit], T.nilable(TapAuditor))
+      @tap_audit = T.let(options[:tap_audit], T.nilable(T::Boolean))
       @committed_version_info_cache = T.let({}, T::Hash[String, T.untyped])
     end
 
