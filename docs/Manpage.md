@@ -2824,6 +2824,15 @@ generated files are written to the current directory.
 
 : Generate API data without writing it to files.
 
+### `generate-internal-api` \[`--dry-run`\]
+
+Generate internal API data files for <https://formulae.brew.sh>. The generated
+files are written to the current directory.
+
+`-n`, `--dry-run`
+
+: Generate internal API data without writing it to files.
+
 ### `generate-man-completions` \[`--no-exit-code`\]
 
 Generate Homebrew's manpages and shell completions.

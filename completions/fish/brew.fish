@@ -918,6 +918,14 @@ __fish_brew_complete_arg 'generate-formula-api' -l quiet -d 'Make some output mo
 __fish_brew_complete_arg 'generate-formula-api' -l verbose -d 'Make some output more verbose'
 
 
+__fish_brew_complete_cmd 'generate-internal-api' 'Generate internal API data files for https://formulae.brew.sh'
+__fish_brew_complete_arg 'generate-internal-api' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'generate-internal-api' -l dry-run -d 'Generate internal API data without writing it to files'
+__fish_brew_complete_arg 'generate-internal-api' -l help -d 'Show this message'
+__fish_brew_complete_arg 'generate-internal-api' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'generate-internal-api' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'generate-man-completions' 'Generate Homebrew\'s manpages and shell completions'
 __fish_brew_complete_arg 'generate-man-completions' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-man-completions' -l help -d 'Show this message'

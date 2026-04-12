@@ -179,6 +179,7 @@ __brew_internal_commands() {
     'generate-cask-api:Generate `homebrew/cask` API data files for https://formulae.brew.sh'
     'generate-cask-ci-matrix:Generate a GitHub Actions matrix for a given pull request URL or list of cask names'
     'generate-formula-api:Generate `homebrew/core` API data files for https://formulae.brew.sh'
+    'generate-internal-api:Generate internal API data files for https://formulae.brew.sh'
     'generate-man-completions:Generate Homebrew'\''s manpages and shell completions'
     'generate-zap:Generate a `zap` stanza for a cask by scanning the system for associated files and directories'
     'gist-logs:Upload logs for a failed build of formula to a new Gist'
@@ -1152,6 +1153,16 @@ _brew_generate_formula_api() {
   _arguments \
     '--debug[Display any debugging information]' \
     '--dry-run[Generate API data without writing it to files]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
+}
+
+# brew generate-internal-api
+_brew_generate_internal_api() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--dry-run[Generate internal API data without writing it to files]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
