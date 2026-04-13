@@ -195,7 +195,14 @@ module Homebrew
         # inside do_install_entry! can re-acquire the lock on the same thread.
         if entry.cls == Homebrew::Bundle::Cask
           @cask_install_mutex.synchronize do
-            @output_mutex.synchronize { do_install_entry!(entry) }
+            result = @output_mutex.synchronize { do_install_entry!(entry) }
+            # Interactive prompts (sudo, macOS security frameworks) write
+            # directly to /dev/tty without a trailing newline.  After the
+            # output lock is released, reset the terminal line so the next
+            # worker's status message starts cleanly instead of appending
+            # after a stale "Password:" prompt.
+            reset_tty_line
+            result
           end
         else
           do_install_entry!(entry)
@@ -229,6 +236,14 @@ module Homebrew
       sig { params(message: String, stream: IO).void }
       def write_output(message, stream: $stdout)
         @output_mutex.synchronize { stream.puts(message) }
+      end
+
+      sig { void }
+      def reset_tty_line
+        File.open("/dev/tty", "w") { |f| f.print("\n") }
+      rescue Errno::ENXIO, Errno::ENOENT
+        # No TTY available (CI, piped output) - nothing to clean up.
+        nil
       end
     end
   end
