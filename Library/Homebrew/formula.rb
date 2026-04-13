@@ -2765,10 +2765,13 @@ class Formula
       full_name = d["full_name"]
       next if full_name.blank?
 
-      dep = Dependency.new(full_name)
-      dep if hide.include?(dep.name) || dep.to_installed_formula.installed_prefixes.none?
-    rescue FormulaUnavailableError
-      nil
+      # Use base name to check the cellar directly, avoiding Formulary.resolve.
+      # A dep is "missing" if it's in the hide list (pretend uninstalled) or
+      # genuinely not installed in the cellar.
+      base_name = Utils.name_from_full_name(full_name)
+      next if hide.exclude?(base_name) && (HOMEBREW_CELLAR/base_name).directory?
+
+      Dependency.new(full_name)
     end
   end
 
