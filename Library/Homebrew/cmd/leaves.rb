@@ -49,7 +49,7 @@ module Homebrew
 
         dep_names = T.let((formula_dep_names + cask_dep_names).to_set, T::Set[String])
 
-        leaves_list = installed.reject { |f| f.possible_names.any? { dep_names.include?(it) } }
+        leaves_list = installed.reject { |f| dep_names.intersect?(f.possible_names) }
         leaves_list.select! { |leaf| installed_on_request?(leaf) } if args.installed_on_request?
         leaves_list.select! { |leaf| installed_as_dependency?(leaf) } if args.installed_as_dependency?
 

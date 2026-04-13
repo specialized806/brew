@@ -721,10 +721,16 @@ module Homebrew
         end
         return if missing.empty?
 
+        resolvable_missing = missing.filter_map do |d|
+          d.to_installed_formula
+        rescue FormulaUnavailableError
+          nil
+        end
+
         <<~EOS
           Some installed formulae are missing dependencies.
           You should `brew install` the missing dependencies:
-            brew install #{missing.map(&:to_installed_formula).sort_by(&:full_name) * " "}
+            brew install #{resolvable_missing.sort_by(&:full_name) * " "}
 
           Run `brew missing` for more details.
         EOS

@@ -15,7 +15,7 @@ module Utils
       def removable_formulae(formulae, casks)
         unused_formulae = unused_formulae_with_no_formula_dependents(formulae)
         cask_dep_names = cask_dependent_formula_names(casks, formulae)
-        unused_formulae.reject { |f| cask_dep_names.include?(f.name) }
+        unused_formulae.reject { |f| cask_dep_names.intersect?(f.possible_names) }
       end
 
       private
@@ -25,7 +25,7 @@ module Utils
       # @private
       sig { params(casks: T::Array[Cask::Cask], formulae: T::Array[Formula]).returns(T::Set[String]) }
       def cask_dependent_formula_names(casks, formulae)
-        formulae_by_name = T.let(formulae.to_h { |f| [f.name, f] }, T::Hash[String, Formula])
+        formulae_by_name = formulae.to_h { |f| [f.name, f] }
         names = casks.flat_map { |cask| cask.depends_on.formula }.flat_map do |name|
           base = Utils.name_from_full_name(name)
           f = formulae_by_name[base]
@@ -46,7 +46,7 @@ module Utils
           end
           [base, *dep_names]
         end
-        T.let(names.to_set, T::Set[String])
+        names.to_set
       end
 
       # An array of all installed bottled {Formula} without runtime {Formula}
@@ -85,7 +85,7 @@ module Utils
             # do nothing
           end
         end
-        formulae.reject { |f| names_to_keep.include?(f.name) }
+        formulae.reject { |f| names_to_keep.intersect?(f.possible_names) }
       end
 
       # Recursive function that returns an array of {Formula} without
