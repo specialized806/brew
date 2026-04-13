@@ -73,7 +73,7 @@ class MacOSRequirement < Requirement
   sig { returns(T.nilable(MacOSVersion)) }
   def minimum_version
     return MacOSVersion.new(HOMEBREW_MACOS_OLDEST_ALLOWED) if @comparator == "<=" || !version_specified?
-    return @version.min if @version.is_a?(Array)
+    return T.unsafe(@version).min if @version.respond_to?(:to_ary) || @version.is_a?(Array)
 
     @version
   end
@@ -81,7 +81,7 @@ class MacOSRequirement < Requirement
   sig { returns(T.nilable(MacOSVersion)) }
   def maximum_version
     return MacOSVersion.new(HOMEBREW_MACOS_NEWEST_UNSUPPORTED) if @comparator == ">=" || !version_specified?
-    return @version.max if @version.is_a?(Array)
+    return T.unsafe(@version).max if @version.respond_to?(:to_ary) || @version.is_a?(Array)
 
     @version
   end
@@ -95,7 +95,7 @@ class MacOSRequirement < Requirement
     when ">=" then other >= T.cast(version, MacOSVersion)
     when "<=" then other <= T.cast(version, MacOSVersion)
     else
-      return version.include?(other) if version.is_a?(Array)
+      return T.unsafe(version).include?(other) if version.respond_to?(:to_ary) || version.is_a?(Array)
 
       version == other
     end
@@ -122,8 +122,8 @@ class MacOSRequirement < Requirement
         ""
       end
     else
-      if version.is_a?(Array)
-        *versions, last = version.map(&:pretty_name)
+      if version.respond_to?(:to_ary) || version.is_a?(Array)
+        *versions, last = T.unsafe(version).map(&:pretty_name)
         return "This software does not run on macOS versions other than #{versions.join(", ")} and #{last}."
       end
 
@@ -150,11 +150,10 @@ class MacOSRequirement < Requirement
   sig { returns(String) }
   def display_s
     if version_specified?
-      version = @version
-      if version.is_a?(Array)
-        "macOS #{@comparator} #{version.join(" / ")} (or Linux)"
+      if @version.respond_to?(:to_ary) || @version.is_a?(Array)
+        "macOS #{@comparator} #{T.unsafe(@version).join(" / ")} (or Linux)"
       else
-        "macOS #{@comparator} #{version} (or Linux)"
+        "macOS #{@comparator} #{@version} (or Linux)"
       end
     else
       "macOS"
