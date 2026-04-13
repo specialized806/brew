@@ -734,8 +734,7 @@ module Homebrew
       def check_deprecated_disabled
         return unless HOMEBREW_CELLAR.exist?
 
-        deprecated_or_disabled = Formula.installed.select(&:deprecated?)
-        deprecated_or_disabled += Formula.installed.select(&:disabled?)
+        deprecated_or_disabled = Formula.installed.select { |f| f.deprecated? || f.disabled? }
         return if deprecated_or_disabled.empty?
 
         <<~EOS
