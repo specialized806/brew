@@ -32,7 +32,8 @@ module Utils
           next [] unless f
 
           tab = f.any_installed_keg&.tab
-          dep_names = if (tab_deps = tab&.runtime_dependencies)
+          dep_names = if (tab_deps = T.cast(tab&.runtime_dependencies,
+                                            T.nilable(T::Array[T::Hash[String, T.untyped]])))
             # Use tab data to avoid Formulary.resolve for each dependency.
             tab_deps.filter_map do |dep|
               full_name = dep["full_name"]
@@ -58,7 +59,7 @@ module Utils
         names_to_keep = T.let(Set.new, T::Set[String])
         formulae.each do |formula|
           tab = formula.any_installed_keg&.tab
-          if (tab_deps = tab&.runtime_dependencies)
+          if (tab_deps = T.cast(tab&.runtime_dependencies, T.nilable(T::Array[T::Hash[String, T.untyped]])))
             # Use tab data to avoid Formulary.resolve for each dependency.
             tab_deps.each do |dep|
               full_name = dep["full_name"]
