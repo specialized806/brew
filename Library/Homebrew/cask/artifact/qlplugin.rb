@@ -19,27 +19,33 @@ module Cask
           force:        T::Boolean,
           verbose:      T::Boolean,
           predecessor:  T.nilable(Cask),
+          successor:    T.nilable(Cask),
           reinstall:    T::Boolean,
           command:      T.class_of(SystemCommand),
           options:      T.anything,
         ).void
       }
       def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
-                        reinstall: false, command: SystemCommand, **options)
+                        successor: nil, reinstall: false, command: SystemCommand, **options)
         super
         reload_quicklook(command:)
       end
 
       sig {
         override.params(
-          skip:    T::Boolean,
-          force:   T::Boolean,
-          adopt:   T::Boolean,
-          command: T.class_of(SystemCommand),
-          options: T.anything,
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          adopt:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+          options:   T.anything,
         ).void
       }
-      def uninstall_phase(skip: false, force: false, adopt: false, command: SystemCommand, **options)
+      def uninstall_phase(skip: false, force: false, adopt: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand, **options)
         super
         reload_quicklook(command:)
       end
