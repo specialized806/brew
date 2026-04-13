@@ -550,7 +550,7 @@ module Cask
     HASH_KEYS_TO_SKIP = T.let(%w[outdated installed versions].freeze, T::Array[String])
     private_constant :HASH_KEYS_TO_SKIP
 
-    AUTO_UPDATES_BAD_BUNDLE_VERSIONS = %w[0.0].freeze
+    AUTO_UPDATES_BAD_BUNDLE_VERSIONS = %w[0 0.0].freeze
     private_constant :AUTO_UPDATES_BAD_BUNDLE_VERSIONS
 
     sig { returns(T::Hash[String, T.untyped]) }
@@ -671,6 +671,7 @@ module Cask
     sig { params(first: T.nilable(String), second: T.nilable(String)).returns(T.nilable(Integer)) }
     def compare_version_strings(first, second)
       return if first.blank? || second.blank?
+      return if first.split(".").size != second.split(".").size
 
       Version.new(first) <=> Version.new(second)
     rescue
@@ -692,6 +693,8 @@ module Cask
         return false
       end
       installed_bundle_version = nil if AUTO_UPDATES_BAD_BUNDLE_VERSIONS.include?(installed_bundle_version)
+      installed_short_version = nil if AUTO_UPDATES_BAD_BUNDLE_VERSIONS.include?(installed_short_version)
+      return false if installed_short_version.nil? && installed_bundle_version.nil?
 
       return false if [installed_short_version, installed_bundle_version].any? do |installed_plist_version|
         compare_version_strings(installed_plist_version, tap_short_version)&.zero?
