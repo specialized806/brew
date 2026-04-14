@@ -572,9 +572,14 @@ module Cask
     # NOTE: Multiple dependencies can be specified.
     #
     # @api public
-    sig { params(kwargs: T.untyped).returns(DSL::DependsOn) }
-    def depends_on(**kwargs)
+    sig { params(arg: T.nilable(Symbol), kwargs: T.untyped).returns(DSL::DependsOn) }
+    def depends_on(arg = nil, **kwargs)
       @depends_on_set_in_block = true if @called_in_on_system_block
+      if arg == :macos
+        kwargs[:macos] = :any
+      elsif arg
+        raise CaskInvalidError.new(cask, "invalid 'depends_on' value: #{arg.inspect}")
+      end
       return @depends_on if kwargs.empty?
 
       begin
