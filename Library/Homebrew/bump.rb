@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "system_command"
+require "tap"
 require "utils/git"
 require "utils/github"
 require "utils/output"
