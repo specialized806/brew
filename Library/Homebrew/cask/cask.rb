@@ -18,9 +18,11 @@ module Cask
     extend ::Utils::Output::Mixin
     include Metadata
 
-    # The token of this {Cask}.
+    # The unique identifier for this {Cask}, used to refer to it in commands
+    # and tap paths.
+    # e.g. `firefox`
     #
-    # @api internal
+    # @api public
     sig { returns(String) }
     attr_reader :token
 
@@ -481,6 +483,8 @@ module Cask
       @ruby_source_checksum = cask_struct.ruby_source_checksum
     end
 
+    # The string representation of this {Cask}, returning its {#token}.
+    #
     # @api public
     sig { returns(String) }
     def to_s = token

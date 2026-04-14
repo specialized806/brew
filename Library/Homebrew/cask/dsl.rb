@@ -321,6 +321,9 @@ module Cask
       set_unique_stanza(:homepage, homepage.nil?) { homepage }
     end
 
+    # Specifies language-specific values for the cask.
+    #
+    # @api public
     sig {
       params(
         args:    String,

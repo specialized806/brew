@@ -140,7 +140,7 @@ class Formula
   # The {Tap} instance associated with this {Formula}.
   # If it's `nil`, then this formula is loaded from a path or URL.
   #
-  # @api internal
+  # @api public
   sig { returns(T.nilable(Tap)) }
   attr_reader :tap
 
@@ -148,7 +148,7 @@ class Formula
   # This contains all the attributes (e.g. URL, checksum) that apply to the
   # stable version of this formula.
   #
-  # @api internal
+  # @api public
   sig { returns(T.nilable(SoftwareSpec)) }
   attr_reader :stable
 
@@ -158,6 +158,7 @@ class Formula
   # commit in the version control system.
   # `nil` if there is no HEAD version.
   #
+  # @api public
   # @see #stable
   sig { returns(T.nilable(SoftwareSpec)) }
   attr_reader :head
@@ -181,27 +182,37 @@ class Formula
 
   # Used for creating new Homebrew versions of software without new upstream
   # versions.
+  #
+  # @api public
   # @see .revision=
   sig { returns(Integer) }
   attr_reader :revision
 
   # Used to change version schemes for packages.
+  #
+  # @api public
   # @see .version_scheme=
   sig { returns(Integer) }
   attr_reader :version_scheme
 
   # Used to indicate API/ABI compatibility for dependencies.
+  #
+  # @api public
   # @see .compatibility_version=
   sig { returns(T.nilable(Integer)) }
   attr_reader :compatibility_version
 
   # The current working directory during builds.
   # Will only be non-`nil` inside {#install}.
+  #
+  # @api public
   sig { returns(T.nilable(Pathname)) }
   attr_reader :buildpath
 
   # The current working directory during tests.
   # Will only be non-`nil` inside {.test}.
+  #
+  # @api public
   sig { returns(T.nilable(Pathname)) }
   attr_reader :testpath
 
@@ -872,7 +883,7 @@ class Formula
 
   # The {Dependency}s for the currently active {SoftwareSpec}.
   #
-  # @api internal
+  # @api public
   delegate deps: :active_spec
 
   # The declared {Dependency}s for the currently active {SoftwareSpec} (i.e. including those provided by macOS).
@@ -1465,6 +1476,8 @@ class Formula
   def systemd_timer_path = (any_installed_prefix || opt_prefix)/"#{service_name}.timer"
 
   # The service specification for the software.
+  #
+  # @api public
   sig { returns(Homebrew::Service) }
   def service
     @service ||= T.let(Homebrew::Service.new(self, &self.class.service), T.nilable(Homebrew::Service))
@@ -1778,6 +1791,9 @@ class Formula
     false
   end
 
+  # Applies all patches in the {.patchlist} to the source tree.
+  #
+  # @api public
   sig { void }
   def patch
     return if patchlist.empty?
@@ -2003,6 +2019,8 @@ class Formula
     [name, *oldnames, *aliases].compact
   end
 
+  # The string representation of this {Formula}, returning its {#name}.
+  #
   # @api public
   sig { returns(String) }
   def to_s = name
@@ -3191,6 +3209,10 @@ class Formula
     method(:test).owner != Formula
   end
 
+  # This method is overridden in {Formula} subclasses to provide the
+  # test instructions. Called by `brew test`.
+  #
+  # @api public
   sig {
     # TODO: replace `returns(BasicObject)` with `void` after dropping `return false` handling in test
     returns(BasicObject)
@@ -3215,6 +3237,8 @@ class Formula
   #   system "make", "install"
   # end
   # ```
+  #
+  # @api public
   sig { void }
   def install; end
 
@@ -4157,6 +4181,8 @@ class Formula
     # ```ruby
     # head "https://hg.is.awesome.but.git.has.won.example.com/", using: :hg
     # ```
+    #
+    # @api public
     sig {
       params(val: T.nilable(String), specs: T::Hash[Symbol, T.untyped], block: T.nilable(T.proc.void))
         .returns(T.untyped)
