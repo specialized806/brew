@@ -149,6 +149,8 @@ class Tap
 
     Elem = type_member(:out) { { fixed: Tap } }
 
+    # Provides enumeration over all installed {Tap}s.
+    #
     # @api public
     include Enumerable
   end
@@ -180,6 +182,8 @@ class Tap
   sig { returns(String) }
   attr_reader :name
 
+  # The string representation of this {Tap}, returning its {#name}.
+  #
   # @api public
   sig { returns(String) }
   def to_s = name

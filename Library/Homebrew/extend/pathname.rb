@@ -295,6 +295,8 @@ class Pathname
   end
 
   # Writes an exec script in this folder for each target pathname.
+  #
+  # @api public
   sig { params(targets: T.any(T::Array[T.any(String, Pathname)], String, Pathname)).void }
   def write_exec_script(*targets)
     targets.flatten!
@@ -313,6 +315,8 @@ class Pathname
   end
 
   # Writes an exec script that sets environment variables.
+  #
+  # @api public
   sig {
     params(target:      T.any(Pathname, String),
            args_or_env: T.any(String, T::Array[String], T::Hash[String, String], T::Hash[Symbol, String]),
@@ -341,6 +345,8 @@ class Pathname
   end
 
   # Writes a wrapper env script and moves all files to the dst.
+  #
+  # @api public
   sig { params(dst: Pathname, env: T::Hash[String, String]).void }
   def env_script_all_files(dst, env)
     dst.mkpath
@@ -356,6 +362,8 @@ class Pathname
   end
 
   # Writes an exec script that invokes a Java jar.
+  #
+  # @api public
   sig {
     params(
       target_jar:   T.any(String, Pathname),
