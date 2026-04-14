@@ -126,15 +126,15 @@ module Homebrew
           @pinned_formulae ||= formulae.filter_map { |f| f[:name] if f[:pinned?] }
         end
 
-        sig { params(name: String).returns(T::Hash[Symbol, T.untyped]) }
+        sig { params(name: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
         def find_formula(name)
-          formula = formulae_by_full_name(name).presence
-          formula || formulae_by_name(name)
+          formula = T.cast(formulae_by_full_name(name), T.nilable(T::Hash[Symbol, T.untyped]))
+          formula.presence || formulae_by_name(name)
         end
 
         sig { params(name: String).returns(T::Array[String]) }
         def formula_dep_names(name)
-          find_formula(name).fetch(:dependencies, [])
+          find_formula(name)&.fetch(:dependencies, []) || []
         end
 
         # Returns recursive dependency names for lock conflict detection.
