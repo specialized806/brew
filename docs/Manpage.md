@@ -4140,6 +4140,14 @@ command execution (e.g. `$(cat file)`).
   `export HOMEBREW_CASK_OPTS="--appdir=${HOME}/Applications
   --fontdir=/Library/Fonts"`
 
+`HOMEBREW_CASK_OPTS_BINARIES`
+
+: Enable linking of helper executables for casks.
+
+`HOMEBREW_CASK_OPTS_REQUIRE_SHA`
+
+: Require all casks to have a checksum.
+
 `HOMEBREW_CLEANUP_MAX_AGE_DAYS`
 
 : Cleanup all cached files older than this many days.
