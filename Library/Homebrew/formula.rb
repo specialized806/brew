@@ -268,7 +268,7 @@ class Formula
 
     @force_bottle = force_bottle
 
-    @tap = T.let(tap, T.nilable(Tap))
+    @tap = tap
     @tap ||= if path == Formulary.core_path(name)
       CoreTap.instance
     else
@@ -435,6 +435,11 @@ class Formula
 
   sig { returns(T.nilable(String)) }
   def full_installed_alias_name = full_name_with_optional_tap(installed_alias_name)
+
+  sig { returns(Tap) }
+  def tap!
+    tap || raise("Formula tap is nil")
+  end
 
   sig { returns(Pathname) }
   def tap_path
@@ -2621,7 +2626,10 @@ class Formula
   # means if `a` depends on `b` then `b` will be ordered before `a` in this list.
   #
   # @api internal
-  sig { params(block: T.nilable(T.proc.params(arg0: Formula, arg1: Dependency).void)).returns(T::Array[Dependency]) }
+  T::Sig::WithoutRuntime.sig {
+    # CaskDependent may not be initialized yet, so we don't use a runtime sig
+    params(block: T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent), arg1: Dependency).void)).returns(T::Array[Dependency])
+  }
   def recursive_dependencies(&block)
     cache_key = "Formula#recursive_dependencies"
     if block
@@ -2636,7 +2644,7 @@ class Formula
   # The full set of {Requirements} for this formula's dependency tree.
   #
   # @api internal
-  sig { params(block: T.nilable(T.proc.params(arg0: Formula, arg1: Requirement).void)).returns(Requirements) }
+  sig { params(block: T.untyped).returns(Requirements) }
   def recursive_requirements(&block)
     cache_key = "Formula#recursive_requirements" unless block
     Requirement.expand(self, cache_key:, &block)
@@ -2765,10 +2773,13 @@ class Formula
       full_name = d["full_name"]
       next if full_name.blank?
 
-      dep = Dependency.new(full_name)
-      dep if hide.include?(dep.name) || dep.to_installed_formula.installed_prefixes.none?
-    rescue FormulaUnavailableError
-      nil
+      # Use base name to check the cellar directly, avoiding Formulary.resolve.
+      # A dep is "missing" if it's in the hide list (pretend uninstalled) or
+      # genuinely not installed in the cellar.
+      base_name = Utils.name_from_full_name(full_name)
+      next if hide.exclude?(base_name) && (HOMEBREW_CELLAR/base_name).directory?
+
+      Dependency.new(full_name)
     end
   end
 
@@ -3270,7 +3281,8 @@ class Formula
     return [] unless keg
 
     CacheStoreDatabase.use(:linkage) do |db|
-      linkage_checker = LinkageChecker.new(keg, self, cache_db: db)
+      typed_db = T.cast(db, CacheStoreDatabase[String, T::Hash[T.any(String, Symbol), T.anything]])
+      linkage_checker = LinkageChecker.new(keg, self, cache_db: typed_db)
       linkage_checker.undeclared_deps.map { |n| Dependency.new(n) }
     end
   end

@@ -2824,6 +2824,15 @@ generated files are written to the current directory.
 
 : Generate API data without writing it to files.
 
+### `generate-internal-api` \[`--dry-run`\]
+
+Generate internal API data files for <https://formulae.brew.sh>. The generated
+files are written to the current directory.
+
+`-n`, `--dry-run`
+
+: Generate internal API data without writing it to files.
+
 ### `generate-man-completions` \[`--no-exit-code`\]
 
 Generate Homebrew's manpages and shell completions.
@@ -4539,11 +4548,6 @@ command execution (e.g. `$(cat file)`).
 
 : If set, `brew update` will not show the list of newly added formulae/casks.
 
-`HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS`
-
-: If set, `brew upgrade` will not automatically upgrade casks with `auto_updates
-  true`. Does not affect `--greedy` or `--greedy-auto-updates` upgrades.
-
 `HOMEBREW_NO_VERIFY_ATTESTATIONS`
 
 : If set, Homebrew will not verify cryptographic attestations of build
@@ -4619,6 +4623,14 @@ command execution (e.g. `$(cat file)`).
 
 : If set, always use the latest stable tag (even if developer commands have been
   run).
+
+`HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS`
+
+: If set, `brew upgrade` will automatically upgrade casks with `auto_updates
+  true` when Homebrew detects that the version in the app bundle is older than
+  the version in the tap. Does not affect `--greedy` or `--greedy-auto-updates`
+  upgrades. Enabled by default if `$HOMEBREW_DEVELOPER` is set. This will become
+  the default behavior in Homebrew 5.2.0.
 
 `HOMEBREW_UPGRADE_GREEDY`
 

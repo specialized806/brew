@@ -457,6 +457,7 @@ module Homebrew
         description: "If set, `brew upgrade` will not automatically upgrade casks with `auto_updates true`. " \
                      "Does not affect `--greedy` or `--greedy-auto-updates` upgrades.",
         boolean:     true,
+        hidden:      true, # odeprecated: remove in 5.2.0
       },
       HOMEBREW_NO_VERIFY_ATTESTATIONS:           {
         description: "If set, Homebrew will not verify cryptographic attestations of build provenance for bottles " \
@@ -524,6 +525,14 @@ module Homebrew
                      "have been run).",
         boolean:     true,
       },
+      HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS:       {
+        # odeprecated: edit in 5.2.0
+        description: "If set, `brew upgrade` will automatically upgrade casks with `auto_updates true` when " \
+                     "Homebrew detects that the version in the app bundle is older than the version in the tap. " \
+                     "Does not affect `--greedy` or `--greedy-auto-updates` upgrades. Enabled by default if " \
+                     "`$HOMEBREW_DEVELOPER` is set. This will become the default behavior in Homebrew 5.2.0.",
+        boolean:     true,
+      },
       HOMEBREW_UPGRADE_GREEDY:                   {
         description: "If set, pass `--greedy` to all cask upgrade commands.",
         boolean:     true,
@@ -585,6 +594,7 @@ module Homebrew
       :HOMEBREW_CASK_OPTS,
       :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
       :HOMEBREW_DOWNLOAD_CONCURRENCY,
+      :HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS,
       :HOMEBREW_USE_INTERNAL_API,
     ]).freeze, T::Set[Symbol])
 
@@ -665,6 +675,24 @@ module Homebrew
       # Provide an opt-out for tests and developers.
       # Our testing framework installs formulae from file paths all over the place.
       ENV["HOMEBREW_TESTS"].blank? && ENV["HOMEBREW_DEVELOPER"].blank?
+    end
+
+    sig { returns(T::Boolean) }
+    def upgrade_auto_updates_casks?
+      upgrade_auto_updates_casks = ENV.fetch("HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS", nil)
+      upgrade_auto_updates_casks = upgrade_auto_updates_casks.present? &&
+                                   FALSY_VALUES.exclude?(upgrade_auto_updates_casks.downcase)
+      no_upgrade_auto_updates_casks = T.unsafe(self).no_upgrade_auto_updates_casks?
+
+      if upgrade_auto_updates_casks && no_upgrade_auto_updates_casks
+        raise UsageError,
+              "`HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS` and `HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS` " \
+              "cannot both be set."
+      end
+
+      return false if no_upgrade_auto_updates_casks
+
+      upgrade_auto_updates_casks || T.unsafe(self).developer?
     end
 
     sig { returns(T::Boolean) }

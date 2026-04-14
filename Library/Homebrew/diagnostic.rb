@@ -721,10 +721,16 @@ module Homebrew
         end
         return if missing.empty?
 
+        resolvable_missing = missing.filter_map do |d|
+          d.to_installed_formula
+        rescue FormulaUnavailableError
+          nil
+        end
+
         <<~EOS
           Some installed formulae are missing dependencies.
           You should `brew install` the missing dependencies:
-            brew install #{missing.map(&:to_installed_formula).sort_by(&:full_name) * " "}
+            brew install #{resolvable_missing.sort_by(&:full_name) * " "}
 
           Run `brew missing` for more details.
         EOS
@@ -734,8 +740,7 @@ module Homebrew
       def check_deprecated_disabled
         return unless HOMEBREW_CELLAR.exist?
 
-        deprecated_or_disabled = Formula.installed.select(&:deprecated?)
-        deprecated_or_disabled += Formula.installed.select(&:disabled?)
+        deprecated_or_disabled = Formula.installed.select { |f| f.deprecated? || f.disabled? }
         return if deprecated_or_disabled.empty?
 
         <<~EOS

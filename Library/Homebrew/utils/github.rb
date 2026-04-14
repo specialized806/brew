@@ -1,4 +1,4 @@
-# typed: true # rubocop:todo Sorbet/StrictSigil
+# typed: strict
 # frozen_string_literal: true
 
 require "uri"
@@ -17,34 +17,49 @@ module GitHub
 
   MAX_PER_PAGE = 100
 
+  WorkflowArray = T.type_alias { [T::Array[T::Hash[String, T.untyped]], String, String, String, String, T::Array[String], String] }
+
+  sig { params(repo: String, filters: T.untyped).returns(T::Array[T::Hash[String, T.untyped]]) }
   def self.issues(repo:, **filters)
     uri = url_to("repos", repo, "issues")
     uri.query = URI.encode_www_form(filters)
     API.open_rest(uri)
   end
 
+  sig { params(query: String, qualifiers: T.untyped).returns(T::Array[T::Hash[String, T.untyped]]) }
   def self.search_issues(query, **qualifiers)
     json = search("issues", query, **qualifiers)
     json.fetch("items", [])
   end
 
-  sig { params(files: T::Hash[String, T.untyped], description: String, private: T::Boolean).returns(String) }
+  sig { params(files: T::Hash[String, { content: String }], description: String, private: T::Boolean).returns(String) }
   def self.create_gist(files, description, private:)
     url = "#{API_URL}/gists"
     data = { "public" => !private, "files" => files, "description" => description }
     API.open_rest(url, data:, scopes: CREATE_GIST_SCOPES)["html_url"]
   end
 
+  sig { params(repo: String, title: String, body: String).returns(String) }
   def self.create_issue(repo, title, body)
     url = "#{API_URL}/repos/#{repo}/issues"
     data = { "title" => title, "body" => body }
     API.open_rest(url, data:, scopes: CREATE_ISSUE_FORK_OR_PR_SCOPES)["html_url"]
   end
 
+  sig { params(user: String, repo: String).returns(T::Hash[String, T.untyped]) }
   def self.repository(user, repo)
     API.open_rest(url_to("repos", user, repo))
   end
 
+  sig {
+    params(
+      name:            String,
+      tap:             T.nilable(Tap),
+      tap_remote_repo: T.nilable(String),
+      state:           T.nilable(String),
+      type:            T.nilable(String),
+    ).returns(T::Array[T::Hash[String, T.untyped]])
+  }
   def self.issues_for_formula(name, tap: CoreTap.instance, tap_remote_repo: tap&.full_name, state: nil, type: nil)
     return [] unless tap_remote_repo
 
@@ -53,7 +68,7 @@ module GitHub
 
   sig { returns(T::Hash[String, T.untyped]) }
   def self.user
-    @user ||= API.open_rest("#{API_URL}/user")
+    @user ||= T.let(API.open_rest("#{API_URL}/user"), T.nilable(T::Hash[String, T.untyped]))
   end
 
   sig { params(repo: String, user: String).returns(T::Hash[String, T.untyped]) }
@@ -61,6 +76,7 @@ module GitHub
     API.open_rest("#{API_URL}/repos/#{repo}/collaborators/#{user}/permission")
   end
 
+  sig { params(query: String, only: T.nilable(T.any(Symbol, String))).void }
   def self.print_pull_requests_matching(query, only = nil)
     open_or_closed_prs = search_issues(query, is: only, type: "pr", user: "Homebrew")
 
@@ -95,7 +111,7 @@ module GitHub
 
   sig { params(repo: String, org: T.nilable(String)).returns(T::Boolean) }
   def self.fork_exists?(repo, org: nil)
-    _, reponame = repo.split("/")
+    reponame = repo.split("/").fetch(1)
 
     username = org || API.open_rest(url_to("user")) { |json| json["login"] }
     json = API.open_rest(url_to("repos", username, reponame))
@@ -120,8 +136,9 @@ module GitHub
     API.open_rest(uri) { |json| json.fetch("private", true) }
   end
 
+  sig { params(main_params: String, qualifiers: T.untyped).returns(String) }
   def self.search_query_string(*main_params, **qualifiers)
-    params = main_params
+    params = T.let(main_params.to_a, T::Array[T.nilable(String)])
 
     from = qualifiers.fetch(:from, nil)
     to = qualifiers.fetch(:to, nil)
@@ -141,16 +158,22 @@ module GitHub
     "q=#{URI.encode_www_form_component(params.compact.join(" "))}&per_page=#{MAX_PER_PAGE}"
   end
 
+  sig { params(subroutes: T.any(String, Integer)).returns(URI::Generic) }
   def self.url_to(*subroutes)
     URI.parse([API_URL, *subroutes].join("/"))
   end
 
+  sig { params(entity: String, queries: String, qualifiers: T.untyped).returns(T::Hash[String, T.untyped]) }
   def self.search(entity, *queries, **qualifiers)
     uri = url_to "search", entity
     uri.query = search_query_string(*queries, **qualifiers)
     API.open_rest(uri)
   end
 
+  sig {
+    params(user: String, repo: String, pull_request: T.any(String, Integer), commit: T.nilable(String))
+      .returns(T::Array[T::Hash[String, T.untyped]])
+  }
   def self.repository_approved_reviews(user, repo, pull_request, commit: nil)
     query = <<~EOS
       { repository(name: "#{repo}", owner: "#{user}") {
@@ -192,6 +215,7 @@ module GitHub
     end
   end
 
+  sig { params(user: String, repo: String, workflow: String, ref: String, inputs: T.untyped).void }
   def self.workflow_dispatch_event(user, repo, workflow, ref, **inputs)
     url = "#{API_URL}/repos/#{user}/#{repo}/actions/workflows/#{workflow}/dispatches"
     API.open_rest(url, data:           { ref:, inputs: },
@@ -211,6 +235,7 @@ module GitHub
     API.open_rest(url, request_method: :GET)
   end
 
+  sig { params(user: String, repo: String, tag: String, previous_tag: T.nilable(String)).returns(T::Hash[String, T.untyped]) }
   def self.generate_release_notes(user, repo, tag, previous_tag: nil)
     url = "#{API_URL}/repos/#{user}/#{repo}/releases/generate-notes"
     data = { tag_name: tag }
@@ -239,12 +264,24 @@ module GitHub
     API.open_rest(url, data:, request_method: method, scopes: CREATE_ISSUE_FORK_OR_PR_SCOPES)
   end
 
-  def self.upload_release_asset(user, repo, id, local_file: nil, remote_file: nil)
+  sig {
+    params(user: String, repo: String, id: Integer, local_file: String, remote_file: T.nilable(String)).void
+  }
+  def self.upload_release_asset(user, repo, id, local_file:, remote_file: nil)
     url = "https://uploads.github.com/repos/#{user}/#{repo}/releases/#{id}/assets"
     url += "?name=#{remote_file}" if remote_file
     API.open_rest(url, data_binary_path: local_file, request_method: :POST, scopes: CREATE_ISSUE_FORK_OR_PR_SCOPES)
   end
 
+  sig {
+    params(
+      user:             String,
+      repo:             String,
+      pull_request:     String,
+      workflow_id:      String,
+      artifact_pattern: String,
+    ).returns(WorkflowArray)
+  }
   def self.get_workflow_run(user, repo, pull_request, workflow_id: "tests.yml", artifact_pattern: "bottles{,_*}")
     scopes = CREATE_ISSUE_FORK_OR_PR_SCOPES
 
@@ -298,7 +335,7 @@ module GitHub
     [check_suite, user, repo, pull_request, workflow_id, scopes, artifact_pattern]
   end
 
-  sig { params(workflow_array: T::Array[T.untyped]).returns(T::Array[T.untyped]) }
+  sig { params(workflow_array: WorkflowArray).returns(T::Array[String]) }
   def self.get_artifact_urls(workflow_array)
     check_suite, user, repo, pr, workflow_id, scopes, artifact_pattern = *workflow_array
     if check_suite.empty?
@@ -309,15 +346,16 @@ module GitHub
       EOS
     end
 
-    status = check_suite.last["status"].sub("_", " ").downcase
+    last_check = check_suite.fetch(-1)
+    status = last_check["status"].sub("_", " ").downcase
     if status != "completed"
       raise API::Error, <<~EOS
         The newest workflow run for ##{pr} is still #{status}!
-          #{Formatter.url check_suite.last["workflowRun"]["url"]}
+          #{Formatter.url last_check["workflowRun"]["url"]}
       EOS
     end
 
-    run_id = check_suite.last["workflowRun"]["databaseId"]
+    run_id = last_check["workflowRun"]["databaseId"]
     artifacts = []
     per_page = 50
     API.paginate_rest("#{API_URL}/repos/#{user}/#{repo}/actions/runs/#{run_id}/artifacts",
@@ -336,13 +374,14 @@ module GitHub
     if matching_artifacts.empty?
       raise API::Error, <<~EOS
         No artifacts with the pattern `#{artifact_pattern}` were found!
-          #{Formatter.url check_suite.last["workflowRun"]["url"]}
+          #{Formatter.url last_check["workflowRun"]["url"]}
       EOS
     end
 
     matching_artifacts.map { |art| art["archive_download_url"] }
   end
 
+  sig { params(org: String, per_page: Integer).returns(T::Array[String]) }
   def self.public_member_usernames(org, per_page: MAX_PER_PAGE)
     url = "#{API_URL}/orgs/#{org}/public_members"
     members = []
@@ -353,9 +392,11 @@ module GitHub
 
       return members if result.length < per_page
     end
+
+    members
   end
 
-  sig { params(org: String, team: String).returns(T::Hash[String, T.untyped]) }
+  sig { params(org: String, team: String).returns(T::Hash[String, String]) }
   def self.members_by_team(org, team)
     query = <<~EOS
         { organization(login: "#{org}") {
@@ -421,8 +462,8 @@ module GitHub
       }
     EOS
 
-    sponsorships = T.let([], T::Array[Hash])
-    errors = T.let([], T::Array[Hash])
+    sponsorships = T.let([], T::Array[T::Hash[String, T.untyped]])
+    errors = T.let([], T::Array[T::Hash[String, T.untyped]])
 
     API.paginate_graphql(query, variables: { user: }, scopes: ["user"], raise_errors: false) do |result|
       # Some organisations do not permit themselves to be queried through the
@@ -475,6 +516,7 @@ module GitHub
     raise unless e.message.match?(API::GITHUB_IP_ALLOWLIST_ERROR)
   end
 
+  sig { params(name: String, version: T.nilable(String)).returns(Regexp) }
   def self.pull_request_title_regex(name, version = nil)
     return /(^|\s)#{Regexp.quote(name)}(:|,|\s|$)/i if version.blank?
 
@@ -544,7 +586,10 @@ module GitHub
     pull_requests || []
   end
 
-  sig { params(name: String, tap_remote_repo: String, version: T.nilable(String)).returns(T::Array[T::Hash[String, T.untyped]]) }
+  sig {
+    params(name: String, tap_remote_repo: String, version: T.nilable(String))
+      .returns(T::Array[T::Hash[String, String]])
+  }
   def self.fetch_open_pull_requests(name, tap_remote_repo, version: nil)
     return [] if tap_remote_repo.blank?
 
@@ -553,7 +598,7 @@ module GitHub
     cache_epoch = Time.now - (Time.now.to_i % cache_expiry)
     cache_key = "#{tap_remote_repo}_#{cache_epoch.to_i}"
 
-    @open_pull_requests ||= {}
+    @open_pull_requests ||= T.let({}, T.nilable(T::Hash[String, T.untyped]))
     @open_pull_requests[cache_key] ||= begin
       query = <<~EOS
         query($owner: String!, $repo: String!, $states: [PullRequestState!], $after: String) {
@@ -679,6 +724,7 @@ module GitHub
     [remote_url, username]
   end
 
+  sig { params(info: T::Hash[Symbol, T.untyped], args: T.any(Homebrew::DevCmd::BumpFormulaPr::Args, Homebrew::DevCmd::BumpCaskPr::Args)).void }
   def self.create_bump_pr(info, args:)
     # --write-only without --commit means don't take any git actions at all.
     return if args.write_only? && !args.commit?
@@ -792,6 +838,10 @@ module GitHub
     end
   end
 
+  sig {
+    params(user: String, repo: String, pull_request: T.any(String, Integer), per_page: Integer)
+      .returns(T::Array[String])
+  }
   def self.pull_request_commits(user, repo, pull_request, per_page: MAX_PER_PAGE)
     pr_data = API.open_rest(url_to("repos", user, repo, "pulls", pull_request))
     commits_api = pr_data["commits_url"]
@@ -811,13 +861,20 @@ module GitHub
         raise API::Error, "Expected #{commit_count} commits but actually got #{commits.length}!"
       end
     end
+
+    commits
   end
 
+  sig { params(user: String, repo: String, pull_request: T.any(String, Integer)).returns(T::Array[String]) }
   def self.pull_request_labels(user, repo, pull_request)
     pr_data = API.open_rest(url_to("repos", user, repo, "pulls", pull_request))
     pr_data["labels"].map { |label| label["name"] }
   end
 
+  sig {
+    params(user: String, repo: String, ref: String, version: Version,
+           length: T.nilable(Integer)).returns(T.nilable(String))
+  }
   def self.last_commit(user, repo, ref, version, length: nil)
     return if Homebrew::EnvConfig.no_github_api?
 
@@ -837,6 +894,7 @@ module GitHub
       return if commit.length < length
 
       commit = commit[0, length]
+      odie "commit does not exist" unless commit
 
       # We return nil if the following fails as we currently don't have a way to
       # determine the reason for the failure. This means we can't distinguish a
@@ -849,6 +907,7 @@ module GitHub
     commit
   end
 
+  sig { params(user: String, repo: String, commit: String).returns(T::Boolean) }
   def self.multiple_short_commits_exist?(user, repo, commit)
     return false if Homebrew::EnvConfig.no_github_api?
 
@@ -1019,21 +1078,25 @@ module GitHub
     end
   end
 
-  sig { params(user: String, author: String, from: T.nilable(String), to: T.nilable(String)).returns(T::Array[T.untyped]) }
+  sig {
+    params(user: String, author: String, from: T.nilable(String), to: T.nilable(String))
+      .returns(T::Array[T::Hash[String, T.untyped]])
+  }
   def self.search_merged_pull_requests_in_user_or_organisation(user, author, from:, to:)
     search_issues("", is: "merged", user:, author:, from:, to:)
   rescue GitHub::API::ValidationFailedError
     opoo "Couldn't search GitHub for PRs authored by #{author}. Their profile might be private. Defaulting to 0."
-    0
+    []
   end
 
   sig {
-    params(user: String, reviewed_by: String, from: T.nilable(String), to: T.nilable(String)).returns(T::Array[T.untyped])
+    params(user: String, reviewed_by: String, from: T.nilable(String), to: T.nilable(String))
+      .returns(T::Array[T::Hash[String, T.untyped]])
   }
   def self.search_approved_pull_requests_in_user_or_organisation(user, reviewed_by, from:, to:)
     search_issues("", is: "pr", review: "approved", user:, reviewed_by:, from:, to:)
   rescue GitHub::API::ValidationFailedError
     opoo "Couldn't search GitHub for PRs reviewed by #{reviewed_by}. Their profile might be private. Defaulting to 0."
-    0
+    []
   end
 end

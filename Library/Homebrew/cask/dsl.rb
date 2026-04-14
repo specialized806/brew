@@ -180,7 +180,7 @@ module Cask
       @auto_updates_set_in_block = T.let(false, T::Boolean)
       @autobump = T.let(true, T::Boolean)
       @called_in_on_system_block = T.let(false, T::Boolean)
-      @cask = T.let(cask, Cask)
+      @cask = cask
       @caveats = T.let(DSL::Caveats.new(cask), DSL::Caveats)
       @conflicts_with = T.let(nil, T.nilable(DSL::ConflictsWith))
       @conflicts_with_set_in_block = T.let(false, T::Boolean)

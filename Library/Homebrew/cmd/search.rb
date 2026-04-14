@@ -116,7 +116,7 @@ module Homebrew
         true
       end
 
-      sig { params(query: String).returns(String) }
+      sig { params(query: String).void }
       def search_pull_requests(query)
         only = if args.open? && !args.closed?
           "open"

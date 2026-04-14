@@ -69,9 +69,9 @@ class Build
   sig { returns(T::Array[Dependency]) }
   def expand_deps
     formula.recursive_dependencies do |dependent, dep|
-      build = effective_build_options_for(dependent)
+      build = effective_build_options_for(T.cast(dependent, Formula))
       if dep.prune_from_option?(build) ||
-         dep.prune_if_build_and_not_dependent?(dependent, formula) ||
+         dep.prune_if_build_and_not_dependent?(T.cast(dependent, Formula), formula) ||
          (dep.test? && !dep.build?) || dep.implicit?
         Dependency.prune
       elsif dep.build?
@@ -291,8 +291,8 @@ rescue Exception => e # rubocop:disable Lint/RescueException
     error_hash["cmd"] = e.cmd
     error_hash["status"] = if e.status.is_a?(Process::Status)
       {
-        exitstatus: e.status.exitstatus,
-        termsig:    e.status.termsig,
+        exitstatus: e.exitstatus,
+        termsig:    e.termsig,
       }
     else
       e.status

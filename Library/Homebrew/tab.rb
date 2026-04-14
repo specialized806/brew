@@ -1,4 +1,4 @@
-# typed: true # rubocop:todo Sorbet/StrictSigil
+# typed: strict
 # frozen_string_literal: true
 
 require "cxxstdlib"
@@ -16,6 +16,11 @@ class AbstractTab
 
   FILENAME = "INSTALL_RECEIPT.json"
 
+  RuntimeDependencies = T.type_alias do
+    T.nilable(T.any(T::Array[String], T::Array[T::Hash[String, T.untyped]], T::Hash[String, T.untyped],
+                    T::Hash[Symbol, T.untyped]))
+  end
+
   # Check whether the formula or cask was installed as a dependency.
   #
   # @api internal
@@ -31,11 +36,31 @@ class AbstractTab
   sig { returns(T.nilable(String)) }
   attr_accessor :homebrew_version
 
-  attr_accessor :tabfile, :loaded_from_api, :loaded_from_internal_api, :time, :arch, :source, :built_on
+  sig { returns(T.nilable(Pathname)) }
+  attr_accessor :tabfile
+
+  sig { returns(T.nilable(T::Boolean)) }
+  attr_accessor :loaded_from_api
+
+  sig { returns(T.nilable(T::Boolean)) }
+  attr_accessor :loaded_from_internal_api
+
+  sig { returns(T.nilable(Integer)) }
+  attr_accessor :time
+
+  sig { returns(T.nilable(T.any(String, Symbol))) }
+  attr_accessor :arch
+
+  sig { returns(T::Hash[String, T.untyped]) }
+  attr_accessor :source
+
+  sig { returns(T.nilable(T::Hash[String, T.untyped])) }
+  attr_accessor :built_on
 
   # Returns the formula or cask runtime dependencies.
   #
   # @api internal
+  sig { returns(RuntimeDependencies) }
   attr_accessor :runtime_dependencies
 
   # TODO: Update attributes to only accept symbol keys (kwargs style).
@@ -49,10 +74,10 @@ class AbstractTab
     @loaded_from_api = T.let(nil, T.nilable(T::Boolean))
     @loaded_from_internal_api = T.let(nil, T.nilable(T::Boolean))
     @time = T.let(nil, T.nilable(Integer))
-    @arch = T.let(nil, T.nilable(String))
-    @source = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
+    @arch = T.let(nil, T.nilable(T.any(String, Symbol)))
+    @source = T.let({}, T::Hash[String, T.untyped])
     @built_on = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
-    @runtime_dependencies = T.let(nil, T.nilable(T::Array[T.untyped]))
+    @runtime_dependencies = T.let(nil, RuntimeDependencies)
 
     attributes.each do |key, value|
       case key.to_sym
@@ -62,7 +87,7 @@ class AbstractTab
         @installed_on_request = value.nil? ? false : value
         @installed_on_request_present = true
       when :changed_files
-        @changed_files = value&.map { |f| Pathname(f) }
+        @changed_files = T.let(value&.map { |f| Pathname(f) }, T.nilable(T::Array[Pathname]))
       else
         instance_variable_set(:"@#{key}", value)
       end
@@ -138,6 +163,7 @@ class AbstractTab
     new(attributes)
   end
 
+  sig { params(formula: Formula, declared_deps: T::Array[String]).returns(T::Hash[String, T.untyped]) }
   def self.formula_to_dep_hash(formula, declared_deps)
     {
       "full_name"             => formula.full_name,
@@ -174,7 +200,7 @@ class AbstractTab
   sig { void }
   def write
     self.class.cache[tabfile] = self
-    tabfile.atomic_write(to_json)
+    T.must(tabfile).atomic_write(to_json)
   end
 end
 
@@ -182,10 +208,31 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   # Check whether the formula was poured from a bottle.
   #
   # @api internal
+  sig { returns(T.nilable(T::Boolean)) }
   attr_accessor :poured_from_bottle
 
-  attr_accessor :built_as_bottle, :stdlib, :aliases
-  attr_writer :used_options, :unused_options, :compiler, :source_modified_time
+  sig { returns(T.nilable(T::Boolean)) }
+  attr_accessor :built_as_bottle
+
+  sig { returns(T.nilable(T.any(String, Symbol))) }
+  attr_accessor :stdlib
+
+  sig { returns(T.nilable(T::Array[String])) }
+  attr_accessor :aliases
+
+  sig { params(used_options: T.nilable(T::Array[String])).returns(T.nilable(T::Array[String])) }
+  attr_writer :used_options
+
+  sig { params(unused_options: T.nilable(T::Array[String])).returns(T.nilable(T::Array[String])) }
+  attr_writer :unused_options
+
+  sig { params(compiler: T.nilable(T.any(String, Symbol))).returns(T.nilable(T.any(String, Symbol))) }
+  attr_writer :compiler
+
+  sig { params(source_modified_time: T.nilable(Integer)).returns(T.nilable(Integer)) }
+  attr_writer :source_modified_time
+
+  sig { returns(T.nilable(String)) }
   attr_reader :tapped_from
 
   sig { returns(T.nilable(T::Array[Pathname])) }
@@ -195,12 +242,12 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   def initialize(attributes = {})
     @poured_from_bottle = T.let(nil, T.nilable(T::Boolean))
     @built_as_bottle = T.let(nil, T.nilable(T::Boolean))
-    @changed_files = nil
-    @stdlib = T.let(nil, T.nilable(String))
+    @changed_files = T.let(nil, T.nilable(T::Array[Pathname]))
+    @stdlib = T.let(nil, T.nilable(T.any(String, Symbol)))
     @aliases = T.let(nil, T.nilable(T::Array[String]))
     @used_options = T.let(nil, T.nilable(T::Array[String]))
     @unused_options = T.let(nil, T.nilable(T::Array[String]))
-    @compiler = T.let(nil, T.nilable(String))
+    @compiler = T.let(nil, T.nilable(T.any(String, Symbol)))
     @source_modified_time = T.let(nil, T.nilable(Integer))
     @tapped_from = T.let(nil, T.nilable(String))
 
@@ -245,8 +292,6 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   sig { params(content: String, path: T.any(Pathname, String)).returns(T.attached_class) }
   def self.from_file_content(content, path)
     tab = super
-
-    tab.source ||= {}
 
     tab.tap = tab.tapped_from if !tab.tapped_from.nil? && tab.tapped_from != "path or URL"
     tab.tap = "homebrew/core" if ["mxcl/master", "Homebrew/homebrew"].include?(tab.tap)
@@ -300,6 +345,7 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
     end
   end
 
+  sig { params(deprecated_options: T::Array[DeprecatedOption], options: Options).returns(Options) }
   def self.remap_deprecated_options(deprecated_options, options)
     deprecated_options.each do |deprecated_option|
       option = options.find { |o| o.name == deprecated_option.old }
@@ -382,6 +428,7 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   end
   private_class_method :empty_source_versions
 
+  sig { params(formula: Formula, deps: T::Array[Dependency]).returns(T::Array[T::Hash[String, T.untyped]]) }
   def self.runtime_deps_hash(formula, deps)
     deps.map do |dep|
       formula_to_dep_hash(dep.to_formula, formula.deps.map(&:name))
@@ -393,14 +440,16 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
     !used_options.empty? || !unused_options.empty?
   end
 
+  sig { params(val: T.any(String, Dependency, Requirement)).returns(T::Boolean) }
   def with?(val)
-    option_names = val.respond_to?(:option_names) ? val.option_names : [val]
+    option_names = val.is_a?(String) ? [val] : val.option_names
 
     option_names.any? do |name|
       include?("with-#{name}") || unused_options.include?("without-#{name}")
     end
   end
 
+  sig { params(val: T.any(String, Dependency, Requirement)).returns(T::Boolean) }
   def without?(val)
     !with?(val)
   end
@@ -438,6 +487,7 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
     @compiler || DevelopmentTools.default_compiler
   end
 
+  sig { override.returns(RuntimeDependencies) }
   def runtime_dependencies
     # Homebrew versions prior to 1.1.6 generated incorrect runtime dependency
     # lists.
@@ -447,18 +497,18 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   sig { returns(CxxStdlib) }
   def cxxstdlib
     # Older tabs won't have these values, so provide sensible defaults
-    lib = stdlib.to_sym if stdlib
+    lib = stdlib&.to_sym
     CxxStdlib.create(lib, compiler.to_sym)
   end
 
   sig { returns(T::Boolean) }
   def built_bottle?
-    built_as_bottle && !poured_from_bottle
+    !!built_as_bottle && !poured_from_bottle
   end
 
   sig { returns(T::Boolean) }
   def bottle?
-    built_as_bottle
+    !!built_as_bottle
   end
 
   sig { returns(Symbol) }
@@ -540,7 +590,7 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
   def write
     # If this is a new installation, the cache of installed formulae
     # will no longer be valid.
-    Formula.clear_cache unless tabfile.exist?
+    Formula.clear_cache unless tabfile&.exist?
 
     super
   end
@@ -560,7 +610,9 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
       s << "using the formulae.brew.sh API"
     end
 
-    s << Time.at(time).strftime("on %Y-%m-%d at %H:%M:%S") if time
+    if (t = time)
+      s << Time.at(t).strftime("on %Y-%m-%d at %H:%M:%S")
+    end
 
     unless used_options.empty?
       s << "with:"

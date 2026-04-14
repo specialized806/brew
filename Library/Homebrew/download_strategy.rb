@@ -843,7 +843,7 @@ class LocalBottleDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo 
   # rubocop:disable Lint/MissingSuper
   sig { params(path: Pathname).void }
   def initialize(path)
-    @cached_location = T.let(path, Pathname)
+    @cached_location = path
   end
   # rubocop:enable Lint/MissingSuper
 
@@ -1266,7 +1266,7 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy # rubocop:todo Style/OneCl
   sig { params(url: String, name: String, version: T.nilable(Version), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     super
-    @version = T.let(version, T.nilable(Version))
+    @version = version
 
     match_data = %r{^https?://github\.com/(?<user>[^/]+)/(?<repo>[^/]+)\.git$}.match(@url)
     return unless match_data
@@ -1277,7 +1277,8 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy # rubocop:todo Style/OneCl
 
   sig { override.returns(String) }
   def last_commit
-    @last_commit ||= GitHub.last_commit(@user, @repo, @ref, version, length: MINIMUM_COMMIT_HASH_LENGTH)
+    @last_commit ||= GitHub.last_commit(T.must(@user), T.must(@repo), @ref, T.cast(T.must(version), Version),
+                                        length: MINIMUM_COMMIT_HASH_LENGTH)
     @last_commit || super
   end
 
@@ -1287,7 +1288,7 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy # rubocop:todo Style/OneCl
     return super if last_commit.blank?
     return true unless last_commit.start_with?(commit)
 
-    if GitHub.multiple_short_commits_exist?(@user, @repo, commit)
+    if GitHub.multiple_short_commits_exist?(T.must(@user), T.must(@repo), commit)
       true
     else
       T.must(@version).update_commit(commit)

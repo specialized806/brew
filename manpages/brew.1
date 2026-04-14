@@ -1781,6 +1781,13 @@ Generate \fBhomebrew/core\fP API data files for
 .TP
 \fB\-n\fP, \fB\-\-dry\-run\fP
 Generate API data without writing it to files\.
+.SS "\fBgenerate\-internal\-api\fP \fR[\fB\-\-dry\-run\fP]"
+Generate internal API data files for 
+.UR https://formulae\.brew\.sh
+.UE \&\. The generated files are written to the current directory\.
+.TP
+\fB\-n\fP, \fB\-\-dry\-run\fP
+Generate internal API data without writing it to files\.
 .SS "\fBgenerate\-man\-completions\fP \fR[\fB\-\-no\-exit\-code\fP]"
 Generate Homebrew\[u2019]s manpages and shell completions\.
 .TP
@@ -2946,9 +2953,6 @@ If set, \fBbrew install\fP \fIformula|cask\fP will not upgrade \fIformula|cask\f
 \fBHOMEBREW_NO_UPDATE_REPORT_NEW\fP
 If set, \fBbrew update\fP will not show the list of newly added formulae/casks\.
 .TP
-\fBHOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS\fP
-If set, \fBbrew upgrade\fP will not automatically upgrade casks with \fBauto_updates true\fP\&\. Does not affect \fB\-\-greedy\fP or \fB\-\-greedy\-auto\-updates\fP upgrades\.
-.TP
 \fBHOMEBREW_NO_VERIFY_ATTESTATIONS\fP
 If set, Homebrew will not verify cryptographic attestations of build provenance for bottles from homebrew\-core\.
 .TP
@@ -3003,6 +3007,9 @@ Use this path as the temporary directory for building packages\. Changing this m
 .TP
 \fBHOMEBREW_UPDATE_TO_TAG\fP
 If set, always use the latest stable tag (even if developer commands have been run)\.
+.TP
+\fBHOMEBREW_UPGRADE_AUTO_UPDATES_CASKS\fP
+If set, \fBbrew upgrade\fP will automatically upgrade casks with \fBauto_updates true\fP when Homebrew detects that the version in the app bundle is older than the version in the tap\. Does not affect \fB\-\-greedy\fP or \fB\-\-greedy\-auto\-updates\fP upgrades\. Enabled by default if \fB$HOMEBREW_DEVELOPER\fP is set\. This will become the default behavior in Homebrew 5\.2\.0\.
 .TP
 \fBHOMEBREW_UPGRADE_GREEDY\fP
 If set, pass \fB\-\-greedy\fP to all cask upgrade commands\.
