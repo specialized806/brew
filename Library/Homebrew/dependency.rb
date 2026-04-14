@@ -177,7 +177,8 @@ class Dependency
         deps:            T::Array[Dependency],
         cache_key:       T.nilable(String),
         cache_timestamp: T.nilable(Time),
-        block:           T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent), arg1: Dependency).void),
+        block:           T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent),
+                                                 arg1: Dependency).returns(T.nilable(Symbol))),
       ).returns(T::Array[Dependency])
     }
     def expand(dependent, deps = dependent.deps, cache_key: nil, cache_timestamp: nil, &block)
@@ -200,13 +201,13 @@ class Dependency
           next if dependent.name == dep.name
 
           case action(dependent, dep, &block)
-          when :prune
+          when Dependable::PRUNE
             next
-          when :skip
+          when Dependable::SKIP
             next if @expand_stack.include? dep.name
 
             expanded_deps.concat(expand(dep.to_formula, cache_key:, &block))
-          when :keep_but_prune_recursive_deps
+          when Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS
             expanded_deps << dep
           else
             next if @expand_stack.include? dep.name
@@ -233,37 +234,16 @@ class Dependency
       params(
         dependent: T.any(Formula, CaskDependent),
         dep:       Dependency,
-        block:     T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent), arg1: Dependency).void),
-      ).returns(T.nilable(T.any(Integer, Symbol)))
+        block:     T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent),
+                                           arg1: Dependency).returns(T.nilable(Symbol))),
+      ).returns(T.nilable(Symbol))
     }
     def action(dependent, dep, &block)
-      catch(:action) do
-        if block
-          yield dependent, dep
-        elsif dep.optional? || dep.recommended?
-          prune unless T.cast(dependent, Formula).build.with?(dep)
-        end
+      if block
+        yield dependent, dep
+      elsif dep.optional? || dep.recommended?
+        Dependable::PRUNE unless T.cast(dependent, Formula).build.with?(dep)
       end
-    end
-
-    # Prune a dependency and its dependencies recursively.
-    sig { void }
-    def prune
-      throw(:action, :prune)
-    end
-
-    # Prune a single dependency but do not prune its dependencies.
-    sig { void }
-    def skip
-      throw(:action, :skip)
-    end
-
-    # Keep a dependency, but prune its dependencies.
-    #
-    # @api internal
-    sig { void }
-    def keep_but_prune_recursive_deps
-      throw(:action, :keep_but_prune_recursive_deps)
     end
 
     sig { params(all: T::Array[Dependency]).returns(T::Array[Dependency]) }

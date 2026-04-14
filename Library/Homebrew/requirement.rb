@@ -319,7 +319,7 @@ class Requirement
         dependent: T.any(Formula, CaskDependent, SoftwareSpec),
         cache_key: T.nilable(String),
         block:     T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent, SoftwareSpec),
-                                           arg1: Requirement).void),
+                                           arg1: Requirement).returns(T.nilable(Symbol))),
       ).returns(Requirements)
     }
     def expand(dependent, cache_key: nil, &block)
@@ -357,23 +357,17 @@ class Requirement
         dependent: T.any(Formula, CaskDependent, SoftwareSpec),
         req:       Requirement,
         block:     T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent, SoftwareSpec),
-                                           arg1: Requirement).void),
-      ).returns(T.nilable(T::Boolean))
+                                           arg1: Requirement).returns(T.nilable(Symbol))),
+      ).returns(T::Boolean)
     }
     def prune?(dependent, req, &block)
-      catch(:prune) do
-        if block
-          yield dependent, req
-        elsif req.optional? || req.recommended?
-          prune unless T.cast(dependent, Formula).build.with?(req)
-        end
+      if block
+        yield(dependent, req) == Dependable::PRUNE
+      elsif req.optional? || req.recommended?
+        !T.cast(dependent, Formula).build.with?(req)
+      else
+        false
       end
-    end
-
-    # Used to prune requirements when calling expand with a block.
-    sig { void }
-    def prune
-      throw(:prune, true)
     end
 
     private

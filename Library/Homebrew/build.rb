@@ -59,9 +59,10 @@ class Build
   sig { returns(Requirements) }
   def expand_reqs
     formula.recursive_requirements do |dependent, req|
+      dependent = T.cast(dependent, Formula)
       build = effective_build_options_for(dependent)
       if req.prune_from_option?(build) || req.prune_if_build_and_not_dependent?(dependent, formula) || req.test?
-        Requirement.prune
+        next Dependable::PRUNE
       end
     end
   end
@@ -73,9 +74,9 @@ class Build
       if dep.prune_from_option?(build) ||
          dep.prune_if_build_and_not_dependent?(T.cast(dependent, Formula), formula) ||
          (dep.test? && !dep.build?) || dep.implicit?
-        Dependency.prune
+        next Dependable::PRUNE
       elsif dep.build?
-        Dependency.keep_but_prune_recursive_deps
+        next Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS
       end
     end
   end

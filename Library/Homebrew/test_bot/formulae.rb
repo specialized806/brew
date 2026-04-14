@@ -672,11 +672,11 @@ module Homebrew
         bottled_dep_allowlist = /\A(?:glibc|linux-headers)@/
         deps = Dependency.expand(Formula[formula_name],
                                  cache_key: "portable-package-#{formula_name}") do |_dependent, dep|
-          Dependency.prune if dep.test? || dep.optional?
+          next Dependable::PRUNE if dep.test? || dep.optional?
 
           next unless bottled_dep_allowlist.match?(dep.name)
 
-          Dependency.keep_but_prune_recursive_deps
+          next Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS
         end.map(&:name)
 
         bottled_deps, deps = deps.partition { |dep| bottled_dep_allowlist.match?(dep) }

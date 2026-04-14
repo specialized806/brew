@@ -7,6 +7,16 @@ require "options"
 module Dependable
   extend T::Helpers
 
+  # Return from an {Dependency.expand} or {Requirement.expand} block to remove
+  # a dependency/requirement and all of its recursive dependencies from the result list.
+  PRUNE = :prune
+  # Return from a {Dependency.expand} block to omit a dependency from the result
+  # list but continue expanding its children.
+  SKIP = :skip
+  # Return from a {Dependency.expand} block to keep a dependency in the result
+  # list but stop recursing into its own dependencies.
+  KEEP_BUT_PRUNE_RECURSIVE_DEPS = :keep_but_prune_recursive_deps
+
   # `:run` and `:linked` are no longer used but keep them here to avoid their
   # misuse in future.
   RESERVED_TAGS = T.let(

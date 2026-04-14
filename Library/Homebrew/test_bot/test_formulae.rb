@@ -250,7 +250,7 @@ module Homebrew
           formula.recursive_dependencies
         else
           formula.recursive_dependencies do |_, dep|
-            Dependency.prune if dep.build? || dep.test?
+            next Dependable::PRUNE if dep.build? || dep.test?
           end
         end
 

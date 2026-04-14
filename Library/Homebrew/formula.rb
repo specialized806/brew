@@ -2628,7 +2628,14 @@ class Formula
   # @api internal
   T::Sig::WithoutRuntime.sig {
     # CaskDependent may not be initialized yet, so we don't use a runtime sig
-    params(block: T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent), arg1: Dependency).void)).returns(T::Array[Dependency])
+    params(
+      block: T.nilable(
+        T.proc.params(
+          arg0: T.any(Formula, CaskDependent),
+          arg1: Dependency,
+        ).returns(T.nilable(Symbol)),
+      ),
+    ).returns(T::Array[Dependency])
   }
   def recursive_dependencies(&block)
     cache_key = "Formula#recursive_dependencies"
@@ -2644,7 +2651,17 @@ class Formula
   # The full set of {Requirements} for this formula's dependency tree.
   #
   # @api internal
-  sig { params(block: T.untyped).returns(Requirements) }
+  T::Sig::WithoutRuntime.sig {
+    # CaskDependent may not be initialized yet, so we don't use a runtime sig
+    params(
+      block: T.nilable(
+        T.proc.params(
+          arg0: T.any(Formula, CaskDependent, SoftwareSpec),
+          arg1: Requirement,
+        ).returns(T.nilable(Symbol)),
+      ),
+    ).returns(Requirements)
+  }
   def recursive_requirements(&block)
     cache_key = "Formula#recursive_requirements" unless block
     Requirement.expand(self, cache_key:, &block)
@@ -3260,13 +3277,13 @@ class Formula
       cache_timestamp = Time.now
     end
     Dependency.expand(self, cache_key:, cache_timestamp:) do |_, dependency|
-      Dependency.prune if dependency.build?
+      next Dependable::PRUNE if dependency.build?
       next if dependency.required?
 
       if build.any_args_or_options?
-        Dependency.prune if build.without?(dependency)
+        next Dependable::PRUNE if build.without?(dependency)
       elsif !dependency.recommended?
-        Dependency.prune
+        next Dependable::PRUNE
       end
     end
   ensure

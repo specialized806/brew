@@ -185,7 +185,7 @@ module Homebrew
 
         all_formulae.each do |f|
           deps = Dependency.expand(f, cache_key: "unbottled") do |_, dep|
-            Dependency.prune if dep.optional?
+            next Dependable::PRUNE if dep.optional?
           end.map(&:to_formula)
           deps_hash[f.name] = deps
 
