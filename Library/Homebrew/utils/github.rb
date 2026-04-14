@@ -724,7 +724,13 @@ module GitHub
     [remote_url, username]
   end
 
-  sig { params(info: T::Hash[Symbol, T.untyped], args: T.any(Homebrew::DevCmd::BumpFormulaPr::Args, Homebrew::DevCmd::BumpCaskPr::Args)).void }
+  # The sig requires specific commands to be loaded, so we use WithoutRuntime
+  T::Sig::WithoutRuntime.sig {
+    params(
+      info: T::Hash[Symbol, T.untyped],
+      args: T.any(Homebrew::DevCmd::BumpFormulaPr::Args, Homebrew::DevCmd::BumpCaskPr::Args),
+    ).void
+  }
   def self.create_bump_pr(info, args:)
     # --write-only without --commit means don't take any git actions at all.
     return if args.write_only? && !args.commit?
