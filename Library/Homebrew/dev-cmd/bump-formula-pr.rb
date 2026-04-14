@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "abstract_command"
+require "bump"
 require "fileutils"
 require "formula"
 require "utils/inreplace"
@@ -123,8 +124,6 @@ module Homebrew
           tap = formula.tap
           raise ArgumentError, "This formula is not in a tap!" if tap.blank?
           raise ArgumentError, "This formula's tap is not a Git repository!" unless tap.git?
-
-          formula
         rescue ArgumentError => e
           odie e.message if @tap_retried
 
@@ -152,10 +151,8 @@ module Homebrew
         # spamming during normal output.
         Homebrew.install_bundler_gems!(groups: ["audit", "style"]) unless args.no_audit?
 
-        tap_remote_repo = T.must(tap.remote_repository)
-        remote = "origin"
-        remote_branch = tap.git_repository.origin_branch_name
-        previous_branch = "-"
+        tap_remote_repo = tap.remote_repository
+        odie "#{tap.name} tap does not have a remote repository!" if tap_remote_repo.nil?
 
         check_pull_requests(formula, tap_remote_repo, state: "open") unless args.write_only?
 
@@ -524,7 +521,7 @@ module Homebrew
           "#{Formatter.truncate(Array(args.bump_synced).join(" "), max:)} #{new_formula_version}"
         end
 
-        pr_message = "Created with `brew bump-formula-pr`."
+        pr_message = Homebrew::Bump.pr_message("bump-formula-pr", user_message: args.message)
         commits.each do |commit|
           next if commit[:formula_pr_message].empty?
 
@@ -532,18 +529,35 @@ module Homebrew
           pr_message += "#{commit[:formula_pr_message]}<hr>"
         end
 
-        pr_info = {
-          commits:,
-          remote:,
-          remote_branch:,
-          branch_name:     "bump-#{formula.name}-#{new_formula_version}",
-          pr_title:,
-          previous_branch:,
-          tap:             tap,
-          tap_remote_repo:,
-          pr_message:,
-        }
-        GitHub.create_bump_pr(pr_info, args:)
+        return if args.write_only? && !args.commit?
+
+        url = Homebrew::Bump.create_pr(
+          Homebrew::Bump::BumpInfo.new(
+            package_tap: tap,
+            branch_name: "bump-#{formula.name}-#{new_formula_version}",
+            pr_title:,
+            pr_message:,
+            commits:     commits.map do |commit|
+              Homebrew::Bump::Commit.new(
+                sourcefile_path:  commit[:sourcefile_path],
+                old_contents:     commit[:old_contents],
+                commit_message:   commit[:commit_message],
+                additional_files: commit[:additional_files] || [],
+              )
+            end,
+          ),
+          dry_run:  args.dry_run?,
+          no_fork:  args.no_fork? || args.write_only?,
+          fork_org: args.fork_org,
+          commit:   args.commit?,
+        )
+        return if url.blank?
+
+        if args.no_browse?
+          puts url
+        else
+          exec_browser url
+        end
       end
 
       private
