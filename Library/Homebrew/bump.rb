@@ -116,9 +116,10 @@ module Homebrew
       end
 
       return if commit || dry_run
+      return unless remote_url
 
       tap.path.cd do
-        system_command!("git", args:         ["push", "--set-upstream", T.must(remote_url), "#{branch}:#{branch}"],
+        system_command!("git", args:         ["push", "--set-upstream", remote_url, "#{branch}:#{branch}"],
                                print_stdout: true)
         safe_system "git", "checkout", "--quiet", "-"
 
