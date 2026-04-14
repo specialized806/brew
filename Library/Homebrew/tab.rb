@@ -276,8 +276,18 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
     tab.stdlib = stdlib
     tab.aliases = formula.aliases
     tab.runtime_dependencies = Tab.runtime_deps_hash(formula, runtime_deps)
+    active_spec = if formula.active_spec_sym == :head
+      T.must(formula.head)
+    else
+      T.must(formula.stable)
+    end
+
     tab.source["spec"] = formula.active_spec_sym.to_s
     tab.source["path"] = formula.specified_path.to_s
+    if (downloader = active_spec.downloader).cached_location.exist? &&
+       (scm_revision = downloader.source_revision).present?
+      tab.source["scm_revision"] = scm_revision
+    end
     tab.source["versions"] = {
       "stable"                => formula.stable&.version&.to_s,
       "head"                  => formula.head&.version&.to_s,
@@ -579,10 +589,12 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
       "stdlib"               => stdlib&.to_s,
       "compiler"             => compiler.to_s,
       "runtime_dependencies" => runtime_dependencies,
+      "source"               => source.slice("scm_revision").compact.presence,
       "arch"                 => arch,
       "built_on"             => built_on,
     }
     attributes.delete("stdlib") if attributes["stdlib"].blank?
+    attributes.delete("source") if attributes["source"].blank?
     attributes
   end
 
