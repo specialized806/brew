@@ -196,12 +196,14 @@ module Homebrew
         if entry.cls == Homebrew::Bundle::Cask
           @cask_install_mutex.synchronize do
             result = @output_mutex.synchronize { do_install_entry!(entry) }
-            # Interactive prompts (sudo, macOS security frameworks) write
-            # directly to /dev/tty without a trailing newline.  After the
-            # output lock is released, reset the terminal line so the next
-            # worker's status message starts cleanly instead of appending
-            # after a stale "Password:" prompt.
-            reset_tty_line
+            # Interactive prompts (sudo, macOS security frameworks) can leave
+            # the terminal cursor mid-line on /dev/tty with no trailing
+            # newline.  Clear any trailing prompt text with \r + CSI-K so the
+            # next worker's status message overwrites it rather than appending
+            # to produce "Password:Using foo".  Writes nothing visible when
+            # the line is already clean, so formula and cask output stay
+            # visually uniform.
+            clear_tty_line
             result
           end
         else
@@ -239,8 +241,8 @@ module Homebrew
       end
 
       sig { void }
-      def reset_tty_line
-        File.open("/dev/tty", "w") { |f| f.print("\n") }
+      def clear_tty_line
+        File.open("/dev/tty", "w") { |f| f.print("\r\e[K") }
       rescue Errno::ENXIO, Errno::ENOENT
         # No TTY available (CI, piped output) - nothing to clean up.
         nil
