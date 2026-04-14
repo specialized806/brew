@@ -16,9 +16,6 @@ class Requirement
   extend Cachable
   extend T::Helpers
 
-  # Return from an {expand} block to exclude a requirement from the result set.
-  PRUNE = :prune
-
   # This base class enforces no constraints on its own.
   # Individual subclasses use the `satisfy` DSL to define those constraints.
   abstract!
@@ -365,7 +362,7 @@ class Requirement
     }
     def prune?(dependent, req, &block)
       if block
-        yield(dependent, req) == PRUNE
+        yield(dependent, req) == Dependable::PRUNE
       elsif req.optional? || req.recommended?
         !T.cast(dependent, Formula).build.with?(req)
       else

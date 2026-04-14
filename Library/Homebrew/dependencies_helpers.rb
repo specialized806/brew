@@ -50,11 +50,9 @@ module DependenciesHelpers
   def recursive_includes(klass, root_dependent, includes, ignores)
     cache_key = "recursive_includes_#{includes}_#{ignores}"
 
-    # Dependency::PRUNE and Requirement::PRUNE are both :prune, so these
-    # constants work regardless of which klass is passed.
     klass.expand(root_dependent, cache_key:) do |dependent, dep|
-      next Dependency::PRUNE if ignores.any? { |ignore| dep.public_send(ignore) }
-      next Dependency::PRUNE if includes.none? do |include|
+      next Dependable::PRUNE if ignores.any? { |ignore| dep.public_send(ignore) }
+      next Dependable::PRUNE if includes.none? do |include|
         # Ignore indirect test dependencies
         next if include == :test? && dependent != root_dependent
 
@@ -63,7 +61,7 @@ module DependenciesHelpers
 
       # If a tap isn't installed, we can't find the dependencies of one of
       # its formulae and an exception will be thrown if we try.
-      next Dependency::KEEP_BUT_PRUNE_RECURSIVE_DEPS if klass == Dependency && (tap = dep.tap) && !tap.installed?
+      next Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS if klass == Dependency && (tap = dep.tap) && !tap.installed?
     end
   end
 

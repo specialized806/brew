@@ -62,7 +62,7 @@ class Build
       dependent = T.cast(dependent, Formula)
       build = effective_build_options_for(dependent)
       if req.prune_from_option?(build) || req.prune_if_build_and_not_dependent?(dependent, formula) || req.test?
-        next Requirement::PRUNE
+        next Dependable::PRUNE
       end
     end
   end
@@ -74,9 +74,9 @@ class Build
       if dep.prune_from_option?(build) ||
          dep.prune_if_build_and_not_dependent?(T.cast(dependent, Formula), formula) ||
          (dep.test? && !dep.build?) || dep.implicit?
-        next Dependency::PRUNE
+        next Dependable::PRUNE
       elsif dep.build?
-        next Dependency::KEEP_BUT_PRUNE_RECURSIVE_DEPS
+        next Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS
       end
     end
   end

@@ -1317,7 +1317,7 @@ RSpec.describe Formula do
     ).to eq(Set[xcode])
 
     requirements = f2.recursive_requirements do |_dependent, requirement|
-      next Requirement::PRUNE if requirement.is_a?(XcodeRequirement)
+      next Dependable::PRUNE if requirement.is_a?(XcodeRequirement)
     end
 
     expect(Set.new(requirements)).to eq(Set[])

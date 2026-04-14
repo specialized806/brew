@@ -10,16 +10,6 @@ require "utils"
 class Dependency
   include Dependable
 
-  # Return from an {expand} block to keep a dependency in the result list
-  # but stop recursing into its own dependencies.
-  KEEP_BUT_PRUNE_RECURSIVE_DEPS = :keep_but_prune_recursive_deps
-  # Return from an {expand} block to remove a dependency and all of its
-  # recursive dependencies from the result list.
-  PRUNE = :prune
-  # Return from an {expand} block to omit a dependency from the result list
-  # but continue expanding its children.
-  SKIP = :skip
-
   sig { returns(String) }
   attr_reader :name
 
@@ -211,13 +201,13 @@ class Dependency
           next if dependent.name == dep.name
 
           case action(dependent, dep, &block)
-          when PRUNE
+          when Dependable::PRUNE
             next
-          when SKIP
+          when Dependable::SKIP
             next if @expand_stack.include? dep.name
 
             expanded_deps.concat(expand(dep.to_formula, cache_key:, &block))
-          when KEEP_BUT_PRUNE_RECURSIVE_DEPS
+          when Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS
             expanded_deps << dep
           else
             next if @expand_stack.include? dep.name
@@ -252,7 +242,7 @@ class Dependency
       if block
         yield dependent, dep
       elsif dep.optional? || dep.recommended?
-        PRUNE unless T.cast(dependent, Formula).build.with?(dep)
+        Dependable::PRUNE unless T.cast(dependent, Formula).build.with?(dep)
       end
     end
 

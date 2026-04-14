@@ -195,18 +195,18 @@ module Language
         # Find any Python bindings provided by recursive dependencies
         pth_contents = []
         formula.recursive_dependencies do |dependent, dep|
-          next Dependency::PRUNE if dep.build? || dep.test?
+          next Dependable::PRUNE if dep.build? || dep.test?
           # Apply default filter
-          next Dependency::PRUNE if (dep.optional? || dep.recommended?) && !T.cast(dependent,
+          next Dependable::PRUNE if (dep.optional? || dep.recommended?) && !T.cast(dependent,
                                                                                    Formula).build.with?(dep)
           # Do not add the main site-package provided by the brewed
           # Python formula, to keep the virtual-env's site-package pristine
-          next Dependency::PRUNE if python_names.include? dep.name
+          next Dependable::PRUNE if python_names.include? dep.name
           # Skip uses_from_macos dependencies as these imply no Python bindings
-          next Dependency::PRUNE if dep.uses_from_macos?
+          next Dependable::PRUNE if dep.uses_from_macos?
 
           dep_site_packages = dep.to_formula.opt_prefix/Language::Python.site_packages(python)
-          next Dependency::PRUNE unless dep_site_packages.exist?
+          next Dependable::PRUNE unless dep_site_packages.exist?
 
           pth_contents << "import site; site.addsitedir('#{dep_site_packages}')\n"
           nil # Return nil to satisfy T.nilable(Symbol) block sig (Array from << would violate it).
