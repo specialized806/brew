@@ -115,7 +115,6 @@ module Cask
       odebug "Cask::Installer#fetch"
 
       load_cask_from_source_api! if cask_from_source_api?
-      verify_has_sha if require_sha? && !force?
       check_requirements
 
       forbidden_tap_check
@@ -244,7 +243,10 @@ on_request: true)
 
     sig { returns(Download) }
     def downloader
-      @downloader ||= T.let(Download.new(@cask, quarantine: quarantine?), T.nilable(Download))
+      @downloader ||= T.let(
+        Download.new(@cask, quarantine: quarantine?, require_sha: require_sha? && !force?),
+        T.nilable(Download),
+      )
     end
 
     sig { params(quiet: T.nilable(T::Boolean), timeout: T.nilable(T.any(Integer, Float))).returns(Pathname) }
@@ -252,17 +254,6 @@ on_request: true)
       # Store cask download path in cask to prevent multiple downloads in a row when checking if it's outdated
       @cask.download ||= downloader.fetch(quiet:, verify_download_integrity: @verify_download_integrity,
                                           timeout:)
-    end
-
-    sig { void }
-    def verify_has_sha
-      odebug "Checking cask has checksum"
-      return if @cask.sha256 != :no_check
-
-      raise CaskError, <<~EOS
-        Cask '#{@cask}' does not have a sha256 checksum defined and was not installed.
-        This means you have the #{Formatter.identifier("--require-sha")} option set, perhaps in your `$HOMEBREW_CASK_OPTS`.
-      EOS
     end
 
     sig { returns(UnpackStrategy) }

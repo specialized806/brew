@@ -50,6 +50,16 @@ RSpec.describe Cask::Download, :cask do
     end
   end
 
+  describe "#fetch" do
+    it "fails before downloading if sha256 :no_check is used with --require-sha" do
+      no_checksum = Cask::CaskLoader.load(cask_path("no-checksum"))
+      download = described_class.new(no_checksum, require_sha: true)
+
+      expect(download).not_to receive(:downloader)
+      expect { download.fetch }.to raise_error(/--require-sha/)
+    end
+  end
+
   describe "#verify_download_integrity" do
     subject(:verification) { described_class.new(cask).verify_download_integrity(downloaded_path) }
 

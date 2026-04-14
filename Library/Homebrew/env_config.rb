@@ -112,6 +112,12 @@ module Homebrew
                      "`~/.profile`, `~/.bash_profile`, or `~/.zshenv`:" \
                      "\n\n    `export HOMEBREW_CASK_OPTS=\"--appdir=${HOME}/Applications --fontdir=/Library/Fonts\"`",
       },
+      HOMEBREW_CASK_OPTS_BINARIES:               {
+        description: "Enable linking of helper executables for casks.",
+      },
+      HOMEBREW_CASK_OPTS_REQUIRE_SHA:            {
+        description: "Require all casks to have a checksum.",
+      },
       HOMEBREW_CLEANUP_MAX_AGE_DAYS:             {
         description: "Cleanup all cached files older than this many days.",
         default:     120,
@@ -592,6 +598,8 @@ module Homebrew
     CUSTOM_IMPLEMENTATIONS = T.let(Set.new([
       :HOMEBREW_MAKE_JOBS,
       :HOMEBREW_CASK_OPTS,
+      :HOMEBREW_CASK_OPTS_BINARIES,
+      :HOMEBREW_CASK_OPTS_REQUIRE_SHA,
       :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
       :HOMEBREW_DOWNLOAD_CONCURRENCY,
       :HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS,
@@ -640,11 +648,20 @@ module Homebrew
       Shellwords.shellsplit(ENV.fetch("HOMEBREW_CASK_OPTS", ""))
     end
 
+    sig { returns(T.nilable(String)) }
+    def cask_opts_binaries
+      ENV["HOMEBREW_CASK_OPTS_BINARIES"].presence
+    end
+
     sig { returns(T::Boolean) }
     def cask_opts_binaries?
       cask_opts.reverse_each do |opt|
         return true if opt == "--binaries"
         return false if opt == "--no-binaries"
+      end
+
+      if (env_value = ENV.fetch("HOMEBREW_CASK_OPTS_BINARIES", nil)).present?
+        return FALSY_VALUES.exclude?(env_value.downcase)
       end
 
       true
@@ -660,9 +677,18 @@ module Homebrew
       true
     end
 
+    sig { returns(T.nilable(String)) }
+    def cask_opts_require_sha
+      ENV["HOMEBREW_CASK_OPTS_REQUIRE_SHA"].presence
+    end
+
     sig { returns(T::Boolean) }
     def cask_opts_require_sha?
-      cask_opts.include?("--require-sha")
+      cask_opts.include?("--require-sha") ||
+        begin
+          env_value = ENV.fetch("HOMEBREW_CASK_OPTS_REQUIRE_SHA", nil)
+          env_value.present? && FALSY_VALUES.exclude?(env_value.downcase)
+        end
     end
 
     sig { returns(T::Boolean) }

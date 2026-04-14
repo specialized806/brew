@@ -170,7 +170,11 @@ module Homebrew
                 quarantine = args.quarantine?
                 quarantine = true if quarantine.nil?
 
-                download = Cask::Download.new(cask, quarantine:)
+                download = Cask::Download.new(
+                  cask,
+                  quarantine:,
+                  require_sha: Homebrew::EnvConfig.cask_opts_require_sha?,
+                )
                 download_queue.enqueue(download)
               end
             end
