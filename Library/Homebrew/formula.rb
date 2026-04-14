@@ -2632,9 +2632,9 @@ class Formula
       block: T.nilable(
         T.proc.params(
           arg0: T.any(Formula, CaskDependent),
-          arg1: Dependency
-        ).returns(T.nilable(Symbol))
-      )
+          arg1: Dependency,
+        ).returns(T.nilable(Symbol)),
+      ),
     ).returns(T::Array[Dependency])
   }
   def recursive_dependencies(&block)
@@ -2651,14 +2651,15 @@ class Formula
   # The full set of {Requirements} for this formula's dependency tree.
   #
   # @api internal
-  sig {
+  T::Sig::WithoutRuntime.sig {
+    # CaskDependent may not be initialized yet, so we don't use a runtime sig
     params(
       block: T.nilable(
         T.proc.params(
           arg0: T.any(Formula, CaskDependent, SoftwareSpec),
-          arg1: Requirement
-        ).returns(T.nilable(Symbol))
-      )
+          arg1: Requirement,
+        ).returns(T.nilable(Symbol)),
+      ),
     ).returns(Requirements)
   }
   def recursive_requirements(&block)

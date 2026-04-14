@@ -736,6 +736,7 @@ on_request: installed_on_request?, options:)
           next Dependable::PRUNE
         else
           unsatisfied_reqs[dependent] << req
+          nil # Return nil to satisfy T.nilable(Symbol) block sig (Array from << would violate it).
         end
       end
     end
