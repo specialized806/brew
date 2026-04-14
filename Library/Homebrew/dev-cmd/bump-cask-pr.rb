@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "abstract_command"
+require "bump"
 require "bump_version_parser"
 require "cask"
 require "cask/download"
@@ -177,6 +178,9 @@ module Homebrew
 
         commit_message ||= "#{cask.token}: update checksum" if new_hash
 
+        # We should have already thrown UsageError above if there's nothing to update
+        raise "Expected to have a commit message" if commit_message.nil?
+
         # Remove nested arrays where elements are identical
         replacement_pairs = replacement_pairs.reject { |pair| pair[0] == pair[1] }.uniq.compact
         Utils::Inreplace.inreplace_pairs(sourcefile_path,
@@ -189,19 +193,34 @@ module Homebrew
         run_cask_audit(cask, old_contents, audit_exceptions)
         run_cask_style(cask, old_contents)
 
-        pr_info = {
-          commits:     [{
-            commit_message:,
-            old_contents:,
-            sourcefile_path: cask.sourcefile_path,
-          }],
-          branch_name:,
-          pr_message:  "Created with `brew bump-cask-pr`.",
-          tap:         cask.tap,
-          pr_title:    commit_message,
-        }
+        return if args.write_only? && !args.commit?
 
-        GitHub.create_bump_pr(pr_info, args:)
+        url = Homebrew::Bump.create_pr(
+          Homebrew::Bump::BumpInfo.new(
+            package_tap: cask.tap,
+            branch_name:,
+            pr_title:    commit_message,
+            pr_message:  Homebrew::Bump.pr_message("bump-cask-pr", user_message: args.message),
+            commits:     [
+              Homebrew::Bump::Commit.new(
+                sourcefile_path:,
+                old_contents:,
+                commit_message:,
+              ),
+            ],
+          ),
+          dry_run:  args.dry_run?,
+          no_fork:  args.no_fork? || args.write_only?,
+          fork_org: args.fork_org,
+          commit:   args.commit?,
+        )
+        return if url.blank?
+
+        if args.no_browse?
+          puts url
+        else
+          exec_browser url
+        end
       end
 
       private
@@ -375,7 +394,8 @@ module Homebrew
         tap = cask.tap
         raise "unexpected nil cask.tap" unless tap
 
-        tap_remote_repo = tap.full_name || tap.remote_repository
+        tap_remote_repo = tap.remote_repository
+        odie "#{tap.name} tap does not have a remote repository!" unless tap_remote_repo
 
         sourcefile_path = cask.sourcefile_path
         raise "unexpected nil cask.sourcefile_path" unless sourcefile_path
