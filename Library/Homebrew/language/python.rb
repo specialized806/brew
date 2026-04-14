@@ -209,7 +209,7 @@ module Language
           next Dependency::PRUNE unless dep_site_packages.exist?
 
           pth_contents << "import site; site.addsitedir('#{dep_site_packages}')\n"
-          nil
+          nil # Return nil to satisfy T.nilable(Symbol) block sig (Array from << would violate it).
         end
         (venv.site_packages/"homebrew_deps.pth").write pth_contents.join unless pth_contents.empty?
 

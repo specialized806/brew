@@ -50,6 +50,8 @@ module DependenciesHelpers
   def recursive_includes(klass, root_dependent, includes, ignores)
     cache_key = "recursive_includes_#{includes}_#{ignores}"
 
+    # Dependency::PRUNE and Requirement::PRUNE are both :prune, so these
+    # constants work regardless of which klass is passed.
     klass.expand(root_dependent, cache_key:) do |dependent, dep|
       next Dependency::PRUNE if ignores.any? { |ignore| dep.public_send(ignore) }
       next Dependency::PRUNE if includes.none? do |include|
