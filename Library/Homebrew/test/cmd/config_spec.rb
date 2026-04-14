@@ -13,4 +13,13 @@ RSpec.describe Homebrew::Cmd::Config do
       .and not_to_output.to_stderr
       .and be_a_success
   end
+
+  it "prints HOMEBREW_CASK_OPTS_REQUIRE_SHA in env config output when set" do
+    ENV["HOMEBREW_CASK_OPTS_REQUIRE_SHA"] = "1"
+    output = StringIO.new
+
+    SystemConfig.homebrew_env_config(output)
+
+    expect(output.string).to include("HOMEBREW_CASK_OPTS_REQUIRE_SHA: 1")
+  end
 end

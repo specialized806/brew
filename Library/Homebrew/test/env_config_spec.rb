@@ -71,6 +71,30 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".cask_opts_binaries?" do
+    before do
+      ENV["HOMEBREW_CASK_OPTS"] = nil
+      ENV["HOMEBREW_CASK_OPTS_BINARIES"] = nil
+    end
+
+    it "returns false if HOMEBREW_CASK_OPTS_BINARIES is set to a falsey value" do
+      ENV["HOMEBREW_CASK_OPTS_BINARIES"] = "0"
+      expect(env_config.cask_opts_binaries?).to be(false)
+    end
+  end
+
+  describe ".cask_opts_require_sha?" do
+    before do
+      ENV["HOMEBREW_CASK_OPTS"] = nil
+      ENV["HOMEBREW_CASK_OPTS_REQUIRE_SHA"] = nil
+    end
+
+    it "returns true if HOMEBREW_CASK_OPTS_REQUIRE_SHA is set" do
+      ENV["HOMEBREW_CASK_OPTS_REQUIRE_SHA"] = "1"
+      expect(env_config.cask_opts_require_sha?).to be(true)
+    end
+  end
+
   describe ".forbid_packages_from_paths?" do
     before do
       ENV["HOMEBREW_FORBID_PACKAGES_FROM_PATHS"] = nil
