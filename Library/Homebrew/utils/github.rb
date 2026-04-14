@@ -728,7 +728,7 @@ module GitHub
   T::Sig::WithoutRuntime.sig {
     params(
       info: T::Hash[Symbol, T.untyped],
-      args: T.any(Homebrew::DevCmd::BumpFormulaPr::Args, Homebrew::DevCmd::BumpCaskPr::Args)
+      args: T.any(Homebrew::DevCmd::BumpFormulaPr::Args, Homebrew::DevCmd::BumpCaskPr::Args),
     ).void
   }
   def self.create_bump_pr(info, args:)
