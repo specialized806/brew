@@ -100,7 +100,7 @@ jobs:
           restore-keys: ${{ runner.os }}-rubygems-tap-syntax-
 
       - name: Install Bundler RubyGems
-        run: brew install-bundler-gems --groups=style
+        run: brew install-bundler-gems --groups=style,typecheck
 
       - name: Cache style cache
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
@@ -111,6 +111,9 @@ jobs:
 
       - name: Run brew style on official taps
         run: brew style homebrew/core homebrew/cask
+
+      - name: Run brew typecheck on official taps
+        run: brew typecheck homebrew/core homebrew/cask
 
   formula-audit:
     name: formula audit
