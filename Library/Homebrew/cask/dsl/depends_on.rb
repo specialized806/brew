@@ -76,7 +76,9 @@ module Cask
         first_arg_s = first_arg&.to_s
 
         begin
-          @macos = if args.count > 1
+          @macos = if first_arg == :any
+            MacOSRequirement.new
+          elsif args.count > 1
             MacOSRequirement.new([args], comparator: "==")
           elsif first_arg.is_a?(Symbol) && MacOSVersion::SYMBOLS.key?(first_arg)
             MacOSRequirement.new([args.first], comparator: "==")
