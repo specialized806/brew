@@ -112,11 +112,15 @@ module Homebrew
                      "`~/.profile`, `~/.bash_profile`, or `~/.zshenv`:" \
                      "\n\n    `export HOMEBREW_CASK_OPTS=\"--appdir=${HOME}/Applications --fontdir=/Library/Fonts\"`",
       },
+      # odeprecated: deprecate in 5.2.0
       HOMEBREW_CASK_OPTS_BINARIES:               {
         description: "Enable linking of helper executables for casks.",
+        hidden:      true,
       },
+      # odeprecated: deprecate in 5.2.0
       HOMEBREW_CASK_OPTS_REQUIRE_SHA:            {
         description: "Require all casks to have a checksum.",
+        hidden:      true,
       },
       HOMEBREW_CLEANUP_MAX_AGE_DAYS:             {
         description: "Cleanup all cached files older than this many days.",

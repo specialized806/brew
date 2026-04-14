@@ -957,13 +957,11 @@ upgrade *`formula`* if it is already installed but outdated.
 
 `--[no-]binaries`
 
-: Disable/enable linking of helper executables (default: enabled). Enabled by
-  default if `$HOMEBREW_CASK_OPTS_BINARIES` is set.
+: Disable/enable linking of helper executables (default: enabled).
 
 `--require-sha`
 
-: Require all casks to have a checksum. Enabled by default if
-  `$HOMEBREW_CASK_OPTS_REQUIRE_SHA` is set.
+: Require all casks to have a checksum.
 
 `--adopt`
 
@@ -1371,13 +1369,11 @@ for the reinstalled formulae or, every 30 days, for all formulae.
 
 `--[no-]binaries`
 
-: Disable/enable linking of helper executables (default: enabled). Enabled by
-  default if `$HOMEBREW_CASK_OPTS_BINARIES` is set.
+: Disable/enable linking of helper executables (default: enabled).
 
 `--require-sha`
 
-: Require all casks to have a checksum. Enabled by default if
-  `$HOMEBREW_CASK_OPTS_REQUIRE_SHA` is set.
+: Require all casks to have a checksum.
 
 `--adopt`
 
@@ -1846,13 +1842,11 @@ for the upgraded formulae or, every 30 days, for all formulae.
 
 `--[no-]binaries`
 
-: Disable/enable linking of helper executables (default: enabled). Enabled by
-  default if `$HOMEBREW_CASK_OPTS_BINARIES` is set.
+: Disable/enable linking of helper executables (default: enabled).
 
 `--require-sha`
 
-: Require all casks to have a checksum. Enabled by default if
-  `$HOMEBREW_CASK_OPTS_REQUIRE_SHA` is set.
+: Require all casks to have a checksum.
 
 ### `uses` \[*`options`*\] *`formula`* \[...\]
 
@@ -4139,14 +4133,6 @@ command execution (e.g. `$(cat file)`).
   
   `export HOMEBREW_CASK_OPTS="--appdir=${HOME}/Applications
   --fontdir=/Library/Fonts"`
-
-`HOMEBREW_CASK_OPTS_BINARIES`
-
-: Enable linking of helper executables for casks.
-
-`HOMEBREW_CASK_OPTS_REQUIRE_SHA`
-
-: Require all casks to have a checksum.
 
 `HOMEBREW_CLEANUP_MAX_AGE_DAYS`
 
