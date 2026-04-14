@@ -22,10 +22,10 @@ module Homebrew
 
         env = {}
 
-        # Make sure homebrew's bin is part of the PATH
-        # This is essential for the npm bundle extension that calls node as brew-installed dependency
+        # Make sure node's bin opt path is part of the PATH
+        # This is essential for the npm bundle extension that calls node directly
         if Npm.package_manager_executable && cmd.to_s == Npm.package_manager_executable.to_s
-          env = { "PATH" => "#{ENV.fetch("PATH", nil)}:#{HOMEBREW_PREFIX}/bin/" }
+          env = { "PATH" => "#{ENV.fetch("PATH", nil)}:#{HOMEBREW_PREFIX}/opt/node/bin/" }
         end
 
         logs = []
