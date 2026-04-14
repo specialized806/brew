@@ -82,7 +82,8 @@ class CaskDependent
 
   sig {
     params(
-      block: T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent, SoftwareSpec), arg1: ::Dependency).void),
+      block: T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent, SoftwareSpec),
+                                     arg1: ::Dependency).returns(T.nilable(Symbol))),
     ).returns(T::Array[::Dependency])
   }
   def recursive_dependencies(&block)
@@ -91,8 +92,8 @@ class CaskDependent
 
   sig {
     params(
-      block: T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent, SoftwareSpec), arg1: ::Requirement)
-             .returns(CaskDependent::Requirement)),
+      block: T.nilable(T.proc.params(arg0: T.any(Formula, CaskDependent, SoftwareSpec),
+                                     arg1: ::Requirement).returns(T.nilable(Symbol))),
     ).returns(Requirements)
   }
   def recursive_requirements(&block)

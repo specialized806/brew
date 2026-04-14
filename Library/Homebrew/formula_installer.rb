@@ -704,7 +704,7 @@ on_request: installed_on_request?, options:)
   def runtime_requirements(formula)
     runtime_deps = formula.runtime_formula_dependencies(undeclared: false)
     recursive_requirements = formula.recursive_requirements do |dependent, _|
-      Requirement.prune unless runtime_deps.include?(dependent)
+      next Requirement::PRUNE unless runtime_deps.include?(dependent)
     end
     (recursive_requirements.to_a + formula.requirements.to_a).reject(&:build?).uniq
   end
@@ -719,6 +719,7 @@ on_request: installed_on_request?, options:)
     while (f = formulae.pop)
       runtime_requirements = runtime_requirements(f)
       f.recursive_requirements do |dependent, req|
+        dependent = T.cast(dependent, Formula)
         build = effective_build_options_for(dependent)
         install_bottle_for_dependent = install_bottle_for?(dependent, build)
 
@@ -732,7 +733,7 @@ on_request: installed_on_request?, options:)
            ((req.build? || req.test?) && !keep_build_test) ||
            formula_deps_map[dependent.name]&.build? ||
            (only_deps? && f == dependent)
-          Requirement.prune
+          next Requirement::PRUNE
         else
           unsatisfied_reqs[dependent] << req
         end
@@ -761,9 +762,9 @@ on_request: installed_on_request?, options:)
       bottle_os_version = @bottle_built_os_version
 
       if dep.prune_from_option?(build) || ((dep.build? || dep.test?) && !keep_build_test)
-        Dependency.prune
+        next Dependency::PRUNE
       elsif dep.satisfied?(minimum_version:, minimum_revision:, bottle_os_version:)
-        Dependency.skip
+        next Dependency::SKIP
       end
     end
   end
