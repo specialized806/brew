@@ -37,9 +37,12 @@ class BuildEnvironment
       end
     end
 
-    sig { params(settings: Symbol).returns(BuildEnvironment) }
+    sig { overridable.params(settings: Symbol).returns(T.nilable(BuildEnvironment)) }
     def env(*settings)
-      T.must(@env).merge(settings)
+      env = @env
+      Kernel.raise ArgumentError, "#{self} has not been initialized with a BuildEnvironment" if env.nil?
+
+      env.merge(settings)
     end
   end
 

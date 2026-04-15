@@ -254,7 +254,7 @@ class Requirement
     end
 
     sig {
-      params(settings: Symbol, block: T.nilable(T.proc.void)).returns(T.nilable(BuildEnvironment))
+      override.params(settings: Symbol, block: T.nilable(T.proc.void)).returns(T.nilable(BuildEnvironment))
     }
     def env(*settings, &block)
       if block
