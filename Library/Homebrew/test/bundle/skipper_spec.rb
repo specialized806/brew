@@ -95,6 +95,17 @@ RSpec.describe Homebrew::Bundle::Skipper do
       end
     end
 
+    context "with a cask from an untapped tap on Linux", :needs_linux do
+      let(:entry) do
+        Homebrew::Bundle::Dsl::Entry.new(:cask, "vscodium-linux", full_name: "ublue-os/tap/vscodium-linux")
+      end
+
+      it "does not skip when cask can't be loaded" do
+        allow(Cask::CaskLoader).to receive(:load).with("vscodium-linux").and_raise(Cask::CaskUnavailableError.new("vscodium-linux"))
+        expect(skipper.skip?(entry)).to be false
+      end
+    end
+
     context "with a listed formula in a failed tap" do
       let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "org/repo/formula") }
 

@@ -18,6 +18,12 @@ module OS
               false
             end
           rescue ::Cask::CaskError
+            # If the cask can't be loaded, it may be from a tap that hasn't been
+            # tapped yet. Don't assume macOS-only in that case — let the normal
+            # install flow handle it after the tap is processed.
+            full_name = T.cast(entry.options[:full_name], T.nilable(String))
+            return false if full_name&.include?("/")
+
             true
           end
 
