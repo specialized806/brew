@@ -434,7 +434,7 @@ jobs:
             cask "1password-cli"
             cask "google-chrome"
             # VSCode cask is not available on Linux.
-            vscode "github.copilot" if OS.mac?
+            vscode "shopify.ruby-lsp" if OS.mac?
           EOS
 
           brew bundle check && exit 1
