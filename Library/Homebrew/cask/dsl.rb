@@ -464,11 +464,7 @@ module Cask
           raise CaskInvalidError.new(cask, "invalid 'version' value: #{arg.inspect}")
         end
 
-        if arg == :latest
-          @no_autobump_defined = true
-          @no_autobump_message = :latest_version
-          @autobump = false
-        end
+        set_no_autobump(because: :latest_version) if arg == :latest && !@no_autobump_defined
 
         DSL::Version.new(arg)
       end
@@ -676,11 +672,7 @@ module Cask
 
       @livecheck_defined = true
       @livecheck.instance_eval(&block)
-      if @livecheck.strategy == :extract_plist
-        @no_autobump_defined = true
-        @no_autobump_message = :extract_plist
-        @autobump = false
-      end
+      set_no_autobump(because: :extract_plist) if @livecheck.strategy == :extract_plist && !@no_autobump_defined
       @livecheck
     end
 
@@ -846,7 +838,7 @@ module Cask
       end
 
       if !@cask.allow_reassignment && @no_autobump_defined
-        raise CaskInvalidError.new(cask, "'no_autobump_defined' stanza may only appear once.")
+        raise CaskInvalidError.new(cask, "'no_autobump!' stanza may only appear once.")
       end
 
       odeprecated "no_autobump! because: :requires_manual_review" if because == :requires_manual_review
