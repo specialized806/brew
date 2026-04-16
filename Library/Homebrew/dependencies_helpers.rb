@@ -24,9 +24,7 @@ module DependenciesHelpers
       .returns(T::Array[Dependency])
   }
   def recursive_dep_includes(root_dependent, includes, ignores)
-    # The use of T.unsafe is recommended by the Sorbet docs:
-    #   https://sorbet.org/docs/overloads#multiple-methods-but-sharing-a-common-implementation
-    T.unsafe(recursive_includes(Dependency, root_dependent, includes, ignores))
+    T.cast(recursive_includes(Dependency, root_dependent, includes, ignores), T::Array[Dependency])
   end
 
   sig {
@@ -34,9 +32,7 @@ module DependenciesHelpers
       .returns(Requirements)
   }
   def recursive_req_includes(root_dependent, includes, ignores)
-    # The use of T.unsafe is recommended by the Sorbet docs:
-    #   https://sorbet.org/docs/overloads#multiple-methods-but-sharing-a-common-implementation
-    T.unsafe(recursive_includes(Requirement, root_dependent, includes, ignores))
+    T.cast(recursive_includes(Requirement, root_dependent, includes, ignores), Requirements)
   end
 
   sig {
