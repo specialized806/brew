@@ -686,6 +686,7 @@ _brew_bundle() {
     '(--no-go)--go[`list`, `dump` or `cleanup` Go packages]' \
     '--help[Show this message]' \
     '(--upgrade)--install[Run `install` before continuing to other operations, e.g. `exec`]' \
+    '--jobs[`install` runs up to this many formula installations in parallel. Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)]' \
     '(--no-krew)--krew[`list` or `dump` Krew plugins]' \
     '--mas[`list` or `dump` Mac App Store dependencies]' \
     '(--all --cargo)--no-cargo[`dump` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set]' \

@@ -683,6 +683,7 @@ _brew_bundle() {
       --go
       --help
       --install
+      --jobs
       --krew
       --mas
       --no-cargo

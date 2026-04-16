@@ -261,6 +261,11 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : Run `install` before continuing to other operations, e.g. `exec`.
 
+`--jobs`
+
+: `install` runs up to this many formula installations in parallel. Defaults to
+  1 (sequential). Use `auto` for the number of CPU cores (max 4).
+
 `--services`
 
 : Temporarily start services while running the `exec` or `sh` command. Enabled

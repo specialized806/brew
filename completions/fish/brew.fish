@@ -529,6 +529,7 @@ __fish_brew_complete_arg 'bundle' -l global -d 'Read from or write to the `Brewf
 __fish_brew_complete_arg 'bundle' -l go -d '`list`, `dump` or `cleanup` Go packages'
 __fish_brew_complete_arg 'bundle' -l help -d 'Show this message'
 __fish_brew_complete_arg 'bundle' -l install -d 'Run `install` before continuing to other operations, e.g. `exec`'
+__fish_brew_complete_arg 'bundle' -l jobs -d '`install` runs up to this many formula installations in parallel. Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)'
 __fish_brew_complete_arg 'bundle' -l krew -d '`list` or `dump` Krew plugins'
 __fish_brew_complete_arg 'bundle' -l mas -d '`list` or `dump` Mac App Store dependencies'
 __fish_brew_complete_arg 'bundle' -l no-cargo -d '`dump` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set'
