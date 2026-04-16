@@ -112,13 +112,19 @@ module Homebrew
           srb_exec += ["--ignore", args.ignore] if args.ignore.present?
           if args.file.present? || args.dir.present? || (tap_dirs = args.named.to_paths(only: :tap)).present?
             cd("sorbet") do
-              if args.file
-                path = Pathname args.file.to_s
-                srb_exec += ["--file", path.absolute? ? path.to_path : "../#{path}"]
+              path = if (file = args.file.presence)
+                srb_exec << "--file"
+                Pathname(file)
+              elsif (dir = args.dir.presence)
+                srb_exec << "--dir"
+                Pathname(dir)
               end
-              if args.dir
-                path = Pathname args.dir.to_s
-                srb_exec += ["--dir", path.absolute? ? path.to_path : "../#{path}"]
+              if path
+                srb_exec << if path.absolute?
+                  path.to_path
+                else
+                  "../#{path}"
+                end
               end
               tap_dirs&.each do |tap_dir|
                 srb_exec += ["--dir", tap_dir.to_s]
