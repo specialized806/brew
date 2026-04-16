@@ -158,6 +158,9 @@ Read from or write to the \fBBrewfile\fP from \fB$HOMEBREW_BUNDLE_FILE_GLOBAL\fP
 \fB\-\-install\fP
 Run \fBinstall\fP before continuing to other operations, e\.g\. \fBexec\fP\&\.
 .TP
+\fB\-\-jobs\fP
+\fBinstall\fP runs up to this many formula installations in parallel\. Defaults to 1 (sequential)\. Use \fBauto\fP for the number of CPU cores (max 4)\.
+.TP
 \fB\-\-services\fP
 Temporarily start services while running the \fBexec\fP or \fBsh\fP command\. Enabled by default if \fB$HOMEBREW_BUNDLE_SERVICES\fP is set\.
 .TP
