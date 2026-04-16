@@ -24,11 +24,12 @@ module Homebrew
           no_upgrade: T::Boolean,
           verbose:    T::Boolean,
           force:      T::Boolean,
+          jobs:       Integer,
           quiet:      T::Boolean,
         ).returns(T::Boolean)
       }
       def self.install!(entries, global: false, file: nil, no_lock: false, no_upgrade: false, verbose: false,
-                        force: false, quiet: false)
+                        force: false, jobs: 1, quiet: false)
         success = 0
         failure = 0
 
@@ -53,26 +54,22 @@ module Homebrew
           end
         end
 
-        installable_entries.each do |entry|
-          name = entry.name
-          options = entry.options
-          verb = entry.verb
-          cls = entry.cls
+        if jobs > 1 && installable_entries.size > 1
+          require "bundle/parallel_installer"
 
-          preinstall = if cls.preinstall!(name, **options, no_upgrade:, verbose:)
-            puts Formatter.success("#{verb} #{name}")
-            true
-          else
-            puts "Using #{name}" unless quiet
-            false
-          end
-
-          if cls.install!(name, **options,
-                         preinstall:, no_upgrade:, verbose:, force:)
-            success += 1
-          else
-            $stderr.puts Formatter.error("#{verb} #{name} has failed!")
-            failure += 1
+          parallel = ParallelInstaller.new(
+            installable_entries, jobs:, no_upgrade:, verbose:, force:, quiet:
+          )
+          parallel_success, parallel_failure = parallel.run!
+          success += parallel_success
+          failure += parallel_failure
+        else
+          installable_entries.each do |entry|
+            if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
+              success += 1
+            else
+              failure += 1
+            end
           end
         end
 
@@ -103,6 +100,39 @@ module Homebrew
           entry.cls.fetchable_name(entry.name, entry.options, no_upgrade:)
         end
       end
+
+      sig {
+        params(
+          entry:      InstallableEntry,
+          no_upgrade: T::Boolean,
+          verbose:    T::Boolean,
+          force:      T::Boolean,
+          quiet:      T::Boolean,
+        ).returns(T::Boolean)
+      }
+      def self.install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
+        name = entry.name
+        options = entry.options
+        verb = entry.verb
+        cls = entry.cls
+
+        preinstall = if cls.preinstall!(name, **options, no_upgrade:, verbose:)
+          puts Formatter.success("#{verb} #{name}")
+          true
+        else
+          puts "Using #{name}" unless quiet
+          false
+        end
+
+        if cls.install!(name, **options,
+                        preinstall:, no_upgrade:, verbose:, force:)
+          true
+        else
+          $stderr.puts Formatter.error("#{verb} #{name} has failed!")
+          false
+        end
+      end
+      private_class_method :install_entry!
     end
   end
 end

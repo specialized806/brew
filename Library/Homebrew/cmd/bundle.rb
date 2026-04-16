@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "abstract_command"
+require "etc"
 require "bundle/dsl"
 require "bundle/extensions"
 
@@ -121,6 +122,10 @@ module Homebrew
                             "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
         switch "--install",
                description: "Run `install` before continuing to other operations, e.g. `exec`."
+        # odeprecated: change default for 5.2 and document HOMEBREW_BUNDLE_JOBS
+        flag   "--jobs=",
+               description: "`install` runs up to this many formula installations in parallel. " \
+                            "Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)."
         switch "--services",
                description: "Temporarily start services while running the `exec` or `sh` command.",
                env:         :bundle_services
@@ -212,6 +217,13 @@ module Homebrew
         end
         verbose = args.verbose?
         force = args.force?
+        jobs_arg = args.jobs || ENV.fetch("HOMEBREW_BUNDLE_JOBS", nil)
+        jobs = if jobs_arg == "auto"
+          [Etc.nprocessors, 4].min
+        else
+          jobs_arg&.to_i || 1
+        end
+        jobs = [jobs, 1].max
         zap = args.zap?
         Homebrew::Bundle.upgrade_formulae = args.upgrade_formulae
 
@@ -225,14 +237,15 @@ module Homebrew
 
           require "bundle/commands/install"
           redirect_stdout($stderr) do
-            Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, quiet: true)
+            Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, jobs:, quiet: true)
           end
         end
 
         case subcommand
         when nil, "install", "upgrade"
           require "bundle/commands/install"
-          Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, quiet: args.quiet?)
+          Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, jobs:,
+                                                  quiet: args.quiet?)
 
           cleanup = if ENV.fetch("HOMEBREW_BUNDLE_INSTALL_CLEANUP", nil)
             args.global?

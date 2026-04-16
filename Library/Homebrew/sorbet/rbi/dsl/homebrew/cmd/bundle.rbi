@@ -65,6 +65,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   sig { returns(T::Boolean) }
   def install?; end
 
+  sig { returns(T.nilable(String)) }
+  def jobs; end
+
   sig { returns(T::Boolean) }
   def krew?; end
 

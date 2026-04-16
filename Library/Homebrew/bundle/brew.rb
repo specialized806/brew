@@ -126,6 +126,42 @@ module Homebrew
           @pinned_formulae ||= formulae.filter_map { |f| f[:name] if f[:pinned?] }
         end
 
+        sig { params(name: String).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
+        def find_formula(name)
+          formula = T.cast(formulae_by_full_name(name), T.nilable(T::Hash[Symbol, T.untyped]))
+          formula.presence || formulae_by_name(name)
+        end
+
+        sig { params(name: String).returns(T::Array[String]) }
+        def formula_dep_names(name)
+          find_formula(name)&.fetch(:dependencies, []) || []
+        end
+
+        # Returns recursive dependency names for lock conflict detection.
+        # When pouring bottles, only runtime deps acquire keg locks so build
+        # deps like cmake don't serialize unrelated bottle pours.  When
+        # building from source all deps (including build) must be considered.
+        sig { params(name: String, include_build: T::Boolean).returns(T::Set[String]) }
+        def recursive_dep_names(name, include_build: true)
+          require "formula"
+          f = Formula[name]
+          if include_build
+            f.recursive_dependencies
+          else
+            f.runtime_dependencies
+          end.to_set(&:name)
+        rescue FormulaUnavailableError
+          Set.new
+        end
+
+        sig { params(name: String).returns(T::Boolean) }
+        def formula_bottled?(name)
+          formula = find_formula(name)
+          return false if formula.blank?
+
+          formula.fetch(:bottled, false)
+        end
+
         sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
         def formulae
           return @formulae if @formulae
