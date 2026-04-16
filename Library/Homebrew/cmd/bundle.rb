@@ -122,6 +122,7 @@ module Homebrew
                             "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
         switch "--install",
                description: "Run `install` before continuing to other operations, e.g. `exec`."
+        # odeprecated: change default for 5.2 and document HOMEBREW_BUNDLE_JOBS
         flag   "--jobs=",
                description: "`install` runs up to this many formula installations in parallel. " \
                             "Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)."
