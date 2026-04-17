@@ -200,10 +200,11 @@ class Requirement
     ""
   end
 
-  sig { params(cmd: String).returns(T.nilable(Pathname)) }
-  def which(cmd)
-    super(cmd, PATH.new(ORIGINAL_PATHS))
+  sig { override.params(cmd: String, path: PATH::Elements).returns(T.nilable(Pathname)) }
+  def which(cmd, path = PATH.new(ORIGINAL_PATHS))
+    super
   end
+  public :which
 
   class << self
     include BuildEnvironment::DSL
