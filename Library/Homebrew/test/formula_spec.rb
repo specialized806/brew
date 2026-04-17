@@ -2393,7 +2393,7 @@ RSpec.describe Formula do
       end
 
       it "returns the internal API path" do
-        expect(f.specified_path).to eq(Homebrew::API::Internal.cached_formula_json_file_path)
+        expect(f.specified_path).to eq(Homebrew::API::Internal.cached_packages_json_file_path)
       end
     end
   end

@@ -464,7 +464,7 @@ class Formula
   # The path that was specified to find this formula.
   sig { returns(T.nilable(Pathname)) }
   def specified_path
-    return Homebrew::API::Internal.cached_formula_json_file_path if loaded_from_internal_api?
+    return Homebrew::API::Internal.cached_packages_json_file_path if loaded_from_internal_api?
     return Homebrew::API::Formula.cached_json_file_path if loaded_from_api?
     return alias_path if alias_path&.exist?
 
