@@ -55,7 +55,7 @@ module Homebrew
 
         if enqueue
           download_queue.enqueue(download)
-        elsif !download.symlink_location.exist?
+        elsif !download.symlink_location.exist? || !download.symlink_location.symlink?
           download.fetch
         end
 
@@ -65,6 +65,12 @@ module Homebrew
       sig { params(formula: ::Formula).returns(::Formula) }
       def self.source_download_formula(formula)
         download = source_download(formula)
+
+        unless download.symlink_location.exist?
+          raise CannotInstallFormulaError,
+                "#{formula.full_name} source code not found at #{download.symlink_location}. " \
+                "Try `rm -rf $(brew --cache)/api-source` and retrying."
+        end
 
         with_env(HOMEBREW_INTERNAL_ALLOW_PACKAGES_FROM_PATHS: "1") do
           Formulary.factory(download.symlink_location,

@@ -268,6 +268,13 @@ begin
 
   trap("INT", old_trap)
 
+  formula_path = ARGV.first
+  if formula_path&.end_with?(".json")
+    raise "build.rb received an API JSON file as the formula path: #{formula_path}. " \
+          "This usually means the formula source was not downloaded from the API. " \
+          "Try clearing the cache: rm -rf $(brew --cache)/api-source"
+  end
+
   formula = args.named.to_formulae.fetch(0)
   options = Options.create(args.flags_only)
   build   = Build.new(formula, options, args:)

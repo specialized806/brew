@@ -1093,6 +1093,12 @@ on_request: installed_on_request?, options:)
 
     @start_time = Time.now
 
+    # If the formula is still loaded from the API (i.e. the source .rb was never
+    # fetched), attempt to download the source now. Without this, specified_path
+    # would point at a JSON file (e.g. formula.jws.json) which build.rb cannot
+    # load. See: https://github.com/orgs/Homebrew/discussions/6455
+    @formula = Homebrew::API::Formula.source_download_formula(formula) if formula.loaded_from_api?
+
     # 1. formulae can modify ENV, so we must ensure that each
     #    installation has a pristine ENV when it starts, forking now is
     #    the easiest way to do this

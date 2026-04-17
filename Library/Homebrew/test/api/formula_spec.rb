@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "api"
+require "test/support/fixtures/testball"
 
 RSpec.describe Homebrew::API::Formula do
   let(:cache_dir) { mktmpdir }
@@ -62,6 +63,77 @@ RSpec.describe Homebrew::API::Formula do
       mock_curl_download stdout: formulae_json
       aliases_output = described_class.all_aliases
       expect(aliases_output).to eq formulae_aliases
+    end
+  end
+
+  describe "::source_download" do
+    let(:f) { Testball.new }
+
+    before do
+      allow(Homebrew::API).to receive(:formula_names).and_return([])
+      allow(f).to receive_messages(ruby_source_path: "Formula/testball.rb", tap_git_head: "abc123",
+                                   ruby_source_checksum: nil)
+      allow(f).to receive(:tap).and_return(CoreTap.instance)
+    end
+
+    it "forces re-download when symlink_location exists but is not a symlink" do
+      regular_file = mktmpdir/"testball.rb"
+      regular_file.write("not a symlink")
+
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(regular_file)
+      expect_any_instance_of(Homebrew::API::SourceDownload).to receive(:fetch)
+
+      described_class.source_download(f)
+    end
+
+    it "skips download when symlink_location is a valid symlink" do
+      target = mktmpdir/"testball_target.rb"
+      target.write("content")
+      symlink = mktmpdir/"testball.rb"
+      FileUtils.ln_s(target, symlink)
+
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(symlink)
+      expect_any_instance_of(Homebrew::API::SourceDownload).not_to receive(:fetch)
+
+      described_class.source_download(f)
+    end
+  end
+
+  describe "::source_download_formula" do
+    let(:f) { Testball.new }
+
+    before do
+      allow(Homebrew::API).to receive(:formula_names).and_return([])
+      allow(f).to receive_messages(ruby_source_path: "Formula/testball.rb", tap_git_head: "abc123",
+                                   ruby_source_checksum: nil)
+      allow(f).to receive(:tap).and_return(CoreTap.instance)
+    end
+
+    it "raises CannotInstallFormulaError when source file is missing" do
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:fetch)
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(
+        Pathname("/nonexistent/path/testball.rb"),
+      )
+
+      expect do
+        described_class.source_download_formula(f)
+      end.to raise_error(CannotInstallFormulaError, /source code not found/)
+    end
+
+    it "loads formula from symlink_location when source file exists" do
+      source_path = (mktmpdir/"testball.rb")
+      source_path.write <<~RUBY
+        class Testball < Formula
+          url "https://brew.sh/testball-0.1.tar.gz"
+        end
+      RUBY
+
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:fetch)
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(source_path)
+
+      result = described_class.source_download_formula(f)
+      expect(result).to be_a(Formula)
+      expect(result.name).to eq("testball")
     end
   end
 end
