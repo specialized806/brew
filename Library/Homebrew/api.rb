@@ -182,8 +182,7 @@ module Homebrew
       end
 
       if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.fetch_formula_api!(download_queue:, stale_seconds:, enqueue: true)
-        Homebrew::API::Internal.fetch_cask_api!(download_queue:, stale_seconds:, enqueue: true)
+        Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
       else
         Homebrew::API::Formula.fetch_api!(download_queue:, stale_seconds:, enqueue: true)
         Homebrew::API::Formula.fetch_tap_migrations!(download_queue:, stale_seconds: DEFAULT_API_STALE_SECONDS,
@@ -320,7 +319,7 @@ module Homebrew
     sig { returns(Pathname) }
     def self.cached_formula_json_file_path
       if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cached_formula_json_file_path
+        Homebrew::API::Internal.cached_packages_json_file_path
       else
         Homebrew::API::Formula.cached_json_file_path
       end
@@ -356,7 +355,7 @@ module Homebrew
     sig { returns(Pathname) }
     def self.cached_cask_json_file_path
       if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cached_cask_json_file_path
+        Homebrew::API::Internal.cached_packages_json_file_path
       else
         Homebrew::API::Cask.cached_json_file_path
       end

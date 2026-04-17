@@ -401,7 +401,7 @@ module Cask
           if path
             path
           elsif from_json
-            from_internal_json ? Homebrew::API::Internal.cached_cask_json_file_path : Homebrew::API::Cask.cached_json_file_path
+            from_internal_json ? Homebrew::API::Internal.cached_packages_json_file_path : Homebrew::API::Cask.cached_json_file_path
           else
             Homebrew::API.cached_cask_json_file_path
           end,
