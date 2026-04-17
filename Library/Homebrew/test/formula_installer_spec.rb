@@ -786,4 +786,46 @@ RSpec.describe FormulaInstaller do
       expect(path).not_to exist
     end
   end
+
+  describe "#build" do
+    it "attempts source download when formula is loaded from API" do
+      formula = Testball.new
+      allow(formula).to receive(:loaded_from_api?).and_return(true)
+
+      source_formula = Testball.new
+      allow(source_formula).to receive(:loaded_from_api?).and_return(false)
+
+      expect(Homebrew::API::Formula).to receive(:source_download_formula)
+        .with(formula)
+        .and_return(source_formula)
+
+      installer = described_class.new(formula)
+
+      # Stub out the actual build subprocess since we only care about the guard
+      allow(installer).to receive(:build_argv).and_return([])
+      allow(Utils).to receive(:safe_fork)
+      allow(source_formula).to receive_messages(logs: mktmpdir, update_head_version: nil, prefix: mktmpdir,
+                                                network_access_allowed?: true)
+      allow(Keg).to receive(:new).and_return(instance_double(Keg, empty_installation?: false))
+
+      installer.build
+
+      expect(installer.formula).to eq(source_formula)
+    end
+
+    it "raises when formula is loaded from API and source download fails" do
+      formula = Testball.new
+      allow(formula).to receive(:loaded_from_api?).and_return(true)
+
+      expect(Homebrew::API::Formula).to receive(:source_download_formula)
+        .with(formula)
+        .and_raise(CannotInstallFormulaError, "source code not found")
+
+      installer = described_class.new(formula)
+
+      expect do
+        installer.build
+      end.to raise_error(CannotInstallFormulaError, /source code not found/)
+    end
+  end
 end
