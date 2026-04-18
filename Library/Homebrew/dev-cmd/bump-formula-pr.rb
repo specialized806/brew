@@ -5,6 +5,7 @@ require "abstract_command"
 require "bump"
 require "fileutils"
 require "formula"
+require "livecheck/livecheck"
 require "utils/inreplace"
 require "utils/tar"
 
@@ -681,12 +682,17 @@ module Homebrew
         return if tap.nil?
 
         throttled_rate = formula.livecheck.throttle
-        return if throttled_rate.blank?
+        throttled_days = formula.livecheck.throttle_days
+        return if throttled_rate.blank? && throttled_days.blank?
 
-        formula_suffix = Version.new(new_version).patch.to_i
-        return if formula_suffix.modulo(throttled_rate).zero?
+        return if Livecheck.throttle_allows_bump?(formula, new_version, throttle_rate: throttled_rate,
+                                                                        throttle_days: throttled_days)
 
-        odie "#{formula} should only be updated every #{throttled_rate} releases on multiples of #{throttled_rate}"
+        throttle_items = []
+        throttle_items << "#{throttled_rate} releases on multiples of #{throttled_rate}" if throttled_rate
+        throttle_items << "#{throttled_days} #{Utils.pluralize("day", throttled_days)}" if throttled_days
+
+        odie "#{formula} should only be updated every #{throttle_items.join(" or ")}"
       end
 
       sig { params(formula: Formula, new_formula_version: Version).returns(T.nilable(T::Array[String])) }

@@ -795,7 +795,7 @@ module Homebrew
         if livecheck_throttle || livecheck_throttle_days
           if livecheck_throttle
             throttled_match_version_map = match_version_map.select do |_match, version|
-              version.patch.to_i.modulo(livecheck_throttle).zero?
+              throttle_allows_bump?(formula_or_cask, version, throttle_rate: livecheck_throttle)
             end
           end
 
@@ -803,8 +803,7 @@ module Homebrew
             version_info[:latest_throttled] = Version.new(
               throttled_match_version_map.values.max_by { |v| LivecheckVersion.create(formula_or_cask, v) },
             )
-          elsif livecheck_throttle_days &&
-                throttle_interval_elapsed?(formula_or_cask, livecheck_throttle_days)
+          elsif throttle_allows_bump?(formula_or_cask, version_info[:latest], throttle_days: livecheck_throttle_days)
             version_info[:latest_throttled] = version_info[:latest]
           else
             version_info[:latest_throttled] = nil
@@ -1109,6 +1108,23 @@ module Homebrew
         end
       end
       resource_version_info
+    end
+
+    sig {
+      params(
+        package_or_resource: T.any(Formula, Cask::Cask),
+        version:             T.any(String, Version),
+        throttle_rate:       T.nilable(Integer),
+        throttle_days:       T.nilable(Integer),
+      ).returns(T::Boolean)
+    }
+    def self.throttle_allows_bump?(package_or_resource, version, throttle_rate: nil, throttle_days: nil)
+      return true if throttle_rate.blank? && throttle_days.blank?
+
+      version_patch = Version.new(version).patch.to_i
+      return true if throttle_rate.present? && version_patch.modulo(throttle_rate).zero?
+
+      throttle_days.present? && throttle_interval_elapsed?(package_or_resource, throttle_days)
     end
 
     sig { params(package_or_resource: T.any(Formula, Cask::Cask)).returns(T.nilable(Integer)) }
