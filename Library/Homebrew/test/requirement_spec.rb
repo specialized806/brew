@@ -154,6 +154,20 @@ RSpec.describe Requirement do
         requirement.modify_build_environment
       end
     end
+
+    describe "#satisfy with block calling #which and :build_env set to false" do
+      let(:klass) do
+        Class.new(described_class) do
+          satisfy(build_env: false) do
+            which("sh")
+          end
+        end
+      end
+
+      it "does not raise an error" do
+        expect { requirement.satisfied? }.not_to raise_error
+      end
+    end
   end
 
   describe "#build?" do
