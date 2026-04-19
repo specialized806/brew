@@ -51,13 +51,15 @@ module Homebrew
       @problems                                       = T.let([], T::Array[T::Hash[Symbol, T.untyped]])
       @cask_tokens                                    = T.let([], T::Array[String])
       @formula_aliases                                = T.let([], T::Array[String])
-      @formula_renames                                = T.let(tap.formula_renames, T::Hash[String, String])
-      @cask_renames                                   = T.let(tap.cask_renames, T::Hash[String, String])
+      @formula_renames                                = T.let({}, T::Hash[String, String])
+      @cask_renames                                   = T.let({}, T::Hash[String, String])
       @formula_names                                  = T.let([], T::Array[String])
 
       Homebrew.with_no_api_env do
         tap.clear_cache if Homebrew::EnvConfig.automatically_set_no_install_from_api?
 
+        @formula_renames = tap.formula_renames
+        @cask_renames    = tap.cask_renames
         @cask_tokens = tap.cask_tokens.map do |cask_token|
           Utils.name_from_full_name(cask_token)
         end
