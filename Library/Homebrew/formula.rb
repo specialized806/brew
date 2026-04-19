@@ -779,7 +779,7 @@ class Formula
       Formula[formula_name]
     rescue FormulaUnavailableError
       nil
-    end
+    end.uniq(&:full_name)
   end
 
   sig { params(path: Pathname).returns(T.nilable(T.any(String, Symbol))) }
