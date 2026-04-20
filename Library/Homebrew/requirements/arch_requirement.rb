@@ -5,6 +5,11 @@ require "requirement"
 
 # A requirement on a specific architecture.
 class ArchRequirement < Requirement
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
+  # rubocop:enable Style/MutableConstant
+
   fatal true
 
   @arch = T.let(nil, T.nilable(Symbol))

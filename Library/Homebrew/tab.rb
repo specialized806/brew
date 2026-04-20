@@ -9,8 +9,14 @@ require "cachable"
 
 # Rather than calling `new` directly, use one of the class methods like {Tab.create}.
 class AbstractTab
+  extend T::Generic
   extend Cachable
   extend T::Helpers
+
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[T.any(Pathname, String), T.untyped] } }
+  # rubocop:enable Style/MutableConstant
 
   abstract!
 
@@ -199,12 +205,20 @@ class AbstractTab
 
   sig { void }
   def write
-    self.class.cache[tabfile] = self
-    T.must(tabfile).atomic_write(to_json)
+    tfile = tabfile
+    raise "No tabfile to write to" unless tfile
+
+    self.class.cache[tfile] = self
+    tfile.atomic_write(to_json)
   end
 end
 
 class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[T.any(Pathname, String), T.untyped] } }
+  # rubocop:enable Style/MutableConstant
+
   # Check whether the formula was poured from a bottle.
   #
   # @api internal

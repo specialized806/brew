@@ -10,8 +10,14 @@ require "utils/output"
 
 # Installation prefix of a formula.
 class Keg
+  extend T::Generic
   extend Cachable
   include Utils::Output::Mixin
+
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
+  # rubocop:enable Style/MutableConstant
 
   # Error for when a keg is already linked.
   class AlreadyLinkedError < RuntimeError

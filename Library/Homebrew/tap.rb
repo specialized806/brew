@@ -13,9 +13,15 @@ require "utils/output"
 # {#user} represents the GitHub username and {#repository} represents the
 # repository name without the leading `homebrew-`.
 class Tap
+  extend T::Generic
   extend Cachable
   extend Utils::Output::Mixin
   include Utils::Output::Mixin
+
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
+  # rubocop:enable Style/MutableConstant
 
   HOMEBREW_TAP_CASK_RENAMES_FILE = "cask_renames.json"
   private_constant :HOMEBREW_TAP_CASK_RENAMES_FILE
@@ -1249,6 +1255,7 @@ class AbstractCoreTap < Tap # rubocop:todo Style/OneClassPerFile
   abstract!
 
   class << self
+    Cache = type_member { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
     Elem = type_member(:out) { { fixed: Tap } }
   end
 
@@ -1286,6 +1293,7 @@ end
 # A specialized {Tap} class for the core formulae.
 class CoreTap < AbstractCoreTap # rubocop:todo Style/OneClassPerFile
   class << self
+    Cache = type_member { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
     Elem = type_member(:out) { { fixed: Tap } }
   end
 
@@ -1491,6 +1499,7 @@ end
 # A specialized {Tap} class for homebrew-cask.
 class CoreCaskTap < AbstractCoreTap # rubocop:todo Style/OneClassPerFile
   class << self
+    Cache = type_member { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
     Elem = type_member(:out) { { fixed: Tap } }
   end
 

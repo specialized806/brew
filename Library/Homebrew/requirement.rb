@@ -13,8 +13,14 @@ require "utils/output"
 class Requirement
   include Dependable
   include Utils::Output::Mixin
+  extend T::Generic
   extend Cachable
   extend T::Helpers
+
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
+  # rubocop:enable Style/MutableConstant
 
   # This base class enforces no constraints on its own.
   # Individual subclasses use the `satisfy` DSL to define those constraints.

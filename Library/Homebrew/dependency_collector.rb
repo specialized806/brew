@@ -18,7 +18,13 @@ require "cachable"
 # This class is used by `depends_on` in the formula DSL to turn dependency
 # specifications into the proper kinds of dependencies and requirements.
 class DependencyCollector
+  extend T::Generic
   extend Cachable
+
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[T.untyped, T.untyped] } }
+  # rubocop:enable Style/MutableConstant
 
   sig { returns(Dependencies) }
   attr_reader :deps
