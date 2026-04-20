@@ -113,7 +113,7 @@ module Homebrew
       end
 
       download
-    rescue DownloadError, ChecksumMismatchError, Resource::BottleManifest::Error
+    rescue DownloadError, ChecksumMismatchError, Resource::BottleManifest::Error => e
       tries_remaining = @tries - @try
       if tries_remaining.zero?
         cleanup_partial_installation_on_error!(bottle_tmp_keg)
@@ -127,7 +127,10 @@ module Homebrew
       end
       sleep wait
 
-      downloadable.clear_cache
+      # Preserve the partial `.incomplete` file on network errors so the next
+      # attempt can resume via `--continue-at`. Clear the cache only when the
+      # fully-downloaded file is known-bad (checksum or manifest mismatch).
+      downloadable.clear_cache unless e.is_a?(DownloadError)
       retry
     # Catch any other types of exceptions as they leave us with partial installations.
     rescue Exception # rubocop:disable Lint/RescueException
