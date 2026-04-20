@@ -319,6 +319,22 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#link_overwrite_formulae" do
+    it "deduplicates formulae shared by an alias and canonical name" do
+      f = formula "foo@2.0" do
+        url "foo-2.0"
+      end
+      other_formula = formula "foo@1.0" do
+        url "foo-1.0"
+      end
+      allow(f).to receive(:link_overwrite_formulae_names).and_return(["foo", "foo@1.0"])
+      allow(Formulary).to receive(:factory).with("foo").and_return(other_formula)
+      allow(Formulary).to receive(:factory).with("foo@1.0").and_return(other_formula)
+
+      expect(f.link_overwrite_formulae).to eq([other_formula])
+    end
+  end
+
   describe "#link_overwrite_formulae_names" do
     let(:f) do
       formula "foo" do
