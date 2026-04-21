@@ -464,7 +464,7 @@ module Cask
           raise CaskInvalidError.new(cask, "invalid 'version' value: #{arg.inspect}")
         end
 
-        no_autobump! because: :latest_version if arg == :latest
+        set_no_autobump(because: :latest_version) if arg == :latest && !no_autobump_defined?
 
         DSL::Version.new(arg)
       end
@@ -672,31 +672,21 @@ module Cask
 
       @livecheck_defined = true
       @livecheck.instance_eval(&block)
-      no_autobump! because: :extract_plist if @livecheck.strategy == :extract_plist
+      set_no_autobump(because: :extract_plist) if @livecheck.strategy == :extract_plist && !no_autobump_defined?
       @livecheck
     end
 
     # Excludes the cask from autobump list.
     #
-    # TODO: limit this method to the official taps only
-    #       (e.g. raise an error if `!tap.official?`)
-    #
     # @api public
     sig { params(because: T.any(String, Symbol)).void }
     def no_autobump!(because:)
-      if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because)
-        raise ArgumentError, "'because' argument should use valid symbol or a string!"
+      tap = @cask.tap
+      if tap && !tap.official?
+        raise CaskInvalidError.new(cask, "'no_autobump!' can only be used in official Homebrew taps.")
       end
 
-      if !@cask.allow_reassignment && @no_autobump_defined
-        raise CaskInvalidError.new(cask, "'no_autobump_defined' stanza may only appear once.")
-      end
-
-      odeprecated "no_autobump! because: :requires_manual_review" if because == :requires_manual_review
-
-      @no_autobump_defined = true
-      @no_autobump_message = because
-      @autobump = false
+      set_no_autobump(because:)
     end
 
     # Is the cask in autobump list?
@@ -837,6 +827,30 @@ module Cask
       return HOMEBREW_CASK_APPDIR_PLACEHOLDER if Cask.generating_hash?
 
       cask.config.appdir
+    end
+
+    private
+
+    sig { returns(T::Boolean) }
+    def no_autobump_defined?
+      @no_autobump_defined
+    end
+
+    sig { params(because: T.any(String, Symbol)).void }
+    def set_no_autobump(because:)
+      if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because)
+        raise ArgumentError, "'because' argument should use valid symbol or a string!"
+      end
+
+      if !@cask.allow_reassignment && no_autobump_defined?
+        raise CaskInvalidError.new(cask, "'no_autobump!' stanza may only appear once.")
+      end
+
+      odeprecated "no_autobump! because: :requires_manual_review" if because == :requires_manual_review
+
+      @no_autobump_defined = true
+      @no_autobump_message = because
+      @autobump = false
     end
   end
 end

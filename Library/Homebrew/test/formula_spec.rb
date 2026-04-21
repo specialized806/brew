@@ -2568,4 +2568,27 @@ RSpec.describe Formula do
       expect(f.std_pip_args).to include("--uploaded-prior-to=2026-04-03T12:00:00Z")
     end
   end
+
+  describe ".no_autobump!" do
+    it "raises an error when used in an unofficial tap" do
+      unofficial_tap = Tap.fetch("someone", "repo")
+      allow(Tap).to receive(:from_path).and_return(unofficial_tap)
+
+      expect do
+        Class.new(Formula) do
+          no_autobump! because: "some reason"
+        end
+      end.to raise_error(ArgumentError, /official Homebrew taps/)
+    end
+
+    it "allows usage when tap is official" do
+      official_tap = Tap.fetch("Homebrew", "core")
+      allow(Tap).to receive(:from_path).and_return(official_tap)
+
+      klass = Class.new(Formula) do
+        no_autobump! because: "some reason"
+      end
+      expect(klass.autobump?).to be(false)
+    end
+  end
 end
