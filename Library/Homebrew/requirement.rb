@@ -316,6 +316,8 @@ class Requirement
   private_constant :Satisfier
 
   class << self
+    require "cask_dependent"
+
     # Expand the requirements of dependent recursively, optionally yielding
     # `[dependent, req]` pairs to allow callers to apply arbitrary filters to
     # the list.
