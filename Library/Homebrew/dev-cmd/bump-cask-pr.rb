@@ -380,7 +380,7 @@ module Homebrew
 
         throttle_rate = cask.livecheck.throttle
         throttle_days = cask.livecheck.throttle_days
-        return if throttle_rate.blank? && throttle_days.blank?
+        return if throttle_rate.nil? && throttle_days.nil?
 
         version = new_version.arm || new_version.intel || new_version.general
         return unless version.is_a?(Cask::DSL::Version)

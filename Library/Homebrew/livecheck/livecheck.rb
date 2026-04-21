@@ -1112,19 +1112,21 @@ module Homebrew
 
     sig {
       params(
-        package_or_resource: T.any(Formula, Cask::Cask),
-        version:             T.any(String, Version),
-        throttle_rate:       T.nilable(Integer),
-        throttle_days:       T.nilable(Integer),
+        formula_or_cask: T.any(Formula, Cask::Cask),
+        version:         T.any(String, Version),
+        throttle_rate:   T.nilable(Integer),
+        throttle_days:   T.nilable(Integer),
       ).returns(T::Boolean)
     }
-    def self.throttle_allows_bump?(package_or_resource, version, throttle_rate: nil, throttle_days: nil)
-      return true if throttle_rate.blank? && throttle_days.blank?
+    def self.throttle_allows_bump?(formula_or_cask, version, throttle_rate: nil, throttle_days: nil)
+      return true if throttle_rate.nil? && throttle_days.nil?
 
-      version_patch = Version.new(version).patch.to_i
-      return true if throttle_rate.present? && version_patch.modulo(throttle_rate).zero?
+      unless throttle_rate.nil?
+        version = Version.new(version) unless version.is_a?(Version)
+        return true if version.patch.to_i.modulo(throttle_rate).zero?
+      end
 
-      throttle_days.present? && throttle_interval_elapsed?(package_or_resource, throttle_days)
+      !throttle_days.nil? && throttle_interval_elapsed?(formula_or_cask, throttle_days)
     end
 
     sig { params(package_or_resource: T.any(Formula, Cask::Cask)).returns(T.nilable(Integer)) }

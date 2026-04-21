@@ -681,16 +681,20 @@ module Homebrew
         tap = formula.tap
         return if tap.nil?
 
-        throttled_rate = formula.livecheck.throttle
-        throttled_days = formula.livecheck.throttle_days
-        return if throttled_rate.blank? && throttled_days.blank?
+        throttle_rate = formula.livecheck.throttle
+        throttle_days = formula.livecheck.throttle_days
+        return if throttle_rate.nil? && throttle_days.nil?
 
-        return if Livecheck.throttle_allows_bump?(formula, new_version, throttle_rate: throttled_rate,
-                                                                        throttle_days: throttled_days)
+        return if Livecheck.throttle_allows_bump?(
+          formula,
+          new_version,
+          throttle_rate: throttle_rate,
+          throttle_days: throttle_days,
+        )
 
         throttle_items = []
-        throttle_items << "#{throttled_rate} releases on multiples of #{throttled_rate}" if throttled_rate
-        throttle_items << "#{throttled_days} #{Utils.pluralize("day", throttled_days)}" if throttled_days
+        throttle_items << "#{throttle_rate} releases on multiples of #{throttle_rate}" if throttle_rate
+        throttle_items << "#{throttle_days} #{Utils.pluralize("day", throttle_days)}" if throttle_days
 
         odie "#{formula} should only be updated every #{throttle_items.join(" or ")}"
       end
