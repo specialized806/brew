@@ -514,6 +514,43 @@ RSpec.describe Homebrew::Livecheck do
     end
   end
 
+  describe "::throttle_allows_bump?" do
+    let(:version) { Version.new("1.2.3") }
+
+    it "returns true if `throttle_rate` and `throttle_days` are nil" do
+      expect(livecheck.send(:throttle_allows_bump?, f, version)).to be(true)
+    end
+
+    it "returns true if patch version is divisible by `throttle_rate`" do
+      expect(livecheck.send(:throttle_allows_bump?, f, version, throttle_rate: 3)).to be(true)
+      expect(livecheck.send(:throttle_allows_bump?, f, "1.2.3", throttle_rate: 3)).to be(true)
+    end
+
+    it "returns false if patch version is not divisible by `throttle_rate` and `throttle_days` is not set" do
+      expect(livecheck.send(:throttle_allows_bump?, f, version, throttle_rate: 5)).to be(false)
+    end
+
+    it "returns false if patch version is not divisible by `throttle_rate` and throttle interval has not elapsed" do
+      allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
+      expect(livecheck.send(:throttle_allows_bump?, f, version, throttle_rate: 5, throttle_days: 1)).to be(false)
+    end
+
+    it "returns true if patch version is not divisible by `throttle_rate` and throttle interval has elapsed" do
+      allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(true)
+      expect(livecheck.send(:throttle_allows_bump?, f, version, throttle_rate: 5, throttle_days: 1)).to be(true)
+    end
+
+    it "returns false if only `throttle_days` is provided and throttle interval has not elapsed" do
+      allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
+      expect(livecheck.send(:throttle_allows_bump?, f, version, throttle_days: 1)).to be(false)
+    end
+
+    it "returns true if only `throttle_days` is provided and throttle interval has elapsed" do
+      allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(true)
+      expect(livecheck.send(:throttle_allows_bump?, f, version, throttle_days: 1)).to be(true)
+    end
+  end
+
   describe "::throttle_interval_elapsed" do
     it "returns false if days is not positive" do
       expect(livecheck.send(:throttle_interval_elapsed?, f, 0)).to be(false)
