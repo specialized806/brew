@@ -464,7 +464,7 @@ module Cask
           raise CaskInvalidError.new(cask, "invalid 'version' value: #{arg.inspect}")
         end
 
-        set_no_autobump(because: :latest_version) if arg == :latest && !@no_autobump_defined
+        set_no_autobump(because: :latest_version) if arg == :latest && !no_autobump_defined?
 
         DSL::Version.new(arg)
       end
@@ -672,7 +672,7 @@ module Cask
 
       @livecheck_defined = true
       @livecheck.instance_eval(&block)
-      set_no_autobump(because: :extract_plist) if @livecheck.strategy == :extract_plist && !@no_autobump_defined
+      set_no_autobump(because: :extract_plist) if @livecheck.strategy == :extract_plist && !no_autobump_defined?
       @livecheck
     end
 
@@ -829,15 +829,20 @@ module Cask
       cask.config.appdir
     end
 
-    sig { params(because: T.any(String, Symbol)).void }
     private
 
+    sig { returns(T::Boolean) }
+    def no_autobump_defined?
+      @no_autobump_defined
+    end
+
+    sig { params(because: T.any(String, Symbol)).void }
     def set_no_autobump(because:)
       if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because)
         raise ArgumentError, "'because' argument should use valid symbol or a string!"
       end
 
-      if !@cask.allow_reassignment && @no_autobump_defined
+      if !@cask.allow_reassignment && no_autobump_defined?
         raise CaskInvalidError.new(cask, "'no_autobump!' stanza may only appear once.")
       end
 
