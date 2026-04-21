@@ -37,9 +37,7 @@ module Utils
                                      .map { |c| Cask::CaskLoader.load(c, config: nil) }
         when Formula
           formula_deps = cask_or_formula.deps
-                                        .reject(&:build?)
-                                        .reject(&:test?)
-                                        .map(&:to_formula)
+                                        .filter_map { |d| d.to_formula if !d.build? && !d.test? }
           cask_deps = cask_or_formula.requirements
                                      .filter_map(&:cask)
                                      .map { |c| Cask::CaskLoader.load(c, config: nil) }
