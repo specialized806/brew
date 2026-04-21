@@ -157,6 +157,6 @@ Some upstream software providers like to package their software in their own Hom
 
 We are not willing to remove software packaged in Homebrew/homebrew-core in favour of an upstream tap. We are not willing to instruct users of our formulae to use an upstream tap instead. If upstream projects have issues with how Homebrew packages your software: please file issues (or, ideally, pull requests) to address these problems.
 
-An upstream request alone is not enough reason to deprecate, disable or remove software. If our analytics show non-zero installs and our issue tracker is not receiving user reports that Homebrew's packaging is broken, we will generally keep the software in Homebrew until there is a clearer technical, policy or project-wide reason to do otherwise.
+An upstream request alone is not enough of a reason to deprecate, disable or remove software. If our analytics show non-zero installs and our issue tracker is not receiving user reports that Homebrew's packaging is broken, we will generally keep the software in Homebrew/homebrew-core until there is a clearer technical, policy or project-wide reason to do otherwise.
 
 There’s an increasing desire in commercial open source about “maintaining control” e.g. defining exactly what binaries are shipping to users. Not supporting users (or even software distributions) to build-from-source is antithetical to the values of open source. If you think Homebrew's perspective is annoying on this: try and see how Debian responds to requests to ship your binaries.

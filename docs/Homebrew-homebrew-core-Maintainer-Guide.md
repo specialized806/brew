@@ -129,7 +129,7 @@ Formulae that:
 
 should not be removed from Homebrew. The exception to this rule are [versioned formulae](Versions.md) for which there are higher standards of usage and a maximum number of versions for a given formula.
 
-An upstream request or claim that Homebrew's packaging is "broken" is not enough reason to deprecate, disable or remove a formula when users are not reporting breakage in our issue tracker and our analytics show continued installs.
+An upstream request or claim that Homebrew's packaging is "broken" is not enough of a reason to deprecate, disable or remove a formula when users are not reporting breakage in our issue tracker and our analytics show continued installs.
 
 For more information about deprecating, disabling and removing formulae, see the [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md#formulae-and-casks) page.
 

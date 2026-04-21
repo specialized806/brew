@@ -20,9 +20,9 @@ If in doubt, ask another cask maintainer on GitHub or Slack.
 
 Note that unlike formulae, casks do not consider the `sha256` stanza to be a meaningful security measure as maintainers cannot realistically check them for authenticity. Casks download from upstream; if a malicious actor compromised a URL, they could potentially compromise a version and make it look like an update.
 
-## Deprecating, disabling and removing casks
+## Deprecating, Disabling and Removing Casks
 
-Do not deprecate, disable or remove a cask just because upstream asks us to or claims Homebrew's packaging is "broken". If our analytics show non-zero installs and our issue tracker is not receiving user reports that the cask is broken, keep it unless there is a clearer technical, policy or project-wide reason to do otherwise.
+Do not deprecate, disable or remove a cask just because upstream asks us to or claims Homebrew's packaging is "broken". If our analytics show non-zero installs and our issue tracker is not receiving user reports that the cask is broken, keep it unless there is a clear enough technical, policy or project-wide reason to do otherwise.
 
 ## Merging
 
