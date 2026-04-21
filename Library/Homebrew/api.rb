@@ -16,7 +16,13 @@ module Homebrew
   module API
     extend Utils::Output::Mixin
 
+    extend T::Generic
     extend Cachable
+
+    # Sorbet type members are mutable by design and cannot be frozen.
+    # rubocop:disable Style/MutableConstant
+    Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
+    # rubocop:enable Style/MutableConstant
 
     HOMEBREW_CACHE_API = T.let((HOMEBREW_CACHE/"api").freeze, Pathname)
     HOMEBREW_CACHE_API_SOURCE = T.let((HOMEBREW_CACHE/"api-source").freeze, Pathname)

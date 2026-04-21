@@ -8,10 +8,15 @@ require "utils/output"
 
 # Helper module for validating syntax in taps.
 module Readall
+  extend T::Generic
   extend Cachable
   extend SystemCommand::Mixin
   extend Utils::Output::Mixin
 
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
+  # rubocop:enable Style/MutableConstant
   # TODO: remove this once the `MacOS` module is undefined on Linux
   MACOS_MODULE_REGEX = /\b(MacOS|OS::Mac)(\.|::)\b/
   private_constant :MACOS_MODULE_REGEX

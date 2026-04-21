@@ -16,7 +16,13 @@ module Utils
     INFLUX_ORG = "d81a3e6d582d485f"
 
     extend Utils::Output::Mixin
+    extend T::Generic
     extend Cachable
+
+    # Sorbet type members are mutable by design and cannot be frozen.
+    # rubocop:disable Style/MutableConstant
+    Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
+    # rubocop:enable Style/MutableConstant
 
     class << self
       include Context

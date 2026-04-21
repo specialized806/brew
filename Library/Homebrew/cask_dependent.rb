@@ -7,6 +7,11 @@ require "requirement"
 class CaskDependent
   # Defines a dependency on another cask
   class Requirement < ::Requirement
+    # Sorbet type members are mutable by design and cannot be frozen.
+    # rubocop:disable Style/MutableConstant
+    Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
+    # rubocop:enable Style/MutableConstant
+
     satisfy(build_env: false) do
       cask_token = cask
       raise "unexpected nil cask" unless cask_token

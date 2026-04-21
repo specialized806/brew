@@ -18,9 +18,15 @@ require "tap"
 # It is not meant to be used directly from formulae.
 module Formulary
   extend Context
+  extend T::Generic
   extend Cachable
   extend Utils::Output::Mixin
   include Utils::Output::Mixin
+
+  # Sorbet type members are mutable by design and cannot be frozen.
+  # rubocop:disable Style/MutableConstant
+  Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
+  # rubocop:enable Style/MutableConstant
 
   ALLOWED_URL_SCHEMES = %w[file].freeze
   private_constant :ALLOWED_URL_SCHEMES
