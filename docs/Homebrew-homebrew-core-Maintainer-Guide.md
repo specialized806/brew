@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-05"
+last_review_date: "2026-04-21"
 ---
 
 # Homebrew/homebrew-core Maintainer Guide
@@ -128,6 +128,8 @@ Formulae that:
 - are shown to be still installed by users in our analytics with a `BuildError` rate of <25%
 
 should not be removed from Homebrew. The exception to this rule are [versioned formulae](Versions.md) for which there are higher standards of usage and a maximum number of versions for a given formula.
+
+An upstream request or claim that Homebrew's packaging is "broken" is not enough reason to deprecate, disable or remove a formula when users are not reporting breakage in our issue tracker and our analytics show continued installs.
 
 For more information about deprecating, disabling and removing formulae, see the [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md#formulae-and-casks) page.
 
