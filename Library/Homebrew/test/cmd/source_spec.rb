@@ -99,8 +99,24 @@ RSpec.describe Homebrew::Cmd::Source do
     end
   end
 
-  describe "#pypi_repo_url", :needs_utils_curl do
+  describe "#pypi_repo_url" do
     it "finds repository for PyPI URL" do
+      expect(Utils::Curl).to receive(:curl_output)
+        .with(*Utils::Curl.curl_args(show_error: false, retries: 2), "https://pypi.org/pypi/numpy/json")
+        .and_return([
+          <<~JSON,
+            {
+              "info": {
+                "project_urls": {
+                  "Repository": "https://github.com/numpy/numpy"
+                }
+              }
+            }
+          JSON
+          "",
+          instance_double(Process::Status, success?: true),
+        ])
+
       expect(described_class.new([])
         .send(:pypi_repo_url,
               "https://files.pythonhosted.org/packages/24/62/ae72ff66c0f1fd959925b4c11f8c2dea61f47f6acaea75a08512cdfe3fed/numpy-2.4.1.tar.gz"))
@@ -108,6 +124,20 @@ RSpec.describe Homebrew::Cmd::Source do
     end
 
     it "returns nil for PyPI package without project information" do
+      expect(Utils::Curl).to receive(:curl_output)
+        .with(*Utils::Curl.curl_args(show_error: false, retries: 2), "https://pypi.org/pypi/foobar/json")
+        .and_return([
+          <<~JSON,
+            {
+              "info": {
+                "project_urls": {}
+              }
+            }
+          JSON
+          "",
+          instance_double(Process::Status, success?: true),
+        ])
+
       expect(described_class.new([])
         .send(:pypi_repo_url,
               "https://files.pythonhosted.org/packages/00/00/000000000000000000000000000000000000000000000000000000000000/foobar-0.0.1.tar.gz"))
