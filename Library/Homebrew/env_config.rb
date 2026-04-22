@@ -751,10 +751,10 @@ module Homebrew
 
     sig { returns(T::Boolean) }
     def use_internal_api?
-      return true if ENV["HOMEBREW_REALLY_USE_INTERNAL_API"].present?
+      return false if Homebrew::EnvConfig.no_install_from_api?
 
-      # TODO: re-enable this when the internal API is ready again.
-      false
+      use_internal_api = ENV.fetch("HOMEBREW_USE_INTERNAL_API", nil)
+      use_internal_api.present? && FALSY_VALUES.exclude?(use_internal_api.downcase)
     end
   end
 end

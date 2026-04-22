@@ -165,4 +165,22 @@ RSpec.describe Homebrew::EnvConfig do
         .to raise_error(UsageError, /cannot both be set/i)
     end
   end
+
+  describe ".use_internal_api?" do
+    it "returns true if HOMEBREW_USE_INTERNAL_API is set" do
+      ENV["HOMEBREW_USE_INTERNAL_API"] = "1"
+      expect(env_config.use_internal_api?).to be(true)
+    end
+
+    it "returns false if HOMEBREW_USE_INTERNAL_API is not set" do
+      ENV["HOMEBREW_USE_INTERNAL_API"] = nil
+      expect(env_config.use_internal_api?).to be(false)
+    end
+
+    it "returns false if HOMEBREW_NO_INSTALL_FROM_API is set" do
+      ENV["HOMEBREW_USE_INTERNAL_API"] = "1"
+      ENV["HOMEBREW_NO_INSTALL_FROM_API"] = "1"
+      expect(env_config.use_internal_api?).to be(false)
+    end
+  end
 end
