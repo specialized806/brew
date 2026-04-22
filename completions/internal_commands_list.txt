@@ -126,6 +126,7 @@ update-if-needed
 update-license-data
 update-maintainers
 update-perl-resources
+update-portable-ruby
 update-python-resources
 update-reset
 update-sponsors

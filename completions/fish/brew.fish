@@ -1972,6 +1972,15 @@ __fish_brew_complete_arg 'update-perl-resources' -l verbose -d 'Make some output
 __fish_brew_complete_arg 'update-perl-resources' -a '(__fish_brew_suggest_formulae_all)'
 
 
+__fish_brew_complete_cmd 'update-portable-ruby' 'Update the vendored portable Ruby version files, bottle checksums, `utils/ruby.sh` and `Gemfile.lock` entries from the current `portable-ruby` formula'
+__fish_brew_complete_arg 'update-portable-ruby' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'update-portable-ruby' -l dry-run -d 'Print what would be done rather than doing it'
+__fish_brew_complete_arg 'update-portable-ruby' -l help -d 'Show this message'
+__fish_brew_complete_arg 'update-portable-ruby' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'update-portable-ruby' -l skip-vendor-install -d 'Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and `Gemfile.lock` updates'
+__fish_brew_complete_arg 'update-portable-ruby' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'update-python-resources' 'Update versions for PyPI resource blocks in formula'
 __fish_brew_complete_arg 'update-python-resources' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-python-resources' -l exclude-packages -d 'Exclude these packages when finding resources'

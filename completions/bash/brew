@@ -3071,6 +3071,24 @@ _brew_update_perl_resources() {
   __brew_complete_formulae
 }
 
+_brew_update_portable_ruby() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --dry-run
+      --help
+      --quiet
+      --skip-vendor-install
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_update_python_resources() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3524,6 +3542,7 @@ _brew() {
     update-license-data) _brew_update_license_data ;;
     update-maintainers) _brew_update_maintainers ;;
     update-perl-resources) _brew_update_perl_resources ;;
+    update-portable-ruby) _brew_update_portable_ruby ;;
     update-python-resources) _brew_update_python_resources ;;
     update-report) _brew_update_report ;;
     update-reset) _brew_update_reset ;;
