@@ -19,6 +19,60 @@ RSpec.describe RuboCop::Cop::FormulaAudit::ResourceRequiresDependencies do
     end
   end
 
+  context "when a formula does not have the bcrypt resource" do
+    it "does not report offenses" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          homepage "https://brew.sh"
+
+          uses_from_macos "libxml2"
+
+          resource "not-bcrypt" do
+            url "blah"
+            sha256 "blah"
+          end
+        end
+      RUBY
+    end
+  end
+
+  context "when a formula has the bcrypt resource" do
+    it "does not report offenses if the dependencies are present" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          homepage "https://brew.sh"
+
+          depends_on "pkgconf" => :build
+          depends_on "rust" => :build
+
+          resource "bcrypt" do
+            url "blah"
+            sha256 "blah"
+          end
+        end
+      RUBY
+    end
+
+    it "reports offenses if missing a dependency" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          homepage "https://brew.sh"
+
+          depends_on "pkgconf" => :build
+
+          resource "bcrypt" do
+          ^^^^^^^^^^^^^^^^^ FormulaAudit/ResourceRequiresDependencies: Add `depends_on` lines above for `"pkgconf"` and `"rust"`.
+            url "blah"
+            sha256 "blah"
+          end
+        end
+      RUBY
+    end
+  end
+
   context "when a formula does not have the lxml resource" do
     it "does not report offenses" do
       expect_no_offenses(<<~RUBY)
