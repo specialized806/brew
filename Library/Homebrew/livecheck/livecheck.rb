@@ -799,13 +799,13 @@ module Homebrew
             end
           end
 
-          if throttled_match_version_map.present?
+          if livecheck_throttle_days &&
+             throttle_allows_bump?(formula_or_cask, version_info[:latest], throttle_days: livecheck_throttle_days)
+            version_info[:latest_throttled] = version_info[:latest]
+          elsif throttled_match_version_map.present?
             version_info[:latest_throttled] = Version.new(
               throttled_match_version_map.values.max_by { |v| LivecheckVersion.create(formula_or_cask, v) },
             )
-          elsif livecheck_throttle_days &&
-                throttle_allows_bump?(formula_or_cask, version_info[:latest], throttle_days: livecheck_throttle_days)
-            version_info[:latest_throttled] = version_info[:latest]
           else
             version_info[:latest_throttled] = nil
           end
