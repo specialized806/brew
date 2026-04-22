@@ -2376,6 +2376,14 @@ Suppress any output\.
 .TP
 \fB\-\-ignore\-errors\fP
 Continue processing even if some resources can\[u2019]t be resolved\.
+.SS "\fBupdate\-portable\-ruby\fP \fR[\fB\-\-dry\-run\fP] \fR[\fB\-\-skip\-vendor\-install\fP]"
+Update the vendored portable Ruby version files, bottle checksums, \fButils/ruby\.sh\fP and \fBGemfile\.lock\fP entries from the current \fBportable\-ruby\fP formula\.
+.TP
+\fB\-n\fP, \fB\-\-dry\-run\fP
+Print what would be done rather than doing it\.
+.TP
+\fB\-\-skip\-vendor\-install\fP
+Do not run \fBbrew vendor\-install ruby\fP; skip the \fButils/ruby\.sh\fP and \fBGemfile\.lock\fP updates\.
 .SS "\fBupdate\-python\-resources\fP \fR[\fIoptions\fP] \fIformula\fP \fR[\.\.\.]"
 Update versions for PyPI resource blocks in \fIformula\fP\&\.
 .TP

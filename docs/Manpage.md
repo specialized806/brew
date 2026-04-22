@@ -3728,6 +3728,21 @@ Update versions for CPAN resource blocks in *`formula`*.
 
 : Continue processing even if some resources can't be resolved.
 
+### `update-portable-ruby` \[`--dry-run`\] \[`--skip-vendor-install`\]
+
+Update the vendored portable Ruby version files, bottle checksums,
+`utils/ruby.sh` and `Gemfile.lock` entries from the current `portable-ruby`
+formula.
+
+`-n`, `--dry-run`
+
+: Print what would be done rather than doing it.
+
+`--skip-vendor-install`
+
+: Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and
+  `Gemfile.lock` updates.
+
 ### `update-python-resources` \[*`options`*\] *`formula`* \[...\]
 
 Update versions for PyPI resource blocks in *`formula`*.

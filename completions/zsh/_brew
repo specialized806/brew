@@ -244,6 +244,7 @@ __brew_internal_commands() {
     'update-license-data:Update SPDX license data in the Homebrew repository'
     'update-maintainers:Update the list of maintainers in the `Homebrew/brew` README'
     'update-perl-resources:Update versions for CPAN resource blocks in formula'
+    'update-portable-ruby:Update the vendored portable Ruby version files, bottle checksums, `utils/ruby.sh` and `Gemfile.lock` entries from the current `portable-ruby` formula'
     'update-python-resources:Update versions for PyPI resource blocks in formula'
     'update-report:The Ruby implementation of `brew update`'
     'update-reset:Fetch and reset Homebrew and all tap repositories (or any specified repository) using `git`(1) to their latest `origin/HEAD`'
@@ -2427,6 +2428,17 @@ _brew_update_perl_resources() {
     '--verbose[Make some output more verbose]' \
     - formula \
     '*:formula:__brew_formulae'
+}
+
+# brew update-portable-ruby
+_brew_update_portable_ruby() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--dry-run[Print what would be done rather than doing it]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--skip-vendor-install[Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and `Gemfile.lock` updates]' \
+    '--verbose[Make some output more verbose]'
 }
 
 # brew update-python-resources
