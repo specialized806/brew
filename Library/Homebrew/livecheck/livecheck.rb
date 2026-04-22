@@ -795,17 +795,17 @@ module Homebrew
         if livecheck_throttle || livecheck_throttle_days
           if livecheck_throttle
             throttled_match_version_map = match_version_map.select do |_match, version|
-              version.patch.to_i.modulo(livecheck_throttle).zero?
+              throttle_allows_bump?(formula_or_cask, version, throttle_rate: livecheck_throttle)
             end
           end
 
-          if throttled_match_version_map.present?
+          if livecheck_throttle_days &&
+             throttle_allows_bump?(formula_or_cask, version_info[:latest], throttle_days: livecheck_throttle_days)
+            version_info[:latest_throttled] = version_info[:latest]
+          elsif throttled_match_version_map.present?
             version_info[:latest_throttled] = Version.new(
               throttled_match_version_map.values.max_by { |v| LivecheckVersion.create(formula_or_cask, v) },
             )
-          elsif livecheck_throttle_days &&
-                throttle_interval_elapsed?(formula_or_cask, livecheck_throttle_days)
-            version_info[:latest_throttled] = version_info[:latest]
           else
             version_info[:latest_throttled] = nil
           end
@@ -1109,6 +1109,25 @@ module Homebrew
         end
       end
       resource_version_info
+    end
+
+    sig {
+      params(
+        formula_or_cask: T.any(Formula, Cask::Cask),
+        version:         T.any(String, Version),
+        throttle_rate:   T.nilable(Integer),
+        throttle_days:   T.nilable(Integer),
+      ).returns(T::Boolean)
+    }
+    def self.throttle_allows_bump?(formula_or_cask, version, throttle_rate: nil, throttle_days: nil)
+      return true if throttle_rate.nil? && throttle_days.nil?
+
+      unless throttle_rate.nil?
+        version = Version.new(version) unless version.is_a?(Version)
+        return true if version.patch.to_i.modulo(throttle_rate).zero?
+      end
+
+      !throttle_days.nil? && throttle_interval_elapsed?(formula_or_cask, throttle_days)
     end
 
     sig { params(package_or_resource: T.any(Formula, Cask::Cask)).returns(T.nilable(Integer)) }

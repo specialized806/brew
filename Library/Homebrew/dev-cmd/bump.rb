@@ -625,10 +625,11 @@ module Homebrew
           new_version.general
         end
 
+        throttled = formula_or_cask.livecheck.throttle || formula_or_cask.livecheck.throttle_days
         ohai title
         puts <<~EOS
           Current #{version_info.version_name}  #{current_versions}
-          Latest livecheck version: #{new_versions}#{" (throttled)" if formula_or_cask.livecheck.throttle}
+          Latest livecheck version: #{new_versions}#{" (throttled)" if throttled}
         EOS
         puts <<~EOS unless skip_repology?(formula_or_cask)
           Latest Repology version:  #{repology_latest}

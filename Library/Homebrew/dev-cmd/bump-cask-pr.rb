@@ -6,6 +6,7 @@ require "bump"
 require "bump_version_parser"
 require "cask"
 require "cask/download"
+require "livecheck/livecheck"
 require "livecheck/livecheck_version"
 require "utils/tar"
 
@@ -378,15 +379,19 @@ module Homebrew
         return unless cask.tap
 
         throttle_rate = cask.livecheck.throttle
-        return unless throttle_rate
+        throttle_days = cask.livecheck.throttle_days
+        return if throttle_rate.nil? && throttle_days.nil?
 
         version = new_version.arm || new_version.intel || new_version.general
         return unless version.is_a?(Cask::DSL::Version)
 
-        version_patch = version.patch.to_i
-        return if version_patch.modulo(throttle_rate).zero?
+        return if Livecheck.throttle_allows_bump?(cask, version.to_s, throttle_rate:, throttle_days:)
 
-        odie "#{cask.token} should only be updated every #{throttle_rate} releases on multiples of #{throttle_rate}"
+        throttle_items = []
+        throttle_items << "#{throttle_rate} releases on multiples of #{throttle_rate}" if throttle_rate
+        throttle_items << "#{throttle_days} #{Utils.pluralize("day", throttle_days)}" if throttle_days
+
+        odie "#{cask.token} should only be updated every #{throttle_items.join(" or ")}"
       end
 
       sig { params(cask: Cask::Cask, new_version: BumpVersionParser).void }
