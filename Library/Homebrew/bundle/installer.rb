@@ -15,6 +15,13 @@ module Homebrew
         const :cls, T.class_of(Homebrew::Bundle::PackageType)
       end
 
+      sig { void }
+      def self.reset!
+        Homebrew::Bundle.reset!
+        Homebrew::Bundle::Cask.reset!
+        Homebrew::Bundle::Tap.reset!
+      end
+
       sig {
         params(
           entries:    T::Array[Dsl::Entry],
