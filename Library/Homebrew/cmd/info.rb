@@ -437,6 +437,10 @@ module Homebrew
           formula = formula_or_cask
           tap = formula.tap
           return formula.path.to_s if tap.blank? || tap.remote.blank?
+          # The formula file may live outside the tap (e.g. loaded from a keg's
+          # `.brew/` directory after the formula was removed from its tap), in
+          # which case there is no meaningful upstream URL to link to.
+          return formula.path.to_s unless formula.path.to_s.start_with?("#{tap.path}/")
 
           formula.path.relative_path_from(tap.path)
         when Cask::Cask

@@ -234,4 +234,31 @@ RSpec.describe Homebrew::Cmd::Info do
         .to eq("https://mywebsite.com/foo/bar.rb")
     end
   end
+
+  describe "#github_info" do
+    let(:tap) { CoreTap.instance }
+
+    it "returns the local path for a formula whose file lives outside its tap" do
+      # Simulates a formula that was removed from its tap but is still installed,
+      # so it gets loaded from the keg's `.brew/` directory by `FromKegLoader`.
+      keg_formula_path = HOMEBREW_CELLAR/"testball/0.1/.brew/testball.rb"
+      formula_instance = formula("testball", path: keg_formula_path, tap:) do
+        url "https://brew.sh/testball-0.1.tar.gz"
+      end
+
+      expect(described_class.new([]).send(:github_info, formula_instance))
+        .to eq(keg_formula_path.to_s)
+    end
+
+    it "returns a GitHub URL for a formula whose file lives inside its tap" do
+      formula_path = tap.new_formula_path("testball")
+      formula_instance = formula("testball", path: formula_path, tap:) do
+        url "https://brew.sh/testball-0.1.tar.gz"
+      end
+
+      expect(described_class.new([]).send(:github_info, formula_instance))
+        .to eq("https://github.com/Homebrew/homebrew-core/blob/HEAD/" \
+               "#{formula_path.relative_path_from(tap.path)}")
+    end
+  end
 end
