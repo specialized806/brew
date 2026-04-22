@@ -13,6 +13,7 @@ RSpec.describe Homebrew::Bundle::Installer do
   let(:cask_entry) { Homebrew::Bundle::Dsl::Entry.new(:cask, "google-chrome", cask_options) }
 
   before do
+    described_class.reset!
     allow(Homebrew::Bundle::Skipper).to receive(:skip?).and_return(false)
     allow(Homebrew::Bundle::Brew).to receive_messages(formula_upgradable?: false, install!: true)
     allow(Homebrew::Bundle::Brew).to receive_messages(formula_installed_and_up_to_date?: false,
@@ -20,6 +21,18 @@ RSpec.describe Homebrew::Bundle::Installer do
     allow(Homebrew::Bundle::Cask).to receive_messages(cask_upgradable?: false, install!: true)
     allow(Homebrew::Bundle::Cask).to receive_messages(installable_or_upgradable?: true, preinstall!: true)
     allow(Homebrew::Bundle::Tap).to receive_messages(preinstall!: true, install!: true, installed_taps: [])
+  end
+
+  it "resets cached package state before installing" do
+    expect(Homebrew::Bundle::Cask).to receive(:casks).twice.and_return(
+      [double(to_s: "stale")],
+      [double(to_s: "google-chrome")],
+    )
+
+    expect(Homebrew::Bundle::Cask.cask_names).to eq(["stale"])
+
+    described_class.reset!
+    described_class.install!([cask_entry], verbose: false, force: false, quiet: true)
   end
 
   it "prefetches installable formulae and casks before installing" do
@@ -85,8 +98,13 @@ RSpec.describe Homebrew::Bundle::Installer do
     end
 
     it "installs independent formulae in parallel with jobs > 1" do
+      allow(Homebrew::Bundle::Brew).to receive(:formula_bottled?).and_return(true)
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha",
+                                                                          include_build: false).and_return(Set.new)
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta",
+                                                                          include_build: false).and_return(Set.new)
       expect(Homebrew::Bundle::Brew).to receive(:install!)
         .with("alpha", preinstall: true, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
@@ -110,9 +128,14 @@ RSpec.describe Homebrew::Bundle::Installer do
         true
       end
 
+      allow(Homebrew::Bundle::Brew).to receive(:formula_bottled?).and_return(true)
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha")
                                                                       .and_return({ dependencies: ["beta"] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha",
+                                                                          include_build: false).and_return(Set.new)
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta",
+                                                                          include_build: false).and_return(Set.new)
 
       success, failure = Homebrew::Bundle::ParallelInstaller.new(
         [alpha_entry, beta_entry],
