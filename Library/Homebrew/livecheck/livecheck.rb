@@ -1193,10 +1193,18 @@ module Homebrew
       end
       return if sourcefile.nil?
 
+      default_branch = Utils.popen_read(
+        Utils::Git.git,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "--short",
+      ).chomp.delete_prefix("origin/").presence || "main"
+
       relative_sourcefile = sourcefile.relative_path_from(tap.path).to_s
       timestamp = Utils.popen_read(
         Utils::Git.git,
         "log",
+        default_branch,
         "-1",
         "--format=%ct",
         "--",
