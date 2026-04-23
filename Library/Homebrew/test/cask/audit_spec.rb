@@ -637,6 +637,37 @@ RSpec.describe Cask::Audit, :cask do
         end
       end
 
+      context "when the Cask has a `livecheck` block using `throttle days:`" do
+        let(:cask_token) { "livecheck-throttle-days" }
+        let(:cask) do
+          tmp_cask cask_token.to_s, <<~RUBY
+            cask "#{cask_token}" do
+              version "1.2.5"
+              sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+
+              url "https://brew.sh/#{cask_token}-1.2.5.dmg"
+              name "Throttle Days"
+              homepage "https://brew.sh/#{cask_token}"
+
+              livecheck do
+                url :homepage
+                throttle days: 7
+              end
+
+              app "#{cask_token}.app"
+            end
+          RUBY
+        end
+
+        it do
+          allow(Homebrew::Livecheck).to receive(:latest_version).and_return({
+            latest:           Version.new("1.2.6"),
+            latest_throttled: Version.new("1.2.5"),
+          })
+          expect(run).not_to error_with(message)
+        end
+      end
+
       context "when the Cask has a `livecheck` block referencing a Cask that uses `throttle`" do
         let(:cask_token) { "livecheck-throttle-reference" }
 
@@ -645,6 +676,58 @@ RSpec.describe Cask::Audit, :cask do
             latest:           Version.new("1.2.6"),
             latest_throttled: Version.new("1.2.5"),
           })
+          expect(run).not_to error_with(message)
+        end
+      end
+
+      context "when the Cask has a `livecheck` block referencing a Cask that uses `throttle days:`" do
+        let(:cask_token) { "livecheck-throttle-days-reference" }
+        let(:referenced_cask) do
+          tmp_cask "livecheck-throttle-days-source", <<~RUBY
+            cask "livecheck-throttle-days-source" do
+              version "1.2.5"
+              sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+
+              url "https://brew.sh/livecheck-throttle-days-source-1.2.5.dmg"
+              name "Throttle Days Source"
+              homepage "https://brew.sh/livecheck-throttle-days-source"
+
+              livecheck do
+                url :homepage
+                throttle days: 7
+              end
+
+              app "livecheck-throttle-days-source.app"
+            end
+          RUBY
+        end
+        let(:cask) do
+          tmp_cask cask_token.to_s, <<~RUBY
+            cask "#{cask_token}" do
+              version "1.2.5"
+              sha256 "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
+
+              url "https://brew.sh/#{cask_token}-1.2.5.dmg"
+              name "Throttle Days Reference"
+              homepage "https://brew.sh/#{cask_token}"
+
+              livecheck do
+                cask "livecheck-throttle-days-source"
+              end
+
+              app "#{cask_token}.app"
+            end
+          RUBY
+        end
+
+        it do
+          allow(Homebrew::Livecheck).to receive_messages(
+            resolve_livecheck_reference: [referenced_cask, nil],
+            latest_version:              {
+              latest:           Version.new("1.2.6"),
+              latest_throttled: Version.new("1.2.5"),
+            },
+          )
           expect(run).not_to error_with(message)
         end
       end

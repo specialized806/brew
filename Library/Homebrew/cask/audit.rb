@@ -806,8 +806,13 @@ module Cask
       )
       if result
         throttle = cask.livecheck.throttle
-        throttle ||= referenced_cask.livecheck.throttle if referenced_cask
-        latest_version = throttle ? result[:latest_throttled] : result[:latest]
+        throttle_days = cask.livecheck.throttle_days
+        if referenced_cask
+          throttle ||= referenced_cask.livecheck.throttle
+          throttle_days ||= referenced_cask.livecheck.throttle_days
+        end
+
+        latest_version = (throttle || throttle_days) ? result[:latest_throttled] : result[:latest]
       end
 
       if latest_version && (cask.version.to_s == latest_version.to_s)
