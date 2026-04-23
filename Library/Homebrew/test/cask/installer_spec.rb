@@ -247,6 +247,34 @@ RSpec.describe Cask::Installer, :cask do
       end
     end
 
+    context "when loaded from the api with unsupported requirements" do
+      let(:cask) { Cask::CaskLoader.load(cask_path("with-preflight")) }
+      let(:download_queue) { instance_double(Homebrew::DownloadQueue, enqueue: nil) }
+      let(:macos_requirement) { cask.depends_on.macos }
+
+      before do
+        allow(macos_requirement).to receive(:satisfied?).and_return(false)
+        allow(macos_requirement).to receive(:message).with(type: :cask).and_return("macOS is required")
+        allow(cask).to receive(:loaded_from_api?).and_return(true)
+      end
+
+      it "checks requirements before enqueueing downloads" do
+        expect(Homebrew::API::Cask).not_to receive(:source_download)
+
+        expect do
+          described_class.new(cask, download_queue:).enqueue_downloads
+        end.to raise_error(Cask::CaskError, "macOS is required")
+      end
+
+      it "checks requirements before loading the source cask during fetch" do
+        expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+
+        expect do
+          described_class.new(cask).fetch
+        end.to raise_error(Cask::CaskError, "macOS is required")
+      end
+    end
+
     it "zap method reinstall cask" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
       described_class.new(caffeine).install

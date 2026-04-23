@@ -114,8 +114,8 @@ module Cask
     def fetch(quiet: nil, timeout: nil)
       odebug "Cask::Installer#fetch"
 
-      load_cask_from_source_api! if cask_from_source_api?
       check_requirements
+      load_cask_from_source_api! if cask_from_source_api?
 
       forbidden_tap_check
       forbidden_cask_and_formula_check
@@ -919,6 +919,7 @@ on_request: true)
     sig { void }
     def enqueue_downloads
       download_queue = @download_queue
+      check_requirements
 
       # FIXME: We need to load Cask source before enqueuing to support
       # language-specific URLs, but this will block the main process.
