@@ -51,7 +51,7 @@ jobs:
 
       - name: Check out pull request
         id: checkout
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot')
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]')
         run: |
           gh pr checkout "${PR}"
 
@@ -67,7 +67,7 @@ jobs:
 
       - name: Vendor Gems
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" || ("${GITHUB_EVENT_NAME}" == "pull_request" && "${GITHUB_ACTOR}" == "dependabot") ]]
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" || ("${GITHUB_EVENT_NAME}" == "pull_request" && "${GITHUB_ACTOR}" == "dependabot[bot]") ]]
           then
             brew vendor-gems --non-bundler-gems
           else
@@ -78,7 +78,7 @@ jobs:
         run: brew typecheck --update
 
       - name: Commit RBI changes
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot')
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]')
         env:
           GEM_NAME: ${{ steps.checkout.outputs.gem_name }}
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
@@ -99,10 +99,26 @@ jobs:
           private-key: ${{ secrets.BREW_COMMIT_APP_KEY }}
 
       - name: Push to pull request
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot')
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]')
         uses: Homebrew/actions/git-try-push@main
         with:
           token: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
           branch: ${{ steps.checkout.outputs.branch }}
           force: true
+
+      - name: Check vendored gems are in sync
+        if: github.event_name == 'pull_request'
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
+        run: |
+          status="$(git status --porcelain -- Library/Homebrew/vendor/bundle Library/Homebrew/sorbet)"
+          if [ -n "${status}" ]
+          then
+            {
+              echo "::error::Vendored gems are out of sync with Gemfile.lock."
+              echo "Run 'brew vendor-gems' and 'brew typecheck --update' and commit the changes."
+              echo
+              echo "${status}"
+            } >&2
+            exit 1
+          fi
