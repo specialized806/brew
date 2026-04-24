@@ -472,16 +472,16 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/O
           u.sub(%r{^https?://#{GitHubPackages::URL_DOMAIN}/}o, "#{domain.chomp("/")}/")
         end
 
-        if Homebrew::EnvConfig.artifact_domain_no_fallback?
-          urls = artifact_urls
+        urls = if Homebrew::EnvConfig.artifact_domain_no_fallback?
+          artifact_urls
         else
           # Interleave: try artifact domain first, then original for each URL that was rewritten.
           combined = []
           artifact_urls.zip(urls).each do |artifact_url, original_url|
             combined << artifact_url
             combined << original_url if original_url != artifact_url
-          end
-          urls = combined
+end
+          combined
         end
       end
 
