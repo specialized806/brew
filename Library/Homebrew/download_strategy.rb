@@ -480,7 +480,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy # rubocop:todo Style/O
           artifact_urls.zip(urls).each do |artifact_url, original_url|
             combined << artifact_url
             combined << original_url if original_url != artifact_url
-end
+          end
           combined
         end
       end
