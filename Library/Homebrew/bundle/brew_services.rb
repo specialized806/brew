@@ -69,12 +69,16 @@ module Homebrew
           end
 
           sig { returns(T::Array[String]) }
+          def started_services_without_daemon_manager
+            odie Homebrew::Services::System::MISSING_DAEMON_MANAGER_EXCEPTION_MESSAGE
+          end
+
+          sig { returns(T::Array[String]) }
           def started_services
             @started_services ||= T.let(
-              begin
-                if !Homebrew::Services::System.launchctl? && !Homebrew::Services::System.systemctl?
-                  odie Homebrew::Services::System::MISSING_DAEMON_MANAGER_EXCEPTION_MESSAGE
-                end
+              if !Homebrew::Services::System.launchctl? && !Homebrew::Services::System.systemctl?
+                started_services_without_daemon_manager
+              else
                 states_to_skip = %w[stopped none]
 
                 services_list = JSON.parse(Utils.safe_popen_read(HOMEBREW_BREW_FILE, "services", "list", "--json"))
@@ -159,3 +163,5 @@ module Homebrew
     end
   end
 end
+
+require "extend/os/bundle/brew_services"
