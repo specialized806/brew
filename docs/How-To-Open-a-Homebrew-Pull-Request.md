@@ -112,22 +112,21 @@ To make changes on a new branch and submit it for review, create a GitHub pull r
 
 4. Make your changes. For formulae or casks, use `brew edit` or your favourite text editor, using the guidelines in the [Formula Cookbook](Formula-Cookbook.md) or [Cask Cookbook](Cask-Cookbook.md) for reference.
    * If there's a `bottle do` block in the formula, don't remove or change it; we'll update it when we merge your PR.
-5. Test your changes by running the following, and ensure they all pass without issue. For changed formulae and casks, make sure you do the `brew audit` step after your changed formula/cask has been installed.
+5. Test your changes by running the following, and ensure they all pass without issue. `brew lgtm --online` runs the relevant online `brew audit` checks for changed and new formulae and casks, and runs `brew test` for formulae when the latest version is installed.
 
    For formulae:
 
    ```sh
-   HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source <CHANGED_FORMULA>
-   brew test <CHANGED_FORMULA>
-   brew audit --strict --online <CHANGED_FORMULA>
+   HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source <FORMULA>
+   brew lgtm --online
    ```
 
    For casks:
 
    ```sh
-   HOMEBREW_NO_INSTALL_FROM_API=1 brew install --cask <CHANGED_CASK>
-   brew uninstall --cask <CHANGED_CASK>
-   brew audit --strict --online --cask <CHANGED_CASK>
+   HOMEBREW_NO_INSTALL_FROM_API=1 brew install --cask <CASK>
+   brew uninstall --cask <CASK>
+   brew lgtm --online
    ```
 
 6. [Make a separate commit](Formula-Cookbook.md#commit) for each changed formula with `git add` and `git commit`. Each formula's commits must be squashed.

@@ -2887,8 +2887,8 @@ Enter the interactive Homebrew Ruby shell.
 
 ### `lgtm` \[`--online`\]
 
-Run `brew typecheck`, `brew style --changed` and `brew tests --changed` in one
-go.
+Run `brew typecheck`, `brew style --changed` and the relevant `brew tests`,
+`brew audit` and `brew test` checks in one go.
 
 `--online`
 
