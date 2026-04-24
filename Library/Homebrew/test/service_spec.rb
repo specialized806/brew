@@ -1235,76 +1235,92 @@ RSpec.describe Homebrew::Service do
       expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test"])
     end
 
-    it "returns @run data on Linux", :needs_linux do
-      f = stub_formula do
-        service do
-          run linux: [opt_bin/"beanstalkd", "test"]
-          run_type :immediate
+    context "when simulating Linux" do
+      around do |example|
+        Homebrew::SimulateSystem.with(os: :linux) do
+          example.run
         end
       end
 
-      command = f.service.command
-      expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test"])
+      it "returns @run data" do
+        f = stub_formula do
+          service do
+            run linux: [opt_bin/"beanstalkd", "test"]
+            run_type :immediate
+          end
+        end
+
+        command = f.service.command
+        expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test"])
+      end
+
+      it "returns empty for macOS-only commands" do
+        f = stub_formula do
+          service do
+            run macos: [opt_bin/"beanstalkd", "test"]
+            run_type :immediate
+          end
+        end
+
+        command = f.service.command
+        expect(command).to be_empty
+      end
+
+      it "returns the Linux command when both OS commands are defined" do
+        f = stub_formula do
+          service do
+            run macos: [opt_bin/"beanstalkd", "test", "macos"], linux: [opt_bin/"beanstalkd", "test", "linux"]
+            run_type :immediate
+          end
+        end
+
+        command = f.service.command
+        expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test", "linux"])
+      end
     end
 
-    it "returns empty on Linux", :needs_linux do
-      f = stub_formula do
-        service do
-          run macos: [opt_bin/"beanstalkd", "test"]
-          run_type :immediate
+    context "when simulating macOS" do
+      around do |example|
+        Homebrew::SimulateSystem.with(os: :macos) do
+          example.run
         end
       end
 
-      command = f.service.command
-      expect(command).to be_empty
-    end
-
-    it "returns @run data on macOS", :needs_macos do
-      f = stub_formula do
-        service do
-          run macos: [opt_bin/"beanstalkd", "test"]
-          run_type :immediate
+      it "returns @run data" do
+        f = stub_formula do
+          service do
+            run macos: [opt_bin/"beanstalkd", "test"]
+            run_type :immediate
+          end
         end
+
+        command = f.service.command
+        expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test"])
       end
 
-      command = f.service.command
-      expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test"])
-    end
-
-    it "returns empty on macOS", :needs_macos do
-      f = stub_formula do
-        service do
-          run linux: [opt_bin/"beanstalkd", "test"]
-          run_type :immediate
+      it "returns empty for Linux-only commands" do
+        f = stub_formula do
+          service do
+            run linux: [opt_bin/"beanstalkd", "test"]
+            run_type :immediate
+          end
         end
+
+        command = f.service.command
+        expect(command).to be_empty
       end
 
-      command = f.service.command
-      expect(command).to be_empty
-    end
-
-    it "returns appropriate @run data on Linux", :needs_linux do
-      f = stub_formula do
-        service do
-          run macos: [opt_bin/"beanstalkd", "test", "macos"], linux: [opt_bin/"beanstalkd", "test", "linux"]
-          run_type :immediate
+      it "returns the macOS command when both OS commands are defined" do
+        f = stub_formula do
+          service do
+            run macos: [opt_bin/"beanstalkd", "test", "macos"], linux: [opt_bin/"beanstalkd", "test", "linux"]
+            run_type :immediate
+          end
         end
+
+        command = f.service.command
+        expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test", "macos"])
       end
-
-      command = f.service.command
-      expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test", "linux"])
-    end
-
-    it "returns appropriate @run data on macOS", :needs_macos do
-      f = stub_formula do
-        service do
-          run macos: [opt_bin/"beanstalkd", "test", "macos"], linux: [opt_bin/"beanstalkd", "test", "linux"]
-          run_type :immediate
-        end
-      end
-
-      command = f.service.command
-      expect(command).to eq(["#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd", "test", "macos"])
     end
   end
 
