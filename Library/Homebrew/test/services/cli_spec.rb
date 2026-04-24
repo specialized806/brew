@@ -187,39 +187,77 @@ RSpec.describe Homebrew::Services::Cli do
     end
   end
 
-  describe "#systemd_load", :needs_linux do
+  describe "#systemd_load" do
+    let(:bindir) { mktmpdir }
+    let(:log) { bindir/"systemctl.log" }
+
+    before do
+      (bindir/"systemctl").write <<~SH
+        #!/bin/sh
+        printf '%s\\n' "$*" >> "#{log}"
+      SH
+      (bindir/"systemctl").chmod 0755
+      Homebrew::Services::System::Systemctl.reset_executable!
+    end
+
     it "checks non-enabling run" do
-      expect(Homebrew::Services::System::Systemctl).to receive(:run).once.and_return(true)
-      services_cli.systemd_load(
-        instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
-        enable: false,
-      )
+      with_env(PATH: bindir.to_s) do
+        services_cli.systemd_load(
+          instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
+          enable: false,
+        )
+      end
+
+      expect(log.read).to eq("--user start name\n")
     end
 
     it "checks enabling run" do
-      expect(Homebrew::Services::System::Systemctl).to receive(:run).twice.and_return(true)
-      services_cli.systemd_load(
-        instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
-        enable: true,
-      )
+      with_env(PATH: bindir.to_s) do
+        services_cli.systemd_load(
+          instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
+          enable: true,
+        )
+      end
+
+      expect(log.read).to eq <<~EOS
+        --user start name
+        --user enable name
+      EOS
     end
   end
 
-  describe "#launchctl_load", :needs_macos do
+  describe "#launchctl_load" do
+    let(:bindir) { mktmpdir }
+    let(:log) { bindir/"launchctl.log" }
+
+    before do
+      (bindir/"launchctl").write <<~SH
+        #!/bin/sh
+        printf '%s\\n' "$*" >> "#{log}"
+      SH
+      (bindir/"launchctl").chmod 0755
+      Homebrew::Services::System.reset_launchctl!
+    end
+
     it "checks non-enabling run" do
-      allow(Homebrew::Services::System).to receive(:launchctl).and_return(Pathname.new("/bin/launchctl"))
-      expect(Homebrew::Services::System).to receive(:domain_target).once.and_return("target")
-      expect(described_class).to receive(:safe_system).once.and_return(true)
-      services_cli.launchctl_load(instance_double(Homebrew::Services::FormulaWrapper), file: "a", enable: false)
+      with_env(PATH: bindir.to_s) do
+        services_cli.launchctl_load(instance_double(Homebrew::Services::FormulaWrapper), file: "a", enable: false)
+      end
+
+      expect(log.read).to eq("bootstrap #{Homebrew::Services::System.domain_target} a\n")
     end
 
     it "checks enabling run" do
-      allow(Homebrew::Services::System).to receive(:launchctl).and_return(Pathname.new("/bin/launchctl"))
-      expect(Homebrew::Services::System).to receive(:domain_target).twice.and_return("target")
-      expect(described_class).to receive(:safe_system).twice.and_return(true)
-      services_cli.launchctl_load(instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
-                                  file:   "a",
-                                  enable: true)
+      with_env(PATH: bindir.to_s) do
+        services_cli.launchctl_load(instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
+                                    file:   "a",
+                                    enable: true)
+      end
+
+      expect(log.read).to eq <<~EOS
+        enable #{Homebrew::Services::System.domain_target}/name
+        bootstrap #{Homebrew::Services::System.domain_target} a
+      EOS
     end
   end
 

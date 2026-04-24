@@ -18,6 +18,11 @@ module Homebrew
         @launchctl ||= T.let(which("launchctl"), T.nilable(Pathname))
       end
 
+      sig { void }
+      def self.reset_launchctl!
+        @launchctl = nil
+      end
+
       # Is this a launchctl system
       sig { returns(T::Boolean) }
       def self.launchctl?

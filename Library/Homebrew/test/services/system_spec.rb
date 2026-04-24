@@ -4,33 +4,76 @@
 require "services/system"
 
 RSpec.describe Homebrew::Services::System do
-  describe "#launchctl" do
-    it "macOS - outputs launchctl command location", :needs_macos do
-      expect(described_class.launchctl).to eq(Pathname.new("/bin/launchctl"))
-    end
+  let(:bindir) { mktmpdir }
 
-    it "Other - outputs launchctl command location", :needs_linux do
-      expect(described_class.launchctl).to be_nil
+  before do
+    described_class.reset_launchctl!
+    Homebrew::Services::System::Systemctl.reset_executable!
+  end
+
+  describe "#launchctl" do
+    it "returns the launchctl command location when available and nil when unavailable" do
+      launchctl = bindir/"launchctl"
+      launchctl.write <<~SH
+        #!/bin/sh
+        exit 0
+      SH
+      launchctl.chmod 0755
+
+      with_env(PATH: bindir.to_s) do
+        expect(described_class.launchctl).to eq(launchctl)
+      end
+
+      described_class.reset_launchctl!
+      launchctl.unlink
+
+      with_env(PATH: bindir.to_s) do
+        expect(described_class.launchctl).to be_nil
+      end
     end
   end
 
   describe "#launchctl?" do
-    it "macOS - outputs launchctl presence", :needs_macos do
-      expect(described_class.launchctl?).to be(true)
-    end
+    it "returns true when launchctl is available and false when unavailable" do
+      launchctl = bindir/"launchctl"
+      launchctl.write <<~SH
+        #!/bin/sh
+        exit 0
+      SH
+      launchctl.chmod 0755
 
-    it "Other - outputs launchctl presence", :needs_linux do
-      expect(described_class.launchctl?).to be(false)
+      with_env(PATH: bindir.to_s) do
+        expect(described_class.launchctl?).to be(true)
+      end
+
+      described_class.reset_launchctl!
+      launchctl.unlink
+
+      with_env(PATH: bindir.to_s) do
+        expect(described_class.launchctl?).to be(false)
+      end
     end
   end
 
   describe "#systemctl?" do
-    it "Linux with SystemD - outputs systemctl presence", :needs_systemd do
-      expect(described_class.systemctl?).to be(true)
-    end
+    it "returns true when systemctl is available and false when unavailable" do
+      systemctl = bindir/"systemctl"
+      systemctl.write <<~SH
+        #!/bin/sh
+        exit 0
+      SH
+      systemctl.chmod 0755
 
-    it "Other - outputs systemctl presence", :needs_macos do
-      expect(described_class.systemctl?).to be(false)
+      with_env(PATH: bindir.to_s) do
+        expect(described_class.systemctl?).to be(true)
+      end
+
+      Homebrew::Services::System::Systemctl.reset_executable!
+      systemctl.unlink
+
+      with_env(PATH: bindir.to_s) do
+        expect(described_class.systemctl?).to be(false)
+      end
     end
   end
 
