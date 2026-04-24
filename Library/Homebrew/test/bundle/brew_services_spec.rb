@@ -35,12 +35,27 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
       expect(described_class.started_services).to eq([])
     end
 
-    it "exits with error when no daemon manager is available" do
+    it "returns the missing daemon manager fallback when no daemon manager is available" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: false)
+      allow(described_class).to receive(:started_services_without_daemon_manager).and_return([])
+
+      expect(described_class.started_services).to eq([])
+    end
+
+    it "exits with error on macOS when no daemon manager is available", :needs_macos do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: false)
       expect do
         described_class.started_services
       end.to raise_error(SystemExit)
         .and output(/supported only on macOS or Linux/).to_stderr
+    end
+  end
+
+  describe ".started_services_without_daemon_manager" do
+    it "warns and returns an empty array on Linux", :needs_linux do
+      expect do
+        expect(described_class.started_services_without_daemon_manager).to eq([])
+      end.to output(/Skipping `brew services list` due to missing systemctl/).to_stderr
     end
   end
 
