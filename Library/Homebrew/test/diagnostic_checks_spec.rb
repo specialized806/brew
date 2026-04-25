@@ -88,6 +88,41 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     HOMEBREW_CELLAR.mkpath
   end
 
+  specify "#check_homebrew_repository_git_hooks" do
+    mktmpdir do |path|
+      stub_const("HOMEBREW_REPOSITORY", path)
+
+      hook = path/".git/hooks/post-checkout"
+      hook.dirname.mkpath
+      hook.write("#!/bin/sh\n")
+      gitconfig = path/".gitconfig"
+      gitconfig.write("[safe]\n")
+
+      expect(checks.check_homebrew_repository_git_hooks).to eq <<~EOS
+        Git hooks or a repository-local `.gitconfig` were found in your Homebrew repository.
+        Homebrew does not use these, and they can break Homebrew operations.
+        Remove them with:
+          rm -rf "#{path}/.git/hooks" "#{path}/.gitconfig"
+
+        Paths found:
+          #{hook}
+          #{gitconfig}
+      EOS
+    end
+  end
+
+  specify "#check_homebrew_repository_git_hooks ignores sample hooks" do
+    mktmpdir do |path|
+      stub_const("HOMEBREW_REPOSITORY", path)
+
+      hook = path/".git/hooks/post-checkout.sample"
+      hook.dirname.mkpath
+      hook.write("#!/bin/sh\n")
+
+      expect(checks.check_homebrew_repository_git_hooks).to be_nil
+    end
+  end
+
   specify "#check_tmpdir" do
     ENV["TMPDIR"] = "/i/don/t/exis/t"
     expect(checks.check_tmpdir).to match("doesn't exist")

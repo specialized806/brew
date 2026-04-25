@@ -28,11 +28,12 @@ export HOME="${homebrew_directory}"
 
 # reset Git repository
 cd "${homebrew_directory}"
+rm -rf "${homebrew_directory}/.git/hooks" "${homebrew_directory}/.gitconfig"
 git config --global --add safe.directory "${homebrew_directory}"
 git checkout --force -B stable
 git reset --hard "$(git tag --list --sort="-version:refname" | head -n1)"
 git clean -f -d
-rm "${homebrew_directory}/.gitconfig"
+rm -f "${homebrew_directory}/.gitconfig"
 
 # move to /usr/local if on x86_64
 if [[ $(uname -m) == "x86_64" ]]
@@ -43,11 +44,12 @@ then
     mv "${homebrew_directory}/cache_api" "/usr/local/Homebrew/"
 
     export HOME="/usr/local/Homebrew"
-    git config --global --add safe.directory /usr/local/Homebrew
-    git -C /usr/local/Homebrew checkout --force -B stable
-    git -C /usr/local/Homebrew reset --hard
-    git -C /usr/local/Homebrew clean -f -d
-    rm /usr/local/Homebrew/.gitconfig
+    rm -rf "/usr/local/Homebrew/.git/hooks" "/usr/local/Homebrew/.gitconfig"
+    git config --global --add safe.directory "/usr/local/Homebrew"
+    git -C "/usr/local/Homebrew" checkout --force -B stable
+    git -C "/usr/local/Homebrew" reset --hard
+    git -C "/usr/local/Homebrew" clean -f -d
+    rm -f "/usr/local/Homebrew/.gitconfig"
   else
     mkdir -vp /usr/local/bin
     mv "${homebrew_directory}" "/usr/local/Homebrew/"
