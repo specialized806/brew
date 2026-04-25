@@ -6,6 +6,7 @@ require "timeout"
 require "utils/user"
 require "cask/artifact/abstract_artifact"
 require "cask/pkg"
+require "cask/utils/trash"
 require "extend/hash/keys"
 require "system_command"
 
@@ -521,27 +522,7 @@ module Cask
       def trash_paths(*paths, command: nil, **_kwargs)
         return if paths.empty?
 
-        stdout = system_command(HOMEBREW_LIBRARY_PATH/"cask/utils/trash.swift",
-                                args:         paths,
-                                print_stderr: Homebrew::EnvConfig.developer?).stdout
-
-        trashed, _, untrashable = stdout.partition("\n")
-        trashed = trashed.split(":")
-        untrashable = untrashable.split(":")
-
-        trashed_with_permissions, untrashable = untrashable.partition do |path|
-          Utils.gain_permissions(Pathname(path), ["-R"], SystemCommand) do
-            system_command! HOMEBREW_LIBRARY_PATH/"cask/utils/trash.swift",
-                            args:         [path],
-                            print_stderr: Homebrew::EnvConfig.developer?
-          end
-
-          true
-        rescue
-          false
-        end
-
-        trashed += trashed_with_permissions
+        trashed, untrashable = ::Cask::Utils::Trash.trash(*paths, command:)
 
         return trashed, untrashable if untrashable.empty?
 

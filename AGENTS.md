@@ -55,3 +55,4 @@ When running commands in this repository, use `./bin/brew` (not a system `brew` 
 7. Keep diffs as minimal as possible.
 8. Prefer shelling out via `HOMEBREW_BREW_FILE` instead of requiring `cmd/` or `dev-cmd` when composing brew commands.
 9. Inline new or existing methods as methods or local variables unless they are reused 2+ times or needed for unit tests.
+10. Keep `extend/os/*` prepends as thin as possible; put the `prepend` in the OS-specific `linux` or `macos` file rather than the shared `extend/os/*` loader with an inline `if`, and prefer putting substantive logic in shared code outside `extend/` when practical so it can be tested on all platforms instead of relying on `:needs_linux` or `:needs_macos` specs.
