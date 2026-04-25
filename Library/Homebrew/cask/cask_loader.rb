@@ -301,6 +301,14 @@ module Cask
 
         return unless (token_tap_type = CaskLoader.tap_cask_token_type(ref, warn:))
 
+        loader_from_token_tap_type(token_tap_type)
+      end
+
+      sig {
+        params(token_tap_type: [String, Tap, T.nilable(Symbol)])
+          .returns(T.nilable(T.any(T.attached_class, FromAPILoader)))
+      }
+      def self.loader_from_token_tap_type(token_tap_type)
         token, tap, type = token_tap_type
 
         if type == :migration && tap.core_cask_tap? && (loader = FromAPILoader.try_new(token))
@@ -550,6 +558,8 @@ module Cask
     # Loader which tries loading casks from tap paths, failing
     # if the same token exists in multiple taps.
     class FromNameLoader < FromTapLoader
+      extend ::Utils::Output::Mixin
+
       sig {
         override.params(ref: T.any(String, Pathname, Cask, URI::Generic), warn: T::Boolean)
                 .returns(T.nilable(T.any(T.attached_class, FromAPILoader)))
@@ -558,12 +568,23 @@ module Cask
         return unless ref.is_a?(String)
         return unless ref.match?(/\A#{HOMEBREW_TAP_CASK_TOKEN_REGEX}\Z/o)
 
-        token = ref
+        token = ref.downcase
 
         # If it exists in the default tap, never treat it as ambiguous with another tap.
-        if (core_cask_tap = CoreCaskTap.instance).installed? &&
-           (core_cask_loader = super("#{core_cask_tap}/#{token}", warn:))&.path&.exist?
-          return core_cask_loader
+        if (core_cask_tap = CoreCaskTap.instance).installed? && (token_tap_type = CaskLoader.tap_cask_token_type(
+          "#{core_cask_tap}/#{token}", warn: false
+        ))
+          migrated_token, migrated_tap, type = token_tap_type
+
+          if warn && [:rename, :migration].include?(type) &&
+             !(type == :migration && migrated_tap.core_tap?)
+            opoo "Cask #{token} was renamed to " \
+                 "#{migrated_tap.core_cask_tap? ? migrated_token : "#{migrated_tap}/#{migrated_token}"}."
+          end
+
+          if (core_cask_loader = loader_from_token_tap_type(token_tap_type))&.path&.exist?
+            return core_cask_loader
+          end
         end
 
         loaders = Tap.select { |tap| tap.installed? && !tap.core_cask_tap? }
