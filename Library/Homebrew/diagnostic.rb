@@ -583,6 +583,29 @@ module Homebrew
       end
 
       sig { returns(T.nilable(String)) }
+      def check_homebrew_repository_git_hooks
+        found = T.let([], T::Array[Pathname])
+
+        hooks_dir = HOMEBREW_REPOSITORY/".git/hooks"
+        if hooks_dir.directory?
+          found += hooks_dir.children.reject { |path| path.basename.to_s.end_with?(".sample") }.sort_by(&:to_s)
+        end
+
+        gitconfig = HOMEBREW_REPOSITORY/".gitconfig"
+        found << gitconfig if gitconfig.exist?
+        return if found.empty?
+
+        inject_file_list found, <<~EOS
+          Git hooks or a repository-local `.gitconfig` were found in your Homebrew repository.
+          Homebrew does not use these, and they can break Homebrew operations.
+          Remove them with:
+            rm -rf "#{HOMEBREW_REPOSITORY}/.git/hooks" "#{HOMEBREW_REPOSITORY}/.gitconfig"
+
+          Paths found:
+        EOS
+      end
+
+      sig { returns(T.nilable(String)) }
       def check_brew_git_origin
         repo = GitRepository.new(HOMEBREW_REPOSITORY)
         examine_git_origin(repo, Homebrew::EnvConfig.brew_git_remote)
