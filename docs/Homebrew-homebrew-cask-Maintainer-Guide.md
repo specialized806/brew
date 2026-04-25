@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-21"
+last_review_date: "2026-04-25"
 ---
 
 # Homebrew/homebrew-cask Maintainer Guide
@@ -23,6 +23,8 @@ Note that unlike formulae, casks do not consider the `sha256` stanza to be a mea
 ## Deprecating, Disabling and Removing Casks
 
 Do not deprecate, disable or remove a cask just because upstream asks us to or claims Homebrew's packaging is "broken". If our analytics show non-zero installs and our issue tracker is not receiving user reports that the cask is broken, keep it unless there is a clear enough technical, policy or project-wide reason to do otherwise.
+
+When this happens, point upstream developers to [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md) and keep the discussion in public on GitHub.
 
 ## Merging
 

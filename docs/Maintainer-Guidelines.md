@@ -1,5 +1,5 @@
 ---
-last_review_date: "2025-02-08"
+last_review_date: "2026-04-25"
 ---
 
 # Maintainer Guidelines
@@ -103,6 +103,8 @@ Maintainers have a variety of ways to communicate with each other:
 All communication should ideally occur in public on GitHub. Where this is not possible or appropriate (e.g. a security disclosure, interpersonal issue between two maintainers, urgent breakage that needs to be resolved) this can move to maintainers' private group communication and, if necessary, 1:1 communication. Technical decisions should not happen in 1:1 communications but if they do (or did in the past) they must end up back as something linkable on GitHub. For example, if a technical decision was made a year ago on Slack and another maintainer/contributor/user asks about it on GitHub, that's a good chance to explain it to them and have something that can be linked to in the future.
 
 This makes it easier for other maintainers, contributors and users to follow along with what we're doing (and, more importantly, why we're doing it) and means that decisions have a linkable URL.
+
+When an upstream developer or representative joins a discussion, remember they may be expecting a distribution model with a long-term package maintainer. Keep the discussion public on GitHub, point them to [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md) when useful and encourage bigger-picture concerns to be discussed in an issue.
 
 All maintainers (and project leader) communication through any medium is bound by [Homebrew's Code of Conduct](https://github.com/Homebrew/.github/blob/HEAD/CODE_OF_CONDUCT.md#code-of-conduct). Abusive behaviour towards other maintainers, contributors or users will not be tolerated; the maintainer will be given a warning and if their behaviour continues they will be removed as a maintainer.
 

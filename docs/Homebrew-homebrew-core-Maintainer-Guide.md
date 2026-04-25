@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-21"
+last_review_date: "2026-04-25"
 ---
 
 # Homebrew/homebrew-core Maintainer Guide
@@ -130,6 +130,8 @@ Formulae that:
 should not be removed from Homebrew. The exception to this rule are [versioned formulae](Versions.md) for which there are higher standards of usage and a maximum number of versions for a given formula.
 
 An upstream request or claim that Homebrew's packaging is "broken" is not enough of a reason to deprecate, disable or remove a formula when users are not reporting breakage in our issue tracker and our analytics show continued installs.
+
+When this happens, point upstream developers to [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md) and keep the discussion in public on GitHub.
 
 For more information about deprecating, disabling and removing formulae, see the [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md#formulae-and-casks) page.
 

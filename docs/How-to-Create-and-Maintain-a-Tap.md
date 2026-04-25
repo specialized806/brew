@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-21"
+last_review_date: "2026-04-25"
 ---
 
 # How to Create and Maintain a Tap
@@ -156,6 +156,8 @@ You can provide your tap users with custom `brew` commands by adding them in a `
 Some upstream software providers like to package their software in their own Homebrew tap. When their software is [eligible for Homebrew/homebrew-core](Acceptable-Formulae.md) we prefer to maintain software there for ease of updates, improved discoverability and use of tools such as [formulae.brew.sh](https://formulae.brew.sh/).
 
 We are not willing to remove software packaged in Homebrew/homebrew-core in favour of an upstream tap. We are not willing to instruct users of our formulae to use an upstream tap instead. If upstream projects have issues with how Homebrew packages your software: please file issues (or, ideally, pull requests) to address these problems.
+
+If you're an upstream developer or representative and want more context on why Homebrew handles this differently, please also read [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md).
 
 An upstream request alone is not enough of a reason to deprecate, disable or remove software. If our analytics show non-zero installs and our issue tracker is not receiving user reports that Homebrew's packaging is broken, we will generally keep the software in Homebrew/homebrew-core until there is a clearer technical, policy or project-wide reason to do otherwise.
 

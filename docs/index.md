@@ -1,5 +1,5 @@
 ---
-last_review_date: "2025-02-08"
+last_review_date: "2026-04-25"
 ---
 
 # Documentation
@@ -45,6 +45,7 @@ last_review_date: "2025-02-08"
 ## Contributors
 
 - [How to Open a Pull Request (and get it merged)](How-To-Open-a-Homebrew-Pull-Request.md)
+- [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md)
 - [Formula Cookbook](Formula-Cookbook.md)
 - [Cask Cookbook](Cask-Cookbook.md)
 - [Acceptable Formulae](Acceptable-Formulae.md)
