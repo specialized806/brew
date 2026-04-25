@@ -155,6 +155,42 @@ RSpec.describe Requirement do
       end
     end
 
+    describe "#satisfy with block returning path under HOMEBREW_PREFIX/bin" do
+      let(:klass) do
+        Class.new(described_class) do
+          satisfy do
+            HOMEBREW_PREFIX/"bin/foo"
+          end
+        end
+      end
+
+      it "does not prepend the parent to PATH" do
+        without_partial_double_verification do
+          expect(ENV).not_to receive(:prepend_path)
+        end
+        requirement.satisfied?
+        requirement.modify_build_environment
+      end
+    end
+
+    describe "#satisfy with block returning path under HOMEBREW_PREFIX/sbin" do
+      let(:klass) do
+        Class.new(described_class) do
+          satisfy do
+            HOMEBREW_PREFIX/"sbin/foo"
+          end
+        end
+      end
+
+      it "does not prepend the parent to PATH" do
+        without_partial_double_verification do
+          expect(ENV).not_to receive(:prepend_path)
+        end
+        requirement.satisfied?
+        requirement.modify_build_environment
+      end
+    end
+
     describe "#satisfy with block calling #which and :build_env set to false" do
       let(:klass) do
         Class.new(described_class) do
