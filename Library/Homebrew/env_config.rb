@@ -482,6 +482,12 @@ module Homebrew
         description: "If set, use Pry for the `brew irb` command.",
         boolean:     true,
       },
+      HOMEBREW_SBOM:                             {
+        # odeprecated: edit in 5.2.0
+        description: "If set, Homebrew will write SBOM files and run SBOM-related installation logic. " \
+                     "This is a no-op until Homebrew 5.2.0, when it will become required for that behaviour.",
+        boolean:     true,
+      },
       HOMEBREW_SIMULATE_MACOS_ON_LINUX:          {
         description: "If set, running Homebrew on Linux will simulate certain macOS code paths. This is useful " \
                      "when auditing macOS formulae while on Linux.",
