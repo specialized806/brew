@@ -88,7 +88,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "prints a combined upgrade summary before fetching combined downloads" do
     cmd = described_class.new([])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: false, shutdown: nil)
     cask = instance_double(
       Cask::Cask,
       artifacts:         [],
@@ -130,6 +130,51 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       codex 0.117.0 -> 0.118.0
       ==> Fetching downloads for: deno and codex
     EOS
+  end
+
+  it "does not trust failed shared prefetches" do
+    cmd = described_class.new([])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: true, shutdown: nil)
+    cask = instance_double(
+      Cask::Cask,
+      artifacts:         [],
+      full_name:         "codex",
+      installed_version: "0.117.0",
+      version:           "0.118.0",
+    )
+    installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil)
+
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, prefetch_only: false,
+                                                              use_prefetched: false,
+                                                              prefetch_names: nil,
+                                                              prefetch_upgrades: nil,
+                                                              show_upgrade_summary: true,
+                                                              **|
+      if prefetch_only
+        expect(show_upgrade_summary).to be(false)
+        prefetch_names&.replace(["deno"])
+        prefetch_upgrades&.replace(["deno 2.7.10 -> 2.7.11"])
+      else
+        expect(use_prefetched).to be(false)
+        expect(show_upgrade_summary).to be(false)
+      end
+
+      true
+    end
+    allow(Cask::Upgrade).to receive(:outdated_casks).and_return([cask])
+    allow(Cask::Installer).to receive(:new).and_return(installer)
+    allow(Cask::Upgrade).to receive(:upgrade_casks!) do |*_, **kwargs|
+      expect(kwargs[:skip_prefetch]).to be(false)
+      expect(kwargs[:show_upgrade_summary]).to be(false)
+
+      true
+    end
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
   end
 
   it "does not print removed caveats method errors for installed casks", :cask do

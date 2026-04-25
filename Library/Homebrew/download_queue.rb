@@ -31,6 +31,7 @@ module Homebrew
       @symlink_targets = T.let({}, T::Hash[Pathname, T::Set[Downloadable]])
       @downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
       @cancelled = T.let(Concurrent::AtomicBoolean.new(false), Concurrent::AtomicBoolean)
+      @fetch_failed = T.let(false, T::Boolean)
     end
 
     sig {
@@ -68,6 +69,7 @@ module Homebrew
 
     sig { void }
     def fetch
+      @fetch_failed = false
       return if downloads.empty?
 
       context_before_fetch = Context.current
@@ -78,6 +80,7 @@ module Homebrew
         rescue CancelledDownloadError
           next
         rescue ChecksumMismatchError => e
+          @fetch_failed = true
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
         rescue => e
           raise e unless bottle_manifest_error?(downloadable, e)
@@ -106,6 +109,7 @@ module Homebrew
 
             if future.rejected?
               if exception.is_a?(ChecksumMismatchError)
+                @fetch_failed = true
                 actual = Digest::SHA256.file(downloadable.cached_download).hexdigest
                 actual_message, expected_message = align_checksum_mismatch_message(downloadable.download_queue_type)
 
@@ -127,6 +131,7 @@ module Homebrew
                 else
                   future.reason.to_s
                 end
+                @fetch_failed = true
                 ofail message
                 next message.count("\n")
               end
@@ -192,6 +197,9 @@ module Homebrew
       @downloads_by_location.clear
       @symlink_targets.clear
     end
+
+    sig { returns(T::Boolean) }
+    attr_reader :fetch_failed
 
     sig { params(message: String).void }
     def stdout_print_and_flush_if_tty(message)

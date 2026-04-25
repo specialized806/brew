@@ -174,12 +174,13 @@ module Homebrew
 
         formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
 
+        formulae_prefetched = T.let(false, T::Boolean)
         prefetched_casks = T.let(false, T::Boolean)
         shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
         if !args.dry_run? && !only_upgrade_formulae && !only_upgrade_casks
           shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
           begin
-            upgrade_outdated_formulae!(
+            formulae_prefetched = upgrade_outdated_formulae!(
               formulae,
               prefetch_only:          true,
               download_queue:         shared_download_queue,
@@ -204,17 +205,28 @@ module Homebrew
               cask_names:    prefetched_cask_names,
             )
             shared_download_queue.fetch
+            if shared_download_queue.fetch_failed
+              formulae_prefetched = false
+              prefetched_casks = false
+            end
           ensure
             shared_download_queue.shutdown
           end
         end
 
-        upgrade_outdated_formulae!(formulae, use_prefetched: true) unless only_upgrade_casks
+        unless only_upgrade_casks
+          upgrade_outdated_formulae!(
+            formulae,
+            use_prefetched:       formulae_prefetched,
+            show_upgrade_summary: prefetched_formulae_upgrades.blank?,
+          )
+        end
         unless only_upgrade_formulae
           upgrade_outdated_casks!(
             casks,
-            skip_prefetch:  prefetched_casks,
-            download_queue: nil,
+            skip_prefetch:        prefetched_casks,
+            show_upgrade_summary: prefetched_cask_upgrades.blank?,
+            download_queue:       nil,
           )
         end
 
@@ -485,11 +497,11 @@ module Homebrew
       end
 
       sig {
-        params(casks: T::Array[Cask::Cask], skip_prefetch: T::Boolean,
+        params(casks: T::Array[Cask::Cask], skip_prefetch: T::Boolean, show_upgrade_summary: T::Boolean,
                download_queue: T.nilable(Homebrew::DownloadQueue))
           .returns(T::Boolean)
       }
-      def upgrade_outdated_casks!(casks, skip_prefetch: false,
+      def upgrade_outdated_casks!(casks, skip_prefetch: false, show_upgrade_summary: true,
                                   download_queue: nil)
         return false if args.formula?
 
@@ -509,7 +521,7 @@ module Homebrew
           verbose:              args.verbose?,
           quiet:                args.quiet?,
           skip_prefetch:,
-          show_upgrade_summary: !skip_prefetch,
+          show_upgrade_summary:,
           download_queue:,
           args:,
         )
