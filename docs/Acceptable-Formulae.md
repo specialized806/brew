@@ -1,10 +1,12 @@
 ---
-last_review_date: "1970-01-01"
+last_review_date: "2026-04-25"
 ---
 
 # Acceptable Formulae
 
 Some formulae should not go in [homebrew/core](https://github.com/Homebrew/homebrew-core). But there are additional [Interesting Taps and Forks](Interesting-Taps-and-Forks.md) and anyone can [start their own](How-to-Create-and-Maintain-a-Tap.md)!
+
+If you're an upstream developer or representative and want more context on how Homebrew works with upstream projects, please also read [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md).
 
 * Table of Contents
 {:toc}
