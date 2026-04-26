@@ -101,6 +101,12 @@ RSpec.describe Cask::CaskLoader, :cask do
             end.to output(%r{Cask #{old_tap}/#{token} was renamed to #{new_tap}/#{token}\.}).to_stderr
           end
 
+          it "warns with the canonical token when loading an uppercase short token" do
+            expect do
+              described_class.for(token.upcase)
+            end.to output(%r{Cask #{old_tap}/#{token} was renamed to #{new_tap}/#{token}\.}).to_stderr
+          end
+
           it "does not warn when loading the full token in the new tap" do
             expect do
               described_class.for("#{new_tap}/#{token}")
@@ -134,12 +140,10 @@ RSpec.describe Cask::CaskLoader, :cask do
             FileUtils.touch formula_file
           end
 
-          it "warn only once" do
+          it "does not warn when loading the short token" do
             expect do
               described_class.for(token)
-            end.to output(
-              a_string_including("Warning: Cask #{token} was renamed to #{new_tap}/#{token}.").once,
-            ).to_stderr
+            end.not_to output.to_stderr
           end
         end
 

@@ -678,6 +678,13 @@ module Formulary
 
       return unless (name_tap_type = Formulary.tap_formula_name_type(ref, warn:))
 
+      loader_from_name_tap_type(ref, name_tap_type)
+    end
+
+    sig {
+      params(ref: String, name_tap_type: [String, Tap, T.nilable(Symbol)]).returns(T.nilable(T.attached_class))
+    }
+    def self.loader_from_name_tap_type(ref, name_tap_type)
       name, tap, type = name_tap_type
       path = Formulary.find_formula_in_tap(name, tap)
 
@@ -731,6 +738,8 @@ module Formulary
 
   # Loads a formula from a name, as long as it exists only in a single tap.
   class FromNameLoader < FromTapLoader
+    extend ::Utils::Output::Mixin
+
     sig {
       override.params(ref: T.any(String, Pathname, URI::Generic), from: T.nilable(Symbol), warn: T::Boolean)
               .returns(T.nilable(T.attached_class))
@@ -739,12 +748,23 @@ module Formulary
       return unless ref.is_a?(String)
       return unless ref.match?(/\A#{HOMEBREW_TAP_FORMULA_NAME_REGEX}\Z/o)
 
-      name = ref
+      name = ref.downcase
 
       # If it exists in the default tap, never treat it as ambiguous with another tap.
-      if (core_tap = CoreTap.instance).installed? &&
-         (core_loader = super("#{core_tap}/#{name}", warn:))&.path&.exist?
-        return core_loader
+      if (core_tap = CoreTap.instance).installed? && (name_tap_type = Formulary.tap_formula_name_type(
+        "#{core_tap}/#{name}", warn: false
+      ))
+        migrated_name, migrated_tap, type = name_tap_type
+
+        if warn && [:rename, :migration].include?(type) &&
+           !(type == :migration && migrated_tap.core_cask_tap?)
+          opoo "Formula #{name} was renamed to " \
+               "#{migrated_tap.core_tap? ? migrated_name : "#{migrated_tap}/#{migrated_name}"}."
+        end
+
+        if (core_loader = loader_from_name_tap_type("#{core_tap}/#{name}", name_tap_type))&.path&.exist?
+          return core_loader
+        end
       end
 
       loaders = Tap.select { |tap| tap.installed? && !tap.core_tap? }

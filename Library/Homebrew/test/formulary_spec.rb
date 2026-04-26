@@ -811,12 +811,10 @@ RSpec.describe Formulary do
             FileUtils.touch cask_file
           end
 
-          it "warn only once" do
+          it "does not warn when loading the short token" do
             expect do
               described_class.loader_for(token)
-            end.to output(
-              a_string_including("Warning: Formula #{token} was renamed to #{new_tap}/#{token}.").once,
-            ).to_stderr
+            end.not_to output.to_stderr
           end
         end
 
@@ -886,6 +884,14 @@ RSpec.describe Formulary do
           it "warns when loading the short token" do
             expect do
               described_class.loader_for(token)
+            end.to output(
+              a_string_including("Formula #{old_tap}/#{token} was renamed to #{new_tap}/#{token}.").once,
+            ).to_stderr
+          end
+
+          it "warns with the canonical token when loading an uppercase short token" do
+            expect do
+              described_class.loader_for(token.upcase)
             end.to output(
               a_string_including("Formula #{old_tap}/#{token} was renamed to #{new_tap}/#{token}.").once,
             ).to_stderr
