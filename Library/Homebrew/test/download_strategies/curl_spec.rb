@@ -198,7 +198,7 @@ RSpec.describe CurlDownloadStrategy do
         end
 
         context "when the artifact domain is unreachable" do
-          let(:failed_status) { instance_double(Process::Status, success?: false, exitstatus: 6) }
+          let(:failed_status) { instance_double(Process::Status, success?: false, exitstatus: 6, termsig: nil) }
 
           it "falls back to the original ghcr.io URL" do
             artifact_url = "#{artifact_domain}/#{resource_path}"
@@ -222,7 +222,7 @@ RSpec.describe CurlDownloadStrategy do
         end
 
         context "when artifact_domain_no_fallback is set" do
-          let(:failed_status) { instance_double(Process::Status, success?: false, exitstatus: 6) }
+          let(:failed_status) { instance_double(Process::Status, success?: false, exitstatus: 6, termsig: nil) }
 
           before do
             allow(Homebrew::EnvConfig).to receive(:artifact_domain_no_fallback?).and_return(true)
