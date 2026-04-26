@@ -22,6 +22,7 @@ require "deprecate_disable"
 require "unlink"
 require "service"
 require "attestation"
+# odeprecated: load lazily in 5.2.0 when `HOMEBREW_SBOM` is required
 require "sbom"
 require "utils/fork"
 require "utils/output"
@@ -1004,6 +1005,7 @@ on_request: installed_on_request?, options:)
     tab.runtime_dependencies = Tab.runtime_deps_hash(formula, f_runtime_deps)
     tab.write
 
+    # odeprecated: require `HOMEBREW_SBOM` in 5.2.0
     # write/update a SBOM file (if we aren't bottling)
     unless build_bottle?
       sbom = SBOM.create(formula, tab)
