@@ -26,13 +26,18 @@ export PATH="/Library/Developer/CommandLineTools/usr/bin:/Applications/Xcode.app
 unset XDG_CONFIG_HOME
 export HOME="${homebrew_directory}"
 
+git_no_hooks() {
+  git -c core.hooksPath=/dev/null "$@"
+}
+
 # reset Git repository
 cd "${homebrew_directory}"
-rm -rf "${homebrew_directory}/.git/hooks" "${homebrew_directory}/.gitconfig"
+rm -rf "${homebrew_directory}/.git/hooks"
 git config --global --add safe.directory "${homebrew_directory}"
-git checkout --force -B stable
-git reset --hard "$(git tag --list --sort="-version:refname" | head -n1)"
-git clean -f -d
+latest_tag="$(git_no_hooks -C "${homebrew_directory}" tag --list --sort="-version:refname" | head -n1)"
+git_no_hooks -C "${homebrew_directory}" checkout --force -B stable
+git_no_hooks -C "${homebrew_directory}" reset --hard "${latest_tag}"
+git_no_hooks -C "${homebrew_directory}" clean -f -d
 rm -f "${homebrew_directory}/.gitconfig"
 
 # move to /usr/local if on x86_64
@@ -44,11 +49,11 @@ then
     mv "${homebrew_directory}/cache_api" "/usr/local/Homebrew/"
 
     export HOME="/usr/local/Homebrew"
-    rm -rf "/usr/local/Homebrew/.git/hooks" "/usr/local/Homebrew/.gitconfig"
+    rm -rf "/usr/local/Homebrew/.git/hooks"
     git config --global --add safe.directory "/usr/local/Homebrew"
-    git -C "/usr/local/Homebrew" checkout --force -B stable
-    git -C "/usr/local/Homebrew" reset --hard
-    git -C "/usr/local/Homebrew" clean -f -d
+    git_no_hooks -C "/usr/local/Homebrew" checkout --force -B stable
+    git_no_hooks -C "/usr/local/Homebrew" reset --hard
+    git_no_hooks -C "/usr/local/Homebrew" clean -f -d
     rm -f "/usr/local/Homebrew/.gitconfig"
   else
     mkdir -vp /usr/local/bin
