@@ -4578,6 +4578,12 @@ command execution (e.g. `$(cat file)`).
 
 : If set, use Pry for the `brew irb` command.
 
+`HOMEBREW_SBOM`
+
+: If set, Homebrew will write SBOM files and run SBOM-related installation
+  logic. This is a no-op until Homebrew 5.2.0, when it will become required for
+  that behaviour.
+
 `HOMEBREW_SIMULATE_MACOS_ON_LINUX`
 
 : If set, running Homebrew on Linux will simulate certain macOS code paths. This
