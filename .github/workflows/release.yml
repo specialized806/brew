@@ -114,6 +114,16 @@ jobs:
       - name: Copy Homebrew API cache to brew subdirectory
         run: cp -vR ~/Library/Caches/Homebrew/api brew/cache_api
 
+      - name: Check installer Git safety
+        run: |
+          # Keep any future privileged repository Git calls aligned with the hardening above.
+          if grep -nE 'git .* (checkout|reset|clean)\b|git .* tag --list\b' \
+            brew/package/scripts/postinstall
+          then
+            echo "Privileged Git repository operations must use \`git_no_hooks\`."
+            exit 1
+          fi
+
       - name: Open macOS keychain
         run: security list-keychain -d user -s "${RUNNER_TEMP}/${TEMPORARY_KEYCHAIN_FILE}"
 
