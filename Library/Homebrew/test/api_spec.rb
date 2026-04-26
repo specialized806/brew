@@ -63,6 +63,54 @@ RSpec.describe Homebrew::API do
         described_class.fetch_json_api_file("baz.json", target: cache_dir/"baz.json")
       end.to raise_error(SystemExit)
     end
+
+    it "does not refresh the cache mtime when the download fails" do
+      target = cache_dir/"bar.json"
+      target.write json
+      stale_mtime = Time.now - 7200
+      FileUtils.touch(target, mtime: stale_mtime)
+
+      allow(Utils::Curl).to receive(:curl_download).and_raise(ErrorDuringExecution.new(["curl"], status: 1))
+
+      expect do
+        described_class.fetch_json_api_file(
+          "bar.json",
+          target:        target,
+          stale_seconds: 3600,
+        )
+      end.to output(/update failed, falling back to cached version/).to_stderr
+
+      expect(target.mtime.to_i).to eq stale_mtime.to_i
+    end
+
+    it "refreshes the cache mtime when a fallback to the default API domain succeeds" do
+      target = cache_dir/"bar.json"
+      target.write json
+      stale_mtime = Time.now - 7200
+      FileUtils.touch(target, mtime: stale_mtime)
+
+      allow(Homebrew::EnvConfig).to receive(:api_domain).and_return("https://example.invalid/api")
+
+      requested_urls = []
+      allow(Utils::Curl).to receive(:curl_download) do |*args, **kwargs|
+        requested_urls << args.last
+        raise ErrorDuringExecution.new(["curl"], status: 1) if requested_urls.length == 1
+
+        kwargs[:to].write json
+      end
+
+      described_class.fetch_json_api_file(
+        "bar.json",
+        target:        target,
+        stale_seconds: 3600,
+      )
+
+      expect(requested_urls).to eq([
+        "https://example.invalid/api/bar.json",
+        "#{HOMEBREW_API_DEFAULT_DOMAIN}/bar.json",
+      ])
+      expect(target.mtime.to_i).to be > stale_mtime.to_i
+    end
   end
 
   describe "::tap_from_source_download" do
