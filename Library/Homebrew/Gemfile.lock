@@ -227,7 +227,7 @@ DEPENDENCIES
   sorbet-static-and-runtime
   spoom
   stackprof
-  tapioca (< 0.20.0)
+  tapioca
   test-prof
   vernier
   warning
