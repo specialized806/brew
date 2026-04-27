@@ -650,10 +650,9 @@ module Cask
       if primary_container.dependencies.any?
 
         install_options = {
-          show_header:             true,
+          show_header:          true,
           installed_on_request: false,
-          installed_on_request:    false,
-          verbose:                 false,
+          verbose:              false,
         }.compact
 
         Homebrew::Install.perform_preinstall_checks_once
