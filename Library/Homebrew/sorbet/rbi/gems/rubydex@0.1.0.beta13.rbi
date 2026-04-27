@@ -78,6 +78,9 @@ class Rubydex::Declaration
   sig { returns(Rubydex::Declaration) }
   def owner; end
 
+  sig { returns(T::Enumerable[Rubydex::Reference]) }
+  def references; end
+
   sig { returns(String) }
   def unqualified_name; end
 
@@ -249,6 +252,8 @@ class Rubydex::Graph
   # Index all files and dependencies of the workspace that exists in `@workspace_path`
   sig { returns(T::Array[String]) }
   def index_workspace; end
+
+  def keyword(_arg0); end
 
   sig { returns(T::Enumerable[Rubydex::MethodReference]) }
   def method_references; end
