@@ -1021,8 +1021,17 @@ EOS
 
     # Not a typo, these are the files we used to download that no longer need so should cleanup.
     rm -f "${HOMEBREW_CACHE}/api/formula.json" "${HOMEBREW_CACHE}/api/cask.json"
-    rm -f "${HOMEBREW_CACHE}/api/internal/formula.$(bottle_tag).jws.json"
-    rm -f "${HOMEBREW_CACHE}/api/internal/cask.$(bottle_tag).jws.json"
+    rm -f "${HOMEBREW_CACHE}"/api/internal/formula.*.jws.json
+    rm -f "${HOMEBREW_CACHE}"/api/internal/cask.*.jws.json
+
+    # Remove API files from previous OS versions.
+    for f in "${HOMEBREW_CACHE}"/api/internal/packages.*.jws.json
+    do
+      case "${f}" in
+        "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json") ;;
+        *) rm -f "${f}" ;;
+      esac
+    done
   else
     if [[ -n "${HOMEBREW_VERBOSE}" ]]
     then
