@@ -5,6 +5,10 @@ module T::Private::Methods::CallValidation
   CallValidation = T::Private::Methods::CallValidation
   Modes = T::Private::Methods::Modes
 
+  KERNEL_TO_S = Kernel.instance_method(:to_s)
+  MODULE_TO_S = Module.instance_method(:to_s)
+  private_constant(:KERNEL_TO_S, :MODULE_TO_S)
+
   # Wraps a method with a layer of validation for the given type signature.
   # This wrapper is meant to be fast, and is applied by a previous wrapper,
   # which was placed by `_on_method_added`.
@@ -68,7 +72,7 @@ module T::Private::Methods::CallValidation
   end
 
   def self.create_validator_method(mod, original_method, method_sig, original_visibility)
-    has_fixed_arity = method_sig.kwarg_types.empty? && !method_sig.has_rest && !method_sig.has_keyrest &&
+    has_fixed_arity = method_sig.kwarg_types.empty? && method_sig.rest_type.nil? && method_sig.keyrest_type.nil? &&
       original_method.parameters.all? { |(kind, _name)| kind == :req || kind == :block }
     can_skip_block_type = method_sig.block_type.nil? || method_sig.block_type.valid?(nil)
     ok_for_fast_path = has_fixed_arity && can_skip_block_type && !method_sig.bind && method_sig.arg_types.length < 5 && is_allowed_to_have_fast_path
@@ -301,6 +305,24 @@ module T::Private::Methods::CallValidation
     end
   end
 
+  # Get the name of a method owner via its `.to_s`, but fallback if its implementation raises or returns `nil`.
+  def self.safe_method_owner_to_s(method_owner)
+    result = begin
+      mod.to_s
+    rescue Exception # rubocop:disable Lint/RescueException
+      nil
+    end
+
+    return result if result
+
+    case method_owner
+    when Module # methods are usually owned by a Class or Module...
+      MODULE_TO_S.bind_call(method_owner)
+    else # ... but could be a singleton method on any kind of Object.
+      KERNEL_TO_S.bind_call(method_owner)
+    end
+  end
+
   def self.report_error(method_sig, error_message, kind, name, type, value, caller_offset: 0)
     caller_loc = T.must(caller_locations(3 + caller_offset, 1))[0]
     method = method_sig.method
@@ -310,9 +332,9 @@ module T::Private::Methods::CallValidation
     pretty_method_name =
       if owner.singleton_class? && owner.respond_to?(:attached_object)
         # attached_object is new in Ruby 3.2
-        "#{owner.attached_object}.#{method.name}"
+        "#{safe_method_owner_to_s(owner.attached_object)}.#{method.name}"
       else
-        "#{owner}##{method.name}"
+        "#{safe_method_owner_to_s(owner)}##{method.name}"
       end
 
     pretty_message = "#{kind}#{name ? " '#{name}'" : ''}: #{error_message}\n" \

@@ -4,7 +4,7 @@
 class T::Private::Methods::Signature
   attr_reader :method, :method_name, :arg_types, :kwarg_types, :block_type, :block_name,
               :rest_type, :rest_name, :keyrest_type, :keyrest_name, :bind, :effective_return_type,
-              :return_type, :mode, :req_arg_count, :req_kwarg_names, :has_rest, :has_keyrest,
+              :return_type, :mode, :req_arg_count, :req_kwarg_names,
               :check_level, :parameters, :on_failure, :override_allow_incompatible,
               :defined_raw
 
@@ -37,6 +37,7 @@ class T::Private::Methods::Signature
   end
 
   def initialize(method:, method_name:, raw_arg_types:, raw_return_type:, bind:, mode:, check_level:, on_failure:, parameters: method.parameters, override_allow_incompatible: false, defined_raw: false)
+    check_level = check_level.nil? ? T::Private::RuntimeLevels.default_checked_level : check_level
     @method = method
     @method_name = method_name
     @block_type = nil
@@ -54,8 +55,6 @@ class T::Private::Methods::Signature
     @bind = bind ? T::Utils.coerce(bind) : bind
     @mode = mode
     @check_level = check_level
-    @has_rest = false
-    @has_keyrest = false
     @parameters = parameters
     @on_failure = on_failure
     @override_allow_incompatible = override_allow_incompatible
@@ -139,11 +138,9 @@ class T::Private::Methods::Signature
         @block_name = param_name
         @block_type = type
       when :rest
-        @has_rest = true
         @rest_name = param_name
         @rest_type = type
       when :keyrest
-        @has_keyrest = true
         @keyrest_name = param_name
         @keyrest_type = type
       else
@@ -180,10 +177,6 @@ class T::Private::Methods::Signature
     @method.owner
   end
 
-  def dsl_method
-    "#{@mode}_method"
-  end
-
   # @return [Hash] a mapping like `{arg_name: [val, type], ...}`, for only those args actually present.
   def each_args_value_type(args)
     # Manually split out args and kwargs based on ruby's behavior. Do not try to implement this by
@@ -194,14 +187,14 @@ class T::Private::Methods::Signature
     # causes forwarding **kwargs to do the wrong thing: see https://bugs.ruby-lang.org/issues/10708
     # and https://bugs.ruby-lang.org/issues/11860.
     args_length = args.length
-    if (args_length > @req_arg_count) && (!@kwarg_types.empty? || @has_keyrest) && args[-1].is_a?(Hash)
+    if (args_length > @req_arg_count) && (!@kwarg_types.empty? || !@keyrest_type.nil?) && args[-1].is_a?(Hash)
       kwargs = args[-1]
       args_length -= 1
     else
       kwargs = EMPTY_HASH
     end
 
-    if !@has_rest && ((args_length < @req_arg_count) || (args_length > @arg_types.length))
+    if @rest_type.nil? && ((args_length < @req_arg_count) || (args_length > @arg_types.length))
       expected_str = @req_arg_count.to_s
       if @arg_types.length != @req_arg_count
         expected_str += "..#{@arg_types.length}"
@@ -219,7 +212,7 @@ class T::Private::Methods::Signature
         it += 1
       end
 
-      if @has_rest
+      if !@rest_type.nil?
         rest_count = args_length - @arg_types.length
         rest_count = 0 if rest_count.negative?
 
@@ -232,7 +225,7 @@ class T::Private::Methods::Signature
 
     kwargs.each do |name, val|
       type = @kwarg_types[name]
-      if !type && @has_keyrest
+      if !type && !@keyrest_type.nil?
         type = @keyrest_type
       end
 
@@ -241,12 +234,12 @@ class T::Private::Methods::Signature
   end
 
   def method_desc
-    loc = if @method.source_location
-      @method.source_location.join(':')
+    loc = if (source_loc = @method.source_location)
+      source_loc.join(':')
     else
       "<unknown location>"
     end
-    "#{@method} at #{loc}"
+    "#{@method.owner}##{@method_name} at #{loc}"
   end
 
   def force_type_init
