@@ -39,19 +39,19 @@ RSpec.describe Tab do
 
   subject(:tab) do
     described_class.new(
-      "homebrew_version"        => HOMEBREW_VERSION,
-      "used_options"            => used_options.as_flags,
-      "unused_options"          => unused_options.as_flags,
-      "built_as_bottle"         => false,
-      "poured_from_bottle"      => true,
-      "installed_on_request"    => true,
-      "changed_files"           => [],
-      "time"                    => time,
-      "source_modified_time"    => 0,
-      "compiler"                => "clang",
-      "stdlib"                  => "libcxx",
-      "runtime_dependencies"    => [],
-      "source"                  => {
+      "homebrew_version"     => HOMEBREW_VERSION,
+      "used_options"         => used_options.as_flags,
+      "unused_options"       => unused_options.as_flags,
+      "built_as_bottle"      => false,
+      "poured_from_bottle"   => true,
+      "installed_on_request" => true,
+      "changed_files"        => [],
+      "time"                 => time,
+      "source_modified_time" => 0,
+      "compiler"             => "clang",
+      "stdlib"               => "libcxx",
+      "runtime_dependencies" => [],
+      "source"               => {
         "tap"          => CoreTap.instance.to_s,
         "path"         => CoreTap.instance.path.to_s,
         "spec"         => "stable",
@@ -61,8 +61,8 @@ RSpec.describe Tab do
           "head"   => "HEAD-1111111",
         },
       },
-      "arch"                    => Hardware::CPU.arch,
-      "built_on"                => DevelopmentTools.build_system_info,
+      "arch"                 => Hardware::CPU.arch,
+      "built_on"             => DevelopmentTools.build_system_info,
     )
   end
 

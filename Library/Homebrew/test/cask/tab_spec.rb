@@ -4,8 +4,6 @@
 require "cask"
 
 RSpec.describe Cask::Tab, :cask do
-
-
   matcher :be_installed_on_request do
     match do |actual|
       actual.installed_on_request == true
