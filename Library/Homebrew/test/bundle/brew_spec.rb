@@ -44,7 +44,6 @@ RSpec.describe Homebrew::Bundle::Brew do
         dependencies:             [],
         desc:                     "foobar",
         full_name:                "qux/quuz/foo",
-        installed_as_dependency?: false,
         installed_on_request?:    false,
         link?:                    nil,
         name:                     "foo",
@@ -106,7 +105,6 @@ RSpec.describe Homebrew::Bundle::Brew do
         dependencies:             [],
         desc:                     "barfoo",
         full_name:                "bar",
-        installed_as_dependency?: false,
         installed_on_request?:    false,
         link?:                    nil,
         name:                     "bar",
@@ -149,7 +147,6 @@ RSpec.describe Homebrew::Bundle::Brew do
         dependencies:             ["bar"],
         desc:                     "",
         full_name:                "bazzles/bizzles/baz",
-        installed_as_dependency?: false,
         installed_on_request?:    false,
         link?:                    false,
         name:                     "baz",
@@ -201,7 +198,6 @@ RSpec.describe Homebrew::Bundle::Brew do
         expect(bar.linked_keg).to receive(:realpath).and_return(instance_double(Pathname, basename: "1.0"))
         expect(Tab).to receive(:for_keg).with(bar.linked_keg).and_return(
           instance_double(Tab,
-                          installed_as_dependency: false,
                           installed_on_request:    false,
                           poured_from_bottle:      true,
                           runtime_dependencies:    [],

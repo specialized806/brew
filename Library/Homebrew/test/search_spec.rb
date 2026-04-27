@@ -67,7 +67,7 @@ RSpec.describe Homebrew::Search do
   end
 
   describe "#search_formulae" do
-    let(:tab) { instance_double(Tab, installed_on_request: false, installed_as_dependency: false) }
+    let(:tab) { instance_double(Tab, installed_on_request: false) }
     let(:formula) do
       instance_double(Formula, full_name: "testball", any_version_installed?: false,
                               valid_platform?: true, deprecated?: false, disabled?: false,
@@ -106,7 +106,7 @@ RSpec.describe Homebrew::Search do
 
   describe "#search_casks" do
     let(:depends_on) { instance_double(Cask::DSL::DependsOn, formula: [], cask: []) }
-    let(:tab) { instance_double(Cask::Tab, installed_on_request: false, installed_as_dependency: false) }
+    let(:tab) { instance_double(Cask::Tab, installed_on_request: false) }
     let(:cask) do
       instance_double(Cask::Cask, full_name: "testball", installed?: false, deprecated?: false, disabled?: false,
                                    supports_linux?: true, depends_on:)
