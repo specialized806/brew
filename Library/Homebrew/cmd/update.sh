@@ -399,12 +399,12 @@ fetch_api_file() {
   local cache_path="${api_cache}/${filename}"
   mkdir -p "$(dirname "${cache_path}")"
 
-  if [[ "${filename}" == "formula.jws.json" ]] || [[ "${filename}" == "internal/formula.$(bottle_tag).jws.json" ]]
+  if [[ "${filename}" == "formula.jws.json" ]] || [[ "${filename}" == "internal/packages.$(bottle_tag).jws.json" ]]
   then
     local is_formula_file=1
   fi
 
-  if [[ "${filename}" == "cask.jws.json" ]] || [[ "${filename}" == "internal/cask.$(bottle_tag).jws.json" ]]
+  if [[ "${filename}" == "cask.jws.json" ]] || [[ "${filename}" == "internal/packages.$(bottle_tag).jws.json" ]]
   then
     local is_cask_file=1
   fi
@@ -448,7 +448,8 @@ fetch_api_file() {
   if [[ -n ${is_formula_file} ]] && [[ -f "${api_cache}/formula_names.txt" ]]
   then
     mv -f "${api_cache}/formula_names.txt" "${api_cache}/formula_names.before.txt"
-  elif [[ -n ${is_cask_file} ]] && [[ -f "${api_cache}/cask_names.txt" ]]
+  fi
+  if [[ -n ${is_cask_file} ]] && [[ -f "${api_cache}/cask_names.txt" ]]
   then
     mv -f "${api_cache}/cask_names.txt" "${api_cache}/cask_names.before.txt"
   fi
@@ -997,7 +998,7 @@ EOS
   then
     if [[ -n "${HOMEBREW_USE_INTERNAL_API}" ]]
     then
-      api_files=("internal/formula.$(bottle_tag)" "internal/cask.$(bottle_tag)")
+      api_files=("internal/packages.$(bottle_tag)")
     else
       api_files=(formula cask formula_tap_migrations cask_tap_migrations)
     fi
@@ -1015,12 +1016,22 @@ EOS
       rm -f "${HOMEBREW_CACHE}/api/formula_tap_migrations.jws.json" "${HOMEBREW_CACHE}/api/cask_tap_migrations.jws.json"
     else
       # Remove files only downloaded by the internal API
-      rm -f "${HOMEBREW_CACHE}/api/internal/formula.$(bottle_tag).jws.json"
-      rm -f "${HOMEBREW_CACHE}/api/internal/cask.$(bottle_tag).jws.json"
+      rm -f "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json"
     fi
 
     # Not a typo, these are the files we used to download that no longer need so should cleanup.
     rm -f "${HOMEBREW_CACHE}/api/formula.json" "${HOMEBREW_CACHE}/api/cask.json"
+    rm -f "${HOMEBREW_CACHE}"/api/internal/formula.*.jws.json
+    rm -f "${HOMEBREW_CACHE}"/api/internal/cask.*.jws.json
+
+    # Remove API files from previous OS versions.
+    for f in "${HOMEBREW_CACHE}"/api/internal/packages.*.jws.json
+    do
+      case "${f}" in
+        "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json") ;;
+        *) rm -f "${f}" ;;
+      esac
+    done
   else
     if [[ -n "${HOMEBREW_VERBOSE}" ]]
     then
