@@ -73,7 +73,7 @@ module Homebrew
       sig { returns(T::Array[String]) }
       def self.remove_unused_service_files
         cleaned = []
-        Dir["#{System.path}homebrew.*.{plist,service}"].each do |file|
+        Dir["#{System.path}/homebrew.*.{plist,service}"].each do |file|
           next if running.include?(File.basename(file).sub(/\.(plist|service)$/i, ""))
 
           puts "Removing unused service file: #{file}"
