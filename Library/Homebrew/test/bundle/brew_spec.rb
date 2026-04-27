@@ -34,25 +34,25 @@ RSpec.describe Homebrew::Bundle::Brew do
     end
     let(:foo_hash) do
       {
-        aliases:                  ["foobar"],
-        any_version_installed?:   true,
-        args:                     [],
-        bottle:                   false,
-        bottled:                  false,
-        build_dependencies:       [],
-        conflicts_with:           [],
-        dependencies:             [],
-        desc:                     "foobar",
-        full_name:                "qux/quuz/foo",
-        installed_on_request?:    false,
-        link?:                    nil,
-        name:                     "foo",
-        oldnames:                 ["oldfoo"],
-        outdated?:                false,
-        pinned?:                  false,
-        poured_from_bottle?:      false,
-        version:                  nil,
-        official_tap:             false,
+        aliases:                ["foobar"],
+        any_version_installed?: true,
+        args:                   [],
+        bottle:                 false,
+        bottled:                false,
+        build_dependencies:     [],
+        conflicts_with:         [],
+        dependencies:           [],
+        desc:                   "foobar",
+        full_name:              "qux/quuz/foo",
+        installed_on_request?:  false,
+        link?:                  nil,
+        name:                   "foo",
+        oldnames:               ["oldfoo"],
+        outdated?:              false,
+        pinned?:                false,
+        poured_from_bottle?:    false,
+        version:                nil,
+        official_tap:           false,
       }
     end
     let(:bar) do
@@ -87,10 +87,10 @@ RSpec.describe Homebrew::Bundle::Brew do
     end
     let(:bar_hash) do
       {
-        aliases:                  [],
-        any_version_installed?:   true,
-        args:                     [],
-        bottle:                   {
+        aliases:                [],
+        any_version_installed?: true,
+        args:                   [],
+        bottle:                 {
           cellar: ":any",
           files:  {
             big_sur: {
@@ -99,21 +99,21 @@ RSpec.describe Homebrew::Bundle::Brew do
             },
           },
         },
-        bottled:                  true,
-        build_dependencies:       [],
-        conflicts_with:           [],
-        dependencies:             [],
-        desc:                     "barfoo",
-        full_name:                "bar",
-        installed_on_request?:    false,
-        link?:                    nil,
-        name:                     "bar",
-        oldnames:                 [],
-        outdated?:                true,
-        pinned?:                  true,
-        poured_from_bottle?:      true,
-        version:                  "1.0",
-        official_tap:             true,
+        bottled:                true,
+        build_dependencies:     [],
+        conflicts_with:         [],
+        dependencies:           [],
+        desc:                   "barfoo",
+        full_name:              "bar",
+        installed_on_request?:  false,
+        link?:                  nil,
+        name:                   "bar",
+        oldnames:               [],
+        outdated?:              true,
+        pinned?:                true,
+        poured_from_bottle?:    true,
+        version:                "1.0",
+        official_tap:           true,
       }
     end
     let(:baz) do
@@ -137,25 +137,25 @@ RSpec.describe Homebrew::Bundle::Brew do
     end
     let(:baz_hash) do
       {
-        aliases:                  [],
-        any_version_installed?:   true,
-        args:                     [],
-        bottle:                   false,
-        bottled:                  false,
-        build_dependencies:       ["bar"],
-        conflicts_with:           [],
-        dependencies:             ["bar"],
-        desc:                     "",
-        full_name:                "bazzles/bizzles/baz",
-        installed_on_request?:    false,
-        link?:                    false,
-        name:                     "baz",
-        oldnames:                 [],
-        outdated?:                false,
-        pinned?:                  false,
-        poured_from_bottle?:      false,
-        version:                  nil,
-        official_tap:             false,
+        aliases:                [],
+        any_version_installed?: true,
+        args:                   [],
+        bottle:                 false,
+        bottled:                false,
+        build_dependencies:     ["bar"],
+        conflicts_with:         [],
+        dependencies:           ["bar"],
+        desc:                   "",
+        full_name:              "bazzles/bizzles/baz",
+        installed_on_request?:  false,
+        link?:                  false,
+        name:                   "baz",
+        oldnames:               [],
+        outdated?:              false,
+        pinned?:                false,
+        poured_from_bottle?:    false,
+        version:                nil,
+        official_tap:           false,
       }
     end
 
@@ -198,10 +198,10 @@ RSpec.describe Homebrew::Bundle::Brew do
         expect(bar.linked_keg).to receive(:realpath).and_return(instance_double(Pathname, basename: "1.0"))
         expect(Tab).to receive(:for_keg).with(bar.linked_keg).and_return(
           instance_double(Tab,
-                          installed_on_request:    false,
-                          poured_from_bottle:      true,
-                          runtime_dependencies:    [],
-                          used_options:            []),
+                          installed_on_request: false,
+                          poured_from_bottle:   true,
+                          runtime_dependencies: [],
+                          used_options:         []),
         )
         expect(dumper.formulae_by_full_name).to eql({
           "bar"                 => bar_hash,
