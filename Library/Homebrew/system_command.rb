@@ -1,9 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "plist"
 require "shellwords"
-require "uri"
+require "stringio"
 
 require "context"
 require "readline_nonblock"
@@ -24,7 +23,7 @@ class SystemCommand
     sig {
       params(
         executable:      T.any(String, Pathname),
-        args:            T::Array[T.any(String, Integer, Float, Pathname, URI::Generic)],
+        args:            T::Array[T.any(String, Integer, Float, Pathname)],
         sudo:            T::Boolean,
         sudo_as_root:    T::Boolean,
         env:             T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
@@ -54,7 +53,7 @@ class SystemCommand
     sig {
       params(
         executable:      T.any(String, Pathname),
-        args:            T::Array[T.any(String, Integer, Float, Pathname, URI::Generic)],
+        args:            T::Array[T.any(String, Integer, Float, Pathname)],
         sudo:            T::Boolean,
         sudo_as_root:    T::Boolean,
         env:             T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
@@ -83,7 +82,7 @@ class SystemCommand
   sig {
     params(
       executable:      T.any(String, Pathname),
-      args:            T::Array[T.any(String, Integer, Float, Pathname, URI::Generic)],
+      args:            T::Array[T.any(String, Integer, Float, Pathname)],
       sudo:            T::Boolean,
       sudo_as_root:    T::Boolean,
       env:             T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
@@ -110,7 +109,7 @@ class SystemCommand
   sig {
     params(
       executable:      T.any(String, Pathname),
-      args:            T::Array[T.any(String, Integer, Float, Pathname, URI::Generic)],
+      args:            T::Array[T.any(String, Integer, Float, Pathname)],
       sudo:            T::Boolean,
       sudo_as_root:    T::Boolean,
       env:             T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
@@ -170,7 +169,7 @@ class SystemCommand
   sig {
     params(
       executable:      T.any(String, Pathname),
-      args:            T::Array[T.any(String, Integer, Float, Pathname, URI::Generic)],
+      args:            T::Array[T.any(String, Integer, Float, Pathname)],
       sudo:            T::Boolean,
       sudo_as_root:    T::Boolean,
       env:             T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
@@ -235,7 +234,7 @@ class SystemCommand
   sig { returns(T.any(Pathname, String)) }
   attr_reader :executable
 
-  sig { returns(T::Array[T.any(String, Integer, Float, Pathname, URI::Generic)]) }
+  sig { returns(T::Array[T.any(String, Integer, Float, Pathname)]) }
   attr_reader :args
 
   sig { returns(T::Array[String]) }
@@ -548,6 +547,7 @@ class SystemCommand
 
     sig { returns(T.untyped) }
     def plist
+      require "plist"
       @plist ||= T.let(begin
         output = stdout
 
