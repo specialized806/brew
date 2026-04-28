@@ -11,6 +11,7 @@ exclude:
   - docs_rubocop_style.yml
   - Gemfile*
   - Rakefile
+  - README.md
   - vale-styles
   - vendor
 include:
@@ -23,6 +24,8 @@ plugins:
   - jekyll-seo-tag
   - jekyll-sitemap
   - jekyll-titles-from-headings
+optional_front_matter:
+  remove_originals: true
 
 permalink: :title
 
