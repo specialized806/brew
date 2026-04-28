@@ -26,7 +26,7 @@ last_review_date: "2026-04-25"
 - [Anonymous Analytics](Analytics.md)
 
 - [Querying `brew`](Querying-Brew.md)
-- [C++ Standard Libraries](C++-Standard-Libraries.md)
+- [C++ Standard Libraries](C%2B%2B-Standard-Libraries.md)
 - [MD5 and SHA-1 Deprecation](Checksum_Deprecation.md)
 - [Custom GCC and Cross Compilers](Custom-GCC-and-cross-compilers.md)
 - [External Commands](External-Commands.md)
