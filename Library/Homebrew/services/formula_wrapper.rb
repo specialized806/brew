@@ -92,6 +92,21 @@ module Homebrew
         )
       end
 
+      sig { returns(Pathname) }
+      def timer_file
+        @timer_file ||= T.let(formula.systemd_timer_path, T.nilable(Pathname))
+      end
+
+      sig { returns(String) }
+      def timer_name
+        @timer_name ||= T.let(timer_file.basename.to_s, T.nilable(String))
+      end
+
+      sig { returns(Pathname) }
+      def timer_dest
+        dest_dir + timer_file.basename
+      end
+
       # Whether the service should be launched at startup
       sig { returns(T::Boolean) }
       def service_startup?
@@ -147,7 +162,7 @@ module Homebrew
           reset_cache! unless cached
           status_success
         else # System.systemctl?
-          System::Systemctl.quiet_run("status", service_file.basename)
+          System::Systemctl.quiet_run("status", timed? ? timer_name : service_file.basename)
         end
       end
 

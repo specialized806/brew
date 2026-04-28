@@ -85,6 +85,24 @@ RSpec.describe Homebrew::Services::Cli do
     end
   end
 
+  describe "#remove_unused_service_files" do
+    it "removes unused timer files" do
+      path = mktmpdir
+      active_timer = path/"homebrew.name.timer"
+      stale_timer = path/"homebrew.stale.timer"
+      active_timer.write("timer")
+      stale_timer.write("timer")
+      allow(Homebrew::Services::System).to receive(:path).and_return(path)
+      allow(services_cli).to receive(:running).and_return(["homebrew.name"])
+
+      expect do
+        expect(services_cli.remove_unused_service_files).to eq([stale_timer.to_s])
+      end.to output("Removing unused service file: #{stale_timer}\n").to_stdout
+      expect(active_timer).to exist
+      expect(stale_timer).not_to exist
+    end
+  end
+
   describe "#run" do
     it "checks missing file causes error" do
       expect(Homebrew::Services::System).not_to receive(:root?)
@@ -138,6 +156,64 @@ RSpec.describe Homebrew::Services::Cli do
       expect(Homebrew::Services::System).not_to receive(:root?)
       services_cli.stop([])
     end
+
+    it "stops timed systemd timers before services when kept" do
+      allow(Homebrew::Services::System).to receive(:systemctl?).and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "homebrew.name.timer")
+        .ordered
+        .and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "homebrew.name")
+        .ordered
+        .and_return(true)
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:         "name",
+        service_name: "homebrew.name",
+        timed?:       true,
+        timer_name:   "homebrew.name.timer",
+        pid?:         false,
+      )
+      allow(service).to receive(:loaded?).and_return(true, false)
+
+      expect do
+        services_cli.stop([service], keep: true)
+      end.to output(/Successfully stopped `name`/).to_stdout
+    end
+
+    it "stops and removes timed systemd timer files" do
+      allow(Homebrew::Services::System).to receive(:systemctl?).and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "--now", "homebrew.name.timer")
+        .and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "--now", "homebrew.name")
+        .and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:run).with("daemon-reload")
+
+      dest_dir = mktmpdir
+      service_dest = dest_dir/"homebrew.name.service"
+      timer_dest = dest_dir/"homebrew.name.timer"
+      service_dest.write("service")
+      timer_dest.write("timer")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:         "name",
+        service_name: "homebrew.name",
+        dest:         service_dest,
+        timed?:       true,
+        timer_name:   "homebrew.name.timer",
+        timer_dest:,
+        pid?:         false,
+      )
+      allow(service).to receive(:loaded?).and_return(true, false)
+
+      expect do
+        services_cli.stop([service])
+      end.to output(/Successfully stopped `name`/).to_stdout
+      expect(timer_dest).not_to exist
+    end
   end
 
   describe "#kill" do
@@ -185,6 +261,34 @@ RSpec.describe Homebrew::Services::Cli do
         "Invalid usage: Formula `name` has not implemented #plist, #service or provided a locatable service file.",
       )
     end
+
+    it "installs timed systemd timer files" do
+      allow(Homebrew::Services::System).to receive(:systemctl?).and_return(true)
+      allow(Homebrew::Services::System::Systemctl).to receive(:run).with("daemon-reload")
+
+      source_dir = mktmpdir
+      dest_dir = mktmpdir
+      service_file = source_dir/"homebrew.name.service"
+      timer_file = source_dir/"homebrew.name.timer"
+      service_file.write("service")
+      timer_file.write("timer")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:         "name",
+        service_name: "homebrew.name",
+        installed?:   true,
+        service_file:,
+        dest:         dest_dir/service_file.basename,
+        dest_dir:,
+        timed?:       true,
+        timer_file:,
+        timer_dest:   dest_dir/timer_file.basename,
+      )
+
+      services_cli.install_service_file(service, nil)
+
+      expect(service.timer_dest.read).to eq("timer")
+    end
   end
 
   describe "#systemd_load" do
@@ -203,7 +307,7 @@ RSpec.describe Homebrew::Services::Cli do
     it "checks non-enabling run" do
       with_env(PATH: bindir.to_s) do
         services_cli.systemd_load(
-          instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
+          instance_double(Homebrew::Services::FormulaWrapper, service_name: "name", timed?: false),
           enable: false,
         )
       end
@@ -214,7 +318,7 @@ RSpec.describe Homebrew::Services::Cli do
     it "checks enabling run" do
       with_env(PATH: bindir.to_s) do
         services_cli.systemd_load(
-          instance_double(Homebrew::Services::FormulaWrapper, service_name: "name"),
+          instance_double(Homebrew::Services::FormulaWrapper, service_name: "name", timed?: false),
           enable: true,
         )
       end
@@ -222,6 +326,26 @@ RSpec.describe Homebrew::Services::Cli do
       expect(log.read).to eq <<~EOS
         --user start name
         --user enable name
+      EOS
+    end
+
+    it "checks enabling timed run" do
+      with_env(PATH: bindir.to_s) do
+        services_cli.systemd_load(
+          instance_double(
+            Homebrew::Services::FormulaWrapper,
+            service_name: "name",
+            timed?:       true,
+            timer_name:   "name.timer",
+          ),
+          enable: true,
+        )
+      end
+
+      expect(log.read).to eq <<~EOS
+        --user start name
+        --user start name.timer
+        --user enable name.timer
       EOS
     end
   end
@@ -332,6 +456,7 @@ RSpec.describe Homebrew::Services::Cli do
             service_name:     "service.name",
             service_startup?: false,
             dest:             instance_double(Pathname, exist?: true),
+            timed?:           false,
           ),
           nil,
           enable: false,
@@ -352,6 +477,7 @@ RSpec.describe Homebrew::Services::Cli do
             service_name:     "service.name",
             service_startup?: false,
             dest:             instance_double(Pathname, exist?: true),
+            timed?:           false,
           ),
           nil,
           enable: true,
