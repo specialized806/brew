@@ -8,7 +8,7 @@ module OS
         module Trash
           module ClassMethods
             sig {
-              params(paths: Pathname, command: T.nilable(T.class_of(SystemCommand)))
+              params(paths: ::Pathname, command: T.nilable(T.class_of(SystemCommand)))
                 .returns([T::Array[String], T::Array[String]])
             }
             def trash(*paths, command: nil)
