@@ -196,6 +196,50 @@ RSpec.describe CurlDownloadStrategy do
 
           strategy.fetch
         end
+
+        context "when the artifact domain is unreachable" do
+          let(:failed_status) { instance_double(Process::Status, success?: false, exitstatus: 6, termsig: nil) }
+
+          it "falls back to the original ghcr.io URL" do
+            artifact_url = "#{artifact_domain}/#{resource_path}"
+
+            # First call: artifact domain URL fails
+            expect(strategy).to receive(:_fetch)
+              .with(url: artifact_url, resolved_url: artifact_url,
+                    timeout: anything)
+              .once
+              .and_raise(ErrorDuringExecution.new(["curl", artifact_url], status: failed_status))
+
+            # Second call: original ghcr.io URL succeeds
+            expect(strategy).to receive(:_fetch)
+              .with(url: url, resolved_url: url,
+                    timeout: anything)
+              .once
+              .and_return(nil)
+
+            strategy.fetch
+          end
+        end
+
+        context "when artifact_domain_no_fallback is set" do
+          let(:failed_status) { instance_double(Process::Status, success?: false, exitstatus: 6, termsig: nil) }
+
+          before do
+            allow(Homebrew::EnvConfig).to receive(:artifact_domain_no_fallback?).and_return(true)
+          end
+
+          it "does not fall back to the original URL" do
+            artifact_url = "#{artifact_domain}/#{resource_path}"
+
+            expect(strategy).to receive(:_fetch)
+              .with(url: artifact_url, resolved_url: artifact_url,
+                    timeout: anything)
+              .once
+              .and_raise(ErrorDuringExecution.new(["curl", artifact_url], status: failed_status))
+
+            expect { strategy.fetch }.to raise_error(CurlDownloadStrategyError)
+          end
+        end
       end
     end
   end
