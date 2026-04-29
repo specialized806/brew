@@ -69,7 +69,7 @@ RSpec.describe Cask::Info, :cask do
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-cask-multiple.rb")}
       #{ohai_title "Dependencies"}
       Required (2): #{uninstalled("local-caffeine (cask)")}, #{uninstalled("local-transmission-zip (cask)")}
-      Recursive Runtime (2): 0 #{Formatter.success("✔")}, 2 #{Formatter.error("✘")}
+      Recursive Runtime (2): 0 installed #{Formatter.success("✔")}, 2 missing #{Formatter.error("✘")}
       #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)
@@ -100,11 +100,20 @@ RSpec.describe Cask::Info, :cask do
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-cask-multiple.rb")}
       #{ohai_title "Dependencies"}
       Required (2): #{uninstalled("local-caffeine (cask)")}, #{installed("local-transmission-zip (cask)")}
-      Recursive Runtime (2): 1 #{Formatter.success("✔")}, 1 #{Formatter.error("✘")}
+      Recursive Runtime (2): 1 installed #{Formatter.success("✔")}, 1 missing #{Formatter.error("✘")}
       #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)
     EOS
+  end
+
+  it "summarises recursive runtime dependencies as all installed when none are missing" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    mock_cask_installed("local-caffeine")
+    mock_cask_installed("local-transmission-zip")
+    expect do
+      described_class.info(Cask::CaskLoader.load("with-depends-on-cask-multiple"), args:)
+    end.to output(/Recursive Runtime \(2\): all installed #{Formatter.success("✔")}/).to_stdout
   end
 
   it "prints cask and formulas dependencies if the Cask has both" do
@@ -124,7 +133,7 @@ RSpec.describe Cask::Info, :cask do
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-everything.rb")}
       #{ohai_title "Dependencies"}
       Required (3): #{uninstalled("unar")}, #{uninstalled("local-caffeine (cask)")}, #{uninstalled("with-depends-on-cask (cask)")}
-      Recursive Runtime (4): 0 #{Formatter.success("✔")}, 4 #{Formatter.error("✘")}
+      Recursive Runtime (4): 0 installed #{Formatter.success("✔")}, 4 missing #{Formatter.error("✘")}
       #{requirements_section("#{arch_requirements}, #{installed("macOS >= 10.15")}")}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)

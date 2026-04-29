@@ -177,8 +177,11 @@ module Homebrew
 
       sig { params(installed_count: Integer, total_count: Integer).returns(String) }
       def self.dependency_status_counts(installed_count, total_count)
-        "#{installed_count} #{Formatter.success("✔")}, " \
-          "#{total_count - installed_count} #{Formatter.error("✘")}"
+        missing_count = total_count - installed_count
+        return "all installed #{Formatter.success("✔")}" if missing_count.zero?
+
+        "#{installed_count} installed #{Formatter.success("✔")}, " \
+          "#{missing_count} missing #{Formatter.error("✘")}"
       end
 
       sig { params(full_name: String, name: String).returns(Integer) }
