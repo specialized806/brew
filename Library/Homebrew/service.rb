@@ -512,6 +512,17 @@ module Homebrew
       SYSTEMD
     end
 
+    sig { params(cron_weekday: T.nilable(T.any(Integer, String))).returns(String) }
+    def cron_weekday_to_systemd_weekday(cron_weekday)
+      if cron_weekday != "*" &&
+         (weekday_number = cron_weekday&.to_i) &&
+         (0..7).cover?(weekday_number)
+        "#{Date::ABBR_DAYNAMES[weekday_number % 7]} "
+      else
+        ""
+      end
+    end
+
     # Returns a `String` systemd unit timer.
     sig { returns(String) }
     def to_systemd_timer
@@ -522,7 +533,8 @@ module Homebrew
       if @run_type == RUN_TYPE_CRON
         minutes = (@cron[:Minute] == "*") ? "*" : format("%02d", @cron[:Minute])
         hours   = (@cron[:Hour] == "*") ? "*" : format("%02d", @cron[:Hour])
-        options << "OnCalendar=#{@cron[:Weekday]}-*-#{@cron[:Month]}-#{@cron[:Day]} #{hours}:#{minutes}:00"
+        options << "OnCalendar=#{cron_weekday_to_systemd_weekday(@cron[:Weekday])}" \
+                   "*-#{@cron[:Month]}-#{@cron[:Day]} #{hours}:#{minutes}:00"
       end
 
       <<~SYSTEMD
@@ -533,7 +545,7 @@ module Homebrew
         WantedBy=timers.target
 
         [Timer]
-        Unit=#{service_name}
+        Unit=#{service_name}.service
         #{options.join("\n")}
       SYSTEMD
     end
