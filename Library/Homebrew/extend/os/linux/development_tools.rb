@@ -11,7 +11,7 @@ module OS
 
         sig { params(tool: T.any(String, Symbol)).returns(T.nilable(::Pathname)) }
         def locate(tool)
-          @locate ||= T.let({}, T.nilable(T::Hash[T.any(String, Symbol), Pathname]))
+          @locate ||= T.let({}, T.nilable(T::Hash[T.any(String, Symbol), ::Pathname]))
           @locate.fetch(tool) do |key|
             @locate[key] = if ::DevelopmentTools.needs_build_formulae? &&
                               (binutils_path = HOMEBREW_PREFIX/"opt/binutils/bin/#{tool}").executable?
