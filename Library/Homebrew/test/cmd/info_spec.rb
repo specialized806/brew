@@ -100,11 +100,49 @@ RSpec.describe Homebrew::Cmd::Info do
     allow(formula).to receive(:core_formula?).and_return(false)
     allow(direct_dependency).to receive(:satisfied?).and_return(true)
 
+    expected_output = Regexp.new(
+      "==> Dependencies\nRequired \\(1\\): .*bar.*\n" \
+      "Recursive Runtime \\(2\\): 1 installed .*✔, 1 missing .*✘\nDependents: 1",
+    )
     expect { info.send(:info_formula, formula) }
-      .to output(
-        /==> Dependencies\nRequired \(1\): .*bar.*\nRecursive Runtime \(2\): 1 .*✔, 1 .*✘\nDependents: 1/,
-      ).to_stdout
+      .to output(expected_output).to_stdout
       .and not_to_output(/^Dependencies: /).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "summarises recursive runtime dependencies as all installed when none are missing" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+    direct_dependency = formula.deps.required.first
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.runtime_dependencies = [{ "full_name" => "installed-dep", "version" => "1.0" }]
+    tab.write
+
+    installed_dep_path = HOMEBREW_CELLAR/"installed-dep/1.0"
+    installed_dep_path.mkpath
+    installed_dep_tab = Tab.empty
+    installed_dep_tab.tabfile = installed_dep_path/AbstractTab::FILENAME
+    installed_dep_tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+    allow(direct_dependency).to receive(:satisfied?).and_return(true)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Recursive Runtime \(1\): all installed .*✔/).to_stdout
+      .and not_to_output(/missing/).to_stdout
       .and not_to_output.to_stderr
   end
 
