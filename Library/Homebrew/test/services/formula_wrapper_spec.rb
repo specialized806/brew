@@ -15,6 +15,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
                     service_name:           "plist-mysql-test",
                     launchd_service_path:   Pathname.new("/usr/local/opt/mysql/homebrew.mysql.plist"),
                     systemd_service_path:   Pathname.new("/usr/local/opt/mysql/homebrew.mysql.service"),
+                    systemd_timer_path:     Pathname.new("/usr/local/opt/mysql/homebrew.mysql.timer"),
                     opt_prefix:             Pathname.new("/usr/local/opt/mysql"),
                     any_version_installed?: true,
                     service?:               false)
@@ -149,6 +150,16 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
       allow(Homebrew::Services::System::Systemctl).to receive(:quiet_run).and_return(false)
       allow(Utils).to receive(:safe_popen_read)
       expect(service.loaded?).to be(false)
+    end
+
+    it "systemD - checks timer status for timed services" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      allow(service).to receive(:timed?).and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("status", "homebrew.mysql.timer")
+        .and_return(true)
+
+      expect(service.loaded?).to be(true)
     end
 
     it "Other - raises an error" do

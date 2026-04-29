@@ -73,12 +73,12 @@ module Homebrew
       sig { returns(T::Array[String]) }
       def self.remove_unused_service_files
         cleaned = []
-        System.path.glob("homebrew.*.{plist,service}").each do |file|
-          next if running.include?(File.basename(file).sub(/\.(plist|service)$/i, ""))
+        System.path.glob("homebrew.*.{plist,service,timer}").each do |file|
+          next if running.include?(File.basename(file).sub(/\.(plist|service|timer)$/i, ""))
 
           puts "Removing unused service file: #{file}"
           rm file
-          cleaned << file
+          cleaned << file.to_s
         end
 
         cleaned
@@ -171,7 +171,10 @@ module Homebrew
       def self.stop(targets, verbose: false, no_wait: false, max_wait: 0, keep: false)
         targets.each do |service|
           unless service.loaded?
-            rm service.dest if !keep && service.dest.exist? # get rid of installed service file anyway, dude
+            unless keep
+              rm service.dest if service.dest.exist? # get rid of installed service file anyway, dude
+              rm service.timer_dest if System.systemctl? && service.timed? && service.timer_dest.exist?
+            end
             if service.service_file_present?
               odie <<~EOS
                 Service `#{service.name}` is started as `#{service.owner}`. Try:
@@ -196,7 +199,11 @@ module Homebrew
 
           if System.systemctl?
             if keep
+              System::Systemctl.quiet_run(*systemctl_args, "stop", service.timer_name) if service.timed?
               System::Systemctl.quiet_run(*systemctl_args, "stop", service.service_name)
+            elsif service.timed?
+              System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service.timer_name)
+              System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service.service_name)
             else
               System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service.service_name)
             end
@@ -230,6 +237,7 @@ module Homebrew
 
           unless keep
             rm service.dest if service.dest.exist?
+            rm service.timer_dest if System.systemctl? && service.timed? && service.timer_dest.exist?
             # Run daemon-reload on systemctl to finish unloading stopped and deleted service.
             System::Systemctl.run(*systemctl_args, "daemon-reload") if System.systemctl?
           end
@@ -354,7 +362,12 @@ module Homebrew
       sig { params(service: Services::FormulaWrapper, enable: T::Boolean).void }
       def self.systemd_load(service, enable:)
         System::Systemctl.run("start", service.service_name)
-        System::Systemctl.run("enable", service.service_name) if enable
+        if service.timed?
+          System::Systemctl.run("start", service.timer_name)
+          System::Systemctl.run("enable", service.timer_name) if enable
+        elsif enable
+          System::Systemctl.run("enable", service.service_name)
+        end
       end
 
       sig { params(service: Services::FormulaWrapper, file: T.nilable(Pathname), enable: T::Boolean).void }
@@ -414,6 +427,11 @@ module Homebrew
         temp.close
 
         chmod 0644, service.dest
+        if System.systemctl? && service.timed?
+          rm service.timer_dest if service.timer_dest.exist?
+          cp service.timer_file, service.timer_dest
+          chmod 0644, service.timer_dest
+        end
 
         System::Systemctl.run("daemon-reload") if System.systemctl?
       end

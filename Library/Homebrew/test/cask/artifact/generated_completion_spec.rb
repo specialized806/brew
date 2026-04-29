@@ -114,4 +114,24 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       expect(fish_dir/"bar.fish").not_to exist
     end
   end
+
+  context "with string shells" do
+    let(:cask) do
+      tmp_staged = staged_path
+      Cask::Cask.new("test-generated-completion") do
+        version "1.0"
+        sha256 :no_check
+        url "file:///dev/null"
+        generate_completions_from_executable "bin/foo", "completions",
+                                             shells: %w[bash zsh fish pwsh]
+        instance_variable_set(:@staged_path, tmp_staged)
+      end
+    end
+
+    it "normalizes shells to symbols" do
+      artifact = cask.artifacts.grep(described_class).first
+
+      expect(artifact.shells).to eq([:bash, :zsh, :fish, :pwsh])
+    end
+  end
 end
