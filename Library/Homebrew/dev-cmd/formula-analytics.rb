@@ -239,14 +239,7 @@ module Homebrew
               when :os_versions
                 format_os_version_dimension(record["os_name_and_version"])
               when :command_run_options
-                options = record["options"].split
-
-                # Cleanup bad data before TODO
-                # Can delete this code after 18th July 2025.
-                options.reject! { |option| option.match?(/^--with(out)?-/) }
-                next if options.any? { |option| option.match?(/^TMPDIR=/) }
-
-                "#{record["command"]} #{options.sort.join(" ")}"
+                "#{record["command"]} #{record["options"].to_s.split.sort.join(" ")}"
               when :test_bot_test
                 command_and_package, options = record["command"].split.partition { |arg| !arg.start_with?("-") }
 
