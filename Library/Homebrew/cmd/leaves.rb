@@ -51,7 +51,7 @@ module Homebrew
 
         leaves_list = installed.reject { |f| dep_names.intersect?(f.possible_names) }
         leaves_list.select! { |leaf| installed_on_request?(leaf) } if args.installed_on_request?
-        leaves_list.select! { |leaf| installed_as_dependency?(leaf) } if args.installed_as_dependency?
+        leaves_list.reject! { |leaf| installed_on_request?(leaf) } if args.installed_as_dependency?
 
         leaves_list.map(&:full_name)
                    .sort
@@ -63,11 +63,6 @@ module Homebrew
       sig { params(formula: Formula).returns(T::Boolean) }
       def installed_on_request?(formula)
         formula.any_installed_keg&.tab&.installed_on_request == true
-      end
-
-      sig { params(formula: Formula).returns(T::Boolean) }
-      def installed_as_dependency?(formula)
-        formula.any_installed_keg&.tab&.installed_as_dependency == true
       end
     end
   end

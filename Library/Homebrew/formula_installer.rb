@@ -54,7 +54,6 @@ class FormulaInstaller
     params(
       formula:                    Formula,
       link_keg:                   T::Boolean,
-      installed_as_dependency:    T::Boolean,
       installed_on_request:       T::Boolean,
       show_header:                T::Boolean,
       build_bottle:               T::Boolean,
@@ -83,7 +82,6 @@ class FormulaInstaller
   def initialize(
     formula,
     link_keg: false,
-    installed_as_dependency: false,
     installed_on_request: false,
     show_header: false,
     build_bottle: false,
@@ -114,7 +112,6 @@ class FormulaInstaller
     @overwrite = overwrite
     @keep_tmp = keep_tmp
     @debug_symbols = debug_symbols
-    @installed_as_dependency = installed_as_dependency
     @installed_on_request = installed_on_request
     link_keg ||= !formula.keg_only? || auto_link_versioned_keg_only?
     @link_keg = T.let(link_keg, T::Boolean)
@@ -169,9 +166,6 @@ class FormulaInstaller
 
   sig { returns(T::Boolean) }
   def ignore_deps? = @ignore_deps
-
-  sig { returns(T::Boolean) }
-  def installed_as_dependency? = @installed_as_dependency
 
   sig { returns(T::Boolean) }
   def installed_on_request? = @installed_on_request
@@ -615,7 +609,6 @@ on_request: installed_on_request?, options:)
 
       keg = Keg.new(formula.prefix)
       tab = keg.tab
-      tab.installed_as_dependency = installed_as_dependency?
       tab.installed_on_request = installed_on_request?
       tab.write
     end
@@ -821,7 +814,6 @@ on_request: installed_on_request?, options:)
       # fetch in a particular order.
       # Note, this tree can vary when pouring bottles so we need to check it then.
       ignore_deps:                !pour_bottle?,
-      installed_as_dependency:    true,
       include_test_formulae:      @include_test_formulae,
       build_from_source_formulae: @build_from_source_formulae,
       keep_tmp:                   keep_tmp?,
@@ -877,7 +869,6 @@ on_request: installed_on_request?, options:)
       df,
       options:,
       link_keg:                   keg_had_linked_keg && keg_was_linked,
-      installed_as_dependency:    true,
       installed_on_request:,
       force_bottle:               false,
       include_test_formulae:      @include_test_formulae,
@@ -915,7 +906,7 @@ on_request: installed_on_request?, options:)
 
     audit_installed if Homebrew::EnvConfig.developer?
 
-    return if !installed_on_request? || installed_as_dependency?
+    return unless installed_on_request?
     return if quiet?
 
     caveats = Caveats.new(formula)
@@ -931,7 +922,6 @@ on_request: installed_on_request?, options:)
 
   sig { returns(T.nilable(String)) }
   def link_manual_command_warning
-    return if installed_as_dependency?
     return unless formula.keg_only?
     return unless formula.keg_only_reason.versioned_formula?
     return if link_keg
@@ -1526,7 +1516,6 @@ on_request: installed_on_request?, options:)
     tab.poured_from_bottle = true
     tab.loaded_from_api = formula.loaded_from_api?
     tab.loaded_from_internal_api = formula.loaded_from_internal_api?
-    tab.installed_as_dependency = installed_as_dependency?
     tab.installed_on_request = installed_on_request?
     tab.time = Time.now.to_i
     tab.aliases = formula.aliases
@@ -1725,7 +1714,6 @@ on_request: installed_on_request?, options:)
 
   sig { returns(T::Boolean) }
   def auto_link_versioned_keg_only?
-    return false if installed_as_dependency?
     return false unless formula.keg_only?
     return false unless formula.keg_only_reason.versioned_formula?
     return false if formula.any_version_installed?

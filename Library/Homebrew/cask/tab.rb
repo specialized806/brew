@@ -110,7 +110,6 @@ module Cask
         "loaded_from_api"          => loaded_from_api,
         "loaded_from_internal_api" => loaded_from_internal_api,
         "uninstall_flight_blocks"  => uninstall_flight_blocks,
-        "installed_as_dependency"  => installed_as_dependency,
         "installed_on_request"     => installed_on_request,
         "time"                     => time,
         "runtime_dependencies"     => runtime_dependencies,

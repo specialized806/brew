@@ -23,7 +23,7 @@ module Cask
       params(
         cask: ::Cask::Cask, command: T.class_of(SystemCommand), force: T::Boolean, adopt: T::Boolean,
         skip_cask_deps: T::Boolean, binaries: T::Boolean, verbose: T::Boolean, zap: T::Boolean,
-        require_sha: T::Boolean, upgrade: T::Boolean, reinstall: T::Boolean, installed_as_dependency: T::Boolean,
+        require_sha: T::Boolean, upgrade: T::Boolean, reinstall: T::Boolean,
         installed_on_request: T::Boolean, quarantine: T::Boolean, verify_download_integrity: T::Boolean,
         quiet: T::Boolean, download_queue: Homebrew::DownloadQueue, defer_fetch: T::Boolean
       ).void
@@ -31,7 +31,7 @@ module Cask
     def initialize(cask, command: SystemCommand, force: false, adopt: false,
                    skip_cask_deps: false, binaries: true, verbose: false,
                    zap: false, require_sha: false, upgrade: false, reinstall: false,
-                   installed_as_dependency: false, installed_on_request: true,
+                   installed_on_request: true,
                    quarantine: true, verify_download_integrity: true, quiet: false,
                    download_queue: Homebrew.default_download_queue, defer_fetch: false)
       @cask = cask
@@ -45,7 +45,6 @@ module Cask
       @require_sha = require_sha
       @reinstall = reinstall
       @upgrade = upgrade
-      @installed_as_dependency = installed_as_dependency
       @installed_on_request = installed_on_request
       @quarantine = quarantine
       @verify_download_integrity = verify_download_integrity
@@ -64,9 +63,6 @@ module Cask
 
     sig { returns(T::Boolean) }
     def force? = @force
-
-    sig { returns(T::Boolean) }
-    def installed_as_dependency? = @installed_as_dependency
 
     sig { returns(T::Boolean) }
     def installed_on_request? = @installed_on_request
@@ -171,7 +167,6 @@ module Cask
       install_artifacts(predecessor:)
 
       tab = Tab.create(@cask)
-      tab.installed_as_dependency = installed_as_dependency?
       tab.installed_on_request = installed_on_request?
       tab.write
 
@@ -445,7 +440,7 @@ on_request: true)
 
     sig { void }
     def satisfy_cask_and_formula_dependencies
-      return if installed_as_dependency?
+      return unless installed_on_request?
 
       formulae_and_casks = cask_and_formula_dependencies
 
@@ -471,24 +466,22 @@ on_request: true)
 
           cask_installers << Installer.new(
             cask_or_formula,
-            adopt:                   adopt?,
-            binaries:                binaries?,
-            force:                   false,
-            installed_as_dependency: true,
-            installed_on_request:    false,
-            quarantine:              quarantine?,
-            quiet:                   quiet?,
-            require_sha:             require_sha?,
-            verbose:                 verbose?,
+            adopt:                adopt?,
+            binaries:             binaries?,
+            force:                false,
+            installed_on_request: false,
+            quarantine:           quarantine?,
+            quiet:                quiet?,
+            require_sha:          require_sha?,
+            verbose:              verbose?,
           )
         else
           formula_installers << FormulaInstaller.new(
             cask_or_formula,
             **{
-              show_header:             true,
-              installed_as_dependency: true,
-              installed_on_request:    false,
-              verbose:                 verbose?,
+              show_header:          true,
+              installed_on_request: false,
+              verbose:              verbose?,
             }.compact,
           )
         end

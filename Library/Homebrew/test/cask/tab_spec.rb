@@ -4,12 +4,6 @@
 require "cask"
 
 RSpec.describe Cask::Tab, :cask do
-  matcher :be_installed_as_dependency do
-    match do |actual|
-      actual.installed_as_dependency == true
-    end
-  end
-
   matcher :be_installed_on_request do
     match do |actual|
       actual.installed_on_request == true
@@ -40,7 +34,6 @@ RSpec.describe Cask::Tab, :cask do
       "loaded_from_api"          => false,
       "loaded_from_internal_api" => false,
       "uninstall_flight_blocks"  => true,
-      "installed_as_dependency"  => false,
       "installed_on_request"     => true,
       "time"                     => time,
       "runtime_dependencies"     => {
@@ -70,7 +63,6 @@ RSpec.describe Cask::Tab, :cask do
     tab = described_class.empty
 
     expect(tab.homebrew_version).to eq(HOMEBREW_VERSION)
-    expect(tab).not_to be_installed_as_dependency
     expect(tab).not_to be_installed_on_request
     expect(tab).not_to be_loaded_from_api
     expect(tab).not_to be_loaded_from_internal_api
@@ -163,7 +155,6 @@ RSpec.describe Cask::Tab, :cask do
     expect(tab).not_to be_loaded_from_api
     expect(tab).not_to be_loaded_from_internal_api
     expect(tab).to have_uninstall_flight_blocks
-    expect(tab).not_to be_installed_as_dependency
     expect(tab).to be_installed_on_request
   end
 
@@ -199,7 +190,6 @@ RSpec.describe Cask::Tab, :cask do
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api
       expect(tab).to have_uninstall_flight_blocks
-      expect(tab).not_to be_installed_as_dependency
       expect(tab).to be_installed_on_request
       expect(tab.time).to eq(Time.at(1_719_289_256).to_i)
       expect(tab.runtime_dependencies).to eq(runtime_dependencies)
@@ -241,7 +231,6 @@ RSpec.describe Cask::Tab, :cask do
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api
       expect(tab).to have_uninstall_flight_blocks
-      expect(tab).not_to be_installed_as_dependency
       expect(tab).to be_installed_on_request
       expect(tab.tabfile).to eq(path)
       expect(tab.time).to eq(Time.at(1_719_289_256).to_i)
@@ -271,7 +260,6 @@ RSpec.describe Cask::Tab, :cask do
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api
       expect(tab).not_to have_uninstall_flight_blocks
-      expect(tab).not_to be_installed_as_dependency
       expect(tab).not_to be_installed_on_request
       expect(tab.source).to eq({
         "path"         => "#{CoreCaskTap.instance.path}/Casks/local-caffeine.rb",
@@ -316,7 +304,7 @@ RSpec.describe Cask::Tab, :cask do
     expect(json_tab.loaded_from_api).to eq(tab.loaded_from_api)
     expect(json_tab.loaded_from_internal_api).to eq(tab.loaded_from_internal_api)
     expect(json_tab.uninstall_flight_blocks).to eq(tab.uninstall_flight_blocks)
-    expect(json_tab.installed_as_dependency).to eq(tab.installed_as_dependency)
+    expect(json_tab.installed_on_request).to eq(tab.installed_on_request)
     expect(json_tab.installed_on_request).to eq(tab.installed_on_request)
     expect(json_tab.time).to eq(tab.time)
     expect(json_tab.runtime_dependencies).to eq(tab.runtime_dependencies)

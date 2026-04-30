@@ -286,7 +286,6 @@ module Homebrew
         formulae_installer = Install.formula_installers(
           installed_formulae,
           installed_on_request:       !args.as_dependency?,
-          installed_as_dependency:    args.as_dependency?,
           build_bottle:               args.build_bottle?,
           force_bottle:               args.force_bottle?,
           bottle_arch:                args.bottle_arch,

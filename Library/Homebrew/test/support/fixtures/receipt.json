@@ -12,7 +12,6 @@
   "poured_from_bottle": true,
   "loaded_from_api": false,
   "loaded_from_internal_api": false,
-  "installed_as_dependency": false,
   "installed_on_request": true,
   "changed_files": [
     "INSTALL_RECEIPT.json",
