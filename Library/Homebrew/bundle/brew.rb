@@ -343,7 +343,7 @@ module Homebrew
             any_version_installed?: formula.any_version_installed?,
             args:                   Array(args).uniq,
             version:,
-            installed_on_request?:  installed_on_request || false,
+            installed_on_request?:  installed_on_request != false,
             dependencies:           runtime_dependencies,
             build_dependencies:     formula.deps.select(&:build?).map(&:name).uniq,
             conflicts_with:         formula.conflicts.map(&:name),
