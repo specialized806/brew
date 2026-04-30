@@ -221,6 +221,14 @@ RSpec.describe Homebrew::Bundle::Brew do
     describe "#dump" do
       it "returns a dump string with installed formulae" do
         expect(Formula).to receive(:installed).and_return([foo, bar, baz])
+        expect(bar.linked_keg).to receive(:realpath).and_return(instance_double(Pathname, basename: "1.0"))
+        expect(Tab).to receive(:for_keg).with(bar.linked_keg).and_return(
+          instance_double(Tab,
+                          installed_on_request: true,
+                          poured_from_bottle:   true,
+                          runtime_dependencies: [],
+                          used_options:         []),
+        )
         allow(Utils).to receive(:safe_popen_read).and_return("[]")
         expected = <<~EOS
           # barfoo
