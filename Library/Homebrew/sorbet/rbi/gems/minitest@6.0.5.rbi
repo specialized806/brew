@@ -117,6 +117,7 @@ module Minitest::Assertions
   end
 end
 
+Minitest::Assertions::NO_RE_MSG = T.let(T.unsafe(nil), String)
 Minitest::Assertions::UNDEFINED = T.let(T.unsafe(nil), Object)
 
 class Minitest::BacktraceFilter

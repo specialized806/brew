@@ -1180,6 +1180,8 @@ module YARD::Handlers::RBS; end
 class YARD::Handlers::RBS::AttributeHandler < ::YARD::Handlers::RBS::Base
   private
 
+  def apply_tag_types(obj, tag_name, types, tag_param_name = T.unsafe(nil)); end
+  def register_existing_attribute_method(attr_name, meth_name, type, scope); end
   def register_reader(name, types, scope); end
   def register_writer(name, types, scope); end
 end
