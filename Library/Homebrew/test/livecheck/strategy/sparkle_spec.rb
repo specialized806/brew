@@ -456,7 +456,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
 
     it "errors if the first block argument uses an unhandled name" do
       expect { sparkle.versions_from_content(xml[:appcast]) { |something| something } }
-        .to raise_error("First argument of Sparkle `strategy` block must be `item` or `items`")
+        .to raise_error(ArgumentError, "First argument of Sparkle `strategy` block must be `item` or `items`")
     end
   end
 
