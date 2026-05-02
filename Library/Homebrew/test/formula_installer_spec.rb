@@ -157,8 +157,14 @@ RSpec.describe FormulaInstaller do
                                                   link_overwrite_formulae: [])
     end
 
-    it "links by default when no sibling variants are installed" do
+    it "does not link by default when it is not installed on request" do
       fi = described_class.new(keg_only_formula)
+
+      expect(fi.link_keg).to be false
+    end
+
+    it "links by default when no sibling variants are installed" do
+      fi = described_class.new(keg_only_formula, installed_on_request: true)
 
       expect(fi.link_keg).to be true
     end
@@ -314,7 +320,7 @@ RSpec.describe FormulaInstaller do
       allow(keg_only_formula).to receive_messages(any_version_installed?: false, linked?: false,
                                                   link_overwrite_formulae: [unversioned_formula])
 
-      installer = described_class.new(keg_only_formula)
+      installer = described_class.new(keg_only_formula, installed_on_request: true)
 
       expect(installer.send(:link_manual_command_warning)).to eq <<~EOS
         #{formula_name} was installed but not linked because #{base_name} is already linked.

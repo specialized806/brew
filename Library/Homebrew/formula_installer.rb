@@ -922,6 +922,7 @@ on_request: installed_on_request?, options:)
 
   sig { returns(T.nilable(String)) }
   def link_manual_command_warning
+    return unless installed_on_request?
     return unless formula.keg_only?
     return unless formula.keg_only_reason.versioned_formula?
     return if link_keg
@@ -1714,6 +1715,7 @@ on_request: installed_on_request?, options:)
 
   sig { returns(T::Boolean) }
   def auto_link_versioned_keg_only?
+    return false unless installed_on_request?
     return false unless formula.keg_only?
     return false unless formula.keg_only_reason.versioned_formula?
     return false if formula.any_version_installed?
