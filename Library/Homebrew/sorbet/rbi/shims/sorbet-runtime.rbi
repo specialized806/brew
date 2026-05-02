@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 
 # The classes below are reopened in `standalone/sorbet.rb` to override `valid?`.
 # We define their `build_type` method here to make the type checker happy, and
