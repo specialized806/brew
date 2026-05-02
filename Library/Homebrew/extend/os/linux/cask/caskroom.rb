@@ -8,7 +8,12 @@ module OS
         module ClassMethods
           sig { params(path: ::Pathname, _sudo: T::Boolean).void }
           def chgrp_path(path, _sudo)
-            SystemCommand.run("chgrp", args: ["root", path], sudo: true)
+            SystemCommand.run("chgrp", args: [expected_caskroom_group, path], sudo: true)
+          end
+
+          sig { returns(String) }
+          def expected_caskroom_group
+            "root"
           end
         end
       end
