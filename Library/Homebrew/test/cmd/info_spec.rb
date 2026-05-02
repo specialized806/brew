@@ -175,6 +175,27 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "shows the installed and stable versions in the headline when outdated" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive_messages(core_formula?: false, outdated?: true)
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/\A==> testball: 0\.0\.1 → stable 0\.1\n/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
   it "prints Linux requirements through the requirements section" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
