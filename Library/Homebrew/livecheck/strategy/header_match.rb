@@ -35,24 +35,37 @@ module Homebrew
 
         # Identify versions from HTTP headers.
         #
-        # @param headers [Hash] a hash of HTTP headers to check for versions
+        # @param headers [Array<Hash<String, String>>] an array of response HTTP
+        #   header hashes to check for versions
         # @param regex [Regexp, nil] a regex for matching versions in content
         # @return [Array]
         sig {
           params(
-            headers: T::Hash[String, String],
+            headers: T::Array[T::Hash[String, String]],
             regex:   T.nilable(Regexp),
             block:   T.nilable(Proc),
           ).returns(T::Array[String])
         }
         def self.versions_from_content(headers, regex = nil, &block)
+          # Merge the last value of each header from all responses into one hash
+          # for convenience
+          merged_headers = T.cast(headers.reduce(&:merge), T::Hash[String, String])
+
           if block
-            block_return_value = regex.present? ? yield(headers, regex) : yield(headers)
+            block_return_value = case block.parameters[0]
+            when [:opt, :headers], [:req, :headers], [:rest], [:req]
+              regex.present? ? yield(merged_headers, regex) : yield(merged_headers)
+            when [:opt, :all_headers], [:req, :all_headers]
+              regex.present? ? yield(headers, regex) : yield(headers)
+            else
+              raise ArgumentError,
+                    "First argument of #{Utils.demodulize(name)} `strategy` block must be `headers` or `all_headers`"
+            end
             return Strategy.handle_block_return(block_return_value)
           end
 
           DEFAULT_HEADERS_TO_CHECK.filter_map do |header_name|
-            header_value = headers[header_name]
+            header_value = merged_headers[header_name]
             next if header_value.blank?
 
             if regex
@@ -93,11 +106,7 @@ module Homebrew
           end
           return match_data if content.blank?
 
-          # Merge the headers from all responses into one hash
-          merged_headers = content.reduce(&:merge)
-          return match_data if merged_headers.blank?
-
-          versions_from_content(merged_headers, regex, &block).each do |version_text|
+          versions_from_content(content, regex, &block).each do |version_text|
             match_data[:matches][version_text] = Version.new(version_text)
           end
 

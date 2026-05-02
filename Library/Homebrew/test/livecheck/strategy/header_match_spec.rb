@@ -63,39 +63,54 @@ RSpec.describe Homebrew::Livecheck::Strategy::HeaderMatch do
 
   describe "::versions_from_content" do
     it "returns an empty array if headers hash is empty" do
-      expect(header_match.versions_from_content({})).to eq([])
+      expect(header_match.versions_from_content([{}])).to eq([])
     end
 
     it "returns an empty array if checked headers do not contain versions" do
-      expect(header_match.versions_from_content(headers[:no_version])).to eq([])
+      expect(header_match.versions_from_content([headers[:no_version]])).to eq([])
     end
 
     it "returns an array of version strings when given headers" do
-      expect(header_match.versions_from_content(headers[:content_disposition])).to eq(matches[:content_disposition])
-      expect(header_match.versions_from_content(headers[:location])).to eq(matches[:location])
-      expect(header_match.versions_from_content(headers[:content_disposition_and_location]))
+      expect(header_match.versions_from_content([headers[:content_disposition]])).to eq(matches[:content_disposition])
+      expect(header_match.versions_from_content([headers[:location]])).to eq(matches[:location])
+      expect(header_match.versions_from_content([headers[:content_disposition_and_location]]))
         .to eq(matches[:content_disposition_and_location])
 
-      expect(header_match.versions_from_content(headers[:content_disposition], regexes[:archive]))
+      expect(header_match.versions_from_content([headers[:content_disposition]], regexes[:archive]))
         .to eq(matches[:content_disposition])
-      expect(header_match.versions_from_content(headers[:location], regexes[:latest])).to eq(matches[:location])
-      expect(header_match.versions_from_content(headers[:content_disposition_and_location], regexes[:latest]))
+      expect(header_match.versions_from_content([headers[:location]], regexes[:latest])).to eq(matches[:location])
+      expect(header_match.versions_from_content([headers[:content_disposition_and_location]], regexes[:latest]))
         .to eq(matches[:location])
     end
 
     it "returns an array of version strings when given headers and a block" do
       # Returning a string from block, no regex.
       expect(
-        header_match.versions_from_content(headers[:location]) do |headers|
+        header_match.versions_from_content([headers[:location]]) do |headers|
           v = Version.parse(headers["location"], detected_from_url: true)
+          v.null? ? nil : v.to_s
+        end,
+      ).to eq(matches[:location])
+      expect(
+        header_match.versions_from_content([headers[:location]]) do |all_headers|
+          location = all_headers[0]&.[]("location")
+          next unless location
+
+          v = Version.parse(location, detected_from_url: true)
           v.null? ? nil : v.to_s
         end,
       ).to eq(matches[:location])
 
       # Returning a string from block, explicit regex.
       expect(
-        header_match.versions_from_content(headers[:location], regexes[:latest]) do |headers, regex|
+        header_match.versions_from_content([headers[:location]], regexes[:latest]) do |headers, regex|
           headers["location"] ? headers["location"][regex, 1] : nil
+        end,
+      ).to eq(matches[:location])
+      expect(
+        header_match.versions_from_content([headers[:location]], regexes[:latest]) do |all_headers, regex|
+          location = all_headers[0]&.[]("location")
+          location ? location[regex, 1] : nil
         end,
       ).to eq(matches[:location])
 
@@ -105,21 +120,46 @@ RSpec.describe Homebrew::Livecheck::Strategy::HeaderMatch do
       #       are filtered out without needing to use `#compact` in the block.
       expect(
         header_match.versions_from_content(
-          headers[:content_disposition_and_location],
+          [headers[:content_disposition_and_location]],
           regexes[:loose],
         ) do |headers, regex|
           headers.transform_values { |header| header[regex, 1] }.values
         end,
       ).to eq(matches[:content_disposition_and_location])
+      expect(
+        header_match.versions_from_content(
+          [headers[:content_disposition_and_location]],
+          regexes[:loose],
+        ) do |all_headers, regex|
+          all_headers.map do |headers|
+            headers.transform_values { |header| header[regex, 1] }.values
+          end.flatten
+        end,
+      ).to eq(matches[:content_disposition_and_location])
     end
 
     it "allows a nil return from a block" do
-      expect(header_match.versions_from_content(headers[:location]) { next }).to eq([])
+      expect(header_match.versions_from_content([headers[:location]]) do |headers|
+        _ = headers # To appease `brew style` without modifying arg name
+        next
+      end).to eq([])
     end
 
     it "errors on an invalid return type from a block" do
-      expect { header_match.versions_from_content(headers[:location]) { 123 } }
-        .to raise_error(TypeError, Homebrew::Livecheck::Strategy::INVALID_BLOCK_RETURN_VALUE_MSG)
+      expect do
+        header_match.versions_from_content([headers[:location]]) do |headers|
+          _ = headers # To appease `brew style` without modifying arg name
+          123
+        end
+      end.to raise_error(TypeError, Homebrew::Livecheck::Strategy::INVALID_BLOCK_RETURN_VALUE_MSG)
+    end
+
+    it "errors if the first block argument uses an unhandled name" do
+      expect { header_match.versions_from_content([headers[:location]]) { |something| something } }
+        .to raise_error(
+          ArgumentError,
+          "First argument of HeaderMatch `strategy` block must be `headers` or `all_headers`",
+        )
     end
   end
 
