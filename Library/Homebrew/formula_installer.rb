@@ -335,6 +335,21 @@ class FormulaInstaller
   def prelude
     prelude_fetch unless @ran_prelude_fetch
 
+    determine_bottle_tab_attributes
+
+    verify_deps_exist unless ignore_deps?
+
+    forbidden_license_check
+    forbidden_tap_check
+    forbidden_formula_check
+
+    check_install_sanity
+
+    install_fetch_deps if !ignore_deps? && Homebrew::EnvConfig.download_concurrency <= 1
+  end
+
+  sig { void }
+  def determine_bottle_tab_attributes
     Tab.clear_cache
 
     # Setup bottle_tab_runtime_dependencies for compute_dependencies and
@@ -354,16 +369,6 @@ class FormulaInstaller
     rescue Resource::BottleManifest::Error
       # If we can't get the bottle manifest, assume a full dependencies install.
     end
-
-    verify_deps_exist unless ignore_deps?
-
-    forbidden_license_check
-    forbidden_tap_check
-    forbidden_formula_check
-
-    check_install_sanity
-
-    install_fetch_deps if !ignore_deps? && Homebrew::EnvConfig.download_concurrency <= 1
   end
 
   sig { void }

@@ -110,6 +110,8 @@ module Homebrew
         end
 
         installers.filter_map do |fi|
+          fi.determine_bottle_tab_attributes
+
           all_runtime_deps_installed = fi.bottle_tab_runtime_dependencies.presence&.all? do |dependency, hash|
             minimum_version = if (version = hash["version"])
               Version.new(version)
