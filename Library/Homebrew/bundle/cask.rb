@@ -144,8 +144,6 @@ module Homebrew
         sig { params(name: String, options: Homebrew::Bundle::EntryOptions, no_upgrade: T::Boolean).returns(T.nilable(String)) }
         def fetchable_name(name, options = {}, no_upgrade: false)
           full_name = T.cast(options.fetch(:full_name, name), String)
-          return if (tap_name = Utils.tap_from_full_name(full_name)) &&
-                    Homebrew::Bundle::Tap.installed_taps.exclude?(tap_name)
           return unless installable_or_upgradable?(name, no_upgrade:, **options)
 
           full_name

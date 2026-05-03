@@ -238,8 +238,6 @@ module Homebrew
         def fetchable_name(name, options = {}, no_upgrade: false)
           _ = options
 
-          return if (tap_name = Utils.tap_from_full_name(name)) &&
-                    Homebrew::Bundle::Tap.installed_taps.exclude?(tap_name)
           return if formula_installed_and_up_to_date?(name, no_upgrade:)
 
           name

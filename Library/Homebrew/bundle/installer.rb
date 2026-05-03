@@ -4,15 +4,28 @@
 require "bundle/dsl"
 require "bundle/package_types"
 require "bundle/skipper"
+require "utils/output"
 
 module Homebrew
   module Bundle
     module Installer
+      extend ::Utils::Output::Mixin
+
       class InstallableEntry < T::Struct
         const :name, String
         const :options, Homebrew::Bundle::EntryOptions
         const :verb, String
         const :cls, T.class_of(Homebrew::Bundle::PackageType)
+
+        sig { returns(String) }
+        def full_name
+          T.cast(options.fetch(:full_name, name), String)
+        end
+
+        sig { returns(T.nilable(String)) }
+        def tap_name
+          ::Utils.tap_from_full_name(full_name)
+        end
       end
 
       sig { void }
@@ -103,10 +116,59 @@ module Homebrew
         ).returns(T::Array[String])
       }
       def self.fetchable_formulae_and_casks(entries, no_upgrade:)
+        installed_taps = Tap.installed_taps
+
         entries.filter_map do |entry|
+          next if tap_dependencies(entry, entries:, installed_taps:).present?
+
           entry.cls.fetchable_name(entry.name, entry.options, no_upgrade:)
         end
       end
+
+      sig {
+        params(
+          entry:          InstallableEntry,
+          entries:        T::Array[InstallableEntry],
+          installed_taps: T::Array[String],
+        ).returns(T::Array[String])
+      }
+      def self.tap_dependencies(entry, entries:, installed_taps:)
+        return [] unless [Brew, Cask].include?(entry.cls)
+
+        if (tap_name = entry.tap_name)
+          return installed_taps.exclude?(tap_name) ? [tap_name] : []
+        end
+
+        tap_names = entries.filter_map do |tap_entry|
+          tap_entry.name if tap_entry.cls == Tap && installed_taps.exclude?(tap_entry.name)
+        end
+        return [] if tap_names.empty?
+        return [] unless unavailable_without_tap?(entry)
+
+        tap_names
+      end
+
+      sig { params(entry: InstallableEntry).returns(T::Boolean) }
+      def self.unavailable_without_tap?(entry)
+        require "api"
+
+        case entry.cls.name
+        when "Homebrew::Bundle::Brew"
+          Homebrew::API.formula_names.exclude?(entry.name) &&
+            Homebrew::API.formula_aliases.exclude?(entry.name) &&
+            Homebrew::API.formula_renames.exclude?(entry.name)
+        when "Homebrew::Bundle::Cask"
+          Homebrew::API.cask_tokens.exclude?(entry.name) &&
+            Homebrew::API.cask_renames.exclude?(entry.name)
+        else
+          false
+        end
+      rescue => e
+        opoo "Treating `#{entry.name}` as dependent on Brewfile taps because Homebrew could not " \
+             "check API metadata: #{e}"
+        true
+      end
+      private_class_method :unavailable_without_tap?
 
       sig {
         params(
