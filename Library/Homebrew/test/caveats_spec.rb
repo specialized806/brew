@@ -243,6 +243,45 @@ RSpec.describe Caveats do
       end
     end
 
+    describe "PATH shadowing" do
+      let(:f) { formula { url "foo-1.0" } }
+
+      before do
+        Pathname.new(f.opt_bin).mkpath
+        FileUtils.touch(f.opt_bin/"foo")
+        FileUtils.chmod(0755, f.opt_bin/"foo")
+      end
+
+      it "warns when an executable is shadowed by another on PATH" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+
+        expect(described_class.new(f).caveats).to include("foo (shadowed by #{shadower})")
+      end
+
+      it "does not warn when PATH resolves to the formula's own executable" do
+        own = f.opt_bin/"foo"
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(own)
+
+        expect(described_class.new(f).caveats).not_to include("shadowed")
+      end
+
+      it "does not warn for keg-only formulae" do
+        keg_only_f = formula do
+          url "foo-1.0"
+          keg_only "some reason"
+        end
+        Pathname.new(keg_only_f.opt_bin).mkpath
+        FileUtils.touch(keg_only_f.opt_bin/"foo")
+        FileUtils.chmod(0755, keg_only_f.opt_bin/"foo")
+        allow_any_instance_of(Object).to receive(:which)
+          .with("foo", ORIGINAL_PATHS).and_return(Pathname.new("/usr/local/bin/foo"))
+
+        expect(described_class.new(keg_only_f).caveats).not_to include("shadowed")
+      end
+    end
+
     describe "shell completions" do
       let(:f) do
         formula do
