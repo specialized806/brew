@@ -128,6 +128,7 @@ class Caveats
   sig { returns(T.nilable(String)) }
   def shadowed_path_text
     return if formula.keg_only?
+    return if Homebrew::EnvConfig.no_path_shadow_check?
 
     shadowed = shadowed_executables
     return if shadowed.empty?

@@ -4558,6 +4558,11 @@ command execution (e.g. `$(cat file)`).
 : If set, `brew install` *`formula|cask`* will not upgrade *`formula|cask`* if
   it is installed but outdated.
 
+`HOMEBREW_NO_PATH_SHADOW_CHECK`
+
+: If set, `brew info` and `brew install` will not warn when a formula's
+  executables are shadowed by other commands earlier on `$PATH`.
+
 `HOMEBREW_NO_UPDATE_REPORT_NEW`
 
 : If set, `brew update` will not show the list of newly added formulae/casks.

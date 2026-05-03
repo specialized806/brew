@@ -280,6 +280,14 @@ RSpec.describe Caveats do
 
         expect(described_class.new(keg_only_f).caveats).not_to include("shadowed")
       end
+
+      it "does not warn when HOMEBREW_NO_PATH_SHADOW_CHECK is set" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(Homebrew::EnvConfig).to receive(:no_path_shadow_check?).and_return(true)
+
+        expect(described_class.new(f).caveats).not_to include("shadowed")
+      end
     end
 
     describe "shell completions" do
