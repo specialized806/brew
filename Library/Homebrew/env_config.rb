@@ -459,6 +459,11 @@ module Homebrew
                      "outdated.",
         boolean:     true,
       },
+      HOMEBREW_NO_PATH_SHADOW_CHECK:             {
+        description: "If set, `brew info` and `brew install` will not warn when a formula's executables are " \
+                     "shadowed by other commands earlier on `$PATH`.",
+        boolean:     true,
+      },
       HOMEBREW_NO_UPDATE_REPORT_NEW:             {
         description: "If set, `brew update` will not show the list of newly added formulae/casks.",
         boolean:     true,

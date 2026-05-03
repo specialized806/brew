@@ -243,6 +243,87 @@ RSpec.describe Caveats do
       end
     end
 
+    describe "PATH shadowing" do
+      let(:f) { formula { url "foo-1.0" } }
+
+      before do
+        Pathname.new(f.opt_bin).mkpath
+        FileUtils.touch(f.opt_bin/"foo")
+        FileUtils.chmod(0755, f.opt_bin/"foo")
+        allow_any_instance_of(Object).to receive(:which).and_call_original
+      end
+
+      it "warns when an executable is shadowed by another on PATH" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+
+        expect(described_class.new(f).caveats).to include("foo (shadowed by #{shadower})")
+      end
+
+      it "does not warn when PATH resolves to the formula's own executable" do
+        own = f.opt_bin/"foo"
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(own)
+
+        expect(described_class.new(f).caveats).not_to include("shadowed")
+      end
+
+      it "does not warn for keg-only formulae" do
+        keg_only_f = formula do
+          url "foo-1.0"
+          keg_only "some reason"
+        end
+        Pathname.new(keg_only_f.opt_bin).mkpath
+        FileUtils.touch(keg_only_f.opt_bin/"foo")
+        FileUtils.chmod(0755, keg_only_f.opt_bin/"foo")
+        allow_any_instance_of(Object).to receive(:which)
+          .with("foo", ORIGINAL_PATHS).and_return(Pathname.new("/usr/local/bin/foo"))
+
+        expect(described_class.new(keg_only_f).caveats).not_to include("shadowed")
+      end
+
+      it "warns when a keg-only formula has been linked" do
+        keg_only_f = formula do
+          url "foo-1.0"
+          keg_only "some reason"
+        end
+        Pathname.new(keg_only_f.opt_bin).mkpath
+        FileUtils.touch(keg_only_f.opt_bin/"foo")
+        FileUtils.chmod(0755, keg_only_f.opt_bin/"foo")
+        allow(keg_only_f).to receive(:linked?).and_return(true)
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+
+        expect(described_class.new(keg_only_f).caveats).to include("foo (shadowed by #{shadower})")
+      end
+
+      it "does not warn when HOMEBREW_NO_PATH_SHADOW_CHECK is set" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(Homebrew::EnvConfig).to receive(:no_path_shadow_check?).and_return(true)
+
+        expect(described_class.new(f).caveats).not_to include("shadowed")
+      end
+
+      it "shows the opt-out hint by default" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+
+        expect(described_class.new(f).caveats).to include("HOMEBREW_NO_PATH_SHADOW_CHECK=1")
+      end
+
+      it "hides the opt-out hint when HOMEBREW_NO_ENV_HINTS is set" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+        allow(Homebrew::EnvConfig).to receive(:no_env_hints?).and_return(true)
+
+        expect(described_class.new(f).caveats).not_to include("HOMEBREW_NO_PATH_SHADOW_CHECK")
+      end
+    end
+
     describe "shell completions" do
       let(:f) do
         formula do

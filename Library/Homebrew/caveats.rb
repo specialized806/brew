@@ -30,6 +30,7 @@ class Caveats
         formula.build = build
       end
       caveats << keg_only_text
+      caveats << shadowed_path_text
       caveats << service_caveats
       caveats.compact.join("\n")
     end
@@ -124,7 +125,48 @@ class Caveats
     s
   end
 
+  sig { returns(T.nilable(String)) }
+  def shadowed_path_text
+    return if formula.keg_only? && !formula.linked?
+    return if Homebrew::EnvConfig.no_path_shadow_check?
+
+    shadowed = shadowed_executables
+    return if shadowed.empty?
+
+    lines = shadowed.map { |name, shadower| "  #{name} (shadowed by #{shadower})" }
+    s = <<~EOS
+      The following #{formula.name} executables are shadowed by other commands earlier in your PATH:
+      #{lines.join("\n")}
+      Running these by name will not invoke the version provided by Homebrew.
+    EOS
+    unless Homebrew::EnvConfig.no_env_hints?
+      s << "Disable this behaviour by setting `HOMEBREW_NO_PATH_SHADOW_CHECK=1`.\n"
+      s << "Hide these hints with `HOMEBREW_NO_ENV_HINTS=1` (see `man brew`).\n"
+    end
+    s
+  end
+
   private
+
+  sig { returns(T::Array[[String, Pathname]]) }
+  def shadowed_executables
+    [formula.opt_bin, formula.opt_sbin].flat_map do |dir|
+      next [] unless dir.directory?
+
+      dir.children.filter_map do |child|
+        next if !child.file? || !child.executable?
+
+        name = child.basename.to_s
+        found = which(name, ORIGINAL_PATHS)
+        next unless found
+        next if found.realpath == child.realpath
+
+        [name, found]
+      rescue Errno::ENOENT
+        nil
+      end
+    end
+  end
 
   sig { returns(T.nilable(Keg)) }
   def keg
