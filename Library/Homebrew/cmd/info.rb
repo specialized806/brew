@@ -467,7 +467,7 @@ module Homebrew
 
       sig { params(formula: Formula).void }
       def info_formula(formula)
-        specs = []
+        specs = T.let([], T::Array[String])
 
         if (stable = formula.stable)
           string = "stable #{stable.version}"
@@ -483,6 +483,13 @@ module Homebrew
         kegs = formula.installed_kegs
         name_with_status = if kegs.empty?
           pretty_uninstalled(formula.full_name)
+        elsif formula.outdated?
+          if (upgrade_version = specs.first.presence)
+            installed_version = formula.linked_version ||
+                                kegs.max_by(&:scheme_and_version)&.version
+            specs[0] = "#{installed_version} → #{upgrade_version}"
+          end
+          pretty_upgradable(formula.full_name)
         else
           pretty_installed(formula.full_name)
         end
