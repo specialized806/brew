@@ -19,10 +19,10 @@ RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu
 # We need `[` instead of `[[` because the shell is `/bin/sh`.
 # shellcheck disable=SC1091,SC2154,SC2292
 RUN retry() { bash -c 'for i in {1..5}; do "$@" && exit 0; [[ $((i)) -lt 5 ]] && sleep $((i)); done; exit 1' -- "$@"; } \
-  && retry apt-get update \
+  && retry apt-get update --error-on=any \
   && apt-get install -y --no-install-recommends software-properties-common gnupg-agent \
   && if [ "$(uname -m)" != aarch64 ]; then retry add-apt-repository -y ppa:git-core/ppa; fi \
-  && apt-get update \
+  && retry apt-get update --error-on=any \
   && apt-get install -y --no-install-recommends \
   acl \
   bzip2 \
