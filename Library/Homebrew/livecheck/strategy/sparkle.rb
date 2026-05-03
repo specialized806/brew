@@ -214,12 +214,12 @@ module Homebrew
 
           if block
             block_return_value = case block.parameters[0]
-            when [:opt, :item], [:rest], [:req]
+            when [:opt, :item], [:req, :item], [:rest], [:req]
               regex.present? ? yield(item, regex) : yield(item)
-            when [:opt, :items]
+            when [:opt, :items], [:req, :items]
               regex.present? ? yield(items, regex) : yield(items)
             else
-              raise "First argument of Sparkle `strategy` block must be `item` or `items`"
+              raise ArgumentError, "First argument of Sparkle `strategy` block must be `item` or `items`"
             end
             return Strategy.handle_block_return(block_return_value)
           end
