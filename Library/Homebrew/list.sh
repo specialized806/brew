@@ -51,35 +51,35 @@ homebrew-list() {
 
   if [[ -z "${cask}" && -d "${HOMEBREW_CELLAR}" ]]
   then
-    if [[ -n "${tty}" && -z "${formula}" ]]
-    then
-      ohai "Formulae"
-    fi
-
     local formula_output
     formula_output="$(/usr/bin/env "${ls_env[@]}" ls "${ls_args[@]}" "${HOMEBREW_CELLAR}")" || exit 1
     if [[ -n "${formula_output}" ]]
     then
-      echo "${formula_output}"
-    fi
+      if [[ -n "${tty}" && -z "${formula}" ]]
+      then
+        ohai "Formulae"
+      fi
 
-    if [[ -n "${tty}" && -z "${formula}" ]]
-    then
-      echo
+      echo "${formula_output}"
+
+      if [[ -n "${tty}" && -z "${formula}" ]]
+      then
+        echo
+      fi
     fi
   fi
 
   if [[ -z "${formula}" && -d "${HOMEBREW_CASKROOM}" ]]
   then
-    if [[ -n "${tty}" && -z "${cask}" ]]
-    then
-      ohai "Casks"
-    fi
-
     local cask_output
     cask_output="$(/usr/bin/env "${ls_env[@]}" ls "${ls_args[@]}" "${HOMEBREW_CASKROOM}")" || exit 1
     if [[ -n "${cask_output}" ]]
     then
+      if [[ -n "${tty}" && -z "${cask}" ]]
+      then
+        ohai "Casks"
+      fi
+
       echo "${cask_output}"
     fi
 
