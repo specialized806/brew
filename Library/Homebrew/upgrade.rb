@@ -3,6 +3,7 @@
 
 require "reinstall"
 require "formula_installer"
+require "download_queue"
 require "development_tools"
 require "messages"
 require "cleanup"
@@ -69,46 +70,62 @@ module Homebrew
           end
         end
 
-        formulae_to_install.filter_map do |formula|
-          Migrator.migrate_if_needed(formula, force:, dry_run:)
-          begin
-            fi = create_formula_installer(
-              formula,
-              flags:,
-              force_bottle:,
-              build_from_source_formulae:,
-              interactive:,
-              keep_tmp:,
-              debug_symbols:,
-              force:,
-              overwrite:,
-              debug:,
-              quiet:,
-              verbose:,
-            )
-            fi.fetch_bottle_tab(quiet: !debug)
-
-            all_runtime_deps_installed = fi.bottle_tab_runtime_dependencies.presence&.all? do |dependency, hash|
-              minimum_version = if (version = hash["version"])
-                Version.new(version)
-              end
-              Dependency.new(dependency).installed?(minimum_version:, minimum_revision: hash["revision"].to_i)
+        # We need to fetch the bottle tabs ahead of the `Install.fetch_formulae`
+        # pipeline because we need to first filter out those formulae with all
+        # runtime dependencies already satisfied (see below).
+        download_queue = Homebrew::DownloadQueue.new
+        begin
+          installers = formulae_to_install.filter_map do |formula|
+            Migrator.migrate_if_needed(formula, force:, dry_run:)
+            begin
+              fi = create_formula_installer(
+                formula,
+                flags:,
+                force_bottle:,
+                build_from_source_formulae:,
+                interactive:,
+                keep_tmp:,
+                debug_symbols:,
+                force:,
+                overwrite:,
+                debug:,
+                quiet:,
+                verbose:,
+              )
+              fi.download_queue = download_queue
+              fi.fetch_bottle_tab(quiet: !debug, enqueue: true)
+              fi
+            rescue CannotInstallFormulaError => e
+              ofail e
+              nil
+            rescue UnsatisfiedRequirements, DownloadError => e
+              ofail "#{formula}: #{e}"
+              nil
             end
-
-            if !dry_run && dependents && all_runtime_deps_installed
-              # Don't need to install this bottle if all of the runtime
-              # dependencies have the same or newer version already installed.
-              next
-            end
-
-            fi
-          rescue CannotInstallFormulaError => e
-            ofail e
-            nil
-          rescue UnsatisfiedRequirements, DownloadError => e
-            ofail "#{formula}: #{e}"
-            nil
           end
+
+          download_queue.fetch
+        ensure
+          download_queue.shutdown
+        end
+
+        installers.filter_map do |fi|
+          fi.determine_bottle_tab_attributes
+
+          all_runtime_deps_installed = fi.bottle_tab_runtime_dependencies.presence&.all? do |dependency, hash|
+            minimum_version = if (version = hash["version"])
+              Version.new(version)
+            end
+            Dependency.new(dependency).installed?(minimum_version:, minimum_revision: hash["revision"].to_i)
+          end
+
+          if !dry_run && dependents && all_runtime_deps_installed
+            # Don't need to install this bottle if all of the runtime
+            # dependencies have the same or newer version already installed.
+            next
+          end
+
+          fi
         end
       end
 
