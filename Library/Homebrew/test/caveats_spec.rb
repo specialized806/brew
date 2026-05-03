@@ -250,6 +250,7 @@ RSpec.describe Caveats do
         Pathname.new(f.opt_bin).mkpath
         FileUtils.touch(f.opt_bin/"foo")
         FileUtils.chmod(0755, f.opt_bin/"foo")
+        allow_any_instance_of(Object).to receive(:which).and_call_original
       end
 
       it "warns when an executable is shadowed by another on PATH" do
@@ -303,6 +304,23 @@ RSpec.describe Caveats do
         allow(Homebrew::EnvConfig).to receive(:no_path_shadow_check?).and_return(true)
 
         expect(described_class.new(f).caveats).not_to include("shadowed")
+      end
+
+      it "shows the opt-out hint by default" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+
+        expect(described_class.new(f).caveats).to include("HOMEBREW_NO_PATH_SHADOW_CHECK=1")
+      end
+
+      it "hides the opt-out hint when HOMEBREW_NO_ENV_HINTS is set" do
+        shadower = Pathname.new("/usr/local/bin/foo")
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
+        allow(shadower).to receive(:realpath).and_return(shadower)
+        allow(Homebrew::EnvConfig).to receive(:no_env_hints?).and_return(true)
+
+        expect(described_class.new(f).caveats).not_to include("HOMEBREW_NO_PATH_SHADOW_CHECK")
       end
     end
 

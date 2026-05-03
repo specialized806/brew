@@ -134,11 +134,16 @@ class Caveats
     return if shadowed.empty?
 
     lines = shadowed.map { |name, shadower| "  #{name} (shadowed by #{shadower})" }
-    <<~EOS
+    s = <<~EOS
       The following #{formula.name} executables are shadowed by other commands earlier in your PATH:
       #{lines.join("\n")}
       Running these by name will not invoke the version provided by Homebrew.
     EOS
+    unless Homebrew::EnvConfig.no_env_hints?
+      s << "Disable this behaviour by setting `HOMEBREW_NO_PATH_SHADOW_CHECK=1`.\n"
+      s << "Hide these hints with `HOMEBREW_NO_ENV_HINTS=1` (see `man brew`).\n"
+    end
+    s
   end
 
   private
