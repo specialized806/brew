@@ -484,9 +484,11 @@ module Homebrew
         name_with_status = if kegs.empty?
           pretty_uninstalled(formula.full_name)
         elsif formula.outdated?
-          installed_version = formula.linked_version ||
-                              kegs.max_by(&:scheme_and_version)&.version
-          specs[0] = "#{installed_version} → #{specs.first}" if specs.first
+          if (upgrade_version = specs.first.presence)
+            installed_version = formula.linked_version ||
+                                kegs.max_by(&:scheme_and_version)&.version
+            specs[0] = "#{installed_version} → #{upgrade_version}"
+          end
           pretty_upgradable(formula.full_name)
         else
           pretty_installed(formula.full_name)
