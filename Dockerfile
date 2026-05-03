@@ -17,11 +17,14 @@ RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu
 # `gh` installation taken from https://github.com/cli/cli/blob/trunk/docs/install_linux.md#debian-ubuntu-linux-raspberry-pi-os-apt
 # /etc/lsb-release is checked inside the container and sets DISTRIB_RELEASE.
 # We need `[` instead of `[[` because the shell is `/bin/sh`.
+# `:` below is a no-op that works around a ShellCheck parsing error.
 # shellcheck disable=SC1091,SC2154,SC2292
-RUN bash -c "for i in {1..5}; do apt-get update && break || sleep \$((i)); done" \
+RUN : \
+  && retry() { bash -c 'for i in {1..5}; do "$@" && exit 0; [[ $((i)) -lt 5 ]] && sleep $((i)); done; exit 1' -- "$@"; } \
+  && retry apt-get update --error-on=any \
   && apt-get install -y --no-install-recommends software-properties-common gnupg-agent \
-  && if [ "$(uname -m)" != aarch64 ]; then add-apt-repository -y ppa:git-core/ppa; fi \
-  && apt-get update \
+  && if [ "$(uname -m)" != aarch64 ]; then retry add-apt-repository -y ppa:git-core/ppa; fi \
+  && retry apt-get update --error-on=any \
   && apt-get install -y --no-install-recommends \
   acl \
   bzip2 \
