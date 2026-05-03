@@ -63,12 +63,25 @@ module Cask
       SystemCommand.run("chmod", args: ["g+rwx", path], sudo:)
       SystemCommand.run("chown", args: [User.current.to_s, path], sudo:)
 
-      chgrp_path(path, sudo)
+      chgrp_path(path, sudo) unless caskroom_group_correct?(path)
     end
 
     sig { params(path: Pathname, sudo: T::Boolean).void }
     def self.chgrp_path(path, sudo)
-      SystemCommand.run("chgrp", args: ["admin", path], sudo:)
+      SystemCommand.run("chgrp", args: [expected_caskroom_group, path], sudo:)
+    end
+
+    sig { params(path: Pathname).returns(T::Boolean) }
+    def self.caskroom_group_correct?(path)
+      group = Etc.getgrnam(expected_caskroom_group)
+      return false if group.nil?
+
+      path.stat.gid == group.gid
+    end
+
+    sig { returns(String) }
+    def self.expected_caskroom_group
+      "admin"
     end
 
     # Get all installed casks.
