@@ -97,4 +97,51 @@ RSpec.describe Homebrew::Cmd::Update do
     expect(stderr).to be_empty
     expect(args_file.read).to eq("update-report\n--auto-update\n")
   end
+
+  it "preserves `update-report` arguments and exit status with the Rust frontend enabled" do
+    args_file = test_root/"brew-args.txt"
+    brew_wrapper = test_root/"brew-wrapper"
+    (test_root/"Library/Homebrew/utils").mkpath
+    FileUtils.ln_s repository_root/"Library/Homebrew/utils/lock.sh", test_root/"Library/Homebrew/utils/lock.sh"
+    (test_root/"cache").mkpath
+    (test_root/"repository").mkpath
+    brew_wrapper.write <<~SH
+      #!/bin/bash
+      printf '%s\n' "$@" > "#{args_file}"
+      exit 42
+    SH
+    brew_wrapper.chmod 0755
+
+    _stdout, stderr, status = run_update_shell(
+      <<~SH,
+        source "#{repository_root}/Library/Homebrew/utils/helpers.sh"
+        source "#{update_script}"
+        fetch_api_file() { :; }
+        git() {
+          [[ "$1" == "--version" ]] && return 0
+          return 1
+        }
+        git_init_if_necessary() { :; }
+        lock() { :; }
+        setup_ca_certificates() { :; }
+        setup_curl() { :; }
+        setup_git() { :; }
+        homebrew-update --auto-update
+      SH
+      {
+        "HOMEBREW_BREW_FILE"                  => brew_wrapper.to_s,
+        "HOMEBREW_CACHE"                      => (test_root/"cache").to_s,
+        "HOMEBREW_CELLAR"                     => (test_root/"cellar").to_s,
+        "HOMEBREW_EXPERIMENTAL_RUST_FRONTEND" => "1",
+        "HOMEBREW_LIBRARY"                    => (test_root/"Library").to_s,
+        "HOMEBREW_NO_INSTALL_FROM_API"        => "1",
+        "HOMEBREW_PREFIX"                     => (test_root/"prefix").to_s,
+        "HOMEBREW_REPOSITORY"                 => (test_root/"repository").to_s,
+      },
+    )
+
+    expect(status.exitstatus).to eq 42
+    expect(stderr).to be_empty
+    expect(args_file.read).to eq("update-report\n--auto-update\n")
+  end
 end
