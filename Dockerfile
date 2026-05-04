@@ -19,7 +19,9 @@ RUN touch /var/mail/ubuntu && chown ubuntu /var/mail/ubuntu && userdel -r ubuntu
 # We need `[` instead of `[[` because the shell is `/bin/sh`.
 # `:` below is a no-op that works around a ShellCheck parsing error.
 # shellcheck disable=SC1091,SC2154,SC2292
-RUN : \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+  --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+  : \
   && retry() { bash -c 'for i in {1..5}; do "$@" && exit 0; [[ $((i)) -lt 5 ]] && sleep $((i)); done; exit 1' -- "$@"; } \
   && retry apt-get update --error-on=any \
   && apt-get install -y --no-install-recommends software-properties-common gnupg-agent \
@@ -58,7 +60,6 @@ RUN : \
   && apt-get install -y --no-install-recommends gh \
   && apt-get remove --purge -y software-properties-common \
   && apt-get autoremove --purge -y \
-  && rm -rf /var/lib/apt/lists/* \
   && sed -i -E 's/^(USERGROUPS_ENAB\s+)yes$/\1no/' /etc/login.defs \
   && localedef -i en_US -f UTF-8 en_US.UTF-8 \
   && useradd -u "${USER_ID}" --create-home --shell /bin/bash --user-group linuxbrew \
@@ -66,18 +67,20 @@ RUN : \
   && su - linuxbrew -c 'mkdir ~/.linuxbrew'
 
 USER linuxbrew
-COPY --chown=linuxbrew:linuxbrew . /home/linuxbrew/.linuxbrew/Homebrew
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:${PATH}" \
   XDG_CACHE_HOME=/home/linuxbrew/.cache
 WORKDIR /home/linuxbrew
 
+ARG HOMEBREW_CORE_REVISION=origin/main
 
 RUN --mount=type=cache,target=/tmp/homebrew-core,uid="${USER_ID}",sharing=locked \
-  # Clone the homebrew-core repo into /tmp/homebrew-core or pull latest changes if it exists
-  git clone https://github.com/homebrew/homebrew-core /tmp/homebrew-core || { cd /tmp/homebrew-core && git pull; } \
+  # Clone the homebrew-core repo into /tmp/homebrew-core or fetch latest changes if it exists
+  git clone https://github.com/homebrew/homebrew-core /tmp/homebrew-core || git -C /tmp/homebrew-core fetch origin main \
+  && git -C /tmp/homebrew-core checkout --force -B main "${HOMEBREW_CORE_REVISION:-origin/main}" \
   && mkdir -p /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/homebrew/homebrew-core \
   && cp -r /tmp/homebrew-core /home/linuxbrew/.linuxbrew/Homebrew/Library/Taps/homebrew/
 
+COPY --chown=linuxbrew:linuxbrew . /home/linuxbrew/.linuxbrew/Homebrew
 
 RUN --mount=type=cache,target=/home/linuxbrew/.cache,uid="${USER_ID}" \
   --mount=type=cache,target=/home/linuxbrew/.bundle,uid="${USER_ID}" \
