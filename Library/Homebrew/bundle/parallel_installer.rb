@@ -97,6 +97,8 @@ module Homebrew
 
       sig { returns(T::Hash[String, T::Set[String]]) }
       def build_dependency_map
+        installed_taps = Homebrew::Bundle::Tap.installed_taps
+
         # Phase 1: Map both full and short names so dep lookups work either way.
         entry_name_map = @entries.each_with_object({}) do |entry, map|
           map[entry.name] = entry.name
@@ -117,11 +119,7 @@ module Homebrew
           end
 
           # Entries from non-default taps depend on the tap being installed first.
-          tap_prefix = entry.name.split("/").first(2).join("/") if entry.name.include?("/")
-          if tap_prefix && entry.cls != Homebrew::Bundle::Tap
-            deps = deps.dup
-            deps << tap_prefix
-          end
+          deps += Homebrew::Bundle::Installer.tap_dependencies(entry, entries: @entries, installed_taps:)
 
           brewfile_deps[entry.name] = deps
         end

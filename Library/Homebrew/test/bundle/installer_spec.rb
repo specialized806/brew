@@ -79,6 +79,90 @@ RSpec.describe Homebrew::Bundle::Installer do
     described_class.install!([tap_entry, tapped_formula_entry], quiet: true)
   end
 
+  it "skips fetching formulae from fully qualified untapped taps" do
+    tapped_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "homebrew/foo/bar")
+
+    allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
+      .with("homebrew/foo/bar", no_upgrade: false).and_return(false)
+
+    expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
+
+    described_class.install!([tapped_formula_entry], quiet: true)
+  end
+
+  it "skips fetching unqualified formulae when Brewfile taps are untapped" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
+    untapped_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "bar")
+
+    allow(Homebrew::API).to receive_messages(formula_names: [], formula_aliases: {}, formula_renames: {})
+
+    expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
+
+    described_class.install!([tap_entry, untapped_formula_entry], quiet: true)
+  end
+
+  it "warns and skips fetching unqualified formulae when API metadata is unavailable" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
+    untapped_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "bar")
+
+    allow(Homebrew::API).to receive(:formula_names).and_raise("API unavailable")
+
+    expect(described_class).to receive(:opoo).with(/could not check API metadata: API unavailable/)
+    expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
+
+    described_class.install!([tap_entry, untapped_formula_entry], quiet: true)
+  end
+
+  it "prefetches unqualified formulae available without untapped Brewfile taps" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
+    formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql")
+
+    allow(Homebrew::API).to receive_messages(formula_names: ["mysql"], formula_aliases: {}, formula_renames: {})
+    allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
+      .with("mysql", no_upgrade: false).and_return(false)
+
+    expect(Homebrew::Bundle).to receive(:brew)
+      .with("fetch", "mysql", verbose: false)
+      .and_return(true)
+
+    described_class.install!([tap_entry, formula_entry], quiet: true)
+  end
+
+  it "skips fetching fully qualified casks from untapped taps" do
+    tapped_cask_entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "bar", args: {}, full_name: "homebrew/foo/bar")
+
+    expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
+
+    described_class.install!([tapped_cask_entry], quiet: true)
+  end
+
+  it "skips fetching unqualified casks when Brewfile taps are untapped" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "xykong/tap")
+    untapped_cask_entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "flux-markdown",
+                                                           args: {}, full_name: "flux-markdown")
+
+    allow(Homebrew::API).to receive_messages(cask_tokens: [], cask_renames: {})
+
+    expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
+
+    described_class.install!([tap_entry, untapped_cask_entry], quiet: true)
+  end
+
+  it "prefetches unqualified casks available without untapped Brewfile taps" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "xykong/tap")
+    cask_entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "google-chrome", args: {}, full_name: "google-chrome")
+
+    allow(Homebrew::API).to receive_messages(cask_tokens: ["google-chrome"], cask_renames: {})
+    allow(Homebrew::Bundle::Cask).to receive(:installable_or_upgradable?)
+      .with("google-chrome", no_upgrade: false, args: {}, full_name: "google-chrome").and_return(true)
+
+    expect(Homebrew::Bundle).to receive(:brew)
+      .with("fetch", "google-chrome", verbose: false)
+      .and_return(true)
+
+    described_class.install!([tap_entry, cask_entry], quiet: true)
+  end
+
   describe "parallel installation" do
     let(:alpha_entry) do
       Homebrew::Bundle::Installer::InstallableEntry.new(
@@ -145,6 +229,80 @@ RSpec.describe Homebrew::Bundle::Installer do
       expect(success).to eq(2)
       expect(failure).to eq(0)
       expect(install_order).to eq(["beta", "alpha"])
+    end
+
+    it "installs unqualified formulae after Brewfile taps" do
+      tap_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "homebrew/foo",
+        options: {},
+        verb:    "Tapping",
+        cls:     Homebrew::Bundle::Tap,
+      )
+      tapped_formula_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "bar",
+        options: {},
+        verb:    "Installing",
+        cls:     Homebrew::Bundle::Brew,
+      )
+      install_order = []
+
+      allow(Homebrew::API).to receive_messages(formula_names: [], formula_aliases: {}, formula_renames: {})
+      allow(Homebrew::Bundle::Brew).to receive_messages(formula_bottled?: true, formula_dep_names: [],
+                                                        recursive_dep_names: Set.new)
+      allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
+        [tap_entry, tapped_formula_entry],
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).run!
+
+      expect(success).to eq(2)
+      expect(failure).to eq(0)
+      expect(install_order).to eq(["homebrew/foo", "bar"])
+    end
+
+    it "installs unqualified casks after Brewfile taps" do
+      tap_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "xykong/tap",
+        options: {},
+        verb:    "Tapping",
+        cls:     Homebrew::Bundle::Tap,
+      )
+      tapped_cask_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "flux-markdown",
+        options: { args: {}, full_name: "flux-markdown" },
+        verb:    "Installing",
+        cls:     Homebrew::Bundle::Cask,
+      )
+      install_order = []
+
+      allow(Homebrew::API).to receive_messages(cask_tokens: [], cask_renames: {})
+      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
+      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["flux-markdown"]).and_return([])
+      allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
+        [tap_entry, tapped_cask_entry],
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).run!
+
+      expect(success).to eq(2)
+      expect(failure).to eq(0)
+      expect(install_order).to eq(["xykong/tap", "flux-markdown"])
     end
 
     it "falls back to sequential with jobs=1" do

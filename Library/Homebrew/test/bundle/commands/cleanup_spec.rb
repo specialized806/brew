@@ -102,7 +102,46 @@ RSpec.describe Homebrew::Bundle::Commands::Cleanup do
       expect(described_class.taps_to_untap).to eql(%w[z])
     end
 
+    it "keeps taps referenced by fully qualified formulae" do
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+        brew "homebrew/tap/foo"
+      EOS
+      described_class.read_dsl_from_brewfile!
+
+      allow(Homebrew::Bundle::Brew).to receive(:formulae).and_return([
+        { name: "foo", full_name: "homebrew/tap/foo", dependencies: [], build_dependencies: [] },
+      ])
+      stub_formula_loader formula("foo", tap: Tap.fetch("homebrew/tap")) { url "foo-1.0" }, "homebrew/tap/foo"
+      allow(Homebrew::Bundle::Tap).to \
+        receive(:tap_names).and_return(%w[homebrew/core homebrew/tap])
+
+      expect(described_class.formulae_to_uninstall).to be_empty
+      expect(described_class.taps_to_untap).to be_empty
+    end
+
+    it "keeps taps referenced by fully qualified casks" do
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+        cask "homebrew/tap/foo"
+      EOS
+      described_class.read_dsl_from_brewfile!
+
+      allow(Homebrew::Bundle::Cask).to receive(:casks).and_return([
+        instance_double(Cask::Cask, to_s: "foo", old_tokens: [], depends_on: {}),
+      ])
+      allow(Homebrew::Bundle::Brew).to receive(:formulae).and_return([])
+      allow(Homebrew::Bundle::Tap).to \
+        receive(:tap_names).and_return(%w[homebrew/core homebrew/tap])
+
+      expect(described_class.casks_to_uninstall).to be_empty
+      expect(described_class.taps_to_untap).to be_empty
+    end
+
     it "ignores unavailable formulae when computing which taps to keep" do
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+        brew "foo"
+      EOS
+      described_class.read_dsl_from_brewfile!
+
       allow(Formulary).to \
         receive(:factory).and_raise(TapFormulaUnavailableError.new(Tap.fetch("homebrew/tap"), "foo"))
       allow(Homebrew::Bundle::Tap).to \

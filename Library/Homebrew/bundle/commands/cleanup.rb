@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "utils/formatter"
+require "utils"
 require "bundle/dsl"
 require "bundle/extensions"
 
@@ -243,6 +244,14 @@ module Homebrew
 
           kept_formulae = self.kept_formulae(global:, file:).filter_map { lookup_formula(it) }
           kept_taps = @dsl.entries.select { |e| e.type == :tap }.map(&:name)
+          kept_taps += @dsl.entries.filter_map do |entry|
+            case entry.type
+            when :brew
+              Utils.tap_from_full_name(entry.name)
+            when :cask
+              Utils.tap_from_full_name(T.cast(entry.options.fetch(:full_name, entry.name), String))
+            end
+          end
           kept_taps += kept_formulae.filter_map(&:tap).map(&:name)
           current_taps = Homebrew::Bundle::Tap.tap_names
           current_taps - kept_taps - IGNORED_TAPS
