@@ -30,6 +30,7 @@ jobs:
       labels: ${{ steps.attributes.outputs.labels }}
       push: ${{ steps.attributes.outputs.push }}
       merge: ${{ steps.attributes.outputs.merge }}
+      core_revision: ${{ steps.attributes.outputs.core_revision }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -45,6 +46,7 @@ jobs:
         run: |
           date="$(date --rfc-3339=seconds --utc)"
           brew_version="$(git describe --tags --dirty --abbrev=7)"
+          core_revision="$(git ls-remote https://github.com/Homebrew/homebrew-core refs/heads/main | cut -f1)"
 
           DELIMITER="END_LABELS_$(uuidgen)"
           cat <<EOS | tee -a "${GITHUB_OUTPUT}"
@@ -98,9 +100,12 @@ jobs:
             fi
           done <<<"$(jq --raw-output '.[]' <<<"${VERSIONS}")"
 
-          # Transform the `matrix` variable into a JSON array.
-          echo "matrix=$(jq --null-input --compact-output '$ARGS.positional' --args "${matrix[@]}")" >>"${GITHUB_OUTPUT}"
-          echo "merge=${merge}" >>"${GITHUB_OUTPUT}"
+          {
+            # Transform the `matrix` variable into a JSON array.
+            echo "matrix=$(jq --null-input --compact-output '$ARGS.positional' --args "${matrix[@]}")"
+            echo "merge=${merge}"
+            echo "core_revision=${core_revision}"
+          } >>"${GITHUB_OUTPUT}"
 
           {
             DELIMITER="END_TAGS_$(uuidgen)"
@@ -178,8 +183,10 @@ jobs:
           context: .
           load: true
           tags: brew
-          cache-from: type=registry,ref=ghcr.io/homebrew/ubuntu${{ matrix.version }}:cache
-          build-args: version=${{ matrix.version }}
+          cache-from: type=registry,ref=ghcr.io/homebrew/ubuntu${{ matrix.version }}:cache-${{ matrix.arch }}
+          build-args: |
+            version=${{ matrix.version }}
+            HOMEBREW_CORE_REVISION=${{ needs.generate-tags.outputs.core_revision }}
           labels: ${{ needs.generate-tags.outputs.labels }}
 
       - name: Run brew test-bot --only-setup
@@ -199,9 +206,11 @@ jobs:
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
-          cache-from: type=registry,ref=ghcr.io/homebrew/ubuntu${{ matrix.version }}:cache
-          cache-to: type=registry,ref=ghcr.io/homebrew/ubuntu${{ matrix.version }}:cache,mode=max
-          build-args: version=${{ matrix.version }}
+          cache-from: type=registry,ref=ghcr.io/homebrew/ubuntu${{ matrix.version }}:cache-${{ matrix.arch }}
+          cache-to: type=registry,ref=ghcr.io/homebrew/ubuntu${{ matrix.version }}:cache-${{ matrix.arch }},mode=max
+          build-args: |
+            version=${{ matrix.version }}
+            HOMEBREW_CORE_REVISION=${{ needs.generate-tags.outputs.core_revision }}
           labels: ${{ needs.generate-tags.outputs.labels }}
           outputs: type=image,name=ghcr.io/homebrew/ubuntu${{ matrix.version }},name-canonical=true,push=true,push-by-digest=true
 
