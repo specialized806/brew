@@ -816,5 +816,16 @@ RSpec.describe Cask::Cask, :cask do
         expect(JSON.pretty_generate(hash)).to eq(expected_json)
       end
     end
+
+    it "does not include depends_on in Linux variations" do
+      c = Cask::CaskLoader.load("sha256-os")
+      h = c.to_hash_with_variations
+
+      x86_linux = h["variations"][:x86_64_linux]
+      arm_linux = h["variations"][:arm64_linux]
+
+      expect(x86_linux).to be_nil.or(satisfy { |v| !v.key?("depends_on") })
+      expect(arm_linux).to be_nil.or(satisfy { |v| !v.key?("depends_on") })
+    end
   end
 end

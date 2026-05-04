@@ -167,6 +167,8 @@ class MacOSRequirement < Requirement
 
   sig { returns(T::Hash[String, T::Array[String]]) }
   def to_h
+    return {} unless version_specified?
+
     comp = @comparator.to_s
     return { comp => @version.map(&:to_s) } if @version.is_a?(Array)
 

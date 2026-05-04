@@ -445,6 +445,7 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         macos_requirement = cask.depends_on.macos
         expect(macos_requirement).to be_a(MacOSRequirement)
         expect(macos_requirement.version_specified?).to be false
+        expect(macos_requirement.to_h).to eq({})
       end
     end
 

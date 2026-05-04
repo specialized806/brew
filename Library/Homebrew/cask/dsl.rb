@@ -593,14 +593,6 @@ module Cask
       @depends_on
     end
 
-    # @api private
-    sig { void }
-    def add_implicit_macos_dependency
-      return if (cask_depends_on = @depends_on).present? && cask_depends_on.macos.present?
-
-      depends_on macos: ">= #{MacOSVersion.new(HOMEBREW_MACOS_OLDEST_ALLOWED).to_sym.inspect}"
-    end
-
     # Declare conflicts that keep a cask from installing or working correctly.
     #
     # @api public

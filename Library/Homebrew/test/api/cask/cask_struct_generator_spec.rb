@@ -13,11 +13,13 @@ RSpec.describe Homebrew::API::Cask::CaskStructGenerator do
     end
     let(:depends_on_macos_equals) { { macos: { :== => ["15"] } } }
     let(:depends_on_macos_greater) { { macos: MacOSRequirement.new([:sequoia], comparator: ">=") } }
+    let(:depends_on_macos_bare) { { macos: MacOSRequirement.new([]) } }
 
     specify :aggregate_failures do
       expect(described_class.process_depends_on(depends_on_non_macos)).to eq({ arch: :intel, formula: ["foo"] })
       expect(described_class.process_depends_on(depends_on_macos_equals)).to eq({ macos: [:sequoia] })
       expect(described_class.process_depends_on(depends_on_macos_greater)).to eq({ macos: ">= :sequoia" })
+      expect(described_class.process_depends_on(depends_on_macos_bare)).to eq({ macos: :any })
     end
   end
 
