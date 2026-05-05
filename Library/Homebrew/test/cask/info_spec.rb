@@ -82,7 +82,7 @@ RSpec.describe Cask::Info, :cask do
     allow(cask).to receive_messages(supports_linux?: false)
 
     expect { described_class.info(cask, args:) }
-      .to output(/Requirements\nRequired: .*macOS >= 10\.15.*✔/).to_stdout
+      .to output(/local-transmission.*Transmission.*BitTorrent/m).to_stdout
     expect { described_class.info(cask, args:) }.to not_to_output(/==> Name/).to_stdout
     expect { described_class.info(cask, args:) }.to not_to_output(/==> Description/).to_stdout
     expect { described_class.info(cask, args:) }.to not_to_output(/Metadata/).to_stdout
