@@ -132,6 +132,36 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     EOS
   end
 
+  it "prints a dependencies metadata heading before formula prefetches" do
+    cmd = described_class.new([])
+    formula = formula("deno") do
+      url "https://brew.sh/deno-2.7.11.tar.gz"
+
+      bottle do
+        root_url HOMEBREW_BOTTLE_DEFAULT_DOMAIN
+        sha256 cellar: :any_skip_relocation,
+               Utils::Bottles.tag.to_sym => "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
+      end
+    end
+    formula_installer = FormulaInstaller.new(formula)
+    download_queue = instance_double(Homebrew::DownloadQueue)
+
+    allow(cmd).to receive(:formulae_upgrade_context).and_return(
+      described_class::FormulaeUpgradeContext.new(
+        formulae_to_install: [formula],
+        formulae_installer:  [formula_installer],
+        dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),
+      ),
+    )
+    allow(Homebrew::Install).to receive(:enqueue_formulae)
+      .with([formula_installer], download_queue:)
+      .and_return([formula_installer])
+
+    expect do
+      cmd.send(:upgrade_outdated_formulae!, [], prefetch_only: true, download_queue:, show_downloads_heading: false)
+    end.to output("==> Fetching dependencies metadata\n").to_stdout
+  end
+
   it "does not trust failed shared prefetches" do
     cmd = described_class.new([])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: true, shutdown: nil)
