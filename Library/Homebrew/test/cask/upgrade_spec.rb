@@ -154,6 +154,24 @@ RSpec.describe Cask::Upgrade, :cask do
         described_class.upgrade_casks!(dry_run: true, args:)
       end
 
+      it "records final cask upgrade summary details" do
+        summary_upgrades = []
+        summary_deprecated = []
+        allow(local_caffeine).to receive(:deprecated?).and_return(true)
+
+        described_class.upgrade_casks!(
+          local_caffeine,
+          dry_run:              true,
+          show_upgrade_summary: false,
+          summary_upgrades:,
+          summary_deprecated:,
+          args:,
+        )
+
+        expect(summary_upgrades).to include("local-caffeine 1.2.2 -> 1.2.3")
+        expect(summary_deprecated).to include("local-caffeine")
+      end
+
       it "would update only the Casks specified in the command line" do
         expect(described_class).not_to receive(:upgrade_cask)
         expect(described_class).to receive(:show_upgrade_summary)
@@ -476,12 +494,14 @@ RSpec.describe Cask::Upgrade, :cask do
     cask = Cask::CaskLoader.load(cask_path("livecheck/livecheck-disabled"))
     InstallHelper.stub_cask_installation(cask)
     allow(cask).to receive(:outdated?).with(greedy: true).and_return(true)
+    summary_disabled = []
 
     expect(described_class).not_to receive(:upgrade_cask)
 
     expect do
-      described_class.upgrade_casks!(cask, dry_run: true, args:)
+      described_class.upgrade_casks!(cask, dry_run: true, summary_disabled:, args:)
     end.to output(/Not upgrading livecheck-disabled, it is disabled/).to_stderr
+    expect(summary_disabled).to eq(["livecheck-disabled"])
   end
 
   context "when an upgrade failed" do

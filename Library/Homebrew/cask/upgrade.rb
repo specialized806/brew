@@ -29,10 +29,12 @@ module Cask
         greedy:              T.nilable(T::Boolean),
         greedy_latest:       T.nilable(T::Boolean),
         greedy_auto_updates: T.nilable(T::Boolean),
+        summary_disabled:    T.nilable(T::Array[String]),
       ).returns(T::Array[Cask])
     }
     def self.outdated_casks(casks, args:, force:, quiet:,
-                            greedy: false, greedy_latest: false, greedy_auto_updates: false)
+                            greedy: false, greedy_latest: false, greedy_auto_updates: false,
+                            summary_disabled: nil)
       # Validate mutually exclusive opt-in/opt-out env vars before we start
       # selecting casks so `brew upgrade` errors consistently.
       Homebrew::EnvConfig.upgrade_auto_updates_casks?
@@ -41,6 +43,7 @@ module Cask
       if casks.empty?
         Caskroom.casks(config: Config.from_args(args)).select do |cask|
           if cask.disabled?
+            summary_disabled&.push(cask.full_name)
             opoo "Not upgrading #{cask.token}, it is #{DeprecateDisable.message(cask)}" unless quiet
             next false
           end
@@ -54,6 +57,7 @@ module Cask
           raise CaskNotInstalledError, cask if !cask.installed? && !force
 
           if cask.disabled?
+            summary_disabled&.push(cask.full_name)
             opoo "Not upgrading #{cask.token}, it is #{DeprecateDisable.message(cask)}" unless quiet
             next false
           end
@@ -98,6 +102,9 @@ module Cask
         skip_prefetch:        T::Boolean,
         show_upgrade_summary: T::Boolean,
         download_queue:       T.nilable(Homebrew::DownloadQueue),
+        summary_upgrades:     T.nilable(T::Array[String]),
+        summary_deprecated:   T.nilable(T::Array[String]),
+        summary_disabled:     T.nilable(T::Array[String]),
       ).returns(T::Boolean)
     }
     def self.upgrade_casks!(
@@ -116,12 +123,16 @@ module Cask
       require_sha: nil,
       skip_prefetch: false,
       show_upgrade_summary: true,
-      download_queue: nil
+      download_queue: nil,
+      summary_upgrades: nil,
+      summary_deprecated: nil,
+      summary_disabled: nil
     )
       quarantine = true if quarantine.nil?
 
       outdated_casks =
-        self.outdated_casks(casks, args:, greedy:, greedy_latest:, greedy_auto_updates:, force:, quiet:)
+        self.outdated_casks(casks, args:, greedy:, greedy_latest:, greedy_auto_updates:, force:, quiet:,
+                                   summary_disabled:)
 
       manual_installer_casks = outdated_casks.select do |cask|
         cask.artifacts.any? do |artifact|
@@ -187,6 +198,10 @@ module Cask
       cask_upgrades = upgradable_casks.map do |(old_cask, new_cask)|
         "#{new_cask.full_name} #{old_cask.version} -> #{new_cask.version}"
       end
+      summary_upgrades&.concat(cask_upgrades)
+      summary_deprecated&.concat(upgradable_casks.filter_map do |(_, new_cask)|
+        new_cask.full_name if new_cask.deprecated?
+      end)
 
       created_download_queue = T.let(false, T::Boolean)
       download_queue ||= if !dry_run && !skip_prefetch
