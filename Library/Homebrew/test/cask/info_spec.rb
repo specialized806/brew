@@ -312,7 +312,6 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/with-binary
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-non-executable-binary.rb
-      #{requirements_section(installed("macOS >= 10.15 (or Linux)"))}
       ==> Artifacts
       naked_non_executable (Binary)
     EOS
