@@ -323,7 +323,7 @@ __fish_brew_complete_arg 'abv' -l json -d 'Print a JSON representation. Currentl
 __fish_brew_complete_arg 'abv' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'abv' -l sizes -d 'Show the size of installed formulae and casks'
 __fish_brew_complete_arg 'abv' -l variations -d 'Include the variations hash in each formula\'s JSON output'
-__fish_brew_complete_arg 'abv' -l verbose -d 'Show more verbose analytics data for formula'
+__fish_brew_complete_arg 'abv' -l verbose -d 'Show more verbose data for formula'
 __fish_brew_complete_arg 'abv; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'abv; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
@@ -992,7 +992,7 @@ __fish_brew_complete_arg 'info' -l json -d 'Print a JSON representation. Current
 __fish_brew_complete_arg 'info' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'info' -l sizes -d 'Show the size of installed formulae and casks'
 __fish_brew_complete_arg 'info' -l variations -d 'Include the variations hash in each formula\'s JSON output'
-__fish_brew_complete_arg 'info' -l verbose -d 'Show more verbose analytics data for formula'
+__fish_brew_complete_arg 'info' -l verbose -d 'Show more verbose data for formula'
 __fish_brew_complete_arg 'info; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'info; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
