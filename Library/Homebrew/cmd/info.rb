@@ -596,6 +596,20 @@ module Homebrew
           Options.dump_for_formula formula
         end
 
+        binaries_keg = kegs.find(&:linked?) || kegs.last
+        binaries = if binaries_keg
+          binary_files = [binaries_keg/"bin", binaries_keg/"sbin"].select(&:directory?).flat_map do |dir|
+            dir.children.select { |child| child.file? && child.executable? }
+          end
+          binary_files.map { |path| path.basename.to_s }
+        elsif (path_exec_files = formula.bottle&.path_exec_files)
+          path_exec_files.map { |path| File.basename(path) }
+        end
+        if binaries.present?
+          binaries = binaries.sort.uniq
+          ohai "Binaries", Formatter.columns(binaries)
+        end
+
         caveats = Caveats.new(formula)
         if (caveats_string = caveats.to_s.presence)
           ohai "Caveats", caveats_string

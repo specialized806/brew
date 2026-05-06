@@ -192,6 +192,14 @@ class Bottle
     resource.installed_size
   end
 
+  sig { returns(T.nilable(T::Array[String])) }
+  def path_exec_files
+    resource = github_packages_manifest_resource
+    return unless resource&.downloaded?
+
+    resource.path_exec_files
+  end
+
   sig { returns(Filename) }
   def filename
     Filename.create(T.cast(resource.owner, Formula), @tag, @spec.rebuild)
