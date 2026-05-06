@@ -70,7 +70,7 @@ module Homebrew
                depends_on:  "--json",
                description: "Include the variations hash in each formula's JSON output."
         switch "-v", "--verbose",
-               description: "Show more verbose analytics data for <formula>."
+               description: "Show more verbose data for <formula>."
         switch "--formula", "--formulae",
                description: "Treat all named arguments as formulae."
         switch "--cask", "--casks",
@@ -596,18 +596,20 @@ module Homebrew
           Options.dump_for_formula formula
         end
 
-        binaries_keg = kegs.find(&:linked?) || kegs.last
-        binaries = if binaries_keg
-          binary_files = [binaries_keg/"bin", binaries_keg/"sbin"].select(&:directory?).flat_map do |dir|
-            dir.children.select { |child| child.file? && child.executable? }
+        if args.verbose?
+          binaries_keg = kegs.find(&:linked?) || kegs.last
+          binaries = if binaries_keg
+            binary_files = [binaries_keg/"bin", binaries_keg/"sbin"].select(&:directory?).flat_map do |dir|
+              dir.children.select { |child| child.file? && child.executable? }
+            end
+            binary_files.map { |path| path.basename.to_s }
+          elsif (path_exec_files = formula.bottle&.path_exec_files)
+            path_exec_files.map { |path| File.basename(path) }
           end
-          binary_files.map { |path| path.basename.to_s }
-        elsif (path_exec_files = formula.bottle&.path_exec_files)
-          path_exec_files.map { |path| File.basename(path) }
-        end
-        if binaries.present?
-          binaries = binaries.sort.uniq
-          ohai "Binaries", Formatter.columns(binaries)
+          if binaries.present?
+            binaries = binaries.sort.uniq
+            ohai "Binaries", Formatter.columns(binaries)
+          end
         end
 
         caveats = Caveats.new(formula)
