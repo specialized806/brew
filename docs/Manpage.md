@@ -1044,7 +1044,7 @@ paths within its current keg. If *`cask`* is provided, list its artifacts.
 
 `--multiple`
 
-: Only show formulae with multiple versions installed.
+: Only show formulae with multiple versions installed. Implies `--versions`.
 
 `--pinned`
 
