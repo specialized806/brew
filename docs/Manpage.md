@@ -803,7 +803,7 @@ Display brief statistics for your Homebrew installation. If a *`formula`* or
 
 `-v`, `--verbose`
 
-: Show more verbose analytics data for *`formula`*.
+: Show more verbose data for *`formula`*.
 
 `--formula`
 

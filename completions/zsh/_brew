@@ -454,7 +454,7 @@ _brew_abv() {
     '--quiet[Make some output more quiet]' \
     '--sizes[Show the size of installed formulae and casks]' \
     '--variations[Include the variations hash in each formula'\''s JSON output]' \
-    '--verbose[Show more verbose analytics data for formula]' \
+    '--verbose[Show more verbose data for formula]' \
     - formula \
     '(--cask)--formula[Treat all named arguments as formulae]' \
     '*:formula:__brew_formulae' \
@@ -1250,7 +1250,7 @@ _brew_info() {
     '--quiet[Make some output more quiet]' \
     '--sizes[Show the size of installed formulae and casks]' \
     '--variations[Include the variations hash in each formula'\''s JSON output]' \
-    '--verbose[Show more verbose analytics data for formula]' \
+    '--verbose[Show more verbose data for formula]' \
     - formula \
     '(--cask)--formula[Treat all named arguments as formulae]' \
     '*:formula:__brew_formulae' \
