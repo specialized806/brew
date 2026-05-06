@@ -168,7 +168,11 @@ module OS
             return
           end
 
-          oclp_support_tier = ::Hardware::CPU.features.include?(:pclmulqdq) ? 2 : 3
+          oclp_support_tier = if ::Hardware::CPU.features.include?(:pclmulqdq) && !OS::Mac.version.outdated_release?
+            2
+          else
+            3
+          end
 
           <<~EOS
             You have booted macOS using OpenCore Legacy Patcher.

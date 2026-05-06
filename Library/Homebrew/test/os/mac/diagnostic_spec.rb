@@ -17,6 +17,42 @@ RSpec.describe Homebrew::Diagnostic::Checks do
       .to match("We do not provide support for this pre-release version.")
   end
 
+  describe "#check_for_opencore" do
+    let(:macos_version) { MacOSVersion.new("13") }
+
+    before do
+      allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
+      allow(Hardware::CPU).to receive(:physical_cpu_arm64?).and_return(false)
+      allow(Utils).to receive(:safe_popen_read)
+        .with("/usr/sbin/nvram", "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version")
+        .and_return("opencore-version\t1.0.0")
+      allow(Utils).to receive(:safe_popen_read)
+        .with("/usr/sbin/nvram", "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:OCLP-Version")
+        .and_return("OCLP-Version\t2.0.0")
+    end
+
+    it "reports Tier 2 on a modern CPU running a supported macOS" do
+      allow(Hardware::CPU).to receive(:features).and_return([:pclmulqdq])
+      allow(macos_version).to receive(:outdated_release?).and_return(false)
+
+      expect(checks.check_for_opencore).to include("This is a Tier 2 configuration")
+    end
+
+    it "reports Tier 3 on an old CPU" do
+      allow(Hardware::CPU).to receive(:features).and_return([])
+      allow(macos_version).to receive(:outdated_release?).and_return(false)
+
+      expect(checks.check_for_opencore).to include("This is a Tier 3 configuration")
+    end
+
+    it "reports Tier 3 on a modern CPU running an outdated macOS" do
+      allow(Hardware::CPU).to receive(:features).and_return([:pclmulqdq])
+      allow(macos_version).to receive(:outdated_release?).and_return(true)
+
+      expect(checks.check_for_opencore).to include("This is a Tier 3 configuration")
+    end
+  end
+
   specify "#check_if_xcode_needs_clt_installed" do
     macos_version = MacOSVersion.new("11")
     allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
