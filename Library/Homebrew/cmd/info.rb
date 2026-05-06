@@ -524,7 +524,7 @@ module Homebrew
           puts "Not installed"
           if (bottle = formula.bottle)
             begin
-              bottle.fetch_tab(quiet: !args.debug?) if args.fetch_manifest?
+              bottle.fetch_tab(quiet: !args.debug?) if args.fetch_manifest? || args.verbose?
               bottle_size = bottle.bottle_size
               installed_size = bottle.installed_size
               puts "Bottle Size: #{Formatter.disk_usage_readable(bottle_size)}" if bottle_size
