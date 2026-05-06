@@ -393,6 +393,13 @@ module Homebrew
 
         if prefetch_only
           prefetch_download_queue = download_queue || Homebrew.default_download_queue
+          if context.formulae_installer.any? do |fi|
+            fi.pour_bottle? && fi.formula.local_bottle_path.blank? &&
+            fi.formula.bottle&.github_packages_manifest_resource
+          end
+            oh1 "Fetching dependencies metadata"
+          end
+
           valid_formula_installers = Install.enqueue_formulae(context.formulae_installer,
                                                               download_queue: prefetch_download_queue)
           if show_downloads_heading
