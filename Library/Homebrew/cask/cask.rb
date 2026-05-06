@@ -152,14 +152,14 @@ module Cask
       refresh
     end
 
-    sig { void }
-    def refresh
+    sig { params(skip_implicit_dependency: T::Boolean).void }
+    def refresh(skip_implicit_dependency: false)
       @dsl = T.let(DSL.new(self), T.nilable(DSL))
       @contains_os_specific_artifacts = nil
       return unless @block
 
       dsl!.instance_eval(&@block)
-      dsl!.add_implicit_macos_dependency
+      dsl!.add_implicit_macos_dependency unless skip_implicit_dependency
       dsl!.language_eval
     rescue NoMethodError => e
       raise CaskInvalidError.new(token, e.message), e.backtrace
@@ -239,7 +239,7 @@ module Cask
       any_loaded = T.let(false, T::Boolean)
       OnSystem::VALID_OS_ARCH_TAGS.each do |bottle_tag|
         Homebrew::SimulateSystem.with_tag(bottle_tag) do
-          refresh
+          refresh(skip_implicit_dependency: true)
 
           any_loaded = true if artifacts.any? do |artifact|
             (bottle_tag.linux? && ::Cask::Artifact::MACOS_ONLY_ARTIFACTS.include?(artifact.class)) ||
@@ -250,7 +250,7 @@ module Cask
         # Invalid for this OS/arch tag; treat as having no OS-specific artifacts.
         next
       ensure
-        refresh
+        refresh(skip_implicit_dependency: true)
       end
 
       @contains_os_specific_artifacts = T.let(any_loaded, T.nilable(T::Boolean))
