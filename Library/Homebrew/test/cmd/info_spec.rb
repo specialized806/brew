@@ -239,6 +239,104 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "prints a Binaries section listing executables in bin and sbin with --verbose" do
+    info = described_class.new(["--verbose"])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+    end
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    (keg_path/"bin").mkpath
+    (keg_path/"sbin").mkpath
+    ["bin/testball", "bin/another", "sbin/daemon"].each do |rel|
+      file = keg_path/rel
+      file.write("#!/bin/sh\n")
+      file.chmod(0755)
+    end
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(a_string_including("==> Binaries\nanother\ndaemon\ntestball\n")).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "prints a Binaries section from the bottle manifest when the formula is not installed with --verbose" do
+    info = described_class.new(["--verbose"])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+    end
+
+    bottle = instance_double(
+      Bottle,
+      path_exec_files: ["bin/testball", "bin/another", "sbin/daemon"],
+      bottle_size:     nil,
+      installed_size:  nil,
+    )
+    allow(bottle).to receive(:fetch_tab)
+    allow(formula).to receive_messages(bottle:, core_formula?: false)
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+
+    expect { info.send(:info_formula, formula) }
+      .to output(a_string_including("==> Binaries\nanother\ndaemon\ntestball\n")).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "omits the Binaries section without --verbose" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+    end
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    (keg_path/"bin").mkpath
+    binary = keg_path/"bin/testball"
+    binary.write("#!/bin/sh\n")
+    binary.chmod(0755)
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to not_to_output(/==> Binaries/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "omits the Binaries section when no executables are installed" do
+    info = described_class.new(["--verbose"])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      homepage "https://brew.sh/testball"
+      desc "Some test"
+    end
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    (keg_path/"lib").mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to not_to_output(/==> Binaries/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
   describe "::installation_status" do
     it "prints on-request installs explicitly" do
       expect(described_class.installation_status(instance_double(Tab, installed_on_request: true)))

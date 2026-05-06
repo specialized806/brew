@@ -53,6 +53,7 @@ module Homebrew
         switch "--github",
                description: "Open the GitHub source page for <formula> and <cask> in a browser. " \
                             "To view the history locally: `brew log -p` <formula> or <cask>"
+        # odeprecated replace this with --verbose on next release
         switch "--fetch-manifest",
                description: "Fetch GitHub Packages manifest for extra information when <formula> is not installed."
         flag   "--json",
@@ -70,7 +71,7 @@ module Homebrew
                depends_on:  "--json",
                description: "Include the variations hash in each formula's JSON output."
         switch "-v", "--verbose",
-               description: "Show more verbose analytics data for <formula>."
+               description: "Show more verbose data for <formula>."
         switch "--formula", "--formulae",
                description: "Treat all named arguments as formulae."
         switch "--cask", "--casks",
@@ -524,7 +525,7 @@ module Homebrew
           puts "Not installed"
           if (bottle = formula.bottle)
             begin
-              bottle.fetch_tab(quiet: !args.debug?) if args.fetch_manifest?
+              bottle.fetch_tab(quiet: !args.debug?) if args.fetch_manifest? || args.verbose?
               bottle_size = bottle.bottle_size
               installed_size = bottle.installed_size
               puts "Bottle Size: #{Formatter.disk_usage_readable(bottle_size)}" if bottle_size
@@ -594,6 +595,22 @@ module Homebrew
         if !formula.options.empty? || formula.head
           ohai "Options"
           Options.dump_for_formula formula
+        end
+
+        if args.verbose?
+          binaries_keg = kegs.find(&:linked?) || kegs.last
+          binaries = if binaries_keg
+            binary_files = [binaries_keg/"bin", binaries_keg/"sbin"].select(&:directory?).flat_map do |dir|
+              dir.children.select { |child| child.file? && child.executable? }
+            end
+            binary_files.map { |path| path.basename.to_s }
+          elsif (path_exec_files = formula.bottle&.path_exec_files)
+            path_exec_files.map { |path| File.basename(path) }
+          end
+          if binaries.present?
+            binaries = binaries.sort.uniq
+            ohai "Binaries", Formatter.columns(binaries)
+          end
         end
 
         caveats = Caveats.new(formula)
