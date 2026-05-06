@@ -53,6 +53,7 @@ module Homebrew
         switch "--github",
                description: "Open the GitHub source page for <formula> and <cask> in a browser. " \
                             "To view the history locally: `brew log -p` <formula> or <cask>"
+        # odeprecated replace this with --verbose on next release
         switch "--fetch-manifest",
                description: "Fetch GitHub Packages manifest for extra information when <formula> is not installed."
         flag   "--json",
