@@ -51,6 +51,7 @@ RSpec.describe Cask::Info, :cask do
       https://transmissionbt.com/
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/l/local-transmission.rb
+      #{requirements_section(installed("macOS >= 10.15"))}
       ==> Artifacts
       Transmission.app (App)
     EOS
@@ -69,6 +70,7 @@ RSpec.describe Cask::Info, :cask do
       #{ohai_title "Dependencies"}
       Required (2): #{uninstalled("local-caffeine (cask)")}, #{uninstalled("local-transmission-zip (cask)")}
       Recursive Runtime (2): 0 installed #{Formatter.success("✔")}, 2 missing #{Formatter.error("✘")}
+      #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)
     EOS
@@ -80,7 +82,7 @@ RSpec.describe Cask::Info, :cask do
     allow(cask).to receive_messages(supports_linux?: false)
 
     expect { described_class.info(cask, args:) }
-      .to output(/local-transmission.*Transmission.*BitTorrent/m).to_stdout
+      .to output(/Requirements\nRequired: .*macOS >= 10\.15.*✔/).to_stdout
     expect { described_class.info(cask, args:) }.to not_to_output(/==> Name/).to_stdout
     expect { described_class.info(cask, args:) }.to not_to_output(/==> Description/).to_stdout
     expect { described_class.info(cask, args:) }.to not_to_output(/Metadata/).to_stdout
@@ -99,6 +101,7 @@ RSpec.describe Cask::Info, :cask do
       #{ohai_title "Dependencies"}
       Required (2): #{uninstalled("local-caffeine (cask)")}, #{installed("local-transmission-zip (cask)")}
       Recursive Runtime (2): 1 installed #{Formatter.success("✔")}, 1 missing #{Formatter.error("✘")}
+      #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
       Caffeine.app (App)
     EOS
@@ -147,6 +150,7 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/autoupdates
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-auto-updates.rb
+      #{requirements_section(installed("macOS >= 10.15"))}
       ==> Artifacts
       AutoUpdates.app (App)
     EOS
@@ -162,6 +166,7 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-caveats.rb
+      #{requirements_section(installed("macOS >= 10.15"))}
       ==> Artifacts
       Caffeine.app (App)
       ==> Caveats
@@ -187,6 +192,7 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-conditional-caveats.rb
+      #{requirements_section(installed("macOS >= 10.15"))}
       ==> Artifacts
       Caffeine.app (App)
     EOS
@@ -202,6 +208,7 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-languages.rb
+      #{requirements_section(installed("macOS >= 10.15"))}
       ==> Languages
       zh, en-US
       ==> Artifacts
@@ -219,6 +226,7 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/without-languages.rb
+      #{requirements_section(installed("macOS >= 10.15"))}
       ==> Artifacts
       Caffeine.app (App)
     EOS
@@ -252,6 +260,7 @@ RSpec.describe Cask::Info, :cask do
         #{caskroom}/2.61 (0B)
           Installed using the formulae.brew.sh API on #{Time.at(time).strftime("%Y-%m-%d at %H:%M:%S")}
         From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/l/local-transmission.rb
+        #{requirements_section(installed("macOS >= 10.15"))}
         ==> Artifacts
         Transmission.app (App)
       EOS
@@ -286,6 +295,7 @@ RSpec.describe Cask::Info, :cask do
         #{caskroom}/2.61 (0B)
           Installed using the internal formulae.brew.sh API on #{Time.at(time).strftime("%Y-%m-%d at %H:%M:%S")}
         From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/l/local-transmission.rb
+        #{requirements_section(installed("macOS >= 10.15"))}
         ==> Artifacts
         Transmission.app (App)
       EOS
@@ -302,6 +312,7 @@ RSpec.describe Cask::Info, :cask do
       https://brew.sh/with-binary
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-non-executable-binary.rb
+      #{requirements_section(installed("macOS >= 10.15 (or Linux)"))}
       ==> Artifacts
       naked_non_executable (Binary)
     EOS

@@ -248,7 +248,7 @@ RSpec.describe Cask::Installer, :cask do
     end
 
     context "when loaded from the api with unsupported requirements" do
-      let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-macos-comparison")) }
+      let(:cask) { Cask::CaskLoader.load(cask_path("with-preflight")) }
       let(:download_queue) { instance_double(Homebrew::DownloadQueue, enqueue: nil) }
       let(:macos_requirement) { cask.depends_on.macos }
 

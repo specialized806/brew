@@ -80,7 +80,12 @@
   "depends_on": {
     "cask": [
       "something"
-    ]
+    ],
+    "macos": {
+      ">=": [
+        "10.15"
+      ]
+    }
   },
   "conflicts_with": {
     "cask": [
