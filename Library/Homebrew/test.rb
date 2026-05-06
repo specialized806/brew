@@ -55,7 +55,7 @@ begin
     # Also update formula.rb 'TODO: replace `returns(BasicObject)` with `void`'
     if formula.run_test(keep_tmp: args.keep_tmp?) == false
       require "utils/output"
-      Utils::Output.odeprecated "`return false` in test", "`raise \"<reason for failure>\"`"
+      Utils::Output.odisabled "`return false` in test", "`raise \"<reason for failure>\"`"
       raise "test returned false"
     end
   end
