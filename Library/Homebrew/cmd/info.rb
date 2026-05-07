@@ -546,18 +546,14 @@ module Homebrew
         attrs << "keg-only" if formula.keg_only?
 
         kegs = formula.installed_kegs
-        name_with_status = if kegs.empty?
-          pretty_uninstalled(formula.full_name)
-        elsif formula.outdated?
-          if (upgrade_version = specs.first.presence)
-            installed_version = formula.linked_version ||
-                                kegs.max_by(&:scheme_and_version)&.version
-            specs[0] = "#{installed_version} → #{upgrade_version}"
-          end
-          pretty_upgradable(formula.full_name)
-        else
-          pretty_installed(formula.full_name)
+        installed = kegs.any?
+        outdated = installed && formula.outdated?
+        if outdated && (upgrade_version = specs.first.presence)
+          installed_version = formula.linked_version ||
+                              kegs.max_by(&:scheme_and_version)&.version
+          specs[0] = "#{installed_version} → #{upgrade_version}"
         end
+        name_with_status = pretty_install_status(formula.full_name, installed:, outdated:)
 
         puts "#{oh1_title(name_with_status)}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
         puts formula.desc if formula.desc
@@ -712,9 +708,9 @@ module Homebrew
             dep.name
           end
           rack = HOMEBREW_CELLAR/Utils.name_from_full_name(full_name) if full_name
-          next pretty_uninstalled(display) if rack.nil? || !rack.directory? || rack.subdirs.empty?
-
-          dep.to_formula.outdated? ? pretty_upgradable(display) : pretty_installed(display)
+          installed = !rack.nil? && rack.directory? && !rack.subdirs.empty?
+          outdated = installed ? dep.to_formula.outdated? : false
+          pretty_install_status(display, installed:, outdated:)
         end.join(", ")
       end
 
