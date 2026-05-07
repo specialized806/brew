@@ -32,8 +32,7 @@ module Homebrew
                description: "Show the version number for installed formulae, or only the specified " \
                             "formulae if <formula> are provided."
         switch "--multiple",
-               depends_on:  "--versions",
-               description: "Only show formulae with multiple versions installed."
+               description: "Only show formulae with multiple versions installed. Implies `--versions`."
         switch "--pinned",
                description: "List only pinned formulae, or only the specified (pinned) " \
                             "formulae if <formula> are provided. See also `pin`, `unpin`."
@@ -68,14 +67,16 @@ module Homebrew
          "--poured-from-bottle", "--built-from-source"].each do |flag|
           conflicts "--cask", flag
           conflicts "--versions", flag
+          conflicts "--multiple", flag
           conflicts "--pinned", flag
           conflicts "-l", flag
         end
         ["-1", "-l", "-r", "-t"].each do |flag|
           conflicts "--versions", flag
+          conflicts "--multiple", flag
           conflicts "--pinned", flag
         end
-        ["--versions", "--pinned", "-l", "-r", "-t"].each do |flag|
+        ["--versions", "--multiple", "--pinned", "-l", "-r", "-t"].each do |flag|
           conflicts "--full-name", flag
         end
 
@@ -107,7 +108,7 @@ module Homebrew
           end
         elsif args.pinned?
           filtered_list
-        elsif args.versions?
+        elsif args.versions? || args.multiple?
           filtered_list unless args.cask?
           list_casks if args.cask? || (!args.formula? && !args.multiple? && args.no_named?)
         elsif args.installed_on_request? ||
