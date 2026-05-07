@@ -790,7 +790,9 @@ Display brief statistics for your Homebrew installation. If a *`formula`* or
 
 `--installed`
 
-: Print JSON of formulae that are currently installed.
+: Output a human-readable inventory of installed formulae and casks. If `--json`
+  is passed, print JSON for installed formulae and, with `--json=v2`, installed
+  casks.
 
 `--eval-all`
 
@@ -803,7 +805,8 @@ Display brief statistics for your Homebrew installation. If a *`formula`* or
 
 `-v`, `--verbose`
 
-: Show more verbose data for *`formula`*.
+: Show more verbose data for *`formula`*, or full information with
+  `--installed`.
 
 `--formula`
 

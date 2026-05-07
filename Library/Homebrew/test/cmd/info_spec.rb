@@ -14,6 +14,26 @@ RSpec.describe Homebrew::Cmd::Info do
     end
   end
 
+  def installed_info_formula
+    test_formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+    end
+    (HOMEBREW_CELLAR/"testball/0.1").mkpath
+    test_formula
+  end
+
+  def installed_info_cask
+    cask = Cask::Cask.new("local-transmission") do
+      version "2.61"
+      name "Transmission"
+      desc "BitTorrent client"
+      url "https://example.com/local-transmission.zip"
+    end
+    allow(cask).to receive(:installed_version).and_return("2.61")
+    cask
+  end
+
   it_behaves_like "parseable arguments"
 
   it "prints as json with the --json=v1 flag", :integration_test do
@@ -32,6 +52,172 @@ RSpec.describe Homebrew::Cmd::Info do
       .to output(a_json_string).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
+  end
+
+  it "prints installed formulae in a human-readable inventory" do
+    mktmpdir do |dir|
+      tabfile = dir/AbstractTab::FILENAME
+      tabfile.write("{}")
+      formula = installed_info_formula
+
+      allow(Formula).to receive(:installed).and_return([formula])
+      allow(Tab).to receive(:for_formula).with(formula).and_return(
+        Tab.new(installed_on_request: true, source: { "tap" => "homebrew/core" }, tabfile:),
+      )
+      allow(Cask::Caskroom).to receive(:casks).and_return([])
+
+      expected_output = <<~EOS
+        ==> testball: Some test
+        Formula from homebrew/core
+        Installed: 0.1 (on request)
+      EOS
+      expect { described_class.new(["--installed"]).run }
+        .to output(expected_output).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
+  it "prints installed casks in a human-readable inventory" do
+    mktmpdir do |dir|
+      tabfile = dir/AbstractTab::FILENAME
+      tabfile.write("{}")
+      cask = installed_info_cask
+
+      allow(Formula).to receive(:installed).and_return([])
+      allow(Cask::Caskroom).to receive(:casks).and_return([cask])
+      allow(Cask::Tab).to receive(:for_cask).with(cask).and_return(
+        Cask::Tab.new(installed_on_request: false, source: { "tap" => "homebrew/cask" }, tabfile:),
+      )
+
+      expected_output = <<~EOS
+        ==> local-transmission: (Transmission) BitTorrent client
+        Cask from homebrew/cask
+        Installed: 2.61 (dependency)
+      EOS
+      expect { described_class.new(["--installed"]).run }
+        .to output(expected_output).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
+  it "omits missing cask descriptions from the installed inventory" do
+    mktmpdir do |dir|
+      tabfile = dir/AbstractTab::FILENAME
+      tabfile.write("{}")
+      cask = Cask::Cask.new("no-description") do
+        version "1.0"
+        name "No Description"
+        url "https://example.com/no-description.zip"
+      end
+      allow(cask).to receive(:installed_version).and_return("1.0")
+
+      allow(Formula).to receive(:installed).and_return([])
+      allow(Cask::Caskroom).to receive(:casks).and_return([cask])
+      allow(Cask::Tab).to receive(:for_cask).with(cask).and_return(
+        Cask::Tab.new(source: { "tap" => "homebrew/cask" }, tabfile:),
+      )
+
+      expected_output = <<~EOS
+        ==> no-description
+        Cask from homebrew/cask
+        Installed: 1.0
+      EOS
+      expect { described_class.new(["--installed"]).run }
+        .to output(expected_output).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
+  it "omits install reason when receipt intent is unavailable" do
+    mktmpdir do |dir|
+      tabfile = dir/AbstractTab::FILENAME
+      tabfile.write("{}")
+      formula = installed_info_formula
+      cask = installed_info_cask
+
+      allow(Formula).to receive(:installed).and_return([formula])
+      allow(Tab).to receive(:for_formula).with(formula).and_return(
+        Tab.new(source: { "tap" => "homebrew/core" }, tabfile:),
+      )
+      allow(Cask::Caskroom).to receive(:casks).and_return([cask])
+      allow(Cask::Tab).to receive(:for_cask).with(cask).and_return(
+        Cask::Tab.new(source: { "tap" => "homebrew/cask" }, tabfile:),
+      )
+
+      expected_output = <<~EOS
+        ==> testball: Some test
+        Formula from homebrew/core
+        Installed: 0.1
+
+        ==> local-transmission: (Transmission) BitTorrent client
+        Cask from homebrew/cask
+        Installed: 2.61
+      EOS
+      expect { described_class.new(["--installed"]).run }
+        .to output(expected_output).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
+  it "marks installed formulae in interactive inventory output" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    mktmpdir do |dir|
+      tabfile = dir/AbstractTab::FILENAME
+      tabfile.write("{}")
+      formula = installed_info_formula
+
+      allow(Formula).to receive(:installed).and_return([formula])
+      allow(Tab).to receive(:for_formula).with(formula).and_return(
+        Tab.new(installed_on_request: true, source: { "tap" => "homebrew/core" }, tabfile:),
+      )
+      allow(Cask::Caskroom).to receive(:casks).and_return([])
+
+      expect { described_class.new(["--installed"]).run }
+        .to output(/testball .*✔.*: Some test/).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
+  it "prints verbose installed inventory as full info" do
+    info = described_class.new(["--verbose", "--installed"])
+    formula = installed_info_formula
+    cask = installed_info_cask
+
+    allow(Formula).to receive(:installed).and_return([formula])
+    allow(Cask::Caskroom).to receive(:casks).and_return([cask])
+    expect(info).to receive(:info_formula).with(formula)
+    expect(info).to receive(:info_cask).with(cask)
+
+    expect { info.run }
+      .to output("\n").to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "prints quiet formula information in the slim inventory format" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+
+    expected_output = <<~EOS
+      ==> testball: Some test
+      Formula from https://example.com/testball.rb
+      Not installed
+    EOS
+    expect { info.send(:info_formula_summary, formula) }
+      .to output(expected_output).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "uses slim formula information when quiet is passed", :integration_test do
+    setup_test_formula "testball"
+    info = described_class.new(["--quiet", "testball"])
+
+    expect(info).to receive(:info_formula_summary).with(kind_of(Formula))
+    expect { info.run }
+      .to not_to_output.to_stderr
   end
 
   it "prints inline summary information for formulae" do

@@ -178,6 +178,9 @@ class AbstractTab
     Version.new(homebrew_version)
   end
 
+  sig { returns(T::Boolean) }
+  def installed_on_request_present? = @installed_on_request_present
+
   sig { returns(T.nilable(Tap)) }
   def tap
     tap_name = source["tap"]
@@ -632,7 +635,4 @@ class Tab < AbstractTab # rubocop:todo Style/OneClassPerFile
     end
     s.join(" ")
   end
-
-  sig { returns(T::Boolean) }
-  def installed_on_request_present? = @installed_on_request_present
 end

@@ -63,8 +63,7 @@ module Homebrew
           when Formula
             desc[formula_or_cask.full_name] = formula_or_cask.desc
           when Cask::Cask
-            description = formula_or_cask.desc.presence || Formatter.warning("[no description]")
-            desc[formula_or_cask.full_name] = "(#{formula_or_cask.name.join(", ")}) #{description}"
+            desc[formula_or_cask.full_name] = [formula_or_cask.name.join(", "), formula_or_cask.desc.presence]
           else
             raise TypeError, "Unsupported formula_or_cask type: #{formula_or_cask.class}"
           end

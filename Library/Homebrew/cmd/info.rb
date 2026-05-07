@@ -61,8 +61,8 @@ module Homebrew
                             "<formula>. For <formula> and <cask> use `v2`. See the docs for examples of using the " \
                             "JSON output: <https://docs.brew.sh/Querying-Brew>"
         switch "--installed",
-               depends_on:  "--json",
-               description: "Print JSON of formulae that are currently installed."
+               description: "Output a human-readable inventory of installed formulae and casks. If `--json` is " \
+                            "passed, print JSON for installed formulae and, with `--json=v2`, installed casks."
         switch "--eval-all",
                depends_on:  "--json",
                description: "Evaluate all available formulae and casks, whether installed or not, to print their " \
@@ -71,7 +71,7 @@ module Homebrew
                depends_on:  "--json",
                description: "Include the variations hash in each formula's JSON output."
         switch "-v", "--verbose",
-               description: "Show more verbose data for <formula>."
+               description: "Show more verbose data for <formula>, or full information with `--installed`."
         switch "--formula", "--formulae",
                description: "Treat all named arguments as formulae."
         switch "--cask", "--casks",
@@ -116,6 +116,15 @@ module Homebrew
           print_analytics
         elsif (json = args.json)
           print_json(json, args.eval_all?)
+        elsif args.installed?
+          T.let([
+            *(args.cask? ? [] : Formula.installed.sort),
+            *(args.formula? ? [] : Cask::Caskroom.casks.sort_by(&:full_name)),
+          ], T::Array[T.any(Formula, Cask::Cask)]).each_with_index do |formula_or_cask, i|
+            puts unless i.zero?
+
+            info_formula_or_cask(formula_or_cask, quiet: !args.verbose?)
+          end
         elsif args.github?
           raise FormulaOrCaskUnspecifiedError if args.no_named?
 
@@ -126,7 +135,7 @@ module Homebrew
         elsif args.no_named?
           print_statistics
         else
-          print_info
+          print_info(quiet: args.quiet?)
         end
       end
 
@@ -169,6 +178,20 @@ module Homebrew
         # TODO: Deprecate reading `installed_as_dependency`; `installed_on_request`
         # is the only state we need to render install intent.
         tab.installed_on_request ? "Installed (on request)" : "Installed (as dependency)"
+      end
+
+      sig { params(tab: T.any(Tab, Cask::Tab)).returns(String) }
+      def self.installation_reason(tab)
+        return "-" unless tab.installed_on_request_present?
+
+        tab.installed_on_request ? "on request" : "dependency"
+      end
+
+      sig { params(version: String, tab: T.any(Tab, Cask::Tab)).returns(String) }
+      def self.installation_summary(version, tab)
+        reason = installation_reason(tab)
+
+        "Installed: #{version}#{" (#{reason})" if reason != "-"}"
       end
 
       sig { params(requirement: Requirement).returns(T::Boolean) }
@@ -344,16 +367,14 @@ module Homebrew
         end
       end
 
-      sig { void }
-      def print_info
+      sig { params(quiet: T::Boolean).void }
+      def print_info(quiet: false)
         args.named.to_formulae_and_casks_and_unavailable.each_with_index do |obj, i|
           puts unless i.zero?
 
           case obj
-          when Formula
-            info_formula(obj)
-          when Cask::Cask
-            info_cask(obj)
+          when Formula, Cask::Cask
+            info_formula_or_cask(obj, quiet:)
           when FormulaOrCaskUnavailableError
             # The formula/cask could not be found
             ofail obj.message
@@ -364,6 +385,16 @@ module Homebrew
           else
             raise
           end
+        end
+      end
+
+      sig { params(formula_or_cask: T.any(Formula, Cask::Cask), quiet: T::Boolean).void }
+      def info_formula_or_cask(formula_or_cask, quiet:)
+        case formula_or_cask
+        when Formula
+          quiet ? info_formula_summary(formula_or_cask) : info_formula(formula_or_cask)
+        when Cask::Cask
+          quiet ? info_cask_summary(formula_or_cask) : info_cask(formula_or_cask)
         end
       end
 
@@ -464,6 +495,38 @@ module Homebrew
         raise "unexpected nil tap.remote" unless remote
 
         github_remote_path(remote, path.to_s)
+      end
+
+      sig { params(name: String, description: T.nilable(String), installed: T::Boolean).returns(String) }
+      def info_summary_title(name, description, installed:)
+        name = pretty_installed(name) if installed
+
+        "#{name}#{": #{description}" if description.present?}"
+      end
+
+      sig { params(formula: Formula).void }
+      def info_formula_summary(formula)
+        kegs = formula.installed_kegs
+        tab = Tab.for_formula(formula)
+        version = kegs.sort_by(&:scheme_and_version)
+                      .map { |keg| keg.version.to_s }
+                      .join(", ")
+        version = "-" if version.blank?
+
+        puts oh1_title(info_summary_title(formula.full_name, formula.desc, installed: kegs.any?))
+        puts "Formula from #{if kegs.empty?
+                               github_info(formula)
+                             else
+                               formula.tap&.name ||
+                                 T.cast(tab.source["tap"], T.nilable(String)) ||
+                                 T.cast(tab.source["path"], T.nilable(String)) ||
+                                 github_info(formula)
+        end}"
+        if kegs.empty?
+          puts "Not installed"
+        else
+          puts self.class.installation_summary(version, tab)
+        end
       end
 
       sig { params(formula: Formula).void }
@@ -656,6 +719,37 @@ module Homebrew
         require "cask/info"
 
         Cask::Info.info(cask, args:)
+      end
+
+      sig { params(cask: Cask::Cask).void }
+      def info_cask_summary(cask)
+        installed_version = cask.installed_version
+        installed = installed_version.present?
+        tab = Cask::Tab.for_cask(cask)
+
+        puts oh1_title(info_summary_title(
+                         cask.full_name,
+                         cask.desc.presence&.then do |desc|
+                           "#{if cask.name.present?
+                                "(#{cask.name.join(", ")}) "
+                           end}#{desc}"
+                         end,
+                         installed:,
+                       ))
+        puts "Cask from #{if installed
+                            T.cast(cask.tap, T.nilable(Tap))&.name ||
+                              T.cast(tab.source["tap"], T.nilable(String)) ||
+                              cask.sourcefile_path&.to_s ||
+                              T.cast(tab.source["path"], T.nilable(String)) ||
+                              github_info(cask)
+                          else
+                            github_info(cask)
+        end}"
+        if installed
+          puts self.class.installation_summary(installed_version, tab)
+        else
+          puts "Not installed"
+        end
       end
 
       sig { params(title: String, items: T::Array[NameSize]).void }
