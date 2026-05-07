@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "English"
@@ -53,6 +53,7 @@ module Homebrew
           raise UsageError, "No command to execute was specified!" if command.blank?
 
           require "bundle/brewfile"
+          @dsl ||= T.let(nil, T.nilable(Homebrew::Bundle::Dsl))
           @dsl = Brewfile.read(global:, file:)
 
           require "formula"
