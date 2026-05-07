@@ -435,6 +435,57 @@ RSpec.describe Homebrew::Cleanup do
       expect(foo).to exist
     end
 
+    it "cleans up API source files and symlinks at any depth without cleaning directories" do
+      root_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/README.md"
+      nested_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/Formula/a/testball.rb"
+      nested_symlink = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/patches/subdir/noop-a.diff"
+      nested_directory = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/patches/keep"
+      symlink_target = mktmpdir/"noop-a.diff"
+
+      root_file.dirname.mkpath
+      nested_file.dirname.mkpath
+      nested_symlink.dirname.mkpath
+      nested_directory.mkpath
+      FileUtils.touch root_file
+      FileUtils.touch nested_file
+      FileUtils.touch symlink_target
+      FileUtils.ln_s symlink_target, nested_symlink
+
+      described_class.new(days: 0).cleanup_cache
+
+      expect([root_file.exist?, nested_file.exist?, nested_symlink.exist?, nested_directory.exist?])
+        .to eq([false, false, false, true])
+    end
+
+    it "does not remove recent API source local patches as stale" do
+      patch_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/patches/noop-a.diff"
+      nested_patch_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/patches/subdir/noop-b.diff"
+      patch_file.dirname.mkpath
+      nested_patch_file.dirname.mkpath
+      FileUtils.touch patch_file
+      FileUtils.touch nested_patch_file
+
+      cleanup.cleanup_cache
+
+      expect([patch_file.exist?, nested_patch_file.exist?]).to eq([true, true])
+    end
+
+    it "keeps current API formula source paths when tap git head matches" do
+      source_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/Formula/testball.rb"
+      nested_source_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/Formula/a/testball.rb"
+      package = instance_double(Formula, tap_git_head: "abc123")
+      source_file.dirname.mkpath
+      nested_source_file.dirname.mkpath
+      FileUtils.touch source_file
+      FileUtils.touch nested_source_file
+      expect(Formulary).to receive(:factory).with("Homebrew/homebrew-core/testball").twice.and_return(package)
+
+      cleanup.cleanup_cache([{ path: source_file, type: :api_source },
+                             { path: nested_source_file, type: :api_source }])
+
+      expect([source_file.exist?, nested_source_file.exist?]).to eq([true, true])
+    end
+
     context "when cleaning old files in HOMEBREW_CACHE" do
       let(:bottle) { HOMEBREW_CACHE/"testball--0.0.1.tag.bottle.tar.gz" }
       let(:testball) { HOMEBREW_CACHE/"testball--0.0.1" }
