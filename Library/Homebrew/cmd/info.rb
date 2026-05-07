@@ -629,8 +629,8 @@ module Homebrew
           deps = formula.deps.send(type).uniq
           next if deps.empty?
 
-          decorate_tab_deps = (kegs.any? && type != "build") ? tab_runtime_deps : nil
-          "#{type.capitalize} (#{deps.count}): #{decorate_dependencies(deps, tab_runtime_deps: decorate_tab_deps)}"
+          tab_deps = (kegs.any? && type != "build") ? tab_runtime_deps : nil
+          "#{type.capitalize} (#{deps.count}): #{decorate_dependencies(deps, tab_runtime_deps: tab_deps)}"
         end
         if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
@@ -703,16 +703,16 @@ module Homebrew
       def decorate_dependencies(dependencies, tab_runtime_deps: nil)
         dependencies.map do |dep|
           display = dep_display_s(dep)
-          next dep.satisfied? ? pretty_installed(display) : pretty_uninstalled(display) unless tab_runtime_deps
-
-          tab_entry = tab_runtime_deps.find do |d|
-            name = d["full_name"]
-            name == dep.name || name&.split("/")&.last == dep.name
+          full_name = if tab_runtime_deps
+            tab_runtime_deps.find do |d|
+              name = d["full_name"]
+              name == dep.name || name&.split("/")&.last == dep.name
+            end&.fetch("full_name")
+          else
+            dep.name
           end
-          next pretty_uninstalled(display) unless tab_entry
-
-          rack = HOMEBREW_CELLAR/tab_entry["full_name"].split("/").last
-          next pretty_uninstalled(display) if !rack.directory? || rack.subdirs.empty?
+          rack = HOMEBREW_CELLAR/full_name.split("/").last if full_name
+          next pretty_uninstalled(display) if rack.nil? || !rack.directory? || rack.subdirs.empty?
 
           dep.to_formula.outdated? ? pretty_upgradable(display) : pretty_installed(display)
         end.join(", ")
