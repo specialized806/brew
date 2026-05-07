@@ -195,7 +195,7 @@ class GitHubPackages
     end
   end
 
-  sig { params(uri: URI::Generic).returns(T.nilable(T::Hash[String, T.untyped])) }
+  T::Sig::WithoutRuntime.sig { params(uri: URI::Generic).returns(T.nilable(T::Hash[String, T.untyped])) }
   def schema_resolver(uri)
     @schema_json&.fetch(uri.to_s.gsub(/#.*/, ""))
   end

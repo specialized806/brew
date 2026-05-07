@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "uri"
 require "source_location"
 
 module Cask

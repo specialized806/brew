@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "digest/sha2"
+require "uri"
 require "cachable"
 require "tab"
 require "utils"
