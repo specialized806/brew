@@ -8,6 +8,7 @@ require "options"
 require "formula"
 require "formula_pin"
 require "keg"
+require "linkage_checker"
 require "tab"
 require "json"
 require "cask/cask_loader"
@@ -619,6 +620,7 @@ module Homebrew
         else
           [].freeze
         end
+        linkage = linkage_checker_for(kegs.last, formula) if kegs.any?
         dependency_lines = %w[build required recommended optional].filter_map do |type|
           next if type == "build" &&
                   (kegs.all? { |keg| keg.tab.poured_from_bottle } ||
@@ -627,7 +629,7 @@ module Homebrew
                      (stable.present? ? stable.bottled? && formula.pour_bottle? : formula.head.blank?))))
 
           deps = formula.deps.send(type).uniq
-          "#{type.capitalize} (#{deps.count}): #{decorate_dependencies deps}" unless deps.empty?
+          "#{type.capitalize} (#{deps.count}): #{decorate_dependencies(deps, linkage:)}" unless deps.empty?
         end
         if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
@@ -693,16 +695,47 @@ module Homebrew
         Utils::Analytics.formula_output(formula, args:)
       end
 
-      sig { params(dependencies: T::Array[Dependency]).returns(String) }
-      def decorate_dependencies(dependencies)
+      sig { params(keg: T.nilable(Keg), formula: Formula).returns(T.nilable(LinkageChecker)) }
+      def linkage_checker_for(keg, formula)
+        return unless keg
+
+        CacheStoreDatabase.use(:linkage) do |db|
+          typed_db = T.cast(db, CacheStoreDatabase[String, T::Hash[T.any(String, Symbol), T.anything]])
+          LinkageChecker.new(keg, formula, cache_db: typed_db)
+        end
+      rescue
+        nil
+      end
+
+      sig {
+        params(dependencies: T::Array[Dependency], linkage: T.nilable(LinkageChecker)).returns(String)
+      }
+      def decorate_dependencies(dependencies, linkage: nil)
         deps_status = dependencies.map do |dep|
-          if dep.satisfied?
+          if linkage ? dep_linkage_satisfied?(dep, linkage) : dep.satisfied?
             pretty_installed(dep_display_s(dep))
           else
             pretty_uninstalled(dep_display_s(dep))
           end
         end
         deps_status.join(", ")
+      end
+
+      sig { params(dep: Dependency, linkage: LinkageChecker).returns(T::Boolean) }
+      def dep_linkage_satisfied?(dep, linkage)
+        dep_formula =
+          begin
+            dep.to_formula
+          rescue FormulaUnavailableError
+            nil
+          end
+        return false unless dep_formula
+
+        names = [dep_formula.full_name, dep_formula.name, dep.name].compact.uniq
+        return false if names.any? { |n| linkage.broken_deps.key?(n) }
+        return true if names.any? { |n| linkage.brewed_dylibs.key?(n) }
+
+        dep_formula.any_installed_keg ? true : false
       end
 
       sig { params(requirements: T::Array[Requirement]).returns(String) }

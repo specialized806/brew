@@ -368,6 +368,152 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "marks an installed dep as satisfied on the Required line" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+    bar = formula("bar") do
+      url "https://brew.sh/bar-1.0.tar.gz"
+    end
+    stub_formula_loader bar
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    bar_keg_path = HOMEBREW_CELLAR/"bar/1.0"
+    bar_keg_path.mkpath
+    bar_tab = Tab.empty
+    bar_tab.tabfile = bar_keg_path/AbstractTab::FILENAME
+    bar_tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Required \(1\): .*bar.*✔/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "marks a missing dep as unsatisfied on the Required line" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+    bar = formula("bar") do
+      url "https://brew.sh/bar-1.0.tar.gz"
+    end
+    stub_formula_loader bar
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Required \(1\): .*bar.*✘/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "marks a correctly-linked dep as satisfied even when newer dep version exists" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+    bar = formula("bar") do
+      url "https://brew.sh/bar-1.0.tar.gz"
+    end
+    stub_formula_loader bar
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    bar_keg_path = HOMEBREW_CELLAR/"bar/1.0"
+    bar_keg_path.mkpath
+    bar_tab = Tab.empty
+    bar_tab.tabfile = bar_keg_path/AbstractTab::FILENAME
+    bar_tab.write
+
+    fake_linkage = instance_double(
+      LinkageChecker,
+      brewed_dylibs: { "bar" => Set["/opt/homebrew/opt/bar/lib/libbar.1.dylib"] },
+      broken_deps:   {},
+    )
+    allow(info).to receive(:linkage_checker_for).and_return(fake_linkage)
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Required \(1\): .*bar.*✔/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "marks a broken dep linkage as unsatisfied" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+    bar = formula("bar") do
+      url "https://brew.sh/bar-1.0.tar.gz"
+    end
+    stub_formula_loader bar
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    bar_keg_path = HOMEBREW_CELLAR/"bar/1.0"
+    bar_keg_path.mkpath
+    bar_tab = Tab.empty
+    bar_tab.tabfile = bar_keg_path/AbstractTab::FILENAME
+    bar_tab.write
+
+    fake_linkage = instance_double(
+      LinkageChecker,
+      brewed_dylibs: {},
+      broken_deps:   { "bar" => ["/opt/homebrew/opt/bar/lib/libbar.0.dylib"] },
+    )
+    allow(info).to receive(:linkage_checker_for).and_return(fake_linkage)
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Required \(1\): .*bar.*✘/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
   it "omits build dependencies when a formula would pour from a bottle" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
