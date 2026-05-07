@@ -90,9 +90,48 @@ module Readall
     success
   end
 
-  sig { params(_tap: Tap, os_name: T.nilable(Symbol), arch: T.nilable(Symbol)).returns(T::Boolean) }
-  def self.valid_casks?(_tap, os_name: nil, arch: nil)
-    true
+  sig { params(tap: Tap, os_name: T.nilable(Symbol), arch: T.nilable(Symbol)).returns(T::Boolean) }
+  def self.valid_casks?(tap, os_name: nil, arch: nil)
+    validating_linux = if os_name.nil?
+      Homebrew::SimulateSystem.current_os == :linux
+    else
+      os_name == :linux
+    end
+    return true unless validating_linux
+
+    success = T.let(true, T::Boolean)
+    tap.cask_files.each do |file|
+      next if file.read.match?(/^\s*depends_on(?:\s*\(\s*|\s+)(?::macos\b|macos:)/)
+
+      cask = if arch
+        Homebrew::SimulateSystem.with(os: :macos, arch:) do
+          loaded_cask = Cask::CaskLoader.load(file)
+          loaded_cask if loaded_cask.supports_linux?
+        end
+      else
+        Homebrew::SimulateSystem.with(os: :macos) do
+          loaded_cask = Cask::CaskLoader.load(file)
+          loaded_cask if loaded_cask.supports_linux?
+        end
+      end
+      next unless cask
+
+      if arch
+        Homebrew::SimulateSystem.with(os: :linux, arch:) { cask.refresh }
+      else
+        Homebrew::SimulateSystem.with(os: :linux) { cask.refresh }
+      end
+    rescue Interrupt
+      raise
+    # Handle all possible exceptions reading casks.
+    rescue Exception => e # rubocop:disable Lint/RescueException
+      os_and_arch = "Linux"
+      os_and_arch += " on #{arch}" if arch
+      onoe "Invalid cask (#{os_and_arch}): #{file}"
+      $stderr.puts e
+      success = false
+    end
+    success
   end
 
   sig {

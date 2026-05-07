@@ -96,6 +96,8 @@ module Homebrew
         Formulary.enable_factory_cache!
 
         os_arch_combinations = args.os_arch_combinations
+        cask_audit_os, cask_audit_arch =
+          os_arch_combinations.find { |os, _arch| os != :linux } || os_arch_combinations.fetch(0)
 
         Homebrew.auditing = true
         Homebrew.inject_dump_stats!(FormulaAuditor, /^audit_/) if args.audit_debug?
@@ -132,8 +134,8 @@ module Homebrew
 
               if tap.formula_file?(file)
                 audit_formulae << Formulary.factory(absolute_file)
-              elsif tap.cask_file?(file)
-                audit_casks << Cask::CaskLoader.load(absolute_file)
+              elsif tap.cask_file?(file) && (cask = cask_for_audit(absolute_file, cask_audit_os, cask_audit_arch))
+                audit_casks << cask
               end
             end
 
@@ -142,7 +144,7 @@ module Homebrew
             Tap.fetch(args.tap).then do |tap|
               [
                 tap.formula_files.map { |path| Formulary.factory(path) },
-                tap.cask_files.map { |path| Cask::CaskLoader.load(path) },
+                tap.cask_files.filter_map { |path| cask_for_audit(path, cask_audit_os, cask_audit_arch) },
               ]
             end
           elsif args.installed?
@@ -341,6 +343,30 @@ module Homebrew
       end
 
       private
+
+      sig {
+        params(
+          path:            T.any(String, Pathname),
+          cask_audit_os:   Symbol,
+          cask_audit_arch: Symbol,
+        ).returns(T.nilable(Cask::Cask))
+      }
+      def cask_for_audit(path, cask_audit_os, cask_audit_arch)
+        if cask_audit_os == :linux
+          return if Pathname(path).read.match?(/^\s*depends_on(?:\s*\(\s*|\s+)(?::macos\b|macos:)/)
+
+          cask = SimulateSystem.with(os: :macos, arch: cask_audit_arch) do
+            loaded_cask = Cask::CaskLoader.load(path)
+            loaded_cask if loaded_cask.supports_linux?
+          end
+          return unless cask
+
+          SimulateSystem.with(os: :linux, arch: cask_audit_arch) { cask.refresh }
+          return cask
+        end
+
+        SimulateSystem.with(os: cask_audit_os, arch: cask_audit_arch) { Cask::CaskLoader.load(path) }
+      end
 
       sig { params(results: T::Hash[[Symbol, Pathname], T::Array[T::Hash[Symbol, T.untyped]]]).void }
       def print_problems(results)
