@@ -268,7 +268,7 @@ module GitHub
       end, T.nilable(String))
     end
 
-    sig {
+    T::Sig::WithoutRuntime.sig {
       params(
         url:              T.any(String, URI::Generic),
         data:             T::Hash[Symbol, T.untyped],
@@ -353,7 +353,7 @@ module GitHub
       end
     end
 
-    sig {
+    T::Sig::WithoutRuntime.sig {
       params(
         url:                     T.any(String, URI::Generic),
         additional_query_params: String,
