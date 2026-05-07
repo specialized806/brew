@@ -17,6 +17,15 @@ module Homebrew
         const :formulae_to_install, T::Array[Formula]
         const :formulae_installer, T::Array[FormulaInstaller]
         const :dependants, Homebrew::Upgrade::Dependents
+        const :pinned_formulae, T::Array[Formula], default: []
+      end
+
+      class FinalUpgradeSummary < T::Struct
+        prop :version_changes, T::Array[String], default: []
+        prop :pinned_formulae, T::Array[String], default: []
+        prop :deprecated, T::Array[String], default: []
+        prop :disabled, T::Array[String], default: []
+        prop :source_build_formulae, T::Array[String], default: []
       end
 
       cmd_args do
@@ -147,6 +156,7 @@ module Homebrew
         prefetched_formulae_upgrades = T.let([], T::Array[String])
         prefetched_cask_names = T.let([], T::Array[String])
         prefetched_cask_upgrades = T.let([], T::Array[String])
+        @final_upgrade_summary = T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
 
         if args.named.present?
           args.named.to_formulae_and_casks_and_unavailable(method: :resolve).each do |item|
@@ -237,6 +247,8 @@ module Homebrew
         Homebrew::Reinstall.reinstall_pkgconf_if_needed!(dry_run: args.dry_run?)
 
         Homebrew.messages.display_messages(display_times: args.display_times?)
+
+        show_final_upgrade_summary
       end
 
       private
@@ -324,7 +336,16 @@ module Homebrew
           verbose:                    args.verbose?,
         )
 
-        return if formulae_installer.blank?
+        if formulae_installer.blank?
+          return if pinned.blank?
+
+          return FormulaeUpgradeContext.new(
+            formulae_to_install:,
+            formulae_installer:  formulae_installer,
+            dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),
+            pinned_formulae:     pinned,
+          )
+        end
 
         dependants = Upgrade.dependants(
           formulae_to_install,
@@ -349,7 +370,92 @@ module Homebrew
           formulae_to_install:,
           formulae_installer:  formulae_installer,
           dependants:,
+          pinned_formulae:     pinned,
         )
+      end
+
+      sig { returns(FinalUpgradeSummary) }
+      def final_upgrade_summary
+        @final_upgrade_summary ||= T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
+        @final_upgrade_summary
+      end
+
+      sig { params(context: FormulaeUpgradeContext).void }
+      def record_formula_upgrade_summary(context)
+        summary = final_upgrade_summary
+        summary.version_changes.concat(formula_upgrade_descriptions(context.formulae_installer.map(&:formula)))
+        summary.version_changes.concat(formula_upgrade_descriptions(context.dependants.upgradeable))
+        summary.pinned_formulae.concat((context.pinned_formulae + context.dependants.pinned).map do |formula|
+          "#{formula.full_specified_name} #{formula.pkg_version}"
+        end)
+
+        formulae = context.formulae_to_install + context.pinned_formulae +
+                   context.dependants.upgradeable + context.dependants.pinned
+        summary.deprecated.concat(formulae.filter_map do |formula|
+          formula.full_specified_name if formula.deprecated?
+        end)
+        summary.disabled.concat(formulae.filter_map do |formula|
+          formula.full_specified_name if formula.disabled?
+        end)
+        summary.source_build_formulae.concat(context.formulae_installer.filter_map do |formula_installer|
+          formula = formula_installer.formula
+          next unless formula.core_formula?
+          next if formula_installer.pour_bottle?
+
+          formula.full_specified_name
+        end)
+      end
+
+      sig { void }
+      def show_final_upgrade_summary
+        summary = final_upgrade_summary
+        return if summary.version_changes.empty? && summary.pinned_formulae.empty? &&
+                  summary.deprecated.empty? && summary.disabled.empty? && summary.source_build_formulae.empty?
+
+        if summary.version_changes.present?
+          version_change_count = summary.version_changes.uniq.count
+          show_final_upgrade_summary_section(
+            "#{args.dry_run? ? "Would upgrade" : "Upgraded"} #{version_change_count} outdated " \
+            "#{Utils.pluralize("package", version_change_count)}",
+            summary.version_changes,
+          )
+        end
+        if summary.pinned_formulae.present?
+          pinned_count = summary.pinned_formulae.uniq.count
+          show_final_upgrade_summary_section(
+            "#{pinned_count} Pinned #{Utils.pluralize("formula", pinned_count)}",
+            summary.pinned_formulae,
+          )
+        end
+        deprecate_disable_summary = summary.deprecated.map { |item| "#{item} (deprecated)" } +
+                                    summary.disabled.map { |item| "#{item} (disabled)" }
+        deprecate_disable_count = deprecate_disable_summary.uniq.count
+        show_final_upgrade_summary_section(
+          "#{deprecate_disable_count} Deprecated or disabled #{Utils.pluralize("package", deprecate_disable_count)}",
+          deprecate_disable_summary,
+        )
+        source_build_count = summary.source_build_formulae.uniq.count
+        if args.dry_run?
+          show_final_upgrade_summary_section(
+            "#{source_build_count} homebrew/core " \
+            "#{Utils.pluralize("formula", source_build_count)} that would build from source",
+            summary.source_build_formulae,
+          )
+        else
+          show_final_upgrade_summary_section(
+            "#{source_build_count} homebrew/core #{Utils.pluralize("formula", source_build_count)} built from source",
+            summary.source_build_formulae,
+          )
+        end
+      end
+
+      sig { params(title: String, items: T::Array[String]).void }
+      def show_final_upgrade_summary_section(title, items)
+        items = items.uniq
+        return if items.empty?
+
+        oh1 title
+        puts items.join("\n")
       end
 
       sig { params(formulae: T::Array[Formula]).returns(T::Array[String]) }
@@ -413,9 +519,12 @@ module Homebrew
             formulae_to_install: context.formulae_to_install,
             formulae_installer:  valid_formula_installers,
             dependants:          context.dependants,
+            pinned_formulae:     context.pinned_formulae,
           )
           return valid_formula_installers.present?
         end
+
+        record_formula_upgrade_summary(context)
 
         Upgrade.upgrade_formulae(
           context.formulae_installer,
@@ -530,6 +639,9 @@ module Homebrew
           skip_prefetch:,
           show_upgrade_summary:,
           download_queue:,
+          summary_upgrades:     final_upgrade_summary.version_changes,
+          summary_deprecated:   final_upgrade_summary.deprecated,
+          summary_disabled:     final_upgrade_summary.disabled,
           args:,
         )
       rescue => e
