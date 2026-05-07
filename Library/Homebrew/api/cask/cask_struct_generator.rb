@@ -97,6 +97,8 @@ module Homebrew
 
             value = value.to_h if value.is_a?(MacOSRequirement)
             dep_type = value.keys.first
+            next [key, :any] unless dep_type
+
             if dep_type.to_sym == :==
               version_symbols = value[dep_type].filter_map do |version|
                 MacOSVersion::SYMBOLS.key(version)
@@ -105,6 +107,8 @@ module Homebrew
             end
 
             version_symbol = value[dep_type].first
+            next [key, :any] if version_symbol.blank?
+
             version_symbol = MacOSVersion::SYMBOLS.key(version_symbol)
             version_dep = "#{dep_type} :#{version_symbol}" if version_symbol
             [key, version_dep]

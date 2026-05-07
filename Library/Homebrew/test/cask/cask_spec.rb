@@ -816,5 +816,15 @@ RSpec.describe Cask::Cask, :cask do
         expect(JSON.pretty_generate(hash)).to eq(expected_json)
       end
     end
+
+    it "does not include macOS dependency in Linux variations" do
+      c = Cask::CaskLoader.load("sha256-os")
+      h = c.to_hash_with_variations
+
+      [:x86_64_linux, :arm64_linux].each do |tag|
+        merged = Homebrew::API.merge_variations(h.deep_dup, bottle_tag: Utils::Bottles::Tag.from_symbol(tag))
+        expect(merged["depends_on"]).not_to include("macos") if merged["depends_on"].present?
+      end
+    end
   end
 end
