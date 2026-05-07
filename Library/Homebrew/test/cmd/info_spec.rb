@@ -110,7 +110,7 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
-  it "lists installed dependents in a tabular section with --verbose" do
+  it "lists installed dependents inline under Dependencies with --verbose" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
     info = described_class.new(["--verbose"])
@@ -141,7 +141,7 @@ RSpec.describe Homebrew::Cmd::Info do
     allow(formula).to receive(:core_formula?).and_return(false)
 
     expect { info.send(:info_formula, formula) }
-      .to output(/==> Dependents \(2\)\n.*another-dependent.*some-dependent/).to_stdout
+      .to output(/^Dependents \(2\): another-dependent, some-dependent$/).to_stdout
       .and not_to_output(/^Dependents: /).to_stdout
       .and not_to_output.to_stderr
   end

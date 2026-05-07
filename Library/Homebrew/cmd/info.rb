@@ -582,7 +582,7 @@ module Homebrew
           end
           if installed_dependents.any?
             if args.verbose?
-              ohai "Dependents (#{installed_dependents.count})", Formatter.columns(installed_dependents)
+              puts "Dependents (#{installed_dependents.count}): #{installed_dependents.join(", ")}"
             else
               puts "Dependents: #{installed_dependents.count}"
             end
