@@ -229,6 +229,19 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
     end
   end
 
+  context "when auditing local file patches" do
+    it "reports no offenses for local file patches" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+          patch do
+            file "Patches/foo.diff"
+          end
+        end
+      RUBY
+    end
+  end
+
   context "when auditing external patches with corrector" do
     it "corrects Bitbucket patch URLs to use API format" do
       expect_offense(<<~RUBY)
