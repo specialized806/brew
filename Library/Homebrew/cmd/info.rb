@@ -627,11 +627,10 @@ module Homebrew
                      (stable.present? ? stable.bottled? && formula.pour_bottle? : formula.head.blank?))))
 
           deps = formula.deps.send(type).uniq
-          decorate_tab_deps = tab_runtime_deps if kegs.any? && type != "build"
-          unless deps.empty?
-            "#{type.capitalize} (#{deps.count}): " \
-              "#{decorate_dependencies(deps, tab_runtime_deps: decorate_tab_deps)}"
-          end
+          next if deps.empty?
+
+          decorate_tab_deps = (kegs.any? && type != "build") ? tab_runtime_deps : nil
+          "#{type.capitalize} (#{deps.count}): #{decorate_dependencies(deps, tab_runtime_deps: decorate_tab_deps)}"
         end
         if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
@@ -702,28 +701,21 @@ module Homebrew
                tab_runtime_deps: T.nilable(T::Array[T::Hash[String, T.untyped]])).returns(String)
       }
       def decorate_dependencies(dependencies, tab_runtime_deps: nil)
-        deps_status = dependencies.map do |dep|
-          if tab_runtime_deps ? dep_in_tab_and_installed?(dep, tab_runtime_deps) : dep.satisfied?
-            pretty_installed(dep_display_s(dep))
-          else
-            pretty_uninstalled(dep_display_s(dep))
+        dependencies.map do |dep|
+          display = dep_display_s(dep)
+          next dep.satisfied? ? pretty_installed(display) : pretty_uninstalled(display) unless tab_runtime_deps
+
+          tab_entry = tab_runtime_deps.find do |d|
+            name = d["full_name"]
+            name == dep.name || name&.split("/")&.last == dep.name
           end
-        end
-        deps_status.join(", ")
-      end
+          next pretty_uninstalled(display) unless tab_entry
 
-      sig {
-        params(dep: Dependency, tab_runtime_deps: T::Array[T::Hash[String, T.untyped]]).returns(T::Boolean)
-      }
-      def dep_in_tab_and_installed?(dep, tab_runtime_deps)
-        full_name = tab_runtime_deps.find do |d|
-          name = d["full_name"]
-          name == dep.name || name&.split("/")&.last == dep.name
-        end&.[]("full_name")
-        return false unless full_name
+          rack = HOMEBREW_CELLAR/tab_entry["full_name"].split("/").last
+          next pretty_uninstalled(display) if !rack.directory? || rack.subdirs.empty?
 
-        rack = HOMEBREW_CELLAR/full_name.split("/").last
-        rack.directory? && !rack.subdirs.empty?
+          dep.to_formula.outdated? ? pretty_upgradable(display) : pretty_installed(display)
+        end.join(", ")
       end
 
       sig { params(requirements: T::Array[Requirement]).returns(String) }
