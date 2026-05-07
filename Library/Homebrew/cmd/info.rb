@@ -185,28 +185,29 @@ module Homebrew
           "#{missing_count} missing #{Formatter.error("✘")}"
       end
 
-      sig { params(full_name: String, name: String).returns(Integer) }
-      def self.count_installed_dependents(full_name, name)
-        Formula.racks.count do |rack|
+      sig { params(full_name: String, name: String).returns(T::Array[String]) }
+      def self.installed_dependent_names(full_name, name)
+        Formula.racks.filter_map do |rack|
           keg = Keg.from_rack(rack)
-          next false unless keg
+          next unless keg
 
           tab_path = keg/AbstractTab::FILENAME
-          next false unless tab_path.file?
+          next unless tab_path.file?
 
           # Fast path: skip JSON parsing when the formula name
           # does not appear anywhere in the raw receipt.
           content = File.read(tab_path)
-          next false unless content.include?(name)
+          next unless content.include?(name)
 
           tab_deps = Tab.from_file_content(content, tab_path).runtime_dependencies
-          next false unless tab_deps
+          next unless tab_deps
 
-          tab_deps.any? do |dep|
+          dependent = tab_deps.any? do |dep|
             dep_full_name = T.cast(dep, T::Hash[String, T.untyped])["full_name"]
             dep_full_name == full_name || dep_full_name&.split("/")&.last == name
           end
-        end
+          keg.name if dependent
+        end.sort.uniq
       end
 
       sig { params(formula: T.untyped).returns(T::Array[String]) }
@@ -551,9 +552,9 @@ module Homebrew
 
         tab_runtime_deps = kegs.last&.runtime_dependencies
         installed_dependents = if $stdout.tty? && kegs.any?
-          self.class.count_installed_dependents(formula.full_name, formula.name)
+          self.class.installed_dependent_names(formula.full_name, formula.name)
         else
-          0
+          [].freeze
         end
         dependency_lines = %w[build required recommended optional].filter_map do |type|
           next if type == "build" &&
@@ -565,7 +566,7 @@ module Homebrew
           deps = formula.deps.send(type).uniq
           "#{type.capitalize} (#{deps.count}): #{decorate_dependencies deps}" unless deps.empty?
         end
-        if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.positive?
+        if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
           puts dependency_lines
           if tab_runtime_deps.present?
@@ -579,7 +580,13 @@ module Homebrew
             puts "Recursive Runtime (#{tab_runtime_deps.count}): " \
                  "#{self.class.dependency_status_counts(installed_count, tab_runtime_deps.count)}"
           end
-          puts "Dependents: #{installed_dependents}" if installed_dependents.positive?
+          if installed_dependents.any?
+            if args.verbose?
+              ohai "Dependents (#{installed_dependents.count})", Formatter.columns(installed_dependents)
+            else
+              puts "Dependents: #{installed_dependents.count}"
+            end
+          end
         end
 
         unless formula.requirements.to_a.empty?
