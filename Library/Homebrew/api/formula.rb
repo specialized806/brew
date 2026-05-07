@@ -4,6 +4,7 @@
 require "cachable"
 require "api"
 require "api/source_download"
+require "local_patch"
 require "download_queue"
 require "api/formula/formula_struct_generator"
 
@@ -44,19 +45,27 @@ module Homebrew
       sig {
         params(
           formula:        ::Formula,
+          path:           String,
+          checksum:       T.nilable(Checksum),
           download_queue: Homebrew::DownloadQueue,
           enqueue:        T::Boolean,
         ).returns(Homebrew::API::SourceDownload)
       }
-      def self.source_download(formula, download_queue: Homebrew.default_download_queue, enqueue: false)
-        path = formula.ruby_source_path || "Formula/#{formula.name}.rb"
+      def self.source_download_path(formula, path, checksum: nil, download_queue: Homebrew.default_download_queue,
+                                    enqueue: false)
+        unless LocalPatch.valid_path?(path)
+          raise ArgumentError, "API source path must be a relative path within the repository."
+        end
+
+        path = Pathname(path).cleanpath
+
         git_head = formula.tap_git_head || "HEAD"
         tap = formula.tap&.full_name || "Homebrew/homebrew-core"
 
         download = Homebrew::API::SourceDownload.new(
           "https://raw.githubusercontent.com/#{tap}/#{git_head}/#{path}",
-          formula.ruby_source_checksum,
-          cache: HOMEBREW_CACHE_API_SOURCE/"#{tap}/#{git_head}/Formula",
+          checksum,
+          cache: HOMEBREW_CACHE_API_SOURCE/"#{tap}/#{git_head}"/path.dirname,
         )
 
         if enqueue
@@ -66,6 +75,18 @@ module Homebrew
         end
 
         download
+      end
+
+      sig {
+        params(
+          formula:        ::Formula,
+          download_queue: Homebrew::DownloadQueue,
+          enqueue:        T::Boolean,
+        ).returns(Homebrew::API::SourceDownload)
+      }
+      def self.source_download(formula, download_queue: Homebrew.default_download_queue, enqueue: false)
+        path = formula.ruby_source_path || "Formula/#{formula.name}.rb"
+        source_download_path(formula, path, checksum: formula.ruby_source_checksum, download_queue:, enqueue:)
       end
 
       sig { params(formula: ::Formula).returns(::Formula) }
@@ -78,12 +99,23 @@ module Homebrew
                 "Try `rm -rf $(brew --cache)/api-source` and retrying."
         end
 
-        with_env(HOMEBREW_INTERNAL_ALLOW_PACKAGES_FROM_PATHS: "1") do
+        source_formula = with_env(HOMEBREW_INTERNAL_ALLOW_PACKAGES_FROM_PATHS: "1") do
           Formulary.factory(download.symlink_location,
                             formula.active_spec_sym,
                             alias_path: formula.alias_path,
                             flags:      formula.class.build_flags)
         end
+
+        source_formula.resources.each do |resource|
+          resource.patches.grep(LocalPatch) do |patch|
+            source_download_path(formula, patch.file.to_s)
+          end
+        end
+        source_formula.patchlist.grep(LocalPatch) do |patch|
+          source_download_path(formula, patch.file.to_s)
+        end
+
+        source_formula
       end
 
       sig { returns(Pathname) }
