@@ -19,11 +19,12 @@ module RuboCop
 
           external_patches = find_all_blocks(body_node, :patch)
           external_patches.each do |patch_block|
-            url_node = find_every_method_call_by_name(patch_block, :url).fetch(0)
-            url_string = parameters(url_node).fetch(0)
-            sha256_node = find_every_method_call_by_name(patch_block, :sha256).first
-            sha256_string = parameters(sha256_node).first if sha256_node
-            patch_problems(url_string, sha256_string)
+            find_every_method_call_by_name(patch_block, :url).each do |url_node|
+              url_string = parameters(url_node).fetch(0)
+              sha256_node = find_every_method_call_by_name(patch_block, :sha256).first
+              sha256_string = parameters(sha256_node).first if sha256_node
+              patch_problems(url_string, sha256_string)
+            end
           end
 
           inline_patches = find_every_method_call_by_name(body_node, :patch)

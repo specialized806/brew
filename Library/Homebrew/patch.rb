@@ -5,6 +5,7 @@ require "embedded_patch"
 require "data_patch"
 require "external_patch"
 require "string_patch"
+require "local_patch"
 
 # Helper module for creating patches.
 module Patch
@@ -28,7 +29,18 @@ module Patch
       when String
         StringPatch.new(strip, src)
       else
-        ExternalPatch.new(strip, &block)
+        external_patch = ExternalPatch.new(strip, &block)
+        resource = external_patch.resource
+        if (file = resource.file)
+          raise ArgumentError, "Patch cannot have both `file` and `url`." if resource.url.present?
+          raise ArgumentError, "Patch cannot use `sha256` with `file`." if resource.checksum
+          raise ArgumentError, "Patch cannot use `directory` with `file`." if resource.directory.present?
+          raise ArgumentError, "Patch cannot use `apply` with `file`." if resource.patch_files.present?
+
+          LocalPatch.new(strip, file)
+        else
+          external_patch
+        end
       end
     end
   end

@@ -83,22 +83,36 @@ module Homebrew
       def stale_api_source?(pathname, scrub)
         return true if scrub
 
-        org, repo, git_head, type, basename = pathname.each_filename.to_a.last(5)
+        path_parts = pathname.each_filename.to_a
+        api_source_index = path_parts.rindex("api-source")
+        return false if api_source_index.nil?
 
-        name = "#{org}/#{repo}/#{File.basename(T.must(basename), ".rb")}"
-        package = if type == "Cask"
+        relative_path_parts = path_parts.drop(api_source_index + 1)
+        return false if relative_path_parts.length < 4
+
+        org = relative_path_parts.fetch(0)
+        repo = relative_path_parts.fetch(1)
+        git_head = relative_path_parts.fetch(2)
+        type = relative_path_parts.fetch(3)
+        basename = relative_path_parts.fetch(-1)
+        return false unless basename.end_with?(".rb")
+
+        name = "#{org}/#{repo}/#{File.basename(basename, ".rb")}"
+        package = case type
+        when "Cask"
           begin
             Cask::CaskLoader.load(name)
           rescue Cask::CaskError
             nil
           end
-        else
+        when "Formula"
           begin
             Formulary.factory(name)
           rescue FormulaUnavailableError
             nil
           end
         end
+        return false if package.nil? && %w[Cask Formula].exclude?(type)
         return true if package.nil?
 
         package.tap_git_head != git_head
@@ -450,7 +464,7 @@ module Homebrew
     def cache_files
       files = cache.directory? ? cache.children : []
       cask_files = (cache/"Cask").directory? ? (cache/"Cask").children : []
-      api_source_files = (cache/"api-source").glob("*/*/*/*/*") # `<org>/<repo>/<git_head>/<type>/<token>.rb`
+      api_source_files = (cache/"api-source").glob("*/*/*/**/*").select { |path| path.file? || path.symlink? }
       gh_actions_artifacts = (cache/"gh-actions-artifact").directory? ? (cache/"gh-actions-artifact").children : []
 
       files.map { |path| { path:, type: nil } } +
