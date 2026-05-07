@@ -25,12 +25,6 @@ class LinkageChecker
   sig { returns(T::Set[String]) }
   attr_reader :system_dylibs
 
-  sig { returns(T::Hash[String, T::Set[String]]) }
-  attr_reader :brewed_dylibs
-
-  sig { returns(T::Hash[String, T::Array[String]]) }
-  attr_reader :broken_deps
-
   sig {
     params(
       keg: Keg, formula: T.nilable(Formula),
