@@ -371,7 +371,7 @@ depends_on formula: "unar"
 
 ##### Setting a minimum macOS release
 
-The value for `depends_on macos:` may be a symbol listing the minimum compatible macOS release. The values for supported macOS releases can be found in the [`MacOSVersion` class](/rubydoc/MacOSVersion.html) documentation.
+Top-level `depends_on :macos` marks a cask as macOS-only. Top-level `depends_on macos:` marks a cask as macOS-only and declares the minimum compatible macOS release. The values for supported macOS releases can be found in the [`MacOSVersion` class](/rubydoc/MacOSVersion.html) documentation.
 
 Only major releases are covered (10.x numbers containing a single dot or whole numbers since macOS 11). The symbol form is used for readability:
 
@@ -392,6 +392,14 @@ depends_on macos: [
   :catalina,
   :big_sur,
 ]
+```
+
+For a cask that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`:
+
+```ruby
+on_macos do
+  depends_on macos: :big_sur
+end
 ```
 
 #### `depends_on` *arch*
@@ -1274,7 +1282,7 @@ cask "calibre" do
 end
 ```
 
-Such `on_<system>` blocks can be nested and contain other stanzas not listed here. However, they should not contain `depends_on macos:` stanzas, which should occur once below the `on_<system>` blocks and encompass all releases listed in the cask. Examples: [calhash.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/calhash.rb), [r.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/r/r.rb), [wireshark.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/wireshark.rb)
+Such `on_<system>` blocks can be nested and contain other stanzas not listed here. However, version-specific macOS requirements should be placed in `on_macos` blocks rather than individual macOS release blocks. Examples: [calhash.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/calhash.rb), [r.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/r/r.rb), [wireshark.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/wireshark.rb)
 
 ### Switch between languages or regions
 

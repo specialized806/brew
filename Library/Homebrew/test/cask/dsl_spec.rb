@@ -472,6 +472,14 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         expect { cask }.to raise_error(Cask::CaskInvalidError)
       end
     end
+
+    context "when bare macOS and a macOS version are used" do
+      let(:token) { "invalid-depends-on-macos-bare-and-version" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
   end
 
   describe "depends_on arch" do

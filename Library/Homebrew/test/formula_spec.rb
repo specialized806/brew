@@ -2092,6 +2092,51 @@ RSpec.describe Formula do
     end
   end
 
+  describe "OS support" do
+    it "returns false for Linux when macOS is required at the top level" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on macos: :catalina
+      end
+
+      expect(f.supports_linux?).to be false
+    end
+
+    it "returns true for Linux when macOS is required in an on_macos block" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        on_macos do
+          depends_on macos: :catalina
+        end
+      end
+
+      expect(f.supports_linux?).to be true
+    end
+
+    it "returns false for macOS when Linux is required at the top level" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on :linux
+      end
+
+      expect(f.supports_macos?).to be false
+    end
+
+    it "allows bare and versioned macOS requirements for now" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on :macos
+        depends_on macos: :catalina
+      end
+
+      expect(f.requirements.grep(MacOSRequirement).count).to eq(2)
+    end
+  end
+
   describe "#on_macos", :needs_macos do
     let(:f) do
       Class.new(Testball) do

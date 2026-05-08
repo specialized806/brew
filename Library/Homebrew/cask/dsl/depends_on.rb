@@ -36,6 +36,9 @@ module Cask
         @cask = T.let(nil, T.nilable(T::Array[String]))
         @formula = T.let(nil, T.nilable(T::Array[String]))
         @macos = T.let(nil, T.nilable(MacOSRequirement))
+        @macos_set_in_block = T.let(false, T::Boolean)
+        @macos_bare_set_top_level = T.let(false, T::Boolean)
+        @macos_version_set_top_level = T.let(false, T::Boolean)
       end
 
       sig { returns(T::Array[String]) }
@@ -48,12 +51,18 @@ module Cask
         @formula ||= []
       end
 
-      sig { params(pairs: T::Hash[Symbol, T.any(String, Symbol, T::Array[T.any(String, Symbol)])]).void }
-      def load(pairs)
+      sig {
+        params(
+          pairs:        T::Hash[Symbol, T.any(String, Symbol, T::Array[T.any(String, Symbol)])],
+          set_in_block: T::Boolean,
+        ).void
+      }
+      def load(pairs, set_in_block: false)
         pairs.each do |key, value|
           raise "invalid depends_on key: '#{key.inspect}'" unless VALID_KEYS.include?(key)
 
           __getobj__[key] = send(:"#{key}=", *value)
+          record_os_requirement(key, set_in_block:)
         end
       end
 
@@ -95,6 +104,37 @@ module Cask
 
       sig { returns(T::Boolean) }
       def present? = !empty?
+
+      sig { returns(T::Boolean) }
+      def requires_macos?
+        @macos_bare_set_top_level || @macos_version_set_top_level
+      end
+
+      sig { returns(T::Boolean) }
+      def macos_set_in_block? = @macos_set_in_block
+
+      sig { returns(T::Boolean) }
+      def os_support_specified? = requires_macos? || macos_set_in_block?
+
+      sig { params(key: Symbol, set_in_block: T::Boolean).void }
+      def record_os_requirement(key, set_in_block:)
+        return if key != :macos
+
+        if set_in_block
+          @macos_set_in_block = true
+          return
+        end
+
+        if T.must(@macos).version_specified?
+          raise "`depends_on macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level
+
+          @macos_version_set_top_level = true
+        else
+          raise "`depends_on :macos` cannot be combined with another macOS `depends_on`" if requires_macos?
+
+          @macos_bare_set_top_level = true
+        end
+      end
     end
   end
 end
