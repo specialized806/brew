@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "homebrew"
+require "cli/parser"
 
 # Helper functions for commands.
 module Commands
@@ -154,9 +155,13 @@ module Commands
 
   sig { params(path: Pathname).returns(T::Array[String]) }
   def self.find_internal_commands(path)
+    raise ArgumentError, "#{path} is not an official command path" \
+      unless [HOMEBREW_CMD_PATH, HOMEBREW_DEV_CMD_PATH].include?(path)
+
     find_commands(path).map(&:basename)
                        .map { |basename| basename_without_extension(basename) }
                        .uniq
+                       .reject { |name| Homebrew::CLI::Parser.from_cmd_path(path/"#{name}.rb")&.hide_from_man_page }
   end
 
   sig { returns(T::Array[String]) }
