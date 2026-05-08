@@ -233,6 +233,26 @@ RSpec.describe "Exception" do
     let(:actual_checksum) { instance_double(Checksum, to_s: "deadcafe") }
 
     it(:to_s) { expect(error.to_s).to match(/SHA-256 mismatch/) }
+
+    it "does not add an HTML hint for non-HTML downloads" do
+      Tempfile.create("brew-checksum-test") do |file|
+        file.binmode
+        file.write("PK\x03\x04binary-content")
+        file.flush
+        message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
+        expect(message).not_to match(/looks like HTML/)
+      end
+    end
+
+    it "adds an HTML hint when the download is an HTML page" do
+      Tempfile.create("brew-checksum-test") do |file|
+        file.binmode
+        file.write('<!doctype html><html lang="en"><head><title>Oh noes!</title>')
+        file.flush
+        message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
+        expect(message).to match(/looks like HTML/)
+      end
+    end
   end
 
   describe ResourceMissingError do
