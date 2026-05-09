@@ -71,27 +71,8 @@ module Cask
       def macos=(*args)
         raise "Only a single 'depends_on macos' is allowed." if @macos
 
-        # workaround for https://github.com/sorbet/sorbet/issues/6860
-        first_arg = args.first
-        first_arg_s = first_arg&.to_s
-
         begin
-          @macos = if first_arg == :any
-            MacOSRequirement.new
-          elsif args.count > 1
-            MacOSRequirement.new([args], comparator: "==")
-          elsif first_arg.is_a?(Symbol) && MacOSVersion::SYMBOLS.key?(first_arg)
-            MacOSRequirement.new([args.first], comparator: "==")
-          elsif (md = /^\s*(?<comparator><|>|[=<>]=)\s*:(?<version>\S+)\s*$/.match(first_arg_s))
-            # The named capture groups must exist, so we use T.must to assert that they do.
-            MacOSRequirement.new([T.must(md[:version]).to_sym], comparator: T.must(md[:comparator]))
-          elsif (md = /^\s*(?<comparator><|>|[=<>]=)\s*(?<version>\S+)\s*$/.match(first_arg_s))
-            # The named capture groups must exist, so we use T.must to assert that they do.
-            MacOSRequirement.new([md[:version]], comparator: T.must(md[:comparator]))
-          # This is not duplicate of the first case: see `args.first` and a different comparator.
-          else # rubocop:disable Lint/DuplicateBranch
-            MacOSRequirement.new([args.first], comparator: "==")
-          end
+          @macos = MacOSRequirement.parse(args, comparator: ">=")
         rescue MacOSVersion::Error, TypeError => e
           raise "invalid 'depends_on macos' value: #{e}"
         end

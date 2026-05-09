@@ -449,6 +449,14 @@ RSpec.describe Cask::DSL, :cask, :no_api do
       end
     end
 
+    context "when a symbol is used" do
+      let(:token) { "with-depends-on-macos-symbol" }
+
+      it "creates a minimum MacOSRequirement" do
+        expect(cask.depends_on.macos).to eq(MacOSRequirement.new([MacOS.version.to_sym], comparator: ">="))
+      end
+    end
+
     context "when the depends_on macos value is invalid" do
       let(:token) { "invalid-depends-on-macos-bad-release" }
 

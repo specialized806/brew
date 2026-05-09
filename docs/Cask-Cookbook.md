@@ -369,29 +369,30 @@ depends_on formula: "unar"
 
 #### `depends_on` *macos*
 
-##### Requiring an exact macOS release
+##### Setting a minimum macOS release
 
-The value for `depends_on macos:` may be a symbol or an array of symbols, listing the exact compatible macOS releases. The values for supported macOS releases can be found in the [`MacOSVersion` class](/rubydoc/MacOSVersion.html) documentation.
+The value for `depends_on macos:` may be a symbol listing the minimum compatible macOS release. The values for supported macOS releases can be found in the [`MacOSVersion` class](/rubydoc/MacOSVersion.html) documentation.
 
-Only major releases are covered (10.x numbers containing a single dot or whole numbers since macOS 11). The symbol form is used for readability. The following are all valid ways to enumerate the exact macOS release requirements for a cask:
+Only major releases are covered (10.x numbers containing a single dot or whole numbers since macOS 11). The symbol form is used for readability:
 
 ```ruby
 depends_on macos: :big_sur
-depends_on macos: [
-  :catalina,
-  :big_sur,
-]
 ```
 
-##### Setting a minimum macOS release
-
-`depends_on macos:` can also accept a string starting with a comparison operator such as `>=`, followed by a macOS release in the form above. The following is a valid expression meaning “at least macOS Big Sur (11.0)”:
+`depends_on macos:` still accepts a string starting with a comparison operator such as `>=`, followed by a macOS release in the form above. The following is a valid expression meaning “at least macOS Big Sur (11.0)”:
 
 ```ruby
 depends_on macos: ">= :big_sur"
 ```
 
-A comparison expression cannot be combined with any other form of `depends_on macos:`.
+Use `==` in the string form only when a cask must run on one exact macOS release. An array of symbols is also accepted when a cask must run on one of an exact set of macOS releases:
+
+```ruby
+depends_on macos: [
+  :catalina,
+  :big_sur,
+]
+```
 
 #### `depends_on` *arch*
 
