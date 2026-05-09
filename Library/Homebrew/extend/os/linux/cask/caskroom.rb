@@ -6,14 +6,13 @@ module OS
     module Cask
       module Caskroom
         module ClassMethods
-          sig { params(path: ::Pathname, _sudo: T::Boolean).void }
-          def chgrp_path(path, _sudo)
-            SystemCommand.run("chgrp", args: [expected_caskroom_group, path], sudo: true)
-          end
-
+          # Unlike macOS (which uses the shared `admin` group for multi-admin support),
+          # Homebrew on Linux is conventionally a single-user install, so it is OK to use
+          # the current user's primary group as the group of the `Caskroom` directory.
+          # This also avoids a `sudo` prompt to `chgrp` the directory after creation.
           sig { returns(String) }
           def expected_caskroom_group
-            "root"
+            Etc.getgrgid(Process.egid)&.name || "root"
           end
         end
       end
