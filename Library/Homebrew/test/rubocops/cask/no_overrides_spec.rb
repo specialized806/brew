@@ -25,6 +25,16 @@ RSpec.describe RuboCop::Cop::Cask::NoOverrides, :config do
     CASK
   end
 
+  it "accepts `depends_on macos:` in `on_macos` blocks" do
+    expect_no_offenses <<~CASK
+      cask 'foo' do
+        on_macos do
+          depends_on macos: :catalina
+        end
+      end
+    CASK
+  end
+
   it "accepts non-overridable stanzas in `on_*` blocks" do
     expect_no_offenses <<~CASK
       cask 'foo' do

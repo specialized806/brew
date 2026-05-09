@@ -118,6 +118,11 @@ RSpec.describe SoftwareSpec do
       expect(spec.deps.first.name).to eq("foo")
     end
 
+    it "allows specifying requirements with keyword syntax" do
+      spec.depends_on macos: :sonoma
+      expect(spec.requirements.first).to eq(MacOSRequirement.new([:sonoma]))
+    end
+
     it "allows specifying optional dependencies" do
       spec.depends_on "foo" => :optional
       expect(spec).to have_defined_option("with-foo")

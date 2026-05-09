@@ -10,7 +10,7 @@ module OS
 
       sig { returns(T::Boolean) }
       def valid_platform?
-        requirements.none?(LinuxRequirement)
+        supports_macos?
       end
 
       sig {

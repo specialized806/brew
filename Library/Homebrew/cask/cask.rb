@@ -209,10 +209,15 @@ module Cask
 
     sig { returns(T::Boolean) }
     def supports_linux?
-      return true if font?
+      return false if depends_on.requires_macos?
 
-      # Bare `depends_on :macos` explicitly marks a cask as macOS-only
-      return false if (macos_requirement = depends_on.macos) && !macos_requirement.version_specified?
+      if depends_on.macos_set_in_block?
+        return false if contains_os_specific_artifacts?
+
+        return true
+      end
+
+      return true if font?
 
       # Cache the os value before contains_os_specific_artifacts? refreshes the cask
       # (the refresh clears @dsl.os in generic/non-OS-specific contexts)
@@ -228,6 +233,11 @@ module Cask
         Artifact::MACOS_ONLY_ARTIFACTS.include?(a.class) ||
           (a.is_a?(Artifact::Installer) && a.manual_install)
       end
+    end
+
+    sig { returns(T::Boolean) }
+    def supports_macos?
+      true
     end
 
     sig { returns(T::Boolean) }

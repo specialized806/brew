@@ -19,6 +19,9 @@ module Cask
     extend ::Utils::Output::Mixin
     include ::Utils::Output::Mixin
 
+    sig { returns(::Cask::Cask) }
+    attr_reader :cask
+
     sig {
       params(
         cask: ::Cask::Cask, command: T.class_of(SystemCommand), force: T::Boolean, adopt: T::Boolean,

@@ -2619,7 +2619,19 @@ class Formula
   # Redefined in `extend/os`.
   sig { returns(T::Boolean) }
   def valid_platform?
-    requirements.none?(MacOSRequirement) && requirements.none?(LinuxRequirement)
+    supports_macos? && supports_linux?
+  end
+
+  sig { returns(T::Boolean) }
+  def supports_macos?
+    requirements.none?(LinuxRequirement)
+  end
+
+  sig { returns(T::Boolean) }
+  def supports_linux?
+    return false if active_spec.depends_on_macos_set_top_level?
+
+    requirements.none? { |r| r.is_a?(MacOSRequirement) && !r.version_specified? }
   end
 
   sig { params(options: T::Hash[Symbol, String]).void }
@@ -4334,7 +4346,8 @@ class Formula
     # @api public
     sig { params(dep: T.any(String, Symbol, T::Hash[T.any(String, Symbol, T::Class[Requirement]), T.untyped], T::Class[Requirement])).void }
     def depends_on(dep)
-      specs.each { |spec| spec.depends_on(dep) }
+      set_in_block = instance_variable_get(:@called_in_on_system_block) == true
+      specs.each { |spec| spec.depends_on(dep, set_in_block:) }
     end
 
     # Indicates use of dependencies provided by macOS.
