@@ -951,14 +951,10 @@ class ChecksumMismatchError < RuntimeError
 
     <<~EOS
 
-
-      Note: the downloaded file looks like HTML, not the expected binary.
-      The server may have returned a bot-protection challenge (e.g. Anubis,
-      Cloudflare), a rate-limit page or an error page instead of the artifact.
-      Delete the cached file and re-run the same command to retry:
+      The start of the downloaded file is HTML/XML, not a binary.
+      The server may have returned a bot-protection, rate-limit or
+      error page instead. Delete the file and retry:
         #{rm_command}
-      If it keeps happening, try later or from a different network — the
-      upstream URL or mirror may be broken.
     EOS
   end
 end

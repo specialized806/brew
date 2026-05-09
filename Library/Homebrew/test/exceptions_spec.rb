@@ -240,7 +240,7 @@ RSpec.describe "Exception" do
         file.write("PK\x03\x04binary-content")
         file.flush
         message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
-        expect(message).not_to match(/looks like HTML/)
+        expect(message).not_to match(%r{HTML/XML})
       end
     end
 
@@ -250,7 +250,7 @@ RSpec.describe "Exception" do
         file.write('<!doctype html><html lang="en"><head><title>Oh noes!</title>')
         file.flush
         message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
-        expect(message).to match(/looks like HTML/)
+        expect(message).to match(%r{HTML/XML, not a binary})
       end
     end
   end
