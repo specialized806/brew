@@ -951,6 +951,7 @@ class ChecksumMismatchError < RuntimeError
 
     <<~EOS
 
+
       Note: the downloaded file looks like HTML, not the expected binary.
       The server may have returned a bot-protection challenge (e.g. Anubis,
       Cloudflare), a rate-limit page or an error page instead of the artifact.
