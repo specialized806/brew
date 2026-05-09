@@ -6,6 +6,7 @@ require "concurrent/promises"
 require "concurrent/executors"
 require "concurrent/atomic/atomic_boolean"
 require "retryable_download"
+require "concurrent/set"
 require "resource"
 require "utils/output"
 
@@ -31,6 +32,7 @@ module Homebrew
       @symlink_targets = T.let({}, T::Hash[Pathname, T::Set[Downloadable]])
       @downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
       @cancelled = T.let(Concurrent::AtomicBoolean.new(false), Concurrent::AtomicBoolean)
+      @download_threads = T.let(Concurrent::Set.new, Concurrent::Set)
       @fetch_failed = T.let(false, T::Boolean)
     end
 
@@ -54,14 +56,21 @@ module Homebrew
       ) do |download, cancelled, force, quiet, check_attestation|
         raise CancelledDownloadError if cancelled.true?
 
-        download.clear_cache if force
-        download.fetch(quiet:)
-        raise CancelledDownloadError if cancelled.true?
+        @download_threads.add(Thread.current)
+        begin
+          download.clear_cache if force
+          download.fetch(quiet:)
+          raise CancelledDownloadError if cancelled.true?
 
-        if check_attestation && downloadable.is_a?(Bottle)
-          Utils::Attestation.check_attestation(downloadable, quiet: true)
+          if check_attestation && downloadable.is_a?(Bottle)
+            Utils::Attestation.check_attestation(downloadable, quiet: true)
+          end
+          create_symlinks_for_shared_download(cached_location)
+        rescue Interrupt
+          raise CancelledDownloadError
+        ensure
+          @download_threads.delete(Thread.current)
         end
-        create_symlinks_for_shared_download(cached_location)
       end
 
       downloads[downloadable] = @downloads_by_location.fetch(cached_location)
@@ -243,10 +252,11 @@ module Homebrew
 
     sig { void }
     def cancel
-      # Signal cooperative cancellation to all running downloads.
-      # Downloads check the cancelled flag at key points and will raise
-      # CancelledDownloadError when cancelled.
+      # Signal cooperative cancellation and interrupt any active download threads.
+      # Raising Interrupt on the thread triggers the existing rescue Interrupt in
+      # system_command.rb which sends SIGINT to the curl subprocess directly.
       @cancelled.make_true
+      @download_threads.each { |thread| thread.raise(Interrupt) }
     end
 
     sig { returns(Concurrent::FixedThreadPool) }
