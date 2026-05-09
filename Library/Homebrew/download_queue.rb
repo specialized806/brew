@@ -60,17 +60,13 @@ module Homebrew
         begin
           download.clear_cache if force
           download.fetch(quiet:)
-          if cancelled.true?
-            download.clear_cache
-            raise CancelledDownloadError
-          end
+          raise CancelledDownloadError if cancelled.true?
 
           if check_attestation && downloadable.is_a?(Bottle)
             Utils::Attestation.check_attestation(downloadable, quiet: true)
           end
           create_symlinks_for_shared_download(cached_location)
         rescue Interrupt
-          download.clear_cache
           raise CancelledDownloadError
         ensure
           @download_threads.delete(Thread.current)
