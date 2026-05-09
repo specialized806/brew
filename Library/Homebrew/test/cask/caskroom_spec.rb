@@ -4,6 +4,8 @@
 require "cask/caskroom"
 
 RSpec.describe Cask::Caskroom do
+  before { described_class.instance_variable_set(:@expected_caskroom_group, nil) }
+
   describe ".ensure_caskroom_exists" do
     it "changes the group when sudo is unnecessary and the group is wrong" do
       Dir.mktmpdir do |dir|
@@ -82,9 +84,10 @@ RSpec.describe Cask::Caskroom do
     end
 
     it "checks the current user's primary group on Linux", :needs_linux do
-      group_name = Etc.getgrgid(Process.egid).name
+      group_name = "primary-group"
       path = Pathname("/tmp/Caskroom")
       allow(path).to receive(:stat).and_return(instance_double(File::Stat, gid: 1))
+      allow(Etc).to receive(:getgrgid).with(Process.egid).and_return(instance_double(Etc::Group, name: group_name))
       allow(Etc).to receive(:getgrnam).with(group_name).and_return(instance_double(Etc::Group, gid: 1))
 
       expect(described_class.caskroom_group_correct?(path)).to be true
