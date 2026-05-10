@@ -370,7 +370,7 @@ module Homebrew
 
       sig { params(quiet: T::Boolean).void }
       def print_info(quiet: false)
-        qualified_inputs = args.named.select { |name| name.is_a?(String) && name.include?("/") }.to_set
+        qualified_inputs = args.named.select { |name| name.include?("/") }.to_set
 
         args.named.to_formulae_and_casks_and_unavailable.each_with_index do |obj, i|
           puts unless i.zero?
@@ -398,8 +398,7 @@ module Homebrew
 
         names = T.let([formula_or_cask.full_name.downcase], T::Array[String])
         if (tap = formula_or_cask.tap)
-          token = formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
-          names << "#{tap.name.downcase}/#{token.downcase}"
+          names << "#{tap.name.downcase}/#{Utils.name_or_token(formula_or_cask).downcase}"
         end
         names.any? { |n| qualified_inputs.include?(n) }
       end
@@ -457,7 +456,7 @@ module Homebrew
       def print_json(json, eval_all)
         raise FormulaOrCaskUnspecifiedError if !(eval_all || args.installed?) && args.no_named?
 
-        qualified_inputs = args.named.select { |name| name.is_a?(String) && name.include?("/") }.to_set
+        qualified_inputs = args.named.select { |name| name.include?("/") }.to_set
 
         json = case json_version(json)
         when :v1, :default

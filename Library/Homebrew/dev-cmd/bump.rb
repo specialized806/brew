@@ -160,13 +160,12 @@ module Homebrew
 
           if (start_with = args.start_with)
             formulae_and_casks.select! do |formula_or_cask|
-              name = formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
-              name.start_with?(start_with)
+              Utils.name_or_token(formula_or_cask).start_with?(start_with)
             end
           end
 
           formulae_and_casks = formulae_and_casks.sort_by do |formula_or_cask|
-            formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+            Utils.name_or_token(formula_or_cask)
           end
 
           formulae_and_casks -= excluded_autobump

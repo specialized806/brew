@@ -47,6 +47,11 @@ module Utils
     name || full_name
   end
 
+  sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(String) }
+  def self.name_or_token(formula_or_cask)
+    formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+  end
+
   sig { params(full_name: String).returns(T.nilable(String)) }
   def self.tap_from_full_name(full_name)
     user, repository, name = full_name.split("/", 3)
