@@ -270,8 +270,6 @@ RSpec.describe Keg do
       expect(lib.children.length).to eq(2)
     end
 
-    # This is a legacy violation that would benefit from a clear expectation.
-    # rubocop:disable RSpec/NoExpectationExample
     it "removes broken symlinks that conflict with directories" do
       a = HOMEBREW_CELLAR/"a"/"1.0"
       (a/"lib"/"foo").mkpath
@@ -283,8 +281,9 @@ RSpec.describe Keg do
       link.make_symlink(nonexistent)
 
       keg.link
+
+      expect(link).to be_a_directory
     end
-    # rubocop:enable RSpec/NoExpectationExample
   end
 
   describe "#optlink" do

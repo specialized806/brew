@@ -59,10 +59,9 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 4, source:)
             FormulaAudit/Patches: MacPorts patches should specify a revision instead of trunk: #{patch_url}
           EOS
-        # GitHub patch diff regexps can't be any shorter.
-        # rubocop:disable Layout/LineLength
-        elsif patch_url.match?(%r{https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)})
-          # rubocop:enable Layout/LineLength
+        elsif patch_url.match?(%r{
+          https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)
+        }x)
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 4, source:)
             FormulaAudit/Patches: Use a commit hash URL rather than patch-diff: #{patch_url}
           EOS
@@ -211,10 +210,9 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 8, source:)
             FormulaAudit/Patches: Use a commit hash URL rather than an unstable merge request URL: #{patch_url}
           EOS
-        # GitHub patch diff regexps can't be any shorter.
-        # rubocop:disable Layout/LineLength
-        elsif patch_url.match?(%r{https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)})
-          # rubocop:enable Layout/LineLength
+        elsif patch_url.match?(%r{
+          https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)
+        }x)
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 8, source:)
             FormulaAudit/Patches: Use a commit hash URL rather than patch-diff: #{patch_url}
           EOS
