@@ -52,15 +52,8 @@ module Homebrew
           # Portable Ruby bottles are handled differently.
           next if testing_portable_ruby?
 
-          # TODO: move to extend/os
-          # rubocop:todo Homebrew/MoveToExtendOS
-          bottle_specifier = if OS.linux?
-            "{linux,ubuntu}"
-          else
-            "{macos-#{MacOS.version},#{MacOS.version}-#{Hardware::CPU.arch}}"
-          end
-          # rubocop:enable Homebrew/MoveToExtendOS
-          download_artifacts_from_previous_run!("bottles{,_#{bottle_specifier}*}", dry_run: args.dry_run?)
+          download_artifacts_from_previous_run!("bottles{,_#{previous_run_artifact_specifier}*}",
+                                                dry_run: args.dry_run?)
         end
         @bottle_checksums.merge!(
           bottle_glob("*", artifact_cache, ".{json,tar.gz}", bottle_tag: "*").to_h do |bottle_file|
@@ -291,13 +284,7 @@ module Homebrew
           "#{T.must(tap).default_remote}/releases/download/#{formula.name}-#{formula.pkg_version}"
         end
 
-        # This is needed where sparse files may be handled (bsdtar >=3.0).
-        # We use gnu-tar with sparse files disabled when --only-json-tab is passed.
-        #
-        # TODO: move to extend/os
-        # rubocop:todo Homebrew/MoveToExtendOS
-        ENV["HOMEBREW_BOTTLE_SUDO_PURGE"] = "1" if OS.mac? && MacOS.version >= :catalina && !args.only_json_tab?
-        # rubocop:enable Homebrew/MoveToExtendOS
+        setup_bottle_sudo_purge!(args:)
 
         bottle_args = ["--verbose", "--json", formula.full_name]
         bottle_args << "--keep-old" if args.keep_old? && !new_formula
@@ -367,6 +354,9 @@ module Homebrew
 
         !args.build_from_source?
       end
+
+      sig { params(args: Homebrew::Cmd::TestBotCmd::Args).void }
+      def setup_bottle_sudo_purge!(args:); end
 
       sig { params(formula: Formula).void }
       def livecheck(formula)

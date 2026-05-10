@@ -6,6 +6,16 @@ require "utils/github/actions"
 
 module Homebrew
   module TestBot
+    sig { returns(String) }
+    def self.runner_os_title
+      raise NotImplementedError, "Homebrew::TestBot.runner_os_title must be implemented in extend/os."
+    end
+
+    sig { returns(String) }
+    def self.runner_os_title_with_arch
+      runner_os_title
+    end
+
     # Wraps command invocations. Instantiated by Test#test.
     # Handles logging and pretty-printing.
     class Step
@@ -253,18 +263,6 @@ module Homebrew
           return
         end
 
-        # TODO: move to extend/os
-        # rubocop:todo Homebrew/MoveToExtendOS
-        os_string = if OS.mac?
-          str = "macOS #{MacOS.version.pretty_name} (#{MacOS.version})"
-          str << " on Apple Silicon" if Hardware::CPU.arm?
-
-          str
-        else
-          "#{OS.kernel_name} #{Hardware::CPU.arch}"
-        end
-        # rubocop:enable Homebrew/MoveToExtendOS
-
         @named_args.each do |name|
           next if name.blank?
 
@@ -274,7 +272,7 @@ module Homebrew
           # GitHub Actions has a 4KB maximum for annotations.
           annotation_output = truncate_output(@output, max_kb: 4, context_lines: 5)
 
-          annotation_title = "`#{command_trimmed}` failed on #{os_string}!"
+          annotation_title = "`#{command_trimmed}` failed on #{Homebrew::TestBot.runner_os_title_with_arch}!"
           file = path.delete_prefix("#{@repository}/")
           puts_in_github_actions_group("Truncated #{command_short} output") do
             puts_github_actions_annotation(annotation_output, annotation_title, file, line)

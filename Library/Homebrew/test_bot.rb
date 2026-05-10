@@ -142,3 +142,5 @@ module Homebrew
     end
   end
 end
+
+require "extend/os/test_bot"
