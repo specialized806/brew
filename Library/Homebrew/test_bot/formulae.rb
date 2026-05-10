@@ -358,6 +358,108 @@ module Homebrew
       sig { params(args: Homebrew::Cmd::TestBotCmd::Args).void }
       def setup_bottle_sudo_purge!(args:); end
 
+      sig { params(dependency: Dependency, dependency_name: String).returns(T::Boolean) }
+      def dependency_name_match?(dependency, dependency_name)
+        return true if dependency.name == dependency_name
+        return false if Utils.tap_from_full_name(dependency.name).present?
+        return false if Utils.tap_from_full_name(dependency_name).present?
+
+        Utils.name_from_full_name(dependency.name) == Utils.name_from_full_name(dependency_name)
+      end
+
+      sig { params(formula: Formula, dependencies: T::Array[Dependency]).returns(T::Array[String]) }
+      def recursive_runtime_dependency_names(formula, dependencies)
+        Dependency.expand(formula, dependencies).map { |dependency| dependency.to_formula.full_name }.uniq
+      end
+
+      sig { params(formula: Formula).void }
+      def annotate_added_dependencies(formula)
+        return unless GitHub::Actions.env_set?
+        return if @added_formulae.include?(formula.name)
+        return if (git = self.git).nil?
+
+        direct_runtime_dependencies = formula.deps.reject do |dependency|
+          dependency.build? || dependency.optional? || dependency.test?
+        end
+
+        new_line = T.let(nil, T.nilable(Integer))
+        Utils.safe_popen_read(
+          git, "-C", repository, "diff", "--no-ext-diff", "--unified=0", "origin/HEAD", "HEAD", "--",
+          formula.path.relative_path_from(repository).to_s
+        ).each_line do |diff_line|
+          if (match = diff_line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/))
+            new_line = match[1]&.to_i
+            next
+          end
+
+          line = new_line
+          next if line.nil?
+
+          if diff_line.start_with?("+") && !diff_line.start_with?("+++")
+            dependency_name = diff_line[/^\+\s*depends_on\s+["']([^"']+)["']/, 1]
+            new_line = line + 1
+          elsif !diff_line.start_with?("-") || diff_line.start_with?("---")
+            new_line = line + 1
+            next
+          else
+            next
+          end
+          next if dependency_name.blank?
+
+          dependency = direct_runtime_dependencies.find do |runtime_dependency|
+            dependency_name_match?(runtime_dependency, dependency_name)
+          end
+          next if dependency.nil?
+
+          dependency_formula = dependency.to_formula
+          existing_runtime_dependency_names = recursive_runtime_dependency_names(
+            formula,
+            direct_runtime_dependencies.reject do |runtime_dependency|
+              dependency_name_match?(runtime_dependency, dependency.name)
+            end,
+          )
+          new_recursive_dependency_names =
+            (
+              [dependency_formula.full_name] +
+              recursive_runtime_dependency_names(
+                dependency_formula,
+                dependency_formula.runtime_dependencies(read_from_tab: false, undeclared: false),
+              )
+            ).uniq - existing_runtime_dependency_names
+          next if new_recursive_dependency_names.blank?
+
+          sizes = new_recursive_dependency_names.map do |formula_name|
+            installed_sizes = @dependency_impact_installed_sizes ||=
+              T.let({}, T.nilable(T::Hash[String, T.nilable(Integer)]))
+            next installed_sizes[formula_name] if installed_sizes.key?(formula_name)
+
+            installed_sizes[formula_name] =
+              if (bottle = Formulary.factory(formula_name).bottle_for_tag(Utils::Bottles.tag))
+                bottle.fetch_tab(quiet: true)
+                bottle.installed_size
+              end
+          rescue DownloadError, FormulaUnavailableError, Resource::BottleManifest::Error
+            nil
+          end
+          dependency_count = new_recursive_dependency_names.count
+          message = "Adding `#{dependency_name}` adds #{dependency_count} new recursive " \
+                    "#{Utils.pluralize("dependency", dependency_count)} " \
+                    "on #{Utils::Bottles.tag} (#{Formatter.disk_usage_readable(sizes.compact.sum)}"
+          unknown_size_count = sizes.count(&:nil?)
+          message << ", plus #{Utils.pluralize("unknown size", unknown_size_count, include_count: true)}" \
+            if unknown_size_count.positive?
+          puts GitHub::Actions::Annotation.new(
+            :warning,
+            "#{message}).",
+            file:  formula.path.to_s.delete_prefix("#{repository}/"),
+            line:,
+            title: "#{formula}: new dependency impact",
+          )
+        end
+      rescue => e
+        opoo "Failed to determine dependency impact for #{formula.full_name}: #{e}"
+      end
+
       sig { params(formula: Formula).void }
       def livecheck(formula)
         return unless formula.livecheck_defined?
@@ -433,6 +535,9 @@ module Homebrew
             return
           end
 
+          new_formula = @added_formulae.include?(formula_name)
+          annotate_added_dependencies(formula) unless new_formula
+
           test "brew", "deps", "--tree", "--prune", "--annotate", "--include-build", "--include-test",
                named_args: formula_name
 
@@ -451,7 +556,6 @@ module Homebrew
             return
           end
 
-          new_formula = @added_formulae.include?(formula_name)
           ignore_failures = !args.test_default_formula? && !bottled_on_current_version && !new_formula
 
           deps = []
