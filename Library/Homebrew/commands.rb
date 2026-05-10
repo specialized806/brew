@@ -28,6 +28,7 @@ module Commands
     "-v"           => "--version",
     "lc"           => "livecheck",
     "tc"           => "typecheck",
+    "x"            => "exec",
   }.freeze, T::Hash[String, String])
   # This pattern is used to split descriptions at full stops. We only consider a
   # dot as a full stop if it is either followed by a whitespace or at the end of

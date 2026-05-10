@@ -1157,6 +1157,23 @@ _brew_environment() {
   __brew_complete_formulae
 }
 
+_brew_exec() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --skip-update
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_extract() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3383,6 +3400,23 @@ _brew_which_update() {
   esac
 }
 
+_brew_x() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --skip-update
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew() {
   local i=1 cmd
 
@@ -3458,6 +3492,7 @@ _brew() {
     dr) _brew_dr ;;
     edit) _brew_edit ;;
     environment) _brew_environment ;;
+    exec) _brew_exec ;;
     extract) _brew_extract ;;
     fetch) _brew_fetch ;;
     formula) _brew_formula ;;
@@ -3556,6 +3591,7 @@ _brew() {
     version-install) _brew_version_install ;;
     which-formula) _brew_which_formula ;;
     which-update) _brew_which_update ;;
+    x) _brew_x ;;
     *) ;;
   esac
 }

@@ -404,6 +404,11 @@ List all audit methods, which can be run individually if provided as arguments\.
 .TP
 \fB\-D\fP, \fB\-\-audit\-debug\fP
 Enable debugging and profiling of audit methods\.
+.SS "\fBexec\fP, \fBx\fP \fR[\fB\-\-skip\-update\fP] \fR[\fB+\fP\fIformula\fP \.\.\.] \fIcommand\fP \fR[\fIargs\fP \.\.\.]"
+Run a Homebrew executable, installing its formula if needed\.
+.TP
+\fB\-\-skip\-update\fP
+Skip updating the executables database if any version exists on disk, no matter how old\.
 .SS "\fBfetch\fP \fR[\fIoptions\fP] \fIformula\fP|\fIcask\fP \fR[\.\.\.]"
 Download a bottle (if available) or source packages for \fIformula\fPe and binaries for \fIcask\fPs\. For files, also print SHA\-256 checksums\.
 .TP

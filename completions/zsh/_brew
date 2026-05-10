@@ -33,6 +33,7 @@ __brew_list_aliases() {
     '-v' '--version'
     lc livecheck
     tc typecheck
+    x exec
   )
   echo "${aliases}"
 }
@@ -170,6 +171,7 @@ __brew_internal_commands() {
     'docs:Open Homebrew'\''s online documentation at https://docs.brew.sh in a browser'
     'doctor:Check your system for potential problems'
     'edit:Open a formula, cask or tap in the editor set by `$EDITOR` or `$HOMEBREW_EDITOR`, or open the Homebrew repository for editing if no argument is provided'
+    'exec:Run a Homebrew executable, installing its formula if needed'
     'extract:Look through repository history to find the most recent version of formula and create a copy in tap'
     'fetch:Download a bottle (if available) or source packages for formulae and binaries for casks'
     'formula:Display the path where formula is located'
@@ -1027,6 +1029,16 @@ _brew_environment() {
     '--verbose[Make some output more verbose]' \
     - formula \
     '*:formula:__brew_formulae'
+}
+
+# brew exec
+_brew_exec() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--skip-update[Skip updating the executables database if any version exists on disk, no matter how old]' \
+    '--verbose[Make some output more verbose]'
 }
 
 # brew extract
@@ -2648,6 +2660,16 @@ _brew_which_update() {
     '(--commit --install-missing --update-existing --max-downloads)--stats[Print statistics about the database contents (number of commands and formulae, list of missing formulae)]' \
     '--summary-file[Output a summary of the changes to a file]' \
     '(--stats)--update-existing[Update database entries with outdated formula versions]' \
+    '--verbose[Make some output more verbose]'
+}
+
+# brew x
+_brew_x() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--skip-update[Skip updating the executables database if any version exists on disk, no matter how old]' \
     '--verbose[Make some output more verbose]'
 }
 

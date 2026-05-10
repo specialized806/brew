@@ -812,6 +812,14 @@ __fish_brew_complete_arg 'environment' -l verbose -d 'Make some output more verb
 __fish_brew_complete_arg 'environment' -a '(__fish_brew_suggest_formulae_all)'
 
 
+__fish_brew_complete_cmd 'exec' 'Run a Homebrew executable, installing its formula if needed'
+__fish_brew_complete_arg 'exec' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'exec' -l help -d 'Show this message'
+__fish_brew_complete_arg 'exec' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'exec' -l skip-update -d 'Skip updating the executables database if any version exists on disk, no matter how old'
+__fish_brew_complete_arg 'exec' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'extract' 'Look through repository history to find the most recent version of formula and create a copy in tap'
 __fish_brew_complete_arg 'extract' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'extract' -l force -d 'Overwrite the destination formula if it already exists'
@@ -2155,6 +2163,14 @@ __fish_brew_complete_arg 'which-update' -l stats -d 'Print statistics about the 
 __fish_brew_complete_arg 'which-update' -l summary-file -d 'Output a summary of the changes to a file'
 __fish_brew_complete_arg 'which-update' -l update-existing -d 'Update database entries with outdated formula versions'
 __fish_brew_complete_arg 'which-update' -l verbose -d 'Make some output more verbose'
+
+
+__fish_brew_complete_cmd 'x' 'Run a Homebrew executable, installing its formula if needed'
+__fish_brew_complete_arg 'x' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'x' -l help -d 'Show this message'
+__fish_brew_complete_arg 'x' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'x' -l skip-update -d 'Skip updating the executables database if any version exists on disk, no matter how old'
+__fish_brew_complete_arg 'x' -l verbose -d 'Make some output more verbose'
 
 
 
