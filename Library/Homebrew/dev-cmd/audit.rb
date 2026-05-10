@@ -108,9 +108,10 @@ module Homebrew
         skip_style = args.skip_style? || args.no_named? || tap_audit
         no_named_args = T.let(false, T::Boolean)
 
-        gem_groups = ["audit"]
+        gem_groups = ["audit", "ast"]
         gem_groups << "style" unless skip_style
         Homebrew.install_bundler_gems!(groups: gem_groups)
+        require "utils/ast"
 
         ENV.activate_extensions!
         ENV.setup_build_environment
@@ -353,7 +354,7 @@ module Homebrew
       }
       def cask_for_audit(path, cask_audit_os, cask_audit_arch)
         if cask_audit_os == :linux
-          return if Pathname(path).read.match?(/^\s*depends_on(?:\s*\(\s*|\s+)(?::macos\b|macos:)/)
+          return if Utils::AST::CaskAST.new(Pathname(path).read).depends_on_macos?
 
           cask = SimulateSystem.with(os: :macos, arch: cask_audit_arch) do
             loaded_cask = Cask::CaskLoader.load(path)
