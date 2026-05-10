@@ -9,11 +9,8 @@ RSpec.describe Tty do
   end
 
   describe "::width" do
-    it "returns an Integer" do
+    specify do
       expect(described_class.width).to be_a(Integer)
-    end
-
-    it "cannot be negative" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.width).to be >= 0
     end
   end

@@ -62,25 +62,25 @@ RSpec.describe MacOSVersion do
     expect(frozen_version.instance_variable_get(:@comparison_cache)).to eq({})
   end
 
-  specify "comparison with Integer" do
+  specify do
     expect(version).to be > 10
     expect(version).to be < 11
-  end
-
-  specify "comparison with String" do # rubocop:todo RSpec/AggregateExamples
     expect(version).to be > "10.3"
     expect(version).to eq "10.15"
     # We're explicitly testing the `===` operator results here.
     expect(version).to be === "10.15" # rubocop:disable Style/CaseEquality
     expect(version).to be < "11"
-  end
-
-  specify "comparison with Version" do # rubocop:todo RSpec/AggregateExamples
     expect(version).to be > Version.new("10.3")
     expect(version).to eq Version.new("10.15")
     # We're explicitly testing the `===` operator results here.
     expect(version).to be === Version.new("10.15") # rubocop:disable Style/CaseEquality
     expect(version).to be < Version.new("11")
+    expect(described_class.new("11").inspect).to eq("#<MacOSVersion: \"11\">")
+    expect(described_class.new(described_class::SYMBOLS.values.first).outdated_release?).to be false
+    expect(described_class.new("10.0").outdated_release?).to be true
+    expect(described_class.new("1000").prerelease?).to be true
+    expect(described_class.new("10.0").unsupported_release?).to be true
+    expect(described_class.new("1000").unsupported_release?).to be true
   end
 
   describe "after Big Sur" do
@@ -102,12 +102,9 @@ RSpec.describe MacOSVersion do
   describe "#strip_patch" do
     let(:catalina_update) { described_class.new("10.15.1") }
 
-    it "returns the version without the patch" do
+    specify do
       expect(big_sur_update.strip_patch).to eq(described_class.new("11"))
       expect(catalina_update.strip_patch).to eq(described_class.new("10.15"))
-    end
-
-    it "returns self if version is null" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class::NULL.strip_patch).to be described_class::NULL
     end
   end
@@ -140,24 +137,6 @@ RSpec.describe MacOSVersion do
     # the `@pretty_name` instance variable because the object is frozen.
     expect(frozen_version.pretty_name).to eq(version_pretty_name)
     expect(frozen_version.instance_variable_get(:@pretty_name)).to be_nil
-  end
-
-  specify "#inspect" do # rubocop:todo RSpec/AggregateExamples
-    expect(described_class.new("11").inspect).to eq("#<MacOSVersion: \"11\">")
-  end
-
-  specify "#outdated_release?" do # rubocop:todo RSpec/AggregateExamples
-    expect(described_class.new(described_class::SYMBOLS.values.first).outdated_release?).to be false
-    expect(described_class.new("10.0").outdated_release?).to be true
-  end
-
-  specify "#prerelease?" do # rubocop:todo RSpec/AggregateExamples
-    expect(described_class.new("1000").prerelease?).to be true
-  end
-
-  specify "#unsupported_release?" do # rubocop:todo RSpec/AggregateExamples
-    expect(described_class.new("10.0").unsupported_release?).to be true
-    expect(described_class.new("1000").prerelease?).to be true
   end
 
   describe "#requires_nehalem_cpu?", :needs_macos do

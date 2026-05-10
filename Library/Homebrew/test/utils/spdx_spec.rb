@@ -43,28 +43,15 @@ RSpec.describe SPDX do
   end
 
   describe ".parse_license_expression" do
-    it "returns a single license" do
+    specify do
       expect(described_class.parse_license_expression("MIT").first).to eq ["MIT"]
-    end
-
-    it "returns a single license with plus" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.parse_license_expression("Apache-2.0+").first).to eq ["Apache-2.0+"]
-    end
-
-    it "returns multiple licenses with :any" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.parse_license_expression(any_of: ["MIT", "0BSD"]).first).to eq ["MIT", "0BSD"]
-    end
-
-    it "returns multiple licenses with :all" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.parse_license_expression(all_of: ["MIT", "0BSD"]).first).to eq ["MIT", "0BSD"]
-    end
-
-    it "returns multiple licenses with plus" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.parse_license_expression(any_of: ["MIT", "EPL-1.0+"]).first).to eq ["MIT", "EPL-1.0+"]
-    end
-
-    it "returns multiple licenses with array" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.parse_license_expression(["MIT", "EPL-1.0+"]).first).to eq ["MIT", "EPL-1.0+"]
+      expect(described_class.parse_license_expression(:public_domain).first).to eq [:public_domain]
+      expect(described_class.parse_license_expression(:cannot_represent).first).to eq [:cannot_represent]
     end
 
     it "returns license and exception" do
@@ -82,14 +69,6 @@ RSpec.describe SPDX do
       ] }
       result = [["MIT", :public_domain, "curl", "0BSD", "Zlib"], ["LLVM-exception"]]
       expect(described_class.parse_license_expression(license_expression)).to eq result
-    end
-
-    it "returns :public_domain" do # rubocop:todo RSpec/AggregateExamples
-      expect(described_class.parse_license_expression(:public_domain).first).to eq [:public_domain]
-    end
-
-    it "returns :cannot_represent" do # rubocop:todo RSpec/AggregateExamples
-      expect(described_class.parse_license_expression(:cannot_represent).first).to eq [:cannot_represent]
     end
   end
 

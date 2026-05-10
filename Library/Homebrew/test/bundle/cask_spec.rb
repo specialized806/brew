@@ -15,11 +15,8 @@ RSpec.describe Homebrew::Bundle::Cask do
         allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.cask_names).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -31,11 +28,8 @@ RSpec.describe Homebrew::Bundle::Cask do
         allow(Cask::Caskroom).to receive(:casks).and_return([])
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.cask_names).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
 

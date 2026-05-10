@@ -26,11 +26,8 @@ RSpec.describe TestRunnerFormula do
   end
 
   describe "#eval_all" do
-    it "is false by default" do
+    specify do
       expect(described_class.new(testball).eval_all).to be(false)
-    end
-
-    it "can be instantiated to be `true`" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.new(testball, eval_all: true).eval_all).to be(true)
     end
 
