@@ -500,6 +500,32 @@ RSpec.describe Cask::DSL, :cask, :no_api do
     end
   end
 
+  describe "depends_on maximum_macos" do
+    context "when a symbol is used" do
+      let(:token) { "with-depends-on-maximum-macos" }
+
+      it "creates a maximum MacOSRequirement" do
+        expect(cask.depends_on.maximum_macos).to eq(MacOSRequirement.new([:tahoe], comparator: "<="))
+      end
+    end
+
+    context "when the comparator is not an upper bound" do
+      let(:token) { "invalid-depends-on-maximum-macos-comparator" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
+
+    context "when multiple values are used" do
+      let(:token) { "invalid-depends-on-maximum-macos-array" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
+  end
+
   describe "depends_on arch" do
     context "when valid" do
       let(:token) { "with-depends-on-arch" }

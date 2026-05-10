@@ -15,6 +15,7 @@ RSpec.describe Homebrew::API::Cask::CaskStructGenerator do
     let(:depends_on_macos_equals) { { macos: { :== => ["15"] } } }
     let(:depends_on_macos_greater) { { macos: MacOSRequirement.new([:sequoia], comparator: ">=") } }
     let(:depends_on_macos_bare) { { macos: MacOSRequirement.new([]) } }
+    let(:depends_on_maximum_macos) { { maximum_macos: MacOSRequirement.new([:sequoia], comparator: "<=") } }
 
     specify :aggregate_failures do
       expect(described_class.process_depends_on(depends_on_non_macos)).to eq({ arch: :intel, formula: ["foo"] })
@@ -23,6 +24,7 @@ RSpec.describe Homebrew::API::Cask::CaskStructGenerator do
       expect(described_class.process_depends_on(depends_on_macos_greater)).to eq({ macos: :sequoia })
       expect(described_class.process_depends_on(depends_on_macos_bare)).to eq({ macos: :any })
       expect(described_class.process_depends_on({ macos: {} })).to eq({ macos: :any })
+      expect(described_class.process_depends_on(depends_on_maximum_macos)).to eq({ maximum_macos: :sequoia })
     end
   end
 

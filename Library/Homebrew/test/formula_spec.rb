@@ -2148,14 +2148,23 @@ RSpec.describe Formula do
       end.to raise_error(ArgumentError, "`depends_on :macos` cannot be combined with another macOS `depends_on`")
     end
 
+    it "returns false for Linux when maximum macOS is required at the top level" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on maximum_macos: :tahoe
+      end
+
+      expect(f.supports_linux?).to be false
+    end
+
     it "does not allow Linux then macOS requirements" do
       expect do
         formula do
           url "foo"
           version "1.0"
-          depends_on_method = :depends_on
-          public_send(depends_on_method, :linux)
-          public_send(depends_on_method, macos: :catalina)
+          depends_on :linux
+          depends_on macos: :catalina
         end
       end.to raise_error(ArgumentError, "`depends_on :linux` cannot be combined with `depends_on macos:`")
     end
