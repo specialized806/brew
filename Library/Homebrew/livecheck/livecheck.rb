@@ -1156,23 +1156,15 @@ module Homebrew
       timestamp_for_revision(tap.path, version_update_revision)
     end
 
-    sig { returns(String) }
-    private_class_method def self.tap_default_branch
-      Utils.popen_read(
-        Utils::Git.git,
-        "symbolic-ref",
-        "refs/remotes/origin/HEAD",
-        "--short",
-      ).chomp.delete_prefix("origin/").presence || "main"
-    end
-
     sig { params(formula: Formula, current_version: Version).returns(T.nilable(String)) }
     private_class_method def self.find_version_update_revision(formula, current_version)
       version_update_revision = T.let(nil, T.nilable(String))
       found_current_version = T.let(false, T::Boolean)
 
       formula_versions = FormulaVersions.new(formula)
-      formula_versions.rev_list("origin/#{tap_default_branch}") do |revision, path|
+      current_version = origin_stable_version(formula, formula_versions) || current_version
+
+      formula_versions.rev_list("HEAD") do |revision, path|
         formula_versions.formula_at_revision(revision, path) do |historical_formula|
           historical_stable = historical_formula.stable
           next if historical_stable.blank?
@@ -1191,6 +1183,27 @@ module Homebrew
       version_update_revision
     end
 
+    sig { params(formula: Formula, formula_versions: FormulaVersions).returns(T.nilable(Version)) }
+    private_class_method def self.origin_stable_version(formula, formula_versions)
+      tap = formula.tap
+      return if tap.nil?
+
+      revision = Utils.popen_read(
+        Utils::Git.git, "rev-parse", "origin/HEAD",
+        chdir: tap.path
+      ).chomp.presence
+      return if revision.nil?
+
+      relative_path = formula.path.relative_path_from(tap.path).to_s
+      version = T.let(nil, T.nilable(Version))
+      formula_versions.formula_at_revision(revision, relative_path) do |historical_formula|
+        version = historical_formula.stable&.version
+      end
+      version
+    rescue MacOSVersion::Error, LegacyDSLError
+      nil
+    end
+
     sig {
       params(package_or_resource: T.any(Formula, Cask::Cask), tap: Tap).returns(T.nilable(Integer))
     }
@@ -1203,11 +1216,18 @@ module Homebrew
       end
       return if sourcefile.nil?
 
+      default_branch = Utils.popen_read(
+        Utils::Git.git,
+        "symbolic-ref",
+        "refs/remotes/origin/HEAD",
+        "--short",
+      ).chomp.delete_prefix("origin/").presence || "main"
+
       relative_sourcefile = sourcefile.relative_path_from(tap.path).to_s
       timestamp = Utils.popen_read(
         Utils::Git.git,
         "log",
-        tap_default_branch,
+        default_branch,
         "-1",
         "--format=%ct",
         "--",
