@@ -956,6 +956,8 @@ class ChecksumMismatchError < RuntimeError
       error page instead. Delete the file and retry:
         #{rm_command}
     EOS
+  rescue SystemCallError
+    ""
   end
 end
 
