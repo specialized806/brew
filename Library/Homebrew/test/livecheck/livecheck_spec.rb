@@ -580,6 +580,13 @@ RSpec.describe Homebrew::Livecheck do
     let(:tap_path) { Pathname("/tmp/homebrew-core") }
     let(:tap) { instance_double(Tap, git?: true, path: tap_path) }
 
+    # HEAD walk (newest -> oldest):
+    #   yield | rev    | version | action
+    #   ------+--------+---------+-----------------------------------------
+    #     1   | ddd444 |  0.0.2  | skip (in-flight PR commit, != current)
+    #     2   | ccc333 |  0.0.1  | == current, version_update_revision = ccc333
+    #     3   | bbb222 |  0.0.1  | == current, version_update_revision = bbb222
+    #     4   | aaa111 |  0.0.0  | != current, return bbb222
     it "uses FormulaVersions to find the latest version update commit for formulae" do
       formula_versions = instance_double(FormulaVersions)
       bump_version = instance_double(SoftwareSpec, version: Version.new("0.0.2"))
@@ -589,27 +596,27 @@ RSpec.describe Homebrew::Livecheck do
       historical_formula_same = instance_double(Formula, stable: stable_same_version)
       historical_formula_previous = instance_double(Formula, stable: stable_previous_version)
 
-      allow(f).to receive(:tap).and_return(tap)
+      allow(f).to receive_messages(tap: tap, path: tap_path/"Formula/t/test.rb")
       allow(Utils::Git).to receive(:available?).and_return(true)
-      allow(Utils).to receive(:popen_read)
-        .with(Utils::Git.git, "symbolic-ref", "refs/remotes/origin/HEAD", "--short")
-        .and_return("origin/main\n")
       allow(FormulaVersions).to receive(:new).with(f).and_return(formula_versions)
+      allow(Utils).to receive(:popen_read)
+        .with(Utils::Git.git, "rev-parse", "origin/HEAD", chdir: tap_path)
+        .and_return("ccc333\n")
       allow(formula_versions).to receive(:rev_list).with("HEAD")
+                                                   .and_yield("ddd444", "Formula/t/test.rb")
                                                    .and_yield("ccc333", "Formula/t/test.rb")
-                                                   .and_yield("aaa111", "Formula/t/test.rb")
                                                    .and_yield("bbb222", "Formula/t/test.rb")
-      allow(formula_versions).to receive(:rev_list).with("origin/main")
                                                    .and_yield("aaa111", "Formula/t/test.rb")
-                                                   .and_yield("bbb222", "Formula/t/test.rb")
-      allow(formula_versions).to receive(:formula_at_revision).with("ccc333", "Formula/t/test.rb")
+      allow(formula_versions).to receive(:formula_at_revision).with("ddd444", "Formula/t/test.rb")
                                                               .and_yield(bump_formula)
-      allow(formula_versions).to receive(:formula_at_revision).with("aaa111", "Formula/t/test.rb")
+      allow(formula_versions).to receive(:formula_at_revision).with("ccc333", "Formula/t/test.rb")
                                                               .and_yield(historical_formula_same)
       allow(formula_versions).to receive(:formula_at_revision).with("bbb222", "Formula/t/test.rb")
+                                                              .and_yield(historical_formula_same)
+      allow(formula_versions).to receive(:formula_at_revision).with("aaa111", "Formula/t/test.rb")
                                                               .and_yield(historical_formula_previous)
       allow(Utils).to receive(:popen_read)
-        .with(Utils::Git.git, "show", "-s", "--format=%ct", "aaa111", chdir: tap_path)
+        .with(Utils::Git.git, "show", "-s", "--format=%ct", "bbb222", chdir: tap_path)
         .and_return("1711731600\n")
 
       expect(livecheck.send(:formula_or_cask_last_updated_timestamp, f)).to eq(1711731600)
