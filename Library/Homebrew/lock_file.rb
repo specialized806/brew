@@ -87,27 +87,6 @@ class LockFile
     unlock
   end
 end
-
-# A lock file for a formula.
-class FormulaLock < LockFile # rubocop:todo Style/OneClassPerFile
-  sig { params(rack_name: String).void }
-  def initialize(rack_name)
-    super(:formula, HOMEBREW_CELLAR/rack_name)
-  end
-end
-
-# A lock file for a cask.
-class CaskLock < LockFile # rubocop:todo Style/OneClassPerFile
-  sig { params(cask_token: String).void }
-  def initialize(cask_token)
-    super(:cask, HOMEBREW_PREFIX/"Caskroom/#{cask_token}")
-  end
-end
-
-# A lock file for a download.
-class DownloadLock < LockFile # rubocop:todo Style/OneClassPerFile
-  sig { params(download_path: Pathname).void }
-  def initialize(download_path)
-    super(:download, download_path)
-  end
-end
+require "lock_file/formula_lock"
+require "lock_file/cask_lock"
+require "lock_file/download_lock"

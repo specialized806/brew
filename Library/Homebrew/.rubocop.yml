@@ -49,7 +49,23 @@ Style/Documentation:
     - cask/dsl/version.rb
     - cask/url.rb
     - development_tools.rb
-    - download_strategy.rb
+    - download_strategy/abstract_download_strategy.rb
+    - download_strategy/abstract_file_download_strategy.rb
+    - download_strategy/bazaar_download_strategy.rb
+    - download_strategy/curl_apache_mirror_download_strategy.rb
+    - download_strategy/curl_download_strategy.rb
+    - download_strategy/curl_github_packages_download_strategy.rb
+    - download_strategy/curl_post_download_strategy.rb
+    - download_strategy/cvs_download_strategy.rb
+    - download_strategy/fossil_download_strategy.rb
+    - download_strategy/git_download_strategy.rb
+    - download_strategy/github_git_download_strategy.rb
+    - download_strategy/homebrew_curl_download_strategy.rb
+    - download_strategy/mercurial_download_strategy.rb
+    - download_strategy/no_unzip_curl_download_strategy.rb
+    - download_strategy/pypi_download_strategy.rb
+    - download_strategy/subversion_download_strategy.rb
+    - download_strategy/vcs_download_strategy.rb
     - extend/ENV/super.rb
     - extend/kernel.rb
     - extend/pathname.rb
