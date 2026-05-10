@@ -1037,6 +1037,47 @@ RSpec.describe Formula do
     expect(f2).not_to have_post_install_defined
   end
 
+  describe "#install_etc_var" do
+    let(:f) do
+      formula "config-upgrade" do
+        url "foo-2.0"
+        version "2.0"
+      end
+    end
+    let(:config_file) { HOMEBREW_PREFIX/"etc/config-upgrade.conf" }
+    let(:default_config_file) { Pathname("#{config_file}.default") }
+    let(:old_default_file) { f.rack/"1.0/.bottle/etc/config-upgrade.conf" }
+    let(:new_default_file) { f.bottle_prefix/"etc/config-upgrade.conf" }
+
+    before do
+      FileUtils.rm_rf f.rack
+      FileUtils.rm_f config_file
+      FileUtils.rm_f default_config_file
+
+      old_default_file.dirname.mkpath
+      old_default_file.write "old\n"
+      new_default_file.dirname.mkpath
+      new_default_file.write "new\n"
+      config_file.dirname.mkpath
+    end
+
+    it "replaces config that matches the previous default" do
+      config_file.write "old\n"
+
+      f.install_etc_var
+
+      expect([config_file.read, default_config_file.exist?]).to eq(["new\n", false])
+    end
+
+    it "writes a default file when the config was modified" do
+      config_file.write "custom\n"
+
+      f.install_etc_var
+
+      expect([config_file.read, default_config_file.read]).to eq(["custom\n", "new\n"])
+    end
+  end
+
   specify "test fixtures" do
     f1 = formula do
       url "foo-1.0"

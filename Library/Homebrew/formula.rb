@@ -1585,6 +1585,8 @@ class Formula
     etc_var_dirs = [bottle_prefix/"etc", bottle_prefix/"var"]
     Find.find(*etc_var_dirs.select(&:directory?)) do |path|
       path = Pathname.new(path)
+      # Bottle installs and test-bot cleanup both restore `.bottle` files
+      # through `InstallRenamed`, matching formula-level `etc.install` handling.
       path.extend(InstallRenamed)
       path.cp_path_sub(bottle_prefix, HOMEBREW_PREFIX)
       path

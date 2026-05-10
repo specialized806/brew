@@ -216,7 +216,8 @@ module Homebrew
 
       sig { params(formula: Formula).void }
       def cleanup_bottle_etc_var(formula)
-        # Restore etc/var files from bottle so dependents can use them.
+        # Restore bottled `etc`/`var` through `Formula#install_etc_var`, keeping
+        # test-bot cleanup aligned with `InstallRenamed` config handling.
         formula.install_etc_var
       end
 
