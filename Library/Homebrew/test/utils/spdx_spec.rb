@@ -64,8 +64,10 @@ RSpec.describe SPDX do
         "MIT",
         :public_domain,
         # The final array item is legitimately a hash in the case of license expressions.
-        all_of: ["0BSD", "Zlib"], # rubocop:disable Style/HashAsLastArrayItem
-        "curl" => { with: "LLVM-exception" },
+        {
+          all_of: ["0BSD", "Zlib"],
+          "curl" => { with: "LLVM-exception" },
+        },
       ] }
       result = [["MIT", :public_domain, "curl", "0BSD", "Zlib"], ["LLVM-exception"]]
       expect(described_class.parse_license_expression(license_expression)).to eq result
@@ -177,8 +179,10 @@ RSpec.describe SPDX do
         "MIT",
         :public_domain,
         # The final array item is legitimately a hash in the case of license expressions.
-        all_of: ["0BSD", "Zlib"], # rubocop:disable Style/HashAsLastArrayItem
-        "curl" => { with: "LLVM-exception" },
+        {
+          all_of: ["0BSD", "Zlib"],
+          "curl" => { with: "LLVM-exception" },
+        },
       ] }
       result = "MIT OR LicenseRef-Homebrew-public-domain OR (0BSD AND Zlib) OR (curl WITH LLVM-exception)"
       expect(described_class.license_expression_to_string(license_expression)).to eq result
@@ -218,19 +222,17 @@ RSpec.describe SPDX do
     end
 
     # The final array item is legitimately a hash in the case of license expressions.
-    # rubocop:disable Style/HashAsLastArrayItem
     it "handles nested brackets" do
       expect(described_class.string_to_license_expression("A AND (B OR (C AND D))")).to eq({
         all_of: [
           "A",
-          any_of: [
+          { any_of: [
             "B",
-            all_of: ["C", "D"],
-          ],
+            { all_of: ["C", "D"] },
+          ] },
         ],
       })
     end
-    # rubocop:enable Style/HashAsLastArrayItem
 
     it "returns :public_domain" do
       expect(described_class.string_to_license_expression("LicenseRef-Homebrew-public-domain")).to eq :public_domain

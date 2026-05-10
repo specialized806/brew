@@ -21,10 +21,6 @@
 #
 # That's why we hardcode the following cases and check duplicable? instead of
 # using that rescue idiom.
-# rubocop:disable Layout/EmptyLines
-
-
-# rubocop:enable Layout/EmptyLines
 class Object
   # Can you safely dup this object?
   #
