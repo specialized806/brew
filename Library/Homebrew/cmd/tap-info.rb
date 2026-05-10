@@ -82,13 +82,84 @@ module Homebrew
               info += "\nHEAD: #{tap.git_head || "(none)"}"
               info += "\nlast commit: #{tap.git_last_commit || "never"}"
               info += "\nbranch: #{tap.git_branch || "(none)"}" if default_branches.exclude?(tap.git_branch)
+              puts info
+              print_tap_listings(tap)
             else
               info += "Not installed"
               Homebrew.failed = true
+              puts info
             end
-            puts info
           end
         end
+      end
+
+      LISTING_LIMIT = 30
+      private_constant :LISTING_LIMIT
+
+      sig { params(tap: Tap).void }
+      def print_tap_listings(tap)
+        commands = tap.command_files
+                      .map { |path| path.basename(path.extname).to_s.delete_prefix("brew-") }
+                      .sort
+        installed_formula_names = Formula.installed_formula_names.to_set
+        installed_cask_tokens = Cask::Caskroom.tokens.to_set
+        formula_names = tap.formula_names.map { |name| Utils.name_from_full_name(name) }.sort
+        cask_tokens = tap.cask_tokens.map { |token| Utils.name_from_full_name(token) }.sort
+        installed_formulae = formula_names.select { |name| installed_formula_names.include?(name) }
+        installed_casks = cask_tokens.select { |token| installed_cask_tokens.include?(token) }
+
+        if commands.any?
+          ohai "Commands"
+          puts commands.join(", ")
+        end
+
+        print_section(tap, "Formulae", formula_names, installed_formulae) do |name|
+          decorate_formula(tap, name, installed: installed_formula_names.include?(name))
+        end
+        print_section(tap, "Casks", cask_tokens, installed_casks) do |token|
+          decorate_cask(tap, token, installed: installed_cask_tokens.include?(token))
+        end
+      end
+
+      sig {
+        params(
+          tap:       Tap,
+          label:     String,
+          all:       T::Array[String],
+          installed: T::Array[String],
+          block:     T.proc.params(name: String).returns(String),
+        ).void
+      }
+      def print_section(tap, label, all, installed, &block)
+        return if all.none?
+
+        if all.size <= LISTING_LIMIT
+          ohai label, Formatter.columns(all.map(&block))
+        elsif installed.any?
+          ohai label
+          opoo "Tap has more than #{LISTING_LIMIT} #{label.downcase}; showing only installed entries."
+          puts Formatter.columns(installed.map(&block))
+        else
+          ohai label
+          opoo "Tap has more than #{LISTING_LIMIT} #{label.downcase} and none are installed."
+          puts "See: #{tap.remote}" if tap.remote.present?
+        end
+      end
+
+      sig { params(tap: Tap, name: String, installed: T::Boolean).returns(String) }
+      def decorate_formula(tap, name, installed:)
+        outdated = installed && Formulary.factory("#{tap.name}/#{name}").outdated?
+        pretty_install_status(name, installed:, outdated:)
+      rescue
+        pretty_installed(name)
+      end
+
+      sig { params(tap: Tap, token: String, installed: T::Boolean).returns(String) }
+      def decorate_cask(tap, token, installed:)
+        outdated = installed && Cask::CaskLoader.load("#{tap.name}/#{token}").outdated?
+        pretty_install_status(token, installed:, outdated:)
+      rescue
+        pretty_installed(token)
       end
 
       sig { params(taps: T::Array[Tap]).void }

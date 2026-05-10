@@ -295,6 +295,13 @@ module Utils
         end
       end
 
+      sig { params(string: String, installed: T::Boolean, outdated: T::Boolean).returns(String) }
+      def pretty_install_status(string, installed:, outdated: false)
+        return pretty_uninstalled(string) unless installed
+
+        outdated ? pretty_upgradable(string) : pretty_installed(string)
+      end
+
       sig { params(seconds: T.nilable(T.any(Integer, Float))).returns(String) }
       def pretty_duration(seconds)
         seconds = seconds.to_i
