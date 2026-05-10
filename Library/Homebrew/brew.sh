@@ -301,7 +301,7 @@ rust-frontend-enabled() {
   fi
 
   case "${HOMEBREW_COMMAND}" in
-    autoremove | cleanup | fetch | search | info | list | outdated | postinstall | install | reinstall | update-report | upgrade | uninstall) ;;
+    autoremove | cleanup | fetch | search | info | list | outdated | postinstall | install | reinstall | update-report | upgrade | uninstall | rs-*) ;;
     *) return 1 ;;
   esac
 
