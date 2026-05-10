@@ -64,11 +64,8 @@ RSpec.describe Cask::Audit, :cask do
     context "when `new_cask` is specified" do
       let(:new_cask) { true }
 
-      it "implies `online`" do
+      specify do
         expect(audit).to be_online
-      end
-
-      it "implies `strict`" do # rubocop:todo RSpec/AggregateExamples
         expect(audit).to be_strict
       end
     end
@@ -1190,14 +1187,18 @@ RSpec.describe Cask::Audit, :cask do
         allow(UnpackStrategy).to receive(:detect).and_return(nil)
       end
 
-      it "when download and verification succeed it does not fail" do
-        expect(download_double).to receive(:fetch).and_return(Pathname.new("/tmp/test.zip"))
-        expect(run).to pass
+      context "when the download succeeds" do
+        it "passes" do
+          expect(download_double).to receive(:fetch).and_return(Pathname.new("/tmp/test.zip"))
+          expect(run).to pass
+        end
       end
 
-      it "when download fails it fails" do # rubocop:todo RSpec/AggregateExamples
-        expect(download_double).to receive(:fetch).and_raise(StandardError.new(message))
-        expect(run).to error_with(/#{message}/)
+      context "when the download fails" do
+        it "fails" do
+          expect(download_double).to receive(:fetch).and_raise(StandardError.new(message))
+          expect(run).to error_with(/#{message}/)
+        end
       end
     end
 

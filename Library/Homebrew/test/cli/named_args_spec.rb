@@ -211,11 +211,8 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       expect(described_class.new("foo", "bar").to_kegs.map(&:name)).to eq ["foo", "foo", "bar"]
     end
 
-    it "resolves kegs with multiple versions with #resolve_keg" do
+    specify do
       expect(described_class.new("foo").to_kegs.map { |k| k.version.version.to_s }.sort).to eq ["1.0", "2.0"]
-    end
-
-    it "when there are no matching kegs returns an empty array" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.new.to_kegs).to be_empty
     end
 
@@ -310,12 +307,9 @@ RSpec.describe Homebrew::CLI::NamedArgs do
   end
 
   describe "#homebrew_tap_cask_names" do
-    it "returns an array of casks from homebrew-cask" do
+    specify do
       expect(described_class.new("foo", "homebrew/cask/local-caffeine").homebrew_tap_cask_names)
         .to eq ["homebrew/cask/local-caffeine"]
-    end
-
-    it "returns an empty array when there are no matching casks" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.new("foo").homebrew_tap_cask_names).to be_empty
     end
   end

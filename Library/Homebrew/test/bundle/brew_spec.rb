@@ -744,23 +744,11 @@ RSpec.describe Homebrew::Bundle::Brew do
           allow(Homebrew::Bundle::Brew::Services).to receive(:started?).with(formula_name).and_return(true)
         end
 
-        it "is false by default" do
+        specify do
           expect(described_class.new(formula_name).start_service_needed?).to be(false)
-        end
-
-        it "is false with {start_service: true}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, start_service: true).start_service_needed?).to be(false)
-        end
-
-        it "is false with {restart_service: true}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: true).start_service_needed?).to be(false)
-        end
-
-        it "is false with {restart_service: :changed}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :changed).start_service_needed?).to be(false)
-        end
-
-        it "is false with {restart_service: :always}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :always).start_service_needed?).to be(false)
         end
       end
@@ -770,23 +758,11 @@ RSpec.describe Homebrew::Bundle::Brew do
           allow(Homebrew::Bundle::Brew::Services).to receive(:started?).with(formula_name).and_return(false)
         end
 
-        it "is false by default" do
+        specify do
           expect(described_class.new(formula_name).start_service_needed?).to be(false)
-        end
-
-        it "is true if {start_service: true}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, start_service: true).start_service_needed?).to be(true)
-        end
-
-        it "is true if {restart_service: true}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: true).start_service_needed?).to be(true)
-        end
-
-        it "is true if {restart_service: :changed}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :changed).start_service_needed?).to be(true)
-        end
-
-        it "is true if {restart_service: :always}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :always).start_service_needed?).to be(true)
         end
       end
@@ -826,15 +802,9 @@ RSpec.describe Homebrew::Bundle::Brew do
           allow_any_instance_of(described_class).to receive(:changed?).and_return(false)
         end
 
-        it "is false with {restart_service: true}" do
+        specify do
           expect(described_class.new(formula_name, restart_service: true).restart_service_needed?).to be(false)
-        end
-
-        it "is true with {restart_service: :always}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :always).restart_service_needed?).to be(true)
-        end
-
-        it "is false if {restart_service: :changed}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :changed).restart_service_needed?).to be(false)
         end
       end
@@ -844,15 +814,9 @@ RSpec.describe Homebrew::Bundle::Brew do
           allow_any_instance_of(described_class).to receive(:changed?).and_return(true)
         end
 
-        it "is true with {restart_service: true}" do
+        specify do
           expect(described_class.new(formula_name, restart_service: true).restart_service_needed?).to be(true)
-        end
-
-        it "is true with {restart_service: :always}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :always).restart_service_needed?).to be(true)
-        end
-
-        it "is true if {restart_service: :changed}" do # rubocop:todo RSpec/AggregateExamples
           expect(described_class.new(formula_name, restart_service: :changed).restart_service_needed?).to be(true)
         end
       end

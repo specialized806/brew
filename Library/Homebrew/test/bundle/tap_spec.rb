@@ -15,11 +15,8 @@ RSpec.describe Homebrew::Bundle::Tap do
         allow(Tap).to receive(:select).and_return []
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.tap_names).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end

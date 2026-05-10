@@ -775,11 +775,8 @@ RSpec.describe Tap do
   end
 
   describe "#repository_var_suffix" do
-    it "converts the repo directory to an environment variable suffix" do
+    specify do
       expect(CoreTap.instance.repository_var_suffix).to eq "_HOMEBREW_HOMEBREW_CORE"
-    end
-
-    it "converts non-alphanumeric characters to underscores" do # rubocop:todo RSpec/AggregateExamples
       expect(described_class.fetch("my",
                                    "tap-with-dashes").repository_var_suffix).to eq "_MY_HOMEBREW_TAP_WITH_DASHES"
       expect(described_class.fetch("my",

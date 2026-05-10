@@ -15,11 +15,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
         allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.apps).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -30,11 +27,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
         allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"), "`": "")
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.apps).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -147,11 +141,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
                                                    "`":                        invalid_mas_output)
       end
 
-      it "returns only valid apps" do
+      specify do
         expect(dumper.apps).to eql(expected_app_details_array)
-      end
-
-      it "dumps excluding invalid apps" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eq(expected_mas_dumped_output.strip)
       end
     end

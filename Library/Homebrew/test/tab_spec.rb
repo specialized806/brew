@@ -121,16 +121,22 @@ RSpec.describe Tab do
     expect(tab.source["path"]).to be_nil
   end
 
-  specify "#include?" do
+  specify do
     expect(tab).to include("with-foo")
     expect(tab).to include("without-bar")
-  end
-
-  specify "#with?" do # rubocop:todo RSpec/AggregateExamples
     expect(tab).to be_built_with("foo")
     expect(tab).to be_built_with("qux")
     expect(tab).not_to be_built_with("bar")
     expect(tab).not_to be_built_with("baz")
+    expect(tab.cxxstdlib.compiler).to eq(:clang)
+    expect(tab.cxxstdlib.type).to eq(:libcxx)
+    expect(tab.tap.name).to eq("homebrew/core")
+    expect(tab.time).to eq(time)
+    expect(tab).not_to be_built_as_bottle
+    expect(tab).to be_poured_from_bottle
+    expect(tab).to be_installed_on_request
+    expect(tab).not_to be_loaded_from_api
+    expect(tab).not_to be_loaded_from_internal_api
   end
 
   specify "#parsed_homebrew_version" do
@@ -263,21 +269,6 @@ RSpec.describe Tab do
       ]
       expect(described_class.runtime_deps_hash(formula, formula_recursive_deps)).to eq(expected_output)
     end
-  end
-
-  specify "#cxxstdlib" do # rubocop:todo RSpec/AggregateExamples
-    expect(tab.cxxstdlib.compiler).to eq(:clang)
-    expect(tab.cxxstdlib.type).to eq(:libcxx)
-  end
-
-  specify "other attributes" do # rubocop:todo RSpec/AggregateExamples
-    expect(tab.tap.name).to eq("homebrew/core")
-    expect(tab.time).to eq(time)
-    expect(tab).not_to be_built_as_bottle
-    expect(tab).to be_poured_from_bottle
-    expect(tab).to be_installed_on_request
-    expect(tab).not_to be_loaded_from_api
-    expect(tab).not_to be_loaded_from_internal_api
   end
 
   describe "::from_file" do

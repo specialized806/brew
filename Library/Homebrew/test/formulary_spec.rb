@@ -5,7 +5,6 @@ require "formula"
 require "formula_installer"
 require "utils/bottles"
 
-# rubocop:todo RSpec/AggregateExamples
 RSpec.describe Formulary do
   let(:formula_name) { "testball_bottle" }
   let(:formula_path) { CoreTap.instance.new_formula_path(formula_name) }
@@ -168,11 +167,8 @@ RSpec.describe Formulary do
       context "when given a bottle" do
         subject(:formula) { described_class.factory(bottle) }
 
-        it "returns a Formula" do
+        specify do
           expect(formula).to be_a(Formula)
-        end
-
-        it "calling #local_bottle_path on the returned Formula returns the bottle path" do
           expect(formula.local_bottle_path).to eq(bottle.realpath)
         end
       end
@@ -188,11 +184,8 @@ RSpec.describe Formulary do
           FileUtils.ln_s formula_path, alias_path
         end
 
-        it "returns a Formula" do
+        specify do
           expect(formula).to be_a(Formula)
-        end
-
-        it "calling #alias_path on the returned Formula returns the alias path" do
           expect(formula.alias_path).to eq(alias_path)
         end
       end
@@ -915,4 +908,3 @@ RSpec.describe Formulary do
     end
   end
 end
-# rubocop:enable RSpec/AggregateExamples

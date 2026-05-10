@@ -16,11 +16,8 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
         allow(described_class).to receive_messages(package_manager_executable: nil, "`": "")
       end
 
-      it "returns an empty list" do
+      specify do
         expect(dumper.extensions).to be_empty
-      end
-
-      it "dumps an empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end

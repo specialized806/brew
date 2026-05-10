@@ -31,51 +31,18 @@ RSpec.describe PyPI do
     let(:other_package) { described_class.new("virtualenv==20.2.0") }
 
     describe "initialize" do
-      it "initializes name" do
+      specify do
         expect(described_class.new("foo").name).to eq "foo"
-      end
-
-      it "initializes name with extra" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar]").name).to eq "foo"
-      end
-
-      it "initializes extra" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar]").extras).to eq ["bar"]
-      end
-
-      it "initializes multiple extras" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar,baz]").extras).to eq ["bar", "baz"]
-      end
-
-      it "initializes name with version" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo==1.2.3").name).to eq "foo"
-      end
-
-      it "initializes version" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo==1.2.3").version).to eq "1.2.3"
-      end
-
-      it "initializes extra with version" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar]==1.2.3").extras).to eq ["bar"]
-      end
-
-      it "initializes multiple extras with version" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar,baz]==1.2.3").extras).to eq ["bar", "baz"]
-      end
-
-      it "initializes version with extra" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar]==1.2.3").version).to eq "1.2.3"
-      end
-
-      it "initializes version with multiple extras" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new("foo[bar,baz]==1.2.3").version).to eq "1.2.3"
-      end
-
-      it "initializes name from PyPI url" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new(pypi_package_url, is_url: true).name).to eq "snakemake"
-      end
-
-      it "initializes version from PyPI url" do # rubocop:todo RSpec/AggregateExamples
         expect(described_class.new(pypi_package_url, is_url: true).version).to eq "5.29.0"
       end
     end
@@ -105,36 +72,25 @@ RSpec.describe PyPI do
     end
 
     describe ".valid_pypi_package?" do
-      it "is true for package names" do
+      specify do
         expect(package.valid_pypi_package?).to be true
-      end
-
-      it "is true for PyPI URLs" do # rubocop:todo RSpec/AggregateExamples
         expect(package_from_pypi_url.valid_pypi_package?).to be true
-      end
-
-      it "is false for non-PyPI URLs" do # rubocop:todo RSpec/AggregateExamples
         expect(package_from_non_pypi_url.valid_pypi_package?).to be false
       end
     end
 
     describe ".pypi_info", :needs_network do
-      it "gets pypi info from a package name" do
+      specify do
         expect(package.pypi_info.first).to eq "snakemake"
+        expect(package_with_extra.pypi_info.first).to eq "snakemake"
+        expect(package_with_version.pypi_info).to eq ["snakemake", old_pypi_package_url, old_package_checksum,
+                                                      "5.28.0"]
+        expect(package_from_pypi_url.pypi_info).to eq ["snakemake", pypi_package_url, package_checksum, "5.29.0"]
       end
 
       it "gets pypi info from a package name and specified version" do
         expect(package.pypi_info(new_version: "5.29.0")).to eq ["snakemake", pypi_package_url, package_checksum,
                                                                 "5.29.0"]
-      end
-
-      it "gets pypi info from a package name with extra" do # rubocop:todo RSpec/AggregateExamples
-        expect(package_with_extra.pypi_info.first).to eq "snakemake"
-      end
-
-      it "gets pypi info from a package name and version" do # rubocop:todo RSpec/AggregateExamples
-        expect(package_with_version.pypi_info).to eq ["snakemake", old_pypi_package_url, old_package_checksum,
-                                                      "5.28.0"]
       end
 
       it "gets pypi info from a package name with overridden version" do
@@ -147,10 +103,6 @@ RSpec.describe PyPI do
         expect(package_with_extra_and_version.pypi_info).to eq expected_result
       end
 
-      it "gets pypi info from a url" do # rubocop:todo RSpec/AggregateExamples
-        expect(package_from_pypi_url.pypi_info).to eq ["snakemake", pypi_package_url, package_checksum, "5.29.0"]
-      end
-
       it "gets pypi info from a url with overridden version" do
         expected_result = ["snakemake", old_pypi_package_url, old_package_checksum, "5.28.0"]
         expect(package_from_pypi_url.pypi_info(new_version: "5.28.0")).to eq expected_result
@@ -158,23 +110,11 @@ RSpec.describe PyPI do
     end
 
     describe ".to_s" do
-      it "returns string representation of package name" do
+      specify do
         expect(package.to_s).to eq "snakemake"
-      end
-
-      it "returns string representation of package with version" do # rubocop:todo RSpec/AggregateExamples
         expect(package_with_version.to_s).to eq "snakemake==5.28.0"
-      end
-
-      it "returns string representation of package with extra" do # rubocop:todo RSpec/AggregateExamples
         expect(package_with_extra.to_s).to eq "snakemake[foo]"
-      end
-
-      it "returns string representation of package with extra and version" do # rubocop:todo RSpec/AggregateExamples
         expect(package_with_extra_and_version.to_s).to eq "snakemake[foo]==5.28.0"
-      end
-
-      it "returns string representation of package from url" do # rubocop:todo RSpec/AggregateExamples
         expect(package_from_pypi_url.to_s).to eq "snakemake==5.29.0"
       end
     end
