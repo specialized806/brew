@@ -18,17 +18,17 @@ RSpec.describe Homebrew::MissingFormula do
     end
 
     specify(:aggregate_failures) do
-      expect(subject).to disallow("gem") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("pip") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("pil") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("macruby") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("lzma") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("gsutil") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("gfortran") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("play") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("haskell-platform") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("mysqldump-secure") # rubocop:todo RSpec/NamedSubject
-      expect(subject).to disallow("ngrok") # rubocop:todo RSpec/NamedSubject
+      expect(described_class).to disallow("gem")
+      expect(described_class).to disallow("pip")
+      expect(described_class).to disallow("pil")
+      expect(described_class).to disallow("macruby")
+      expect(described_class).to disallow("lzma")
+      expect(described_class).to disallow("gsutil")
+      expect(described_class).to disallow("gfortran")
+      expect(described_class).to disallow("play")
+      expect(described_class).to disallow("haskell-platform")
+      expect(described_class).to disallow("mysqldump-secure")
+      expect(described_class).to disallow("ngrok")
     end
 
     it("disallows Xcode", :needs_macos) { is_expected.to disallow("xcode") }
@@ -115,15 +115,15 @@ RSpec.describe Homebrew::MissingFormula do
   end
 
   describe "::cask_reason", :cask do
-    subject { described_class.cask_reason(formula, show_info:) }
+    subject(:reason) { described_class.cask_reason(formula, show_info:) }
 
     context "with a formula name that is a cask and show_info: false" do
       let(:formula) { "local-caffeine" }
       let(:show_info) { false }
 
       specify(:aggregate_failures) do
-        expect(subject).to match(/Found a cask named "local-caffeine" instead./) # rubocop:todo RSpec/NamedSubject
-        expect(subject).to match(/Try\n  brew install --cask local-caffeine/) # rubocop:todo RSpec/NamedSubject
+        expect(reason).to match(/Found a cask named "local-caffeine" instead./)
+        expect(reason).to match(/Try\n  brew install --cask local-caffeine/)
       end
     end
 
@@ -143,15 +143,15 @@ RSpec.describe Homebrew::MissingFormula do
   end
 
   describe "::suggest_command", :cask do
-    subject { described_class.suggest_command(name, command) }
+    subject(:reason) { described_class.suggest_command(name, command) }
 
     context "when installing" do
       let(:name) { "local-caffeine" }
       let(:command) { "install" }
 
       specify(:aggregate_failures) do
-        expect(subject).to match(/Found a cask named "local-caffeine" instead./) # rubocop:todo RSpec/NamedSubject
-        expect(subject).to match(/Try\n  brew install --cask local-caffeine/) # rubocop:todo RSpec/NamedSubject
+        expect(reason).to match(/Found a cask named "local-caffeine" instead./)
+        expect(reason).to match(/Try\n  brew install --cask local-caffeine/)
       end
     end
 
@@ -167,8 +167,8 @@ RSpec.describe Homebrew::MissingFormula do
         end
 
         specify(:aggregate_failures) do
-          expect(subject).to match(/Found a cask named "local-caffeine" instead./) # rubocop:todo RSpec/NamedSubject
-          expect(subject).to match(/Try\n  brew uninstall --cask local-caffeine/) # rubocop:todo RSpec/NamedSubject
+          expect(reason).to match(/Found a cask named "local-caffeine" instead./)
+          expect(reason).to match(/Try\n  brew uninstall --cask local-caffeine/)
         end
       end
     end
@@ -178,8 +178,8 @@ RSpec.describe Homebrew::MissingFormula do
       let(:command) { "info" }
 
       specify(:aggregate_failures) do
-        expect(subject).to match(/Found a cask named "local-caffeine" instead./) # rubocop:todo RSpec/NamedSubject
-        expect(subject).to match(/local-caffeine: 1.2.3/) # rubocop:todo RSpec/NamedSubject
+        expect(reason).to match(/Found a cask named "local-caffeine" instead./)
+        expect(reason).to match(/local-caffeine: 1.2.3/)
       end
     end
   end
