@@ -173,29 +173,4 @@ class CacheStoreDatabase
     !!@dirty
   end
 end
-
-#
-# {CacheStore} provides methods to mutate and fetch data from a persistent
-# storage mechanism.
-#
-class CacheStore # rubocop:todo Style/OneClassPerFile
-  extend T::Generic
-  extend T::Helpers
-
-  abstract!
-
-  # Sorbet type members are mutable by design and cannot be frozen.
-  Key = type_member # rubocop:disable Style/MutableConstant
-  # Sorbet type members are mutable by design and cannot be frozen.
-  Value = type_member # rubocop:disable Style/MutableConstant
-
-  sig { params(database: CacheStoreDatabase[Key, Value]).void }
-  def initialize(database)
-    @database = database
-  end
-
-  protected
-
-  sig { returns(CacheStoreDatabase[Key, Value]) }
-  attr_reader :database
-end
+require "cache_store/cache_store"

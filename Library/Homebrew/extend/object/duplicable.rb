@@ -33,37 +33,8 @@ class Object
   sig { returns(T::Boolean) }
   def duplicable? = true
 end
-
-class Method # rubocop:todo Style/OneClassPerFile
-  # Methods are not duplicable:
-  #
-  # ```ruby
-  # method(:puts).duplicable? # => false
-  # method(:puts).dup         # => TypeError: allocator undefined for Method
-  # ```
-  sig { returns(FalseClass) }
-  def duplicable? = false
-end
-
-class UnboundMethod # rubocop:todo Style/OneClassPerFile
-  # Unbound methods are not duplicable:
-  #
-  # ```ruby
-  # method(:puts).unbind.duplicable? # => false
-  # method(:puts).unbind.dup         # => TypeError: allocator undefined for UnboundMethod
-  # ```
-  sig { returns(FalseClass) }
-  def duplicable? = false
-end
+require "extend/object/duplicable/method"
+require "extend/object/duplicable/unbound_method"
 
 require "singleton"
-
-module Singleton # rubocop:todo Style/OneClassPerFile
-  # Singleton instances are not duplicable:
-  #
-  # ```ruby
-  # Class.new.include(Singleton).instance.dup # TypeError (can't dup instance of singleton
-  # ```
-  sig { returns(FalseClass) }
-  def duplicable? = false
-end
+require "extend/object/duplicable/singleton"

@@ -31,8 +31,4 @@ module Enumerable
   sig { returns(T.self_type) }
   def compact_blank = T.unsafe(self).reject(&:blank?)
 end
-
-class Hash # rubocop:todo Style/OneClassPerFile
-  # {Hash#reject} has its own definition, so this needs one too.
-  def compact_blank = reject { |_k, v| T.unsafe(v).blank? }
-end
+require "extend/enumerable/hash"
