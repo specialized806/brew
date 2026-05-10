@@ -59,14 +59,21 @@ module Homebrew
 
       sig { params(formula_or_cask: T.any(Formula, Cask::Cask), installed_on_request: T::Boolean).void }
       def update_tab(formula_or_cask, installed_on_request:)
-        name, tab = if formula_or_cask.is_a?(Formula)
-          [formula_or_cask.name, Tab.for_formula(formula_or_cask)]
+        name, tab, created_tab = if formula_or_cask.is_a?(Formula)
+          [formula_or_cask.name, Tab.for_formula(formula_or_cask), false]
         else
-          [formula_or_cask.token, formula_or_cask.tab]
+          cask = formula_or_cask
+          cask_tab = cask.tab
+          cask_tabfile = cask_tab.tabfile
+          if cask_tabfile.blank? || !cask_tabfile.exist?
+            [cask.token, Cask::Tab.create(cask), true]
+          else
+            [cask.token, cask_tab, false]
+          end
         end
 
         tabfile = tab.tabfile
-        if tabfile.blank? || !tabfile.exist?
+        if !created_tab && (tabfile.blank? || !tabfile.exist?)
           raise ArgumentError,
                 "Tab file for #{name} does not exist."
         end
@@ -74,6 +81,7 @@ module Homebrew
         installed_on_request_str = "#{"not " unless installed_on_request}installed on request"
         if (tab.installed_on_request && installed_on_request) ||
            (!tab.installed_on_request && !installed_on_request)
+          tab.write if created_tab
           ohai "#{name} is already marked as #{installed_on_request_str}."
           return
         end
