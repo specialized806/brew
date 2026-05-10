@@ -420,6 +420,11 @@ module Homebrew
         unsatisfied_requirements.values.flatten.map(&:message).join("\n").presence
       end
 
+      sig { returns(String) }
+      def previous_run_artifact_specifier
+        raise NotImplementedError, "#{self.class} must implement previous_run_artifact_specifier in extend/os."
+      end
+
       sig { params(keep_formulae: T::Array[String], args: Homebrew::Cmd::TestBotCmd::Args).void }
       def cleanup_during!(keep_formulae = [], args:)
         return unless cleanup?(args)

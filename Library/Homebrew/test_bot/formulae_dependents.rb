@@ -44,16 +44,8 @@ module Homebrew
 
         install_formulae_if_needed_from_bottles!(installable_bottles, args:)
 
-        # TODO: move to extend/os
-        # rubocop:todo Homebrew/MoveToExtendOS
-        artifact_specifier = if OS.linux?
-          "{linux,ubuntu}"
-        else
-          "{macos-#{MacOS.version},#{MacOS.version}-#{Hardware::CPU.arch}}"
-        end
-        # rubocop:enable Homebrew/MoveToExtendOS
-
-        download_artifacts_from_previous_run!("dependents{,_#{artifact_specifier}*}", dry_run: args.dry_run?)
+        download_artifacts_from_previous_run!("dependents{,_#{previous_run_artifact_specifier}*}",
+                                              dry_run: args.dry_run?)
         @skip_candidates = T.let(
           if (tested_dependents_cache = artifact_cache/@tested_dependents_list).exist?
             tested_dependents_cache.read.split("\n")
@@ -157,12 +149,7 @@ module Homebrew
         # Always skip recursive dependents on Intel. It's really slow.
         # Also skip recursive dependents on Linux unless it's a Linux-only formula.
         #
-        # TODO: move to extend/os
-        # rubocop:todo Homebrew/MoveToExtendOS
-        skip_recursive_dependents = args.skip_recursive_dependents? ||
-                                    (OS.mac? && Hardware::CPU.intel?) ||
-                                    (OS.linux? && formula.requirements.exclude?(LinuxRequirement.new))
-        # rubocop:enable Homebrew/MoveToExtendOS
+        skip_recursive_dependents = skip_recursive_dependents?(formula, args:)
 
         uses_args = %w[--formula --eval-all]
         uses_include_test_args = [*uses_args, "--include-test"]
@@ -219,10 +206,7 @@ module Homebrew
         # either the `--build-dependents-from-source` flag was passed or a dependent has no
         # bottle on the current OS.
         source_dependents, dependents = dependents.partition do |dependent, deps|
-          # TODO: move to extend/os
-          # rubocop:todo Homebrew/MoveToExtendOS
-          next false if OS.linux? && dependent.requirements.exclude?(LinuxRequirement.new)
-          # rubocop:enable Homebrew/MoveToExtendOS
+          next false unless build_dependent_from_source?(dependent)
 
           all_deps_bottled_or_built = deps.all? do |d|
             bottled_or_built?(d.to_formula, @dependent_testing_formulae)
@@ -407,25 +391,23 @@ module Homebrew
            !dependent_was_previously_installed &&
            all_tests_passed &&
            dependent.deps.all? { |d| bottled?(d.to_formula, no_older_versions: true) }
-          # TODO: move to extend/os
-          # rubocop:todo Homebrew/MoveToExtendOS
-          os_string = if OS.mac?
-            str = "macOS #{MacOS.version.pretty_name} (#{MacOS.version})"
-            str << " on Apple Silicon" if Hardware::CPU.arm?
-
-            str
-          else
-            OS.kernel_name
-          end
-          # rubocop:enable Homebrew/MoveToExtendOS
-
           puts GitHub::Actions::Annotation.new(
             :notice,
             "All tests passed.",
             file:  dependent.path.to_s.delete_prefix("#{repository}/"),
-            title: "#{dependent} should be bottled for #{os_string}!",
+            title: "#{dependent} should be bottled for #{Homebrew::TestBot.runner_os_title}!",
           )
         end
+      end
+
+      sig { params(_formula: Formula, args: Homebrew::Cmd::TestBotCmd::Args).returns(T::Boolean) }
+      def skip_recursive_dependents?(_formula, args:)
+        args.skip_recursive_dependents?
+      end
+
+      sig { params(_dependent: Formula).returns(T::Boolean) }
+      def build_dependent_from_source?(_dependent)
+        true
       end
 
       sig { params(formula: Formula).void }
