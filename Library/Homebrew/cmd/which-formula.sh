@@ -100,11 +100,9 @@ homebrew-which-formula() {
     exit 1
   fi
 
-  for cms in "${args[@]}"
+  for cmd in "${args[@]}"
   do
     download_and_cache_executables_file
-
-    cmd="$(echo "${cms}" | tr '[:upper:]' '[:lower:]')"
 
     local formulae=()
     local formula cmds_text

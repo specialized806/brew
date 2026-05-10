@@ -19,6 +19,7 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
         foo(1.0.0):foo2 foo3
         bar(1.2.3):
         baz(10.4):baz
+        qux(4.5.6):QUX
       EOS
     end
 
@@ -26,6 +27,7 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
       expect { brew_sh "which-formula", "--skip-update", "foo2" }.to output("foo\n").to_stdout
       expect { brew_sh "which-formula", "--skip-update", "baz" }.to output("baz\n").to_stdout
       expect { brew_sh "which-formula", "--skip-update", "bar" }.not_to output.to_stdout
+      expect { brew_sh "which-formula", "--skip-update", "QUX" }.to output("qux\n").to_stdout
     end
   end
 end
