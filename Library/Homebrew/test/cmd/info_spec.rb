@@ -298,7 +298,7 @@ RSpec.describe Homebrew::Cmd::Info do
     allow(formula).to receive(:core_formula?).and_return(false)
 
     expect { info.send(:info_formula, formula, shadowed_by: Tap.fetch("homebrew/core")) }
-      .to output(%r{Warning: .*unqualified name `testball`.*shadows `homebrew/core/testball`}).to_stdout
+      .to output(%r{Warning: `testball` shadows `homebrew/core/testball`}).to_stdout
       .and not_to_output.to_stderr
   end
 

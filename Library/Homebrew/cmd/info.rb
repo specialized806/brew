@@ -605,8 +605,7 @@ module Homebrew
         puts "#{oh1_title(name_with_status)}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
         if shadowed_by
           puts Formatter.warning(
-            "the unqualified name `#{formula.name}` points to `#{formula.full_name}`, " \
-            "which shadows `#{shadowed_by.name}/#{formula.name}`.",
+            "`#{formula.name}` shadows `#{shadowed_by.name}/#{formula.name}`.",
             label: "Warning",
           )
         end
