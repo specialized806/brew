@@ -2123,6 +2123,7 @@ RSpec.describe Formula do
       end
 
       expect(f.supports_macos?).to be false
+      expect(f.supports_linux?).to be true
     end
 
     it "allows bare and versioned macOS requirements for now" do
@@ -2134,6 +2135,40 @@ RSpec.describe Formula do
       end
 
       expect(f.requirements.grep(MacOSRequirement).count).to eq(2)
+    end
+
+    it "does not allow duplicate bare macOS requirements" do
+      expect do
+        formula do
+          url "foo"
+          version "1.0"
+          depends_on :macos
+          depends_on :macos
+        end
+      end.to raise_error(ArgumentError, "`depends_on :macos` cannot be combined with another macOS `depends_on`")
+    end
+
+    it "does not allow Linux then macOS requirements" do
+      expect do
+        formula do
+          url "foo"
+          version "1.0"
+          depends_on_method = :depends_on
+          public_send(depends_on_method, :linux)
+          public_send(depends_on_method, macos: :catalina)
+        end
+      end.to raise_error(ArgumentError, "`depends_on :linux` cannot be combined with `depends_on macos:`")
+    end
+
+    it "does not allow macOS then Linux requirements" do
+      expect do
+        formula do
+          url "foo"
+          version "1.0"
+          depends_on macos: :catalina
+          depends_on :linux
+        end
+      end.to raise_error(ArgumentError, "`depends_on :linux` cannot be combined with `depends_on macos:`")
     end
   end
 

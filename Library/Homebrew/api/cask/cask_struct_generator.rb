@@ -92,6 +92,7 @@ module Homebrew
 
               next [:arch, :arm64]
             end
+            next [key, :any] if key == :linux
 
             next [key, value] if key != :macos
 

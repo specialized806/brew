@@ -4,6 +4,7 @@
 require "delegate"
 
 require "requirements/macos_requirement"
+require "requirements/linux_requirement"
 
 module Cask
   class DSL
@@ -13,6 +14,7 @@ module Cask
         :formula,
         :cask,
         :macos,
+        :linux,
         :arch,
       ]).freeze, T::Set[Symbol])
 
@@ -29,6 +31,9 @@ module Cask
       sig { returns(T.nilable(MacOSRequirement)) }
       attr_reader :macos
 
+      sig { returns(T.nilable(LinuxRequirement)) }
+      attr_reader :linux
+
       sig { void }
       def initialize
         super({})
@@ -36,9 +41,11 @@ module Cask
         @cask = T.let(nil, T.nilable(T::Array[String]))
         @formula = T.let(nil, T.nilable(T::Array[String]))
         @macos = T.let(nil, T.nilable(MacOSRequirement))
+        @linux = T.let(nil, T.nilable(LinuxRequirement))
         @macos_set_in_block = T.let(false, T::Boolean)
         @macos_bare_set_top_level = T.let(false, T::Boolean)
         @macos_version_set_top_level = T.let(false, T::Boolean)
+        @linux_set_top_level = T.let(false, T::Boolean)
       end
 
       sig { returns(T::Array[String]) }
@@ -87,6 +94,14 @@ module Cask
         end
       end
 
+      sig { params(args: T.any(String, Symbol)).returns(T.nilable(LinuxRequirement)) }
+      def linux=(*args)
+        raise "Only a single 'depends_on linux' is allowed." if @linux
+        raise "invalid 'depends_on linux' value: #{args.first.inspect}" if args.first != :any
+
+        @linux = LinuxRequirement.new
+      end
+
       sig { params(args: Symbol).returns(T::Array[T::Hash[Symbol, T.any(Symbol, Integer)]]) }
       def arch=(*args)
         @arch ||= []
@@ -111,19 +126,35 @@ module Cask
       end
 
       sig { returns(T::Boolean) }
+      def requires_linux? = @linux_set_top_level
+
+      sig { returns(T::Boolean) }
       def macos_set_in_block? = @macos_set_in_block
 
       sig { returns(T::Boolean) }
-      def os_support_specified? = requires_macos? || macos_set_in_block?
+      def os_support_specified? = requires_macos? || requires_linux? || macos_set_in_block?
 
       sig { params(key: Symbol, set_in_block: T::Boolean).void }
       def record_os_requirement(key, set_in_block:)
-        return if key != :macos
+        case key
+        when :macos
+          record_macos_requirement(set_in_block:)
+        when :linux
+          return if set_in_block
+          raise "`depends_on :linux` cannot be combined with `depends_on macos:`" if requires_macos?
 
+          @linux_set_top_level = true
+        end
+      end
+
+      sig { params(set_in_block: T::Boolean).void }
+      def record_macos_requirement(set_in_block:)
         if set_in_block
           @macos_set_in_block = true
           return
         end
+
+        raise "`depends_on :linux` cannot be combined with `depends_on macos:`" if requires_linux?
 
         if T.must(@macos).version_specified?
           raise "`depends_on macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level

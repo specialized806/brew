@@ -402,6 +402,10 @@ on_macos do
 end
 ```
 
+#### `depends_on` *linux*
+
+Top-level `depends_on :linux` marks a cask as Linux-only.
+
 #### `depends_on` *arch*
 
 The value for `depends_on arch:` may be a symbol or an array of symbols, listing the hardware compatibility requirements for a cask. The requirement is satisfied at install time if any one of the provided `arch:` values matches the user’s hardware.

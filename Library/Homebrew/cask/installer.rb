@@ -379,7 +379,9 @@ on_request: true)
 
     sig { void }
     def check_stanza_os_requirements
-      nil
+      return if @cask.supports_macos?
+
+      raise CaskError, "Linux is required for this software."
     end
 
     sig { void }
