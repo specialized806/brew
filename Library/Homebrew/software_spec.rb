@@ -90,6 +90,7 @@ class SoftwareSpec
     @compiler_failures = T.let([], T::Array[CompilerFailure])
     @depends_on_macos_bare_set_top_level = T.let(false, T::Boolean)
     @depends_on_macos_version_set_top_level = T.let(false, T::Boolean)
+    @depends_on_maximum_macos_set_top_level = T.let(false, T::Boolean)
     @depends_on_macos_set_in_block = T.let(false, T::Boolean)
     @depends_on_linux_set_top_level = T.let(false, T::Boolean)
   end
@@ -262,7 +263,9 @@ class SoftwareSpec
 
   sig { returns(T::Boolean) }
   def depends_on_macos_set_top_level?
-    @depends_on_macos_bare_set_top_level || @depends_on_macos_version_set_top_level
+    @depends_on_macos_bare_set_top_level ||
+      @depends_on_macos_version_set_top_level ||
+      @depends_on_maximum_macos_set_top_level
   end
 
   sig { params(dep: T.untyped, set_in_block: T::Boolean).void }
@@ -279,22 +282,36 @@ class SoftwareSpec
               "`depends_on :linux` cannot be combined with `depends_on macos:`"
       end
 
-      if dep.version_specified?
-        if @depends_on_macos_bare_set_top_level
-          # odeprecated "`depends_on :macos` with `depends_on macos:`"
-        end
-
-        @depends_on_macos_version_set_top_level = true
-      else
+      if !dep.version_specified?
         if @depends_on_macos_bare_set_top_level
           raise ArgumentError, "`depends_on :macos` cannot be combined with another macOS `depends_on`"
         end
 
-        if @depends_on_macos_version_set_top_level
+        if @depends_on_macos_version_set_top_level || @depends_on_maximum_macos_set_top_level
           # odeprecated "`depends_on :macos` with `depends_on macos:`"
         end
 
         @depends_on_macos_bare_set_top_level = true
+      elsif dep.comparator == "<="
+        if @depends_on_macos_bare_set_top_level
+          # odeprecated "`depends_on :macos` with `depends_on maximum_macos:`"
+        end
+
+        if @depends_on_maximum_macos_set_top_level
+          raise ArgumentError, "`depends_on maximum_macos:` cannot be combined with another macOS `depends_on`"
+        end
+
+        @depends_on_maximum_macos_set_top_level = true
+      else
+        if @depends_on_macos_bare_set_top_level
+          # odeprecated "`depends_on :macos` with `depends_on macos:`"
+        end
+
+        if @depends_on_macos_version_set_top_level
+          raise ArgumentError, "`depends_on macos:` cannot be combined with another macOS `depends_on`"
+        end
+
+        @depends_on_macos_version_set_top_level = true
       end
     when LinuxRequirement
       return if set_in_block

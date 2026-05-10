@@ -14,6 +14,7 @@ module Cask
         :formula,
         :cask,
         :macos,
+        :maximum_macos,
         :linux,
         :arch,
       ]).freeze, T::Set[Symbol])
@@ -31,6 +32,9 @@ module Cask
       sig { returns(T.nilable(MacOSRequirement)) }
       attr_reader :macos
 
+      sig { returns(T.nilable(MacOSRequirement)) }
+      attr_reader :maximum_macos
+
       sig { returns(T.nilable(LinuxRequirement)) }
       attr_reader :linux
 
@@ -41,10 +45,13 @@ module Cask
         @cask = T.let(nil, T.nilable(T::Array[String]))
         @formula = T.let(nil, T.nilable(T::Array[String]))
         @macos = T.let(nil, T.nilable(MacOSRequirement))
+        @maximum_macos = T.let(nil, T.nilable(MacOSRequirement))
         @linux = T.let(nil, T.nilable(LinuxRequirement))
         @macos_set_in_block = T.let(false, T::Boolean)
+        @maximum_macos_set_in_block = T.let(false, T::Boolean)
         @macos_bare_set_top_level = T.let(false, T::Boolean)
         @macos_version_set_top_level = T.let(false, T::Boolean)
+        @maximum_macos_set_top_level = T.let(false, T::Boolean)
         @linux_set_top_level = T.let(false, T::Boolean)
       end
 
@@ -94,6 +101,23 @@ module Cask
         end
       end
 
+      sig { params(args: T.any(String, Symbol)).returns(T.nilable(MacOSRequirement)) }
+      def maximum_macos=(*args)
+        raise "Only a single 'depends_on maximum_macos' is allowed." if @maximum_macos
+        raise "invalid 'depends_on maximum_macos' value: only a single macOS version is allowed" if args.count != 1
+
+        maximum_macos = begin
+          MacOSRequirement.parse(args, comparator: "<=")
+        rescue MacOSVersion::Error, TypeError => e
+          raise "invalid 'depends_on maximum_macos' value: #{e}"
+        end
+        if maximum_macos.comparator != "<="
+          raise "invalid 'depends_on maximum_macos' value: must use the '<=' comparator"
+        end
+
+        @maximum_macos = maximum_macos
+      end
+
       sig { params(args: T.any(String, Symbol)).returns(T.nilable(LinuxRequirement)) }
       def linux=(*args)
         raise "Only a single 'depends_on linux' is allowed." if @linux
@@ -122,14 +146,14 @@ module Cask
 
       sig { returns(T::Boolean) }
       def requires_macos?
-        @macos_bare_set_top_level || @macos_version_set_top_level
+        @macos_bare_set_top_level || @macos_version_set_top_level || @maximum_macos_set_top_level
       end
 
       sig { returns(T::Boolean) }
       def requires_linux? = @linux_set_top_level
 
       sig { returns(T::Boolean) }
-      def macos_set_in_block? = @macos_set_in_block
+      def macos_set_in_block? = @macos_set_in_block || @maximum_macos_set_in_block
 
       sig { returns(T::Boolean) }
       def os_support_specified? = requires_macos? || requires_linux? || macos_set_in_block?
@@ -138,7 +162,15 @@ module Cask
       def record_os_requirement(key, set_in_block:)
         case key
         when :macos
-          record_macos_requirement(set_in_block:)
+          macos = @macos
+          raise "invalid 'depends_on macos' value" unless macos
+
+          record_macos_requirement(macos, set_in_block:)
+        when :maximum_macos
+          maximum_macos = @maximum_macos
+          raise "invalid 'depends_on maximum_macos' value" unless maximum_macos
+
+          record_macos_requirement(maximum_macos, set_in_block:)
         when :linux
           return if set_in_block
           raise "`depends_on :linux` cannot be combined with `depends_on macos:`" if requires_macos?
@@ -147,23 +179,31 @@ module Cask
         end
       end
 
-      sig { params(set_in_block: T::Boolean).void }
-      def record_macos_requirement(set_in_block:)
+      sig { params(requirement: MacOSRequirement, set_in_block: T::Boolean).void }
+      def record_macos_requirement(requirement, set_in_block:)
         if set_in_block
-          @macos_set_in_block = true
+          if requirement.comparator == "<="
+            @maximum_macos_set_in_block = true
+          else
+            @macos_set_in_block = true
+          end
           return
         end
 
         raise "`depends_on :linux` cannot be combined with `depends_on macos:`" if requires_linux?
 
-        if T.must(@macos).version_specified?
-          raise "`depends_on macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level
-
-          @macos_version_set_top_level = true
-        else
+        if !requirement.version_specified?
           raise "`depends_on :macos` cannot be combined with another macOS `depends_on`" if requires_macos?
 
           @macos_bare_set_top_level = true
+        elsif requirement.comparator == "<="
+          raise "`depends_on maximum_macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level
+
+          @maximum_macos_set_top_level = true
+        else
+          raise "`depends_on macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level
+
+          @macos_version_set_top_level = true
         end
       end
     end

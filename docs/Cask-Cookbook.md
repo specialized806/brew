@@ -394,6 +394,12 @@ depends_on macos: [
 ]
 ```
 
+Top-level `depends_on maximum_macos:` marks a cask as macOS-only and declares the newest compatible macOS release:
+
+```ruby
+depends_on maximum_macos: :ventura
+```
+
 For a cask that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`:
 
 ```ruby

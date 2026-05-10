@@ -254,14 +254,14 @@ module Homebrew
 
       sig { params(cask: T.untyped).returns(T::Array[String]) }
       def self.cask_requirements_lines(cask)
-        requirement = if (macos = cask.depends_on.macos)
-          requirement = macos.display_s
-          if cask.supports_linux?
-            requirement.sub(" (or Linux)",
-                            " or Linux")
-          else
-            requirement.delete_suffix(" (or Linux)")
+        macos_requirements = [cask.depends_on.macos, cask.depends_on.maximum_macos].compact
+        requirement = if macos_requirements.present?
+          requirement = macos_requirements.filter_map do |macos_requirement|
+            macos_requirement.display_s.delete_suffix(" (or Linux)").delete_prefix("macOS").strip.presence
           end
+          requirement = requirement.present? ? "macOS #{requirement.join(", ")}" : "macOS"
+          requirement += " or Linux" if cask.supports_linux?
+          requirement
         elsif cask.supports_macos? && cask.supports_linux?
           "macOS or Linux"
         elsif cask.supports_macos?

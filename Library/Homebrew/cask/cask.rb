@@ -590,10 +590,12 @@ module Cask
         begin
           OnSystem::VALID_OS_ARCH_TAGS.each do |bottle_tag|
             next if bottle_tag.linux? && dsl!.os.nil?
+
+            macos_requirements = [depends_on.macos, depends_on.maximum_macos].compact
             next if bottle_tag.macos? &&
-                    depends_on.macos &&
+                    macos_requirements.present? &&
                     !dsl!.depends_on_set_in_block? &&
-                    !depends_on.macos.allows?(bottle_tag.to_macos_version)
+                    macos_requirements.any? { |requirement| !requirement.allows?(bottle_tag.to_macos_version) }
 
             Homebrew::SimulateSystem.with_tag(bottle_tag) do
               refresh

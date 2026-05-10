@@ -579,7 +579,7 @@ module Cask
     def depends_on(arg = nil, **kwargs)
       @depends_on_set_in_block = true if @called_in_on_system_block
       if arg == :macos
-        if kwargs.key?(:macos)
+        if kwargs.key?(:macos) || kwargs.key?(:maximum_macos)
           raise CaskInvalidError.new(cask, "`depends_on :macos` cannot be combined with another macOS `depends_on`")
         end
 
