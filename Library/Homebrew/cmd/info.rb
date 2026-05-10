@@ -751,17 +751,19 @@ module Homebrew
       def decorate_dependencies(dependencies, tab_runtime_deps: nil)
         dependencies.map do |dep|
           display = dep_display_s(dep)
-          full_name = if tab_runtime_deps
-            tab_runtime_deps.find do |d|
-              name = d["full_name"]
-              name == dep.name || name&.then { Utils.name_from_full_name(it) } == dep.name
-            end&.fetch("full_name")
-          else
-            dep.name
+          full_name = tab_runtime_deps&.find do |d|
+            name = d["full_name"]
+            name == dep.name || name&.then { Utils.name_from_full_name(it) } == dep.name
+          end&.fetch("full_name") || dep.name
+          rack = HOMEBREW_CELLAR/Utils.name_from_full_name(full_name)
+          installed = T.let(rack.directory? && !rack.subdirs.empty?, T::Boolean)
+          formula = begin
+            dep.to_formula
+          rescue FormulaUnavailableError, TapFormulaAmbiguityError
+            nil
           end
-          rack = HOMEBREW_CELLAR/Utils.name_from_full_name(full_name) if full_name
-          installed = !rack.nil? && rack.directory? && !rack.subdirs.empty?
-          outdated = installed ? dep.to_formula.outdated? : false
+          installed ||= formula.any_version_installed? if !installed && formula
+          outdated = T.let(installed && formula&.outdated? == true, T::Boolean)
           pretty_install_status(display, installed:, outdated:)
         end.join(", ")
       end
