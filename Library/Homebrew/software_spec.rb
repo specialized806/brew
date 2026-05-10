@@ -59,6 +59,9 @@ class SoftwareSpec
   sig { returns(T::Boolean) }
   attr_reader :depends_on_macos_set_in_block
 
+  sig { returns(T::Boolean) }
+  attr_reader :depends_on_linux_set_top_level
+
   def_delegators :@resource, :stage, :fetch, :verify_download_integrity, :source_modified_time,
                  :cached_download, :clear_cache, :checksum, :mirrors, :specs, :using, :version, :mirror,
                  :downloader, :download_queue_name, :download_queue_type
@@ -88,6 +91,7 @@ class SoftwareSpec
     @depends_on_macos_bare_set_top_level = T.let(false, T::Boolean)
     @depends_on_macos_version_set_top_level = T.let(false, T::Boolean)
     @depends_on_macos_set_in_block = T.let(false, T::Boolean)
+    @depends_on_linux_set_top_level = T.let(false, T::Boolean)
   end
 
   sig { override.params(other: T.any(SoftwareSpec, Downloadable)).void }
@@ -263,29 +267,44 @@ class SoftwareSpec
 
   sig { params(dep: T.untyped, set_in_block: T::Boolean).void }
   def record_os_requirement(dep, set_in_block:)
-    return unless dep.is_a?(MacOSRequirement)
-
-    if set_in_block
-      @depends_on_macos_set_in_block = true
-      return
-    end
-
-    if dep.version_specified?
-      if @depends_on_macos_bare_set_top_level
-        # odeprecated "`depends_on :macos` with `depends_on macos:`"
+    case dep
+    when MacOSRequirement
+      if set_in_block
+        @depends_on_macos_set_in_block = true
+        return
       end
 
-      @depends_on_macos_version_set_top_level = true
-    else
-      if @depends_on_macos_bare_set_top_level
-        raise ArgumentError, "`depends_on :macos` cannot be combined with another macOS `depends_on`"
+      if @depends_on_linux_set_top_level
+        raise ArgumentError,
+              "`depends_on :linux` cannot be combined with `depends_on macos:`"
       end
 
-      if @depends_on_macos_version_set_top_level
-        # odeprecated "`depends_on :macos` with `depends_on macos:`"
+      if dep.version_specified?
+        if @depends_on_macos_bare_set_top_level
+          # odeprecated "`depends_on :macos` with `depends_on macos:`"
+        end
+
+        @depends_on_macos_version_set_top_level = true
+      else
+        if @depends_on_macos_bare_set_top_level
+          raise ArgumentError, "`depends_on :macos` cannot be combined with another macOS `depends_on`"
+        end
+
+        if @depends_on_macos_version_set_top_level
+          # odeprecated "`depends_on :macos` with `depends_on macos:`"
+        end
+
+        @depends_on_macos_bare_set_top_level = true
+      end
+    when LinuxRequirement
+      return if set_in_block
+
+      if depends_on_macos_set_top_level?
+        raise ArgumentError,
+              "`depends_on :linux` cannot be combined with `depends_on macos:`"
       end
 
-      @depends_on_macos_bare_set_top_level = true
+      @depends_on_linux_set_top_level = true
     end
   end
 

@@ -152,7 +152,7 @@ A `String` (e.g. `"jpeg"`) specifies a formula dependency.
 
 A `Symbol` (e.g. `:xcode`) specifies a [`Requirement`](/rubydoc/Requirement.html) to restrict installation to systems meeting certain criteria, which can be fulfilled by one or more formulae, casks or other system-wide installed software (e.g. Xcode). Some [`Requirement`](/rubydoc/Requirement.html)s can also take a string or symbol specifying their minimum version that the formula depends on.
 
-Top-level `depends_on :macos` marks a formula as macOS-only. Top-level `depends_on macos: :sonoma` marks a formula as macOS-only and declares the minimum compatible macOS release. For a formula that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`.
+Top-level `depends_on :macos` marks a formula as macOS-only. Top-level `depends_on macos: :sonoma` marks a formula as macOS-only and declares the minimum compatible macOS release. Top-level `depends_on :linux` marks a formula as Linux-only. For a formula that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`.
 
 A `Hash` (e.g. `=>`) adds information to a dependency. Given a string or symbol, the value can be one or more of the following values:
 

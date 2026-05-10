@@ -584,6 +584,7 @@ RSpec.describe Cask::Cask, :cask do
     it "uses explicit macOS dependencies before falling back to heuristics" do
       expect(Cask::CaskLoader.load("with-depends-on-macos-bare").supports_linux?).to be false
       expect(Cask::CaskLoader.load("with-depends-on-macos-in-on-macos").supports_linux?).to be true
+      expect(Cask::CaskLoader.load("with-depends-on-linux-bare").supports_linux?).to be true
 
       macos_artifact_cask = described_class.new("scoped-macos-dependency-with-app") do
         version "1.0"
@@ -620,6 +621,12 @@ RSpec.describe Cask::Cask, :cask do
       end
 
       expect(arch_only_cask.supports_linux?).to be true
+    end
+  end
+
+  describe "#supports_macos?" do
+    it "returns false for casks with bare depends_on :linux" do
+      expect(Cask::CaskLoader.load("with-depends-on-linux-bare").supports_macos?).to be false
     end
   end
 

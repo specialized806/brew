@@ -482,6 +482,24 @@ RSpec.describe Cask::DSL, :cask, :no_api do
     end
   end
 
+  describe "depends_on linux" do
+    context "when bare :linux is used" do
+      let(:token) { "with-depends-on-linux-bare" }
+
+      it "creates a LinuxRequirement" do
+        expect(cask.depends_on.linux).to be_a(LinuxRequirement)
+      end
+    end
+
+    context "when macOS and Linux are both required" do
+      let(:token) { "invalid-depends-on-macos-and-linux" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
+  end
+
   describe "depends_on arch" do
     context "when valid" do
       let(:token) { "with-depends-on-arch" }

@@ -584,6 +584,8 @@ module Cask
         end
 
         kwargs[:macos] = :any
+      elsif arg == :linux
+        kwargs[:linux] = :any
       elsif arg
         raise CaskInvalidError.new(cask, "invalid 'depends_on' value: #{arg.inspect}")
       end
