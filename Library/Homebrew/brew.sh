@@ -1048,6 +1048,11 @@ EOS
   export HOMEBREW_DEV_CMD_RUN="1"
 fi
 
+if [[ -n "${HOMEBREW_DEVELOPER}" ]]
+then
+  export HOMEBREW_USE_INTERNAL_API="1"
+fi
+
 if [[ -n "${HOMEBREW_DEVELOPER}" || -n "${HOMEBREW_DEV_CMD_RUN}" ]]
 then
   # Always run with Sorbet for Homebrew developers or when a Homebrew developer command has been run.
