@@ -653,6 +653,35 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "marks an aliased dep as installed when the underlying rack exists under a different name" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "pkg-config"
+    end
+    direct_dependency = formula.deps.required.first
+
+    pkgconf_keg_path = HOMEBREW_CELLAR/"pkgconf/2.5.1"
+    pkgconf_keg_path.mkpath
+    pkgconf_tab = Tab.empty
+    pkgconf_tab.tabfile = pkgconf_keg_path/AbstractTab::FILENAME
+    pkgconf_tab.write
+
+    pkgconf_formula = instance_double(Formula, any_version_installed?: true, outdated?: false)
+    allow(direct_dependency).to receive(:to_formula).and_return(pkgconf_formula)
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Required \(1\): .*pkg-config.*✔/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
   it "marks a missing dep on an uninstalled formula as unsatisfied" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
@@ -672,7 +701,33 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
-  it "marks a dep absent from the installed keg's tab as unsatisfied" do
+  it "marks a dep absent from the installed keg's tab as unsatisfied when its rack is also missing" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.runtime_dependencies = []
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/Required \(1\): .*bar.*✘/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "marks a dep absent from the installed keg's tab as installed when its rack exists" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
     info = described_class.new([])
@@ -700,7 +755,7 @@ RSpec.describe Homebrew::Cmd::Info do
     allow(formula).to receive(:core_formula?).and_return(false)
 
     expect { info.send(:info_formula, formula) }
-      .to output(/Required \(1\): .*bar.*✘/).to_stdout
+      .to output(/Required \(1\): .*bar.*↑/).to_stdout
       .and not_to_output.to_stderr
   end
 
