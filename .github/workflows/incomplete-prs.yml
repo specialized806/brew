@@ -23,7 +23,10 @@ jobs:
   manage:
     # Restrict this write-token workflow to Homebrew/brew. The first step also
     # fails if a repository checkout has occurred.
-    if: github.repository == 'Homebrew/brew'
+    if: >-
+      github.repository == 'Homebrew/brew' &&
+      github.event.pull_request.user.login != 'BrewTestBot' &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       # Read the trusted base-branch pull request template through the API; write only
