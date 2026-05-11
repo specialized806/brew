@@ -15,8 +15,10 @@ RSpec.describe Cask::Artifact::App, :cask do
   let(:install_phase) { app.install_phase(command:, adopt:, force:, auto_updates:) }
   let(:uninstall_phase) { app.uninstall_phase(command:, force:) }
 
+  let(:setup_cask) { InstallHelper.install_without_artifacts(cask) }
+
   before do
-    InstallHelper.install_without_artifacts(cask)
+    setup_cask
   end
 
   describe "install_phase" do
@@ -271,12 +273,14 @@ RSpec.describe Cask::Artifact::App, :cask do
       end
     end
 
-    it "gives a warning if the source doesn't exist" do
-      FileUtils.rm_r(source_path)
+    context "when source doesn't exist" do
+      let(:setup_cask) { cask.staged_path.mkpath }
 
-      message = "It seems the App source '#{source_path}' is not there."
+      it "gives a warning if the source doesn't exist" do
+        message = "It seems the App source '#{source_path}' is not there."
 
-      expect { install_phase }.to raise_error(Cask::CaskError, message)
+        expect { install_phase }.to raise_error(Cask::CaskError, message)
+      end
     end
   end
 
@@ -311,8 +315,18 @@ RSpec.describe Cask::Artifact::App, :cask do
     let(:description) { app.class.english_description }
     let(:contents) { app.summarize_installed }
 
-    it "returns the correct english_description" do
-      expect(description).to eq("Apps")
+    context "without installation" do
+      let(:setup_cask) { nil }
+
+      it "returns the correct english_description" do
+        expect(description).to eq("Apps")
+      end
+
+      describe "app is missing" do
+        it "returns a warning and the supposed path to the app" do
+          expect(contents).to match(/.*Missing App.*: #{target_path}/)
+        end
+      end
     end
 
     describe "app is correctly installed" do
@@ -320,12 +334,6 @@ RSpec.describe Cask::Artifact::App, :cask do
         install_phase
 
         expect(contents).to eq("#{target_path} (#{target_path.abv})")
-      end
-    end
-
-    describe "app is missing" do
-      it "returns a warning and the supposed path to the app" do
-        expect(contents).to match(/.*Missing App.*: #{target_path}/)
       end
     end
   end
