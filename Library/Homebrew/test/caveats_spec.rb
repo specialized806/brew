@@ -250,6 +250,7 @@ RSpec.describe Caveats do
         Pathname.new(f.opt_bin).mkpath
         FileUtils.touch(f.opt_bin/"foo")
         FileUtils.chmod(0755, f.opt_bin/"foo")
+        allow(f).to receive(:any_version_installed?).and_return(true)
         allow_any_instance_of(Object).to receive(:which).and_call_original
       end
 
@@ -291,6 +292,54 @@ RSpec.describe Caveats do
         expect(described_class.new(keg_only_f).caveats).not_to include("shadowed")
       end
 
+      it "does not warn when the queried formula itself is not installed" do
+        uninstalled_f = formula("foo@old") do
+          url "foo-1.0"
+          keg_only :versioned_formula
+        end
+        Pathname.new(uninstalled_f.opt_bin).mkpath
+        FileUtils.touch(uninstalled_f.opt_bin/"foo")
+        FileUtils.chmod(0755, uninstalled_f.opt_bin/"foo")
+
+        sibling_keg_bin = HOMEBREW_CELLAR/"foo@2.0/2.0/bin"
+        sibling_keg_bin.mkpath
+        sibling_shadower = sibling_keg_bin/"foo"
+        sibling_shadower.write("#!/bin/sh\n")
+        sibling_shadower.chmod(0755)
+
+        allow(uninstalled_f).to receive_messages(versioned_formulae_names: ["foo@2.0"],
+                                                 unversioned_formula_name: "foo",
+                                                 any_version_installed?:   false)
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
+
+        expect(described_class.new(uninstalled_f).caveats).not_to include("shadowed")
+      end
+
+      it "warns for a keg-only formula when a sibling keg is linked over it" do
+        keg_only_f = formula("foo@1.0") do
+          url "foo-1.0"
+          keg_only :versioned_formula
+        end
+        Pathname.new(keg_only_f.opt_bin).mkpath
+        FileUtils.touch(keg_only_f.opt_bin/"foo")
+        FileUtils.chmod(0755, keg_only_f.opt_bin/"foo")
+
+        sibling_keg_bin = HOMEBREW_CELLAR/"foo@2.0/2.0/bin"
+        sibling_keg_bin.mkpath
+        sibling_shadower = sibling_keg_bin/"foo"
+        sibling_shadower.write("#!/bin/sh\n")
+        sibling_shadower.chmod(0755)
+
+        allow(keg_only_f).to receive_messages(versioned_formulae_names: ["foo@2.0"],
+                                              unversioned_formula_name: "foo",
+                                              any_version_installed?:   true)
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
+
+        caveats = described_class.new(keg_only_f).caveats
+        expect(caveats).to include("foo (shadowed by #{sibling_shadower} from foo@2.0)")
+        expect(caveats).to include("Run `brew link foo@1.0`")
+      end
+
       it "warns when a keg-only formula has been linked" do
         keg_only_f = formula do
           url "foo-1.0"
@@ -299,7 +348,7 @@ RSpec.describe Caveats do
         Pathname.new(keg_only_f.opt_bin).mkpath
         FileUtils.touch(keg_only_f.opt_bin/"foo")
         FileUtils.chmod(0755, keg_only_f.opt_bin/"foo")
-        allow(keg_only_f).to receive(:linked?).and_return(true)
+        allow(keg_only_f).to receive_messages(linked?: true, any_version_installed?: true)
         shadower = Pathname.new("/usr/local/bin/foo")
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
         allow(shadower).to receive(:realpath).and_return(shadower)
@@ -330,6 +379,47 @@ RSpec.describe Caveats do
         allow(Homebrew::EnvConfig).to receive(:no_env_hints?).and_return(true)
 
         expect(described_class.new(f).caveats).not_to include("HOMEBREW_NO_PATH_SHADOW_CHECK")
+      end
+
+      it "annotates sibling-keg shadowers with the keg name and adds a `brew link` hint" do
+        sibling_keg_bin = HOMEBREW_CELLAR/"#{f.name}@1.0/1.0/bin"
+        sibling_keg_bin.mkpath
+        sibling_shadower = sibling_keg_bin/"foo"
+        sibling_shadower.write("#!/bin/sh\n")
+        sibling_shadower.chmod(0755)
+
+        allow(f).to receive_messages(versioned_formulae_names: ["#{f.name}@1.0"], unversioned_formula_name: nil)
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
+
+        caveats = described_class.new(f).caveats
+        expect(caveats).to include("shadowed by other linked Homebrew commands")
+        expect(caveats).to include("foo (shadowed by #{sibling_shadower} from #{f.name}@1.0)")
+        expect(caveats).to include("Run `brew link #{f.name}`")
+        expect(caveats).not_to include("earlier in your PATH")
+      end
+
+      it "annotates only the sibling line when shadowers are mixed" do
+        Pathname.new(f.opt_bin).mkpath
+        FileUtils.touch(f.opt_bin/"bar")
+        FileUtils.chmod(0755, f.opt_bin/"bar")
+
+        sibling_keg_bin = HOMEBREW_CELLAR/"#{f.name}@1.0/1.0/bin"
+        sibling_keg_bin.mkpath
+        sibling_shadower = sibling_keg_bin/"foo"
+        sibling_shadower.write("#!/bin/sh\n")
+        sibling_shadower.chmod(0755)
+
+        bar_shadower = Pathname.new("/usr/local/bin/bar")
+        allow(bar_shadower).to receive(:realpath).and_return(bar_shadower)
+
+        allow(f).to receive_messages(versioned_formulae_names: ["#{f.name}@1.0"], unversioned_formula_name: nil)
+        allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
+        allow_any_instance_of(Object).to receive(:which).with("bar", ORIGINAL_PATHS).and_return(bar_shadower)
+
+        caveats = described_class.new(f).caveats
+        expect(caveats).to include("foo (shadowed by #{sibling_shadower} from #{f.name}@1.0)")
+        expect(caveats).to include("bar (shadowed by #{bar_shadower})")
+        expect(caveats).to include("Run `brew link #{f.name}`")
       end
     end
 
