@@ -646,6 +646,15 @@ working fine: please don't worry or file an issue; just ignore this.
 
 : Enable debugging and profiling of audit methods.
 
+### `exec`, `x` \[`--skip-update`\] \[`+`*`formula`* ...\] *`command`* \[*`args`* ...\]
+
+Run a Homebrew executable, installing its formula if needed.
+
+`--skip-update`
+
+: Skip updating the executables database if any version exists on disk, no
+  matter how old.
+
 ### `fetch` \[*`options`*\] *`formula`*\|*`cask`* \[...\]
 
 Download a bottle (if available) or source packages for *`formula`*e and

@@ -926,6 +926,7 @@ case "${HOMEBREW_COMMAND}" in
   -v) HOMEBREW_COMMAND="--version" ;;
   lc) HOMEBREW_COMMAND="livecheck" ;;
   tc) HOMEBREW_COMMAND="typecheck" ;;
+  x) HOMEBREW_COMMAND="exec" ;;
 esac
 if [[ ("${HOMEBREW_COMMAND}" == "audit" || "${HOMEBREW_COMMAND}" == "lgtm" ||
       "${HOMEBREW_COMMAND}" == "style" || "${HOMEBREW_COMMAND}" == "tests") &&

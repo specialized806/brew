@@ -43,6 +43,7 @@ doctor
 dr
 edit
 environment
+exec
 extract
 fetch
 formula
@@ -139,3 +140,4 @@ verify
 version-install
 which-formula
 which-update
+x
