@@ -42,10 +42,25 @@ module InstallRenamed
 
   sig { params(src: Pathname, dst: Pathname).returns(Pathname) }
   def append_default_if_different(src, dst)
-    if dst.file? && !FileUtils.identical?(src, dst)
-      Pathname.new("#{dst}.default")
-    else
-      dst
+    return dst if !dst.file? || FileUtils.identical?(src, dst)
+
+    # Bottle installs restore config from `<keg>/.bottle/etc` through this
+    # helper. If the live config still matches an older bottled default, replace
+    # it so untouched configs advance on upgrade. Modified configs still receive
+    # the new default as `*.default`.
+    src.ascend do |path|
+      next if path.basename.to_s != ".bottle" || path.parent.parent.parent != HOMEBREW_CELLAR
+
+      path.parent.parent.subdirs.each do |prefix|
+        next if prefix == path.parent
+
+        default_file = prefix/".bottle"/src.relative_path_from(path)
+        return dst if default_file.file? && FileUtils.identical?(dst, default_file)
+      end
+
+      break
     end
+
+    Pathname.new("#{dst}.default")
   end
 end

@@ -84,6 +84,38 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#build_bottle_postinstall" do
+    let(:f) do
+      formula "bottle-config" do
+        url "foo-1.0"
+      end
+    end
+    let(:config_file) { HOMEBREW_PREFIX/"etc/bottle-config.conf" }
+
+    before do
+      FileUtils.rm_rf f.rack
+      FileUtils.rm_f config_file
+      FileUtils.rm_f Pathname("#{config_file}.default")
+    end
+
+    after do
+      FileUtils.rm_rf f.rack
+      FileUtils.rm_f config_file
+      FileUtils.rm_f Pathname("#{config_file}.default")
+    end
+
+    it "stores new prefix config where install_etc_var restores it from" do
+      installer = described_class.new(f)
+      installer.build_bottle_preinstall
+      config_file.dirname.mkpath
+      config_file.write "new\n"
+
+      installer.build_bottle_postinstall
+
+      expect((f.bottle_prefix/"etc/bottle-config.conf").read).to eq("new\n")
+    end
+  end
+
   describe "#verify_deps_exist" do
     it "does not install an untapped dependency tap" do
       formula = Testball.new

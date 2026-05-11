@@ -522,6 +522,8 @@ class FormulaInstaller
   def build_bottle_postinstall
     etc_var_postinstall = Find.find(*ETC_VAR_DIRS.select(&:directory?)).to_a
     (etc_var_postinstall - @etc_var_preinstall).each do |file|
+      # Keep new `etc`/`var` files in `.bottle` so `Formula#install_etc_var`
+      # can restore them later with `InstallRenamed` config handling.
       Pathname.new(file).cp_path_sub(HOMEBREW_PREFIX, formula.bottle_prefix)
     end
   end
