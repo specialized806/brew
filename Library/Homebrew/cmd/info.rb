@@ -370,12 +370,15 @@ module Homebrew
 
       sig { params(quiet: T::Boolean).void }
       def print_info(quiet: false)
+        qualified_inputs = args.named.select { |name| name.include?("/") }.to_set
+
         args.named.to_formulae_and_casks_and_unavailable.each_with_index do |obj, i|
           puts unless i.zero?
 
           case obj
           when Formula, Cask::Cask
-            info_formula_or_cask(obj, quiet:)
+            user_qualified = formula_qualified_by_user?(obj, qualified_inputs)
+            info_formula_or_cask(obj, quiet:, user_qualified:)
           when FormulaOrCaskUnavailableError
             # The formula/cask could not be found
             ofail obj.message
@@ -389,14 +392,51 @@ module Homebrew
         end
       end
 
-      sig { params(formula_or_cask: T.any(Formula, Cask::Cask), quiet: T::Boolean).void }
-      def info_formula_or_cask(formula_or_cask, quiet:)
+      sig { params(formula_or_cask: T.any(Formula, Cask::Cask), qualified_inputs: T::Set[String]).returns(T::Boolean) }
+      def formula_qualified_by_user?(formula_or_cask, qualified_inputs)
+        return false if qualified_inputs.empty?
+
+        names = T.let([formula_or_cask.full_name.downcase], T::Array[String])
+        if (tap = formula_or_cask.tap)
+          names << "#{tap.name.downcase}/#{Utils.name_or_token(formula_or_cask).downcase}"
+        end
+        names.any? { |n| qualified_inputs.include?(n) }
+      end
+
+      sig {
+        params(formula_or_cask: T.any(Formula, Cask::Cask), quiet: T::Boolean, user_qualified: T::Boolean).void
+      }
+      def info_formula_or_cask(formula_or_cask, quiet:, user_qualified: false)
         case formula_or_cask
         when Formula
-          quiet ? info_formula_summary(formula_or_cask) : info_formula(formula_or_cask)
+          if user_qualified
+            quiet ? info_formula_summary(formula_or_cask) : info_formula(formula_or_cask)
+          else
+            formula, shadowed_by = installed_resolution(formula_or_cask)
+            quiet ? info_formula_summary(formula) : info_formula(formula, shadowed_by:)
+          end
         when Cask::Cask
           quiet ? info_cask_summary(formula_or_cask) : info_cask(formula_or_cask)
         end
+      end
+
+      sig { params(formula: Formula).returns([Formula, T.nilable(Tap)]) }
+      def installed_resolution(formula)
+        return [formula, nil] if formula.installed_kegs.empty?
+
+        installed_tap = Tab.for_formula(formula).tap
+        return [formula, nil] if installed_tap.nil? || installed_tap == formula.tap
+
+        [Formulary.from_rack(formula.rack), formula.tap]
+      rescue FormulaUnavailableError, TapFormulaAmbiguityError
+        [formula, nil]
+      end
+
+      sig { params(formula: Formula, qualified_inputs: T::Set[String]).returns(Formula) }
+      def swap_to_installed_formula(formula, qualified_inputs)
+        return formula if formula_qualified_by_user?(formula, qualified_inputs)
+
+        installed_resolution(formula).first
       end
 
       sig { params(version: T.any(T::Boolean, String)).returns(Symbol) }
@@ -416,6 +456,8 @@ module Homebrew
       def print_json(json, eval_all)
         raise FormulaOrCaskUnspecifiedError if !(eval_all || args.installed?) && args.no_named?
 
+        qualified_inputs = args.named.select { |name| name.include?("/") }.to_set
+
         json = case json_version(json)
         when :v1, :default
           raise UsageError, "Cannot specify `--cask` when using `--json=v1`!" if args.cask?
@@ -425,7 +467,7 @@ module Homebrew
           elsif args.installed?
             Formula.installed.sort
           else
-            args.named.to_formulae
+            args.named.to_formulae.map { |f| swap_to_installed_formula(f, qualified_inputs) }
           end
 
           if args.variations?
@@ -443,7 +485,10 @@ module Homebrew
             elsif args.installed?
               [Formula.installed.sort, Cask::Caskroom.casks.sort_by(&:full_name)]
             else
-              T.cast(args.named.to_formulae_to_casks, [T::Array[Formula], T::Array[Cask::Cask]])
+              named_formulae, named_casks = T.cast(
+                args.named.to_formulae_to_casks, [T::Array[Formula], T::Array[Cask::Cask]]
+              )
+              [named_formulae.map { |f| swap_to_installed_formula(f, qualified_inputs) }, named_casks]
             end, [T::Array[Formula], T::Array[Cask::Cask]]
           )
 
@@ -530,8 +575,8 @@ module Homebrew
         end
       end
 
-      sig { params(formula: Formula).void }
-      def info_formula(formula)
+      sig { params(formula: Formula, shadowed_by: T.nilable(Tap)).void }
+      def info_formula(formula, shadowed_by: nil)
         specs = T.let([], T::Array[String])
 
         if (stable = formula.stable)
@@ -553,9 +598,16 @@ module Homebrew
                               kegs.max_by(&:scheme_and_version)&.version
           specs[0] = "#{installed_version} → #{upgrade_version}"
         end
-        name_with_status = pretty_install_status(formula.full_name, installed:, outdated:)
+        title_name = shadowed_by ? formula.name : formula.full_name
+        name_with_status = pretty_install_status(title_name, installed:, outdated:)
 
         puts "#{oh1_title(name_with_status)}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
+        if shadowed_by
+          puts Formatter.warning(
+            "`#{formula.name}` shadows `#{shadowed_by.name}/#{formula.name}`.",
+            label: "Warning",
+          )
+        end
         puts formula.desc if formula.desc
         puts Formatter.url(formula.homepage) if formula.homepage
 

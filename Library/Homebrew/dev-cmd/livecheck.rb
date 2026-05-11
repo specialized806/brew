@@ -112,7 +112,7 @@ module Homebrew
 
             autobump_lists[tap] ||= tap.autobump
 
-            name = formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+            name = Utils.name_or_token(formula_or_cask)
             next unless autobump_lists[tap].include?(name)
 
             odebug "Skipping #{name} as it is autobumped in #{tap}."
@@ -122,7 +122,7 @@ module Homebrew
         end
 
         formulae_and_casks_to_check = formulae_and_casks_to_check.sort_by do |formula_or_cask|
-          formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+          Utils.name_or_token(formula_or_cask)
         end
 
         raise UsageError, "No formulae or casks to check." if formulae_and_casks_to_check.blank? && !skipped_autobump

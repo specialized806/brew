@@ -185,7 +185,7 @@ RSpec.describe Homebrew::Cmd::Info do
 
     allow(Formula).to receive(:installed).and_return([formula])
     allow(Cask::Caskroom).to receive(:casks).and_return([cask])
-    expect(info).to receive(:info_formula).with(formula)
+    expect(info).to receive(:info_formula).with(formula, shadowed_by: nil)
     expect(info).to receive(:info_cask).with(cask)
 
     expect { info.run }
@@ -239,6 +239,135 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output(/Metadata/).to_stdout
       .and not_to_output(/supports macOS and Linux/).to_stdout
       .and not_to_output.to_stderr
+  end
+
+  it "reloads the formula from the install receipt's tap and reports the shadowing tap" do
+    info = described_class.new([])
+    formula = installed_info_formula
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["tap"] = "ataraxy-labs/tap"
+    tab.write
+
+    shadowing_tap = Tap.fetch("homebrew/core")
+    allow(formula).to receive(:tap).and_return(shadowing_tap)
+    keg_formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    allow(Formulary).to receive(:from_rack).with(formula.rack).and_return(keg_formula)
+
+    expect(info.send(:installed_resolution, formula)).to eq([keg_formula, shadowing_tap])
+  end
+
+  it "returns the original formula and no shadowing tap when the install receipt has no tap" do
+    info = described_class.new([])
+    formula = installed_info_formula
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    expect(Formulary).not_to receive(:from_rack)
+    expect(info.send(:installed_resolution, formula)).to eq([formula, nil])
+  end
+
+  it "returns the original formula and no shadowing tap when the install receipt's tap matches" do
+    info = described_class.new([])
+    formula = installed_info_formula
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["tap"] = "homebrew/core"
+    tab.write
+
+    allow(formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
+    expect(Formulary).not_to receive(:from_rack)
+    expect(info.send(:installed_resolution, formula)).to eq([formula, nil])
+  end
+
+  it "warns about a shadowing tap when info_formula is given one" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula, shadowed_by: Tap.fetch("homebrew/core")) }
+      .to output(%r{Warning: `testball` shadows `homebrew/core/testball`}).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "treats a `tap/name` input as user-qualified" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    allow(formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
+
+    qualified = Set["homebrew/core/testball"]
+    expect(info.send(:formula_qualified_by_user?, formula, qualified)).to be(true)
+  end
+
+  it "treats a bare unqualified input as not user-qualified" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+
+    expect(info.send(:formula_qualified_by_user?, formula, Set.new)).to be(false)
+  end
+
+  it "--json swaps an unqualified-input formula to its installed tap" do
+    info = described_class.new(["--json", "testball"])
+    shadowed_formula = installed_info_formula
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["tap"] = "ataraxy-labs/tap"
+    tab.write
+
+    allow(shadowed_formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
+    installed_formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    allow(installed_formula).to receive(:tap).and_return(Tap.fetch("ataraxy-labs/tap"))
+    allow(info.args.named).to receive(:to_formulae).and_return([shadowed_formula])
+    allow(Formulary).to receive(:from_rack).with(shadowed_formula.rack).and_return(installed_formula)
+
+    output = +""
+    expect { info.run }.to output(satisfy { |s|
+      output << s
+      true
+    }).to_stdout
+    expect(JSON.parse(output).first["tap"]).to eq("ataraxy-labs/tap")
+  end
+
+  it "--json honours a tap-qualified input without swapping" do
+    info = described_class.new(["--json", "homebrew/core/testball"])
+    formula = installed_info_formula
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["tap"] = "ataraxy-labs/tap"
+    tab.write
+
+    allow(formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
+    allow(info.args.named).to receive(:to_formulae).and_return([formula])
+    expect(Formulary).not_to receive(:from_rack)
+
+    output = +""
+    expect { info.run }.to output(satisfy { |s|
+      output << s
+      true
+    }).to_stdout
+    expect(JSON.parse(output).first["tap"]).to eq("homebrew/core")
   end
 
   it "prints required, recursive runtime, and dependent counts in the dependencies section" do
