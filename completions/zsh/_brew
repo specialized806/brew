@@ -165,7 +165,6 @@ __brew_internal_commands() {
     'debugger:Run the specified Homebrew command in debug mode'
     'deps:Show dependencies for formula'
     'desc:Display formula'\''s name and one-line description'
-    'determine-test-runners:Determines the runners used to test formulae or their dependents'
     'developer:Control Homebrew'\''s developer mode'
     'dispatch-build-bottle:Build bottles for these formulae with GitHub Actions'
     'docs:Open Homebrew'\''s online documentation at https://docs.brew.sh in a browser'
@@ -179,7 +178,6 @@ __brew_internal_commands() {
     'formulae:List all locally installable formulae including short names'
     'generate-analytics-api:Generates analytics API data files for https://formulae.brew.sh'
     'generate-cask-api:Generate `homebrew/cask` API data files for https://formulae.brew.sh'
-    'generate-cask-ci-matrix:Generate a GitHub Actions matrix for a given pull request URL or list of cask names'
     'generate-formula-api:Generate `homebrew/core` API data files for https://formulae.brew.sh'
     'generate-internal-api:Generate internal API data files for https://formulae.brew.sh'
     'generate-man-completions:Generate Homebrew'\''s manpages and shell completions'
@@ -248,14 +246,12 @@ __brew_internal_commands() {
     'update-perl-resources:Update versions for CPAN resource blocks in formula'
     'update-portable-ruby:Update the vendored portable Ruby version files, bottle checksums, `utils/ruby.sh` and `Gemfile.lock` entries from the current `portable-ruby` formula'
     'update-python-resources:Update versions for PyPI resource blocks in formula'
-    'update-report:The Ruby implementation of `brew update`'
     'update-reset:Fetch and reset Homebrew and all tap repositories (or any specified repository) using `git`(1) to their latest `origin/HEAD`'
     'update-sponsors:Update the list of GitHub Sponsors in the `Homebrew/brew` README'
     'update-test:Run a test of `brew update` with a new repository clone'
     'upgrade:Upgrade outdated casks and outdated, unpinned formulae using the same options they were originally installed with, plus any appended brew formula options'
     'uses:Show formulae and casks that specify formula as a dependency; that is, show dependents of formula'
     'vendor-gems:Install and commit Homebrew'\''s vendored gems'
-    'vendor-install:Install Homebrew'\''s portable Ruby'
     'verify:Verify the build provenance of bottles using GitHub'\''s attestation tools'
     'version-install:Extract a specific version of formula into a personal tap and install it'
     'which-formula:Show which formula(e) provides the given command'
@@ -921,18 +917,6 @@ _brew_desc() {
     '*:cask:__brew_casks'
 }
 
-# brew determine-test-runners
-_brew_determine_test_runners() {
-  _arguments \
-    '(--dependents)--all-supported[Instead of selecting runners based on the chosen formula, return all supported runners]' \
-    '--debug[Display any debugging information]' \
-    '(--all-supported)--dependents[Determine runners for testing dependents. Requires `--eval-all` or `HOMEBREW_EVAL_ALL=1` to be set]' \
-    '--eval-all[Evaluate all available formulae, whether installed or not, to determine testing dependents. Enabled by default if `$HOMEBREW_EVAL_ALL` is set]' \
-    '--help[Show this message]' \
-    '--quiet[Make some output more quiet]' \
-    '--verbose[Make some output more verbose]'
-}
-
 # brew developer
 _brew_developer() {
   _arguments \
@@ -1144,22 +1128,6 @@ _brew_generate_cask_api() {
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
-}
-
-# brew generate-cask-ci-matrix
-_brew_generate_cask_ci_matrix() {
-  _arguments \
-    '--debug[Display any debugging information]' \
-    '--help[Show this message]' \
-    '(--syntax-only)--new[Run new cask checks]' \
-    '--quiet[Make some output more quiet]' \
-    '(--syntax-only)--skip-install[Skip installing casks]' \
-    '(--skip-install --new)--syntax-only[Only run syntax checks]' \
-    '(--cask)--url[Treat named argument as a pull request URL]' \
-    '--verbose[Make some output more verbose]' \
-    - cask \
-    '(--url)--cask[Treat all named arguments as cask tokens]' \
-    '*:cask:__brew_casks'
 }
 
 # brew generate-formula-api
@@ -2473,17 +2441,6 @@ _brew_update_python_resources() {
     '*:formula:__brew_formulae'
 }
 
-# brew update-report
-_brew_update_report() {
-  _arguments \
-    '--auto-update[Run in '\''auto-update'\'' mode (faster, less output)]' \
-    '--debug[Display any debugging information]' \
-    '--force[Treat installed and updated formulae as if they are from the same taps and migrate them anyway]' \
-    '--help[Show this message]' \
-    '--quiet[Make some output more quiet]' \
-    '--verbose[Make some output more verbose]'
-}
-
 # brew update-reset
 _brew_update_reset() {
   _arguments \
@@ -2597,15 +2554,6 @@ _brew_vendor_gems() {
     '--verbose[Make some output more verbose]'
 }
 
-# brew vendor-install
-_brew_vendor_install() {
-  _arguments \
-    '--debug[Display any debugging information]' \
-    '--help[Show this message]' \
-    '--quiet[Make some output more quiet]' \
-    '--verbose[Make some output more verbose]'
-}
-
 # brew verify
 _brew_verify() {
   _arguments \
@@ -2650,16 +2598,14 @@ _brew_which_formula() {
 # brew which-update
 _brew_which_update() {
   _arguments \
-    '(--stats)--commit[Commit the changes using `git`]' \
+    '--bottle-json-dir[Use generated bottle JSON files in the given directory to update formula entries]' \
     '--debug[Display any debugging information]' \
-    '--eval-all[Evaluate all installed taps, rather than just the core tap]' \
     '--help[Show this message]' \
-    '(--stats)--install-missing[Install and update formulae that are missing from the database and don'\''t have bottles]' \
-    '(--stats)--max-downloads[Specify a maximum number of formulae to download and update]' \
+    '--pull-request[Update entries for formula changes in the given pull request number]' \
     '--quiet[Make some output more quiet]' \
-    '(--commit --install-missing --update-existing --max-downloads)--stats[Print statistics about the database contents (number of commands and formulae, list of missing formulae)]' \
+    '--removed-formulae-file[Remove database entries for formulae listed in the given file]' \
+    '--repository[GitHub repository for `--pull-request` (default: `$GITHUB_REPOSITORY`)]' \
     '--summary-file[Output a summary of the changes to a file]' \
-    '(--stats)--update-existing[Update database entries with outdated formula versions]' \
     '--verbose[Make some output more verbose]'
 }
 
