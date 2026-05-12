@@ -374,7 +374,14 @@ module Homebrew
 
         cask_ast = Utils::AST::CaskAST.new(contents)
         replacement_count = cask_ast.replace_stanza_value(name, old_value, new_value)
-        raise "Could not find '#{name}' stanza with value #{old_value.inspect}!" if replacement_count.zero?
+        if replacement_count.zero?
+          # Treat an already-applied replacement as a successful no-op so the
+          # per-(os, arch) loop in `replace_version_and_checksum` can yield the
+          # same general version more than once without raising.
+          return contents if cask_ast.replace_stanza_value(name, new_value, new_value).positive?
+
+          raise "Could not find '#{name}' stanza with value #{old_value.inspect}!"
+        end
 
         cask_ast.process
       end
