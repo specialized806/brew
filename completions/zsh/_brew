@@ -2417,7 +2417,7 @@ _brew_update_portable_ruby() {
     '--dry-run[Print what would be done rather than doing it]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
-    '--skip-vendor-install[Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and `Gemfile.lock` updates]' \
+    '--skip-vendor-install[Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh`, `Gemfile.lock` and RBI updates]' \
     '--verbose[Make some output more verbose]'
 }
 

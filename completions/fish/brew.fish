@@ -1962,7 +1962,7 @@ __fish_brew_complete_arg 'update-portable-ruby' -l debug -d 'Display any debuggi
 __fish_brew_complete_arg 'update-portable-ruby' -l dry-run -d 'Print what would be done rather than doing it'
 __fish_brew_complete_arg 'update-portable-ruby' -l help -d 'Show this message'
 __fish_brew_complete_arg 'update-portable-ruby' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'update-portable-ruby' -l skip-vendor-install -d 'Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and `Gemfile.lock` updates'
+__fish_brew_complete_arg 'update-portable-ruby' -l skip-vendor-install -d 'Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh`, `Gemfile.lock` and RBI updates'
 __fish_brew_complete_arg 'update-portable-ruby' -l verbose -d 'Make some output more verbose'
 
 
