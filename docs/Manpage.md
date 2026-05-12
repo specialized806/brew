@@ -3752,8 +3752,8 @@ formula.
 
 `--skip-vendor-install`
 
-: Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and
-  `Gemfile.lock` updates.
+: Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh`,
+  `Gemfile.lock` and RBI updates.
 
 ### `update-python-resources` \[*`options`*\] *`formula`* \[...\]
 
