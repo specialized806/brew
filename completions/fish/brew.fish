@@ -724,16 +724,6 @@ __fish_brew_complete_arg 'desc; and not __fish_seen_argument -l cask -l casks' -
 __fish_brew_complete_arg 'desc; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
-__fish_brew_complete_cmd 'determine-test-runners' 'Determines the runners used to test formulae or their dependents'
-__fish_brew_complete_arg 'determine-test-runners' -l all-supported -d 'Instead of selecting runners based on the chosen formula, return all supported runners'
-__fish_brew_complete_arg 'determine-test-runners' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'determine-test-runners' -l dependents -d 'Determine runners for testing dependents. Requires `--eval-all` or `HOMEBREW_EVAL_ALL=1` to be set'
-__fish_brew_complete_arg 'determine-test-runners' -l eval-all -d 'Evaluate all available formulae, whether installed or not, to determine testing dependents. Enabled by default if `$HOMEBREW_EVAL_ALL` is set'
-__fish_brew_complete_arg 'determine-test-runners' -l help -d 'Show this message'
-__fish_brew_complete_arg 'determine-test-runners' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'determine-test-runners' -l verbose -d 'Make some output more verbose'
-
-
 __fish_brew_complete_cmd 'developer' 'Control Homebrew\'s developer mode'
 __fish_brew_complete_sub_cmd 'developer' 'state'
 __fish_brew_complete_sub_cmd 'developer' 'on'
@@ -904,19 +894,6 @@ __fish_brew_complete_arg 'generate-cask-api' -l dry-run -d 'Generate API data wi
 __fish_brew_complete_arg 'generate-cask-api' -l help -d 'Show this message'
 __fish_brew_complete_arg 'generate-cask-api' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'generate-cask-api' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd 'generate-cask-ci-matrix' 'Generate a GitHub Actions matrix for a given pull request URL or list of cask names'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l cask -d 'Treat all named arguments as cask tokens'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l help -d 'Show this message'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l new -d 'Run new cask checks'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l skip-install -d 'Skip installing casks'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l syntax-only -d 'Only run syntax checks'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l url -d 'Treat named argument as a pull request URL'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'generate-cask-ci-matrix' -a '(__fish_brew_suggest_casks_all)'
 
 
 __fish_brew_complete_cmd 'generate-formula-api' 'Generate `homebrew/core` API data files for https://formulae.brew.sh'
@@ -2006,14 +1983,6 @@ __fish_brew_complete_arg 'update-python-resources' -l version -d 'Use the specif
 __fish_brew_complete_arg 'update-python-resources' -a '(__fish_brew_suggest_formulae_all)'
 
 
-__fish_brew_complete_arg 'update-report' -l auto-update -d 'Run in \'auto-update\' mode (faster, less output)'
-__fish_brew_complete_arg 'update-report' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'update-report' -l force -d 'Treat installed and updated formulae as if they are from the same taps and migrate them anyway'
-__fish_brew_complete_arg 'update-report' -l help -d 'Show this message'
-__fish_brew_complete_arg 'update-report' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'update-report' -l verbose -d 'Make some output more verbose'
-
-
 __fish_brew_complete_cmd 'update-reset' 'Fetch and reset Homebrew and all tap repositories (or any specified repository) using `git`(1) to their latest `origin/HEAD`'
 __fish_brew_complete_arg 'update-reset' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-reset' -l help -d 'Show this message'
@@ -2110,13 +2079,6 @@ __fish_brew_complete_arg 'vendor-gems' -l no-commit -d 'Do not generate a new co
 __fish_brew_complete_arg 'vendor-gems' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'vendor-gems' -l update -d 'Update the specified list of vendored gems to the latest version'
 __fish_brew_complete_arg 'vendor-gems' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd 'vendor-install' 'Install Homebrew\'s portable Ruby'
-__fish_brew_complete_arg 'vendor-install' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'vendor-install' -l help -d 'Show this message'
-__fish_brew_complete_arg 'vendor-install' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'vendor-install' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'verify' 'Verify the build provenance of bottles using GitHub\'s attestation tools'

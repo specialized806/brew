@@ -999,25 +999,6 @@ _brew_desc() {
   __brew_complete_casks
 }
 
-_brew_determine_test_runners() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "${cur}" in
-    -*)
-      __brewcomp "
-      --all-supported
-      --debug
-      --dependents
-      --eval-all
-      --help
-      --quiet
-      --verbose
-      "
-      return
-      ;;
-    *) ;;
-  esac
-}
-
 _brew_developer() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -1321,28 +1302,6 @@ _brew_generate_cask_api() {
       ;;
     *) ;;
   esac
-}
-
-_brew_generate_cask_ci_matrix() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "${cur}" in
-    -*)
-      __brewcomp "
-      --cask
-      --debug
-      --help
-      --new
-      --quiet
-      --skip-install
-      --syntax-only
-      --url
-      --verbose
-      "
-      return
-      ;;
-    *) ;;
-  esac
-  __brew_complete_casks
 }
 
 _brew_generate_formula_api() {
@@ -3132,24 +3091,6 @@ _brew_update_python_resources() {
   __brew_complete_formulae
 }
 
-_brew_update_report() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "${cur}" in
-    -*)
-      __brewcomp "
-      --auto-update
-      --debug
-      --force
-      --help
-      --quiet
-      --verbose
-      "
-      return
-      ;;
-    *) ;;
-  esac
-}
-
 _brew_update_reset() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3294,22 +3235,6 @@ _brew_vendor_gems() {
       --no-commit
       --quiet
       --update
-      --verbose
-      "
-      return
-      ;;
-    *) ;;
-  esac
-}
-
-_brew_vendor_install() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "${cur}" in
-    -*)
-      __brewcomp "
-      --debug
-      --help
-      --quiet
       --verbose
       "
       return
@@ -3484,7 +3409,6 @@ _brew() {
     debugger) _brew_debugger ;;
     deps) _brew_deps ;;
     desc) _brew_desc ;;
-    determine-test-runners) _brew_determine_test_runners ;;
     developer) _brew_developer ;;
     dispatch-build-bottle) _brew_dispatch_build_bottle ;;
     docs) _brew_docs ;;
@@ -3500,7 +3424,6 @@ _brew() {
     formulae) _brew_formulae ;;
     generate-analytics-api) _brew_generate_analytics_api ;;
     generate-cask-api) _brew_generate_cask_api ;;
-    generate-cask-ci-matrix) _brew_generate_cask_ci_matrix ;;
     generate-formula-api) _brew_generate_formula_api ;;
     generate-internal-api) _brew_generate_internal_api ;;
     generate-man-completions) _brew_generate_man_completions ;;
@@ -3579,14 +3502,12 @@ _brew() {
     update-perl-resources) _brew_update_perl_resources ;;
     update-portable-ruby) _brew_update_portable_ruby ;;
     update-python-resources) _brew_update_python_resources ;;
-    update-report) _brew_update_report ;;
     update-reset) _brew_update_reset ;;
     update-sponsors) _brew_update_sponsors ;;
     update-test) _brew_update_test ;;
     upgrade) _brew_upgrade ;;
     uses) _brew_uses ;;
     vendor-gems) _brew_vendor_gems ;;
-    vendor-install) _brew_vendor_install ;;
     verify) _brew_verify ;;
     version-install) _brew_version_install ;;
     which-formula) _brew_which_formula ;;
