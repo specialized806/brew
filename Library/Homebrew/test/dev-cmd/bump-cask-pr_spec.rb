@@ -257,6 +257,40 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     end
   end
 
+  describe "#replace_cask_stanza_value" do
+    let(:contents) do
+      <<~RUBY
+        cask "foo" do
+          arch arm: "Apple", intel: "Intel"
+
+          version "1.0"
+          sha256 arm:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                 intel: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+          url "https://brew.sh/foo-\#{arch}-\#{version}.dmg"
+          name "Foo"
+        end
+      RUBY
+    end
+
+    before do
+      Homebrew.install_bundler_gems!(groups: ["ast"])
+      require "utils/ast"
+    end
+
+    it "is idempotent when the replacement has already been applied" do
+      bumped = bump_cask_pr.send(:replace_cask_stanza_value, contents, :version, "1.0", "2.0")
+      expect(bumped).to include('version "2.0"')
+      expect { bump_cask_pr.send(:replace_cask_stanza_value, bumped, :version, "1.0", "2.0") }
+        .not_to raise_error
+    end
+
+    it "raises when the stanza is missing entirely" do
+      expect { bump_cask_pr.send(:replace_cask_stanza_value, contents, :version, "9.9", "2.0") }
+        .to raise_error(/Could not find 'version' stanza/)
+    end
+  end
+
   describe "::check_throttle" do
     let(:c_throttle) do
       Cask::Cask.new("throttle-test") do
