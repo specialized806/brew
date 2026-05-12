@@ -954,6 +954,36 @@ module Homebrew
               return version if date < cooldown_interval
             end
           end
+        when "RubyGems"
+          url = version_info.dig(:meta, :url, :strategy)&.sub(%r{/latest\.json\z}, ".json")
+          original_url = version_info.dig(:meta, :url, :original)
+          return if !url || !original_url
+
+          match = Homebrew::Livecheck::Strategy::RubyGems::URL_MATCH_REGEX.match(original_url)
+          return unless match
+
+          stdout, _stderr, status = Utils::Curl.curl_output(*DEFAULT_CURL_ARGS, url, **DEFAULT_CURL_OPTIONS)
+          return unless status.success?
+          return if (content = stdout.scrub).blank?
+
+          json = Homebrew::Livecheck::Strategy::Json.parse_json(content)
+          return unless json.is_a?(Array)
+
+          current_str = current.to_s
+          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          json.sort_by { |release| Version.new(release["number"]) }.reverse_each do |release|
+            next if release["platform"] != (match[:platform] || "ruby")
+
+            version_str = release["number"]
+            version = Version.new(version_str)
+            return version if version_str == current_str
+            next if (version > latest) || (version < current)
+            next if release["prerelease"] &&
+                    !(Gem::Version.correct?(current_str) && Gem::Version.new(current_str).prerelease?)
+            next unless (date_str = release["created_at"])
+
+            return version if DateTime.parse(date_str) < cooldown_interval
+          end
         end
       end
     end

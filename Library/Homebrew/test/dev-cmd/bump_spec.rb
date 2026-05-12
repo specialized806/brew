@@ -184,4 +184,114 @@ RSpec.describe Homebrew::DevCmd::Bump do
       end
     end
   end
+
+  describe "::version_with_cooldown" do
+    it "uses RubyGems version creation times" do
+      version_info = {
+        latest: "1.2.4",
+        meta:   {
+          strategy: "RubyGems",
+          url:      {
+            original: "https://rubygems.org/downloads/example-package-1.2.3.gem",
+            strategy: "https://rubygems.org/api/v1/versions/example-package/latest.json",
+          },
+        },
+      }
+      content = <<~JSON
+        [
+          {
+            "created_at": "2026-04-04T00:00:00.000Z",
+            "number": "1.2.4",
+            "platform": "ruby",
+            "prerelease": false
+          },
+          {
+            "created_at": "2026-04-02T00:00:00.000Z",
+            "number": "1.2.3",
+            "platform": "ruby",
+            "prerelease": false
+          }
+        ]
+      JSON
+
+      allow(DateTime).to receive(:now).and_return(DateTime.parse("2026-04-04T12:00:00Z"))
+      allow(Utils::Curl).to receive(:curl_output)
+        .with(
+          "--compressed",
+          "--fail-with-body",
+          "--location",
+          "--max-redirs",
+          "5",
+          "--silent",
+          "https://rubygems.org/api/v1/versions/example-package.json",
+          connect_timeout: 15,
+          max_time:        55,
+          retries:         0,
+          timeout:         60,
+        )
+        .and_return([content, "", instance_double(Process::Status, success?: true)])
+
+      expect(bump.send(:version_with_cooldown, version_info, Version.new("1.2.2"))).to eq(Version.new("1.2.3"))
+    end
+
+    it "uses platform-specific RubyGems releases for native gems" do
+      version_info = {
+        latest: "1.2.4",
+        meta:   {
+          strategy: "RubyGems",
+          url:      {
+            original: "https://rubygems.org/downloads/example-package-1.2.3-arm64-darwin.gem",
+            strategy: "https://rubygems.org/api/v1/versions/example-package/latest.json",
+          },
+        },
+      }
+      content = <<~JSON
+        [
+          {
+            "created_at": "2026-04-04T00:00:00.000Z",
+            "number": "1.2.4",
+            "platform": "arm64-darwin",
+            "prerelease": false
+          },
+          {
+            "created_at": "2026-04-02T00:00:00.000Z",
+            "number": "1.2.3",
+            "platform": "arm64-darwin",
+            "prerelease": false
+          },
+          {
+            "created_at": "2026-03-01T00:00:00.000Z",
+            "number": "1.2.4",
+            "platform": "ruby",
+            "prerelease": false
+          },
+          {
+            "created_at": "2026-02-01T00:00:00.000Z",
+            "number": "1.2.3",
+            "platform": "ruby",
+            "prerelease": false
+          }
+        ]
+      JSON
+
+      allow(DateTime).to receive(:now).and_return(DateTime.parse("2026-04-04T12:00:00Z"))
+      allow(Utils::Curl).to receive(:curl_output)
+        .with(
+          "--compressed",
+          "--fail-with-body",
+          "--location",
+          "--max-redirs",
+          "5",
+          "--silent",
+          "https://rubygems.org/api/v1/versions/example-package.json",
+          connect_timeout: 15,
+          max_time:        55,
+          retries:         0,
+          timeout:         60,
+        )
+        .and_return([content, "", instance_double(Process::Status, success?: true)])
+
+      expect(bump.send(:version_with_cooldown, version_info, Version.new("1.2.2"))).to eq(Version.new("1.2.3"))
+    end
+  end
 end
