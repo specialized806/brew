@@ -20,7 +20,7 @@
 /Library/Homebrew/test/fs_leak_log
 /Library/Homebrew/vendor/portable-ruby
 /Library/Homebrew/vendor/brew-rs/
-/Library/Homebrew/rust/brew-rs/target
+/Library/Homebrew/rust/brew-rs
 /Library/Taps
 /Library/PinnedTaps
 /Library/Homebrew/.byebug_history
