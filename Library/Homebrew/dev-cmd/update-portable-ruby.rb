@@ -17,8 +17,8 @@ module Homebrew
         switch "-n", "--dry-run",
                description: "Print what would be done rather than doing it."
         switch "--skip-vendor-install",
-               description: "Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh` and " \
-                            "`Gemfile.lock` updates."
+               description: "Do not run `brew vendor-install ruby`; skip the `utils/ruby.sh`, " \
+                            "`Gemfile.lock` and RBI updates."
 
         named_args :none
       end
@@ -48,6 +48,7 @@ module Homebrew
           ohai "brew vendor-install ruby"
           ohai "Would update #{HOMEBREW_LIBRARY_PATH/"utils/ruby.sh"} and #{HOMEBREW_LIBRARY_PATH/"Gemfile.lock"} " \
                "with the bundler version shipped by portable-ruby #{pkg_version}."
+          ohai "brew typecheck --update"
           return
         end
 
@@ -68,6 +69,9 @@ module Homebrew
 
         ohai "brew vendor-gems --no-commit --update=--ruby,--bundler=#{bundler_version}"
         safe_system HOMEBREW_BREW_FILE, "vendor-gems", "--no-commit", "--update=--ruby,--bundler=#{bundler_version}"
+
+        ohai "brew typecheck --update"
+        safe_system HOMEBREW_BREW_FILE, "typecheck", "--update"
       end
 
       private

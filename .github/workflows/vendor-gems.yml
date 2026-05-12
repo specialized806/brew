@@ -107,7 +107,7 @@ jobs:
           branch: ${{ steps.checkout.outputs.branch }}
           force: true
 
-      - name: Check vendored gems are in sync
+      - name: Check vendor and RBI files are in sync
         if: github.event_name == 'pull_request'
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
         run: |
@@ -115,8 +115,8 @@ jobs:
           if [ -n "${status}" ]
           then
             {
-              echo "::error::Vendored gems are out of sync with Gemfile.lock."
-              echo "Run 'brew vendor-gems' and 'brew typecheck --update' and commit the changes."
+              echo "::error::Vendored gems and/or RBI files are out of date."
+              echo "Run 'brew vendor-gems && brew typecheck --update' (or 'brew update-portable-ruby' for portable-ruby bumps) and commit the changes."
               echo
               echo "${status}"
             } >&2
