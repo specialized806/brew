@@ -24,6 +24,10 @@ module Homebrew
                description: "Determine runners for testing dependents. " \
                             "Requires `--eval-all` or `HOMEBREW_EVAL_ALL=1` to be set.",
                depends_on:  "--eval-all"
+        flag   "--dependent-shards=",
+               description: "Split each dependent runner into the given number of shards.",
+               depends_on:  "--dependents",
+               hidden:      true
 
         named_args max: 2
 
@@ -44,9 +48,16 @@ module Homebrew
           TestRunnerFormula.new(Formulary.factory(name), eval_all: args.eval_all?)
         end.freeze
         deleted_formulae = args.named.second&.split(",").to_a.freeze
+        dependent_shards = args.dependent_shards || "1"
+        unless dependent_shards.match?(/\A[1-9]\d*\z/)
+          raise UsageError,
+                "`--dependent-shards` must be a positive integer."
+        end
+
         runner_matrix = GitHubRunnerMatrix.new(testing_formulae, deleted_formulae,
                                                all_supported:    args.all_supported?,
-                                               dependent_matrix: args.dependents?)
+                                               dependent_matrix: args.dependents?,
+                                               dependent_shards: dependent_shards.to_i)
         runners = runner_matrix.active_runner_specs_hash
 
         ohai "Runners", JSON.pretty_generate(runners)

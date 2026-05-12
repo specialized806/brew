@@ -178,6 +178,21 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
                                   .all?(&:active))
               .to be(true)
           end
+
+          it "splits active runners into shards" do
+            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
+            allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
+
+            runners = described_class.new([testball], [],
+                                          all_supported:    false,
+                                          dependent_matrix: true,
+                                          dependent_shards: 2)
+                                     .active_runner_specs_hash
+
+            expect(runners).to all(include(:formulae_dependents_shard))
+            expect(runners.map { |runner| runner.fetch(:formulae_dependents_shard) }.uniq).to eq(["1/2", "2/2"])
+            expect(runners.map { |runner| runner.fetch(:name) }).to all(match(%r{ shard [12]/2\z}))
+          end
         end
 
         context "when dependents require Linux" do
