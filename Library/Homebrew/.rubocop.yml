@@ -93,6 +93,7 @@ Style/Documentation:
     - livecheck/strategy/npm.rb
     - livecheck/strategy/page_match.rb
     - livecheck/strategy/pypi.rb
+    - livecheck/strategy/ruby_gems.rb
     - livecheck/strategy/sourceforge.rb
     - livecheck/strategy/sparkle.rb
     - livecheck/strategy/xml.rb
