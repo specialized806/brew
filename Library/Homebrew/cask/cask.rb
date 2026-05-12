@@ -152,14 +152,12 @@ module Cask
       refresh
     end
 
-    sig { params(skip_implicit_dependency: T::Boolean).void }
-    def refresh(skip_implicit_dependency: false)
+    sig { void }
+    def refresh
       @dsl = T.let(DSL.new(self), T.nilable(DSL))
-      @contains_os_specific_artifacts = nil
       return unless @block
 
       dsl!.instance_eval(&@block)
-      dsl!.add_implicit_macos_dependency unless skip_implicit_dependency
       dsl!.language_eval
     rescue NoMethodError => e
       raise CaskInvalidError.new(token, e.message), e.backtrace
@@ -210,64 +208,13 @@ module Cask
     sig { returns(T::Boolean) }
     def supports_linux?
       return true if depends_on.requires_linux?
-      return false if depends_on.requires_macos?
 
-      if depends_on.macos_set_in_block?
-        return false if contains_os_specific_artifacts?
-
-        return true
-      end
-
-      return true if font?
-
-      # Cache the os value before contains_os_specific_artifacts? refreshes the cask
-      # (the refresh clears @dsl.os in generic/non-OS-specific contexts)
-      os_value = dsl!.os
-
-      return false if contains_os_specific_artifacts?
-
-      # Casks with OS-specific blocks rely on the os stanza for Linux support
-      return os_value.present? if dsl!.on_os_blocks_exist?
-
-      # Platform-agnostic casks: reject macOS-only artifacts and manual installers
-      artifacts.none? do |a|
-        Artifact::MACOS_ONLY_ARTIFACTS.include?(a.class) ||
-          (a.is_a?(Artifact::Installer) && a.manual_install)
-      end
+      !depends_on.requires_macos?
     end
 
     sig { returns(T::Boolean) }
     def supports_macos?
-      return false if depends_on.requires_linux?
-
-      true
-    end
-
-    sig { returns(T::Boolean) }
-    def contains_os_specific_artifacts?
-      return false unless @dsl&.on_system_blocks_exist?
-
-      return @contains_os_specific_artifacts unless @contains_os_specific_artifacts.nil?
-
-      any_loaded = T.let(false, T::Boolean)
-      OnSystem::VALID_OS_ARCH_TAGS.each do |bottle_tag|
-        Homebrew::SimulateSystem.with_tag(bottle_tag) do
-          refresh(skip_implicit_dependency: true)
-
-          any_loaded = true if artifacts.any? do |artifact|
-            (bottle_tag.linux? && ::Cask::Artifact::MACOS_ONLY_ARTIFACTS.include?(artifact.class)) ||
-            (bottle_tag.macos? && ::Cask::Artifact::LINUX_ONLY_ARTIFACTS.include?(artifact.class))
-          end
-        end
-      rescue CaskInvalidError
-        # Invalid for this OS/arch tag; treat as having no OS-specific artifacts.
-        next
-      ensure
-        refresh(skip_implicit_dependency: true)
-      end
-
-      @contains_os_specific_artifacts = T.let(any_loaded, T.nilable(T::Boolean))
-      any_loaded
+      !depends_on.requires_linux?
     end
 
     # The caskfile is needed during installation when there are
