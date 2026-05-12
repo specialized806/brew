@@ -560,17 +560,14 @@ module Homebrew
         version = "-" if version.blank?
 
         puts oh1_title(info_summary_title(formula.full_name, formula.desc, installed: kegs.any?))
-        puts "Formula from #{if kegs.empty?
-                               github_info(formula)
-                             else
-                               formula.tap&.name ||
-                                 T.cast(tab.source["tap"], T.nilable(String)) ||
-                                 T.cast(tab.source["path"], T.nilable(String)) ||
-                                 github_info(formula)
-        end}"
         if kegs.empty?
+          puts "Formula from #{github_info(formula)}"
           puts "Not installed"
         else
+          puts "Formula from #{formula.tap&.name ||
+                                T.cast(tab.source["tap"], T.nilable(String)) ||
+                                T.cast(tab.source["path"], T.nilable(String)) ||
+                                github_info(formula)}"
           puts self.class.installation_summary(version, tab)
         end
       end
@@ -806,18 +803,15 @@ module Homebrew
                          end,
                          installed:,
                        ))
-        puts "Cask from #{if installed
-                            T.cast(cask.tap, T.nilable(Tap))&.name ||
-                              T.cast(tab.source["tap"], T.nilable(String)) ||
-                              cask.sourcefile_path&.to_s ||
-                              T.cast(tab.source["path"], T.nilable(String)) ||
-                              github_info(cask)
-                          else
-                            github_info(cask)
-        end}"
         if installed
+          puts "Cask from #{T.cast(cask.tap, T.nilable(Tap))&.name ||
+                             T.cast(tab.source["tap"], T.nilable(String)) ||
+                             cask.sourcefile_path&.to_s ||
+                             T.cast(tab.source["path"], T.nilable(String)) ||
+                             github_info(cask)}"
           puts self.class.installation_summary(installed_version, tab)
         else
+          puts "Cask from #{github_info(cask)}"
           puts "Not installed"
         end
       end

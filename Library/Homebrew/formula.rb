@@ -2626,17 +2626,14 @@ class Formula
 
   sig { returns(T::Boolean) }
   def supports_macos?
-    return false if active_spec.depends_on_linux_set_top_level
-
-    requirements.none?(LinuxRequirement)
+    !active_spec.depends_on_linux_set_top_level?
   end
 
   sig { returns(T::Boolean) }
   def supports_linux?
-    return true if active_spec.depends_on_linux_set_top_level
-    return false if active_spec.depends_on_macos_set_top_level?
+    return true if active_spec.depends_on_linux_set_top_level?
 
-    requirements.none? { |r| r.is_a?(MacOSRequirement) && !r.version_specified? }
+    !active_spec.depends_on_macos_set_top_level?
   end
 
   sig { params(options: T::Hash[Symbol, String]).void }

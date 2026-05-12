@@ -44,6 +44,8 @@ RSpec.describe Homebrew::DevCmd::Audit do
       RUBY
 
       allow(Homebrew).to receive(:install_bundler_gems!)
+      ENV.activate_extensions!
+      allow(ENV).to receive(:setup_build_environment)
       allow(Tap).to receive(:fetch).and_call_original
       allow(Tap).to receive(:fetch).with("homebrew/test").and_return(tap)
       allow(Tap).to receive(:installed).and_return([])

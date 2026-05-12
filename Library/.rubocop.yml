@@ -76,6 +76,13 @@ Homebrew/NoFileutilsRmrf:
     - "/**/{Formula,Casks}/**/*.rb"
     - "**/{Formula,Casks}/**/*.rb"
 
+Homebrew/OSDependsOn:
+  Include:
+    - "/**/{Formula,Casks}/**/*.rb"
+    - "**/{Formula,Casks}/**/*.rb"
+  Exclude:
+    - "Homebrew/test/**/*.rb"
+
 # only used internally
 Homebrew/MoveToExtendOS:
   Enabled: false

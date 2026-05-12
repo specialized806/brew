@@ -110,6 +110,7 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       desc "Test cask"
       homepage "https://brew.sh"
 
+      depends_on :macos
       depends_on arch: :x86_64
 
       app "Test.app"
@@ -123,6 +124,8 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       name "Test"
       desc "Test cask"
       homepage "https://brew.sh"
+
+      depends_on :macos
 
       app "Test.app"
     end
