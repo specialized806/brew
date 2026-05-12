@@ -75,7 +75,12 @@ module Cask
         pairs.each do |key, value|
           raise "invalid depends_on key: '#{key.inspect}'" unless VALID_KEYS.include?(key)
 
-          __getobj__[key] = send(:"#{key}=", *value)
+          __getobj__[key] = case key
+          when :macos, :maximum_macos
+            send(:"#{key}=", *value, set_in_block:)
+          else
+            send(:"#{key}=", *value)
+          end
           record_os_requirement(key, set_in_block:)
         end
       end
@@ -90,20 +95,15 @@ module Cask
         cask.concat(args)
       end
 
-      sig { params(args: T.any(String, Symbol)).returns(T.nilable(MacOSRequirement)) }
-      def macos=(*args)
-        raise "Only a single 'depends_on macos' is allowed." if @macos
-
-        begin
-          @macos = MacOSRequirement.parse(args, comparator: ">=")
-        rescue MacOSVersion::Error, TypeError => e
-          raise "invalid 'depends_on macos' value: #{e}"
-        end
+      sig { params(args: T.any(String, Symbol), set_in_block: T::Boolean).returns(T.nilable(MacOSRequirement)) }
+      def macos=(*args, set_in_block: false)
+        @macos = MacOSRequirement.parse(args, comparator: ">=")
+      rescue MacOSVersion::Error, TypeError => e
+        raise "invalid 'depends_on macos' value: #{e}"
       end
 
-      sig { params(args: T.any(String, Symbol)).returns(T.nilable(MacOSRequirement)) }
-      def maximum_macos=(*args)
-        raise "Only a single 'depends_on maximum_macos' is allowed." if @maximum_macos
+      sig { params(args: T.any(String, Symbol), set_in_block: T::Boolean).returns(T.nilable(MacOSRequirement)) }
+      def maximum_macos=(*args, set_in_block: false)
         raise "invalid 'depends_on maximum_macos' value: only a single macOS version is allowed" if args.count != 1
 
         maximum_macos = begin
@@ -193,15 +193,31 @@ module Cask
         raise "`depends_on :linux` cannot be combined with `depends_on macos:`" if requires_linux?
 
         if !requirement.version_specified?
-          raise "`depends_on :macos` cannot be combined with another macOS `depends_on`" if requires_macos?
+          raise "`depends_on :macos` cannot be combined with another macOS `depends_on`" if @macos_bare_set_top_level
+
+          if @macos_version_set_top_level || @maximum_macos_set_top_level
+            # odeprecated "`depends_on :macos` with `depends_on macos:`"
+          end
 
           @macos_bare_set_top_level = true
         elsif requirement.comparator == "<="
-          raise "`depends_on maximum_macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level
+          if @macos_bare_set_top_level
+            # odeprecated "`depends_on :macos` with `depends_on maximum_macos:`"
+          end
+
+          if @maximum_macos_set_top_level
+            raise "`depends_on maximum_macos:` cannot be combined with another macOS `depends_on`"
+          end
 
           @maximum_macos_set_top_level = true
         else
-          raise "`depends_on macos:` cannot be combined with `depends_on :macos`" if @macos_bare_set_top_level
+          if @macos_bare_set_top_level
+            # odeprecated "`depends_on :macos` with `depends_on macos:`"
+          end
+
+          if @macos_version_set_top_level
+            raise "`depends_on macos:` cannot be combined with another macOS `depends_on`"
+          end
 
           @macos_version_set_top_level = true
         end
