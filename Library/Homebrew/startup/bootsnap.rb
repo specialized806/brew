@@ -50,7 +50,8 @@ module Homebrew
         # https://github.com/Shopify/bootsnap?tab=readme-ov-file#precompilation
         development_mode:   true,
         load_path_cache:    true,
-        compile_cache_iseq: compile_cache,
+        # Ruby refuses InstructionSequence#to_binary while Coverage is active.
+        compile_cache_iseq: compile_cache && ENV["HOMEBREW_TESTS_COVERAGE"].nil?,
         compile_cache_yaml: compile_cache,
       )
     end
