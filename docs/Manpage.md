@@ -3873,31 +3873,22 @@ Note that this command depends on the GitHub CLI. Run `brew install gh`.
 
 Database update for `brew which-formula`.
 
-`--stats`
+`--bottle-json-dir`
 
-: Print statistics about the database contents (number of commands and formulae,
-  list of missing formulae).
+: Use generated bottle JSON files in the given directory to update formula
+  entries.
 
-`--commit`
+`--removed-formulae-file`
 
-: Commit the changes using `git`.
+: Remove database entries for formulae listed in the given file.
 
-`--update-existing`
+`--pull-request`
 
-: Update database entries with outdated formula versions.
+: Update entries for formula changes in the given pull request number.
 
-`--install-missing`
+`--repository`
 
-: Install and update formulae that are missing from the database and don't have
-  bottles.
-
-`--eval-all`
-
-: Evaluate all installed taps, rather than just the core tap.
-
-`--max-downloads`
-
-: Specify a maximum number of formulae to download and update.
+: GitHub repository for `--pull-request` (default: `$GITHUB_REPOSITORY`).
 
 `--summary-file`
 

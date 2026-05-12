@@ -3307,16 +3307,14 @@ _brew_which_update() {
   case "${cur}" in
     -*)
       __brewcomp "
-      --commit
+      --bottle-json-dir
       --debug
-      --eval-all
       --help
-      --install-missing
-      --max-downloads
+      --pull-request
       --quiet
-      --stats
+      --removed-formulae-file
+      --repository
       --summary-file
-      --update-existing
       --verbose
       "
       return

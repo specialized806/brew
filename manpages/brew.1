@@ -2467,23 +2467,17 @@ Return JSON for the attestation data for each bottle\.
 .SS "\fBwhich\-update\fP \fR[\fIoptions\fP] \fIdatabase\fP"
 Database update for \fBbrew which\-formula\fP\&\.
 .TP
-\fB\-\-stats\fP
-Print statistics about the database contents (number of commands and formulae, list of missing formulae)\.
+\fB\-\-bottle\-json\-dir\fP
+Use generated bottle JSON files in the given directory to update formula entries\.
 .TP
-\fB\-\-commit\fP
-Commit the changes using \fBgit\fP\&\.
+\fB\-\-removed\-formulae\-file\fP
+Remove database entries for formulae listed in the given file\.
 .TP
-\fB\-\-update\-existing\fP
-Update database entries with outdated formula versions\.
+\fB\-\-pull\-request\fP
+Update entries for formula changes in the given pull request number\.
 .TP
-\fB\-\-install\-missing\fP
-Install and update formulae that are missing from the database and don\[u2019]t have bottles\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all installed taps, rather than just the core tap\.
-.TP
-\fB\-\-max\-downloads\fP
-Specify a maximum number of formulae to download and update\.
+\fB\-\-repository\fP
+GitHub repository for \fB\-\-pull\-request\fP (default: \fB$GITHUB_REPOSITORY\fP)\.
 .TP
 \fB\-\-summary\-file\fP
 Output a summary of the changes to a file\.
