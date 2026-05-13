@@ -52,6 +52,8 @@ module Homebrew
           `brew bundle` [`install`]:
           Install and upgrade (by default) all dependencies from the `Brewfile`.
 
+          Use this to restore a recorded installed state from a `Brewfile`.
+
           You can specify the `Brewfile` location using `--file` or by setting the `$HOMEBREW_BUNDLE_FILE` environment variable.
 
           You can skip the installation of dependencies by adding space-separated values to one or more of the following environment variables: `$HOMEBREW_BUNDLE_BREW_SKIP`, `$HOMEBREW_BUNDLE_CASK_SKIP`, `$HOMEBREW_BUNDLE_MAS_SKIP`, `$HOMEBREW_BUNDLE_TAP_SKIP`.
@@ -60,7 +62,7 @@ module Homebrew
           Shorthand for `brew bundle install --upgrade`.
 
           `brew bundle dump`:
-          Write all installed casks/formulae/images/taps into a `Brewfile` in the current directory or to a custom file specified with the `--file` option.
+          Write all installed casks/formulae/images/taps into a `Brewfile` in the current directory or to a custom file specified with the `--file` option. This is useful as an installed-state snapshot and can be kept in version control and diffed.
 
           `brew bundle cleanup`:
           Uninstall all dependencies not present in the `Brewfile`.
