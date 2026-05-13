@@ -74,6 +74,11 @@ module Homebrew
             end
 
             json_contents = {
+              metadata:               {
+                homebrew_version: HOMEBREW_VERSION,
+                bottle_tag:       bottle_tag.to_s,
+                generated_at:     Time.now.to_i,
+              },
               formulae:,
               casks:,
               formula_aliases:        core_tap.alias_table,
