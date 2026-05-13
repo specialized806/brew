@@ -37,6 +37,8 @@ module Homebrew
 
                 puts "→ #{error}"
               end
+            else
+              puts "Run `brew bundle check --verbose` to list unmet dependencies."
             end
 
             puts "Satisfy missing dependencies with `brew bundle install`."
