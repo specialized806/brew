@@ -111,12 +111,7 @@ module RuboCop
               T.cast(child, RuboCop::AST::BlockNode).send_node
             end
           end
-          return if stanzas.any? do |stanza|
-            next false if stanza.method_name != :depends_on
-
-            bare_os_depends_on?(stanza, :macos) || bare_os_depends_on?(stanza, :linux) ||
-            top_level_macos_depends_on?(stanza) || depends_on_pairs(stanza).any? { |pair| symbol_key(pair) == :linux }
-          end
+          return if os_depends_on?(body)
 
           macos_stanza = stanzas.find do |stanza|
             case stanza.method_name
@@ -194,6 +189,18 @@ module RuboCop
           parent = node.parent
           siblings = parent&.begin_type? ? parent.child_nodes : [node]
           siblings.select { |sibling| sibling.send_type? && sibling.method_name == :depends_on }
+        end
+
+        sig { params(node: RuboCop::AST::Node).returns(T::Boolean) }
+        def os_depends_on?(node)
+          node.each_node(:send).any? do |send_node|
+            send_node = T.cast(send_node, RuboCop::AST::SendNode)
+            next false if send_node.method_name != :depends_on
+
+            bare_os_depends_on?(send_node, :macos) || bare_os_depends_on?(send_node, :linux) ||
+              top_level_macos_depends_on?(send_node) ||
+              depends_on_pairs(send_node).any? { |pair| symbol_key(pair) == :linux }
+          end
         end
 
         sig { params(node: RuboCop::AST::SendNode, os: Symbol).returns(T::Boolean) }

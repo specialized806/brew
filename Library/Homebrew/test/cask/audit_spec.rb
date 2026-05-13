@@ -1101,6 +1101,35 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "minimum OS checks" do
+      let(:online) { true }
+      let(:only) { ["min_os"] }
+      let(:cask) do
+        Cask::Cask.new("arch-min-os") do
+          version "1.0"
+          sha256 :no_check
+          url "https://brew.sh/arch-min-os.zip"
+          name "Arch Min OS"
+          homepage "https://brew.sh/"
+
+          on_arm do
+            depends_on macos: :big_sur
+          end
+
+          depends_on :macos
+
+          app "Arch Min OS.app"
+        end
+      end
+
+      before do
+        allow(audit).to receive_messages(cask_bundle_min_os:  MacOSVersion.from_symbol(:big_sur),
+                                         cask_sparkle_min_os: nil)
+      end
+
+      it { is_expected.to pass }
+    end
+
     describe "preferred download URL formats" do
       let(:only) { ["download_url_format"] }
       let(:message) { /URL format incorrect/ }
