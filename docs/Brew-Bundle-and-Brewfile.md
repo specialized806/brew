@@ -54,6 +54,8 @@ You can use this behaviour in scripts like so:
 brew bundle check || brew bundle install
 ```
 
+If this fails without `--verbose`, run `brew bundle check --verbose` to list unmet dependencies.
+
 ### Types
 
 As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, VSCode extensions, Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins and to start background services with `brew services`.
@@ -323,6 +325,15 @@ cask "google-cloud-sdk", postinstall: "${HOMEBREW_PREFIX}/bin/gcloud components 
 # Sets an environment variable to be used e.g. inside `brew bundle exec` or `system` commands in the `Brewfile`.
 # Note: HOMEBREW_PREFIX/bin is _not_ in the `PATH` by default so you can set it this way.
 ENV["SOME_ENV_VAR"] = "some_value"
+```
+
+### `version_file`
+
+Formula entries support `version_file:` to write the installed formula version to a file after `brew bundle install` processes that formula.
+This is useful when a project wants Homebrew to install a runtime and keep a conventional version file such as `.ruby-version` in sync.
+
+```ruby
+brew "ruby", version_file: ".ruby-version"
 ```
 
 ## Versions

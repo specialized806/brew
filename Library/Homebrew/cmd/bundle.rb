@@ -74,7 +74,7 @@ module Homebrew
           `brew bundle check`:
           Check if all dependencies present in the `Brewfile` are installed.
 
-          This provides a successful exit code if everything is up-to-date, making it useful for scripting.
+          This provides a successful exit code if everything is up-to-date, making it useful for scripting. Use `--verbose` to list unmet dependencies.
 
           `brew bundle list`:
           List all dependencies present in the `Brewfile`.
@@ -363,6 +363,7 @@ module Homebrew
             file:,
             subcommand:,
             services:   args.services?,
+            check:      args.check?,
             no_secrets: args.no_secrets?,
           )
         else
