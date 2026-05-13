@@ -182,7 +182,7 @@ removed.
 : Check if all dependencies present in the `Brewfile` are installed.
 
 This provides a successful exit code if everything is up-to-date, making it
-useful for scripting.
+useful for scripting. Use `--verbose` to list unmet dependencies.
 
 `brew bundle list`
 
