@@ -350,7 +350,7 @@ module Cask
         puts "  #{old_cask.version} -> #{new_cask.version}"
 
         # Start new cask's installation steps
-        new_cask_installer.check_conflicts
+        new_cask_installer.prelude
 
         if (caveats = new_cask_installer.caveats)
           puts caveats

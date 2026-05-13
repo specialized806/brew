@@ -722,6 +722,53 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#prelude_fetch" do
+    it "raises on forbidden formula tap before fetching the source from the API" do
+      homebrew_forbidden = Tap.fetch("homebrew/forbidden")
+      allow(Tap).to receive_messages(allowed_taps: Set.new, forbidden_taps: Set.new([homebrew_forbidden]))
+      f_name = "homebrew-forbidden-fail-fast-tap"
+      f_path = homebrew_forbidden.new_formula_path(f_name)
+      f_path.parent.mkpath
+      f_path.write <<~RUBY
+        class #{Formulary.class_s(f_name)} < Formula
+          url "foo"
+          version "0.1"
+        end
+      RUBY
+      Formulary.cache.delete(f_path)
+
+      f = Formulary.factory("#{homebrew_forbidden}/#{f_name}")
+      allow(f).to receive(:loaded_from_api?).and_return(true)
+      fi = described_class.new(f)
+
+      expect(Homebrew::API::Formula).not_to receive(:source_download)
+
+      expect { fi.prelude_fetch }.to raise_error(CannotInstallFormulaError, /has the tap #{homebrew_forbidden}/)
+    ensure
+      FileUtils.rm_r(f_path.parent.parent)
+    end
+
+    it "raises on forbidden formula before fetching the source from the API" do
+      ENV["HOMEBREW_FORBIDDEN_FORMULAE"] = f_name = "homebrew-forbidden-fail-fast-formula"
+      f_path = CoreTap.instance.new_formula_path(f_name)
+      f_path.write <<~RUBY
+        class #{Formulary.class_s(f_name)} < Formula
+          url "foo"
+          version "0.1"
+        end
+      RUBY
+      Formulary.cache.delete(f_path)
+
+      f = Formulary.factory(f_name)
+      allow(f).to receive(:loaded_from_api?).and_return(true)
+      fi = described_class.new(f)
+
+      expect(Homebrew::API::Formula).not_to receive(:source_download)
+
+      expect { fi.prelude_fetch }.to raise_error(CannotInstallFormulaError, /was forbidden/)
+    end
+  end
+
   specify "install fails with BuildError when a system() call fails" do
     ENV["HOMEBREW_TEST_NO_EXIT_CLEANUP"] = "1"
     ENV["FAILBALL_BUILD_ERROR"] = "1"
