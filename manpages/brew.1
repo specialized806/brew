@@ -90,6 +90,8 @@ Note: Flatpak support is only available on Linux\.
 \fBbrew bundle\fP [\fBinstall\fP]
 Install and upgrade (by default) all dependencies from the \fBBrewfile\fP\&\.
 .P
+Use this to restore a recorded installed state from a \fBBrewfile\fP\&\.
+.P
 You can specify the \fBBrewfile\fP location using \fB\-\-file\fP or by setting the \fB$HOMEBREW_BUNDLE_FILE\fP environment variable\.
 .P
 You can skip the installation of dependencies by adding space\-separated values to one or more of the following environment variables: \fB$HOMEBREW_BUNDLE_BREW_SKIP\fP, \fB$HOMEBREW_BUNDLE_CASK_SKIP\fP, \fB$HOMEBREW_BUNDLE_MAS_SKIP\fP, \fB$HOMEBREW_BUNDLE_TAP_SKIP\fP\&\.
@@ -98,7 +100,7 @@ You can skip the installation of dependencies by adding space\-separated values 
 Shorthand for \fBbrew bundle install \-\-upgrade\fP\&\.
 .TP
 \fBbrew bundle dump\fP
-Write all installed casks/formulae/images/taps into a \fBBrewfile\fP in the current directory or to a custom file specified with the \fB\-\-file\fP option\.
+Write all installed casks/formulae/images/taps into a \fBBrewfile\fP in the current directory or to a custom file specified with the \fB\-\-file\fP option\. This is useful as an installed\-state snapshot and can be kept in version control and diffed\.
 .TP
 \fBbrew bundle cleanup\fP
 Uninstall all dependencies not present in the \fBBrewfile\fP\&\.

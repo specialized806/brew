@@ -146,6 +146,8 @@ Note: Flatpak support is only available on Linux.
 
 : Install and upgrade (by default) all dependencies from the `Brewfile`.
 
+Use this to restore a recorded installed state from a `Brewfile`.
+
 You can specify the `Brewfile` location using `--file` or by setting the
 `$HOMEBREW_BUNDLE_FILE` environment variable.
 
@@ -161,7 +163,9 @@ to one or more of the following environment variables:
 `brew bundle dump`
 
 : Write all installed casks/formulae/images/taps into a `Brewfile` in the
-  current directory or to a custom file specified with the `--file` option.
+  current directory or to a custom file specified with the `--file` option. This
+  is useful as an installed-state snapshot and can be kept in version control
+  and diffed.
 
 `brew bundle cleanup`
 
