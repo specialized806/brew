@@ -167,6 +167,20 @@ RSpec.describe Keg do
       expect(link.lstat).to be_a_directory
     end
 
+    specify "lib/cps directory is created" do
+      link = HOMEBREW_PREFIX/"lib"/"cps"
+      (keg/"lib"/"cps").mkpath
+      keg.link
+      expect(link.lstat).to be_a_directory
+    end
+
+    specify "share/cps directory is created" do
+      link = HOMEBREW_PREFIX/"share"/"cps"
+      (keg/"share"/"cps").mkpath
+      keg.link
+      expect(link.lstat).to be_a_directory
+    end
+
     specify "symlinks are linked directly" do
       link = HOMEBREW_PREFIX/"lib"/"pkgconfig"
 

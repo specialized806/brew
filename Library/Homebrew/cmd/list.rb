@@ -249,7 +249,7 @@ module Homebrew
     class PrettyListing
       sig { params(path: T.any(String, Pathname, Keg)).void }
       def initialize(path)
-        valid_lib_extensions = [".dylib", ".pc"]
+        valid_lib_extensions = [".cps", ".dylib", ".pc"]
         Pathname.new(path).children.sort_by { |p| p.to_s.downcase }.each do |pn|
           case pn.basename.to_s
           when "bin", "sbin"
