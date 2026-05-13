@@ -73,6 +73,7 @@ module Cask
         pairs.each do |key, value|
           raise "invalid depends_on key: '#{key.inspect}'" unless VALID_KEYS.include?(key)
 
+          previous_macos = @macos if key == :macos
           __getobj__[key] = case key
           when :macos, :maximum_macos
             send(:"#{key}=", *value, set_in_block:)
@@ -80,6 +81,12 @@ module Cask
             send(:"#{key}=", *value)
           end
           record_os_requirement(key, set_in_block:)
+          next if key != :macos
+          next if value != :any
+          next unless previous_macos&.version_specified?
+
+          @macos = previous_macos
+          __getobj__[key] = previous_macos
         end
       end
 

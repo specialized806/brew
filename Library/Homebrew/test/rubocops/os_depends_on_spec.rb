@@ -181,4 +181,25 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
       end
     RUBY
   end
+
+  it "accepts casks with explicit OS dependencies in nested blocks" do
+    expect_no_offenses(<<~RUBY)
+      cask "basic" do
+        version "1.0"
+        sha256 "abc"
+        url "https://example.com/basic.zip"
+        homepage "https://example.com"
+
+        on_arm do
+          depends_on macos: :big_sur
+        end
+
+        on_intel do
+          depends_on :macos
+        end
+
+        app "Basic.app"
+      end
+    RUBY
+  end
 end
