@@ -521,6 +521,22 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
+  describe "#prelude" do
+    it "raises on forbidden cask before fetching the caskfile from the Source API" do
+      ENV["HOMEBREW_FORBIDDEN_CASKS"] = cask_name = "homebrew-forbidden-cask"
+      cask = Cask::Cask.new(cask_name) do
+        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+      end
+      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true)
+      installer = described_class.new(cask)
+
+      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+      expect(installer).not_to receive(:download)
+
+      expect { installer.prelude }.to raise_error(Cask::CaskCannotBeInstalledError, /forbidden for installation/)
+    end
+  end
+
   describe "rename operations" do
     let(:tmpdir) { mktmpdir }
     let(:staged_path) { Pathname(tmpdir) }
