@@ -51,7 +51,7 @@ Good luck!
 
 ## Security
 
-Please report security issues by filling in [the security advisory form](https://github.com/homebrew/brew/security/advisories/new).
+Please see [our security policy](https://github.com/Homebrew/.github/blob/HEAD/SECURITY.md) for how to report security issues and what is in scope.
 
 ## Who We Are
 
