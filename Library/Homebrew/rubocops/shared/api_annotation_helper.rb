@@ -22,7 +22,7 @@ module RuboCop
 
       # Methods documented in docs/Formula-Cookbook.md mapped to their
       # defining source files (relative to Library/Homebrew/).
-      # Validated by `github_actions_utils/public_api_check.rb`
+      # Validated by `Homebrew/PublicApiCookbook`
       # against rubydoc links in `docs/Formula-Cookbook.md`.
       FORMULA_COOKBOOK_METHODS = T.let({
         "cd"                    => "extend/pathname.rb",
@@ -59,7 +59,7 @@ module RuboCop
 
       # Methods documented in docs/Cask-Cookbook.md mapped to their
       # defining source files (relative to Library/Homebrew/).
-      # Validated by `github_actions_utils/public_api_check.rb`
+      # Validated by `Homebrew/PublicApiCookbook`
       # against `@api public` annotations in cask source files.
       CASK_COOKBOOK_METHODS = T.let({
         "after_comma"          => "cask/dsl/version.rb",
