@@ -8,6 +8,7 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiCookbook do
 
   let(:formula_path) { "formula.rb" }
   let(:cask_dsl_path) { "cask/dsl.rb" }
+  let(:helper_path) { "rubocops/shared/api_annotation_helper.rb" }
 
   context "when a cookbook-referenced method lacks `@api public`" do
     it "reports an offense for a formula method" do
@@ -77,6 +78,50 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiCookbook do
             #
             # @api public
             def desc; end
+          end
+        end
+      RUBY
+    end
+  end
+
+  context "when a formula cookbook method is missing from the helper list" do
+    before do
+      (mktmpdir/"docs").tap do |docs|
+        docs.mkpath
+        (docs/"Formula-Cookbook.md").write <<~MARKDOWN
+          [`new_api`](/rubydoc/Formula.html#new_api-instance_method)
+        MARKDOWN
+
+        stub_const("HOMEBREW_LIBRARY_PATH", docs.parent/"Library/Homebrew")
+      end
+
+      stub_const("RuboCop::Cop::ApiAnnotationHelper::FORMULA_COOKBOOK_METHODS", {})
+    end
+
+    it "reports an offense" do
+      expect_offense(<<~RUBY, helper_path)
+        module ApiAnnotationHelper
+          FORMULA_COOKBOOK_METHODS = {}.freeze
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Homebrew/PublicApiCookbook: Formula Cookbook references methods missing from `FORMULA_COOKBOOK_METHODS`: `new_api`.
+        end
+      RUBY
+    end
+  end
+
+  context "when a public cask method is missing from the helper list" do
+    before do
+      stub_const("RuboCop::Cop::ApiAnnotationHelper::CASK_COOKBOOK_METHODS", {})
+    end
+
+    it "reports an offense" do
+      expect_offense(<<~RUBY, cask_dsl_path)
+        module Cask
+          module DSL
+            # The new stanza.
+            #
+            # @api public
+            ^^^^^^^^^^^^^ Homebrew/PublicApiCookbook: Method `new_stanza` is annotated with `@api public` in `cask/dsl.rb` but is missing from `CASK_COOKBOOK_METHODS`.
+            def new_stanza; end
           end
         end
       RUBY

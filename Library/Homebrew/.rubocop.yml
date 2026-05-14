@@ -37,7 +37,7 @@ Naming/MethodParameterName:
     - uv
 
 # Only enforce documentation for public APIs.
-# Checked by the tests.yml syntax job
+# Include list checked by Homebrew/PublicApiDocumentation.
 Style/Documentation:
   AllowedConstants:
     - Homebrew

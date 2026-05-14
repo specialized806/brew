@@ -93,4 +93,34 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiDocumentation do
       RUBY
     end
   end
+
+  context "when a public API file is missing from `Style/Documentation.Include`" do
+    subject(:cop) do
+      described_class.new(RuboCop::Config.new("Style/Documentation" => { "Include" => [] }))
+    end
+
+    it "reports an offense" do
+      expect_offense(<<~RUBY, "public_api.rb")
+        # The public method.
+        #
+        # @api public
+        ^^^^^^^^^^^^^ `public_api.rb` contains `@api public` but is missing from `Style/Documentation.Include`.
+        def foo; end
+      RUBY
+    end
+  end
+
+  context "when a documented API file has no public API annotations" do
+    subject(:cop) do
+      described_class.new(RuboCop::Config.new("Style/Documentation" => { "Include" => ["stale.rb"] }))
+    end
+
+    it "reports an offense" do
+      expect_offense(<<~RUBY, "stale.rb")
+        class Stale
+        ^^^^^^^^^^^ `stale.rb` is included in `Style/Documentation.Include` but does not contain `@api public`.
+        end
+      RUBY
+    end
+  end
 end

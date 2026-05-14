@@ -65,10 +65,6 @@ jobs:
 
       - run: brew typecheck
 
-      - name: Check public API lists are in sync
-        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
-        run: brew ruby Library/Homebrew/github_actions_utils/public_api_check.rb
-
   tap-syntax:
     name: tap syntax
     needs: syntax
