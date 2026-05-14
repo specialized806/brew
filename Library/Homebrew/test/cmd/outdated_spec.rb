@@ -7,11 +7,13 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Outdated do
   it_behaves_like "parseable arguments"
 
-  it "skips auto-updating casks without --greedy-auto-updates", :cask do
+  it "excludes non-outdated auto-updating casks without --greedy-auto-updates", :cask do
     cask = Cask::CaskLoader.load(cask_path("auto-updates"))
     cmd = described_class.new([])
 
-    expect(cask).not_to receive(:outdated?)
+    expect(cask).to receive(:outdated?)
+      .with(greedy: false, greedy_latest: false, greedy_auto_updates: false)
+      .and_return(false)
     expect(cmd.send(:select_outdated, [cask])).to be_empty
   end
 
