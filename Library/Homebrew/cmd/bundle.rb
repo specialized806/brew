@@ -217,6 +217,7 @@ module Homebrew
         else
           args.no_upgrade?.present?
         end
+        quiet = args.quiet?
         verbose = args.verbose?
         force = args.force?
         jobs_arg = args.jobs || ENV.fetch("HOMEBREW_BUNDLE_JOBS", nil)
@@ -246,8 +247,7 @@ module Homebrew
         case subcommand
         when nil, "install", "upgrade"
           require "bundle/commands/install"
-          Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, jobs:,
-                                                  quiet: args.quiet?)
+          Homebrew::Bundle::Commands::Install.run(global:, file:, no_upgrade:, verbose:, force:, jobs:, quiet:)
 
           cleanup = if ENV.fetch("HOMEBREW_BUNDLE_INSTALL_CLEANUP", nil)
             args.global?
@@ -296,7 +296,7 @@ module Homebrew
           )
         when "check"
           require "bundle/commands/check"
-          Homebrew::Bundle::Commands::Check.run(global:, file:, no_upgrade:, verbose:)
+          Homebrew::Bundle::Commands::Check.run(global:, file:, no_upgrade:, verbose:, quiet:)
         when "list"
           extension_list_options = BUNDLE_EXTENSIONS.to_h do |extension|
             [extension.type, self.class.extension_selected?(args, extension) || args.all?]
