@@ -196,7 +196,11 @@ module Homebrew
       ).returns(String)
     }
     def self.generate_option_doc(short, long, desc)
-      comma = (short && long) ? ", " : ""
+      comma = if short && long
+        ", "
+      else
+        ""
+      end
       <<~EOS
         #{format_opt(short)}#{comma}#{format_opt(long)}
 

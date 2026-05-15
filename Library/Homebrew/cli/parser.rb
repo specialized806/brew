@@ -20,10 +20,23 @@ module Homebrew
       ArgType = T.type_alias { T.nilable(T.any(Symbol, T::Array[String], T::Array[Symbol])) }
       HIDDEN_DESC_PLACEHOLDER = "@@HIDDEN@@"
       SYMBOL_TO_USAGE_MAPPING = T.let({
+        service:       "<service>",
         text_or_regex: "<text>|`/`<regex>`/`",
         url:           "<URL>",
       }.freeze, T::Hash[Symbol, String])
       private_constant :ArgType, :HIDDEN_DESC_PLACEHOLDER, :SYMBOL_TO_USAGE_MAPPING
+
+      class Subcommand < T::Struct
+        const :name, String
+        const :aliases, T::Array[String], default: []
+        prop :description, T.nilable(String), default: nil
+        prop :usage_banner, T.nilable(String), default: nil
+        const :default, T::Boolean, default: false
+        prop :named_args_type, ArgType, default: nil
+        prop :max_named_args, T.nilable(Integer), default: nil
+        prop :min_named_args, T.nilable(Integer), default: nil
+        prop :named_args_without_api, T::Boolean, default: false
+      end
 
       sig { returns(Args) }
       attr_reader :args
@@ -34,8 +47,8 @@ module Homebrew
       sig { returns(T::Boolean) }
       attr_reader :hide_from_man_page
 
-      sig { returns(ArgType) }
-      attr_reader :named_args_type
+      sig { returns(T::Array[Subcommand]) }
+      attr_reader :subcommands
 
       sig { params(cmd_path: Pathname).returns(T.nilable(CLI::Parser)) }
       def self.from_cmd_path(cmd_path)
@@ -164,6 +177,9 @@ module Homebrew
         @constraints = T.let([], T::Array[[String, String]])
         @conflicts = T.let([], T::Array[T::Array[String]])
         @switch_sources = T.let({}, T::Hash[String, Symbol])
+        @option_sources = T.let({}, T::Hash[String, Symbol])
+        @option_subcommands = T.let({}, T::Hash[String, T::Array[String]])
+        @option_types = T.let({}, T::Hash[String, Symbol])
         @processed_options = T.let([], Args::OptionsType)
         @non_global_processed_options = T.let([], T::Array[[String, ArgType]])
         @named_args_type = T.let(nil, T.nilable(ArgType))
@@ -175,6 +191,8 @@ module Homebrew
         @hide_from_man_page = T.let(false, T::Boolean)
         @formula_options = T.let(false, T::Boolean)
         @cask_options = T.let(false, T::Boolean)
+        @subcommands = T.let([], T::Array[Subcommand])
+        @current_subcommands = T.let(nil, T.nilable(T::Array[String]))
 
         self.class.global_options.each do |short, long, desc|
           switch short, long, description: desc, env: option_to_name(long), method: :on_tail
@@ -189,12 +207,14 @@ module Homebrew
         params(names: String, description: T.nilable(String), env: T.untyped,
                depends_on: T.nilable(String), method: Symbol,
                hidden: T::Boolean, replacement: T.nilable(T.any(String, FalseClass)),
-               odeprecated: T::Boolean, odisabled: T::Boolean, disable: T::Boolean).void
+               odeprecated: T::Boolean, odisabled: T::Boolean, disable: T::Boolean,
+               subcommands: T.nilable(T.any(String, T::Array[String]))).void
       }
       def switch(*names, description: nil, env: nil,
                  depends_on: nil, method: :on,
                  hidden: false, replacement: nil,
-                 odeprecated: false, odisabled: false, disable: false)
+                 odeprecated: false, odisabled: false, disable: false,
+                 subcommands: nil)
         global_switch = names.first.is_a?(Symbol)
         return if global_switch
 
@@ -215,10 +235,14 @@ module Homebrew
         env, counterpart = env
         env_hidden = Homebrew::EnvConfig::ENVS.fetch(:"HOMEBREW_#{env.upcase}", {}).fetch(:hidden, false) if env
         if env && @non_global_processed_options.any? && !hidden && !env_hidden
-          affix = counterpart ? " and `#{counterpart}` is passed." : "."
+          affix = if counterpart
+            " and `#{counterpart}` is passed."
+          else
+            "."
+          end
           description += " Enabled by default if `$HOMEBREW_#{env.upcase}` is set#{affix}"
         end
-        process_option(*names, description, type: :switch, hidden:) unless odisabled
+        process_option(*names, description, type: :switch, hidden:, subcommands:) unless odisabled
 
         @parser.public_send(method, *names, *wrap_option_desc(description)) do |value|
           # This odeprecated should stick around indefinitely.
@@ -250,27 +274,63 @@ module Homebrew
 
       sig { params(text: String).void }
       def usage_banner(text)
-        @usage_banner, @description = text.chomp.split("\n\n", 2)
+        banner, description = text.chomp.split("\n\n", 2)
+
+        if @current_subcommands.present?
+          subcommand_description = description
+          if subcommand_description.blank?
+            usage_banner_lines = text.chomp.lines
+            subcommand_description = usage_banner_lines.drop(1).join if usage_banner_lines.size > 1
+          end
+
+          @current_subcommands.each do |subcommand_name|
+            subcommand = subcommand_for_name(subcommand_name)
+            raise ArgumentError, "unknown subcommand: #{subcommand_name}" if subcommand.nil?
+
+            subcommand.usage_banner = text.chomp
+            next if subcommand.description.present? || subcommand_description.blank?
+
+            subcommand.description = subcommand_description.lines.first&.chomp
+          end
+          return
+        end
+
+        @usage_banner = banner
+        @description = description
       end
 
       sig { returns(T.nilable(String)) }
       def usage_banner_text = @parser.banner
 
-      sig { params(name: String, description: T.nilable(String), hidden: T::Boolean).void }
-      def comma_array(name, description: nil, hidden: false)
+      sig { returns(ArgType) }
+      def named_args_type
+        return @named_args_type if @subcommands.empty?
+
+        subcommand_names
+      end
+
+      sig {
+        params(name: String, description: T.nilable(String), hidden: T::Boolean,
+               subcommands: T.nilable(T.any(String, T::Array[String]))).void
+      }
+      def comma_array(name, description: nil, hidden: false, subcommands: nil)
         name = name.chomp "="
         description = option_description(description, name, hidden:)
-        process_option(name, description, type: :comma_array, hidden:)
+        process_option(name, description, type: :comma_array, hidden:, subcommands:)
         @parser.on(name, OptionParser::REQUIRED_ARGUMENT, Array, *wrap_option_desc(description)) do |list|
-          set_args_method(option_to_name(name).to_sym, list)
+          option_name = option_to_name(name)
+          @option_sources[option_name] = :args
+          @option_types[option_name] ||= :comma_array
+          set_args_method(option_name.to_sym, list)
         end
       end
 
       sig {
         params(names: String, description: T.nilable(String), replacement: T.nilable(T.any(Symbol, String)),
-               depends_on: T.nilable(String), hidden: T::Boolean).void
+               depends_on: T.nilable(String), hidden: T::Boolean,
+               subcommands: T.nilable(T.any(String, T::Array[String]))).void
       }
-      def flag(*names, description: nil, replacement: nil, depends_on: nil, hidden: false)
+      def flag(*names, description: nil, replacement: nil, depends_on: nil, hidden: false, subcommands: nil)
         required, flag_type = if names.any? { |name| name.end_with? "=" }
           [OptionParser::REQUIRED_ARGUMENT, :required_flag]
         else
@@ -279,7 +339,7 @@ module Homebrew
         names.map! { |name| name.chomp "=" }
         description = option_description(description, *names, hidden:)
         if replacement.nil?
-          process_option(*names, description, type: flag_type, hidden:)
+          process_option(*names, description, type: flag_type, hidden:, subcommands:)
         else
           description += " (disabled#{"; replaced by #{replacement}" if replacement.present?})"
         end
@@ -287,7 +347,10 @@ module Homebrew
           # This odisabled should stick around indefinitely.
           odisabled "the `#{names.first}` flag", replacement unless replacement.nil?
           names.each do |name|
-            set_args_method(option_to_name(name).to_sym, option_value)
+            option_name = option_to_name(name)
+            @option_sources[option_name] = :args
+            @option_types[option_name] ||= flag_type
+            set_args_method(option_name.to_sym, option_value)
           end
         end
 
@@ -309,6 +372,8 @@ module Homebrew
 
       sig { params(options: String).returns(T::Array[T::Array[String]]) }
       def conflicts(*options)
+        return @conflicts if options.empty?
+
         @conflicts << options.map { |option| option_to_name(option) }
       end
 
@@ -420,10 +485,25 @@ module Homebrew
           end
           check_constraint_violations
           check_named_args(named_args)
+          check_subcommand_violations(named_args)
         end
 
+        if @subcommands.present?
+          parsed_subcommand = subcommand_name(named_args)
+          set_args_method(:subcommand, parsed_subcommand)
+          named_args = if parsed_subcommand && named_args.present?
+            named_args.drop(1)
+          else
+            []
+          end
+        end
         @args.freeze_named_args!(named_args, cask_options: @cask_options, without_api: @named_args_without_api)
-        @args.freeze_remaining_args!(non_options.empty? ? remaining : [*remaining, "--", non_options])
+        remaining_args = if non_options.empty?
+          remaining
+        else
+          [*remaining, "--", non_options]
+        end
+        @args.freeze_remaining_args!(remaining_args)
         @args.freeze_processed_options!(@processed_options)
         @args.freeze
 
@@ -451,7 +531,7 @@ module Homebrew
                  .gsub(/`(.*?)`/m, "#{Tty.bold}\\1#{Tty.reset}")
                  .gsub(%r{<([^\s]+?://[^\s]+?)>}) { |url| Formatter.url(url) }
                  .gsub(/\*(.*?)\*|<(.*?)>/m) do |underlined|
-                   T.must(underlined[1...-1]).gsub(/^(\s*)(.*?)$/, "\\1#{Tty.underline}\\2#{Tty.reset}")
+                   underlined[1...-1].to_s.gsub(/^(\s*)(.*?)$/, "\\1#{Tty.underline}\\2#{Tty.reset}")
                  end
       end
 
@@ -486,6 +566,25 @@ module Homebrew
           raise ArgumentError, "Do not specify both `number`, `min` or `max` with `named_args :none`"
         end
 
+        if @current_subcommands.present?
+          @current_subcommands.each do |subcommand_name|
+            subcommand = subcommand_for_name(subcommand_name)
+            raise ArgumentError, "unknown subcommand: #{subcommand_name}" if subcommand.nil?
+
+            subcommand.named_args_type = type
+            if type == :none
+              subcommand.max_named_args = 0
+            elsif number
+              subcommand.min_named_args = subcommand.max_named_args = number
+            elsif min || max
+              subcommand.min_named_args = min
+              subcommand.max_named_args = max
+            end
+            subcommand.named_args_without_api = without_api
+          end
+          return
+        end
+
         @named_args_type = type
 
         if type == :none
@@ -503,6 +602,79 @@ module Homebrew
       sig { void }
       def hide_from_man_page!
         @hide_from_man_page = true
+      end
+
+      sig {
+        params(
+          name:        String,
+          aliases:     T::Array[String],
+          description: T.nilable(String),
+          default:     T::Boolean,
+          block:       T.nilable(T.proc.bind(Parser).void),
+        ).void
+      }
+      def subcommand(name, aliases: [], description: nil, default: false, &block)
+        previous_subcommands = @current_subcommands
+
+        @subcommands << Subcommand.new(
+          name:,
+          aliases:,
+          description:,
+          default:,
+        )
+
+        @current_subcommands = [name]
+        instance_eval(&block) if block
+      ensure
+        @current_subcommands = previous_subcommands
+      end
+
+      sig { returns(T::Array[String]) }
+      def subcommand_names = @subcommands.map(&:name)
+
+      sig { returns(T.nilable(Subcommand)) }
+      def default_subcommand = @subcommands.find(&:default)
+
+      sig { params(name: String).returns(T.nilable(Subcommand)) }
+      def subcommand_for_name(name)
+        @subcommands.find { |subcommand| subcommand.name == name || subcommand.aliases.include?(name) }
+      end
+
+      sig { params(subcommand_name: T.nilable(String)).returns(Args::OptionsType) }
+      def processed_options_for_subcommand(subcommand_name)
+        subcommand = if subcommand_name
+          subcommand_for_name(subcommand_name)
+        else
+          default_subcommand
+        end
+        canonical_subcommand = subcommand&.name
+
+        @processed_options.select do |short, long|
+          [short, long].compact.any? do |option|
+            option_allowed_for_subcommand?(option_to_name(option), canonical_subcommand)
+          end
+        end
+      end
+
+      sig { params(subcommand_name: String).returns(ArgType) }
+      def named_args_type_for_subcommand(subcommand_name)
+        subcommand_for_name(subcommand_name)&.named_args_type
+      end
+
+      sig { params(named_args: T::Array[String]).returns(T.nilable(String)) }
+      def subcommand_name(named_args)
+        subcommand = if named_args.empty?
+          default_subcommand
+        else
+          subcommand_for_name(named_args.fetch(0))
+        end
+
+        subcommand&.name
+      end
+
+      sig { params(option: String).returns(T::Array[String]) }
+      def subcommands_for_option(option)
+        @option_subcommands.fetch(option_to_name(option), [])
       end
 
       private
@@ -570,7 +742,7 @@ module Homebrew
         @parser.banner = <<~BANNER
           #{@usage_banner}
 
-          #{@description}
+          #{usage_description_text}
 
         BANNER
       end
@@ -578,8 +750,11 @@ module Homebrew
       sig { params(names: String, value: T.untyped, from: Symbol).void }
       def set_switch(*names, value:, from:)
         names.each do |name|
-          @switch_sources[option_to_name(name)] = from
-          set_args_method(:"#{option_to_name(name)}?", value)
+          option_name = option_to_name(name)
+          @switch_sources[option_name] = from
+          @option_sources[option_name] = from
+          @option_types[option_name] ||= :switch
+          set_args_method(:"#{option_name}?", value)
         end
       end
 
@@ -669,33 +844,119 @@ module Homebrew
         check_constraints
       end
 
-      sig { params(args: T::Array[String]).void }
-      def check_named_args(args)
-        types = Array(@named_args_type).filter_map do |type|
+      sig { params(args: T::Array[String], type: ArgType, min: T.nilable(Integer), max: T.nilable(Integer)).void }
+      def check_named_args_count(args, type, min, max)
+        types = Array(type).filter_map do |type|
           next type if type.is_a? Symbol
 
           :subcommand
         end.uniq
 
-        exception = if @min_named_args && @max_named_args && @min_named_args == @max_named_args &&
-                       args.size != @max_named_args
-          NumberOfNamedArgumentsError.new(@min_named_args, types:)
-        elsif @min_named_args && args.size < @min_named_args
-          MinNamedArgumentsError.new(@min_named_args, types:)
-        elsif @max_named_args && args.size > @max_named_args
-          MaxNamedArgumentsError.new(@max_named_args, types:)
+        exception = if min && max && min == max && args.size != max
+          NumberOfNamedArgumentsError.new(min, types:)
+        elsif min && args.size < min
+          MinNamedArgumentsError.new(min, types:)
+        elsif max && args.size > max
+          MaxNamedArgumentsError.new(max, types:)
         end
 
         raise exception if exception
       end
 
-      sig { params(args: String, type: Symbol, hidden: T::Boolean).void }
-      def process_option(*args, type:, hidden: false)
+      sig { params(args: T::Array[String]).void }
+      def check_named_args(args)
+        check_named_args_count(args, @named_args_type, @min_named_args, @max_named_args)
+      end
+
+      sig { params(args: T::Array[String]).void }
+      def check_subcommand_violations(args)
+        return if @subcommands.empty?
+
+        subcommand = if args.empty?
+          default_subcommand
+        else
+          subcommand_for_name(args.fetch(0))
+        end
+        raise UsageError, "unknown subcommand: `#{args.first}`" if subcommand.nil? && args.present?
+        return if subcommand.nil?
+
+        subcommand_args = if args.empty?
+          args
+        else
+          args.drop(1)
+        end
+        check_named_args_count(subcommand_args, subcommand.named_args_type, subcommand.min_named_args,
+                               subcommand.max_named_args)
+        @option_sources.each do |option, source|
+          next if source == :env
+          next if option_allowed_for_subcommand?(option, subcommand.name)
+
+          option_type = @option_types.fetch(option)
+          option_type_name = if option_type == :switch
+            "switch"
+          else
+            "flag"
+          end
+          raise UsageError, "The `#{subcommand.name}` subcommand does not accept the `#{name_to_option(option)}` " \
+                            "#{option_type_name}."
+        end
+      end
+
+      sig { returns(String) }
+      def usage_description_text
+        parts = T.let([], T::Array[String])
+        parts << @description if @description.present?
+        @subcommands.each do |subcommand|
+          usage_banner = subcommand.usage_banner
+          parts << usage_banner if usage_banner.present?
+        end
+        parts.join("\n\n")
+      end
+
+      sig { params(option: String, subcommand_name: T.nilable(String)).returns(T::Boolean) }
+      def option_allowed_for_subcommand?(option, subcommand_name)
+        subcommands = @option_subcommands[option]
+        return true if subcommands.blank?
+
+        subcommand_name.present? && subcommands.include?(subcommand_name)
+      end
+
+      sig { params(subcommands: T.nilable(T.any(String, T::Array[String]))).returns(T.nilable(T::Array[String])) }
+      def effective_subcommands(subcommands)
+        return @current_subcommands if subcommands.nil?
+
+        Array(subcommands).map do |subcommand|
+          subcommand_for_name(subcommand)&.name || subcommand
+        end
+      end
+
+      sig {
+        params(option_names: T::Array[String], type: Symbol,
+               subcommands: T.nilable(T.any(String, T::Array[String]))).void
+      }
+      def record_option_metadata(option_names, type:, subcommands:)
+        option_names.each do |name|
+          option_name = option_to_name(name)
+          @option_types[option_name] = type
+          effective_subcommands = effective_subcommands(subcommands)
+          next if effective_subcommands.blank?
+
+          @option_subcommands[option_name] = (@option_subcommands[option_name] || []) |
+                                             effective_subcommands
+        end
+      end
+
+      sig {
+        params(args: String, type: Symbol, hidden: T::Boolean,
+               subcommands: T.nilable(T.any(String, T::Array[String]))).void
+      }
+      def process_option(*args, type:, hidden: false, subcommands: nil)
         option, = @parser.make_switch(args)
         @processed_options.reject! { |existing| existing.second == option.long.first } if option.long.first.present?
         @processed_options << [option.short.first, option.long.first, option.desc.first, hidden]
 
         args.pop # last argument is the description
+        record_option_metadata(args, type:, subcommands:)
         if type == :switch
           disable_switch(*args)
         else

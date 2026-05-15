@@ -43,6 +43,7 @@ Style/Documentation:
     - Homebrew
   Include:
     - abstract_command.rb
+    - abstract_subcommand.rb
     - autobump_constants.rb
     - cask/cask.rb
     - cask/dsl.rb
