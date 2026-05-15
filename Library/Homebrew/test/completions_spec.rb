@@ -160,6 +160,60 @@ RSpec.describe Homebrew::Completions do
     #   end
     # end
 
+    let(:nested_completion_command) { "subcommand-test" }
+    let(:nested_completion_subcommands) do
+      [
+        Homebrew::CLI::Parser::Subcommand.new(
+          name:        "list",
+          aliases:     ["ls"],
+          description: "List test services.",
+          default:     true,
+        ),
+        Homebrew::CLI::Parser::Subcommand.new(
+          name:        "info",
+          aliases:     ["i"],
+          description: "Show service information.",
+        ),
+        Homebrew::CLI::Parser::Subcommand.new(
+          name:        "start",
+          aliases:     ["s"],
+          description: "Start a service.",
+        ),
+      ]
+    end
+
+    def stub_nested_completion_command(command, subcommands)
+      allow(Commands).to receive(:command_subcommands).and_call_original
+      allow(Commands).to receive(:command_subcommands).with(command).and_return(subcommands)
+      allow(Commands).to receive(:command_description).and_call_original
+      allow(Commands).to receive(:command_description)
+        .with(command, short: true)
+        .and_return("Manage test services.")
+      allow(Commands).to receive(:command_options).and_call_original
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: nil)
+        .and_return([])
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: "list")
+        .and_return([["--all", "Run <subcommand> on all services."]])
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: "info")
+        .and_return([["--json", "Output as JSON."]])
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: "start")
+        .and_return([["--file", "Use the service file from this location to `start` the service."]])
+      allow(Commands).to receive(:named_args_type).and_call_original
+      allow(Commands).to receive(:named_args_type)
+        .with(command, subcommand: "list")
+        .and_return([])
+      allow(Commands).to receive(:named_args_type)
+        .with(command, subcommand: "info")
+        .and_return([:service])
+      allow(Commands).to receive(:named_args_type)
+        .with(command, subcommand: "start")
+        .and_return([:service])
+    end
+
     describe ".format_description" do
       it "escapes single quotes" do
         expect(described_class.format_description("Homebrew's")).to eq "Homebrew'\\''s"
@@ -226,6 +280,18 @@ RSpec.describe Homebrew::Completions do
       it "overrides global options with local descriptions" do
         options = described_class.command_options("upgrade")
         expect(options["--verbose"]).to eq "Print the verification and post-install steps."
+      end
+
+      it "returns options for a nested subcommand" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+
+        info_options = described_class.command_options(nested_completion_command, subcommand: "info")
+        start_options = described_class.command_options(nested_completion_command, subcommand: "start")
+
+        expect(info_options).to include("--json")
+        expect(info_options).not_to include("--file")
+        expect(start_options).to include("--file")
+        expect(start_options).not_to include("--json")
       end
     end
 
@@ -299,6 +365,15 @@ RSpec.describe Homebrew::Completions do
         completion = described_class.generate_bash_subcommand_completion("upgrade")
         expect(completion).to match(/__brew_complete_installed_formulae\n  __brew_complete_installed_casks\n}$/)
       end
+
+      it "returns appropriate completion for a command with nested subcommands" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+        completion = described_class.generate_bash_subcommand_completion(nested_completion_command)
+
+        expect(completion).to include('info|i) subcommand="info"; break ;;')
+        expect(completion).to include('__brewcomp "list ls info i start s"')
+        expect(completion).to include("__brew_complete_services")
+      end
     end
 
     describe ".generate_bash_completion_file" do
@@ -364,6 +439,16 @@ RSpec.describe Homebrew::Completions do
           /'*:cask:__brew_casks'\n}$/,
         )
       end
+
+      it "returns appropriate completion for a command with nested subcommands" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+        completion = described_class.generate_zsh_subcommand_completion(nested_completion_command)
+
+        expect(completion).to include("'1:subcommand:->subcommand'")
+        expect(completion).to include("'i:Show service information'")
+        expect(completion).to include("info|i)")
+        expect(completion).to include("*:service:__brew_services")
+      end
     end
 
     describe ".generate_zsh_completion_file" do
@@ -423,6 +508,17 @@ RSpec.describe Homebrew::Completions do
         expect(completion).to match(
           /#{expected_line_start} -l formula -l formulae' -a '\(__fish_brew_suggest_casks_installed\)'/,
         )
+      end
+
+      it "returns appropriate completion for a command with nested subcommands" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+        completion = described_class.generate_fish_subcommand_completion(nested_completion_command)
+
+        expect(completion).to include("__fish_brew_complete_sub_cmd 'subcommand-test' 'info'")
+        expect(completion).to include("__fish_brew_complete_sub_cmd 'subcommand-test' 'i' " \
+                                      "'Show service information'")
+        expect(completion).to include("__fish_brew_complete_sub_arg 'subcommand-test' 'info i' " \
+                                      "-a '(__fish_brew_suggest_services)'")
       end
     end
 

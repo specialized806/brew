@@ -212,18 +212,21 @@ module Commands
     external_commands_file.atomic_write("#{external_commands.sort.join("\n")}\n")
   end
 
-  sig { params(command: String).returns(T.nilable(T::Array[[String, String]])) }
-  def self.command_options(command)
+  sig { params(command: String, subcommand: T.nilable(String)).returns(T.nilable(T::Array[[String, String]])) }
+  def self.command_options(command, subcommand: nil)
     return if command == "help"
 
     path = self.path(command)
     return if path.blank?
 
     if (cmd_parser = Homebrew::CLI::Parser.from_cmd_path(path))
-      cmd_parser.processed_options.filter_map do |short, long, desc, hidden|
+      cmd_parser.processed_options_for_subcommand(subcommand).filter_map do |short, long, desc, hidden|
         next if hidden
 
-        [T.must(long || short), desc]
+        option = long || short
+        next if option.nil?
+
+        [option, desc]
       end
     else
       options = []
@@ -258,7 +261,9 @@ module Commands
         match_data = /^#:  (?<desc>\w.*+)$/.match(line)
         next unless match_data
 
-        desc = T.must(match_data[:desc])
+        desc = match_data[:desc]
+        next if desc.nil?
+
         return desc.split(DESCRIPTION_SPLITTING_PATTERN).first if short
 
         return desc
@@ -267,15 +272,34 @@ module Commands
     end
   end
 
-  sig { params(command: String).returns(T.nilable(T.any(T::Array[Symbol], T::Array[String]))) }
-  def self.named_args_type(command)
+  sig { params(command: String).returns(T::Array[Homebrew::CLI::Parser::Subcommand]) }
+  def self.command_subcommands(command)
+    path = self.path(command)
+    return [] if path.blank?
+
+    cmd_parser = Homebrew::CLI::Parser.from_cmd_path(path)
+    return [] if cmd_parser.blank?
+
+    cmd_parser.subcommands
+  end
+
+  sig {
+    params(command: String, subcommand: T.nilable(String))
+      .returns(T.nilable(T.any(T::Array[Symbol], T::Array[String])))
+  }
+  def self.named_args_type(command, subcommand: nil)
     path = self.path(command)
     return if path.blank?
 
     cmd_parser = Homebrew::CLI::Parser.from_cmd_path(path)
     return if cmd_parser.blank?
 
-    Array(cmd_parser.named_args_type)
+    args_type = if subcommand
+      cmd_parser.named_args_type_for_subcommand(subcommand)
+    else
+      cmd_parser.named_args_type
+    end
+    Array(args_type)
   end
 
   # Returns the conflicts of a given `option` for `command`.
