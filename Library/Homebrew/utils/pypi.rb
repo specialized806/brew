@@ -372,6 +372,7 @@ module PyPI
         exclude_packages.delete package
         next
       end
+      next if existing_resources_by_name[T.must(package.name)]&.livecheck_defined?
 
       ohai "Getting PyPI info for \"#{package}\"" if show_info
       name, url, checksum, version, package_error = package.pypi_info(ignore_errors: ignore_errors)
@@ -441,7 +442,8 @@ module PyPI
     formula_ast = Utils::AST::FormulaAST.new(formula.path.read)
     if formula_ast.replace_resource_stanzas(
       resource_section,
-      replace_existing: formula.resources.any? { |resource| !resource.name.start_with?("homebrew-") },
+      replace_existing:   formula.resources.any? { |resource| !resource.name.start_with?("homebrew-") },
+      preserve_livecheck: true,
     ) == :multiple_groups
       odie "Unable to update resource blocks for \"#{formula.name}\" automatically. Please update them manually."
     end
