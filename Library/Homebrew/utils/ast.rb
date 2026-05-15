@@ -205,12 +205,18 @@ module Utils
         tree_rewriter.insert_after(preceding_expr, text)
       end
 
-      sig { params(resource_section: String, replace_existing: T::Boolean).returns(T.nilable(Symbol)) }
-      def replace_resource_stanzas(resource_section, replace_existing: true)
+      sig {
+        params(
+          resource_section:   String,
+          replace_existing:   T::Boolean,
+          preserve_livecheck: T::Boolean,
+        ).returns(T.nilable(Symbol))
+      }
+      def replace_resource_stanzas(resource_section, replace_existing: true, preserve_livecheck: false)
         resource_section = resource_section.gsub(/^(?!$)/, "  ") unless resource_section.match?(/\A\n* +/)
 
         if replace_existing
-          groups = resource_stanza_groups
+          groups = resource_stanza_groups(preserve_livecheck:)
           return :multiple_groups if groups.length > 1
 
           if (group = groups.first)
@@ -424,13 +430,17 @@ module Utils
         )
       end
 
-      sig { returns(T::Array[T::Array[BlockNode]]) }
-      def resource_stanza_groups
+      sig { params(preserve_livecheck: T::Boolean).returns(T::Array[T::Array[BlockNode]]) }
+      def resource_stanza_groups(preserve_livecheck: false)
         test_node = stanza(:test, type: :block_call)
         resource_nodes = stanzas(:resource, type: :block_call).filter_map do |node|
+          node = T.cast(node, BlockNode)
           next if test_node.present? && node.source_range.begin_pos > test_node.source_range.begin_pos
 
-          T.cast(node, BlockNode)
+          next if preserve_livecheck &&
+                  matching_stanzas(body_children(node.body), :livecheck, type: :block_call).present?
+
+          node
         end
 
         groups = T.let([], T::Array[T::Array[BlockNode]])

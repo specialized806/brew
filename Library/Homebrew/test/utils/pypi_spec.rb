@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "utils/pypi"
+require "formulary"
 
 RSpec.describe PyPI do
   let(:pypi_package_url) do
@@ -168,6 +169,72 @@ RSpec.describe PyPI do
       ).and_return('{"install":[]}')
 
       expect(described_class.pip_report([PyPI::Package.new("snakemake")])).to eq([])
+    end
+  end
+
+  describe ".update_python_resources!" do
+    it "keeps resources with livecheck blocks" do
+      path = mktmpdir/"foo.rb"
+      livecheck_resource = <<~RUBY
+        resource "aws-lambda-rie" do
+          url "https://github.com/aws/aws-lambda-runtime-interface-emulator/archive/refs/tags/v1.0.tar.gz"
+          sha256 "#{"c" * 64}"
+
+          livecheck do
+            url "https://github.com/aws/aws-lambda-runtime-interface-emulator/releases"
+            regex(/^v?(\\d+(?:\\.\\d+)+)$/i)
+          end
+        end
+      RUBY
+      contents = <<~RUBY
+        class Foo < Formula
+          url "https://files.pythonhosted.org/packages/foo-1.0.tar.gz"
+          sha256 "#{"a" * 64}"
+
+          resource "bar" do
+            url "https://files.pythonhosted.org/packages/bar-0.9.tar.gz"
+            sha256 "#{"b" * 64}"
+          end
+
+        #{livecheck_resource}
+
+          def install
+            bin.install "foo"
+          end
+        end
+      RUBY
+      path.write(contents)
+      package = PyPI::Package.new("bar==1.0")
+      livecheck_package = PyPI::Package.new("aws-lambda-rie==1.0")
+
+      allow(Formula).to receive(:[]).with("python").and_return(instance_double(Formula, ensure_installed!: true))
+      allow(described_class).to receive(:pip_report)
+        .and_return([PyPI::Package.new("foo==1.0"), package, livecheck_package])
+      allow(package).to receive(:pypi_info).and_return(
+        ["bar", "https://files.pythonhosted.org/packages/bar-1.0.tar.gz", "d" * 64, "1.0", nil],
+      )
+      expect(livecheck_package).not_to receive(:pypi_info)
+
+      described_class.update_python_resources!(Formulary.from_contents("foo", path, contents),
+                                               package_name: "foo", silent: true)
+
+      expect(path.read).to eq <<~RUBY
+        class Foo < Formula
+          url "https://files.pythonhosted.org/packages/foo-1.0.tar.gz"
+          sha256 "#{"a" * 64}"
+
+          resource "bar" do
+            url "https://files.pythonhosted.org/packages/bar-1.0.tar.gz"
+            sha256 "#{"d" * 64}"
+          end
+
+        #{livecheck_resource}
+
+          def install
+            bin.install "foo"
+          end
+        end
+      RUBY
     end
   end
 

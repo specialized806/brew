@@ -281,7 +281,7 @@ module Homebrew
           end
 
           stanzas_to_add = []
-          new_mirrors&.each { |mirror| stanzas_to_add << [:mirror, mirror] } if new_url.present?
+          new_mirrors&.each { |mirror| stanzas_to_add << [:mirror, "mirror #{mirror.inspect}"] } if new_url.present?
           if forced_version && new_version != "0"
             if formula_ast.stable_stanza?(:version)
               formula_ast.replace_stable_stanza_value(:version, T.must(new_version))
