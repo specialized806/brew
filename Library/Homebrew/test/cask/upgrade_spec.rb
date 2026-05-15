@@ -172,6 +172,46 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(summary_deprecated).to include("local-caffeine")
       end
 
+      it "excludes pinned Casks" do
+        local_caffeine.pin
+        summary_pinned = []
+
+        begin
+          expect(described_class).not_to receive(:upgrade_cask)
+          expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+            expect(dry_run).to be(true)
+            expect(cask_upgrades).to include(
+              "local-transmission-zip 2.60 -> 2.61",
+              "auto-updates 2.57 -> 2.61",
+              "renamed-app 1.0.0 -> 2.0.0",
+            )
+            expect(cask_upgrades.grep(/local-caffeine/)).to be_empty
+          end
+
+          described_class.upgrade_casks!(dry_run: true, quiet: true, summary_pinned:, args:)
+          expect(summary_pinned).to include("local-caffeine 1.2.2")
+        ensure
+          local_caffeine.unpin
+        end
+      end
+
+      it "fails and skips explicitly named pinned Casks" do
+        local_caffeine.pin
+
+        begin
+          expect(described_class).not_to receive(:upgrade_cask)
+
+          expect do
+            described_class.upgrade_casks!(local_caffeine, dry_run: true, args:)
+          end.to not_to_output.to_stdout
+             .and output(/Not upgrading 1 pinned package:.*local-caffeine 1\.2\.2/m).to_stderr
+          expect(Homebrew).to be_failed
+        ensure
+          local_caffeine.unpin
+          Homebrew.failed = false
+        end
+      end
+
       it "would update only the Casks specified in the command line" do
         expect(described_class).not_to receive(:upgrade_cask)
         expect(described_class).to receive(:show_upgrade_summary)

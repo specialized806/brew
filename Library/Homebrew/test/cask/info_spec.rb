@@ -156,6 +156,18 @@ RSpec.describe Cask::Info, :cask do
     EOS
   end
 
+  it "prints pinned cask metadata" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    cask = Cask::CaskLoader.load("local-caffeine")
+    InstallHelper.stub_cask_installation(cask)
+    cask.pin
+
+    expect { described_class.info(cask, args:) }
+      .to output(/Pinned: 1\.2\.3 on \d{4}-\d{2}-\d{2} at \d{2}:\d{2}:\d{2}/).to_stdout
+
+    cask.unpin
+  end
+
   it "prints caveats if the Cask provided one" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 

@@ -148,29 +148,40 @@ module Homebrew
         end
       end
 
-      sig { params(formula_or_cask: T.untyped).returns(T::Array[String]) }
+      sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Array[String]) }
       def self.metadata_lines(formula_or_cask)
         return [] unless $stdout.tty?
 
-        if formula_or_cask.is_a?(Formula) || formula_or_cask.respond_to?(:pinned?)
+        case formula_or_cask
+        when Formula
           formula_metadata_lines(formula_or_cask)
-        elsif formula_or_cask.is_a?(Cask::Cask) || formula_or_cask.respond_to?(:supports_macos?)
-          []
+        when Cask::Cask
+          if formula_or_cask.pinned?
+            pinned = "Pinned: #{formula_or_cask.pinned_version}"
+            if (pinned_time = pin_path_mtime(formula_or_cask.pin_path))
+              pinned << " on #{formatted_time(pinned_time)}"
+            end
+            [pinned]
+          else
+            []
+          end
         else
-          raise TypeError, "Unsupported formula_or_cask type: #{formula_or_cask.class}"
+          T.absurd(formula_or_cask)
         end
       end
 
-      sig { params(formula_or_cask: T.untyped).returns(T::Array[String]) }
+      sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Array[String]) }
       def self.requirements_lines(formula_or_cask)
         return [] unless $stdout.tty?
-        return [] if formula_or_cask.is_a?(Formula) || formula_or_cask.respond_to?(:pinned?)
-        if formula_or_cask.is_a?(Cask::Cask) || formula_or_cask.respond_to?(:supports_macos?)
-          return cask_requirements_lines(formula_or_cask)
-        end
 
-        raise TypeError,
-              "Unsupported formula_or_cask type: #{formula_or_cask.class}"
+        case formula_or_cask
+        when Formula
+          []
+        when Cask::Cask
+          cask_requirements_lines(formula_or_cask)
+        else
+          T.absurd(formula_or_cask)
+        end
       end
 
       sig { params(tab: T.any(Tab, Cask::Tab)).returns(String) }
@@ -233,12 +244,12 @@ module Homebrew
         end.sort.uniq
       end
 
-      sig { params(formula: T.untyped).returns(T::Array[String]) }
+      sig { params(formula: Formula).returns(T::Array[String]) }
       def self.formula_metadata_lines(formula)
         metadata = T.let([], T::Array[String])
         if formula.pinned?
           pinned = "Pinned: #{formula.pinned_version}"
-          if (pinned_time = formula_pinned_time(formula))
+          if (pinned_time = pin_path_mtime(FormulaPin.new(formula).path))
             pinned << " on #{formatted_time(pinned_time)}"
           end
           metadata << pinned
@@ -252,7 +263,7 @@ module Homebrew
         metadata
       end
 
-      sig { params(cask: T.untyped).returns(T::Array[String]) }
+      sig { params(cask: Cask::Cask).returns(T::Array[String]) }
       def self.cask_requirements_lines(cask)
         macos_requirements = [cask.depends_on.macos, cask.depends_on.maximum_macos].compact
         requirement = if macos_requirements.present?
@@ -280,9 +291,8 @@ module Homebrew
         time.strftime("%Y-%m-%d at %H:%M:%S")
       end
 
-      sig { params(formula: T.untyped).returns(T.nilable(Time)) }
-      def self.formula_pinned_time(formula)
-        pin_path = FormulaPin.new(formula).path
+      sig { params(pin_path: Pathname).returns(T.nilable(Time)) }
+      def self.pin_path_mtime(pin_path)
         pin_path.lstat.mtime if pin_path.symlink? || pin_path.exist?
       rescue Errno::ENOENT
         nil
@@ -332,7 +342,7 @@ module Homebrew
         end
       end
 
-      private_class_method :formula_metadata_lines, :formatted_time, :formula_pinned_time,
+      private_class_method :formula_metadata_lines, :formatted_time, :pin_path_mtime,
                            :formula_installs_from_source?, :cask_requirements_lines
 
       private

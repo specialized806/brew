@@ -76,6 +76,35 @@ RSpec.describe Cask::Cask, :cask do
     end
   end
 
+  describe "#pinned?" do
+    it "ignores and replaces a dangling pin" do
+      HOMEBREW_PINNED_CASKS.mkpath
+      cask.pin_path.make_relative_symlink(cask.caskroom_path/"missing")
+
+      expect(cask).not_to be_pinned
+      expect(cask.pinned_version).to be_nil
+
+      allow(cask).to receive(:installed_version).and_return("1.0")
+      (cask.caskroom_path/"1.0").mkpath
+      cask.pin
+
+      expect(cask).to be_pinned
+      expect(cask.pinned_version).to eq("1.0")
+    end
+
+    it "replaces a regular file pin record" do
+      HOMEBREW_PINNED_CASKS.mkpath
+      cask.pin_path.write("not a symlink")
+      allow(cask).to receive(:installed_version).and_return("1.0")
+      (cask.caskroom_path/"1.0").mkpath
+
+      cask.pin
+
+      expect(cask).to be_pinned
+      expect(cask.pin_path).to be_a_symlink
+    end
+  end
+
   describe "load" do
     let(:tap_path) { CoreCaskTap.instance.path }
     let(:file_dirname) { Pathname.new(__FILE__).dirname }
@@ -516,6 +545,20 @@ RSpec.describe Cask::Cask, :cask do
   describe "#supports_macos?" do
     it "returns false for casks with bare depends_on :linux" do
       expect(Cask::CaskLoader.load("with-depends-on-linux-bare").supports_macos?).to be false
+    end
+  end
+
+  describe "#outdated_info" do
+    it "includes pinned cask details" do
+      cask = Cask::CaskLoader.load("local-caffeine")
+      allow(cask).to receive_messages(outdated_version: "1.2.2", pinned?: true, pinned_version: "1.2.2")
+
+      expect(cask.outdated_info(false, true, false, false, false))
+        .to eq("local-caffeine (1.2.2) != 1.2.3 [pinned at 1.2.2]")
+      expect(cask.outdated_info(false, false, true, false, false)).to include(
+        pinned:         true,
+        pinned_version: "1.2.2",
+      )
     end
   end
 

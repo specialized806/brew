@@ -660,7 +660,7 @@ Show the version number for installed formulae, or only the specified formulae i
 Only show formulae with multiple versions installed\. Implies \fB\-\-versions\fP\&\.
 .TP
 \fB\-\-pinned\fP
-List only pinned formulae, or only the specified (pinned) formulae if \fIformula\fP are provided\. See also \fBpin\fP, \fBunpin\fP\&\.
+List only pinned packages, or only the specified (pinned) packages if \fIformula\fP or \fIcask\fP are provided\. See also \fBpin\fP, \fBunpin\fP\&\.
 .TP
 \fB\-\-installed\-on\-request\fP
 List the formulae installed on request\.
@@ -779,10 +779,16 @@ Also include outdated casks including those with \fBversion :latest\fP\&\.
 .TP
 \fB\-\-greedy\-auto\-updates\fP
 Also include outdated \fBauto_updates true\fP casks that would otherwise be skipped\.
-.SS "\fBpin\fP \fIinstalled_formula\fP \fR[\.\.\.]"
-Pin the specified \fIformula\fP, preventing them from being upgraded when issuing the \fBbrew upgrade\fP \fIformula\fP command\. See also \fBunpin\fP\&\.
+.SS "\fBpin\fP \fR[\fB\-\-formula\fP] \fR[\fB\-\-cask\fP] \fIinstalled_formula\fP|\fIinstalled_cask\fP \fR[\.\.\.]"
+Pin the specified package, preventing it from being upgraded when issuing the \fBbrew upgrade\fP \fIformula\fP or \fIcask\fP command\. See also \fBunpin\fP\&\.
 .P
-\fINote:\fP Other packages which depend on newer versions of a pinned formula might not install or run correctly\.
+\fINote:\fP Other packages which depend on newer versions of a pinned formula might not install or run correctly\. Pinned casks with \fBauto_updates true\fP may update themselves outside Homebrew\.
+.TP
+\fB\-\-formula\fP
+Treat all named arguments as formulae\.
+.TP
+\fB\-\-cask\fP
+Treat all named arguments as casks\.
 .SS "\fBpostinstall\fP, \fBpost_install\fP \fIinstalled_formula\fP \fR[\.\.\.]"
 Rerun the post\-install steps for \fIformula\fP\&\.
 .SS "\fBpyenv\-sync\fP"
@@ -1054,8 +1060,14 @@ Remove symlinks for \fIformula\fP from Homebrew\[u2019]s prefix\. This can be us
 .TP
 \fB\-n\fP, \fB\-\-dry\-run\fP
 List files which would be unlinked without actually unlinking or deleting any files\.
-.SS "\fBunpin\fP \fIinstalled_formula\fP \fR[\.\.\.]"
-Unpin \fIformula\fP, allowing them to be upgraded by \fBbrew upgrade\fP \fIformula\fP\&\. See also \fBpin\fP\&\.
+.SS "\fBunpin\fP \fR[\fB\-\-formula\fP] \fR[\fB\-\-cask\fP] \fIinstalled_formula\fP|\fIinstalled_cask\fP \fR[\.\.\.]"
+Unpin the specified package, allowing it to be upgraded by \fBbrew upgrade\fP \fIformula\fP or \fIcask\fP\&\. See also \fBpin\fP\&\.
+.TP
+\fB\-\-formula\fP
+Treat all named arguments as formulae\.
+.TP
+\fB\-\-cask\fP
+Treat all named arguments as casks\.
 .SS "\fBuntap\fP \fR[\fB\-\-force\fP] \fItap\fP \fR[\.\.\.]"
 Remove a tapped formula repository\.
 .TP
@@ -1085,7 +1097,7 @@ Fetch and reset Homebrew and all tap repositories (or any specified \fIrepositor
 .P
 \fINote:\fP this will destroy all your uncommitted or committed changes\.
 .SS "\fBupgrade\fP \fR[\fIoptions\fP] \fR[\fIinstalled_formula\fP|\fIinstalled_cask\fP \.\.\.]"
-Upgrade outdated casks and outdated, unpinned formulae using the same options they were originally installed with, plus any appended brew formula options\. If \fIcask\fP or \fIformula\fP are specified, upgrade only the given \fIcask\fP or \fIformula\fP kegs (unless they are pinned; see \fBpin\fP, \fBunpin\fP)\.
+Upgrade outdated, unpinned packages using the same options they were originally installed with, plus any appended brew formula options\. If \fIcask\fP or \fIformula\fP are specified, upgrade only the given \fIcask\fP or \fIformula\fP (unless they are pinned; see \fBpin\fP, \fBunpin\fP)\.
 .P
 Unless \fB$HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK\fP is set, \fBbrew upgrade\fP or \fBbrew reinstall\fP will be run for outdated dependents and dependents with broken linkage, respectively\.
 .P

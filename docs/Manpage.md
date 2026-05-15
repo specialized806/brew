@@ -1064,8 +1064,8 @@ paths within its current keg. If *`cask`* is provided, list its artifacts.
 
 `--pinned`
 
-: List only pinned formulae, or only the specified (pinned) formulae if
-  *`formula`* are provided. See also `pin`, `unpin`.
+: List only pinned packages, or only the specified (pinned) packages if
+  *`formula`* or *`cask`* are provided. See also `pin`, `unpin`.
 
 `--installed-on-request`
 
@@ -1255,13 +1255,22 @@ otherwise.
 : Also include outdated `auto_updates true` casks that would otherwise be
   skipped.
 
-### `pin` *`installed_formula`* \[...\]
+### `pin` \[`--formula`\] \[`--cask`\] *`installed_formula`*\|*`installed_cask`* \[...\]
 
-Pin the specified *`formula`*, preventing them from being upgraded when issuing
-the `brew upgrade` *`formula`* command. See also `unpin`.
+Pin the specified package, preventing it from being upgraded when issuing the
+`brew upgrade` *`formula`* or *`cask`* command. See also `unpin`.
 
 *Note:* Other packages which depend on newer versions of a pinned formula might
-not install or run correctly.
+not install or run correctly. Pinned casks with `auto_updates true` may update
+themselves outside Homebrew.
+
+`--formula`
+
+: Treat all named arguments as formulae.
+
+`--cask`
+
+: Treat all named arguments as casks.
 
 ### `postinstall`, `post_install` *`installed_formula`* \[...\]
 
@@ -1705,10 +1714,18 @@ brew link` *`formula`*
 : List files which would be unlinked without actually unlinking or deleting any
   files.
 
-### `unpin` *`installed_formula`* \[...\]
+### `unpin` \[`--formula`\] \[`--cask`\] *`installed_formula`*\|*`installed_cask`* \[...\]
 
-Unpin *`formula`*, allowing them to be upgraded by `brew upgrade` *`formula`*.
-See also `pin`.
+Unpin the specified package, allowing it to be upgraded by `brew upgrade`
+*`formula`* or *`cask`*. See also `pin`.
+
+`--formula`
+
+: Treat all named arguments as formulae.
+
+`--cask`
+
+: Treat all named arguments as casks.
 
 ### `untap` \[`--force`\] *`tap`* \[...\]
 
@@ -1758,10 +1775,10 @@ Fetch and reset Homebrew and all tap repositories (or any specified
 
 ### `upgrade` \[*`options`*\] \[*`installed_formula`*\|*`installed_cask`* ...\]
 
-Upgrade outdated casks and outdated, unpinned formulae using the same options
-they were originally installed with, plus any appended brew formula options. If
-*`cask`* or *`formula`* are specified, upgrade only the given *`cask`* or
-*`formula`* kegs (unless they are pinned; see `pin`, `unpin`).
+Upgrade outdated, unpinned packages using the same options they were originally
+installed with, plus any appended brew formula options. If *`cask`* or
+*`formula`* are specified, upgrade only the given *`cask`* or *`formula`*
+(unless they are pinned; see `pin`, `unpin`).
 
 Unless `$HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK` is set, `brew upgrade` or `brew
 reinstall` will be run for outdated dependents and dependents with broken

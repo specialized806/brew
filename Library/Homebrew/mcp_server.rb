@@ -72,9 +72,9 @@ module Homebrew
       },
       upgrade:   {
         name:        "upgrade",
-        description: "Upgrade outdated casks and outdated, unpinned formulae using the same options they were " \
-                     "originally installed with, plus any appended brew formula options. If <cask> or <formula> " \
-                     "are specified, upgrade only the given <cask> or <formula> kegs (unless they are pinned).",
+        description: "Upgrade outdated, unpinned packages using the same options they were originally " \
+                     "installed with, plus any appended brew formula options. If <cask> or <formula> " \
+                     "are specified, upgrade only the given <cask> or <formula> (unless they are pinned).",
         command:     "brew upgrade",
         inputSchema: { type: "object", properties: FORMULA_OR_CASK_PROPERTIES },
       },

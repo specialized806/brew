@@ -1994,7 +1994,9 @@ _brew_pin() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --cask
       --debug
+      --formula
       --help
       --quiet
       --verbose
@@ -2004,6 +2006,7 @@ _brew_pin() {
     *) ;;
   esac
   __brew_complete_installed_formulae
+  __brew_complete_installed_casks
 }
 
 _brew_post_install() {
@@ -2911,7 +2914,9 @@ _brew_unpin() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --cask
       --debug
+      --formula
       --help
       --quiet
       --verbose
@@ -2921,6 +2926,7 @@ _brew_unpin() {
     *) ;;
   esac
   __brew_complete_installed_formulae
+  __brew_complete_installed_casks
 }
 
 _brew_untap() {

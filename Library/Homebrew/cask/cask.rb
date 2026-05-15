@@ -277,6 +277,48 @@ module Cask
       installed_caskfile.dirname.dirname.dirname.basename.to_s
     end
 
+    sig { void }
+    def pin
+      return unless (installed_version = self.installed_version)
+
+      versioned_path = caskroom_path/installed_version
+      return unless versioned_path.exist?
+
+      HOMEBREW_PINNED_CASKS.mkpath
+      return if pinned?
+
+      pin_path.unlink if pin_path.file? || pin_path.symlink?
+      pin_path.make_relative_symlink(versioned_path)
+    end
+
+    sig { void }
+    def unpin
+      pin_path.unlink if pin_path.symlink?
+      HOMEBREW_PINNED_CASKS.rmdir_if_possible
+    end
+
+    sig { returns(T::Boolean) }
+    def pinned?
+      pin_path.symlink? && pin_path.exist?
+    end
+
+    sig { returns(T::Boolean) }
+    def pinnable?
+      return false unless (installed_version = self.installed_version)
+
+      (caskroom_path/installed_version).exist?
+    end
+
+    sig { returns(T.nilable(String)) }
+    def pinned_version
+      pin_path.resolved_path.basename.to_s if pinned?
+    end
+
+    sig { returns(Pathname) }
+    def pin_path
+      HOMEBREW_PINNED_CASKS/token
+    end
+
     sig { returns(T.nilable(String)) }
     def bundle_short_version
       bundle_version&.short_version
@@ -392,9 +434,13 @@ module Cask
           name:               token,
           installed_versions: [installed_version],
           current_version:    version,
+          pinned:             pinned?,
+          pinned_version:,
         }
       else
-        "#{token} (#{installed_version}) != #{version}"
+        pinned = " [pinned at #{pinned_version}]" if pinned?
+
+        "#{token} (#{installed_version}) != #{version}#{pinned}"
       end
     end
 
@@ -485,6 +531,8 @@ module Cask
         "installed_time"                  => install_time&.to_i,
         "bundle_version"                  => bundle_long_version,
         "bundle_short_version"            => bundle_short_version,
+        "pinned"                          => pinned?,
+        "pinned_version"                  => pinned_version,
         "outdated"                        => outdated?,
         "sha256"                          => sha256,
         "artifacts"                       => artifacts_list,
@@ -514,7 +562,7 @@ module Cask
       }
     end
 
-    HASH_KEYS_TO_SKIP = T.let(%w[outdated installed versions].freeze, T::Array[String])
+    HASH_KEYS_TO_SKIP = T.let(%w[outdated installed pinned pinned_version versions].freeze, T::Array[String])
     private_constant :HASH_KEYS_TO_SKIP
 
     AUTO_UPDATES_BAD_BUNDLE_VERSIONS = %w[0 0.0].freeze
@@ -686,6 +734,8 @@ module Cask
     def api_to_local_hash(hash)
       hash["token"] = token
       hash["installed"] = installed_version
+      hash["pinned"] = pinned?
+      hash["pinned_version"] = pinned_version
       hash["outdated"] = outdated?
       hash
     end

@@ -86,6 +86,8 @@ module Homebrew
 
               raise Cask::CaskNotInstalledError, cask if !cask.installed? && !args.force?
 
+              next unless Cask::Uninstall.unpin_for_removal?(cask, force: args.force?)
+
               Cask::Installer.new(cask, verbose: args.verbose?, force: args.force?).zap
             rescue => e
               caught_exceptions << e

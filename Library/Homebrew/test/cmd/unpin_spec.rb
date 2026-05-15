@@ -13,4 +13,28 @@ RSpec.describe Homebrew::Cmd::Unpin do
 
     expect { brew "unpin", "testball" }.to be_a_success
   end
+
+  it "unpins a Cask's version", :cask, :integration_test do
+    cask = Cask::CaskLoader.load("local-caffeine")
+    InstallHelper.stub_cask_installation(cask)
+    cask.pin
+
+    expect { brew "unpin", "--cask", "local-caffeine" }.to be_a_success
+
+    expect(cask).not_to be_pinned
+  end
+
+  it "removes a dangling Cask pin", :cask, :integration_test do
+    cask = Cask::CaskLoader.load("local-caffeine")
+    InstallHelper.stub_cask_installation(cask)
+    cask.pin
+    FileUtils.rm_r(cask.caskroom_path/"1.2.3")
+
+    expect(cask).not_to be_pinned
+    expect(cask.pin_path).to be_a_symlink
+
+    expect { brew "unpin", "--cask", "local-caffeine" }.to be_a_success
+
+    expect(cask.pin_path).not_to be_a_symlink
+  end
 end
