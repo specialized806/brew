@@ -79,6 +79,9 @@ jobs:
           CHECKBOX_MARKER = /\A- \[[ xX]\] /
           CHECKED_CHECKBOX_MARKER = /\A- \[[xX]\] /
           NORMALISED_CHECKBOX_MARKER = '- [ ] '
+          MARKDOWN_HORIZONTAL_LINE = /\A-+\z/
+          HTML_COMMENT = /\A<!--.*-->\z/
+          # 75% of template lines should be in the PR description.
           REQUIRED_TEMPLATE_PERCENTAGE = 75
           PERCENTAGE_SCALE = 100
 
@@ -88,10 +91,17 @@ jobs:
                 .lines(chomp: true)
           end
 
-          def normalise_lines(path)
+          def normalise_lines(path, template: false)
             lines(path).each_with_object([]) do |line, normalised_lines|
               line = line.strip.sub(CHECKBOX_MARKER, NORMALISED_CHECKBOX_MARKER)
-              normalised_lines << line unless line.empty?
+              # Ignore blank lines.
+              next if line.empty?
+              # Ignore --- markdown horizontal lines.
+              next if template && line.match?(MARKDOWN_HORIZONTAL_LINE)
+              # Ignore <!-- HTML comments -->
+              next if template && line.match?(HTML_COMMENT)
+
+              normalised_lines << line
             end.uniq
           end
 
@@ -99,7 +109,7 @@ jobs:
           template_path = ARGV.fetch(1)
 
           pr_lines = normalise_lines(pr_body_path)
-          template_lines = normalise_lines(template_path)
+          template_lines = normalise_lines(template_path, template: true)
           matching_template_lines = template_lines.count { |line| pr_lines.include?(line) }
           scaled_matching_percentage = matching_template_lines * PERCENTAGE_SCALE
           scaled_required_percentage = template_lines.count * REQUIRED_TEMPLATE_PERCENTAGE
