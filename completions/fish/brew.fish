@@ -1181,7 +1181,7 @@ __fish_brew_complete_arg 'list' -l help -d 'Show this message'
 __fish_brew_complete_arg 'list' -l installed-as-dependency -d 'List the formulae installed as dependencies'
 __fish_brew_complete_arg 'list' -l installed-on-request -d 'List the formulae installed on request'
 __fish_brew_complete_arg 'list' -l multiple -d 'Only show formulae with multiple versions installed. Implies `--versions`'
-__fish_brew_complete_arg 'list' -l pinned -d 'List only pinned formulae, or only the specified (pinned) formulae if formula are provided. See also `pin`, `unpin`'
+__fish_brew_complete_arg 'list' -l pinned -d 'List only pinned packages, or only the specified (pinned) packages if formula or cask are provided. See also `pin`, `unpin`'
 __fish_brew_complete_arg 'list' -l poured-from-bottle -d 'List the formulae installed from a bottle'
 __fish_brew_complete_arg 'list' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'list' -l verbose -d 'Make some output more verbose'
@@ -1252,7 +1252,7 @@ __fish_brew_complete_arg 'ls' -l help -d 'Show this message'
 __fish_brew_complete_arg 'ls' -l installed-as-dependency -d 'List the formulae installed as dependencies'
 __fish_brew_complete_arg 'ls' -l installed-on-request -d 'List the formulae installed on request'
 __fish_brew_complete_arg 'ls' -l multiple -d 'Only show formulae with multiple versions installed. Implies `--versions`'
-__fish_brew_complete_arg 'ls' -l pinned -d 'List only pinned formulae, or only the specified (pinned) formulae if formula are provided. See also `pin`, `unpin`'
+__fish_brew_complete_arg 'ls' -l pinned -d 'List only pinned packages, or only the specified (pinned) packages if formula or cask are provided. See also `pin`, `unpin`'
 __fish_brew_complete_arg 'ls' -l poured-from-bottle -d 'List the formulae installed from a bottle'
 __fish_brew_complete_arg 'ls' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'ls' -l verbose -d 'Make some output more verbose'
@@ -1329,12 +1329,15 @@ __fish_brew_complete_arg 'outdated; and not __fish_seen_argument -l cask -l cask
 __fish_brew_complete_arg 'outdated; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
-__fish_brew_complete_cmd 'pin' 'Pin the specified formula, preventing them from being upgraded when issuing the `brew upgrade` formula command'
+__fish_brew_complete_cmd 'pin' 'Pin the specified package, preventing it from being upgraded when issuing the `brew upgrade` formula or cask command'
+__fish_brew_complete_arg 'pin' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'pin' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'pin' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'pin' -l help -d 'Show this message'
 __fish_brew_complete_arg 'pin' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'pin' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'pin' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'pin; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'pin; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
 __fish_brew_complete_cmd 'post_install' 'Rerun the post-install steps for formula'
@@ -1889,12 +1892,15 @@ __fish_brew_complete_arg 'unpack; and not __fish_seen_argument -l cask -l casks'
 __fish_brew_complete_arg 'unpack; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
-__fish_brew_complete_cmd 'unpin' 'Unpin formula, allowing them to be upgraded by `brew upgrade` formula'
+__fish_brew_complete_cmd 'unpin' 'Unpin the specified package, allowing it to be upgraded by `brew upgrade` formula or cask'
+__fish_brew_complete_arg 'unpin' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'unpin' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'unpin' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'unpin' -l help -d 'Show this message'
 __fish_brew_complete_arg 'unpin' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'unpin' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'unpin' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'unpin; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'unpin; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
 __fish_brew_complete_cmd 'untap' 'Remove a tapped formula repository'
@@ -2009,7 +2015,7 @@ __fish_brew_complete_arg 'update-test' -l to-tag -d 'Set `$HOMEBREW_UPDATE_TO_TA
 __fish_brew_complete_arg 'update-test' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'upgrade' 'Upgrade outdated casks and outdated, unpinned formulae using the same options they were originally installed with, plus any appended brew formula options'
+__fish_brew_complete_cmd 'upgrade' 'Upgrade outdated, unpinned packages using the same options they were originally installed with, plus any appended brew formula options'
 __fish_brew_complete_arg 'upgrade' -l appdir -d 'Target location for Applications (default: `/Applications`)'
 __fish_brew_complete_arg 'upgrade' -l ask -d 'Ask for confirmation before downloading and upgrading formulae. Print download, install and net install sizes of bottles and dependencies. Enabled by default if `$HOMEBREW_ASK` is set'
 __fish_brew_complete_arg 'upgrade' -l audio-unit-plugindir -d 'Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)'

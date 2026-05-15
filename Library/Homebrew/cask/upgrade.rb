@@ -29,18 +29,19 @@ module Cask
         greedy:              T.nilable(T::Boolean),
         greedy_latest:       T.nilable(T::Boolean),
         greedy_auto_updates: T.nilable(T::Boolean),
+        summary_pinned:      T.nilable(T::Array[String]),
         summary_disabled:    T.nilable(T::Array[String]),
       ).returns(T::Array[Cask])
     }
     def self.outdated_casks(casks, args:, force:, quiet:,
                             greedy: false, greedy_latest: false, greedy_auto_updates: false,
-                            summary_disabled: nil)
+                            summary_pinned: nil, summary_disabled: nil)
       # Validate mutually exclusive opt-in/opt-out env vars before we start
       # selecting casks so `brew upgrade` errors consistently.
       Homebrew::EnvConfig.upgrade_auto_updates_casks?
       greedy = true if Homebrew::EnvConfig.upgrade_greedy?
 
-      if casks.empty?
+      outdated_casks = if casks.empty?
         Caskroom.casks(config: Config.from_args(args)).select do |cask|
           if cask.disabled?
             summary_disabled&.push(cask.full_name)
@@ -73,6 +74,18 @@ module Cask
           end
         end
       end
+
+      pinned_casks = outdated_casks.select(&:pinned?)
+      outdated_casks -= pinned_casks
+      summary_pinned&.concat(pinned_casks.map { |cask| "#{cask.full_name} #{cask.installed_version}" })
+
+      if pinned_casks.any? && (!quiet || casks.any?)
+        message = "Not upgrading #{pinned_casks.count} pinned #{::Utils.pluralize("package", pinned_casks.count)}:"
+        casks.any? ? ofail(message) : opoo(message)
+        $stderr.puts pinned_casks.map { |cask| "#{cask.full_name} #{cask.installed_version}" } * ", " unless quiet
+      end
+
+      outdated_casks
     end
 
     sig { params(cask_upgrades: T::Array[String], dry_run: T.nilable(T::Boolean)).void }
@@ -103,6 +116,7 @@ module Cask
         show_upgrade_summary: T::Boolean,
         download_queue:       T.nilable(Homebrew::DownloadQueue),
         summary_upgrades:     T.nilable(T::Array[String]),
+        summary_pinned:       T.nilable(T::Array[String]),
         summary_deprecated:   T.nilable(T::Array[String]),
         summary_disabled:     T.nilable(T::Array[String]),
       ).returns(T::Boolean)
@@ -125,6 +139,7 @@ module Cask
       show_upgrade_summary: true,
       download_queue: nil,
       summary_upgrades: nil,
+      summary_pinned: nil,
       summary_deprecated: nil,
       summary_disabled: nil
     )
@@ -132,7 +147,7 @@ module Cask
 
       outdated_casks =
         self.outdated_casks(casks, args:, greedy:, greedy_latest:, greedy_auto_updates:, force:, quiet:,
-                                   summary_disabled:)
+                                   summary_pinned:, summary_disabled:)
 
       manual_installer_casks = outdated_casks.select do |cask|
         cask.artifacts.any? do |artifact|

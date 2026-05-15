@@ -23,6 +23,7 @@ module Homebrew
       class FinalUpgradeSummary < T::Struct
         prop :version_changes, T::Array[String], default: []
         prop :pinned_formulae, T::Array[String], default: []
+        prop :pinned_casks, T::Array[String], default: []
         prop :deprecated, T::Array[String], default: []
         prop :disabled, T::Array[String], default: []
         prop :source_build_formulae, T::Array[String], default: []
@@ -30,9 +31,9 @@ module Homebrew
 
       cmd_args do
         description <<~EOS
-          Upgrade outdated casks and outdated, unpinned formulae using the same options they were originally
-          installed with, plus any appended brew formula options. If <cask> or <formula> are specified,
-          upgrade only the given <cask> or <formula> kegs (unless they are pinned; see `pin`, `unpin`).
+          Upgrade outdated, unpinned packages using the same options they were originally installed with,
+          plus any appended brew formula options. If <cask> or <formula> are specified, upgrade only the given
+          <cask> or <formula> (unless they are pinned; see `pin`, `unpin`).
 
           Unless `$HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK` is set, `brew upgrade` or `brew reinstall` will be run for
           outdated dependents and dependents with broken linkage, respectively.
@@ -409,7 +410,7 @@ module Homebrew
       sig { void }
       def show_final_upgrade_summary
         summary = final_upgrade_summary
-        return if summary.version_changes.empty? && summary.pinned_formulae.empty? &&
+        return if summary.version_changes.empty? && summary.pinned_formulae.empty? && summary.pinned_casks.empty? &&
                   summary.deprecated.empty? && summary.disabled.empty? && summary.source_build_formulae.empty?
 
         if summary.version_changes.present?
@@ -425,6 +426,13 @@ module Homebrew
           show_final_upgrade_summary_section(
             "#{pinned_count} Pinned #{Utils.pluralize("formula", pinned_count)}",
             summary.pinned_formulae,
+          )
+        end
+        if summary.pinned_casks.present?
+          pinned_count = summary.pinned_casks.uniq.count
+          show_final_upgrade_summary_section(
+            "#{pinned_count} Pinned #{Utils.pluralize("cask", pinned_count)}",
+            summary.pinned_casks,
           )
         end
         deprecate_disable_summary = summary.deprecated.map { |item| "#{item} (deprecated)" } +
@@ -640,6 +648,7 @@ module Homebrew
           show_upgrade_summary:,
           download_queue:,
           summary_upgrades:     final_upgrade_summary.version_changes,
+          summary_pinned:       final_upgrade_summary.pinned_casks,
           summary_deprecated:   final_upgrade_summary.deprecated,
           summary_disabled:     final_upgrade_summary.disabled,
           args:,

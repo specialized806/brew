@@ -966,21 +966,39 @@ RSpec.describe Homebrew::Cmd::Info do
     before { allow($stdout).to receive(:tty?).and_return(true) }
 
     it "returns summary lines for pinned formulae" do
-      formula = instance_double(
-        Formula,
-        any_version_installed?: true,
-        pinned?:                true,
-        pinned_version:         "1.0",
-      )
+      test_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0"
+      end
+      allow(test_formula).to receive_messages(any_version_installed?: true, pinned?: true, pinned_version: "1.0")
 
       mktmpdir do |dir|
         pin_path = Pathname(dir/"testball")
         pin_path.write("pin")
         pin_time = Time.at(1_720_189_900)
         File.utime(pin_time, pin_time, pin_path)
-        allow(FormulaPin).to receive(:new).with(formula).and_return(instance_double(FormulaPin, path: pin_path))
+        allow(FormulaPin).to receive(:new).with(test_formula).and_return(instance_double(FormulaPin, path: pin_path))
 
-        expect(described_class.metadata_lines(formula)).to eq([
+        expect(described_class.metadata_lines(test_formula)).to eq([
+          "Pinned: 1.0 on #{pin_time.strftime("%Y-%m-%d at %H:%M:%S")}",
+        ])
+      end
+    end
+
+    it "returns summary lines for pinned casks" do
+      cask = Cask::Cask.new("test-cask") do
+        version "1.0"
+        url "https://brew.sh/test-cask.zip"
+      end
+      allow(cask).to receive_messages(pinned?: true, pinned_version: "1.0")
+
+      mktmpdir do |dir|
+        pin_path = Pathname(dir/"test-cask")
+        pin_path.write("pin")
+        pin_time = Time.at(1_720_189_900)
+        File.utime(pin_time, pin_time, pin_path)
+        allow(cask).to receive(:pin_path).and_return(pin_path)
+
+        expect(described_class.metadata_lines(cask)).to eq([
           "Pinned: 1.0 on #{pin_time.strftime("%Y-%m-%d at %H:%M:%S")}",
         ])
       end

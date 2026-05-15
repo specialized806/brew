@@ -23,6 +23,8 @@ module Cask
         output << "#{deprecate_disable}\n"
       end
       output << "#{installation_info(cask, installed:)}\n"
+      metadata = Homebrew::Cmd::Info.metadata_lines(cask)
+      output << "#{metadata.join("\n")}\n" if metadata.present?
       repo = repo_info(cask)
       output << "#{repo}\n" if repo
       deps = deps_info(cask)

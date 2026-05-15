@@ -145,6 +145,13 @@ module Homebrew
         end
 
         formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
+        casks = casks.filter_map do |cask|
+          if cask.pinned?
+            onoe "#{cask.full_name} is pinned. You must unpin it to reinstall."
+            next
+          end
+          cask
+        end
         shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
         casks_prefetched = T.let(false, T::Boolean)
 

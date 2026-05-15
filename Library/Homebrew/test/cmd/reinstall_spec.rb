@@ -24,6 +24,22 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     expect(Homebrew).to have_failed
   end
 
+  it "does not reinstall a pinned Cask" do
+    cask = Cask::Cask.new("local-caffeine")
+    allow(cask).to receive_messages(pinned?: true, full_name: "local-caffeine")
+
+    cmd = described_class.new(["local-caffeine"])
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
+      .with(method: :resolve)
+      .and_return([cask])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect(Cask::Reinstall).not_to receive(:reinstall_casks)
+    expect { cmd.run }
+      .to output(/local-caffeine is pinned\. You must unpin it to reinstall\./).to_stderr
+  end
+
   it "reinstalls a Formula", :aggregate_failures, :integration_test do
     formula_name = "testball_bottle"
     formula_prefix = HOMEBREW_CELLAR/formula_name/"0.1"

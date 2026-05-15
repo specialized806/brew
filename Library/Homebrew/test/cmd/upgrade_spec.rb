@@ -239,6 +239,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     summary = described_class::FinalUpgradeSummary.new(
       version_changes:       ["testball 0.1 -> 0.2"],
       pinned_formulae:       ["pinnedball 1.0"],
+      pinned_casks:          ["pinned-cask 2.0"],
       deprecated:            ["oldball"],
       disabled:              ["disabledball"],
       source_build_formulae: ["sourceball"],
@@ -251,6 +252,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       testball 0.1 -> 0.2
       ==> 1 Pinned formula
       pinnedball 1.0
+      ==> 1 Pinned cask
+      pinned-cask 2.0
       ==> 2 Deprecated or disabled packages
       oldball (deprecated)
       disabledball (disabled)
