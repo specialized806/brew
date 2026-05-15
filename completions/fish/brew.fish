@@ -802,8 +802,9 @@ __fish_brew_complete_arg 'environment' -l verbose -d 'Make some output more verb
 __fish_brew_complete_arg 'environment' -a '(__fish_brew_suggest_formulae_all)'
 
 
-__fish_brew_complete_cmd 'exec' 'Run a Homebrew executable, installing its formula if needed'
+__fish_brew_complete_cmd 'exec' 'Run command in an environment populated by Homebrew formulae'
 __fish_brew_complete_arg 'exec' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'exec' -l formulae -d 'Comma-separated formulae to install and add to `PATH` before running command'
 __fish_brew_complete_arg 'exec' -l help -d 'Show this message'
 __fish_brew_complete_arg 'exec' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'exec' -l skip-update -d 'Skip updating the executables database if any version exists on disk, no matter how old'
@@ -2125,8 +2126,9 @@ __fish_brew_complete_arg 'which-update' -l summary-file -d 'Output a summary of 
 __fish_brew_complete_arg 'which-update' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'x' 'Run a Homebrew executable, installing its formula if needed'
+__fish_brew_complete_cmd 'x' 'Run command in an environment populated by Homebrew formulae'
 __fish_brew_complete_arg 'x' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'x' -l formulae -d 'Comma-separated formulae to install and add to `PATH` before running command'
 __fish_brew_complete_arg 'x' -l help -d 'Show this message'
 __fish_brew_complete_arg 'x' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'x' -l skip-update -d 'Skip updating the executables database if any version exists on disk, no matter how old'

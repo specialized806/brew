@@ -1144,6 +1144,7 @@ _brew_exec() {
     -*)
       __brewcomp "
       --debug
+      --formulae
       --help
       --quiet
       --skip-update
@@ -3329,6 +3330,7 @@ _brew_x() {
     -*)
       __brewcomp "
       --debug
+      --formulae
       --help
       --quiet
       --skip-update
