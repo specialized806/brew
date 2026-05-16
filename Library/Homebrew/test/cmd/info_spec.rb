@@ -1023,6 +1023,253 @@ RSpec.describe Homebrew::Cmd::Info do
     end
   end
 
+  describe "Aliases and Old Names rows" do
+    it "lists aliases on their own row when the formula has any" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      allow(main_formula).to receive_messages(aliases: ["testball@1.0", "tball", "googleball"], oldnames: [])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(/^Aliases: testball@1\.0, tball, googleball$/).to_stdout
+        .and not_to_output(/^Old Names:/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "renders aliases and old names on separate rows when both exist" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      allow(main_formula).to receive_messages(aliases: ["testball@1.0", "tball"], oldnames: ["foo", "bar"])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(/^Aliases: testball@1\.0, tball\nOld Names: foo, bar$/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "renders only an Old Names row when there are no aliases" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      allow(main_formula).to receive_messages(aliases: [], oldnames: ["foo"])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(/^Old Names: foo$/).to_stdout
+        .and not_to_output(/^Aliases:/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "omits both rows when there are none" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      allow(main_formula).to receive_messages(aliases: [], oldnames: [])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to not_to_output(/^Aliases:/).to_stdout
+        .and not_to_output(/^Old Names:/).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
+  describe "Installed section" do
+    it "lists this formula alongside installed sibling versioned formulae" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      versioned = formula("testball@0.9") do
+        url "https://brew.sh/testball-0.9.tar.gz"
+        keg_only :versioned_formula
+      end
+
+      main_keg = HOMEBREW_CELLAR/"testball/1.0"
+      main_keg.mkpath
+      main_tab = Tab.empty
+      main_tab.tabfile = main_keg/AbstractTab::FILENAME
+      main_tab.write
+
+      sibling_keg = HOMEBREW_CELLAR/"testball@0.9/0.9"
+      sibling_keg.mkpath
+      sibling_tab = Tab.empty
+      sibling_tab.tabfile = sibling_keg/AbstractTab::FILENAME
+      sibling_tab.write
+
+      allow(main_formula).to receive(:versioned_formulae).and_return([versioned])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(Regexp.new(
+                     "==> Installed Kegs and Versions\n" \
+                     ".*testball\\b.*\\s+1\\.0\\s+\\(.*\\)\n" \
+                     ".*testball@0\\.9\\b.*\\s+0\\.9\\s+\\(",
+                   )).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "marks the currently linked version with `*`" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      versioned = formula("testball@0.9") do
+        url "https://brew.sh/testball-0.9.tar.gz"
+        keg_only :versioned_formula
+      end
+
+      main_keg = HOMEBREW_CELLAR/"testball/1.0"
+      main_keg.mkpath
+      main_tab = Tab.empty
+      main_tab.tabfile = main_keg/AbstractTab::FILENAME
+      main_tab.write
+      (HOMEBREW_LINKED_KEGS/"testball").parent.mkpath
+      FileUtils.ln_s(main_keg, HOMEBREW_LINKED_KEGS/"testball")
+
+      sibling_keg = HOMEBREW_CELLAR/"testball@0.9/0.9"
+      sibling_keg.mkpath
+      sibling_tab = Tab.empty
+      sibling_tab.tabfile = sibling_keg/AbstractTab::FILENAME
+      sibling_tab.write
+
+      allow(main_formula).to receive_messages(versioned_formulae: [versioned], linked?: true,
+                                              linked_version: PkgVersion.parse("1.0"))
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(/.*testball\b.*\s+1\.0\s+\(.*\)\s+\[Linked\]/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "includes the unversioned parent when run on a versioned formula" do
+      info = described_class.new([])
+      versioned = formula("testball@0.9") do
+        url "https://brew.sh/testball-0.9.tar.gz"
+        keg_only :versioned_formula
+      end
+      parent = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+
+      versioned_keg = HOMEBREW_CELLAR/"testball@0.9/0.9"
+      versioned_keg.mkpath
+      versioned_tab = Tab.empty
+      versioned_tab.tabfile = versioned_keg/AbstractTab::FILENAME
+      versioned_tab.write
+
+      parent_keg = HOMEBREW_CELLAR/"testball/1.0"
+      (parent_keg/"bin").mkpath
+      parent_tab = Tab.empty
+      parent_tab.tabfile = parent_keg/AbstractTab::FILENAME
+      parent_tab.write
+
+      allow(versioned).to receive(:versioned_formulae).and_return([])
+      allow(Formulary).to receive(:factory).with("testball").and_return(parent)
+      allow(info).to receive(:github_info).with(versioned).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, versioned) }
+        .to output(Regexp.new(
+                     "==> Installed Kegs and Versions\n" \
+                     ".*testball\\b.*\\s+1\\.0\\s+\\(.*\\)\n" \
+                     ".*testball@0\\.9\\b.*\\s+0\\.9\\s+\\(",
+                   )).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "renders the section even when only the current formula is installed" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+
+      keg_path = HOMEBREW_CELLAR/"testball/1.0"
+      keg_path.mkpath
+      tab = Tab.empty
+      tab.tabfile = keg_path/AbstractTab::FILENAME
+      tab.write
+
+      allow(main_formula).to receive(:versioned_formulae).and_return([])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(/==> Installed Kegs and Versions\n.*testball\b.*\s+1\.0\s+\(/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "renders the section when the queried formula is uninstalled but a sibling is installed" do
+      info = described_class.new([])
+      versioned = formula("testball@0.9") do
+        url "https://brew.sh/testball-0.9.tar.gz"
+        keg_only :versioned_formula
+      end
+      parent = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+
+      parent_keg = HOMEBREW_CELLAR/"testball/1.0"
+      parent_keg.mkpath
+      parent_tab = Tab.empty
+      parent_tab.tabfile = parent_keg/AbstractTab::FILENAME
+      parent_tab.write
+
+      allow(versioned).to receive(:versioned_formulae).and_return([])
+      allow(Formulary).to receive(:factory).with("testball").and_return(parent)
+      allow(info).to receive(:github_info).with(versioned).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, versioned) }
+        .to output(/==> Installed Kegs and Versions\n.*testball\b.*\s+1\.0\s+\(/).to_stdout
+        .and not_to_output(/testball@0\.9 \(0\.9\)/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "lists every installed keg of a formula, newest first" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+
+      ["0.9", "1.0", "0.10"].each do |version|
+        keg_path = HOMEBREW_CELLAR/"testball/#{version}"
+        keg_path.mkpath
+        tab = Tab.empty
+        tab.tabfile = keg_path/AbstractTab::FILENAME
+        tab.write
+      end
+
+      allow(main_formula).to receive(:versioned_formulae).and_return([])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to output(Regexp.new(
+                     "==> Installed Kegs and Versions\n" \
+                     ".*testball\\b.*\\s+1\\.0\\s+\\(.*\\)\n" \
+                     ".*testball\\b.*\\s+0\\.10\\s+\\(.*\\)\n" \
+                     ".*testball\\b.*\\s+0\\.9\\s+\\(",
+                   )).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "omits the section when nothing in the family is installed" do
+      info = described_class.new([])
+      main_formula = formula("testball") do
+        url "https://brew.sh/testball-1.0.tar.gz"
+      end
+      allow(main_formula).to receive(:versioned_formulae).and_return([])
+      allow(info).to receive(:github_info).with(main_formula).and_return("https://example.com/testball.rb")
+
+      expect { info.send(:info_formula, main_formula) }
+        .to not_to_output(/==> Installed Kegs and Versions\b/).to_stdout
+        .and not_to_output.to_stderr
+    end
+  end
+
   describe "#github_info" do
     let(:tap) { CoreTap.instance }
 

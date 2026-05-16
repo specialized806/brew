@@ -617,6 +617,8 @@ module Homebrew
         end
         puts formula.desc if formula.desc
         puts Formatter.url(formula.homepage) if formula.homepage
+        puts "Aliases: #{formula.aliases.join(", ")}" if formula.aliases.any?
+        puts "Old Names: #{formula.oldnames.join(", ")}" if formula.oldnames.any?
 
         deprecate_disable_info_string = DeprecateDisable.message(formula)
         if deprecate_disable_info_string.present?
@@ -655,11 +657,6 @@ module Homebrew
           end
         else
           puts self.class.installation_status(Tab.for_formula(formula))
-          kegs.each do |keg|
-            puts "#{keg} (#{keg.abv})#{" *" if keg.linked?}"
-            tab = keg.tab.to_s
-            puts "  #{tab}" unless tab.empty?
-          end
         end
 
         puts "From: #{Formatter.url(github_info(formula))}"
@@ -667,6 +664,12 @@ module Homebrew
         puts "License: #{SPDX.license_expression_to_string formula.license}" if formula.license.present?
         metadata = self.class.metadata_lines(formula)
         puts metadata if metadata.present?
+
+        installed_lines = installed_section_lines(formula, verbose: args.verbose?)
+        unless installed_lines.empty?
+          ohai "Installed Kegs and Versions"
+          installed_lines.each { |line| puts line }
+        end
 
         tab_runtime_deps = kegs.last&.runtime_dependencies
         installed_dependents = if $stdout.tty? && kegs.any?
@@ -749,6 +752,52 @@ module Homebrew
         return unless formula.core_formula?
 
         Utils::Analytics.formula_output(formula, args:)
+      end
+
+      sig { params(formula: Formula, verbose: T::Boolean).returns(T::Array[String]) }
+      def installed_section_lines(formula, verbose: false)
+        siblings = formula.versioned_formulae
+        parent = if (parent_name = formula.unversioned_formula_name)
+          begin
+            Formulary.factory(parent_name)
+          rescue FormulaUnavailableError
+            nil
+          end
+        end
+        related = [formula, parent, *siblings].compact.uniq(&:full_name)
+        installed = related.select { |f| f.installed_kegs.any? }
+        return [] if installed.empty?
+
+        ordered = installed.sort_by do |other|
+          newest_keg = other.installed_kegs.max_by(&:scheme_and_version)
+          newest_keg ? newest_keg.scheme_and_version : other.pkg_version
+        end.reverse
+        with_kegs = ordered.flat_map do |other|
+          heads, versioned = other.installed_kegs.partition { |keg| keg.version.head? }
+          ordered_kegs = [
+            *heads.sort_by { |keg| -keg.tab.time.to_i },
+            *versioned.sort_by(&:scheme_and_version).reverse,
+          ]
+          ordered_kegs.map { |keg| [other, keg] }
+        end
+        rows = with_kegs.map do |other, keg|
+          name_status = pretty_install_status(other.full_name, installed: true, outdated: other.outdated?)
+          linked_marker = keg.linked? ? "[Linked]" : ""
+          [name_status, keg.version.to_s, "(#{keg.abv})", linked_marker, keg]
+        end
+        name_width = rows.map { |r| Tty.strip_ansi(r[0]).length }.max || 0
+        version_width = rows.map { |r| r[1].length }.max || 0
+        size_width = rows.map { |r| r[2].length }.max || 0
+        rows.flat_map do |name_status, version, size, linked_marker, keg|
+          padded_name = name_status + (" " * (name_width - Tty.strip_ansi(name_status).length))
+          padded_size = linked_marker.empty? ? size : size.ljust(size_width)
+          line = "#{padded_name} #{version.ljust(version_width)} #{padded_size}" \
+                 "#{" #{linked_marker}" unless linked_marker.empty?}"
+          next [line] unless verbose
+
+          tab_string = keg.tab.to_s
+          tab_string.empty? ? [line] : [line, "  #{tab_string}"]
+        end
       end
 
       sig {
