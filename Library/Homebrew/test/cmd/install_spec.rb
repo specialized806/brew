@@ -9,6 +9,184 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it_behaves_like "parseable arguments"
 
+  it "prints a formula closure diff when asking" do
+    added = formula("added") do
+      url "https://brew.sh/added-1.0.tar.gz"
+    end
+    changed = formula("changed") do
+      url "https://brew.sh/changed-2.0.tar.gz"
+    end
+    removed = formula("removed") do
+      url "https://brew.sh/removed-1.0.tar.gz"
+    end
+    added_installer = FormulaInstaller.new(added)
+    changed_installer = FormulaInstaller.new(changed)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+    bottle = instance_double(Bottle, fetch_tab: nil, bottle_size: nil, installed_size: 2000)
+    keg = instance_double(Keg, disk_usage: 1000)
+
+    allow(added_installer).to receive(:compute_dependencies).and_return([])
+    allow(changed_installer).to receive(:compute_dependencies).and_return([])
+    allow(changed).to receive_messages(
+      any_version_installed?:                 true,
+      any_installed_version:                  PkgVersion.parse("1.0"),
+      bottle:                                 bottle,
+      installed_kegs:                         [keg],
+      installed_runtime_formula_dependencies: [removed],
+    )
+
+    expect do
+      Homebrew::Install.ask_formulae(
+        [added_installer, changed_installer],
+        dependants,
+        args:   described_class.new(["--ask", "added", "changed"]).args,
+        prompt: false,
+      )
+    end.to output(<<~EOS).to_stdout
+      Formulae (2):
+      added
+      changed
+
+      Added Formula (1):
+      added
+      Changed Formula (1):
+      changed 1.0 -> 2.0
+      Removed from Closure Formula (1):
+      removed
+      Size Changed Formula (1):
+      changed 1KB -> 2KB
+      ==> Bottle Sizes
+      Download: 0B
+      Install:  2KB
+    EOS
+  end
+
+  it "uses the requested action when asking for formulae" do
+    formula = formula("changed") do
+      url "https://brew.sh/changed-2.0.tar.gz"
+    end
+    formula_installer = FormulaInstaller.new(formula)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(formula_installer).to receive(:compute_dependencies).and_return([])
+    expect(Homebrew::Install).to receive(:ask_input).with(action: "upgrade")
+
+    expect do
+      Homebrew::Install.ask_formulae(
+        [formula_installer],
+        dependants,
+        action: "upgrade",
+        args:   described_class.new(["--ask", "changed"]).args,
+      )
+    end.to output(/Formula \(1\):\nchanged/).to_stdout
+  end
+
+  it "defaults ask input to no" do
+    allow($stdin).to receive(:gets).and_return("\n")
+
+    expect do
+      Homebrew::Install.ask(action: "upgrade")
+    end.to raise_error(SystemExit) { |error| expect(error.status).to eq(1) }
+      .and output("==> Do you want to proceed with the upgrade? [y/N]\n").to_stdout
+  end
+
+  it "prints casks when asking", :cask do
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+
+    expect do
+      Homebrew::Install.ask_casks([cask], prompt: false)
+    end.to output(<<~EOS).to_stdout
+      Cask (1): local-caffeine
+
+      Added Cask (1): local-caffeine
+    EOS
+  end
+
+  it "prints a cask dependency plan when asking", :cask do
+    cask = Cask::CaskLoader.load(cask_path("with-depends-on-everything"))
+    unar = Class.new(Formula) do
+      url "my_url"
+      version "1.2"
+    end.new("unar", Pathname.new(__FILE__).expand_path, :stable)
+
+    allow(Formulary).to receive(:factory).with("unar").and_return(unar)
+
+    expect do
+      Homebrew::Install.ask_casks([cask], prompt: false)
+    end.to output(Regexp.new(
+                    "Casks \\(4\\): .*with-depends-on-everything.*\\n\\n" \
+                    "Formula \\(1\\): unar\\n\\n" \
+                    "Added Casks \\(4\\): .*with-depends-on-everything.*\\n" \
+                    "Added Formula \\(1\\): unar\\n",
+                    Regexp::MULTILINE,
+                  )).to_stdout
+  end
+
+  it "prints changed and removed cask closure entries when asking", :cask do
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+    tab = instance_double(
+      Cask::Tab,
+      runtime_dependencies: {
+        "cask"    => [{ "full_name" => "old-cask" }],
+        "formula" => [{ "full_name" => "old-formula" }],
+      },
+    )
+
+    allow(cask).to receive_messages(installed?: true, installed_version: "1.0", tab:)
+
+    expect do
+      Homebrew::Install.ask_casks([cask], prompt: false)
+    end.to output(<<~EOS).to_stdout
+      Cask (1): local-caffeine
+
+      Changed Cask (1): local-caffeine 1.0 -> 1.2.3
+      Removed from Closure Cask (1): old-cask
+      Removed from Closure Formula (1): old-formula
+    EOS
+  end
+
+  it "does not print unchanged skipped cask dependencies as removed", :cask do
+    cask = Cask::CaskLoader.load(cask_path("with-depends-on-cask"))
+    tab = instance_double(
+      Cask::Tab,
+      runtime_dependencies: {
+        "cask" => [{ "full_name" => "local-transmission-zip" }],
+      },
+    )
+
+    allow(cask).to receive_messages(installed?: true, installed_version: cask.version.to_s, tab:)
+
+    expect do
+      Homebrew::Install.ask_casks([cask], prompt: false, skip_cask_deps: true)
+    end.to output(<<~EOS).to_stdout
+      Cask (1): with-depends-on-cask
+
+    EOS
+  end
+
+  it "prints an ask mode environment hint when installing formulae" do
+    cmd = described_class.new(["testball"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    formula = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
+    formula_installer = FormulaInstaller.new(formula)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).and_return([formula])
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::Install).to receive(:check_cc_argv)
+    allow(Homebrew::Upgrade).to receive(:dependants).and_return(dependants)
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    allow(Homebrew::Install).to receive_messages(install_formula?: true, formula_installers: [formula_installer],
+                                                 enqueue_formulae: [formula_installer])
+    allow(Homebrew::Install).to receive(:install_formulae)
+    allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect { cmd.run }.to output(/Enable ask mode by setting `HOMEBREW_ASK=1`/).to_stdout
+  end
+
   it "installs an explicitly requested tap before resolving a formula" do
     cmd = described_class.new(["user/repo/foo"])
     tap = Tap.fetch("user", "repo")

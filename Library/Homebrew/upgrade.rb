@@ -131,9 +131,9 @@ module Homebrew
 
       sig {
         params(formula_installers: T::Array[FormulaInstaller], dry_run: T::Boolean, verbose: T::Boolean,
-               fetch: T::Boolean).void
+               fetch: T::Boolean, skip_formula_names: T::Array[String]).void
       }
-      def upgrade_formulae(formula_installers, dry_run: false, verbose: false, fetch: true)
+      def upgrade_formulae(formula_installers, dry_run: false, verbose: false, fetch: true, skip_formula_names: [])
         valid_formula_installers = if dry_run || !fetch
           formula_installers
         else
@@ -141,7 +141,7 @@ module Homebrew
         end
 
         valid_formula_installers.each do |fi|
-          upgrade_formula(fi, dry_run:, verbose:)
+          upgrade_formula(fi, dry_run:, verbose:, skip_formula_names:)
           Cleanup.install_formula_clean!(fi.formula, dry_run:)
         end
       end
@@ -227,7 +227,7 @@ module Homebrew
                dry_run: T::Boolean, installed_on_request: T::Boolean, force_bottle: T::Boolean,
                build_from_source_formulae: T::Array[String], interactive: T::Boolean, keep_tmp: T::Boolean,
                debug_symbols: T::Boolean, force: T::Boolean, debug: T::Boolean, quiet: T::Boolean,
-               verbose: T::Boolean).void
+               verbose: T::Boolean, skip_formula_names: T::Array[String]).void
       }
       def upgrade_dependents(deps, formulae,
                              flags:,
@@ -241,7 +241,8 @@ module Homebrew
                              force: false,
                              debug: false,
                              quiet: false,
-                             verbose: false)
+                             verbose: false,
+                             skip_formula_names: [])
         return if deps.blank?
 
         upgradeable = deps.upgradeable
@@ -262,7 +263,9 @@ module Homebrew
           EOS
         end
 
-        upgradeable.reject! { |f| FormulaInstaller.installed.include?(f) }
+        upgradeable.reject! do |f|
+          FormulaInstaller.installed.include?(f) || (dry_run && skip_formula_names.include?(f.full_name))
+        end
 
         # Print the upgradable dependents.
         if upgradeable.present?
@@ -280,7 +283,7 @@ module Homebrew
               "#{name} #{f.pkg_version}"
             end
           end
-          puts formulae_upgrades.join(", ")
+          puts formulae_upgrades.join("\n")
         end
 
         return if upgradeable.blank?
@@ -394,12 +397,16 @@ module Homebrew
 
       private
 
-      sig { params(formula_installer: FormulaInstaller, dry_run: T::Boolean, verbose: T::Boolean).void }
-      def upgrade_formula(formula_installer, dry_run: false, verbose: false)
+      sig {
+        params(formula_installer: FormulaInstaller, dry_run: T::Boolean, verbose: T::Boolean,
+               skip_formula_names: T::Array[String]).void
+      }
+      def upgrade_formula(formula_installer, dry_run: false, verbose: false, skip_formula_names: [])
         formula = formula_installer.formula
 
         if dry_run
-          Install.print_dry_run_dependencies(formula, formula_installer.compute_dependencies) do |f|
+          Install.print_dry_run_dependencies(formula, formula_installer.compute_dependencies,
+                                             skip_formula_names:) do |f|
             name = f.full_specified_name
             if f.optlinked?
               "#{name} #{Keg.new(f.opt_prefix).version} -> #{f.pkg_version}"

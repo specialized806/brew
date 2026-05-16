@@ -892,8 +892,9 @@ upgrade *`formula`* if it is already installed but outdated.
 
 `--ask`
 
-: Ask for confirmation before downloading and installing formulae. Print
-  download and install sizes of bottles and dependencies. Enabled by default if
+: Ask for confirmation before downloading and installing. Print a dependency
+  plan, including added, changed and removed packages and dependencies, with
+  download and install sizes of formula bottles. Enabled by default if
   `$HOMEBREW_ASK` is set.
 
 `--formula`
@@ -1376,9 +1377,10 @@ for the reinstalled formulae or, every 30 days, for all formulae.
 
 `--ask`
 
-: Ask for confirmation before downloading and upgrading formulae. Print
-  download, install and net install sizes of bottles and dependencies. Enabled
-  by default if `$HOMEBREW_ASK` is set.
+: Ask for confirmation before downloading and reinstalling. Print a dependency
+  plan, including added, changed and removed packages and dependencies, with
+  download and install sizes of formula bottles. Enabled by default if
+  `$HOMEBREW_ASK` is set.
 
 `--formula`
 
@@ -1831,9 +1833,9 @@ for the upgraded formulae or, every 30 days, for all formulae.
 
 `--ask`
 
-: Ask for confirmation before downloading and upgrading formulae. Print
-  download, install and net install sizes of bottles and dependencies. Enabled
-  by default if `$HOMEBREW_ASK` is set.
+: Ask for confirmation before downloading and upgrading. Print the same plan as
+  `--dry-run`, including available download sizes. Enabled by default if
+  `$HOMEBREW_ASK` is set.
 
 `--formula`
 
@@ -4124,8 +4126,8 @@ command execution (e.g. `$(cat file)`).
 
 `HOMEBREW_ASK`
 
-: If set, pass `--ask` to all formulae `brew install`, `brew upgrade` and `brew
-  reinstall` commands.
+: If set, pass `--ask` to `brew install`, `brew upgrade` and `brew reinstall`
+  commands.
 
 `HOMEBREW_AUTO_UPDATE_SECS`
 

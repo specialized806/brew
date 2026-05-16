@@ -39,8 +39,9 @@ module Homebrew
         switch "-v", "--verbose",
                description: "Print the verification and post-install steps."
         switch "--ask",
-               description: "Ask for confirmation before downloading and upgrading formulae. " \
-                            "Print download, install and net install sizes of bottles and dependencies.",
+               description: "Ask for confirmation before downloading and reinstalling. " \
+                            "Print a dependency plan, including added, changed and removed packages " \
+                            "and dependencies, with download and install sizes of formula bottles.",
                env:         :ask
         [
           [:switch, "--formula", "--formulae", {
@@ -155,6 +156,8 @@ module Homebrew
         shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
         casks_prefetched = T.let(false, T::Boolean)
 
+        Install.ask_casks casks, action: "reinstallation", skip_cask_deps: args.skip_cask_deps? if args.ask?
+
         unless formulae.empty?
           Install.perform_preinstall_checks_once
 
@@ -198,7 +201,7 @@ module Homebrew
           formulae_installers = reinstall_contexts.map(&:formula_installer)
 
           # Main block: if asking the user is enabled, show dependency and size information.
-          Install.ask_formulae(formulae_installers, dependants, args: args) if args.ask?
+          Install.ask_formulae(formulae_installers, dependants, action: "reinstallation", args: args) if args.ask?
 
           valid_formula_installers = if casks.any?
             shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
@@ -263,7 +266,6 @@ module Homebrew
         end
 
         if casks.any?
-          Install.ask_casks casks if args.ask?
           begin
             Cask::Reinstall.reinstall_casks(
               *casks,

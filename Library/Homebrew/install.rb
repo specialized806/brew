@@ -8,6 +8,7 @@ require "development_tools"
 require "upgrade"
 require "download_queue"
 require "utils/output"
+require "utils/topological_hash"
 
 module Homebrew
   # Helper module for performing (pre-)install checks.
@@ -464,50 +465,224 @@ module Homebrew
 
       sig {
         params(
-          formula:      Formula,
-          dependencies: T::Array[Dependency],
-          _block:       T.proc.params(arg0: Formula).returns(String),
+          formula:            Formula,
+          dependencies:       T::Array[Dependency],
+          skip_formula_names: T::Array[String],
+          _block:             T.proc.params(arg0: Formula).returns(String),
         ).void
       }
-      def print_dry_run_dependencies(formula, dependencies, &_block)
+      def print_dry_run_dependencies(formula, dependencies, skip_formula_names: [], &_block)
         return if dependencies.empty?
 
-        ohai "Would install #{Utils.pluralize("dependency", dependencies.count, include_count: true)} " \
+        formula_names = dependencies.filter_map do |dep|
+          dependency = dep.to_formula
+          next if skip_formula_names.include?(dependency.full_name)
+
+          yield dependency
+        end
+        return if formula_names.empty?
+
+        ohai "Would install #{Utils.pluralize("dependency", formula_names.count, include_count: true)} " \
              "for #{formula.name}:"
-        formula_names = dependencies.map { |dep| yield dep.to_formula }
-        puts formula_names.join(" ")
+        puts formula_names.join("\n")
       end
 
       # If asking the user is enabled, show dependency and size information.
-      sig { params(formulae_installer: T::Array[FormulaInstaller], dependants: Homebrew::Upgrade::Dependents, args: Homebrew::CLI::Args).void }
-      def ask_formulae(formulae_installer, dependants, args:)
+      sig {
+        params(
+          formulae_installer: T::Array[FormulaInstaller],
+          dependants:         Homebrew::Upgrade::Dependents,
+          args:               Homebrew::CLI::Args,
+          prompt:             T::Boolean,
+          action:             String,
+        ).void
+      }
+      def ask_formulae(formulae_installer, dependants, args:, prompt: true, action: "installation")
         return if formulae_installer.empty?
 
         formulae = collect_dependencies(formulae_installer, dependants)
 
-        ohai "Looking for bottles..."
-
         sizes = compute_total_sizes(formulae, debug: args.debug?)
+        added_formulae = formulae.reject(&:any_version_installed?).map(&:full_specified_name)
+        changed_formulae = formulae.filter_map do |formula|
+          next unless formula.any_version_installed?
+          next if (installed_version = formula.any_installed_version).blank?
+          next if installed_version.to_s == formula.pkg_version.to_s
 
-        puts "#{::Utils.pluralize("Formula", formulae.count)} \
-(#{formulae.count}): #{formulae.join(", ")}\n\n"
-        puts "Download Size: #{Formatter.disk_usage_readable(sizes.fetch(:download))}"
-        puts "Install Size:  #{Formatter.disk_usage_readable(sizes.fetch(:installed))}"
-        if (net_install_size = sizes[:net]) && net_install_size != 0
-          puts "Net Install Size: #{Formatter.disk_usage_readable(net_install_size)}"
+          "#{formula.full_specified_name} #{installed_version} -> #{formula.pkg_version}"
+        end
+        removed_formulae = formulae_installer.flat_map do |formula_installer|
+          formula = formula_installer.formula
+          next [] unless formula.any_version_installed?
+
+          formula.installed_runtime_formula_dependencies.reject do |dependency|
+            formulae.any? { |planned_formula| planned_formula.full_name == dependency.full_name } ||
+              formula.runtime_formula_dependencies(read_from_tab: false).any? do |runtime_dependency|
+                runtime_dependency.full_name == dependency.full_name
+              end
+          end
+        end.uniq(&:full_name).map(&:full_specified_name)
+        size_changed_formulae = formulae.filter_map do |formula|
+          next if formula.installed_kegs.none?
+          next unless (installed_size = formula.bottle&.installed_size)
+
+          installed_keg_size = formula.installed_kegs.sum { |keg| keg.disk_usage.to_i }
+          next if installed_keg_size == installed_size.to_i
+
+          "#{formula.full_specified_name} #{Formatter.disk_usage_readable(installed_keg_size)} -> " \
+            "#{Formatter.disk_usage_readable(installed_size.to_i)}"
         end
 
-        ask_input
+        puts "#{::Utils.pluralize("Formula", formulae.count, plural: "e")} (#{formulae.count}):"
+        puts formulae.join("\n")
+        puts
+        if added_formulae.present?
+          puts "Added #{::Utils.pluralize("Formula", added_formulae.count, plural: "e")} " \
+               "(#{added_formulae.count}):"
+          puts added_formulae.join("\n")
+        end
+        if changed_formulae.present?
+          puts "Changed #{::Utils.pluralize("Formula", changed_formulae.count, plural: "e")} " \
+               "(#{changed_formulae.count}):"
+          puts changed_formulae.join("\n")
+        end
+        if removed_formulae.present?
+          puts "Removed from Closure #{::Utils.pluralize("Formula", removed_formulae.count, plural: "e")} " \
+               "(#{removed_formulae.count}):"
+          puts removed_formulae.join("\n")
+        end
+        if size_changed_formulae.present?
+          puts "Size Changed #{::Utils.pluralize("Formula", size_changed_formulae.count, plural: "e")} " \
+               "(#{size_changed_formulae.count}):"
+          puts size_changed_formulae.join("\n")
+        end
+        ohai "Bottle Sizes"
+        puts "Download: #{Formatter.disk_usage_readable(sizes.fetch(:download))}"
+        puts "Install:  #{Formatter.disk_usage_readable(sizes.fetch(:installed))}"
+
+        ask_input(action:) if prompt
       end
 
-      sig { params(casks: T::Array[Cask::Cask]).void }
-      def ask_casks(casks)
+      sig {
+        params(
+          casks:          T::Array[Cask::Cask],
+          action:         String,
+          prompt:         T::Boolean,
+          skip_cask_deps: T::Boolean,
+        ).void
+      }
+      def ask_casks(casks, action: "installation", prompt: true, skip_cask_deps: false)
         return if casks.empty?
 
-        puts "#{::Utils.pluralize("Cask", casks.count, plural: "s")} \
-(#{casks.count}): #{casks.join(", ")}\n\n"
+        planned_casks, planned_formulae, closure_cask_full_names, closure_formula_full_names =
+          if skip_cask_deps
+            closure_casks, closure_formulae =
+              ::Utils::TopologicalHash.graph_package_dependencies(casks).tsort.partition do |cask_or_formula|
+                cask_or_formula.is_a?(Cask::Cask)
+              end
+            formulae = casks.flat_map { |cask| cask.depends_on.formula.map { |formula| Formula[formula] } }
+            [
+              casks,
+              ::Utils::TopologicalHash.graph_package_dependencies(formulae).tsort.grep(Formula),
+              closure_casks.uniq(&:full_name).map(&:full_name),
+              closure_formulae.uniq(&:full_name).map(&:full_name),
+            ]
+          else
+            planned_casks, planned_formulae =
+              ::Utils::TopologicalHash.graph_package_dependencies(casks).tsort.partition do |cask_or_formula|
+                cask_or_formula.is_a?(Cask::Cask)
+              end
+            [
+              planned_casks,
+              planned_formulae,
+              planned_casks.uniq(&:full_name).map(&:full_name),
+              planned_formulae.uniq(&:full_name).map(&:full_name),
+            ]
+          end
+        planned_casks = planned_casks.uniq(&:full_name)
+        planned_formulae = planned_formulae.uniq(&:full_name)
+        cask_full_names = casks.map(&:full_name)
+        missing_formulae = planned_formulae.reject { |formula| formula.any_version_installed? && formula.optlinked? }
 
-        ask_input
+        puts "#{::Utils.pluralize("Cask", planned_casks.count, plural: "s")} \
+(#{planned_casks.count}): #{planned_casks.map(&:full_name).join(", ")}\n\n"
+        if planned_formulae.present?
+          puts "#{::Utils.pluralize("Formula", planned_formulae.count, plural: "e")} \
+(#{planned_formulae.count}): #{planned_formulae.join(", ")}\n\n"
+        end
+        added_casks = planned_casks.reject(&:installed?).map(&:full_name)
+        changed_casks = planned_casks.filter_map do |cask|
+          next unless cask_full_names.include?(cask.full_name)
+          next if (installed_version = cask.installed_version).blank?
+          next if installed_version == cask.version.to_s
+
+          "#{cask.full_name} #{installed_version} -> #{cask.version}"
+        end
+        removed_casks = casks.flat_map do |cask|
+          next [] unless cask.installed?
+
+          runtime_dependencies = cask.tab.runtime_dependencies
+          next [] unless runtime_dependencies.is_a?(Hash)
+
+          dependencies_by_type = T.let(runtime_dependencies, T::Hash[T.any(String, Symbol), T.untyped])
+          T.cast(
+            dependencies_by_type["cask"] || dependencies_by_type[:cask] || [],
+            T::Array[T::Hash[String, T.untyped]],
+          ).filter_map do |dependency|
+            full_name = dependency["full_name"].to_s
+            full_name if full_name.present? && closure_cask_full_names.exclude?(full_name)
+          end
+        end.uniq
+        added_formulae = missing_formulae.reject(&:any_version_installed?).map(&:full_specified_name)
+        changed_formulae = missing_formulae.filter_map do |formula|
+          next unless formula.any_version_installed?
+          next if (installed_version = formula.any_installed_version).blank?
+          next if installed_version.to_s == formula.pkg_version.to_s
+
+          "#{formula.full_specified_name} #{installed_version} -> #{formula.pkg_version}"
+        end
+        removed_formulae = casks.flat_map do |cask|
+          next [] unless cask.installed?
+
+          runtime_dependencies = cask.tab.runtime_dependencies
+          next [] unless runtime_dependencies.is_a?(Hash)
+
+          dependencies_by_type = T.let(runtime_dependencies, T::Hash[T.any(String, Symbol), T.untyped])
+          T.cast(
+            dependencies_by_type["formula"] || dependencies_by_type[:formula] || [],
+            T::Array[T::Hash[String, T.untyped]],
+          ).filter_map do |dependency|
+            full_name = dependency["full_name"].to_s
+            full_name if full_name.present? && closure_formula_full_names.exclude?(full_name)
+          end
+        end.uniq
+
+        if added_casks.present?
+          puts "Added #{::Utils.pluralize("Cask", added_casks.count, plural: "s")} " \
+               "(#{added_casks.count}): #{added_casks.join(", ")}"
+        end
+        if changed_casks.present?
+          puts "Changed #{::Utils.pluralize("Cask", changed_casks.count, plural: "s")} " \
+               "(#{changed_casks.count}): #{changed_casks.join(", ")}"
+        end
+        if removed_casks.present?
+          puts "Removed from Closure #{::Utils.pluralize("Cask", removed_casks.count, plural: "s")} " \
+               "(#{removed_casks.count}): #{removed_casks.join(", ")}"
+        end
+        if added_formulae.present?
+          puts "Added #{::Utils.pluralize("Formula", added_formulae.count, plural: "e")} " \
+               "(#{added_formulae.count}): #{added_formulae.join(", ")}"
+        end
+        if changed_formulae.present?
+          puts "Changed #{::Utils.pluralize("Formula", changed_formulae.count, plural: "e")} " \
+               "(#{changed_formulae.count}): #{changed_formulae.join(", ")}"
+        end
+        if removed_formulae.present?
+          puts "Removed from Closure #{::Utils.pluralize("Formula", removed_formulae.count, plural: "e")} " \
+               "(#{removed_formulae.count}): #{removed_formulae.join(", ")}"
+        end
+
+        ask_input(action:) if prompt
       end
 
       sig { params(formula_installer: FormulaInstaller, upgrade: T::Boolean).void }
@@ -543,6 +718,11 @@ module Homebrew
         rescue
           nil
         end
+      end
+
+      sig { params(action: String).void }
+      def ask(action: "installation")
+        ask_input(action:)
       end
 
       private
@@ -583,9 +763,9 @@ module Homebrew
         EOS
       end
 
-      sig { void }
-      def ask_input
-        ohai "Do you want to proceed with the installation? [Y/y/yes/N/n/no]"
+      sig { params(action: String).void }
+      def ask_input(action: "installation")
+        ohai "Do you want to proceed with the #{action}? [y/N]"
         accepted_inputs = %w[y yes]
         declined_inputs = %w[n no]
         loop do
@@ -595,20 +775,19 @@ module Homebrew
           result = result.chomp.strip.downcase
           if accepted_inputs.include?(result)
             break
-          elsif declined_inputs.include?(result)
+          elsif result.blank? || declined_inputs.include?(result)
             exit 1
           else
-            puts "Invalid input. Please enter 'Y', 'y', or 'yes' to proceed, or 'N' to abort."
+            puts "Invalid input. Please enter 'y' or 'yes' to proceed, or 'n' or 'no' to abort."
           end
         end
       end
 
-      # Compute the total sizes (download, installed, and net) for the given formulae.
+      # Compute the total sizes (download and installed) for the given formulae.
       sig { params(sized_formulae: T::Array[Formula], debug: T::Boolean).returns(T::Hash[Symbol, Integer]) }
       def compute_total_sizes(sized_formulae, debug: false)
         total_download_size  = 0
         total_installed_size = 0
-        total_net_size       = 0
 
         sized_formulae.each do |formula|
           bottle = formula.bottle
@@ -619,17 +798,10 @@ module Homebrew
 
           total_download_size  += bottle.bottle_size.to_i if bottle.bottle_size
           total_installed_size += bottle.installed_size.to_i if bottle.installed_size
-
-          # Sum disk usage for all installed kegs of the formula.
-          next if formula.installed_kegs.none?
-
-          kegs_dep_size = formula.installed_kegs.sum { |keg| keg.disk_usage.to_i }
-          total_net_size += bottle.installed_size.to_i - kegs_dep_size if bottle.installed_size
         end
 
         { download:  total_download_size,
-          installed: total_installed_size,
-          net:       total_net_size }
+          installed: total_installed_size }
       end
 
       sig {
