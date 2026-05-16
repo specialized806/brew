@@ -110,7 +110,7 @@ module RuboCop
         sig { params(on_upgrade_pair: AST::PairNode).void }
         def report_fully_invalid_metadata(on_upgrade_pair)
           add_offense(on_upgrade_pair.value,
-                      message: "`on_upgrade` value must be :signal or an array of :signal")
+                      message: "`on_upgrade` value must be :signal or an array [:signal]")
         end
 
         sig {
