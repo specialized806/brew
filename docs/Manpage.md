@@ -4631,6 +4631,11 @@ command execution (e.g. `$(cat file)`).
 
 : If set, use Pry for the `brew irb` command.
 
+`HOMEBREW_SANDBOX_LINUX`
+
+: If set, use the `bwrap`(1) sandbox for formula installation and testing on
+  Linux.
+
 `HOMEBREW_SBOM`
 
 : If set, Homebrew will write SBOM files and run SBOM-related installation
