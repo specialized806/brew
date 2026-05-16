@@ -1471,6 +1471,7 @@ _brew_instal() {
       --HEAD
       --adopt
       --appdir
+      --appimagedir
       --as-dependency
       --ask
       --audio-unit-plugindir
@@ -1535,6 +1536,7 @@ _brew_install() {
       --HEAD
       --adopt
       --appdir
+      --appimagedir
       --as-dependency
       --ask
       --audio-unit-plugindir
@@ -2230,6 +2232,7 @@ _brew_reinstall() {
       __brewcomp "
       --adopt
       --appdir
+      --appimagedir
       --ask
       --audio-unit-plugindir
       --binaries
@@ -3156,6 +3159,7 @@ _brew_upgrade() {
     -*)
       __brewcomp "
       --appdir
+      --appimagedir
       --ask
       --audio-unit-plugindir
       --binaries

@@ -3944,6 +3944,10 @@ subcommands with the `--cask` switch.
 
 : Target location for Applications (default: `/Applications`).
 
+`--appimagedir`
+
+: Target location for AppImages (default: \`\`).
+
 `--keyboard-layoutdir`
 
 : Target location for Keyboard Layouts (default: `/Library/Keyboard Layouts`).
