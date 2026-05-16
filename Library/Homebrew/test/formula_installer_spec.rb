@@ -22,8 +22,12 @@ RSpec.describe FormulaInstaller do
 
     installer = described_class.new(formula, **options)
 
-    installer.fetch
-    installer.install
+    # These fixture installs must stay local so Linux sandbox builds do not
+    # need API cache or source paths mounted.
+    with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
+      installer.fetch
+      installer.install
+    end
 
     keg = Keg.new(formula.prefix)
 
@@ -791,8 +795,12 @@ RSpec.describe FormulaInstaller do
 
     it "shows audit problems if HOMEBREW_DEVELOPER is set" do
       ENV["HOMEBREW_DEVELOPER"] = "1"
-      formula_installer.fetch
-      formula_installer.install
+      # Keep this fixture install local so Linux sandbox builds do not need API
+      # cache or source paths mounted.
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
+        formula_installer.fetch
+        formula_installer.install
+      end
       expect(formula_installer).to receive(:audit_installed).and_call_original
       formula_installer.caveats
     end
@@ -911,6 +919,30 @@ RSpec.describe FormulaInstaller do
       expect do
         installer.build
       end.to raise_error(CannotInstallFormulaError, /source code not found/)
+    end
+
+    it "exposes local formula paths to the sandbox" do
+      formula_path = mktmpdir/"homebrew-local-formula.rb"
+      FileUtils.touch formula_path
+      formula = formula("homebrew-local-formula", path: formula_path) do
+        url "foo"
+        version "1.0"
+      end
+      installer = described_class.new(formula)
+      sandbox = instance_double(Sandbox)
+
+      allow(installer).to receive(:build_argv).and_return([])
+      allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true, new: sandbox)
+      allow(sandbox).to receive_messages(record_log: nil, allow_read_if_exists: nil, allow_write_temp_and_cache: nil,
+                                         allow_write_log: nil, allow_cvs: nil, allow_fossil: nil,
+                                         allow_write_xcode: nil, allow_write_cellar: nil, run: nil)
+      allow(formula).to receive_messages(logs: mktmpdir, update_head_version: nil, prefix: mktmpdir,
+                                         network_access_allowed?: true)
+      allow(Keg).to receive(:new).and_return(instance_double(Keg, empty_installation?: false))
+
+      expect(sandbox).to receive(:allow_read_if_exists).with(path: formula_path)
+
+      installer.build
     end
   end
 end
