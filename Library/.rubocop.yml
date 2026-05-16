@@ -271,6 +271,9 @@ RSpec/NestedGroups:
 RSpec/MultipleMemoizedHelpers:
   Enabled: false
 
+# Better for Sorbet if we don't use `described_class`.
+RSpec/DescribedClass:
+  EnforcedStyle: explicit
 RSpec/DescribedClassModuleWrapping:
   Enabled: true
 # Annoying to have these autoremoved.
