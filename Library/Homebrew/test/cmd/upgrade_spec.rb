@@ -40,7 +40,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     (formula_rack/"0.0.1/foo").mkpath
 
     expect { brew "upgrade", "--ask" }
-      .to output(/.*Formula\s*\(1\):\s*#{formula_name}.*/).to_stdout
+      .to output(/==> Would upgrade 1 outdated package\n#{formula_name} 0\.1/).to_stdout
       .and output(/✔︎.*/m).to_stderr
 
     expect(formula_rack/"0.1").to be_a_directory
@@ -84,6 +84,133 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .to output(/test cask error/).to_stderr
 
     expect(Homebrew).to have_failed
+  end
+
+  it "does not ask again when upgrading discovered outdated casks" do
+    cmd = described_class.new(["--ask", "--cask"])
+
+    expect(Homebrew::Install).not_to receive(:ask_casks)
+    expect(Cask::Upgrade).to receive(:upgrade_casks!).and_return(true)
+
+    cmd.send(:upgrade_outdated_casks!, [])
+  end
+
+  it "prints formula and cask ask plans before upgrading" do
+    cmd = described_class.new(["--ask"])
+
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], dry_run: true, show_upgrade_summary: false)
+      .ordered
+      .and_return(true)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], dry_run: true, skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .ordered
+      .and_return(true)
+    allow(cmd).to receive(:show_final_upgrade_summary).and_call_original
+    expect(cmd).to receive(:show_final_upgrade_summary).with(dry_run: true).ordered
+    expect(Homebrew::Install).to receive(:ask).with(action: "upgrade")
+                                              .ordered
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], use_prefetched: false, show_upgrade_summary: false)
+      .ordered
+      .and_return(true)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .ordered
+      .and_return(true)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
+  end
+
+  it "prints formula download sizes in dry-run upgrade summaries" do
+    cmd = described_class.new(["--dry-run"])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.2"
+    end
+    bottle = instance_double(Bottle, fetch_tab: nil, bottle_size: 500)
+    keg = instance_double(Keg, version: PkgVersion.parse("0.1"), disk_usage: 1000)
+
+    allow(formula).to receive_messages(optlinked?: true, opt_prefix: HOMEBREW_PREFIX/"opt/testball", bottle:)
+    allow(Keg).to receive(:new).with(HOMEBREW_PREFIX/"opt/testball").and_return(keg)
+
+    expect(cmd.send(:formula_upgrade_descriptions, [formula], include_sizes: true))
+      .to eq(["testball 0.1 -> 0.2 (500B)"])
+  end
+
+  it "omits dry-run dependencies already listed in the final summary" do
+    formula = formula("yt-dlp") do
+      url "https://brew.sh/yt-dlp-2026.3.17_2.tar.gz"
+    end
+    dependency_formula = formula("python@3.14") do
+      url "https://brew.sh/python@3.14-3.14.5.tar.gz"
+    end
+    formula_installer = FormulaInstaller.new(formula)
+
+    allow(formula_installer).to receive(:compute_dependencies)
+      .and_return([instance_double(Dependency, to_formula: dependency_formula)])
+    allow(Homebrew::Cleanup).to receive(:install_formula_clean!)
+
+    expect do
+      Homebrew::Upgrade.upgrade_formulae(
+        [formula_installer],
+        dry_run:            true,
+        skip_formula_names: [dependency_formula.full_name],
+      )
+    end.not_to output.to_stdout
+  end
+
+  it "omits dry-run dependents already listed in the final summary" do
+    formula = formula("sqlite") do
+      url "https://brew.sh/sqlite-3.53.1.tar.gz"
+    end
+    dependent = formula("python@3.14") do
+      url "https://brew.sh/python@3.14-3.14.5.tar.gz"
+    end
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [dependent], pinned: [], skipped: [])
+
+    expect do
+      Homebrew::Upgrade.upgrade_dependents(
+        dependants,
+        [formula],
+        flags:              [],
+        dry_run:            true,
+        skip_formula_names: [dependent.full_name],
+      )
+    end.not_to output.to_stdout
+  end
+
+  it "does not print aggregate package sizes" do
+    cmd = described_class.new(["--dry-run"])
+    summary = described_class::FinalUpgradeSummary.new(
+      version_changes: ["testball 0.1 -> 0.2 (500B)", "codex 1.0 -> 2.0"],
+    )
+
+    allow(cmd).to receive(:final_upgrade_summary).and_return(summary)
+
+    expect { cmd.send(:show_final_upgrade_summary) }.to output(<<~EOS).to_stdout
+      ==> Would upgrade 2 outdated packages
+      testball 0.1 -> 0.2 (500B)
+      codex 1.0 -> 2.0
+    EOS
+  end
+
+  it "uses the final summary for dry-run upgrade lists" do
+    cmd = described_class.new(["--dry-run"])
+
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], use_prefetched: false, show_upgrade_summary: false)
+      .and_return(true)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .and_return(true)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
   end
 
   it "prints a combined upgrade summary before fetching combined downloads" do
@@ -132,7 +259,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     EOS
   end
 
-  it "prints a dependencies metadata heading before formula prefetches" do
+  it "prints a bottle manifest heading before formula prefetches" do
     cmd = described_class.new([])
     formula = formula("deno") do
       url "https://brew.sh/deno-2.7.11.tar.gz"
@@ -143,23 +270,14 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
                Utils::Bottles.tag.to_sym => "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
       end
     end
-    formula_installer = FormulaInstaller.new(formula)
-    download_queue = instance_double(Homebrew::DownloadQueue)
 
-    allow(cmd).to receive(:formulae_upgrade_context).and_return(
-      described_class::FormulaeUpgradeContext.new(
-        formulae_to_install: [formula],
-        formulae_installer:  [formula_installer],
-        dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),
-      ),
-    )
-    allow(Homebrew::Install).to receive(:enqueue_formulae)
-      .with([formula_installer], download_queue:)
-      .and_return([formula_installer])
+    allow(formula).to receive_messages(outdated?: true, latest_formula: formula, latest_version_installed?: false)
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::Upgrade).to receive(:formula_installers).and_return([])
 
     expect do
-      cmd.send(:upgrade_outdated_formulae!, [], prefetch_only: true, download_queue:, show_downloads_heading: false)
-    end.to output("==> Fetching dependencies metadata\n").to_stdout
+      cmd.send(:formulae_upgrade_context, [formula], show_upgrade_summary: false)
+    end.to output("==> Downloading bottle manifests\n").to_stdout
   end
 
   it "does not trust failed shared prefetches" do

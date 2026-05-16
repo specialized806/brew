@@ -54,8 +54,7 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_ASK:                              {
-        description: "If set, pass `--ask` to all formulae `brew install`, `brew upgrade` and `brew reinstall` " \
-                     "commands.",
+        description: "If set, pass `--ask` to `brew install`, `brew upgrade` and `brew reinstall` commands.",
         boolean:     true,
       },
       HOMEBREW_AUTO_UPDATE_SECS:                 {
