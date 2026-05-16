@@ -307,6 +307,22 @@ module Cask
       false
     end
 
+    sig { params(old_cask: Cask).void }
+    def self.reopen_apps_after_upgrade(old_cask)
+      bundle_ids = old_cask.artifacts
+                           .grep(Artifact::Uninstall)
+                           .flat_map(&:bundle_ids_to_reopen)
+      return if bundle_ids.empty?
+
+      ohai "Reopening #{bundle_ids.count} #{::Utils.pluralize("application",
+                                                              bundle_ids.count)} closed during upgrade:"
+      bundle_ids.each do |bundle_id|
+        puts bundle_id
+        system("open", "-b", bundle_id)
+      end
+    end
+    private_class_method :reopen_apps_after_upgrade
+
     sig {
       params(
         old_cask:       Cask,
@@ -406,6 +422,8 @@ module Cask
 
         # If successful, wipe the old cask from staging.
         old_cask_installer.finalize_upgrade
+
+        reopen_apps_after_upgrade(old_cask)
       rescue => e
         new_cask_installer.uninstall_artifacts(successor: old_cask) if new_artifacts_installed
         new_cask_installer.purge_versioned_files

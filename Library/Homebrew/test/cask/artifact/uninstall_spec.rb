@@ -156,6 +156,49 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     end
   end
 
+  describe "#bundle_ids_to_reopen" do
+    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
+
+    let(:fake_system_command) { NeverSudoSystemCommand }
+    let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
+    let(:bundle_id) { "my.fancy.package.app" }
+
+    before { allow(User.current).to receive(:gui?).and_return true }
+
+    it "tracks a successfully quit app during upgrade" do
+      allow(artifact).to receive(:running?).with(bundle_id).and_return(true, false)
+      allow(artifact).to receive(:quit).with(bundle_id)
+                                       .and_return(instance_double(SystemCommand::Result, success?: true))
+
+      artifact.send(:uninstall_quit, bundle_id, upgrade: true, command: fake_system_command)
+
+      expect(artifact.bundle_ids_to_reopen).to eq [bundle_id]
+    end
+
+    it "does not track during regular uninstall" do
+      allow(artifact).to receive(:running?).with(bundle_id).and_return(true, false)
+      allow(artifact).to receive(:quit).with(bundle_id)
+                                       .and_return(instance_double(SystemCommand::Result, success?: true))
+
+      artifact.send(:uninstall_quit, bundle_id, upgrade: false, command: fake_system_command)
+
+      expect(artifact.bundle_ids_to_reopen).to be_empty
+    end
+
+    it "does not track when quit times out" do
+      allow(artifact).to receive(:running?).with(bundle_id).and_return(true)
+      allow(artifact).to receive(:quit).with(bundle_id)
+                                       .and_return(instance_double(SystemCommand::Result, success?: false))
+      allow(Timeout).to receive(:timeout).and_raise(Timeout::Error)
+
+      expect do
+        artifact.send(:uninstall_quit, bundle_id, upgrade: true, command: fake_system_command)
+      end.to output(/did not quit/).to_stderr
+
+      expect(artifact.bundle_ids_to_reopen).to be_empty
+    end
+  end
+
   describe "#post_uninstall_phase" do
     subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
