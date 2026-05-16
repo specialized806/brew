@@ -9,36 +9,9 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
     include_examples "#uninstall_phase or #zap_phase"
 
-    describe "upgrade/reinstall opt-in uninstall directives" do
+    describe "upgrade/reinstall uninstall directives" do
       context "with-uninstall-quit" do
         let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
-        let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
-
-        it "skips :quit by default during upgrade" do
-          quit_called = false
-          allow(artifact).to receive(:dispatch_uninstall_directive) do |directive, **options|
-            quit_called ||= directive == :quit && options[:command] == fake_system_command
-          end
-
-          artifact.uninstall_phase(upgrade: true, command: fake_system_command)
-
-          expect(quit_called).to be false
-        end
-
-        it "skips :quit by default during reinstall" do
-          quit_called = false
-          allow(artifact).to receive(:dispatch_uninstall_directive) do |directive, **options|
-            quit_called ||= directive == :quit && options[:command] == fake_system_command
-          end
-
-          artifact.uninstall_phase(reinstall: true, command: fake_system_command)
-
-          expect(quit_called).to be false
-        end
-      end
-
-      context "with-uninstall-quit-on-upgrade" do
-        let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit-on-upgrade")) }
         let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
         it "invokes :quit during upgrade" do
@@ -123,7 +96,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-both-on-upgrade")) }
       let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
-      it "invokes both quit and signal during upgrade" do
+      it "invokes both quit and signal during upgrade when on_upgrade: :signal" do
         quit_called = false
         signal_called = false
         allow(artifact).to receive(:dispatch_uninstall_directive) do |directive, **options|
@@ -141,7 +114,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit-only-on-upgrade")) }
       let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
-      it "invokes only quit during upgrade when on_upgrade: [:quit]" do
+      it "invokes quit but not signal during upgrade without on_upgrade: :signal" do
         quit_called = false
         signal_called = false
         allow(artifact).to receive(:dispatch_uninstall_directive) do |directive, **options|
