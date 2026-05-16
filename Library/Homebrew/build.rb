@@ -260,6 +260,11 @@ begin
   # We need to allow formulae from paths here due to how we pass them through.
   ENV["HOMEBREW_INTERNAL_ALLOW_PACKAGES_FROM_PATHS"] = "1"
 
+  formula_path = ARGV.first
+  # `build.rb` is handed a concrete formula file; keep reparsing from falling
+  # back to the API inside the Linux sandbox.
+  ENV["HOMEBREW_NO_INSTALL_FROM_API"] = "1" if formula_path&.end_with?(".rb")
+
   args = Homebrew::Cmd::InstallCmd.new.args
   Context.current = args.context
 
@@ -268,7 +273,6 @@ begin
 
   trap("INT", old_trap)
 
-  formula_path = ARGV.first
   if formula_path&.end_with?(".json")
     raise "build.rb received an API JSON file as the formula path: #{formula_path}. " \
           "This usually means the formula source was not downloaded from the API. " \

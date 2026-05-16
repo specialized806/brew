@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/github/actions"
+
 module OS
   module Linux
     module DevCmd
@@ -19,6 +21,19 @@ module OS
         sig { params(files: T::Array[String]).returns(T::Array[String]) }
         def os_files(files)
           non_macos_files(files)
+        end
+
+        sig { void }
+        def check_test_environment!
+          super
+          return unless GitHub::Actions.env_set?
+
+          require "sandbox"
+          with_env(HOMEBREW_SANDBOX_LINUX: "1") do
+            return if ::Sandbox.available?
+
+            raise UsageError, "GitHub Actions Linux tests require a working rootless Bubblewrap sandbox."
+          end
         end
       end
     end

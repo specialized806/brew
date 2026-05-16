@@ -74,6 +74,50 @@ class Sandbox
     false
   end
 
+  sig { void }
+  def self.ensure_sandbox_installed!; end
+
+  sig { returns(String) }
+  def self.executable_name
+    raise NotImplementedError, "Sandbox is not implemented for this OS."
+  end
+
+  sig { returns(::PATH) }
+  def self.executable_candidate_paths
+    executable_path = Pathname.new(executable_name)
+    return PATH.new(executable_path.dirname) if executable_path.absolute?
+
+    PATH.new(ORIGINAL_PATHS, ENV.fetch("PATH"), HOMEBREW_ORIGINAL_BREW_FILE.dirname)
+  end
+
+  sig { returns(T.nilable(Pathname)) }
+  def self.executable
+    executable_candidate_paths.each do |path|
+      begin
+        candidate = Pathname.new(File.expand_path(executable_name, path))
+      rescue ArgumentError
+        next
+      end
+
+      next if !candidate.file? || !candidate.executable?
+      next unless executable_usable?(candidate)
+
+      return candidate
+    end
+
+    nil
+  end
+
+  sig { returns(Pathname) }
+  def self.executable!
+    executable || raise("#{executable_name} is required to use the sandbox.")
+  end
+
+  sig { params(_candidate: Pathname).returns(T::Boolean) }
+  def self.executable_usable?(_candidate)
+    true
+  end
+
   sig { returns(Integer) }
   def self.terminal_ioctl_request
     raise NotImplementedError, "Sandbox is not implemented for this OS."
@@ -102,6 +146,19 @@ class Sandbox
   end
 
   sig { params(path: T.any(String, Pathname), type: Symbol).void }
+  def allow_read(path:, type: :literal)
+    add_rule allow: true, operation: "file-read*", filter: path_filter(path, type)
+  end
+
+  sig { params(path: T.nilable(T.any(String, Pathname)), type: Symbol).void }
+  def allow_read_if_exists(path:, type: :literal)
+    return unless path
+    return unless File.exist?(path)
+
+    allow_read path:, type:
+  end
+
+  sig { params(path: T.any(String, Pathname), type: Symbol).void }
   def allow_write(path:, type: :literal)
     add_rule allow: true, operation: "file-write*", filter: path_filter(path, type)
     add_rule allow: true, operation: "file-write-setugid", filter: path_filter(path, type)
@@ -116,6 +173,14 @@ class Sandbox
   sig { params(path: T.any(String, Pathname)).void }
   def allow_write_path(path)
     allow_write path:, type: :subpath
+  end
+
+  sig { params(path: T.nilable(T.any(String, Pathname))).void }
+  def allow_write_path_if_exists(path)
+    return unless path
+    return unless File.exist?(path)
+
+    allow_write_path path
   end
 
   sig { params(path: T.any(String, Pathname)).void }
