@@ -196,7 +196,7 @@ module Kernel
     return executable if executable
 
     require "formula"
-    Formula[formula_name].ensure_installed!(reason:, latest:).opt_bin/name
+    T.cast(Formula[formula_name].ensure_installed!(reason:, latest:, executable: name), Pathname)
   end
 
   # Calls the given block with the passed environment variables

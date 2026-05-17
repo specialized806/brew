@@ -946,6 +946,54 @@ RSpec.describe Formula do
     expect(f.head).to be_nil
   end
 
+  describe "#ensure_installed!" do
+    let(:f) do
+      formula do
+        url "foo-1.2.3"
+      end
+    end
+
+    let(:executable) { Pathname.new("/usr/bin/foo") }
+
+    it "uses a system executable without checking the version by default" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+
+      expect(SystemCommand).not_to receive(:run)
+      expect(f).not_to receive(:any_version_installed?)
+
+      expect(f.ensure_installed!(executable: "foo", output_to_stderr: false)).to eq(executable)
+    end
+
+    it "uses a matching system executable when latest is requested" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+      allow(SystemCommand).to receive(:run)
+        .with(executable, args: ["--version"], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "foo 1.2.3\n"))
+
+      expect(f.ensure_installed!(executable: "foo", latest: true, output_to_stderr: false)).to eq(executable)
+    end
+
+    it "passes custom version arguments to the version check" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+      allow(SystemCommand).to receive(:run)
+        .with(executable, args: ["-version"], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "1.2.3\n"))
+
+      expect(f.ensure_installed!(executable: "foo", latest: true, output_to_stderr: false,
+                                 version_args: ["-version"])).to eq(executable)
+    end
+
+    it "returns the brewed executable path when the system version does not match latest" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+      allow(SystemCommand).to receive(:run)
+        .with(executable, args: ["--version"], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "foo 1.2.2\n"))
+      allow(f).to receive_messages(any_version_installed?: true, latest_version_installed?: true)
+
+      expect(f.ensure_installed!(executable: "foo", latest: true, output_to_stderr: false)).to eq(f.opt_bin/"foo")
+    end
+  end
+
   it "honors attributes declared before specs" do
     f = formula do
       url "foo-1.0"

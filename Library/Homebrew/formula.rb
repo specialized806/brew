@@ -344,15 +344,22 @@ class Formula
 
   # Ensure the given formula is installed.
   # This is useful for installing a utility formula (e.g. `shellcheck` for `brew style`).
+  # When `executable` is provided, a matching system executable in `ORIGINAL_PATHS`
+  # can satisfy the request without installing the formula. When `latest` is true,
+  # the system executable's version is checked with `version_args` first.
+  # Returns the executable path if `executable` is provided, otherwise the formula.
   sig {
     params(
       reason:           String,
       latest:           T::Boolean,
       output_to_stderr: T::Boolean,
       quiet:            T::Boolean,
-    ).returns(T.self_type)
+      executable:       T.nilable(String),
+      version_args:     T::Array[String],
+    ).returns(T.any(T.self_type, Pathname))
   }
-  def ensure_installed!(reason: "", latest: false, output_to_stderr: true, quiet: false)
+  def ensure_installed!(reason: "", latest: false, output_to_stderr: true, quiet: false, executable: nil,
+                        version_args: ["--version"])
     if output_to_stderr || quiet
       file = if quiet
         File::NULL
@@ -361,8 +368,16 @@ class Formula
       end
       # Call this method itself with redirected stdout
       redirect_stdout(file) do
-        return ensure_installed!(latest:, reason:, output_to_stderr: false)
+        return ensure_installed!(latest:, reason:, output_to_stderr: false, executable:, version_args:)
       end
+    end
+
+    if executable && (system_executable = which(executable, ORIGINAL_PATHS))
+      return system_executable unless latest
+
+      require "system_command"
+      result = SystemCommand.run(system_executable, args: version_args, print_stderr: false)
+      return system_executable if result.success? && result.stdout[/\d+(?:\.\d+)+/] == version.to_s
     end
 
     reason = " for #{reason}" if reason.present?
@@ -377,7 +392,7 @@ class Formula
       safe_system HOMEBREW_BREW_FILE, "upgrade", "--formula", full_name
     end
 
-    self
+    executable ? opt_bin/executable : self
   end
 
   sig { returns(T::Boolean) }
