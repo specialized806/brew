@@ -61,7 +61,7 @@ module OS
           super
           out.puts "Kernel: #{kernel}"
           out.puts "OS: #{OS::Linux.os_version}"
-          out.puts "WSL: #{OS::Linux.wsl_version}" if OS::Linux.wsl?
+          out.puts "WSL: #{OS::Linux.wsl_version}" if OS.wsl?
           out.puts "Host glibc: #{host_glibc_version}"
           out.puts "Host libstdc++: #{host_libstdcxx_version}"
           out.puts "#{::DevelopmentTools.host_gcc_path}: #{host_gcc_version}"

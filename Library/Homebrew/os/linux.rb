@@ -43,7 +43,7 @@ module OS
 
     sig { returns(T::Boolean) }
     def self.wsl?
-      /-microsoft/i.match?(OS.kernel_version.to_s)
+      OS.wsl?
     end
 
     sig { returns(Version) }
