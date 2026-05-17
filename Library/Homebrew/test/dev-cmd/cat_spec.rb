@@ -17,7 +17,7 @@ RSpec.describe Homebrew::DevCmd::Cat do
     RUBY
     CoreTap.instance.clear_cache
 
-    cat = described_class.new(["testball"])
+    cat = Homebrew::DevCmd::Cat.new(["testball"])
     formula = instance_double(Formula)
 
     allow(Homebrew::EnvConfig).to receive_messages(bat?: true, bat_config_path: "/tmp/bat.conf", bat_theme: "ansi")

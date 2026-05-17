@@ -2,13 +2,12 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::Installer, :cask do
-  subject(:installer) { described_class.new(cask, **args) }
+  subject(:installer) { klass.new(cask, **args) }
 
+  let(:klass) { Cask::Artifact::Installer }
   let(:staged_path) { mktmpdir }
   let(:cask) { instance_double(Cask::Cask, staged_path:) }
-
   let(:command) { SystemCommand }
-
   let(:args) { {} }
 
   describe "#install_phase" do

@@ -4,7 +4,9 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::QuicTLSCheck do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::QuicTLSCheck }
 
   context "when auditing formula dependencies" do
     it "reports an offense when a formula depends on `quictls`" do

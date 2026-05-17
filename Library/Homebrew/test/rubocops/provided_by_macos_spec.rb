@@ -4,7 +4,9 @@
 require "rubocops/uses_from_macos"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::ProvidedByMacos do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::ProvidedByMacos }
 
   it "fails for formulae not in PROVIDED_BY_MACOS_FORMULAE list" do
     expect_offense(<<~RUBY)
@@ -40,5 +42,5 @@ RSpec.describe RuboCop::Cop::FormulaAudit::ProvidedByMacos do
     RUBY
   end
 
-  include_examples "formulae exist", described_class::PROVIDED_BY_MACOS_FORMULAE
+  include_examples "formulae exist", RuboCop::Cop::FormulaAudit::ProvidedByMacos::PROVIDED_BY_MACOS_FORMULAE
 end

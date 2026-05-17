@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
+  let(:klass) { Cask::Artifact::GeneratedCompletion }
+
   let(:staged_path) { Pathname(Dir.mktmpdir) }
 
   let(:cask) do
@@ -31,7 +33,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
 
   describe "#install_phase" do
     it "generates completion scripts for default shells" do
-      artifact = cask.artifacts.grep(described_class).first
+      artifact = cask.artifacts.grep(klass).first
 
       allow(Utils).to receive(:safe_popen_read) do |env, *_args, **_opts|
         "#{env.fetch("SHELL")} completion output"
@@ -49,7 +51,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
 
     context "when generation fails for one shell" do
       it "warns and continues generating other shells" do
-        artifact = cask.artifacts.grep(described_class).first
+        artifact = cask.artifacts.grep(klass).first
 
         allow(Utils).to receive(:safe_popen_read) do |env, *_args, **_opts|
           raise "boom" if env.fetch("SHELL") == "bash"
@@ -67,7 +69,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
 
   describe "#uninstall_phase" do
     it "removes generated completion scripts" do
-      artifact = cask.artifacts.grep(described_class).first
+      artifact = cask.artifacts.grep(klass).first
 
       bash_dir.mkpath
       zsh_dir.mkpath
@@ -98,7 +100,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     end
 
     it "generates only for the specified shell with the correct format" do
-      artifact = cask.artifacts.grep(described_class).first
+      artifact = cask.artifacts.grep(klass).first
       captured_args = nil
 
       allow(Utils).to receive(:safe_popen_read) do |_env, *args, **_opts|
@@ -129,7 +131,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     end
 
     it "normalizes shells to symbols" do
-      artifact = cask.artifacts.grep(described_class).first
+      artifact = cask.artifacts.grep(klass).first
 
       expect(artifact.shells).to eq([:bash, :zsh, :fish, :pwsh])
     end

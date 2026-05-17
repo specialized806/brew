@@ -6,9 +6,10 @@ require "bundle/subcommand/dump"
 
 RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
   subject(:dump) do
-    described_class.new(args_object, context:).run
+    klass.new(args_object, context:).run
   end
 
+  let(:klass) { Homebrew::Cmd::Bundle::DumpSubcommand }
   let(:force) { false }
   let(:global) { false }
   let(:context) { bundle_subcommand_context(:dump, global:, force:, no_type_args: false) }

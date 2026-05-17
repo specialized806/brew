@@ -5,9 +5,11 @@ require "bundle"
 require "bundle/brewfile"
 
 RSpec.describe Homebrew::Bundle::Brewfile do
+  let(:klass) { Homebrew::Bundle::Brewfile }
+
   describe "path" do
     subject(:path) do
-      described_class.path(dash_writes_to_stdout:, global: has_global, file: file_value)
+      klass.path(dash_writes_to_stdout:, global: has_global, file: file_value)
     end
 
     let(:dash_writes_to_stdout) { false }

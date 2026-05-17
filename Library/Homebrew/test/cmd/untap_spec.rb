@@ -5,7 +5,9 @@ require "cmd/shared_examples/args_parse"
 require "cmd/untap"
 
 RSpec.describe Homebrew::Cmd::Untap do
-  let(:class_instance) { described_class.new(%w[arg1]) }
+  let(:klass) { Homebrew::Cmd::Untap }
+
+  let(:class_instance) { klass.new(%w[arg1]) }
 
   it_behaves_like "parseable arguments"
 

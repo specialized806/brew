@@ -4,7 +4,9 @@
 require "rubocops/no_fileutils_rmrf"
 
 RSpec.describe RuboCop::Cop::Homebrew::NoFileutilsRmrf do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::Homebrew::NoFileutilsRmrf }
 
   describe "rm_rf" do
     it "registers an offense" do

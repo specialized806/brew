@@ -4,7 +4,9 @@
 require "rubocops/public_api_documentation"
 
 RSpec.describe RuboCop::Cop::Homebrew::PublicApiDocumentation do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::Homebrew::PublicApiDocumentation }
 
   context "when a method has a bare `@api public` with no description" do
     it "reports an offense" do
@@ -96,7 +98,7 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiDocumentation do
 
   context "when a public API file is missing from `Style/Documentation.Include`" do
     subject(:cop) do
-      described_class.new(RuboCop::Config.new("Style/Documentation" => { "Include" => [] }))
+      klass.new(RuboCop::Config.new("Style/Documentation" => { "Include" => [] }))
     end
 
     it "reports an offense" do
@@ -112,7 +114,7 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiDocumentation do
 
   context "when a documented API file has no public API annotations" do
     subject(:cop) do
-      described_class.new(RuboCop::Config.new("Style/Documentation" => { "Include" => ["stale.rb"] }))
+      klass.new(RuboCop::Config.new("Style/Documentation" => { "Include" => ["stale.rb"] }))
     end
 
     it "reports an offense" do

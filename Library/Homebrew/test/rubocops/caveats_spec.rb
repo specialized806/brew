@@ -4,7 +4,9 @@
 require "rubocops/caveats"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Caveats do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Caveats }
 
   context "when auditing `caveats`" do
     it "reports an offense if `setuid` is mentioned" do

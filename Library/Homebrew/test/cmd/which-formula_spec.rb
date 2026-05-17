@@ -5,6 +5,8 @@ require "cmd/shared_examples/args_parse"
 require "cmd/which-formula"
 
 RSpec.describe Homebrew::Cmd::WhichFormula do
+  let(:klass) { Homebrew::Cmd::WhichFormula }
+
   it_behaves_like "parseable arguments"
 
   describe "which_formula" do
@@ -19,10 +21,10 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
 
     before do
       # Override DATABASE_FILE to use test environment's HOMEBREW_CACHE
-      test_db_file = HOMEBREW_CACHE/"api"/described_class::ENDPOINT
-      stub_const("#{described_class}::DATABASE_FILE", test_db_file)
+      test_db_file = HOMEBREW_CACHE/"api"/klass::ENDPOINT
+      stub_const("#{klass}::DATABASE_FILE", test_db_file)
 
-      db = described_class::DATABASE_FILE
+      db = klass::DATABASE_FILE
       db.dirname.mkpath
       db.write(<<~EOS)
         foo(1.0.0):foo2 foo3
@@ -51,7 +53,7 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
     end
 
     it "errors if the API is disabled and the executable database is missing", :integration_test do
-      described_class::DATABASE_FILE.unlink
+      klass::DATABASE_FILE.unlink
 
       expect do
         expect(brew_sh("which-formula", "foo2", "HOMEBREW_NO_INSTALL_FROM_API" => "1")).to be_a_failure

@@ -5,7 +5,9 @@ require "sandbox"
 require "extend/os/linux/sandbox" if OS.linux?
 
 RSpec.describe Sandbox, :needs_linux do
-  subject(:sandbox) { described_class.new }
+  subject(:sandbox) { klass.new }
+
+  let(:klass) { Sandbox }
 
   around do |example|
     with_env(HOMEBREW_SANDBOX_LINUX: "1") { example.run }
@@ -13,7 +15,7 @@ RSpec.describe Sandbox, :needs_linux do
 
   describe "::bubblewrap_executable" do
     let(:sandbox_class) do
-      Class.new(described_class) do
+      Class.new(klass) do
         class << self
           attr_accessor :test_executable_candidate_paths
 
@@ -50,7 +52,7 @@ RSpec.describe Sandbox, :needs_linux do
 
   describe "::available?" do
     let(:sandbox_class) do
-      Class.new(described_class) do
+      Class.new(klass) do
         class << self
           attr_accessor :test_executable_candidate_paths
 
@@ -120,7 +122,7 @@ RSpec.describe Sandbox, :needs_linux do
   end
 
   describe "::configuration_commands" do
-    let(:sandbox_class) { Class.new(described_class) }
+    let(:sandbox_class) { Class.new(klass) }
 
     def expect_sandbox_configuration_command(sandbox_class, assignment, result:)
       command = ["sudo", "sysctl", "-w", assignment]
@@ -235,7 +237,7 @@ RSpec.describe Sandbox, :needs_linux do
 
   describe "#run" do
     before do
-      skip "Sandbox not implemented." if !ENV["CI"] && !described_class.available?
+      skip "Sandbox not implemented." if !ENV["CI"] && !klass.available?
     end
 
     it "allows writing to an allowed path" do

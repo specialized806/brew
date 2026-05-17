@@ -6,10 +6,10 @@ require "dev-cmd/bump-cask-pr"
 require "bump_version_parser"
 
 RSpec.describe Homebrew::DevCmd::BumpCaskPr do
-  subject(:bump_cask_pr) { described_class.new(["test"]) }
+  subject(:bump_cask_pr) { klass.new(["test"]) }
 
+  let(:klass) { Homebrew::DevCmd::BumpCaskPr }
   let(:newest_macos) { MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym }
-
   let(:c) do
     Cask::Cask.new("test") do
       version "0.0.1,2"
@@ -20,7 +20,6 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
       homepage "https://brew.sh"
     end
   end
-
   let(:c_depends_on_intel) do
     Cask::Cask.new("test-depends-on-intel") do
       version "0.0.1,2"
@@ -33,7 +32,6 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
       depends_on arch: :x86_64
     end
   end
-
   let(:c_on_system) do
     Cask::Cask.new("test-on-system") do
       os macos: "darwin", linux: "linux"
@@ -46,7 +44,6 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
       homepage "https://brew.sh"
     end
   end
-
   let(:c_on_system_depends_on_intel) do
     Cask::Cask.new("test-on-system-depends-on-intel") do
       os macos: "darwin", linux: "linux"
@@ -61,7 +58,6 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
       depends_on arch: :x86_64
     end
   end
-
   let(:c_arm_intel) do
     Cask::Cask.new("test") do
       on_arm do

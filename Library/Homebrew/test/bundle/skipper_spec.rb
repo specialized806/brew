@@ -6,7 +6,9 @@ require "bundle/skipper"
 require "bundle/dsl"
 
 RSpec.describe Homebrew::Bundle::Skipper do
-  subject(:skipper) { described_class }
+  subject(:skipper) { klass }
+
+  let(:klass) { Homebrew::Bundle::Skipper }
 
   before do
     allow(ENV).to receive(:[]).and_return(nil)

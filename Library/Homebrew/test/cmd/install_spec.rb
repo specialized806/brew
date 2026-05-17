@@ -5,6 +5,8 @@ require "cmd/install"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::InstallCmd do
+  let(:klass) { Homebrew::Cmd::InstallCmd }
+
   include FileUtils
 
   it_behaves_like "parseable arguments"
@@ -173,7 +175,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   end
 
   it "prints an ask mode environment hint when installing formulae" do
-    cmd = described_class.new(["testball"])
+    cmd = klass.new(["testball"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
     formula = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
     formula_installer = FormulaInstaller.new(formula)
@@ -196,7 +198,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   end
 
   it "installs an explicitly requested tap before resolving a formula" do
-    cmd = described_class.new(["user/repo/foo"])
+    cmd = klass.new(["user/repo/foo"])
     tap = Tap.fetch("user", "repo")
 
     allow(Tap).to receive(:with_formula_name).with("user/repo/foo").and_return([tap, "foo"])
@@ -210,7 +212,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   end
 
   it "does not install `homebrew/cask` when a cask remains unavailable" do
-    cmd = described_class.new(["foo"])
+    cmd = klass.new(["foo"])
     cask_tap = CoreCaskTap.instance
 
     require "search"
@@ -342,7 +344,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   end
 
   it "prints a shared fetch heading and correct upgrade count", :cask do
-    cmd = described_class.new(["codex"])
+    cmd = klass.new(["codex"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
     formula = formula("testball_bottle") { url "https://brew.sh/testball_bottle-0.1.tar.gz" }
     formula_installer = instance_double(FormulaInstaller, formula:)

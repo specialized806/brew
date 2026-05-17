@@ -7,6 +7,8 @@ require "cmd/uses"
 require "fileutils"
 
 RSpec.describe Homebrew::Cmd::Uses do
+  let(:klass) { Homebrew::Cmd::Uses }
+
   include FileUtils
 
   it_behaves_like "parseable arguments"
@@ -58,7 +60,7 @@ RSpec.describe Homebrew::Cmd::Uses do
     expect_any_instance_of(Homebrew::CLI::NamedArgs)
       .to receive(:to_formulae)
       .and_raise(FormulaUnavailableError, "foo")
-    cmd = described_class.new(%w[foo --eval-all --include-optional --recursive])
+    cmd = klass.new(%w[foo --eval-all --include-optional --recursive])
     expect { cmd.run }
       .to output(/^(bar\noptional|optional\nbar)$/).to_stdout
       .and output(/Error: Missing formulae should not have dependents!\n/).to_stderr

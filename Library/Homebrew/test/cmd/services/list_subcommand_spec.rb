@@ -4,9 +4,11 @@
 require "cmd/services"
 
 RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
+  let(:klass) { Homebrew::Cmd::Services::ListSubcommand }
+
   describe "#TRIGGERS" do
     it "contains all restart triggers" do
-      expect(described_class::TRIGGERS).to eq([nil, "list", "ls"])
+      expect(klass::TRIGGERS).to eq([nil, "list", "ls"])
     end
   end
 
@@ -15,14 +17,14 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([])
       expect do
         allow($stderr).to receive(:tty?).and_return(true)
-        described_class.new(Homebrew::Cmd::Services.new(%w[list]).args).run
+        klass.new(Homebrew::Cmd::Services.new(%w[list]).args).run
       end.to output(a_string_including("No services available to control with `brew services`")).to_stderr
     end
 
     it "outputs empty JSON array with empty list and --json" do
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([])
       expect do
-        described_class.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
+        klass.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
       end.to output("[]\n").to_stdout
     end
 
@@ -37,7 +39,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       }
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([formula])
       expect do
-        described_class.new(Homebrew::Cmd::Services.new(%w[list]).args).run
+        klass.new(Homebrew::Cmd::Services.new(%w[list]).args).run
       end.to output(out).to_stdout
     end
 
@@ -52,12 +54,12 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
         schedulable: false,
       }
 
-      filtered_formula = formula.slice(*described_class::JSON_FIELDS)
+      filtered_formula = formula.slice(*klass::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
 
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([formula])
       expect do
-        described_class.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
+        klass.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
       end.to output(expected_output).to_stdout
     end
   end
@@ -66,14 +68,14 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
     it "prints all standard values" do
       formula = { name: "a", user: "u", file: Pathname.new("/tmp/file.file"), status: :stopped }
       expect do
-        described_class.print_table([formula])
+        klass.print_table([formula])
       end.to output("Name Status User File\na    stopped         u    \n").to_stdout
     end
 
     it "prints without user or file data" do
       formula = { name: "a", user: nil, file: nil, status: :started, loaded: true }
       expect do
-        described_class.print_table([formula])
+        klass.print_table([formula])
       end.to output("Name Status User File\na    started              \n").to_stdout
     end
 
@@ -82,7 +84,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       formula = { name: "a", user: "u", file: Pathname.new("/tmp/file.file"), status: :started, loaded: true }
       expected_output = "Name Status User File\na    started         u    ~/file.file\n"
       expect do
-        described_class.print_table([formula])
+        klass.print_table([formula])
       end.to output(expected_output).to_stdout
     end
 
@@ -91,7 +93,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       formula = { name: "a", user: "u", file:, status: :error, exit_code: 256, loaded: true }
       expected_output = "Name Status User File\na    error  256      u    /tmp/file.file\n"
       expect do
-        described_class.print_table([formula])
+        klass.print_table([formula])
       end.to output(expected_output).to_stdout
     end
   end
@@ -101,49 +103,49 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       formula = { name: "a", status: :stopped, user: "u", file: Pathname.new("/tmp/file.file") }
       expected_output = "#{JSON.pretty_generate([formula])}\n"
       expect do
-        described_class.print_json([formula])
+        klass.print_json([formula])
       end.to output(expected_output).to_stdout
     end
 
     it "prints without user or file data" do
       formula = { name: "a", user: nil, file: nil, status: :started, loaded: true }
-      filtered_formula = formula.slice(*described_class::JSON_FIELDS)
+      filtered_formula = formula.slice(*klass::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
       expect do
-        described_class.print_json([formula])
+        klass.print_json([formula])
       end.to output(expected_output).to_stdout
     end
 
     it "includes an exit code" do
       file = Pathname.new("/tmp/file.file")
       formula = { name: "a", user: "u", file:, status: :error, exit_code: 256, loaded: true }
-      filtered_formula = formula.slice(*described_class::JSON_FIELDS)
+      filtered_formula = formula.slice(*klass::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
       expect do
-        described_class.print_json([formula])
+        klass.print_json([formula])
       end.to output(expected_output).to_stdout
     end
   end
 
   describe "#get_status_string" do
     it "returns started" do
-      expect(described_class.get_status_string(:started)).to eq("started")
+      expect(klass.get_status_string(:started)).to eq("started")
     end
 
     it "returns stopped" do
-      expect(described_class.get_status_string(:stopped)).to eq("stopped")
+      expect(klass.get_status_string(:stopped)).to eq("stopped")
     end
 
     it "returns error" do
-      expect(described_class.get_status_string(:error)).to eq("error  ")
+      expect(klass.get_status_string(:error)).to eq("error  ")
     end
 
     it "returns unknown" do
-      expect(described_class.get_status_string(:unknown)).to eq("unknown")
+      expect(klass.get_status_string(:unknown)).to eq("unknown")
     end
 
     it "returns other" do
-      expect(described_class.get_status_string(:other)).to eq("other")
+      expect(klass.get_status_string(:other)).to eq("other")
     end
   end
 end

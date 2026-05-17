@@ -5,6 +5,8 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/which-update"
 
 RSpec.describe Homebrew::DevCmd::WhichUpdate do
+  let(:klass) { Homebrew::DevCmd::WhichUpdate }
+
   it_behaves_like "parseable arguments"
 
   it "requires --pull-request when --repository is passed" do
@@ -12,7 +14,7 @@ RSpec.describe Homebrew::DevCmd::WhichUpdate do
       database = path/"executables.txt"
 
       expect do
-        described_class.new(["--repository=Homebrew/homebrew-core", database.to_s]).run
+        klass.new(["--repository=Homebrew/homebrew-core", database.to_s]).run
       end.to raise_error(Homebrew::CLI::OptionConstraintError)
     end
   end
@@ -23,7 +25,7 @@ RSpec.describe Homebrew::DevCmd::WhichUpdate do
 
       expect(GitHub::API).not_to receive(:paginate_rest)
       expect do
-        described_class.new([
+        klass.new([
           "--pull-request=123",
           "--repository=Homebrew/homebrew-core/extra",
           database.to_s,
@@ -58,7 +60,7 @@ RSpec.describe Homebrew::DevCmd::WhichUpdate do
         ]
       end
 
-      described_class.new([
+      klass.new([
         "--pull-request=123",
         "--repository=Homebrew/homebrew-core",
         database.to_s,

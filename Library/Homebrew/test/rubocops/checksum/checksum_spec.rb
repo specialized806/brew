@@ -4,7 +4,9 @@
 require "rubocops/checksum"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Checksum do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Checksum }
 
   context "when auditing spec checksums" do
     it "reports an offense if a checksum is empty" do

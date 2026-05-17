@@ -4,7 +4,9 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::StdNpmArgs do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::StdNpmArgs }
 
   context "when auditing node formulae" do
     it "reports an offense when `npm install` is called without std_npm_args arguments" do

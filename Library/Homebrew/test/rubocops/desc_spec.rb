@@ -4,7 +4,9 @@
 require "rubocops/desc"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Desc do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Desc }
 
   context "when auditing formula `desc` methods" do
     it "reports an offense when there is no `desc`" do

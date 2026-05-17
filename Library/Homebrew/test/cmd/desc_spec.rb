@@ -5,6 +5,8 @@ require "cmd/desc"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Desc do
+  let(:klass) { Homebrew::Cmd::Desc }
+
   it_behaves_like "parseable arguments"
 
   it "shows a given Formula's description", :integration_test do
@@ -24,7 +26,7 @@ RSpec.describe Homebrew::Cmd::Desc do
       desc "BitTorrent client"
       url "https://example.com/local-transmission.zip"
     end
-    cmd = described_class.new(["--cask", "local-transmission"])
+    cmd = klass.new(["--cask", "local-transmission"])
 
     allow(cmd.args.named).to receive(:to_formulae_and_casks).and_return([cask])
     allow(Cask::Caskroom).to receive(:casks).and_return([cask])
@@ -44,7 +46,7 @@ RSpec.describe Homebrew::Cmd::Desc do
       name "No Description"
       url "https://example.com/no-description.zip"
     end
-    cmd = described_class.new(["--cask", "no-description"])
+    cmd = klass.new(["--cask", "no-description"])
 
     allow(cmd.args.named).to receive(:to_formulae_and_casks).and_return([cask])
 

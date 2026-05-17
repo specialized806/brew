@@ -4,10 +4,12 @@
 require "sandbox"
 
 RSpec.describe Sandbox do
-  subject(:sandbox) { described_class.new }
+  subject(:sandbox) { klass.new }
+
+  let(:klass) { Sandbox }
 
   describe "::failure_reason" do
-    let(:sandbox_class) { Class.new(described_class) }
+    let(:sandbox_class) { Class.new(klass) }
 
     it "returns nil if the sandbox is available" do
       allow(sandbox_class).to receive(:state).and_return(:available)
@@ -24,7 +26,7 @@ RSpec.describe Sandbox do
 
   describe "::executable" do
     let(:sandbox_class) do
-      Class.new(described_class) do
+      Class.new(klass) do
         class << self
           attr_accessor :test_executable_name, :unsuitable_executables
 

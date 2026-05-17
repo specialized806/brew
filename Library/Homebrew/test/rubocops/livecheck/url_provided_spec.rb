@@ -4,7 +4,9 @@
 require "rubocops/livecheck"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LivecheckUrlProvided do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::LivecheckUrlProvided }
 
   it "reports an offense when a `url` is not specified in a `livecheck` block" do
     expect_offense(<<~RUBY)

@@ -4,7 +4,9 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Licenses do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Licenses }
 
   context "when auditing licenses" do
     it "reports no offenses for license strings" do

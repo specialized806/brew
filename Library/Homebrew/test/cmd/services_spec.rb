@@ -8,18 +8,20 @@ RSpec.describe Homebrew::Cmd::Services, :needs_daemon_manager do
   it_behaves_like "parseable arguments"
 
   it "sets canonical subcommand names", :aggregate_failures do
-    expect(described_class.new([]).args.subcommand).to eq("list")
-    expect(described_class.new(%w[i testball]).args.subcommand).to eq("info")
+    expect(Homebrew::Cmd::Services.new([]).args.subcommand).to eq("list")
+    expect(Homebrew::Cmd::Services.new(%w[i testball]).args.subcommand).to eq("info")
   end
 
   it "rejects file-only options for info" do
-    expect { described_class.new(%w[info testball --file=/tmp/service.plist]) }
+    expect { Homebrew::Cmd::Services.new(%w[info testball --file=/tmp/service.plist]) }
       .to raise_error(UsageError, /`info` subcommand does not accept the `--file` flag/)
   end
 
   it "uses operation-specific --all descriptions", :aggregate_failures do
     subcommand_options = lambda do |subcommand|
-      described_class.parser.processed_options_for_subcommand(subcommand).filter_map do |_, long, description, hidden|
+      Homebrew::Cmd::Services.parser
+                             .processed_options_for_subcommand(subcommand)
+                             .filter_map do |_, long, description, hidden|
         [long, description] unless hidden
       end.to_h
     end

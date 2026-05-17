@@ -4,7 +4,9 @@
 require "diagnostic"
 
 RSpec.describe Homebrew::EnvConfig do
-  subject(:env_config) { described_class }
+  subject(:env_config) { klass }
+
+  let(:klass) { Homebrew::EnvConfig }
 
   describe "ENVS" do
     it "sorts alphabetically" do

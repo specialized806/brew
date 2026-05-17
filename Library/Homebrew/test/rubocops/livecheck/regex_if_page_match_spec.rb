@@ -4,7 +4,9 @@
 require "rubocops/livecheck"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LivecheckRegexIfPageMatch do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::LivecheckRegexIfPageMatch }
 
   it "reports an offense when there is no `regex` for `strategy :page_match`" do
     expect_offense(<<~RUBY)

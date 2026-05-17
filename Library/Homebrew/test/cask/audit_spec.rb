@@ -4,6 +4,23 @@
 require "cask/audit"
 
 RSpec.describe Cask::Audit, :cask do
+  let(:klass) { Cask::Audit }
+  let(:cask) { instance_double(Cask::Cask) }
+  let(:new_cask) { nil }
+  let(:online) { nil }
+  let(:only) { [] }
+  let(:except) { [] }
+  let(:strict) { nil }
+  let(:signing) { nil }
+  let(:audit) do
+    klass.new(cask, online:,
+                    strict:,
+                    new_cask:,
+                    signing:,
+                    only:,
+                    except:)
+  end
+
   def include_msg?(problems, msg)
     if msg.is_a?(Regexp)
       Array(problems).any? { |problem| msg.match?(problem[:message]) }
@@ -42,22 +59,6 @@ RSpec.describe Cask::Audit, :cask do
     failure_message do |audit|
       "expected to error with message #{message.inspect} but #{outcome(audit)}"
     end
-  end
-
-  let(:cask) { instance_double(Cask::Cask) }
-  let(:new_cask) { nil }
-  let(:online) { nil }
-  let(:only) { [] }
-  let(:except) { [] }
-  let(:strict) { nil }
-  let(:signing) { nil }
-  let(:audit) do
-    described_class.new(cask, online:,
-                              strict:,
-                              new_cask:,
-                              signing:,
-                              only:,
-                              except:)
   end
 
   describe "#new" do

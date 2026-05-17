@@ -4,7 +4,9 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Comments do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Comments }
 
   context "when auditing comment text" do
     it "reports an offense when commented cmake calls exist" do

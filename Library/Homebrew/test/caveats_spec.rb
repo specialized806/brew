@@ -5,8 +5,9 @@ require "formula"
 require "caveats"
 
 RSpec.describe Caveats do
-  subject(:caveats) { described_class.new(f) }
+  subject(:caveats) { klass.new(f) }
 
+  let(:klass) { Caveats }
   let(:f) { formula { url "foo-1.0" } }
 
   specify "#f" do
@@ -27,7 +28,7 @@ RSpec.describe Caveats do
         end
       end
 
-      expect(described_class.new(f)).not_to be_empty
+      expect(klass.new(f)).not_to be_empty
     end
   end
 
@@ -44,7 +45,7 @@ RSpec.describe Caveats do
             run [bin/"php", "test"]
           end
         end
-        caveats = described_class.new(f).caveats
+        caveats = klass.new(f).caveats
 
         expect(f.service?).to be(true)
         expect(caveats).to include("#{f.bin}/php test")
@@ -60,7 +61,7 @@ RSpec.describe Caveats do
         end
         expect(Utils::Service).to receive(:launchctl?).and_return(false)
         expect(Utils::Service).to receive(:systemctl?).and_return(false)
-        expect(described_class.new(f).caveats).to include("service which can only be used on macOS or systemd!")
+        expect(klass.new(f).caveats).to include("service which can only be used on macOS or systemd!")
       end
 
       it "prints service startup information when service.require_root is true" do
@@ -72,7 +73,7 @@ RSpec.describe Caveats do
           end
         end
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(false)
-        expect(described_class.new(f).caveats).to include("startup")
+        expect(klass.new(f).caveats).to include("startup")
       end
 
       it "prints service login information" do
@@ -83,7 +84,7 @@ RSpec.describe Caveats do
           end
         end
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(false)
-        expect(described_class.new(f).caveats).to include("restart at login")
+        expect(klass.new(f).caveats).to include("restart at login")
       end
 
       it "gives information about require_root restarting services after upgrade" do
@@ -94,7 +95,7 @@ RSpec.describe Caveats do
             require_root true
           end
         end
-        f_obj = described_class.new(f)
+        f_obj = klass.new(f)
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(true)
         expect(f_obj.caveats).to include("  sudo brew services restart #{f.full_name}")
       end
@@ -106,7 +107,7 @@ RSpec.describe Caveats do
             run [bin/"cmd"]
           end
         end
-        f_obj = described_class.new(f)
+        f_obj = klass.new(f)
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(true)
         expect(f_obj.caveats).to include("  brew services restart #{f.full_name}")
       end
@@ -119,7 +120,7 @@ RSpec.describe Caveats do
             require_root true
           end
         end
-        f_obj = described_class.new(f)
+        f_obj = klass.new(f)
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(false)
         expect(f_obj.caveats).to include("  sudo brew services start #{f.full_name}")
       end
@@ -131,7 +132,7 @@ RSpec.describe Caveats do
             run [bin/"cmd"]
           end
         end
-        f_obj = described_class.new(f)
+        f_obj = klass.new(f)
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(false)
         expect(f_obj.caveats).to include("  brew services start #{f.full_name}")
       end
@@ -145,7 +146,7 @@ RSpec.describe Caveats do
           end
         end
         cmd = "#{HOMEBREW_CELLAR}/formula_name/1.0/bin/cmd"
-        caveats = described_class.new(f).caveats
+        caveats = klass.new(f).caveats
 
         expect(caveats).to include("if you don't want/need a background service")
         expect(caveats).to include("VAR=\"foo\" #{cmd} start")
@@ -160,7 +161,7 @@ RSpec.describe Caveats do
         end
         expect(Utils::Service).to receive(:installed?).with(f).once.and_return(true)
         expect(Utils::Service).to receive(:running?).with(f).once.and_return(false)
-        expect(described_class.new(f).caveats).to include("restart at login")
+        expect(klass.new(f).caveats).to include("restart at login")
       end
     end
 
@@ -171,7 +172,7 @@ RSpec.describe Caveats do
           keg_only "some reason"
         end
       end
-      let(:caveats) { described_class.new(f).caveats }
+      let(:caveats) { klass.new(f).caveats }
 
       it "tells formula is keg_only" do
         expect(caveats).to include("keg-only")
@@ -231,7 +232,7 @@ RSpec.describe Caveats do
           end
         end
 
-        let(:caveats) { described_class.new(f).caveats }
+        let(:caveats) { klass.new(f).caveats }
 
         it "adds the correct amount of new lines to the output" do
           expect(Utils::Service).to receive(:launchctl?).at_least(:once).and_return(true)
@@ -266,7 +267,7 @@ RSpec.describe Caveats do
         allow(bar_shadower).to receive(:realpath).and_return(bar_shadower)
         allow(f.opt_bin).to receive(:children).and_return([f.opt_bin/"foo", f.opt_bin/"bar"])
 
-        caveats = described_class.new(f).caveats
+        caveats = klass.new(f).caveats
         expect(caveats).to include("foo (shadowed by #{foo_shadower})")
         expect(caveats.index("bar (shadowed by")).to be < caveats.index("foo (shadowed by")
       end
@@ -275,7 +276,7 @@ RSpec.describe Caveats do
         own = f.opt_bin/"foo"
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(own)
 
-        expect(described_class.new(f).caveats).not_to include("shadowed")
+        expect(klass.new(f).caveats).not_to include("shadowed")
       end
 
       it "does not warn for keg-only formulae" do
@@ -289,7 +290,7 @@ RSpec.describe Caveats do
         allow_any_instance_of(Object).to receive(:which)
           .with("foo", ORIGINAL_PATHS).and_return(Pathname.new("/usr/local/bin/foo"))
 
-        expect(described_class.new(keg_only_f).caveats).not_to include("shadowed")
+        expect(klass.new(keg_only_f).caveats).not_to include("shadowed")
       end
 
       it "does not warn when the queried formula itself is not installed" do
@@ -312,7 +313,7 @@ RSpec.describe Caveats do
                                                  any_version_installed?:   false)
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
 
-        expect(described_class.new(uninstalled_f).caveats).not_to include("shadowed")
+        expect(klass.new(uninstalled_f).caveats).not_to include("shadowed")
       end
 
       it "warns for a keg-only formula when a sibling keg is linked over it" do
@@ -335,7 +336,7 @@ RSpec.describe Caveats do
                                               any_version_installed?:   true)
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
 
-        caveats = described_class.new(keg_only_f).caveats
+        caveats = klass.new(keg_only_f).caveats
         expect(caveats).to include("foo (shadowed by #{sibling_shadower} from foo@2.0)")
         expect(caveats).to include("Run `brew link foo@1.0`")
       end
@@ -353,7 +354,7 @@ RSpec.describe Caveats do
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
         allow(shadower).to receive(:realpath).and_return(shadower)
 
-        expect(described_class.new(keg_only_f).caveats).to include("foo (shadowed by #{shadower})")
+        expect(klass.new(keg_only_f).caveats).to include("foo (shadowed by #{shadower})")
       end
 
       it "does not warn when HOMEBREW_NO_PATH_SHADOW_CHECK is set" do
@@ -361,7 +362,7 @@ RSpec.describe Caveats do
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
         allow(Homebrew::EnvConfig).to receive(:no_path_shadow_check?).and_return(true)
 
-        expect(described_class.new(f).caveats).not_to include("shadowed")
+        expect(klass.new(f).caveats).not_to include("shadowed")
       end
 
       it "shows the opt-out hint by default" do
@@ -369,7 +370,7 @@ RSpec.describe Caveats do
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(shadower)
         allow(shadower).to receive(:realpath).and_return(shadower)
 
-        expect(described_class.new(f).caveats).to include("HOMEBREW_NO_PATH_SHADOW_CHECK=1")
+        expect(klass.new(f).caveats).to include("HOMEBREW_NO_PATH_SHADOW_CHECK=1")
       end
 
       it "hides the opt-out hint when HOMEBREW_NO_ENV_HINTS is set" do
@@ -378,7 +379,7 @@ RSpec.describe Caveats do
         allow(shadower).to receive(:realpath).and_return(shadower)
         allow(Homebrew::EnvConfig).to receive(:no_env_hints?).and_return(true)
 
-        expect(described_class.new(f).caveats).not_to include("HOMEBREW_NO_PATH_SHADOW_CHECK")
+        expect(klass.new(f).caveats).not_to include("HOMEBREW_NO_PATH_SHADOW_CHECK")
       end
 
       it "annotates sibling-keg shadowers with the keg name and adds a `brew link` hint" do
@@ -391,7 +392,7 @@ RSpec.describe Caveats do
         allow(f).to receive_messages(versioned_formulae_names: ["#{f.name}@1.0"], unversioned_formula_name: nil)
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
 
-        caveats = described_class.new(f).caveats
+        caveats = klass.new(f).caveats
         expect(caveats).to include("shadowed by other linked Homebrew commands")
         expect(caveats).to include("foo (shadowed by #{sibling_shadower} from #{f.name}@1.0)")
         expect(caveats).to include("Run `brew link #{f.name}`")
@@ -416,7 +417,7 @@ RSpec.describe Caveats do
         allow_any_instance_of(Object).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(sibling_shadower)
         allow_any_instance_of(Object).to receive(:which).with("bar", ORIGINAL_PATHS).and_return(bar_shadower)
 
-        caveats = described_class.new(f).caveats
+        caveats = klass.new(f).caveats
         expect(caveats).to include("foo (shadowed by #{sibling_shadower} from #{f.name}@1.0)")
         expect(caveats).to include("bar (shadowed by #{bar_shadower})")
         expect(caveats).to include("Run `brew link #{f.name}`")
@@ -429,7 +430,7 @@ RSpec.describe Caveats do
           url "foo-1.0"
         end
       end
-      let(:caveats) { described_class.new(f) }
+      let(:caveats) { klass.new(f) }
       let(:path) { f.prefix.resolved_path }
 
       let(:bash_completion_dir) { path/"etc/bash_completion.d" }

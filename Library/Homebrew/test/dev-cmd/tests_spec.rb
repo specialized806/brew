@@ -5,10 +5,12 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/tests"
 
 RSpec.describe Homebrew::DevCmd::Tests do
+  let(:klass) { Homebrew::DevCmd::Tests }
+
   it_behaves_like "parseable arguments"
 
   describe "#check_test_environment!", :needs_linux do
-    subject(:tests) { described_class.new([]) }
+    subject(:tests) { klass.new([]) }
 
     before do
       require "extend/os/linux/dev-cmd/tests"

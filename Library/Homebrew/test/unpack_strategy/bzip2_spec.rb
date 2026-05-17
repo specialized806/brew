@@ -10,7 +10,7 @@ RSpec.describe UnpackStrategy::Bzip2 do
   include_examples "#extract", children: ["container"]
 
   it "extracts with bzip2" do
-    strategy = described_class.new(path)
+    strategy = UnpackStrategy::Bzip2.new(path)
 
     Dir.mktmpdir do |dir|
       unpack_dir = Pathname(dir)

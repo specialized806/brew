@@ -4,7 +4,9 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Miscellaneous do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Miscellaneous }
 
   context "when auditing formula miscellany" do
     it "reports an offense for unneeded `FileUtils` usage" do
