@@ -39,7 +39,9 @@ module Homebrew
 
           @packages = if (npm = package_manager_executable) &&
                          (!npm.to_s.start_with?("/") || npm.exist?)
-            parse_package_list(`#{npm} list -g --depth=0 --json 2>/dev/null`)
+            with_env(package_manager_env(npm)) do
+              parse_package_list(`#{npm} list -g --depth=0 --json 2>/dev/null`)
+            end
           end
           return [] if @packages.nil?
 

@@ -41,6 +41,20 @@ RSpec.describe Homebrew::Bundle::Npm do
         expect(dumper.packages).to eql(%w[vercel typescript])
       end
 
+      it "adds npm's directory to PATH when listing packages" do
+        npm = mktmpdir/"bin/npm"
+        npm.dirname.mkpath
+        npm.write("")
+
+        allow(described_class).to receive(:package_manager_executable).and_return(npm)
+        expect(described_class).to receive(:`).with("#{npm} list -g --depth=0 --json 2>/dev/null") do
+          expect(ENV.fetch("PATH", "")).to start_with("#{npm.dirname}:")
+          '{"dependencies":{"eslint":{"version":"10.4.0"}}}'
+        end
+
+        expect(dumper.packages).to eql(["eslint"])
+      end
+
       it "excludes npm itself from the package list" do
         allow(described_class).to receive(:`).with("npm list -g --depth=0 --json 2>/dev/null").and_return(<<~JSON)
           {
