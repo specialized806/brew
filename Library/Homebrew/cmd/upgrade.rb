@@ -207,7 +207,7 @@ module Homebrew
           end
 
           show_final_upgrade_summary(dry_run: true)
-          Install.ask(action: "upgrade")
+          Install.ask(action: "upgrade") if final_upgrade_summary.version_changes.present?
           @final_upgrade_summary = FinalUpgradeSummary.new
         end
 

@@ -100,8 +100,10 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with([], dry_run: true, show_upgrade_summary: false)
-      .ordered
-      .and_return(true)
+      .ordered do
+        cmd.send(:final_upgrade_summary).version_changes << "testball 0.1 -> 0.2"
+        true
+      end
     expect(cmd).to receive(:upgrade_outdated_casks!)
       .with([], dry_run: true, skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
       .ordered
@@ -118,6 +120,33 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
       .ordered
       .and_return(true)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
+  end
+
+  it "does not ask before upgrading when nothing would upgrade" do
+    cmd = described_class.new(["--ask"])
+
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], dry_run: true, show_upgrade_summary: false)
+      .ordered
+      .and_return(false)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], dry_run: true, skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .ordered
+      .and_return(false)
+    expect(Homebrew::Install).not_to receive(:ask)
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], use_prefetched: false, show_upgrade_summary: false)
+      .ordered
+      .and_return(false)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .ordered
+      .and_return(false)
     allow(Homebrew::Cleanup).to receive(:periodic_clean!)
     allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
     allow(Homebrew.messages).to receive(:display_messages)
