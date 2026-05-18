@@ -140,21 +140,16 @@ module Homebrew
         # Ignore aliases from results when the full name was also found
         next if aliases.include?(name) && results.include?(canonical_full_name)
 
-        display_name = if formula&.any_version_installed?
-          pretty_installed(name)
-        elsif formula.nil? || formula.valid_platform?
-          name
-        end
+        installed = formula&.any_version_installed? == true
+        next if formula && !formula.valid_platform? && !installed
 
-        next if display_name.nil?
-
-        if formula&.deprecated?
-          pretty_deprecated(display_name)
-        elsif formula&.disabled?
-          pretty_disabled(display_name)
-        else
-          display_name
-        end
+        pretty_install_status(
+          name,
+          installed:,
+          deprecated:       formula&.deprecated? == true,
+          disabled:         formula&.disabled? == true,
+          mark_uninstalled: false,
+        )
       end
     end
 
@@ -188,18 +183,13 @@ module Homebrew
         cask = Cask::CaskLoader.load(name.to_s)
         next if ignore_cask?(cask)
 
-        display_name = if cask.installed?
-          pretty_installed(cask.full_name)
-        else
-          cask.full_name
-        end
-        if cask.deprecated?
-          pretty_deprecated(display_name)
-        elsif cask.disabled?
-          pretty_disabled(display_name)
-        else
-          display_name
-        end
+        pretty_install_status(
+          cask.full_name,
+          installed:        cask.installed?,
+          deprecated:       cask.deprecated?,
+          disabled:         cask.disabled?,
+          mark_uninstalled: false,
+        )
       end.uniq
     end
 

@@ -303,11 +303,28 @@ module Utils
         end
       end
 
-      sig { params(string: String, installed: T::Boolean, outdated: T::Boolean).returns(String) }
-      def pretty_install_status(string, installed:, outdated: false)
-        return pretty_uninstalled(string) unless installed
-
-        outdated ? pretty_upgradable(string) : pretty_installed(string)
+      sig {
+        params(string: String, installed: T::Boolean, outdated: T::Boolean, deprecated: T::Boolean,
+               disabled: T::Boolean, mark_uninstalled: T::Boolean).returns(String)
+      }
+      def pretty_install_status(string, installed:, outdated: false, deprecated: false, disabled: false,
+                                mark_uninstalled: true)
+        status = if installed && outdated
+          pretty_upgradable(string)
+        elsif installed
+          pretty_installed(string)
+        elsif mark_uninstalled
+          pretty_uninstalled(string)
+        else
+          string
+        end
+        if disabled
+          pretty_disabled(status)
+        elsif deprecated
+          pretty_deprecated(status)
+        else
+          status
+        end
       end
 
       sig { params(seconds: T.nilable(T.any(Integer, Float))).returns(String) }

@@ -606,7 +606,13 @@ module Homebrew
           specs[0] = "#{installed_version} → #{upgrade_version}"
         end
         title_name = shadowed_by ? formula.name : formula.full_name
-        name_with_status = pretty_install_status(title_name, installed:, outdated:)
+        name_with_status = pretty_install_status(
+          title_name,
+          installed:,
+          outdated:,
+          deprecated: formula.deprecated?,
+          disabled:   formula.disabled?,
+        )
 
         puts "#{oh1_title(name_with_status)}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
         if shadowed_by

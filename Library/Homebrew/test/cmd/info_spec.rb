@@ -241,6 +241,40 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "marks a deprecated formula with `(deprecated)` in the title" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+      deprecate! date: "2024-01-01", because: :versioned_formula
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/==> .*testball.*\(deprecated\):/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "marks a disabled formula with `(disabled)` in the title" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+      disable! date: "2024-01-01", because: :unmaintained
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive(:core_formula?).and_return(false)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(/==> .*testball.*\(disabled\):/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
   it "reloads the formula from the install receipt's tap and reports the shadowing tap" do
     info = described_class.new([])
     formula = installed_info_formula
