@@ -224,6 +224,9 @@ module Homebrew::EnvConfig
     def no_analytics?; end
 
     sig { returns(T::Boolean) }
+    def no_ask?; end
+
+    sig { returns(T::Boolean) }
     def no_auto_update?; end
 
     sig { returns(T::Boolean) }
@@ -288,9 +291,6 @@ module Homebrew::EnvConfig
 
     sig { returns(T::Boolean) }
     def pry?; end
-
-    sig { returns(T::Boolean) }
-    def sandbox_linux?; end
 
     sig { returns(T::Boolean) }
     def sbom?; end
