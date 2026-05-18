@@ -17,7 +17,7 @@ module Homebrew
           EOS
           named_args min: 1
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before removing entries."
           switch "--formula", "--formulae", "--brews",
                  description: "Remove Homebrew formula entries, including matches against formula aliases " \
                               "and old names."
@@ -27,7 +27,7 @@ module Homebrew
                  description: "Remove Homebrew tap entries."
           extensions.select(&:remove_supported?).each do |extension|
             switch "--#{extension.flag}",
-                   description: extension.switch_description
+                   description: extension.switch_description("Remove entries for #{extension.banner_name}.")
           end
         end
 

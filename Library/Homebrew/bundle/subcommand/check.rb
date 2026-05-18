@@ -17,15 +17,13 @@ module Homebrew
           EOS
           named_args :none
           switch "-v", "--verbose",
-                 description: "`install` prints output from commands as they are run. " \
-                              "`check` lists all missing dependencies."
+                 description: "List all missing dependencies."
           switch "--no-upgrade",
-                 description: "`install` does not run `brew upgrade` on outdated dependencies. " \
-                              "`check` does not check for outdated dependencies. " \
+                 description: "Do not check for outdated dependencies. " \
                               "Note they may still be upgraded by `brew install` if needed.",
                  env:         :bundle_no_upgrade
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before checking dependencies."
         end
 
         sig { override.void }

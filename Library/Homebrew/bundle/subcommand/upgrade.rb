@@ -14,14 +14,14 @@ module Homebrew
           EOS
           named_args :none
           switch "--upgrade",
-                 description: "`install` runs `brew upgrade` on outdated dependencies, " \
+                 description: "Run `brew upgrade` on outdated dependencies, " \
                               "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
           flag   "--upgrade-formulae=", "--upgrade-formula=",
-                 description: "`install` runs `brew upgrade` on any of these comma-separated formulae, " \
+                 description: "Run `brew upgrade` on any of these comma-separated formulae, " \
                               "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
           # odeprecated: change default for 5.2 and document HOMEBREW_BUNDLE_JOBS
           flag "--jobs=",
-               description: "`install` runs up to this many formula installations in parallel. " \
+               description: "Run up to this many formula installations in parallel. " \
                             "Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)."
         end
 

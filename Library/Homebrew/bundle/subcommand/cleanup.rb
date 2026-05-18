@@ -23,23 +23,21 @@ module Homebrew
           EOS
           named_args :none
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before cleaning up dependencies."
           switch "-f", "--force",
-                 description: "`install` runs with `--force`/`--overwrite`. " \
-                              "`dump` overwrites an existing `Brewfile`. " \
-                              "`cleanup` actually performs its cleanup operations."
+                 description: "Actually perform cleanup operations."
           switch "--formula", "--formulae", "--brews",
-                 description: "`list`, `dump` or `cleanup` Homebrew formula dependencies."
+                 description: "Clean up Homebrew formula dependencies."
           switch "--cask", "--casks",
-                 description: "`list`, `dump` or `cleanup` Homebrew cask dependencies."
+                 description: "Clean up Homebrew cask dependencies."
           switch "--tap", "--taps",
-                 description: "`list`, `dump` or `cleanup` Homebrew tap dependencies."
+                 description: "Clean up Homebrew tap dependencies."
           Homebrew::Bundle.extensions.select(&:cleanup_supported?).each do |extension|
             switch "--#{extension.flag}",
-                   description: extension.switch_description
+                   description: extension.switch_description("Clean up #{extension.banner_name}.")
           end
           switch "--zap",
-                 description: "`cleanup` casks using the `zap` command instead of `uninstall`."
+                 description: "Clean up casks using the `zap` command instead of `uninstall`."
         end
 
         sig { override.void }

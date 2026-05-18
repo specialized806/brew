@@ -190,8 +190,7 @@ module Homebrew
 
     sig { params(command: String, subcommands: T::Array[Homebrew::CLI::Parser::Subcommand]).returns(String) }
     def self.generate_bash_nested_subcommand_completion(command, subcommands)
-      default_subcommand = subcommands.find(&:default)&.name
-      top_level_options = command_options(command, subcommand: default_subcommand).keys.sort.join("\n          ")
+      top_level_options = command_options(command).keys.sort.join("\n          ")
       subcommand_names = subcommand_completion_names(subcommands).join(" ")
       subcommand_cases = subcommands.map do |subcommand|
         "      #{([subcommand.name] + subcommand.aliases).join("|")}) subcommand=\"#{subcommand.name}\"; break ;;"
@@ -379,10 +378,9 @@ module Homebrew
 
     sig { params(command: String, subcommands: T::Array[Homebrew::CLI::Parser::Subcommand]).returns(String) }
     def self.generate_zsh_nested_subcommand_completion(command, subcommands)
-      default_subcommand = subcommands.find(&:default)&.name
       top_level_arguments = generate_zsh_arguments(
         command,
-        command_options(command, subcommand: default_subcommand),
+        command_options(command),
         nil,
       ).map { |opt| format_zsh_argument(opt) } + [
         "'1:subcommand:->subcommand'",
@@ -588,8 +586,7 @@ module Homebrew
         end
       end
 
-      default_subcommand = subcommands.find(&:default)&.name
-      lines += command_options(command, subcommand: default_subcommand).sort.filter_map do |opt, desc|
+      lines += command_options(command).sort.filter_map do |opt, desc|
         arg_line = "__fish_brew_complete_arg '#{command}; and [ (count (__fish_brew_args)) = 1 ]' " \
                    "-l #{opt.sub(/^-+/, "")}"
         arg_line += " -d '#{format_description desc, fish: true}'" if desc.present?

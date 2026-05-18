@@ -578,6 +578,8 @@ RSpec.describe Homebrew::CLI::Parser do
   describe "subcommands" do
     def subcommand_parser
       described_class.new(Cmd) do
+        usage_banner "`test` [<subcommand>]"
+        description "Test command."
         switch "--global"
 
         subcommand "install", default: true do
@@ -613,6 +615,45 @@ RSpec.describe Homebrew::CLI::Parser do
     it "combines subcommand usage banners with the main usage banner" do
       expect(subcommand_parser.usage_banner_text).to include("`test install`:")
       expect(subcommand_parser.usage_banner_text).to include("Show service information.")
+    end
+
+    it "generates usage-error help for the matched subcommand" do
+      help_text = subcommand_parser.generate_help_text(remaining_args: %w[info foo --force])
+
+      expect(help_text).to include("Usage: brew test info service:")
+      expect(help_text).to include("Show service information.")
+      expect(help_text).to include("--json")
+      expect(help_text).to include("--global")
+      expect(help_text).not_to include("--force")
+      expect(help_text).not_to include("Usage: brew test install")
+    end
+
+    it "generates usage-error help for the root command when no subcommand matches" do
+      help_text = subcommand_parser.generate_help_text(remaining_args: ["unknown"])
+
+      expect(help_text).to include("Usage: brew test [subcommand]")
+      expect(help_text).to include("Subcommands:")
+      expect(help_text).to include("install")
+      expect(help_text).to include("info")
+      expect(help_text).to include("--global")
+      expect(help_text).not_to include("--force")
+      expect(help_text).not_to include("--json")
+      expect(help_text).not_to include("Usage: brew test install")
+      expect(help_text).not_to include("Usage: brew test info")
+    end
+
+    it "prints root command help for the help switch" do
+      expect { subcommand_parser.parse(["--help"]) }
+        .to output(/\A(?=.*Subcommands:)(?=.*--global)(?!.*--force)(?!.*--json)(?!.*Usage: brew test install)/m)
+        .to_stdout
+        .and raise_error(SystemExit)
+    end
+
+    it "prints matched subcommand help for the help switch" do
+      expect { subcommand_parser.parse(%w[install --help]) }
+        .to output(/\A(?=.*Usage: brew test install)(?=.*--force)(?=.*--global)(?!.*--json)(?!.*Subcommands:)/m)
+        .to_stdout
+        .and raise_error(SystemExit)
     end
 
     it "stores the canonical subcommand name" do

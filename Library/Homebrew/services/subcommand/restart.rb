@@ -17,7 +17,7 @@ module Homebrew
           flag "--file=",
                description: "Use the service file from this location to `start` the service."
           switch "--all",
-                 description: "Run <subcommand> on all services."
+                 description: "Restart all services."
         end
 
         sig { override.void }

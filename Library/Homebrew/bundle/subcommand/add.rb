@@ -17,7 +17,7 @@ module Homebrew
           EOS
           named_args min: 1
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before adding entries."
           switch "--formula", "--formulae", "--brews",
                  description: "Add Homebrew formula entries."
           switch "--cask", "--casks",
@@ -26,10 +26,10 @@ module Homebrew
                  description: "Add Homebrew tap entries."
           extensions.select(&:add_supported?).each do |extension|
             switch "--#{extension.flag}",
-                   description: extension.switch_description
+                   description: extension.switch_description("Add entries for #{extension.banner_name}.")
           end
           switch "--describe",
-                 description: "`dump` and `add` add a description comment above each line, unless the " \
+                 description: "Add a description comment above each line, unless the " \
                               "dependency does not have a description.",
                  env:         :bundle_describe
         end

@@ -749,17 +749,11 @@ _brew_bundle() {
       case "${subcommand}" in
         "")
           __brewcomp "
-          --cleanup
           --debug
           --file
-          --force
           --global
           --help
-          --jobs
-          --no-upgrade
           --quiet
-          --upgrade
-          --upgrade-formulae
           --verbose
           "
           return
@@ -774,6 +768,7 @@ upgrade)
         --quiet
         --upgrade
         --upgrade-formulae
+        --verbose
         "
         return
         ;;
@@ -788,6 +783,7 @@ sh)
         --no-secrets
         --quiet
         --services
+        --verbose
         "
         return
         ;;
@@ -809,6 +805,7 @@ remove)
         --quiet
         --tap
         --uv
+        --verbose
         --vscode
         "
         return
@@ -832,6 +829,7 @@ list)
         --quiet
         --tap
         --uv
+        --verbose
         --vscode
         "
         return
@@ -850,6 +848,7 @@ install)
         --upgrade
         --upgrade-formulae
         --verbose
+        --zap
         "
         return
         ;;
@@ -864,6 +863,7 @@ exec)
         --no-secrets
         --quiet
         --services
+        --verbose
         "
         return
         ;;
@@ -877,6 +877,7 @@ env)
         --install
         --no-secrets
         --quiet
+        --verbose
         "
         return
         ;;
@@ -888,6 +889,7 @@ edit)
         --help
         --install
         --quiet
+        --verbose
         "
         return
         ;;
@@ -919,6 +921,7 @@ dump)
         --quiet
         --tap
         --uv
+        --verbose
         --vscode
         "
         return
@@ -940,6 +943,7 @@ cleanup)
         --quiet
         --tap
         --uv
+        --verbose
         --vscode
         --zap
         "
@@ -976,6 +980,7 @@ add)
         --quiet
         --tap
         --uv
+        --verbose
         --vscode
         "
         return
@@ -2831,7 +2836,6 @@ _brew_services() {
           __brewcomp "
           --debug
           --help
-          --json
           --quiet
           --sudo-service-user
           --verbose

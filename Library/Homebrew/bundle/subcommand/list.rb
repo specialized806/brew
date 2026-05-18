@@ -19,18 +19,18 @@ module Homebrew
           EOS
           named_args :none
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before listing dependencies."
           switch "--all",
-                 description: "`list` all dependencies."
+                 description: "List all dependencies."
           switch "--formula", "--formulae", "--brews",
-                 description: "`list`, `dump` or `cleanup` Homebrew formula dependencies."
+                 description: "List Homebrew formula dependencies."
           switch "--cask", "--casks",
-                 description: "`list`, `dump` or `cleanup` Homebrew cask dependencies."
+                 description: "List Homebrew cask dependencies."
           switch "--tap", "--taps",
-                 description: "`list`, `dump` or `cleanup` Homebrew tap dependencies."
+                 description: "List Homebrew tap dependencies."
           Homebrew::Bundle.extensions.each do |extension|
             switch "--#{extension.flag}",
-                   description: extension.switch_description
+                   description: extension.switch_description("List #{extension.banner_name}.")
           end
         end
 
