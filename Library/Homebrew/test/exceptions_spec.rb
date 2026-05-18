@@ -103,22 +103,8 @@ RSpec.describe "Exception" do
 
     let(:mod) do
       Module.new do
-        # These are defined within an anonymous module to avoid polluting the global namespace.
-        # rubocop:disable RSpec/LeakyConstantDeclaration,Lint/ConstantDefinitionInBlock
-        class Bar < Requirement
-          # Sorbet type members are mutable by design and cannot be frozen.
-          # rubocop:disable Style/MutableConstant
-          Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
-          # rubocop:enable Style/MutableConstant
-        end
-
-        class Baz < Formula
-          # Sorbet type members are mutable by design and cannot be frozen.
-          # rubocop:disable Style/MutableConstant
-          Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
-          # rubocop:enable Style/MutableConstant
-        end
-        # rubocop:enable RSpec/LeakyConstantDeclaration,Lint/ConstantDefinitionInBlock
+        const_set :Bar, Class.new(Requirement)
+        const_set :Baz, Class.new(Formula)
       end
     end
 
