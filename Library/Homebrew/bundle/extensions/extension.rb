@@ -33,13 +33,9 @@ module Homebrew
         T.cast(const_get(:BANNER_NAME), String)
       end
 
-      sig { returns(String) }
-      def self.switch_description
-        if cleanup_supported?
-          "`list`, `dump` or `cleanup` #{banner_name}."
-        else
-          "`list` or `dump` #{banner_name}."
-        end
+      sig { params(description: String).returns(String) }
+      def self.switch_description(description)
+        description
       end
 
       sig { params(name: String, options: Homebrew::Bundle::EntryInputOptions).returns(Dsl::Entry) }

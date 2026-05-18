@@ -15,7 +15,7 @@ module Homebrew
           EOS
           named_args :service
           switch "--all",
-                 description: "Run <subcommand> on all services."
+                 description: "List all managed services."
           switch "--json",
                  description: "Output as JSON."
         end

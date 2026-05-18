@@ -22,32 +22,29 @@ module Homebrew
           EOS
           named_args :none
           switch "-v", "--verbose",
-                 description: "`install` prints output from commands as they are run. " \
-                              "`check` lists all missing dependencies."
+                 description: "Print output from commands as they are run."
           switch "--no-upgrade",
-                 description: "`install` does not run `brew upgrade` on outdated dependencies. " \
-                              "`check` does not check for outdated dependencies. " \
+                 description: "Do not run `brew upgrade` on outdated dependencies. " \
                               "Note they may still be upgraded by `brew install` if needed.",
                  env:         :bundle_no_upgrade
           switch "--upgrade",
-                 description: "`install` runs `brew upgrade` on outdated dependencies, " \
+                 description: "Run `brew upgrade` on outdated dependencies, " \
                               "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
           flag   "--upgrade-formulae=", "--upgrade-formula=",
-                 description: "`install` runs `brew upgrade` on any of these comma-separated formulae, " \
+                 description: "Run `brew upgrade` on any of these comma-separated formulae, " \
                               "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
           # odeprecated: change default for 5.2 and document HOMEBREW_BUNDLE_JOBS
           flag "--jobs=",
-               description: "`install` runs up to this many formula installations in parallel. " \
+               description: "Run up to this many formula installations in parallel. " \
                             "Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)."
           switch "-f", "--force",
-                 description: "`install` runs with `--force`/`--overwrite`. " \
-                              "`dump` overwrites an existing `Brewfile`. " \
-                              "`cleanup` actually performs its cleanup operations."
+                 description: "Run with `--force`/`--overwrite`."
           switch "--cleanup",
-                 description: "`install` performs cleanup operation, same as running `cleanup --force`.",
+                 description: "Perform cleanup after installing dependencies, same as running `cleanup --force`.",
                  env:         [:bundle_install_cleanup, "--global"]
           switch "--zap",
-                 description: "`cleanup` casks using the `zap` command instead of `uninstall`.",
+                 description: "Use `zap` instead of `uninstall` when cleaning up casks after " \
+                              "installing dependencies.",
                  depends_on:  "--cleanup"
         end
 

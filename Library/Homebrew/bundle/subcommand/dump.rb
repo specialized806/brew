@@ -17,20 +17,18 @@ module Homebrew
           EOS
           named_args :none
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before dumping dependencies."
           switch "-f", "--force",
-                 description: "`install` runs with `--force`/`--overwrite`. " \
-                              "`dump` overwrites an existing `Brewfile`. " \
-                              "`cleanup` actually performs its cleanup operations."
+                 description: "Overwrite an existing `Brewfile`."
           switch "--formula", "--formulae", "--brews",
-                 description: "`list`, `dump` or `cleanup` Homebrew formula dependencies."
+                 description: "Dump Homebrew formula dependencies."
           switch "--cask", "--casks",
-                 description: "`list`, `dump` or `cleanup` Homebrew cask dependencies."
+                 description: "Dump Homebrew cask dependencies."
           switch "--tap", "--taps",
-                 description: "`list`, `dump` or `cleanup` Homebrew tap dependencies."
+                 description: "Dump Homebrew tap dependencies."
           extensions.select(&:dump_supported?).each do |extension|
             switch "--#{extension.flag}",
-                   description: extension.switch_description
+                   description: extension.switch_description("Dump #{extension.banner_name}.")
           end
           extensions.select(&:dump_disable_supported?).each do |extension|
             switch "--no-#{extension.flag}",
@@ -38,11 +36,11 @@ module Homebrew
                    env:         extension.dump_disable_env
           end
           switch "--describe",
-                 description: "`dump` and `add` add a description comment above each line, unless the " \
+                 description: "Add a description comment above each line, unless the " \
                               "dependency does not have a description.",
                  env:         :bundle_describe
           switch "--no-restart",
-                 description: "`dump` does not add `restart_service` to formula lines."
+                 description: "Do not add `restart_service` to formula lines."
         end
 
         sig { override.void }

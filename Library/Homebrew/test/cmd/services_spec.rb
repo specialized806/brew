@@ -17,6 +17,25 @@ RSpec.describe Homebrew::Cmd::Services, :needs_daemon_manager do
       .to raise_error(UsageError, /`info` subcommand does not accept the `--file` flag/)
   end
 
+  it "uses operation-specific --all descriptions", :aggregate_failures do
+    subcommand_options = lambda do |subcommand|
+      described_class.parser.processed_options_for_subcommand(subcommand).filter_map do |_, long, description, hidden|
+        [long, description] unless hidden
+      end.to_h
+    end
+
+    expect(subcommand_options.call("start")["--all"])
+      .to eq("Start all services and register them to launch at login (or boot).")
+    expect(subcommand_options.call("stop")["--all"])
+      .to eq("Stop all services and unregister them from launching at login (or boot), unless `--keep` is specified.")
+    expect(subcommand_options.call("run")["--all"])
+      .to eq("Run all services without registering them to launch at login (or boot).")
+    expect(subcommand_options.call("restart")["--all"]).to eq("Restart all services.")
+    expect(subcommand_options.call("kill")["--all"])
+      .to eq("Stop all services immediately but keep them registered to launch at login (or boot).")
+    expect(subcommand_options.call("info")["--all"]).to eq("List all managed services.")
+  end
+
   it "allows controlling services", :integration_test do
     expect { brew "services", "list" }
       .to not_to_output.to_stderr

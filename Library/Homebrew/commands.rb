@@ -220,7 +220,12 @@ module Commands
     return if path.blank?
 
     if (cmd_parser = Homebrew::CLI::Parser.from_cmd_path(path))
-      cmd_parser.processed_options_for_subcommand(subcommand).filter_map do |short, long, desc, hidden|
+      processed_options = if subcommand.nil? && cmd_parser.subcommands.present?
+        cmd_parser.processed_options_for_root_command
+      else
+        cmd_parser.processed_options_for_subcommand(subcommand)
+      end
+      processed_options.filter_map do |short, long, desc, hidden|
         next if hidden
 
         option = long || short

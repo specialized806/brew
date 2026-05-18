@@ -23,7 +23,8 @@ module Homebrew
           switch "--keep",
                  description: "When stopped, don't unregister the service from launching at login (or boot)."
           switch "--all",
-                 description: "Run <subcommand> on all services."
+                 description: "Stop all services and unregister them from launching at login (or boot), " \
+                              "unless `--keep` is specified."
         end
 
         sig { override.void }

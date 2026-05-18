@@ -15,7 +15,7 @@ module Homebrew
           EOS
           named_args :service
           switch "--all",
-                 description: "Run <subcommand> on all services."
+                 description: "Stop all services immediately but keep them registered to launch at login (or boot)."
         end
 
         sig { override.void }

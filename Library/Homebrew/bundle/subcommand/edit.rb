@@ -14,7 +14,7 @@ module Homebrew
           EOS
           named_args :none
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before editing the `Brewfile`."
         end
 
         sig { override.void }

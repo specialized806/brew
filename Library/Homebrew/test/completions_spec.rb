@@ -192,10 +192,10 @@ RSpec.describe Homebrew::Completions do
       allow(Commands).to receive(:command_options).and_call_original
       allow(Commands).to receive(:command_options)
         .with(command, subcommand: nil)
-        .and_return([])
+        .and_return([["--global", "Use the global test file."]])
       allow(Commands).to receive(:command_options)
         .with(command, subcommand: "list")
-        .and_return([["--all", "Run <subcommand> on all services."]])
+        .and_return([["--all", "List all test services."]])
       allow(Commands).to receive(:command_options)
         .with(command, subcommand: "info")
         .and_return([["--json", "Output as JSON."]])
@@ -285,9 +285,12 @@ RSpec.describe Homebrew::Completions do
       it "returns options for a nested subcommand" do
         stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
 
+        root_options = described_class.command_options(nested_completion_command)
         info_options = described_class.command_options(nested_completion_command, subcommand: "info")
         start_options = described_class.command_options(nested_completion_command, subcommand: "start")
 
+        expect(root_options).to include("--global")
+        expect(root_options).not_to include("--all")
         expect(info_options).to include("--json")
         expect(info_options).not_to include("--file")
         expect(start_options).to include("--file")
@@ -372,6 +375,9 @@ RSpec.describe Homebrew::Completions do
 
         expect(completion).to include('info|i) subcommand="info"; break ;;')
         expect(completion).to include('__brewcomp "list ls info i start s"')
+        expect(completion).to include("          --global\n          \"")
+        expect(completion).not_to include("          --all\n          \"")
+        expect(completion).to include("list)\n        __brewcomp \"\n        --all")
         expect(completion).to include("__brew_complete_services")
         expect(completion).to include("        *) ;;\n      esac\n      ;;")
       end
@@ -446,8 +452,11 @@ RSpec.describe Homebrew::Completions do
         completion = described_class.generate_zsh_subcommand_completion(nested_completion_command)
 
         expect(completion).to include("'1:subcommand:->subcommand'")
-        expect(completion).to include("  _arguments -C \\\n    '--all[Run subcommand on all services]' \\\n    " \
+        expect(completion).to include("  _arguments -C \\\n    '--global[Use the global test file]' \\\n    " \
                                       "'1:subcommand:->subcommand'")
+        expect(completion).to include(
+          "list|ls)\n        _arguments \\\n          '--all[List all test services]'",
+        )
         expect(completion).to include("'i:Show service information'")
         expect(completion).to include("info|i)")
         expect(completion).to include("*:service:__brew_services")
@@ -520,6 +529,10 @@ RSpec.describe Homebrew::Completions do
         expect(completion).to include("__fish_brew_complete_sub_cmd 'subcommand-test' 'info'")
         expect(completion).to include("__fish_brew_complete_sub_cmd 'subcommand-test' 'i' " \
                                       "'Show service information'")
+        root_option = "__fish_brew_complete_arg 'subcommand-test; and [ (count (__fish_brew_args)) = 1 ]' "
+        expect(completion).to include("#{root_option}-l global -d 'Use the global test file'")
+        expect(completion).to include("__fish_brew_complete_sub_arg 'subcommand-test' 'list ls' " \
+                                      "-l all -d 'List all test services'")
         expect(completion).to include("__fish_brew_complete_sub_arg 'subcommand-test' 'info i' " \
                                       "-a '(__fish_brew_suggest_services)'")
       end

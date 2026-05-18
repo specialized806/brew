@@ -22,16 +22,16 @@ module Homebrew
           EOS
           named_args :command
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before executing the command."
           switch "--services",
-                 description: "Temporarily start services while running the `exec` or `sh` command.",
+                 description: "Temporarily start services while executing the command.",
                  env:         :bundle_services
           switch "--check",
                  description: "Check that all dependencies in the Brewfile are installed before " \
-                              "running `exec`, `sh`, or `env`.",
+                              "executing the command.",
                  env:         :bundle_check
           switch "--no-secrets",
-                 description: "Attempt to remove secrets from the environment before `exec`, `sh`, or `env`.",
+                 description: "Attempt to remove secrets from the environment before executing the command.",
                  env:         :bundle_no_secrets
         end
 

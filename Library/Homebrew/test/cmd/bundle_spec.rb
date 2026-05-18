@@ -3,6 +3,7 @@
 
 require "cmd/bundle"
 require "cmd/shared_examples/args_parse"
+require "commands"
 
 RSpec.describe Homebrew::Cmd::Bundle do
   it_behaves_like "parseable arguments"
@@ -19,6 +20,25 @@ RSpec.describe Homebrew::Cmd::Bundle do
   it "rejects install-only options for exec" do
     expect { described_class.new(%w[exec --jobs=1 true]) }
       .to raise_error(UsageError, /`exec` subcommand does not accept the `--jobs` flag/)
+  end
+
+  it "uses subcommand-specific option descriptions", :aggregate_failures do
+    subcommand_options = ->(subcommand) { Commands.command_options("bundle", subcommand:).to_h }
+
+    expect(subcommand_options.call("list")["--vscode"]).to eq("List VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("dump")["--vscode"]).to eq("Dump VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("cleanup")["--vscode"]).to eq("Clean up VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("add")["--vscode"])
+      .to eq("Add entries for VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("remove")["--vscode"])
+      .to eq("Remove entries for VSCode (and forks/variants) extensions.")
+  end
+
+  it "uses subcommand-specific descriptions in help output", :aggregate_failures do
+    help_text = described_class.parser.generate_help_text(remaining_args: ["list"])
+
+    expect(help_text).to include("List VSCode (and forks/variants) extensions.")
+    expect(help_text).not_to include("Clean up VSCode (and forks/variants) extensions.")
   end
 
   [

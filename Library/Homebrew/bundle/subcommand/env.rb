@@ -14,13 +14,13 @@ module Homebrew
           EOS
           named_args :none
           switch "--install",
-                 description: "Run `install` before continuing to other operations, e.g. `exec`."
+                 description: "Run `install` before printing the environment."
           switch "--check",
                  description: "Check that all dependencies in the Brewfile are installed before " \
-                              "running `exec`, `sh`, or `env`.",
+                              "printing the environment.",
                  env:         :bundle_check
           switch "--no-secrets",
-                 description: "Attempt to remove secrets from the environment before `exec`, `sh`, or `env`.",
+                 description: "Attempt to remove secrets from the environment before printing it.",
                  env:         :bundle_no_secrets
         end
 
