@@ -696,7 +696,8 @@ module Homebrew
           next if deps.empty?
 
           tab_deps = (kegs.any? && type != "build") ? tab_runtime_deps : nil
-          "#{type.capitalize} (#{deps.count}): #{decorate_dependencies(deps, tab_runtime_deps: tab_deps)}"
+          "#{type.capitalize} (#{deps.count}): " \
+            "#{decorate_dependencies(deps, tab_runtime_deps: tab_deps, mark_uninstalled: kegs.any?)}"
         end
         if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
@@ -727,7 +728,7 @@ module Homebrew
             reqs = formula.requirements.select(&:"#{type}?")
             next if reqs.to_a.empty?
 
-            puts "#{type.capitalize}: #{decorate_requirements(reqs)}"
+            puts "#{type.capitalize}: #{decorate_requirements(reqs, mark_uninstalled: kegs.any?)}"
           end
         end
 
@@ -813,9 +814,10 @@ module Homebrew
 
       sig {
         params(dependencies:     T::Array[Dependency],
-               tab_runtime_deps: T.nilable(T::Array[T::Hash[String, T.untyped]])).returns(String)
+               tab_runtime_deps: T.nilable(T::Array[T::Hash[String, T.untyped]]),
+               mark_uninstalled: T::Boolean).returns(String)
       }
-      def decorate_dependencies(dependencies, tab_runtime_deps: nil)
+      def decorate_dependencies(dependencies, tab_runtime_deps: nil, mark_uninstalled: true)
         dependencies.map do |dep|
           display = dep_display_s(dep)
           full_name = tab_runtime_deps&.find do |d|
@@ -831,15 +833,15 @@ module Homebrew
           end
           installed ||= formula.any_version_installed? if !installed && formula
           outdated = T.let(installed && formula&.outdated? == true, T::Boolean)
-          pretty_install_status(display, installed:, outdated:)
+          pretty_install_status(display, installed:, outdated:, mark_uninstalled:)
         end.join(", ")
       end
 
-      sig { params(requirements: T::Array[Requirement]).returns(String) }
-      def decorate_requirements(requirements)
+      sig { params(requirements: T::Array[Requirement], mark_uninstalled: T::Boolean).returns(String) }
+      def decorate_requirements(requirements, mark_uninstalled: true)
         req_status = requirements.map do |req|
           req_s = req.display_s
-          req.satisfied? ? pretty_installed(req_s) : pretty_uninstalled(req_s)
+          pretty_install_status(req_s, installed: req.satisfied?, mark_uninstalled:)
         end
         req_status.join(", ")
       end

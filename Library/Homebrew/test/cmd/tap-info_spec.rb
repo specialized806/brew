@@ -32,8 +32,8 @@ RSpec.describe Homebrew::Cmd::TapInfo do
       allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     end
 
-    it "marks an uninstalled formula as unsatisfied" do
-      expect(tap_info.send(:decorate_formula, tap, "missing", installed: false)).to match(/missing.*✘/)
+    it "does not mark an uninstalled formula" do
+      expect(tap_info.send(:decorate_formula, tap, "missing", installed: false)).not_to match(/✘/)
     end
 
     it "marks an installed formula as satisfied" do
@@ -74,8 +74,8 @@ RSpec.describe Homebrew::Cmd::TapInfo do
       allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     end
 
-    it "marks an uninstalled cask as unsatisfied" do
-      expect(tap_info.send(:decorate_cask, tap, "missing", installed: false)).to match(/missing.*✘/)
+    it "does not mark an uninstalled cask" do
+      expect(tap_info.send(:decorate_cask, tap, "missing", installed: false)).not_to match(/✘/)
     end
 
     it "marks an installed cask as satisfied" do
@@ -147,11 +147,12 @@ RSpec.describe Homebrew::Cmd::TapInfo do
                                                                                          disabled?:   false))
       end
 
-      it "lists every formula and cask with mixed install markers under their headers" do
+      it "lists every formula and cask, marking only the installed ones" do
         expect { tap_info.send(:print_tap_listings, tap) }
           .to output(
-            /Commands.*mycmd.*==> Formulae.*foo.*✔.*uninstalled-formula.*✘.*==> Casks.*bar.*✔.*uninstalled-cask.*✘/m,
+            /Commands.*mycmd.*==> Formulae.*foo.*✔.*uninstalled-formula.*==> Casks.*bar.*✔.*uninstalled-cask/m,
           ).to_stdout
+        expect { tap_info.send(:print_tap_listings, tap) }.not_to output(/✘/).to_stdout
       end
     end
 
@@ -201,9 +202,10 @@ RSpec.describe Homebrew::Cmd::TapInfo do
         allow(Cask::Caskroom).to receive(:tokens).and_return([])
       end
 
-      it "lists every formula and cask with uninstalled markers" do
+      it "lists every formula and cask without uninstalled markers" do
         expect { tap_info.send(:print_tap_listings, tap) }
-          .to output(/==> Formulae.*baz.*✘.*foo.*✘.*==> Casks.*bar.*✘/m).to_stdout
+          .to output(/==> Formulae.*baz.*foo.*==> Casks.*bar/m).to_stdout
+        expect { tap_info.send(:print_tap_listings, tap) }.not_to output(/✘/).to_stdout
       end
     end
 

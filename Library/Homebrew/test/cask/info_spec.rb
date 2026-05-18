@@ -68,7 +68,7 @@ RSpec.describe Cask::Info, :cask do
       Not installed
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-cask-multiple.rb")}
       #{ohai_title "Dependencies"}
-      Required (2): #{uninstalled("local-caffeine (cask)")}, #{uninstalled("local-transmission-zip (cask)")}
+      Required (2): local-caffeine (cask), local-transmission-zip (cask)
       Recursive Runtime (2): 0 installed #{Formatter.success("✔")}, 2 missing #{Formatter.error("✘")}
       #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
@@ -99,7 +99,7 @@ RSpec.describe Cask::Info, :cask do
       Not installed
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-cask-multiple.rb")}
       #{ohai_title "Dependencies"}
-      Required (2): #{uninstalled("local-caffeine (cask)")}, #{installed("local-transmission-zip (cask)")}
+      Required (2): local-caffeine (cask), #{installed("local-transmission-zip (cask)")}
       Recursive Runtime (2): 1 installed #{Formatter.success("✔")}, 1 missing #{Formatter.error("✘")}
       #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
@@ -119,9 +119,9 @@ RSpec.describe Cask::Info, :cask do
   it "prints cask and formulas dependencies if the Cask has both" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     arch_requirements = if Hardware::CPU.arm?
-      "#{uninstalled("x86_64 architecture")}, #{installed("arm64 architecture")}"
+      "x86_64 architecture, #{installed("arm64 architecture")}"
     else
-      "#{installed("x86_64 architecture")}, #{uninstalled("arm64 architecture")}"
+      "#{installed("x86_64 architecture")}, arm64 architecture"
     end
 
     expect do
@@ -132,7 +132,7 @@ RSpec.describe Cask::Info, :cask do
       Not installed
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-everything.rb")}
       #{ohai_title "Dependencies"}
-      Required (3): #{uninstalled("unar")}, #{uninstalled("local-caffeine (cask)")}, #{uninstalled("with-depends-on-cask (cask)")}
+      Required (3): unar, local-caffeine (cask), with-depends-on-cask (cask)
       Recursive Runtime (4): 0 installed #{Formatter.success("✔")}, 4 missing #{Formatter.error("✘")}
       #{requirements_section("#{arch_requirements}, #{installed("macOS >= 10.15")}")}
       #{ohai_title "Artifacts"}
