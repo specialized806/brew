@@ -64,7 +64,8 @@
     {
       "app": [
         "Everything.app"
-      ]
+      ],
+      "target": "$APPDIR/Everything.app"
     },
     {
       "zap": [
