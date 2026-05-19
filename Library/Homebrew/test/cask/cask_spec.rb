@@ -454,7 +454,7 @@ RSpec.describe Cask::Cask, :cask do
           trash: ["#{TEST_TMPDIR}/foo", "#{TEST_TMPDIR}/bar"],
         }] },
         { pkg: ["ManyArtifacts/ManyArtifacts.pkg"] },
-        { app: ["ManyArtifacts/ManyArtifacts.app"] },
+        { app: ["ManyArtifacts/ManyArtifacts.app"], target: "#{TEST_TMPDIR}/cask-appdir/ManyArtifacts.app" },
         { uninstall_postflight: nil },
         { postflight: nil },
         { zap: [{
@@ -563,7 +563,9 @@ RSpec.describe Cask::Cask, :cask do
   end
 
   describe "#to_h" do
-    let(:expected_json) { (TEST_FIXTURE_DIR/"cask/everything.json").read.strip }
+    let(:expected_json) do
+      (TEST_FIXTURE_DIR/"cask/everything.json").read.strip.gsub("$APPDIR", "#{TEST_TMPDIR}/cask-appdir")
+    end
 
     context "when loaded from cask file" do
       it "returns expected hash" do
@@ -757,7 +759,10 @@ RSpec.describe Cask::Cask, :cask do
     end
 
     context "when loaded from json file" do
-      let(:expected_json) { (TEST_FIXTURE_DIR/"cask/everything-with-variations.json").read.strip }
+      let(:expected_json) do
+        (TEST_FIXTURE_DIR/"cask/everything-with-variations.json").read.strip
+          .gsub("$APPDIR", "#{TEST_TMPDIR}/cask-appdir")
+      end
 
       it "returns expected hash with variations" do
         expect(Homebrew::API::Cask).not_to receive(:source_download)
