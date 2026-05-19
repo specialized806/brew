@@ -194,6 +194,8 @@
 !/.editorconfig
 !/.gitignore
 !/.irb_config
+!/.licenses
+!/.licenses/**
 !/.ruby-version
 !/.shellcheckrc
 !/.vale.ini
