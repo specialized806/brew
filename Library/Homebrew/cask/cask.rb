@@ -629,7 +629,10 @@ module Cask
           uninstall_artifact = artifact.respond_to?(:uninstall_phase) || artifact.respond_to?(:post_uninstall_phase)
           next if uninstall_only && !zap_artifact && !uninstall_artifact
 
-          entry = T.let({ artifact.class.dsl_key => artifact.to_args }, T::Hash[Symbol, T.untyped])
+          entry = T.let(
+            { artifact.class.dsl_key => artifact.to_args },
+            T::Hash[Symbol, T.any(String, T::Array[T.anything])],
+          )
           entry[:target] = artifact.target.to_s if !uninstall_only && artifact.is_a?(Artifact::Relocated)
           entry
         end
