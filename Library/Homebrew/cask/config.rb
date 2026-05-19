@@ -81,7 +81,8 @@ module Cask
       )
     end
 
-    sig { params(config: ConfigHash).returns(ConfigHash) }
+    # runtime recursive evaluation forces the LazyObject to be evaluated
+    T::Sig::WithoutRuntime.sig { params(config: ConfigHash).returns(ConfigHash) }
     def self.canonicalize(config)
       config.to_h do |k, v|
         if DEFAULT_DIRS.key?(k)
@@ -136,7 +137,8 @@ module Cask
       @explicit.assert_valid_keys(*self.class.defaults.keys)
     end
 
-    sig { returns(ConfigHash) }
+    # runtime recursive evaluation forces the LazyObject to be evaluated
+    T::Sig::WithoutRuntime.sig { returns(ConfigHash) }
     def default
       @default ||= self.class.canonicalize(self.class.defaults)
     end
