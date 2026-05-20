@@ -49,7 +49,12 @@ module InstallRenamed
     # it so untouched configs advance on upgrade. Modified configs still receive
     # the new default as `*.default`.
     # Resolve via realpath so the ascend walks the Cellar path, not `opt_prefix`.
-    src = src.realpath
+    # For symlink sources, resolve only the parent directory so broken symlinks
+    src = if src.symlink?
+      src.dirname.realpath/src.basename
+    else
+      src.realpath
+    end
     src.ascend do |path|
       next if path.basename.to_s != ".bottle" || path.parent.parent.parent != HOMEBREW_CELLAR
 
