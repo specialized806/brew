@@ -1121,6 +1121,15 @@ RSpec.describe Formula do
 
       expect([config_file.read, default_config_file.read]).to eq(["custom\n", "new\n"])
     end
+
+    it "replaces config that matches the previous default when the keg is opt-linked" do
+      config_file.write "old\n"
+      Keg.new(f.rack/"2.0").optlink
+
+      f.install_etc_var
+
+      expect([config_file.read, default_config_file.exist?]).to eq(["new\n", false])
+    end
   end
 
   specify "test fixtures" do

@@ -48,6 +48,8 @@ module InstallRenamed
     # helper. If the live config still matches an older bottled default, replace
     # it so untouched configs advance on upgrade. Modified configs still receive
     # the new default as `*.default`.
+    # Resolve via realpath so the ascend walks the Cellar path, not `opt_prefix.
+    src = src.realpath
     src.ascend do |path|
       next if path.basename.to_s != ".bottle" || path.parent.parent.parent != HOMEBREW_CELLAR
 
