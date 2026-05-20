@@ -396,6 +396,17 @@ RSpec.describe Homebrew::Completions do
         expect(file).to match(/^ {4}update\) _brew_update ;;/)
         expect(file).to match(/^complete -o bashdefault -o default -F _brew brew$/)
       end
+
+      it "doesn't add aliases to command completions" do
+        file = described_class.generate_bash_completion_file(%w[install missing up update])
+        expect(file).not_to include("cmd_aliases")
+        expect(file).not_to match(/^_brew_up\(\) {$/)
+        expect(file).not_to match(/^ {4}up\) _brew_up ;;/)
+        expect(file).to include('[[ $(__brew_internal_command_alias "${line}") == "${line}" ]] || continue')
+        expect(file).to include('cmd="$(__brew_internal_command_alias "${cmd}")"')
+        expect(file).to match(/^ {4}up\) echo "update" ;;$/)
+        expect(file).to match(/^ {4}update\) _brew_update ;;$/)
+      end
     end
 
     describe ".generate_zsh_subcommand_completion" do
@@ -460,6 +471,15 @@ RSpec.describe Homebrew::Completions do
         expect(completion).to include("'i:Show service information'")
         expect(completion).to include("info|i)")
         expect(completion).to include("*:service:__brew_services")
+      end
+
+      it "doesn't generate alias completion functions" do
+        file = described_class.generate_zsh_completion_file(%w[up update])
+        expect(file).not_to match(/^# brew up$/)
+        expect(file).not_to match(/^_brew_up\(\) {$/)
+        expect(file).to match(/^    up update$/)
+        expect(file).to include('command="${aliases[$command_or_alias]:-$command_or_alias}"')
+        expect(file).to include('local completion_func="_brew_${command//-/_}"')
       end
     end
 
@@ -545,6 +565,16 @@ RSpec.describe Homebrew::Completions do
         expect(file).to match(/^__fish_brew_complete_cmd 'install' 'Install a formula or cask'$/)
         expect(file).to match(/^__fish_brew_complete_cmd 'missing' 'Check the given formula kegs for .*'$/)
         expect(file).to match(/^__fish_brew_complete_cmd 'update' 'Fetch the newest version of Homebrew .*'$/)
+      end
+
+      it "omits aliases from command completions" do
+        file = described_class.generate_fish_completion_file(%w[up update])
+        expect(file).not_to match(/^__fish_brew_complete_cmd 'up'/)
+        expect(file).not_to match(/^__fish_brew_complete_arg 'up'/)
+        expect(file).to match(/^        case 'up'$/)
+        expect(file).to match(/^            echo 'update'$/)
+        expect(file).to include("set -l cmd (__fish_brew_expand_alias $args[1])")
+        expect(file).to match(/^__fish_brew_complete_cmd 'update'/)
       end
     end
   end

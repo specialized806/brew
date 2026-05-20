@@ -1,16 +1,11 @@
 --cache
 --caskroom
 --cellar
---config
 --env
 --prefix
---repo
 --repository
 --taps
 --version
--S
--v
-abv
 alias
 analytics
 audit
@@ -39,9 +34,7 @@ developer
 dispatch-build-bottle
 docs
 doctor
-dr
 edit
-environment
 exec
 extract
 fetch
@@ -57,21 +50,17 @@ generate-zap
 gist-logs
 help
 home
-homepage
 info
 install
 install-bundler-gems
 irb
-lc
 leaves
 lgtm
 link
 linkage
 list
 livecheck
-ln
 log
-ls
 mcp-server
 migrate
 missing
@@ -79,7 +68,6 @@ nodenv-sync
 options
 outdated
 pin
-post_install
 postinstall
 pr-automerge
 pr-publish
@@ -91,8 +79,6 @@ rbenv-sync
 readall
 reinstall
 release
-remove
-rm
 rubocop
 ruby
 rubydoc
@@ -107,7 +93,6 @@ tab
 tap
 tap-info
 tap-new
-tc
 test
 test-bot
 tests
@@ -119,7 +104,6 @@ unlink
 unpack
 unpin
 untap
-up
 update
 update-if-needed
 update-license-data
@@ -137,4 +121,3 @@ verify
 version-install
 which-formula
 which-update
-x

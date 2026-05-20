@@ -23,6 +23,51 @@ function __fish_brew_args -d "Returns a list of all arguments given to brew"
     end
 end
 
+function __fish_brew_expand_alias -a cmd -d "Expands a Homebrew command alias"
+    switch $cmd
+        case 'ls'
+            echo 'list'
+        case 'homepage'
+            echo 'home'
+        case '-S'
+            echo 'search'
+        case 'up'
+            echo 'update'
+        case 'ln'
+            echo 'link'
+        case 'instal'
+            echo 'install'
+        case 'uninstal'
+            echo 'uninstall'
+        case 'post_install'
+            echo 'postinstall'
+        case 'rm'
+            echo 'uninstall'
+        case 'remove'
+            echo 'uninstall'
+        case 'abv'
+            echo 'info'
+        case 'dr'
+            echo 'doctor'
+        case '--repo'
+            echo '--repository'
+        case 'environment'
+            echo '--env'
+        case '--config'
+            echo 'config'
+        case '-v'
+            echo '--version'
+        case 'lc'
+            echo 'livecheck'
+        case 'tc'
+            echo 'typecheck'
+        case 'x'
+            echo 'exec'
+        case '*'
+            echo $cmd
+    end
+end
+
 function __fish_brew_opts -d "Only arguments starting with a dash (options)"
     string match --all -- '-*' (__fish_brew_args)
 end
@@ -37,11 +82,12 @@ end
 function __fish_brew_command -d "Helps matching the first argument of brew"
     set args (__fish_brew_args)
     set -q args[1]; or return 1
+    set -l cmd (__fish_brew_expand_alias $args[1])
 
     if count $argv
-        contains -- $args[1] $argv
+        contains -- $cmd $argv
     else
-        echo $args[1]
+        echo $cmd
     end
 end
 
@@ -132,11 +178,16 @@ function __fish_brew_suggest_taps_installed -d "List all available taps"
     | string replace (brew --repo)/Library/Taps/ ""
 end
 
-function __fish_brew_suggest_commands -d "Lists all commands names, including aliases"
+function __fish_brew_suggest_commands -d "Lists all command names"
+    set -l commands
     if test -f (brew --cache)/all_commands_list.txt
-        cat (brew --cache)/all_commands_list.txt
+        set commands (cat (brew --cache)/all_commands_list.txt)
     else
-        cat (brew --repo)/completions/internal_commands_list.txt
+        set commands (cat (brew --repo)/completions/internal_commands_list.txt)
+    end
+    for command in $commands
+        set -l expanded_command (__fish_brew_expand_alias $command)
+        test "$expanded_command" = "$command"; and echo $command
     end
 end
 
@@ -220,13 +271,6 @@ __fish_brew_complete_arg '--cellar' -l verbose -d 'Make some output more verbose
 __fish_brew_complete_arg '--cellar' -a '(__fish_brew_suggest_formulae_all)'
 
 
-__fish_brew_complete_cmd '--config' 'Show Homebrew and system configuration info useful for debugging'
-__fish_brew_complete_arg '--config' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg '--config' -l help -d 'Show this message'
-__fish_brew_complete_arg '--config' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg '--config' -l verbose -d 'Make some output more verbose'
-
-
 __fish_brew_complete_cmd '--env' 'Summarise Homebrew\'s build environment as a plain list'
 __fish_brew_complete_arg '--env' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg '--env' -l help -d 'Show this message'
@@ -245,14 +289,6 @@ __fish_brew_complete_arg '--prefix' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg '--prefix' -l unbrewed -d 'List files in Homebrew\'s prefix not installed by Homebrew'
 __fish_brew_complete_arg '--prefix' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg '--prefix' -a '(__fish_brew_suggest_formulae_all)'
-
-
-__fish_brew_complete_cmd '--repo' 'Display where Homebrew\'s Git repository is located'
-__fish_brew_complete_arg '--repo' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg '--repo' -l help -d 'Show this message'
-__fish_brew_complete_arg '--repo' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg '--repo' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg '--repo' -a '(__fish_brew_suggest_taps_installed)'
 
 
 __fish_brew_complete_cmd '--repository' 'Display where Homebrew\'s Git repository is located'
@@ -275,57 +311,6 @@ __fish_brew_complete_arg '--version' -l debug -d 'Display any debugging informat
 __fish_brew_complete_arg '--version' -l help -d 'Show this message'
 __fish_brew_complete_arg '--version' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg '--version' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd '-S' 'Perform a substring search of cask tokens and formula names for text'
-__fish_brew_complete_arg '-S' -l alpine -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l archlinux -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l cask -d 'Search for casks'
-__fish_brew_complete_arg '-S' -l closed -d 'Search for only closed GitHub pull requests'
-__fish_brew_complete_arg '-S' -l debian -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg '-S' -l desc -d 'Search for formulae with a description matching text and casks with a name or description matching text'
-__fish_brew_complete_arg '-S' -l eval-all -d 'Evaluate all available formulae and casks, whether installed or not, to search their descriptions. Enabled by default if `$HOMEBREW_EVAL_ALL` is set'
-__fish_brew_complete_arg '-S' -l fedora -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l fink -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l formula -d 'Search for formulae'
-__fish_brew_complete_arg '-S' -l help -d 'Show this message'
-__fish_brew_complete_arg '-S' -l macports -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l open -d 'Search for only open GitHub pull requests'
-__fish_brew_complete_arg '-S' -l opensuse -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l pull-request -d 'Search for GitHub pull requests containing text'
-__fish_brew_complete_arg '-S' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg '-S' -l repology -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l ubuntu -d 'Search for text in the given database'
-__fish_brew_complete_arg '-S' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd '-v' 'Print the version numbers of Homebrew, Homebrew/homebrew-core and Homebrew/homebrew-cask (if tapped) to standard output'
-__fish_brew_complete_arg '-v' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg '-v' -l help -d 'Show this message'
-__fish_brew_complete_arg '-v' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg '-v' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd 'abv' 'Display brief statistics for your Homebrew installation'
-__fish_brew_complete_arg 'abv' -l analytics -d 'List global Homebrew analytics data or, if specified, installation and build error data for formula (provided neither `$HOMEBREW_NO_ANALYTICS` nor `$HOMEBREW_NO_GITHUB_API` are set)'
-__fish_brew_complete_arg 'abv' -l cask -d 'Treat all named arguments as casks'
-__fish_brew_complete_arg 'abv' -l category -d 'Which type of analytics data to retrieve. The value for category must be `install`, `install-on-request` or `build-error`; `cask-install` or `os-version` may be specified if formula is not. The default is `install`'
-__fish_brew_complete_arg 'abv' -l days -d 'How many days of analytics data to retrieve. The value for days must be `30`, `90` or `365`. The default is `30`'
-__fish_brew_complete_arg 'abv' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'abv' -l eval-all -d 'Evaluate all available formulae and casks, whether installed or not, to print their JSON'
-__fish_brew_complete_arg 'abv' -l fetch-manifest -d 'Fetch GitHub Packages manifest for extra information when formula is not installed'
-__fish_brew_complete_arg 'abv' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'abv' -l github -d 'Open the GitHub source page for formula and cask in a browser. To view the history locally: `brew log -p` formula or cask'
-__fish_brew_complete_arg 'abv' -l help -d 'Show this message'
-__fish_brew_complete_arg 'abv' -l installed -d 'Output a human-readable inventory of installed formulae and casks. If `--json` is passed, print JSON for installed formulae and, with `--json=v2`, installed casks'
-__fish_brew_complete_arg 'abv' -l json -d 'Print a JSON representation. Currently the default value for version is `v1` for formula. For formula and cask use `v2`. See the docs for examples of using the JSON output: https://docs.brew.sh/Querying-Brew'
-__fish_brew_complete_arg 'abv' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'abv' -l sizes -d 'Show the size of installed formulae and casks'
-__fish_brew_complete_arg 'abv' -l variations -d 'Include the variations hash in each formula\'s JSON output'
-__fish_brew_complete_arg 'abv' -l verbose -d 'Show more verbose data for formula, or full information with `--installed`'
-__fish_brew_complete_arg 'abv; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
-__fish_brew_complete_arg 'abv; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
 __fish_brew_complete_cmd 'alias' 'Show an alias\'s command'
@@ -939,16 +924,6 @@ __fish_brew_complete_arg 'doctor' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'doctor' -a '(__fish_brew_suggest_diagnostic_checks)'
 
 
-__fish_brew_complete_cmd 'dr' 'Check your system for potential problems'
-__fish_brew_complete_arg 'dr' -l audit-debug -d 'Enable debugging and profiling of audit methods'
-__fish_brew_complete_arg 'dr' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'dr' -l help -d 'Show this message'
-__fish_brew_complete_arg 'dr' -l list-checks -d 'List all audit methods, which can be run individually if provided as arguments'
-__fish_brew_complete_arg 'dr' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'dr' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'dr' -a '(__fish_brew_suggest_diagnostic_checks)'
-
-
 __fish_brew_complete_cmd 'edit' 'Open a formula, cask or tap in the editor set by `$EDITOR` or `$HOMEBREW_EDITOR`, or open the Homebrew repository for editing if no argument is provided'
 __fish_brew_complete_arg 'edit' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'edit' -l debug -d 'Display any debugging information'
@@ -960,16 +935,6 @@ __fish_brew_complete_arg 'edit' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'edit; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'edit; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 __fish_brew_complete_arg 'edit' -a '(__fish_brew_suggest_taps_installed)'
-
-
-__fish_brew_complete_cmd 'environment' 'Summarise Homebrew\'s build environment as a plain list'
-__fish_brew_complete_arg 'environment' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'environment' -l help -d 'Show this message'
-__fish_brew_complete_arg 'environment' -l plain -d 'Generate plain output even when piped'
-__fish_brew_complete_arg 'environment' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'environment' -l shell -d 'Generate a list of environment variables for the specified shell, or `--shell=auto` to detect the current shell'
-__fish_brew_complete_arg 'environment' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'environment' -a '(__fish_brew_suggest_formulae_all)'
 
 
 __fish_brew_complete_cmd 'exec' 'Run command in an environment populated by Homebrew formulae'
@@ -1120,17 +1085,6 @@ __fish_brew_complete_arg 'home; and not __fish_seen_argument -l cask -l casks' -
 __fish_brew_complete_arg 'home; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
-__fish_brew_complete_cmd 'homepage' 'Open a formula or cask\'s homepage in a browser, or open Homebrew\'s own homepage if no argument is provided'
-__fish_brew_complete_arg 'homepage' -l cask -d 'Treat all named arguments as casks'
-__fish_brew_complete_arg 'homepage' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'homepage' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'homepage' -l help -d 'Show this message'
-__fish_brew_complete_arg 'homepage' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'homepage' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'homepage; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
-__fish_brew_complete_arg 'homepage; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
-
-
 __fish_brew_complete_cmd 'info' 'Display brief statistics for your Homebrew installation'
 __fish_brew_complete_arg 'info' -l analytics -d 'List global Homebrew analytics data or, if specified, installation and build error data for formula (provided neither `$HOMEBREW_NO_ANALYTICS` nor `$HOMEBREW_NO_GITHUB_API` are set)'
 __fish_brew_complete_arg 'info' -l cask -d 'Treat all named arguments as casks'
@@ -1150,61 +1104,6 @@ __fish_brew_complete_arg 'info' -l variations -d 'Include the variations hash in
 __fish_brew_complete_arg 'info' -l verbose -d 'Show more verbose data for formula, or full information with `--installed`'
 __fish_brew_complete_arg 'info; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'info; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
-
-
-__fish_brew_complete_arg 'instal' -l HEAD -d 'If formula defines it, install the HEAD version, aka. main, trunk, unstable, master'
-__fish_brew_complete_arg 'instal' -l adopt -d 'Adopt existing artifacts in the destination that are identical to those being installed. Cannot be combined with `--force`'
-__fish_brew_complete_arg 'instal' -l appdir -d 'Target location for Applications (default: `/Applications`)'
-__fish_brew_complete_arg 'instal' -l appimagedir -d 'Target location for AppImages (default: `~/Applications`)'
-__fish_brew_complete_arg 'instal' -l as-dependency -d 'Install but mark as installed as a dependency and not installed on request'
-__fish_brew_complete_arg 'instal' -l ask -d 'Ask for confirmation before downloading and installing. Print a dependency plan, including added, changed and removed packages and dependencies, with download and install sizes of formula bottles. Enabled by default if `$HOMEBREW_ASK` is set'
-__fish_brew_complete_arg 'instal' -l audio-unit-plugindir -d 'Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)'
-__fish_brew_complete_arg 'instal' -l binaries -d 'Disable/enable linking of helper executables (default: enabled)'
-__fish_brew_complete_arg 'instal' -l bottle-arch -d 'Optimise bottles for the specified architecture rather than the oldest architecture supported by the version of macOS the bottles are built on'
-__fish_brew_complete_arg 'instal' -l build-bottle -d 'Prepare the formula for eventual bottling during installation, skipping any post-install steps'
-__fish_brew_complete_arg 'instal' -l build-from-source -d 'Compile formula from source even if a bottle is provided. Dependencies will still be installed from bottles if they are available'
-__fish_brew_complete_arg 'instal' -l cask -d 'Treat all named arguments as casks'
-__fish_brew_complete_arg 'instal' -l cc -d 'Attempt to compile using the specified compiler, which should be the name of the compiler\'s executable, e.g. `gcc-9` for GCC 9. In order to use LLVM\'s clang, specify `llvm_clang`. To use the Apple-provided clang, specify `clang`. This option will only accept compilers that are provided by Homebrew or bundled with macOS. Please do not file issues if you encounter errors while using this option'
-__fish_brew_complete_arg 'instal' -l colorpickerdir -d 'Target location for Color Pickers (default: `~/Library/ColorPickers`)'
-__fish_brew_complete_arg 'instal' -l debug -d 'If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory'
-__fish_brew_complete_arg 'instal' -l debug-symbols -d 'Generate debug symbols on build. Source will be retained in a cache directory'
-__fish_brew_complete_arg 'instal' -l dictionarydir -d 'Target location for Dictionaries (default: `~/Library/Dictionaries`)'
-__fish_brew_complete_arg 'instal' -l display-times -d 'Print install times for each package at the end of the run. Enabled by default if `$HOMEBREW_DISPLAY_INSTALL_TIMES` is set'
-__fish_brew_complete_arg 'instal' -l dry-run -d 'Show what would be installed, but do not actually install anything'
-__fish_brew_complete_arg 'instal' -l fetch-HEAD -d 'Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository\'s HEAD will only be checked for updates when a new stable or development version has been released'
-__fish_brew_complete_arg 'instal' -l fontdir -d 'Target location for Fonts (default: `~/Library/Fonts`)'
-__fish_brew_complete_arg 'instal' -l force -d 'Install formulae without checking for previously installed keg-only or non-migrated versions. When installing casks, overwrite existing files (binaries and symlinks are excluded, unless originally from the same cask)'
-__fish_brew_complete_arg 'instal' -l force-bottle -d 'Install from a bottle if it exists for the current or newest version of macOS, even if it would not normally be used for installation'
-__fish_brew_complete_arg 'instal' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'instal' -l git -d 'Create a Git repository, useful for creating patches to the software'
-__fish_brew_complete_arg 'instal' -l help -d 'Show this message'
-__fish_brew_complete_arg 'instal' -l ignore-dependencies -d 'An unsupported Homebrew development option to skip installing any dependencies of any kind. If the dependencies are not already present, the formula will have issues. If you\'re not developing Homebrew, consider adjusting your PATH rather than using this option'
-__fish_brew_complete_arg 'instal' -l include-test -d 'Install testing dependencies required to run `brew test` formula'
-__fish_brew_complete_arg 'instal' -l input-methoddir -d 'Target location for Input Methods (default: `~/Library/Input Methods`)'
-__fish_brew_complete_arg 'instal' -l interactive -d 'Download and patch formula, then open a shell. This allows the user to run `./configure --help` and otherwise determine how to turn the software package into a Homebrew package'
-__fish_brew_complete_arg 'instal' -l internet-plugindir -d 'Target location for Internet Plugins (default: `~/Library/Internet Plug-Ins`)'
-__fish_brew_complete_arg 'instal' -l keep-tmp -d 'Retain the temporary files created during installation'
-__fish_brew_complete_arg 'instal' -l keyboard-layoutdir -d 'Target location for Keyboard Layouts (default: `/Library/Keyboard Layouts`)'
-__fish_brew_complete_arg 'instal' -l language -d 'Comma-separated list of language codes to prefer for cask installation. The first matching language is used, otherwise it reverts to the cask\'s default language. The default value is the language of your system'
-__fish_brew_complete_arg 'instal' -l mdimporterdir -d 'Target location for Spotlight Plugins (default: `~/Library/Spotlight`)'
-__fish_brew_complete_arg 'instal' -l no-binaries -d 'Disable/enable linking of helper executables (default: enabled)'
-__fish_brew_complete_arg 'instal' -l only-dependencies -d 'Install the dependencies with specified options but do not install the formula itself'
-__fish_brew_complete_arg 'instal' -l overwrite -d 'Delete files that already exist in the prefix while linking'
-__fish_brew_complete_arg 'instal' -l prefpanedir -d 'Target location for Preference Panes (default: `~/Library/PreferencePanes`)'
-__fish_brew_complete_arg 'instal' -l qlplugindir -d 'Target location for Quick Look Plugins (default: `~/Library/QuickLook`)'
-__fish_brew_complete_arg 'instal' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'instal' -l require-sha -d 'Require all casks to have a checksum'
-__fish_brew_complete_arg 'instal' -l screen-saverdir -d 'Target location for Screen Savers (default: `~/Library/Screen Savers`)'
-__fish_brew_complete_arg 'instal' -l servicedir -d 'Target location for Services (default: `~/Library/Services`)'
-__fish_brew_complete_arg 'instal' -l skip-cask-deps -d 'Skip installing cask dependencies'
-__fish_brew_complete_arg 'instal' -l skip-link -d 'Install but skip linking the keg into the prefix'
-__fish_brew_complete_arg 'instal' -l skip-post-install -d 'Install but skip any post-install steps'
-__fish_brew_complete_arg 'instal' -l verbose -d 'Print the verification and post-install steps'
-__fish_brew_complete_arg 'instal' -l vst-plugindir -d 'Target location for VST Plugins (default: `~/Library/Audio/Plug-Ins/VST`)'
-__fish_brew_complete_arg 'instal' -l vst3-plugindir -d 'Target location for VST3 Plugins (default: `~/Library/Audio/Plug-Ins/VST3`)'
-__fish_brew_complete_arg 'instal' -l zap -d 'For use with `brew reinstall --cask`. Remove all files associated with a cask. *May remove files which are shared between applications.*'
-__fish_brew_complete_arg 'instal; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
-__fish_brew_complete_arg 'instal; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
 __fish_brew_complete_cmd 'install' 'Install a formula or cask'
@@ -1279,26 +1178,6 @@ __fish_brew_complete_arg 'irb' -l help -d 'Show this message'
 __fish_brew_complete_arg 'irb' -l pry -d 'Use Pry instead of IRB. Enabled by default if `$HOMEBREW_PRY` is set'
 __fish_brew_complete_arg 'irb' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'irb' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd 'lc' 'Check for newer versions of formulae and/or casks from upstream'
-__fish_brew_complete_arg 'lc' -l autobump -d 'Include packages that are autobumped by BrewTestBot. By default these are skipped'
-__fish_brew_complete_arg 'lc' -l cask -d 'Only check casks'
-__fish_brew_complete_arg 'lc' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'lc' -l eval-all -d 'Evaluate all available formulae and casks, whether installed or not, to check them'
-__fish_brew_complete_arg 'lc' -l extract-plist -d 'Enable checking multiple casks with ExtractPlist strategy'
-__fish_brew_complete_arg 'lc' -l formula -d 'Only check formulae'
-__fish_brew_complete_arg 'lc' -l full-name -d 'Print formulae and casks with fully-qualified names'
-__fish_brew_complete_arg 'lc' -l help -d 'Show this message'
-__fish_brew_complete_arg 'lc' -l installed -d 'Check formulae and casks that are currently installed'
-__fish_brew_complete_arg 'lc' -l json -d 'Output information in JSON format'
-__fish_brew_complete_arg 'lc' -l newer-only -d 'Show the latest version only if it\'s newer than the current formula or cask version'
-__fish_brew_complete_arg 'lc' -l quiet -d 'Suppress warnings, don\'t print a progress bar for JSON output'
-__fish_brew_complete_arg 'lc' -l resources -d 'Also check resources for formulae'
-__fish_brew_complete_arg 'lc' -l tap -d 'Check formulae and casks within the given tap, specified as user`/`repo'
-__fish_brew_complete_arg 'lc' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'lc; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
-__fish_brew_complete_arg 'lc; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
 __fish_brew_complete_cmd 'leaves' 'List installed formulae that are not dependencies of another installed formula or cask'
@@ -1385,18 +1264,6 @@ __fish_brew_complete_arg 'livecheck; and not __fish_seen_argument -l cask -l cas
 __fish_brew_complete_arg 'livecheck; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
-__fish_brew_complete_cmd 'ln' 'Symlink all of formula\'s installed files into Homebrew\'s prefix'
-__fish_brew_complete_arg 'ln' -l HEAD -d 'Link the HEAD version of the formula if it is installed'
-__fish_brew_complete_arg 'ln' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'ln' -l dry-run -d 'List files which would be linked or deleted by `brew link --overwrite` without actually linking or deleting any files'
-__fish_brew_complete_arg 'ln' -l force -d 'Allow keg-only formulae to be linked'
-__fish_brew_complete_arg 'ln' -l help -d 'Show this message'
-__fish_brew_complete_arg 'ln' -l overwrite -d 'Delete files that already exist in the prefix while linking'
-__fish_brew_complete_arg 'ln' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'ln' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'ln' -a '(__fish_brew_suggest_formulae_installed)'
-
-
 __fish_brew_complete_cmd 'log' 'Show the `git log` for formula or cask, or show the log for the Homebrew repository if no formula or cask is provided'
 __fish_brew_complete_arg 'log' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'log' -l debug -d 'Display any debugging information'
@@ -1411,29 +1278,6 @@ __fish_brew_complete_arg 'log' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'log' -l 1 -d 'Print only one commit'
 __fish_brew_complete_arg 'log; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'log; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
-
-
-__fish_brew_complete_cmd 'ls' 'List all installed formulae and casks'
-__fish_brew_complete_arg 'ls' -l built-from-source -d 'List the formulae compiled from source'
-__fish_brew_complete_arg 'ls' -l cask -d 'List only casks, or treat all named arguments as casks'
-__fish_brew_complete_arg 'ls' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'ls' -l formula -d 'List only formulae, or treat all named arguments as formulae'
-__fish_brew_complete_arg 'ls' -l full-name -d 'Print formulae with fully-qualified names. Unless `--full-name`, `--versions` or `--pinned` are passed, other options (i.e. `-1`, `-l`, `-r` and `-t`) are passed to `ls`(1) which produces the actual output'
-__fish_brew_complete_arg 'ls' -l help -d 'Show this message'
-__fish_brew_complete_arg 'ls' -l installed-as-dependency -d 'List the formulae installed as dependencies'
-__fish_brew_complete_arg 'ls' -l installed-on-request -d 'List the formulae installed on request'
-__fish_brew_complete_arg 'ls' -l multiple -d 'Only show formulae with multiple versions installed. Implies `--versions`'
-__fish_brew_complete_arg 'ls' -l pinned -d 'List only pinned packages, or only the specified (pinned) packages if formula or cask are provided. See also `pin`, `unpin`'
-__fish_brew_complete_arg 'ls' -l poured-from-bottle -d 'List the formulae installed from a bottle'
-__fish_brew_complete_arg 'ls' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'ls' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'ls' -l versions -d 'Show the version number for installed formulae, or only the specified formulae if formula are provided'
-__fish_brew_complete_arg 'ls' -l 1 -d 'Force output to be one entry per line. This is the default when output is not to a terminal'
-__fish_brew_complete_arg 'ls' -l l -d 'List formulae and/or casks in long format. Has no effect when a formula or cask name is passed as an argument'
-__fish_brew_complete_arg 'ls' -l r -d 'Reverse the order of formula and/or cask sorting to list the oldest entries first. Has no effect when a formula or cask name is passed as an argument'
-__fish_brew_complete_arg 'ls' -l t -d 'Sort formulae and/or casks by time modified, listing most recently modified first. Has no effect when a formula or cask name is passed as an argument'
-__fish_brew_complete_arg 'ls; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
-__fish_brew_complete_arg 'ls; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
 __fish_brew_complete_cmd 'mcp-server' 'Starts the Homebrew MCP (Model Context Protocol) server'
@@ -1509,14 +1353,6 @@ __fish_brew_complete_arg 'pin' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'pin' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'pin; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
 __fish_brew_complete_arg 'pin; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
-
-
-__fish_brew_complete_cmd 'post_install' 'Rerun the post-install steps for formula'
-__fish_brew_complete_arg 'post_install' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'post_install' -l help -d 'Show this message'
-__fish_brew_complete_arg 'post_install' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'post_install' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'post_install' -a '(__fish_brew_suggest_formulae_installed)'
 
 
 __fish_brew_complete_cmd 'postinstall' 'Rerun the post-install steps for formula'
@@ -1685,34 +1521,6 @@ __fish_brew_complete_arg 'release' -l major -d 'Create a major release'
 __fish_brew_complete_arg 'release' -l minor -d 'Create a minor release'
 __fish_brew_complete_arg 'release' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'release' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd 'remove' 'Uninstall a formula or cask'
-__fish_brew_complete_arg 'remove' -l cask -d 'Treat all named arguments as casks'
-__fish_brew_complete_arg 'remove' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'remove' -l force -d 'Delete all installed versions of formula. Uninstall even if cask is not installed, overwrite existing files and ignore errors when removing files'
-__fish_brew_complete_arg 'remove' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'remove' -l help -d 'Show this message'
-__fish_brew_complete_arg 'remove' -l ignore-dependencies -d 'Don\'t fail uninstall, even if formula is a dependency of any installed formulae'
-__fish_brew_complete_arg 'remove' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'remove' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'remove' -l zap -d 'Remove all files associated with a cask. *May remove files which are shared between applications.*'
-__fish_brew_complete_arg 'remove; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
-__fish_brew_complete_arg 'remove; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
-
-
-__fish_brew_complete_cmd 'rm' 'Uninstall a formula or cask'
-__fish_brew_complete_arg 'rm' -l cask -d 'Treat all named arguments as casks'
-__fish_brew_complete_arg 'rm' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'rm' -l force -d 'Delete all installed versions of formula. Uninstall even if cask is not installed, overwrite existing files and ignore errors when removing files'
-__fish_brew_complete_arg 'rm' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'rm' -l help -d 'Show this message'
-__fish_brew_complete_arg 'rm' -l ignore-dependencies -d 'Don\'t fail uninstall, even if formula is a dependency of any installed formulae'
-__fish_brew_complete_arg 'rm' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'rm' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'rm' -l zap -d 'Remove all files associated with a cask. *May remove files which are shared between applications.*'
-__fish_brew_complete_arg 'rm; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
-__fish_brew_complete_arg 'rm; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
 __fish_brew_complete_cmd 'rubocop' 'Installs, configures and runs Homebrew\'s `rubocop`'
@@ -1955,22 +1763,6 @@ __fish_brew_complete_arg 'tap-new' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'tap-new' -a '(__fish_brew_suggest_taps_installed)'
 
 
-__fish_brew_complete_cmd 'tc' 'Check for typechecking errors using Sorbet'
-__fish_brew_complete_arg 'tc' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'tc' -l dir -d 'Typecheck all files in a specific directory'
-__fish_brew_complete_arg 'tc' -l file -d 'Typecheck a single file'
-__fish_brew_complete_arg 'tc' -l fix -d 'Automatically fix type errors'
-__fish_brew_complete_arg 'tc' -l help -d 'Show this message'
-__fish_brew_complete_arg 'tc' -l ignore -d 'Ignores input files that contain the given string in their paths (relative to the input path passed to Sorbet)'
-__fish_brew_complete_arg 'tc' -l lsp -d 'Start the Sorbet LSP server'
-__fish_brew_complete_arg 'tc' -l quiet -d 'Silence all non-critical errors'
-__fish_brew_complete_arg 'tc' -l suggest-typed -d 'Try upgrading `typed` sigils'
-__fish_brew_complete_arg 'tc' -l update -d 'Update RBI files'
-__fish_brew_complete_arg 'tc' -l update-all -d 'Update all RBI files rather than just updated gems'
-__fish_brew_complete_arg 'tc' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'tc' -a '(__fish_brew_suggest_taps_installed)'
-
-
 __fish_brew_complete_cmd 'test' 'Run the test method provided by an installed formula'
 __fish_brew_complete_arg 'test' -l HEAD -d 'Test the HEAD version of a formula'
 __fish_brew_complete_arg 'test' -l debug -d 'Display any debugging information'
@@ -2085,19 +1877,6 @@ __fish_brew_complete_arg 'unbottled' -l verbose -d 'Make some output more verbos
 __fish_brew_complete_arg 'unbottled' -a '(__fish_brew_suggest_formulae_all)'
 
 
-__fish_brew_complete_arg 'uninstal' -l cask -d 'Treat all named arguments as casks'
-__fish_brew_complete_arg 'uninstal' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'uninstal' -l force -d 'Delete all installed versions of formula. Uninstall even if cask is not installed, overwrite existing files and ignore errors when removing files'
-__fish_brew_complete_arg 'uninstal' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'uninstal' -l help -d 'Show this message'
-__fish_brew_complete_arg 'uninstal' -l ignore-dependencies -d 'Don\'t fail uninstall, even if formula is a dependency of any installed formulae'
-__fish_brew_complete_arg 'uninstal' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'uninstal' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'uninstal' -l zap -d 'Remove all files associated with a cask. *May remove files which are shared between applications.*'
-__fish_brew_complete_arg 'uninstal; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
-__fish_brew_complete_arg 'uninstal; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
-
-
 __fish_brew_complete_cmd 'uninstall' 'Uninstall a formula or cask'
 __fish_brew_complete_arg 'uninstall' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'uninstall' -l debug -d 'Display any debugging information'
@@ -2154,16 +1933,6 @@ __fish_brew_complete_arg 'untap' -l help -d 'Show this message'
 __fish_brew_complete_arg 'untap' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'untap' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'untap' -a '(__fish_brew_suggest_taps_installed)'
-
-
-__fish_brew_complete_cmd 'up' 'Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1) and perform any necessary migrations'
-__fish_brew_complete_arg 'up' -l auto-update -d 'Run on auto-updates (e.g. before `brew install`). Skips some slower steps'
-__fish_brew_complete_arg 'up' -l debug -d 'Display a trace of all shell commands as they are executed'
-__fish_brew_complete_arg 'up' -l force -d 'Always do a slower, full update check (even if unnecessary)'
-__fish_brew_complete_arg 'up' -l help -d 'Show this message'
-__fish_brew_complete_arg 'up' -l merge -d 'Use `git merge` to apply updates (rather than `git rebase`)'
-__fish_brew_complete_arg 'up' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'up' -l verbose -d 'Print the directories checked and `git` operations performed'
 
 
 __fish_brew_complete_cmd 'update' 'Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1) and perform any necessary migrations'
@@ -2374,14 +2143,6 @@ __fish_brew_complete_arg 'which-update' -l removed-formulae-file -d 'Remove data
 __fish_brew_complete_arg 'which-update' -l repository -d 'GitHub repository for `--pull-request` (default: `$GITHUB_REPOSITORY`)'
 __fish_brew_complete_arg 'which-update' -l summary-file -d 'Output a summary of the changes to a file'
 __fish_brew_complete_arg 'which-update' -l verbose -d 'Make some output more verbose'
-
-
-__fish_brew_complete_cmd 'x' 'Run command in an environment populated by Homebrew formulae'
-__fish_brew_complete_arg 'x' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'x' -l formulae -d 'Comma-separated formulae to install and add to `PATH` before running command'
-__fish_brew_complete_arg 'x' -l help -d 'Show this message'
-__fish_brew_complete_arg 'x' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'x' -l verbose -d 'Make some output more verbose'
 
 
 
