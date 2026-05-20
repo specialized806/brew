@@ -161,25 +161,6 @@ Note: Flatpak support is only available on Linux.
   set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set),
   `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise.
 
-`brew bundle upgrade`
-
-: Shorthand for `brew bundle install --upgrade`.
-
-`--upgrade`
-
-: Run `brew upgrade` on outdated dependencies, even if
-  `$HOMEBREW_BUNDLE_NO_UPGRADE` is set.
-
-`--upgrade-formulae`
-
-: Run `brew upgrade` on any of these comma-separated formulae, even if
-  `$HOMEBREW_BUNDLE_NO_UPGRADE` is set.
-
-`--jobs`
-
-: Run up to this many formula installations in parallel. Defaults to 1
-  (sequential). Use `auto` for the number of CPU cores (max 4).
-
 `brew bundle sh` \[`--check`\] \[`--no-secrets`\]
 
 : Run your shell in a `brew bundle exec` environment.
@@ -318,11 +299,13 @@ By default, only Homebrew formula dependencies are listed.
 
 : List npm packages.
 
-`brew bundle` \[`install`\]
+`brew bundle` \[`install`\|`upgrade`\]
 
 : Install and upgrade (by default) all dependencies from the `Brewfile`.
 
 Use this to restore a recorded installed state from a `Brewfile`.
+
+`brew bundle upgrade` is shorthand for `brew bundle install --upgrade`.
 
 You can specify the `Brewfile` location using `--file` or by setting the
 `$HOMEBREW_BUNDLE_FILE` environment variable.

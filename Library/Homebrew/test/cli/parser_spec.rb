@@ -718,6 +718,23 @@ RSpec.describe Homebrew::CLI::Parser do
       expect(args.global?).to be(true)
     end
 
+    it "applies implied options from subcommand aliases", :aggregate_failures do
+      parser = described_class.new(Cmd) do
+        subcommand "install", alias_options: { "upgrade" => "--upgrade" } do
+          switch "--upgrade"
+          switch "--force"
+          named_args :none
+        end
+      end
+
+      args = parser.parse(%w[upgrade --force])
+
+      expect(parser.subcommands.first.aliases).to eq(["upgrade"])
+      expect(args.subcommand).to eq("install")
+      expect(args.upgrade?).to be(true)
+      expect(args.force?).to be(true)
+    end
+
     it "returns options for a specific subcommand" do
       parser = subcommand_parser
 

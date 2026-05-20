@@ -48,7 +48,12 @@ module Homebrew
         parser_block = @parser_block
         raise TypeError, "subcommand arguments have not been defined" if parser_block.nil?
 
-        parser.subcommand(subcommand_name, aliases: @aliases || [], default: @default || false) do
+        parser.subcommand(
+          subcommand_name,
+          aliases:       @aliases || [],
+          alias_options: @alias_options || {},
+          default:       @default || false,
+        ) do
           instance_eval(&parser_block)
         end
       end
@@ -58,9 +63,17 @@ module Homebrew
       # The description and arguments of the subcommand should be defined within this block.
       #
       # @api public
-      sig { params(aliases: T::Array[String], default: T::Boolean, block: T.proc.bind(CLI::Parser).void).void }
-      def subcommand_args(aliases: [], default: false, &block)
+      sig {
+        params(
+          aliases:       T::Array[String],
+          alias_options: T::Hash[String, String],
+          default:       T::Boolean,
+          block:         T.proc.bind(CLI::Parser).void,
+        ).void
+      }
+      def subcommand_args(aliases: [], alias_options: {}, default: false, &block)
         @aliases = T.let(aliases, T.nilable(T::Array[String]))
+        @alias_options = T.let(alias_options, T.nilable(T::Hash[String, String]))
         @default = T.let(default, T.nilable(T::Boolean))
         @parser_block = T.let(block, T.nilable(T.proc.void))
       end

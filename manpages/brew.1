@@ -99,18 +99,6 @@ Read from or write to the \fBBrewfile\fP from this location\. Use \fB\-\-file=\-
 \fB\-g\fP, \fB\-\-global\fP
 Read from or write to the \fBBrewfile\fP from \fB$HOMEBREW_BUNDLE_FILE_GLOBAL\fP (if set), \fB${XDG_CONFIG_HOME}/homebrew/Brewfile\fP (if \fB$XDG_CONFIG_HOME\fP is set), \fB~/\.homebrew/Brewfile\fP or \fB~/\.Brewfile\fP otherwise\.
 .TP
-\fBbrew bundle upgrade\fP
-Shorthand for \fBbrew bundle install \-\-upgrade\fP\&\.
-.TP
-\fB\-\-upgrade\fP
-Run \fBbrew upgrade\fP on outdated dependencies, even if \fB$HOMEBREW_BUNDLE_NO_UPGRADE\fP is set\.
-.TP
-\fB\-\-upgrade\-formulae\fP
-Run \fBbrew upgrade\fP on any of these comma\-separated formulae, even if \fB$HOMEBREW_BUNDLE_NO_UPGRADE\fP is set\.
-.TP
-\fB\-\-jobs\fP
-Run up to this many formula installations in parallel\. Defaults to 1 (sequential)\. Use \fBauto\fP for the number of CPU cores (max 4)\.
-.TP
 \fBbrew bundle sh\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP]
 Run your shell in a \fBbrew bundle exec\fP environment\.
 .TP
@@ -209,10 +197,12 @@ List Krew plugins\.
 \fB\-\-npm\fP
 List npm packages\.
 .TP
-\fBbrew bundle\fP [\fBinstall\fP]
+\fBbrew bundle\fP [\fBinstall\fP|\fBupgrade\fP]
 Install and upgrade (by default) all dependencies from the \fBBrewfile\fP\&\.
 .P
 Use this to restore a recorded installed state from a \fBBrewfile\fP\&\.
+.P
+\fBbrew bundle upgrade\fP is shorthand for \fBbrew bundle install \-\-upgrade\fP\&\.
 .P
 You can specify the \fBBrewfile\fP location using \fB\-\-file\fP or by setting the \fB$HOMEBREW_BUNDLE_FILE\fP environment variable\.
 .P
