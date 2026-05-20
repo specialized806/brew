@@ -239,6 +239,10 @@ check-run-command-as-root() {
   [[ -f /run/.containerenv ]] && return
   [[ -f /proc/1/cgroup ]] && grep -E "azpl_job|actions_job|docker|garden|kubepods" -q /proc/1/cgroup && return
 
+  # `brew as-console-user` is run by root-owned MDM/Munki/Jamf workflows so it
+  # can immediately dispatch the requested Homebrew command as the console user.
+  [[ "${HOMEBREW_COMMAND}" == "as-console-user" ]] && return
+
   # `brew services` may need `sudo` for system-wide daemons.
   if [[ "${HOMEBREW_COMMAND}" == "services" ]]
   then
