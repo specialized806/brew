@@ -40,8 +40,7 @@ module Homebrew
                description: "Print the verification and post-install steps."
         switch "--ask",
                description: "Ask for confirmation before downloading and reinstalling. " \
-                            "Print a dependency plan, including added, changed and removed packages " \
-                            "and dependencies, with download and install sizes of formula bottles.",
+                            "Print what would be reinstalled before prompting.",
                env:         :ask
         [
           [:switch, "--formula", "--formulae", {
@@ -200,8 +199,24 @@ module Homebrew
 
           formulae_installers = reinstall_contexts.map(&:formula_installer)
 
-          # Main block: if asking the user is enabled, show dependency and size information.
-          Install.ask_formulae(formulae_installers, dependants, action: "reinstallation", args: args) if args.ask?
+          # Main block: if asking the user is enabled, show dry-run information.
+          if args.ask?
+            Install.ask_formulae(
+              formulae_installers,
+              dependants,
+              action:                     "reinstallation",
+              flags:                      args.flags_only,
+              force_bottle:               args.force_bottle?,
+              build_from_source_formulae: args.build_from_source_formulae,
+              interactive:                args.interactive?,
+              keep_tmp:                   args.keep_tmp?,
+              debug_symbols:              args.debug_symbols?,
+              force:                      args.force?,
+              debug:                      args.debug?,
+              quiet:                      args.quiet?,
+              verbose:                    args.verbose?,
+            )
+          end
 
           valid_formula_installers = if casks.any?
             shared_download_queue = Homebrew::DownloadQueue.new(pour: true)

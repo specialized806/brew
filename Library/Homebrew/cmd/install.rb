@@ -47,8 +47,7 @@ module Homebrew
                description: "Show what would be installed, but do not actually install anything."
         switch "--ask",
                description: "Ask for confirmation before downloading and installing. " \
-                            "Print a dependency plan, including added, changed and removed packages " \
-                            "and dependencies, with download and install sizes of formula bottles.",
+                            "Print the same plan as `--dry-run` before prompting.",
                env:         :ask
         [
           [:switch, "--formula", "--formulae", {
@@ -217,21 +216,7 @@ module Homebrew
         fetch_casks = T.let([], T::Array[Cask::Cask])
         if casks.any?
           if args.dry_run?
-            if (casks_to_install = casks.reject(&:installed?).presence)
-              ohai "Would install #{::Utils.pluralize("cask", casks_to_install.count, include_count: true)}:"
-              puts casks_to_install.map(&:full_name).join(" ")
-            end
-            casks.each do |cask|
-              dep_names = CaskDependent.new(cask)
-                                       .runtime_dependencies
-                                       .reject(&:installed?)
-                                       .map(&:name)
-              next if dep_names.blank?
-
-              ohai "Would install #{::Utils.pluralize("dependency", dep_names.count, include_count: true)} " \
-                   "for #{cask.full_name}:"
-              puts dep_names.join(" ")
-            end
+            Install.print_dry_run_casks(casks, skip_cask_deps: args.skip_cask_deps?, include_installed: false)
             return
           end
 
@@ -326,8 +311,23 @@ module Homebrew
           dry_run:                    args.dry_run?,
         )
 
-        # Main block: if asking the user is enabled, show dependency and size information.
-        Install.ask_formulae(formulae_installer, dependants, args: args) if args.ask?
+        # Main block: if asking the user is enabled, show dry-run information.
+        if args.ask?
+          Install.ask_formulae(
+            formulae_installer,
+            dependants,
+            flags:                      args.flags_only,
+            force_bottle:               args.force_bottle?,
+            build_from_source_formulae: args.build_from_source_formulae,
+            interactive:                args.interactive?,
+            keep_tmp:                   args.keep_tmp?,
+            debug_symbols:              args.debug_symbols?,
+            force:                      args.force?,
+            debug:                      args.debug?,
+            quiet:                      args.quiet?,
+            verbose:                    args.verbose?,
+          )
+        end
 
         if formulae_installer.any? && fetch_casks.empty? && !args.ask? && !args.dry_run? &&
            !Homebrew::EnvConfig.no_env_hints?

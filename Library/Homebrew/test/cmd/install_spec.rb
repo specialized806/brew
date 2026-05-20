@@ -9,66 +9,65 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it_behaves_like "parseable arguments"
 
-  it "prints a formula closure diff when asking" do
+  it "prints a formula dry-run plan when asking" do
     added = formula("added") do
       url "https://brew.sh/added-1.0.tar.gz"
     end
     changed = formula("changed") do
       url "https://brew.sh/changed-2.0.tar.gz"
     end
-    removed = formula("removed") do
-      url "https://brew.sh/removed-1.0.tar.gz"
-    end
     added_installer = FormulaInstaller.new(added)
     changed_installer = FormulaInstaller.new(changed)
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
-    bottle = instance_double(Bottle, fetch_tab: nil, bottle_size: nil, installed_size: 2000)
-    keg = instance_double(Keg, disk_usage: 1000)
 
     allow(added_installer).to receive(:compute_dependencies).and_return([])
     allow(changed_installer).to receive(:compute_dependencies).and_return([])
-    allow(changed).to receive_messages(
-      any_version_installed?:                 true,
-      any_installed_version:                  PkgVersion.parse("1.0"),
-      bottle:                                 bottle,
-      installed_kegs:                         [keg],
-      installed_runtime_formula_dependencies: [removed],
-    )
 
     expect do
       Homebrew::Install.ask_formulae(
         [added_installer, changed_installer],
         dependants,
-        args:   described_class.new(["--ask", "added", "changed"]).args,
         prompt: false,
       )
     end.to output(<<~EOS).to_stdout
-      Formulae (2):
-      added
-      changed
-
-      Added Formula (1):
-      added
-      Changed Formula (1):
-      changed 1.0 -> 2.0
-      Removed from Closure Formula (1):
-      removed
-      Size Changed Formula (1):
-      changed 1KB -> 2KB
-      ==> Bottle Sizes
-      Download: 0B
-      Install:  2KB
+      ==> Would install 2 formulae:
+      added changed
     EOS
   end
 
-  it "uses the requested action when asking for formulae" do
-    formula = formula("changed") do
-      url "https://brew.sh/changed-2.0.tar.gz"
+  it "skips ask input when asking for only requested formulae" do
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
     end
     formula_installer = FormulaInstaller.new(formula)
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
 
     allow(formula_installer).to receive(:compute_dependencies).and_return([])
+    expect(Homebrew::Install).not_to receive(:ask_input)
+
+    expect do
+      Homebrew::Install.ask_formulae(
+        [formula_installer],
+        dependants,
+      )
+    end.to output(<<~EOS).to_stdout
+      ==> Would install 1 formula:
+      testball
+    EOS
+  end
+
+  it "uses the requested action when asking for formulae with dependencies" do
+    formula = formula("changed") do
+      url "https://brew.sh/changed-2.0.tar.gz"
+    end
+    dependency = formula("dependency") do
+      url "https://brew.sh/dependency-1.0.tar.gz"
+    end
+    formula_installer = FormulaInstaller.new(formula)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(formula_installer).to receive(:compute_dependencies)
+      .and_return([instance_double(Dependency, to_formula: dependency)])
     expect(Homebrew::Install).to receive(:ask_input).with(action: "upgrade")
 
     expect do
@@ -76,9 +75,13 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
         [formula_installer],
         dependants,
         action: "upgrade",
-        args:   described_class.new(["--ask", "changed"]).args,
       )
-    end.to output(/Formula \(1\):\nchanged/).to_stdout
+    end.to output(<<~EOS).to_stdout
+      ==> Would upgrade 1 formula:
+      changed
+      ==> Would install 1 dependency for changed:
+      dependency
+    EOS
   end
 
   it "defaults ask input to no" do
@@ -90,77 +93,82 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
       .and output("==> Do you want to proceed with the upgrade? [y/N]\n").to_stdout
   end
 
+  it "uses shared prompt rules for ask plans" do
+    expect([
+      Homebrew::Install.ask_prompt_needed?(planned_names: ["fish"], requested_names: ["fish"]),
+      Homebrew::Install.ask_prompt_needed?(planned_names: ["fish", "openssl"], requested_names: ["fish"]),
+      Homebrew::Install.ask_prompt_needed?(planned_names: ["fish"], requested_names: [], named: false),
+      Homebrew::Install.ask_prompt_needed?(planned_names: ["fish"], requested_names: ["fish"], force: true),
+      Homebrew::Install.ask_prompt_needed?(planned_names: [], requested_names: [], named: false),
+    ]).to eq([false, true, true, true, false])
+  end
+
   it "prints casks when asking", :cask do
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
     expect do
       Homebrew::Install.ask_casks([cask], prompt: false)
     end.to output(<<~EOS).to_stdout
-      Cask (1): local-caffeine
-
-      Added Cask (1): local-caffeine
+      ==> Would install 1 cask:
+      local-caffeine
     EOS
   end
 
-  it "prints a cask dependency plan when asking", :cask do
-    cask = Cask::CaskLoader.load(cask_path("with-depends-on-everything"))
-    unar = Class.new(Formula) do
-      url "my_url"
-      version "1.2"
-    end.new("unar", Pathname.new(__FILE__).expand_path, :stable)
-
-    allow(Formulary).to receive(:factory).with("unar").and_return(unar)
-
-    expect do
-      Homebrew::Install.ask_casks([cask], prompt: false)
-    end.to output(Regexp.new(
-                    "Casks \\(4\\): .*with-depends-on-everything.*\\n\\n" \
-                    "Formula \\(1\\): unar\\n\\n" \
-                    "Added Casks \\(4\\): .*with-depends-on-everything.*\\n" \
-                    "Added Formula \\(1\\): unar\\n",
-                    Regexp::MULTILINE,
-                  )).to_stdout
-  end
-
-  it "prints changed and removed cask closure entries when asking", :cask do
+  it "prompts when asking for casks with dependencies", :cask do
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
-    tab = instance_double(
-      Cask::Tab,
-      runtime_dependencies: {
-        "cask"    => [{ "full_name" => "old-cask" }],
-        "formula" => [{ "full_name" => "old-formula" }],
-      },
-    )
+    dependency = instance_double(Dependency, installed?: false, name: "unar")
 
-    allow(cask).to receive_messages(installed?: true, installed_version: "1.0", tab:)
+    allow(CaskDependent).to receive(:new)
+      .with(cask)
+      .and_return(instance_double(CaskDependent, runtime_dependencies: [dependency]))
+    expect(Homebrew::Install).to receive(:ask_input).with(action: "installation")
 
     expect do
-      Homebrew::Install.ask_casks([cask], prompt: false)
+      Homebrew::Install.ask_casks([cask])
     end.to output(<<~EOS).to_stdout
-      Cask (1): local-caffeine
-
-      Changed Cask (1): local-caffeine 1.0 -> 1.2.3
-      Removed from Closure Cask (1): old-cask
-      Removed from Closure Formula (1): old-formula
+      ==> Would install 1 cask:
+      local-caffeine
+      ==> Would install 1 dependency for local-caffeine:
+      unar
     EOS
   end
 
-  it "does not print unchanged skipped cask dependencies as removed", :cask do
+  it "prompts when asking for casks with cask dependencies", :cask do
     cask = Cask::CaskLoader.load(cask_path("with-depends-on-cask"))
-    tab = instance_double(
-      Cask::Tab,
-      runtime_dependencies: {
-        "cask" => [{ "full_name" => "local-transmission-zip" }],
-      },
-    )
 
-    allow(cask).to receive_messages(installed?: true, installed_version: cask.version.to_s, tab:)
+    expect(Homebrew::Install).to receive(:ask_input).with(action: "installation")
 
     expect do
-      Homebrew::Install.ask_casks([cask], prompt: false, skip_cask_deps: true)
+      Homebrew::Install.ask_casks([cask])
     end.to output(<<~EOS).to_stdout
-      Cask (1): with-depends-on-cask
+      ==> Would install 1 cask:
+      with-depends-on-cask
+      ==> Would install 1 dependency for with-depends-on-cask:
+      local-transmission-zip
+    EOS
+  end
 
+  it "prints a cask reinstallation dry-run plan when asking", :cask do
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+
+    expect do
+      Homebrew::Install.ask_casks([cask], action: "reinstallation", prompt: false)
+    end.to output(<<~EOS).to_stdout
+      ==> Would reinstall 1 cask:
+      local-caffeine
+    EOS
+  end
+
+  it "does not prompt when skipped cask dependencies will not be installed", :cask do
+    cask = Cask::CaskLoader.load(cask_path("with-depends-on-cask"))
+
+    expect(Homebrew::Install).not_to receive(:ask_input)
+
+    expect do
+      Homebrew::Install.ask_casks([cask], skip_cask_deps: true)
+    end.to output(<<~EOS).to_stdout
+      ==> Would install 1 cask:
+      with-depends-on-cask
     EOS
   end
 
@@ -240,7 +248,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
       uninstall_test_formula formula_name
 
       expect { brew "install", "--ask", formula_name }
-        .to output(/.*Formula\s*\(1\):\s*#{formula_name}.*/).to_stdout
+        .to output(/.*Would install 1 formula:\s*#{formula_name}.*/).to_stdout
         .and output(/✔︎.*/m).to_stderr
         .and be_a_success
       expect(option_file).not_to be_a_file

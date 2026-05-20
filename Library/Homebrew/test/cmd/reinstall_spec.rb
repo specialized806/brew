@@ -100,7 +100,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     FileUtils.rm_r(formula_bin)
 
     expect { brew "reinstall", "--ask", formula_name }
-      .to output(/.*Formula\s*\(1\):\s*#{formula_name}.*/).to_stdout
+      .to output(/.*Would reinstall 1 formula:\s*#{formula_name}.*/).to_stdout
       .and output(/✔︎.*/m).to_stderr
       .and be_a_success
     expect(formula_bin).to exist
