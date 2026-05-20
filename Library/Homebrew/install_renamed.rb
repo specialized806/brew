@@ -50,6 +50,7 @@ module InstallRenamed
     # the new default as `*.default`.
     # Resolve via realpath so the ascend walks the Cellar path, not `opt_prefix`.
     # For symlink sources, resolve only the parent directory so broken symlinks
+    # are still handled without requiring the target to exist.
     src = if src.symlink?
       src.dirname.realpath/src.basename
     else
