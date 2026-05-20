@@ -9,6 +9,7 @@ require "cask/utils"
 require "cask/upgrade"
 require "api"
 require "reinstall"
+require "minimum_version"
 
 module Homebrew
   module Cmd
@@ -55,6 +56,9 @@ module Homebrew
                description: "Print the verification and post-install steps."
         switch "-n", "--dry-run",
                description: "Show what would be upgraded, but do not actually upgrade anything."
+        flag   "--minimum-version=", "--min-version=",
+               description: "Only upgrade a named formula or cask with an installed version below the given " \
+                            "minimum version."
         switch "--ask",
                description: "Ask for confirmation before downloading and upgrading. " \
                             "Print the same plan as `--dry-run`, including available download sizes.",
@@ -151,6 +155,8 @@ module Homebrew
         if args.build_from_source? && args.named.empty?
           raise ArgumentError, "`--build-from-source` requires at least one formula"
         end
+        raise UsageError, "`--minimum-version` requires exactly one formula or cask argument." if
+          minimum_version.present? && args.named.length != 1
 
         formulae = T.let([], T::Array[Formula])
         casks = T.let([], T::Array[Cask::Cask])
@@ -294,6 +300,35 @@ module Homebrew
 
       private
 
+      sig { returns(T.nilable(String)) }
+      def minimum_version = args.minimum_version || args.min_version
+
+      sig { params(formula: Formula).returns(T::Boolean) }
+      def formula_outdated?(formula)
+        version = minimum_version
+        return formula.outdated?(fetch_head: args.fetch_HEAD?) if version.blank?
+
+        formula.outdated?(fetch_head: args.fetch_HEAD?) &&
+          MinimumVersion.formula_outdated_kegs(formula, version, fetch_head: args.fetch_HEAD?).present?
+      end
+
+      sig { params(casks: T::Array[Cask::Cask], quiet: T::Boolean).returns(T::Array[Cask::Cask]) }
+      def minimum_version_casks(casks, quiet: args.quiet?)
+        version = minimum_version
+        return casks if version.blank?
+
+        casks.select do |cask|
+          if MinimumVersion.cask_installed_below?(cask, version)
+            true
+          else
+            unless quiet
+              opoo "Not upgrading #{cask.token}, the installed version is not below the minimum version #{version}"
+            end
+            false
+          end
+        end
+      end
+
       sig {
         params(formulae: T::Array[Formula], show_upgrade_summary: T::Boolean,
                dry_run: T::Boolean).returns(T.nilable(FormulaeUpgradeContext))
@@ -310,15 +345,32 @@ module Homebrew
           end
         end
 
+        not_outdated = T.let([], T::Array[Formula])
         if formulae.blank?
           outdated = Formula.installed.select do |f|
-            f.outdated?(fetch_head: args.fetch_HEAD?)
+            formula_outdated?(f)
           end
-        else
+        elsif minimum_version.present?
           outdated, not_outdated = formulae.partition do |f|
             f.outdated?(fetch_head: args.fetch_HEAD?)
           end
+          outdated, minimum_version_skipped = outdated.partition do |f|
+            MinimumVersion.formula_outdated_kegs(f, minimum_version, fetch_head: args.fetch_HEAD?).present?
+          end
 
+          minimum_version_skipped.each do |f|
+            next if args.quiet?
+
+            opoo "Not upgrading #{f.full_specified_name}, the installed version is not below " \
+                 "the minimum version #{minimum_version}"
+          end
+        else
+          outdated, not_outdated = formulae.partition do |f|
+            formula_outdated?(f)
+          end
+        end
+
+        if formulae.present?
           not_outdated.each do |f|
             latest_keg = f.installed_kegs.max_by(&:scheme_and_version)
             if latest_keg.nil?
@@ -650,6 +702,9 @@ module Homebrew
         return false if args.formula?
         return false if args.ask?
 
+        casks = minimum_version_casks(casks, quiet: true)
+        return false if minimum_version.present? && casks.empty?
+
         outdated_casks = Cask::Upgrade.outdated_casks(
           casks,
           args:,
@@ -708,6 +763,9 @@ module Homebrew
                                   dry_run: args.dry_run?,
                                   download_queue: nil)
         return false if args.formula?
+
+        casks = minimum_version_casks(casks)
+        return false if minimum_version.present? && casks.empty?
 
         Cask::Upgrade.upgrade_casks!(
           *casks,

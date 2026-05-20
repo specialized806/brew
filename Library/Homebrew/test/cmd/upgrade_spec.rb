@@ -10,6 +10,18 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it_behaves_like "parseable arguments"
 
+  def install_formula_version(name, version, optlinked: false)
+    keg_path = HOMEBREW_CELLAR/name/version
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+    return unless optlinked
+
+    (HOMEBREW_PREFIX/"opt").mkpath
+    FileUtils.ln_s(keg_path, HOMEBREW_PREFIX/"opt/#{name}")
+  end
+
   it "upgrades a Formula", :integration_test do
     formula_name = "testball_bottle"
     formula_rack = HOMEBREW_CELLAR/formula_name
@@ -56,6 +68,59 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .and output(/#{formula_name} was forbidden/).to_stderr
       .and be_a_failure
     expect(formula_rack/"0.1").not_to exist
+  end
+
+  it "upgrades a named formula installed below the minimum version", :integration_test do
+    setup_test_formula "minimum-version-formula", <<~RUBY
+      url "https://brew.sh/minimum-version-formula-1.2.3"
+    RUBY
+    install_formula_version "minimum-version-formula", "1.2.2", optlinked: true
+
+    expect { brew "upgrade", "minimum-version-formula", "--min-version=1.2.3", "--dry-run" }
+      .to output(/minimum-version-formula 1\.2\.2 -> 1\.2\.3/).to_stdout
+      .and be_a_success
+  end
+
+  it "does not upgrade a named formula installed at --minimum-version", :integration_test do
+    setup_test_formula "minimum-version-formula", <<~RUBY
+      url "https://brew.sh/minimum-version-formula-1.2.4"
+    RUBY
+    install_formula_version "minimum-version-formula", "1.2.3", optlinked: true
+
+    expect { brew "upgrade", "minimum-version-formula", "--minimum-version=1.2.3", "--dry-run" }
+      .to not_to_output(/Would upgrade/).to_stdout
+      .and output(
+        /Not upgrading minimum-version-formula, the installed version is not below the minimum version 1\.2\.3/,
+      ).to_stderr
+      .and be_a_success
+  end
+
+  it "requires one named argument with --minimum-version" do
+    expect { described_class.new(["--minimum-version=1.2.3"]).run }
+      .to raise_error(UsageError, /`--minimum-version` requires exactly one formula or cask argument/)
+  end
+
+  it "rejects multiple named arguments with --minimum-version" do
+    expect { described_class.new(["foo", "bar", "--minimum-version=1.2.3"]).run }
+      .to raise_error(UsageError, /`--minimum-version` requires exactly one formula or cask argument/)
+  end
+
+  it "upgrades a named cask installed below --minimum-version", :cask, :integration_test do
+    InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("outdated/local-caffeine")))
+
+    expect { brew "upgrade", "--cask", "local-caffeine", "--minimum-version=1.2.3", "--dry-run" }
+      .to output(/local-caffeine 1\.2\.2 -> 1\.2\.3/).to_stdout
+      .and be_a_success
+  end
+
+  it "does not upgrade a named cask installed at --minimum-version", :cask, :integration_test do
+    InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("local-caffeine")))
+
+    expect { brew "upgrade", "--cask", "local-caffeine", "--minimum-version=1.2.3", "--dry-run" }
+      .to not_to_output(/Would upgrade/).to_stdout
+      .and output(/Not upgrading local-caffeine, the installed version is not below the minimum version 1\.2\.3/)
+      .to_stderr
+      .and be_a_success
   end
 
   it "reports unavailable names via ofail and continues upgrading" do
