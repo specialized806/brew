@@ -140,6 +140,12 @@ module Homebrew
         named_args [:installed_formula, :installed_cask]
       end
 
+      sig { override.params(argv: T::Array[String]).void }
+      def initialize(argv = ARGV.freeze)
+        super
+        @ask_prompt_required = T.let(false, T::Boolean)
+      end
+
       sig { override.void }
       def run
         if args.build_from_source? && args.named.empty?
@@ -158,6 +164,7 @@ module Homebrew
         prefetched_cask_names = T.let([], T::Array[String])
         prefetched_cask_upgrades = T.let([], T::Array[String])
         @final_upgrade_summary = T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
+        @ask_prompt_required = false
 
         if args.named.present?
           args.named.to_formulae_and_casks_and_unavailable(method: :resolve).each do |item|
@@ -207,7 +214,17 @@ module Homebrew
           end
 
           show_final_upgrade_summary(dry_run: true)
-          Install.ask(action: "upgrade") if final_upgrade_summary.version_changes.present?
+          if Install.ask_prompt_needed?(
+            planned_names:   final_upgrade_summary.version_changes.map do |version_change|
+              planned_name = version_change.split.fetch(0)
+              formulae.find { |formula| formula.full_specified_name == planned_name }&.full_name || planned_name
+            end,
+            requested_names: args.named,
+            force:           @ask_prompt_required,
+            named:           args.named.present?,
+          )
+            Install.ask(action: "upgrade")
+          end
           @final_upgrade_summary = FinalUpgradeSummary.new
         end
 
@@ -579,6 +596,11 @@ module Homebrew
         end
 
         record_formula_upgrade_summary(context, include_sizes: dry_run)
+        if args.ask? && dry_run && args.named.present? &&
+           Install.formulae_ask_prompt_needed?(context.formulae_installer, context.dependants)
+          @ask_prompt_required = true
+        end
+
         skip_formula_names = if dry_run
           (context.formulae_installer.map(&:formula) + context.dependants.upgradeable)
             .uniq(&:full_name)

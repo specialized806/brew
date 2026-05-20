@@ -154,6 +154,42 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     cmd.run
   end
 
+  it "does not ask before upgrading only explicitly named formulae" do
+    expect(Homebrew::Install.ask_prompt_needed?(
+             planned_names:   ["testball"],
+             requested_names: ["testball"],
+           )).to be(false)
+  end
+
+  it "asks before upgrading formulae that resolve from a different name" do
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.2"
+    end
+    cmd = described_class.new(["--ask", "oldtestball"])
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
+      .with(method: :resolve)
+      .and_return([formula])
+
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([formula], dry_run: true, show_upgrade_summary: false)
+      .ordered do
+        cmd.send(:final_upgrade_summary).version_changes << "testball 0.1 -> 0.2"
+        true
+      end
+    allow(cmd).to receive(:show_final_upgrade_summary).and_call_original
+    expect(cmd).to receive(:show_final_upgrade_summary).with(dry_run: true).ordered
+    expect(Homebrew::Install).to receive(:ask).with(action: "upgrade").ordered
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([formula], use_prefetched: false, show_upgrade_summary: false)
+      .ordered
+      .and_return(true)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect { cmd.run }.to output(/testball 0\.1 -> 0\.2/).to_stdout
+  end
+
   it "prints formula download sizes in dry-run upgrade summaries" do
     cmd = described_class.new(["--dry-run"])
     formula = formula("testball") do
