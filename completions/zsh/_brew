@@ -1444,7 +1444,7 @@ _brew_install() {
     '(--formula)--appdir[Target location for Applications (default: `/Applications`)]' \
     '(--formula)--appimagedir[Target location for AppImages (default: `~/Applications`)]' \
     '(--cask)--as-dependency[Install but mark as installed as a dependency and not installed on request]' \
-    '--ask[Ask for confirmation before downloading and installing. Print a dependency plan, including added, changed and removed packages and dependencies, with download and install sizes of formula bottles. Enabled by default if `$HOMEBREW_ASK` is set]' \
+    '--ask[Ask for confirmation before downloading and installing. Print the same plan as `--dry-run` before prompting. Enabled by default if `$HOMEBREW_ASK` is set]' \
     '(--formula)--audio-unit-plugindir[Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)]' \
     '(--formula)--binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '(--cask)--bottle-arch[Optimise bottles for the specified architecture rather than the oldest architecture supported by the version of macOS the bottles are built on]' \
@@ -1578,6 +1578,7 @@ _brew_list() {
     '--help[Show this message]' \
     '(--cask --versions --multiple --pinned -l)--installed-as-dependency[List the formulae installed as dependencies]' \
     '(--cask --versions --multiple --pinned -l)--installed-on-request[List the formulae installed on request]' \
+    '--json[Output installed formulae and casks with versions, linked and opt-linked formula versions and pinned versions as JSON using the fast Bash command path. Requires `--versions`, no named arguments and `jq`]' \
     '(--cask --pinned --installed-on-request --installed-as-dependency --poured-from-bottle --built-from-source -1 -l -r -t --full-name)--multiple[Only show formulae with multiple versions installed. Implies `--versions`]' \
     '(--multiple --installed-on-request --installed-as-dependency --poured-from-bottle --built-from-source -1 -l -r -t --full-name)--pinned[List only pinned packages, or only the specified (pinned) packages if formula or cask are provided. See also `pin`, `unpin`]' \
     '(--cask --versions --multiple --pinned -l)--poured-from-bottle[List the formulae installed from a bottle]' \
@@ -1879,7 +1880,7 @@ _brew_reinstall() {
     '(--formula)--adopt[Adopt existing artifacts in the destination that are identical to those being installed. Cannot be combined with `--force`]' \
     '(--formula)--appdir[Target location for Applications (default: `/Applications`)]' \
     '(--formula)--appimagedir[Target location for AppImages (default: `~/Applications`)]' \
-    '--ask[Ask for confirmation before downloading and reinstalling. Print a dependency plan, including added, changed and removed packages and dependencies, with download and install sizes of formula bottles. Enabled by default if `$HOMEBREW_ASK` is set]' \
+    '--ask[Ask for confirmation before downloading and reinstalling. Print what would be reinstalled before prompting. Enabled by default if `$HOMEBREW_ASK` is set]' \
     '(--formula)--audio-unit-plugindir[Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)]' \
     '(--formula)--binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '(--cask --force-bottle)--build-from-source[Compile formula from source even if a bottle is available]' \

@@ -1151,10 +1151,8 @@ upgrade *`formula`* if it is already installed but outdated.
 
 `--ask`
 
-: Ask for confirmation before downloading and installing. Print a dependency
-  plan, including added, changed and removed packages and dependencies, with
-  download and install sizes of formula bottles. Enabled by default if
-  `$HOMEBREW_ASK` is set.
+: Ask for confirmation before downloading and installing. Print the same plan as
+  `--dry-run` before prompting. Enabled by default if `$HOMEBREW_ASK` is set.
 
 `--formula`
 
@@ -1335,6 +1333,12 @@ paths within its current keg. If *`cask`* is provided, list its artifacts.
 
 : Show the version number for installed formulae, or only the specified formulae
   if *`formula`* are provided.
+
+`--json`
+
+: Output installed formulae and casks with versions, linked and opt-linked
+  formula versions and pinned versions as JSON using the fast Bash command path.
+  Requires `--versions`, no named arguments and `jq`.
 
 `--multiple`
 
@@ -1636,10 +1640,8 @@ for the reinstalled formulae or, every 30 days, for all formulae.
 
 `--ask`
 
-: Ask for confirmation before downloading and reinstalling. Print a dependency
-  plan, including added, changed and removed packages and dependencies, with
-  download and install sizes of formula bottles. Enabled by default if
-  `$HOMEBREW_ASK` is set.
+: Ask for confirmation before downloading and reinstalling. Print what would be
+  reinstalled before prompting. Enabled by default if `$HOMEBREW_ASK` is set.
 
 `--formula`
 

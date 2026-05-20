@@ -1880,6 +1880,7 @@ _brew_list() {
       --help
       --installed-as-dependency
       --installed-on-request
+      --json
       --multiple
       --pinned
       --poured-from-bottle

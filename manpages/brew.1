@@ -745,7 +745,7 @@ Print the verification and post\-install steps\.
 Show what would be installed, but do not actually install anything\.
 .TP
 \fB\-\-ask\fP
-Ask for confirmation before downloading and installing\. Print a dependency plan, including added, changed and removed packages and dependencies, with download and install sizes of formula bottles\. Enabled by default if \fB$HOMEBREW_ASK\fP is set\.
+Ask for confirmation before downloading and installing\. Print the same plan as \fB\-\-dry\-run\fP before prompting\. Enabled by default if \fB$HOMEBREW_ASK\fP is set\.
 .TP
 \fB\-\-formula\fP
 Treat all named arguments as formulae\.
@@ -857,6 +857,9 @@ Print formulae with fully\-qualified names\. Unless \fB\-\-full\-name\fP, \fB\-\
 .TP
 \fB\-\-versions\fP
 Show the version number for installed formulae, or only the specified formulae if \fIformula\fP are provided\.
+.TP
+\fB\-\-json\fP
+Output installed formulae and casks with versions, linked and opt\-linked formula versions and pinned versions as JSON using the fast Bash command path\. Requires \fB\-\-versions\fP, no named arguments and \fBjq\fP\&\.
 .TP
 \fB\-\-multiple\fP
 Only show formulae with multiple versions installed\. Implies \fB\-\-versions\fP\&\.
@@ -1041,7 +1044,7 @@ Install without checking for previously installed keg\-only or non\-migrated ver
 Print the verification and post\-install steps\.
 .TP
 \fB\-\-ask\fP
-Ask for confirmation before downloading and reinstalling\. Print a dependency plan, including added, changed and removed packages and dependencies, with download and install sizes of formula bottles\. Enabled by default if \fB$HOMEBREW_ASK\fP is set\.
+Ask for confirmation before downloading and reinstalling\. Print what would be reinstalled before prompting\. Enabled by default if \fB$HOMEBREW_ASK\fP is set\.
 .TP
 \fB\-\-formula\fP
 Treat all named arguments as formulae\.
