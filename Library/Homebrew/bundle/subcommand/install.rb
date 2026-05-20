@@ -9,12 +9,14 @@ module Homebrew
   module Cmd
     class Bundle < Homebrew::AbstractCommand
       class InstallSubcommand < Homebrew::AbstractSubcommand
-        subcommand_args default: true do
+        subcommand_args alias_options: { "upgrade" => "--upgrade" }, default: true do
           usage_banner <<~EOS
-            `brew bundle` [`install`]:
+            `brew bundle` [`install`|`upgrade`]:
             Install and upgrade (by default) all dependencies from the `Brewfile`.
 
             Use this to restore a recorded installed state from a `Brewfile`.
+
+            `brew bundle upgrade` is shorthand for `brew bundle install --upgrade`.
 
             You can specify the `Brewfile` location using `--file` or by setting the `$HOMEBREW_BUNDLE_FILE` environment variable.
 

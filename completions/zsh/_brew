@@ -720,11 +720,11 @@ _brew_bundle() {
   local state
   local -a subcommands
   subcommands=(
-    'upgrade:Shorthand for `brew bundle install --upgrade`'
     'sh:Run your shell in a `brew bundle exec` environment'
     'remove:Remove entries that match `name` from your `Brewfile`. Use `--formula`, `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak`, `--krew` and `--npm` to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names'
     'list:By default, only Homebrew formula dependencies are listed'
     'install:Use this to restore a recorded installed state from a `Brewfile`'
+    'upgrade:Use this to restore a recorded installed state from a `Brewfile`'
     'exec:This sanitized build environment ignores unrequested dependencies, which makes sure that things you didn'\''t specify in your `Brewfile` won'\''t get picked up by commands like `bundle install`, `npm install`, etc. It will also add compiler flags which will help with finding keg-only dependencies like `openssl`, `icu4c`, etc'
     'env:Print the environment variables that would be set in a `brew bundle exec` environment'
     'edit:Edit the `Brewfile` in your editor'
@@ -750,18 +750,6 @@ _brew_bundle() {
       ;;
     args)
       case "$words[2]" in
-upgrade)
-        _arguments \
-          '--debug[Display any debugging information]' \
-          '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
-          '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-          '--help[Show this message]' \
-          '--jobs[Run up to this many formula installations in parallel. Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)]' \
-          '--quiet[Make some output more quiet]' \
-          '--upgrade[Run `brew upgrade` on outdated dependencies, even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \
-          '--upgrade-formulae[Run `brew upgrade` on any of these comma-separated formulae, even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \
-          '--verbose[Make some output more verbose]'
-        ;;
 sh)
         _arguments \
           '--check[Check that all dependencies in the Brewfile are installed before starting the shell. Enabled by default if `$HOMEBREW_BUNDLE_CHECK` is set]' \
@@ -818,7 +806,7 @@ list)
           '--verbose[Make some output more verbose]' \
           '(--no-vscode)--vscode[List VSCode (and forks/variants) extensions]'
         ;;
-install)
+install|upgrade)
         _arguments \
           '--cleanup[Perform cleanup after installing dependencies, same as running `cleanup --force`. Enabled by default if `$HOMEBREW_BUNDLE_INSTALL_CLEANUP` is set and `--global` is passed]' \
           '--debug[Display any debugging information]' \

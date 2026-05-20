@@ -29,6 +29,7 @@ module Homebrew
       class Subcommand < T::Struct
         const :name, String
         const :aliases, T::Array[String], default: []
+        const :alias_options, T::Hash[String, String], default: {}
         prop :description, T.nilable(String), default: nil
         prop :usage_banner, T.nilable(String), default: nil
         const :default, T::Boolean, default: false
@@ -490,6 +491,12 @@ module Homebrew
         end
 
         unless ignore_invalid_options
+          if @subcommands.present? && named_args.present?
+            subcommand_arg = named_args.fetch(0)
+            if (subcommand = subcommand_for_name(subcommand_arg)) && subcommand.alias_options.key?(subcommand_arg)
+              set_switch(subcommand.alias_options.fetch(subcommand_arg), value: true, from: :args)
+            end
+          end
           unless @is_dev_cmd
             set_default_options
             validate_options
@@ -652,19 +659,21 @@ module Homebrew
 
       sig {
         params(
-          name:        String,
-          aliases:     T::Array[String],
-          description: T.nilable(String),
-          default:     T::Boolean,
-          block:       T.nilable(T.proc.bind(Parser).void),
+          name:          String,
+          aliases:       T::Array[String],
+          alias_options: T::Hash[String, String],
+          description:   T.nilable(String),
+          default:       T::Boolean,
+          block:         T.nilable(T.proc.bind(Parser).void),
         ).void
       }
-      def subcommand(name, aliases: [], description: nil, default: false, &block)
+      def subcommand(name, aliases: [], alias_options: {}, description: nil, default: false, &block)
         previous_subcommands = @current_subcommands
 
         @subcommands << Subcommand.new(
           name:,
-          aliases:,
+          aliases:       aliases | alias_options.keys,
+          alias_options:,
           description:,
           default:,
         )

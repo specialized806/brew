@@ -729,11 +729,10 @@ _brew_bundle() {
   for (( i = 2; i < COMP_CWORD; i++ ))
   do
     case "${COMP_WORDS[i]}" in
-      upgrade) subcommand="upgrade"; break ;;
       sh) subcommand="sh"; break ;;
       remove) subcommand="remove"; break ;;
       list) subcommand="list"; break ;;
-      install) subcommand="install"; break ;;
+      install|upgrade) subcommand="install"; break ;;
       exec) subcommand="exec"; break ;;
       env) subcommand="env"; break ;;
       edit) subcommand="edit"; break ;;
@@ -758,20 +757,6 @@ _brew_bundle() {
           "
           return
           ;;
-upgrade)
-        __brewcomp "
-        --debug
-        --file
-        --global
-        --help
-        --jobs
-        --quiet
-        --upgrade
-        --upgrade-formulae
-        --verbose
-        "
-        return
-        ;;
 sh)
         __brewcomp "
         --check
@@ -992,7 +977,7 @@ add)
   esac
   case "${subcommand}" in
     "")
-      __brewcomp "upgrade sh remove list install exec env edit dump cleanup check add"
+      __brewcomp "sh remove list install upgrade exec env edit dump cleanup check add"
       ;;
 exec)
   __brew_complete_commands

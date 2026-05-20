@@ -65,7 +65,7 @@ module Homebrew
           else
             jobs_arg&.to_i || 1
           end
-          no_upgrade = if args.upgrade? || subcommand == "upgrade"
+          no_upgrade = if args.upgrade?
             false
           else
             args.no_upgrade?.present?

@@ -22,6 +22,20 @@ RSpec.describe Homebrew::Cmd::Bundle do
       .to raise_error(UsageError, /`exec` subcommand does not accept the `--jobs` flag/)
   end
 
+  it "treats upgrade as install --upgrade", :aggregate_failures do
+    with_env("HOMEBREW_BUNDLE_NO_UPGRADE" => "1") do
+      args = described_class.new(%w[upgrade -fq]).args
+      context = described_class.context(args, extensions: described_class::BUNDLE_EXTENSIONS)
+
+      expect(args.subcommand).to eq("install")
+      expect(args.upgrade?).to be(true)
+      expect(args.force?).to be(true)
+      expect(args.quiet?).to be(true)
+      expect(context.subcommand).to eq("install")
+      expect(context.no_upgrade).to be(false)
+    end
+  end
+
   it "uses subcommand-specific option descriptions", :aggregate_failures do
     subcommand_options = ->(subcommand) { Commands.command_options("bundle", subcommand:).to_h }
 
@@ -32,6 +46,7 @@ RSpec.describe Homebrew::Cmd::Bundle do
       .to eq("Add entries for VSCode (and forks/variants) extensions.")
     expect(subcommand_options.call("remove")["--vscode"])
       .to eq("Remove entries for VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("upgrade")["--force"]).to eq("Run with `--force`/`--overwrite`.")
   end
 
   it "uses subcommand-specific descriptions in help output", :aggregate_failures do
