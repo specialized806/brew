@@ -124,7 +124,7 @@ module Homebrew
 
     sig { void }
     def self.update_shell_completions!
-      commands = Commands.commands(external: false, aliases: true).sort
+      commands = Commands.commands(external: false).sort
 
       puts "Writing completions to #{COMPLETIONS_DIR}"
 
@@ -283,7 +283,12 @@ module Homebrew
 
     sig { params(commands: T::Array[String]).returns(String) }
     def self.generate_bash_completion_file(commands)
+      commands -= Commands.internal_commands_aliases
+
       variables = Variables.new(
+        aliases:              Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.map do |alias_cmd, command|
+          "#{alias_cmd}) echo \"#{command}\" ;;"
+        end,
         completion_functions: commands.filter_map do |command|
           generate_bash_subcommand_completion command
         end,
@@ -449,6 +454,8 @@ module Homebrew
 
     sig { params(commands: T::Array[String]).returns(String) }
     def self.generate_zsh_completion_file(commands)
+      commands -= Commands.internal_commands_aliases
+
       variables = Variables.new(
         aliases:                      Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.filter_map do |alias_cmd, command|
           alias_cmd = "'#{alias_cmd}'" if alias_cmd.start_with? "-"
@@ -482,7 +489,8 @@ module Homebrew
       return generate_fish_nested_subcommand_completion(command, subcommands) if subcommands.present?
 
       command_description = format_description Commands.command_description(command, short: true).to_s, fish: true
-      lines = if COMPLETIONS_EXCLUSION_LIST.include?(command)
+      lines = if COMPLETIONS_EXCLUSION_LIST.include?(command) ||
+                 Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.key?(command)
         []
       else
         ["__fish_brew_complete_cmd '#{command}' '#{command_description}'"]
@@ -571,7 +579,8 @@ module Homebrew
     sig { params(command: String, subcommands: T::Array[Homebrew::CLI::Parser::Subcommand]).returns(String) }
     def self.generate_fish_nested_subcommand_completion(command, subcommands)
       command_description = format_description Commands.command_description(command, short: true).to_s, fish: true
-      lines = if COMPLETIONS_EXCLUSION_LIST.include?(command)
+      lines = if COMPLETIONS_EXCLUSION_LIST.include?(command) ||
+                 Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.key?(command)
         []
       else
         ["__fish_brew_complete_cmd '#{command}' '#{command_description}'"]
@@ -615,7 +624,12 @@ module Homebrew
 
     sig { params(commands: T::Array[String]).returns(String) }
     def self.generate_fish_completion_file(commands)
+      commands -= Commands.internal_commands_aliases
+
       variables = Variables.new(
+        aliases:              Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.map do |alias_cmd, command|
+          "        case '#{alias_cmd}'\n            echo '#{command}'"
+        end,
         completion_functions: commands.filter_map do |command|
           generate_fish_subcommand_completion command
         end,

@@ -77,6 +77,34 @@ RSpec.describe Commands do
     end
   end
 
+  describe "::rebuild_internal_commands_completion_list" do
+    it "omits internal command aliases" do
+      mktmpdir do |repository|
+        stub_const("HOMEBREW_REPOSITORY", repository)
+        (repository/"completions").mkpath
+
+        described_class.rebuild_internal_commands_completion_list
+
+        commands = (repository/"completions/internal_commands_list.txt").read.lines(chomp: true)
+        expect(commands & described_class.internal_commands_aliases).to be_empty
+      end
+    end
+  end
+
+  describe "::rebuild_commands_completion_list" do
+    it "omits internal command aliases from the cached command list" do
+      mktmpdir do |cache|
+        stub_const("HOMEBREW_CACHE", cache)
+        allow(described_class).to receive(:external_commands).and_return(["external"])
+
+        described_class.rebuild_commands_completion_list
+
+        commands = (cache/"all_commands_list.txt").read.lines(chomp: true)
+        expect(commands & described_class.internal_commands_aliases).to be_empty
+      end
+    end
+  end
+
   describe "::path" do
     specify "returns the path for an internal command" do
       expect(described_class.path("rbcmd")).to eq(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
