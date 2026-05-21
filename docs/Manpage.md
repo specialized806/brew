@@ -133,6 +133,14 @@ Control Homebrew's anonymous aggregate user behaviour analytics. Read more at
 
 : Turn Homebrew's analytics off.
 
+### `as-console-user` *`command`* \[*`args`* ...\]
+
+Run a Homebrew command as the active macOS console user.
+
+This is intended for MDM, Munki and Jamf workflows where `brew` is invoked as
+root but Homebrew operations should run as the logged-in console user. The
+nested command is always dispatched through `HOMEBREW_BREW_FILE`.
+
 ### `autoremove` \[`--dry-run`\]
 
 Uninstall formulae that were only installed as a dependency of another formula
@@ -1516,6 +1524,11 @@ otherwise.
   deprecated and is currently the default if no version is specified. `v2`
   prints outdated formulae and casks.
 
+`--minimum-version`
+
+: Only list a named formula or cask with an installed version below the given
+  minimum version.
+
 `--fetch-HEAD`
 
 : Fetch the upstream repository to detect if the HEAD installation of the
@@ -2125,6 +2138,11 @@ for the upgraded formulae or, every 30 days, for all formulae.
 `-n`, `--dry-run`
 
 : Show what would be upgraded, but do not actually upgrade anything.
+
+`--minimum-version`
+
+: Only upgrade a named formula or cask with an installed version below the given
+  minimum version.
 
 `--ask`
 

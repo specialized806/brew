@@ -8,6 +8,7 @@
 --version
 alias
 analytics
+as-console-user
 audit
 autoremove
 bottle

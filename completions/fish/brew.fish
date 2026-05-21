@@ -348,6 +348,13 @@ __fish_brew_complete_sub_arg 'analytics' 'off' -l quiet -d 'Make some output mor
 __fish_brew_complete_sub_arg 'analytics' 'off' -l verbose -d 'Make some output more verbose'
 
 
+__fish_brew_complete_cmd 'as-console-user' 'Run a Homebrew command as the active macOS console user'
+__fish_brew_complete_arg 'as-console-user' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'as-console-user' -l help -d 'Show this message'
+__fish_brew_complete_arg 'as-console-user' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'as-console-user' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'audit' 'Check formula or cask for Homebrew coding style violations'
 __fish_brew_complete_arg 'audit' -l arch -d 'Audit the given CPU architecture. (Pass `all` to audit all architectures.)'
 __fish_brew_complete_arg 'audit' -l audit-debug -d 'Enable debugging and profiling of audit methods'
@@ -1339,6 +1346,7 @@ __fish_brew_complete_arg 'outdated' -l greedy-auto-updates -d 'Also include outd
 __fish_brew_complete_arg 'outdated' -l greedy-latest -d 'Also include outdated casks including those with `version :latest`'
 __fish_brew_complete_arg 'outdated' -l help -d 'Show this message'
 __fish_brew_complete_arg 'outdated' -l json -d 'Print output in JSON format. There are two versions: `v1` and `v2`. `v1` is deprecated and is currently the default if no version is specified. `v2` prints outdated formulae and casks'
+__fish_brew_complete_arg 'outdated' -l minimum-version -d 'Only list a named formula or cask with an installed version below the given minimum version'
 __fish_brew_complete_arg 'outdated' -l quiet -d 'List only the names of outdated kegs (takes precedence over `--verbose`)'
 __fish_brew_complete_arg 'outdated' -l verbose -d 'Include detailed version information'
 __fish_brew_complete_arg 'outdated; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
@@ -2059,6 +2067,7 @@ __fish_brew_complete_arg 'upgrade' -l keep-tmp -d 'Retain the temporary files cr
 __fish_brew_complete_arg 'upgrade' -l keyboard-layoutdir -d 'Target location for Keyboard Layouts (default: `/Library/Keyboard Layouts`)'
 __fish_brew_complete_arg 'upgrade' -l language -d 'Comma-separated list of language codes to prefer for cask installation. The first matching language is used, otherwise it reverts to the cask\'s default language. The default value is the language of your system'
 __fish_brew_complete_arg 'upgrade' -l mdimporterdir -d 'Target location for Spotlight Plugins (default: `~/Library/Spotlight`)'
+__fish_brew_complete_arg 'upgrade' -l minimum-version -d 'Only upgrade a named formula or cask with an installed version below the given minimum version'
 __fish_brew_complete_arg 'upgrade' -l no-binaries -d 'Disable/enable linking of helper executables (default: enabled)'
 __fish_brew_complete_arg 'upgrade' -l overwrite -d 'Delete files that already exist in the prefix while linking'
 __fish_brew_complete_arg 'upgrade' -l prefpanedir -d 'Target location for Preference Panes (default: `~/Library/PreferencePanes`)'

@@ -143,6 +143,7 @@ __brew_internal_commands() {
     '--version:Print the version numbers of Homebrew, Homebrew/homebrew-core and Homebrew/homebrew-cask (if tapped) to standard output'
     'alias:Show an alias'\''s command'
     'analytics:Control Homebrew'\''s anonymous aggregate user behaviour analytics'
+    'as-console-user:Run a Homebrew command as the active macOS console user'
     'audit:Check formula or cask for Homebrew coding style violations'
     'autoremove:Uninstall formulae that were only installed as a dependency of another formula and are now no longer needed'
     'bottle:Generate a bottle (binary package) from a formula that was installed with `--build-bottle`'
@@ -449,6 +450,15 @@ off)
       esac
       ;;
   esac
+}
+
+# brew as-console-user
+_brew_as_console_user() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
 }
 
 # brew audit
@@ -1713,6 +1723,7 @@ _brew_outdated() {
     '--greedy-latest[Also include outdated casks including those with `version :latest`]' \
     '--help[Show this message]' \
     '(--quiet --verbose)--json[Print output in JSON format. There are two versions: `v1` and `v2`. `v1` is deprecated and is currently the default if no version is specified. `v2` prints outdated formulae and casks]' \
+    '--minimum-version[Only list a named formula or cask with an installed version below the given minimum version]' \
     '(--verbose --json)--quiet[List only the names of outdated kegs (takes precedence over `--verbose`)]' \
     '(--quiet --json)--verbose[Include detailed version information]' \
     - formula \
@@ -2615,6 +2626,7 @@ _brew_upgrade() {
     '(--formula)--keyboard-layoutdir[Target location for Keyboard Layouts (default: `/Library/Keyboard Layouts`)]' \
     '(--formula)--language[Comma-separated list of language codes to prefer for cask installation. The first matching language is used, otherwise it reverts to the cask'\''s default language. The default value is the language of your system]' \
     '(--formula)--mdimporterdir[Target location for Spotlight Plugins (default: `~/Library/Spotlight`)]' \
+    '--minimum-version[Only upgrade a named formula or cask with an installed version below the given minimum version]' \
     '--no-binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '(--cask)--overwrite[Delete files that already exist in the prefix while linking]' \
     '(--formula)--prefpanedir[Target location for Preference Panes (default: `~/Library/PreferencePanes`)]' \
