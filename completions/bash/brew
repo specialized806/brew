@@ -407,6 +407,22 @@ off)
   esac
 }
 
+_brew_as_console_user() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_audit() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -2061,6 +2077,7 @@ _brew_outdated() {
       --greedy-latest
       --help
       --json
+      --minimum-version
       --quiet
       --verbose
       "
@@ -3269,6 +3286,7 @@ _brew_upgrade() {
       --keyboard-layoutdir
       --language
       --mdimporterdir
+      --minimum-version
       --no-binaries
       --overwrite
       --prefpanedir
@@ -3457,6 +3475,7 @@ _brew() {
     --version) _brew___version ;;
     alias) _brew_alias ;;
     analytics) _brew_analytics ;;
+    as-console-user) _brew_as_console_user ;;
     audit) _brew_audit ;;
     autoremove) _brew_autoremove ;;
     bottle) _brew_bottle ;;

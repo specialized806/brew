@@ -83,6 +83,10 @@ Turn Homebrew\[u2019]s analytics on\.
 .TP
 \fBbrew analytics off\fP
 Turn Homebrew\[u2019]s analytics off\.
+.SS "\fBas\-console\-user\fP \fIcommand\fP \fR[\fIargs\fP \.\.\.]"
+Run a Homebrew command as the active macOS console user\.
+.P
+This is intended for MDM, Munki and Jamf workflows where \fBbrew\fP is invoked as root but Homebrew operations should run as the logged\-in console user\. The nested command is always dispatched through \fBHOMEBREW_BREW_FILE\fP\&\.
 .SS "\fBautoremove\fP \fR[\fB\-\-dry\-run\fP]"
 Uninstall formulae that were only installed as a dependency of another formula and are now no longer needed\.
 .TP
@@ -973,6 +977,9 @@ List only outdated casks\.
 \fB\-\-json\fP
 Print output in JSON format\. There are two versions: \fBv1\fP and \fBv2\fP\&\. \fBv1\fP is deprecated and is currently the default if no version is specified\. \fBv2\fP prints outdated formulae and casks\.
 .TP
+\fB\-\-minimum\-version\fP
+Only list a named formula or cask with an installed version below the given minimum version\.
+.TP
 \fB\-\-fetch\-HEAD\fP
 Fetch the upstream repository to detect if the HEAD installation of the formula is outdated\. Otherwise, the repository\[u2019]s HEAD will only be checked for updates when a new stable or development version has been released\.
 .TP
@@ -1346,6 +1353,9 @@ Print the verification and post\-install steps\.
 .TP
 \fB\-n\fP, \fB\-\-dry\-run\fP
 Show what would be upgraded, but do not actually upgrade anything\.
+.TP
+\fB\-\-minimum\-version\fP
+Only upgrade a named formula or cask with an installed version below the given minimum version\.
 .TP
 \fB\-\-ask\fP
 Ask for confirmation before downloading and upgrading\. Print the same plan as \fB\-\-dry\-run\fP, including available download sizes\. Enabled by default if \fB$HOMEBREW_ASK\fP is set\.
