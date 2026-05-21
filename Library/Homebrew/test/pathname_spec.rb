@@ -12,6 +12,16 @@ RSpec.describe Pathname do
   let(:file) { src/"foo" }
   let(:dir) { src/"bar" }
 
+  describe EagerInitializeExtension do
+    it "defines the lazy memoised ivars on every new Pathname" do
+      pathname = Pathname.new(file.to_s)
+      [:@magic_number, :@file_type, :@zipinfo, :@which_install_info, :@disk_usage, :@file_count].each do |ivar|
+        expect(pathname.instance_variable_defined?(ivar)).to be(true), "expected #{ivar} to be defined"
+        expect(pathname.instance_variable_get(ivar)).to be_nil
+      end
+    end
+  end
+
   describe DiskUsageExtension do
     before do
       mkdir_p dir/"a-directory"
