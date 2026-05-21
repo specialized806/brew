@@ -615,6 +615,44 @@ RSpec.describe "Utils::Curl" do
     end
   end
 
+  describe "::no_insecure_redirect_curl_args" do
+    before do
+      allow(Homebrew::EnvConfig).to receive(:no_insecure_redirect?).and_return(true)
+    end
+
+    it "only allows HTTPS redirects for redirect-following calls" do
+      expect(no_insecure_redirect_curl_args(["--location", "http://example.com/example.tar.gz"]))
+        .to eq(["--proto-redir", "=https", "--location", "http://example.com/example.tar.gz"])
+    end
+
+    it "drops custom redirect protocol arguments" do
+      expect(no_insecure_redirect_curl_args(["--location", "--proto-redir", "=all",
+                                             "https://example.com/example.tar.gz"]))
+        .to eq(["--proto-redir", "=https", "--location", "https://example.com/example.tar.gz"])
+    end
+
+    it "drops custom redirect protocol arguments in assignment form" do
+      expect(no_insecure_redirect_curl_args(["--location", "--proto-redir=all",
+                                             "https://example.com/example.tar.gz"]))
+        .to eq(["--proto-redir", "=https", "--location", "https://example.com/example.tar.gz"])
+    end
+  end
+
+  describe "::curl_output" do
+    it "enforces HTTPS redirects before running curl" do
+      allow(Homebrew::EnvConfig).to receive(:no_insecure_redirect?).and_return(true)
+
+      expect(self).to receive(:system_command).with(
+        /curl/,
+        hash_including(args: array_including("--proto-redir", "=https")),
+      ).and_return(
+        instance_double(SystemCommand::Result, success?: true, stdout: ""),
+      )
+
+      curl_output("--location", "https://example.com/example.tar.gz")
+    end
+  end
+
   describe "::http_status_ok?" do
     it "returns `true` when `status` is 1xx or 2xx" do
       expect(http_status_ok?("200")).to be(true)
