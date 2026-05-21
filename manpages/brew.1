@@ -858,6 +858,9 @@ Print formulae with fully\-qualified names\. Unless \fB\-\-full\-name\fP, \fB\-\
 \fB\-\-versions\fP
 Show the version number for installed formulae, or only the specified formulae if \fIformula\fP are provided\.
 .TP
+\fB\-\-json\fP
+Output installed formulae and casks with versions, linked and opt\-linked formula versions and pinned versions as JSON using the fast Bash command path\. Requires \fB\-\-versions\fP, no named arguments and \fBjq\fP\&\.
+.TP
 \fB\-\-multiple\fP
 Only show formulae with multiple versions installed\. Implies \fB\-\-versions\fP\&\.
 .TP

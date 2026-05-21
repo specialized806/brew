@@ -1334,6 +1334,12 @@ paths within its current keg. If *`cask`* is provided, list its artifacts.
 : Show the version number for installed formulae, or only the specified formulae
   if *`formula`* are provided.
 
+`--json`
+
+: Output installed formulae and casks with versions, linked and opt-linked
+  formula versions and pinned versions as JSON using the fast Bash command path.
+  Requires `--versions`, no named arguments and `jq`.
+
 `--multiple`
 
 : Only show formulae with multiple versions installed. Implies `--versions`.

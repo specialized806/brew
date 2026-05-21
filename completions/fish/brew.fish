@@ -1230,6 +1230,7 @@ __fish_brew_complete_arg 'list' -l full-name -d 'Print formulae with fully-quali
 __fish_brew_complete_arg 'list' -l help -d 'Show this message'
 __fish_brew_complete_arg 'list' -l installed-as-dependency -d 'List the formulae installed as dependencies'
 __fish_brew_complete_arg 'list' -l installed-on-request -d 'List the formulae installed on request'
+__fish_brew_complete_arg 'list' -l json -d 'Output installed formulae and casks with versions, linked and opt-linked formula versions and pinned versions as JSON using the fast Bash command path. Requires `--versions`, no named arguments and `jq`'
 __fish_brew_complete_arg 'list' -l multiple -d 'Only show formulae with multiple versions installed. Implies `--versions`'
 __fish_brew_complete_arg 'list' -l pinned -d 'List only pinned packages, or only the specified (pinned) packages if formula or cask are provided. See also `pin`, `unpin`'
 __fish_brew_complete_arg 'list' -l poured-from-bottle -d 'List the formulae installed from a bottle'

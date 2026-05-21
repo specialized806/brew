@@ -31,6 +31,10 @@ module Homebrew
         switch "--versions",
                description: "Show the version number for installed formulae, or only the specified " \
                             "formulae if <formula> are provided."
+        switch "--json",
+               description: "Output installed formulae and casks with versions, linked and opt-linked formula " \
+                            "versions and pinned versions as JSON using the fast Bash command path. Requires " \
+                            "`--versions`, no named arguments and `jq`."
         switch "--multiple",
                description: "Only show formulae with multiple versions installed. Implies `--versions`."
         switch "--pinned",
@@ -84,6 +88,13 @@ module Homebrew
 
       sig { override.void }
       def run
+        if args.json?
+          raise UsageError, "`brew list --json` requires `--versions`." unless args.versions?
+          raise UsageError, "`brew list --versions --json` does not support named arguments." unless args.no_named?
+
+          raise UsageError, "`brew list --versions --json` is only supported by the fast Bash path with `jq`."
+        end
+
         if args.full_name? &&
            !(args.installed_on_request? || args.installed_as_dependency? ||
              args.poured_from_bottle? || args.built_from_source?)

@@ -1578,6 +1578,7 @@ _brew_list() {
     '--help[Show this message]' \
     '(--cask --versions --multiple --pinned -l)--installed-as-dependency[List the formulae installed as dependencies]' \
     '(--cask --versions --multiple --pinned -l)--installed-on-request[List the formulae installed on request]' \
+    '--json[Output installed formulae and casks with versions, linked and opt-linked formula versions and pinned versions as JSON using the fast Bash command path. Requires `--versions`, no named arguments and `jq`]' \
     '(--cask --pinned --installed-on-request --installed-as-dependency --poured-from-bottle --built-from-source -1 -l -r -t --full-name)--multiple[Only show formulae with multiple versions installed. Implies `--versions`]' \
     '(--multiple --installed-on-request --installed-as-dependency --poured-from-bottle --built-from-source -1 -l -r -t --full-name)--pinned[List only pinned packages, or only the specified (pinned) packages if formula or cask are provided. See also `pin`, `unpin`]' \
     '(--cask --versions --multiple --pinned -l)--poured-from-bottle[List the formulae installed from a bottle]' \
