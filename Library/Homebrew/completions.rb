@@ -4,6 +4,7 @@
 require "utils/link"
 require "settings"
 require "erb"
+require "tap"
 
 module Homebrew
   # Helper functions for generating shell completions.
