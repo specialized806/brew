@@ -107,6 +107,12 @@ class Homebrew::Cmd::UpgradeCmd::Args < Homebrew::CLI::Args
   sig { returns(T.nilable(String)) }
   def mdimporterdir; end
 
+  sig { returns(T.nilable(String)) }
+  def min_version; end
+
+  sig { returns(T.nilable(String)) }
+  def minimum_version; end
+
   sig { returns(T::Boolean) }
   def n?; end
 
