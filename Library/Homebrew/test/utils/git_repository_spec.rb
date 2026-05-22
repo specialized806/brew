@@ -13,11 +13,11 @@ RSpec.describe Utils do
   shared_examples "git_repository helper function" do |method_name|
     context "when directory is not a Git repository" do
       it "returns nil if `safe` parameter is `false`" do
-        expect(klass.public_send(method_name, TEST_TMPDIR, safe: false)).to be_nil
+        expect(Utils.public_send(method_name, TEST_TMPDIR, safe: false)).to be_nil
       end
 
       it "raises an error if `safe` parameter is `true`" do
-        expect { klass.public_send(method_name, TEST_TMPDIR, safe: true) }
+        expect { Utils.public_send(method_name, TEST_TMPDIR, safe: true) }
           .to raise_error("Not a Git repository: #{TEST_TMPDIR}")
       end
     end
@@ -28,11 +28,11 @@ RSpec.describe Utils do
       end
 
       it "returns nil if `safe` parameter is `false`" do
-        expect(klass.public_send(method_name, HOMEBREW_CACHE, safe: false)).to be_nil
+        expect(Utils.public_send(method_name, HOMEBREW_CACHE, safe: false)).to be_nil
       end
 
       it "raises an error if `safe` parameter is `true`" do
-        expect { klass.public_send(method_name, HOMEBREW_CACHE, safe: true) }
+        expect { Utils.public_send(method_name, HOMEBREW_CACHE, safe: true) }
           .to raise_error("Git is unavailable")
       end
     end

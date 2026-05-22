@@ -4,6 +4,7 @@
 require "dev-cmd/test-bot"
 
 RSpec.describe Homebrew::TestBot do
+  sig { returns(T.class_of(Homebrew::TestBot)) }
   let(:klass) { Homebrew::TestBot }
 
   describe "::setup_github_actions_sandbox!" do
