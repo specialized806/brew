@@ -809,7 +809,14 @@ on_request: installed_on_request?, options:)
             "#{deps.map { Formatter.identifier(it) }.to_sentence}",
             truncate: false
       end
-      deps.each { install_dependency(it) }
+      bubblewrap_dependency_index = deps.index { |dep| dep.name == "bubblewrap" && dep.implicit? }
+      deps.each_with_index do |dep, index|
+        if formula.name == "bubblewrap" || (bubblewrap_dependency_index && index <= bubblewrap_dependency_index)
+          with_env(HOMEBREW_INSTALLING_BUBBLEWRAP: "1") { install_dependency(dep) }
+        else
+          install_dependency(dep)
+        end
+      end
     end
 
     @show_header = true if deps.length > 1
@@ -1017,6 +1024,8 @@ on_request: installed_on_request?, options:)
 
     # let's reset Utils::Git.available? if we just installed git
     Utils::Git.clear_available_cache if formula.name == "git"
+
+    Sandbox.reset_state! if formula.name == "bubblewrap"
 
     # use installed ca-certificates when it's needed and available
     if formula.name == "ca-certificates" &&

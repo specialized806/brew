@@ -98,6 +98,10 @@ RSpec.describe Homebrew::EnvConfig do
   end
 
   describe ".forbid_packages_from_paths?" do
+    around do |example|
+      with_env(HOMEBREW_TESTS: ENV.fetch("HOMEBREW_TESTS", nil)) { example.run }
+    end
+
     before do
       ENV["HOMEBREW_FORBID_PACKAGES_FROM_PATHS"] = nil
       ENV["HOMEBREW_DEVELOPER"] = nil
@@ -131,45 +135,17 @@ RSpec.describe Homebrew::EnvConfig do
     before do
       ENV["HOMEBREW_DEVELOPER"] = nil
       ENV["HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"] = nil
-      ENV["HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS"] = nil
     end
 
-    it "returns false if the opt-in is not set" do
-      expect(env_config.upgrade_auto_updates_casks?).to be(false)
-    end
-
-    it "returns true if HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS is set" do
-      ENV["HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"] = "1"
-      expect(env_config.upgrade_auto_updates_casks?).to be(true)
-    end
-
-    it "returns true if HOMEBREW_DEVELOPER is set" do
+    it "does not infer a developer default" do
       ENV["HOMEBREW_DEVELOPER"] = "1"
-      expect(env_config.upgrade_auto_updates_casks?).to be(true)
-    end
-
-    it "returns false if HOMEBREW_DEVELOPER is set to a falsey value" do
-      ENV["HOMEBREW_DEVELOPER"] = "0"
       expect(env_config.upgrade_auto_updates_casks?).to be(false)
-    end
-
-    it "returns false if HOMEBREW_DEVELOPER and HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS are set" do
-      ENV["HOMEBREW_DEVELOPER"] = "1"
-      ENV["HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS"] = "1"
-      expect(env_config.upgrade_auto_updates_casks?).to be(false)
-    end
-
-    it "raises if both opt-in and opt-out are set" do
-      ENV["HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"] = "1"
-      ENV["HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS"] = "1"
-
-      expect { env_config.upgrade_auto_updates_casks? }
-        .to raise_error(UsageError, /cannot both be set/i)
     end
   end
 
   describe ".sandbox_linux?" do
     before do
+      ENV["HOMEBREW_DEVELOPER"] = nil
       ENV["HOMEBREW_NO_SANDBOX_LINUX"] = nil
       ENV["HOMEBREW_SANDBOX_LINUX"] = nil
     end
@@ -179,9 +155,26 @@ RSpec.describe Homebrew::EnvConfig do
       expect(env_config.sandbox_linux?).to be(true)
     end
 
+    it "does not infer a developer default" do
+      ENV["HOMEBREW_DEVELOPER"] = "1"
+      expect(env_config.sandbox_linux?).to be(false)
+    end
+
+    it "returns false if HOMEBREW_SANDBOX_LINUX is set to a falsey value with HOMEBREW_DEVELOPER" do
+      ENV["HOMEBREW_DEVELOPER"] = "1"
+      ENV["HOMEBREW_SANDBOX_LINUX"] = "0"
+      expect(env_config.sandbox_linux?).to be(false)
+    end
+
     it "returns false if HOMEBREW_NO_SANDBOX_LINUX is set" do
       ENV["HOMEBREW_NO_SANDBOX_LINUX"] = "1"
       ENV["HOMEBREW_SANDBOX_LINUX"] = "1"
+      expect(env_config.sandbox_linux?).to be(false)
+    end
+
+    it "returns false if HOMEBREW_DEVELOPER and HOMEBREW_NO_SANDBOX_LINUX are set" do
+      ENV["HOMEBREW_DEVELOPER"] = "1"
+      ENV["HOMEBREW_NO_SANDBOX_LINUX"] = "1"
       expect(env_config.sandbox_linux?).to be(false)
     end
   end

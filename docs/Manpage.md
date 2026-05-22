@@ -4975,7 +4975,8 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_SANDBOX_LINUX`
 
 : If set, use the `bwrap`(1) sandbox for formula installation and testing on
-  Linux.
+  Linux. Enabled by default if `$HOMEBREW_DEVELOPER` is set. This will be the
+  default in Homebrew 5.2.0.
 
 `HOMEBREW_SBOM`
 

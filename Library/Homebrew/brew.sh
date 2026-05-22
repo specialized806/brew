@@ -1057,6 +1057,8 @@ fi
 if [[ -n "${HOMEBREW_DEVELOPER}" ]]
 then
   export HOMEBREW_ASK="1"
+  export HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS="1"
+  export HOMEBREW_SANDBOX_LINUX="1"
 fi
 
 # Enable features for users who have run a devcmd before they become the default for everyone.

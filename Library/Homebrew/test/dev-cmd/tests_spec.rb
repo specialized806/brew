@@ -19,12 +19,12 @@ RSpec.describe Homebrew::DevCmd::Tests do
       allow(GitHub::Actions).to receive(:env_set?).and_return(false)
     end
 
-    it "does not require the Linux sandbox unless HOMEBREW_SANDBOX_LINUX is set" do
+    it "does not require the Linux sandbox when Linux sandboxing is disabled" do
       allow(Sandbox).to receive(:available?).and_return(false)
       expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
       expect(Sandbox).not_to receive(:configure!)
 
-      with_env(HOMEBREW_SANDBOX_LINUX: nil) do
+      with_env(HOMEBREW_DEVELOPER: nil, HOMEBREW_SANDBOX_LINUX: nil) do
         expect { tests.send(:check_test_environment!) }.not_to raise_error
       end
     end

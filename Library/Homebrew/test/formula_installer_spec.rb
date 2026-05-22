@@ -228,6 +228,31 @@ RSpec.describe FormulaInstaller do
       expect(child_installer).not_to be_installed_on_request
       expect(child_installer&.link_keg).to be true
     end
+
+    it "disables Bubblewrap auto-install until the implicit Bubblewrap dependency is installed" do
+      formula = formula "homebrew-bubblewrap-bootstrap-target" do
+        url "foo-1.0"
+      end
+      installer = FormulaInstaller.new(formula)
+      dependency_names = %w[libcap bubblewrap zlib]
+      dependencies = dependency_names.map do |name|
+        instance_double(Dependency, name:, implicit?: name == "bubblewrap")
+      end
+      installing_bubblewrap_env = []
+
+      allow(installer).to receive(:oh1)
+      allow(installer).to receive(:install_dependency) do |dependency|
+        installing_bubblewrap_env << [dependency.name, ENV.fetch("HOMEBREW_INSTALLING_BUBBLEWRAP", nil)]
+      end
+
+      installer.send(:install_dependencies, dependencies)
+
+      expect(installing_bubblewrap_env).to eq([
+        ["libcap", "1"],
+        ["bubblewrap", "1"],
+        ["zlib", nil],
+      ])
+    end
   end
 
   describe "versioned keg-only linking defaults" do

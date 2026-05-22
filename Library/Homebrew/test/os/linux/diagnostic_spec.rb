@@ -9,6 +9,10 @@ RSpec.describe Homebrew::Diagnostic::Checks do
 
   let(:klass) { Homebrew::Diagnostic::Checks }
 
+  before do
+    allow(OS::Linux).to receive(:inside_docker?).and_return(false)
+  end
+
   specify "#check_supported_architecture" do
     allow(Hardware::CPU).to receive(:type).and_return(:arm64)
 
@@ -43,10 +47,10 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     expect(checks.fatal_build_from_source_checks).to include("check_linux_sandbox")
   end
 
-  specify "#check_linux_sandbox returns nil unless HOMEBREW_SANDBOX_LINUX is set" do
+  specify "#check_linux_sandbox returns nil when Linux sandboxing is disabled" do
     expect(Sandbox).not_to receive(:failure_reason)
 
-    with_env(HOMEBREW_SANDBOX_LINUX: nil) do
+    with_env(HOMEBREW_DEVELOPER: nil, HOMEBREW_SANDBOX_LINUX: nil) do
       expect(checks.check_linux_sandbox).to be_nil
     end
   end
@@ -54,6 +58,15 @@ RSpec.describe Homebrew::Diagnostic::Checks do
   specify "#check_linux_sandbox returns nil when the Linux sandbox is available" do
     allow(Sandbox).to receive(:state).and_return(:available)
     expect(Sandbox).not_to receive(:failure_reason)
+
+    with_env(HOMEBREW_NO_SANDBOX_LINUX: nil, HOMEBREW_SANDBOX_LINUX: "1") do
+      expect(checks.check_linux_sandbox).to be_nil
+    end
+  end
+
+  specify "#check_linux_sandbox returns nil inside Docker" do
+    allow(OS::Linux).to receive(:inside_docker?).and_return(true)
+    expect(Sandbox).not_to receive(:state)
 
     with_env(HOMEBREW_NO_SANDBOX_LINUX: nil, HOMEBREW_SANDBOX_LINUX: "1") do
       expect(checks.check_linux_sandbox).to be_nil
