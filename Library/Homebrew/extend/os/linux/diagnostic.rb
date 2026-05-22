@@ -4,6 +4,7 @@
 require "tempfile"
 require "utils/shell"
 require "hardware"
+require "os/linux"
 require "os/linux/glibc"
 require "os/linux/kernel"
 require "sandbox"
@@ -174,6 +175,7 @@ module OS
         sig { returns(T.nilable(String)) }
         def check_linux_sandbox
           return unless Homebrew::EnvConfig.sandbox_linux?
+          return if OS::Linux.inside_docker?
 
           state = ::Sandbox.state
           return if [:disabled, :available].include?(state)

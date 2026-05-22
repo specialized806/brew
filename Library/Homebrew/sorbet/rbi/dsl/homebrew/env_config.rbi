@@ -332,6 +332,9 @@ module Homebrew::EnvConfig
     def update_to_tag?; end
 
     sig { returns(T::Boolean) }
+    def upgrade_auto_updates_casks?; end
+
+    sig { returns(T::Boolean) }
     def upgrade_greedy?; end
 
     sig { returns(T.nilable(::String)) }

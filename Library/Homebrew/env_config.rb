@@ -506,7 +506,10 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_SANDBOX_LINUX:                    {
-        description: "If set, use the `bwrap`(1) sandbox for formula installation and testing on Linux.",
+        # odeprecated: edit in 5.2.0
+        description: "If set, use the `bwrap`(1) sandbox for formula installation and testing on Linux. " \
+                     "Enabled by default if `$HOMEBREW_DEVELOPER` is set. This will be the default in " \
+                     "Homebrew 5.2.0.",
         boolean:     true,
       },
       HOMEBREW_SBOM:                             {
@@ -633,6 +636,8 @@ module Homebrew
       method_name
     end
 
+    # Developer-mode defaults should be materialised in `brew.sh` by setting
+    # the matching environment variable rather than inferred here.
     CUSTOM_IMPLEMENTATIONS = T.let(Set.new([
       :HOMEBREW_MAKE_JOBS,
       :HOMEBREW_CASK_OPTS,
@@ -641,7 +646,6 @@ module Homebrew
       :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
       :HOMEBREW_DOWNLOAD_CONCURRENCY,
       :HOMEBREW_SANDBOX_LINUX,
-      :HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS,
       :HOMEBREW_USE_INTERNAL_API,
     ]).freeze, T::Set[Symbol])
 
@@ -740,24 +744,6 @@ module Homebrew
       # Provide an opt-out for tests and developers.
       # Our testing framework installs formulae from file paths all over the place.
       ENV["HOMEBREW_TESTS"].blank? && ENV["HOMEBREW_DEVELOPER"].blank?
-    end
-
-    sig { returns(T::Boolean) }
-    def upgrade_auto_updates_casks?
-      upgrade_auto_updates_casks = ENV.fetch("HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS", nil)
-      upgrade_auto_updates_casks = upgrade_auto_updates_casks.present? &&
-                                   FALSY_VALUES.exclude?(upgrade_auto_updates_casks.downcase)
-      no_upgrade_auto_updates_casks = T.unsafe(self).no_upgrade_auto_updates_casks?
-
-      if upgrade_auto_updates_casks && no_upgrade_auto_updates_casks
-        raise UsageError,
-              "`HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS` and `HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS` " \
-              "cannot both be set."
-      end
-
-      return false if no_upgrade_auto_updates_casks
-
-      upgrade_auto_updates_casks || Homebrew::EnvConfig.developer?
     end
 
     sig { returns(T::Boolean) }

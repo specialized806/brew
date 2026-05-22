@@ -70,7 +70,7 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "returns false unless Linux sandboxing is enabled" do
-      with_env(HOMEBREW_SANDBOX_LINUX: nil) do
+      with_env(HOMEBREW_DEVELOPER: nil, HOMEBREW_SANDBOX_LINUX: nil) do
         expect(sandbox_class.available?).to be(false)
       end
     end
