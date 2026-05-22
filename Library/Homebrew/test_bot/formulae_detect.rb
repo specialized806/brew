@@ -169,7 +169,7 @@ module Homebrew
               modified_formulae.all? { |formula| formula.start_with?("portable-") }
           modified_formulae = ["portable-ruby"]
         elsif modified_formulae.any? { |formula| formula.start_with?("portable-") } &&
-              ENV["GITHUB_EVENT_NAME"] != "merge_group"
+              !(ENV["GITHUB_EVENT_NAME"] == "merge_group" && args.only_formulae_detect?)
           odie "Portable Ruby (and related formulae) cannot be tested in the same job as other formulae!"
         end
 
