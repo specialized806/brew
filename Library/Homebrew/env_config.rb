@@ -54,7 +54,13 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_ASK:                              {
-        description: "If set, pass `--ask` to `brew install`, `brew upgrade` and `brew reinstall` commands.",
+        # odeprecated: make `HOMEBREW_ASK` the default in the next release
+        description: "If set, pass `--ask` to `brew install`, `brew upgrade` and `brew reinstall` commands. " \
+                     "Enabled by default if `$HOMEBREW_DEVELOPER` is set. This will become the default behaviour " \
+                     "in the next release. " \
+                     "Ask mode prints the plan before proceeding and prompts only if the plan includes " \
+                     "dependencies, dependants or packages other than named arguments. Otherwise, it only " \
+                     "prints the plan. The confirmation prompt is skipped without a TTY.",
         boolean:     true,
       },
       HOMEBREW_AUTO_UPDATE_SECS:                 {
@@ -386,9 +392,8 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_NO_ASK:                           {
-        description: "If set, do not ask for confirmation before downloading and installing, upgrading or " \
-                     "reinstalling formulae and casks. This is a no-op until ask mode becomes the default " \
-                     "behaviour in a later release.",
+        description: "If set, do not enable ask mode from `$HOMEBREW_ASK` or the `$HOMEBREW_DEVELOPER` default. " \
+                     "This does not disable an explicit `--ask`.",
         boolean:     true,
       },
       HOMEBREW_NO_AUTOREMOVE:                    {
@@ -752,7 +757,7 @@ module Homebrew
 
       return false if no_upgrade_auto_updates_casks
 
-      upgrade_auto_updates_casks || T.unsafe(self).developer?
+      upgrade_auto_updates_casks || Homebrew::EnvConfig.developer?
     end
 
     sig { returns(T::Boolean) }

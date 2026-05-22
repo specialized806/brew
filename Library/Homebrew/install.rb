@@ -735,6 +735,8 @@ module Homebrew
 
       sig { params(action: String).void }
       def ask_input(action: "installation")
+        return if !$stdin.tty? || !$stdout.tty?
+
         ohai "Do you want to proceed with the #{action}? [y/N]"
         accepted_inputs = %w[y yes]
         declined_inputs = %w[n no]

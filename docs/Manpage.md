@@ -1160,7 +1160,10 @@ upgrade *`formula`* if it is already installed but outdated.
 `--ask`
 
 : Ask for confirmation before downloading and installing. Print the same plan as
-  `--dry-run` before prompting. Enabled by default if `$HOMEBREW_ASK` is set.
+  `--dry-run` before prompting. Only prompts if the plan includes dependencies
+  or dependants; if the requested formulae or casks are the only things to
+  install, it only prints the plan. The confirmation prompt is skipped without a
+  TTY. Enabled by default if `$HOMEBREW_ASK` is set.
 
 `--formula`
 
@@ -1654,7 +1657,10 @@ for the reinstalled formulae or, every 30 days, for all formulae.
 `--ask`
 
 : Ask for confirmation before downloading and reinstalling. Print what would be
-  reinstalled before prompting. Enabled by default if `$HOMEBREW_ASK` is set.
+  reinstalled before prompting. Only prompts if the plan includes dependencies
+  or dependants; if the requested formulae or casks are the only things to
+  reinstall, it only prints the plan. The confirmation prompt is skipped without
+  a TTY. Enabled by default if `$HOMEBREW_ASK` is set.
 
 `--formula`
 
@@ -2147,8 +2153,12 @@ for the upgraded formulae or, every 30 days, for all formulae.
 `--ask`
 
 : Ask for confirmation before downloading and upgrading. Print the same plan as
-  `--dry-run`, including available download sizes. Enabled by default if
-  `$HOMEBREW_ASK` is set.
+  `--dry-run`, including available download sizes. When named arguments are
+  provided, only prompts if the plan includes packages other than those
+  arguments; if the requested formulae or casks are the only things to upgrade,
+  it only prints the plan. With no named arguments, prompts if anything would be
+  upgraded. The confirmation prompt is skipped without a TTY. Enabled by default
+  if `$HOMEBREW_ASK` is set.
 
 `--formula`
 
@@ -4444,7 +4454,11 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_ASK`
 
 : If set, pass `--ask` to `brew install`, `brew upgrade` and `brew reinstall`
-  commands.
+  commands. Enabled by default if `$HOMEBREW_DEVELOPER` is set. This will become
+  the default behaviour in the next release. Ask mode prints the plan before
+  proceeding and prompts only if the plan includes dependencies, dependants or
+  packages other than named arguments. Otherwise, it only prints the plan. The
+  confirmation prompt is skipped without a TTY.
 
 `HOMEBREW_AUTO_UPDATE_SECS`
 
@@ -4838,9 +4852,8 @@ command execution (e.g. `$(cat file)`).
 
 `HOMEBREW_NO_ASK`
 
-: If set, do not ask for confirmation before downloading and installing,
-  upgrading or reinstalling formulae and casks. This is a no-op until ask mode
-  becomes the default behaviour in a later release.
+: If set, do not enable ask mode from `$HOMEBREW_ASK` or the
+  `$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--ask`.
 
 `HOMEBREW_NO_AUTOREMOVE`
 

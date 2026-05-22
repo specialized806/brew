@@ -1125,6 +1125,8 @@ module Homebrew
       def value_for_env(env)
         return if env.blank?
 
+        return false if env.to_s == "ask" && Homebrew::EnvConfig.no_ask?
+
         method_name = :"#{env}?"
         if Homebrew::EnvConfig.respond_to?(method_name)
           Homebrew::EnvConfig.public_send(method_name)

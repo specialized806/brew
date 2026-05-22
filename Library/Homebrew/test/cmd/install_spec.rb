@@ -87,12 +87,20 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   end
 
   it "defaults ask input to no" do
-    allow($stdin).to receive(:gets).and_return("\n")
+    allow($stdin).to receive_messages(gets: "\n", tty?: true)
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
     expect do
       Homebrew::Install.ask(action: "upgrade")
     end.to raise_error(SystemExit) { |error| expect(error.status).to eq(1) }
       .and output("==> Do you want to proceed with the upgrade? [y/N]\n").to_stdout
+  end
+
+  it "skips ask input without a TTY" do
+    allow($stdin).to receive(:tty?).and_return(false)
+    expect($stdin).not_to receive(:gets)
+
+    expect { Homebrew::Install.ask(action: "upgrade") }.not_to output.to_stdout
   end
 
   it "uses shared prompt rules for ask plans" do
