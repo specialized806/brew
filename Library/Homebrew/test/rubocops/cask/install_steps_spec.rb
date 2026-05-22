@@ -1,0 +1,55 @@
+# typed: false
+# frozen_string_literal: true
+
+require "rubocops/rubocop-cask"
+
+RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
+  it "reports an offense when a flight block and matching steps are both present" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          touch "foo"
+        end
+
+        postflight_steps do
+        ^^^^^^^^^^^^^^^^^^^ `postflight` and `postflight_steps` cannot both be used.
+          touch "foo"
+        end
+      end
+    CASK
+  end
+
+  it "reports an offense when a steps block contains Ruby code" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          system "true"
+          ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`.
+        end
+      end
+    CASK
+  end
+
+  it "accepts install step DSL calls" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          mkdir_p "foo"
+          touch "foo/state"
+          mv "source", "target"
+          move_children "source", "target"
+          ln_sf "source", "target", source_base: :relative, uninstall: true
+        end
+      end
+    CASK
+  end
+end
