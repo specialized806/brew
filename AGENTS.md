@@ -58,5 +58,6 @@ When running Ruby directly (e.g. `ruby -e ...`, `gem`, profiling tools), never u
 8. Prefer shelling out via `HOMEBREW_BREW_FILE` instead of requiring `cmd/` or `dev-cmd` when composing brew commands.
 9. Inline new or existing methods as methods or local variables unless they are reused 2+ times or needed for unit tests.
 10. Avoid `T.must`; prefer explicit nil checks or APIs that return non-nil values.
-11. Keep `extend/os/*` prepends as thin as possible; put the `prepend` in the OS-specific `linux` or `macos` file rather than the shared `extend/os/*` loader with an inline `if`, and prefer putting substantive logic in shared code outside `extend/` when practical so it can be tested on all platforms instead of relying on `:needs_linux` or `:needs_macos` specs.
-12. When Bash logic mirrors Ruby logic, keep both implementations in sync and add two-way comments naming the matching Ruby and Bash locations; keep matching helper filenames aligned where practical.
+11. Avoid `T.unsafe(self)` whenever possible; prefer `requires_ancestor` or similar typed module patterns.
+12. Keep `extend/os/*` prepends as thin as possible; put the `prepend` in the OS-specific `linux` or `macos` file rather than the shared `extend/os/*` loader with an inline `if`, and prefer putting substantive logic in shared code outside `extend/` when practical so it can be tested on all platforms instead of relying on `:needs_linux` or `:needs_macos` specs.
+13. When Bash logic mirrors Ruby logic, keep both implementations in sync and add two-way comments naming the matching Ruby and Bash locations; keep matching helper filenames aligned where practical.

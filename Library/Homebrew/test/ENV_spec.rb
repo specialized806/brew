@@ -162,6 +162,23 @@ RSpec.describe "ENV" do
         subject.clear_sensitive_environment!
         expect(subject["FOO"]).to eq "bar"
       end
+
+      it "restores the environment after yielding" do
+        subject["SECRET_TOKEN"] = "password"
+        subject["FOO"] = "bar"
+
+        result = subject.clear_sensitive_environment! do
+          subject["FOO"] = "baz"
+          subject["OTHER_TOKEN"] = "secret"
+
+          [subject["SECRET_TOKEN"], subject["FOO"]]
+        end
+
+        expect(result).to eq([nil, "baz"])
+        expect(subject["SECRET_TOKEN"]).to eq("password")
+        expect(subject["FOO"]).to eq("bar")
+        expect(subject).not_to include("OTHER_TOKEN")
+      end
     end
   end
 

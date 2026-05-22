@@ -13,6 +13,7 @@ require "service"
 require "utils/curl"
 require "extend/hash/deep_transform_values"
 require "extend/hash/keys"
+require "extend/ENV/sensitive"
 require "tap"
 
 # The {Formulary} is responsible for creating instances of {Formula}.
@@ -151,10 +152,12 @@ module Formulary
         raise FormulaUnreadableError.new(name, e)
       end
     end
-    if ignore_errors
-      Ignorable.hook_raise(&eval_formula)
-    else
-      eval_formula.call
+    ENV.clear_sensitive_environment! do
+      if ignore_errors
+        Ignorable.hook_raise(&eval_formula)
+      else
+        eval_formula.call
+      end
     end
 
     class_name = class_s(name)

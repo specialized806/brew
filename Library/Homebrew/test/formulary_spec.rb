@@ -57,6 +57,29 @@ RSpec.describe Formulary do
     end
   end
 
+  describe "::load_formula" do
+    it "clears sensitive environment variables while evaluating formulae" do
+      with_env(SECRET_TOKEN: "password") do
+        formula_class = Formulary.load_formula(
+          "sensitive-env",
+          mktmpdir/"sensitive-env.rb",
+          <<~RUBY,
+            class SensitiveEnv < Formula
+              SECRET_TOKEN_PRESENT = ENV.key?("SECRET_TOKEN")
+              url "https://brew.sh/sensitive-env-1.0.tar.gz"
+            end
+          RUBY
+          "SensitiveEnvNamespace",
+          flags:         [],
+          ignore_errors: false,
+        )
+
+        expect(formula_class.const_get(:SECRET_TOKEN_PRESENT)).to be(false)
+        expect(ENV.fetch("SECRET_TOKEN", nil)).to eq("password")
+      end
+    end
+  end
+
   describe "::factory" do
     context "without the API", :no_api do
       before do
