@@ -47,7 +47,10 @@ module Homebrew
                description: "Show what would be installed, but do not actually install anything."
         switch "--ask",
                description: "Ask for confirmation before downloading and installing. " \
-                            "Print the same plan as `--dry-run` before prompting.",
+                            "Print the same plan as `--dry-run` before prompting. Only prompts if the plan " \
+                            "includes dependencies or dependants; if the requested formulae or casks are the " \
+                            "only things to install, it only prints the plan. The confirmation prompt is " \
+                            "skipped without a TTY.",
                env:         :ask
         [
           [:switch, "--formula", "--formulae", {

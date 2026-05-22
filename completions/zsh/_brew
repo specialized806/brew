@@ -1454,7 +1454,7 @@ _brew_install() {
     '(--formula)--appdir[Target location for Applications (default: `/Applications`)]' \
     '(--formula)--appimagedir[Target location for AppImages (default: `~/Applications`)]' \
     '(--cask)--as-dependency[Install but mark as installed as a dependency and not installed on request]' \
-    '--ask[Ask for confirmation before downloading and installing. Print the same plan as `--dry-run` before prompting. Enabled by default if `$HOMEBREW_ASK` is set]' \
+    '--ask[Ask for confirmation before downloading and installing. Print the same plan as `--dry-run` before prompting. Only prompts if the plan includes dependencies or dependants; if the requested formulae or casks are the only things to install, it only prints the plan. The confirmation prompt is skipped without a TTY. Enabled by default if `$HOMEBREW_ASK` is set]' \
     '(--formula)--audio-unit-plugindir[Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)]' \
     '(--formula)--binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '(--cask)--bottle-arch[Optimise bottles for the specified architecture rather than the oldest architecture supported by the version of macOS the bottles are built on]' \
@@ -1891,7 +1891,7 @@ _brew_reinstall() {
     '(--formula)--adopt[Adopt existing artifacts in the destination that are identical to those being installed. Cannot be combined with `--force`]' \
     '(--formula)--appdir[Target location for Applications (default: `/Applications`)]' \
     '(--formula)--appimagedir[Target location for AppImages (default: `~/Applications`)]' \
-    '--ask[Ask for confirmation before downloading and reinstalling. Print what would be reinstalled before prompting. Enabled by default if `$HOMEBREW_ASK` is set]' \
+    '--ask[Ask for confirmation before downloading and reinstalling. Print what would be reinstalled before prompting. Only prompts if the plan includes dependencies or dependants; if the requested formulae or casks are the only things to reinstall, it only prints the plan. The confirmation prompt is skipped without a TTY. Enabled by default if `$HOMEBREW_ASK` is set]' \
     '(--formula)--audio-unit-plugindir[Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)]' \
     '(--formula)--binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '(--cask --force-bottle)--build-from-source[Compile formula from source even if a bottle is available]' \
@@ -2601,7 +2601,7 @@ _brew_upgrade() {
   _arguments \
     '(--formula)--appdir[Target location for Applications (default: `/Applications`)]' \
     '(--formula)--appimagedir[Target location for AppImages (default: `~/Applications`)]' \
-    '--ask[Ask for confirmation before downloading and upgrading. Print the same plan as `--dry-run`, including available download sizes. Enabled by default if `$HOMEBREW_ASK` is set]' \
+    '--ask[Ask for confirmation before downloading and upgrading. Print the same plan as `--dry-run`, including available download sizes. When named arguments are provided, only prompts if the plan includes packages other than those arguments; if the requested formulae or casks are the only things to upgrade, it only prints the plan. With no named arguments, prompts if anything would be upgraded. The confirmation prompt is skipped without a TTY. Enabled by default if `$HOMEBREW_ASK` is set]' \
     '(--formula)--audio-unit-plugindir[Target location for Audio Unit Plugins (default: `~/Library/Audio/Plug-Ins/Components`)]' \
     '(--formula)--binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '(--cask --force-bottle)--build-from-source[Compile formula from source even if a bottle is available]' \
@@ -2628,6 +2628,7 @@ _brew_upgrade() {
     '(--formula)--mdimporterdir[Target location for Spotlight Plugins (default: `~/Library/Spotlight`)]' \
     '--minimum-version[Only upgrade a named formula or cask with an installed version below the given minimum version]' \
     '--no-binaries[Disable/enable linking of helper executables (default: enabled)]' \
+    '(--formula)--no-quit[Prevent running cask applications from being quit during upgrade. Enabled by default if `$HOMEBREW_NO_UPGRADE_QUIT_CASKS` is set]' \
     '(--cask)--overwrite[Delete files that already exist in the prefix while linking]' \
     '(--formula)--prefpanedir[Target location for Preference Panes (default: `~/Library/PreferencePanes`)]' \
     '(--formula)--qlplugindir[Target location for Quick Look Plugins (default: `~/Library/QuickLook`)]' \
@@ -2640,7 +2641,7 @@ _brew_upgrade() {
     '(--formula)--vst-plugindir[Target location for VST Plugins (default: `~/Library/Audio/Plug-Ins/VST`)]' \
     '(--formula)--vst3-plugindir[Target location for VST3 Plugins (default: `~/Library/Audio/Plug-Ins/VST3`)]' \
     - installed_formula \
-    '(--casks --skip-cask-deps --greedy --greedy-latest --greedy-auto-updates --binaries --require-sha --quarantine --appdir --appimagedir --keyboard-layoutdir --colorpickerdir --prefpanedir --qlplugindir --mdimporterdir --dictionarydir --fontdir --servicedir --input-methoddir --internet-plugindir --audio-unit-plugindir --vst-plugindir --vst3-plugindir --screen-saverdir --language)--formula[Treat all named arguments as formulae. If no named arguments are specified, upgrade only outdated formulae]' \
+    '(--casks --skip-cask-deps --no-quit --greedy --greedy-latest --greedy-auto-updates --binaries --require-sha --quarantine --appdir --appimagedir --keyboard-layoutdir --colorpickerdir --prefpanedir --qlplugindir --mdimporterdir --dictionarydir --fontdir --servicedir --input-methoddir --internet-plugindir --audio-unit-plugindir --vst-plugindir --vst3-plugindir --screen-saverdir --language)--formula[Treat all named arguments as formulae. If no named arguments are specified, upgrade only outdated formulae]' \
     '*:installed_formula:__brew_installed_formulae' \
     - installed_cask \
     '(--formulae --build-from-source --interactive --force-bottle --fetch-HEAD --keep-tmp --debug-symbols --overwrite)--cask[Treat all named arguments as casks. If no named arguments are specified, upgrade only outdated casks]' \

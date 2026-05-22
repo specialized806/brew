@@ -126,6 +126,26 @@ RSpec.describe Homebrew::CLI::Parser do
     end
   end
 
+  describe "ask environment variable precedence" do
+    subject(:parser) do
+      Homebrew::CLI::Parser.new(Cmd) do
+        switch "--ask", env: :ask
+      end
+    end
+
+    it "lets HOMEBREW_NO_ASK override HOMEBREW_ASK defaults" do
+      with_env(HOMEBREW_ASK: "1", HOMEBREW_NO_ASK: "1") do
+        expect(parser.parse([]).ask?).to be(false)
+      end
+    end
+
+    it "lets --ask override HOMEBREW_NO_ASK" do
+      with_env(HOMEBREW_ASK: "1", HOMEBREW_NO_ASK: "1") do
+        expect(parser.parse(["--ask"]).ask?).to be(true)
+      end
+    end
+  end
+
   describe "test long flag options" do
     subject(:parser) do
       klass.new(Cmd) do

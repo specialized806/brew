@@ -3288,6 +3288,7 @@ _brew_upgrade() {
       --mdimporterdir
       --minimum-version
       --no-binaries
+      --no-quit
       --overwrite
       --prefpanedir
       --qlplugindir

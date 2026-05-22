@@ -61,7 +61,11 @@ module Homebrew
                             "minimum version."
         switch "--ask",
                description: "Ask for confirmation before downloading and upgrading. " \
-                            "Print the same plan as `--dry-run`, including available download sizes.",
+                            "Print the same plan as `--dry-run`, including available download sizes. " \
+                            "When named arguments are provided, only prompts if the plan includes packages " \
+                            "other than those arguments; if the requested formulae or casks are the only " \
+                            "things to upgrade, it only prints the plan. With no named arguments, prompts if " \
+                            "anything would be upgraded. The confirmation prompt is skipped without a TTY.",
                env:         :ask
         [
           [:switch, "--formula", "--formulae", {

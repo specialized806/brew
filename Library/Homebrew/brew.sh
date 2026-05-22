@@ -1056,7 +1056,7 @@ fi
 # Enable features for developers and CI before they become the default for everyone.
 if [[ -n "${HOMEBREW_DEVELOPER}" ]]
 then
-  :
+  export HOMEBREW_ASK="1"
 fi
 
 # Enable features for users who have run a devcmd before they become the default for everyone.
