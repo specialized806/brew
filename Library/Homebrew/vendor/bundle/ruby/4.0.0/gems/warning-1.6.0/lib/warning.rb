@@ -32,6 +32,9 @@ module Warning
     }
     private_constant :ACTION_PROC_MAP
 
+    # The error class used when converting warnings into errors.
+    attr_accessor :error_class
+
     # Clear all current ignored warnings, warning processors, and duplicate check cache.
     # Also disables deduplicating warnings if that is currently enabled.
     #
@@ -158,7 +161,8 @@ module Warning
     # :default :: Take the default action (call super, printing to $stderr).
     # :backtrace :: Take the default action (call super, printing to $stderr),
     #               and also print the backtrace.
-    # :raise :: Raise a RuntimeError with the warning as the message.
+    # :raise :: Raise a RuntimeError with the warning as the message (use
+    #           Warning.error_class= to use a different warning class). 
     #
     # If the block returns anything else, it is assumed the block completely handled
     # the warning and takes no other action.
@@ -210,6 +214,9 @@ module Warning
       nil
     end
 
+    # :nocov:
+    backtrace_locations = RUBY_VERSION >= '3.4' ? 'caller_locations' : 'caller'
+    # :nocov:
 
     if RUBY_VERSION >= '3.0'
       method_args = ', category: nil'
@@ -261,7 +268,7 @@ module Warning
           #{super_}
           $stderr.puts caller
         when :raise
-          raise str
+          raise @error_class, str, #{backtrace_locations}(3..-1)
         else
           # nothing
         end
@@ -295,6 +302,7 @@ module Warning
   @process = []
   @dedup = false
   @monitor = Monitor.new
+  @error_class = RuntimeError
 
   extend Processor
 end
