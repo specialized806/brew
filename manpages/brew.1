@@ -1390,6 +1390,9 @@ Treat all named arguments as casks\. If no named arguments are specified, upgrad
 \fB\-\-skip\-cask\-deps\fP
 Skip installing cask dependencies\.
 .TP
+\fB\-\-no\-quit\fP
+Prevent running cask applications from being quit during upgrade\. Enabled by default if \fB$HOMEBREW_NO_UPGRADE_QUIT_CASKS\fP is set\.
+.TP
 \fB\-g\fP, \fB\-\-greedy\fP
 Also include casks with \fBversion :latest\fP and \fBauto_updates true\fP casks that would otherwise be skipped\. Enabled by default if \fB$HOMEBREW_UPGRADE_GREEDY\fP is set\.
 .TP
@@ -3224,6 +3227,9 @@ If set, disable the Linux sandbox\.
 .TP
 \fBHOMEBREW_NO_UPDATE_REPORT_NEW\fP
 If set, \fBbrew update\fP will not show the list of newly added formulae/casks\.
+.TP
+\fBHOMEBREW_NO_UPGRADE_QUIT_CASKS\fP
+If set, \fBbrew upgrade\fP will not quit running applications for casks during upgrades\.
 .TP
 \fBHOMEBREW_NO_VERIFY_ATTESTATIONS\fP
 If set, Homebrew will not verify cryptographic attestations of build provenance for bottles from homebrew\-core\.
