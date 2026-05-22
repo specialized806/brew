@@ -5,6 +5,8 @@ require "formula"
 require "service"
 
 RSpec.describe Homebrew::Service do
+  let(:klass) { Homebrew::Service }
+
   let(:name) { "formula_name" }
 
   def stub_formula(&block)
@@ -1391,12 +1393,12 @@ RSpec.describe Homebrew::Service do
     end
 
     it "replaces placeholders with local paths" do
-      expect(described_class.from_hash(serialized_hash)).to eq(deserialized_hash)
+      expect(klass.from_hash(serialized_hash)).to eq(deserialized_hash)
     end
 
     describe "run command" do
       it "handles String argument correctly" do
-        expect(described_class.from_hash({
+        expect(klass.from_hash({
           "run" => "$HOMEBREW_PREFIX/opt/formula_name/bin/beanstalkd",
         })).to eq({
           run: "#{HOMEBREW_PREFIX}/opt/formula_name/bin/beanstalkd",
@@ -1404,7 +1406,7 @@ RSpec.describe Homebrew::Service do
       end
 
       it "handles Array argument correctly" do
-        expect(described_class.from_hash({
+        expect(klass.from_hash({
           "run" => ["$HOMEBREW_PREFIX/opt/formula_name/bin/beanstalkd", "--option"],
         })).to eq({
           run: ["#{HOMEBREW_PREFIX}/opt/formula_name/bin/beanstalkd", "--option"],
@@ -1412,7 +1414,7 @@ RSpec.describe Homebrew::Service do
       end
 
       it "handles Hash argument correctly" do
-        expect(described_class.from_hash({
+        expect(klass.from_hash({
           "run" => {
             "linux" => "$HOMEBREW_PREFIX/opt/formula_name/bin/beanstalkd",
             "macos" => ["$HOMEBREW_PREFIX/opt/formula_name/bin/beanstalkd", "--option"],

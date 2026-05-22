@@ -35,7 +35,7 @@ RSpec.describe Homebrew::DevCmd::GenerateFormulaApi do
 
     Dir.mktmpdir do |tmpdir|
       path = Pathname.new(tmpdir)
-      path.cd { described_class.new([]).run }
+      path.cd { Homebrew::DevCmd::GenerateFormulaApi.new([]).run }
 
       expect(JSON.parse((path/"_data/formula/foo.json").read)["executables"]).to eq(["foo-tool", "food"])
       expect(JSON.parse((path/"api/internal/formula.arm64_sonoma.json").read)

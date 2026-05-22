@@ -7,18 +7,19 @@ require "cask/cask_loader"
 
 RSpec.describe Homebrew::Cmd::Bundle::AddSubcommand do
   subject(:add) do
-    described_class.new(args_object, context:).run
+    klass.new(args_object, context:).run
   end
 
-  before { FileUtils.touch file }
-  after { FileUtils.rm_f file }
-
+  let(:klass) { Homebrew::Cmd::Bundle::AddSubcommand }
   let(:global) { false }
   let(:context) { bundle_subcommand_context(:add, global:, file:, no_type_args: false) }
   let(:args_object) do
     args_for_subcommand(:add, *args, formulae?: type == :brew, casks?: type == :cask, taps?: type == :tap,
                                       describe?: false)
   end
+
+  before { FileUtils.touch file }
+  after { FileUtils.rm_f file }
 
   context "when called with a valid formula" do
     let(:args) { ["hello"] }

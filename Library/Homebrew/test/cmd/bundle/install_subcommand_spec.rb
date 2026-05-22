@@ -7,12 +7,13 @@ require "bundle/skipper"
 
 RSpec.describe Homebrew::Cmd::Bundle::InstallSubcommand do
   subject(:install_subcommand) do
-    described_class.new(
+    klass.new(
       args_for_subcommand(:install, quiet?: false, global?: global, cleanup?: false),
       context: bundle_subcommand_context(:install, global:),
     )
   end
 
+  let(:klass) { Homebrew::Cmd::Bundle::InstallSubcommand }
   let(:global) { false }
 
   before do

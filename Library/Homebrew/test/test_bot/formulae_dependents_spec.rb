@@ -5,8 +5,10 @@ require "test_bot"
 
 RSpec.describe Homebrew::TestBot::FormulaeDependents do
   subject(:formulae_dependents) do
-    described_class.new(tap: nil, git: nil, dry_run: false, fail_fast: false, verbose: false)
+    klass.new(tap: nil, git: nil, dry_run: false, fail_fast: false, verbose: false)
   end
+
+  let(:klass) { Homebrew::TestBot::FormulaeDependents }
 
   describe "#dependents_for_shard" do
     it "keeps dependent formulae that depend on each other in the same shard" do

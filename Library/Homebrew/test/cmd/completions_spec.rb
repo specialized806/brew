@@ -8,11 +8,11 @@ RSpec.describe Homebrew::Cmd::CompletionsCmd do
   it_behaves_like "parseable arguments"
 
   it "uses state as the default subcommand" do
-    expect(described_class.new([]).args.subcommand).to eq("state")
+    expect(Homebrew::Cmd::CompletionsCmd.new([]).args.subcommand).to eq("state")
   end
 
   it "rejects extra arguments for state" do
-    expect { described_class.new(%w[state foo]) }
+    expect { Homebrew::Cmd::CompletionsCmd.new(%w[state foo]) }
       .to raise_error(Homebrew::CLI::MaxNamedArgumentsError)
   end
 

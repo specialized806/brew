@@ -5,6 +5,8 @@ require "cmd/uninstall"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::UninstallCmd do
+  let(:klass) { Homebrew::Cmd::UninstallCmd }
+
   it_behaves_like "parseable arguments"
 
   it "uninstalls a given Formula", :integration_test do
@@ -25,7 +27,7 @@ RSpec.describe Homebrew::Cmd::UninstallCmd do
     allow(Homebrew::Cleanup).to receive(:autoremove)
 
     cask = Cask::Cask.new("test-cask")
-    cmd = described_class.new(["test-cask"])
+    cmd = klass.new(["test-cask"])
     allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable).and_return([cask])
 
     expect { cmd.run }

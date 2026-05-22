@@ -5,6 +5,8 @@ require "cmd/doctor"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Doctor do
+  let(:klass) { Homebrew::Cmd::Doctor }
+
   it_behaves_like "parseable arguments"
 
   specify "check_integration_test", :integration_test do
@@ -33,7 +35,7 @@ RSpec.describe Homebrew::Cmd::Doctor do
     (CoreCaskTap.instance.cask_dir/"local-caffeine.rb").unlink
     CoreCaskTap.instance.clear_cache
 
-    cmd = described_class.new(["check_cask_deprecated_disabled"])
+    cmd = klass.new(["check_cask_deprecated_disabled"])
 
     expect { cmd.run }
       .to not_to_output(/Unexpected method 'discontinued' called during caveats on Cask local-caffeine\./).to_stderr

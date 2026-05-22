@@ -33,8 +33,10 @@ RSpec.describe Homebrew::Manpages do
   end
 
   it "lists options under the root command and matching subcommands", :aggregate_failures do
-    root_section, install_and_info_sections = described_class.cmd_parser_manpage_lines(subcommand_parser).join
-                                                             .split("`test install`:")
+    root_section, install_and_info_sections = Homebrew::Manpages
+                                              .cmd_parser_manpage_lines(subcommand_parser)
+                                              .join
+                                              .split("`test install`:")
     install_section, info_section = install_and_info_sections.split("`test info` <service>:")
 
     expect(root_section).to include("`--global`")

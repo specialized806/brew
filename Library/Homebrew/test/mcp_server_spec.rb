@@ -6,10 +6,12 @@ require "stringio"
 require "timeout"
 
 RSpec.describe Homebrew::McpServer do
+  let(:klass) { Homebrew::McpServer }
+
   let(:stdin) { StringIO.new }
   let(:stdout) { StringIO.new }
   let(:stderr) { StringIO.new }
-  let(:server) { described_class.new(stdin:, stdout:, stderr:) }
+  let(:server) { klass.new(stdin:, stdout:, stderr:) }
   let(:jsonrpc) { Homebrew::McpServer::JSON_RPC_VERSION }
   let(:id) { Random.rand(1000) }
   let(:code) { Homebrew::McpServer::ERROR_CODE }

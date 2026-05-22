@@ -4,7 +4,7 @@
 require "rubocops/class"
 
 RSpec.describe RuboCop::Cop::FormulaAuditStrict::TestPresent do
-  subject(:cop) { described_class.new }
+  subject(:cop) { RuboCop::Cop::FormulaAuditStrict::TestPresent.new }
 
   it "reports an offense when there is no test block" do
     expect_offense(<<~RUBY)

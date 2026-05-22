@@ -6,8 +6,9 @@ require "dev-cmd/bump-formula-pr"
 require "utils/pypi"
 
 RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
-  subject(:bump_formula_pr) { described_class.new(["test"]) }
+  subject(:bump_formula_pr) { klass.new(["test"]) }
 
+  let(:klass) { Homebrew::DevCmd::BumpFormulaPr }
   let(:f) do
     formula("test") do
       url "https://brew.sh/test-1.2.3.tgz"
@@ -35,7 +36,7 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       resource_path = mktmpdir/"apache-couchdb-3.5.2.tar.gz"
       resource_path.write("couchdb")
       updated_mirror = "https://archive.apache.org/dist/couchdb/source/3.5.2/apache-couchdb-3.5.2.tar.gz"
-      command = described_class.new(["--write-only", "--no-audit", "--version=3.5.2", "couchdb"])
+      command = klass.new(["--write-only", "--no-audit", "--version=3.5.2", "couchdb"])
 
       allow(Homebrew).to receive(:install_bundler_gems!)
       allow(CoreTap.instance).to receive_messages(allow_bump?: true, git?: true,

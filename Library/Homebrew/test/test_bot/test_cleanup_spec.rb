@@ -4,12 +4,15 @@
 require "dev-cmd/test-bot"
 
 RSpec.describe Homebrew::TestBot::CleanupAfter do
+  sig { returns(T.class_of(Homebrew::TestBot::CleanupAfter)) }
+  let(:klass) { Homebrew::TestBot::CleanupAfter }
+
   # Regression test: checkout_branch_if_needed, reset_if_needed, and clean_if_needed
   # expect a String (repository path). Passing HOMEBREW_REPOSITORY (Pathname) would cause
   # "Parameter 'repository': Expected type String, got type Pathname" in strict typing.
   describe "#run!" do
     it "passes a String to checkout_branch_if_needed, reset_if_needed, and clean_if_needed when tap is set" do
-      cleanup = described_class.new(
+      cleanup = klass.new(
         tap:       CoreTap.instance,
         git:       "git",
         dry_run:   true,

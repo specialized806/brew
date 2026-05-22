@@ -5,7 +5,9 @@ require "diagnostic"
 require "sandbox"
 
 RSpec.describe Homebrew::Diagnostic::Checks do
-  subject(:checks) { described_class.new }
+  subject(:checks) { klass.new }
+
+  let(:klass) { Homebrew::Diagnostic::Checks }
 
   specify "#check_supported_architecture" do
     allow(Hardware::CPU).to receive(:type).and_return(:arm64)

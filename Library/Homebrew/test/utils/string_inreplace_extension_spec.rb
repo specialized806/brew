@@ -4,7 +4,9 @@
 require "utils/string_inreplace_extension"
 
 RSpec.describe StringInreplaceExtension do
-  subject(:string_extension) { described_class.new(string.dup) }
+  subject(:string_extension) { klass.new(string.dup) }
+
+  let(:klass) { StringInreplaceExtension }
 
   describe "#change_make_var!" do
     context "with a flag" do

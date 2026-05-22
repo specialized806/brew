@@ -4,7 +4,9 @@
 require "rubocops/class"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Test do
-  subject(:cop) { described_class.new }
+  subject(:cop) { klass.new }
+
+  let(:klass) { RuboCop::Cop::FormulaAudit::Test }
 
   it "reports and corrects an offense when /usr/local/bin is found in test calls" do
     expect_offense(<<~'RUBY')

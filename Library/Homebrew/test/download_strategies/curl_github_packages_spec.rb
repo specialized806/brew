@@ -4,8 +4,9 @@
 require "download_strategy"
 
 RSpec.describe CurlGitHubPackagesDownloadStrategy do
-  subject(:strategy) { described_class.new(url, name, version, **specs) }
+  subject(:strategy) { klass.new(url, name, version, **specs) }
 
+  let(:klass) { CurlGitHubPackagesDownloadStrategy }
   let(:name) { "foo" }
   let(:url) { "https://#{GitHubPackages::URL_DOMAIN}/v2/homebrew/core/spec_test/manifests/1.2.3" }
   let(:version) { "1.2.3" }

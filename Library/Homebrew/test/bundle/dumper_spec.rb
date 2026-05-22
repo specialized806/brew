@@ -7,7 +7,9 @@ require "bundle/brew_services"
 require "cask"
 
 RSpec.describe Homebrew::Bundle::Dumper do
-  subject(:dumper) { described_class }
+  subject(:dumper) { klass }
+
+  let(:klass) { Homebrew::Bundle::Dumper }
 
   before do
     ENV["HOMEBREW_BUNDLE_FILE"] = ""

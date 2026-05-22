@@ -24,9 +24,10 @@ end.freeze
 
 RSpec.describe Homebrew::Cmd::Bundle::ListSubcommand do
   subject(:list) do
-    described_class.new(args_object, context:).run
+    klass.new(args_object, context:).run
   end
 
+  let(:klass) { Homebrew::Cmd::Bundle::ListSubcommand }
   let(:context) { bundle_subcommand_context(:list, no_type_args:) }
   let(:args_object) do
     args_for_subcommand(:list, formulae?: formulae, casks?: casks, taps?: taps, mas?: mas, vscode?: vscode,

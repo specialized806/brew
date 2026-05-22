@@ -5,8 +5,9 @@ require "cask/cask_loader"
 require "cask_dependent"
 
 RSpec.describe CaskDependent, :needs_macos do
-  subject(:dependent) { described_class.new test_cask }
+  subject(:dependent) { klass.new test_cask }
 
+  let(:klass) { CaskDependent }
   let :test_cask do
     Cask::CaskLoader.load(+<<-RUBY)
       cask "testing" do

@@ -6,15 +6,15 @@ require "bump_version_parser"
 require "dev-cmd/bump"
 
 RSpec.describe Homebrew::DevCmd::Bump do
-  subject(:bump) { described_class.new(["test"]) }
+  subject(:bump) { klass.new(["test"]) }
 
+  let(:klass) { Homebrew::DevCmd::Bump }
   let(:f_basic) do
     formula("basic_formula") do
       desc "Basic formula"
       url "https://brew.sh/test-1.2.3.tgz"
     end
   end
-
   let(:c_basic) do
     Cask::CaskLoader.load(+<<-RUBY)
       cask "basic_cask" do
@@ -25,7 +25,6 @@ RSpec.describe Homebrew::DevCmd::Bump do
       end
     RUBY
   end
-
   let(:c_latest) do
     Cask::CaskLoader.load(+<<-RUBY)
       cask "latest_cask" do

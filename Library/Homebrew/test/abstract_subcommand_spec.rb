@@ -5,9 +5,11 @@ require "abstract_command"
 require "abstract_subcommand"
 
 RSpec.describe Homebrew::AbstractSubcommand do
+  let(:klass) { Homebrew::AbstractSubcommand }
+
   describe "subclasses" do
     before do
-      subcommand = Class.new(described_class) do
+      subcommand = Class.new(klass) do
         subcommand_args aliases: ["ts"], default: true do
           usage_banner <<~EOS
             `brew test`:
@@ -39,33 +41,33 @@ RSpec.describe Homebrew::AbstractSubcommand do
     end
 
     it "finds subcommands nested under a command class" do
-      nested_subcommand = Class.new(described_class) do
+      nested_subcommand = Class.new(klass) do
         subcommand_args { named_args :none }
         def run; end
       end
       stub_const("SubcommandTestCmd::NestedSubcommand", nested_subcommand)
       stub_const("OtherSubcommandTestCmd", Class.new(Homebrew::AbstractCommand))
-      other_subcommand = Class.new(described_class) do
+      other_subcommand = Class.new(klass) do
         subcommand_args { named_args :none }
         def run; end
       end
       stub_const("OtherSubcommandTestCmd::NestedSubcommand", other_subcommand)
 
-      expect(described_class.subcommands_for(SubcommandTestCmd)).to include(nested_subcommand)
-      expect(described_class.subcommands_for(SubcommandTestCmd)).not_to include(other_subcommand)
+      expect(klass.subcommands_for(SubcommandTestCmd)).to include(nested_subcommand)
+      expect(klass.subcommands_for(SubcommandTestCmd)).not_to include(other_subcommand)
     end
 
     it "defines all subcommands nested under a command class" do
-      stub_const("SubcommandTestCmd::FirstSubcommand", Class.new(described_class) do
+      stub_const("SubcommandTestCmd::FirstSubcommand", Class.new(klass) do
         subcommand_args { named_args :none }
         def run; end
       end)
-      stub_const("SubcommandTestCmd::SecondSubcommand", Class.new(described_class) do
+      stub_const("SubcommandTestCmd::SecondSubcommand", Class.new(klass) do
         subcommand_args { named_args :none }
         def run; end
       end)
 
-      abstract_subcommand = described_class
+      abstract_subcommand = klass
       parser = Homebrew::CLI::Parser.new(SubcommandTestCmd) do
         abstract_subcommand.define_all(self, command: SubcommandTestCmd)
       end

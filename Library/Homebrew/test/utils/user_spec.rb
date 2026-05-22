@@ -4,7 +4,9 @@
 require "utils/user"
 
 RSpec.describe User do
-  subject(:user) { described_class.current }
+  subject(:user) { klass.current }
+
+  let(:klass) { User }
 
   it { is_expected.to eq ENV.fetch("USER") }
 

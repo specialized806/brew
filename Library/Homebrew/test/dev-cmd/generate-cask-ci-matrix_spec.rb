@@ -5,8 +5,9 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/generate-cask-ci-matrix"
 
 RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
-  subject(:generate_matrix) { described_class.new(["test"]) }
+  subject(:generate_matrix) { klass.new(["test"]) }
 
+  let(:klass) { Homebrew::DevCmd::GenerateCaskCiMatrix }
   let(:c_on_system_depends_on_mixed) do
     Cask::Cask.new("test-on-system-depends-on-mixed") do
       os macos: "darwin", linux: "linux"

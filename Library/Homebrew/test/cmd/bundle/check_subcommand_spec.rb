@@ -7,8 +7,10 @@ require "bundle/dsl"
 require "bundle/skipper"
 
 RSpec.describe Homebrew::Cmd::Bundle::CheckSubcommand, :no_api do
+  let(:klass) { Homebrew::Cmd::Bundle::CheckSubcommand }
+
   let(:do_check) do
-    described_class.new(args_for_subcommand(:check), context:).run
+    klass.new(args_for_subcommand(:check), context:).run
   end
   let(:context) { bundle_subcommand_context(:check, no_upgrade:, verbose:) }
   let(:no_upgrade) { false }

@@ -4,15 +4,16 @@
 require "sandbox"
 
 RSpec.describe Sandbox, :needs_macos do
-  define_negated_matcher :not_matching, :matching
+  subject(:sandbox) { klass.new }
 
-  subject(:sandbox) { described_class.new }
-
+  let(:klass) { Sandbox }
   let(:dir) { mktmpdir }
   let(:file) { dir/"foo" }
 
+  define_negated_matcher :not_matching, :matching
+
   before do
-    skip "Sandbox not implemented." unless described_class.available?
+    skip "Sandbox not implemented." unless klass.available?
   end
 
   specify "#allow_write" do
