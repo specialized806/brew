@@ -662,7 +662,10 @@ module RuboCop
           methods.each do |method|
             next unless method.source.include?("shells:")
 
-            shells << method.source.match(/shells: \[(:bash|:zsh|:fish)\]/).captures.first
+            shell = method.source[/shells: \[(:bash|:zsh|:fish)\]/, 1]
+            next if shell.nil?
+
+            shells << shell
             offenses << method
           end
 
