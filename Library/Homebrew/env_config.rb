@@ -576,6 +576,7 @@ module Homebrew
                      "if `--greedy` was passed when upgrading any cask on this list.",
       },
       HOMEBREW_USE_INTERNAL_API:                 {
+        # odeprecated: make default next release
         description: "If set, test the new beta internal API for fetching formula and cask data.",
         boolean:     true,
       },
