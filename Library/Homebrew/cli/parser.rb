@@ -7,6 +7,7 @@ require "cask/config"
 require "cli/args"
 require "cli/error"
 require "commands"
+require "extend/ENV/sensitive"
 require "optparse"
 require "utils/tty"
 require "utils/formatter"
@@ -57,7 +58,7 @@ module Homebrew
         cmd_name = cmd_args_method_name.to_s.delete_suffix("_args").tr("_", "-")
 
         begin
-          if Homebrew.require?(cmd_path)
+          if ENV.clear_sensitive_environment! { Homebrew.require?(cmd_path) }
             cmd = Homebrew::AbstractCommand.command(cmd_name)
             if cmd
               cmd.parser

@@ -8,6 +8,7 @@ require "utils/curl"
 require "utils/output"
 require "utils/path"
 require "extend/hash/keys"
+require "extend/ENV/sensitive"
 require "api"
 
 module Cask
@@ -102,7 +103,9 @@ module Cask
       def load(config:)
         @config = config
 
-        instance_eval(content, __FILE__, __LINE__)
+        ENV.clear_sensitive_environment! do
+          instance_eval(content, __FILE__, __LINE__)
+        end
       end
     end
 
@@ -187,8 +190,10 @@ module Cask
         end
 
         begin
-          instance_eval(content, path.to_s).tap do |cask|
-            raise CaskUnreadableError.new(token, "'#{path}' does not contain a cask.") unless cask.is_a?(Cask)
+          ENV.clear_sensitive_environment! do
+            instance_eval(content, path.to_s).tap do |cask|
+              raise CaskUnreadableError.new(token, "'#{path}' does not contain a cask.") unless cask.is_a?(Cask)
+            end
           end
         rescue NameError, ArgumentError, ScriptError => e
           error = CaskUnreadableError.new(token, e.message)

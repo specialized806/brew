@@ -31,6 +31,8 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
         # typed: strict
         # frozen_string_literal: true
 
+        raise "leaked SECRET_TOKEN" if ENV["SECRET_TOKEN"]
+
         require "abstract_command"
 
         module Homebrew
@@ -48,7 +50,7 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
       RUBY
       cmd_path.chmod(0755)
 
-      expect { brew "help", "hello-tap" }
+      expect { brew "help", "hello-tap", "SECRET_TOKEN" => "password" }
         .to output(%r{^From tap: thirdparty/foo$}).to_stdout
         .and not_to_output.to_stderr
         .and be_a_success
