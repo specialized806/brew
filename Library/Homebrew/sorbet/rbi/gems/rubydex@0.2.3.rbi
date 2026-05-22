@@ -70,6 +70,8 @@ class Rubydex::ConstantAliasDefinition < ::Rubydex::Definition; end
 class Rubydex::ConstantDefinition < ::Rubydex::Definition; end
 
 class Rubydex::ConstantReference < ::Rubydex::Reference
+  abstract!
+
   def initialize(_arg0, _arg1); end
 
   sig { returns(Rubydex::Location) }
@@ -83,6 +85,8 @@ end
 class Rubydex::ConstantVisibilityDefinition < ::Rubydex::Definition; end
 
 class Rubydex::Declaration
+  abstract!
+
   def initialize(_arg0, _arg1); end
 
   sig { returns(T::Enumerable[Rubydex::Definition]) }
@@ -108,10 +112,15 @@ class Rubydex::Declaration
 end
 
 class Rubydex::Definition
+  abstract!
+
   def initialize(_arg0, _arg1); end
 
   sig { returns(T::Array[Rubydex::Comment]) }
   def comments; end
+
+  sig { returns(T.nilable(Rubydex::Declaration)) }
+  def declaration; end
 
   sig { returns(T::Boolean) }
   def deprecated?; end
@@ -363,8 +372,13 @@ class Rubydex::Method < ::Rubydex::Declaration
   def visibility; end
 end
 
-class Rubydex::MethodAliasDefinition < ::Rubydex::Definition; end
-class Rubydex::MethodDefinition < ::Rubydex::Definition; end
+class Rubydex::MethodAliasDefinition < ::Rubydex::Definition
+  def signatures; end
+end
+
+class Rubydex::MethodDefinition < ::Rubydex::Definition
+  def signatures; end
+end
 
 class Rubydex::MethodReference < ::Rubydex::Reference
   def initialize(_arg0, _arg1); end
@@ -382,6 +396,8 @@ end
 class Rubydex::MethodVisibilityDefinition < ::Rubydex::Definition; end
 
 class Rubydex::Mixin
+  abstract!
+
   sig { params(constant_reference: Rubydex::ConstantReference).void }
   def initialize(constant_reference); end
 
@@ -400,6 +416,8 @@ class Rubydex::ModuleDefinition < ::Rubydex::Definition
 end
 
 class Rubydex::Namespace < ::Rubydex::Declaration
+  abstract!
+
   sig { returns(T::Enumerable[Rubydex::Namespace]) }
   def ancestors; end
 
@@ -424,7 +442,11 @@ end
 class Rubydex::Prepend < ::Rubydex::Mixin; end
 
 class Rubydex::Reference
+  abstract!
+
   def initialize(_arg0, _arg1); end
+
+  def location; end
 
   class << self
     private
@@ -438,6 +460,41 @@ class Rubydex::ResolvedConstantReference < ::Rubydex::ConstantReference
   def declaration; end
 end
 
+class Rubydex::Signature
+  def initialize(parameters); end
+
+  def block_parameter; end
+  def deconstruct; end
+  def deconstruct_keys(keys); end
+  def forward_parameter; end
+  def keyword_parameters; end
+  def optional_keyword_parameters; end
+  def optional_positional_parameters; end
+  def parameters; end
+  def positional_parameters; end
+  def post_parameters; end
+  def rest_keyword_parameter; end
+  def rest_positional_parameter; end
+end
+
+class Rubydex::Signature::BlockParameter < ::Rubydex::Signature::Parameter; end
+Rubydex::Signature::DECONSTRUCT_KEYS = T.let(T.unsafe(nil), Array)
+class Rubydex::Signature::ForwardParameter < ::Rubydex::Signature::Parameter; end
+class Rubydex::Signature::KeywordParameter < ::Rubydex::Signature::Parameter; end
+class Rubydex::Signature::OptionalKeywordParameter < ::Rubydex::Signature::Parameter; end
+class Rubydex::Signature::OptionalPositionalParameter < ::Rubydex::Signature::Parameter; end
+
+class Rubydex::Signature::Parameter
+  def initialize(name, location); end
+
+  def location; end
+  def name; end
+end
+
+class Rubydex::Signature::PositionalParameter < ::Rubydex::Signature::Parameter; end
+class Rubydex::Signature::PostParameter < ::Rubydex::Signature::Parameter; end
+class Rubydex::Signature::RestKeywordParameter < ::Rubydex::Signature::Parameter; end
+class Rubydex::Signature::RestPositionalParameter < ::Rubydex::Signature::Parameter; end
 class Rubydex::SingletonClass < ::Rubydex::Namespace; end
 
 class Rubydex::SingletonClassDefinition < ::Rubydex::Definition
