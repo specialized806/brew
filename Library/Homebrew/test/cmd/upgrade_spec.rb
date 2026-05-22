@@ -162,6 +162,30 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     cmd.send(:upgrade_outdated_casks!, [])
   end
 
+  it "passes --no-quit to cask upgrades" do
+    cmd = Homebrew::Cmd::UpgradeCmd.new(["--cask", "--no-quit"])
+
+    expect(Cask::Upgrade).to receive(:upgrade_casks!) do |*_, **kwargs|
+      expect(kwargs[:quit]).to be(false)
+      true
+    end
+
+    cmd.send(:upgrade_outdated_casks!, [])
+  end
+
+  it "passes HOMEBREW_NO_UPGRADE_QUIT_CASKS to cask upgrades" do
+    with_env("HOMEBREW_NO_UPGRADE_QUIT_CASKS" => "1") do
+      cmd = Homebrew::Cmd::UpgradeCmd.new(["--cask"])
+
+      expect(Cask::Upgrade).to receive(:upgrade_casks!) do |*_, **kwargs|
+        expect(kwargs[:quit]).to be(false)
+        true
+      end
+
+      cmd.send(:upgrade_outdated_casks!, [])
+    end
+  end
+
   it "prints formula and cask ask plans before upgrading" do
     cmd = klass.new(["--ask"])
 

@@ -483,6 +483,10 @@ module Homebrew
         boolean:     true,
         hidden:      true, # odeprecated: remove in 5.2.0
       },
+      HOMEBREW_NO_UPGRADE_QUIT_CASKS:            {
+        description: "If set, `brew upgrade` will not quit running applications for casks during upgrades.",
+        boolean:     true,
+      },
       HOMEBREW_NO_VERIFY_ATTESTATIONS:           {
         description: "If set, Homebrew will not verify cryptographic attestations of build provenance for bottles " \
                      "from homebrew-core.",

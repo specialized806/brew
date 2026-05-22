@@ -173,6 +173,20 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(summary_deprecated).to include("local-caffeine")
       end
 
+      it "passes the quit option to cask upgrades" do
+        expect(Cask::Upgrade).to receive(:upgrade_cask) do |_, _, **options|
+          expect(options[:quit]).to be(false)
+        end
+
+        Cask::Upgrade.upgrade_casks!(
+          local_caffeine,
+          quit:                 false,
+          skip_prefetch:        true,
+          show_upgrade_summary: false,
+          args:,
+        )
+      end
+
       it "excludes pinned Casks" do
         local_caffeine.pin
         summary_pinned = []

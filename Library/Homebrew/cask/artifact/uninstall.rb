@@ -13,10 +13,11 @@ module Cask
         params(
           upgrade:   T::Boolean,
           reinstall: T::Boolean,
+          quit:      T::Boolean,
           options:   T.anything,
         ).void
       }
-      def uninstall_phase(upgrade: false, reinstall: false, **options)
+      def uninstall_phase(upgrade: false, reinstall: false, quit: true, **options)
         raw_on_upgrade = directives[:on_upgrade]
         on_upgrade_syms =
           case raw_on_upgrade
@@ -31,6 +32,7 @@ module Cask
 
         filtered_directives = ORDERED_DIRECTIVES.filter do |directive_sym|
           next false if directive_sym == :rmdir
+          next false if directive_sym == :quit && !quit
 
           if (upgrade || reinstall) &&
              UPGRADE_REINSTALL_SKIP_DIRECTIVES.include?(directive_sym) &&
