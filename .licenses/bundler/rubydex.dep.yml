@@ -1,6 +1,6 @@
 ---
 name: rubydex
-version: 0.2.1
+version: 0.2.3
 type: bundler
 summary: A high-performance static analysis suite for Ruby
 homepage: https://github.com/Shopify/rubydex
