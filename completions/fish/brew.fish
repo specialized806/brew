@@ -2069,6 +2069,7 @@ __fish_brew_complete_arg 'upgrade' -l language -d 'Comma-separated list of langu
 __fish_brew_complete_arg 'upgrade' -l mdimporterdir -d 'Target location for Spotlight Plugins (default: `~/Library/Spotlight`)'
 __fish_brew_complete_arg 'upgrade' -l minimum-version -d 'Only upgrade a named formula or cask with an installed version below the given minimum version'
 __fish_brew_complete_arg 'upgrade' -l no-binaries -d 'Disable/enable linking of helper executables (default: enabled)'
+__fish_brew_complete_arg 'upgrade' -l no-quit -d 'Prevent running cask applications from being quit during upgrade. Enabled by default if `$HOMEBREW_NO_UPGRADE_QUIT_CASKS` is set'
 __fish_brew_complete_arg 'upgrade' -l overwrite -d 'Delete files that already exist in the prefix while linking'
 __fish_brew_complete_arg 'upgrade' -l prefpanedir -d 'Target location for Preference Panes (default: `~/Library/PreferencePanes`)'
 __fish_brew_complete_arg 'upgrade' -l qlplugindir -d 'Target location for Quick Look Plugins (default: `~/Library/QuickLook`)'
