@@ -109,6 +109,10 @@ module Homebrew
           [:switch, "--skip-cask-deps", {
             description: "Skip installing cask dependencies.",
           }],
+          [:switch, "--no-quit", {
+            description: "Prevent running cask applications from being quit during upgrade.",
+            env:         :no_upgrade_quit_casks,
+          }],
           [:switch, "-g", "--greedy", {
             description: "Also include casks with `version :latest` and `auto_updates true` casks " \
                          "that would otherwise be skipped.",
@@ -778,6 +782,7 @@ module Homebrew
           quarantine:           args.quarantine?,
           require_sha:          args.require_sha?,
           skip_cask_deps:       args.skip_cask_deps?,
+          quit:                 !args.no_quit?,
           verbose:              args.verbose?,
           quiet:                args.quiet?,
           skip_prefetch:,

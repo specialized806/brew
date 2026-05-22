@@ -587,9 +587,9 @@ on_request: true)
       @cask.download_sha_path.parent.rmdir_if_possible
     end
 
-    sig { params(successor: T.nilable(Cask)).void }
-    def start_upgrade(successor:)
-      uninstall_artifacts(successor:)
+    sig { params(successor: T.nilable(Cask), quit: T::Boolean).void }
+    def start_upgrade(successor:, quit: true)
+      uninstall_artifacts(successor:, quit:)
       backup
     end
 
@@ -638,8 +638,8 @@ on_request: true)
       puts summary
     end
 
-    sig { params(clear: T::Boolean, successor: T.nilable(Cask)).void }
-    def uninstall_artifacts(clear: false, successor: nil)
+    sig { params(clear: T::Boolean, successor: T.nilable(Cask), quit: T::Boolean).void }
+    def uninstall_artifacts(clear: false, successor: nil, quit: true)
       odebug "Uninstalling artifacts"
       odebug "#{::Utils.pluralize("artifact", artifacts.length, include_count: true)} defined", artifacts
 
@@ -659,7 +659,7 @@ on_request: true)
           )
 
           odebug "Uninstalling artifact of class #{artifact.class}"
-          artifact.uninstall_phase(
+          uninstall_options = {
             command:   @command,
             verbose:   verbose?,
             skip:      clear,
@@ -667,7 +667,9 @@ on_request: true)
             successor:,
             upgrade:   upgrade?,
             reinstall: reinstall?,
-          )
+          }
+          uninstall_options[:quit] = quit if artifact.is_a?(Artifact::Uninstall)
+          artifact.uninstall_phase(**uninstall_options)
         end
 
         next unless artifact.respond_to?(:post_uninstall_phase)

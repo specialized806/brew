@@ -27,6 +27,17 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
           expect(quit_called).to be true
         end
 
+        it "skips :quit during upgrade when quit is false" do
+          quit_called = false
+          allow(artifact).to receive(:dispatch_uninstall_directive) do |directive, **options|
+            quit_called ||= directive == :quit && options[:command] == fake_system_command
+          end
+
+          artifact.uninstall_phase(upgrade: true, quit: false, command: fake_system_command)
+
+          expect(quit_called).to be false
+        end
+
         it "invokes :quit during reinstall" do
           quit_called = false
           allow(artifact).to receive(:dispatch_uninstall_directive) do |directive, **options|
