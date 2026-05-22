@@ -98,7 +98,7 @@ jobs:
           GEM_NAME: ${{ steps.checkout.outputs.gem_name }}
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
         run: |
-          if ! git diff --stat --exit-code ".licenses"
+          if [[ -n "$(git status --porcelain -- ".licenses")" ]]
           then
             git add ".licenses"
             git commit -m "Update RubyGems licence metadata for ${GEM_NAME}." \
@@ -114,7 +114,7 @@ jobs:
           GEM_NAME: ${{ steps.checkout.outputs.gem_name }}
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
         run: |
-          if ! git diff --stat --exit-code "Library/Homebrew/sorbet"
+          if [[ -n "$(git status --porcelain -- "Library/Homebrew/sorbet")" ]]
           then
             git add "Library/Homebrew/sorbet"
             git commit -m "Update RBI files for ${GEM_NAME}." \
