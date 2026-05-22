@@ -87,7 +87,7 @@ jobs:
       - name: Update RubyGems licence metadata
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
         run: |
-          BUNDLE_WITH="$(brew ruby -- -e 'require "utils/gems"; puts Homebrew.valid_gem_groups.join(":")')"
+          BUNDLE_WITH="$(brew ruby -- -e 'require "utils/gem_setup"; puts Homebrew.valid_gem_groups.join(":")')"
           export BUNDLE_WITH
           licensed cache --config .github/licensed.yml
           licensed status --config .github/licensed.yml

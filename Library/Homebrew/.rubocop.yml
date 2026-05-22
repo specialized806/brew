@@ -1,19 +1,8 @@
 inherit_from:
   - ../.rubocop.yml
 
-Bundler/GemFilename:
-  Enabled: false
-
 Homebrew/MoveToExtendOS:
   Enabled: true
-  Exclude:
-    - "{test,requirements}/**/*"
-    - "os.rb"
-
-# We don't use Sorbet for RSpec tests so let's disable this there.
-Sorbet/BlockMethodDefinition:
-  Exclude:
-    - test/**/*
 
 # Want to preserve our own API for these methods for now.
 Naming/PredicatePrefix:
@@ -111,11 +100,6 @@ Style/Documentation:
     - version.rb
     - tap.rb
 
-Homebrew/NegateInclude:
-  Exclude:
-    # YARD runs stand-alone.
-    - yard/docstring_parser.rb
-
 Style/DocumentationMethod:
   Include:
     - "formula.rb"
@@ -124,8 +108,6 @@ Style/DocumentationMethod:
 # No Include needed: the cop self-selects by finding @api public comments.
 Homebrew/PublicApiDocumentation:
   Enabled: true
-  Exclude:
-    - "vendor/**/*"
 
 # Ensure cookbook-referenced methods are annotated @api public.
 # No Include needed: the cop self-selects from cookbook rubydoc links.

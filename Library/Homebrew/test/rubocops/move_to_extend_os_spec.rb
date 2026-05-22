@@ -22,6 +22,24 @@ RSpec.describe RuboCop::Cop::Homebrew::MoveToExtendOS do
     RUBY
   end
 
+  it "allows `OS.linux?` in requirements" do
+    expect_no_offenses(<<~RUBY, "Library/Homebrew/requirements/linux_requirement.rb")
+      OS.linux?
+    RUBY
+  end
+
+  it "allows `OS.mac?` in tests" do
+    expect_no_offenses(<<~RUBY, "Library/Homebrew/test/example_spec.rb")
+      OS.mac?
+    RUBY
+  end
+
+  it "allows OS checks in the OS loader" do
+    expect_no_offenses(<<~RUBY, "Library/Homebrew/os.rb")
+      OS.mac?
+    RUBY
+  end
+
   context "when in extend/os/mac" do
     it "registers an offense when using `OS.linux?`" do
       expect_offense(<<~RUBY, "Library/Homebrew/extend/os/mac/foo.rb")
