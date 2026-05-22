@@ -1053,14 +1053,19 @@ EOS
   export HOMEBREW_DEV_CMD_RUN="1"
 fi
 
+# Enable features for developers and CI before they become the default for everyone.
 if [[ -n "${HOMEBREW_DEVELOPER}" ]]
 then
-  export HOMEBREW_USE_INTERNAL_API="1"
+  :
 fi
 
+# Enable features for users who have run a devcmd before they become the default for everyone.
 if [[ -n "${HOMEBREW_DEVELOPER}" || -n "${HOMEBREW_DEV_CMD_RUN}" ]]
 then
-  # Always run with Sorbet for Homebrew developers or when a Homebrew developer command has been run.
+  # odeprecated: make default next release
+  export HOMEBREW_USE_INTERNAL_API="1"
+
+  # Probably never makes sense to be default for everyone?
   export HOMEBREW_SORBET_RUNTIME="1"
 fi
 
