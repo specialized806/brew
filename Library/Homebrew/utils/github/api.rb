@@ -360,8 +360,8 @@ module GitHub
         per_page:                Integer,
         scopes:                  T::Array[String],
         _block:                  T.proc
-                                 .params(result: T.untyped, page: Integer)
-                                 .returns(T.untyped),
+                                  .params(result: T.untyped, page: Integer)
+                                  .returns(T.untyped),
       ).void
     }
     def self.paginate_rest(url, additional_query_params: T.unsafe(nil), per_page: 100, scopes: [].freeze, &_block)
