@@ -78,6 +78,8 @@ jobs:
               "${RUNNER_TEMP}/incomplete-prs/template" <<'RUBY'
           CHECKBOX_MARKER = /\A- \[[ xX]\] /
           CHECKED_CHECKBOX_MARKER = /\A- \[[xX]\] /
+          HTML_COMMENT_LINE = /\A<!--.*-->\z/
+          MARKDOWN_HORIZONTAL_LINE = /\A-+\z/
           NORMALISED_CHECKBOX_MARKER = '- [ ] '
           REQUIRED_TEMPLATE_PERCENTAGE = 75
           PERCENTAGE_SCALE = 100
@@ -91,7 +93,14 @@ jobs:
           def normalise_lines(path)
             lines(path).each_with_object([]) do |line, normalised_lines|
               line = line.strip.sub(CHECKBOX_MARKER, NORMALISED_CHECKBOX_MARKER)
-              normalised_lines << line unless line.empty?
+              # Ignore blank lines.
+              next if line.empty?
+              # Ignore --- markdown horizontal lines.
+              next if line.match?(MARKDOWN_HORIZONTAL_LINE)
+              # Ignore <!-- HTML comments -->
+              next if line.match?(HTML_COMMENT_LINE)
+
+              normalised_lines << line
             end.uniq
           end
 
