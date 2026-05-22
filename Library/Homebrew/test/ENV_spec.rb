@@ -4,11 +4,9 @@
 require "extend/ENV"
 
 RSpec.describe "ENV" do
+  subject(:env) { {}.extend(EnvActivation).extend(described_class) }
+
   shared_examples EnvActivation do
-    subject(:env) { env_activation.extend(described_class) }
-
-    let(:env_activation) { {}.extend(EnvActivation) }
-
     it "supports switching compilers" do
       subject.clang
       expect(subject["LD"]).to be_nil
