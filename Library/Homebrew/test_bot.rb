@@ -15,6 +15,7 @@ require "os"
 require "tap"
 require "utils"
 require "utils/bottles"
+require "utils/portable_ruby"
 
 module Homebrew
   module TestBot
