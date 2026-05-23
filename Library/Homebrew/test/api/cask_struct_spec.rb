@@ -138,6 +138,32 @@ RSpec.describe Homebrew::API::CaskStruct do
       .to eq([:preflight, ["foo"], { bar: "baz" }, nil])
   end
 
+  it "preserves zero values in serialized artifact arguments" do
+    struct = klass.new(
+      sha256:               "abc123",
+      version:              "1.0.0",
+      ruby_source_checksum: { sha256: "def456" },
+      raw_artifacts:        [
+        [
+          :pkg,
+          ["Test.pkg"],
+          { choices: [{ choiceIdentifier: "choice1", choiceAttribute: "selected", attributeSetting: 0 }] },
+          nil,
+        ],
+      ],
+    )
+
+    expect(struct.serialize.fetch("raw_artifacts"))
+      .to eq([
+        [
+          ":pkg",
+          ["Test.pkg"],
+          { ":choices" => [{ ":choiceIdentifier" => "choice1", ":choiceAttribute" => "selected",
+                             ":attributeSetting" => 0 }] },
+        ],
+      ])
+  end
+
   specify "::deserialize_artifact_args", :aggregate_failures do
     expect(klass.deserialize_artifact_args([:foo]))
       .to eq([:foo, [], {}, nil])
