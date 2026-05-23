@@ -238,6 +238,11 @@ module Homebrew
         installed_names - kept_packages
       end
 
+      sig { params(item: String).returns(String) }
+      def self.cleanup_item_name(item)
+        item
+      end
+
       sig { returns(Symbol) }
       def self.legacy_check_step
         :registered_extensions_to_install

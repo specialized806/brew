@@ -277,4 +277,29 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
       end
     end
   end
+
+  describe "cleanup" do
+    before do
+      klass.reset!
+      allow(klass).to receive_messages(package_manager_executable: Pathname.new("mas"), packages: [
+        klass::App.new(id: "123", name: "foo"),
+        klass::App.new(id: "456", name: "bar"),
+      ])
+    end
+
+    it "returns apps not in Brewfile entries by ID" do
+      entries = [Homebrew::Bundle::Dsl::Entry.new(:mas, "renamed foo", id: 123)]
+      items = klass.cleanup_items(entries)
+
+      expect(items.map { |item| klass.cleanup_item_name(item) }).to eql(["bar (456)"])
+    end
+
+    it "uninstalls apps by ID" do
+      items = klass.cleanup_items([Homebrew::Bundle::Dsl::Entry.new(:mas, "foo", id: 123)])
+      expect(Homebrew::Bundle).to receive(:system).with(Pathname("mas"), "uninstall", "456", verbose: false)
+                                                  .and_return(true)
+
+      expect { klass.cleanup!(items) }.to output(/Uninstalled 1 Mac App Store app/).to_stdout
+    end
+  end
 end

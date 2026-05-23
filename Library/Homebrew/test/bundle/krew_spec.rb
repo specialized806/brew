@@ -128,4 +128,32 @@ RSpec.describe Homebrew::Bundle::Krew do
       end
     end
   end
+
+  describe "cleanup" do
+    before do
+      klass.reset!
+      allow(klass).to receive_messages(
+        package_manager_executable: Pathname.new("/usr/local/bin/kubectl-krew"),
+        package_manager_installed?: true,
+        packages:                   %w[ctx ns neat],
+        installed_packages:         %w[ctx ns neat],
+      )
+    end
+
+    it "returns plugins not in Brewfile entries" do
+      entries = [Homebrew::Bundle::Dsl::Entry.new(:krew, "ctx")]
+      expect(klass.cleanup_items(entries)).to eql(%w[ns neat])
+    end
+
+    it "uninstalls plugins" do
+      expect(Homebrew::Bundle).to receive(:system) do |*args, verbose:|
+        expect(ENV.fetch("PATH", "")).to start_with("/usr/local/bin:")
+        expect(args).to eq(["/usr/local/bin/kubectl-krew", "uninstall", "ns"])
+        expect(verbose).to be(false)
+        true
+      end
+
+      expect { klass.cleanup!(["ns"]) }.to output(/Uninstalled 1 Krew plugin/).to_stdout
+    end
+  end
 end

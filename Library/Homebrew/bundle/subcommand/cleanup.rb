@@ -26,6 +26,8 @@ module Homebrew
                  description: "Run `install` before cleaning up dependencies."
           switch "-f", "--force",
                  description: "Actually perform cleanup operations."
+          switch "--all",
+                 description: "Clean up all supported dependencies."
           switch "--formula", "--formulae", "--brews",
                  description: "Clean up Homebrew formula dependencies."
           switch "--cask", "--casks",
@@ -47,13 +49,13 @@ module Homebrew
             file:            context.file,
             force:           context.force,
             zap:             context.zap,
-            formulae:        args.formulae? || context.no_type_args,
-            casks:           args.casks? || context.no_type_args,
-            taps:            args.taps? || context.no_type_args,
+            formulae:        args.formulae? || args.all? || context.no_type_args,
+            casks:           args.casks? || args.all? || context.no_type_args,
+            taps:            args.taps? || args.all? || context.no_type_args,
             extension_types: context.extensions.select(&:cleanup_supported?).to_h do |extension|
               [
                 extension.type,
-                context.extension_selected?(args, extension) || context.no_type_args,
+                context.extension_selected?(args, extension) || args.all? || context.no_type_args,
               ]
             end,
           )
@@ -166,7 +168,7 @@ module Homebrew
               next if items.empty?
 
               puts "Would uninstall #{extension.cleanup_heading}:"
-              puts Formatter.columns items
+              puts Formatter.columns items.map { |item| extension.cleanup_item_name(item) }
               would_uninstall = true
             end
 
