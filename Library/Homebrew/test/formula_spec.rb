@@ -1082,6 +1082,97 @@ RSpec.describe Formula do
     expect(f2).not_to have_post_install_defined
   end
 
+  specify "#post_install_steps" do
+    f = formula do
+      url "foo-1.0"
+
+      post_install_steps do
+        mkdir_p "log/foo"
+        touch "foo/marker"
+        mv "move-source", "move-target"
+        move_children "children-source", "children-target"
+        ln_s "move-target", "linked-target", source_base: :relative, uninstall: true
+      end
+    end
+
+    expect(f.post_install_steps).to eq([
+      { "type" => "mkdir_p", "path" => { "base" => "var", "path" => "log/foo" } },
+      { "type" => "touch", "path" => { "base" => "var", "path" => "foo/marker" } },
+      {
+        "type"   => "move",
+        "source" => { "base" => "prefix", "path" => "move-source" },
+        "target" => { "base" => "prefix", "path" => "move-target" },
+      },
+      {
+        "type"   => "move_children",
+        "source" => { "base" => "prefix", "path" => "children-source" },
+        "target" => { "base" => "prefix", "path" => "children-target" },
+      },
+      {
+        "type"      => "symlink",
+        "source"    => { "base" => "relative", "path" => "move-target" },
+        "target"    => { "base" => "prefix", "path" => "linked-target" },
+        "uninstall" => true,
+      },
+    ])
+    expect(f.post_install_steps_defined?).to be(true)
+    expect(f.to_hash["post_install_steps"]).to eq(f.post_install_steps)
+  end
+
+  specify "#post_install_steps_defined? with an empty block" do
+    f = formula do
+      url "foo-1.0"
+
+      # This intentionally declares no steps to test definition tracking.
+      # rubocop:disable Lint/EmptyBlock
+      post_install_steps do
+      end
+      # rubocop:enable Lint/EmptyBlock
+    end
+
+    expect(f.post_install_steps).to be_empty
+    expect(f.post_install_steps_defined?).to be(true)
+  end
+
+  specify "#post_install_steps_conflict?" do
+    f = formula do
+      url "foo-1.0"
+
+      # This intentionally declares no steps to test conflict tracking.
+      # rubocop:disable Lint/EmptyBlock
+      post_install_steps do
+      end
+      # rubocop:enable Lint/EmptyBlock
+
+      def post_install; end
+    end
+
+    expect(f.post_install_steps_conflict?).to be(true)
+  end
+
+  specify "#run_post_install_steps uses the versioned prefix" do
+    f = formula "post-install-steps-prefix" do
+      url "foo-1.0"
+
+      post_install_steps do
+        ln_s "source", "linked", source_base: :prefix, target_base: :prefix
+      end
+    end
+
+    versioned_prefix = f.rack/f.pkg_version.to_s
+    FileUtils.rm_f f.opt_prefix
+    versioned_prefix.mkpath
+    f.opt_prefix.parent.mkpath
+    FileUtils.ln_s versioned_prefix, f.opt_prefix
+
+    f.run_post_install_steps
+
+    expect((versioned_prefix/"linked").readlink).to eq(versioned_prefix/"source")
+  ensure
+    FileUtils.rm_f f.opt_prefix
+    FileUtils.rm_rf f.rack
+  end
+
   describe "#install_etc_var" do
     let(:f) do
       formula "config-upgrade" do

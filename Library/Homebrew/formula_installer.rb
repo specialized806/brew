@@ -988,7 +988,12 @@ on_request: installed_on_request?, options:)
       end
     else
       formula.install_etc_var
-      post_install if formula.post_install_defined?
+      if formula.post_install_steps_defined?
+        formula.warn_on_post_install_steps_conflict if formula.post_install_steps_conflict? && !quiet?
+        formula.run_post_install_steps
+      elsif formula.post_install_defined?
+        post_install
+      end
     end
 
     keg.prepare_debug_symbols if debug_symbols?
