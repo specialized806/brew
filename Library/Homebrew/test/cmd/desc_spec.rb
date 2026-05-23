@@ -55,25 +55,26 @@ RSpec.describe Homebrew::Cmd::Desc do
       .and not_to_output.to_stderr
   end
 
-  it "errors when searching without --eval-all", :integration_test, :no_api do
-    setup_test_formula "testball"
-
-    expect { brew "desc", "--search", "testball" }
-      .to output(/`brew desc --search` needs `--eval-all` passed or `HOMEBREW_EVAL_ALL=1` set!/).to_stderr
-      .and be_a_failure
+  it "errors when searching without --eval-all" do
+    with_env("HOMEBREW_NO_INSTALL_FROM_API" => "1") do
+      expect { klass.new(["--search", "testball"]).run }
+        .to raise_error(UsageError, /`brew desc --search` needs `--eval-all` passed/)
+    end
   end
 
-  it "successfully searches with --search --eval-all", :integration_test, :no_api do
-    setup_test_formula "testball"
+  it "successfully searches with --search --eval-all" do
+    expect(Homebrew::Search).to receive(:search_descriptions)
+      .with("ball", anything, search_type: Descriptions::SearchField::Either)
 
-    expect { brew "desc", "--search", "--eval-all", "ball" }
-      .to output(/testball: Some test/).to_stdout
-      .and not_to_output.to_stderr
+    expect { klass.new(["--search", "--eval-all", "ball"]).run }
+      .to not_to_output.to_stderr
   end
 
-  it "successfully searches without --eval-all, with API", :integration_test, :needs_network do
-    setup_test_formula "testball"
+  it "successfully searches without --eval-all, with API" do
+    expect(Homebrew::Search).to receive(:search_descriptions)
+      .with("testball", anything, search_type: Descriptions::SearchField::Either)
 
-    expect { brew "desc", "--search", "testball" }.to be_a_success
+    expect { klass.new(["--search", "testball"]).run }
+      .to not_to_output.to_stderr
   end
 end

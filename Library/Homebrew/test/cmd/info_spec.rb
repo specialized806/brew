@@ -38,13 +38,17 @@ RSpec.describe Homebrew::Cmd::Info do
 
   it_behaves_like "parseable arguments"
 
-  it "prints as json with the --json=v1 flag", :integration_test do
-    setup_test_formula "testball"
+  it "prints as json with the --json=v1 flag" do
+    test_formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+    end
+    info = klass.new(["--json=v1", "testball"])
+    allow(info.args.named).to receive(:to_formulae).and_return([test_formula])
 
-    expect { brew "info", "testball", "--json=v1" }
+    expect { info.run }
       .to output(a_json_string).to_stdout
       .and not_to_output.to_stderr
-      .and be_a_success
   end
 
   it "prints as json with the --json=v2 flag", :integration_test do
@@ -213,11 +217,15 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
-  it "uses slim formula information when quiet is passed", :integration_test do
-    setup_test_formula "testball"
+  it "uses slim formula information when quiet is passed" do
+    test_formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+    end
     info = klass.new(["--quiet", "testball"])
+    allow(info.args.named).to receive(:to_formulae_and_casks_and_unavailable).and_return([test_formula])
 
-    expect(info).to receive(:info_formula_summary).with(kind_of(Formula))
+    expect(info).to receive(:info_formula_summary).with(test_formula)
     expect { info.run }
       .to not_to_output.to_stderr
   end
@@ -853,11 +861,12 @@ RSpec.describe Homebrew::Cmd::Info do
       url "https://brew.sh/testball-0.1.tar.gz"
       homepage "https://brew.sh/testball"
       desc "Some test"
-
-      depends_on :linux
     end
     allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
-    allow(formula).to receive(:core_formula?).and_return(false)
+    allow(formula).to receive_messages(
+      core_formula?: false,
+      requirements:  Requirements.new(LinuxRequirement.new),
+    )
 
     expect { info.send(:info_formula, formula) }
       .to output(/Requirements\nRequired: .*Linux/).to_stdout
@@ -873,15 +882,13 @@ RSpec.describe Homebrew::Cmd::Info do
       url "https://brew.sh/testball-0.1.tar.gz"
       homepage "https://brew.sh/testball"
       desc "Some test"
-
-      if OS.mac?
-        depends_on :linux
-      else
-        depends_on macos: :sonoma
-      end
     end
+    os_requirement = OS.mac? ? LinuxRequirement.new : MacOSRequirement.new([:sonoma])
     allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
-    allow(formula).to receive(:core_formula?).and_return(false)
+    allow(formula).to receive_messages(
+      core_formula?: false,
+      requirements:  Requirements.new(os_requirement),
+    )
 
     expect { info.send(:info_formula, formula) }
       .to not_to_output(/Installs from source: yes/).to_stdout

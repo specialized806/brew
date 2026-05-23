@@ -24,77 +24,116 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     FileUtils.ln_s(keg_path, HOMEBREW_PREFIX/"opt/#{name}")
   end
 
-  it "upgrades a Formula", :integration_test do
+  def write_formula(name, content)
+    Formulary.find_formula_in_tap(name, CoreTap.instance).tap do |path|
+      path.dirname.mkpath
+      path.write <<~RUBY
+        class #{Formulary.class_s(name)} < Formula
+        #{content.gsub(/^(?!$)/, "  ")}
+        end
+      RUBY
+      CoreTap.instance.clear_cache
+    end
+  end
+
+  it "upgrades a Formula and Cask", :cask, :integration_test do
     formula_name = "testball_bottle"
     formula_rack = HOMEBREW_CELLAR/formula_name
 
     setup_test_formula formula_name
+    mktmpdir do |dir|
+      (dir/"local-upgrade-test.rb").write <<~RUBY
+        cask "local-upgrade-test" do
+          version "1.0"
+          sha256 :no_check
+          url "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip"
+          stage_only true
+        end
+      RUBY
+      (CoreCaskTap.instance.cask_dir/"local-upgrade-test.rb").write <<~RUBY
+        cask "local-upgrade-test" do
+          version "2.0"
+          sha256 :no_check
+          url "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip"
+          stage_only true
+        end
+      RUBY
+      CoreCaskTap.instance.clear_cache
+      InstallHelper.stub_cask_installation(Cask::CaskLoader.load(dir/"local-upgrade-test.rb"))
 
-    (formula_rack/"0.0.1/foo").mkpath
+      (formula_rack/"0.0.1/foo").mkpath
 
-    expect { brew "upgrade" }.to be_a_success
+      expect do
+        brew "upgrade", formula_name, "local-upgrade-test"
+      end.to be_a_success
 
-    expect(formula_rack/"0.1").to be_a_directory
-    expect(formula_rack/"0.0.1").not_to exist
+      expect(formula_rack/"0.1").to be_a_directory
+      expect(formula_rack/"0.0.1").not_to exist
+      expect(Cask::CaskLoader.load("local-upgrade-test").installed_version).to eq("2.0")
+    end
+  end
 
-    uninstall_test_formula formula_name
+  # links newer version when upgrade was interrupted
+  it "links a newer Formula version when upgrade was interrupted" do
+    formula_name = "testball_bottle"
+    formula_rack = HOMEBREW_CELLAR/formula_name
+    write_formula formula_name, <<~RUBY
+      url "file://#{TEST_FIXTURE_DIR}/tarballs/testball-0.1.tbz"
+      sha256 TESTBALL_SHA256
 
-    # links newer version when upgrade was interrupted
-    (formula_rack/"0.1/foo").mkpath
+      bottle do
+        root_url "file://#{TEST_FIXTURE_DIR}/bottles"
+        sha256 cellar: :any_skip_relocation, all: "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
+      end
+    RUBY
+    install_formula_version formula_name, "0.1"
 
-    expect { brew "upgrade" }.to be_a_success
+    expect { klass.new([]).run }.not_to raise_error
 
     expect(formula_rack/"0.1").to be_a_directory
     expect(HOMEBREW_PREFIX/"opt/#{formula_name}").to be_a_symlink
     expect(HOMEBREW_PREFIX/"var/homebrew/linked/#{formula_name}").to be_a_symlink
+  end
 
-    uninstall_test_formula formula_name
-
-    # upgrades with asking for user prompts
+  # refuses to upgrade a forbidden formula
+  it "refuses to upgrade a forbidden Formula" do
+    formula_name = "testball_bottle"
+    formula_rack = HOMEBREW_CELLAR/formula_name
+    write_formula formula_name, <<~RUBY
+      url "https://brew.sh/#{formula_name}-0.1"
+    RUBY
     (formula_rack/"0.0.1/foo").mkpath
 
-    expect { brew "upgrade", "--ask" }
-      .to output(/==> Would upgrade 1 outdated package\n#{formula_name} 0\.1/).to_stdout
-      .and output(/✔︎.*/m).to_stderr
-
-    expect(formula_rack/"0.1").to be_a_directory
-    expect(formula_rack/"0.0.1").not_to exist
-
-    uninstall_test_formula formula_name
-
-    # refuses to upgrade a forbidden formula
-    (formula_rack/"0.0.1/foo").mkpath
-
-    expect { brew "upgrade", formula_name, { "HOMEBREW_FORBIDDEN_FORMULAE" => formula_name } }
-      .to not_to_output(%r{#{formula_rack}/0\.1}o).to_stdout
-      .and output(/#{formula_name} was forbidden/).to_stderr
-      .and be_a_failure
+    with_env("HOMEBREW_FORBIDDEN_FORMULAE" => formula_name) do
+      expect { klass.new([formula_name]).run }
+        .to not_to_output(%r{#{formula_rack}/0\.1}o).to_stdout
+        .and output(/#{formula_name} was forbidden/).to_stderr
+    end
+    expect(Homebrew).to have_failed
     expect(formula_rack/"0.1").not_to exist
   end
 
-  it "upgrades a named formula installed below the minimum version", :integration_test do
-    setup_test_formula "minimum-version-formula", <<~RUBY
+  it "upgrades a named formula installed below the minimum version" do
+    write_formula "minimum-version-formula", <<~RUBY
       url "https://brew.sh/minimum-version-formula-1.2.3"
     RUBY
     install_formula_version "minimum-version-formula", "1.2.2", optlinked: true
 
-    expect { brew "upgrade", "minimum-version-formula", "--min-version=1.2.3", "--dry-run" }
+    expect { klass.new(["minimum-version-formula", "--min-version=1.2.3", "--dry-run"]).run }
       .to output(/minimum-version-formula 1\.2\.2 -> 1\.2\.3/).to_stdout
-      .and be_a_success
   end
 
-  it "does not upgrade a named formula installed at --minimum-version", :integration_test do
-    setup_test_formula "minimum-version-formula", <<~RUBY
+  it "does not upgrade a named formula installed at --minimum-version" do
+    write_formula "minimum-version-formula", <<~RUBY
       url "https://brew.sh/minimum-version-formula-1.2.4"
     RUBY
     install_formula_version "minimum-version-formula", "1.2.3", optlinked: true
 
-    expect { brew "upgrade", "minimum-version-formula", "--minimum-version=1.2.3", "--dry-run" }
+    expect { klass.new(["minimum-version-formula", "--minimum-version=1.2.3", "--dry-run"]).run }
       .to not_to_output(/Would upgrade/).to_stdout
       .and output(
         /Not upgrading minimum-version-formula, the installed version is not below the minimum version 1\.2\.3/,
       ).to_stderr
-      .and be_a_success
   end
 
   it "requires one named argument with --minimum-version" do
@@ -107,22 +146,20 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .to raise_error(UsageError, /`--minimum-version` requires exactly one formula or cask argument/)
   end
 
-  it "upgrades a named cask installed below --minimum-version", :cask, :integration_test do
+  it "upgrades a named cask installed below --minimum-version", :cask do
     InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("outdated/local-caffeine")))
 
-    expect { brew "upgrade", "--cask", "local-caffeine", "--minimum-version=1.2.3", "--dry-run" }
+    expect { klass.new(["--cask", "local-caffeine", "--minimum-version=1.2.3", "--dry-run"]).run }
       .to output(/local-caffeine 1\.2\.2 -> 1\.2\.3/).to_stdout
-      .and be_a_success
   end
 
-  it "does not upgrade a named cask installed at --minimum-version", :cask, :integration_test do
+  it "does not upgrade a named cask installed at --minimum-version", :cask do
     InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("local-caffeine")))
 
-    expect { brew "upgrade", "--cask", "local-caffeine", "--minimum-version=1.2.3", "--dry-run" }
+    expect { klass.new(["--cask", "local-caffeine", "--minimum-version=1.2.3", "--dry-run"]).run }
       .to not_to_output(/Would upgrade/).to_stdout
       .and output(/Not upgrading local-caffeine, the installed version is not below the minimum version 1\.2\.3/)
       .to_stderr
-      .and be_a_success
   end
 
   it "reports unavailable names via ofail and continues upgrading" do
@@ -186,6 +223,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     end
   end
 
+  # upgrades with asking for user prompts
   it "prints formula and cask ask plans before upgrading" do
     cmd = klass.new(["--ask"])
 

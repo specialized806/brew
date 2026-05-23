@@ -1,6 +1,8 @@
 # typed: false
 # frozen_string_literal: true
 
+require "open3"
+
 require "cmd/shared_examples/args_parse"
 require "cmd/which-formula"
 
@@ -10,7 +12,6 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
   it_behaves_like "parseable arguments"
 
   describe "which_formula" do
-    let(:brew_sh_env) { { "HOMEBREW_COLOR" => nil, "HOMEBREW_NO_EMOJI" => nil } }
     let(:shell_cellar) do
       if (HOMEBREW_LIBRARY_PATH.parent.parent/"Cellar").directory?
         HOMEBREW_LIBRARY_PATH.parent.parent/"Cellar"
@@ -41,23 +42,65 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
       FileUtils.rm_rf shell_cellar/"foo"
     end
 
-    it "prints plain formula names when outputting to a non-TTY", :integration_test do
-      expect { brew_sh "which-formula", "foo2", brew_sh_env }.to output("foo\n").to_stdout
-      expect do
-        brew_sh "which-formula", "foo2", brew_sh_env.merge("HOMEBREW_NO_EMOJI" => "1")
-      end.to output("foo\n").to_stdout
-      expect { brew_sh "which-formula", "baz", brew_sh_env }.to output("baz\n").to_stdout
-      expect { brew_sh "which-formula", "bar" }.not_to output.to_stdout
-      expect { brew_sh "which-formula", "QUX", brew_sh_env }.to output("qux\n").to_stdout
-      expect { brew_sh "which-formula", "quux", brew_sh_env }.to output("quux\n").to_stdout
-    end
+    it "finds formulae using the Bash command path" do
+      env = {
+        "HOMEBREW_BREW_FILE" => HOMEBREW_BREW_FILE.to_s,
+        "HOMEBREW_CACHE"     => HOMEBREW_CACHE.to_s,
+        "HOMEBREW_CELLAR"    => shell_cellar.to_s,
+        "HOMEBREW_LIBRARY"   => HOMEBREW_LIBRARY_PATH.parent.to_s,
+      }
+      env["HOMEBREW_MACOS"] = "1" if OS.mac?
+      stdout, stderr, status = Open3.capture3(
+        env,
+        "/bin/bash", "-c", <<~SH,
+          source "$1"
 
-    it "errors if the API is disabled and the executable database is missing", :integration_test do
-      klass::DATABASE_FILE.unlink
+          stdout_file="$(mktemp)"
+          stderr_file="$(mktemp)"
+          trap 'rm -f "${stdout_file}" "${stderr_file}"' EXIT
 
-      expect do
-        expect(brew_sh("which-formula", "foo2", "HOMEBREW_NO_INSTALL_FROM_API" => "1")).to be_a_failure
-      end.to output(/HOMEBREW_NO_INSTALL_FROM_API must be unset/).to_stderr
+          check() {
+            local label="$1"
+            local expected_status="$2"
+            local expected_stdout="$3"
+            local expected_stderr="$4"
+            shift 4
+
+            ( "$@" ) >"${stdout_file}" 2>"${stderr_file}"
+            status="$?"
+            if [[ "${status}" -ne "${expected_status}" ]]
+            then
+              echo "${label}: expected status ${expected_status}, got ${status}" >&2
+              return 1
+            fi
+            if ! diff -u <(printf '%s' "${expected_stdout}") "${stdout_file}" >&2
+            then
+              echo "${label}: stdout mismatch" >&2
+              return 1
+            fi
+            if ! diff -u <(printf '%s' "${expected_stderr}") "${stderr_file}" >&2
+            then
+              echo "${label}: stderr mismatch" >&2
+              return 1
+            fi
+          }
+
+          check "installed and uninstalled executables" 0 $'foo\\nbaz\\nqux\\nquux\\n' "" \\
+            homebrew-which-formula foo2 baz QUX quux
+          HOMEBREW_NO_EMOJI=1 check "non-emoji output" 0 $'foo\\n' "" homebrew-which-formula foo2
+          check "missing executable" 1 "" "" homebrew-which-formula bar
+
+          rm -f "$(executables_txt_cache_file)"
+          HOMEBREW_NO_INSTALL_FROM_API=1 check "disabled API without database" 1 "" \\
+            $'Error: HOMEBREW_NO_INSTALL_FROM_API must be unset to use `brew which-formula` or `brew exec`.\\n' \\
+            homebrew-which-formula foo2
+        SH
+        "bash", (HOMEBREW_LIBRARY_PATH/"cmd/which-formula.sh").to_s
+      )
+
+      expect(status).to be_success
+      expect(stdout).to be_empty
+      expect(stderr).to be_empty
     end
   end
 end

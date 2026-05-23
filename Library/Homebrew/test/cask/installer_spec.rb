@@ -4,6 +4,14 @@
 RSpec.describe Cask::Installer, :cask do
   let(:klass) { Cask::Installer }
 
+  def stub_dmg_extraction
+    allow(UnpackStrategy::Dmg).to receive(:can_extract?).and_return(true)
+    allow_any_instance_of(UnpackStrategy::Dmg).to receive(:extract_nestedly) do |_strategy, to:, **|
+      to.mkpath
+      yield to
+    end
+  end
+
   describe "install" do
     it "downloads and installs a nice fresh Cask" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
@@ -16,6 +24,7 @@ RSpec.describe Cask::Installer, :cask do
 
     it "works with HFS+ dmg-based Casks" do
       asset = Cask::CaskLoader.load(cask_path("container-dmg"))
+      stub_dmg_extraction { |path| FileUtils.touch path/"container" }
 
       klass.new(asset).install
 
@@ -165,6 +174,7 @@ RSpec.describe Cask::Installer, :cask do
 
     it "installs a cask from a dmg file" do
       transmission = Cask::CaskLoader.load(cask_path("local-transmission"))
+      stub_dmg_extraction { |path| (path/"Transmission.app").mkpath }
 
       expect(transmission).not_to be_installed
 
