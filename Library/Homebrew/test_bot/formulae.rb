@@ -69,7 +69,7 @@ module Homebrew
         sorted_formulae.each do |f|
           verify_local_bottles
           if testing_portable_ruby?
-            portable_formula!(f)
+            portable_formula!(f, args:)
           else
             formula!(f, args:)
           end
@@ -754,8 +754,8 @@ module Homebrew
         end
       end
 
-      sig { params(formula_name: String).void }
-      def portable_formula!(formula_name)
+      sig { params(formula_name: String, args: Homebrew::Cmd::TestBotCmd::Args).void }
+      def portable_formula!(formula_name, args:)
         test_header(:Formulae, method: "portable_formula!(#{formula_name})")
 
         install_ca_certificates_if_needed
@@ -788,6 +788,66 @@ module Homebrew
         test "brew", "test", formula_name
         test "brew", "linkage", formula_name
         test "brew", "bottle", "--skip-relocation", "--json", "--no-rebuild", formula_name
+
+        # We only do full testing on `portable-ruby` itself.
+        return if formula_name != "portable-ruby"
+        return if args.dry_run?
+
+        bottle_file = bottle_glob(formula_name).first
+        if bottle_file.nil?
+          failed formula_name, "no bottle file found for portable-ruby validation"
+          return
+        end
+
+        filename = bottle_file.basename.to_s
+        _, tag_string, = Utils::Bottles.extname_tag_rebuild(filename)
+        if tag_string.blank?
+          failed formula_name, "could not parse bottle filename #{filename}"
+          return
+        end
+
+        pkg_version = filename.delete_prefix("portable-ruby--")
+                              .sub(/\.#{Regexp.escape(tag_string)}\.bottle.*\.tar\.gz\z/, "")
+        if pkg_version.empty?
+          failed formula_name, "could not parse portable-ruby version from #{filename}"
+          return
+        end
+
+        tag_symbol = tag_string.to_sym
+        bottle_tag = Utils::Bottles::Tag.from_symbol(tag_symbol)
+        sha256 = bottle_file.sha256
+        version = pkg_version.split("_").first.to_s
+
+        vendor_dir = HOMEBREW_LIBRARY_PATH/"vendor"
+        (vendor_dir/"portable-ruby-version").atomic_write("#{pkg_version}\n")
+        (HOMEBREW_LIBRARY_PATH/".ruby-version").atomic_write("#{version}\n")
+        os = bottle_tag.linux? ? "linux" : "darwin"
+        platform_file = vendor_dir/"portable-ruby-#{bottle_tag.standardized_arch}-#{os}"
+        platform_file.atomic_write("ruby_TAG=#{tag_symbol}\nruby_SHA=#{sha256}\n")
+
+        # Seed `HOMEBREW_CACHE` so `brew vendor-install ruby` finds the just-built
+        # bottle locally instead of trying to download it.
+        HOMEBREW_CACHE.mkpath
+        FileUtils.cp(bottle_file, HOMEBREW_CACHE/"portable-ruby-#{pkg_version}.#{tag_symbol}.bottle.tar.gz")
+
+        test "brew", "vendor-install", "ruby"
+
+        bundler_version = Utils::PortableRuby.sync_bundler_version!(pkg_version)
+        test "brew", "vendor-gems", "--no-commit", "--update=--ruby,--bundler=#{bundler_version}"
+        test "brew", "typecheck", "--update"
+
+        # Run the checks that gate a Homebrew/brew pull request.
+        test "brew", "style"
+        test "brew", "typecheck"
+        test "brew", "install-bundler-gems", "--groups=all"
+        test "brew", "vendor-gems", "--non-bundler-gems", "--no-commit"
+        test "brew", "tests", "--online", "--coverage"
+        test "brew", "tests", "--generic", "--coverage"
+        test "brew", "update-test"
+        test "brew", "update-test", "--to-tag"
+        test "brew", "update-test", "--commit=HEAD"
+        test "brew", "test-bot", "--only-formulae", "--only-json-tab", "--test-default-formula",
+             env: { "GITHUB_ACTIONS" => nil }
       end
 
       sig { params(formula_name: String).void }

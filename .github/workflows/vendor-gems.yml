@@ -128,6 +128,7 @@ jobs:
         with:
           app-id: ${{ vars.BREW_COMMIT_APP_ID }}
           private-key: ${{ secrets.BREW_COMMIT_APP_KEY }}
+          permission-contents: write
 
       - name: Push to pull request
         if: github.event_name == 'workflow_dispatch'
