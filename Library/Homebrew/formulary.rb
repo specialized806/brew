@@ -1190,7 +1190,12 @@ module Formulary
       end
     end
 
-    opoo "Formula #{old_name} was renamed to #{new_name}." if warn && old_name && new_name
+    if warn && old_name && new_name
+      destination_exists = find_formula_in_tap(name, tap).exist? ||
+                           (tap.core_tap? && !Homebrew::EnvConfig.no_install_from_api? &&
+                            Homebrew::API.formula_names.include?(name))
+      opoo "Formula #{old_name} was renamed to #{new_name}." if destination_exists
+    end
 
     [name, tap, type]
   end

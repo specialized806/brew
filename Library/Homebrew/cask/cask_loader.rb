@@ -715,7 +715,12 @@ module Cask
         end
       end
 
-      opoo "Cask #{old_token} was renamed to #{new_token}." if warn && old_token && new_token
+      if warn && old_token && new_token
+        destination_exists = find_cask_in_tap(token, tap).exist? ||
+                             (tap.core_cask_tap? && !Homebrew::EnvConfig.no_install_from_api? &&
+                              Homebrew::API.cask_tokens.include?(token))
+        opoo "Cask #{old_token} was renamed to #{new_token}." if destination_exists
+      end
 
       [token, tap, type]
     end
