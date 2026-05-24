@@ -90,6 +90,9 @@ module SystemConfig
       `uname -m`.chomp
     end
 
+    sig { returns(T.nilable(String)) }
+    def windows_version; end
+
     sig { returns(String) }
     def describe_git
       return "N/A" unless Utils::Git.available?
