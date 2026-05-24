@@ -4962,6 +4962,11 @@ command execution (e.g. `$(cat file)`).
 : If set, `brew info` and `brew install` will not warn when a formula's
   executables are shadowed by other commands earlier on `$PATH`.
 
+`HOMEBREW_NO_SANDBOX_CASK`
+
+: If set, disable sandboxing for cask artifacts that generate files by running
+  executables.
+
 `HOMEBREW_NO_SANDBOX_LINUX`
 
 : If set, disable the Linux sandbox.
