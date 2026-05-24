@@ -2,6 +2,9 @@
 # frozen_string_literal: true
 
 require "extend/object/deep_dup"
+require "env_config"
+require "sandbox"
+require "tempfile"
 require "utils/output"
 
 module Cask
@@ -19,7 +22,6 @@ module Cask
       # T.anything or the union of all possible argument types would be better choice, but it's convenient to be
       # able to invoke `.inspect`, `.to_s`, etc. without the overhead of type guards.
       DirectivesType = T.type_alias { Object }
-
       sig { overridable.returns(String) }
       def self.english_name
         @english_name ||= T.let(T.must(name).sub(/^.*:/, "").gsub(/(.)([A-Z])/, '\1 \2'), T.nilable(String))
@@ -181,6 +183,55 @@ module Cask
       sig { returns(Config) }
       def config
         cask.config
+      end
+
+      sig { returns(T.nilable(Sandbox)) }
+      def cask_sandbox
+        return if Homebrew::EnvConfig.no_sandbox_cask?
+
+        Sandbox.ensure_sandbox_installed!
+        return unless Sandbox.available?
+
+        Sandbox.new.tap do |sandbox|
+          sandbox.allow_read(path: cask.staged_path, type: :subpath)
+          sandbox.allow_write_temp_and_cache
+          sandbox.deny_all_network
+        end
+      end
+
+      sig {
+        params(
+          env:  T::Hash[String, T.any(String, T::Boolean, PATH)],
+          args: T::Array[T.any(String, Pathname)],
+        ).returns(T::Array[T.any(String, Pathname)])
+      }
+      def cask_sandbox_command(env, args)
+        ["/usr/bin/env", *env.map { |key, value| "#{key}=#{value}" }, *args]
+      end
+
+      sig {
+        params(
+          sandbox: Sandbox,
+          args:    T::Array[T.any(String, Pathname)],
+          input:   T.any(String, T::Array[String]),
+        ).void
+      }
+      def run_cask_sandbox(sandbox, args, input: [])
+        return sandbox.run(*args) if Array(input).empty?
+
+        Tempfile.create("homebrew-cask-script-input", HOMEBREW_TEMP) do |input_file|
+          input_file.write(Array(input).join)
+          input_file.close
+          sandbox.allow_read(path: input_file.path)
+          sandbox.run(
+            "/bin/sh",
+            "-c",
+            "input=$1; shift; exec \"$@\" < \"$input\"",
+            "sh",
+            input_file.path,
+            *args,
+          )
+        end
       end
 
       sig { returns(String) }

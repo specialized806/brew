@@ -271,6 +271,9 @@ module Homebrew::EnvConfig
     sig { returns(T::Boolean) }
     def no_path_shadow_check?; end
 
+    sig { returns(T::Boolean) }
+    def no_sandbox_cask?; end
+
     sig { returns(T.nilable(::String)) }
     def no_proxy; end
 

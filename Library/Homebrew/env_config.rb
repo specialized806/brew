@@ -474,6 +474,11 @@ module Homebrew
                      "shadowed by other commands earlier on `$PATH`.",
         boolean:     true,
       },
+      HOMEBREW_NO_SANDBOX_CASK:                  {
+        # odeprecated: make cask executable sandboxing mandatory in a future release.
+        description: "If set, disable sandboxing for cask artifacts that generate files by running executables.",
+        boolean:     true,
+      },
       HOMEBREW_NO_SANDBOX_LINUX:                 {
         description: "If set, disable the Linux sandbox.",
         boolean:     true,

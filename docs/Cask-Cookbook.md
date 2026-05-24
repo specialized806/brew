@@ -142,6 +142,7 @@ Each cask must declare one or more [artifacts](/rubydoc/Cask/Artifact.html) (i.e
 | `bash_completion`                | yes                           | Relative path to a Bash completion file that should be linked into the `$(brew --prefix)/etc/bash_completion.d` folder on installation. |
 | `fish_completion`                | yes                           | Relative path to a fish completion file that should be linked into the `$(brew --prefix)/share/fish/vendor_completions.d` folder on installation. |
 | `zsh_completion`                 | yes                           | Relative path to a Zsh completion file that should be linked into the `$(brew --prefix)/share/zsh/site-functions` folder on installation. |
+| `generate_completions_from_executable` | yes                      | Command and arguments used to generate shell completions from an executable at installation time. |
 | `colorpicker`                    | yes                           | Relative path to a ColorPicker plugin that should be moved into the `~/Library/ColorPickers` folder on installation. |
 | `dictionary`                     | yes                           | Relative path to a Dictionary that should be moved into the `~/Library/Dictionaries` folder on installation. |
 | `font`                           | yes                           | Relative path to a Font that should be moved into the `~/Library/Fonts` folder on installation. |
@@ -157,6 +158,16 @@ Each cask must declare one or more [artifacts](/rubydoc/Cask/Artifact.html) (i.e
 | `vst3_plugin`                    | yes                           | Relative path to a VST3 Plugin that should be moved into the `~/Library/Audio/VST3` folder on installation. |
 | `artifact`                       | yes                           | Relative path to an arbitrary path that should be moved on installation. Must provide an absolute path as a `target`. (Example: [free-gpgmail.rb](https://github.com/Homebrew/homebrew-cask/blob/b3c438d608d9702380edf10d5495e0727cf17108/Casks/f/free-gpgmail.rb#L44)) This is only for unusual cases; the `app` stanza is strongly preferred when moving `.app` bundles. |
 | `stage_only`                     | no                            | `true`. Asserts that the cask contains no activatable artifacts. |
+
+### Cask artifact trust and sandboxing
+
+Homebrew treats cask installation artifacts as trusted vendor installation actions once the cask has been accepted. Artifact stanzas such as [`app`](#stanza-app), [`pkg`](#stanza-pkg) and [`installer script`](#installer-script) are expected to install software and may write outside the Caskroom through Homebrew-managed moves, macOS installer services or vendor installer code.
+
+Generated completion artifacts are different: `generate_completions_from_executable` runs an installed executable only to produce shell completion text. That execution is sandboxed where Homebrew has an available sandbox. The sandbox allows reading the staged cask, writing temporary/cache files and blocks network access. This limits side effects from commands that should only print completion data.
+
+`installer script:` is not sandboxed. Many installer scripts are vendor installers that require broad filesystem writes, macOS services or `sudo`; macOS sandboxing does not work for root processes, and narrowing the write allowlist to the Caskroom plus uninstall or zap paths would break installers that legitimately write elsewhere. It would also change documented `SystemCommand` behaviours such as `sudo:`, `must_succeed:` and output handling.
+
+`pkg` artifacts are not run in the cask sandbox either. They are installed by macOS `/usr/sbin/installer`, which applies package payloads, scripts and receipts according to the package metadata.
 
 ### Optional stanzas
 
@@ -544,6 +555,8 @@ Refer to [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removin
 
 The stanzas `preflight`, `postflight`, `uninstall_preflight`, and `uninstall_postflight` define operations to be run before or after installation or uninstallation.
 
+Flight blocks are not currently run in the cask sandbox. They should be written as though they may be sandboxed in the future: prefer the mini-DSL helpers below and keep filesystem writes limited to paths owned by the cask.
+
 #### Evaluation of blocks is always deferred
 
 The Ruby blocks defined by these stanzas are not evaluated until install time or uninstall time. Within a block you may refer to the `@cask` instance variable, and invoke [any method available on `@cask`](/rubydoc/Cask/Cask.html).
@@ -588,6 +601,8 @@ installer manual: "RubyMotion Installer.app"
 | `print_stderr:` | set to `false` to suppress `stderr` output |
 | `print_stdout:` | set to `false` to suppress `stdout` output |
 | `sudo:`         | set to `true` if the script needs *sudo* |
+
+Installer scripts run without the cask sandbox. Use them only when the vendor provides an installer command that cannot be represented by a more specific artifact stanza such as [`app`](#stanza-app) or [`pkg`](#stanza-pkg).
 
 The path may be absolute, or relative to the cask. Example (from [miniforge.rb](https://github.com/Homebrew/homebrew-cask/blob/864f623e2cd17dbde5987a7b3923fdb0b4ac9ee5/Casks/m/miniforge.rb#L23-L26)):
 
