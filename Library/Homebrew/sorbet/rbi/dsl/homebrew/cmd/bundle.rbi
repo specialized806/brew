@@ -105,6 +105,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   def no_vscode?; end
 
   sig { returns(T::Boolean) }
+  def no_winget?; end
+
+  sig { returns(T::Boolean) }
   def npm?; end
 
   sig { returns(T::Boolean) }
@@ -130,6 +133,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
 
   sig { returns(T::Boolean) }
   def vscode?; end
+
+  sig { returns(T::Boolean) }
+  def winget?; end
 
   sig { returns(T::Boolean) }
   def zap?; end
