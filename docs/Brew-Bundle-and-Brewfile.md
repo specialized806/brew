@@ -58,7 +58,7 @@ If this fails without `--verbose`, run `brew bundle check --verbose` to list unm
 
 ### Types
 
-As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, VSCode extensions, Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins and to start background services with `brew services`.
+As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, WinGet packages on WSL, VSCode extensions, Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins and to start background services with `brew services`.
 
 ```ruby
 tap "apple/apple"
@@ -66,6 +66,8 @@ brew "apple/apple/game-porting-toolkit"
 brew "postgresql@16", restart_service: true
 cask "firefox"
 mas "Refined GitHub", id: 1519867270
+winget "Steam", id: "Valve.Steam"
+winget "PowerToys", id: "XP89DCGQ3K6VLD", source: "msstore"
 vscode "editorconfig.editorconfig"
 go "github.com/charmbracelet/crush"
 cargo "ripgrep"
@@ -75,6 +77,8 @@ flatpak "com.visualstudio.code"
 flatpak "org.godotengine.Godot", remote: "flathub-beta", url: "https://dl.flathub.org/beta-repo/"
 flatpak "io.github.dvlv.boxbuddyrs", remote: "flathub-beta"
 ```
+
+WinGet installs run with installer interactivity disabled. If WinGet reports that elevation is required, `brew bundle` retries through Windows UAC.
 
 Run `brew bundle` again and this outputs:
 
@@ -348,7 +352,7 @@ For the tradeoffs and alternatives, see [Locking installed formulae at specific 
 
 ## Adding New Packages Support
 
-`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins.
+`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, WinGet packages on WSL, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins.
 
 We are interested in contributions for other packages' installers/checkers/dumpers but they must:
 
