@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "bundle/extensions/extension"
+require "language/node"
 
 module Homebrew
   module Bundle
@@ -60,7 +61,7 @@ module Homebrew
 
           npm = package_manager_executable!
 
-          Bundle.system(npm.to_s, "install", "-g", name, verbose:)
+          Bundle.system(npm.to_s, "install", *Language::Node.npm_install_security_args, "-g", name, verbose:)
         end
 
         sig { override.returns(T::Array[String]) }

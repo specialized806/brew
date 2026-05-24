@@ -77,6 +77,16 @@ RSpec.describe Language::Node do
     end
   end
 
+  describe "#npm_install_security_args" do
+    it "includes only npm install security arguments" do
+      expect(klass.npm_install_security_args).to eq([
+        "--min-release-age=1",
+        "--cache=#{HOMEBREW_CACHE}/npm_cache",
+        "--ignore-scripts",
+      ])
+    end
+  end
+
   describe "#local_npm_install_args" do
     before do
       allow(klass).to receive(:setup_npm_environment)
