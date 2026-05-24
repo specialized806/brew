@@ -97,9 +97,6 @@ class Formula
   def env(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
-  def post_install_steps(*args, &block); end
-
-  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def homepage(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
@@ -152,6 +149,9 @@ class Formula
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def pinned_version(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def post_install_steps(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def pour_bottle_check_unsatisfied_reason(*args, &block); end
