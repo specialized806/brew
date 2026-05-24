@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "download_strategy"
+require "utils/svn"
 
 RSpec.describe SubversionDownloadStrategy do
   subject(:strategy) { klass.new(url, name, version, **specs) }
@@ -13,8 +14,16 @@ RSpec.describe SubversionDownloadStrategy do
   let(:specs) { {} }
 
   describe "#fetch" do
+    before do
+      allow(strategy).to receive(:repo_url).and_return("#{url}/old")
+    end
+
     context "with :trust_cert set" do
       let(:specs) { { trust_cert: true } }
+
+      before do
+        allow(Utils::Svn).to receive(:version).and_return("1.14.5")
+      end
 
       it "adds the appropriate svn args" do
         expect(strategy).to receive(:system_command!)

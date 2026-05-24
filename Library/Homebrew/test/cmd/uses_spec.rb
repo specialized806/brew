@@ -49,18 +49,17 @@ RSpec.describe Homebrew::Cmd::Uses do
       .and be_a_success
   end
 
-  it "handles unavailable formula", :integration_test, :no_api do
-    setup_test_formula "foo"
-    setup_test_formula "bar"
-    setup_test_formula "optional", <<~RUBY
-      url "https://brew.sh/optional-1.0"
-      depends_on "bar" => :optional
-    RUBY
-
+  it "handles unavailable formula" do
     expect_any_instance_of(Homebrew::CLI::NamedArgs)
       .to receive(:to_formulae)
       .and_raise(FormulaUnavailableError, "foo")
     cmd = klass.new(%w[foo --eval-all --include-optional --recursive])
+    allow(cmd).to receive(:intersection_of_dependents)
+      .and_return([
+        instance_double(Formula, full_name: "bar"),
+        instance_double(Formula, full_name: "optional"),
+      ])
+
     expect { cmd.run }
       .to output(/^(bar\noptional|optional\nbar)$/).to_stdout
       .and output(/Error: Missing formulae should not have dependents!\n/).to_stderr

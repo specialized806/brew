@@ -615,19 +615,23 @@ RSpec.describe Cask::Upgrade, :cask do
   end
 
   context "when there were multiple failures" do
-    # These tests perform actual upgrades and test error handling,
-    # so they need full real installations.
+    # This test exercises upgrade error handling, so it needs installed Casks.
     before do
       [
         "outdated/bad-checksum",
         "outdated/local-transmission-zip",
         "outdated/bad-checksum2",
       ].each do |cask|
-        Cask::Installer.new(Cask::CaskLoader.load(cask_path(cask))).install
+        InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path(cask)))
       end
+
+      bad_checksum_2_path = Cask::CaskLoader.load("bad-checksum2").config.appdir.join("container")
+      FileUtils.rm_rf(bad_checksum_2_path)
+      FileUtils.touch(bad_checksum_2_path)
     end
 
     it "does not end the upgrade process" do
+      upgraded_tokens = []
       bad_checksum = Cask::CaskLoader.load("bad-checksum")
       bad_checksum_path = bad_checksum.config.appdir.join("Caffeine.app")
 
@@ -646,9 +650,18 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum_2_path).to be_a_file
       expect(bad_checksum_2.installed_version).to eq "1.2.2"
 
+      allow(klass).to receive(:upgrade_cask) do |_, new_cask, **|
+        upgraded_tokens << new_cask.token
+        raise Cask::CaskError, "failed" if new_cask.token.start_with?("bad-checksum")
+
+        InstallHelper.stub_cask_installation(new_cask)
+      end
+
       expect do
-        klass.upgrade_casks!(args:)
+        klass.upgrade_casks!(args:, skip_prefetch: true)
       end.to raise_error(Cask::MultipleCaskErrors)
+
+      expect(upgraded_tokens).to contain_exactly("bad-checksum", "bad-checksum2", "local-transmission-zip")
 
       expect(bad_checksum).to be_installed
       expect(bad_checksum_path).to be_a_directory

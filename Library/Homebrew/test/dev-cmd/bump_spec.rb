@@ -57,11 +57,11 @@ RSpec.describe Homebrew::DevCmd::Bump do
     end
   end
 
-  it "gives an error for `--tap` with official taps", :integration_test do
-    expect { brew "bump", "--tap", "Homebrew/core" }
-      .to output(/Invalid usage/).to_stderr
-      .and not_to_output.to_stdout
-      .and be_a_failure
+  it "gives an error for `--tap` with official taps" do
+    allow(Homebrew).to receive(:install_bundler_gems!)
+
+    expect { klass.new(["--tap", "Homebrew/core"]).run }
+      .to raise_error(UsageError, /`--tap` requires `--auto` for official taps/)
   end
 
   describe "::skip_ineligible_formulae!" do

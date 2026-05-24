@@ -18,11 +18,13 @@ RSpec.describe Homebrew::Cmd::TapInfo do
       .and be_a_success
   end
 
-  it "display brief statistics for all installed taps", :integration_test, :needs_network do
-    expect { brew "tap-info" }
+  it "display brief statistics for all installed taps" do
+    tap = instance_double(Tap, formula_files: [], command_files: [], private?: false)
+    allow(Tap).to receive(:installed).and_return([tap])
+
+    expect { klass.new([]).run }
       .to output(/\d+ taps?, \d+ private/).to_stdout
       .and not_to_output.to_stderr
-      .and be_a_success
   end
 
   describe "#decorate_formula" do

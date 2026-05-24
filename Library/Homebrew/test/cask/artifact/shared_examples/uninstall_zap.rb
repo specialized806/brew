@@ -290,6 +290,7 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
     it "is supported" do
       allow(subject).to receive(:running_processes).with(bundle_id)
                                                    .and_return(unix_pids.map { |pid| [pid, 0, bundle_id] })
+      allow(subject).to receive(:sleep).with(3)
 
       signals.each do |signal|
         expect(Process).to receive(:kill).with(signal, *unix_pids).and_return(1)

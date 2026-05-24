@@ -27,7 +27,7 @@ When running Ruby directly (e.g. `ruby -e ...`, `gem`, profiling tools), never u
 ### Development Flow
 
 - Write new code (using Sorbet `sig` type signatures and `typed: strict` for new files).
-- Write new tests (avoid more than one `:integration_test` per command for speed; add another only for essential core functionality in essential non-developer commands). Try `typed: true` as a baseline but revert to `typed: false` if there are not easily fixable errors.
+- Write new tests (use at most one `:integration_test` per command, make it a happy-path test and keep it as fast as possible; add another only for essential core functionality in essential non-developer commands). Try `typed: true` as a baseline but revert to `typed: false` if there are not easily fixable errors.
   Write fast tests by preferring a single `expect` per unit test and combine expectations in a single test when it is an integration test or has non-trivial `before` for test setup.
 - When adding or tightening tests, verify them with a red/green cycle using the exact `--only=file:line` target for the example you changed.
 - Formula classes created in specs may be frozen; avoid stubbing class methods on them with RSpec mocks and prefer instance-level stubs or test setup that does not require class-method stubbing.
