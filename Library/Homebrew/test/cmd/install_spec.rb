@@ -127,10 +127,12 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   it "prompts when asking for casks with dependencies", :cask do
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     dependency = instance_double(Dependency, installed?: false, name: "unar")
+    cask_dependent = instance_double(CaskDependent)
 
     allow(CaskDependent).to receive(:new)
       .with(cask)
-      .and_return(instance_double(CaskDependent, runtime_dependencies: [dependency]))
+      .and_return(cask_dependent)
+    allow(cask_dependent).to receive(:runtime_dependencies).and_return([dependency])
     expect(Homebrew::Install).to receive(:ask_input).with(action: "installation")
 
     expect do
@@ -140,6 +142,28 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
       local-caffeine
       ==> Would install 1 dependency for local-caffeine:
       unar
+    EOS
+  end
+
+  it "does not read installed formula metadata for cask dependency dry-run plans", :cask do
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+    dependency = instance_double(Dependency, installed?: false, name: "ripgrep")
+    cask_dependent = instance_double(CaskDependent)
+
+    allow(CaskDependent).to receive(:new)
+      .with(cask)
+      .and_return(cask_dependent)
+    expect(cask_dependent).to receive(:runtime_dependencies)
+      .with(read_from_tab: false, undeclared: false)
+      .and_return([dependency])
+
+    expect do
+      Homebrew::Install.ask_casks([cask], prompt: false)
+    end.to output(<<~EOS).to_stdout
+      ==> Would install 1 cask:
+      local-caffeine
+      ==> Would install 1 dependency for local-caffeine:
+      ripgrep
     EOS
   end
 

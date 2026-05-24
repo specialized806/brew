@@ -610,7 +610,7 @@ module Homebrew
           end
           dep_names.concat(
             CaskDependent.new(cask)
-                         .runtime_dependencies
+                         .runtime_dependencies(read_from_tab: false, undeclared: false)
                          .reject(&:installed?)
                          .map(&:name),
           )
