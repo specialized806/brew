@@ -38,6 +38,13 @@ RSpec.describe Homebrew::Cmd::Bundle do
     end
   end
 
+  it "accepts global flags on subcommands that do not re-declare them", :aggregate_failures do
+    expect(klass.new(%w[cleanup --verbose]).args.verbose?).to be(true)
+    expect(klass.new(%w[cleanup -v]).args.verbose?).to be(true)
+    expect(klass.new(%w[dump --verbose]).args.subcommand).to eq("dump")
+    expect(klass.new(%w[list --verbose]).args.subcommand).to eq("list")
+  end
+
   it "uses subcommand-specific option descriptions", :aggregate_failures do
     subcommand_options = ->(subcommand) { Commands.command_options("bundle", subcommand:).to_h }
 
