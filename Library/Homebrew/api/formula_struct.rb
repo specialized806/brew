@@ -3,6 +3,7 @@
 
 require "service"
 require "utils/spdx"
+require "install_steps"
 
 module Homebrew
   module API
@@ -104,6 +105,7 @@ module Homebrew
       const :no_autobump_args, T::Hash[Symbol, T.any(String, Symbol)], default: {}
       const :oldnames, T::Array[String], default: []
       const :post_install_defined, T::Boolean, default: false
+      const :post_install_steps, Homebrew::InstallSteps::Steps, default: []
       const :pour_bottle_args, T::Hash[Symbol, Symbol], default: {}
       const :revision, Integer, default: 0
       const :ruby_source_checksum, String

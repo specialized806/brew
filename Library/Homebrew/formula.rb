@@ -38,6 +38,7 @@ require "language/python"
 require "tab"
 require "mktemp"
 require "find"
+require "install_steps"
 require "utils/spdx"
 require "on_system"
 require "api"
@@ -635,6 +636,11 @@ class Formula
   # @!method api_source
   # @see .api_source
   delegate api_source: :"self.class"
+
+  # The post-install steps.
+  # @!method post_install_steps
+  # @see .post_install_steps
+  delegate post_install_steps: :"self.class"
 
   sig { void }
   def update_head_version
@@ -1595,6 +1601,19 @@ class Formula
     method(:post_install).owner != Formula
   end
 
+  sig { returns(T::Boolean) }
+  def post_install_steps_defined? = self.class.post_install_steps_defined?
+
+  sig { returns(T::Boolean) }
+  def post_install_steps_conflict?
+    post_install_steps_defined? && post_install_defined?
+  end
+
+  sig { void }
+  def warn_on_post_install_steps_conflict
+    opoo "#{full_name}: `post_install` is ignored because `post_install_steps` are defined!"
+  end
+
   sig { void }
   def install_etc_var
     etc_var_dirs = [bottle_prefix/"etc", bottle_prefix/"var"]
@@ -1605,6 +1624,21 @@ class Formula
       path.extend(InstallRenamed)
       path.cp_path_sub(bottle_prefix, HOMEBREW_PREFIX)
       path
+    end
+  end
+
+  sig { void }
+  def run_post_install_steps
+    return if post_install_steps.empty?
+
+    @prefix_returns_versioned_prefix = T.let(true, T.nilable(T::Boolean))
+
+    begin
+      with_logging("post_install_steps") do
+        Homebrew::InstallSteps::Runner.new(context: self).run(post_install_steps)
+      end
+    ensure
+      @prefix_returns_versioned_prefix = T.let(false, T.nilable(T::Boolean))
     end
   end
 
@@ -2936,6 +2970,7 @@ class Formula
       "disable_replacement_formula"     => disable_replacement_formula,
       "disable_replacement_cask"        => disable_replacement_cask,
       "disable_args"                    => disable_args,
+      "post_install_steps"              => post_install_steps,
       "post_install_defined"            => post_install_defined?,
       "service"                         => (service.to_hash if service?),
       "tap_git_head"                    => tap_git_head,
@@ -3735,6 +3770,8 @@ class Formula
         @conflicts = T.let([], T.nilable(T::Array[FormulaConflict]))
         @skip_clean_paths = T.let(Set.new, T.nilable(T::Set[T.any(String, Symbol)]))
         @link_overwrite_paths = T.let(Set.new, T.nilable(T::Set[String]))
+        @post_install_steps = T.let([], T.nilable(Homebrew::InstallSteps::Steps))
+        @post_install_steps_defined = T.let(false, T.nilable(T::Boolean))
         @loaded_from_api = T.let(false, T.nilable(T::Boolean))
         @loaded_from_internal_api = T.let(false, T.nilable(T::Boolean))
         @api_source = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
@@ -3754,6 +3791,7 @@ class Formula
       @conflicts.freeze
       @skip_clean_paths.freeze
       @link_overwrite_paths.freeze
+      @post_install_steps.freeze
       @preserve_rpath&.freeze
       super
     end
@@ -3933,6 +3971,40 @@ class Formula
 
       env_var = Homebrew::EnvConfig.send(:"formula_#{phase}_network")
       env_var.nil? ? network_access_allowed[phase] : env_var == "allow"
+    end
+
+    sig { returns(T::Boolean) }
+    def post_install_steps_defined? = @post_install_steps_defined == true
+
+    # Declarative steps to run after bottle installation.
+    #
+    # ### Example
+    #
+    # ```ruby
+    # post_install_steps do
+    #   mkdir "log/foo", base: :var
+    # end
+    # ```
+    #
+    # @api public
+    sig { params(steps: T.untyped, block: T.nilable(T.proc.void)).returns(Homebrew::InstallSteps::Steps) }
+    def post_install_steps(*steps, &block)
+      current_steps = @post_install_steps || []
+      return current_steps if steps.empty? && block.nil?
+
+      @post_install_steps_defined = T.let(true, T.nilable(T::Boolean))
+      current_steps.concat(
+        if block
+          Homebrew::InstallSteps::DSL.build(
+            default_base:        :var,
+            default_source_base: :prefix,
+            default_target_base: :prefix,
+            &block
+          )
+        else
+          Homebrew::InstallSteps::DSL.normalise_steps(steps)
+        end,
+      )
     end
 
     # The homepage for the software. Used by users to get more information

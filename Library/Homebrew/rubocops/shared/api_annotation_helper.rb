@@ -34,6 +34,7 @@ module RuboCop
         "desc"                  => "formula.rb",
         "env_script_all_files"  => "extend/pathname.rb",
         "fails_with"            => "formula.rb",
+        "post_install_steps"    => "formula.rb",
         "head"                  => "formula.rb",
         "homepage"              => "formula.rb",
         "install_symlink"       => "extend/pathname.rb",

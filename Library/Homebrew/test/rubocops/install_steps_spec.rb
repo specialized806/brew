@@ -49,4 +49,19 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
       end
     RUBY
   end
+
+  it "does not report simple legacy `post_install` file preparation" do
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          (var/"log/foo").mkpath
+          FileUtils.touch var/"foo/state"
+          FileUtils.mv prefix/"move-source", prefix/"move-target"
+          FileUtils.ln_sf "move-target", prefix/"linked-target"
+        end
+      end
+    RUBY
+  end
 end

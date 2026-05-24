@@ -287,5 +287,23 @@ RSpec.describe Homebrew::API::FormulaStruct do
 
       expect(restored).to eq(original)
     end
+
+    it "serializes post-install steps", :needs_macos do
+      original = klass.new(
+        desc:                 "install steps test",
+        homepage:             "https://example.com",
+        license:              "MIT",
+        ruby_source_checksum: "abc123",
+        stable_version:       "1.0.0",
+        post_install_steps:   [
+          { "type" => "mkdir_p", "path" => { "base" => "var", "path" => "log/foo" } },
+        ],
+      )
+
+      serialized = original.serialize(bottle_tag: Utils::Bottles::Tag.from_symbol(:arm64_sequoia))
+      restored = klass.deserialize(serialized, bottle_tag: Utils::Bottles::Tag.from_symbol(:arm64_sequoia))
+
+      expect(restored.post_install_steps).to eq(original.post_install_steps)
+    end
   end
 end

@@ -18,7 +18,8 @@ module RuboCop
           return if (body_node = formula_nodes.body_node).nil?
 
           post_install_steps_block = find_block(body_node, :post_install_steps)
-          if post_install_steps_block && find_method_def(body_node, :post_install)
+          post_install_method = find_method_def(body_node, :post_install)
+          if post_install_steps_block && post_install_method
             offending_node(post_install_steps_block)
             problem CONFLICT_MSG
           end

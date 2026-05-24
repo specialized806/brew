@@ -98,11 +98,10 @@ Local scan source: `homebrew/cask` at `4ed4e04eaa5`.
   `_steps` blocks literal-only; when a phase gets wired in, add the runtime
   warning that steps win over the legacy Ruby block; add conservative
   autocorrection only where every legacy statement maps mechanically.
-- [ ] PR 2, formula `post_install_steps`.
+- [x] PR 2, formula `post_install_steps`.
   Commit: `Add formula install steps`.
   Scope: formula DSL, formula JSON API data, API formula loading, installer and
-  `brew postinstall` execution, formula cookbook docs, formula fixture and
-  formula-specific autocorrection.
+  `brew postinstall` execution, formula cookbook docs and formula fixture.
   Estimated existing formulae affected: `178` formulae currently define
   `post_install`. The first useful conversion surface is roughly `73` formulae
   creating shared directories and `9` touching marker or lock files; parts of
@@ -112,7 +111,8 @@ Local scan source: `homebrew/cask` at `4ed4e04eaa5`.
   Notes for implementation: default `mkdir`/`touch` to `var` and source/target
   paths to `prefix`; expose the ordered array through `FormulaStruct`; make
   `post_install_steps` take precedence over `post_install`; document that the
-  two forms must not be mixed.
+  two forms must not be mixed. Keep the tap-wide autocorrect audit in a
+  follow-up commit so the implementation can land before converted formulae.
 - [ ] PR 3, cask flight steps.
   Commit: `Add cask install steps`.
   Scope: cask artifacts for `preflight_steps`, `postflight_steps`,
