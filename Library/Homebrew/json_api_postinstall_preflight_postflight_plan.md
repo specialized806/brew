@@ -26,6 +26,8 @@ steps run if present; the legacy block is ignored with a warning. Post-install
 or postflight steps are not sandboxed for this iteration because they run only
 Homebrew-owned structured operations. The runner shape leaves room to sandbox
 future step types that invoke non-Homebrew code.
+Future cask work should sandbox all `*flight` run scripts from non-Homebrew and
+non-system sources, for example scripts shipped by upstream artifacts.
 
 RuboCop autocorrection converts the simplest existing `post_install` and
 `*flight` Ruby blocks to steps blocks when every statement is a supported file
@@ -38,6 +40,12 @@ from the matching legacy Ruby pattern where possible.
 Local scan source: `homebrew/core` at `fb0ca6682b4`.
 
 - `178` of `8,359` formulae define `post_install`.
+- `post_install_defined` is the only install-time Ruby execution flag exposed
+  through the formula JSON API for bottle installs. I did not find a
+  caskfile-only-style source download gate for other formula DSL at bottle
+  install time; formula source downloads for API-loaded formulae are used for
+  source builds, local patches and resources rather than post-install metadata
+  gaps.
 - `73` create shared directories in `var`, `etc` or `HOMEBREW_PREFIX`.
   Examples: `glib`, `languagetool`, `mecab`.
 - `71` write or patch default configuration/data files.
@@ -55,8 +63,14 @@ Local scan source: `homebrew/core` at `fb0ca6682b4`.
 
 Local scan source: `homebrew/cask` at `4ed4e04eaa5`.
 
-- `204` of `7,646` casks currently require the Ruby source at install time:
-  `181` because of flight blocks and `23` because of language blocks only.
+- `204` of `7,646` casks currently require the Ruby source at install time
+  through `Cask#caskfile_only?`: `181` because of legacy `*flight` blocks and
+  `23` because of language blocks only. `27` casks have language blocks in
+  total, so `4` have both language blocks and legacy `*flight` blocks.
+- I did not find other current cask install-time Ruby source download gates.
+  Ordinary artifacts, uninstall/zap directives, caveats, dependencies and
+  `on_*` variations are serialised through API data. `*_steps` artifacts are
+  also serialised and should not make `caskfile_only?` true.
 - `78` flight blocks create directories, touch files or write small files.
   Examples: `86box`, `autogram`, `dante-via`.
 - `27` move, copy or symlink files during install or uninstall.
@@ -67,6 +81,23 @@ Local scan source: `homebrew/cask` at `4ed4e04eaa5`.
   Examples: `charles`, `autofirma`, `betwixt`.
 - `27` casks use language blocks. Large examples include `firefox`,
   `libreoffice-language-pack` and `thunderbird`.
+
+## API Source Download Gates
+
+Formula JSON API installs need to preserve `post_install` because it is the
+only install-time Ruby hook recorded for bottle installs. The hook runs from
+the formula stored in the installed keg, while source builds and local patch
+handling use `Homebrew::API::Formula.source_download_formula` for build-time
+reasons outside this post-install DSL work.
+
+Cask JSON API installs use `Homebrew::API::Cask.source_download_cask` when
+`Cask#caskfile_only?` is true. Today that is true when a cask has any legacy
+`preflight`, `postflight`, `uninstall_preflight` or `uninstall_postflight`
+block, or when it has language blocks. Legacy flight blocks need the source
+because API data only records that a block exists, not the Ruby body. Language
+blocks need the source because the API stores available language codes, but not
+the selected block return value or stanza effects; language-specific URLs must
+be resolved before the download can be enqueued.
 
 ## Install Step Examples
 
@@ -113,12 +144,12 @@ Local scan source: `homebrew/cask` at `4ed4e04eaa5`.
   `post_install_steps` take precedence over `post_install`; document that the
   two forms must not be mixed. Keep the tap-wide autocorrect audit in a
   follow-up commit so the implementation can land before converted formulae.
-- [ ] PR 3, cask flight steps.
+- [x] PR 3, cask flight steps.
   Commit: `Add cask install steps`.
   Scope: cask artifacts for `preflight_steps`, `postflight_steps`,
   `uninstall_preflight_steps` and `uninstall_postflight_steps`, cask API
   serialisation through artifact data, installer casts, cask cookbook docs,
-  cask fixture/API loader coverage and cask-specific autocorrection.
+  cask fixture/API loader coverage.
   Estimated existing casks affected: `181` casks currently use flight blocks.
   The first useful conversion surface is roughly `78` casks that create/touch
   files or directories and the supported subset of `27` casks that move or
@@ -127,7 +158,9 @@ Local scan source: `homebrew/cask` at `4ed4e04eaa5`.
   Notes for implementation: default all relative cask paths to `staged_path`;
   keep steps as normal cask artifacts so API loader round-trips work; make
   steps remove/override the matching Ruby flight artifact with a warning; keep
-  `uninstall: true` symlink cleanup available for install-phase steps.
+  `uninstall: true` symlink cleanup available for install-phase steps. Keep
+  the tap-wide autocorrect audit in a follow-up commit so the implementation
+  can land before converted casks.
 - [ ] PR 4, desktop and cache rebuild actions.
   Estimated existing formulae/casks affected: about `35` formulae run rebuild
   tools such as `glib-compile-schemas`, `gtk*-update-icon-cache`,

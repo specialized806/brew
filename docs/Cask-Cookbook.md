@@ -94,12 +94,16 @@ Having a common order for stanzas makes casks easier to update and parse. Below 
     stage_only
 
     preflight
+    preflight_steps
 
     postflight
+    postflight_steps
 
     uninstall_preflight
+    uninstall_preflight_steps
 
     uninstall_postflight
+    uninstall_postflight_steps
 
     uninstall
 
@@ -179,9 +183,13 @@ Generated completion artifacts are different: `generate_completions_from_executa
 | [`deprecate!`](#stanza-deprecate--disable) | no                            | Date as a string in `YYYY-MM-DD` format and a string or symbol providing a reason. |
 | [`disable!`](#stanza-deprecate--disable)   | no                            | Date as a string in `YYYY-MM-DD` format and a string or symbol providing a reason. |
 | `preflight`                                | yes                           | Ruby block containing preflight install operations (needed only in very rare cases). |
+| `preflight_steps`                          | yes                           | Declarative file preparation steps run before artifact installation. |
 | [`postflight`](#stanza-flight)             | yes                           | Ruby block containing postflight install operations. |
+| `postflight_steps`                         | yes                           | Declarative file preparation steps run after artifact installation. |
 | `uninstall_preflight`                      | yes                           | Ruby block containing preflight uninstall operations (needed only in very rare cases). |
+| `uninstall_preflight_steps`                | yes                           | Declarative file preparation steps run before artifact uninstallation. |
 | `uninstall_postflight`                     | yes                           | Ruby block containing postflight uninstall operations. |
+| `uninstall_postflight_steps`               | yes                           | Declarative file preparation steps run after artifact uninstallation. |
 | [`language`](#stanza-language)             | required                      | Ruby block, called with language code parameters, containing other stanzas and/or a return value. |
 | `container nested:`                        | no                            | Relative path to an inner container that must be extracted before moving on with the installation. This allows for support of `.dmg` inside `.tar`, `.zip` inside `.dmg`, etc. (Example: [blocs.rb](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/b/blocs.rb#L17-L19)) |
 | `container type:`                          | no                            | Symbol to override container-type autodetect. May be one of: `:air`, `:bz2`, `:cab`, `:dmg`, `:generic_unar`, `:gzip`, `:otf`, `:pkg`, `:rar`, `:seven_zip`, `:sit`, `:tar`, `:ttf`, `:xar`, `:zip`, `:naked`. (Example: [parse.rb](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/p/parse.rb#L10)) |
@@ -554,6 +562,22 @@ Refer to [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removin
 ### Stanza: `*flight`
 
 The stanzas `preflight`, `postflight`, `uninstall_preflight`, and `uninstall_postflight` define operations to be run before or after installation or uninstallation.
+
+For simple file preparation, prefer `preflight_steps`, `postflight_steps`, `uninstall_preflight_steps` or `uninstall_postflight_steps`. These steps are stored in the JSON API and avoid loading cask Ruby for common operations.
+
+```ruby
+preflight_steps do
+  mkdir_p "Shared"
+  touch "Shared/state"
+end
+
+postflight_steps do
+  mv "payload", "Shared/payload"
+  ln_s "Shared/payload", "Payload", source_base: :relative
+end
+```
+
+`mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s` and `ln_sf` are available in steps blocks. Relative paths default to `staged_path` for `base:`, `source_base:` and `target_base:`. Symlink steps can use `uninstall: true` to remove the symlink during uninstall. A steps block may only contain those step calls with literal arguments; it cannot call the wider cask DSL or arbitrary Ruby code. Each phase may define either its Ruby flight block or its matching steps block, not both.
 
 Flight blocks are not currently run in the cask sandbox. They should be written as though they may be sandboxed in the future: prefer the mini-DSL helpers below and keep filesystem writes limited to paths owned by the cask.
 

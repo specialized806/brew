@@ -333,6 +333,8 @@ on_request: true)
             Artifact::KeyboardLayout,
             Artifact::Mdimporter,
             Artifact::Moved,
+            Artifact::PostflightSteps,
+            Artifact::PreflightSteps,
             Artifact::Pkg,
             Artifact::Qlplugin,
             Artifact::Symlinked,
@@ -654,9 +656,13 @@ on_request: true)
               Artifact::GeneratedCompletion,
               Artifact::KeyboardLayout,
               Artifact::Moved,
+              Artifact::PostflightSteps,
+              Artifact::PreflightSteps,
               Artifact::Qlplugin,
               Artifact::Symlinked,
               Artifact::Uninstall,
+              Artifact::UninstallPostflightSteps,
+              Artifact::UninstallPreflightSteps,
             ),
           )
 

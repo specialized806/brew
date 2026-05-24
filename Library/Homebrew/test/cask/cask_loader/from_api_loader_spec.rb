@@ -238,6 +238,10 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       include_examples "loads from API", "with-zap", caskfile_only: false
     end
 
+    context "with install step stanzas" do
+      include_examples "loads from API", "with-install-steps", caskfile_only: false
+    end
+
     context "with a preflight stanza" do
       include_examples "loads from API", "with-preflight", caskfile_only: true
     end

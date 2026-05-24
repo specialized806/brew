@@ -26,10 +26,13 @@ module RuboCop
           stanzas = cask_block.stanzas
           INSTALL_STEP_PAIRS.each do |flight_block, steps_block|
             next unless (flight_stanza = stanzas.find { |stanza| stanza.stanza_name == flight_block })
-            next unless (steps_stanza = stanzas.find { |stanza| stanza.stanza_name == steps_block })
 
-            add_offense(steps_stanza.source_range,
-                        message: "`#{flight_stanza.stanza_name}` and `#{steps_block}` cannot both be used.")
+            steps_stanza = stanzas.find { |stanza| stanza.stanza_name == steps_block }
+
+            if steps_stanza
+              add_offense(steps_stanza.source_range,
+                          message: "`#{flight_stanza.stanza_name}` and `#{steps_block}` cannot both be used.")
+            end
           end
 
           stanzas.each do |stanza|

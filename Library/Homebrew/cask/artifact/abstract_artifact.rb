@@ -71,6 +71,8 @@ module Cask
         @sort_order ||= T.let(
           [
             PreflightBlock,
+            PreflightSteps,
+            UninstallPreflightSteps,
             # The `uninstall` stanza should be run first, as it may
             # depend on other artifacts still being installed.
             Uninstall,
@@ -101,6 +103,8 @@ module Cask
             ],
             Binary,
             Manpage,
+            PostflightSteps,
+            UninstallPostflightSteps,
             PostflightBlock,
             Zap,
           ].each_with_index.flat_map { |classes, i| Array(classes).map { |c| [c, i] } }.to_h,
