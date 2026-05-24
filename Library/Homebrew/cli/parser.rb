@@ -1025,11 +1025,23 @@ module Homebrew
         option_names.each do |name|
           option_name = option_to_name(name)
           @option_types[option_name] = type
+          # Global options are accepted everywhere, so a subcommand block
+          # re-declaring one (e.g. for a custom description) must not constrain it.
+          next if global_option?(name)
+
           effective_subcommands = effective_subcommands(subcommands)
           next if effective_subcommands.blank?
 
           @option_subcommands[option_name] = (@option_subcommands[option_name] || []) |
                                              effective_subcommands
+        end
+      end
+
+      sig { params(name: String).returns(T::Boolean) }
+      def global_option?(name)
+        option_name = option_to_name(name)
+        self.class.global_options.any? do |short, long, _desc|
+          option_to_name(short) == option_name || option_to_name(long) == option_name
         end
       end
 

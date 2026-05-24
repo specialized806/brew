@@ -711,6 +711,25 @@ RSpec.describe Homebrew::CLI::Parser do
         .to raise_error(UsageError, /`info` subcommand does not accept the `--force` switch/)
     end
 
+    it "accepts global options re-declared inside a subcommand on every subcommand", :aggregate_failures do
+      parser = lambda do
+        klass.new(Cmd) do
+          subcommand "install", default: true do
+            switch "-v", "--verbose", description: "Print output from commands as they are run."
+            named_args :none
+          end
+
+          subcommand "cleanup" do
+            named_args :none
+          end
+        end
+      end
+
+      expect(parser.call.parse(%w[install --verbose]).verbose?).to be(true)
+      expect(parser.call.parse(%w[cleanup --verbose]).verbose?).to be(true)
+      expect(parser.call.parse(%w[cleanup -v]).verbose?).to be(true)
+    end
+
     it "applies option constraints only for the matching subcommand", :aggregate_failures do
       parser = lambda do
         klass.new(Cmd) do
