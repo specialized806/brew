@@ -35,8 +35,16 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     it "generates completion scripts for default shells" do
       artifact = cask.artifacts.grep(klass).first
 
-      allow(Utils).to receive(:safe_popen_read) do |env, *_args, **_opts|
-        "#{env.fetch("SHELL")} completion output"
+      allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
+      allow(Sandbox).to receive(:new) do
+        instance_double(Sandbox).tap do |sandbox|
+          allow(sandbox).to receive(:allow_read)
+          allow(sandbox).to receive(:allow_write_temp_and_cache)
+          allow(sandbox).to receive(:deny_all_network)
+          allow(sandbox).to receive(:run) do |*args|
+            Pathname(args.fetch(6)).write("#{args.fetch(1).delete_prefix("SHELL=")} completion output")
+          end
+        end
       end
 
       artifact.install_phase
@@ -49,14 +57,57 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       expect((fish_dir/"foo.fish").read).to eq("fish completion output")
     end
 
+    it "sandboxes completion generation" do
+      artifact = cask.artifacts.grep(klass).first
+      sandboxes = []
+
+      allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
+      allow(Sandbox).to receive(:new) do
+        instance_double(Sandbox).tap do |sandbox|
+          expect(sandbox).to receive(:allow_read).with(path: staged_path, type: :subpath)
+          expect(sandbox).to receive(:allow_write_temp_and_cache)
+          expect(sandbox).to receive(:deny_all_network)
+          allow(sandbox).to receive(:run) { |*args| Pathname(args.fetch(6)).write("completion") }
+          sandboxes << sandbox
+        end
+      end
+
+      artifact.install_phase
+
+      expect(sandboxes.length).to eq(3)
+    end
+
+    it "does not sandbox when HOMEBREW_NO_SANDBOX_CASK is set" do
+      artifact = cask.artifacts.grep(klass).first
+
+      ENV["HOMEBREW_NO_SANDBOX_CASK"] = "1"
+      allow(Sandbox).to receive(:available?).and_return(true)
+      allow(Utils).to receive(:safe_popen_read) { |env, *_args, **_opts| "#{env.fetch("SHELL")} completion" }
+      expect(Sandbox).not_to receive(:new)
+
+      artifact.install_phase
+
+      expect((bash_dir/"foo").read).to eq("bash completion")
+    ensure
+      ENV["HOMEBREW_NO_SANDBOX_CASK"] = nil
+    end
+
     context "when generation fails for one shell" do
       it "warns and continues generating other shells" do
         artifact = cask.artifacts.grep(klass).first
 
-        allow(Utils).to receive(:safe_popen_read) do |env, *_args, **_opts|
-          raise "boom" if env.fetch("SHELL") == "bash"
+        allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
+        allow(Sandbox).to receive(:new) do
+          instance_double(Sandbox).tap do |sandbox|
+            allow(sandbox).to receive(:allow_read)
+            allow(sandbox).to receive(:allow_write_temp_and_cache)
+            allow(sandbox).to receive(:deny_all_network)
+            allow(sandbox).to receive(:run) do |*args|
+              raise "boom" if args.fetch(1) == "SHELL=bash"
 
-          "zsh completion"
+              Pathname(args.fetch(6)).write("zsh completion")
+            end
+          end
         end
 
         expect { artifact.install_phase }
@@ -103,14 +154,23 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       artifact = cask.artifacts.grep(klass).first
       captured_args = nil
 
-      allow(Utils).to receive(:safe_popen_read) do |_env, *args, **_opts|
-        captured_args = args
-        "zsh completion"
+      allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
+      allow(Sandbox).to receive(:new) do
+        instance_double(Sandbox).tap do |sandbox|
+          allow(sandbox).to receive(:allow_read)
+          allow(sandbox).to receive(:allow_write_temp_and_cache)
+          allow(sandbox).to receive(:deny_all_network)
+          allow(sandbox).to receive(:run) do |*args|
+            captured_args = args
+            Pathname(args.fetch(6)).write("zsh completion")
+          end
+        end
       end
 
       artifact.install_phase
 
       expect(captured_args).to include("--shell=zsh")
+      expect(captured_args.fetch(4)).to end_with(" 2>/dev/null")
       expect(zsh_dir/"_bar").to be_a_file
       expect(bash_dir/"bar").not_to exist
       expect(fish_dir/"bar.fish").not_to exist

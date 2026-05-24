@@ -39,6 +39,14 @@ RSpec.describe Cask::Artifact::Installer, :cask do
 
         installer.install_phase(command:)
       end
+
+      it "does not sandbox the executable" do
+        allow(Sandbox).to receive(:available?).and_return(true)
+        expect(Sandbox).not_to receive(:new)
+        expect(command).to receive(:run!)
+
+        installer.install_phase(command:)
+      end
     end
   end
 end

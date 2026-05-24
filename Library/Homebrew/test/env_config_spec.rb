@@ -179,6 +179,15 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".no_sandbox_cask?" do
+    it "returns true if HOMEBREW_NO_SANDBOX_CASK is set" do
+      ENV["HOMEBREW_NO_SANDBOX_CASK"] = "1"
+      expect(env_config.no_sandbox_cask?).to be(true)
+    ensure
+      ENV["HOMEBREW_NO_SANDBOX_CASK"] = nil
+    end
+  end
+
   describe ".use_internal_api?" do
     it "returns true if HOMEBREW_USE_INTERNAL_API is set" do
       ENV["HOMEBREW_USE_INTERNAL_API"] = "1"
