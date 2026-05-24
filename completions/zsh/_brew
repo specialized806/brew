@@ -152,7 +152,7 @@ __brew_internal_commands() {
     'bump-formula-pr:Create a pull request to update formula with a new URL or a new tag'
     'bump-revision:Create a commit to increment the revision of formula'
     'bump-unversioned-casks:Check all casks with unversioned URLs in a given tap for updates'
-    'bundle:Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, Krew plugins and npm packages'
+    'bundle:Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm packages'
     'casks:List all locally installable casks including short names'
     'cat:Display the source of a formula or cask'
     'cleanup:Remove stale lock files and outdated downloads for all formulae and casks, and remove old versions of installed formulae'
@@ -651,7 +651,7 @@ _brew_bundle() {
   local -a subcommands
   subcommands=(
     'sh:Run your shell in a `brew bundle exec` environment'
-    'remove:Remove entries that match `name` from your `Brewfile`. Use `--formula`, `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak`, `--krew` and `--npm` to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names'
+    'remove:Remove entries that match `name` from your `Brewfile`. Use `--formula`, `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak`, `--winget`, `--krew` and `--npm` to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names'
     'list:By default, only Homebrew formula dependencies are listed'
     'install:Use this to restore a recorded installed state from a `Brewfile`'
     'upgrade:Use this to restore a recorded installed state from a `Brewfile`'
@@ -712,7 +712,8 @@ remove)
           '--tap[Remove Homebrew tap entries]' \
           '(--no-uv)--uv[Remove entries for uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[Remove entries for VSCode (and forks/variants) extensions]'
+          '(--no-vscode)--vscode[Remove entries for VSCode (and forks/variants) extensions]' \
+          '(--no-winget)--winget[Remove entries for WinGet packages. Note: WSL only]'
         ;;
 list)
         _arguments \
@@ -734,7 +735,8 @@ list)
           '--tap[List Homebrew tap dependencies]' \
           '(--no-uv)--uv[List uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[List VSCode (and forks/variants) extensions]'
+          '(--no-vscode)--vscode[List VSCode (and forks/variants) extensions]' \
+          '(--no-winget)--winget[List WinGet packages. Note: WSL only]'
         ;;
 install|upgrade)
         _arguments \
@@ -813,15 +815,18 @@ dump)
           '--no-restart[Do not add `restart_service` to formula lines]' \
           '(--uv)--no-uv[`dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV` is set]' \
           '(--vscode)--no-vscode[`dump` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set]' \
+          '(--winget)--no-winget[`dump` without WinGet packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_WINGET` is set]' \
           '(--no-npm)--npm[Dump npm packages]' \
           '--quiet[Make some output more quiet]' \
           '--tap[Dump Homebrew tap dependencies]' \
           '(--no-uv)--uv[Dump uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[Dump VSCode (and forks/variants) extensions]'
+          '(--no-vscode)--vscode[Dump VSCode (and forks/variants) extensions]' \
+          '(--no-winget)--winget[Dump WinGet packages. Note: WSL only]'
         ;;
 cleanup)
         _arguments \
+          '--all[Clean up all supported dependencies]' \
           '(--no-cargo)--cargo[Clean up Cargo packages]' \
           '--cask[Clean up Homebrew cask dependencies]' \
           '--debug[Display any debugging information]' \
@@ -833,12 +838,15 @@ cleanup)
           '(--no-go)--go[Clean up Go packages]' \
           '--help[Show this message]' \
           '--install[Run `install` before cleaning up dependencies]' \
+          '(--no-krew)--krew[Clean up Krew plugins]' \
+          '--mas[Clean up Mac App Store dependencies]' \
           '(--no-npm)--npm[Clean up npm packages]' \
           '--quiet[Make some output more quiet]' \
           '--tap[Clean up Homebrew tap dependencies]' \
           '(--no-uv)--uv[Clean up uv tools]' \
           '--verbose[Make some output more verbose]' \
           '(--no-vscode)--vscode[Clean up VSCode (and forks/variants) extensions]' \
+          '(--no-winget)--winget[Clean up WinGet packages. Note: WSL only]' \
           '--zap[Clean up casks using the `zap` command instead of `uninstall`]'
         ;;
 check)

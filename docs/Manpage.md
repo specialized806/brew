@@ -154,7 +154,8 @@ and are now no longer needed.
 
 Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store
 dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo
-packages, uv tools, Flatpak packages, Krew plugins and npm packages.
+packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm
+packages.
 
 Note: Flatpak support is only available on Linux.
 
@@ -196,9 +197,9 @@ Note: Flatpak support is only available on Linux.
 
 : Remove entries that match `name` from your `Brewfile`. Use `--formula`,
   `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`,
-  `--flatpak`, `--krew` and `--npm` to remove only entries of the corresponding
-  type. Passing `--formula` also removes matches against formula aliases and old
-  formula names.
+  `--flatpak`, `--winget`, `--krew` and `--npm` to remove only entries of the
+  corresponding type. Passing `--formula` also removes matches against formula
+  aliases and old formula names.
 
 `--install`
 
@@ -240,6 +241,10 @@ Note: Flatpak support is only available on Linux.
 `--flatpak`
 
 : Remove entries for Flatpak packages. Note: Linux only.
+
+`--winget`
+
+: Remove entries for WinGet packages. Note: WSL only.
 
 `--krew`
 
@@ -298,6 +303,10 @@ By default, only Homebrew formula dependencies are listed.
 `--flatpak`
 
 : List Flatpak packages. Note: Linux only.
+
+`--winget`
+
+: List WinGet packages. Note: WSL only.
 
 `--krew`
 
@@ -471,6 +480,10 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : Dump Flatpak packages. Note: Linux only.
 
+`--winget`
+
+: Dump WinGet packages. Note: WSL only.
+
 `--krew`
 
 : Dump Krew plugins.
@@ -503,6 +516,11 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : `dump` without Flatpak packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set.
+
+`--no-winget`
+
+: `dump` without WinGet packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_WINGET` is set.
 
 `--no-krew`
 
@@ -541,6 +559,10 @@ removed.
 
 : Actually perform cleanup operations.
 
+`--all`
+
+: Clean up all supported dependencies.
+
 `--formula`
 
 : Clean up Homebrew formula dependencies.
@@ -552,6 +574,10 @@ removed.
 `--tap`
 
 : Clean up Homebrew tap dependencies.
+
+`--mas`
+
+: Clean up Mac App Store dependencies.
 
 `--vscode`
 
@@ -572,6 +598,14 @@ removed.
 `--flatpak`
 
 : Clean up Flatpak packages. Note: Linux only.
+
+`--winget`
+
+: Clean up WinGet packages. Note: WSL only.
+
+`--krew`
+
+: Clean up Krew plugins.
 
 `--npm`
 

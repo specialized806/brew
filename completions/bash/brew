@@ -723,6 +723,7 @@ remove)
         --uv
         --verbose
         --vscode
+        --winget
         "
         return
         ;;
@@ -747,6 +748,7 @@ list)
         --uv
         --verbose
         --vscode
+        --winget
         "
         return
         ;;
@@ -833,17 +835,20 @@ dump)
         --no-restart
         --no-uv
         --no-vscode
+        --no-winget
         --npm
         --quiet
         --tap
         --uv
         --verbose
         --vscode
+        --winget
         "
         return
         ;;
 cleanup)
         __brewcomp "
+        --all
         --cargo
         --cask
         --debug
@@ -855,12 +860,15 @@ cleanup)
         --go
         --help
         --install
+        --krew
+        --mas
         --npm
         --quiet
         --tap
         --uv
         --verbose
         --vscode
+        --winget
         --zap
         "
         return
