@@ -4,6 +4,7 @@
 require "bundle"
 require "bundle/dsl"
 require "bundle/extensions/npm"
+require "language/node"
 
 RSpec.describe Homebrew::Bundle::Npm do
   let(:klass) { Homebrew::Bundle::Npm }
@@ -161,7 +162,16 @@ RSpec.describe Homebrew::Bundle::Npm do
 
         it "installs package" do
           expect(Homebrew::Bundle).to receive(:system)
-            .with("/opt/homebrew/bin/npm", "install", "-g", "vercel", verbose: false)
+            .with(
+              "/opt/homebrew/bin/npm",
+              "install",
+              "--min-release-age=1",
+              "--cache=#{HOMEBREW_CACHE}/npm_cache",
+              "--ignore-scripts",
+              "-g",
+              "vercel",
+              verbose: false,
+            )
             .and_return(true)
           expect(klass.preinstall!("vercel")).to be(true)
           expect(klass.install!("vercel")).to be(true)
