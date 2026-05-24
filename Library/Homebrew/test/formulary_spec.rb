@@ -883,6 +883,27 @@ RSpec.describe Formulary do
           # end
         end
 
+        context "to a cask in a third-party tap" do
+          let(:old_tap) { Tap.fetch("another", "foo") }
+          let(:new_tap) { Tap.fetch("another", "bar") }
+          let(:cask_file) { new_tap.cask_dir/"#{token}.rb" }
+
+          before do
+            new_tap.cask_dir.mkpath
+            FileUtils.touch cask_file
+          end
+
+          after do
+            FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"another"
+          end
+
+          it "does not warn when loading the short token" do
+            expect do
+              klass.loader_for(token)
+            end.not_to output.to_stderr
+          end
+        end
+
         context "to a third-party tap" do
           let(:old_tap) { Tap.fetch("another", "foo") }
           let(:new_tap) { Tap.fetch("another", "bar") }
