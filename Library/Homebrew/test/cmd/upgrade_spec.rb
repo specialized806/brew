@@ -417,9 +417,9 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       installed_version: "0.117.0",
       version:           "0.118.0",
     )
-    installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil)
+    installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
 
-    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    expect(Homebrew::DownloadQueue).to receive(:new).once.and_return(download_queue)
     allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, prefetch_only: false,
                                                               prefetch_names: nil,
                                                               prefetch_upgrades: nil,
@@ -441,6 +441,102 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
       true
     end
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect { cmd.run }.to output(<<~EOS).to_stdout
+      ==> Upgrading 2 outdated packages:
+      deno 2.7.10 -> 2.7.11
+      codex 0.117.0 -> 0.118.0
+      ==> Fetching downloads for: deno and codex
+    EOS
+  end
+
+  it "prefetches language cask files before fetching combined downloads" do
+    cmd = klass.new([])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch_failed: false, shutdown: nil)
+    cask = instance_double(
+      Cask::Cask,
+      artifacts:         [],
+      full_name:         "codex",
+      installed_version: "0.117.0",
+      version:           "0.118.0",
+    )
+    installer = instance_double(
+      Cask::Installer,
+      enqueue_downloads:                   nil,
+      source_download_requires_pre_fetch?: true,
+    )
+    source_download = instance_double(Homebrew::API::SourceDownload)
+
+    expect(Homebrew::DownloadQueue).to receive(:new).once.and_return(download_queue)
+    allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, prefetch_only: false,
+                                                              prefetch_names: nil,
+                                                              prefetch_upgrades: nil,
+                                                              show_upgrade_summary: true,
+                                                              **|
+      if prefetch_only
+        expect(show_upgrade_summary).to be(false)
+        prefetch_names&.replace(["deno"])
+        prefetch_upgrades&.replace(["deno 2.7.10 -> 2.7.11"])
+      end
+
+      true
+    end
+    allow(Cask::Installer).to receive(:new).and_return(installer)
+    expect(installer).to receive(:prelude_fetch_download).and_return(source_download)
+    expect(download_queue).to receive(:enqueue).with(source_download).ordered
+    expect(download_queue).to receive(:fetch).ordered
+    expect(download_queue).to receive(:fetch).ordered
+    allow(Cask::Upgrade).to receive_messages(outdated_casks: [cask], upgrade_casks!: true)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect { cmd.run }.to output(<<~EOS).to_stdout
+      ==> Downloading Cask files
+      ==> Upgrading 2 outdated packages:
+      deno 2.7.10 -> 2.7.11
+      codex 0.117.0 -> 0.118.0
+      ==> Fetching downloads for: deno and codex
+    EOS
+  end
+
+  it "omits the cask file heading for cached language cask files" do
+    cmd = klass.new([])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch_failed: false, shutdown: nil)
+    cask = instance_double(
+      Cask::Cask,
+      artifacts:         [],
+      full_name:         "codex",
+      installed_version: "0.117.0",
+      version:           "0.118.0",
+    )
+    installer = instance_double(
+      Cask::Installer,
+      enqueue_downloads:                   nil,
+      source_download_requires_pre_fetch?: true,
+    )
+
+    expect(Homebrew::DownloadQueue).to receive(:new).once.and_return(download_queue)
+    allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, prefetch_only: false,
+                                                              prefetch_names: nil,
+                                                              prefetch_upgrades: nil,
+                                                              show_upgrade_summary: true,
+                                                              **|
+      if prefetch_only
+        expect(show_upgrade_summary).to be(false)
+        prefetch_names&.replace(["deno"])
+        prefetch_upgrades&.replace(["deno 2.7.10 -> 2.7.11"])
+      end
+
+      true
+    end
+    allow(Cask::Installer).to receive(:new).and_return(installer)
+    expect(installer).to receive(:prelude_fetch_download).and_return(nil)
+    expect(download_queue).to receive(:fetch).once
+    allow(Cask::Upgrade).to receive_messages(outdated_casks: [cask], upgrade_casks!: true)
     allow(Homebrew::Cleanup).to receive(:periodic_clean!)
     allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
     allow(Homebrew.messages).to receive(:display_messages)
@@ -506,7 +602,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       installed_version: "0.117.0",
       version:           "0.118.0",
     )
-    installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil)
+    installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
 
     allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
     allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, prefetch_only: false,

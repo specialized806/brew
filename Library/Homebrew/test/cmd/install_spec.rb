@@ -310,7 +310,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     formula = formula("testball_bottle") { url "https://brew.sh/testball_bottle-0.1.tar.gz" }
     formula_installer = instance_double(FormulaInstaller, formula:)
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
-    installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil)
+    installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
 
     allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
     allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).and_return([formula, cask])

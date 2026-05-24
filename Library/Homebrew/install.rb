@@ -402,9 +402,17 @@ module Homebrew
         oh1 "Fetching downloads for: #{combined_fetch_targets.to_sentence}", truncate: false
       end
 
-      sig { params(cask_installers: T::Array[T.untyped]).void }
-      def enqueue_cask_installers(cask_installers)
-        cask_installers.each(&:prelude)
+      sig { params(cask_installers: T::Array[T.untyped], download_queue: Homebrew::DownloadQueue).void }
+      def enqueue_cask_installers(cask_installers, download_queue:)
+        if cask_installers.any?(&:source_download_requires_pre_fetch?)
+          source_downloads = cask_installers.filter_map(&:prelude_fetch_download)
+          if source_downloads.any?
+            oh1 "Downloading Cask files"
+            source_downloads.each { |source_download| download_queue.enqueue(source_download) }
+            download_queue.fetch
+          end
+        end
+
         cask_installers.each(&:enqueue_downloads)
       end
 

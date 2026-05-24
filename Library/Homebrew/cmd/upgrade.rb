@@ -748,7 +748,7 @@ module Homebrew
           )
         end
         cask_names = outdated_casks.map(&:full_name)
-        Install.enqueue_cask_installers(fetchable_cask_installers)
+        Install.enqueue_cask_installers(fetchable_cask_installers, download_queue:)
         prefetch_names&.replace(cask_names)
         prefetch_upgrades&.replace(
           outdated_casks.map { |cask| "#{cask.full_name} #{cask.installed_version} -> #{cask.version}" },

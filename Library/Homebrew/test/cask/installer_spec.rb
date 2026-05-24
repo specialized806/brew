@@ -549,6 +549,40 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
+  describe "#prelude_fetch" do
+    it "enqueues source API caskfiles before the main cask download" do
+      cask = Cask::Cask.new("source-api-cask") do
+        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+      end
+      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: ["en"])
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = klass.new(cask, download_queue:)
+      source_download = instance_double(Homebrew::API::SourceDownload, downloaded?: false)
+
+      expect(Homebrew::API::Cask).to receive(:source_download_for).with(cask).and_return(source_download)
+      expect(download_queue).to receive(:enqueue).with(source_download)
+      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+      expect(installer).not_to receive(:download)
+
+      installer.prelude_fetch
+    end
+
+    it "leaves source API caskfiles in the main queue when their URL is known" do
+      cask = Cask::Cask.new("source-api-cask") do
+        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+      end
+      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: [])
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = klass.new(cask, download_queue:)
+
+      expect(Homebrew::API::Cask).to receive(:source_download).with(cask, download_queue:, enqueue: true)
+      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+      expect(download_queue).to receive(:enqueue).with(instance_of(Cask::Download))
+
+      installer.enqueue_downloads
+    end
+  end
+
   describe "rename operations" do
     let(:tmpdir) { mktmpdir }
     let(:staged_path) { Pathname(tmpdir) }

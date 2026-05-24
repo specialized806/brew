@@ -369,7 +369,7 @@ module Homebrew
                 )
               end
 
-              Install.enqueue_cask_installers(fetch_cask_installers)
+              Install.enqueue_cask_installers(fetch_cask_installers, download_queue:)
             end
 
             download_queue.fetch

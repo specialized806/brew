@@ -248,7 +248,7 @@ module Homebrew
                   defer_fetch:    true,
                 )
               end
-              Install.enqueue_cask_installers(fetch_cask_installers)
+              Install.enqueue_cask_installers(fetch_cask_installers, download_queue: shared_download_queue)
               shared_download_queue.fetch
               casks_prefetched = true
               valid_formula_installers
