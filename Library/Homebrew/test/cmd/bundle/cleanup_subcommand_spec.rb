@@ -8,6 +8,33 @@ require "utils"
 RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
   let(:klass) { Homebrew::Cmd::Bundle::CleanupSubcommand }
 
+  describe "#run" do
+    it "cleans up every supported type when --all is passed" do
+      args = args_for_subcommand(:cleanup, all?: true, formulae?: false, casks?: false, taps?: false, mas?: false,
+                                           vscode?: false, cargo?: false, flatpak?: false, go?: false, krew?: false,
+                                           npm?: false, uv?: false)
+      context = bundle_subcommand_context(:cleanup, no_type_args: false)
+
+      expect(klass).to receive(:cleanup) do |formulae:, casks:, taps:, extension_types:, **|
+        expect(formulae).to be(true)
+        expect(casks).to be(true)
+        expect(taps).to be(true)
+        expect(extension_types).to include(
+          cargo:   true,
+          flatpak: true,
+          go:      true,
+          krew:    true,
+          mas:     true,
+          npm:     true,
+          uv:      true,
+          vscode:  true,
+        )
+      end
+
+      klass.new(args, context:).run
+    end
+  end
+
   describe "read Brewfile and current installation", :no_api do
     before do
       klass.reset!

@@ -44,6 +44,7 @@ RSpec.describe Homebrew::Cmd::Bundle do
     expect(subcommand_options.call("list")["--vscode"]).to eq("List VSCode (and forks/variants) extensions.")
     expect(subcommand_options.call("dump")["--vscode"]).to eq("Dump VSCode (and forks/variants) extensions.")
     expect(subcommand_options.call("cleanup")["--vscode"]).to eq("Clean up VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("cleanup")["--all"]).to eq("Clean up all supported dependencies.")
     expect(subcommand_options.call("add")["--vscode"])
       .to eq("Add entries for VSCode (and forks/variants) extensions.")
     expect(subcommand_options.call("remove")["--vscode"])

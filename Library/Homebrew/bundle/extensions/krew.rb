@@ -18,6 +18,11 @@ module Homebrew
           @package_manager_executable = T.let(nil, T.nilable(Pathname))
         end
 
+        sig { override.returns(T.nilable(String)) }
+        def cleanup_heading
+          banner_name
+        end
+
         sig { override.returns(T.nilable(Pathname)) }
         def package_manager_executable
           @package_manager_executable ||= T.let(which("kubectl-krew", ORIGINAL_PATHS), T.nilable(Pathname))
@@ -71,6 +76,11 @@ module Homebrew
           end.uniq
         end
         private :parse_plugin_list
+
+        sig { override.params(name: String, executable: Pathname).void }
+        def uninstall_package!(name, executable: Pathname.new(""))
+          Bundle.system(executable.to_s, "uninstall", name, verbose: false)
+        end
       end
     end
   end
