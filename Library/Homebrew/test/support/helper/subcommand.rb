@@ -32,6 +32,7 @@ module Test
           :no_upgrade?,
           :no_uv?,
           :no_vscode?,
+          :no_winget?,
           :npm?,
           :quiet?,
           :services?,
@@ -40,6 +41,7 @@ module Test
           :uv?,
           :verbose?,
           :vscode?,
+          :winget?,
           :zap?,
         ].freeze
 
