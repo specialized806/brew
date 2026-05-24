@@ -52,4 +52,20 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
       end
     CASK
   end
+
+  it "does not report simple legacy flight block file preparation" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          (staged_path/"Prepared").mkpath
+          FileUtils.touch staged_path/"Prepared/touched"
+          FileUtils.mv staged_path/"source", staged_path/"target"
+          FileUtils.ln_s "target", staged_path/"Linked"
+        end
+      end
+    CASK
+  end
 end
