@@ -34,12 +34,12 @@ RSpec.describe Dependency do
     end
 
     it "prunes all when given a block with PRUNE" do
-      expect(klass.expand(formula) { next klass::PRUNE }).to be_empty
+      expect(klass.expand(formula) { next Dependable::PRUNE }).to be_empty
     end
 
     it "can prune selectively" do
       deps = klass.expand(formula) do |_, dep|
-        next klass::PRUNE if dep.name == "foo"
+        next Dependable::PRUNE if dep.name == "foo"
       end
 
       expect(deps).to eq([bar, baz, qux])
@@ -94,7 +94,7 @@ RSpec.describe Dependency do
     )
 
     deps = klass.expand(f) do |_dependent, dep|
-      next klass::SKIP if %w[foo qux].include? dep.name
+      next Dependable::SKIP if %w[foo qux].include? dep.name
     end
 
     expect(deps).to eq([bar, baz])
@@ -106,7 +106,7 @@ RSpec.describe Dependency do
     f = instance_double(Formula, name: "f", deps: [foo, baz])
 
     deps = klass.expand(f) do |_dependent, dep|
-      next klass::KEEP_BUT_PRUNE_RECURSIVE_DEPS if dep.test?
+      next Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS if dep.test?
     end
 
     expect(deps).to eq([foo, baz])

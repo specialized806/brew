@@ -378,7 +378,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "does not print aggregate package sizes" do
     cmd = klass.new(["--dry-run"])
-    summary = klass::FinalUpgradeSummary.new(
+    summary = Homebrew::Cmd::UpgradeCmd::FinalUpgradeSummary.new(
       version_changes: ["testball 0.1 -> 0.2 (500B)", "codex 1.0 -> 2.0"],
     )
 
@@ -666,7 +666,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "prints a narrow final upgrade summary" do
     cmd = klass.new([])
-    summary = klass::FinalUpgradeSummary.new(
+    summary = Homebrew::Cmd::UpgradeCmd::FinalUpgradeSummary.new(
       version_changes:       ["testball 0.1 -> 0.2"],
       pinned_formulae:       ["pinnedball 1.0"],
       pinned_casks:          ["pinned-cask 2.0"],
@@ -715,7 +715,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     allow(formula).to receive_messages(optlinked?: true, opt_prefix: old_keg)
 
     cmd = klass.new([])
-    context = klass::FormulaeUpgradeContext.new(
+    context = Homebrew::Cmd::UpgradeCmd::FormulaeUpgradeContext.new(
       formulae_to_install: [formula, deprecated, disabled, source_build],
       formulae_installer:  [
         FormulaInstaller.new(formula),
@@ -749,7 +749,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     cmd = klass.new([])
 
     allow(cmd).to receive(:formulae_upgrade_context).and_return(
-      klass::FormulaeUpgradeContext.new(
+      Homebrew::Cmd::UpgradeCmd::FormulaeUpgradeContext.new(
         formulae_to_install: [formula],
         formulae_installer:  [FormulaInstaller.new(formula)],
         dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),

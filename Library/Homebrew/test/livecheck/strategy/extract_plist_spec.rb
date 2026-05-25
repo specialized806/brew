@@ -12,20 +12,20 @@ RSpec.describe Homebrew::Livecheck::Strategy::ExtractPlist do
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:items) do
     {
-      "first"  => extract_plist::Item.new(
+      "first"  => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2"),
       ),
-      "second" => extract_plist::Item.new(
+      "second" => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2.3"),
       ),
     }
   end
   let(:multipart_items) do
     {
-      "first"  => extract_plist::Item.new(
+      "first"  => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2.3-45"),
       ),
-      "second" => extract_plist::Item.new(
+      "second" => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2.3-45-abcdef"),
       ),
     }
@@ -40,7 +40,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::ExtractPlist do
         expect(items["first"].to_h).to eq({
           bundle_version: { version: "1.2" },
         })
-        expect(extract_plist::Item.new.to_h).to eq({})
+        expect(Homebrew::Livecheck::Strategy::ExtractPlist::Item.new.to_h).to eq({})
       end
     end
   end

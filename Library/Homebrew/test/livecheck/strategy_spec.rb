@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -403,7 +403,7 @@ RSpec.describe Homebrew::Livecheck::Strategy do
 
     it "errors when given an invalid value" do
       expect { strategy.handle_block_return(123) }
-        .to raise_error(TypeError, strategy::INVALID_BLOCK_RETURN_VALUE_MSG)
+        .to raise_error(TypeError, Homebrew::Livecheck::Strategy::INVALID_BLOCK_RETURN_VALUE_MSG)
     end
   end
 end

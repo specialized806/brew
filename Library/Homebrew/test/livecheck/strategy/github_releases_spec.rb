@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -17,7 +17,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubReleases do
     }
   end
   let(:non_github_url) { "https://brew.sh/test" }
-  let(:regex) { github_releases::DEFAULT_REGEX }
+  let(:regex) { Homebrew::Livecheck::Strategy::GithubReleases::DEFAULT_REGEX }
   let(:generated) do
     {
       def:  {
@@ -209,7 +209,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubReleases do
 
     it "returns default match_data when url is blank" do
       expect(github_releases.find_versions(url: ""))
-        .to eq({ matches: {}, regex: github_releases::DEFAULT_REGEX, url: "" })
+        .to eq({ matches: {}, regex: Homebrew::Livecheck::Strategy::GithubReleases::DEFAULT_REGEX, url: "" })
     end
 
     it "returns default match_data when content is blank" do

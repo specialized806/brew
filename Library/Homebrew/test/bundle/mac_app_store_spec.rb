@@ -282,8 +282,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
     before do
       klass.reset!
       allow(klass).to receive_messages(package_manager_executable: Pathname.new("mas"), packages: [
-        klass::App.new(id: "123", name: "foo"),
-        klass::App.new(id: "456", name: "bar"),
+        Homebrew::Bundle::MacAppStore::App.new(id: "123", name: "foo"),
+        Homebrew::Bundle::MacAppStore::App.new(id: "456", name: "bar"),
       ])
     end
 

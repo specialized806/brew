@@ -23,8 +23,8 @@ RSpec.describe Homebrew::InstallSteps do
   end
 
   specify "runs mkdir, touch, move and symlink steps", :aggregate_failures do
-    steps = described_class::DSL.build(default_base: :var, default_source_base: :staged_path,
-                                       default_target_base: :staged_path) do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :staged_path,
+                                              default_target_base: :staged_path) do
       mkdir_p "log/example"
       touch "state/marker", base: :prefix
       mv "move-source", "move-target"
@@ -34,7 +34,7 @@ RSpec.describe Homebrew::InstallSteps do
     (root/"stage").mkpath
     (root/"stage/move-source").write "moved"
 
-    described_class::Runner.new(context:).run(steps)
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
 
     expect(root/"var/log/example").to be_a_directory
     expect(root/"prefix/state/marker").to exist
@@ -44,7 +44,7 @@ RSpec.describe Homebrew::InstallSteps do
   end
 
   specify "runs mkdir without creating parent directories" do
-    steps = described_class::DSL.build(default_base: :var) do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       mkdir "missing-parent/example"
     end
 
@@ -55,11 +55,11 @@ RSpec.describe Homebrew::InstallSteps do
         "path" => "missing-parent/example",
       },
     )
-    expect { described_class::Runner.new(context:).run(steps) }.to raise_error(Errno::ENOENT)
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(steps) }.to raise_error(Errno::ENOENT)
   end
 
   specify "runs mkdir_p recursively" do
-    steps = described_class::DSL.build(default_base: :var) do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       mkdir_p "nested/example"
     end
 
@@ -71,13 +71,13 @@ RSpec.describe Homebrew::InstallSteps do
       },
     )
 
-    described_class::Runner.new(context:).run(steps)
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
 
     expect(root/"var/nested/example").to be_a_directory
   end
 
   specify "does not add the default base to home paths" do
-    steps = described_class::DSL.build(default_base: :var) do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       mkdir_p "~/example"
     end
 
@@ -90,34 +90,34 @@ RSpec.describe Homebrew::InstallSteps do
   end
 
   specify "moves a directory's children without moving the new target directory" do
-    steps = described_class::DSL.build(default_source_base: :staged_path, default_target_base: :staged_path) do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :staged_path) do
       move_children ".", "Nested"
     end
 
     (root/"stage").mkpath
     (root/"stage/source-file").write "source"
 
-    described_class::Runner.new(context:).run(steps)
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
 
     expect(root/"stage/Nested/source-file").to exist
   end
 
   specify "removes symlinks marked for uninstall" do
-    steps = described_class::DSL.build(default_target_base: :staged_path) do
+    steps = Homebrew::InstallSteps::DSL.build(default_target_base: :staged_path) do
       ln_sf "target", "linked-target", source_base: :relative, uninstall: true
     end
 
     (root/"stage").mkpath
     File.symlink "target", root/"stage/linked-target"
 
-    described_class::Runner.new(context:).run(steps, phase: :uninstall)
+    Homebrew::InstallSteps::Runner.new(context:).run(steps, phase: :uninstall)
 
     expect(root/"stage/linked-target").not_to be_a_symlink
   end
 
   specify "does not expose the surrounding formula or cask DSL" do
     expect do
-      described_class::DSL.build(default_base: :var) do
+      Homebrew::InstallSteps::DSL.build(default_base: :var) do
         system "true"
       end
     end.to raise_error(NameError)

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "completions"
@@ -14,7 +14,7 @@ RSpec.describe Homebrew::Completions do
     HOMEBREW_REPOSITORY.cd do
       system "git", "init"
     end
-    klass::SHELLS.each do |shell|
+    Homebrew::Completions::SHELLS.each do |shell|
       (completions_dir/shell).mkpath
     end
     internal_path.mkpath

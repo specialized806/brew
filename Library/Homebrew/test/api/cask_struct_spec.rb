@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "api"
@@ -175,19 +175,19 @@ RSpec.describe Homebrew::API::CaskStruct do
       .to eq([:foo, [], { ghi: "jkl" }, nil])
 
     expect(klass.deserialize_artifact_args([:foo, :empty_block]))
-      .to eq([:foo, [], {}, klass::EMPTY_BLOCK])
+      .to eq([:foo, [], {}, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
     expect(klass.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }]))
       .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, nil])
 
     expect(klass.deserialize_artifact_args([:foo, ["abc", "def"], :empty_block]))
-      .to eq([:foo, ["abc", "def"], {}, klass::EMPTY_BLOCK])
+      .to eq([:foo, ["abc", "def"], {}, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
     expect(klass.deserialize_artifact_args([:foo, { ghi: "jkl" }, :empty_block]))
-      .to eq([:foo, [], { ghi: "jkl" }, klass::EMPTY_BLOCK])
+      .to eq([:foo, [], { ghi: "jkl" }, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
     expect(klass.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }, :empty_block]))
-      .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, klass::EMPTY_BLOCK])
+      .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, Homebrew::API::CaskStruct::EMPTY_BLOCK])
   end
 
   describe "::deserialize" do
@@ -200,7 +200,7 @@ RSpec.describe Homebrew::API::CaskStruct do
 
       struct = klass.deserialize(hash)
 
-      klass::PREDICATES.each do |predicate|
+      Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
         expect(struct.send(:"#{predicate}?")).to be false
       end
     end
@@ -223,7 +223,7 @@ RSpec.describe Homebrew::API::CaskStruct do
 
       struct = klass.deserialize(hash)
 
-      klass::PREDICATES.each do |predicate|
+      Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
         expect(struct.send(:"#{predicate}?")).to be true
       end
     end

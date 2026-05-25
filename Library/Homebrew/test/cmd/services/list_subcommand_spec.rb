@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/services"
@@ -8,7 +8,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
 
   describe "#TRIGGERS" do
     it "contains all restart triggers" do
-      expect(klass::TRIGGERS).to eq([nil, "list", "ls"])
+      expect(Homebrew::Cmd::Services::ListSubcommand::TRIGGERS).to eq([nil, "list", "ls"])
     end
   end
 
@@ -54,7 +54,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
         schedulable: false,
       }
 
-      filtered_formula = formula.slice(*klass::JSON_FIELDS)
+      filtered_formula = formula.slice(*Homebrew::Cmd::Services::ListSubcommand::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
 
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([formula])
@@ -109,7 +109,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
 
     it "prints without user or file data" do
       formula = { name: "a", user: nil, file: nil, status: :started, loaded: true }
-      filtered_formula = formula.slice(*klass::JSON_FIELDS)
+      filtered_formula = formula.slice(*Homebrew::Cmd::Services::ListSubcommand::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
       expect do
         klass.print_json([formula])
@@ -119,7 +119,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
     it "includes an exit code" do
       file = Pathname.new("/tmp/file.file")
       formula = { name: "a", user: "u", file:, status: :error, exit_code: 256, loaded: true }
-      filtered_formula = formula.slice(*klass::JSON_FIELDS)
+      filtered_formula = formula.slice(*Homebrew::Cmd::Services::ListSubcommand::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
       expect do
         klass.print_json([formula])

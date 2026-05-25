@@ -183,7 +183,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
       it "exits on cyclic exceptions" do
         expect(Formula).to receive(:installed).and_return([foo, bar, baz])
-        expect_any_instance_of(klass::Topo).to receive(:tsort).and_raise(
+        expect_any_instance_of(Homebrew::Bundle::Brew::Topo).to receive(:tsort).and_raise(
           TSort::Cyclic,
           'topological sort failed: ["foo", "bar"]',
         )

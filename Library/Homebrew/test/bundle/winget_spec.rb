@@ -87,19 +87,24 @@ RSpec.describe Homebrew::Bundle::Winget do
         allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("winget.exe"))
         allow(klass).to receive(:export_apps).with(Pathname.new("winget.exe"), source: "winget").and_return(
           [
-            klass::App.new(id: "Microsoft.EdgeWebView2Runtime", name: "Microsoft Edge WebView2 Runtime",
-                           source: "winget"),
-            klass::App.new(id: "Microsoft.OneDrive", name: "Microsoft OneDrive", source: "winget"),
-            klass::App.new(id: "Microsoft.WSL", name: "Windows Subsystem for Linux", source: "winget"),
-            klass::App.new(id: "Valve.Steam", name: "Steam", source: "winget"),
+            Homebrew::Bundle::Winget::App.new(
+              id:     "Microsoft.EdgeWebView2Runtime",
+              name:   "Microsoft Edge WebView2 Runtime",
+              source: "winget",
+            ),
+            Homebrew::Bundle::Winget::App.new(id: "Microsoft.OneDrive", name: "Microsoft OneDrive", source: "winget"),
+            Homebrew::Bundle::Winget::App.new(id: "Microsoft.WSL", name: "Windows Subsystem for Linux",
+                                              source: "winget"),
+            Homebrew::Bundle::Winget::App.new(id: "Valve.Steam", name: "Steam", source: "winget"),
           ],
         )
         allow(klass).to receive(:export_apps).with(Pathname.new("winget.exe"), source: "msstore").and_return(
           [
-            klass::App.new(id: "9NBLGGH4NNS1", name: "App Installer", source: "msstore"),
-            klass::App.new(id: "XP89DCGQ3K6VLD", name: "PowerToys", source: "msstore"),
-            klass::App.new(id: "Microsoft.UI.Xaml.2.8", name: "Microsoft.UI.Xaml.2.8", source: "msstore"),
-            klass::App.new(id: "9N0DX20HK701", name: "Windows Terminal", source: "msstore"),
+            Homebrew::Bundle::Winget::App.new(id: "9NBLGGH4NNS1", name: "App Installer", source: "msstore"),
+            Homebrew::Bundle::Winget::App.new(id: "XP89DCGQ3K6VLD", name: "PowerToys", source: "msstore"),
+            Homebrew::Bundle::Winget::App.new(id: "Microsoft.UI.Xaml.2.8", name: "Microsoft.UI.Xaml.2.8",
+                                              source: "msstore"),
+            Homebrew::Bundle::Winget::App.new(id: "9N0DX20HK701", name: "Windows Terminal", source: "msstore"),
           ],
         )
       end
@@ -127,8 +132,8 @@ RSpec.describe Homebrew::Bundle::Winget do
         winget = Pathname.new("winget.exe")
         allow(klass).to receive(:export_apps).and_call_original
         allow(klass).to receive(:exported_apps).with(winget, source: "winget").and_return([
-          klass::App.new(id: "Valve.Steam", name: "Valve.Steam", source: "winget"),
-          klass::App.new(id: "Unknown.Package", name: "Unknown.Package", source: "winget"),
+          Homebrew::Bundle::Winget::App.new(id: "Valve.Steam", name: "Valve.Steam", source: "winget"),
+          Homebrew::Bundle::Winget::App.new(id: "Unknown.Package", name: "Unknown.Package", source: "winget"),
         ])
         allow(Utils).to receive(:popen_read)
           .with(winget, "list", "--source", "winget", "--accept-source-agreements", "--disable-interactivity",
@@ -229,7 +234,7 @@ RSpec.describe Homebrew::Bundle::Winget do
 
       it "keeps the package dump cache filtered and sorted after installation" do
         allow(klass).to receive(:export_apps).with(Pathname("winget.exe"), source: "winget").and_return([
-          klass::App.new(id: "Valve.Steam", name: "Steam", source: "winget"),
+          Homebrew::Bundle::Winget::App.new(id: "Valve.Steam", name: "Steam", source: "winget"),
         ])
         allow(klass).to receive(:export_apps).with(Pathname("winget.exe"), source: "msstore").and_return([])
 
@@ -340,10 +345,10 @@ RSpec.describe Homebrew::Bundle::Winget do
       klass.reset!
       allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("winget.exe"))
       allow(klass).to receive(:exported_apps).with(Pathname("winget.exe"), source: "winget").and_return([
-        klass::App.new(id: "Valve.Steam", name: "Steam", source: "winget"),
+        Homebrew::Bundle::Winget::App.new(id: "Valve.Steam", name: "Steam", source: "winget"),
       ])
       allow(klass).to receive(:exported_apps).with(Pathname("winget.exe"), source: "msstore").and_return([
-        klass::App.new(id: "XPDC2RH70K22MN", name: "Discord", source: "msstore"),
+        Homebrew::Bundle::Winget::App.new(id: "XPDC2RH70K22MN", name: "Discord", source: "msstore"),
       ])
     end
 

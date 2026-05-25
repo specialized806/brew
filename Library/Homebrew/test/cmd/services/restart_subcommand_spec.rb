@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/services"
@@ -8,7 +8,7 @@ RSpec.describe Homebrew::Cmd::Services::RestartSubcommand do
 
   describe "#TRIGGERS" do
     it "contains all restart triggers" do
-      expect(klass::TRIGGERS).to eq(%w[restart relaunch reload r])
+      expect(Homebrew::Cmd::Services::RestartSubcommand::TRIGGERS).to eq(%w[restart relaunch reload r])
     end
   end
 

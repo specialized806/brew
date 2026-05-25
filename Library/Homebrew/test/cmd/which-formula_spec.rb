@@ -22,10 +22,10 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
 
     before do
       # Override DATABASE_FILE to use test environment's HOMEBREW_CACHE
-      test_db_file = HOMEBREW_CACHE/"api"/klass::ENDPOINT
+      test_db_file = HOMEBREW_CACHE/"api"/Homebrew::Cmd::WhichFormula::ENDPOINT
       stub_const("#{klass}::DATABASE_FILE", test_db_file)
 
-      db = klass::DATABASE_FILE
+      db = Homebrew::Cmd::WhichFormula::DATABASE_FILE
       db.dirname.mkpath
       db.write(<<~EOS)
         foo(1.0.0):foo2 foo3
