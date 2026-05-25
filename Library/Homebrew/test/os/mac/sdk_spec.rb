@@ -13,7 +13,8 @@ RSpec.describe OS::Mac::CLTSDKLocator do
 
     expect(locator.sdk_for(MacOSVersion.new("11"))).to eq(big_sur_sdk)
     expect(locator.sdk_for(MacOSVersion.new("10.15"))).to eq(catalina_sdk)
-    expect { locator.sdk_for(MacOSVersion.new("10.14")) }.to raise_error(klass::NoSDKError)
+    expect { locator.sdk_for(MacOSVersion.new("10.14")) }
+      .to raise_error { |e| expect(e.class.name).to eq("OS::Mac::BaseSDKLocator::NoSDKError") }
   end
 
   describe "#sdk_if_applicable" do

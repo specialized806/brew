@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "services/subcommand/cleanup"
@@ -10,7 +10,7 @@ RSpec.describe Homebrew::Cmd::Services::CleanupSubcommand do
 
   describe "#TRIGGERS" do
     it "contains all restart triggers" do
-      expect(klass::TRIGGERS).to eq(%w[cleanup clean cl rm])
+      expect(Homebrew::Cmd::Services::CleanupSubcommand::TRIGGERS).to eq(%w[cleanup clean cl rm])
     end
   end
 

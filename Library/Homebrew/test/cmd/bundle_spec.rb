@@ -27,7 +27,7 @@ RSpec.describe Homebrew::Cmd::Bundle do
   it "treats upgrade as install --upgrade", :aggregate_failures do
     with_env("HOMEBREW_BUNDLE_NO_UPGRADE" => "1") do
       args = klass.new(%w[upgrade -fq]).args
-      context = klass.context(args, extensions: klass::BUNDLE_EXTENSIONS)
+      context = klass.context(args, extensions: Homebrew::Cmd::Bundle::BUNDLE_EXTENSIONS)
 
       expect(args.subcommand).to eq("install")
       expect(args.upgrade?).to be(true)

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "diagnostic"
@@ -10,7 +10,7 @@ RSpec.describe Homebrew::EnvConfig do
 
   describe "ENVS" do
     it "sorts alphabetically" do
-      expect(env_config::ENVS.keys).to eql(env_config::ENVS.keys.sort)
+      expect(Homebrew::EnvConfig::ENVS.keys).to eql(Homebrew::EnvConfig::ENVS.keys.sort)
     end
   end
 

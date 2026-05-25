@@ -20,8 +20,8 @@ RSpec.describe OS::Linux::Libstdcxx do
 
   describe "::system_version" do
     let(:tmpdir) { mktmpdir }
-    let(:libstdcxx) { tmpdir/klass::SONAME }
-    let(:soversion) { Version.new(klass::SOVERSION.to_s) }
+    let(:libstdcxx) { tmpdir/OS::Linux::Libstdcxx::SONAME }
+    let(:soversion) { Version.new(OS::Linux::Libstdcxx::SOVERSION.to_s) }
 
     before do
       tmpdir.mkpath

@@ -7,7 +7,7 @@ require "test/support/fixtures/testball"
 RSpec.describe GitHubRunnerMatrix, :no_api do
   let(:klass) { GitHubRunnerMatrix }
   let(:newest_supported_macos) do
-    MacOSVersion::SYMBOLS.find { |k, _| k == klass::NEWEST_HOMEBREW_CORE_MACOS_RUNNER }
+    MacOSVersion::SYMBOLS.find { |k, _| k == GitHubRunnerMatrix::NEWEST_HOMEBREW_CORE_MACOS_RUNNER }
   end
   let(:testball) { setup_test_runner_formula("testball") }
   let(:testball_depender) { setup_test_runner_formula("testball-depender", ["testball"]) }
@@ -37,7 +37,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
   describe "OLDEST_HOMEBREW_CORE_MACOS_RUNNER" do
     it "is not newer than HOMEBREW_MACOS_OLDEST_SUPPORTED" do
-      oldest_macos_runner = MacOSVersion.from_symbol(klass::OLDEST_HOMEBREW_CORE_MACOS_RUNNER)
+      oldest_macos_runner = MacOSVersion.from_symbol(GitHubRunnerMatrix::OLDEST_HOMEBREW_CORE_MACOS_RUNNER)
       expect(oldest_macos_runner).to be <= HOMEBREW_MACOS_OLDEST_SUPPORTED
     end
   end

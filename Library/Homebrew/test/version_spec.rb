@@ -122,11 +122,11 @@ RSpec.describe Version do
   end
 
   describe "::NULL_TOKEN" do
-    subject(:null_version) { klass::NULL_TOKEN }
+    subject(:null_version) { Version::NULL_TOKEN }
 
     specify do
       expect(null_version.inspect).to eq("#<Version::NullToken>")
-      expect(null_version).to eq klass::NULL_TOKEN
+      expect(null_version).to eq Version::NULL_TOKEN
     end
   end
 

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/services"
@@ -12,7 +12,7 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
 
   describe "#TRIGGERS" do
     it "contains all restart triggers" do
-      expect(klass::TRIGGERS).to eq(%w[info i])
+      expect(Homebrew::Cmd::Services::InfoSubcommand::TRIGGERS).to eq(%w[info i])
     end
   end
 

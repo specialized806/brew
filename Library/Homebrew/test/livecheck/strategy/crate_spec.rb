@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -53,7 +53,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Crate do
         "1.0.1" => Version.new("1.0.1"),
         "1.0.0" => Version.new("1.0.0"),
       },
-      regex:   crate::DEFAULT_REGEX,
+      regex:   Homebrew::Livecheck::Strategy::Crate::DEFAULT_REGEX,
       url:     generated[:url],
     }
   end

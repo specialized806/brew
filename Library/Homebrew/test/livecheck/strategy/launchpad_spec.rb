@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -83,7 +83,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
     let(:match_data) do
       cached = {
         matches: matches.to_h { |v| [v, Version.new(v)] },
-        regex:   launchpad::DEFAULT_REGEX,
+        regex:   Homebrew::Livecheck::Strategy::Launchpad::DEFAULT_REGEX,
         url:     generated[:url],
         cached:  true,
       }

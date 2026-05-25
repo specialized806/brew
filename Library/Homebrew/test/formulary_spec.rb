@@ -74,7 +74,7 @@ RSpec.describe Formulary do
           ignore_errors: false,
         )
 
-        expect(formula_class.const_get(:SECRET_TOKEN_PRESENT)).to be(false)
+        expect(formula_class::SECRET_TOKEN_PRESENT).to be(false)
         expect(ENV.fetch("SECRET_TOKEN", nil)).to eq("password")
       end
     end
@@ -681,8 +681,8 @@ RSpec.describe Formulary do
             { "#{old_formula_name}": "homebrew/core/#{formula_name}" }
           JSON
 
-          loader = klass::FromNameLoader.try_new(old_formula_name)
-          expect(loader).to be_a(klass::FromAPILoader)
+          loader = Formulary::FromNameLoader.try_new(old_formula_name)
+          expect(loader).to be_a(Formulary::FromAPILoader)
           expect(loader.name).to eq formula_name
           expect(loader.path).not_to exist
         end
@@ -693,8 +693,8 @@ RSpec.describe Formulary do
             { "#{old_formula_name}": "homebrew/core/#{formula_name}" }
           JSON
 
-          loader = klass::FromTapLoader.try_new("#{foo_tap}/#{old_formula_name}")
-          expect(loader).to be_a(klass::FromAPILoader)
+          loader = Formulary::FromTapLoader.try_new("#{foo_tap}/#{old_formula_name}")
+          expect(loader).to be_a(Formulary::FromAPILoader)
           expect(loader.name).to eq formula_name
           expect(loader.path).not_to exist
         end

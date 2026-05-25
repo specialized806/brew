@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "macos_version"
@@ -78,7 +78,7 @@ RSpec.describe MacOSVersion do
     expect(version).to be === Version.new("10.15") # rubocop:disable Style/CaseEquality
     expect(version).to be < Version.new("11")
     expect(klass.new("11").inspect).to eq("#<MacOSVersion: \"11\">")
-    expect(klass.new(klass::SYMBOLS.values.first).outdated_release?).to be false
+    expect(klass.new(MacOSVersion::SYMBOLS.values.first).outdated_release?).to be false
     expect(klass.new("10.0").outdated_release?).to be true
     expect(klass.new("1000").prerelease?).to be true
     expect(klass.new("10.0").unsupported_release?).to be true
@@ -107,7 +107,7 @@ RSpec.describe MacOSVersion do
     specify do
       expect(big_sur_update.strip_patch).to eq(klass.new("11"))
       expect(catalina_update.strip_patch).to eq(klass.new("10.15"))
-      expect(klass::NULL.strip_patch).to be klass::NULL
+      expect(MacOSVersion::NULL.strip_patch).to be MacOSVersion::NULL
     end
   end
 
@@ -123,7 +123,7 @@ RSpec.describe MacOSVersion do
     expect(frozen_version.to_sym).to eq(version_symbol)
     expect(frozen_version.instance_variable_get(:@sym)).to be_nil
 
-    expect(klass::NULL.to_sym).to eq(:dunno)
+    expect(MacOSVersion::NULL.to_sym).to eq(:dunno)
   end
 
   specify "#pretty_name" do
@@ -158,7 +158,7 @@ RSpec.describe MacOSVersion do
     end
 
     it "returns false when version is null" do
-      expect(klass::NULL.requires_nehalem_cpu?).to be false
+      expect(MacOSVersion::NULL.requires_nehalem_cpu?).to be false
     end
   end
 end
