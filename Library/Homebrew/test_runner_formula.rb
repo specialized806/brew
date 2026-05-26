@@ -40,7 +40,7 @@ class TestRunnerFormula
 
   sig { returns(T::Boolean) }
   def linux_compatible?
-    !macos_only?
+    formula.supports_linux?
   end
 
   sig { returns(T::Boolean) }
