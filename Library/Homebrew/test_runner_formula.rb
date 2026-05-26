@@ -35,7 +35,7 @@ class TestRunnerFormula
 
   sig { returns(T::Boolean) }
   def linux_only?
-    formula.requirements.any?(LinuxRequirement)
+    !macos_compatible?
   end
 
   sig { returns(T::Boolean) }
