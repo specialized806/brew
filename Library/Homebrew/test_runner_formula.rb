@@ -25,7 +25,7 @@ class TestRunnerFormula
 
   sig { returns(T::Boolean) }
   def macos_only?
-    formula.requirements.any? { |r| r.is_a?(MacOSRequirement) && !r.version_specified? }
+    formula.requirements.any?(MacOSRequirement)
   end
 
   sig { returns(T::Boolean) }

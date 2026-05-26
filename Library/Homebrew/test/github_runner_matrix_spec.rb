@@ -141,7 +141,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
       end
 
       context "when testing formulae require a macOS version" do
-        it "activates the Linux runners and suitable macOS runners" do
+        it "activates only the suitable macOS runners" do
           _, v = newest_supported_macos
           runner_matrix = klass.new([testball_depender_newest], [],
                                     all_supported:    false,
@@ -149,7 +149,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
           expect(runner_matrix.runners.all?(&:active)).to be(false)
           expect(runner_matrix.runners.any?(&:active)).to be(true)
-          expect(get_runner_names(runner_matrix).sort).to eq(["Linux arm64", "Linux x86_64", "macOS #{v}-arm64"])
+          expect(get_runner_names(runner_matrix).sort).to eq(["macOS #{v}-arm64"])
         end
       end
     end
