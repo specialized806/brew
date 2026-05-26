@@ -40,7 +40,8 @@ module Cask
       # Validate mutually exclusive opt-in/opt-out env vars before we start
       # selecting casks so `brew upgrade` errors consistently.
       if Homebrew::EnvConfig.upgrade_auto_updates_casks? &&
-         Homebrew::EnvConfig.no_upgrade_auto_updates_casks?
+         Homebrew::EnvConfig.no_upgrade_auto_updates_casks? &&
+         !Homebrew::EnvConfig.developer?
         raise UsageError,
               "`HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS` and `HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS` " \
               "cannot both be set."
