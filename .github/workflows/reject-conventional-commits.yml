@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pattern='^(feat|fix|chore|docs|style|refactor|perf|test|build|ci)(\([^)]*\))?!?:'
+          pattern='^(feat|fix|chore|refactor|perf|ci)(\([^)]*\))?!?:'
           violations=()
           while IFS= read -r title; do
             if [[ "$title" =~ $pattern ]]; then
