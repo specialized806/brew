@@ -65,8 +65,8 @@ RSpec.describe TestRunnerFormula do
     end
 
     context "when a formula requires only a minimum version of macOS" do
-      it "returns false" do
-        expect(klass.new(needs_modern_compiler).macos_only?).to be(false)
+      it "returns true" do
+        expect(klass.new(needs_modern_compiler).macos_only?).to be(true)
       end
     end
   end
@@ -119,13 +119,13 @@ RSpec.describe TestRunnerFormula do
         expect(klass.new(linux_kernel_requirer).linux_compatible?).to be(true)
         expect(klass.new(old_non_portable_software).linux_compatible?).to be(true)
         expect(klass.new(fancy_new_software).linux_compatible?).to be(true)
-        expect(klass.new(needs_modern_compiler).linux_compatible?).to be(true)
       end
     end
 
     context "when a formula is not compatible with Linux" do
       it "returns false" do
         expect(klass.new(xcode_helper).linux_compatible?).to be(false)
+        expect(klass.new(needs_modern_compiler).linux_compatible?).to be(false)
       end
     end
   end
