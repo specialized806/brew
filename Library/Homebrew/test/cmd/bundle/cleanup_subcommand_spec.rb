@@ -382,7 +382,7 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     it "lists casks, formulae and taps" do
       expect(Formatter).to receive(:columns).with(%w[a b]).exactly(5).times.and_return("a b")
       expect(Kernel).not_to receive(:system)
-      expect(klass).to receive(:system_output_no_stderr).and_return("")
+      expect(Homebrew::Cleanup).to receive(:dry_run_output).and_return("")
       output_pattern = Regexp.new(
         "Would uninstall casks:.*Would uninstall formulae:.*Would untap:.*" \
         "Would uninstall VSCode extensions:.*Would uninstall flatpaks:",
@@ -405,12 +405,13 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     end
 
     define_method(:sane?) do
-      expect(klass).to receive(:system_output_no_stderr).and_return("cleaned")
+      expect(klass).not_to receive(:system_output_no_stderr)
+      expect(Homebrew::Cleanup).to receive(:dry_run_output).and_return("cleaned")
     end
 
     context "with --force" do
       it "prints output" do
-        sane?
+        expect(klass).to receive(:system_output_no_stderr).and_return("cleaned")
         expect { klass.cleanup(force: true) }.to output(/cleaned/).to_stdout
       end
     end
@@ -418,7 +419,11 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     context "without --force" do
       it "prints output" do
         sane?
-        expect { klass.cleanup }.to output(/cleaned/).to_stdout
+        expect { klass.cleanup }.to output(<<~EOS).to_stdout
+          Would `brew cleanup`:
+          cleaned
+          Run `brew bundle cleanup --force` to make these changes.
+        EOS
       end
     end
   end

@@ -3,6 +3,7 @@
 
 require "abstract_subcommand"
 require "bundle/extensions/extension"
+require "cleanup"
 
 require "utils/formatter"
 require "utils"
@@ -172,13 +173,9 @@ module Homebrew
               would_uninstall = true
             end
 
-            cleanup = system_output_no_stderr(HOMEBREW_BREW_FILE, "cleanup", "--dry-run")
-            unless cleanup.empty?
-              puts "Would `brew cleanup`:"
-              puts cleanup
-            end
+            would_cleanup = Cleanup.printed_dry_run_output?(Cleanup.dry_run_output)
 
-            puts "Run `brew bundle cleanup --force` to make these changes." if would_uninstall || !cleanup.empty?
+            puts "Run `brew bundle cleanup --force` to make these changes." if would_uninstall || would_cleanup
             exit 1 if would_uninstall
           end
         end
