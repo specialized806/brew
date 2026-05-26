@@ -464,6 +464,7 @@ RSpec.describe Homebrew::Completions do
         stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
         completion = klass.generate_zsh_subcommand_completion(nested_completion_command)
 
+        expect(completion).to include('case "$words[1]" in')
         expect(completion).to include("'1:subcommand:->subcommand'")
         expect(completion).to include("  _arguments -C \\\n    '--global[Use the global test file]' \\\n    " \
                                       "'1:subcommand:->subcommand'")
