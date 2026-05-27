@@ -436,7 +436,7 @@ jobs:
             brew "git"
             brew "memcached", restart_service: true
             brew "postgresql@15", restart_service: true
-            cask "1password"
+            cask "rectangle"
             cask "1password-cli"
             cask "google-chrome"
             # VSCode cask is not available on Linux.
