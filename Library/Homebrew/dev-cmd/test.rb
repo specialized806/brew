@@ -91,6 +91,7 @@ module Homebrew
               sandbox.allow_write_log(f)
               sandbox.allow_write_xcode
               sandbox.allow_write_path(HOMEBREW_PREFIX/"var/homebrew/locks")
+              sandbox.deny_read_home
               optional_prefix_var_dirs.each do |dir|
                 sandbox.allow_write_path_if_exists HOMEBREW_PREFIX/dir
               end

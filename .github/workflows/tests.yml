@@ -186,6 +186,7 @@ jobs:
     needs: syntax
     if: github.event_name != 'push'
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: update-test (Linux)
@@ -212,6 +213,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: tests (online)
@@ -326,6 +328,7 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     container: ${{ matrix.container }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: test-bot (Linux arm64)
@@ -414,6 +417,7 @@ jobs:
     if: github.repository_owner == 'Homebrew' && github.event_name != 'push'
     runs-on: ${{ matrix.runs-on }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: bundle and services (Linux)
@@ -463,6 +467,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runs-on }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: analytics (Linux)

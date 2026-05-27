@@ -5,6 +5,7 @@ require "extend/object/deep_dup"
 require "env_config"
 require "sandbox"
 require "tempfile"
+require "tmpdir"
 require "utils/output"
 
 module Cask
@@ -199,6 +200,7 @@ module Cask
         Sandbox.new.tap do |sandbox|
           sandbox.allow_read(path: cask.staged_path, type: :subpath)
           sandbox.allow_write_temp_and_cache
+          sandbox.deny_read_home
           sandbox.deny_all_network
         end
       end
@@ -207,9 +209,11 @@ module Cask
         params(
           env:  T::Hash[String, T.any(String, T::Boolean, PATH)],
           args: T::Array[T.any(String, Pathname)],
+          home: String,
         ).returns(T::Array[T.any(String, Pathname)])
       }
-      def cask_sandbox_command(env, args)
+      def cask_sandbox_command(env, args, home:)
+        env = { "HOME" => home }.merge(env)
         ["/usr/bin/env", *env.map { |key, value| "#{key}=#{value}" }, *args]
       end
 

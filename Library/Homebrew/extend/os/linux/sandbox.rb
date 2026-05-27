@@ -281,6 +281,7 @@ module OS
       sig { params(args: T.any(String, ::Pathname)).void }
       def run(*args)
         @prepared_writable_paths = T.let([], T.nilable(T::Array[::Pathname]))
+        @masked_read_paths = T.let([], T.nilable(T::Array[::Pathname]))
         old_report_on_exception = T.let(Thread.report_on_exception, T.nilable(T::Boolean))
         Thread.report_on_exception = false
         super
@@ -292,6 +293,8 @@ module OS
           nil
         end
         @prepared_writable_paths = nil
+        @masked_read_paths&.reverse_each { |path| FileUtils.rm_rf(path) }
+        @masked_read_paths = nil
       end
 
       private
@@ -326,6 +329,16 @@ module OS
           next unless File.exist?(path)
 
           args += ["--ro-bind", path, path]
+        end
+
+        denied_read_paths.each do |path|
+          next unless File.exist?(path)
+
+          args += if File.directory?(path)
+            ["--bind", masked_read_path, path]
+          else
+            ["--ro-bind", File::NULL, path]
+          end
         end
 
         args += ["--bind", tmpdir, tmpdir, "--chdir", tmpdir]
@@ -365,6 +378,23 @@ module OS
           filter = rule.filter
           filter.path if filter && [:literal, :subpath].include?(filter.type)
         end.uniq
+      end
+
+      sig { returns(T::Array[String]) }
+      def denied_read_paths
+        profile.rules.filter_map do |rule|
+          next if rule.allow || !rule.operation.start_with?("file-read")
+
+          filter = rule.filter
+          filter.path if filter && [:literal, :subpath].include?(filter.type)
+        end.uniq
+      end
+
+      sig { returns(String) }
+      def masked_read_path
+        path = ::Pathname.new(Dir.mktmpdir("homebrew-sandbox-deny-read", HOMEBREW_TEMP))
+        @masked_read_paths&.<< path
+        path.to_s
       end
 
       sig { params(path: String, type: Symbol).void }

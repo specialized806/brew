@@ -1136,7 +1136,11 @@ on_request: installed_on_request?, options:)
       sandbox.allow_read_if_exists path: formula_path
       formula.logs.mkpath
       sandbox.record_log(formula.logs/"build.sandbox.log")
-      sandbox.allow_write_path(Dir.home) if interactive?
+      if interactive?
+        sandbox.allow_write_path(Dir.home)
+      else
+        sandbox.deny_read_home
+      end
       sandbox.allow_write_temp_and_cache
       sandbox.allow_write_log(formula)
       sandbox.allow_cvs
@@ -1383,6 +1387,7 @@ on_request: installed_on_request?, options:)
       sandbox.allow_write_log(formula)
       sandbox.allow_write_xcode
       sandbox.deny_write_homebrew_repository
+      sandbox.deny_read_home
       sandbox.allow_write_cellar(formula)
       sandbox.deny_all_network unless formula.network_access_allowed?(:postinstall)
       Keg.keg_link_directories.each do |dir|
