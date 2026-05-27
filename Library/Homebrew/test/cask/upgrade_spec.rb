@@ -138,6 +138,19 @@ RSpec.describe Cask::Upgrade, :cask do
         end
       end
 
+      it "lets HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS override the developer default" do
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_call_original
+
+        with_env(
+          "HOMEBREW_DEVELOPER"                     => "1",
+          "HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"    => "1",
+          "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
+        ) do
+          expect { klass.upgrade_casks!(dry_run: true, args:) }
+            .not_to raise_error
+        end
+      end
+
       it 'excludes "auto_updates true" casks when the installed bundle matches the tap version' do
         write_info_plist(auto_updates_path, short_version: "2.61", bundle_version: "2061")
 
