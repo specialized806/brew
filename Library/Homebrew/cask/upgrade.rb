@@ -314,12 +314,23 @@ module Cask
       false
     end
 
-    sig { params(old_cask: Cask).void }
-    def self.reopen_apps_after_upgrade(old_cask)
+    sig { params(old_cask: Cask, new_cask: Cask).void }
+    def self.reopen_apps_after_upgrade(old_cask, new_cask)
       bundle_ids = old_cask.artifacts
                            .grep(Artifact::Uninstall)
                            .flat_map(&:bundle_ids_to_reopen)
       return if bundle_ids.empty?
+
+      # Re-register newly installed apps with Launch Services before reopening
+      lsregister = Pathname(
+        "/System/Library/Frameworks/CoreServices.framework" \
+        "/Frameworks/LaunchServices.framework/Support/lsregister",
+      )
+      if lsregister.executable?
+        new_cask.artifacts.grep(Artifact::App).each do |artifact|
+          system(lsregister.to_s, "-f", artifact.target.to_s) if artifact.target.exist?
+        end
+      end
 
       ohai "Reopening #{bundle_ids.count} #{::Utils.pluralize("application",
                                                               bundle_ids.count)} closed during upgrade:"
@@ -431,7 +442,7 @@ module Cask
         # If successful, wipe the old cask from staging.
         old_cask_installer.finalize_upgrade
 
-        reopen_apps_after_upgrade(old_cask) if quit
+        reopen_apps_after_upgrade(old_cask, new_cask) if quit
       rescue => e
         new_cask_installer.uninstall_artifacts(successor: old_cask, quit:) if new_artifacts_installed
         new_cask_installer.purge_versioned_files
