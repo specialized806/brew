@@ -435,7 +435,7 @@ module Homebrew
               _describe -t subcommands 'subcommand' subcommands
               ;;
             args)
-              case "$words[2]" in
+              case "$words[1]" in
         #{subcommand_cases.chomp}
                 *) ;;
               esac

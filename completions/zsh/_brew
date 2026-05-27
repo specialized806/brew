@@ -416,7 +416,7 @@ _brew_analytics() {
       _describe -t subcommands 'subcommand' subcommands
       ;;
     args)
-      case "$words[2]" in
+      case "$words[1]" in
 state)
         _arguments \
           '--debug[Display any debugging information]' \
@@ -679,7 +679,7 @@ _brew_bundle() {
       _describe -t subcommands 'subcommand' subcommands
       ;;
     args)
-      case "$words[2]" in
+      case "$words[1]" in
 sh)
         _arguments \
           '--check[Check that all dependencies in the Brewfile are installed before starting the shell. Enabled by default if `$HOMEBREW_BUNDLE_CHECK` is set]' \
@@ -981,7 +981,7 @@ _brew_completions() {
       _describe -t subcommands 'subcommand' subcommands
       ;;
     args)
-      case "$words[2]" in
+      case "$words[1]" in
 unlink)
         _arguments \
           '--debug[Display any debugging information]' \
@@ -1155,7 +1155,7 @@ _brew_developer() {
       _describe -t subcommands 'subcommand' subcommands
       ;;
     args)
-      case "$words[2]" in
+      case "$words[1]" in
 state)
         _arguments \
           '--debug[Display any debugging information]' \
@@ -2056,7 +2056,7 @@ _brew_services() {
       _describe -t subcommands 'subcommand' subcommands
       ;;
     args)
-      case "$words[2]" in
+      case "$words[1]" in
 stop|unload|terminate|term|t|u)
         _arguments \
           '(--file)--all[Stop all services and unregister them from launching at login (or boot), unless `--keep` is specified]' \
