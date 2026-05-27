@@ -152,7 +152,7 @@ module Formulary
         raise FormulaUnreadableError.new(name, e)
       end
     end
-    ENV.clear_sensitive_environment! do
+    ENV.clear_sensitive_environment_for_eval! do
       if ignore_errors
         Ignorable.hook_raise(&eval_formula)
       else

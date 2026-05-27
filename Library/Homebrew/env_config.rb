@@ -430,6 +430,13 @@ module Homebrew
         description: "If set, do not print any hints about changing Homebrew's behaviour with environment variables.",
         boolean:     true,
       },
+      HOMEBREW_NO_EVAL_ENV_SCRUBBING:            {
+        # odeprecated: remove in a later release
+        description: "If set, sensitive environment variables are available while evaluating formulae and casks. " \
+                     "`$HOMEBREW_GITHUB_API_TOKEN` is still available during evaluation when this is unset. " \
+                     "This setting will be removed in a later release.",
+        boolean:     true,
+      },
       HOMEBREW_NO_FORCE_BREW_WRAPPER:            {
         description: "`Deprecated:` If set, disables `$HOMEBREW_FORCE_BREW_WRAPPER` behaviour, even if set.",
         boolean:     true,

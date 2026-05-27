@@ -157,6 +157,12 @@ RSpec.describe "ENV" do
         expect(subject).not_to include("SECRET_TOKEN")
       end
 
+      it "preserves excepted sensitive environment variables" do
+        subject["SECRET_TOKEN"] = "password"
+        subject.clear_sensitive_environment!(except: ["SECRET_TOKEN"])
+        expect(subject["SECRET_TOKEN"]).to eq("password")
+      end
+
       it "leaves non-sensitive environment variables alone" do
         subject["FOO"] = "bar"
         subject.clear_sensitive_environment!
