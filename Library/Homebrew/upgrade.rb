@@ -142,7 +142,14 @@ module Homebrew
 
         valid_formula_installers.each do |fi|
           upgrade_formula(fi, dry_run:, verbose:, skip_formula_names:)
-          Cleanup.install_formula_clean!(fi.formula, dry_run:)
+          Cleanup.install_formula_clean!(fi.formula) unless dry_run
+        end
+        return unless dry_run
+
+        formulae_to_clean = Cleanup.install_cleanup_formulae(valid_formula_installers.map(&:formula))
+        if formulae_to_clean.present? &&
+           Cleanup.printed_dry_run_output?(Cleanup.dry_run_output(formulae: formulae_to_clean), ohai: true)
+          Cleanup.puts_no_install_cleanup_disable_message_if_not_already!
         end
       end
 

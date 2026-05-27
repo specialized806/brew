@@ -334,6 +334,34 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .to eq(["testball 0.1 -> 0.2 (500B)"])
   end
 
+  it "prints dry-run cleanup output from one formula cleanup run" do
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.2"
+    end
+    other_formula = formula("otherball") do
+      url "https://brew.sh/otherball-0.2"
+    end
+
+    allow(Homebrew::Install).to receive(:print_dry_run_dependencies)
+    allow(formula).to receive(:latest_version_installed?).and_return(true)
+    allow(other_formula).to receive(:latest_version_installed?).and_return(true)
+    expect(Homebrew::Cleanup).to receive(:dry_run_output)
+      .with(formulae: [formula, other_formula])
+      .and_return("Would remove: #{HOMEBREW_CELLAR}/testball/0.1 (1KB)\n")
+
+    with_env(HOMEBREW_NO_ENV_HINTS: "1") do
+      expect do
+        Homebrew::Upgrade.upgrade_formulae(
+          [FormulaInstaller.new(formula), FormulaInstaller.new(other_formula)],
+          dry_run: true,
+        )
+      end.to output(<<~EOS).to_stdout
+        ==> Would `brew cleanup`
+        Would remove: #{HOMEBREW_CELLAR}/testball/0.1 (1KB)
+      EOS
+    end
+  end
+
   it "omits dry-run dependencies already listed in the final summary" do
     formula = formula("yt-dlp") do
       url "https://brew.sh/yt-dlp-2026.3.17_2.tar.gz"
