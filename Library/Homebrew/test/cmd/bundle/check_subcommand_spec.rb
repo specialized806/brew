@@ -81,6 +81,75 @@ RSpec.describe Homebrew::Cmd::Bundle::CheckSubcommand, :no_api do
     end
   end
 
+  context "when formulae have the wrong link status" do
+    before do
+      allow(Homebrew::Bundle::Cask).to receive(:casks).and_return([])
+      allow(Homebrew::Bundle::Brew).to receive_messages(upgradable_formulae: [], installed_formulae: ["abc"])
+      stub_formula_loader formula("abc") { url "abc-1.0" }
+    end
+
+    it "raises an error" do
+      allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc', link: true")
+      allow(Formula["abc"]).to receive_messages(linked?: false, keg_only?: false)
+
+      expect { do_check }.to raise_error(SystemExit).and \
+        output(/Run `brew bundle check --verbose` to list unmet dependencies\./).to_stdout
+    end
+
+    it "raises an error for an implicitly unlinked non-keg-only formula" do
+      Homebrew::Bundle::Brew.instance_variable_set(:@formulae_by_name, { "abc" => { link?: false } })
+      allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc'")
+      allow(Formula["abc"]).to receive(:linked?).and_return(false)
+
+      expect { do_check }.to raise_error(SystemExit).and \
+        output(/Run `brew bundle check --verbose` to list unmet dependencies\./).to_stdout
+    end
+
+    it "does not raise an error when live link status satisfies an implicit check" do
+      Homebrew::Bundle::Brew.instance_variable_set(:@formulae_by_name, { "abc" => { link?: false } })
+      allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc'")
+      allow(Formula["abc"]).to receive(:linked?).and_return(true)
+
+      expect { do_check }.not_to raise_error
+    end
+
+    context "with verbose mode enabled" do
+      let(:verbose) { true }
+
+      it "outputs the link status error" do
+        allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc', link: false")
+        allow(Formula["abc"]).to receive_messages(linked?: true, keg_only?: false)
+
+        expect { do_check }.to raise_error(SystemExit).and \
+          output(/Formula abc needs to be unlinked\./).to_stdout
+      end
+
+      it "outputs the implicit link status error" do
+        Homebrew::Bundle::Brew.instance_variable_set(:@formulae_by_name, { "abc" => { link?: true } })
+        allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc'")
+        allow(Formula["abc"]).to receive(:linked?).and_return(true)
+
+        expect { do_check }.to raise_error(SystemExit).and \
+          output(/Formula abc needs to be unlinked\./).to_stdout
+      end
+    end
+
+    context "with install mode enabled" do
+      it "raises an error after install leaves a formula with the wrong link status" do
+        args = args_for_subcommand(:check, install?: true, global?: false, verbose?: false, upgrade_formulae: nil,
+                                           jobs: nil, file: nil)
+        allow(Homebrew::Cmd::Bundle).to receive(:redirect_stdout).and_yield
+        allow(Homebrew::Bundle::Brew).to receive(:install!).and_return(true)
+        allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc', link: true")
+        allow(Formula["abc"]).to receive_messages(linked?: false, keg_only?: false)
+
+        expect { Homebrew::Cmd::Bundle.dispatch(args, extensions: Homebrew::Bundle.extensions) }
+          .to raise_error(SystemExit).and \
+            output(/Run `brew bundle check --verbose` to list unmet dependencies\./).to_stdout
+      end
+    end
+  end
+
   context "when taps are not tapped" do
     it "raises an error" do
       allow(Homebrew::Bundle::Cask).to receive(:casks).and_return([])
