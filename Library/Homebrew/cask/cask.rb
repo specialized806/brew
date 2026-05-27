@@ -163,6 +163,24 @@ module Cask
       raise CaskInvalidError.new(token, e.message), e.backtrace
     end
 
+    # Refresh the cask as evaluated on `tag` and yield. Returns `nil` instead of
+    # raising when the cask has `on_system` blocks that omit the tag.
+    sig {
+      type_parameters(:U)
+        .params(tag: ::Utils::Bottles::Tag, _block: T.proc.returns(T.type_parameter(:U)))
+        .returns(T.nilable(T.type_parameter(:U)))
+    }
+    def refresh_for_tag(tag, &_block)
+      Homebrew::SimulateSystem.with(os: tag.system, arch: tag.arch) do
+        refresh
+        yield
+      end
+    rescue CaskInvalidError, CaskUnreadableError
+      raise unless on_system_blocks_exist?
+
+      nil
+    end
+
     def_delegators :@dsl, *::Cask::DSL::DSL_METHODS
 
     sig { returns(DSL::Caveats) }
@@ -592,9 +610,7 @@ module Cask
                     !dsl!.depends_on_set_in_block? &&
                     macos_requirements.any? { |requirement| !requirement.allows?(bottle_tag.to_macos_version) }
 
-            Homebrew::SimulateSystem.with_tag(bottle_tag) do
-              refresh
-
+            refresh_for_tag(bottle_tag) do
               to_h.each do |key, value|
                 next if HASH_KEYS_TO_SKIP.include? key
                 next if value.to_s == hash[key].to_s

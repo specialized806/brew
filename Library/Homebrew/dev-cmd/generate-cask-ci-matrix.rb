@@ -188,10 +188,8 @@ module Homebrew
       def architectures(cask:, os:)
         architectures = T.let([], T::Array[Symbol])
         [:arm, :intel].each do |arch|
-          tag = Utils::Bottles::Tag.new(system: os, arch: arch)
-          Homebrew::SimulateSystem.with_tag(tag) do
-            cask.refresh
-
+          tag = Utils::Bottles::Tag.new(system: os, arch:)
+          cask.refresh_for_tag(tag) do
             if cask.depends_on.arch.blank?
               architectures = RUNNERS.keys.map { |r| r.fetch(:arch).to_sym }.uniq.sort
               next
@@ -199,8 +197,6 @@ module Homebrew
 
             architectures = cask.depends_on.arch.map { |arch| arch[:type] }
           end
-        rescue ::Cask::CaskInvalidError
-          # Can't read cask for this system-arch combination.
         end
 
         architectures
