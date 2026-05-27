@@ -40,9 +40,10 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
         instance_double(Sandbox).tap do |sandbox|
           allow(sandbox).to receive(:allow_read)
           allow(sandbox).to receive(:allow_write_temp_and_cache)
+          allow(sandbox).to receive(:deny_read_home)
           allow(sandbox).to receive(:deny_all_network)
           allow(sandbox).to receive(:run) do |*args|
-            Pathname(args.fetch(6)).write("#{args.fetch(1).delete_prefix("SHELL=")} completion output")
+            Pathname(args.fetch(7)).write("#{args.grep(/^SHELL=/).first.delete_prefix("SHELL=")} completion output")
           end
         end
       end
@@ -57,17 +58,24 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       expect((fish_dir/"foo.fish").read).to eq("fish completion output")
     end
 
-    it "sandboxes completion generation" do
+    it "sandboxes completion generation without network access" do
       artifact = cask.artifacts.grep(klass).first
       sandboxes = []
+      calls = []
+      homes = []
 
       allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
       allow(Sandbox).to receive(:new) do
         instance_double(Sandbox).tap do |sandbox|
           expect(sandbox).to receive(:allow_read).with(path: staged_path, type: :subpath)
           expect(sandbox).to receive(:allow_write_temp_and_cache)
-          expect(sandbox).to receive(:deny_all_network)
-          allow(sandbox).to receive(:run) { |*args| Pathname(args.fetch(6)).write("completion") }
+          expect(sandbox).to receive(:deny_read_home)
+          expect(sandbox).to receive(:deny_all_network) { calls << :deny_all_network }
+          allow(sandbox).to receive(:run) do |*args|
+            calls << :run
+            homes << Pathname(args.grep(/^HOME=/).first.delete_prefix("HOME="))
+            Pathname(args.fetch(7)).write("completion")
+          end
           sandboxes << sandbox
         end
       end
@@ -75,6 +83,9 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       artifact.install_phase
 
       expect(sandboxes.length).to eq(3)
+      expect(calls).to eq([:deny_all_network, :run, :deny_all_network, :run, :deny_all_network, :run])
+      expect(homes.uniq.length).to eq(3)
+      expect(homes).to all(satisfy { |home| !home.exist? })
     end
 
     it "does not sandbox when HOMEBREW_NO_SANDBOX_CASK is set" do
@@ -101,11 +112,12 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
           instance_double(Sandbox).tap do |sandbox|
             allow(sandbox).to receive(:allow_read)
             allow(sandbox).to receive(:allow_write_temp_and_cache)
+            allow(sandbox).to receive(:deny_read_home)
             allow(sandbox).to receive(:deny_all_network)
             allow(sandbox).to receive(:run) do |*args|
-              raise "boom" if args.fetch(1) == "SHELL=bash"
+              raise "boom" if args.include?("SHELL=bash")
 
-              Pathname(args.fetch(6)).write("zsh completion")
+              Pathname(args.fetch(7)).write("zsh completion")
             end
           end
         end
@@ -159,10 +171,11 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
         instance_double(Sandbox).tap do |sandbox|
           allow(sandbox).to receive(:allow_read)
           allow(sandbox).to receive(:allow_write_temp_and_cache)
+          allow(sandbox).to receive(:deny_read_home)
           allow(sandbox).to receive(:deny_all_network)
           allow(sandbox).to receive(:run) do |*args|
             captured_args = args
-            Pathname(args.fetch(6)).write("zsh completion")
+            Pathname(args.fetch(7)).write("zsh completion")
           end
         end
       end
@@ -170,7 +183,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       artifact.install_phase
 
       expect(captured_args).to include("--shell=zsh")
-      expect(captured_args.fetch(4)).to end_with(" 2>/dev/null")
+      expect(captured_args.fetch(5)).to end_with(" 2>/dev/null")
       expect(zsh_dir/"_bar").to be_a_file
       expect(bash_dir/"bar").not_to exist
       expect(fish_dir/"bar.fish").not_to exist

@@ -1659,12 +1659,18 @@ class Formula
         PATH:          PATH.new(ORIGINAL_PATHS),
       }
 
-      with_env(new_env) do
-        ENV.clear_sensitive_environment!
-        ENV.activate_extensions!
+      Dir.mktmpdir("#{name}-postinstall-") do |home|
+        postinstall_home = Pathname(home)
+        new_env[:HOME] = postinstall_home.to_s
+        setup_home postinstall_home
 
-        with_logging("post_install") do
-          post_install
+        with_env(new_env) do
+          ENV.clear_sensitive_environment!
+          ENV.activate_extensions!
+
+          with_logging("post_install") do
+            post_install
+          end
         end
       end
     ensure
@@ -3245,8 +3251,7 @@ class Formula
       PATH:          PATH.new(ENV.fetch("PATH"), HOMEBREW_PREFIX/"bin"),
       HOMEBREW_TERM: ENV.fetch("TERM", nil),
       HOMEBREW_PATH: nil,
-    }.merge(common_stage_test_env)
-    test_env[:_JAVA_OPTIONS] += " -Djava.io.tmpdir=#{HOMEBREW_TEMP}"
+    }
 
     ENV.clear_sensitive_environment!
     Utils::Git.set_name_email!
@@ -3255,6 +3260,8 @@ class Formula
       staging.retain! if keep_tmp
       @testpath = T.let(staging.tmpdir, T.nilable(Pathname))
       test_env[:HOME] = @testpath
+      test_env.merge!(common_stage_test_env(T.must(@testpath)))
+      test_env[:_JAVA_OPTIONS] += " -Djava.io.tmpdir=#{HOMEBREW_TEMP}"
       setup_home T.must(@testpath)
       begin
         with_logging("test") do
@@ -3706,15 +3713,15 @@ class Formula
   end
 
   # Common environment variables used at both build and test time.
-  sig { returns(T::Hash[Symbol, String]) }
-  def common_stage_test_env
+  sig { params(home: Pathname).returns(T::Hash[Symbol, String]) }
+  def common_stage_test_env(home)
     {
       _JAVA_OPTIONS:           "-Duser.home=#{HOMEBREW_CACHE}/java_cache",
       GOCACHE:                 "#{HOMEBREW_CACHE}/go_cache",
       GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
       CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
       PIP_CACHE_DIR:           "#{HOMEBREW_CACHE}/pip_cache",
-      CURL_HOME:               ENV.fetch("CURL_HOME") { Dir.home },
+      CURL_HOME:               ENV.fetch("CURL_HOME") { home.to_s },
       PYTHONDONTWRITEBYTECODE: "1",
     }
   end
@@ -3733,7 +3740,7 @@ class Formula
 
       unless interactive
         stage_env[:HOME] = env_home
-        stage_env.merge!(common_stage_test_env)
+        stage_env.merge!(common_stage_test_env(env_home))
       end
 
       setup_home env_home

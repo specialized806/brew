@@ -136,19 +136,22 @@ module Cask
         end
 
         Tempfile.create("homebrew-cask-completions", HOMEBREW_TEMP) do |output|
-          sandbox.run(
-            *cask_sandbox_command(
-              env,
-              [
-                "/bin/sh",
-                "-c",
-                "output=$1; shift; exec \"$@\" > \"$output\"#{" 2>/dev/null" unless ENV["HOMEBREW_STDERR"]}",
-                "sh",
-                output.path,
-                *(completion_commands + Array(shell_parameter)),
-              ],
-            ),
-          )
+          Dir.mktmpdir("homebrew-cask-home") do |home|
+            sandbox.run(
+              *cask_sandbox_command(
+                env,
+                [
+                  "/bin/sh",
+                  "-c",
+                  "output=$1; shift; exec \"$@\" > \"$output\"#{" 2>/dev/null" unless ENV["HOMEBREW_STDERR"]}",
+                  "sh",
+                  output.path,
+                  *(completion_commands + Array(shell_parameter)),
+                ],
+                home:,
+              ),
+            )
+          end
           output.read
         end
       end

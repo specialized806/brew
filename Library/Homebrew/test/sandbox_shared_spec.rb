@@ -143,6 +143,108 @@ RSpec.describe Sandbox do
     end
   end
 
+  describe "#deny_read_path" do
+    it "denies reads for a subpath" do
+      dir = mktmpdir/"foo"
+      dir.mkpath
+
+      sandbox.deny_read_path dir
+
+      rule = sandbox.send(:profile).rules.fetch(-1)
+      expect(rule).to have_attributes(allow: false, operation: "file-read*")
+      expect(rule.filter).to have_attributes(path: dir.realpath.to_s, type: :subpath)
+    end
+  end
+
+  describe "#deny_read_home" do
+    let(:home) { mktmpdir/"home" }
+    let(:prefix) { mktmpdir/"prefix" }
+    let(:repository) { mktmpdir/"repository" }
+    let(:temp) { mktmpdir/"tmp" }
+    let(:cache) { mktmpdir/"cache" }
+
+    before do
+      [home, prefix, repository, temp, cache].each(&:mkpath)
+      allow(Dir).to receive(:home).with(ENV.fetch("USER")).and_return(home.to_s)
+      stub_const("HOMEBREW_PREFIX", prefix)
+      stub_const("HOMEBREW_REPOSITORY", repository)
+      stub_const("HOMEBREW_TEMP", temp)
+      stub_const("HOMEBREW_CACHE", cache)
+    end
+
+    it "denies reads from the real home" do
+      sandbox.deny_read_home
+
+      rule = sandbox.send(:profile).rules.fetch(-1)
+      expect(rule).to have_attributes(allow: false, operation: "file-read*")
+      expect(rule.filter).to have_attributes(path: home.realpath.to_s, type: :subpath)
+    end
+
+    [
+      [:HOMEBREW_PREFIX, "prefix"],
+      [:HOMEBREW_REPOSITORY, "repository"],
+      [:HOMEBREW_CACHE, "cache"],
+      [:HOMEBREW_TEMP, "tmp"],
+    ].each do |constant, directory|
+      it "skips the deny when #{constant} is inside the real home" do
+        stub_const(constant.to_s, home/directory)
+        Object.const_get(constant).mkpath
+
+        sandbox.deny_read_home
+
+        expect(sandbox.send(:profile).rules).to be_empty
+      end
+    end
+
+    [
+      ["GITHUB_WORKSPACE", "workspace"],
+      ["RUNNER_WORKSPACE", "runner-workspace"],
+      ["RUNNER_TEMP", "runner-temp"],
+    ].each do |env, directory|
+      it "skips the deny when #{env} is inside the real home" do
+        (home/directory).mkpath
+
+        with_env(env => (home/directory).to_s) do
+          sandbox.deny_read_home
+        end
+
+        expect(sandbox.send(:profile).rules).to be_empty
+      end
+    end
+
+    it "skips the deny when a runner path resolves inside the real home" do
+      (home/"workspace").mkpath
+      workspace_link = mktmpdir/"workspace"
+      FileUtils.ln_s home/"workspace", workspace_link
+
+      with_env(GITHUB_WORKSPACE: workspace_link.to_s) do
+        sandbox.deny_read_home
+      end
+
+      expect(sandbox.send(:profile).rules).to be_empty
+    end
+
+    it "denies sensitive home paths when the real home cannot be denied" do
+      [".ssh", "Documents", "Library/Keychains", "Library/Mobile Documents", "Dropbox"].each do |directory|
+        (home/directory).mkpath
+      end
+
+      with_env(GITHUB_WORKSPACE: (home/"workspace").to_s) do
+        sandbox.deny_read_home
+      end
+
+      expect(sandbox.send(:profile).rules.map { |rule| rule.filter&.path }).to eq(
+        [
+          home/".ssh",
+          home/"Documents",
+          home/"Library/Keychains",
+          home/"Library/Mobile Documents",
+          home/"Dropbox",
+        ].map { |path| path.realpath.to_s },
+      )
+    end
+  end
+
   describe "#allow_write_path_if_exists" do
     it "allows writes for existing paths" do
       dir = mktmpdir/"foo"

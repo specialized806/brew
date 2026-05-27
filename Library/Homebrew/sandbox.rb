@@ -177,6 +177,63 @@ class Sandbox
     add_rule allow: true, operation: "file-read*", filter: path_filter(path, type)
   end
 
+  sig { params(path: T.any(String, Pathname), type: Symbol).void }
+  def deny_read(path:, type: :literal)
+    add_rule allow: false, operation: "file-read*", filter: path_filter(path, type)
+  end
+
+  sig { params(path: T.any(String, Pathname)).void }
+  def deny_read_path(path)
+    deny_read path:, type: :subpath
+  end
+
+  sig { void }
+  def deny_read_home
+    home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
+    if [
+      HOMEBREW_PREFIX,
+      HOMEBREW_REPOSITORY,
+      HOMEBREW_CACHE,
+      HOMEBREW_TEMP,
+      ENV.fetch("GITHUB_WORKSPACE", nil),
+      ENV.fetch("RUNNER_WORKSPACE", nil),
+      ENV.fetch("RUNNER_TEMP", nil),
+    ].compact.any? do |path|
+      path = Pathname(path)
+      [path.expand_path, path.exist? ? path.realpath : nil].compact.any? { |pathname| pathname.ascend.include?(home) }
+    end
+      [
+        ".ssh",
+        ".aws",
+        ".azure",
+        ".config/gcloud",
+        ".docker",
+        ".gnupg",
+        ".kube",
+        ".netrc",
+        ".npmrc",
+        ".pypirc",
+        ".gem/credentials",
+        "Documents",
+        "Movies",
+        "Music",
+        "Pictures",
+        "Library/Keychains",
+        "Library/Mobile Documents",
+        "Library/CloudStorage",
+        "Dropbox",
+        "Google Drive",
+        "OneDrive",
+      ].each do |path|
+        path = home/path
+        deny_read_path path if path.exist?
+      end
+      return
+    end
+
+    deny_read_path home
+  end
+
   sig { params(path: T.nilable(T.any(String, Pathname)), type: Symbol).void }
   def allow_read_if_exists(path:, type: :literal)
     return unless path
