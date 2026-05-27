@@ -993,6 +993,11 @@ binaries for *`cask`*s. For files, also print SHA-256 checksums.
 : Download for the given CPU architecture. (Pass `all` to download for all
   architectures.)
 
+`--all-platforms`
+
+: Download for every supported operating system and architecture, plus each
+  language for *`cask`*s, fetching each distinct URL once.
+
 `--bottle-tag`
 
 : Download a bottle for given tag.

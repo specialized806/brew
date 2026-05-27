@@ -974,6 +974,7 @@ __fish_brew_complete_arg 'extract' -a '(__fish_brew_suggest_taps_installed)'
 
 __fish_brew_complete_cmd 'fetch' 'Download a bottle (if available) or source packages for formulae and binaries for casks'
 __fish_brew_complete_arg 'fetch' -l HEAD -d 'Fetch HEAD version instead of stable version'
+__fish_brew_complete_arg 'fetch' -l all-platforms -d 'Download for every supported operating system and architecture, plus each language for casks, fetching each distinct URL once'
 __fish_brew_complete_arg 'fetch' -l arch -d 'Download for the given CPU architecture. (Pass `all` to download for all architectures.)'
 __fish_brew_complete_arg 'fetch' -l bottle-tag -d 'Download a bottle for given tag'
 __fish_brew_complete_arg 'fetch' -l build-bottle -d 'Download source packages (for eventual bottling) rather than a bottle'
