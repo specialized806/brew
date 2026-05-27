@@ -1,4 +1,4 @@
-name: Close incomplete pull requests
+name: Check pull requests
 
 on:
   # `pull_request_target` has a write token, so this workflow must only ever run trusted
@@ -16,7 +16,7 @@ defaults:
     shell: bash -euo pipefail {0}
 
 concurrency:
-  group: "incomplete-pr-${{ github.event.pull_request.number }}"
+  group: "check-pr-${{ github.event.pull_request.number }}"
   cancel-in-progress: true
 
 jobs:
@@ -29,8 +29,8 @@ jobs:
       github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
-      # Read the trusted base-branch pull request template through the API; write only
-      # the issue comment and pull request state needed here.
+      # Read the trusted base-branch pull request template and checker through
+      # the API; write only the issue comment and pull request state needed here.
       contents: read
       issues: write
       pull-requests: write
@@ -60,64 +60,28 @@ jobs:
           # reopen forked pull requests. Keep this self-contained and never execute
           # pull request code from this step.
 
-          mkdir -p "${RUNNER_TEMP:?}/incomplete-prs"
-          printf "%s" "${PR_BODY}" >"${RUNNER_TEMP}/incomplete-prs/pr-body"
+          mkdir -p "${RUNNER_TEMP:?}/check-prs"
+          printf "%s" "${PR_BODY}" >"${RUNNER_TEMP}/check-prs/body"
 
       - name: Fetch pull request template
         run: |
           gh api "repos/${GITHUB_REPOSITORY:?}/contents/.github/PULL_REQUEST_TEMPLATE.md?ref=main" \
             --jq ".content" |
-            base64 --decode >"${RUNNER_TEMP:?}/incomplete-prs/template"
+            base64 --decode >"${RUNNER_TEMP:?}/check-prs/template"
+
+      - name: Fetch template checker
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY:?}/contents/.github/scripts/check_template.rb?ref=main" \
+            --jq ".content" |
+            base64 --decode >"${RUNNER_TEMP:?}/check_template.rb"
 
       - name: Check pull request template
         id: template
         run: |
           complete_template="$(
-            ruby - \
-              "${RUNNER_TEMP}/incomplete-prs/pr-body" \
-              "${RUNNER_TEMP}/incomplete-prs/template" <<'RUBY'
-          CHECKBOX_MARKER = /\A- \[[ xX]\] /
-          CHECKED_CHECKBOX_MARKER = /\A- \[[xX]\] /
-          HTML_COMMENT_LINE = /\A<!--.*-->\z/
-          MARKDOWN_HORIZONTAL_LINE = /\A-+\z/
-          NORMALISED_CHECKBOX_MARKER = '- [ ] '
-          REQUIRED_TEMPLATE_PERCENTAGE = 75
-          PERCENTAGE_SCALE = 100
-
-          def lines(path)
-            File.read(path, mode: 'rb')
-                .encode('UTF-8', invalid: :replace, undef: :replace)
-                .lines(chomp: true)
-          end
-
-          def normalise_lines(path)
-            lines(path).each_with_object([]) do |line, normalised_lines|
-              line = line.strip.sub(CHECKBOX_MARKER, NORMALISED_CHECKBOX_MARKER)
-              # Ignore blank lines.
-              next if line.empty?
-              # Ignore --- markdown horizontal lines.
-              next if line.match?(MARKDOWN_HORIZONTAL_LINE)
-              # Ignore <!-- HTML comments -->
-              next if line.match?(HTML_COMMENT_LINE)
-
-              normalised_lines << line
-            end.uniq
-          end
-
-          pr_body_path = ARGV.fetch(0)
-          template_path = ARGV.fetch(1)
-
-          pr_lines = normalise_lines(pr_body_path)
-          template_lines = normalise_lines(template_path)
-          matching_template_lines = template_lines.count { |line| pr_lines.include?(line) }
-          scaled_matching_percentage = matching_template_lines * PERCENTAGE_SCALE
-          scaled_required_percentage = template_lines.count * REQUIRED_TEMPLATE_PERCENTAGE
-          preserves_template = scaled_matching_percentage >= scaled_required_percentage
-          has_checked_checkbox = lines(pr_body_path).any? { |line| line.match?(CHECKED_CHECKBOX_MARKER) }
-          has_non_template_content = (pr_lines - template_lines).any?
-
-          puts preserves_template && (has_checked_checkbox || has_non_template_content)
-          RUBY
+            ruby "${RUNNER_TEMP:?}/check_template.rb" pull-request \
+              "${RUNNER_TEMP}/check-prs/body" \
+              "${RUNNER_TEMP}/check-prs/template"
           )"
           case "${complete_template}" in
             true | false) ;;
