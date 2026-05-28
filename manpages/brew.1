@@ -3210,6 +3210,9 @@ If set, do not print \fB$HOMEBREW_INSTALL_BADGE\fP on a successful build\.
 \fBHOMEBREW_NO_ENV_HINTS\fP
 If set, do not print any hints about changing Homebrew\[u2019]s behaviour with environment variables\.
 .TP
+\fBHOMEBREW_NO_EVAL_ENV_SCRUBBING\fP
+If set, sensitive environment variables are available while evaluating formulae and casks\. \fB$HOMEBREW_GITHUB_API_TOKEN\fP is still available during evaluation when this is unset\. This setting will be removed in a later release\.
+.TP
 \fBHOMEBREW_NO_FORCE_BREW_WRAPPER\fP
 \fBDeprecated:\fP If set, disables \fB$HOMEBREW_FORCE_BREW_WRAPPER\fP behaviour, even if set\.
 .TP
