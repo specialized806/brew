@@ -4912,6 +4912,13 @@ command execution (e.g. `$(cat file)`).
 : If set, do not print any hints about changing Homebrew's behaviour with
   environment variables.
 
+`HOMEBREW_NO_EVAL_ENV_SCRUBBING`
+
+: If set, sensitive environment variables are available while evaluating
+  formulae and casks. `$HOMEBREW_GITHUB_API_TOKEN` is still available during
+  evaluation when this is unset. This setting will be removed in a later
+  release.
+
 `HOMEBREW_NO_FORCE_BREW_WRAPPER`
 
 : `Deprecated:` If set, disables `$HOMEBREW_FORCE_BREW_WRAPPER` behaviour, even
