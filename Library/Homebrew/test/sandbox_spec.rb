@@ -43,6 +43,15 @@ RSpec.describe Sandbox, :needs_macos do
         .and output(/foo/).to_stdout
     end
 
+    it "does not raise getcwd EPERM when the parent CWD is sandbox-denied" do
+      mktmpdir do |denied|
+        sandbox.deny_read_path(denied)
+        Dir.chdir(denied) do
+          expect { sandbox.run "/bin/pwd" }.not_to raise_error
+        end
+      end
+    end
+
     it "ignores bogus Python error" do
       ENV["HOMEBREW_VERBOSE"] = "1"
 
