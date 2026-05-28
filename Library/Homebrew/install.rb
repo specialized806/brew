@@ -148,7 +148,7 @@ module Homebrew
           elsif only_dependencies
             return true
           elsif !quiet
-            opoo <<~EOS
+            opoo_without_github_actions_annotation <<~EOS
               #{formula.full_name} #{formula.pkg_version} is already installed and up-to-date.
               To reinstall #{formula.pkg_version}, run:
                 brew reinstall #{formula.name}
@@ -186,15 +186,14 @@ module Homebrew
                 brew link #{formula.full_name}
             EOS
           else
-            msg = if quiet
-              nil
-            else
-              <<~EOS
+            unless quiet
+              opoo_without_github_actions_annotation <<~EOS
                 #{msg} and up-to-date.
                 To reinstall #{formula.pkg_version}, run:
                   brew reinstall #{formula.name}
               EOS
             end
+            msg = nil
           end
           opoo msg if msg
         elsif !formula.any_version_installed? && (old_formula = formula.old_installed_formulae.first)

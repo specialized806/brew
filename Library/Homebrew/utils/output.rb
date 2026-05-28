@@ -76,6 +76,18 @@ module Utils
         end
       end
 
+      sig { params(message: T.any(String, Exception)).void }
+      def opoo_without_github_actions_annotation(message)
+        require "utils/github/actions"
+        return opoo(message) unless GitHub::Actions.env_set?
+
+        require "utils/formatter"
+
+        Tty.with($stderr) do |stderr|
+          stderr.puts Formatter.warning(message, label: "Warning")
+        end
+      end
+
       # Print a warning message only if not running in GitHub Actions.
       #
       # @api public
