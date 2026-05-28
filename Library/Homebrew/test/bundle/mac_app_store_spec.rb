@@ -284,6 +284,7 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
       allow(klass).to receive_messages(package_manager_executable: Pathname.new("mas"), packages: [
         Homebrew::Bundle::MacAppStore::App.new(id: "123", name: "foo"),
         Homebrew::Bundle::MacAppStore::App.new(id: "456", name: "bar"),
+        Homebrew::Bundle::MacAppStore::App.new(id: "0", name: "testflight"),
       ])
     end
 
