@@ -208,6 +208,7 @@ module Homebrew
 
         formulae_prefetched = T.let(false, T::Boolean)
         prefetched_casks = T.let(false, T::Boolean)
+        ask_upgrade_planned = T.let(false, T::Boolean)
         shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
         if args.ask?
           unless only_upgrade_casks
@@ -239,10 +240,11 @@ module Homebrew
           )
             Install.ask(action: "upgrade")
           end
+          ask_upgrade_planned = final_upgrade_summary.version_changes.present?
           @final_upgrade_summary = FinalUpgradeSummary.new
         end
 
-        if !args.dry_run? && !args.ask? && !only_upgrade_formulae && !only_upgrade_casks
+        if !args.dry_run? && (!args.ask? || ask_upgrade_planned) && !only_upgrade_formulae && !only_upgrade_casks
           shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
           begin
             formulae_prefetched = upgrade_outdated_formulae!(
@@ -708,7 +710,6 @@ module Homebrew
                                    prefetch_upgrades: nil,
                                    show_downloads_heading: true)
         return false if args.formula?
-        return false if args.ask?
 
         casks = minimum_version_casks(casks, quiet: true)
         return false if minimum_version.present? && casks.empty?
