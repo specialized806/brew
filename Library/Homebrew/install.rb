@@ -7,6 +7,7 @@ require "hardware"
 require "development_tools"
 require "upgrade"
 require "download_queue"
+require "io/console"
 require "utils/output"
 require "utils/topological_hash"
 
@@ -745,20 +746,23 @@ module Homebrew
       def ask_input(action: "installation")
         return if !$stdin.tty? || !$stdout.tty?
 
-        ohai "Do you want to proceed with the #{action}? [y/N]"
-        accepted_inputs = %w[y yes]
-        declined_inputs = %w[n no]
+        ohai "Do you want to proceed with the #{action}? [y/n]"
         loop do
-          result = $stdin.gets
-          return unless result
+          result = begin
+            $stdin.getch
+          rescue Interrupt
+            exit 1
+          end
+          exit 1 unless result
 
           result = result.chomp.strip.downcase
-          if accepted_inputs.include?(result)
+          if result == "y"
             break
-          elsif result.blank? || declined_inputs.include?(result)
+          # N, Escape, Ctrl-C and Ctrl-D.
+          elsif ["n", "\e", "\u0003", "\u0004"].include?(result)
             exit 1
           else
-            puts "Invalid input. Please enter 'y' or 'yes' to proceed, or 'n' or 'no' to abort."
+            puts "Invalid input. Please press 'y' to proceed, or 'n' to abort."
           end
         end
       end
