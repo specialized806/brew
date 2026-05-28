@@ -226,6 +226,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   # upgrades with asking for user prompts
   it "prints formula and cask ask plans before upgrading" do
     cmd = klass.new(["--ask"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: false, shutdown: nil)
 
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with([], dry_run: true, show_upgrade_summary: false)
@@ -241,12 +242,36 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect(cmd).to receive(:show_final_upgrade_summary).with(dry_run: true).ordered
     expect(Homebrew::Install).to receive(:ask).with(action: "upgrade")
                                               .ordered
+    expect(Homebrew::DownloadQueue).to receive(:new).ordered.and_return(download_queue)
     expect(cmd).to receive(:upgrade_outdated_formulae!)
-      .with([], use_prefetched: false, show_upgrade_summary: false)
+      .with(
+        [],
+        prefetch_only:          true,
+        download_queue:,
+        prefetch_names:         [],
+        prefetch_upgrades:      [],
+        show_upgrade_summary:   false,
+        show_downloads_heading: false,
+      )
+      .ordered
+      .and_return(true)
+    expect(cmd).to receive(:prefetch_outdated_casks!)
+      .with(
+        [],
+        download_queue:,
+        prefetch_names:         [],
+        prefetch_upgrades:      [],
+        show_downloads_heading: false,
+      )
+      .ordered
+      .and_return(true)
+    expect(download_queue).to receive(:fetch).ordered
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], use_prefetched: true, show_upgrade_summary: false)
       .ordered
       .and_return(true)
     expect(cmd).to receive(:upgrade_outdated_casks!)
-      .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .with([], skip_prefetch: true, show_upgrade_summary: false, download_queue: nil)
       .ordered
       .and_return(true)
     allow(Homebrew::Cleanup).to receive(:periodic_clean!)
@@ -479,6 +504,55 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       codex 0.117.0 -> 0.118.0
       ==> Fetching downloads for: deno and codex
     EOS
+  end
+
+  it "asks before fetching formulae and casks in the same download queue" do
+    cmd = klass.new(["--ask"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: false, shutdown: nil)
+    cask = instance_double(
+      Cask::Cask,
+      artifacts:         [],
+      full_name:         "codex",
+      installed_version: "0.117.0",
+      version:           "0.118.0",
+    )
+    installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
+
+    allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, dry_run: false, prefetch_only: false,
+                                                              use_prefetched: false, prefetch_names: nil,
+                                                              prefetch_upgrades: nil, **|
+      if dry_run
+        cmd.send(:final_upgrade_summary).version_changes << "deno 2.7.10 -> 2.7.11"
+      elsif prefetch_only
+        prefetch_names&.replace(["deno"])
+        prefetch_upgrades&.replace(["deno 2.7.10 -> 2.7.11"])
+      else
+        expect(use_prefetched).to be(true)
+      end
+
+      true
+    end
+    allow(Cask::Upgrade).to receive(:outdated_casks).and_return([cask])
+    allow(Cask::Installer).to receive(:new).and_return(installer)
+    allow(Cask::Upgrade).to receive(:upgrade_casks!) do |*_, **kwargs|
+      if kwargs[:dry_run]
+        kwargs[:summary_upgrades] << "codex 0.117.0 -> 0.118.0"
+      else
+        expect(kwargs[:skip_prefetch]).to be(true)
+      end
+
+      true
+    end
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect(Homebrew::Install).to receive(:ask).with(action: "upgrade").ordered
+    expect(Homebrew::DownloadQueue).to receive(:new).ordered.and_return(download_queue)
+    expect(Homebrew::Install).to receive(:enqueue_cask_installers).ordered
+    expect(download_queue).to receive(:fetch).ordered
+
+    cmd.run
   end
 
   it "prefetches language cask files before fetching combined downloads" do
