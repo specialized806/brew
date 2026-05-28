@@ -78,6 +78,46 @@ RSpec.describe Formulary do
         expect(ENV.fetch("SECRET_TOKEN", nil)).to eq("password")
       end
     end
+
+    it "allows the GitHub API token while evaluating formulae" do
+      with_env(HOMEBREW_GITHUB_API_TOKEN: "github-token") do
+        formula_class = Formulary.load_formula(
+          "github-token-env",
+          mktmpdir/"github-token-env.rb",
+          <<~RUBY,
+            class GithubTokenEnv < Formula
+              GITHUB_TOKEN_PRESENT = ENV.key?("HOMEBREW_GITHUB_API_TOKEN")
+              url "https://brew.sh/github-token-env-1.0.tar.gz"
+            end
+          RUBY
+          "GithubTokenEnvNamespace",
+          flags:         [],
+          ignore_errors: false,
+        )
+
+        expect(formula_class::GITHUB_TOKEN_PRESENT).to be(true)
+      end
+    end
+
+    it "supports temporarily opting out of scrubbing while evaluating formulae" do
+      with_env(HOMEBREW_NO_EVAL_ENV_SCRUBBING: "1", SECRET_TOKEN: "password") do
+        formula_class = Formulary.load_formula(
+          "unscrubbed-env",
+          mktmpdir/"unscrubbed-env.rb",
+          <<~RUBY,
+            class UnscrubbedEnv < Formula
+              SECRET_TOKEN_PRESENT = ENV.key?("SECRET_TOKEN")
+              url "https://brew.sh/unscrubbed-env-1.0.tar.gz"
+            end
+          RUBY
+          "UnscrubbedEnvNamespace",
+          flags:         [],
+          ignore_errors: false,
+        )
+
+        expect(formula_class::SECRET_TOKEN_PRESENT).to be(true)
+      end
+    end
   end
 
   describe "::factory" do

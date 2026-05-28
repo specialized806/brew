@@ -103,7 +103,7 @@ module Cask
       def load(config:)
         @config = config
 
-        ENV.clear_sensitive_environment! do
+        ENV.clear_sensitive_environment_for_eval! do
           instance_eval(content, __FILE__, __LINE__)
         end
       end
@@ -190,7 +190,7 @@ module Cask
         end
 
         begin
-          ENV.clear_sensitive_environment! do
+          ENV.clear_sensitive_environment_for_eval! do
             instance_eval(content, path.to_s).tap do |cask|
               raise CaskUnreadableError.new(token, "'#{path}' does not contain a cask.") unless cask.is_a?(Cask)
             end
