@@ -828,11 +828,27 @@ dump)
         --krew
         --mas
         --no-cargo
+        --no-cask
+        --no-dump-brew
+        --no-dump-cargo
+        --no-dump-cask
+        --no-dump-flatpak
+        --no-dump-go
+        --no-dump-krew
+        --no-dump-mas
+        --no-dump-npm
+        --no-dump-tap
+        --no-dump-uv
+        --no-dump-vscode
+        --no-dump-winget
         --no-flatpak
+        --no-formula
         --no-go
         --no-krew
+        --no-mas
         --no-npm
         --no-restart
+        --no-tap
         --no-uv
         --no-vscode
         --no-winget
@@ -862,6 +878,30 @@ cleanup)
         --install
         --krew
         --mas
+        --no-cargo
+        --no-cask
+        --no-cleanup-brew
+        --no-cleanup-cargo
+        --no-cleanup-cask
+        --no-cleanup-flatpak
+        --no-cleanup-go
+        --no-cleanup-krew
+        --no-cleanup-mas
+        --no-cleanup-npm
+        --no-cleanup-tap
+        --no-cleanup-uv
+        --no-cleanup-vscode
+        --no-cleanup-winget
+        --no-flatpak
+        --no-formula
+        --no-go
+        --no-krew
+        --no-mas
+        --no-npm
+        --no-tap
+        --no-uv
+        --no-vscode
+        --no-winget
         --npm
         --quiet
         --tap

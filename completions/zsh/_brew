@@ -695,48 +695,48 @@ sh)
         ;;
 remove)
         _arguments \
-          '(--no-cargo)--cargo[Remove entries for Cargo packages]' \
-          '--cask[Remove Homebrew cask entries]' \
+          '(--no-cargo --no-cleanup-cargo --no-dump-cargo)--cargo[Remove entries for Cargo packages]' \
+          '(--no-cask --no-casks --no-cleanup-cask --no-dump-cask)--cask[Remove Homebrew cask entries]' \
           '--debug[Display any debugging information]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
-          '(--no-flatpak)--flatpak[Remove entries for Flatpak packages. Note: Linux only]' \
-          '--formula[Remove Homebrew formula entries, including matches against formula aliases and old names]' \
+          '(--no-flatpak --no-cleanup-flatpak --no-dump-flatpak)--flatpak[Remove entries for Flatpak packages. Note: Linux only]' \
+          '(--no-formula --no-formulae --no-brews --no-cleanup-brew --no-dump-brew)--formula[Remove Homebrew formula entries, including matches against formula aliases and old names]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-          '(--no-go)--go[Remove entries for Go packages]' \
+          '(--no-go --no-cleanup-go --no-dump-go)--go[Remove entries for Go packages]' \
           '--help[Show this message]' \
           '--install[Run `install` before removing entries]' \
-          '(--no-krew)--krew[Remove entries for Krew plugins]' \
-          '--mas[Remove entries for Mac App Store dependencies]' \
-          '(--no-npm)--npm[Remove entries for npm packages]' \
+          '(--no-krew --no-cleanup-krew --no-dump-krew)--krew[Remove entries for Krew plugins]' \
+          '(--no-mas --no-cleanup-mas --no-dump-mas)--mas[Remove entries for Mac App Store dependencies]' \
+          '(--no-npm --no-cleanup-npm --no-dump-npm)--npm[Remove entries for npm packages]' \
           '--quiet[Make some output more quiet]' \
-          '--tap[Remove Homebrew tap entries]' \
-          '(--no-uv)--uv[Remove entries for uv tools]' \
+          '(--no-tap --no-taps --no-cleanup-tap --no-dump-tap)--tap[Remove Homebrew tap entries]' \
+          '(--no-uv --no-cleanup-uv --no-dump-uv)--uv[Remove entries for uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[Remove entries for VSCode (and forks/variants) extensions]' \
-          '(--no-winget)--winget[Remove entries for WinGet packages. Note: WSL only]'
+          '(--no-vscode --no-cleanup-vscode --no-dump-vscode)--vscode[Remove entries for VSCode (and forks/variants) extensions]' \
+          '(--no-winget --no-cleanup-winget --no-dump-winget)--winget[Remove entries for WinGet packages. Note: WSL only]'
         ;;
 list)
         _arguments \
           '--all[List all dependencies]' \
-          '(--no-cargo)--cargo[List Cargo packages]' \
-          '--cask[List Homebrew cask dependencies]' \
+          '(--no-cargo --no-cleanup-cargo --no-dump-cargo)--cargo[List Cargo packages]' \
+          '(--no-cask --no-casks --no-cleanup-cask --no-dump-cask)--cask[List Homebrew cask dependencies]' \
           '--debug[Display any debugging information]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
-          '(--no-flatpak)--flatpak[List Flatpak packages. Note: Linux only]' \
-          '--formula[List Homebrew formula dependencies]' \
+          '(--no-flatpak --no-cleanup-flatpak --no-dump-flatpak)--flatpak[List Flatpak packages. Note: Linux only]' \
+          '(--no-formula --no-formulae --no-brews --no-cleanup-brew --no-dump-brew)--formula[List Homebrew formula dependencies]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-          '(--no-go)--go[List Go packages]' \
+          '(--no-go --no-cleanup-go --no-dump-go)--go[List Go packages]' \
           '--help[Show this message]' \
           '--install[Run `install` before listing dependencies]' \
-          '(--no-krew)--krew[List Krew plugins]' \
-          '--mas[List Mac App Store dependencies]' \
-          '(--no-npm)--npm[List npm packages]' \
+          '(--no-krew --no-cleanup-krew --no-dump-krew)--krew[List Krew plugins]' \
+          '(--no-mas --no-cleanup-mas --no-dump-mas)--mas[List Mac App Store dependencies]' \
+          '(--no-npm --no-cleanup-npm --no-dump-npm)--npm[List npm packages]' \
           '--quiet[Make some output more quiet]' \
-          '--tap[List Homebrew tap dependencies]' \
-          '(--no-uv)--uv[List uv tools]' \
+          '(--no-tap --no-taps --no-cleanup-tap --no-dump-tap)--tap[List Homebrew tap dependencies]' \
+          '(--no-uv --no-cleanup-uv --no-dump-uv)--uv[List uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[List VSCode (and forks/variants) extensions]' \
-          '(--no-winget)--winget[List WinGet packages. Note: WSL only]'
+          '(--no-vscode --no-cleanup-vscode --no-dump-vscode)--vscode[List VSCode (and forks/variants) extensions]' \
+          '(--no-winget --no-cleanup-winget --no-dump-winget)--winget[List WinGet packages. Note: WSL only]'
         ;;
 install|upgrade)
         _arguments \
@@ -793,60 +793,100 @@ edit)
         ;;
 dump)
         _arguments \
-          '(--no-cargo)--cargo[Dump Cargo packages]' \
-          '--cask[Dump Homebrew cask dependencies]' \
+          '(--no-cargo --no-cleanup-cargo --no-dump-cargo)--cargo[Dump Cargo packages]' \
+          '(--no-cask --no-casks --no-cleanup-cask --no-dump-cask)--cask[Dump Homebrew cask dependencies]' \
           '--debug[Display any debugging information]' \
           '--describe[Add a description comment above each line, unless the dependency does not have a description. Enabled by default if `$HOMEBREW_BUNDLE_DESCRIBE` is set]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
-          '(--no-flatpak)--flatpak[Dump Flatpak packages. Note: Linux only]' \
+          '(--no-flatpak --no-cleanup-flatpak --no-dump-flatpak)--flatpak[Dump Flatpak packages. Note: Linux only]' \
           '--force[Overwrite an existing `Brewfile`]' \
-          '--formula[Dump Homebrew formula dependencies]' \
+          '(--no-formula --no-formulae --no-brews --no-cleanup-brew --no-dump-brew)--formula[Dump Homebrew formula dependencies]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-          '(--no-go)--go[Dump Go packages]' \
+          '(--no-go --no-cleanup-go --no-dump-go)--go[Dump Go packages]' \
           '--help[Show this message]' \
           '--install[Run `install` before dumping dependencies]' \
-          '(--no-krew)--krew[Dump Krew plugins]' \
-          '--mas[Dump Mac App Store dependencies]' \
+          '(--no-krew --no-cleanup-krew --no-dump-krew)--krew[Dump Krew plugins]' \
+          '(--no-mas --no-cleanup-mas --no-dump-mas)--mas[Dump Mac App Store dependencies]' \
           '(--cargo)--no-cargo[`dump` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set]' \
+          '(--cask --casks)--no-cask[Dump without Homebrew cask dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CASK` is set]' \
+          '(--formula --formulae --brews)--no-dump-brew[Dump without Homebrew formula dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_BREW` is set]' \
+          '(--cargo)--no-dump-cargo[`dump` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set]' \
+          '(--cask --casks)--no-dump-cask[Dump without Homebrew cask dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CASK` is set]' \
+          '(--flatpak)--no-dump-flatpak[`dump` without Flatpak packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set]' \
+          '(--go)--no-dump-go[`dump` without Go packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_GO` is set]' \
+          '(--krew)--no-dump-krew[`dump` without Krew plugins. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_KREW` is set]' \
+          '(--mas)--no-dump-mas[`dump` without Mac App Store dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_MAS` is set]' \
+          '(--npm)--no-dump-npm[`dump` without npm packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set]' \
+          '(--tap --taps)--no-dump-tap[Dump without Homebrew tap dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_TAP` is set]' \
+          '(--uv)--no-dump-uv[`dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV` is set]' \
+          '(--vscode)--no-dump-vscode[`dump` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set]' \
+          '(--winget)--no-dump-winget[`dump` without WinGet packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_WINGET` is set]' \
           '(--flatpak)--no-flatpak[`dump` without Flatpak packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set]' \
+          '(--formula --formulae --brews)--no-formula[Dump without Homebrew formula dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_BREW` is set]' \
           '(--go)--no-go[`dump` without Go packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_GO` is set]' \
           '(--krew)--no-krew[`dump` without Krew plugins. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_KREW` is set]' \
+          '(--mas)--no-mas[`dump` without Mac App Store dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_MAS` is set]' \
           '(--npm)--no-npm[`dump` without npm packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set]' \
           '--no-restart[Do not add `restart_service` to formula lines]' \
+          '(--tap --taps)--no-tap[Dump without Homebrew tap dependencies. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_TAP` is set]' \
           '(--uv)--no-uv[`dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV` is set]' \
           '(--vscode)--no-vscode[`dump` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set]' \
           '(--winget)--no-winget[`dump` without WinGet packages. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_WINGET` is set]' \
-          '(--no-npm)--npm[Dump npm packages]' \
+          '(--no-npm --no-cleanup-npm --no-dump-npm)--npm[Dump npm packages]' \
           '--quiet[Make some output more quiet]' \
-          '--tap[Dump Homebrew tap dependencies]' \
-          '(--no-uv)--uv[Dump uv tools]' \
+          '(--no-tap --no-taps --no-cleanup-tap --no-dump-tap)--tap[Dump Homebrew tap dependencies]' \
+          '(--no-uv --no-cleanup-uv --no-dump-uv)--uv[Dump uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[Dump VSCode (and forks/variants) extensions]' \
-          '(--no-winget)--winget[Dump WinGet packages. Note: WSL only]'
+          '(--no-vscode --no-cleanup-vscode --no-dump-vscode)--vscode[Dump VSCode (and forks/variants) extensions]' \
+          '(--no-winget --no-cleanup-winget --no-dump-winget)--winget[Dump WinGet packages. Note: WSL only]'
         ;;
 cleanup)
         _arguments \
           '--all[Clean up all supported dependencies]' \
-          '(--no-cargo)--cargo[Clean up Cargo packages]' \
-          '--cask[Clean up Homebrew cask dependencies]' \
+          '(--no-cargo --no-cleanup-cargo --no-dump-cargo)--cargo[Clean up Cargo packages]' \
+          '(--no-cask --no-casks --no-cleanup-cask --no-dump-cask)--cask[Clean up Homebrew cask dependencies]' \
           '--debug[Display any debugging information]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
-          '(--no-flatpak)--flatpak[Clean up Flatpak packages. Note: Linux only]' \
+          '(--no-flatpak --no-cleanup-flatpak --no-dump-flatpak)--flatpak[Clean up Flatpak packages. Note: Linux only]' \
           '--force[Actually perform cleanup operations]' \
-          '--formula[Clean up Homebrew formula dependencies]' \
+          '(--no-formula --no-formulae --no-brews --no-cleanup-brew --no-dump-brew)--formula[Clean up Homebrew formula dependencies]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-          '(--no-go)--go[Clean up Go packages]' \
+          '(--no-go --no-cleanup-go --no-dump-go)--go[Clean up Go packages]' \
           '--help[Show this message]' \
           '--install[Run `install` before cleaning up dependencies]' \
-          '(--no-krew)--krew[Clean up Krew plugins]' \
-          '--mas[Clean up Mac App Store dependencies]' \
-          '(--no-npm)--npm[Clean up npm packages]' \
+          '(--no-krew --no-cleanup-krew --no-dump-krew)--krew[Clean up Krew plugins]' \
+          '(--no-mas --no-cleanup-mas --no-dump-mas)--mas[Clean up Mac App Store dependencies]' \
+          '(--cargo)--no-cargo[`cleanup` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_CARGO` is set]' \
+          '(--cask --casks)--no-cask[Clean up without Homebrew cask dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_CASK` is set]' \
+          '(--formula --formulae --brews)--no-cleanup-brew[Clean up without Homebrew formula dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_BREW` is set]' \
+          '(--cargo)--no-cleanup-cargo[`cleanup` without Cargo packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_CARGO` is set]' \
+          '(--cask --casks)--no-cleanup-cask[Clean up without Homebrew cask dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_CASK` is set]' \
+          '(--flatpak)--no-cleanup-flatpak[`cleanup` without Flatpak packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK` is set]' \
+          '(--go)--no-cleanup-go[`cleanup` without Go packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_GO` is set]' \
+          '(--krew)--no-cleanup-krew[`cleanup` without Krew plugins. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_KREW` is set]' \
+          '(--mas)--no-cleanup-mas[`cleanup` without Mac App Store dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_MAS` is set]' \
+          '(--npm)--no-cleanup-npm[`cleanup` without npm packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_NPM` is set]' \
+          '(--tap --taps)--no-cleanup-tap[Clean up without Homebrew tap dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_TAP` is set]' \
+          '(--uv)--no-cleanup-uv[`cleanup` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_UV` is set]' \
+          '(--vscode)--no-cleanup-vscode[`cleanup` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE` is set]' \
+          '(--winget)--no-cleanup-winget[`cleanup` without WinGet packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_WINGET` is set]' \
+          '(--flatpak)--no-flatpak[`cleanup` without Flatpak packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK` is set]' \
+          '(--formula --formulae --brews)--no-formula[Clean up without Homebrew formula dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_BREW` is set]' \
+          '(--go)--no-go[`cleanup` without Go packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_GO` is set]' \
+          '(--krew)--no-krew[`cleanup` without Krew plugins. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_KREW` is set]' \
+          '(--mas)--no-mas[`cleanup` without Mac App Store dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_MAS` is set]' \
+          '(--npm)--no-npm[`cleanup` without npm packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_NPM` is set]' \
+          '(--tap --taps)--no-tap[Clean up without Homebrew tap dependencies. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_TAP` is set]' \
+          '(--uv)--no-uv[`cleanup` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_UV` is set]' \
+          '(--vscode)--no-vscode[`cleanup` without VSCode (and forks/variants) extensions. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE` is set]' \
+          '(--winget)--no-winget[`cleanup` without WinGet packages. Enabled by default if `$HOMEBREW_BUNDLE_CLEANUP_NO_WINGET` is set]' \
+          '(--no-npm --no-cleanup-npm --no-dump-npm)--npm[Clean up npm packages]' \
           '--quiet[Make some output more quiet]' \
-          '--tap[Clean up Homebrew tap dependencies]' \
-          '(--no-uv)--uv[Clean up uv tools]' \
+          '(--no-tap --no-taps --no-cleanup-tap --no-dump-tap)--tap[Clean up Homebrew tap dependencies]' \
+          '(--no-uv --no-cleanup-uv --no-dump-uv)--uv[Clean up uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[Clean up VSCode (and forks/variants) extensions]' \
-          '(--no-winget)--winget[Clean up WinGet packages. Note: WSL only]' \
+          '(--no-vscode --no-cleanup-vscode --no-dump-vscode)--vscode[Clean up VSCode (and forks/variants) extensions]' \
+          '(--no-winget --no-cleanup-winget --no-dump-winget)--winget[Clean up WinGet packages. Note: WSL only]' \
           '--zap[Clean up casks using the `zap` command instead of `uninstall`]'
         ;;
 check)
@@ -862,24 +902,24 @@ check)
         ;;
 add)
         _arguments \
-          '(--no-cargo)--cargo[Add entries for Cargo packages]' \
-          '--cask[Add Homebrew cask entries]' \
+          '(--no-cargo --no-cleanup-cargo --no-dump-cargo)--cargo[Add entries for Cargo packages]' \
+          '(--no-cask --no-casks --no-cleanup-cask --no-dump-cask)--cask[Add Homebrew cask entries]' \
           '--debug[Display any debugging information]' \
           '--describe[Add a description comment above each line, unless the dependency does not have a description. Enabled by default if `$HOMEBREW_BUNDLE_DESCRIBE` is set]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
-          '(--no-flatpak)--flatpak[Add entries for Flatpak packages. Note: Linux only]' \
-          '--formula[Add Homebrew formula entries]' \
+          '(--no-flatpak --no-cleanup-flatpak --no-dump-flatpak)--flatpak[Add entries for Flatpak packages. Note: Linux only]' \
+          '(--no-formula --no-formulae --no-brews --no-cleanup-brew --no-dump-brew)--formula[Add Homebrew formula entries]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
-          '(--no-go)--go[Add entries for Go packages]' \
+          '(--no-go --no-cleanup-go --no-dump-go)--go[Add entries for Go packages]' \
           '--help[Show this message]' \
           '--install[Run `install` before adding entries]' \
-          '(--no-krew)--krew[Add entries for Krew plugins]' \
-          '(--no-npm)--npm[Add entries for npm packages]' \
+          '(--no-krew --no-cleanup-krew --no-dump-krew)--krew[Add entries for Krew plugins]' \
+          '(--no-npm --no-cleanup-npm --no-dump-npm)--npm[Add entries for npm packages]' \
           '--quiet[Make some output more quiet]' \
-          '--tap[Add Homebrew tap entries]' \
-          '(--no-uv)--uv[Add entries for uv tools]' \
+          '(--no-tap --no-taps --no-cleanup-tap --no-dump-tap)--tap[Add Homebrew tap entries]' \
+          '(--no-uv --no-cleanup-uv --no-dump-uv)--uv[Add entries for uv tools]' \
           '--verbose[Make some output more verbose]' \
-          '(--no-vscode)--vscode[Add entries for VSCode (and forks/variants) extensions]'
+          '(--no-vscode --no-cleanup-vscode --no-dump-vscode)--vscode[Add entries for VSCode (and forks/variants) extensions]'
         ;;
         *) ;;
       esac
