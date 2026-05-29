@@ -245,10 +245,10 @@ module Homebrew::EnvConfig
     def no_emoji?; end
 
     sig { returns(T::Boolean) }
-    def no_eval_env_scrubbing?; end
+    def no_env_hints?; end
 
     sig { returns(T::Boolean) }
-    def no_env_hints?; end
+    def no_eval_env_scrubbing?; end
 
     sig { returns(T::Boolean) }
     def no_force_brew_wrapper?; end
