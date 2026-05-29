@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "env_config"
+require "utils/github/actions"
 
 module OS
   module Linux
@@ -196,9 +197,21 @@ module OS
 
         sig { void }
         def configure!
-          unless bubblewrap_executable
-            ensure_sandbox_installed!(install_from_tests: true)
-            unless bubblewrap_executable
+          unless (bubblewrap = bubblewrap_executable)
+            if GitHub::Actions.env_set? &&
+               ENV["RUNNER_ENVIRONMENT"] == "github-hosted" &&
+               ENV.fetch("ImageOS", "").start_with?("ubuntu")
+              ohai "Installing Bubblewrap..."
+              system "sudo", "apt-get", "install", "--yes", "bubblewrap"
+              reset_state!
+              bubblewrap = bubblewrap_executable
+            end
+
+            unless bubblewrap
+              ensure_sandbox_installed!(install_from_tests: true)
+              bubblewrap = bubblewrap_executable
+            end
+            unless bubblewrap
               reset_state!
               return
             end
