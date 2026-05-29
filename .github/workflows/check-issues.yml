@@ -87,6 +87,15 @@ jobs:
       - name: Close incomplete issue
         if: steps.template.outputs.complete_template == 'false'
         run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY:?}/issues/${{ github.event.issue.number }}/comments" \
+            --raw-field body="$(
+              cat <<COMMENT
+          Thanks for your issue. This has been closed because it appears to use an incomplete or outdated issue template.
+
+          Please edit and reopen this issue once you have filled in the current issue template. **Do not create a new issue for this.**
+          COMMENT
+            )"
+
           gh api --method PATCH "repos/${GITHUB_REPOSITORY:?}/issues/${{ github.event.issue.number }}" \
             -f state=closed \
             -f state_reason=not_planned
