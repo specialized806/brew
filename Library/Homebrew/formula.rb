@@ -2937,6 +2937,7 @@ class Formula
         "bottle" => bottle_defined?,
       },
       "urls"                            => urls_hash,
+      "patches"                         => serialized_patches,
       "revision"                        => revision,
       "version_scheme"                  => version_scheme,
       "compatibility_version"           => compatibility_version,
@@ -3113,6 +3114,25 @@ class Formula
     end
 
     hash
+  end
+
+  sig { returns(T::Array[T::Hash[String, T.untyped]]) }
+  def serialized_patches
+    patchlist.map do |p|
+      h = { "strip" => p.strip.to_s }
+      if p.external?
+        external = T.cast(p, ExternalPatch)
+        h["url"] = external.url
+        h["sha256"] = external.resource.checksum&.hexdigest
+        h["apply"] = external.resource.patch_files.map(&:to_s) if external.resource.patch_files.any?
+        h["directory"] = external.resource.directory.to_s if external.resource.directory.present?
+      elsif p.is_a?(LocalPatch)
+        h["file"] = p.file.to_s
+      else
+        h["data"] = true
+      end
+      h
+    end
   end
 
   sig { returns(T::Array[T::Hash[String, T.untyped]]) }
