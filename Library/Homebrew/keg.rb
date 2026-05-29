@@ -212,7 +212,7 @@ class Keg
     @linked_keg_record = T.let(HOMEBREW_LINKED_KEGS/name, Pathname)
     @opt_record = T.let(HOMEBREW_PREFIX/"opt/#{name}", Pathname)
     @oldname_opt_records = T.let([], T::Array[Pathname])
-    @require_relocation = false
+    @require_relocation = T.let(false, T::Boolean)
   end
 
   sig { returns(Pathname) }
@@ -258,6 +258,11 @@ class Keg
 
   sig { returns(T::Boolean) }
   def require_relocation? = @require_relocation
+
+  sig { void }
+  def require_relocation!
+    @require_relocation = true
+  end
 
   sig { returns(T::Boolean) }
   def linked?
