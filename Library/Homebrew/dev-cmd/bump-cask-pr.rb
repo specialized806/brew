@@ -293,17 +293,11 @@ module Homebrew
         cask_sourcefile_path = cask.sourcefile_path
         raise "unexpected nil cask.sourcefile_path" unless cask_sourcefile_path
 
+        old_cask = Cask::CaskLoader.load(cask_sourcefile_path)
         generate_system_options(cask, new_version).each do |os, arch|
-          SimulateSystem.with(os:, arch:) do
-            # Handle the cask being invalid for specific os/arch combinations
-            old_cask = begin
-              Cask::CaskLoader.load(cask_sourcefile_path)
-            rescue Cask::CaskInvalidError, Cask::CaskUnreadableError
-              raise unless cask.on_system_blocks_exist?
-            end
-            next if old_cask.nil?
-
-            # Skip archs excluded by the reloaded cask's `depends_on arch:`.
+          tag = Utils::Bottles::Tag.new(system: os, arch:)
+          old_cask.refresh_for_tag(tag) do
+            # Skip archs excluded by the cask's `depends_on arch:`.
             reloaded_archs = old_cask.depends_on.arch&.filter_map { |a| a[:type] }&.uniq
             next if reloaded_archs.present? && reloaded_archs.exclude?(arch)
 
