@@ -355,6 +355,109 @@ RSpec.describe Tap do
       end.to raise_error(TapCoreRemoteMismatchError)
     end
 
+    it "creates core and cask taps as worktrees when the brew source repository has them" do
+      source_repository = HOMEBREW_PREFIX.parent/"source-repository"
+      worktree_git_dir = HOMEBREW_REPOSITORY/".git"
+
+      [CoreTap.instance, CoreCaskTap.instance].each do |tap|
+        source_tap = source_repository/"Library/Taps/#{tap.full_name.downcase}"
+
+        FileUtils.rm_rf tap.path
+        source_tap.mkpath
+        source_tap.cd do
+          system "git", "init"
+          FileUtils.touch "README.md"
+          system "git", "add", "--all"
+          system "git", "commit", "-m", "init"
+        end
+        FileUtils.mkdir_p worktree_git_dir.dirname
+        worktree_git_dir.write "gitdir: #{source_repository}/.git/worktrees/#{HOMEBREW_REPOSITORY.basename}\n"
+
+        allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
+                                       formula_names: [], cask_tokens: [])
+        expect(tap).to receive(:safe_system)
+          .with("git", "-C", source_tap, "worktree", "add", "--detach", tap.path, "HEAD")
+          .and_wrap_original do
+            tap.path.mkpath
+            (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
+          end
+
+        tap.install
+      end
+    ensure
+      FileUtils.rm_rf source_repository
+      FileUtils.rm_rf CoreTap.instance.path
+      FileUtils.rm_rf CoreCaskTap.instance.path
+      (CoreTap.instance.path/"Formula").mkpath
+    end
+
+    it "creates a tap from another brew worktree when that has the source repository" do
+      tap = CoreCaskTap.instance
+      source_repository = HOMEBREW_PREFIX.parent/"source-repository"
+      source_worktree = HOMEBREW_PREFIX.parent/"source-worktree"
+      source_tap = source_worktree/"Library/Taps/#{tap.full_name.downcase}"
+
+      FileUtils.rm_rf tap.path
+      source_tap.mkpath
+      source_tap.cd do
+        system "git", "init"
+        FileUtils.touch "README.md"
+        system "git", "add", "--all"
+        system "git", "commit", "-m", "init"
+      end
+      FileUtils.mkdir_p (HOMEBREW_REPOSITORY/".git").dirname
+      (HOMEBREW_REPOSITORY/".git")
+        .write "gitdir: #{source_repository}/.git/worktrees/#{HOMEBREW_REPOSITORY.basename}\n"
+
+      allow(Utils).to receive(:popen_read).and_call_original
+      allow(Utils).to receive(:popen_read)
+        .with("git", "-C", HOMEBREW_REPOSITORY, "worktree", "list", "--porcelain")
+        .and_return("worktree #{source_worktree}\n")
+      allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
+                                     formula_names: [], cask_tokens: [])
+      expect(tap).to receive(:safe_system)
+        .with("git", "-C", source_tap, "worktree", "add", "--detach", tap.path, "HEAD")
+        .and_wrap_original do
+          tap.path.mkpath
+          (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
+        end
+
+      tap.install
+    ensure
+      FileUtils.rm_rf source_repository
+      FileUtils.rm_rf source_worktree
+      FileUtils.rm_rf CoreCaskTap.instance.path
+    end
+
+    it "uses the requested remote for cask taps with an explicit clone target" do
+      tap = CoreCaskTap.instance
+      requested_remote = "https://example.com/Homebrew/homebrew-cask"
+      source_repository = HOMEBREW_PREFIX.parent/"source-repository"
+      source_tap = source_repository/"Library/Taps/#{tap.full_name.downcase}"
+
+      FileUtils.rm_rf tap.path
+      source_tap.mkpath
+      (source_tap/".git").mkpath
+      FileUtils.mkdir_p (HOMEBREW_REPOSITORY/".git").dirname
+      (HOMEBREW_REPOSITORY/".git")
+        .write "gitdir: #{source_repository}/.git/worktrees/#{HOMEBREW_REPOSITORY.basename}\n"
+
+      allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
+                                     formula_names: [], cask_tokens: [])
+      expect(tap).to receive(:safe_system)
+        .with("git", "clone", requested_remote, tap.path.to_s, "--origin=origin", "--template=",
+              "--config", "core.fsmonitor=false")
+        .and_wrap_original do
+          tap.path.mkpath
+          (tap.path/".git").mkpath
+        end
+
+      tap.install clone_target: requested_remote, force: true
+    ensure
+      FileUtils.rm_rf source_repository
+      FileUtils.rm_rf CoreCaskTap.instance.path
+    end
+
     it "raises an error when run `brew tap --custom-remote` without a custom remote (already installed)" do
       setup_git_repo
       already_tapped_tap = klass.fetch("Homebrew", "foo")
@@ -390,6 +493,26 @@ RSpec.describe Tap do
     it "raises an error if the Tap is not available" do
       tap = klass.fetch("Homebrew", "bar")
       expect { tap.uninstall }.to raise_error(TapUnavailableError)
+    end
+
+    it "removes Git worktree metadata for worktree-installed taps" do
+      tap = CoreCaskTap.instance
+      source_tap = HOMEBREW_PREFIX.parent/"source-tap"
+
+      FileUtils.rm_rf tap.path
+      source_tap.mkpath
+      (source_tap/".git").mkpath
+      tap.path.mkpath
+      (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
+
+      allow(tap).to receive_messages(contents: [], formula_names: [], cask_tokens: [])
+      expect(tap).to receive(:safe_system)
+        .with("git", "-C", source_tap, "worktree", "remove", "--force", tap.path)
+
+      tap.uninstall
+    ensure
+      FileUtils.rm_rf source_tap
+      FileUtils.rm_rf CoreCaskTap.instance.path
     end
   end
 
