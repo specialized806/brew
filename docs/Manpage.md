@@ -448,13 +448,43 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : Dump Homebrew formula dependencies.
 
+`--no-formula`
+
+: Dump without Homebrew formula dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_BREW` is set.
+
+`--no-dump-brew`
+
+: Dump without Homebrew formula dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_BREW` is set.
+
 `--cask`
 
 : Dump Homebrew cask dependencies.
 
+`--no-cask`
+
+: Dump without Homebrew cask dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_CASK` is set.
+
+`--no-dump-cask`
+
+: Dump without Homebrew cask dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_CASK` is set.
+
 `--tap`
 
 : Dump Homebrew tap dependencies.
+
+`--no-tap`
+
+: Dump without Homebrew tap dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_TAP` is set.
+
+`--no-dump-tap`
+
+: Dump without Homebrew tap dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_TAP` is set.
 
 `--mas`
 
@@ -492,7 +522,22 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 : Dump npm packages.
 
+`--no-mas`
+
+: `dump` without Mac App Store dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_MAS` is set.
+
+`--no-dump-mas`
+
+: `dump` without Mac App Store dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_MAS` is set.
+
 `--no-vscode`
+
+: `dump` without VSCode (and forks/variants) extensions. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set.
+
+`--no-dump-vscode`
 
 : `dump` without VSCode (and forks/variants) extensions. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_VSCODE` is set.
@@ -502,7 +547,17 @@ flags which will help with finding keg-only dependencies like `openssl`,
 : `dump` without Go packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_GO` is set.
 
+`--no-dump-go`
+
+: `dump` without Go packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_GO` is set.
+
 `--no-cargo`
+
+: `dump` without Cargo packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set.
+
+`--no-dump-cargo`
 
 : `dump` without Cargo packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_CARGO` is set.
@@ -512,7 +567,17 @@ flags which will help with finding keg-only dependencies like `openssl`,
 : `dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV`
   is set.
 
+`--no-dump-uv`
+
+: `dump` without uv tools. Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_UV`
+  is set.
+
 `--no-flatpak`
+
+: `dump` without Flatpak packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set.
+
+`--no-dump-flatpak`
 
 : `dump` without Flatpak packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK` is set.
@@ -522,12 +587,27 @@ flags which will help with finding keg-only dependencies like `openssl`,
 : `dump` without WinGet packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_WINGET` is set.
 
+`--no-dump-winget`
+
+: `dump` without WinGet packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_WINGET` is set.
+
 `--no-krew`
 
 : `dump` without Krew plugins. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_KREW` is set.
 
+`--no-dump-krew`
+
+: `dump` without Krew plugins. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_KREW` is set.
+
 `--no-npm`
+
+: `dump` without npm packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set.
+
+`--no-dump-npm`
 
 : `dump` without npm packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set.
@@ -567,49 +647,169 @@ removed.
 
 : Clean up Homebrew formula dependencies.
 
+`--no-formula`
+
+: Clean up without Homebrew formula dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_BREW` is set.
+
+`--no-cleanup-brew`
+
+: Clean up without Homebrew formula dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_BREW` is set.
+
 `--cask`
 
 : Clean up Homebrew cask dependencies.
+
+`--no-cask`
+
+: Clean up without Homebrew cask dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_CASK` is set.
+
+`--no-cleanup-cask`
+
+: Clean up without Homebrew cask dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_CASK` is set.
 
 `--tap`
 
 : Clean up Homebrew tap dependencies.
 
+`--no-tap`
+
+: Clean up without Homebrew tap dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_TAP` is set.
+
+`--no-cleanup-tap`
+
+: Clean up without Homebrew tap dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_TAP` is set.
+
 `--mas`
 
 : Clean up Mac App Store dependencies.
+
+`--no-mas`
+
+: `cleanup` without Mac App Store dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_MAS` is set.
+
+`--no-cleanup-mas`
+
+: `cleanup` without Mac App Store dependencies. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_MAS` is set.
 
 `--vscode`
 
 : Clean up VSCode (and forks/variants) extensions.
 
+`--no-vscode`
+
+: `cleanup` without VSCode (and forks/variants) extensions. Enabled by default
+  if `$HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE` is set.
+
+`--no-cleanup-vscode`
+
+: `cleanup` without VSCode (and forks/variants) extensions. Enabled by default
+  if `$HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE` is set.
+
 `--go`
 
 : Clean up Go packages.
+
+`--no-go`
+
+: `cleanup` without Go packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_GO` is set.
+
+`--no-cleanup-go`
+
+: `cleanup` without Go packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_GO` is set.
 
 `--cargo`
 
 : Clean up Cargo packages.
 
+`--no-cargo`
+
+: `cleanup` without Cargo packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_CARGO` is set.
+
+`--no-cleanup-cargo`
+
+: `cleanup` without Cargo packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_CARGO` is set.
+
 `--uv`
 
 : Clean up uv tools.
+
+`--no-uv`
+
+: `cleanup` without uv tools. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_UV` is set.
+
+`--no-cleanup-uv`
+
+: `cleanup` without uv tools. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_UV` is set.
 
 `--flatpak`
 
 : Clean up Flatpak packages. Note: Linux only.
 
+`--no-flatpak`
+
+: `cleanup` without Flatpak packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK` is set.
+
+`--no-cleanup-flatpak`
+
+: `cleanup` without Flatpak packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK` is set.
+
 `--winget`
 
 : Clean up WinGet packages. Note: WSL only.
+
+`--no-winget`
+
+: `cleanup` without WinGet packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_WINGET` is set.
+
+`--no-cleanup-winget`
+
+: `cleanup` without WinGet packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_WINGET` is set.
 
 `--krew`
 
 : Clean up Krew plugins.
 
+`--no-krew`
+
+: `cleanup` without Krew plugins. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_KREW` is set.
+
+`--no-cleanup-krew`
+
+: `cleanup` without Krew plugins. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_KREW` is set.
+
 `--npm`
 
 : Clean up npm packages.
+
+`--no-npm`
+
+: `cleanup` without npm packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_NPM` is set.
+
+`--no-cleanup-npm`
+
+: `cleanup` without npm packages. Enabled by default if
+  `$HOMEBREW_BUNDLE_CLEANUP_NO_NPM` is set.
 
 `--zap`
 
@@ -4531,6 +4731,104 @@ command execution (e.g. `$(cat file)`).
 : Use this as the browser when opening project homepages.
   
   *Default:* `$BROWSER` or the OS's default browser.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_BREW`
+
+: If set, `brew bundle cleanup` will not clean up formula dependencies.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_CARGO`
+
+: If set, `brew bundle cleanup` will not clean up Cargo packages.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_CASK`
+
+: If set, `brew bundle cleanup` will not clean up cask dependencies.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK`
+
+: If set, `brew bundle cleanup` will not clean up Flatpak packages.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_GO`
+
+: If set, `brew bundle cleanup` will not clean up Go packages.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_KREW`
+
+: If set, `brew bundle cleanup` will not clean up Krew plugins.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_MAS`
+
+: If set, `brew bundle cleanup` will not clean up Mac App Store dependencies.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_NPM`
+
+: If set, `brew bundle cleanup` will not clean up npm packages.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_TAP`
+
+: If set, `brew bundle cleanup` will not clean up tap dependencies.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_UV`
+
+: If set, `brew bundle cleanup` will not clean up uv tools.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE`
+
+: If set, `brew bundle cleanup` will not clean up VSCode (and forks/variants)
+  extensions.
+
+`HOMEBREW_BUNDLE_CLEANUP_NO_WINGET`
+
+: If set, `brew bundle cleanup` will not clean up WinGet packages.
+
+`HOMEBREW_BUNDLE_DUMP_NO_BREW`
+
+: If set, `brew bundle dump` will not dump formula dependencies.
+
+`HOMEBREW_BUNDLE_DUMP_NO_CARGO`
+
+: If set, `brew bundle dump` will not dump Cargo packages.
+
+`HOMEBREW_BUNDLE_DUMP_NO_CASK`
+
+: If set, `brew bundle dump` will not dump cask dependencies.
+
+`HOMEBREW_BUNDLE_DUMP_NO_FLATPAK`
+
+: If set, `brew bundle dump` will not dump Flatpak packages.
+
+`HOMEBREW_BUNDLE_DUMP_NO_GO`
+
+: If set, `brew bundle dump` will not dump Go packages.
+
+`HOMEBREW_BUNDLE_DUMP_NO_KREW`
+
+: If set, `brew bundle dump` will not dump Krew plugins.
+
+`HOMEBREW_BUNDLE_DUMP_NO_MAS`
+
+: If set, `brew bundle dump` will not dump Mac App Store dependencies.
+
+`HOMEBREW_BUNDLE_DUMP_NO_NPM`
+
+: If set, `brew bundle dump` will not dump npm packages.
+
+`HOMEBREW_BUNDLE_DUMP_NO_TAP`
+
+: If set, `brew bundle dump` will not dump tap dependencies.
+
+`HOMEBREW_BUNDLE_DUMP_NO_UV`
+
+: If set, `brew bundle dump` will not dump uv tools.
+
+`HOMEBREW_BUNDLE_DUMP_NO_VSCODE`
+
+: If set, `brew bundle dump` will not dump VSCode (and forks/variants)
+  extensions.
+
+`HOMEBREW_BUNDLE_DUMP_NO_WINGET`
+
+: If set, `brew bundle dump` will not dump WinGet packages.
 
 `HOMEBREW_BUNDLE_USER_CACHE`
 
