@@ -237,7 +237,10 @@ Run up to this many formula installations in parallel\. Defaults to 1 (sequentia
 Run with \fB\-\-force\fP/\fB\-\-overwrite\fP\&\.
 .TP
 \fB\-\-cleanup\fP
-Perform cleanup after installing dependencies, same as running \fBcleanup \-\-force\fP\&\. Enabled by default if \fB$HOMEBREW_BUNDLE_INSTALL_CLEANUP\fP is set and \fB\-\-global\fP is passed\.
+Ask to perform cleanup after installing dependencies\. Requires \fB\-\-force\fP, \fB\-\-force\-cleanup\fP or \fB$HOMEBREW_ASK\fP\&\.
+.TP
+\fB\-\-force\-cleanup\fP
+Perform cleanup after installing dependencies without asking\. Enabled by default if \fB$HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP\fP is set and \fB\-\-global\fP is passed\.
 .TP
 \fB\-\-zap\fP
 Use \fBzap\fP instead of \fBuninstall\fP when cleaning up casks after installing dependencies\.
@@ -3118,6 +3121,9 @@ If set, \fBbrew bundle dump\fP will not dump VSCode (and forks/variants) extensi
 .TP
 \fBHOMEBREW_BUNDLE_DUMP_NO_WINGET\fP
 If set, \fBbrew bundle dump\fP will not dump WinGet packages\.
+.TP
+\fBHOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP\fP
+If set, run \fBbrew bundle cleanup \-\-force\fP after \fBbrew bundle install\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_USER_CACHE\fP
 If set, use this directory as the \fBbundle\fP(1) user cache\.
