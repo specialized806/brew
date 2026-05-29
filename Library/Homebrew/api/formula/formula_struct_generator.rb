@@ -223,8 +223,11 @@ module Homebrew
           hash = hash.dup
 
           if (uses_from_macos_bounds = hash["uses_from_macos_bounds"])
-            uses_from_macos_bounds = T.cast(uses_from_macos_bounds, T::Array[T::Hash[Symbol, Symbol]])
-            hash["uses_from_macos_bounds"] = uses_from_macos_bounds.map(&:deep_symbolize_keys)
+            uses_from_macos_bounds =
+              T.cast(uses_from_macos_bounds, T::Array[T::Hash[T.any(String, Symbol), T.any(String, Symbol)]])
+            hash["uses_from_macos_bounds"] = uses_from_macos_bounds.map do |bound|
+              bound.to_h { |key, value| [key.to_sym, value.to_sym] }
+            end
           end
 
           hash.transform_values do |deps|

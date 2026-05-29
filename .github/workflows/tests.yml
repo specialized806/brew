@@ -265,15 +265,8 @@ jobs:
         if: matrix.name == 'tests (online)'
         uses: Homebrew/actions/cache-homebrew-prefix@main
         with:
-          install: bubblewrap curl subversion
+          install: curl subversion
           workflow-key: tests-tests-online
-
-      - name: Install brew tests Linux dependencies
-        if: matrix.name == 'tests (Linux)'
-        uses: Homebrew/actions/cache-homebrew-prefix@main
-        with:
-          install: bubblewrap
-          workflow-key: tests-tests-linux
 
       - name: Install brew tests macOS dependencies
         if: runner.os != 'Linux'
@@ -357,7 +350,6 @@ jobs:
           # Slimmed down version from the Homebrew Dockerfile
           apt-get update
           apt-get install -y --no-install-recommends \
-            bubblewrap \
             bzip2 \
             ca-certificates \
             curl \
