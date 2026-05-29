@@ -1274,8 +1274,9 @@ _brew_extract() {
 _brew_fetch() {
   _arguments \
     '(--cask)--HEAD[Fetch HEAD version instead of stable version]' \
-    '(--bottle-tag)--arch[Download for the given CPU architecture. (Pass `all` to download for all architectures.)]' \
-    '(--build-from-source --build-bottle --force-bottle --cask --os --arch)--bottle-tag[Download a bottle for given tag]' \
+    '(--os --arch --bottle-tag)--all-platforms[Download for every supported operating system and architecture, plus each language for casks, fetching each distinct URL once]' \
+    '(--bottle-tag --all-platforms)--arch[Download for the given CPU architecture. (Pass `all` to download for all architectures.)]' \
+    '(--build-from-source --build-bottle --force-bottle --cask --os --arch --all-platforms)--bottle-tag[Download a bottle for given tag]' \
     '(--build-from-source --force-bottle --bottle-tag --cask)--build-bottle[Download source packages (for eventual bottling) rather than a bottle]' \
     '(--build-bottle --force-bottle --bottle-tag)--build-from-source[Download source packages rather than a bottle]' \
     '--debug[Display any debugging information]' \
@@ -1283,7 +1284,7 @@ _brew_fetch() {
     '--force[Remove a previously cached version and re-fetch]' \
     '(--build-from-source --build-bottle --bottle-tag --cask)--force-bottle[Download a bottle if it exists for the current or newest version of macOS, even if it would not be used during installation]' \
     '--help[Show this message]' \
-    '(--bottle-tag)--os[Download for the given operating system. (Pass `all` to download for all operating systems.)]' \
+    '(--bottle-tag --all-platforms)--os[Download for the given operating system. (Pass `all` to download for all operating systems.)]' \
     '--quiet[Make some output more quiet]' \
     '--retry[Retry if downloading fails or re-download if the checksum of a previously cached version no longer matches. Tries at most 5 times with exponential backoff]' \
     '--verbose[Do a verbose VCS checkout, if the URL represents a VCS. This is useful for seeing if an existing VCS cache has been updated]' \
