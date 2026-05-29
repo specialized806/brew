@@ -1543,6 +1543,74 @@ RSpec.describe Formula do
     expect(h["tap"]).to eq("homebrew/core")
     expect(h["versions"]["stable"]).to eq("1.0")
     expect(h["versions"]["bottle"]).to be_truthy
+    expect(h["patches"]).to eq([])
+  end
+
+  describe "#to_hash patches" do
+    it "serialises an external patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch do
+          url "https://example.com/foo.diff"
+          sha256 TEST_SHA256
+        end
+      end
+
+      expect(f.to_hash["patches"]).to eq([
+        { "strip" => "p1", "url" => "https://example.com/foo.diff", "sha256" => TEST_SHA256 },
+      ])
+    end
+
+    it "serialises an external patch with apply and directory" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch :p0 do
+          url "https://example.com/patches.tar.gz"
+          sha256 TEST_SHA256
+          directory "src"
+          apply "fix-a.patch", "fix-b.patch"
+        end
+      end
+
+      expect(f.to_hash["patches"]).to eq([
+        {
+          "strip"     => "p0",
+          "url"       => "https://example.com/patches.tar.gz",
+          "sha256"    => TEST_SHA256,
+          "apply"     => ["fix-a.patch", "fix-b.patch"],
+          "directory" => "src",
+        },
+      ])
+    end
+
+    it "serialises an embedded DATA patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch :p1, :DATA
+      end
+
+      expect(f.to_hash["patches"]).to eq([{ "strip" => "p1", "data" => true }])
+    end
+
+    it "serialises a string patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch :p2, "--- a\n+++ b\n"
+      end
+
+      expect(f.to_hash["patches"]).to eq([{ "strip" => "p2", "data" => true }])
+    end
+
+    it "serialises a local file patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch do
+          file "Patches/foo.diff"
+        end
+      end
+
+      expect(f.to_hash["patches"]).to eq([{ "strip" => "p1", "file" => "Patches/foo.diff" }])
+    end
   end
 
   describe "#to_hash_with_variations", :needs_macos do
