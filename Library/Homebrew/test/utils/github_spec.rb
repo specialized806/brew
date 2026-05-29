@@ -23,15 +23,22 @@ RSpec.describe GitHub do
     end
   end
 
-  describe "::search_issues", :needs_network do
+  describe "::search_issues" do
     it "queries GitHub issues with the passed parameters" do
-      results = klass.search_issues("brew search",
-                                    repo:   "Homebrew/legacy-homebrew",
-                                    author: "MikeMcQuaid",
-                                    is:     "issue",
-                                    no:     "milestone")
-      expect(results).not_to be_empty
-      expect(results.first["title"]).to eq("Shall we move more things to taps?")
+      issue = { "title" => "Shall we move more things to taps?" }
+
+      expect(GitHub::API).to receive(:open_rest) do |uri|
+        expect(uri.to_s).to eq("https://api.github.com/search/issues?" \
+                               "q=brew+search+repo%3AHomebrew%2Flegacy-homebrew+" \
+                               "author%3AMikeMcQuaid+type%3Aissue+no%3Amilestone&per_page=100")
+        { "items" => [issue] }
+      end
+
+      expect(klass.search_issues("brew search",
+                                 repo:   "Homebrew/legacy-homebrew",
+                                 author: "MikeMcQuaid",
+                                 type:   "issue",
+                                 no:     "milestone")).to eq([issue])
     end
   end
 
