@@ -17,6 +17,15 @@ RSpec.describe Homebrew::TestBot do
       allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(true)
     end
 
+    it "enables the Linux sandbox for GitHub Actions developers" do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_call_original
+      expect(klass).to receive(:configure_sandbox!).and_return(true)
+
+      with_env(HOMEBREW_DEVELOPER: "1", HOMEBREW_SANDBOX_LINUX: nil) do
+        klass.setup_github_actions_sandbox!
+      end
+    end
+
     it "configures the Linux sandbox for GitHub Actions" do
       expect(klass).to receive(:configure_sandbox!).and_return(true)
 

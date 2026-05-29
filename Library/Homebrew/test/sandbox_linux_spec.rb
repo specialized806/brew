@@ -38,7 +38,8 @@ RSpec.describe Sandbox, :needs_linux do
       allow(File).to receive(:stat).with(setuid_bubblewrap).and_return(instance_double(File::Stat, setuid?: true))
     end
 
-    it "skips setuid bubblewrap candidates" do
+    it "searches Homebrew Bubblewrap before system Bubblewrap and skips setuid candidates" do
+      expect(klass.executable_candidate_paths.to_a).to start_with("#{HOMEBREW_PREFIX}/bin", "/usr/bin", "/bin")
       expect(sandbox_class.bubblewrap_executable).to eq(usable_bubblewrap)
     end
 
@@ -62,6 +63,8 @@ RSpec.describe Sandbox, :needs_linux do
     end
     let(:bubblewrap_dir) { mktmpdir }
     let(:bubblewrap) { bubblewrap_dir/"bwrap" }
+    let(:fallback_bubblewrap_dir) { mktmpdir }
+    let(:fallback_bubblewrap) { fallback_bubblewrap_dir/"bwrap" }
 
     before do
       FileUtils.touch bubblewrap
@@ -103,6 +106,43 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class.failure_reason).to be_nil
     end
 
+    it "probes later usable Bubblewrap candidates if earlier candidates fail" do
+      FileUtils.touch fallback_bubblewrap
+      FileUtils.chmod "+x", fallback_bubblewrap
+      sandbox_class.test_executable_candidate_paths = PATH.new(bubblewrap_dir, fallback_bubblewrap_dir)
+
+      expect(sandbox_class).to receive(:system).with(
+        bubblewrap.to_s,
+        "--unshare-user",
+        "--unshare-ipc",
+        "--unshare-pid",
+        "--unshare-uts",
+        "--unshare-cgroup-try",
+        "--ro-bind", "/", "/",
+        "--proc", "/proc",
+        "--dev", "/dev",
+        "true",
+        out: File::NULL,
+        err: File::NULL
+      ).and_return(false)
+      expect(sandbox_class).to receive(:system).with(
+        fallback_bubblewrap.to_s,
+        "--unshare-user",
+        "--unshare-ipc",
+        "--unshare-pid",
+        "--unshare-uts",
+        "--unshare-cgroup-try",
+        "--ro-bind", "/", "/",
+        "--proc", "/proc",
+        "--dev", "/dev",
+        "true",
+        out: File::NULL,
+        err: File::NULL
+      ).and_return(true)
+
+      expect(sandbox_class.available?).to be(true)
+    end
+
     it "reports setuid bubblewrap candidates" do
       allow(File).to receive(:stat).and_call_original
       allow(File).to receive(:stat).with(bubblewrap).and_return(instance_double(File::Stat, setuid?: true))
@@ -125,7 +165,7 @@ RSpec.describe Sandbox, :needs_linux do
     let(:sandbox_class) { Class.new(klass) }
 
     around do |example|
-      with_env(GITHUB_ACTIONS: nil, ImageOS: nil, RUNNER_ENVIRONMENT: nil) { example.run }
+      with_env(GITHUB_ACTIONS: nil, HOMEBREW_GITHUB_HOSTED_RUNNER: nil) { example.run }
     end
 
     def expect_sandbox_configuration_command(sandbox_class, assignment, result:)
@@ -164,26 +204,6 @@ RSpec.describe Sandbox, :needs_linux do
       sandbox_class.configure!
     end
 
-    it "installs Bubblewrap with apt-get on default GitHub Actions Ubuntu runners" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
-        .twice
-        .and_return(nil, Pathname("/usr/bin/bwrap"))
-      expect(sandbox_class).to receive(:ohai).with("Installing Bubblewrap...")
-      expect(sandbox_class).to receive(:system)
-        .with("sudo", "apt-get", "install", "--yes", "bubblewrap")
-        .and_return(true)
-      expect(sandbox_class).not_to receive(:ensure_sandbox_installed!)
-      expect(sandbox_class).to receive(:ohai).with("Configuring Bubblewrap...").ordered
-      expect_sandbox_configuration_command(sandbox_class, "kernel.unprivileged_userns_clone=1", result: true)
-      expect_sandbox_configuration_command(sandbox_class, "user.max_user_namespaces=28633", result: true)
-      expect_sandbox_configuration_command(sandbox_class, "kernel.apparmor_restrict_unprivileged_userns=0",
-                                           result: false)
-
-      with_env(GITHUB_ACTIONS: "true", ImageOS: "ubuntu24", RUNNER_ENVIRONMENT: "github-hosted") do
-        sandbox_class.configure!
-      end
-    end
-
     it "installs Bubblewrap and configures Linux sandbox sysctls" do
       expect(sandbox_class).to receive(:bubblewrap_executable)
         .twice
@@ -197,6 +217,117 @@ RSpec.describe Sandbox, :needs_linux do
                                            result: false)
 
       sandbox_class.configure!
+    end
+  end
+
+  describe "::ensure_sandbox_installed!" do
+    let(:sandbox_class) { Class.new(klass) }
+
+    around do |example|
+      with_env(GITHUB_ACTIONS: nil, HOMEBREW_GITHUB_HOSTED_RUNNER: nil,
+               HOMEBREW_INSTALLING_BUBBLEWRAP: nil, HOMEBREW_TESTS: nil) { example.run }
+    end
+
+    before do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(true)
+    end
+
+    it "does nothing when Homebrew Bubblewrap is already available" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .once
+        .and_return(Pathname(HOMEBREW_PREFIX/"bin/bwrap"))
+      expect(Formula).not_to receive(:[])
+      expect(sandbox_class).not_to receive(:which)
+      expect(sandbox_class).not_to receive(:system)
+
+      sandbox_class.ensure_sandbox_installed!
+    end
+
+    it "does nothing when system Bubblewrap is already available" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .once
+        .and_return(Pathname("/usr/bin/bwrap"))
+      expect(Formula).not_to receive(:[])
+      expect(sandbox_class).not_to receive(:which)
+      expect(sandbox_class).not_to receive(:system)
+
+      sandbox_class.ensure_sandbox_installed!
+    end
+
+    it "installs Bubblewrap with Homebrew before trying apt-get on GitHub Actions" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .twice
+        .and_return(nil, Pathname(HOMEBREW_PREFIX/"bin/bwrap"))
+      expect(Formula).to receive(:[]).with("bubblewrap")
+                                     .and_return(instance_double(Formula, ensure_installed!: nil))
+      expect(sandbox_class).not_to receive(:which)
+      expect(sandbox_class).not_to receive(:system)
+
+      with_env(GITHUB_ACTIONS: "true", HOMEBREW_GITHUB_HOSTED_RUNNER: "1") do
+        sandbox_class.ensure_sandbox_installed!
+      end
+    end
+
+    it "falls back to sudo apt-get on GitHub Actions Ubuntu when Homebrew Bubblewrap is unavailable" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .twice
+        .and_return(nil)
+      expect(Formula).to receive(:[]).with("bubblewrap")
+                                     .and_return(instance_double(Formula, ensure_installed!: nil))
+      expect(sandbox_class).to receive(:which).with("apt-get").and_return(Pathname("/usr/bin/apt-get"))
+      expect(Process).to receive(:euid).and_return(1000)
+      expect(sandbox_class).to receive(:ohai).with("Installing Bubblewrap...")
+      expect(sandbox_class).to receive(:system)
+        .with("sudo", "apt-get", "install", "--yes", "bubblewrap")
+        .and_return(true)
+
+      with_env(GITHUB_ACTIONS: "true", HOMEBREW_GITHUB_HOSTED_RUNNER: "1") do
+        sandbox_class.ensure_sandbox_installed!
+      end
+    end
+
+    it "falls back to apt-get as root on GitHub Actions Ubuntu when Homebrew Bubblewrap is unavailable" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .twice
+        .and_return(nil)
+      expect(Formula).to receive(:[]).with("bubblewrap")
+                                     .and_return(instance_double(Formula, ensure_installed!: nil))
+      expect(sandbox_class).to receive(:which).with("apt-get").and_return(Pathname("/usr/bin/apt-get"))
+      expect(Process).to receive(:euid).and_return(0)
+      expect(sandbox_class).to receive(:ohai).with("Installing Bubblewrap...")
+      expect(sandbox_class).to receive(:system)
+        .with("apt-get", "install", "--yes", "bubblewrap")
+        .and_return(true)
+
+      with_env(GITHUB_ACTIONS: "true", HOMEBREW_GITHUB_HOSTED_RUNNER: "1") do
+        sandbox_class.ensure_sandbox_installed!
+      end
+    end
+
+    it "does not fall back to apt-get outside GitHub Actions Ubuntu" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .twice
+        .and_return(nil, nil)
+      expect(Formula).to receive(:[]).with("bubblewrap")
+                                     .and_return(instance_double(Formula, ensure_installed!: nil))
+      expect(sandbox_class).not_to receive(:which)
+      expect(sandbox_class).not_to receive(:system)
+
+      with_env(GITHUB_ACTIONS: "true") do
+        sandbox_class.ensure_sandbox_installed!
+      end
+    end
+
+    it "does not fall back to apt-get outside GitHub Actions" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .twice
+        .and_return(nil, nil)
+      expect(Formula).to receive(:[]).with("bubblewrap")
+                                     .and_return(instance_double(Formula, ensure_installed!: nil))
+      expect(sandbox_class).not_to receive(:which)
+      expect(sandbox_class).not_to receive(:system)
+
+      sandbox_class.ensure_sandbox_installed!
     end
   end
 

@@ -28,6 +28,9 @@ module OS
         /usr/bin
         /bin
       ].freeze, T::Array[String])
+      HOMEBREW_BUBBLEWRAP_PATHS = T.let([
+        "#{HOMEBREW_PREFIX}/bin",
+      ].freeze, T::Array[String])
       class SysctlSetting < T::Struct
         const :assignment, String
         const :description, T::Array[String]
@@ -60,7 +63,7 @@ module OS
       ].freeze, T::Array[SysctlSetting])
       # `TIOCSCTTY` from `<asm-generic/ioctls.h>`; Ruby does not expose it.
       TIOCSCTTY = 0x540E
-      private_constant :BUBBLEWRAP, :BUBBLEWRAP_TEST_ARGS, :SYSTEM_BUBBLEWRAP_PATHS,
+      private_constant :BUBBLEWRAP, :BUBBLEWRAP_TEST_ARGS, :SYSTEM_BUBBLEWRAP_PATHS, :HOMEBREW_BUBBLEWRAP_PATHS,
                        :SysctlSetting, :SANDBOX_SYSCTL_SETTINGS, :TIOCSCTTY
 
       sig { returns(::PATH) }
@@ -123,7 +126,7 @@ module OS
 
         sig { returns(::PATH) }
         def executable_candidate_paths
-          PATH.new(system_bubblewrap_paths, super)
+          PATH.new(HOMEBREW_BUBBLEWRAP_PATHS, system_bubblewrap_paths, super)
         end
 
         sig { returns(::PATH) }
@@ -148,14 +151,27 @@ module OS
           return if ENV["HOMEBREW_INSTALLING_BUBBLEWRAP"]
           return if bubblewrap_executable
 
-          require "exceptions"
-          require "formula"
-          with_env(HOMEBREW_INSTALLING_BUBBLEWRAP: "1") do
-            ::Formula["bubblewrap"].ensure_installed!(reason: "Linux sandboxing")
+          begin
+            require "exceptions"
+            require "formula"
+            with_env(HOMEBREW_INSTALLING_BUBBLEWRAP: "1") do
+              ::Formula["bubblewrap"].ensure_installed!(reason: "Linux sandboxing")
+            end
+            reset_state!
+            return if bubblewrap_executable
+          rescue ::FormulaUnavailableError
+            nil
           end
+
+          return unless GitHub::Actions.env_set?
+          return unless ENV.fetch("HOMEBREW_GITHUB_HOSTED_RUNNER", nil)
+          return unless which("apt-get")
+
+          ohai "Installing Bubblewrap..."
+          command = ["apt-get", "install", "--yes", "bubblewrap"]
+          command.unshift("sudo") unless Process.euid.zero?
+          system(*command)
           reset_state!
-        rescue ::FormulaUnavailableError
-          nil
         end
 
         sig { returns(T::Boolean) }
@@ -197,21 +213,9 @@ module OS
 
         sig { void }
         def configure!
-          unless (bubblewrap = bubblewrap_executable)
-            if GitHub::Actions.env_set? &&
-               ENV["RUNNER_ENVIRONMENT"] == "github-hosted" &&
-               ENV.fetch("ImageOS", "").start_with?("ubuntu")
-              ohai "Installing Bubblewrap..."
-              system "sudo", "apt-get", "install", "--yes", "bubblewrap"
-              reset_state!
-              bubblewrap = bubblewrap_executable
-            end
-
-            unless bubblewrap
-              ensure_sandbox_installed!(install_from_tests: true)
-              bubblewrap = bubblewrap_executable
-            end
-            unless bubblewrap
+          unless bubblewrap_executable
+            ensure_sandbox_installed!(install_from_tests: true)
+            unless bubblewrap_executable
               reset_state!
               return
             end
@@ -259,10 +263,10 @@ module OS
           bubblewraps = bubblewrap_executables
           return :missing if bubblewraps.empty?
 
-          bubblewrap = bubblewraps.find { |candidate| executable_usable?(candidate) }
-          return :setuid if bubblewrap.nil?
+          bubblewraps = bubblewraps.select { |candidate| executable_usable?(candidate) }
+          return :setuid if bubblewraps.empty?
 
-          return :available if bubblewrap_sandbox_available?(bubblewrap)
+          return :available if bubblewraps.any? { |candidate| bubblewrap_sandbox_available?(candidate) }
 
           :unavailable
         end
