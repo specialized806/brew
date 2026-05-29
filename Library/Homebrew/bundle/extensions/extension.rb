@@ -110,13 +110,28 @@ module Homebrew
         :"bundle_dump_no_#{type}"
       end
 
+      sig { returns(Symbol) }
+      def self.cleanup_disable_env
+        :"bundle_cleanup_no_#{type}"
+      end
+
       sig { returns(T::Boolean) }
       def self.dump_disable_supported?
         true
       end
 
+      sig { returns(String) }
+      def self.cleanup_disable_description
+        "`cleanup` without #{banner_name}."
+      end
+
       sig { returns(Symbol) }
       def self.dump_disable_predicate_method
+        disable_predicate_method
+      end
+
+      sig { returns(Symbol) }
+      def self.disable_predicate_method
         :"no_#{type}?"
       end
 

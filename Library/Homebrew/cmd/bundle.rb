@@ -38,8 +38,21 @@ module Homebrew
 
         Homebrew::AbstractSubcommand.define_all(self, command: Homebrew::Cmd::Bundle)
 
+        [
+          [%w[--formula --formulae --brews], %w[--no-formula --no-formulae --no-brews], "--no-brew"],
+          [%w[--cask --casks], %w[--no-cask --no-casks], "--no-cask"],
+          [%w[--tap --taps], %w[--no-tap --no-taps], "--no-tap"],
+        ].each do |enabled_flags, disabled_flags, env_disabled_flag|
+          type = env_disabled_flag.delete_prefix("--no-")
+          enabled_flags.product([*disabled_flags, "--no-cleanup-#{type}", "--no-dump-#{type}"]) do |enabled_flag,
+                                                                                                     disabled_flag|
+            conflicts enabled_flag, disabled_flag
+          end
+        end
         BUNDLE_EXTENSIONS.select(&:dump_disable_supported?).each do |extension|
           conflicts "--#{extension.flag}", "--no-#{extension.flag}"
+          conflicts "--#{extension.flag}", "--no-cleanup-#{extension.flag}"
+          conflicts "--#{extension.flag}", "--no-dump-#{extension.flag}"
         end
         conflicts "--file", "--global"
       end
