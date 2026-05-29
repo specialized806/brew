@@ -98,7 +98,7 @@ module Test
       end
 
       def bundle_subcommand_context(subcommand, global: false, file: nil, no_upgrade: false, verbose: false,
-                                    force: false, jobs: 1, zap: false, no_type_args: true)
+                                    force: false, ask: false, jobs: 1, zap: false, no_type_args: true)
         require "cmd/bundle"
 
         Homebrew::Cmd::Bundle::SubcommandContext.new(
@@ -108,6 +108,7 @@ module Test
           no_upgrade:,
           verbose:,
           force:,
+          ask:,
           jobs:,
           zap:,
           no_type_args:,

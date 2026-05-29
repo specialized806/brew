@@ -363,9 +363,14 @@ to one or more of the following environment variables:
 
 `--cleanup`
 
-: Perform cleanup after installing dependencies, same as running `cleanup
-  --force`. Enabled by default if `$HOMEBREW_BUNDLE_INSTALL_CLEANUP` is set and
-  `--global` is passed.
+: Ask to perform cleanup after installing dependencies. Requires `--force`,
+  `--force-cleanup` or `$HOMEBREW_ASK`.
+
+`--force-cleanup`
+
+: Perform cleanup after installing dependencies without asking. Enabled by
+  default if `$HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP` is set and `--global` is
+  passed.
 
 `--zap`
 
@@ -4829,6 +4834,10 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_BUNDLE_DUMP_NO_WINGET`
 
 : If set, `brew bundle dump` will not dump WinGet packages.
+
+`HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP`
+
+: If set, run `brew bundle cleanup --force` after `brew bundle install`.
 
 `HOMEBREW_BUNDLE_USER_CACHE`
 

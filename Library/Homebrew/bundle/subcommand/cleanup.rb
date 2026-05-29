@@ -9,6 +9,7 @@ require "utils/formatter"
 require "utils"
 require "bundle/dsl"
 require "bundle/extensions"
+require "ask"
 module Homebrew
   module Cmd
     class Bundle < Homebrew::AbstractCommand
@@ -76,6 +77,7 @@ module Homebrew
             file:            context.file,
             force:           context.force,
             zap:             context.zap,
+            ask:             context.ask || !context.force,
             formulae:        core_type_options.fetch(:formulae),
             casks:           core_type_options.fetch(:casks),
             taps:            core_type_options.fetch(:taps),
@@ -109,12 +111,15 @@ module Homebrew
         sig {
           params(global: T::Boolean, file: T.nilable(String), force: T::Boolean, zap: T::Boolean,
                  dsl: T.nilable(Homebrew::Bundle::Dsl), formulae: T::Boolean, casks: T::Boolean, taps: T::Boolean,
-                 extension_types: Homebrew::Bundle::ExtensionTypes).void
+                 ask: T::Boolean, extension_types: Homebrew::Bundle::ExtensionTypes).void
         }
         def self.cleanup(global: false, file: nil, force: false, zap: false, dsl: nil,
-                         formulae: true, casks: true, taps: true, extension_types: {})
+                         formulae: true, casks: true, taps: true, ask: false, extension_types: {})
           read_dsl_from_brewfile!(global:, file:, dsl:)
 
+          cleanup_formulae = formulae
+          cleanup_casks = casks
+          cleanup_taps = taps
           extension_types = Homebrew::Bundle.extensions.select(&:cleanup_supported?).to_h do |extension|
             [extension.type, true]
           end.merge(extension_types)
@@ -203,6 +208,11 @@ module Homebrew
             would_cleanup = Cleanup.printed_dry_run_output?(Cleanup.dry_run_output)
 
             puts "Run `brew bundle cleanup --force` to make these changes." if would_uninstall || would_cleanup
+            if ask && (would_uninstall || would_cleanup) && Homebrew::Ask.confirm?(action: "cleanup")
+              cleanup(global:, file:, force: true, zap:, dsl: @dsl, formulae: cleanup_formulae, casks: cleanup_casks,
+                      taps: cleanup_taps, extension_types:)
+              return
+            end
             exit 1 if would_uninstall
           end
         end
