@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "utils/output"
+require "bundle/extensions"
 
 module Homebrew
   # Helper module for querying Homebrew-specific environment variables.
@@ -12,6 +13,35 @@ module Homebrew
     extend Utils::Output::Mixin
 
     module_function
+
+    BUNDLE_CORE_TYPES = T.let({
+      brew: "formula dependencies",
+      cask: "cask dependencies",
+      tap:  "tap dependencies",
+    }.freeze, T::Hash[Symbol, String])
+
+    BUNDLE_DISABLE_ENVS = T.let(
+      {
+        cleanup: [BUNDLE_CORE_TYPES, Homebrew::Bundle.extensions.select(&:cleanup_supported?).to_h do |extension|
+          [extension.type, extension.banner_name]
+        end],
+        dump:    [BUNDLE_CORE_TYPES, Homebrew::Bundle.extensions.select(&:dump_disable_supported?).to_h do |extension|
+          [extension.type, extension.banner_name]
+        end],
+      }.flat_map do |command, type_descriptions|
+        type_descriptions.reduce(&:merge).map do |type, description|
+          verb = (command == :cleanup) ? "clean up" : "dump"
+          [
+            :"HOMEBREW_BUNDLE_#{command.upcase}_NO_#{type.to_s.upcase}",
+            {
+              description: "If set, `brew bundle #{command}` will not #{verb} #{description}.",
+              boolean:     true,
+            },
+          ]
+        end
+      end.sort.to_h.freeze,
+      T::Hash[Symbol, T::Hash[Symbol, T.untyped]],
+    )
 
     ENVS = T.let({
       HOMEBREW_ALLOWED_TAPS:                     {
@@ -101,6 +131,7 @@ module Homebrew
         description:  "Use this as the browser when opening project homepages.",
         default_text: "`$BROWSER` or the OS's default browser.",
       },
+      **BUNDLE_DISABLE_ENVS,
       HOMEBREW_BUNDLE_USER_CACHE:                {
         description: "If set, use this directory as the `bundle`(1) user cache.",
       },

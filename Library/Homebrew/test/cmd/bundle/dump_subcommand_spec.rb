@@ -53,6 +53,48 @@ RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
     end
   end
 
+  it "does not dump disabled types by default" do
+    args_object = args_for_subcommand(:dump, describe?: false, no_restart?: false, no_formulae?: true, no_mas?: true)
+    context = bundle_subcommand_context(:dump)
+
+    expect(Homebrew::Bundle::Dumper).to receive(:dump_brewfile) do |formulae:, casks:, taps:, extension_types:, **|
+      expect(formulae).to be(false)
+      expect(casks).to be(true)
+      expect(taps).to be(true)
+      expect(extension_types[:mas]).to be(false)
+      expect(extension_types[:vscode]).to be(true)
+    end
+
+    klass.new(args_object, context:).run
+  end
+
+  it "treats --no-tap as --no-dump-tap" do
+    args_object = args_for_subcommand(:dump, describe?: false, no_restart?: false, no_taps?: true)
+    context = bundle_subcommand_context(:dump)
+
+    expect(Homebrew::Bundle::Dumper).to receive(:dump_brewfile) do |taps:, **|
+      expect(taps).to be(false)
+    end
+
+    klass.new(args_object, context:).run
+  end
+
+  it "does not dump types disabled by environment" do
+    args_object = args_for_subcommand(:dump, describe?: false, no_restart?: false, no_dump_brew?: true,
+                                             no_dump_mas?: true)
+    context = bundle_subcommand_context(:dump)
+
+    expect(Homebrew::Bundle::Dumper).to receive(:dump_brewfile) do |formulae:, casks:, taps:, extension_types:, **|
+      expect(formulae).to be(false)
+      expect(casks).to be(true)
+      expect(taps).to be(true)
+      expect(extension_types[:mas]).to be(false)
+      expect(extension_types[:vscode]).to be(true)
+    end
+
+    klass.new(args_object, context:).run
+  end
+
   context "when files existed and `--force` and `--global` are passed" do
     let(:force) { true }
     let(:global) { true }
