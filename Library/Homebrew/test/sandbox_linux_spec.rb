@@ -124,6 +124,10 @@ RSpec.describe Sandbox, :needs_linux do
   describe "::configuration_commands" do
     let(:sandbox_class) { Class.new(klass) }
 
+    around do |example|
+      with_env(GITHUB_ACTIONS: nil, ImageOS: nil, RUNNER_ENVIRONMENT: nil) { example.run }
+    end
+
     def expect_sandbox_configuration_command(sandbox_class, assignment, result:)
       command = ["sudo", "sysctl", "-w", assignment]
 
@@ -158,6 +162,26 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class).not_to receive(:system)
 
       sandbox_class.configure!
+    end
+
+    it "installs Bubblewrap with apt-get on default GitHub Actions Ubuntu runners" do
+      expect(sandbox_class).to receive(:bubblewrap_executable)
+        .twice
+        .and_return(nil, Pathname("/usr/bin/bwrap"))
+      expect(sandbox_class).to receive(:ohai).with("Installing Bubblewrap...")
+      expect(sandbox_class).to receive(:system)
+        .with("sudo", "apt-get", "install", "--yes", "bubblewrap")
+        .and_return(true)
+      expect(sandbox_class).not_to receive(:ensure_sandbox_installed!)
+      expect(sandbox_class).to receive(:ohai).with("Configuring Bubblewrap...").ordered
+      expect_sandbox_configuration_command(sandbox_class, "kernel.unprivileged_userns_clone=1", result: true)
+      expect_sandbox_configuration_command(sandbox_class, "user.max_user_namespaces=28633", result: true)
+      expect_sandbox_configuration_command(sandbox_class, "kernel.apparmor_restrict_unprivileged_userns=0",
+                                           result: false)
+
+      with_env(GITHUB_ACTIONS: "true", ImageOS: "ubuntu24", RUNNER_ENVIRONMENT: "github-hosted") do
+        sandbox_class.configure!
+      end
     end
 
     it "installs Bubblewrap and configures Linux sandbox sysctls" do
