@@ -50,7 +50,11 @@ RSpec.describe Homebrew::Cmd::Bundle do
 
     expect(subcommand_options.call("list")["--vscode"]).to eq("List VSCode (and forks/variants) extensions.")
     expect(subcommand_options.call("dump")["--vscode"]).to eq("Dump VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("dump")["--no-mas"])
+      .to include("`dump` without Mac App Store dependencies.")
     expect(subcommand_options.call("cleanup")["--vscode"]).to eq("Clean up VSCode (and forks/variants) extensions.")
+    expect(subcommand_options.call("cleanup")["--no-mas"])
+      .to include("`cleanup` without Mac App Store dependencies.")
     expect(subcommand_options.call("cleanup")["--all"]).to eq("Clean up all supported dependencies.")
     expect(subcommand_options.call("add")["--vscode"])
       .to eq("Add entries for VSCode (and forks/variants) extensions.")
@@ -64,6 +68,28 @@ RSpec.describe Homebrew::Cmd::Bundle do
 
     expect(help_text).to include("List VSCode (and forks/variants) extensions.")
     expect(help_text).not_to include("Clean up VSCode (and forks/variants) extensions.")
+  end
+
+  it "lets explicit dump type flags override environment disables", :aggregate_failures do
+    with_env("HOMEBREW_BUNDLE_DUMP_NO_BREW" => "1", "HOMEBREW_BUNDLE_DUMP_NO_MAS" => "1") do
+      args = klass.new(%w[dump --formula --mas]).args
+
+      expect(args.formulae?).to be(true)
+      expect(args.mas?).to be(true)
+      expect(args.no_dump_brew?).to be(false)
+      expect(args.no_dump_mas?).to be(false)
+    end
+  end
+
+  it "lets explicit cleanup type flags override environment disables", :aggregate_failures do
+    with_env("HOMEBREW_BUNDLE_CLEANUP_NO_BREW" => "1", "HOMEBREW_BUNDLE_CLEANUP_NO_MAS" => "1") do
+      args = klass.new(%w[cleanup --formula --mas]).args
+
+      expect(args.formulae?).to be(true)
+      expect(args.mas?).to be(true)
+      expect(args.no_cleanup_brew?).to be(false)
+      expect(args.no_cleanup_mas?).to be(false)
+    end
   end
 
   [

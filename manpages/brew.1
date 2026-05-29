@@ -289,11 +289,29 @@ Overwrite an existing \fBBrewfile\fP\&\.
 \fB\-\-formula\fP
 Dump Homebrew formula dependencies\.
 .TP
+\fB\-\-no\-formula\fP
+Dump without Homebrew formula dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_BREW\fP is set\.
+.TP
+\fB\-\-no\-dump\-brew\fP
+Dump without Homebrew formula dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_BREW\fP is set\.
+.TP
 \fB\-\-cask\fP
 Dump Homebrew cask dependencies\.
 .TP
+\fB\-\-no\-cask\fP
+Dump without Homebrew cask dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_CASK\fP is set\.
+.TP
+\fB\-\-no\-dump\-cask\fP
+Dump without Homebrew cask dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_CASK\fP is set\.
+.TP
 \fB\-\-tap\fP
 Dump Homebrew tap dependencies\.
+.TP
+\fB\-\-no\-tap\fP
+Dump without Homebrew tap dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_TAP\fP is set\.
+.TP
+\fB\-\-no\-dump\-tap\fP
+Dump without Homebrew tap dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_TAP\fP is set\.
 .TP
 \fB\-\-mas\fP
 Dump Mac App Store dependencies\.
@@ -322,28 +340,58 @@ Dump Krew plugins\.
 \fB\-\-npm\fP
 Dump npm packages\.
 .TP
+\fB\-\-no\-mas\fP
+\fBdump\fP without Mac App Store dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_MAS\fP is set\.
+.TP
+\fB\-\-no\-dump\-mas\fP
+\fBdump\fP without Mac App Store dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_MAS\fP is set\.
+.TP
 \fB\-\-no\-vscode\fP
+\fBdump\fP without VSCode (and forks/variants) extensions\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_VSCODE\fP is set\.
+.TP
+\fB\-\-no\-dump\-vscode\fP
 \fBdump\fP without VSCode (and forks/variants) extensions\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_VSCODE\fP is set\.
 .TP
 \fB\-\-no\-go\fP
 \fBdump\fP without Go packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_GO\fP is set\.
 .TP
+\fB\-\-no\-dump\-go\fP
+\fBdump\fP without Go packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_GO\fP is set\.
+.TP
 \fB\-\-no\-cargo\fP
+\fBdump\fP without Cargo packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_CARGO\fP is set\.
+.TP
+\fB\-\-no\-dump\-cargo\fP
 \fBdump\fP without Cargo packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_CARGO\fP is set\.
 .TP
 \fB\-\-no\-uv\fP
 \fBdump\fP without uv tools\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_UV\fP is set\.
 .TP
+\fB\-\-no\-dump\-uv\fP
+\fBdump\fP without uv tools\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_UV\fP is set\.
+.TP
 \fB\-\-no\-flatpak\fP
+\fBdump\fP without Flatpak packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK\fP is set\.
+.TP
+\fB\-\-no\-dump\-flatpak\fP
 \fBdump\fP without Flatpak packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_FLATPAK\fP is set\.
 .TP
 \fB\-\-no\-winget\fP
 \fBdump\fP without WinGet packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_WINGET\fP is set\.
 .TP
+\fB\-\-no\-dump\-winget\fP
+\fBdump\fP without WinGet packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_WINGET\fP is set\.
+.TP
 \fB\-\-no\-krew\fP
 \fBdump\fP without Krew plugins\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_KREW\fP is set\.
 .TP
+\fB\-\-no\-dump\-krew\fP
+\fBdump\fP without Krew plugins\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_KREW\fP is set\.
+.TP
 \fB\-\-no\-npm\fP
+\fBdump\fP without npm packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_NPM\fP is set\.
+.TP
+\fB\-\-no\-dump\-npm\fP
 \fBdump\fP without npm packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_NPM\fP is set\.
 .TP
 \fB\-\-describe\fP
@@ -371,38 +419,110 @@ Clean up all supported dependencies\.
 \fB\-\-formula\fP
 Clean up Homebrew formula dependencies\.
 .TP
+\fB\-\-no\-formula\fP
+Clean up without Homebrew formula dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_BREW\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-brew\fP
+Clean up without Homebrew formula dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_BREW\fP is set\.
+.TP
 \fB\-\-cask\fP
 Clean up Homebrew cask dependencies\.
+.TP
+\fB\-\-no\-cask\fP
+Clean up without Homebrew cask dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_CASK\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-cask\fP
+Clean up without Homebrew cask dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_CASK\fP is set\.
 .TP
 \fB\-\-tap\fP
 Clean up Homebrew tap dependencies\.
 .TP
+\fB\-\-no\-tap\fP
+Clean up without Homebrew tap dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_TAP\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-tap\fP
+Clean up without Homebrew tap dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_TAP\fP is set\.
+.TP
 \fB\-\-mas\fP
 Clean up Mac App Store dependencies\.
+.TP
+\fB\-\-no\-mas\fP
+\fBcleanup\fP without Mac App Store dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_MAS\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-mas\fP
+\fBcleanup\fP without Mac App Store dependencies\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_MAS\fP is set\.
 .TP
 \fB\-\-vscode\fP
 Clean up VSCode (and forks/variants) extensions\.
 .TP
+\fB\-\-no\-vscode\fP
+\fBcleanup\fP without VSCode (and forks/variants) extensions\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-vscode\fP
+\fBcleanup\fP without VSCode (and forks/variants) extensions\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_VSCODE\fP is set\.
+.TP
 \fB\-\-go\fP
 Clean up Go packages\.
+.TP
+\fB\-\-no\-go\fP
+\fBcleanup\fP without Go packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_GO\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-go\fP
+\fBcleanup\fP without Go packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_GO\fP is set\.
 .TP
 \fB\-\-cargo\fP
 Clean up Cargo packages\.
 .TP
+\fB\-\-no\-cargo\fP
+\fBcleanup\fP without Cargo packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_CARGO\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-cargo\fP
+\fBcleanup\fP without Cargo packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_CARGO\fP is set\.
+.TP
 \fB\-\-uv\fP
 Clean up uv tools\.
+.TP
+\fB\-\-no\-uv\fP
+\fBcleanup\fP without uv tools\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_UV\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-uv\fP
+\fBcleanup\fP without uv tools\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_UV\fP is set\.
 .TP
 \fB\-\-flatpak\fP
 Clean up Flatpak packages\. Note: Linux only\.
 .TP
+\fB\-\-no\-flatpak\fP
+\fBcleanup\fP without Flatpak packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-flatpak\fP
+\fBcleanup\fP without Flatpak packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK\fP is set\.
+.TP
 \fB\-\-winget\fP
 Clean up WinGet packages\. Note: WSL only\.
+.TP
+\fB\-\-no\-winget\fP
+\fBcleanup\fP without WinGet packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_WINGET\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-winget\fP
+\fBcleanup\fP without WinGet packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_WINGET\fP is set\.
 .TP
 \fB\-\-krew\fP
 Clean up Krew plugins\.
 .TP
+\fB\-\-no\-krew\fP
+\fBcleanup\fP without Krew plugins\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_KREW\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-krew\fP
+\fBcleanup\fP without Krew plugins\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_KREW\fP is set\.
+.TP
 \fB\-\-npm\fP
 Clean up npm packages\.
+.TP
+\fB\-\-no\-npm\fP
+\fBcleanup\fP without npm packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_NPM\fP is set\.
+.TP
+\fB\-\-no\-cleanup\-npm\fP
+\fBcleanup\fP without npm packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_CLEANUP_NO_NPM\fP is set\.
 .TP
 \fB\-\-zap\fP
 Clean up casks using the \fBzap\fP command instead of \fBuninstall\fP\&\.
@@ -2926,6 +3046,78 @@ Use this as the browser when opening project homepages\.
 .P
 \fIDefault:\fP \fB$BROWSER\fP or the OS\[u2019]s default browser\.
 .RE
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_BREW\fP
+If set, \fBbrew bundle cleanup\fP will not clean up formula dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_CARGO\fP
+If set, \fBbrew bundle cleanup\fP will not clean up Cargo packages\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_CASK\fP
+If set, \fBbrew bundle cleanup\fP will not clean up cask dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_FLATPAK\fP
+If set, \fBbrew bundle cleanup\fP will not clean up Flatpak packages\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_GO\fP
+If set, \fBbrew bundle cleanup\fP will not clean up Go packages\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_KREW\fP
+If set, \fBbrew bundle cleanup\fP will not clean up Krew plugins\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_MAS\fP
+If set, \fBbrew bundle cleanup\fP will not clean up Mac App Store dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_NPM\fP
+If set, \fBbrew bundle cleanup\fP will not clean up npm packages\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_TAP\fP
+If set, \fBbrew bundle cleanup\fP will not clean up tap dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_UV\fP
+If set, \fBbrew bundle cleanup\fP will not clean up uv tools\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_VSCODE\fP
+If set, \fBbrew bundle cleanup\fP will not clean up VSCode (and forks/variants) extensions\.
+.TP
+\fBHOMEBREW_BUNDLE_CLEANUP_NO_WINGET\fP
+If set, \fBbrew bundle cleanup\fP will not clean up WinGet packages\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_BREW\fP
+If set, \fBbrew bundle dump\fP will not dump formula dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_CARGO\fP
+If set, \fBbrew bundle dump\fP will not dump Cargo packages\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_CASK\fP
+If set, \fBbrew bundle dump\fP will not dump cask dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_FLATPAK\fP
+If set, \fBbrew bundle dump\fP will not dump Flatpak packages\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_GO\fP
+If set, \fBbrew bundle dump\fP will not dump Go packages\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_KREW\fP
+If set, \fBbrew bundle dump\fP will not dump Krew plugins\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_MAS\fP
+If set, \fBbrew bundle dump\fP will not dump Mac App Store dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_NPM\fP
+If set, \fBbrew bundle dump\fP will not dump npm packages\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_TAP\fP
+If set, \fBbrew bundle dump\fP will not dump tap dependencies\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_UV\fP
+If set, \fBbrew bundle dump\fP will not dump uv tools\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_VSCODE\fP
+If set, \fBbrew bundle dump\fP will not dump VSCode (and forks/variants) extensions\.
+.TP
+\fBHOMEBREW_BUNDLE_DUMP_NO_WINGET\fP
+If set, \fBbrew bundle dump\fP will not dump WinGet packages\.
 .TP
 \fBHOMEBREW_BUNDLE_USER_CACHE\fP
 If set, use this directory as the \fBbundle\fP(1) user cache\.

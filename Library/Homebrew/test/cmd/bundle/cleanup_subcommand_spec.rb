@@ -33,6 +33,47 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
 
       klass.new(args, context:).run
     end
+
+    it "does not clean up disabled types by default" do
+      args = args_for_subcommand(:cleanup, no_formulae?: true, no_mas?: true)
+      context = bundle_subcommand_context(:cleanup)
+
+      expect(klass).to receive(:cleanup) do |formulae:, casks:, taps:, extension_types:, **|
+        expect(formulae).to be(false)
+        expect(casks).to be(true)
+        expect(taps).to be(true)
+        expect(extension_types[:mas]).to be(false)
+        expect(extension_types[:vscode]).to be(true)
+      end
+
+      klass.new(args, context:).run
+    end
+
+    it "treats --no-tap as --no-cleanup-tap" do
+      args = args_for_subcommand(:cleanup, no_taps?: true)
+      context = bundle_subcommand_context(:cleanup)
+
+      expect(klass).to receive(:cleanup) do |taps:, **|
+        expect(taps).to be(false)
+      end
+
+      klass.new(args, context:).run
+    end
+
+    it "does not clean up types disabled by environment" do
+      args = args_for_subcommand(:cleanup, no_cleanup_brew?: true, no_cleanup_mas?: true)
+      context = bundle_subcommand_context(:cleanup)
+
+      expect(klass).to receive(:cleanup) do |formulae:, casks:, taps:, extension_types:, **|
+        expect(formulae).to be(false)
+        expect(casks).to be(true)
+        expect(taps).to be(true)
+        expect(extension_types[:mas]).to be(false)
+        expect(extension_types[:vscode]).to be(true)
+      end
+
+      klass.new(args, context:).run
+    end
   end
 
   describe "read Brewfile and current installation", :no_api do

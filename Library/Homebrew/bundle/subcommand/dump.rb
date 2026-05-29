@@ -22,16 +22,38 @@ module Homebrew
                  description: "Overwrite an existing `Brewfile`."
           switch "--formula", "--formulae", "--brews",
                  description: "Dump Homebrew formula dependencies."
+          switch "--no-formula", "--no-formulae", "--no-brews",
+                 description: "Dump without Homebrew formula dependencies. " \
+                              "Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_BREW` is set."
+          switch "--no-dump-brew",
+                 description: "Dump without Homebrew formula dependencies.",
+                 env:         :bundle_dump_no_brew
           switch "--cask", "--casks",
                  description: "Dump Homebrew cask dependencies."
+          switch "--no-cask", "--no-casks",
+                 description: "Dump without Homebrew cask dependencies. " \
+                              "Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_CASK` is set."
+          switch "--no-dump-cask",
+                 description: "Dump without Homebrew cask dependencies.",
+                 env:         :bundle_dump_no_cask
           switch "--tap", "--taps",
                  description: "Dump Homebrew tap dependencies."
+          switch "--no-tap", "--no-taps",
+                 description: "Dump without Homebrew tap dependencies. " \
+                              "Enabled by default if `$HOMEBREW_BUNDLE_DUMP_NO_TAP` is set."
+          switch "--no-dump-tap",
+                 description: "Dump without Homebrew tap dependencies.",
+                 env:         :bundle_dump_no_tap
           extensions.select(&:dump_supported?).each do |extension|
             switch "--#{extension.flag}",
                    description: extension.switch_description("Dump #{extension.banner_name}.")
           end
           extensions.select(&:dump_disable_supported?).each do |extension|
+            env = "HOMEBREW_#{extension.dump_disable_env.to_s.upcase}"
             switch "--no-#{extension.flag}",
+                   description: "#{extension.dump_disable_description} " \
+                                "Enabled by default if `$#{env}` is set."
+            switch "--no-dump-#{extension.flag}",
                    description: extension.dump_disable_description,
                    env:         extension.dump_disable_env
           end
@@ -45,15 +67,16 @@ module Homebrew
 
         sig { override.void }
         def run
+          core_type_options = context.core_type_options(args, "dump")
           Homebrew::Bundle::Dumper.dump_brewfile(
             global:          context.global,
             file:            context.file,
             describe:        args.describe?,
             force:           context.force,
             no_restart:      args.no_restart?,
-            taps:            args.taps? || context.no_type_args,
-            formulae:        args.formulae? || context.no_type_args,
-            casks:           args.casks? || context.no_type_args,
+            taps:            core_type_options.fetch(:taps),
+            formulae:        core_type_options.fetch(:formulae),
+            casks:           core_type_options.fetch(:casks),
             extension_types: context.extensions.select(&:dump_supported?).to_h do |extension|
               disabled = extension.dump_disable_supported? &&
                          context.extension_dump_disabled?(args, extension)

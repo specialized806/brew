@@ -28,11 +28,6 @@ module Homebrew
           false
         end
 
-        sig { override.returns(T::Boolean) }
-        def dump_disable_supported?
-          false
-        end
-
         sig { override.returns(T.nilable(String)) }
         def cleanup_heading
           "Mac App Store apps"
