@@ -121,6 +121,8 @@ RSpec.describe Homebrew::DevCmd::Tests do
       it "includes cask tests and excludes non-cask tests", :aggregate_failures do
         expect(changed_test_files).to include("test/cmd/outdated_spec.rb")
         expect(changed_test_files).not_to include("test/cmd/help_spec.rb")
+        expect(changed_test_files).not_to include("test/dev-cmd/pr-pull_spec.rb")
+        expect(changed_test_files).not_to include("test/cmd/bundle/remove_subcommand_spec.rb")
       end
     end
   end

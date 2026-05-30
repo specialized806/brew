@@ -272,14 +272,29 @@ module Homebrew
 
       sig { params(tag: String).returns(T::Array[Pathname]) }
       def tests_tagged_with(tag)
-        tag_match = /:#{Regexp.escape(tag)}\b/
-
         Dir.glob("test/**/*_spec.rb").filter_map do |file|
           path = Pathname(file)
           next unless path.exist?
-          next unless path.read.match?(tag_match)
+          next unless file_uses_rspec_tag?(path, tag)
 
           path
+        end
+      end
+
+      sig { params(path: Pathname, tag: String).returns(T::Boolean) }
+      def file_uses_rspec_tag?(path, tag)
+        escaped_tag = Regexp.escape(tag)
+        rspec_declaration_methods = %w[describe context it specify example].join("|")
+        rspec_declaration_regex = /^\s*(?:RSpec\.)?(?:#{rspec_declaration_methods})\b/
+        # Match symbol tag syntax: `:tag_name`.
+        symbol_tag_regex = /(?:^|[,(])\s*:#{escaped_tag}\b/
+        # Match hash tag syntax: `tag_name: true/false/nil/value`.
+        hash_tag_regex = /(?:^|[,(])\s*#{escaped_tag}:\s*(?:true|false|nil|:[a-z_]\w*|[a-z_]\w*)?/i
+
+        path.read.each_line.any? do |line|
+          is_rspec_declaration = line.match?(rspec_declaration_regex)
+          has_tag = line.match?(symbol_tag_regex) || line.match?(hash_tag_regex)
+          is_rspec_declaration && has_tag
         end
       end
 
