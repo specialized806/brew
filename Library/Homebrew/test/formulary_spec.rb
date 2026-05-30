@@ -608,6 +608,22 @@ RSpec.describe Formulary do
         expect(formula.to_hash_with_variations).to eq(expected_hash)
       end
 
+      it "loads patches from API JSON" do
+        allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(
+          "patches" => [
+            {
+              "strip"  => "p1",
+              "url"    => "https://example.com/test.patch",
+              "sha256" => TEST_SHA256,
+            },
+          ],
+        )
+
+        formula = klass.factory(formula_name)
+
+        expect(formula.patchlist.first).to be_a(ExternalPatch)
+      end
+
       it "returns a deprecated Formula when given a name" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(deprecate_json)
 

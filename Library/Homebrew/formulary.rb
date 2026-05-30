@@ -251,6 +251,25 @@ module Formulary
             sha256 checksum
           end
 
+          formula_struct.stable_patches.each do |patch_hash|
+            patch patch_hash.fetch("strip", patch_hash[:strip]).to_sym do
+              T.bind(self, Resource::Patch)
+
+              if (patch_url = patch_hash.fetch("url", patch_hash[:url]))
+                url patch_url
+                if (patch_sha256 = patch_hash.fetch("sha256", patch_hash[:sha256]))
+                  sha256 patch_sha256
+                end
+                apply patch_hash.fetch("apply", patch_hash[:apply]) if patch_hash.fetch("apply", patch_hash[:apply])
+                if (patch_directory = patch_hash.fetch("directory", patch_hash[:directory]))
+                  directory patch_directory
+                end
+              elsif (patch_file = patch_hash.fetch("file", patch_hash[:file]))
+                file patch_file
+              end
+            end
+          end
+
           formula_struct.stable_dependencies.each do |dep|
             depends_on dep
           end
