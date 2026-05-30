@@ -88,6 +88,9 @@ module RSpec::Matchers
   def be_empty(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def be_enabled(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_executable(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
