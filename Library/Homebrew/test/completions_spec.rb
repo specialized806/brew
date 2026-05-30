@@ -244,7 +244,7 @@ RSpec.describe Homebrew::Completions do
           "--debug"   => "Display any debugging information.",
           "--help"    => "Show this message.",
           "--hide"    => "Act as if none of the specified <hidden> are installed. <hidden> should be " \
-                         "a comma-separated list of formulae.",
+                         "a comma-separated list of formulae or casks.",
           "--quiet"   => "Make some output more quiet.",
           "--verbose" => "Make some output more verbose.",
         }
@@ -338,6 +338,7 @@ RSpec.describe Homebrew::Completions do
               *) ;;
             esac
             __brew_complete_formulae
+            __brew_complete_casks
           }
         COMPLETION
       end
@@ -424,11 +425,13 @@ RSpec.describe Homebrew::Completions do
             _arguments \\
               '--debug[Display any debugging information]' \\
               '--help[Show this message]' \\
-              '--hide[Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae]' \\
+              '--hide[Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae or casks]' \\
               '--quiet[Make some output more quiet]' \\
               '--verbose[Make some output more verbose]' \\
               - formula \\
-              '*:formula:__brew_formulae'
+              '*:formula:__brew_formulae' \\
+              - cask \\
+              '*:cask:__brew_casks'
           }
         COMPLETION
       end
@@ -493,7 +496,7 @@ RSpec.describe Homebrew::Completions do
         expect(file).to match(/^    up update$/)
         expect(file).to match(/^__brew_internal_commands\(\) {$/)
         expect(file).to match(/^    'install:Install a formula or cask'$/)
-        expect(file).to match(/^    'missing:Check the given formula kegs for missing dependencies'$/)
+        expect(file).to match(/^    'missing:Check the given formula kegs and cask installations for .*'$/)
         expect(file).to match(/^    'update:Fetch the newest version of Homebrew and all formulae from GitHub .*'$/)
         expect(file).to match(/^_brew_install\(\) {$/)
         expect(file).to match(/^_brew_missing\(\) {$/)
@@ -510,13 +513,14 @@ RSpec.describe Homebrew::Completions do
       it "returns appropriate completion for a ruby command" do
         completion = klass.generate_fish_subcommand_completion("missing")
         expect(completion).to eq <<~COMPLETION
-          __fish_brew_complete_cmd 'missing' 'Check the given formula kegs for missing dependencies'
+          __fish_brew_complete_cmd 'missing' 'Check the given formula kegs and cask installations for missing dependencies'
           __fish_brew_complete_arg 'missing' -l debug -d 'Display any debugging information'
           __fish_brew_complete_arg 'missing' -l help -d 'Show this message'
-          __fish_brew_complete_arg 'missing' -l hide -d 'Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae'
+          __fish_brew_complete_arg 'missing' -l hide -d 'Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae or casks'
           __fish_brew_complete_arg 'missing' -l quiet -d 'Make some output more quiet'
           __fish_brew_complete_arg 'missing' -l verbose -d 'Make some output more verbose'
           __fish_brew_complete_arg 'missing' -a '(__fish_brew_suggest_formulae_all)'
+          __fish_brew_complete_arg 'missing' -a '(__fish_brew_suggest_casks_all)'
         COMPLETION
       end
 
@@ -566,7 +570,7 @@ RSpec.describe Homebrew::Completions do
         file = klass.generate_fish_completion_file(%w[install missing update])
         expect(file).to match(/^function __fish_brew_complete_cmd/)
         expect(file).to match(/^__fish_brew_complete_cmd 'install' 'Install a formula or cask'$/)
-        expect(file).to match(/^__fish_brew_complete_cmd 'missing' 'Check the given formula kegs for .*'$/)
+        expect(file).to match(/^__fish_brew_complete_cmd 'missing' 'Check the given formula kegs and cask .*'$/)
         expect(file).to match(/^__fish_brew_complete_cmd 'update' 'Fetch the newest version of Homebrew .*'$/)
       end
 

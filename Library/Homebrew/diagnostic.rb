@@ -12,29 +12,13 @@ require "utils/output"
 require "cask/caskroom"
 require "cask/quarantine"
 require "git_repository"
+require "missing"
 require "system_command"
 
 module Homebrew
   # Module containing diagnostic checks.
   module Diagnostic
     extend Utils::Output::Mixin
-
-    sig {
-      params(formulae: T::Array[Formula], hide: T::Array[String], _block: T.nilable(
-        T.proc.params(formula_name: String, missing_dependencies: T::Array[Dependency]).void,
-      )).returns(T::Hash[String, T::Array[String]])
-    }
-    def self.missing_deps(formulae, hide = [], &_block)
-      missing = {}
-      formulae.each do |f|
-        missing_dependencies = f.missing_dependencies(hide: hide)
-        next if missing_dependencies.empty?
-
-        yield f.full_name, missing_dependencies if block_given?
-        missing[f.full_name] = missing_dependencies
-      end
-      missing
-    end
 
     sig { params(type: Symbol, fatal: T::Boolean).void }
     def self.checks(type, fatal: true)
@@ -752,24 +736,18 @@ module Homebrew
 
       sig { returns(T.nilable(String)) }
       def check_missing_deps
-        return unless HOMEBREW_CELLAR.exist?
+        return if !HOMEBREW_CELLAR.exist? && !Cask::Caskroom.path.exist?
 
         missing = Set.new
-        Homebrew::Diagnostic.missing_deps(Formula.installed).each_value do |deps|
+        Homebrew::Missing.deps(Formula.installed, Cask::Caskroom.casks).each_value do |deps|
           missing.merge(deps)
         end
         return if missing.empty?
 
-        resolvable_missing = missing.filter_map do |d|
-          d.to_installed_formula
-        rescue FormulaUnavailableError
-          nil
-        end
-
         <<~EOS
-          Some installed formulae are missing dependencies.
+          Some installed formulae or casks are missing dependencies.
           You should `brew install` the missing dependencies:
-            brew install #{resolvable_missing.sort_by(&:full_name) * " "}
+            brew install #{missing.sort * " "}
 
           Run `brew missing` for more details.
         EOS
