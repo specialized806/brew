@@ -241,17 +241,46 @@ module Homebrew
         filestub_regex = %r{Library/Homebrew/([\w/-]+).rb}
         T.cast(changed_files.scan(filestub_regex), T::Array[T::Array[String]])
          .map { it.fetch(-1) }
-         .filter_map do |filestub|
+         .flat_map do |filestub|
+          shared_context_tests = shared_context_test_files(filestub)
+          next shared_context_tests if shared_context_tests.present?
+
           if filestub.start_with?("test/")
             # Only run tests on *_spec.rb files in test/ folder
-            Pathname("#{filestub}.rb") if filestub.end_with?("_spec")
+            filestub.end_with?("_spec") ? [Pathname("#{filestub}.rb")] : []
           else
             # For all other changed .rb files guess the associated test file name
-            Pathname("test/#{filestub}_spec.rb")
+            [Pathname("test/#{filestub}_spec.rb")]
           end
         end
+          .uniq
           .select(&:exist?)
           .map(&:to_s)
+      end
+
+      sig { params(filestub: String).returns(T::Array[Pathname]) }
+      def shared_context_test_files(filestub)
+        case filestub
+        when "test/support/helper/spec/shared_context/integration_test"
+          tests_tagged_with("integration_test")
+        when "test/support/helper/spec/shared_context/homebrew_cask"
+          tests_tagged_with("cask")
+        else
+          []
+        end
+      end
+
+      sig { params(tag: String).returns(T::Array[Pathname]) }
+      def tests_tagged_with(tag)
+        tag_match = /:#{Regexp.escape(tag)}\b/
+
+        Dir.glob("test/**/*_spec.rb").filter_map do |file|
+          path = Pathname(file)
+          next unless path.exist?
+          next unless path.read.match?(tag_match)
+
+          path
+        end
       end
 
       sig { returns(T::Array[String]) }
