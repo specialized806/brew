@@ -557,6 +557,13 @@ module Homebrew
         description: "If set, use Pry for the `brew irb` command.",
         boolean:     true,
       },
+      HOMEBREW_REQUIRE_TAP_TRUST:                {
+        # odeprecated: make tap trust checks default in a later release.
+        description: "If set, require non-official tap formulae, casks and commands to be trusted before " \
+                     "Homebrew loads them.",
+        boolean:     true,
+        hidden:      true,
+      },
       HOMEBREW_SANDBOX_LINUX:                    {
         # odeprecated: edit in 5.2.0
         description: "If set, use the `bwrap`(1) sandbox for formula installation and testing on Linux. " \

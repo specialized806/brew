@@ -10,6 +10,7 @@ require "utils/bottles"
 require "utils/output"
 require "utils/path"
 require "service"
+require "trust"
 require "utils/curl"
 require "extend/hash/deep_transform_values"
 require "extend/hash/keys"
@@ -126,6 +127,8 @@ module Formulary
   def self.load_formula(name, path, contents, namespace, flags:, ignore_errors:)
     raise "Formula loading disabled by `$HOMEBREW_DISABLE_LOAD_FORMULA`!" if Homebrew::EnvConfig.disable_load_formula?
 
+    Homebrew::Trust.require_trusted_formula!(name, path)
+
     require "formula"
     require "ignorable"
     require "stringio"
@@ -175,13 +178,13 @@ module Formulary
   ensure
     # TODO: Make printing to stdout an error so that we can print a tap name.
     #       See discussion at https://github.com/Homebrew/brew/pull/20226#discussion_r2195886888
-    if (printed_to_stdout = $stdout.string.strip.presence)
+    if old_stdout && $stdout.respond_to?(:string) && (printed_to_stdout = $stdout.string.strip.presence)
       opoo <<~WARNING
         Formula #{name} attempted to print the following while being loaded:
         #{printed_to_stdout}
       WARNING
     end
-    $stdout = old_stdout
+    $stdout = old_stdout if old_stdout
   end
 
   sig { params(identifier: String).returns(String) }
