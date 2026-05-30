@@ -48,6 +48,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   def force?; end
 
   sig { returns(T::Boolean) }
+  def force_cleanup?; end
+
+  sig { returns(T::Boolean) }
   def formula?; end
 
   sig { returns(T::Boolean) }
@@ -75,16 +78,106 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   def mas?; end
 
   sig { returns(T::Boolean) }
+  def no_brews?; end
+
+  sig { returns(T::Boolean) }
   def no_cargo?; end
 
   sig { returns(T::Boolean) }
+  def no_cask?; end
+
+  sig { returns(T::Boolean) }
+  def no_casks?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_brew?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_cargo?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_cask?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_flatpak?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_go?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_krew?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_mas?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_npm?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_tap?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_uv?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_vscode?; end
+
+  sig { returns(T::Boolean) }
+  def no_cleanup_winget?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_brew?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_cargo?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_cask?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_flatpak?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_go?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_krew?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_mas?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_npm?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_tap?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_uv?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_vscode?; end
+
+  sig { returns(T::Boolean) }
+  def no_dump_winget?; end
+
+  sig { returns(T::Boolean) }
   def no_flatpak?; end
+
+  sig { returns(T::Boolean) }
+  def no_formula?; end
+
+  sig { returns(T::Boolean) }
+  def no_formulae?; end
 
   sig { returns(T::Boolean) }
   def no_go?; end
 
   sig { returns(T::Boolean) }
   def no_krew?; end
+
+  sig { returns(T::Boolean) }
+  def no_mas?; end
 
   sig { returns(T::Boolean) }
   def no_npm?; end
@@ -94,6 +187,12 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
 
   sig { returns(T::Boolean) }
   def no_secrets?; end
+
+  sig { returns(T::Boolean) }
+  def no_tap?; end
+
+  sig { returns(T::Boolean) }
+  def no_taps?; end
 
   sig { returns(T::Boolean) }
   def no_upgrade?; end

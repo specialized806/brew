@@ -52,6 +52,84 @@ module Homebrew::EnvConfig
     sig { returns(T.nilable(::String)) }
     def browser; end
 
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_brew?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_cargo?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_cask?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_flatpak?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_go?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_krew?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_mas?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_npm?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_tap?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_uv?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_vscode?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_cleanup_no_winget?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_brew?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_cargo?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_cask?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_flatpak?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_go?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_krew?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_mas?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_npm?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_tap?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_uv?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_vscode?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_dump_no_winget?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_force_install_cleanup?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_install_cleanup?; end
+
     sig { returns(T.nilable(::String)) }
     def bundle_user_cache; end
 
