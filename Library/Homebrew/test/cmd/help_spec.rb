@@ -53,9 +53,10 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
 
       expect { brew "help", "hello-tap", "SECRET_TOKEN" => "password" }
         .to output(%r{^From tap: thirdparty/foo$}).to_stdout
-        .and not_to_output.to_stderr
+        .and output(%r{Tap thirdparty/foo was trusted by default}).to_stderr
         .and be_a_success
     ensure
+      Homebrew::Trust.clear!(:tap)
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
     end
 
@@ -96,7 +97,9 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
         .to output(%r{thirdparty/foo}).to_stderr
         .and be_a_failure
 
-      Homebrew::Trust.trust!(:command, "thirdparty/foo/hello-tap")
+      expect { brew "trust", "--command", "thirdparty/foo/hello-tap" }
+        .to output(%r{Trusted command: thirdparty/foo/hello-tap}).to_stdout
+        .and be_a_success
 
       expect { brew "help", "hello-tap", "HOMEBREW_REQUIRE_TAP_TRUST" => "1" }
         .to output(%r{^From tap: thirdparty/foo$}).to_stdout

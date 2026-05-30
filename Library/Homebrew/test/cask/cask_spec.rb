@@ -440,7 +440,9 @@ RSpec.describe Cask::Cask, :cask do
 
     context "when it is from a non-core tap" do
       it "returns the fully-qualified name of the cask" do
-        c = Cask::CaskLoader.load("third-party/tap/third-party-cask")
+        c = with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") do
+          Cask::CaskLoader.load("third-party/tap/third-party-cask")
+        end
         expect(c.full_name).to eq("third-party/tap/third-party-cask")
       end
     end
