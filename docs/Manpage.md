@@ -3303,10 +3303,6 @@ Build bottles for these formulae with GitHub Actions.
 
 : Dispatch bottle for Linux x86\_64 (using self-hosted runner).
 
-`--linux-wheezy`
-
-: Use Debian Wheezy container for building the bottle on Linux.
-
 ### `edit` \[*`options`*\] \[*`formula`*\|*`cask`*\|*`tap`* ...\]
 
 Open a *`formula`*, *`cask`* or *`tap`* in the editor set by `$EDITOR` or
