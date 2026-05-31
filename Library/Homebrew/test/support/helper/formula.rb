@@ -10,6 +10,12 @@ module Test
 
       requires_ancestor { RSpec::Mocks::ExampleMethods }
 
+      sig {
+        params(
+          name: String, path: T.nilable(Pathname), spec: Symbol, alias_path: T.nilable(Pathname),
+          tap: T.nilable(Tap), block: T.nilable(T.proc.bind(Formula).void)
+        ).returns(::Formula)
+      }
       def formula(name = "formula_name", path: nil, spec: :stable, alias_path: nil, tap: nil, &block)
         path ||= Formulary.find_formula_in_tap(name, tap || CoreTap.instance)
         Class.new(::Formula, &block).new(name, path, spec, alias_path:, tap:)
