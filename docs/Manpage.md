@@ -4783,6 +4783,13 @@ command execution (e.g. `$(cat file)`).
 
 : If set, `brew bundle cleanup` will not clean up WinGet packages.
 
+`HOMEBREW_BUNDLE_DESCRIBE`
+
+: If set, add a description comment above each line in `brew bundle dump` and
+  `brew bundle add`, unless the dependency does not have a description. Enabled
+  by default if `$HOMEBREW_DEVELOPER` is set. This will become the default
+  behaviour in a later minor release.
+
 `HOMEBREW_BUNDLE_DUMP_NO_BREW`
 
 : If set, `brew bundle dump` will not dump formula dependencies.
@@ -4835,6 +4842,37 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP`
 
 : If set, run `brew bundle cleanup --force` after `brew bundle install`.
+
+`HOMEBREW_BUNDLE_JOBS`
+
+: Use this value as the number of formula installations to run in parallel for
+  `brew bundle install`. Use `auto` for the number of CPU cores (max 4). Enabled
+  by default with a value of `auto` if `$HOMEBREW_DEVELOPER` is set. This will
+  become the default behaviour in a later minor release.
+
+`HOMEBREW_BUNDLE_NO_DESCRIBE`
+
+: If set, do not enable bundle description comments from
+  `$HOMEBREW_BUNDLE_DESCRIBE` or the `$HOMEBREW_DEVELOPER` default. This does
+  not disable an explicit `--describe`.
+
+`HOMEBREW_BUNDLE_NO_JOBS`
+
+: If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or the
+  `$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--jobs`.
+
+`HOMEBREW_BUNDLE_NO_SECRETS`
+
+: If set, `brew bundle exec`, `brew bundle env` and `brew bundle sh` will
+  attempt to remove secrets from the environment. Enabled by default if
+  `$HOMEBREW_DEVELOPER` is set. This will become the default behaviour in a
+  later minor release.
+
+`HOMEBREW_BUNDLE_SECRETS`
+
+: If set, do not enable secret scrubbing from `$HOMEBREW_BUNDLE_NO_SECRETS` or
+  the `$HOMEBREW_DEVELOPER` default. This does not disable an explicit
+  `--no-secrets`.
 
 `HOMEBREW_BUNDLE_USER_CACHE`
 
