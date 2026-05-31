@@ -204,7 +204,9 @@ module Homebrew
         only_upgrade_formulae = (named_given && casks.blank?) || (formulae.present? && casks.blank?)
         only_upgrade_casks = (named_given && formulae.blank?) || (casks.present? && formulae.blank?)
 
-        formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
+        if Homebrew::EnvConfig.verify_attestations?
+          formulae = Homebrew::Attestation.sort_formulae_for_install(formulae)
+        end
 
         formulae_prefetched = T.let(false, T::Boolean)
         prefetched_casks = T.let(false, T::Boolean)

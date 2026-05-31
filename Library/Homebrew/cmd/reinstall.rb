@@ -147,7 +147,9 @@ module Homebrew
           end
         end
 
-        formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
+        if Homebrew::EnvConfig.verify_attestations?
+          formulae = Homebrew::Attestation.sort_formulae_for_install(formulae)
+        end
         casks = casks.filter_map do |cask|
           if cask.pinned?
             onoe "#{cask.full_name} is pinned. You must unpin it to reinstall."

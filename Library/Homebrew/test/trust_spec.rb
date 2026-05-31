@@ -7,7 +7,7 @@ require "trust"
 RSpec.describe Homebrew::Trust do
   it "lets HOMEBREW_NO_REQUIRE_TAP_TRUST override HOMEBREW_REQUIRE_TAP_TRUST" do
     with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1", HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") do
-      expect(Homebrew::Trust).not_to be_enabled
+      expect(Homebrew::EnvConfig.require_tap_trust?).to be(false)
     end
   end
 
