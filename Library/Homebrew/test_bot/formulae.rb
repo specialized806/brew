@@ -856,11 +856,11 @@ module Homebrew
 
         test "brew", "uses",
              "--formula",
-             "--eval-all",
              "--include-build",
              "--include-optional",
              "--include-test",
-             formula_name
+             formula_name,
+             env: require_current_tap_trust_env
       end
 
       sig { returns(T::Boolean) }

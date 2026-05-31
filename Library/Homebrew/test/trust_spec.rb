@@ -25,7 +25,7 @@ RSpec.describe Homebrew::Trust do
   end
 
   it "ignores a trust file with a non-object JSON root" do
-    trust_file = HOMEBREW_PREFIX/"var/homebrew/trust.json"
+    trust_file = Homebrew::Trust.const_get(:TRUST_FILE)
     trust_file.dirname.mkpath
     trust_file.write("[]")
 
@@ -43,15 +43,65 @@ RSpec.describe Homebrew::Trust do
     Homebrew::Trust.clear!(:tap)
   end
 
-  it "trusts third-party taps by default with an env hint" do
+  it "trusts fully-qualified formulae and casks" do
+    tap = Tap.fetch("thirdparty", "foo")
+    tap.formula_dir.mkpath
+    tap.cask_dir.mkpath
+    (tap.formula_dir/"bar.rb").write("class Bar < Formula; end\n")
+    (tap.cask_dir/"baz.rb").write("cask 'baz'\n")
+
+    Homebrew::Trust.trust_fully_qualified_items!(["thirdparty/foo/bar", "thirdparty/foo/baz"])
+
+    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/foo/bar")).to be(true)
+    expect(Homebrew::Trust.trusted?(:cask, "thirdparty/foo/baz")).to be(true)
+  ensure
+    Homebrew::Trust.clear!(:formula)
+    Homebrew::Trust.clear!(:cask)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "does not trust missing fully-qualified formulae or casks" do
+    Tap.fetch("thirdparty", "foo")
+
+    Homebrew::Trust.trust_fully_qualified_items!(["thirdparty/foo/bar"], type: :formula)
+    Homebrew::Trust.trust_fully_qualified_items!(["thirdparty/foo/baz"], type: :cask)
+
+    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/foo/bar")).to be(false)
+    expect(Homebrew::Trust.trusted?(:cask, "thirdparty/foo/baz")).to be(false)
+  ensure
+    Homebrew::Trust.clear!(:formula)
+    Homebrew::Trust.clear!(:cask)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "does not report taps with trusted entries as wholly untrusted" do
+    allow(Homebrew::Trust).to receive(:untrusted_taps)
+      .and_return([instance_double(Tap, name: "thirdparty/foo")])
+    Homebrew::Trust.trust!(:formula, "thirdparty/foo/bar")
+
+    expect(Homebrew::Trust.wholly_untrusted_taps).to be_empty
+  ensure
+    Homebrew::Trust.clear!(:formula)
+  end
+
+  it "writes the trust store with user-only permissions" do
+    Homebrew::Trust.trust!(:tap, "thirdparty/foo")
+
+    trust_file = Homebrew::Trust.const_get(:TRUST_FILE)
+    expect(trust_file.stat.mode & 0777).to eq(0600)
+  ensure
+    Homebrew::Trust.clear!(:tap)
+  end
+
+  it "allows third-party taps by default with an env hint" do
     tap = Tap.fetch("thirdparty", "foo")
     formula_path = tap.formula_dir/"default-trust.rb"
     formula_path.dirname.mkpath
 
     expect { Homebrew::Trust.require_trusted_formula!("default-trust", formula_path) }
-      .to output(%r{Tap thirdparty/foo was trusted by default}).to_stderr
+      .to output(%r{Tap thirdparty/foo is allowed by default}).to_stderr
 
-    expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(true)
+    expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(false)
   ensure
     Homebrew::Trust.clear!(:tap)
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
@@ -78,6 +128,75 @@ RSpec.describe Homebrew::Trust do
 
     with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
       expect(Homebrew::Trust.trusted_formula_file?(formula_path)).to be(false)
+    end
+  ensure
+    Homebrew::Trust.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "allows explicitly named formula files when trust checks are enabled" do
+    old_argv = ARGV.dup
+    tap = Tap.fetch("thirdparty", "foo")
+    formula_path = tap.formula_dir/"default-trust.rb"
+    formula_path.dirname.mkpath
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      ARGV.replace(["thirdparty/foo/default-trust"])
+      expect(Homebrew::Trust.trusted_formula_file?(formula_path)).to be(true)
+    end
+
+    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/foo/default-trust")).to be(false)
+  ensure
+    ARGV.replace(old_argv) if old_argv
+    Homebrew::Trust.clear!(:tap)
+    Homebrew::Trust.clear!(:formula)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "allows files from explicitly named taps when trust checks are enabled" do
+    old_argv = ARGV.dup
+    tap = Tap.fetch("thirdparty", "foo")
+    cask_path = tap.cask_dir/"default-trust.rb"
+    cask_path.dirname.mkpath
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      ARGV.replace(["--tap", "thirdparty/foo"])
+      expect(Homebrew::Trust.trusted_cask_file?(cask_path)).to be(true)
+    end
+
+    expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(false)
+    expect(Homebrew::Trust.trusted?(:cask, "thirdparty/foo/default-trust")).to be(false)
+  ensure
+    ARGV.replace(old_argv) if old_argv
+    Homebrew::Trust.clear!(:tap)
+    Homebrew::Trust.clear!(:cask)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "does not allow explicitly named command files when trust checks are enabled" do
+    old_argv = ARGV.dup
+    tap = Tap.fetch("thirdparty", "foo")
+    command_path = tap.path/"cmd/brew-default-trust.rb"
+    command_path.dirname.mkpath
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      ARGV.replace(["thirdparty/foo/default-trust"])
+      expect(Homebrew::Trust.trusted_command_files([command_path])).to eq([])
+    end
+  ensure
+    ARGV.replace(old_argv) if old_argv
+    Homebrew::Trust.clear!(:command)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "does not trust untrusted command files when trust checks are enabled" do
+    tap = Tap.fetch("thirdparty", "foo")
+    command_path = tap.path/"cmd/brew-default-trust.rb"
+    command_path.dirname.mkpath
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { expect(Homebrew::Trust.trusted_command_files([command_path])).to eq([]) }
+        .to output(%r{Skipping thirdparty/foo because it is not trusted}).to_stderr
     end
   ensure
     Homebrew::Trust.clear!(:tap)

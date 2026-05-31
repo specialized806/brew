@@ -71,10 +71,20 @@ RSpec.describe Cask::Cask, :cask do
       expect(Cask::CaskLoader).not_to receive(:load).with(cask_path)
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect(klass.all(eval_all: true)).to eq([])
+        expect { expect(klass.all(eval_all: true)).to eq([]) }
+          .to output(%r{Skipping thirdparty/foo because it is not trusted}).to_stderr
       end
     ensure
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
+    it "allows all casks when trust is disabled" do
+      allow(CoreCaskTap.instance).to receive(:cask_tokens).and_return([])
+      allow(Tap).to receive(:reject).and_return([])
+
+      with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") do
+        expect(klass.all).to eq([])
+      end
     end
   end
 

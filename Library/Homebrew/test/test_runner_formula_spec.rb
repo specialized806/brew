@@ -32,14 +32,6 @@ RSpec.describe TestRunnerFormula do
       expect(klass.new(testball).eval_all).to be(false)
       expect(klass.new(testball, eval_all: true).eval_all).to be(true)
     end
-
-    it "takes the value of HOMEBREW_EVAL_ALL at instantiation time if not specified" do
-      allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
-      expect(klass.new(testball).eval_all).to be(true)
-
-      allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(false)
-      expect(klass.new(testball).eval_all).to be(false)
-    end
   end
 
   describe "#formula" do
@@ -312,7 +304,8 @@ RSpec.describe TestRunnerFormula do
       end
 
       it "returns an array of direct dependents" do
-        allow(Formula).to receive(:all).and_return([testball_user, recursive_testball_dependent])
+        allow(Formula).to receive(:all).with(eval_all: true)
+                                       .and_return([testball_user, recursive_testball_dependent])
 
         expect(
           klass.new(testball, eval_all: true).dependents(**current_system).map(&:name),

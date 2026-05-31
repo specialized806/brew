@@ -12,7 +12,7 @@ RSpec.describe DescriptionCacheStore do
   let(:formula_name) { "test_name" }
   let(:description) { "test_description" }
 
-  before { allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true) }
+  before { allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(true) }
 
   describe "#update!" do
     it "sets the formula description" do

@@ -125,6 +125,50 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     end
   end
 
+  specify "#check_untrusted_taps" do
+    tap = instance_double(Tap, name: "thirdparty/foo")
+    rack = HOMEBREW_CELLAR/"bar"
+    keg = instance_double(Keg, tab: instance_double(Tab, tap:))
+    allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
+    allow(Formula).to receive(:racks).and_return([rack])
+    allow(Keg).to receive(:from_rack).with(rack).and_return(keg)
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect(checks.check_untrusted_taps)
+        .to include(
+          "Homebrew is currently ignoring formulae, casks and commands from these taps " \
+          "because tap trust is required.",
+          "brew untap thirdparty/foo",
+          "brew trust --formula thirdparty/foo/bar",
+        )
+    end
+  end
+
+  specify "#check_untrusted_taps warns when tap trust is unset" do
+    tap = instance_double(Tap, name: "thirdparty/foo")
+    allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
+    allow(Formula).to receive(:racks).and_return([])
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: nil, HOMEBREW_NO_REQUIRE_TAP_TRUST: nil) do
+      expect(checks.check_untrusted_taps)
+        .to include(
+          "Homebrew will ignore formulae, casks and commands from these taps when " \
+          "`HOMEBREW_REQUIRE_TAP_TRUST` is set.",
+          "This will become the default in a future release.",
+          "Set `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to keep allowing them by default.",
+          "brew untap thirdparty/foo",
+        )
+    end
+  end
+
+  specify "#check_untrusted_taps skips when tap trust is explicitly disabled" do
+    with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") do
+      expect(Homebrew::Trust).not_to receive(:wholly_untrusted_taps)
+
+      expect(checks.check_untrusted_taps).to be_nil
+    end
+  end
+
   specify "#check_tmpdir" do
     ENV["TMPDIR"] = "/i/don/t/exis/t"
     expect(checks.check_tmpdir).to match("doesn't exist")

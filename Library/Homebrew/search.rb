@@ -63,7 +63,7 @@ module Homebrew
 
       search_type ||= Descriptions::SearchField::Description
       both = !args.formula? && !args.cask?
-      eval_all = args.eval_all? || Homebrew::EnvConfig.eval_all?
+      eval_all = args.eval_all? || Homebrew::EnvConfig.tap_trust_configured?
 
       if args.formula? || both
         ohai "Formulae"
@@ -75,7 +75,8 @@ module Homebrew
         else
           unofficial = Tap.all.sum { |tap| tap.official? ? 0 : tap.formula_files.size }
           if unofficial.positive?
-            opoo "Use `--eval-all` to search #{unofficial} additional " \
+            opoo "Set `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to search " \
+                 "#{unofficial} additional " \
                  "#{Utils.pluralize("formula", unofficial)} in third party taps."
           end
           formulae = Homebrew::API::Formula.all_formulae
@@ -99,7 +100,8 @@ module Homebrew
       else
         unofficial = Tap.all.sum { |tap| tap.official? ? 0 : tap.cask_files.size }
         if unofficial.positive?
-          opoo "Use `--eval-all` to search #{unofficial} additional " \
+          opoo "Set `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to search " \
+               "#{unofficial} additional " \
                "#{Utils.pluralize("cask", unofficial)} in third party taps."
         end
         casks = Homebrew::API::Cask.all_casks

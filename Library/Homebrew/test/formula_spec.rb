@@ -2909,10 +2909,19 @@ RSpec.describe Formula do
       expect(Formulary).not_to receive(:factory).with(formula_path)
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect(Formula.all(eval_all: true)).to eq([])
+        expect { expect(Formula.all(eval_all: true)).to eq([]) }
+          .to output(%r{Skipping thirdparty/foo because it is not trusted}).to_stderr
       end
     ensure
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
+    it "allows all formulae when trust is enabled" do
+      allow(Formula).to receive_messages(core_names: [], tap_files: [])
+
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+        expect(Formula.all).to eq([])
+      end
     end
   end
 

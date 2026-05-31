@@ -19,6 +19,8 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
       .with(method: :resolve)
       .and_return([formula, error])
+    expect(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+      .with(["testball", "nonexistent"], type: nil)
 
     expect { cmd.run }
       .to output(/nonexistent/).to_stderr

@@ -9,15 +9,23 @@ RSpec.describe Homebrew::Cmd::Untrust do
   it_behaves_like "parseable arguments"
 
   it "untrusts a given tap", :integration_test do
-    Homebrew::Trust.trust!(:tap, "thirdparty/foo")
+    trust_home = Pathname(TEST_TMPDIR)/"untrust-tap"
+    trust_home.mkpath
+    (trust_home/"trust.json").write(<<~JSON)
+      {
+        "trustedtaps": [
+          "thirdparty/foo"
+        ]
+      }
+    JSON
 
-    expect { brew "untrust", "thirdparty/foo" }
+    expect { brew "untrust", "thirdparty/foo", "HOMEBREW_USER_CONFIG_HOME" => trust_home.to_s }
       .to output(%r{Untrusted tap: thirdparty/foo}).to_stdout
       .and be_a_success
 
-    expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(false)
+    expect(trust_home/"trust.json").not_to exist
   ensure
-    Homebrew::Trust.clear!(:tap)
+    FileUtils.rm_rf trust_home if trust_home
   end
 
   it "notes official taps are always trusted" do
@@ -34,5 +42,38 @@ RSpec.describe Homebrew::Cmd::Untrust do
     expect(Homebrew::Trust.trusted?(:command, "thirdparty/foo/hello")).to be(false)
   ensure
     Homebrew::Trust.clear!(:command)
+  end
+
+  it "untrusts trusted items from a tap" do
+    Homebrew::Trust.trust!(:formula, "thirdparty/foo/bar")
+    Homebrew::Trust.trust!(:cask, "thirdparty/foo/baz")
+    Homebrew::Trust.trust!(:command, "thirdparty/foo/hello")
+
+    expect { Homebrew::Cmd::Untrust.new(["thirdparty/foo"]).run }
+      .to output("Untrusted tap: thirdparty/foo\n").to_stdout
+
+    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/foo/bar")).to be(false)
+    expect(Homebrew::Trust.trusted?(:cask, "thirdparty/foo/baz")).to be(false)
+    expect(Homebrew::Trust.trusted?(:command, "thirdparty/foo/hello")).to be(false)
+  ensure
+    Homebrew::Trust.clear!(:formula)
+    Homebrew::Trust.clear!(:cask)
+    Homebrew::Trust.clear!(:command)
+  end
+
+  it "lists untrusted entries with no arguments" do
+    tap = Tap.fetch("thirdparty", "foo")
+    tap.cask_dir.mkpath
+    (tap.cask_dir/"bar.rb").write("cask 'bar'\n")
+
+    expect { Homebrew::Cmd::Untrust.new([]).run }
+      .to output(<<~EOS).to_stdout
+        Untrusted taps:
+          thirdparty/foo
+        Untrusted casks:
+          thirdparty/foo/bar
+      EOS
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 end

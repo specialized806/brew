@@ -298,6 +298,55 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".eval_all?" do
+    before do
+      ENV["HOMEBREW_EVAL_ALL"] = nil
+      ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = nil
+      ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = nil
+    end
+
+    it "returns false if HOMEBREW_REQUIRE_TAP_TRUST is set" do
+      ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = "1"
+
+      expect(env_config.eval_all?).to be(false)
+    end
+
+    it "returns false if HOMEBREW_NO_REQUIRE_TAP_TRUST is set" do
+      ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = "1"
+
+      expect(env_config.eval_all?).to be(false)
+    end
+
+    it "warns if HOMEBREW_EVAL_ALL is set" do
+      ENV["HOMEBREW_EVAL_ALL"] = "1"
+
+      expect { expect(env_config.eval_all?).to be(true) }
+        .to output(/HOMEBREW_EVAL_ALL.*deprecated.*HOMEBREW_REQUIRE_TAP_TRUST.*HOMEBREW_NO_REQUIRE_TAP_TRUST/m)
+        .to_stderr
+    end
+  end
+
+  describe ".tap_trust_configured?" do
+    before do
+      ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = nil
+      ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = nil
+    end
+
+    it "returns true if HOMEBREW_REQUIRE_TAP_TRUST is set" do
+      ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = "1"
+
+      expect(env_config.tap_trust_configured?).to be(true)
+      expect(env_config.require_tap_trust?).to be(true)
+    end
+
+    it "returns true if HOMEBREW_NO_REQUIRE_TAP_TRUST is set" do
+      ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = "1"
+
+      expect(env_config.tap_trust_configured?).to be(true)
+      expect(env_config.no_require_tap_trust?).to be(true)
+    end
+  end
+
   describe ".use_internal_api?" do
     around do |example|
       with_env(

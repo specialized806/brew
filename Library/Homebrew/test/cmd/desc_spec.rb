@@ -55,22 +55,30 @@ RSpec.describe Homebrew::Cmd::Desc do
       .and not_to_output.to_stderr
   end
 
-  it "errors when searching without --eval-all" do
+  it "errors when searching without tap trust mode" do
     with_env("HOMEBREW_NO_INSTALL_FROM_API" => "1") do
       expect { klass.new(["--search", "testball"]).run }
-        .to raise_error(UsageError, /`brew desc --search` needs `--eval-all` passed/)
+        .to raise_error(UsageError, /`brew desc --search` needs `HOMEBREW_REQUIRE_TAP_TRUST=1`/)
     end
   end
 
-  it "successfully searches with --search --eval-all" do
+  it "successfully searches with --search and HOMEBREW_NO_REQUIRE_TAP_TRUST" do
     expect(Homebrew::Search).to receive(:search_descriptions)
       .with("ball", anything, search_type: Descriptions::SearchField::Either)
 
-    expect { klass.new(["--search", "--eval-all", "ball"]).run }
+    expect { with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") { klass.new(["--search", "ball"]).run } }
       .to not_to_output.to_stderr
   end
 
-  it "successfully searches without --eval-all, with API" do
+  it "successfully searches with --search and HOMEBREW_REQUIRE_TAP_TRUST" do
+    expect(Homebrew::Search).to receive(:search_descriptions)
+      .with("ball", anything, search_type: Descriptions::SearchField::Either)
+
+    expect { with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") { klass.new(["--search", "ball"]).run } }
+      .to not_to_output.to_stderr
+  end
+
+  it "successfully searches with API" do
     expect(Homebrew::Search).to receive(:search_descriptions)
       .with("testball", anything, search_type: Descriptions::SearchField::Either)
 

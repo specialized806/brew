@@ -12,8 +12,6 @@ module Homebrew
           Trust non-official tap formulae, casks or commands so Homebrew may load them when
           `$HOMEBREW_REQUIRE_TAP_TRUST` is set.
         EOS
-        hide_from_man_page!
-
         switch "--tap",
                description: "Trust the named tap."
         switch "--formula", "--formulae",
@@ -25,11 +23,35 @@ module Homebrew
 
         conflicts "--tap", "--formula", "--cask", "--command"
 
-        named_args :target, min: 1
+        named_args :target
       end
 
       sig { override.void }
       def run
+        if args.no_named?
+          puts "All official taps and commands are trusted."
+          types = selected_type ? [selected_type] : [:tap, :formula, :cask, :command]
+          printed = T.let(false, T::Boolean)
+          types.each do |type|
+            values = Homebrew::Trust.trusted_entries(type)
+            next if values.empty?
+
+            label = case type
+            when :tap then "taps"
+            when :formula then "formulae"
+            when :cask then "casks"
+            when :command then "commands"
+            else raise "Unsupported trust type: #{type}"
+            end
+            puts "Trusted #{label}:"
+            values.each { |value| puts "  #{value}" }
+            printed = true
+          end
+
+          puts "No trusted taps, formulae, casks or commands." unless printed
+          return
+        end
+
         args.named.each do |name|
           type, trust_name = Homebrew::Trust.target(name, type: selected_type)
           if type == :tap && Tap.fetch(trust_name).official?

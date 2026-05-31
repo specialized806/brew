@@ -28,7 +28,7 @@ RSpec.describe Homebrew::DevCmd::LivecheckCmd do
 
     with_env("HOMEBREW_LIVECHECK_WATCHLIST" => ".this_should_not_exist") do
       expect { klass.new([]).run }
-        .to raise_error(UsageError, /`brew livecheck` with no arguments needs a watchlist file to be present/)
+        .to raise_error(UsageError, /`brew livecheck` with no arguments needs a watchlist file/)
     end
   end
 end

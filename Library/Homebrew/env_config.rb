@@ -300,9 +300,12 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_EVAL_ALL:                         {
-        description: "If set, `brew` commands evaluate all formulae and casks, executing their arbitrary code, by " \
-                     "default without requiring `--eval-all`. Required to cache formula and cask descriptions.",
+        # odeprecated: deprecate in the next release.
+        description: "If set, `brew` commands evaluate all trusted formulae and casks, executing their arbitrary " \
+                     "code. This will be deprecated soon; use " \
+                     "`$HOMEBREW_REQUIRE_TAP_TRUST` or `$HOMEBREW_NO_REQUIRE_TAP_TRUST` instead.",
         boolean:     true,
+        hidden:      true,
       },
       HOMEBREW_FAIL_LOG_LINES:                   {
         description: "Output this many lines of output on formula `system` failures.",
@@ -563,7 +566,8 @@ module Homebrew
       },
       HOMEBREW_NO_REQUIRE_TAP_TRUST:             {
         # odeprecated: keep the current default until trust checks are default in a later release.
-        description: "If set, do not require non-official tap formulae, casks or commands to be trusted.",
+        description: "If set, do not require non-official tap formulae, casks or commands to be trusted. " \
+                     "Also enables commands that evaluate all formulae and casks.",
         boolean:     :set,
         hidden:      true,
       },
@@ -605,8 +609,9 @@ module Homebrew
       },
       HOMEBREW_REQUIRE_TAP_TRUST:                {
         # odeprecated: make tap trust checks default in a later release.
-        description: "If set, require non-official tap formulae, casks and commands to be trusted before " \
-                     "Homebrew loads them.",
+        description: "If set, require non-official tap formulae, casks and commands to be trusted with " \
+                     "`brew trust` before Homebrew loads them. Also enables commands that evaluate all " \
+                     "formulae and casks.",
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_REQUIRE_TAP_TRUST,
         hidden:      true,
@@ -752,6 +757,7 @@ module Homebrew
       :HOMEBREW_BUNDLE_DESCRIBE,
       :HOMEBREW_BUNDLE_JOBS,
       :HOMEBREW_BUNDLE_NO_SECRETS,
+      :HOMEBREW_EVAL_ALL,
       :HOMEBREW_CASK_OPTS,
       :HOMEBREW_CASK_OPTS_BINARIES,
       :HOMEBREW_CASK_OPTS_REQUIRE_SHA,
@@ -919,6 +925,25 @@ module Homebrew
       end
 
       [concurrency, 1].max
+    end
+
+    # odeprecated: deprecate `HOMEBREW_EVAL_ALL` in the next minor release.
+    sig { returns(T::Boolean) }
+    def eval_all?
+      eval_all = ENV.fetch("HOMEBREW_EVAL_ALL", nil)
+      if eval_all.present? && FALSY_VALUES.exclude?(eval_all.downcase)
+        # odeprecated: deprecate in the next release.
+        opoo "`HOMEBREW_EVAL_ALL` will be deprecated soon. " \
+             "Use `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` instead."
+        return true
+      end
+
+      false
+    end
+
+    sig { returns(T::Boolean) }
+    def tap_trust_configured?
+      Homebrew::EnvConfig.require_tap_trust? || Homebrew::EnvConfig.no_require_tap_trust?
     end
   end
 end

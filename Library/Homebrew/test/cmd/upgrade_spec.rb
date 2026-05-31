@@ -12,6 +12,20 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it_behaves_like "parseable arguments"
 
+  it "trusts fully-qualified named items before resolving them" do
+    cmd = klass.new(["thirdparty/foo/bar"])
+    allow(cmd.args.named).to receive(:present?).and_return(true)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
+      .with(method: :resolve)
+      .and_return([])
+    allow(cmd).to receive_messages(upgrade_outdated_formulae!: true, upgrade_outdated_casks!: false)
+
+    expect(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+      .with(cmd.args.named, type: nil)
+
+    cmd.run
+  end
+
   def install_formula_version(name, version, optlinked: false)
     keg_path = HOMEBREW_CELLAR/name/version
     keg_path.mkpath

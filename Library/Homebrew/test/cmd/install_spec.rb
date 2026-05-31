@@ -287,6 +287,9 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
     allow(Tap).to receive(:with_formula_name).with("user/repo/foo").and_return([tap, "foo"])
     expect(tap).to receive(:ensure_installed!).ordered
+    expect(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+      .with(["user/repo/foo"], type: nil)
+      .ordered
     expect(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).ordered
                                                              .and_raise(TapFormulaUnavailableError.new(tap, "foo"))
 
