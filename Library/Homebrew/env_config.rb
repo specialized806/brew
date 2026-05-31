@@ -131,7 +131,16 @@ module Homebrew
         description:  "Use this as the browser when opening project homepages.",
         default_text: "`$BROWSER` or the OS's default browser.",
       },
-      **BUNDLE_DISABLE_ENVS,
+      **BUNDLE_DISABLE_ENVS.select { |env,| env < :HOMEBREW_BUNDLE_DESCRIBE },
+      HOMEBREW_BUNDLE_DESCRIBE:                  {
+        # odeprecated: make `HOMEBREW_BUNDLE_DESCRIBE` the default in a later minor release
+        description: "If set, add a description comment above each line in `brew bundle dump` and " \
+                     "`brew bundle add`, unless the dependency does not have a description. Enabled by default " \
+                     "if `$HOMEBREW_DEVELOPER` is set. This will become the default behaviour in a later minor " \
+                     "release.",
+        boolean:     true,
+      },
+      **BUNDLE_DISABLE_ENVS.select { |env,| env > :HOMEBREW_BUNDLE_DESCRIBE },
       HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP:     {
         description: "If set, run `brew bundle cleanup --force` after `brew bundle install`.",
         boolean:     true,
@@ -140,6 +149,35 @@ module Homebrew
         description: "If set, run `brew bundle cleanup` after `brew bundle install`.",
         boolean:     true,
         hidden:      true,
+      },
+      HOMEBREW_BUNDLE_JOBS:                      {
+        # odeprecated: make `HOMEBREW_BUNDLE_JOBS=auto` the default in a later minor release
+        description: "Use this value as the number of formula installations to run in parallel for " \
+                     "`brew bundle install`. Use `auto` for the number of CPU cores (max 4). Enabled by default " \
+                     "with a value of `auto` if `$HOMEBREW_DEVELOPER` is set. This will become the default " \
+                     "behaviour in a later minor release.",
+      },
+      HOMEBREW_BUNDLE_NO_DESCRIBE:               {
+        description: "If set, do not enable bundle description comments from `$HOMEBREW_BUNDLE_DESCRIBE` or " \
+                     "the `$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--describe`.",
+        boolean:     true,
+      },
+      HOMEBREW_BUNDLE_NO_JOBS:                   {
+        description: "If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or the " \
+                     "`$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--jobs`.",
+        boolean:     true,
+      },
+      HOMEBREW_BUNDLE_NO_SECRETS:                {
+        # odeprecated: make `HOMEBREW_BUNDLE_NO_SECRETS` the default in a later minor release
+        description: "If set, `brew bundle exec`, `brew bundle env` and `brew bundle sh` will attempt to remove " \
+                     "secrets from the environment. Enabled by default if `$HOMEBREW_DEVELOPER` is set. This " \
+                     "will become the default behaviour in a later minor release.",
+        boolean:     true,
+      },
+      HOMEBREW_BUNDLE_SECRETS:                   {
+        description: "If set, do not enable secret scrubbing from `$HOMEBREW_BUNDLE_NO_SECRETS` or the " \
+                     "`$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--no-secrets`.",
+        boolean:     true,
       },
       HOMEBREW_BUNDLE_USER_CACHE:                {
         description: "If set, use this directory as the `bundle`(1) user cache.",
@@ -704,12 +742,15 @@ module Homebrew
     # Developer-mode defaults should be materialised in `brew.sh` by setting
     # the matching environment variable rather than inferred here.
     CUSTOM_IMPLEMENTATIONS = T.let(Set.new([
-      :HOMEBREW_MAKE_JOBS,
+      :HOMEBREW_BUNDLE_DESCRIBE,
+      :HOMEBREW_BUNDLE_JOBS,
+      :HOMEBREW_BUNDLE_NO_SECRETS,
       :HOMEBREW_CASK_OPTS,
       :HOMEBREW_CASK_OPTS_BINARIES,
       :HOMEBREW_CASK_OPTS_REQUIRE_SHA,
-      :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
       :HOMEBREW_DOWNLOAD_CONCURRENCY,
+      :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
+      :HOMEBREW_MAKE_JOBS,
       :HOMEBREW_SANDBOX_LINUX,
       :HOMEBREW_USE_INTERNAL_API,
     ]).freeze, T::Set[Symbol])
@@ -797,6 +838,36 @@ module Homebrew
           env_value = ENV.fetch("HOMEBREW_CASK_OPTS_REQUIRE_SHA", nil)
           env_value.present? && FALSY_VALUES.exclude?(env_value.downcase)
         end
+    end
+
+    sig { returns(T::Boolean) }
+    def bundle_describe?
+      if (env_value = ENV.fetch("HOMEBREW_BUNDLE_NO_DESCRIBE",
+                                nil)).present? && FALSY_VALUES.exclude?(env_value.downcase)
+        return false
+      end
+
+      env_value = ENV.fetch("HOMEBREW_BUNDLE_DESCRIBE", nil)
+      env_value.present? && FALSY_VALUES.exclude?(env_value.downcase)
+    end
+
+    sig { returns(T.nilable(String)) }
+    def bundle_jobs
+      if (env_value = ENV.fetch("HOMEBREW_BUNDLE_NO_JOBS", nil)).present? && FALSY_VALUES.exclude?(env_value.downcase)
+        return
+      end
+
+      ENV["HOMEBREW_BUNDLE_JOBS"].presence
+    end
+
+    sig { returns(T::Boolean) }
+    def bundle_no_secrets?
+      if (env_value = ENV.fetch("HOMEBREW_BUNDLE_SECRETS", nil)).present? && FALSY_VALUES.exclude?(env_value.downcase)
+        return false
+      end
+
+      env_value = ENV.fetch("HOMEBREW_BUNDLE_NO_SECRETS", nil)
+      env_value.present? && FALSY_VALUES.exclude?(env_value.downcase)
     end
 
     sig { returns(T::Boolean) }

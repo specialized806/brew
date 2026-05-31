@@ -63,7 +63,7 @@ module Homebrew
         }
         def context(args, extensions:, ask: false)
           subcommand = T.let(args.subcommand || "install", String)
-          jobs_arg = args.jobs || ENV.fetch("HOMEBREW_BUNDLE_JOBS", nil)
+          jobs_arg = args.jobs || Homebrew::EnvConfig.bundle_jobs
           jobs = if jobs_arg == "auto"
             [Etc.nprocessors, 4].min
           else
