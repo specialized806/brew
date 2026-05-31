@@ -58,6 +58,37 @@ RSpec.describe Homebrew::EnvConfig do
       ENV["HOMEBREW_BAT"] = nil
       expect(env_config.bat?).to be(false)
     end
+
+    it "returns false if set to a falsey value" do
+      ENV["HOMEBREW_BAT"] = "0"
+      expect(env_config.bat?).to be(false)
+    end
+  end
+
+  describe ".ask?" do
+    before do
+      ENV["HOMEBREW_ASK"] = nil
+      ENV["HOMEBREW_NO_ASK"] = nil
+    end
+
+    it "returns false if HOMEBREW_NO_ASK is set" do
+      ENV["HOMEBREW_ASK"] = "1"
+      ENV["HOMEBREW_NO_ASK"] = "1"
+      expect(env_config.ask?).to be(false)
+    end
+  end
+
+  describe ".color?" do
+    before do
+      ENV["HOMEBREW_COLOR"] = nil
+      ENV["HOMEBREW_NO_COLOR"] = nil
+    end
+
+    it "returns false if HOMEBREW_NO_COLOR is set" do
+      ENV["HOMEBREW_COLOR"] = "1"
+      ENV["HOMEBREW_NO_COLOR"] = "1"
+      expect(env_config.color?).to be(false)
+    end
   end
 
   describe ".make_jobs" do
@@ -156,22 +187,38 @@ RSpec.describe Homebrew::EnvConfig do
   end
 
   describe ".upgrade_auto_updates_casks?" do
-    before do
-      ENV["HOMEBREW_DEVELOPER"] = nil
-      ENV["HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"] = nil
+    around do |example|
+      with_env(
+        HOMEBREW_DEVELOPER:                     nil,
+        HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS:    nil,
+        HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS: nil,
+      ) { example.run }
     end
 
     it "does not infer a developer default" do
       ENV["HOMEBREW_DEVELOPER"] = "1"
       expect(env_config.upgrade_auto_updates_casks?).to be(false)
     end
+
+    it "returns true if set to a falsey value" do
+      ENV["HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"] = "0"
+      expect(env_config.upgrade_auto_updates_casks?).to be(true)
+    end
+
+    it "returns false if HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS is set" do
+      ENV["HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"] = "1"
+      ENV["HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS"] = "1"
+      expect(env_config.upgrade_auto_updates_casks?).to be(false)
+    end
   end
 
   describe ".sandbox_linux?" do
-    before do
-      ENV["HOMEBREW_DEVELOPER"] = nil
-      ENV["HOMEBREW_NO_SANDBOX_LINUX"] = nil
-      ENV["HOMEBREW_SANDBOX_LINUX"] = nil
+    around do |example|
+      with_env(
+        HOMEBREW_DEVELOPER:        nil,
+        HOMEBREW_NO_SANDBOX_LINUX: nil,
+        HOMEBREW_SANDBOX_LINUX:    nil,
+      ) { example.run }
     end
 
     it "returns true if HOMEBREW_SANDBOX_LINUX is set" do
@@ -184,10 +231,10 @@ RSpec.describe Homebrew::EnvConfig do
       expect(env_config.sandbox_linux?).to be(false)
     end
 
-    it "returns false if HOMEBREW_SANDBOX_LINUX is set to a falsey value with HOMEBREW_DEVELOPER" do
+    it "returns true if HOMEBREW_SANDBOX_LINUX is set to a falsey value with HOMEBREW_DEVELOPER" do
       ENV["HOMEBREW_DEVELOPER"] = "1"
       ENV["HOMEBREW_SANDBOX_LINUX"] = "0"
-      expect(env_config.sandbox_linux?).to be(false)
+      expect(env_config.sandbox_linux?).to be(true)
     end
 
     it "returns false if HOMEBREW_NO_SANDBOX_LINUX is set" do
@@ -203,6 +250,36 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".require_tap_trust?" do
+    around do |example|
+      with_env(
+        HOMEBREW_REQUIRE_TAP_TRUST:    nil,
+        HOMEBREW_NO_REQUIRE_TAP_TRUST: nil,
+      ) { example.run }
+    end
+
+    it "returns false if HOMEBREW_NO_REQUIRE_TAP_TRUST is set" do
+      ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = "1"
+      ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = "1"
+      expect(env_config.require_tap_trust?).to be(false)
+    end
+  end
+
+  describe ".verify_attestations?" do
+    around do |example|
+      with_env(
+        HOMEBREW_VERIFY_ATTESTATIONS:    nil,
+        HOMEBREW_NO_VERIFY_ATTESTATIONS: nil,
+      ) { example.run }
+    end
+
+    it "returns false if HOMEBREW_NO_VERIFY_ATTESTATIONS is set" do
+      ENV["HOMEBREW_VERIFY_ATTESTATIONS"] = "1"
+      ENV["HOMEBREW_NO_VERIFY_ATTESTATIONS"] = "1"
+      expect(env_config.verify_attestations?).to be(false)
+    end
+  end
+
   describe ".no_sandbox_cask?" do
     it "returns true if HOMEBREW_NO_SANDBOX_CASK is set" do
       ENV["HOMEBREW_NO_SANDBOX_CASK"] = "1"
@@ -212,7 +289,23 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".no_sandbox_linux?" do
+    it "returns true if set to a falsey value" do
+      ENV["HOMEBREW_NO_SANDBOX_LINUX"] = "0"
+      expect(env_config.no_sandbox_linux?).to be(true)
+    ensure
+      ENV["HOMEBREW_NO_SANDBOX_LINUX"] = nil
+    end
+  end
+
   describe ".use_internal_api?" do
+    around do |example|
+      with_env(
+        HOMEBREW_USE_INTERNAL_API:    nil,
+        HOMEBREW_NO_INSTALL_FROM_API: nil,
+      ) { example.run }
+    end
+
     it "returns true if HOMEBREW_USE_INTERNAL_API is set" do
       ENV["HOMEBREW_USE_INTERNAL_API"] = "1"
       expect(env_config.use_internal_api?).to be(true)
@@ -221,6 +314,11 @@ RSpec.describe Homebrew::EnvConfig do
     it "returns false if HOMEBREW_USE_INTERNAL_API is not set" do
       ENV["HOMEBREW_USE_INTERNAL_API"] = nil
       expect(env_config.use_internal_api?).to be(false)
+    end
+
+    it "returns true if HOMEBREW_USE_INTERNAL_API is set to a falsey value" do
+      ENV["HOMEBREW_USE_INTERNAL_API"] = "0"
+      expect(env_config.use_internal_api?).to be(true)
     end
 
     it "returns false if HOMEBREW_NO_INSTALL_FROM_API is set" do

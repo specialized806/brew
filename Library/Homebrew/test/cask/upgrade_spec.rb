@@ -126,7 +126,7 @@ RSpec.describe Cask::Upgrade, :cask do
         klass.upgrade_casks!(dry_run: true, args:)
       end
 
-      it "raises if HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS and HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS are set" do
+      it "lets HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS override HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS" do
         allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_call_original
 
         with_env(
@@ -134,7 +134,7 @@ RSpec.describe Cask::Upgrade, :cask do
           "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
         ) do
           expect { klass.upgrade_casks!(dry_run: true, args:) }
-            .to raise_error(UsageError, /cannot both be set/i)
+            .not_to raise_error
         end
       end
 

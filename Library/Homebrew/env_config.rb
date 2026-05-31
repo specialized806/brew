@@ -81,7 +81,7 @@ module Homebrew
         description: "When `$HOMEBREW_ARTIFACT_DOMAIN` and `$HOMEBREW_ARTIFACT_DOMAIN_NO_FALLBACK` are both set, " \
                      "if the request to `$HOMEBREW_ARTIFACT_DOMAIN` fails then Homebrew will error rather than " \
                      "trying any other/default URLs.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_ASK:                              {
         # odeprecated: make `HOMEBREW_ASK` the default in the next release
@@ -91,7 +91,8 @@ module Homebrew
                      "Ask mode prints the plan before proceeding and prompts only if the plan includes " \
                      "dependencies, dependants or packages other than named arguments. Otherwise, it only " \
                      "prints the plan. The confirmation prompt is skipped without a TTY.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_ASK,
       },
       HOMEBREW_AUTO_UPDATE_SECS:                 {
         description:  "Run `brew update` once every `$HOMEBREW_AUTO_UPDATE_SECS` seconds before some commands, " \
@@ -216,7 +217,8 @@ module Homebrew
       },
       HOMEBREW_COLOR:                            {
         description: "If set, force colour output on non-TTY outputs.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_COLOR,
       },
       HOMEBREW_CORE_GIT_REMOTE:                  {
         description:  "Use this URL as the Homebrew/homebrew-core `git`(1) remote.",
@@ -243,12 +245,12 @@ module Homebrew
       },
       HOMEBREW_DEBUG:                            {
         description: "If set, always assume `--debug` when running commands.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_DEVELOPER:                        {
         description: "If set, tweak behaviour to be more relevant for Homebrew developers (active or " \
                      "budding) by e.g. turning warnings into errors.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_DISABLE_DEBREW:                   {
         description: "If set, the interactive formula debugger available via `--debug` will be disabled.",
@@ -356,17 +358,17 @@ module Homebrew
       HOMEBREW_FORCE_BREWED_CA_CERTIFICATES:     {
         description: "If set, always use a Homebrew-installed `ca-certificates` rather than the system version. " \
                      "Automatically set if the system version is too old.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_FORCE_BREWED_CURL:                {
         description: "If set, always use a Homebrew-installed `curl`(1) rather than the system version. " \
                      "Automatically set if the system version of `curl` is too old.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_FORCE_BREWED_GIT:                 {
         description: "If set, always use a Homebrew-installed `git`(1) rather than the system version. " \
                      "Automatically set if the system version of `git` is too old.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_FORCE_BREW_WRAPPER:               {
         description: "If set, require `brew` to be invoked by the value of " \
@@ -379,7 +381,7 @@ module Homebrew
       HOMEBREW_FORCE_VENDOR_RUBY:                {
         description: "If set, always use Homebrew's vendored, relocatable Ruby version even if the system version " \
                      "of Ruby is new enough.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_FORMULA_BUILD_NETWORK:            {
         description: "If set, controls network access to the sandbox for formulae builds. Overrides any " \
@@ -467,12 +469,12 @@ module Homebrew
       HOMEBREW_NO_ANALYTICS:                     {
         description: "If set, do not send analytics. Google Analytics were destroyed. " \
                      "For more information, see: <https://docs.brew.sh/Analytics>",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_ASK:                           {
         description: "If set, do not enable ask mode from `$HOMEBREW_ASK` or the `$HOMEBREW_DEVELOPER` default. " \
                      "This does not disable an explicit `--ask`.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_AUTOREMOVE:                    {
         description: "If set, calls to `brew cleanup` and `brew uninstall` will not automatically " \
@@ -485,11 +487,11 @@ module Homebrew
                      "run this less often by setting `$HOMEBREW_AUTO_UPDATE_SECS` to a value higher than the " \
                      "default. Note that setting this and e.g. tapping new taps may result in a broken  " \
                      "configuration. Please ensure you always run `brew update` before reporting any issues.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_BOOTSNAP:                      {
         description: "If set, do not use Bootsnap to speed up repeated `brew` calls.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_CLEANUP_FORMULAE:              {
         description: "A comma-separated list of formulae. Homebrew will refuse to clean up " \
@@ -498,15 +500,15 @@ module Homebrew
       HOMEBREW_NO_COLOR:                         {
         description:  "If set, do not print text with colour added.",
         default_text: "`$NO_COLOR`.",
-        boolean:      true,
+        boolean:      :set,
       },
       HOMEBREW_NO_EMOJI:                         {
         description: "If set, do not print `$HOMEBREW_INSTALL_BADGE` on a successful build.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_ENV_HINTS:                     {
         description: "If set, do not print any hints about changing Homebrew's behaviour with environment variables.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_EVAL_ENV_SCRUBBING:            {
         # odeprecated: remove in a later release
@@ -517,7 +519,7 @@ module Homebrew
       },
       HOMEBREW_NO_FORCE_BREW_WRAPPER:            {
         description: "`Deprecated:` If set, disables `$HOMEBREW_FORCE_BREW_WRAPPER` behaviour, even if set.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_GITHUB_API:                    {
         description: "If set, do not use the GitHub API, e.g. for searches or fetching relevant issues " \
@@ -542,12 +544,12 @@ module Homebrew
                      "cleanup installed/upgraded/reinstalled formulae or all formulae every " \
                      "`$HOMEBREW_CLEANUP_PERIODIC_FULL_DAYS` days. Alternatively, `$HOMEBREW_NO_CLEANUP_FORMULAE` " \
                      "allows specifying specific formulae to not clean up.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_INSTALL_FROM_API:              {
         description: "If set, do not install formulae and casks in homebrew/core and homebrew/cask taps using " \
                      "Homebrew's API and instead use (large, slow) local checkouts of these repositories.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_INSTALL_UPGRADE:               {
         description: "If set, `brew install` <formula|cask> will not upgrade <formula|cask> if it is installed but " \
@@ -562,7 +564,7 @@ module Homebrew
       HOMEBREW_NO_REQUIRE_TAP_TRUST:             {
         # odeprecated: keep the current default until trust checks are default in a later release.
         description: "If set, do not require non-official tap formulae, casks or commands to be trusted.",
-        boolean:     true,
+        boolean:     :set,
         hidden:      true,
       },
       HOMEBREW_NO_SANDBOX_CASK:                  {
@@ -572,7 +574,7 @@ module Homebrew
       },
       HOMEBREW_NO_SANDBOX_LINUX:                 {
         description: "If set, disable the Linux sandbox.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_NO_UPDATE_REPORT_NEW:             {
         description: "If set, `brew update` will not show the list of newly added formulae/casks.",
@@ -581,7 +583,7 @@ module Homebrew
       HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS:    {
         description: "If set, `brew upgrade` will not automatically upgrade casks with `auto_updates true`. " \
                      "Does not affect `--greedy` or `--greedy-auto-updates` upgrades.",
-        boolean:     true,
+        boolean:     :set,
         hidden:      true, # odeprecated: remove in 5.2.0
       },
       HOMEBREW_NO_UPGRADE_QUIT_CASKS:            {
@@ -591,7 +593,7 @@ module Homebrew
       HOMEBREW_NO_VERIFY_ATTESTATIONS:           {
         description: "If set, Homebrew will not verify cryptographic attestations of build provenance for bottles " \
                      "from homebrew-core.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_PIP_INDEX_URL:                    {
         description:  "If set, `brew install` <formula> will use this URL to download PyPI package resources.",
@@ -605,7 +607,8 @@ module Homebrew
         # odeprecated: make tap trust checks default in a later release.
         description: "If set, require non-official tap formulae, casks and commands to be trusted before " \
                      "Homebrew loads them.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_REQUIRE_TAP_TRUST,
         hidden:      true,
       },
       HOMEBREW_SANDBOX_LINUX:                    {
@@ -613,7 +616,8 @@ module Homebrew
         description: "If set, use the `bwrap`(1) sandbox for formula installation and testing on Linux. " \
                      "Enabled by default if `$HOMEBREW_DEVELOPER` is set. This will be the default in " \
                      "Homebrew 5.2.0.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_SANDBOX_LINUX,
       },
       HOMEBREW_SBOM:                             {
         # odeprecated: edit in 5.2.0
@@ -639,7 +643,7 @@ module Homebrew
       HOMEBREW_SORBET_RUNTIME:                   {
         description: "If set, enable runtime typechecking using Sorbet. " \
                      "Set by default for `$HOMEBREW_DEVELOPER` or when running some developer commands.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_SSH_CONFIG_PATH:                  {
         description:  "If set, Homebrew will use the given config file instead of `~/.ssh/config` when " \
@@ -658,7 +662,7 @@ module Homebrew
       HOMEBREW_SYSTEM_ENV_TAKES_PRIORITY:        {
         description: "If set in Homebrew's system-wide environment file (`/etc/homebrew/brew.env`), " \
                      "the system-wide environment file will be loaded last to override any prefix or user settings.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_TEMP:                             {
         description:  "Use this path as the temporary directory for building packages. Changing " \
@@ -672,7 +676,7 @@ module Homebrew
       HOMEBREW_UPDATE_TO_TAG:                    {
         description: "If set, always use the latest stable tag (even if developer commands " \
                      "have been run).",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS:       {
         # odeprecated: edit in 5.2.0
@@ -680,7 +684,8 @@ module Homebrew
                      "Homebrew detects that the version in the app bundle is older than the version in the tap. " \
                      "Does not affect `--greedy` or `--greedy-auto-updates` upgrades. Enabled by default if " \
                      "`$HOMEBREW_DEVELOPER` is set. This will become the default behavior in Homebrew 5.2.0.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS,
       },
       HOMEBREW_UPGRADE_GREEDY:                   {
         description: "If set, pass `--greedy` to all cask upgrade commands.",
@@ -693,11 +698,12 @@ module Homebrew
       HOMEBREW_USE_INTERNAL_API:                 {
         # odeprecated: make default next release
         description: "If set, test the new beta internal API for fetching formula and cask data.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_INSTALL_FROM_API,
       },
       HOMEBREW_VERBOSE:                          {
         description: "If set, always assume `--verbose` when running commands.",
-        boolean:     true,
+        boolean:     :set,
       },
       HOMEBREW_VERBOSE_USING_DOTS:               {
         description: "If set, verbose output will print a `.` no more than once a minute. This can be " \
@@ -707,7 +713,8 @@ module Homebrew
       HOMEBREW_VERIFY_ATTESTATIONS:              {
         description: "If set, Homebrew will use the `gh` tool to verify cryptographic attestations " \
                      "of build provenance for bottles from homebrew-core.",
-        boolean:     true,
+        boolean:     :set,
+        disabled_by: :HOMEBREW_NO_VERIFY_ATTESTATIONS,
       },
       SUDO_ASKPASS:                              {
         description: "If set, pass the `-A` option when calling `sudo`(8).",
@@ -751,10 +758,13 @@ module Homebrew
       :HOMEBREW_DOWNLOAD_CONCURRENCY,
       :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
       :HOMEBREW_MAKE_JOBS,
-      :HOMEBREW_SANDBOX_LINUX,
-      :HOMEBREW_USE_INTERNAL_API,
     ]).freeze, T::Set[Symbol])
 
+    # Boolean env vars have two generated parsing modes. Use `boolean: true`
+    # for Ruby-only toggles that accept explicit false values like `0` or
+    # `false`. Use `boolean: :set` for toggles used by Bash or with inverse
+    # `_NO_` variants, where any non-empty value must mean enabled. Use
+    # `disabled_by:` when one boolean env var should override another.
     FALSY_VALUES = T.let(%w[false no off nil 0].freeze, T::Array[String])
 
     ENVS.each do |env, hash|
@@ -766,9 +776,14 @@ module Homebrew
 
       if hash[:boolean]
         define_method(method_name) do
+          return false if hash[:disabled_by] &&
+                          Homebrew::EnvConfig.public_send(
+                            env_method_name(hash[:disabled_by], ENVS.fetch(hash[:disabled_by])),
+                          )
+
           env_value = ENV.fetch(env, nil)
 
-          env_value.present? && FALSY_VALUES.exclude?(env_value.downcase)
+          env_value.present? && (hash[:boolean] == :set || FALSY_VALUES.exclude?(env_value.downcase))
         end
       elsif hash[:default].present?
         define_method(method_name) do
@@ -904,22 +919,6 @@ module Homebrew
       end
 
       [concurrency, 1].max
-    end
-
-    sig { returns(T::Boolean) }
-    def sandbox_linux?
-      return false if Homebrew::EnvConfig.no_sandbox_linux?
-
-      sandbox_linux = ENV.fetch("HOMEBREW_SANDBOX_LINUX", nil)
-      sandbox_linux.present? && FALSY_VALUES.exclude?(sandbox_linux.downcase)
-    end
-
-    sig { returns(T::Boolean) }
-    def use_internal_api?
-      return false if Homebrew::EnvConfig.no_install_from_api?
-
-      use_internal_api = ENV.fetch("HOMEBREW_USE_INTERNAL_API", nil)
-      use_internal_api.present? && FALSY_VALUES.exclude?(use_internal_api.downcase)
     end
   end
 end

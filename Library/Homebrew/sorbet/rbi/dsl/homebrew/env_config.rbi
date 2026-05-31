@@ -386,6 +386,9 @@ module Homebrew::EnvConfig
     def require_tap_trust?; end
 
     sig { returns(T::Boolean) }
+    def sandbox_linux?; end
+
+    sig { returns(T::Boolean) }
     def sbom?; end
 
     sig { returns(T::Boolean) }
@@ -429,6 +432,9 @@ module Homebrew::EnvConfig
 
     sig { returns(T.nilable(::String)) }
     def upgrade_greedy_casks; end
+
+    sig { returns(T::Boolean) }
+    def use_internal_api?; end
 
     sig { returns(T::Boolean) }
     def verbose?; end

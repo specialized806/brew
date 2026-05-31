@@ -236,7 +236,9 @@ module Homebrew
           Install.ask_casks fetch_casks, skip_cask_deps: args.skip_cask_deps? if args.ask?
         end
 
-        formulae = Homebrew::Attestation.sort_formulae_for_install(formulae) if Homebrew::Attestation.enabled?
+        if Homebrew::EnvConfig.verify_attestations?
+          formulae = Homebrew::Attestation.sort_formulae_for_install(formulae)
+        end
 
         # if the user's flags will prevent bottle only-installations when no
         # developer tools are available, we need to stop them early on

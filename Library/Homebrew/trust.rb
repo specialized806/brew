@@ -24,11 +24,6 @@ module Homebrew
     TRUST_FILE = T.let((HOMEBREW_PREFIX/"var/homebrew/trust.json").freeze, Pathname)
     private_constant :TRUST_FILE
 
-    sig { returns(T::Boolean) }
-    def self.enabled?
-      Homebrew::EnvConfig.require_tap_trust? && !Homebrew::EnvConfig.no_require_tap_trust?
-    end
-
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trust!(type, name)
       key = setting_key(type)
@@ -84,7 +79,7 @@ module Homebrew
 
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(name)}"
       return if trusted?(:formula, full_name)
-      return trust_by_default!(tap) unless enabled?
+      return trust_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:formula, full_name, tap)
     end
@@ -97,7 +92,7 @@ module Homebrew
 
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(token)}"
       return if trusted?(:cask, full_name)
-      return trust_by_default!(tap) unless enabled?
+      return trust_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:cask, full_name, tap)
     end
@@ -110,7 +105,7 @@ module Homebrew
 
       full_name = "#{tap.name}/#{command || path.basename(path.extname).to_s.delete_prefix("brew-")}"
       return if trusted?(:command, full_name)
-      return trust_by_default!(tap) unless enabled?
+      return trust_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:command, full_name, tap)
     end
@@ -270,7 +265,7 @@ module Homebrew
 
       return true if trusted?(type, "#{tap.name}/#{path.basename(path.extname)}")
 
-      !enabled?
+      !Homebrew::EnvConfig.require_tap_trust?
     end
     private_class_method :trusted_file?
 

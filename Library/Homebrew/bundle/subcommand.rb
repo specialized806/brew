@@ -26,7 +26,7 @@ module Homebrew
           ).void
         }
         def dispatch(args, extensions:)
-          ask = Homebrew::EnvConfig.ask? && !Homebrew::EnvConfig.no_ask?
+          ask = Homebrew::EnvConfig.ask?
 
           # Don't want to ask for input in Bundle
           ENV["HOMEBREW_ASK"] = nil

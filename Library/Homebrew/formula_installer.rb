@@ -1492,7 +1492,7 @@ on_request: installed_on_request?, options:)
     # to explicitly `brew install gh` without already having a version for bootstrapping.
     # We also skip bottle installs from local bottle paths, as these are done in CI
     # as part of the build lifecycle before attestations are produced.
-    check_attestation &&= Homebrew::Attestation.enabled? &&
+    check_attestation &&= Homebrew::EnvConfig.verify_attestations? &&
                           (formula.tap&.core_tap? || false) &&
                           formula.name != "gh"
     # Check attestation after download completes.
