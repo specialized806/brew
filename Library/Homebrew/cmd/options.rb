@@ -20,6 +20,7 @@ module Homebrew
                description: "Evaluate all available formulae and casks, whether installed or not, to show their " \
                             "options.",
                env:         :eval_all
+        # odeprecated: replace with `brew help <command>` in a future release.
         flag   "--command=",
                description: "Show options for the specified <command>."
 
