@@ -212,6 +212,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   sig { returns(T::Boolean) }
   def services?; end
 
+  sig { returns(T.nilable(String)) }
+  def subcommand; end
+
   sig { returns(T::Boolean) }
   def tap?; end
 
