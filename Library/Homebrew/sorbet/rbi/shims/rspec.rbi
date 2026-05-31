@@ -132,6 +132,25 @@ class RSpec::Core::ExampleGroup
 
   sig { params(name: String).returns(Pathname) }
   def fixture(name); end
+
+  # `formula(...) { ... }` helper blocks can be inferred as example group
+  # contexts in typed specs; declare Formula DSL methods to satisfy static
+  # analysis.
+  sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
+  def url(val = "", specs = {}); end
+end
+
+# `formula(...) { ... }` helper blocks can be inferred as this helper module in
+# typed specs; declare Formula DSL methods to satisfy static analysis.
+module Test::Helper::Formula
+  sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
+  def url(val = "", specs = {}); end
+end
+
+# Some helper blocks are inferred as Formula instances or class contexts.
+class Formula
+  sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
+  def url(val = "", specs = {}); end
 end
 
 # The rspec-mocks RBI defines `ExpectHost#expect(target)` with a required
