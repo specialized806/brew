@@ -12,15 +12,30 @@ class RSpec::Core::ExampleGroup
   # here so Sorbet can resolve them in typed spec files.
   sig { params(args: T.untyped).returns(Process::Status) }
   def brew(*args); end
+
   sig { params(args: T.untyped).returns(Process::Status) }
   def brew_sh(*args); end
-  sig { params(name: Formula).returns(Pathname) }
-  def setup_test_formula(name); end
+
+  sig {
+    params(
+      name:           String,
+      content:        T.nilable(String),
+      tap:            Tap,
+      bottle_block:   T.nilable(String),
+      tab_attributes: T.nilable(T::Hash[T.untyped, T.untyped]),
+    ).returns(Pathname)
+  }
+  def setup_test_formula(name, content = T.unsafe(nil), tap: T.unsafe(nil), bottle_block: T.unsafe(nil),
+                         tab_attributes: T.unsafe(nil))
+  end
+
   sig { returns(Pathname) }
   def setup_test_tap; end
-  sig { params(name: String).returns(Pathname) }
-  def install_test_formula(name); end
-  sig { params(name: String).returns(Pathname) }
+
+  sig { params(name: String, content: T.nilable(String), build_bottle: T::Boolean).void }
+  def install_test_formula(name, content = T.unsafe(nil), build_bottle: false); end
+
+  sig { params(name: String).void }
   def uninstall_test_formula(name); end
 
   # `mktmpdir` is mixed into specs via `config.include(Test::Helper::MkTmpDir)`
