@@ -5,8 +5,8 @@ require "test_bot"
 
 RSpec.describe Homebrew::TestBot::FormulaeDetect do
   describe "::DEFAULT_TEST_FORMULAE" do
-    it "uses dependency-free formulae for default formula testing" do
-      expect(Homebrew::TestBot::FormulaeDetect::DEFAULT_TEST_FORMULAE).to eq(%w[libspiro bats-core])
+    it "uses GitHub-hosted, dependency-free formulae for default formula testing" do
+      expect(Homebrew::TestBot::FormulaeDetect::DEFAULT_TEST_FORMULAE).to eq(%w[libdeflate bats-core])
     end
   end
 end

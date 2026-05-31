@@ -4,8 +4,9 @@
 module Homebrew
   module TestBot
     class FormulaeDetect < Test
-      # Formulae must have GitHub homepages, no stable dependencies, one executable and one library between them.
-      DEFAULT_TEST_FORMULAE = %w[libspiro bats-core].freeze
+      # Formulae must have GitHub homepages and stable URLs, no stable dependencies,
+      # one executable and one library between them.
+      DEFAULT_TEST_FORMULAE = %w[libdeflate bats-core].freeze
 
       sig { returns(T::Array[String]) }
       attr_reader :testing_formulae, :added_formulae, :deleted_formulae
