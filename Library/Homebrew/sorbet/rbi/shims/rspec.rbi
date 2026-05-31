@@ -1,9 +1,11 @@
 # typed: strict
 
 class RSpec::Core::ExampleGroup
+  include CopHelper
   include RSpec::SharedContext
   include RSpec::Matchers
   include RSpec::Mocks::ExampleMethods
+  include RuboCop::RSpec::ExpectOffense
 
   # `mktmpdir` is mixed into specs via `config.include(Test::Helper::MkTmpDir)`
   # in `test/spec_helper.rb`; declare it here so Sorbet can resolve it in typed
@@ -31,4 +33,19 @@ end
 module RSpec::Mocks::ExampleMethods::ExpectHost
   sig { params(value: T.untyped, block: T.nilable(T.proc.void)).returns(T.untyped) }
   def expect(value = T.unsafe(nil), &block); end
+end
+
+# RuboCop cop specs include this helper at runtime via `rubocop/rspec/support`.
+module CopHelper
+  sig { params(source: String, file: T.untyped).returns(T::Array[T.untyped]) }
+  def inspect_source(source, file = T.unsafe(nil)); end
+
+  sig { params(source: String, file: T.untyped).returns(String) }
+  def autocorrect_source(source, file = T.unsafe(nil)); end
+
+  sig { params(source: String).returns(String) }
+  def autocorrect_source_file(source); end
+
+  sig { params(source: String, file: T.untyped).returns(T.untyped) }
+  def parse_source(source, file = T.unsafe(nil)); end
 end
