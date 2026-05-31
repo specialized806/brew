@@ -58,6 +58,15 @@ RSpec.describe Homebrew::Cmd::Bundle do
     expect(context.ask).to be(true)
   end
 
+  it "lets HOMEBREW_BUNDLE_NO_JOBS disable env-driven parallel jobs" do
+    with_env(HOMEBREW_BUNDLE_JOBS: "auto", HOMEBREW_BUNDLE_NO_JOBS: "1") do
+      args = klass.new([]).args
+      context = klass.context(args, extensions: Homebrew::Cmd::Bundle::BUNDLE_EXTENSIONS)
+
+      expect(context.jobs).to eq(1)
+    end
+  end
+
   it "lets HOMEBREW_NO_ASK disable env-driven ask mode" do
     with_env(HOMEBREW_ASK: "1", HOMEBREW_NO_ASK: "1") do
       args = klass.new(%w[cleanup]).args

@@ -97,6 +97,30 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".bundle_describe?" do
+    it "returns false if HOMEBREW_BUNDLE_NO_DESCRIBE is set" do
+      with_env(HOMEBREW_BUNDLE_DESCRIBE: "1", HOMEBREW_BUNDLE_NO_DESCRIBE: "1") do
+        expect(env_config.bundle_describe?).to be(false)
+      end
+    end
+  end
+
+  describe ".bundle_jobs" do
+    it "returns nil if HOMEBREW_BUNDLE_NO_JOBS is set" do
+      with_env(HOMEBREW_BUNDLE_JOBS: "auto", HOMEBREW_BUNDLE_NO_JOBS: "1") do
+        expect(env_config.bundle_jobs).to be_nil
+      end
+    end
+  end
+
+  describe ".bundle_no_secrets?" do
+    it "returns false if HOMEBREW_BUNDLE_SECRETS is set" do
+      with_env(HOMEBREW_BUNDLE_NO_SECRETS: "1", HOMEBREW_BUNDLE_SECRETS: "1") do
+        expect(env_config.bundle_no_secrets?).to be(false)
+      end
+    end
+  end
+
   describe ".forbid_packages_from_paths?" do
     around do |example|
       with_env(HOMEBREW_TESTS: ENV.fetch("HOMEBREW_TESTS", nil)) { example.run }
