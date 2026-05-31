@@ -7,6 +7,22 @@ class RSpec::Core::ExampleGroup
   include RSpec::Mocks::ExampleMethods
   include RuboCop::RSpec::ExpectOffense
 
+  # These methods are added to specs in
+  # `test/support/helper/spec/shared_context/integration_test.rb`; declare them
+  # here so Sorbet can resolve them in typed spec files.
+  sig { params(args: T.untyped).returns(Process::Status) }
+  def brew(*args); end
+  sig { params(args: T.untyped).returns(Process::Status) }
+  def brew_sh(*args); end
+  sig { params(name: Formula).returns(Pathname) }
+  def setup_test_formula(name); end
+  sig { returns(Pathname) }
+  def setup_test_tap; end
+  sig { params(name: String).returns(Pathname) }
+  def install_test_formula(name); end
+  sig { params(name: String).returns(Pathname) }
+  def uninstall_test_formula(name); end
+
   # `mktmpdir` is mixed into specs via `config.include(Test::Helper::MkTmpDir)`
   # in `test/spec_helper.rb`; declare it here so Sorbet can resolve it in typed
   # spec files.
