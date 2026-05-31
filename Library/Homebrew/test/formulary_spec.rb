@@ -883,6 +883,8 @@ RSpec.describe Formulary do
     context "when not using the API", :no_api do
       context "when a formula is migrated" do
         let(:token) { "foo" }
+        let(:old_tap) { core_tap }
+        let(:new_tap) { core_cask_tap }
 
         let(:core_tap) { CoreTap.instance }
         let(:core_cask_tap) { CoreCaskTap.instance }
