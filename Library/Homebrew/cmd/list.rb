@@ -42,6 +42,7 @@ module Homebrew
                             "<cask> are provided. See also `pin`, `unpin`."
         switch "--installed-on-request",
                description: "List the formulae installed on request."
+        # odeprecated: replace with `--no-installed-on-request` in a future release.
         switch "--installed-as-dependency",
                description: "List the formulae installed as dependencies."
         switch "--poured-from-bottle",
