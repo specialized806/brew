@@ -1377,7 +1377,6 @@ _brew_dispatch_build_bottle() {
       --linux
       --linux-arm64
       --linux-self-hosted
-      --linux-wheezy
       --macos
       --quiet
       --tap
