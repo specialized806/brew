@@ -257,22 +257,6 @@ RSpec.shared_context "integration test" do # rubocop:disable RSpec/ContextWordin
     path
   end
 
-  def setup_remote_tap(name)
-    Tap.fetch(name).tap do |tap|
-      next if tap.installed?
-
-      full_name = Tap.fetch(name).full_name
-      # Check to see if the original Homebrew process has taps we can use.
-      system_tap_path = Pathname("#{ENV.fetch("HOMEBREW_LIBRARY")}/Taps/#{full_name}")
-      if system_tap_path.exist?
-        system "git", "clone", "--shared", system_tap_path.to_s, tap.path.to_s
-        system "git", "-C", tap.path.to_s, "checkout", "master"
-      else
-        tap.install(quiet: true)
-      end
-    end
-  end
-
   def install_and_rename_coretap_formula(old_name, new_name)
     CoreTap.instance.path.cd do |tap_path|
       system "git", "init"
