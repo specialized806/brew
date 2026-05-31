@@ -53,7 +53,7 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
 
       expect { brew "help", "hello-tap", "SECRET_TOKEN" => "password" }
         .to output(%r{^From tap: thirdparty/foo$}).to_stdout
-        .and output(%r{Tap thirdparty/foo was trusted by default}).to_stderr
+        .and output(%r{Tap thirdparty/foo is allowed by default}).to_stderr
         .and be_a_success
     ensure
       Homebrew::Trust.clear!(:tap)
@@ -92,20 +92,25 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
         end
       RUBY
       cmd_path.chmod(0755)
+      trust_home = Pathname(TEST_TMPDIR)/"help-command-trust"
+      trust_env = { "HOMEBREW_USER_CONFIG_HOME" => trust_home.to_s }
+      require_trust_env = trust_env.merge(
+        "HOMEBREW_REQUIRE_TAP_TRUST" => "1",
+      )
 
-      expect { brew "help", "hello-tap", "HOMEBREW_REQUIRE_TAP_TRUST" => "1" }
+      expect { brew "help", "hello-tap", require_trust_env.dup }
         .to output(%r{thirdparty/foo}).to_stderr
         .and be_a_failure
 
-      expect { brew "trust", "--command", "thirdparty/foo/hello-tap" }
+      expect { brew "trust", "--command", "thirdparty/foo/hello-tap", trust_env.dup }
         .to output(%r{Trusted command: thirdparty/foo/hello-tap}).to_stdout
         .and be_a_success
 
-      expect { brew "help", "hello-tap", "HOMEBREW_REQUIRE_TAP_TRUST" => "1" }
+      expect { brew "help", "hello-tap", require_trust_env.dup }
         .to output(%r{^From tap: thirdparty/foo$}).to_stdout
         .and be_a_success
     ensure
-      Homebrew::Trust.clear!(:command)
+      FileUtils.rm_rf trust_home if trust_home
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
     end
 

@@ -10,6 +10,7 @@ require "cask/upgrade"
 require "api"
 require "reinstall"
 require "minimum_version"
+require "trust"
 
 module Homebrew
   module Cmd
@@ -181,6 +182,8 @@ module Homebrew
         @ask_prompt_required = false
 
         if args.named.present?
+          Homebrew::Trust.trust_fully_qualified_items!(args.named, type: args.only_formula_or_cask)
+
           args.named.to_formulae_and_casks_and_unavailable(method: :resolve).each do |item|
             case item
             when FormulaOrCaskUnavailableError, NoSuchKegError

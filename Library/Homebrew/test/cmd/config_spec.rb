@@ -65,4 +65,14 @@ RSpec.describe Homebrew::Cmd::Config do
 
     expect(output.string).to include("Windows: Windows 11 Pro (25H2) [26200.8457]\n")
   end
+
+  it "does not print HOMEBREW_EVAL_ALL unless it is directly set" do
+    output = StringIO.new
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1", HOMEBREW_EVAL_ALL: nil) do
+      SystemConfig.homebrew_env_config(output)
+    end
+
+    expect(output.string).not_to include("HOMEBREW_EVAL_ALL")
+  end
 end

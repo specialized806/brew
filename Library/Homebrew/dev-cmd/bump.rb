@@ -71,9 +71,11 @@ module Homebrew
                description: "Check only formulae."
         switch "--cask", "--casks",
                description: "Check only casks."
+        # odeprecated: remove in a future release.
         switch "--eval-all",
-               description: "Evaluate all formulae and casks.",
-               env:         :eval_all
+               description: "Evaluate all available formulae and casks.",
+               env:         :eval_all,
+               hidden:      true
         switch "--repology",
                description: "Use Repology to check for outdated packages."
         flag   "--tap=",
@@ -105,6 +107,7 @@ module Homebrew
 
         Homebrew.with_no_api_env do
           eval_all = args.eval_all?
+          eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
 
           excluded_autobump = []
           if args.no_autobump? && eval_all
@@ -154,8 +157,8 @@ module Homebrew
             formulae + casks
           else
             raise UsageError,
-                  "`brew bump` without named arguments needs `--installed` or `--eval-all` passed or " \
-                  "`HOMEBREW_EVAL_ALL=1` set!"
+                  "`brew bump` without named arguments needs `--installed`, `HOMEBREW_REQUIRE_TAP_TRUST=1` or " \
+                  "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
           end
 
           if (start_with = args.start_with)

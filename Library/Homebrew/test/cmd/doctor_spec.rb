@@ -35,6 +35,20 @@ RSpec.describe Homebrew::Cmd::Doctor do
       )
   end
 
+  specify "check_for_unreadable_installed_formula skips untrusted installed formulae" do
+    rack = HOMEBREW_CELLAR/"php@7.2"
+    rack.mkpath
+    (rack/"1.0").mkpath
+    allow(Formulary).to receive(:from_rack)
+      .with(rack)
+      .and_raise(
+        Homebrew::UntrustedTapError,
+        "Refusing to load formula shivammathur/php/php@7.2.",
+      )
+
+    expect(Homebrew::Diagnostic::Checks.new.check_for_unreadable_installed_formula).to be_nil
+  end
+
   specify "does not print removed caveats method errors for installed casks", :cask do
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     installer = InstallHelper.install_with_caskfile(cask)

@@ -63,10 +63,13 @@ module Homebrew
         switch "--installed",
                description: "Output a human-readable inventory of installed formulae and casks. If `--json` is " \
                             "passed, print JSON for installed formulae and, with `--json=v2`, installed casks."
+        # odeprecated: remove in a future release.
         switch "--eval-all",
                depends_on:  "--json",
                description: "Evaluate all available formulae and casks, whether installed or not, to print their " \
-                            "JSON."
+                            "JSON.",
+               env:         :eval_all,
+               hidden:      true
         switch "--variations",
                depends_on:  "--json",
                description: "Include the variations hash in each formula's JSON output."
@@ -115,7 +118,9 @@ module Homebrew
 
           print_analytics
         elsif (json = args.json)
-          print_json(json, args.eval_all?)
+          eval_all = args.eval_all?
+          eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
+          print_json(json, eval_all)
         elsif args.installed?
           T.let([
             *(args.cask? ? [] : Formula.installed.sort),

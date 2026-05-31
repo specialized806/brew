@@ -2561,14 +2561,16 @@ class Formula
   end
 
   # An array of each known {Formula}.
-  # Can only be used when users specify `--eval-all` with a command or set `HOMEBREW_EVAL_ALL=1`.
+  # Can only be used when users set `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1`.
   sig { params(eval_all: T::Boolean).returns(T::Array[Formula]) }
   def self.all(eval_all: false)
-    if !eval_all && !Homebrew::EnvConfig.eval_all?
-      raise ArgumentError, "Formula#all cannot be used without `--eval-all` or `HOMEBREW_EVAL_ALL=1`"
+    if !eval_all && !Homebrew::EnvConfig.tap_trust_configured?
+      raise ArgumentError,
+            "Formula#all cannot be used without `HOMEBREW_REQUIRE_TAP_TRUST=1` or " \
+            "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1`"
     end
 
-    trusted_tap_files = tap_files.select { |file| Homebrew::Trust.trusted_formula_file?(file) }
+    trusted_tap_files = Homebrew::Trust.trusted_formula_files(tap_files)
 
     (core_names + trusted_tap_files).filter_map do |name_or_file|
       Formulary.factory(name_or_file)

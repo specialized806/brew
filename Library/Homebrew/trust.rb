@@ -21,7 +21,7 @@ module Homebrew
     }.freeze, T::Hash[Symbol, Symbol])
     private_constant :SETTING_KEYS
 
-    TRUST_FILE = T.let((HOMEBREW_PREFIX/"var/homebrew/trust.json").freeze, Pathname)
+    TRUST_FILE = T.let((Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json").freeze, Pathname)
     private_constant :TRUST_FILE
 
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
@@ -54,6 +54,33 @@ module Homebrew
       true
     end
 
+    sig { params(names: T::Array[String], type: T.nilable(Symbol)).void }
+    def self.trust_fully_qualified_items!(names, type: nil)
+      names.each do |name|
+        next if name.count("/") != 2
+
+        tap_name = name.split("/").first(2).join("/")
+        item_name = ::Utils.name_from_full_name(name)
+        tap = Tap.fetch(tap_name)
+        next if tap.official?
+
+        types = if type == :formula
+          tap.formula_files_by_name.key?(item_name) ? [:formula] : []
+        elsif type == :cask
+          tap.cask_files_by_name.key?(item_name) ? [:cask] : []
+        elsif tap.formula_files_by_name.key?(item_name)
+          [:formula]
+        elsif tap.cask_files_by_name.key?(item_name)
+          [:cask]
+        else
+          []
+        end
+        types.each { |item_type| trust!(item_type, "#{tap.name}/#{item_name}") }
+      rescue Tap::InvalidNameError
+        nil
+      end
+    end
+
     sig { params(type: Symbol).void }
     def self.clear!(type)
       store = trust_store
@@ -79,7 +106,8 @@ module Homebrew
 
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(name)}"
       return if trusted?(:formula, full_name)
-      return trust_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
+      return if explicitly_allowed?(:formula, full_name, tap)
+      return allow_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:formula, full_name, tap)
     end
@@ -92,7 +120,8 @@ module Homebrew
 
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(token)}"
       return if trusted?(:cask, full_name)
-      return trust_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
+      return if explicitly_allowed?(:cask, full_name, tap)
+      return allow_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:cask, full_name, tap)
     end
@@ -105,7 +134,7 @@ module Homebrew
 
       full_name = "#{tap.name}/#{command || path.basename(path.extname).to_s.delete_prefix("brew-")}"
       return if trusted?(:command, full_name)
-      return trust_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
+      return allow_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:command, full_name, tap)
     end
@@ -118,6 +147,35 @@ module Homebrew
     sig { params(path: Pathname).returns(T::Boolean) }
     def self.trusted_cask_file?(path)
       trusted_file?(:cask, path)
+    end
+
+    sig { params(files: T::Array[Pathname]).returns(T::Array[Pathname]) }
+    def self.trusted_formula_files(files)
+      trusted_files(:formula, files)
+    end
+
+    sig { params(files: T::Array[Pathname]).returns(T::Array[Pathname]) }
+    def self.trusted_cask_files(files)
+      trusted_files(:cask, files)
+    end
+
+    sig { params(files: T::Array[Pathname]).returns(T::Array[Pathname]) }
+    def self.trusted_command_files(files)
+      trusted_files(:command, files)
+    end
+
+    sig { returns(T::Array[Tap]) }
+    def self.untrusted_taps
+      Tap.installed.reject(&:official?).reject { |tap| trusted?(:tap, tap.name) }.sort_by(&:name)
+    end
+
+    sig { returns(T::Array[Tap]) }
+    def self.wholly_untrusted_taps
+      untrusted_taps.reject do |tap|
+        trusted_entry_prefix?(:formula, tap.name) ||
+          trusted_entry_prefix?(:cask, tap.name) ||
+          trusted_entry_prefix?(:command, tap.name)
+      end
     end
 
     sig { params(type: Symbol).returns(String) }
@@ -232,24 +290,24 @@ module Homebrew
 
       TRUST_FILE.dirname.mkpath
       TRUST_FILE.atomic_write("#{JSON.pretty_generate(store)}\n")
+      TRUST_FILE.chmod(0600)
     end
     private_class_method :write_trust_store
 
     sig { params(tap: T.untyped).returns(T::Boolean) }
-    def self.trust_by_default!(tap)
-      trust!(:tap, tap.name)
+    def self.allow_by_default!(tap)
       unless Homebrew::EnvConfig.no_env_hints?
         opoo <<~EOS
-          Tap #{tap.name} was trusted by default.
+          Tap #{tap.name} is allowed by default.
           Homebrew will require explicit trust for non-official taps in a future release.
-          Set `HOMEBREW_REQUIRE_TAP_TRUST=1` to require explicit trust now or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to keep trusting by default.
+          Set `HOMEBREW_REQUIRE_TAP_TRUST=1` to require explicit trust now or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to keep allowing by default.
           Hide these hints with `HOMEBREW_NO_ENV_HINTS=1` (see `man brew`).
         EOS
       end
 
       true
     end
-    private_class_method :trust_by_default!
+    private_class_method :allow_by_default!
 
     sig { params(path: Pathname).returns(T.untyped) }
     def self.tap_from_path(path)
@@ -263,11 +321,50 @@ module Homebrew
       return true unless (tap = tap_from_path(path))
       return true if trusted_tap?(tap)
 
-      return true if trusted?(type, "#{tap.name}/#{path.basename(path.extname)}")
+      name = path.basename(path.extname).to_s
+      name = name.delete_prefix("brew-") if type == :command
+      full_name = "#{tap.name}/#{name}"
+      return true if trusted?(type, full_name)
+      return true if explicitly_allowed?(type, full_name, tap)
 
       !Homebrew::EnvConfig.require_tap_trust?
     end
     private_class_method :trusted_file?
+
+    sig { params(type: Symbol, full_name: String, tap: T.untyped).returns(T::Boolean) }
+    def self.explicitly_allowed?(type, full_name, tap)
+      return false if type == :command
+
+      downcased_args = ARGV.map(&:downcase)
+      downcased_full_name = full_name.downcase
+      tap_name = tap.name.downcase
+      downcased_args.include?(downcased_full_name) ||
+        downcased_args.include?(tap_name) ||
+        downcased_args.include?("--tap=#{tap_name}") ||
+        downcased_args.each_cons(2).any? { |option, value| option == "--tap" && value == tap_name }
+    end
+    private_class_method :explicitly_allowed?
+
+    sig { params(type: Symbol, files: T::Array[Pathname]).returns(T::Array[Pathname]) }
+    def self.trusted_files(type, files)
+      trusted_files = files.select { |file| trusted_file?(type, file) }
+      return trusted_files unless Homebrew::EnvConfig.require_tap_trust?
+
+      skipped_taps = (files - trusted_files).filter_map { |file| tap_from_path(file) }.uniq.sort_by(&:name)
+      skipped_taps.each do |tap|
+        opoo "Skipping #{tap.name} because it is not trusted. Run `brew trust #{tap.name}` to trust it."
+      end
+
+      trusted_files
+    end
+    private_class_method :trusted_files
+
+    sig { params(type: Symbol, tap_name: String).returns(T::Boolean) }
+    def self.trusted_entry_prefix?(type, tap_name)
+      prefix = "#{tap_name}/"
+      trusted_entries(type).any? { |entry| entry.start_with?(prefix) }
+    end
+    private_class_method :trusted_entry_prefix?
 
     sig { params(type: Symbol, name: String, tap: T.untyped).void }
     def self.raise_untrusted!(type, name, tap)

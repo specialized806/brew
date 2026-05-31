@@ -24,4 +24,21 @@ RSpec.describe Homebrew::Cmd::Trust do
   ensure
     Homebrew::Trust.clear!(:command)
   end
+
+  it "lists trusted entries with no arguments" do
+    Homebrew::Trust.trust!(:tap, "thirdparty/foo")
+    Homebrew::Trust.trust!(:formula, "thirdparty/foo/bar")
+
+    expect { Homebrew::Cmd::Trust.new([]).run }
+      .to output(<<~EOS).to_stdout
+        All official taps and commands are trusted.
+        Trusted taps:
+          thirdparty/foo
+        Trusted formulae:
+          thirdparty/foo/bar
+      EOS
+  ensure
+    Homebrew::Trust.clear!(:tap)
+    Homebrew::Trust.clear!(:formula)
+  end
 end

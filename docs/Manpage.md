@@ -1057,16 +1057,10 @@ passed, this command displays their actual runtime dependencies (similar to
 
 : Show only missing dependencies.
 
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to list
-  their dependencies.
-
 `--for-each`
 
-: Switch into the mode used by the `--eval-all` option, but only list
-  dependencies for each provided *`formula`*, one formula per line. This is used
-  for debugging the `--installed`/`--eval-all` display mode.
+: Switch into the mode used when evaluating all formulae and casks, but only
+  list dependencies for each provided *`formula`*, one formula per line.
 
 `--HEAD`
 
@@ -1107,11 +1101,6 @@ first search, making that search slower than subsequent ones.
 
 : Search just descriptions for *`text`*. If *`text`* is flanked by slashes, it
   is interpreted as a regular expression.
-
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to search
-  their descriptions. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
 
 `--formula`
 
@@ -1335,11 +1324,6 @@ Display brief statistics for your Homebrew installation. If a *`formula`* or
 : Output a human-readable inventory of installed formulae and casks. If `--json`
   is passed, print JSON for installed formulae and, with `--json=v2`, installed
   casks.
-
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to print
-  their JSON.
 
 `--variations`
 
@@ -1735,11 +1719,6 @@ Show install options specific to *`formula`*.
 
 : Show options for formulae that are currently installed.
 
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to show
-  their options. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
-
 `--command`
 
 : Show options for the specified *`command`*.
@@ -1857,11 +1836,6 @@ all items or checking if any current formulae/casks have Ruby issues.
 `--syntax`
 
 : Syntax-check all of Homebrew's Ruby files (if no *`tap`* is passed).
-
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not. Enabled
-  by default if `$HOMEBREW_EVAL_ALL` is set.
 
 `--no-simulate`
 
@@ -1981,11 +1955,6 @@ Perform a substring search of cask tokens and formula names for *`text`*. If
 
 : Search for formulae with a description matching *`text`* and casks with a name
   or description matching *`text`*.
-
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to search
-  their descriptions. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
 
 `--pull-request`
 
@@ -2227,11 +2196,6 @@ HTTPS, e.g. SSH, git, HTTP, FTP(S), rsync.
 : Add missing symlinks to tap manpages and shell completions. Correct git remote
   refs for any taps where upstream HEAD branch has been renamed.
 
-`--eval-all`
-
-: Evaluate all formulae, casks and aliases in the new tap to check their
-  validity. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
-
 `-f`, `--force`
 
 : Force install core taps even under API mode.
@@ -2250,6 +2214,27 @@ provided, display brief statistics for all installed taps.
 : Print a JSON representation of *`tap`*. Currently the default and only
   accepted value for *`version`* is `v1`. See the docs for examples of using the
   JSON output: <https://docs.brew.sh/Querying-Brew>
+
+### `trust` \[*`options`*\] \[*`target`* ...\]
+
+Trust non-official tap formulae, casks or commands so Homebrew may load them
+when `$HOMEBREW_REQUIRE_TAP_TRUST` is set.
+
+`--tap`
+
+: Trust the named tap.
+
+`--formula`
+
+: Trust the named formula.
+
+`--cask`
+
+: Trust the named cask.
+
+`--command`
+
+: Trust the named external command.
 
 ### `unalias` *`alias`* \[...\]
 
@@ -2313,6 +2298,26 @@ Remove a tapped formula repository.
 `-f`, `--force`
 
 : Untap even if formulae or casks from this tap are currently installed.
+
+### `untrust` \[*`options`*\] \[*`target`* ...\]
+
+Stop trusting non-official tap formulae, casks or commands.
+
+`--tap`
+
+: Untrust the named tap.
+
+`--formula`
+
+: Untrust the named formula.
+
+`--cask`
+
+: Untrust the named cask.
+
+`--command`
+
+: Untrust the named external command.
 
 ### `update`, `up` \[*`options`*\]
 
@@ -2501,11 +2506,6 @@ dependency for their stable builds.
 
 : Only list formulae and casks that are not currently installed.
 
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to show
-  their dependents. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
-
 `--include-implicit`
 
 : Include formulae that have *`formula`* as an implicit dependency for
@@ -2691,11 +2691,6 @@ checks. Will exit with a non-zero status if any errors are found.
 
 : Only check formulae and casks that are currently installed.
 
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to audit
-  them. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
-
 `--new`
 
 : Run various additional style checks to determine if a new formula or cask is
@@ -2855,11 +2850,6 @@ displays whether a pull request has been opened with the URL.
 `--cask`
 
 : Check only casks.
-
-`--eval-all`
-
-: Evaluate all formulae and casks. Enabled by default if `$HOMEBREW_EVAL_ALL` is
-  set.
 
 `--repology`
 
@@ -3550,11 +3540,6 @@ from `$HOMEBREW_LIVECHECK_WATCHLIST` or `~/.homebrew/livecheck_watchlist.txt`.
 
 : Check formulae and casks within the given tap, specified as
   *`user`*`/`*`repo`*.
-
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to check
-  them.
 
 `--installed`
 
@@ -4286,11 +4271,6 @@ Show the unbottled dependents of formulae.
 
 : Print the `homebrew/core` commits where bottles were lost in the last week.
 
-`--eval-all`
-
-: Evaluate all available formulae and casks, whether installed or not, to check
-  them. Enabled by default if `$HOMEBREW_EVAL_ALL` is set.
-
 ### `unpack` \[*`options`*\] *`formula`*\|*`cask`* \[...\]
 
 Unpack the files for the *`formula`* or *`cask`* into subdirectories of the
@@ -4783,6 +4763,13 @@ command execution (e.g. `$(cat file)`).
 
 : If set, `brew bundle cleanup` will not clean up WinGet packages.
 
+`HOMEBREW_BUNDLE_DESCRIBE`
+
+: If set, add a description comment above each line in `brew bundle dump` and
+  `brew bundle add`, unless the dependency does not have a description. Enabled
+  by default if `$HOMEBREW_DEVELOPER` is set. This will become the default
+  behaviour in a later minor release.
+
 `HOMEBREW_BUNDLE_DUMP_NO_BREW`
 
 : If set, `brew bundle dump` will not dump formula dependencies.
@@ -4835,6 +4822,37 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP`
 
 : If set, run `brew bundle cleanup --force` after `brew bundle install`.
+
+`HOMEBREW_BUNDLE_JOBS`
+
+: Use this value as the number of formula installations to run in parallel for
+  `brew bundle install`. Use `auto` for the number of CPU cores (max 4). Enabled
+  by default with a value of `auto` if `$HOMEBREW_DEVELOPER` is set. This will
+  become the default behaviour in a later minor release.
+
+`HOMEBREW_BUNDLE_NO_DESCRIBE`
+
+: If set, do not enable bundle description comments from
+  `$HOMEBREW_BUNDLE_DESCRIBE` or the `$HOMEBREW_DEVELOPER` default. This does
+  not disable an explicit `--describe`.
+
+`HOMEBREW_BUNDLE_NO_JOBS`
+
+: If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or the
+  `$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--jobs`.
+
+`HOMEBREW_BUNDLE_NO_SECRETS`
+
+: If set, `brew bundle exec`, `brew bundle env` and `brew bundle sh` will
+  attempt to remove secrets from the environment. Enabled by default if
+  `$HOMEBREW_DEVELOPER` is set. This will become the default behaviour in a
+  later minor release.
+
+`HOMEBREW_BUNDLE_SECRETS`
+
+: If set, do not enable secret scrubbing from `$HOMEBREW_BUNDLE_NO_SECRETS` or
+  the `$HOMEBREW_DEVELOPER` default. This does not disable an explicit
+  `--no-secrets`.
 
 `HOMEBREW_BUNDLE_USER_CACHE`
 
@@ -4970,12 +4988,6 @@ command execution (e.g. `$(cat file)`).
 
 : If set, `brew *env-sync` will only sync the exact installed versions of
   formulae.
-
-`HOMEBREW_EVAL_ALL`
-
-: If set, `brew` commands evaluate all formulae and casks, executing their
-  arbitrary code, by default without requiring `--eval-all`. Required to cache
-  formula and cask descriptions.
 
 `HOMEBREW_FAIL_LOG_LINES`
 

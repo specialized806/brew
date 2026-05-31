@@ -182,9 +182,14 @@ module Commands
   sig { returns(T::Array[String]) }
   def self.external_commands
     tap_cmd_directories.flat_map do |path|
-      find_commands(path).select(&:executable?)
-                         .map { |basename| basename_without_extension(basename) }
-                         .map { |p| p.to_s.delete_prefix("brew-").strip }
+      commands = find_commands(path).select(&:executable?)
+      if path.expand_path.ascend.any?(HOMEBREW_TAP_DIRECTORY)
+        require "trust"
+        commands = Homebrew::Trust.trusted_command_files(commands)
+      end
+      commands
+        .map { |basename| basename_without_extension(basename) }
+        .map { |p| p.to_s.delete_prefix("brew-").strip }
     end.map(&:to_s)
        .sort
   end
@@ -331,8 +336,17 @@ module Commands
     cmd_parser = Homebrew::CLI::Parser.from_cmd_path(path)
     return if cmd_parser.blank?
 
+    hidden_options = cmd_parser.processed_options.filter_map do |short, long, _desc, hidden|
+      next unless hidden
+
+      option_name = long || short
+      next unless option_name
+
+      Homebrew::CLI::Parser.option_to_name(option_name).tr("_", "-")
+    end
+
     cmd_parser.conflicts.map do |set|
-      set.map! { |s| s.tr "_", "-" }
+      set = set.map { |s| s.tr "_", "-" } - hidden_options
       set - [option] if set.include? option
     end.flatten.compact
   end

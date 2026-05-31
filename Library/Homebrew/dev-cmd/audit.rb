@@ -39,9 +39,11 @@ module Homebrew
                description: "Run additional, slower style checks that require a network connection."
         switch "--installed",
                description: "Only check formulae and casks that are currently installed."
+        # odeprecated: remove in a future release.
         switch "--eval-all",
                description: "Evaluate all available formulae and casks, whether installed or not, to audit them.",
-               env:         :eval_all
+               env:         :eval_all,
+               hidden:      true
         switch "--new",
                description: "Run various additional style checks to determine if a new formula or cask is eligible " \
                             "for Homebrew. This should be used when creating new formulae or casks and implies " \
@@ -154,11 +156,12 @@ module Homebrew
             [Formula.installed, Cask::Caskroom.casks]
           elsif args.no_named?
             eval_all = args.eval_all?
+            eval_all ||= Homebrew::EnvConfig.tap_trust_configured?
 
             unless eval_all
               # This odisabled should probably stick around indefinitely.
               odisabled "`brew audit`",
-                        "`brew audit --eval-all` or set `HOMEBREW_EVAL_ALL=1`"
+                        "set `HOMEBREW_REQUIRE_TAP_TRUST=1`"
             end
             no_named_args = true
             [

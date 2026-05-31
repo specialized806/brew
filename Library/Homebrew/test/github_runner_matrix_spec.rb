@@ -157,7 +157,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
     context "when it is a matrix for the `test_deps` job" do
       context "when testing formulae have no dependents" do
         it "activates no runners" do
-          allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
           allow(Formula).to receive(:all).and_return([testball].map(&:formula))
 
           expect(klass.new([testball], [], all_supported: false, dependent_matrix: true)
@@ -170,7 +169,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
       context "when testing formulae have dependents" do
         context "when dependents have no requirements" do
           it "activates all runners" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
 
             expect(klass.new([testball], [], all_supported: false, dependent_matrix: true)
@@ -180,7 +178,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
           end
 
           it "splits active runners into shards" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
 
             runners = klass.new([testball], [],
@@ -197,7 +194,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
         context "when dependents require Linux" do
           it "activates only Linux runners" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender_linux].map(&:formula))
 
             runner_matrix = klass.new([testball], [], all_supported: false, dependent_matrix: true)
@@ -209,7 +205,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
         context "when dependents require macOS" do
           it "activates only macOS runners" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender_macos].map(&:formula))
 
             runner_matrix = klass.new([testball], [], all_supported: false, dependent_matrix: true)
@@ -221,7 +216,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
         context "when dependents require an Intel architecture" do
           it "activates only Intel runners" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender_intel].map(&:formula))
 
             runner_matrix = klass.new([testball], [], all_supported: false, dependent_matrix: true)
@@ -233,7 +227,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
         context "when dependents require an ARM architecture" do
           it "activates only ARM runners" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender_arm].map(&:formula))
 
             runner_matrix = klass.new([testball], [], all_supported: false, dependent_matrix: true)
@@ -273,7 +266,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
                                     all_supported:    false,
                                     dependent_matrix: true)
 
-          allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
           allow(Formula).to receive(:all).and_return(testing_formulae.map(&:formula))
 
           expect(runner_matrix.runners.none?(&:active)).to be(true)
@@ -283,7 +275,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
       context "when there are testing formulae with dependents" do
         context "when dependent formulae have no requirements" do
           it "activates the applicable runners" do
-            allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
 
             testing_formulae = [testball]
@@ -297,7 +288,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
         context "when dependent formulae have requirements" do
           context "when dependent formulae require Linux" do
             it "activates the applicable runners" do
-              allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
               allow(Formula).to receive(:all).and_return([testball, testball_depender_linux].map(&:formula))
 
               matrix = klass.new([testball], ["deleted"], all_supported: false, dependent_matrix: true)
@@ -311,7 +301,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
           context "when dependent formulae require macOS" do
             it "activates the applicable runners" do
-              allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true)
               allow(Formula).to receive(:all).and_return([testball, testball_depender_macos].map(&:formula))
 
               matrix = klass.new([testball], ["deleted"], all_supported: false, dependent_matrix: true)
@@ -344,6 +333,6 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
     end
 
     stub_formula_loader f
-    TestRunnerFormula.new(f)
+    TestRunnerFormula.new(f, eval_all: true)
   end
 end

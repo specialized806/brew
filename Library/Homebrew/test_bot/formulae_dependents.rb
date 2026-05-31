@@ -226,10 +226,11 @@ module Homebrew
           #
           skip_recursive_dependents = skip_recursive_dependents?(formula, args:)
 
-          uses_args = %w[--formula --eval-all]
+          uses_args = %w[--formula]
           uses_include_test_args = [*uses_args, "--include-test"]
           uses_include_test_args << "--recursive" unless skip_recursive_dependents
-          dependents = with_env(HOMEBREW_STDERR: "1") do
+          uses_env = require_current_tap_trust_env.merge("HOMEBREW_STDERR" => "1")
+          dependents = with_env(uses_env) do
             Utils.safe_popen_read("brew", "uses", *uses_include_test_args, formula_name)
                  .split("\n")
           end
@@ -238,7 +239,7 @@ module Homebrew
           #       `foo` has a build dependency on `bar`, and `bar` has a runtime dependency on
           #       `baz`. When testing `baz` with `--build-dependents-from-source`, `foo` is
           #       not tested, but maybe should be.
-          dependents += with_env(HOMEBREW_STDERR: "1") do
+          dependents += with_env(uses_env) do
             Utils.safe_popen_read("brew", "uses", *uses_args, "--include-build", formula_name)
                  .split("\n")
           end

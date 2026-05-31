@@ -685,11 +685,8 @@ List dependencies for formulae that are currently installed\. If \fIformula\fP i
 \fB\-\-missing\fP
 Show only missing dependencies\.
 .TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to list their dependencies\.
-.TP
 \fB\-\-for\-each\fP
-Switch into the mode used by the \fB\-\-eval\-all\fP option, but only list dependencies for each provided \fIformula\fP, one formula per line\. This is used for debugging the \fB\-\-installed\fP/\fB\-\-eval\-all\fP display mode\.
+Switch into the mode used when evaluating all formulae and casks, but only list dependencies for each provided \fIformula\fP, one formula per line\.
 .TP
 \fB\-\-HEAD\fP
 Show dependencies for HEAD version instead of stable version\.
@@ -716,9 +713,6 @@ Search just names for \fItext\fP\&\. If \fItext\fP is flanked by slashes, it is 
 .TP
 \fB\-d\fP, \fB\-\-description\fP
 Search just descriptions for \fItext\fP\&\. If \fItext\fP is flanked by slashes, it is interpreted as a regular expression\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to search their descriptions\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
 .TP
 \fB\-\-formula\fP
 Treat all named arguments as formulae\.
@@ -856,9 +850,6 @@ Print a JSON representation\. Currently the default value for \fIversion\fP is \
 .TP
 \fB\-\-installed\fP
 Output a human\-readable inventory of installed formulae and casks\. If \fB\-\-json\fP is passed, print JSON for installed formulae and, with \fB\-\-json=v2\fP, installed casks\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to print their JSON\.
 .TP
 \fB\-\-variations\fP
 Include the variations hash in each formula\[u2019]s JSON output\.
@@ -1104,9 +1095,6 @@ Show all options on a single line separated by spaces\.
 \fB\-\-installed\fP
 Show options for formulae that are currently installed\.
 .TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to show their options\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
-.TP
 \fB\-\-command\fP
 Show options for the specified \fIcommand\fP\&\.
 .SS "\fBoutdated\fP \fR[\fIoptions\fP] \fR[\fIformula\fP|\fIcask\fP \.\.\.]"
@@ -1175,9 +1163,6 @@ Verify any alias symlinks in each tap\.
 .TP
 \fB\-\-syntax\fP
 Syntax\-check all of Homebrew\[u2019]s Ruby files (if no \fItap\fP is passed)\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
 .TP
 \fB\-\-no\-simulate\fP
 Don\[u2019]t simulate other system configurations when checking formulae and casks\.
@@ -1252,9 +1237,6 @@ Search for casks\.
 .TP
 \fB\-\-desc\fP
 Search for formulae with a description matching \fItext\fP and casks with a name or description matching \fItext\fP\&\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to search their descriptions\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
 .TP
 \fB\-\-pull\-request\fP
 Search for GitHub pull requests containing \fItext\fP\&\.
@@ -1407,9 +1389,6 @@ Install or change a tap with a custom remote\. Useful for mirrors\.
 \fB\-\-repair\fP
 Add missing symlinks to tap manpages and shell completions\. Correct git remote refs for any taps where upstream HEAD branch has been renamed\.
 .TP
-\fB\-\-eval\-all\fP
-Evaluate all formulae, casks and aliases in the new tap to check their validity\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
-.TP
 \fB\-f\fP, \fB\-\-force\fP
 Force install core taps even under API mode\.
 .SS "\fBtap\-info\fP \fR[\fB\-\-installed\fP] \fR[\fB\-\-json\fP] \fR[\fItap\fP \.\.\.]"
@@ -1422,6 +1401,20 @@ Show information on each installed tap\.
 Print a JSON representation of \fItap\fP\&\. Currently the default and only accepted value for \fIversion\fP is \fBv1\fP\&\. See the docs for examples of using the JSON output: 
 .UR https://docs\.brew\.sh/Querying\-Brew
 .UE
+.SS "\fBtrust\fP \fR[\fIoptions\fP] \fR[\fItarget\fP \.\.\.]"
+Trust non\-official tap formulae, casks or commands so Homebrew may load them when \fB$HOMEBREW_REQUIRE_TAP_TRUST\fP is set\.
+.TP
+\fB\-\-tap\fP
+Trust the named tap\.
+.TP
+\fB\-\-formula\fP
+Trust the named formula\.
+.TP
+\fB\-\-cask\fP
+Trust the named cask\.
+.TP
+\fB\-\-command\fP
+Trust the named external command\.
 .SS "\fBunalias\fP \fIalias\fP \fR[\.\.\.]"
 Remove aliases\.
 .SS "\fBuninstall\fP, \fBremove\fP, \fBrm\fP \fR[\fIoptions\fP] \fIinstalled_formula\fP|\fIinstalled_cask\fP \fR[\.\.\.]"
@@ -1459,6 +1452,20 @@ Remove a tapped formula repository\.
 .TP
 \fB\-f\fP, \fB\-\-force\fP
 Untap even if formulae or casks from this tap are currently installed\.
+.SS "\fBuntrust\fP \fR[\fIoptions\fP] \fR[\fItarget\fP \.\.\.]"
+Stop trusting non\-official tap formulae, casks or commands\.
+.TP
+\fB\-\-tap\fP
+Untrust the named tap\.
+.TP
+\fB\-\-formula\fP
+Untrust the named formula\.
+.TP
+\fB\-\-cask\fP
+Untrust the named cask\.
+.TP
+\fB\-\-command\fP
+Untrust the named external command\.
 .SS "\fBupdate\fP, \fBup\fP \fR[\fIoptions\fP]"
 Fetch the newest version of Homebrew and all formulae from GitHub using \fBgit\fP(1) and perform any necessary migrations\.
 .TP
@@ -1570,9 +1577,6 @@ Only list formulae and casks that are currently installed\.
 .TP
 \fB\-\-missing\fP
 Only list formulae and casks that are not currently installed\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to show their dependents\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
 .TP
 \fB\-\-include\-implicit\fP
 Include formulae that have \fIformula\fP as an implicit dependency for downloading and unpacking source files\.
@@ -1693,9 +1697,6 @@ Run additional, slower style checks that require a network connection\.
 \fB\-\-installed\fP
 Only check formulae and casks that are currently installed\.
 .TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to audit them\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
-.TP
 \fB\-\-new\fP
 Run various additional style checks to determine if a new formula or cask is eligible for Homebrew\. This should be used when creating new formulae or casks and implies \fB\-\-strict\fP and \fB\-\-online\fP\&\.
 .TP
@@ -1795,9 +1796,6 @@ Check only formulae\.
 .TP
 \fB\-\-cask\fP
 Check only casks\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all formulae and casks\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
 .TP
 \fB\-\-repology\fP
 Use Repology to check for outdated packages\.
@@ -2255,9 +2253,6 @@ Print formulae and casks with fully\-qualified names\.
 .TP
 \fB\-\-tap\fP
 Check formulae and casks within the given tap, specified as \fIuser\fP\fB/\fP\fIrepo\fP\&\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to check them\.
 .TP
 \fB\-\-installed\fP
 Check formulae and casks that are currently installed\.
@@ -2743,9 +2738,6 @@ Print the number of unbottled and total formulae\.
 .TP
 \fB\-\-lost\fP
 Print the \fBhomebrew/core\fP commits where bottles were lost in the last week\.
-.TP
-\fB\-\-eval\-all\fP
-Evaluate all available formulae and casks, whether installed or not, to check them\. Enabled by default if \fB$HOMEBREW_EVAL_ALL\fP is set\.
 .SS "\fBunpack\fP \fR[\fIoptions\fP] \fIformula\fP|\fIcask\fP \fR[\.\.\.]"
 Unpack the files for the \fIformula\fP or \fIcask\fP into subdirectories of the current working directory\.
 .TP
@@ -3083,6 +3075,9 @@ If set, \fBbrew bundle cleanup\fP will not clean up VSCode (and forks/variants) 
 \fBHOMEBREW_BUNDLE_CLEANUP_NO_WINGET\fP
 If set, \fBbrew bundle cleanup\fP will not clean up WinGet packages\.
 .TP
+\fBHOMEBREW_BUNDLE_DESCRIBE\fP
+If set, add a description comment above each line in \fBbrew bundle dump\fP and \fBbrew bundle add\fP, unless the dependency does not have a description\. Enabled by default if \fB$HOMEBREW_DEVELOPER\fP is set\. This will become the default behaviour in a later minor release\.
+.TP
 \fBHOMEBREW_BUNDLE_DUMP_NO_BREW\fP
 If set, \fBbrew bundle dump\fP will not dump formula dependencies\.
 .TP
@@ -3121,6 +3116,21 @@ If set, \fBbrew bundle dump\fP will not dump WinGet packages\.
 .TP
 \fBHOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP\fP
 If set, run \fBbrew bundle cleanup \-\-force\fP after \fBbrew bundle install\fP\&\.
+.TP
+\fBHOMEBREW_BUNDLE_JOBS\fP
+Use this value as the number of formula installations to run in parallel for \fBbrew bundle install\fP\&\. Use \fBauto\fP for the number of CPU cores (max 4)\. Enabled by default with a value of \fBauto\fP if \fB$HOMEBREW_DEVELOPER\fP is set\. This will become the default behaviour in a later minor release\.
+.TP
+\fBHOMEBREW_BUNDLE_NO_DESCRIBE\fP
+If set, do not enable bundle description comments from \fB$HOMEBREW_BUNDLE_DESCRIBE\fP or the \fB$HOMEBREW_DEVELOPER\fP default\. This does not disable an explicit \fB\-\-describe\fP\&\.
+.TP
+\fBHOMEBREW_BUNDLE_NO_JOBS\fP
+If set, do not enable parallel jobs from \fB$HOMEBREW_BUNDLE_JOBS\fP or the \fB$HOMEBREW_DEVELOPER\fP default\. This does not disable an explicit \fB\-\-jobs\fP\&\.
+.TP
+\fBHOMEBREW_BUNDLE_NO_SECRETS\fP
+If set, \fBbrew bundle exec\fP, \fBbrew bundle env\fP and \fBbrew bundle sh\fP will attempt to remove secrets from the environment\. Enabled by default if \fB$HOMEBREW_DEVELOPER\fP is set\. This will become the default behaviour in a later minor release\.
+.TP
+\fBHOMEBREW_BUNDLE_SECRETS\fP
+If set, do not enable secret scrubbing from \fB$HOMEBREW_BUNDLE_NO_SECRETS\fP or the \fB$HOMEBREW_DEVELOPER\fP default\. This does not disable an explicit \fB\-\-no\-secrets\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_USER_CACHE\fP
 If set, use this directory as the \fBbundle\fP(1) user cache\.
@@ -3229,9 +3239,6 @@ Use this editor when editing a single formula, or several formulae in the same d
 .TP
 \fBHOMEBREW_ENV_SYNC_STRICT\fP
 If set, \fBbrew *env\-sync\fP will only sync the exact installed versions of formulae\.
-.TP
-\fBHOMEBREW_EVAL_ALL\fP
-If set, \fBbrew\fP commands evaluate all formulae and casks, executing their arbitrary code, by default without requiring \fB\-\-eval\-all\fP\&\. Required to cache formula and cask descriptions\.
 .TP
 \fBHOMEBREW_FAIL_LOG_LINES\fP
 Output this many lines of output on formula \fBsystem\fP failures\.

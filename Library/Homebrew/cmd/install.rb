@@ -13,6 +13,7 @@ require "development_tools"
 require "install"
 require "cleanup"
 require "upgrade"
+require "trust"
 
 module Homebrew
   module Cmd
@@ -198,6 +199,7 @@ module Homebrew
 
           tap&.ensure_installed!
         end
+        Homebrew::Trust.trust_fully_qualified_items!(args.named, type: args.only_formula_or_cask)
 
         if args.ignore_dependencies?
           opoo <<~EOS

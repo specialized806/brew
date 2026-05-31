@@ -12,6 +12,7 @@ require "cask/utils"
 require "cask/reinstall"
 require "upgrade"
 require "api"
+require "trust"
 
 module Homebrew
   module Cmd
@@ -124,6 +125,7 @@ module Homebrew
           [],
           T::Array[T.any(FormulaOrCaskUnavailableError, NoSuchKegError)],
         )
+        Homebrew::Trust.trust_fully_qualified_items!(args.named, type: args.only_formula_or_cask)
 
         args.named.to_formulae_and_casks_and_unavailable(method: :resolve).each do |item|
           case item

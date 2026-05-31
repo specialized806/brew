@@ -167,6 +167,8 @@ module SystemConfig
       end
 
       Homebrew::EnvConfig::ENVS.each do |env, hash|
+        next if hash[:hidden] && !ENV.key?(env.to_s)
+
         method_name = Homebrew::EnvConfig.env_method_name(env, hash)
 
         if hash[:boolean]

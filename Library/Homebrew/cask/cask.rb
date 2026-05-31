@@ -53,14 +53,16 @@ module Cask
 
     sig { params(eval_all: T::Boolean).returns(T::Array[Cask]) }
     def self.all(eval_all: false)
-      if !eval_all && !Homebrew::EnvConfig.eval_all?
-        raise ArgumentError, "Cask::Cask#all cannot be used without `--eval-all` or `HOMEBREW_EVAL_ALL=1`"
+      if !eval_all && !Homebrew::EnvConfig.tap_trust_configured?
+        raise ArgumentError,
+              "Cask::Cask#all cannot be used without `HOMEBREW_REQUIRE_TAP_TRUST=1` or " \
+              "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1`"
       end
 
       # Load core casks from tokens so they load from the API when the core cask is not tapped.
       tokens_and_files = CoreCaskTap.instance.cask_tokens
       tokens_and_files += Tap.reject(&:core_cask_tap?).flat_map(&:cask_files)
-                             .select { |file| Homebrew::Trust.trusted_cask_file?(file) }
+                             .then { |files| Homebrew::Trust.trusted_cask_files(files) }
       tokens_and_files.filter_map do |token_or_file|
         CaskLoader.load(token_or_file)
       rescue CaskUnreadableError => e

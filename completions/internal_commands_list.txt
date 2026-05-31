@@ -97,6 +97,7 @@ tap-new
 test
 test-bot
 tests
+trust
 typecheck
 unalias
 unbottled
@@ -105,6 +106,7 @@ unlink
 unpack
 unpin
 untap
+untrust
 update
 update-if-needed
 update-license-data
