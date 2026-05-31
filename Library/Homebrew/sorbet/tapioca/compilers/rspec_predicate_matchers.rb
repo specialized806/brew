@@ -5,7 +5,7 @@ require "rspec/expectations"
 
 module Tapioca
   module Compilers
-    class RspecPredicateMatchers < Tapioca::Dsl::Compiler
+    class RspecDynamicMatchers < Tapioca::Dsl::Compiler
       ConstantType = type_member { { fixed: T::Module[T.anything] } }
 
       sig { override.returns(T::Enumerable[T::Module[T.anything]]) }
@@ -16,7 +16,7 @@ module Tapioca
       sig { override.void }
       def decorate
         root.create_path(constant) do |mod|
-          missing_predicate_matchers.each do |name|
+          missing_matchers.each do |name|
             mod.create_method(
               name,
               parameters: [
@@ -31,12 +31,12 @@ module Tapioca
       private
 
       sig { returns(T::Array[String]) }
-      def missing_predicate_matchers
-        (used_predicate_matchers - known_rspec_predicate_matchers).to_a.sort
+      def missing_matchers
+        (used_matchers + declared_dynamic_matchers - known_rspec_matchers).to_a.sort
       end
 
       sig { returns(T::Set[String]) }
-      def used_predicate_matchers
+      def used_matchers
         matchers = T.let(Set.new, T::Set[String])
 
         Dir[File.join(__dir__, "../../../test/**/*_spec.rb")].each do |file|
@@ -49,12 +49,42 @@ module Tapioca
       end
 
       sig { returns(T::Set[String]) }
-      def known_rspec_predicate_matchers
+      def declared_dynamic_matchers
+        matchers = T.let(Set.new, T::Set[String])
+
+        matcher_declaration_files.each do |file|
+          content = File.read(file)
+
+          content.scan(/\b(?:RSpec::Matchers\.)?define\s+:([a-z][a-z0-9_]*[!?]?)/) do |captures|
+            matchers.add(captures.first)
+          end
+          content.scan(/\b(?:RSpec::Matchers\.)?define_negated_matcher\s+:([a-z][a-z0-9_]*[!?]?)/) do |captures|
+            matchers.add(captures.first)
+          end
+          content.scan(/\b(?:RSpec::Matchers\.)?alias_matcher\s+:([a-z][a-z0-9_]*[!?]?)/) do |captures|
+            matchers.add(captures.first)
+          end
+          content.scan(/\bmatcher\s+:([a-z][a-z0-9_]*[!?]?)/) do |captures|
+            matchers.add(captures.first)
+          end
+        end
+
+        matchers
+      end
+
+      sig { returns(T::Array[String]) }
+      def matcher_declaration_files
+        files = Dir[File.join(__dir__, "../../../test/**/*.rb")]
+        files.select { |file| File.file?(file) }
+      end
+
+      sig { returns(T::Set[String]) }
+      def known_rspec_matchers
         known = T.let(Set.new, T::Set[String])
 
         Dir[File.join(__dir__, "../../rbi/gems/rspec-expectations@*.rbi")].each do |file|
-          File.read(file).scan(/^\s*def\s+((?:be|have)_[a-z0-9_!?]+)/) do |name|
-            known.add(name.first)
+          File.read(file).scan(/^\s*def\s+([a-z][a-z0-9_]*[!?]?)/) do |captures|
+            known.add(captures.first)
           end
         end
 
