@@ -162,7 +162,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
     end
 
     it "passes arch-specific version arguments when a cask moves from one version to arch-specific versions" do
-      version_info = klass::VersionBumpInfo.new(
+      version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
         type:                          :cask,
         deprecated:                    { general: false },
         multiple_versions:             { current: false, new: true },
@@ -193,7 +193,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
     end
 
     it "passes a single version argument when an arch-specific cask moves to one version" do
-      version_info = klass::VersionBumpInfo.new(
+      version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
         type:                          :cask,
         deprecated:                    { arm: false, intel: false },
         multiple_versions:             { current: true, new: false },
