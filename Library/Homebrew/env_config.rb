@@ -933,8 +933,12 @@ module Homebrew
       eval_all = ENV.fetch("HOMEBREW_EVAL_ALL", nil)
       if eval_all.present? && FALSY_VALUES.exclude?(eval_all.downcase)
         # odeprecated: deprecate in the next release.
-        opoo "`HOMEBREW_EVAL_ALL` will be deprecated soon. " \
-             "Use `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` instead."
+        @eval_all_deprecation_warned = T.let(@eval_all_deprecation_warned, T.nilable(T::Boolean))
+        unless @eval_all_deprecation_warned
+          opoo "`HOMEBREW_EVAL_ALL` will be deprecated soon. " \
+               "Use `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` instead."
+          @eval_all_deprecation_warned = true
+        end
         return true
       end
 
