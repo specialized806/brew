@@ -34,46 +34,38 @@ RSpec.describe Homebrew::Cmd::Untrust do
   end
 
   it "untrusts a command with the plural switch alias" do
-    Homebrew::Trust.trust!(:command, "thirdparty/foo/hello")
+    expect(Homebrew::Trust).to receive(:untrust!).with(:command, "thirdparty/foo/hello").and_return(true)
 
     expect { Homebrew::Cmd::Untrust.new(["--commands", "thirdparty/foo/hello"]).run }
       .to output("Untrusted command: thirdparty/foo/hello\n").to_stdout
-
-    expect(Homebrew::Trust.trusted?(:command, "thirdparty/foo/hello")).to be(false)
-  ensure
-    Homebrew::Trust.clear!(:command)
   end
 
   it "untrusts trusted items from a tap" do
-    Homebrew::Trust.trust!(:formula, "thirdparty/foo/bar")
-    Homebrew::Trust.trust!(:cask, "thirdparty/foo/baz")
-    Homebrew::Trust.trust!(:command, "thirdparty/foo/hello")
+    expect(Homebrew::Trust).to receive(:untrust!).with(:tap, "thirdparty/foo").and_return(false)
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return(["thirdparty/foo/baz"])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:command).and_return(["thirdparty/foo/hello"])
+    expect(Homebrew::Trust).to receive(:untrust!).with(:formula, "thirdparty/foo/bar").and_return(true)
+    expect(Homebrew::Trust).to receive(:untrust!).with(:cask, "thirdparty/foo/baz").and_return(true)
+    expect(Homebrew::Trust).to receive(:untrust!).with(:command, "thirdparty/foo/hello").and_return(true)
 
     expect { Homebrew::Cmd::Untrust.new(["thirdparty/foo"]).run }
       .to output("Untrusted tap: thirdparty/foo\n").to_stdout
-
-    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/foo/bar")).to be(false)
-    expect(Homebrew::Trust.trusted?(:cask, "thirdparty/foo/baz")).to be(false)
-    expect(Homebrew::Trust.trusted?(:command, "thirdparty/foo/hello")).to be(false)
-  ensure
-    Homebrew::Trust.clear!(:formula)
-    Homebrew::Trust.clear!(:cask)
-    Homebrew::Trust.clear!(:command)
   end
 
   it "lists untrusted entries with no arguments" do
-    tap = Tap.fetch("thirdparty", "foo")
+    tap = Tap.fetch("untrustlist", "foo")
     tap.cask_dir.mkpath
     (tap.cask_dir/"bar.rb").write("cask 'bar'\n")
 
     expect { Homebrew::Cmd::Untrust.new([]).run }
       .to output(<<~EOS).to_stdout
         Untrusted taps:
-          thirdparty/foo
+          untrustlist/foo
         Untrusted casks:
-          thirdparty/foo/bar
+          untrustlist/foo/bar
       EOS
   ensure
-    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"untrustlist"
   end
 end

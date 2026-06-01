@@ -3446,6 +3446,9 @@ If set, \fBbrew install\fP \fIformula|cask\fP will not upgrade \fIformula|cask\f
 \fBHOMEBREW_NO_PATH_SHADOW_CHECK\fP
 If set, \fBbrew info\fP and \fBbrew install\fP will not warn when a formula\[u2019]s executables are shadowed by other commands earlier on \fB$PATH\fP\&\.
 .TP
+\fBHOMEBREW_NO_REQUIRE_TAP_TRUST\fP
+If set, do not require non\-official tap formulae, casks or commands to be trusted\. This is not recommended and will be removed in a later release\. Also enables commands that evaluate all formulae and casks\.
+.TP
 \fBHOMEBREW_NO_SANDBOX_CASK\fP
 If set, disable sandboxing for cask artifacts that generate files by running executables\.
 .TP
@@ -3470,6 +3473,9 @@ If set, \fBbrew install\fP \fIformula\fP will use this URL to download PyPI pack
 .TP
 \fBHOMEBREW_PRY\fP
 If set, use Pry for the \fBbrew irb\fP command\.
+.TP
+\fBHOMEBREW_REQUIRE_TAP_TRUST\fP
+If set, require non\-official tap formulae, casks and commands to be trusted with \fBbrew trust\fP before Homebrew loads them\. Also enables commands that evaluate all formulae and casks\.
 .TP
 \fBHOMEBREW_SANDBOX_LINUX\fP
 If set, use the \fBbwrap\fP(1) sandbox for formula installation and testing on Linux\. Enabled by default if \fB$HOMEBREW_DEVELOPER\fP is set\. This will be the default in Homebrew 5\.2\.0\.

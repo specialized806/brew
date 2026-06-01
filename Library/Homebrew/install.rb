@@ -718,6 +718,7 @@ module Homebrew
         check_cpu
         attempt_directory_creation
         Diagnostic.checks(:supported_configuration_checks, fatal: all_fatal)
+        Diagnostic.checks(:preinstall_checks, fatal: false)
         Diagnostic.checks(:fatal_preinstall_checks)
       end
 

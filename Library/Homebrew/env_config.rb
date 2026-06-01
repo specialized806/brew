@@ -565,11 +565,11 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_NO_REQUIRE_TAP_TRUST:             {
-        # odeprecated: keep the current default until trust checks are default in a later release.
+        # odeprecated: remove in a later release after tap trust checks are the default.
         description: "If set, do not require non-official tap formulae, casks or commands to be trusted. " \
-                     "Also enables commands that evaluate all formulae and casks.",
+                     "This is not recommended and will be removed in a later release. Also enables commands " \
+                     "that evaluate all formulae and casks.",
         boolean:     :set,
-        hidden:      true,
       },
       HOMEBREW_NO_SANDBOX_CASK:                  {
         # odeprecated: make cask executable sandboxing mandatory in a future release.
@@ -614,7 +614,6 @@ module Homebrew
                      "formulae and casks.",
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_REQUIRE_TAP_TRUST,
-        hidden:      true,
       },
       HOMEBREW_SANDBOX_LINUX:                    {
         # odeprecated: edit in 5.2.0
