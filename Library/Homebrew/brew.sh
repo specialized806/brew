@@ -1069,13 +1069,18 @@ if [[ -n "${HOMEBREW_DEVELOPER}" || -n "${HOMEBREW_DEV_CMD_RUN}" ]]
 then
   # odeprecated: make default next release
   export HOMEBREW_USE_INTERNAL_API="1"
+fi
 
-  # Probably never makes sense to be default for everyone?
+# Only enable runtime typechecking for commands where correctness matters more
+# than performance.
+if [[ "${HOMEBREW_COMMAND}" == "test" || "${HOMEBREW_COMMAND}" == "test-bot" ||
+      "${HOMEBREW_COMMAND}" == "tests" ]]
+then
   export HOMEBREW_SORBET_RUNTIME="1"
 fi
 
 # Provide a (temporary, undocumented) way to disable Sorbet globally if needed
-# to avoid reverting the above.
+# to override any earlier environment setting.
 if [[ -n "${HOMEBREW_NO_SORBET_RUNTIME}" ]]
 then
   unset HOMEBREW_SORBET_RUNTIME
