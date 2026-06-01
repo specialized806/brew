@@ -46,9 +46,24 @@ module Homebrew
       sig { params(steps: ::T::Array[::T.untyped]).returns(Steps) }
       def self.normalise_steps(steps)
         steps.map do |step|
-          ::T.cast(::Utils.deep_stringify_symbols(step), Step)
+          ::T.cast(normalise_step_value(step), Step)
         end
       end
+
+      sig { params(obj: ::T.untyped).returns(::T.untyped) }
+      def self.normalise_step_value(obj)
+        case obj
+        when Symbol
+          obj.to_s
+        when Hash
+          obj.to_h { |key, value| [key.to_s, normalise_step_value(value)] }
+        when Array
+          obj.map { |value| normalise_step_value(value) }
+        else
+          obj
+        end
+      end
+      private_class_method :normalise_step_value
 
       sig { params(path: ::T.any(::String, ::Pathname), base: ::T.nilable(::T.any(::String, ::Symbol))).void }
       def mkdir(path, base: nil)
