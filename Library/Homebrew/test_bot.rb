@@ -107,6 +107,7 @@ module Homebrew
         logs = "#{Dir.pwd}/logs"
         gitconfig = "#{Dir.home}/.gitconfig"
         ENV["HOMEBREW_HOME"] = ENV["HOME"] = home
+        ENV["HOMEBREW_USER_CONFIG_HOME"] = "#{home}/.homebrew"
         ENV["HOMEBREW_LOGS"] = logs
         FileUtils.mkdir_p home
         FileUtils.mkdir_p logs

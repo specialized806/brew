@@ -25,7 +25,7 @@ RSpec.describe Homebrew::Trust do
   end
 
   it "ignores a trust file with a non-object JSON root" do
-    trust_file = Homebrew::Trust.const_get(:TRUST_FILE)
+    trust_file = Homebrew::Trust.send(:trust_file)
     trust_file.dirname.mkpath
     trust_file.write("[]")
 
@@ -87,7 +87,7 @@ RSpec.describe Homebrew::Trust do
   it "writes the trust store with user-only permissions" do
     Homebrew::Trust.trust!(:tap, "thirdparty/foo")
 
-    trust_file = Homebrew::Trust.const_get(:TRUST_FILE)
+    trust_file = Homebrew::Trust.send(:trust_file)
     expect(trust_file.stat.mode & 0777).to eq(0600)
   ensure
     Homebrew::Trust.clear!(:tap)

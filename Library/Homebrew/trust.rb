@@ -21,8 +21,11 @@ module Homebrew
     }.freeze, T::Hash[Symbol, Symbol])
     private_constant :SETTING_KEYS
 
-    TRUST_FILE = T.let((Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json").freeze, Pathname)
-    private_constant :TRUST_FILE
+    sig { returns(Pathname) }
+    def self.trust_file
+      Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json"
+    end
+    private_class_method :trust_file
 
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trust!(type, name)
@@ -270,9 +273,10 @@ module Homebrew
 
     sig { returns(T::Hash[String, T::Array[String]]) }
     def self.trust_store
-      return {} unless TRUST_FILE.exist?
+      trust_path = trust_file
+      return {} unless trust_path.exist?
 
-      parsed_store = JSON.parse(TRUST_FILE.read)
+      parsed_store = JSON.parse(trust_path.read)
       return {} unless parsed_store.is_a?(Hash)
 
       parsed_store.transform_values { |entries| Array(entries).map { |entry| normalise_name(entry.to_s) } }
@@ -283,14 +287,15 @@ module Homebrew
 
     sig { params(store: T::Hash[String, T::Array[String]]).void }
     def self.write_trust_store(store)
+      trust_path = trust_file
       if store.empty?
-        TRUST_FILE.unlink if TRUST_FILE.exist?
+        trust_path.unlink if trust_path.exist?
         return
       end
 
-      TRUST_FILE.dirname.mkpath
-      TRUST_FILE.atomic_write("#{JSON.pretty_generate(store)}\n")
-      TRUST_FILE.chmod(0600)
+      trust_path.dirname.mkpath
+      trust_path.atomic_write("#{JSON.pretty_generate(store)}\n")
+      trust_path.chmod(0600)
     end
     private_class_method :write_trust_store
 

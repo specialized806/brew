@@ -24,10 +24,48 @@ RSpec.describe Homebrew::TestBot do
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
 
-      expect { klass.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
-      expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(true)
+      mktmpdir do |workdir|
+        with_env(HOMEBREW_USER_CONFIG_HOME: "#{workdir}/.homebrew") do
+          expect { klass.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
+          expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(true)
+        end
+      end
     ensure
-      Homebrew::Trust.clear!(:tap)
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
+    it "trusts a third-party tap in the local test-bot config home" do
+      tap = Tap.fetch("thirdparty", "foo")
+      tap.path.mkpath
+      args = double(
+        cleanup?:       false,
+        local?:         true,
+        tap:            tap.name,
+        only_formulae?: false,
+        git_name:       nil,
+        git_email:      nil,
+      )
+
+      allow(klass).to receive(:setup_github_actions_sandbox!)
+      allow(Utils).to receive(:safe_popen_read).and_return("revision")
+      allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
+
+      mktmpdir do |workdir|
+        workdir.cd do
+          with_env(
+            HOMEBREW_USER_CONFIG_HOME: "#{workdir}/original/.homebrew",
+            HOME:                      "#{workdir}/original",
+            XDG_CONFIG_HOME:           "#{workdir}/xdg",
+          ) do
+            expect { klass.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
+
+            trust_file = workdir/"home/.homebrew/trust.json"
+            expect(trust_file).to exist
+            expect(JSON.parse(trust_file.read).fetch("trustedtaps")).to include("thirdparty/foo")
+          end
+        end
+      end
+    ensure
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
     end
   end
