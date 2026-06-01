@@ -5349,12 +5349,12 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_SORBET_RECURSIVE`
 
 : If set along with `$HOMEBREW_SORBET_RUNTIME`, enable recursive typechecking
-  using Sorbet. Auomatically enabled when running tests.
+  using Sorbet. Automatically enabled when running `brew tests`.
 
 `HOMEBREW_SORBET_RUNTIME`
 
-: If set, enable runtime typechecking using Sorbet. Set by default for
-  `$HOMEBREW_DEVELOPER` or when running some developer commands.
+: If set, enable runtime typechecking using Sorbet. Set by default when running
+  `brew test`, `brew test-bot` or `brew tests`.
 
 `HOMEBREW_SSH_CONFIG_PATH`
 
