@@ -13,12 +13,16 @@ require "formula"
 require "formula_installer"
 require "os"
 require "tap"
+require "trust"
 require "utils"
 require "utils/bottles"
+require "utils/output"
 require "utils/portable_ruby"
 
 module Homebrew
   module TestBot
+    extend Utils::Output::Mixin
+
     module_function
 
     GIT = "/usr/bin/git"
@@ -127,6 +131,11 @@ module Homebrew
           safe_system "brew", "tap", tap.name
         elsif (tap.path/".git/shallow").exist?
           raise unless quiet_system GIT, "-C", tap.path, "fetch", "--unshallow"
+        end
+
+        unless tap.official?
+          action = Homebrew::Trust.trust!(:tap, tap.name) ? "Trusted" : "Already trusted"
+          Homebrew::TestBot.ohai "#{action} tap: #{tap.name}"
         end
       end
 

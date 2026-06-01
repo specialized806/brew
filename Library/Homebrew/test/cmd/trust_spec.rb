@@ -26,8 +26,10 @@ RSpec.describe Homebrew::Cmd::Trust do
   end
 
   it "lists trusted entries with no arguments" do
-    Homebrew::Trust.trust!(:tap, "thirdparty/foo")
-    Homebrew::Trust.trust!(:formula, "thirdparty/foo/bar")
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["thirdparty/foo"])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return([])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:command).and_return([])
 
     expect { Homebrew::Cmd::Trust.new([]).run }
       .to output(<<~EOS).to_stdout
@@ -37,8 +39,5 @@ RSpec.describe Homebrew::Cmd::Trust do
         Trusted formulae:
           thirdparty/foo/bar
       EOS
-  ensure
-    Homebrew::Trust.clear!(:tap)
-    Homebrew::Trust.clear!(:formula)
   end
 end
