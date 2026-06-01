@@ -303,6 +303,7 @@ RSpec.describe Homebrew::EnvConfig do
       ENV["HOMEBREW_EVAL_ALL"] = nil
       ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = nil
       ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = nil
+      env_config.instance_variable_set(:@eval_all_deprecation_warned, nil)
     end
 
     it "returns false if HOMEBREW_REQUIRE_TAP_TRUST is set" do
@@ -323,6 +324,13 @@ RSpec.describe Homebrew::EnvConfig do
       expect { expect(env_config.eval_all?).to be(true) }
         .to output(/HOMEBREW_EVAL_ALL.*deprecated.*HOMEBREW_REQUIRE_TAP_TRUST.*HOMEBREW_NO_REQUIRE_TAP_TRUST/m)
         .to_stderr
+    end
+
+    it "warns only once if HOMEBREW_EVAL_ALL is set and queried repeatedly" do
+      ENV["HOMEBREW_EVAL_ALL"] = "1"
+
+      env_config.eval_all?
+      expect { env_config.eval_all? }.not_to output.to_stderr
     end
   end
 
