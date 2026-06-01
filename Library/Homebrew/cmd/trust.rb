@@ -11,6 +11,8 @@ module Homebrew
         description <<~EOS
           Trust non-official tap formulae, casks or commands so Homebrew may load them when
           `$HOMEBREW_REQUIRE_TAP_TRUST` is set.
+          Trusted entries are stored in `${XDG_CONFIG_HOME}/homebrew/trust.json` if
+          `$XDG_CONFIG_HOME` is set or `~/.homebrew/trust.json` otherwise.
         EOS
         switch "--tap",
                description: "Trust the named tap."
