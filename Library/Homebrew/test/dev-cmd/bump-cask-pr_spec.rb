@@ -481,6 +481,33 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
         end
       RUBY
     end
+
+    it "leaves nested architecture stanzas unchanged when matching values could be replaced globally" do
+      contents = <<~RUBY
+        cask "foo" do
+          on_macos do
+            on_arm do
+              version "1.0"
+              sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            end
+
+            on_intel do
+              version "1.0"
+              sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            end
+          end
+
+          url "https://brew.sh/foo-\#{version}.dmg"
+          name "Foo"
+        end
+      RUBY
+      cask = cask_from_contents(contents)
+      new_version = Homebrew::BumpVersionParser.new(arm: "2.0")
+
+      expect(
+        bump_cask_pr.send(:replace_version_and_checksum, cask, :no_check, new_version, contents),
+      ).to eq(contents)
+    end
   end
 
   describe "::check_throttle" do

@@ -308,6 +308,9 @@ module Homebrew
             old_version = old_cask.version
             next unless old_version
 
+            next if unsupported_nested_arch_stanza?(contents, :version, arch) ||
+                    unsupported_nested_arch_stanza?(contents, :sha256, arch)
+
             bump_version = new_version.send(arch) || new_version.general
             next unless bump_version
 
@@ -410,6 +413,14 @@ module Homebrew
         return current_os if MacOSVersion::SYMBOLS.include?(current_os)
 
         MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
+      end
+
+      sig { params(contents: String, name: Symbol, arch: Symbol).returns(T::Boolean) }
+      def unsupported_nested_arch_stanza?(contents, name, arch)
+        cask_ast = Utils::AST::CaskAST.new(contents)
+        scope = :"on_#{arch}"
+
+        cask_ast.stanza_anywhere?(name, within: scope) && !cask_ast.stanza?(name, within: scope)
       end
 
       sig { params(contents: String, name: Symbol, arch: Symbol).returns(T.nilable(Symbol)) }
