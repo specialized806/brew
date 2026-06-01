@@ -130,6 +130,15 @@ module Homebrew::EnvConfig
     sig { returns(T::Boolean) }
     def bundle_install_cleanup?; end
 
+    sig { returns(T::Boolean) }
+    def bundle_no_describe?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_no_jobs?; end
+
+    sig { returns(T::Boolean) }
+    def bundle_secrets?; end
+
     sig { returns(T.nilable(::String)) }
     def bundle_user_cache; end
 
@@ -189,9 +198,6 @@ module Homebrew::EnvConfig
 
     sig { returns(T::Boolean) }
     def env_sync_strict?; end
-
-    sig { returns(T::Boolean) }
-    def eval_all?; end
 
     sig { returns(Integer) }
     def fail_log_lines; end
