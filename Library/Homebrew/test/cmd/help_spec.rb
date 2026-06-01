@@ -17,16 +17,16 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
     end
 
     it "prints the originating tap for an external command from a third-party tap" do
-      tap_path = HOMEBREW_TAP_DIRECTORY/"thirdparty/homebrew-foo"
+      tap_path = HOMEBREW_TAP_DIRECTORY/"trusthelp/homebrew-foo"
       tap_path.mkpath
       tap_path.cd do
         system "git", "init"
-        system "git", "remote", "add", "origin", "https://github.com/thirdparty/homebrew-foo"
+        system "git", "remote", "add", "origin", "https://github.com/trusthelp/homebrew-foo"
         FileUtils.touch "readme"
         system "git", "add", "--all"
         system "git", "commit", "-m", "init"
       end
-      cmd_path = tap_path/"cmd/hello-tap.rb"
+      cmd_path = tap_path/"cmd/hello-trust-tap.rb"
       cmd_path.dirname.mkpath
       cmd_path.write <<~RUBY
         # typed: strict
@@ -38,7 +38,7 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
 
         module Homebrew
           module Cmd
-            class HelloTap < AbstractCommand
+            class HelloTrustTap < AbstractCommand
               cmd_args do
                 description "A friendly greeter from a tap."
               end
@@ -51,26 +51,26 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
       RUBY
       cmd_path.chmod(0755)
 
-      expect { brew "help", "hello-tap", "SECRET_TOKEN" => "password" }
-        .to output(%r{^From tap: thirdparty/foo$}).to_stdout
-        .and output(%r{Tap thirdparty/foo is allowed by default}).to_stderr
+      expect { brew "help", "hello-trust-tap", "SECRET_TOKEN" => "password" }
+        .to output(%r{^From tap: trusthelp/foo$}).to_stdout
+        .and not_to_output.to_stderr
         .and be_a_success
     ensure
       Homebrew::Trust.clear!(:tap)
-      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"trusthelp"
     end
 
     it "requires trust for an external command from a third-party tap" do
-      tap_path = HOMEBREW_TAP_DIRECTORY/"thirdparty/homebrew-foo"
+      tap_path = HOMEBREW_TAP_DIRECTORY/"trusthelp/homebrew-foo"
       tap_path.mkpath
       tap_path.cd do
         system "git", "init"
-        system "git", "remote", "add", "origin", "https://github.com/thirdparty/homebrew-foo"
+        system "git", "remote", "add", "origin", "https://github.com/trusthelp/homebrew-foo"
         FileUtils.touch "readme"
         system "git", "add", "--all"
         system "git", "commit", "-m", "init"
       end
-      cmd_path = tap_path/"cmd/hello-tap.rb"
+      cmd_path = tap_path/"cmd/hello-trust-tap.rb"
       cmd_path.dirname.mkpath
       cmd_path.write <<~RUBY
         # typed: strict
@@ -80,7 +80,7 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
 
         module Homebrew
           module Cmd
-            class HelloTap < AbstractCommand
+            class HelloTrustTap < AbstractCommand
               cmd_args do
                 description "A friendly greeter from a tap."
               end
@@ -98,20 +98,20 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
         "HOMEBREW_REQUIRE_TAP_TRUST" => "1",
       )
 
-      expect { brew "help", "hello-tap", require_trust_env.dup }
-        .to output(%r{thirdparty/foo}).to_stderr
+      expect { brew "help", "hello-trust-tap", require_trust_env.dup }
+        .to output(%r{trusthelp/foo}).to_stderr
         .and be_a_failure
 
-      expect { brew "trust", "--command", "thirdparty/foo/hello-tap", trust_env.dup }
-        .to output(%r{Trusted command: thirdparty/foo/hello-tap}).to_stdout
+      expect { brew "trust", "--command", "trusthelp/foo/hello-trust-tap", trust_env.dup }
+        .to output(%r{Trusted command: trusthelp/foo/hello-trust-tap}).to_stdout
         .and be_a_success
 
-      expect { brew "help", "hello-tap", require_trust_env.dup }
-        .to output(%r{^From tap: thirdparty/foo$}).to_stdout
+      expect { brew "help", "hello-trust-tap", require_trust_env.dup }
+        .to output(%r{^From tap: trusthelp/foo$}).to_stdout
         .and be_a_success
     ensure
       FileUtils.rm_rf trust_home if trust_home
-      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"trusthelp"
     end
 
     it "does not print the originating tap for an external command from an official tap" do

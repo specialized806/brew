@@ -107,7 +107,7 @@ module Homebrew
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(name)}"
       return if trusted?(:formula, full_name)
       return if explicitly_allowed?(:formula, full_name, tap)
-      return allow_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
+      return unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:formula, full_name, tap)
     end
@@ -121,7 +121,7 @@ module Homebrew
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(token)}"
       return if trusted?(:cask, full_name)
       return if explicitly_allowed?(:cask, full_name, tap)
-      return allow_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
+      return unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:cask, full_name, tap)
     end
@@ -134,7 +134,7 @@ module Homebrew
 
       full_name = "#{tap.name}/#{command || path.basename(path.extname).to_s.delete_prefix("brew-")}"
       return if trusted?(:command, full_name)
-      return allow_by_default!(tap) unless Homebrew::EnvConfig.require_tap_trust?
+      return unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:command, full_name, tap)
     end
@@ -293,21 +293,6 @@ module Homebrew
       TRUST_FILE.chmod(0600)
     end
     private_class_method :write_trust_store
-
-    sig { params(tap: T.untyped).returns(T::Boolean) }
-    def self.allow_by_default!(tap)
-      unless Homebrew::EnvConfig.no_env_hints?
-        opoo <<~EOS
-          Tap #{tap.name} is allowed by default.
-          Homebrew will require explicit trust for non-official taps in a future release.
-          Set `HOMEBREW_REQUIRE_TAP_TRUST=1` to require explicit trust now or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to keep allowing by default.
-          Hide these hints with `HOMEBREW_NO_ENV_HINTS=1` (see `man brew`).
-        EOS
-      end
-
-      true
-    end
-    private_class_method :allow_by_default!
 
     sig { params(path: Pathname).returns(T.untyped) }
     def self.tap_from_path(path)

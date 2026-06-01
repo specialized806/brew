@@ -139,7 +139,9 @@ RSpec.describe Homebrew::Diagnostic::Checks do
           "Homebrew is currently ignoring formulae, casks and commands from these taps " \
           "because tap trust is required.",
           "brew untap thirdparty/foo",
+          "brew trust thirdparty/foo",
           "brew trust --formula thirdparty/foo/bar",
+          "Prefer trusting only the specific formulae, casks or commands you need.",
         )
     end
   end
@@ -154,9 +156,13 @@ RSpec.describe Homebrew::Diagnostic::Checks do
         .to include(
           "Homebrew will ignore formulae, casks and commands from these taps when " \
           "`HOMEBREW_REQUIRE_TAP_TRUST` is set.",
-          "This will become the default in a future release.",
-          "Set `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to keep allowing them by default.",
+          "This will become the default in Homebrew 6.0.0 or 5.2.0, whichever comes first.",
+          "export HOMEBREW_REQUIRE_TAP_TRUST=1",
           "brew untap thirdparty/foo",
+          "brew trust thirdparty/foo",
+          "export HOMEBREW_NO_REQUIRE_TAP_TRUST=1",
+          "This is not recommended and will be removed in a later release.",
+          "Prefer trusting only the specific formulae, casks or commands you need.",
         )
     end
   end

@@ -93,13 +93,14 @@ RSpec.describe Homebrew::Trust do
     Homebrew::Trust.clear!(:tap)
   end
 
-  it "allows third-party taps by default with an env hint" do
+  it "allows third-party taps by default" do
+    Homebrew::Trust.clear!(:tap)
     tap = Tap.fetch("thirdparty", "foo")
     formula_path = tap.formula_dir/"default-trust.rb"
     formula_path.dirname.mkpath
 
     expect { Homebrew::Trust.require_trusted_formula!("default-trust", formula_path) }
-      .to output(%r{Tap thirdparty/foo is allowed by default}).to_stderr
+      .not_to output.to_stderr
 
     expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(false)
   ensure

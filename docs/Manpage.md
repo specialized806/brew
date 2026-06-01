@@ -5290,6 +5290,12 @@ command execution (e.g. `$(cat file)`).
 : If set, `brew info` and `brew install` will not warn when a formula's
   executables are shadowed by other commands earlier on `$PATH`.
 
+`HOMEBREW_NO_REQUIRE_TAP_TRUST`
+
+: If set, do not require non-official tap formulae, casks or commands to be
+  trusted. This is not recommended and will be removed in a later release. Also
+  enables commands that evaluate all formulae and casks.
+
 `HOMEBREW_NO_SANDBOX_CASK`
 
 : If set, disable sandboxing for cask artifacts that generate files by running
@@ -5323,6 +5329,12 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_PRY`
 
 : If set, use Pry for the `brew irb` command.
+
+`HOMEBREW_REQUIRE_TAP_TRUST`
+
+: If set, require non-official tap formulae, casks and commands to be trusted
+  with `brew trust` before Homebrew loads them. Also enables commands that
+  evaluate all formulae and casks.
 
 `HOMEBREW_SANDBOX_LINUX`
 

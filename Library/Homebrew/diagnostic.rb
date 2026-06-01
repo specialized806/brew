@@ -122,6 +122,13 @@ module Homebrew
       end
 
       sig { returns(T::Array[String]) }
+      def preinstall_checks
+        %w[
+          check_untrusted_taps
+        ].freeze
+      end
+
+      sig { returns(T::Array[String]) }
       def build_error_checks
         supported_configuration_checks + build_from_source_checks
       end
@@ -720,8 +727,7 @@ module Homebrew
         else
           "Homebrew will ignore formulae, casks and commands from these taps when " \
             "`HOMEBREW_REQUIRE_TAP_TRUST` is set.\n" \
-            "This will become the default in a future release.\n" \
-            "Set `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to keep allowing them by default."
+            "This will become the default in Homebrew 6.0.0 or 5.2.0, whichever comes first."
         end
 
         <<~EOS
@@ -729,13 +735,21 @@ module Homebrew
             #{untrusted_tap_names.join("\n  ")}
 
           #{trust_required_message}
-          Untap them with:
-            brew untap #{untrusted_tap_names.join(" ")}
-          or trust specific formulae, casks or commands with:
+          Enable trust checks now with:
+            export HOMEBREW_REQUIRE_TAP_TRUST=1
+          Trust specific formulae, casks or commands with:
             brew trust --formula <user>/<tap>/<formula>
             brew trust --cask <user>/<tap>/<cask>
             brew trust --command <user>/<tap>/<command>
           #{"or trust installed formulae from these taps with:\n#{installed_formula_message}" if installed_formula_message.present?}
+          You can trust all formulae, casks and commands from these taps with:
+            brew trust #{untrusted_tap_names.join(" ")}
+          Prefer trusting only the specific formulae, casks or commands you need.
+          Untap them with:
+            brew untap #{untrusted_tap_names.join(" ")}
+          To keep allowing them by default during the transition:
+            export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+          This is not recommended and will be removed in a later release.
         EOS
       end
 
