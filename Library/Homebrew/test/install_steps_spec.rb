@@ -76,6 +76,26 @@ RSpec.describe Homebrew::InstallSteps do
     expect(root/"var/nested/example").to be_a_directory
   end
 
+  specify "normalises API step keys and values" do
+    steps = [
+      {
+        type: :mkdir_p,
+        path: {
+          base: :var,
+          path: "nested/example",
+        },
+      },
+    ]
+
+    expect(Homebrew::InstallSteps::DSL.normalise_steps(steps)).to contain_exactly(
+      "type" => "mkdir_p",
+      "path" => {
+        "base" => "var",
+        "path" => "nested/example",
+      },
+    )
+  end
+
   specify "does not add the default base to home paths" do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       mkdir_p "~/example"
