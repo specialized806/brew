@@ -256,6 +256,9 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect(cmd).to receive(:show_final_upgrade_summary).with(dry_run: true).ordered
     expect(Homebrew::Install).to receive(:ask).with(action: "upgrade")
                                               .ordered
+    expect(Cask::Upgrade).to receive(:show_upgrade_summary)
+      .with(["testball 0.1 -> 0.2"])
+      .ordered
     expect(Homebrew::DownloadQueue).to receive(:new).ordered.and_return(download_queue)
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with(
