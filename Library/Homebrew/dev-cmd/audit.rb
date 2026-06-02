@@ -373,7 +373,14 @@ module Homebrew
         SimulateSystem.with(os: cask_audit_os, arch: cask_audit_arch) { Cask::CaskLoader.load(path) }
       end
 
-      sig { params(results: T::Hash[[Symbol, Pathname], T::Array[T::Hash[Symbol, T.untyped]]]).void }
+      sig {
+        params(
+          results: T::Hash[
+            T::Array[T.any(String, Pathname)],
+            T::Array[T::Hash[Symbol, T.untyped]],
+          ],
+        ).void
+      }
       def print_problems(results)
         results.each do |(name, path), problems|
           problem_lines = format_problem_lines(problems)
