@@ -14,7 +14,9 @@ module Homebrew
           Check for newer versions of formulae and/or casks from upstream.
           If no formula or cask argument is passed, the list of formulae and
           casks to check is taken from `$HOMEBREW_LIVECHECK_WATCHLIST` or
-          `~/.homebrew/livecheck_watchlist.txt`.
+          `${XDG_CONFIG_HOME}/homebrew/livecheck_watchlist.txt` if
+          `$XDG_CONFIG_HOME` is set or `~/.homebrew/livecheck_watchlist.txt`
+          otherwise.
         EOS
         switch "--full-name",
                description: "Print formulae and casks with fully-qualified names."

@@ -10,6 +10,8 @@ module Homebrew
       cmd_args do
         description <<~EOS
           Stop trusting non-official tap formulae, casks or commands.
+          Trusted entries are stored in `${XDG_CONFIG_HOME}/homebrew/trust.json` if
+          `$XDG_CONFIG_HOME` is set or `~/.homebrew/trust.json` otherwise.
         EOS
         switch "--tap",
                description: "Untrust the named tap."
