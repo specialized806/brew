@@ -244,6 +244,7 @@ module Homebrew
             named:           args.named.present?,
           )
             Install.ask(action: "upgrade")
+            Cask::Upgrade.show_upgrade_summary(final_upgrade_summary.version_changes)
           end
           ask_upgrade_planned = final_upgrade_summary.version_changes.present?
           @final_upgrade_summary = FinalUpgradeSummary.new
@@ -268,10 +269,12 @@ module Homebrew
               prefetch_upgrades:      prefetched_cask_upgrades,
               show_downloads_heading: false,
             )
-            Cask::Upgrade.show_upgrade_summary(
-              prefetched_formulae_upgrades + prefetched_cask_upgrades,
-              dry_run: args.dry_run?,
-            )
+            unless args.ask?
+              Cask::Upgrade.show_upgrade_summary(
+                prefetched_formulae_upgrades + prefetched_cask_upgrades,
+                dry_run: args.dry_run?,
+              )
+            end
             Install.show_combined_fetch_downloads_heading(
               formula_names: prefetched_formulae_names,
               cask_names:    prefetched_cask_names,
