@@ -380,11 +380,13 @@ module Homebrew
 
         if System.launchctl?
           file ||= enable ? service.dest : service.service_file
+          service.path_dirs.each(&:mkpath)
           launchctl_load(service, file:, enable:)
         elsif System.systemctl?
           # Systemctl loads based upon location so only install service
           # file when it is not installed. Used with the `run` command.
           install_service_file(service, file) unless service.dest.exist?
+          service.path_dirs.each(&:mkpath)
           systemd_load(service, enable:)
         end
 
