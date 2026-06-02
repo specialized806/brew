@@ -577,7 +577,21 @@ postflight_steps do
 end
 ```
 
-`mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s` and `ln_sf` are available in steps blocks. Relative paths default to `staged_path` for `base:`, `source_base:` and `target_base:`. Symlink steps can use `uninstall: true` to remove the symlink during uninstall. A steps block may only contain those step calls with literal arguments; it cannot call the wider cask DSL or arbitrary Ruby code. Each phase may define either its Ruby flight block or its matching steps block, not both.
+A steps block may only contain supported step calls with literal arguments; it cannot call the wider cask DSL or arbitrary Ruby code. Each phase may define either its Ruby flight block or its matching steps block, not both.
+
+#### File preparation steps
+
+Relative paths default to `staged_path` for `base:`, `source_base:` and `target_base:`. Symlink steps can use `uninstall: true` to remove the symlink during uninstall.
+
+* `mkdir`: create one directory; example: `mkdir "Shared"`.
+* `mkdir_p`: create a directory and any missing parents; example: `mkdir_p "Shared"`.
+* `touch`: create or update a file timestamp; example: `touch "Shared/state"`.
+* `move`: move one file or directory; example: `move "payload", "Shared/payload"`.
+* `mv`: alias for `move`; example: `mv "payload", "Shared/payload"`.
+* `move_children`: move the contents of one directory into another; example: `move_children "payload", "Shared/payload"`.
+* `symlink`: create a symlink; example: `symlink "Shared/payload", "Payload", source_base: :relative`.
+* `ln_s`: alias for `symlink`; example: `ln_s "Shared/payload", "Payload", source_base: :relative`.
+* `ln_sf`: create or replace a symlink; example: `ln_sf "Shared/payload", "Payload", source_base: :relative, uninstall: true`.
 
 Flight blocks are not currently run in the cask sandbox. They should be written as though they may be sandboxed in the future: prefer the mini-DSL helpers below and keep filesystem writes limited to paths owned by the cask.
 

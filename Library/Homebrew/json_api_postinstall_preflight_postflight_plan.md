@@ -29,11 +29,19 @@ future step types that invoke non-Homebrew code.
 Future cask work should sandbox all `*flight` run scripts from non-Homebrew and
 non-system sources, for example scripts shipped by upstream artifacts.
 
+For each future operation type, check `homebrew/core` and `homebrew/cask`
+separately and add formula support only when needed by `homebrew/core` or cask
+support only when needed by `homebrew/cask`.
+
 RuboCop autocorrection converts the simplest existing `post_install` and
 `*flight` Ruby blocks to steps blocks when every statement is a supported file
 preparation operation with literal paths and known bases. Future post-install
 and `*flight` DSLs should include the same style of conservative autocorrection
 from the matching legacy Ruby pattern where possible.
+
+Before opening follow-up PRs, run `bundle exec rake lint` from `docs/` to catch
+markdown lint issues and run `brew style homebrew/core homebrew/cask` to catch
+tap-wide formula or cask opportunities exposed by the new DSLs.
 
 ## Formula Patterns
 
@@ -161,15 +169,19 @@ be resolved before the download can be enqueued.
   `uninstall: true` symlink cleanup available for install-phase steps. Keep
   the tap-wide autocorrect audit in a follow-up commit so the implementation
   can land before converted casks.
-- [ ] PR 4, desktop and cache rebuild actions.
+- [x] PR 4, desktop and cache rebuild actions.
   Estimated existing formulae/casks affected: about `35` formulae run rebuild
   tools such as `glib-compile-schemas`, `gtk*-update-icon-cache`,
   `gio-querymodules`, `gdk-pixbuf-query-loaders`, `update-mime-database` and
   `update-desktop-database`; no cask count was identified in the initial scan.
+  Scope: shared named action types for GSettings schemas, GIO modules,
+  GDK Pixbuf loaders, GTK icon caches, MIME databases and desktop databases,
+  runner dispatch through Homebrew-owned tools and docs.
   Notes for implementation: add named action types rather than raw commands;
-  define idempotence and failure handling; include RuboCop autocorrection for
-  exact known command patterns only; decide whether any action invokes
-  non-Homebrew code and should be ready for future sandboxing.
+  define idempotence and failure handling; decide whether any action invokes
+  non-Homebrew code and should be ready for future sandboxing. Land RuboCop
+  autocorrection and tap-wide conversions in a separate follow-up after the
+  new DSL methods are available in a stable Homebrew release.
 - [ ] PR 5, default config and template writes.
   Estimated existing formulae/casks affected: about `71` formulae write or
   patch default configuration/data files, and a subset of the `78` file-prep
