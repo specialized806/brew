@@ -20,6 +20,12 @@ RSpec.describe Homebrew::TestBot do
         git_email:      nil,
       )
 
+      allow(args).to receive_messages(only_cleanup_before?:  false,
+                                      only_setup?:           false,
+                                      only_tap_syntax?:      false,
+                                      only_formulae_detect?: false,
+                                      only_bottles_fetch?:   false,
+                                      only_cleanup_after?:   false)
       allow(klass).to receive(:setup_github_actions_sandbox!)
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
@@ -47,6 +53,12 @@ RSpec.describe Homebrew::TestBot do
         git_email:      nil,
       )
 
+      allow(args).to receive_messages(only_cleanup_before?:  false,
+                                      only_setup?:           false,
+                                      only_tap_syntax?:      false,
+                                      only_formulae_detect?: false,
+                                      only_bottles_fetch?:   false,
+                                      only_cleanup_after?:   false)
       allow(klass).to receive(:setup_github_actions_sandbox!)
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
@@ -69,6 +81,70 @@ RSpec.describe Homebrew::TestBot do
     ensure
       Homebrew::Trust.clear!(:tap)
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
+    it "does not set up the sandbox for only runs without sandboxed code" do
+      allow(klass).to receive(:local?).and_return(false)
+      allow(Utils).to receive(:safe_popen_read).and_return("revision")
+      allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
+
+      expect(klass).not_to receive(:setup_github_actions_sandbox!)
+
+      [
+        :only_cleanup_before?,
+        :only_setup?,
+        :only_tap_syntax?,
+        :only_formulae_detect?,
+        :only_bottles_fetch?,
+        :only_cleanup_after?,
+      ].each do |only_arg|
+        args = double(
+          cleanup?:       false,
+          local?:         false,
+          tap:            nil,
+          only_formulae?: false,
+          git_name:       nil,
+          git_email:      nil,
+        )
+        allow(args).to receive_messages(only_cleanup_before?:  false,
+                                        only_setup?:           false,
+                                        only_tap_syntax?:      false,
+                                        only_formulae_detect?: false,
+                                        only_bottles_fetch?:   false,
+                                        only_cleanup_after?:   false,
+                                        only_arg => true)
+
+        klass.run!(args)
+      end
+    end
+
+    it "sets up the sandbox for formulae runs" do
+      allow(klass).to receive(:local?).and_return(false)
+      allow(Utils).to receive(:safe_popen_read).and_return("revision")
+      allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
+
+      expect(klass).to receive(:setup_github_actions_sandbox!).twice
+
+      [:only_formulae?, :only_formulae_dependents?].each do |only_arg|
+        args = double(
+          cleanup?:       false,
+          local?:         false,
+          tap:            nil,
+          only_formulae?: only_arg == :only_formulae?,
+          git_name:       nil,
+          git_email:      nil,
+        )
+
+        allow(args).to receive_messages(only_cleanup_before?:      false,
+                                        only_setup?:               false,
+                                        only_tap_syntax?:          false,
+                                        only_formulae_detect?:     false,
+                                        only_formulae_dependents?: only_arg == :only_formulae_dependents?,
+                                        only_bottles_fetch?:       false,
+                                        only_cleanup_after?:       false)
+
+        klass.run!(args)
+      end
     end
   end
 
