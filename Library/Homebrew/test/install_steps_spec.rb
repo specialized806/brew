@@ -96,6 +96,37 @@ RSpec.describe Homebrew::InstallSteps do
     )
   end
 
+  specify "runs named desktop and cache rebuild actions" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      compile_gsettings_schemas
+      gio_querymodules
+      gdk_pixbuf_query_loaders
+      gtk_update_icon_cache
+      update_mime_database
+      update_desktop_database
+    end
+
+    formula = instance_double(Formula, opt_bin: root/"opt/bin")
+    allow(Formula).to receive(:[]).with("glib").and_return(formula)
+    allow(Formula).to receive(:[]).with("gdk-pixbuf").and_return(formula)
+    allow(Formula).to receive(:[]).with("gtk+3").and_return(formula)
+    allow(Formula).to receive(:[]).with("shared-mime-info").and_return(formula)
+    allow(Formula).to receive(:[]).with("desktop-file-utils").and_return(formula)
+    expect(context).to receive(:safe_system).with(root/"opt/bin/glib-compile-schemas",
+                                                  HOMEBREW_PREFIX/"share/glib-2.0/schemas").ordered
+    expect(context).to receive(:safe_system).with(root/"opt/bin/gio-querymodules",
+                                                  HOMEBREW_PREFIX/"lib/gio/modules").ordered
+    expect(context).to receive(:safe_system).with(root/"opt/bin/gdk-pixbuf-query-loaders", "--update-cache").ordered
+    expect(context).to receive(:safe_system).with(root/"opt/bin/gtk3-update-icon-cache", "-q", "-t", "-f",
+                                                  HOMEBREW_PREFIX/"share/icons/hicolor").ordered
+    expect(context).to receive(:safe_system).with(root/"opt/bin/update-mime-database",
+                                                  HOMEBREW_PREFIX/"share/mime").ordered
+    expect(context).to receive(:safe_system).with(root/"opt/bin/update-desktop-database",
+                                                  HOMEBREW_PREFIX/"share/applications").ordered
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+  end
+
   specify "does not add the default base to home paths" do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       mkdir_p "~/example"
