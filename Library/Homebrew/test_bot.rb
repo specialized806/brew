@@ -117,7 +117,14 @@ module Homebrew
         FileUtils.cp trust_file, ENV.fetch("HOMEBREW_USER_CONFIG_HOME") if trust_file.exist?
       end
 
-      setup_github_actions_sandbox!
+      if !args.only_cleanup_before? &&
+         !args.only_setup? &&
+         !args.only_tap_syntax? &&
+         !args.only_formulae_detect? &&
+         !args.only_bottles_fetch? &&
+         !args.only_cleanup_after?
+        setup_github_actions_sandbox!
+      end
 
       tap = resolve_test_tap(args.tap)
 
