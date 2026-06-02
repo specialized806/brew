@@ -162,6 +162,7 @@ RSpec.describe Resource do
       allow(resource.downloader).to receive(:_fetch) do
         resource.downloader.temporary_path.dirname.mkpath
         FileUtils.cp tarball, resource.downloader.temporary_path
+        FileUtils.touch resource.downloader.temporary_path, mtime: last_modified
       end
     end
 

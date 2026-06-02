@@ -17,11 +17,11 @@ RSpec.describe PyPIDownloadStrategy do
     allow(strategy).to receive(:_fetch)
     strategy.clear_cache
     strategy.temporary_path.dirname.mkpath
-    FileUtils.touch strategy.temporary_path
+    FileUtils.touch strategy.temporary_path, mtime: last_modified
   end
 
   describe "#source_modified_time" do
-    it "uses the PyPI last modified time when archive contents are older" do
+    it "uses the PyPI last modified time set on cached file when archive contents are older" do
       strategy.fetch
 
       mktmpdir("mtime").cd do
