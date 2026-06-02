@@ -25,7 +25,6 @@ module Homebrew
     def self.trust_file
       Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json"
     end
-    private_class_method :trust_file
 
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trust!(type, name)

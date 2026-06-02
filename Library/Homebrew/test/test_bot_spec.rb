@@ -31,6 +31,7 @@ RSpec.describe Homebrew::TestBot do
         end
       end
     ensure
+      Homebrew::Trust.clear!(:tap)
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
     end
 
@@ -66,6 +67,7 @@ RSpec.describe Homebrew::TestBot do
         end
       end
     ensure
+      Homebrew::Trust.clear!(:tap)
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
     end
   end
