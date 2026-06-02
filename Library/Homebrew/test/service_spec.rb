@@ -374,6 +374,28 @@ RSpec.describe Homebrew::Service do
     end
   end
 
+  describe "#path_dirs" do
+    it "returns directories needed by service paths" do
+      f = stub_formula do
+        service do
+          run [opt_bin/"beanstalkd", "-l", var/"run/beanstalkd.sock", "relative/path"]
+          error_log_path var/"log/beanstalkd.error.log"
+          log_path var/"log/beanstalkd.log"
+          input_path var/"in/beanstalkd"
+          root_dir var/"root"
+          working_dir var/"work"
+        end
+      end
+
+      expect(f.service.path_dirs).to contain_exactly(
+        HOMEBREW_PREFIX/"var/log",
+        HOMEBREW_PREFIX/"var/in",
+        HOMEBREW_PREFIX/"var/root",
+        HOMEBREW_PREFIX/"var/work",
+      )
+    end
+  end
+
   describe "#to_plist" do
     it "returns valid plist" do
       f = stub_formula do

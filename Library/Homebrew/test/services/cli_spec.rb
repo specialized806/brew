@@ -437,6 +437,36 @@ RSpec.describe Homebrew::Services::Cli do
             service_name:     "service.name",
             service_startup?: false,
             service_file:     instance_double(Pathname, exist?: false),
+            path_dirs:        [],
+          ),
+          nil,
+          enable: false,
+        )
+      end.to output("==> Successfully ran `name` (label: service.name)\n").to_stdout
+    end
+
+    it "creates service path directories before loading" do
+      expect(Homebrew::Services::System).to receive(:launchctl?).once.and_return(true)
+      expect(Homebrew::Services::System).not_to receive(:systemctl?)
+      expect(Homebrew::Services::System).to receive(:root?).twice.and_return(false)
+
+      path_dirs = [
+        mktmpdir/"var/run",
+        mktmpdir/"var/log",
+      ]
+      expect(klass).to receive(:launchctl_load).once do
+        path_dirs.each { expect(it).to be_a_directory }
+      end
+
+      expect do
+        services_cli.service_load(
+          instance_double(
+            Homebrew::Services::FormulaWrapper,
+            name:             "name",
+            service_name:     "service.name",
+            service_startup?: false,
+            service_file:     instance_double(Pathname, exist?: false),
+            path_dirs:,
           ),
           nil,
           enable: false,
@@ -458,6 +488,7 @@ RSpec.describe Homebrew::Services::Cli do
             service_startup?: false,
             dest:             instance_double(Pathname, exist?: true),
             timed?:           false,
+            path_dirs:        [],
           ),
           nil,
           enable: false,
@@ -479,6 +510,7 @@ RSpec.describe Homebrew::Services::Cli do
             service_startup?: false,
             dest:             instance_double(Pathname, exist?: true),
             timed?:           false,
+            path_dirs:        [],
           ),
           nil,
           enable: true,
