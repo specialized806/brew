@@ -106,11 +106,15 @@ module Homebrew
         home = "#{Dir.pwd}/home"
         logs = "#{Dir.pwd}/logs"
         gitconfig = "#{Dir.home}/.gitconfig"
+        trust_file = Homebrew::Trust.trust_file
         ENV["HOMEBREW_HOME"] = ENV["HOME"] = home
+        ENV["HOMEBREW_USER_CONFIG_HOME"] = "#{home}/.homebrew"
         ENV["HOMEBREW_LOGS"] = logs
         FileUtils.mkdir_p home
+        FileUtils.mkdir_p ENV.fetch("HOMEBREW_USER_CONFIG_HOME")
         FileUtils.mkdir_p logs
         FileUtils.cp gitconfig, home if File.exist?(gitconfig)
+        FileUtils.cp trust_file, ENV.fetch("HOMEBREW_USER_CONFIG_HOME") if trust_file.exist?
       end
 
       setup_github_actions_sandbox!
