@@ -1402,7 +1402,7 @@ Print a JSON representation of \fItap\fP\&\. Currently the default and only acce
 .UR https://docs\.brew\.sh/Querying\-Brew
 .UE
 .SS "\fBtrust\fP \fR[\fIoptions\fP] \fR[\fItarget\fP \.\.\.]"
-Trust non\-official tap formulae, casks or commands so Homebrew may load them when \fB$HOMEBREW_REQUIRE_TAP_TRUST\fP is set\.
+Trust non\-official tap formulae, casks or commands so Homebrew may load them when \fB$HOMEBREW_REQUIRE_TAP_TRUST\fP is set\. Trusted entries are stored in \fB${XDG_CONFIG_HOME}/homebrew/trust\.json\fP if \fB$XDG_CONFIG_HOME\fP is set or \fB~/\.homebrew/trust\.json\fP otherwise\.
 .TP
 \fB\-\-tap\fP
 Trust the named tap\.
@@ -1453,7 +1453,7 @@ Remove a tapped formula repository\.
 \fB\-f\fP, \fB\-\-force\fP
 Untap even if formulae or casks from this tap are currently installed\.
 .SS "\fBuntrust\fP \fR[\fIoptions\fP] \fR[\fItarget\fP \.\.\.]"
-Stop trusting non\-official tap formulae, casks or commands\.
+Stop trusting non\-official tap formulae, casks or commands\. Trusted entries are stored in \fB${XDG_CONFIG_HOME}/homebrew/trust\.json\fP if \fB$XDG_CONFIG_HOME\fP is set or \fB~/\.homebrew/trust\.json\fP otherwise\.
 .TP
 \fB\-\-tap\fP
 Untrust the named tap\.
@@ -2246,7 +2246,7 @@ For every library that a keg references, print its dylib path followed by the bi
 \fB\-\-cached\fP
 Print the cached linkage values stored in \fB$HOMEBREW_CACHE\fP, set by a previous \fBbrew linkage\fP run\.
 .SS "\fBlivecheck\fP, \fBlc\fP \fR[\fIoptions\fP] \fR[\fIformula\fP|\fIcask\fP \.\.\.]"
-Check for newer versions of formulae and/or casks from upstream\. If no formula or cask argument is passed, the list of formulae and casks to check is taken from \fB$HOMEBREW_LIVECHECK_WATCHLIST\fP or \fB~/\.homebrew/livecheck_watchlist\.txt\fP\&\.
+Check for newer versions of formulae and/or casks from upstream\. If no formula or cask argument is passed, the list of formulae and casks to check is taken from \fB$HOMEBREW_LIVECHECK_WATCHLIST\fP or \fB${XDG_CONFIG_HOME}/homebrew/livecheck_watchlist\.txt\fP if \fB$XDG_CONFIG_HOME\fP is set or \fB~/\.homebrew/livecheck_watchlist\.txt\fP otherwise\.
 .TP
 \fB\-\-full\-name\fP
 Print formulae and casks with fully\-qualified names\.

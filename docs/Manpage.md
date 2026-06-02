@@ -2218,7 +2218,9 @@ provided, display brief statistics for all installed taps.
 ### `trust` \[*`options`*\] \[*`target`* ...\]
 
 Trust non-official tap formulae, casks or commands so Homebrew may load them
-when `$HOMEBREW_REQUIRE_TAP_TRUST` is set.
+when `$HOMEBREW_REQUIRE_TAP_TRUST` is set. Trusted entries are stored in
+`${XDG_CONFIG_HOME}/homebrew/trust.json` if `$XDG_CONFIG_HOME` is set or
+`~/.homebrew/trust.json` otherwise.
 
 `--tap`
 
@@ -2301,7 +2303,9 @@ Remove a tapped formula repository.
 
 ### `untrust` \[*`options`*\] \[*`target`* ...\]
 
-Stop trusting non-official tap formulae, casks or commands.
+Stop trusting non-official tap formulae, casks or commands. Trusted entries are
+stored in `${XDG_CONFIG_HOME}/homebrew/trust.json` if `$XDG_CONFIG_HOME` is set
+or `~/.homebrew/trust.json` otherwise.
 
 `--tap`
 
@@ -3530,7 +3534,9 @@ provided, check all kegs. Raises an error if run on uninstalled formulae.
 
 Check for newer versions of formulae and/or casks from upstream. If no formula
 or cask argument is passed, the list of formulae and casks to check is taken
-from `$HOMEBREW_LIVECHECK_WATCHLIST` or `~/.homebrew/livecheck_watchlist.txt`.
+from `$HOMEBREW_LIVECHECK_WATCHLIST` or
+`${XDG_CONFIG_HOME}/homebrew/livecheck_watchlist.txt` if `$XDG_CONFIG_HOME` is
+set or `~/.homebrew/livecheck_watchlist.txt` otherwise.
 
 `--full-name`
 
