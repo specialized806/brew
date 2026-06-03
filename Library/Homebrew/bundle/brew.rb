@@ -6,6 +6,7 @@ require "tsort"
 require "utils"
 require "utils/output"
 require "bundle/package_type"
+require "trust"
 
 module Homebrew
   module Bundle
@@ -231,6 +232,7 @@ module Homebrew
           requested_formula = formulae.select do |f|
             f[:installed_on_request?]
           end
+          trusted_formulae = Homebrew::Trust.trusted_entries(:formula)
           requested_formula.map do |f|
             brewline = if describe && f[:desc].present?
               f[:desc].split("\n").map { |s| "# #{s}\n" }.join
@@ -243,6 +245,7 @@ module Homebrew
             brewline += ", args: [#{args}]" unless f[:args].empty?
             brewline += ", restart_service: :changed" if !no_restart && Services.started?(f[:full_name])
             brewline += ", link: #{f[:link?]}" unless f[:link?].nil?
+            brewline += ", trusted: true" if trusted_formulae.include?(f[:full_name])
             brewline
           end.join("\n")
         end

@@ -4,6 +4,7 @@
 require "utils"
 require "utils/output"
 require "bundle/package_type"
+require "trust"
 
 module Homebrew
   module Bundle
@@ -219,10 +220,13 @@ module Homebrew
 
         sig { override.params(describe: T::Boolean).returns(String) }
         def dump(describe: false)
+          trusted_casks = Homebrew::Trust.trusted_entries(:cask)
           casks.map do |cask|
             description = "# #{cask.desc}\n" if describe && cask.desc.present?
             config = ", args: { #{explicit_s(cask.config)} }" if cask.config.present? && cask.config.explicit.present?
-            "#{description}cask \"#{cask.full_name}\"#{config}"
+            caskline = "#{description}cask \"#{cask.full_name}\"#{config}"
+            caskline += ", trusted: true" if trusted_casks.include?(cask.full_name)
+            caskline
           end.join("\n")
         end
 
