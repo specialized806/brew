@@ -20,7 +20,7 @@ module Cask
       sig { params(args: T.anything).void }
       def initialize(*args)
         super
-        @built_in_caveats = T.let({}, T::Hash[T::Array[Symbol], String])
+        @built_in_caveats = T.let({}, T::Hash[T::Array[T.any(String, Symbol)], String])
         @custom_caveats = T.let([], T::Array[String])
         @discontinued = T.let(false, T::Boolean)
         @invoked_caveats = T.let(Set.new, T::Set[Symbol])
@@ -211,7 +211,7 @@ module Cask
       sig { returns(T::Set[Symbol]) }
       attr_reader :invoked_caveats
 
-      sig { returns(T::Hash[T::Array[Symbol], String]) }
+      sig { returns(T::Hash[T::Array[T.any(String, Symbol)], String]) }
       attr_reader :built_in_caveats
     end
   end
