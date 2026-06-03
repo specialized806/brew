@@ -10,6 +10,8 @@ When running commands in this repository, use `./bin/brew` (not a system `brew` 
 
 When running Ruby directly (e.g. `ruby -e ...`, `gem`, profiling tools), never use the system Ruby. Use `./bin/brew ruby -- <args>` to run Ruby scripts with Homebrew's vendored Ruby and libraries loaded. The system macOS Ruby is an incompatible older version.
 
+Do not use conventional commit prefixes such as `feat:`, `fix:`, `chore:`, `refactor:`, `perf:` or `ci:`; the `Commit Style` GitHub Actions workflow rejects them.
+
 ## Code Standards
 
 ### Required Before Each Commit
