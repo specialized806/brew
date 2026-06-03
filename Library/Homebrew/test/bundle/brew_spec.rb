@@ -7,6 +7,7 @@ require "bundle/brew_services"
 require "tsort"
 require "formula"
 require "tab"
+require "trust"
 require "utils/bottles"
 
 RSpec.describe Homebrew::Bundle::Brew do
@@ -610,6 +611,7 @@ RSpec.describe Homebrew::Bundle::Brew do
       before do
         klass.reset!
         allow_any_instance_of(Formula).to receive(:outdated?).and_return(true)
+        allow(Formula).to receive(:installed_formula_names).and_return(%w[foo bar])
         allow(klass).to receive_messages(outdated_formulae: %w[bar], formulae: [
           {
             name:         "foo",
@@ -639,6 +641,40 @@ RSpec.describe Homebrew::Bundle::Brew do
         expect(klass.formula_installed_and_up_to_date?("foobar")).to be(true)
         expect(klass.formula_installed_and_up_to_date?("bar")).to be(false)
         expect(klass.formula_installed_and_up_to_date?("baz")).to be(false)
+      end
+    end
+
+    describe ".formula_installed_and_up_to_date? with an untrusted tap formula" do
+      before do
+        klass.reset!
+        allow(Homebrew::EnvConfig).to receive(:require_tap_trust?).and_return(true)
+        allow(Formula).to receive(:installed_formula_names).and_return(["php@7.2"])
+        allow(Homebrew::Trust).to receive(:trusted?).with(:formula, "shivammathur/php/php@7.2").and_return(false)
+      end
+
+      it "warns and marks the formula actionable without loading it" do
+        expect(Formula).not_to receive(:installed)
+        expect(Formula).not_to receive(:[])
+        expect { expect(klass.formula_installed_and_up_to_date?("shivammathur/php/php@7.2")).to be(false) }
+          .to output(/Cannot check whether.*not trusted/).to_stderr
+      end
+
+      it "does not warn when upgrades are disabled" do
+        expect(Formula).not_to receive(:installed)
+        expect(Formula).not_to receive(:[])
+        expect do
+          expect(klass.formula_installed_and_up_to_date?("shivammathur/php/php@7.2", no_upgrade: true)).to be(true)
+        end
+          .not_to output.to_stderr
+      end
+
+      it "detects missing formulae without loading the formula" do
+        allow(Formula).to receive(:installed_formula_names).and_return([])
+
+        expect(Formula).not_to receive(:installed)
+        expect(Formula).not_to receive(:[])
+        expect { expect(klass.formula_installed_and_up_to_date?("shivammathur/php/php@7.2")).to be(false) }
+          .not_to output.to_stderr
       end
     end
 

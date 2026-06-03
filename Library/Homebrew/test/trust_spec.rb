@@ -24,6 +24,17 @@ RSpec.describe Homebrew::Trust do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "trusts formulae from trusted taps" do
+    Tap.fetch("trustedformulae", "foo")
+
+    Homebrew::Trust.trust!(:tap, "trustedformulae/foo")
+
+    expect(Homebrew::Trust.trusted?(:formula, "trustedformulae/foo/bar")).to be(true)
+  ensure
+    Homebrew::Trust.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"trustedformulae"
+  end
+
   it "ignores a trust file with a non-object JSON root" do
     trust_file = T.let(nil, T.nilable(Pathname))
     trust_file = Homebrew::Trust.trust_file
@@ -45,20 +56,20 @@ RSpec.describe Homebrew::Trust do
   end
 
   it "trusts fully-qualified formulae and casks" do
-    tap = Tap.fetch("thirdparty", "foo")
+    tap = Tap.fetch("qualified", "foo")
     tap.formula_dir.mkpath
     tap.cask_dir.mkpath
     (tap.formula_dir/"bar.rb").write("class Bar < Formula; end\n")
     (tap.cask_dir/"baz.rb").write("cask 'baz'\n")
 
-    Homebrew::Trust.trust_fully_qualified_items!(["thirdparty/foo/bar", "thirdparty/foo/baz"])
+    Homebrew::Trust.trust_fully_qualified_items!(["qualified/foo/bar", "qualified/foo/baz"])
 
-    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/foo/bar")).to be(true)
-    expect(Homebrew::Trust.trusted?(:cask, "thirdparty/foo/baz")).to be(true)
+    expect(Homebrew::Trust.trusted?(:formula, "qualified/foo/bar")).to be(true)
+    expect(Homebrew::Trust.trusted?(:cask, "qualified/foo/baz")).to be(true)
   ensure
     Homebrew::Trust.clear!(:formula)
     Homebrew::Trust.clear!(:cask)
-    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"qualified"
   end
 
   it "does not trust missing fully-qualified formulae or casks" do

@@ -92,7 +92,14 @@ module Homebrew
 
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trusted?(type, name)
-      trusted_entries(type).include?(normalise_name(name))
+      name = normalise_name(name)
+      return true if trusted_entries(type).include?(name)
+      return false if type == :tap
+      return false unless (tap_name = ::Utils.tap_from_full_name(name))
+
+      trusted_tap?(Tap.fetch(tap_name))
+    rescue Tap::InvalidNameError
+      false
     end
 
     sig { params(tap: T.untyped).returns(T::Boolean) }

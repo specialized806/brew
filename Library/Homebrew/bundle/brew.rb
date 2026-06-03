@@ -131,18 +131,36 @@ module Homebrew
 
         sig { params(formula: String).returns(T::Boolean) }
         def formula_installed?(formula)
+          # Fully qualified tap formulae can be checked by their Cellar rack name
+          # without loading the formula from an untrusted tap.
+          return installed_formulae.include?(Utils.name_from_full_name(formula)) if formula.count("/") == 2
+
           formula_in_array?(formula, installed_formulae)
         end
 
         sig { params(formula: String).returns(T::Boolean) }
         def formula_upgradable?(formula)
+          return false unless formula_installed?(formula)
+
+          # Reading the formula is needed for authoritative outdated state, so
+          # report trust problems before the upgrade check tries to load it.
+          if formula.count("/") == 2 && Homebrew::EnvConfig.require_tap_trust?
+            require "trust"
+
+            unless Homebrew::Trust.trusted?(:formula, formula)
+              opoo "Cannot check whether #{formula} is outdated because its tap is not trusted. " \
+                   "Run `brew trust --formula #{formula}` to trust it."
+              return true
+            end
+          end
+
           # Check local cache first and then authoritative Homebrew source.
           (formula_in_array?(formula, upgradable_formulae) && Formula[formula].outdated?) || false
         end
 
         sig { returns(T::Array[String]) }
         def installed_formulae
-          @installed_formulae ||= formulae.map { |f| f[:name] }
+          @installed_formulae ||= Formula.installed_formula_names
         end
 
         sig { returns(T::Array[String]) }
