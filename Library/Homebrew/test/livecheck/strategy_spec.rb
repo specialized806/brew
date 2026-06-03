@@ -395,6 +395,9 @@ RSpec.describe Homebrew::Livecheck::Strategy do
     it "returns an array of version strings when given a valid value" do
       expect(strategy.handle_block_return("1.2.3")).to eq(["1.2.3"])
       expect(strategy.handle_block_return(["1.2.3", "1.2.4"])).to eq(["1.2.3", "1.2.4"])
+      expect(strategy.handle_block_return([Version.new("1.2.3"), "1.2.4"])).to eq(["1.2.3", "1.2.4"])
+      expect(strategy.handle_block_return([Version.new("1.2.3"), nil, "1.2.4"])).to eq(["1.2.3", "1.2.4"])
+      expect(strategy.handle_block_return([Version.new("1.2.3"), "1.2.3", nil, "1.2.4"])).to eq(["1.2.3", "1.2.4"])
     end
 
     it "returns an empty array when given a nil value" do
