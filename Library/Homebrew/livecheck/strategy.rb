@@ -310,10 +310,10 @@ module Homebrew
       sig { params(value: T.untyped).returns(T::Array[String]) }
       def self.handle_block_return(value)
         case value
-        when String
-          [value]
+        when String, Version
+          [value.to_s]
         when Array
-          value.compact.uniq
+          value.compact.map(&:to_s).uniq
         when nil
           []
         else
