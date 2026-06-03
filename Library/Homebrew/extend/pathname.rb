@@ -349,7 +349,7 @@ class Pathname
   # Writes a wrapper env script and moves all files to the dst.
   #
   # @api public
-  sig { params(dst: Pathname, env: T::Hash[String, String]).void }
+  sig { params(dst: Pathname, env: T::Hash[Symbol, String]).void }
   def env_script_all_files(dst, env)
     dst.mkpath
     Pathname.glob("#{self}/*") do |file|
