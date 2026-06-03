@@ -286,6 +286,16 @@ __brew_diagnostic_checks() {
   _describe -t diagnostic-checks 'diagnostic checks' diagnostic_checks
 }
 
+__brew_services() {
+  [[ -prefix '-' ]] && return 0
+
+  local -a services
+  services=($(command find "$(brew --cellar)" -mindepth 3 -maxdepth 3 -name '*.service' \
+    | awk -F'homebrew.|.service' '{print $3}' \
+    | sort -d))
+  _describe -t services 'services' services
+}
+
 # brew --cache
 _brew___cache() {
   _arguments \
