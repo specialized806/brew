@@ -1,9 +1,10 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::FishCompletion, :cask do
   let(:klass) { Cask::Artifact::FishCompletion }
 
+  let(:cask_token) { "with-shellcompletion" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
   context "with install" do
@@ -25,8 +26,6 @@ RSpec.describe Cask::Artifact::FishCompletion, :cask do
     end
 
     context "with completion" do
-      let(:cask_token) { "with-shellcompletion" }
-
       it "links the completion to the proper directory" do
         install_phase.call
 

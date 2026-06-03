@@ -14,9 +14,6 @@ RSpec.describe Utils do
       end
     end
 
-    # Required for Sorbet, but the actual value is set in the individual
-    # examples which provide their `let(:required_ruby_version)` value to
-    # `subject`.
     let(:required_ruby_version) { "1.2.3" }
 
     before do
