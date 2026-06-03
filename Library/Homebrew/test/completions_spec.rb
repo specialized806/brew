@@ -390,6 +390,7 @@ RSpec.describe Homebrew::Completions do
       it "returns the correct completion file" do
         file = klass.generate_bash_completion_file(%w[install missing update])
         expect(file).to match(/^__brewcomp\(\) {$/)
+        expect(file).to match(/^__brew_complete_services\(\) {$/)
         expect(file).to match(/^_brew_install\(\) {$/)
         expect(file).to match(/^_brew_missing\(\) {$/)
         expect(file).to match(/^_brew_update\(\) {$/)
@@ -493,6 +494,7 @@ RSpec.describe Homebrew::Completions do
       it "returns the correct completion file" do
         file = klass.generate_zsh_completion_file(%w[install missing update])
         expect(file).to match(/^__brew_list_aliases\(\) {$/)
+        expect(file).to match(/^__brew_services\(\) {$/)
         expect(file).to match(/^    up update$/)
         expect(file).to match(/^__brew_internal_commands\(\) {$/)
         expect(file).to match(/^    'install:Install a formula or cask'$/)
