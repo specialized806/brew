@@ -26,7 +26,10 @@ RSpec.describe Homebrew::Livecheck::Strategy do
       status_code: "200",
       status_text: "OK",
       headers:     {
-        "cache-control"  => "max-age=604800",
+        "cache-control"  => [
+          "max-age=604800, must-revalidate",
+          "public, no-transform",
+        ],
         "content-type"   => "text/html; charset=UTF-8",
         "date"           => "Wed, 1 Jan 2020 01:23:45 GMT",
         "expires"        => "Wed, 31 Jan 2020 01:23:45 GMT",
@@ -39,7 +42,10 @@ RSpec.describe Homebrew::Livecheck::Strategy do
       status_code: "301",
       status_text: "Moved Permanently",
       headers:     {
-        "cache-control"  => "max-age=604800",
+        "cache-control"  => [
+          "max-age=604800, must-revalidate",
+          "public, no-transform",
+        ],
         "content-type"   => "text/html; charset=UTF-8",
         "date"           => "Wed, 1 Jan 2020 01:23:45 GMT",
         "expires"        => "Wed, 31 Jan 2020 01:23:45 GMT",
