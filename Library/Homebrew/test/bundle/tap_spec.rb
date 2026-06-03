@@ -58,6 +58,14 @@ RSpec.describe Homebrew::Bundle::Tap do
         EOS
         expect(dumper.dump).to eql(expected_output.chomp)
       end
+
+      it "dumps trusted taps with trusted true" do
+        allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["bitbucket/bar"])
+
+        expect(dumper.dump).to include(
+          "tap \"bitbucket/bar\", \"https://bitbucket.org/bitbucket/bar.git\", trusted: true",
+        )
+      end
     end
   end
 
