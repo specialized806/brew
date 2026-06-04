@@ -194,6 +194,7 @@ class Sandbox
       HOMEBREW_PREFIX,
       HOMEBREW_REPOSITORY,
       HOMEBREW_CACHE,
+      HOMEBREW_LOGS,
       HOMEBREW_TEMP,
       ENV.fetch("GITHUB_WORKSPACE", nil),
       ENV.fetch("RUNNER_WORKSPACE", nil),

@@ -162,14 +162,16 @@ RSpec.describe Sandbox do
     let(:repository) { mktmpdir/"repository" }
     let(:temp) { mktmpdir/"tmp" }
     let(:cache) { mktmpdir/"cache" }
+    let(:logs) { mktmpdir/"logs" }
 
     before do
-      [home, prefix, repository, temp, cache].each(&:mkpath)
+      [home, prefix, repository, temp, cache, logs].each(&:mkpath)
       allow(Dir).to receive(:home).with(ENV.fetch("USER")).and_return(home.to_s)
       stub_const("HOMEBREW_PREFIX", prefix)
       stub_const("HOMEBREW_REPOSITORY", repository)
       stub_const("HOMEBREW_TEMP", temp)
       stub_const("HOMEBREW_CACHE", cache)
+      stub_const("HOMEBREW_LOGS", logs)
     end
 
     it "denies reads from the real home" do
@@ -185,6 +187,7 @@ RSpec.describe Sandbox do
       [:HOMEBREW_REPOSITORY, "repository"],
       [:HOMEBREW_CACHE, "cache"],
       [:HOMEBREW_TEMP, "tmp"],
+      [:HOMEBREW_LOGS, "Library/Logs/Homebrew"],
     ].each do |constant, directory|
       it "skips the deny when #{constant} is inside the real home" do
         stub_const(constant.to_s, home/directory)
