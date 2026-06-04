@@ -637,9 +637,17 @@ module Homebrew
           puts deprecate_disable_info_string
         end
 
-        conflicts = formula.conflicts.map do |conflict|
+        conflicts = formula.conflicts.filter_map do |conflict|
+          resolved = begin
+            Formulary.factory(conflict.name)
+          rescue FormulaUnavailableError
+            nil
+          end
+          next if resolved && resolved.full_name == formula.full_name
+
+          conflict_name = resolved&.full_name || conflict.name
           reason = " (because #{conflict.reason})" if conflict.reason
-          "#{conflict.name}#{reason}"
+          "#{conflict_name}#{reason}"
         end.sort!
         unless conflicts.empty?
           puts <<~EOS

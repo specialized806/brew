@@ -249,6 +249,34 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "shows a conflict by its resolved full name" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      conflicts_with "other"
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    other = formula("other") { url "https://brew.sh/other-0.1.tar.gz" }
+    allow(other).to receive(:full_name).and_return("someuser/tap/other")
+    allow(Formulary).to receive(:factory).with("other").and_return(other)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(%r{Conflicts with:\n  someuser/tap/other}).to_stdout
+  end
+
+  it "omits a stale conflict that resolves to the formula itself" do
+    info = described_class.new([])
+    formula = formula("testball") do
+      url "https://brew.sh/testball-0.1.tar.gz"
+      conflicts_with "testball"
+    end
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(Formulary).to receive(:factory).with("testball").and_return(formula)
+
+    expect { info.send(:info_formula, formula) }
+      .not_to output(/Conflicts with:/).to_stdout
+  end
+
   it "marks a deprecated formula with `(deprecated)` in the title" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
