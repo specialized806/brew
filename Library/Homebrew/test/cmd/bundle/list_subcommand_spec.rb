@@ -50,7 +50,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ListSubcommand do
   describe "outputs dependencies to stdout" do
     before do
       allow_any_instance_of(Pathname).to receive(:read).and_return(
-        <<~EOS,
+        <<~RUBY,
           tap 'phinze/cask'
           brew 'mysql', conflicts_with: ['mysql56']
           cask 'google-chrome'
@@ -59,7 +59,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ListSubcommand do
           go 'github.com/charmbracelet/crush'
           cargo 'ripgrep'
           uv 'mkdocs'
-        EOS
+        RUBY
       )
     end
 

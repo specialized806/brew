@@ -43,7 +43,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
         "https://bitbucket.org/multicoreware/x265_git/commits/b354c009a60bcd6d7fc04014e200a1ee9c45c167/raw",
       ]
       patch_urls.each do |patch_url|
-        source = <<~EOS
+        source = <<~RUBY
           class Foo < Formula
             homepage "ftp://brew.sh/foo"
             url "https://brew.sh/foo-1.0.tgz"
@@ -51,7 +51,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
               "#{patch_url}"
             end
           end
-        EOS
+        RUBY
 
         expected_offense = if patch_url.include?("/raw.github.com/")
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 4, source:)

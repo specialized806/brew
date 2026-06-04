@@ -11,7 +11,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::ElectronBuilder do
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /Example[._-]v?(\d+(?:\.\d+)+)[._-]mac\.zip/i }
   let(:content) do
-    <<~EOS
+    <<~YAML
       version: 1.2.3
       files:
         - url: Example-1.2.3-mac.zip
@@ -24,7 +24,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::ElectronBuilder do
       path: Example-1.2.3-mac.zip
       sha512: MDXR0pxozBJjxxbtUQJOnhiaiiQkryLAwtcVjlnNiz30asm/PtSxlxWKFYN3kV/kl+jriInJrGypuzajTF6XIA==
       releaseDate: '2000-01-01T00:00:00.000Z'
-    EOS
+    YAML
   end
   let(:content_timestamp) do
     # An electron-builder YAML file may use a timestamp instead of an explicit

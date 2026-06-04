@@ -325,11 +325,11 @@ RSpec.describe Formulary do
         end
 
         it "returns a Formula that has gone through a tap migration into homebrew/core" do
-          tap_migrations_path.write <<~EOS
+          tap_migrations_path.write <<~JSON
             {
               "#{formula_name}": "homebrew/core"
             }
-          EOS
+          JSON
           formula = klass.factory("#{tap}/#{formula_name}")
           expect(formula).to be_a(Formula)
           expect(formula.tap).to eq(CoreTap.instance)
@@ -337,11 +337,11 @@ RSpec.describe Formulary do
         end
 
         it "returns a Formula that has gone through a tap migration into another tap" do
-          tap_migrations_path.write <<~EOS
+          tap_migrations_path.write <<~JSON
             {
               "#{formula_name}": "#{another_tap}"
             }
-          EOS
+          JSON
           formula = klass.factory("#{tap}/#{formula_name}")
           expect(formula).to be_a(Formula)
           expect(formula.tap).to eq(another_tap)
@@ -349,11 +349,11 @@ RSpec.describe Formulary do
         end
 
         it "raises when the migrated tap is not installed" do
-          tap_migrations_path.write <<~EOS
+          tap_migrations_path.write <<~JSON
             {
               "#{formula_name}": "#{another_tap}"
             }
-          EOS
+          JSON
           FileUtils.rm_rf another_tap.path
 
           expect(another_tap).not_to receive(:ensure_installed!)

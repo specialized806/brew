@@ -11,7 +11,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Json do
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }
   let(:content) do
-    <<~EOS
+    <<~JSON
       {
         "versions": [
           { "version": "1.1.2" },
@@ -36,7 +36,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Json do
           { "other": "version is omitted from this object for testing" }
         ]
       }
-    EOS
+    JSON
   end
   let(:content_simple) { '{"version":"1.2.3"}' }
   let(:matches) do

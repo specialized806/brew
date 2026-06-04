@@ -28,7 +28,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Bitbucket do
   end
   # This example HTML omits table columns for the sake of brevity.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE html>
       <html>
         <head>
@@ -80,7 +80,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Bitbucket do
             </tr>
         </body>
       </html>
-    EOS
+    HTML
   end
   let(:matches) { ["1.2.3", "1.2.2", "1.2.1"] }
 

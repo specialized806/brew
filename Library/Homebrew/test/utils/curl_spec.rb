@@ -302,7 +302,7 @@ RSpec.describe "Utils::Curl" do
   let(:body) do
     body = {}
 
-    body[:default] = <<~EOS
+    body[:default] = <<~HTML
       <!DOCTYPE html>
       <html>
         <head>
@@ -314,7 +314,7 @@ RSpec.describe "Utils::Curl" do
           <p>Hello, world!</p>
         </body>
       </html>
-    EOS
+    HTML
 
     body[:with_carriage_returns] = body[:default].sub("<html>\n", "<html>\r\n\r\n")
 

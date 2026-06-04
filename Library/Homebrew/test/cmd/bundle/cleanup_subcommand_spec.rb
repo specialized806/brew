@@ -105,7 +105,7 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
       # don't try to load gcc/glibc
       allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
 
-      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~RUBY
         tap 'x'
         tap 'y'
         cask '123'
@@ -121,7 +121,7 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
         brew 'hasbuilddependency2'
         mas 'appstoreapp1', id: 1
         vscode 'VsCodeExtension1'
-      EOS
+      RUBY
       klass.read_dsl_from_brewfile!
       %w[a b d2 homebrew/tap/f homebrew/tap/g homebrew/tap/h homebrew/tap/i2
          homebrew/tap/hasdependency hasbuilddependency1 hasbuilddependency2].each do |full_name|
@@ -195,9 +195,9 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     end
 
     it "keeps taps referenced by fully qualified formulae" do
-      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~RUBY
         brew "homebrew/tap/foo"
-      EOS
+      RUBY
       klass.read_dsl_from_brewfile!
 
       allow(Homebrew::Bundle::Brew).to receive(:formulae).and_return([
@@ -212,9 +212,9 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     end
 
     it "keeps taps referenced by fully qualified casks" do
-      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~RUBY
         cask "homebrew/tap/foo"
-      EOS
+      RUBY
       klass.read_dsl_from_brewfile!
 
       allow(Homebrew::Bundle::Cask).to receive(:casks).and_return([
@@ -229,9 +229,9 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     end
 
     it "ignores unavailable formulae when computing which taps to keep" do
-      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~RUBY
         brew "foo"
-      EOS
+      RUBY
       klass.read_dsl_from_brewfile!
 
       allow(Formulary).to \
@@ -265,9 +265,9 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
     end
 
     it "computes which flatpaks to uninstall", :needs_linux do
-      allow_any_instance_of(Pathname).to receive(:read).and_return <<~EOS
+      allow_any_instance_of(Pathname).to receive(:read).and_return <<~RUBY
         flatpak 'org.gnome.Calculator'
-      EOS
+      RUBY
       klass.read_dsl_from_brewfile!
       allow(Homebrew::Bundle::Flatpak).to receive_messages(
         package_manager_installed?: true,

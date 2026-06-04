@@ -67,7 +67,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Apache do
     values
   end
   let(:content) do
-    start_html = <<~EOS
+    start_html = <<~HTML
       <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
       <html>
       <head>
@@ -85,24 +85,24 @@ RSpec.describe Homebrew::Livecheck::Strategy::Apache do
           <img src="/icons/back.gif" alt="[PARENTDIR]">
           <a href="/dist/">Parent Directory</a>
                                                              -
-    EOS
+    HTML
 
-    end_html = <<~EOS
+    end_html = <<~HTML
           <hr>
         </pre>
       </body>
       </html>
-    EOS
+    HTML
 
-    directories = <<~EOS
+    directories = <<~HTML
       <img src="/icons/folder.gif" alt="[DIR]"> <a href="1.2.0/">1.2.0/</a>                  2022-01-20 01:20    -
       <img src="/icons/folder.gif" alt="[DIR]"> <a href="1.2.1/">1.2.1/</a>                  2022-01-21 01:21    -
       <img src="/icons/folder.gif" alt="[DIR]"> <a href="1.2.2/">1.2.2/</a>                  2022-01-22 01:22    -
       <img src="/icons/folder.gif" alt="[DIR]"> <a href="abc-other/">abc-other/</a>         2022-01-02 01:02    -
       <img src="/icons/folder.gif" alt="[DIR]"> <a href="abc-something/">abc-something/</a> 2022-01-03 01:03    -
-    EOS
+    HTML
 
-    files = <<~EOS
+    files = <<~HTML
       <img src="/icons/compressed.gif" alt="[   ]"> <a href="ghi-1.2.3-bin.tar.gz">ghi-1.2.3-bin.tar.gz</a>        2022-01-23 01:23   45M
       <img src="/icons/text.gif" alt="[TXT]"> <a href="ghi-1.2.3-bin.tar.gz.asc">ghi-1.2.3-bin.tar.gz.asc</a>    2022-01-23 01:23  456
       <img src="/icons/text.gif" alt="[TXT]"> <a href="ghi-1.2.3-bin.tar.gz.sha512">ghi-1.2.3-bin.tar.gz.sha512</a> 2022-01-23 01:23  123
@@ -115,7 +115,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Apache do
       <img src="/icons/compressed.gif" alt="[   ]"> <a href="ghi-1.2.4-src.tar.gz">ghi-1.2.4-src.tar.gz</a>        2022-01-24 01:24  5.6M
       <img src="/icons/text.gif" alt="[TXT]"> <a href="ghi-1.2.4-src.tar.gz.asc">ghi-1.2.4-src.tar.gz.asc</a>    2022-01-24 01:24  567
       <img src="/icons/text.gif" alt="[TXT]"> <a href="ghi-1.2.4-src.tar.gz.sha512">ghi-1.2.4-src.tar.gz.sha512</a> 2022-01-24 01:24  124
-    EOS
+    HTML
 
     {
       directories: start_html + directories + end_html,

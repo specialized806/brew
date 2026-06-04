@@ -233,13 +233,13 @@ RSpec.describe Homebrew::Bundle::Brew do
                           used_options:         []),
         )
         allow(Utils).to receive(:safe_popen_read).and_return("[]")
-        expected = <<~EOS
+        expected = <<~RUBY
           # barfoo
           brew "bar"
           brew "bazzles/bizzles/baz", link: false, trusted: true
           # foobar
           brew "qux/quuz/foo"
-        EOS
+        RUBY
         allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["bazzles/bizzles/baz"])
         expect(dumper.dump(describe: true)).to eql(expected.chomp)
       end
