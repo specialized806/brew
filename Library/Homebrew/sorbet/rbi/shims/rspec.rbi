@@ -9,43 +9,9 @@ class RSpec::Core::ExampleGroup
   include Test::Helper::Cask
   include Test::Helper::Fixtures
   include Test::Helper::Formula
+  include Test::Helper::IntegrationTest
   include Test::Helper::MkTmpDir
   include Test::Helper::Subcommand
-  include Test::Helper::Fixtures
-
-  # These methods are added to specs in
-  # `test/support/helper/spec/shared_context/integration_test.rb`; declare them
-  # here so Sorbet can resolve them in typed spec files.
-  sig { params(args: T.untyped).returns(Process::Status) }
-  def brew(*args); end
-
-  sig { params(args: T.untyped).returns(Process::Status) }
-  def brew_sh(*args); end
-
-  sig {
-    params(
-      name:           String,
-      content:        T.nilable(String),
-      tap:            Tap,
-      bottle_block:   T.nilable(String),
-      tab_attributes: T.nilable(T::Hash[T.untyped, T.untyped]),
-    ).returns(Pathname)
-  }
-  def setup_test_formula(name, content = T.unsafe(nil), tap: T.unsafe(nil), bottle_block: T.unsafe(nil),
-                         tab_attributes: T.unsafe(nil))
-  end
-
-  sig { returns(Pathname) }
-  def setup_test_tap; end
-
-  sig { params(name: String, content: T.nilable(String), build_bottle: T::Boolean).void }
-  def install_test_formula(name, content = T.unsafe(nil), build_bottle: false); end
-
-  sig { params(old_name: String, new_name: String).void }
-  def install_and_rename_coretap_formula(old_name, new_name); end
-
-  sig { params(name: String).void }
-  def uninstall_test_formula(name); end
 end
 
 # The rspec-mocks RBI defines `ExpectHost#expect(target)` with a required
