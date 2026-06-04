@@ -336,6 +336,8 @@ auto-update() {
   [[ -z "${HOMEBREW_AUTO_UPDATING}" ]] || return
   [[ -z "${HOMEBREW_UPDATE_AUTO}" ]] || return
   [[ -z "${HOMEBREW_AUTO_UPDATE_CHECKED}" ]] || return
+  # Worktrees may share Git metadata with another checkout, so skip background updates.
+  [[ ! -f "${HOMEBREW_REPOSITORY}/.git" ]] || return
 
   # If we've checked for updates, we don't need to check again.
   export HOMEBREW_AUTO_UPDATE_CHECKED="1"
@@ -932,6 +934,15 @@ case "${HOMEBREW_COMMAND}" in
   tc) HOMEBREW_COMMAND="typecheck" ;;
   x) HOMEBREW_COMMAND="exec" ;;
 esac
+# `update.sh` assumes normal repositories, so fail before it mutates a worktree.
+if [[ "${HOMEBREW_COMMAND}" == "update" && -z "${HOMEBREW_HELP}" && -f "${HOMEBREW_REPOSITORY}/.git" ]]
+then
+  for arg in "$@"
+  do
+    [[ "${arg}" == "--auto-update" ]] && exit 0
+  done
+  odie "Cannot \`brew update\` in a Homebrew/brew Git worktree."
+fi
 if [[ ("${HOMEBREW_COMMAND}" == "audit" || "${HOMEBREW_COMMAND}" == "lgtm" ||
       "${HOMEBREW_COMMAND}" == "style" || "${HOMEBREW_COMMAND}" == "tests") &&
       "${HOMEBREW_CACHE}" != "${HOMEBREW_REPOSITORY}/tmp/cache" ]]
