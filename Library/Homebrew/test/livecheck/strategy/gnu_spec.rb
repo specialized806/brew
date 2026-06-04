@@ -36,7 +36,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Gnu do
   # The whitespace in a real response is a bit looser and this has been
   # reformatted for the sake of brevity.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
       <html>
       <head>
@@ -98,7 +98,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Gnu do
       </body>
       </html>
 
-    EOS
+    HTML
   end
   let(:matches) { ["1.2.2", "1.2.3"] }
 

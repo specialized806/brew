@@ -23,7 +23,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
   # The whitespace in a real response is a bit looser and this has been
   # reformatted for the sake of brevity.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE html>
       <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" dir="ltr">
         <head>
@@ -51,7 +51,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
           </div>
         </body>
       </html>
-    EOS
+    HTML
   end
   let(:matches) { ["1.2.3"] }
 

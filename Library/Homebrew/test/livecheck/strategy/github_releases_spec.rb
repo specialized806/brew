@@ -37,7 +37,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubReleases do
   # are somewhat representative of real world scenarios but others are
   # contrived examples for the sake of exercising code paths.
   let(:content) do
-    <<~EOS
+    <<~JSON
       [
         {
           "tag_name": "v1.2.3",
@@ -79,7 +79,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubReleases do
           "other": "something-else"
         }
       ]
-    EOS
+    JSON
   end
   let(:json) { JSON.parse(content) }
   let(:matches) { ["1.2.3", "1.2.2"] }

@@ -10,72 +10,72 @@ RSpec.describe Homebrew::DevCmd::PrPull do
   let(:klass) { Homebrew::DevCmd::PrPull }
   let(:pr_pull) { klass.new(["foo"]) }
   let(:formula_rebuild) do
-    <<~EOS
+    <<~RUBY
       class Foo < Formula
         desc "Helpful description"
         url "https://brew.sh/foo-1.0.tgz"
       end
-    EOS
+    RUBY
   end
   let(:formula_revision) do
-    <<~EOS
+    <<~RUBY
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
         revision 1
       end
-    EOS
+    RUBY
   end
   let(:formula_version) do
-    <<~EOS
+    <<~RUBY
       class Foo < Formula
         url "https://brew.sh/foo-2.0.tgz"
       end
-    EOS
+    RUBY
   end
   let(:formula) do
-    <<~EOS
+    <<~RUBY
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
       end
-    EOS
+    RUBY
   end
   let(:cask_rebuild) do
-    <<~EOS
+    <<~RUBY
       cask "food" do
         desc "Helpful description"
         version "1.0"
         sha256 "a"
         url "https://brew.sh/food-\#{version}.tgz"
       end
-    EOS
+    RUBY
   end
   let(:cask_checksum) do
-    <<~EOS
+    <<~RUBY
       cask "food" do
         desc "Helpful description"
         version "1.0"
         sha256 "b"
         url "https://brew.sh/food-\#{version}.tgz"
       end
-    EOS
+    RUBY
   end
   let(:cask_version) do
-    <<~EOS
+    <<~RUBY
       cask "food" do
         version "2.0"
         sha256 "a"
         url "https://brew.sh/food-\#{version}.tgz"
       end
-    EOS
+    RUBY
   end
   let(:cask) do
-    <<~EOS
+    <<~RUBY
       cask "food" do
         version "1.0"
         sha256 "a"
         url "https://brew.sh/food-\#{version}.tgz"
       end
-    EOS
+    RUBY
   end
   let(:tap) { Tap.fetch("Homebrew", "foo") }
   let(:formula_file) { tap.path/"Formula/foo.rb" }

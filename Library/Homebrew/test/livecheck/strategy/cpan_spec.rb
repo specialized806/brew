@@ -30,7 +30,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Cpan do
   end
   # CPAN doesn't specify a DOCTYPE, so it's also omitted here.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <html>
       <head>
         <title>Index of /authors/id/H/HO/HOMEBREW/</title>
@@ -55,7 +55,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Cpan do
       </body>
       </html>
 
-    EOS
+    HTML
   end
   let(:matches) { ["1.2.3", "1.2.2", "1.2.1"] }
 

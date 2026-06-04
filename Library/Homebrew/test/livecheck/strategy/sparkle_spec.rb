@@ -67,7 +67,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
     }
   end
   let(:xml) do
-    v123_item = <<~EOS
+    v123_item = <<~XML
       <item>
         <title>#{item_hashes[:v123][:title]}</title>
         <sparkle:minimumSystemVersion>#{item_hashes[:v123][:minimum_system_version]}</sparkle:minimumSystemVersion>
@@ -75,9 +75,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
         <pubDate>#{item_hashes[:v123][:pub_date]}</pubDate>
         <enclosure url="#{item_hashes[:v123][:url]}" sparkle:shortVersionString="#{item_hashes[:v123][:short_version]}" sparkle:version="#{item_hashes[:v123][:version]}" length="12345678" type="application/octet-stream" sparkle:dsaSignature="ABCDEF+GHIJKLMNOPQRSTUVWXYZab/cdefghijklmnopqrst/uvwxyz1234567==" />
       </item>
-    EOS
+    XML
 
-    v122_item = <<~EOS
+    v122_item = <<~XML
       <item>
         <title>#{item_hashes[:v122][:title]}</title>
         <link>#{item_hashes[:v122][:link]}</link>
@@ -87,9 +87,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
         <sparkle:version>#{item_hashes[:v122][:version]}</sparkle:version>
         <sparkle:shortVersionString>#{item_hashes[:v122][:short_version]}</sparkle:shortVersionString>
       </item>
-    EOS
+    XML
 
-    v121_item_with_osx_os = <<~EOS
+    v121_item_with_osx_os = <<~XML
       <item>
         <title>#{item_hashes[:v121][:title]}</title>
         <sparkle:minimumSystemVersion>#{item_hashes[:v121][:minimum_system_version]}</sparkle:minimumSystemVersion>
@@ -97,9 +97,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
         <pubDate>#{item_hashes[:v121][:pub_date]}</pubDate>
         <enclosure os="#{item_hashes[:v121][:os]}" url="#{item_hashes[:v121][:url]}" sparkle:shortVersionString="#{item_hashes[:v121][:short_version]}" sparkle:version="#{item_hashes[:v121][:version]}" length="12345678" type="application/octet-stream" sparkle:dsaSignature="ABCDEF+GHIJKLMNOPQRSTUVWXYZab/cdefghijklmnopqrst/uvwxyz1234567==" />
       </item>
-    EOS
+    XML
 
-    v120_item_with_macos_os = <<~EOS
+    v120_item_with_macos_os = <<~XML
       <item>
         <title>#{item_hashes[:v120][:title]}</title>
         <sparkle:minimumSystemVersion>#{item_hashes[:v120][:minimum_system_version]}</sparkle:minimumSystemVersion>
@@ -107,23 +107,23 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
         <pubDate>#{item_hashes[:v120][:pub_date]}</pubDate>
         <enclosure os="#{item_hashes[:v120][:os]}" url="#{item_hashes[:v120][:url]}" sparkle:shortVersionString="#{item_hashes[:v120][:short_version]}" sparkle:version="#{item_hashes[:v120][:version]}" length="12345678" type="application/octet-stream" sparkle:dsaSignature="ABCDEF+GHIJKLMNOPQRSTUVWXYZab/cdefghijklmnopqrst/uvwxyz1234567==" />
       </item>
-    EOS
+    XML
 
     # This main `appcast` data is intended as a relatively normal example.
     # As such, it also serves as a base for some other test data.
-    appcast = create_appcast_xml <<~EOS
+    appcast = create_appcast_xml <<~XML
       #{v123_item}
       #{v122_item}
       #{v121_item_with_osx_os}
       #{v120_item_with_macos_os}
-    EOS
+    XML
 
-    omitted_items = create_appcast_xml <<~EOS
+    omitted_items = create_appcast_xml <<~XML
       #{v123_item.sub(%r{<(enclosure[^>]+?)\s*?/>}, '<\1 os="not-osx-or-macos" />')}
       #{v123_item.sub(/(<sparkle:minimumSystemVersion>)[^<]+?</m, '\1100<')}
       <item>
       </item>
-    EOS
+    XML
 
     # Set the first item in a copy of `appcast` to a bad `minimumSystemVersion`
     # value, to test `MacOSVersion::Error` handling. The version string needs
@@ -147,7 +147,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
       ),
     )
 
-    no_versions_item = create_appcast_xml <<~EOS
+    no_versions_item = create_appcast_xml <<~XML
       <item>
         <title>Version</title>
         <sparkle:minimumSystemVersion>#{item_hashes[:v123][:minimum_system_version]}</sparkle:minimumSystemVersion>
@@ -155,7 +155,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
         <pubDate>#{item_hashes[:v123][:pub_date]}</pubDate>
         <enclosure url="#{item_hashes[:v123][:url]}" length="12345678" type="application/octet-stream" sparkle:dsaSignature="ABCDEF+GHIJKLMNOPQRSTUVWXYZab/cdefghijklmnopqrst/uvwxyz1234567==" />
       </item>
-    EOS
+    XML
 
     no_items = create_appcast_xml
 
@@ -279,7 +279,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
   let(:matches) { ["1.2.3,123"] }
 
   def create_appcast_xml(items_str = "")
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
         <channel>
@@ -290,7 +290,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
           #{items_str}
         </channel>
       </rss>
-    EOS
+    XML
   end
 
   describe "::match?" do

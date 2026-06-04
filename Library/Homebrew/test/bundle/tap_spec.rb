@@ -50,12 +50,12 @@ RSpec.describe Homebrew::Bundle::Tap do
       end
 
       it "dumps output" do
-        expected_output = <<~EOS
+        expected_output = <<~RUBY
           tap "bitbucket/bar", "https://bitbucket.org/bitbucket/bar.git"
           tap "homebrew/baz"
           tap "homebrew/foo"
           tap "privatebrew/private", "https://\#{ENV.fetch("HOMEBREW_GITHUB_API_TOKEN")}@github.com/privatebrew/homebrew-private"
-        EOS
+        RUBY
         expect(dumper.dump).to eql(expected_output.chomp)
       end
 

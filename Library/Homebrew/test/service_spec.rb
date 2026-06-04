@@ -421,7 +421,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -478,12 +478,12 @@ RSpec.describe Homebrew::Service do
         \t<string>#{HOMEBREW_PREFIX}/var</string>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
     it "returns valid plist with socket" do
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -518,7 +518,7 @@ RSpec.describe Homebrew::Service do
         \t</dict>
         </dict>
         </plist>
-      EOS
+      XML
 
       [
         stub_formula_with_service_sockets("tcp://127.0.0.1:80"),
@@ -538,7 +538,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -583,7 +583,7 @@ RSpec.describe Homebrew::Service do
         \t</dict>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -596,7 +596,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -619,7 +619,7 @@ RSpec.describe Homebrew::Service do
         \t<true/>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -633,7 +633,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -656,7 +656,7 @@ RSpec.describe Homebrew::Service do
         \t<false/>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -670,7 +670,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -695,7 +695,7 @@ RSpec.describe Homebrew::Service do
         \t<integer>5</integer>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -709,7 +709,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -739,7 +739,7 @@ RSpec.describe Homebrew::Service do
         \t</dict>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -752,7 +752,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -780,7 +780,7 @@ RSpec.describe Homebrew::Service do
         \t<true/>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -793,7 +793,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -821,7 +821,7 @@ RSpec.describe Homebrew::Service do
         \t<true/>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -834,7 +834,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -862,7 +862,7 @@ RSpec.describe Homebrew::Service do
         \t<true/>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
 
@@ -875,7 +875,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      plist_expect = <<~EOS
+      plist_expect = <<~XML
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -905,7 +905,7 @@ RSpec.describe Homebrew::Service do
         \t<string>#{Dir.home}</string>
         </dict>
         </plist>
-      EOS
+      XML
       expect(plist).to eq(plist_expect)
     end
   end

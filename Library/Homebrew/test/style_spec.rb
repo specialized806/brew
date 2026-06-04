@@ -26,11 +26,11 @@ RSpec.describe Homebrew::Style do
     it "returns offenses when RuboCop reports offenses" do
       formula = dir/"my-formula.rb"
 
-      formula.write <<~EOS
+      formula.write <<~RUBY
         class MyFormula < Formula
 
         end
-      EOS
+      RUBY
 
       style_offenses = klass.check_style_json([formula])
 

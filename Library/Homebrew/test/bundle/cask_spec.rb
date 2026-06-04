@@ -70,12 +70,12 @@ RSpec.describe Homebrew::Bundle::Cask do
       end
 
       it "dumps as `cask 'baz'` and `cask 'foo' cask 'bar'` plus descriptions and config values" do
-        expected = <<~EOS
+        expected = <<~RUBY
           cask "foo"
           cask "bar", args: { fontdir: "/Library/Fonts", language: "zh-TW" }, trusted: true
           # Software
           cask "baz"
-        EOS
+        RUBY
         allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return(["bar"])
         expect(dumper.dump(describe: true)).to eql(expected.chomp)
       end

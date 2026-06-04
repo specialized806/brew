@@ -13,7 +13,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xml do
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }
   let(:content_version_text) do
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <versions>
         <version>1.1.2</version>
@@ -36,10 +36,10 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xml do
         <version>1.0.0</version>
         <version>1.0.0-rc1</version>
       </versions>
-    EOS
+    XML
   end
   let(:content_version_attr) do
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <items>
         <item version="1.1.2" />
@@ -62,25 +62,25 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xml do
         <item version="1.0.0" />
         <item version="1.0.0-rc1" />
       </items>
-    EOS
+    XML
   end
   let(:content_simple) do
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <version>1.2.3</version>
-    EOS
+    XML
   end
   let(:content_undefined_namespace) do
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <something:version>1.2.3</something:version>
-    EOS
+    XML
   end
   let(:parent_child_text) { { parent: "1.2.3", child: "4.5.6" } }
   let(:content_parent_child) do
     # This XML deliberately includes unnecessary whitespace, to ensure that
     # Xml#element_text properly strips the retrieved text.
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <elements>
         <parent>
@@ -91,7 +91,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xml do
           <blank-child></blank-child>
         </blank-parent>
       </elements>
-    EOS
+    XML
   end
   let(:matches) do
     {

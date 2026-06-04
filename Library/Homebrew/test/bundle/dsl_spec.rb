@@ -13,7 +13,7 @@ RSpec.describe Homebrew::Bundle::Dsl do
 
   context "with a DSL example" do
     subject(:dsl) do
-      dsl_from_string <<~EOS
+      dsl_from_string <<~RUBY
         # frozen_string_literal: true
         cask_args appdir: '/Applications'
         tap 'homebrew/cask'
@@ -31,7 +31,7 @@ RSpec.describe Homebrew::Bundle::Dsl do
         go 'github.com/charmbracelet/crush'
         cargo 'ripgrep'
         uv 'mkdocs', with: ['mkdocs-material<10']
-      EOS
+      RUBY
     end
 
     before do
@@ -70,11 +70,11 @@ RSpec.describe Homebrew::Bundle::Dsl do
 
   context "with multiple cask_args" do
     subject(:dsl) do
-      dsl_from_string <<~EOS
+      dsl_from_string <<~RUBY
         cask_args appdir: '/global-apps'
         cask_args require_sha: true
         cask_args appdir: '~/my-apps'
-      EOS
+      RUBY
     end
 
     it "merges the arguments" do

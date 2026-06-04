@@ -47,7 +47,7 @@ RSpec.describe Homebrew::Bundle::Winget do
 
     context "when winget is available" do
       let(:winget_export) do
-        <<~EOS
+        <<~JSON
           {
             "Sources": [
               {
@@ -61,11 +61,11 @@ RSpec.describe Homebrew::Bundle::Winget do
               }
             ]
           }
-        EOS
+        JSON
       end
 
       let(:msstore_export) do
-        <<~EOS
+        <<~JSON
           {
             "Sources": [
               {
@@ -79,7 +79,7 @@ RSpec.describe Homebrew::Bundle::Winget do
               }
             ]
           }
-        EOS
+        JSON
       end
 
       before do

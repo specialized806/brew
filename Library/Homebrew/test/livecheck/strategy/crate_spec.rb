@@ -18,7 +18,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Crate do
   # This is a limited subset of a `versions` response object, for the sake of
   # testing.
   let(:content) do
-    <<~EOS
+    <<~JSON
       {
         "versions": [
           {
@@ -44,7 +44,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Crate do
           }
         ]
       }
-    EOS
+    JSON
   end
   let(:matches) { ["1.0.0", "1.0.1"] }
   let(:find_versions_return_hash) do

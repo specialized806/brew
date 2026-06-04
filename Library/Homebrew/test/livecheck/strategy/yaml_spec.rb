@@ -11,7 +11,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Yaml do
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }
   let(:content) do
-    <<~EOS
+    <<~YAML
       versions:
         - version: 1.1.2
         - version: 1.1.2b
@@ -33,7 +33,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Yaml do
         - version: 1.0.0
         - version: 1.0.0-rc1
         - other: version is omitted from this object for testing
-    EOS
+    YAML
   end
   let(:content_simple) { "version: 1.2.3" }
   # This should produce a `Psych::SyntaxError` (`did not find expected comment
