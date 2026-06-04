@@ -311,6 +311,24 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "qualifies the name, reports not installed and shows the shadowing keg when the keg belongs to another tap" do
+    info = described_class.new([])
+    formula = installed_info_formula
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["tap"] = "ataraxy-labs/tap"
+    tab.write
+    allow(formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    shadowing = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
+    allow(shadowing).to receive_messages(tap: Tap.fetch("ataraxy-labs/tap"), full_name: "ataraxy-labs/tap/testball")
+    allow(Formulary).to receive(:from_rack).with(formula.rack).and_return(shadowing)
+
+    expect { info.send(:info_formula, formula) }
+      .to output(%r{homebrew/core/testball.*Not installed.*ataraxy-labs/tap/testball}m).to_stdout
+  end
+
   it "reloads the formula from the install receipt's tap and reports the shadowing tap" do
     info = described_class.new([])
     formula = installed_info_formula
