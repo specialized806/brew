@@ -10,6 +10,7 @@ module Test
 
       requires_ancestor { RSpec::Mocks::ExampleMethods }
 
+      sig { params(cask: ::Cask::Cask, ref: T.nilable(String), call_original: T::Boolean).void }
       def stub_cask_loader(cask, ref = cask.token, call_original: false)
         allow(::Cask::CaskLoader).to receive(:for).and_call_original if call_original
 
