@@ -385,16 +385,21 @@ module Homebrew
 
       sig { params(quiet: T::Boolean).void }
       def print_info(quiet: false)
-        qualified_inputs = args.named.select { |name| name.include?("/") }.to_set
+        objects = args.named.to_formulae_and_casks_and_unavailable(uniq: false)
+        user_qualified = args.named.downcased_unique_named.map { |name| name.include?("/") }
 
-        args.named.to_formulae_and_casks_and_unavailable.each_with_index do |obj, i|
+        resolved = user_qualified.zip(objects).map do |qualified, obj|
+          if obj.is_a?(Formula)
+            display_resolution(obj, user_qualified: qualified)
+          else
+            [obj, nil]
+          end
+        end
+
+        unique_by_display_name(resolved).each_with_index do |(obj, shadowed_by), i|
           puts unless i.zero?
 
-          case obj
-          when Formula, Cask::Cask
-            user_qualified = formula_qualified_by_user?(obj, qualified_inputs)
-            info_formula_or_cask(obj, quiet:, user_qualified:)
-          when FormulaOrCaskUnavailableError
+          if obj.is_a?(FormulaOrCaskUnavailableError)
             # The formula/cask could not be found
             ofail obj.message
             # No formula with this name, try a missing formula lookup
@@ -402,9 +407,28 @@ module Homebrew
               $stderr.puts reason
             end
           else
-            raise
+            info_formula_or_cask(obj, quiet:, shadowed_by:)
           end
         end
+      end
+
+      sig {
+        params(resolved: T::Array[[T.untyped, T.nilable(Tap)]]).returns(T::Array[[T.untyped, T.nilable(Tap)]])
+      }
+      def unique_by_display_name(resolved)
+        resolved.uniq do |obj, _shadowed_by|
+          case obj
+          when Formula, Cask::Cask then obj.full_name
+          else obj
+          end
+        end
+      end
+
+      sig { params(formula: Formula, user_qualified: T::Boolean).returns([Formula, T.nilable(Tap)]) }
+      def display_resolution(formula, user_qualified:)
+        return [formula, nil] if user_qualified
+
+        installed_resolution(formula)
       end
 
       sig { params(formula_or_cask: T.any(Formula, Cask::Cask), qualified_inputs: T::Set[String]).returns(T::Boolean) }
@@ -418,20 +442,21 @@ module Homebrew
         names.any? { |n| qualified_inputs.include?(n) }
       end
 
-      sig {
-        params(formula_or_cask: T.any(Formula, Cask::Cask), quiet: T::Boolean, user_qualified: T::Boolean).void
-      }
-      def info_formula_or_cask(formula_or_cask, quiet:, user_qualified: false)
+      sig { params(formula_or_cask: T.any(Formula, Cask::Cask), quiet: T::Boolean, shadowed_by: T.nilable(Tap)).void }
+      def info_formula_or_cask(formula_or_cask, quiet:, shadowed_by: nil)
         case formula_or_cask
         when Formula
-          if user_qualified
-            quiet ? info_formula_summary(formula_or_cask) : info_formula(formula_or_cask)
+          if quiet
+            info_formula_summary(formula_or_cask)
           else
-            formula, shadowed_by = installed_resolution(formula_or_cask)
-            quiet ? info_formula_summary(formula) : info_formula(formula, shadowed_by:)
+            info_formula(formula_or_cask, shadowed_by:)
           end
         when Cask::Cask
-          quiet ? info_cask_summary(formula_or_cask) : info_cask(formula_or_cask)
+          if quiet
+            info_cask_summary(formula_or_cask)
+          else
+            info_cask(formula_or_cask)
+          end
         end
       end
 

@@ -311,6 +311,40 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
+  it "shows separate blocks for an unqualified and a qualified input that resolve to the same shadowed formula" do
+    info = described_class.new([])
+    core = installed_info_formula
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["tap"] = "ataraxy-labs/tap"
+    tab.write
+    allow(core).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
+    installed = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
+    allow(installed).to receive_messages(tap: Tap.fetch("ataraxy-labs/tap"), full_name: "ataraxy-labs/tap/testball")
+    allow(Formulary).to receive(:factory).with("ataraxy-labs/tap/testball").and_return(installed)
+    allow(info).to receive(:github_info).and_return("https://example.com/testball.rb")
+    allow(info.args.named).to receive_messages(
+      downcased_unique_named:                ["testball", "homebrew/core/testball"],
+      to_formulae_and_casks_and_unavailable: [core, core],
+    )
+
+    expect { info.send(:print_info) }
+      .to output(%r{ataraxy-labs/tap/testball.*homebrew/core/testball.*Not installed}m).to_stdout
+  end
+
+  it "reports an unavailable name without raising" do
+    info = described_class.new([])
+    error = FormulaOrCaskUnavailableError.new("nonexistent-formula")
+    allow(info.args.named).to receive_messages(
+      downcased_unique_named:                ["nonexistent-formula"],
+      to_formulae_and_casks_and_unavailable: [error],
+    )
+
+    expect { info.send(:print_info) }
+      .to output(/No available formula or cask with the name "nonexistent-formula"/).to_stderr
+  end
+
   it "qualifies the name, reports not installed and shows the shadowing keg when the keg belongs to another tap" do
     info = described_class.new([])
     formula = installed_info_formula
@@ -323,7 +357,7 @@ RSpec.describe Homebrew::Cmd::Info do
     allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
     shadowing = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
     allow(shadowing).to receive_messages(tap: Tap.fetch("ataraxy-labs/tap"), full_name: "ataraxy-labs/tap/testball")
-    allow(Formulary).to receive(:from_rack).with(formula.rack).and_return(shadowing)
+    allow(Formulary).to receive(:factory).with("ataraxy-labs/tap/testball").and_return(shadowing)
 
     expect { info.send(:info_formula, formula) }
       .to output(%r{homebrew/core/testball.*Not installed.*ataraxy-labs/tap/testball}m).to_stdout
@@ -344,9 +378,21 @@ RSpec.describe Homebrew::Cmd::Info do
     keg_formula = formula("testball") do
       url "https://brew.sh/testball-0.1.tar.gz"
     end
-    allow(Formulary).to receive(:from_rack).with(formula.rack).and_return(keg_formula)
+    allow(Formulary).to receive(:factory).with("ataraxy-labs/tap/testball").and_return(keg_formula)
 
     expect(info.send(:installed_resolution, formula)).to eq([keg_formula, shadowing_tap])
+  end
+
+  it "resolves the keg's own name when it differs from the formula (installed via alias)" do
+    info = described_class.new([])
+    formula = installed_info_formula
+    tab = instance_double(Tab, tap: Tap.fetch("stripe/stripe-cli"))
+    keg = instance_double(Keg, name: "stripe", tab:)
+    allow(formula).to receive_messages(tap: Tap.fetch("homebrew/core"), installed_kegs: [keg])
+    keg_formula = formula("stripe") { url "https://brew.sh/stripe-1.0.tar.gz" }
+    allow(Formulary).to receive(:factory).with("stripe/stripe-cli/stripe").and_return(keg_formula)
+
+    expect(info.send(:installed_resolution, formula)).to eq([keg_formula, Tap.fetch("homebrew/core")])
   end
 
   it "returns the original formula and no shadowing tap when the install receipt has no tap" do
@@ -358,7 +404,6 @@ RSpec.describe Homebrew::Cmd::Info do
     tab.tabfile = keg_path/AbstractTab::FILENAME
     tab.write
 
-    expect(Formulary).not_to receive(:from_rack)
     expect(info.send(:installed_resolution, formula)).to eq([formula, nil])
   end
 
@@ -373,7 +418,6 @@ RSpec.describe Homebrew::Cmd::Info do
     tab.write
 
     allow(formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
-    expect(Formulary).not_to receive(:from_rack)
     expect(info.send(:installed_resolution, formula)).to eq([formula, nil])
   end
 
@@ -426,7 +470,7 @@ RSpec.describe Homebrew::Cmd::Info do
     end
     allow(installed_formula).to receive(:tap).and_return(Tap.fetch("ataraxy-labs/tap"))
     allow(info.args.named).to receive(:to_formulae).and_return([shadowed_formula])
-    allow(Formulary).to receive(:from_rack).with(shadowed_formula.rack).and_return(installed_formula)
+    allow(Formulary).to receive(:factory).with("ataraxy-labs/tap/testball").and_return(installed_formula)
 
     output = +""
     expect { info.run }.to output(satisfy { |s|
@@ -448,7 +492,6 @@ RSpec.describe Homebrew::Cmd::Info do
 
     allow(formula).to receive(:tap).and_return(Tap.fetch("homebrew/core"))
     allow(info.args.named).to receive(:to_formulae).and_return([formula])
-    expect(Formulary).not_to receive(:from_rack)
 
     output = +""
     expect { info.run }.to output(satisfy { |s|

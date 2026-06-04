@@ -141,24 +141,26 @@ module Homebrew
       end
 
       sig {
-        params(only: T.nilable(Symbol), method: T.nilable(Symbol))
+        params(only: T.nilable(Symbol), method: T.nilable(Symbol), uniq: T::Boolean)
           .returns(T::Array[T.any(Formula, Keg, Cask::Cask, T::Array[Keg],
                                   FormulaOrCaskUnavailableError, NoSuchKegError)])
       }
-      def to_formulae_and_casks_and_unavailable(only: parent.only_formula_or_cask, method: nil)
+      def to_formulae_and_casks_and_unavailable(only: parent.only_formula_or_cask, method: nil, uniq: true)
         @to_formulae_casks_unknowns ||= T.let(
           {},
           T.nilable(T::Hash[
-            T.nilable(Symbol),
+            [T.nilable(Symbol), T::Boolean],
             T::Array[T.any(Formula, Keg, Cask::Cask, T::Array[Keg],
                            FormulaOrCaskUnavailableError, NoSuchKegError)],
           ]),
         )
-        @to_formulae_casks_unknowns[method] = downcased_unique_named.map do |name|
+        items = downcased_unique_named.map do |name|
           load_formula_or_cask(name, only:, method:)
         rescue FormulaOrCaskUnavailableError, NoSuchKegError => e
           e
-        end.uniq.freeze
+        end
+        items = items.uniq if uniq
+        @to_formulae_casks_unknowns[[method, uniq]] = items.freeze
       end
 
       sig { params(uniq: T::Boolean).returns(T::Array[Formula]) }
@@ -314,8 +316,6 @@ module Homebrew
         downcased_unique_named.grep(HOMEBREW_CASK_TAP_CASK_REGEX)
       end
 
-      private
-
       sig { returns(T::Array[String]) }
       def downcased_unique_named
         # Only lowercase names, not paths, bottle filenames or URLs
@@ -327,6 +327,8 @@ module Homebrew
           end
         end.uniq
       end
+
+      private
 
       sig {
         params(name: String, only: T.nilable(Symbol), method: T.nilable(Symbol), warn: T::Boolean)
