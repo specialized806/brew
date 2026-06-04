@@ -339,11 +339,11 @@ module Homebrew
         shards = Array.new(shard_count) { T.let([], T::Array[DependentWithDependencies]) }
         groups.sort_by { |group| [-group.count, group.map { |dependent, _| dependent.full_name }.min.to_s] }
               .each do |group|
-          shard_index = 0
+          group_shard_index = 0
           shards.each_with_index do |current_shard, index|
-            shard_index = index if current_shard.count < shards.fetch(shard_index).count
+            group_shard_index = index if current_shard.count < shards.fetch(group_shard_index).count
           end
-          shards.fetch(shard_index).concat(group)
+          shards.fetch(group_shard_index).concat(group)
         end
 
         shards.fetch(shard_index - 1).sort_by { |dependent, _| dependent.full_name }
