@@ -41,6 +41,7 @@ RSpec.describe Homebrew::Cmd::Bundle::RemoveSubcommand do
     before do
       stub_formula_loader(
         formula("hello") do
+          T.bind(self, T.class_of(Formula))
           url "hello-1.0"
           desc "Program providing model for GNU coding standards and practices"
         end,
