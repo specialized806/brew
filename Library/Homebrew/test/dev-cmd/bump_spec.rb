@@ -11,6 +11,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
   let(:klass) { Homebrew::DevCmd::Bump }
   let(:f_basic) do
     formula("basic_formula") do
+      T.bind(self, T.class_of(Formula))
       desc "Basic formula"
       url "https://brew.sh/test-1.2.3.tgz"
     end

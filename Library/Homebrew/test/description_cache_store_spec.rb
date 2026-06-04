@@ -40,6 +40,7 @@ RSpec.describe DescriptionCacheStore do
   describe "#update_from_formula_names!" do
     it "sets the formulae descriptions" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "url-1"
         desc "desc"
       end

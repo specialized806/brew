@@ -184,7 +184,10 @@ RSpec.describe Resource do
     end
 
     it "sets its owner to be the patches' owner" do
-      resource.patch(:p1) { url "file:///my.patch" }
+      resource.patch(:p1) do
+        T.bind(self, Resource::Patch)
+        url "file:///my.patch"
+      end
       resource.owner = owner
       resource.patches.each do |p|
         expect(p.resource.owner).to eq(owner)

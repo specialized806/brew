@@ -13,9 +13,11 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it "prints a formula dry-run plan when asking" do
     added = formula("added") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/added-1.0.tar.gz"
     end
     changed = formula("changed") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/changed-2.0.tar.gz"
     end
     added_installer = FormulaInstaller.new(added)
@@ -39,6 +41,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it "skips ask input when asking for only requested formulae" do
     formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.1.tar.gz"
     end
     formula_installer = FormulaInstaller.new(formula)
@@ -60,9 +63,11 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it "uses the requested action when asking for formulae with dependencies" do
     formula = formula("changed") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/changed-2.0.tar.gz"
     end
     dependency = formula("dependency") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/dependency-1.0.tar.gz"
     end
     formula_installer = FormulaInstaller.new(formula)
@@ -261,7 +266,10 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   it "prints an ask mode environment hint when installing formulae" do
     cmd = klass.new(["testball"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
-    formula = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
     formula_installer = FormulaInstaller.new(formula)
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
 
@@ -386,7 +394,10 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   it "prints a shared fetch heading and correct upgrade count", :cask do
     cmd = klass.new(["codex"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
-    formula = formula("testball_bottle") { url "https://brew.sh/testball_bottle-0.1.tar.gz" }
+    formula = formula("testball_bottle") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball_bottle-0.1.tar.gz"
+    end
     formula_installer = instance_double(FormulaInstaller, formula:)
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)

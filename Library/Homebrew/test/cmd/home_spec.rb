@@ -7,6 +7,7 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Home do
   let(:testballhome) do
     formula("testballhome") do
+      T.bind(self, T.class_of(Formula))
       homepage "https://brew.sh/testballhome"
       url "https://brew.sh/testballhome-1.0"
     end

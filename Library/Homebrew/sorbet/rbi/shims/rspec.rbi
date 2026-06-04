@@ -44,14 +44,6 @@ class RSpec::Core::ExampleGroup
   # These methods are mixed into specs via
   # `config.include(Test::Helper::{Formula,Cask})` in `test/spec_helper.rb`;
   # declare them here so Sorbet can resolve them in typed spec files.
-  sig {
-    params(
-      name: String, path: T.nilable(Pathname), spec: Symbol, alias_path: T.nilable(Pathname),
-      tap: T.nilable(Tap), block: T.nilable(T.proc.bind(Formula).void)
-    ).returns(::Formula)
-  }
-  def formula(name = T.unsafe(nil), path: nil, spec: :stable, alias_path: nil, tap: nil, &block); end
-
   sig { params(formula: ::Formula, ref: T.nilable(String), call_original: T::Boolean).void }
   def stub_formula_loader(formula, ref = formula.full_name, call_original: false); end
 
@@ -132,25 +124,6 @@ class RSpec::Core::ExampleGroup
 
   sig { params(name: String).returns(Pathname) }
   def fixture(name); end
-
-  # `formula(...) { ... }` helper blocks can be inferred as example group
-  # contexts in typed specs; declare Formula DSL methods to satisfy static
-  # analysis.
-  sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
-  def url(val = "", specs = {}); end
-end
-
-# `formula(...) { ... }` helper blocks can be inferred as this helper module in
-# typed specs; declare Formula DSL methods to satisfy static analysis.
-module Test::Helper::Formula
-  sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
-  def url(val = "", specs = {}); end
-end
-
-# Some helper blocks are inferred as Formula instances or class contexts.
-class Formula
-  sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
-  def url(val = "", specs = {}); end
 end
 
 # The rspec-mocks RBI defines `ExpectHost#expect(target)` with a required

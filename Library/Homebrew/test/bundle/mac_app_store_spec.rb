@@ -180,7 +180,10 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
   describe "installing" do
     before do
-      stub_formula_loader formula("mas") { url "mas-1.0" }
+      stub_formula_loader formula("mas") {
+        T.bind(self, T.class_of(Formula))
+        url "mas-1.0"
+      }
     end
 
     describe ".installed_app_ids" do

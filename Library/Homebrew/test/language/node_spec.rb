@@ -15,6 +15,7 @@ RSpec.describe Language::Node do
 
     it "calls prepend_path when node formula exists only during the first call" do
       node = formula "node" do
+        T.bind(self, T.class_of(Formula))
         url "node-test-v1.0"
       end
       stub_formula_loader(node)

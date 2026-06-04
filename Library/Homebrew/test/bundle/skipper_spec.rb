@@ -34,7 +34,10 @@ RSpec.describe Homebrew::Bundle::Skipper do
       it "returns true" do
         allow(Hardware::CPU).to receive(:arm?).and_return(true)
         allow(Homebrew).to receive(:default_prefix?).and_return(true)
-        stub_formula_loader formula("mysql") { url "mysql-1.0" }
+        stub_formula_loader formula("mysql") {
+          T.bind(self, T.class_of(Formula))
+          url "mysql-1.0"
+        }
 
         expect(skipper.skip?(entry)).to be true
       end

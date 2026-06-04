@@ -7,12 +7,14 @@ RSpec.describe Homebrew::CLI::NamedArgs do
   let(:klass) { Homebrew::CLI::NamedArgs }
   let(:foo) do
     formula "foo" do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh"
       version "1.0"
     end
   end
   let(:bar) do
     formula "bar" do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh"
       version "1.0"
     end
@@ -92,6 +94,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     context "when a non-core formula and a core cask are present" do
       let(:non_core_formula) do
         formula "foo", tap: Tap.fetch("some/tap") do
+          T.bind(self, T.class_of(Formula))
           url "https://brew.sh"
           version "1.0"
         end
