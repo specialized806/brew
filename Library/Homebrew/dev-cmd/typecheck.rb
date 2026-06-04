@@ -152,6 +152,7 @@ module Homebrew
         return unless parsed.success?
 
         allowlist = %w[
+          CopHelper
           Parser::Source
           RuboCop::AST::Node
           RuboCop::AST::NodePattern
