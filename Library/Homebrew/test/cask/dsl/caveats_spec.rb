@@ -69,20 +69,20 @@ RSpec.describe Cask::DSL::Caveats, :cask do
   describe "#kext" do
     let(:cask) { instance_double(Cask::Cask) }
 
-    it "returns System Settings on macOS Ventura or later" do
-      allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:ventura))
-      caveats.eval_caveats do
-        kext
-      end
-      expect(caveats.to_s).to be_empty
-    end
-
-    it "returns System Preferences on macOS Sonoma and earlier" do
+    it "returns System Settings on macOS Sonoma or later" do
       allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:sonoma))
       caveats.eval_caveats do
         kext
       end
       expect(caveats.to_s).to include("System Settings → Privacy & Security")
+    end
+
+    it "does not include kext caveat text on macOS Ventura and earlier" do
+      allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:ventura))
+      caveats.eval_caveats do
+        kext
+      end
+      expect(caveats.to_s).to be_empty
     end
   end
 end
