@@ -1,6 +1,8 @@
 # typed: strict
 
 class RSpec::Core::ExampleGroup
+  extend RSpec::Matchers::DSL
+
   include CopHelper
   include RSpec::SharedContext
   include RSpec::Matchers
