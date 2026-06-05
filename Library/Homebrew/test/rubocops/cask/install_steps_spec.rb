@@ -53,6 +53,20 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
     CASK
   end
 
+  it "reports an offense when cask steps contain formula rebuild actions" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          gio_querymodules
+          ^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`.
+        end
+      end
+    CASK
+  end
+
   it "autocorrects simple flight block file preparation" do
     expect_offense <<~CASK
       cask "foo" do

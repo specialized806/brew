@@ -4,8 +4,17 @@
 module RuboCop
   module Cop
     module InstallStepsHelper
-      ALLOWED_STEP_METHODS = T.let(
+      FILE_PREPARATION_STEP_METHODS = T.let(
         [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :symlink, :ln_s, :ln_sf].freeze,
+        T::Array[Symbol],
+      )
+      REBUILD_ACTION_STEP_METHODS = T.let(
+        [:compile_gsettings_schemas, :gio_querymodules, :gdk_pixbuf_query_loaders, :gtk_update_icon_cache,
+         :update_mime_database, :update_desktop_database].freeze,
+        T::Array[Symbol],
+      )
+      ALLOWED_STEP_METHODS = T.let(
+        [*FILE_PREPARATION_STEP_METHODS, *REBUILD_ACTION_STEP_METHODS].freeze,
         T::Array[Symbol],
       )
 
@@ -21,13 +30,24 @@ module RuboCop
       )
       SIMPLE_STEP_CONVERSION_MSG = T.let("Use `%<steps_block>s` for simple file preparation.", String)
 
+      sig { params(allowed_methods: T::Array[Symbol]).returns(String) }
+      def step_block_msg(allowed_methods)
+        "Steps blocks may only contain install step DSL calls: " \
+          "#{allowed_methods.map { |method| "`#{method}`" }.join(", ")}."
+      end
+
       class InstallStepPath < T::Struct
         const :path, String
         const :base, T.nilable(Symbol)
       end
 
-      sig { params(block_node: T.nilable(RuboCop::AST::BlockNode)).returns(T.nilable(RuboCop::AST::Node)) }
-      def install_step_block_offense_node(block_node)
+      sig {
+        params(
+          block_node:      T.nilable(RuboCop::AST::BlockNode),
+          allowed_methods: T::Array[Symbol],
+        ).returns(T.nilable(RuboCop::AST::Node))
+      }
+      def install_step_block_offense_node(block_node, allowed_methods: ALLOWED_STEP_METHODS)
         return if block_node.nil?
         return if (body = block_node.body).nil?
 
@@ -36,7 +56,7 @@ module RuboCop
           return node unless node.send_type?
 
           send_node = T.cast(node, RuboCop::AST::SendNode)
-          return node if send_node.receiver.present? || !ALLOWED_STEP_METHODS.include?(send_node.method_name)
+          return node if send_node.receiver.present? || !allowed_methods.include?(send_node.method_name)
 
           invalid_argument_node = send_node.each_descendant.find do |descendant|
             next false if descendant.false_type? || descendant.true_type?
