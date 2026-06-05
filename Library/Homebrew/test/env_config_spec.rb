@@ -137,6 +137,12 @@ RSpec.describe Homebrew::EnvConfig do
   end
 
   describe ".bundle_jobs" do
+    it "returns auto if unset" do
+      with_env(HOMEBREW_BUNDLE_JOBS: nil, HOMEBREW_BUNDLE_NO_JOBS: nil) do
+        expect(env_config.bundle_jobs).to eql("auto")
+      end
+    end
+
     it "returns nil if HOMEBREW_BUNDLE_NO_JOBS is set" do
       with_env(HOMEBREW_BUNDLE_JOBS: "auto", HOMEBREW_BUNDLE_NO_JOBS: "1") do
         expect(env_config.bundle_jobs).to be_nil

@@ -152,11 +152,10 @@ module Homebrew
         hidden:      true,
       },
       HOMEBREW_BUNDLE_JOBS:                      {
-        # odeprecated: make `HOMEBREW_BUNDLE_JOBS=auto` the default in a later minor release
+        # `HOMEBREW_BUNDLE_JOBS=auto` is the default.
         description: "Use this value as the number of formula installations to run in parallel for " \
-                     "`brew bundle install`. Use `auto` for the number of CPU cores (max 4). Enabled by default " \
-                     "with a value of `auto` if `$HOMEBREW_DEVELOPER` is set. This will become the default " \
-                     "behaviour in a later minor release.",
+                     "`brew bundle install`. Use `auto` for the number of CPU cores (max 4).",
+        default:     "auto",
       },
       HOMEBREW_BUNDLE_NO_DESCRIBE:               {
         description: "If set, do not enable bundle description comments from `$HOMEBREW_BUNDLE_DESCRIBE` or " \
@@ -164,8 +163,8 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_BUNDLE_NO_JOBS:                   {
-        description: "If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or the " \
-                     "`$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--jobs`.",
+        description: "If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or its default. " \
+                     "This does not disable an explicit `--jobs`.",
         boolean:     true,
       },
       HOMEBREW_BUNDLE_NO_SECRETS:                {
@@ -877,7 +876,8 @@ module Homebrew
         return
       end
 
-      ENV["HOMEBREW_BUNDLE_JOBS"].presence
+      ENV["HOMEBREW_BUNDLE_JOBS"].presence ||
+        ENVS.fetch(:HOMEBREW_BUNDLE_JOBS).fetch(:default).to_s
     end
 
     sig { returns(T::Boolean) }
