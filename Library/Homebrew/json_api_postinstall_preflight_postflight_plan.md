@@ -33,6 +33,9 @@ For each future operation type, check `homebrew/core` and `homebrew/cask`
 separately and add formula support only when needed by `homebrew/core` or cask
 support only when needed by `homebrew/cask`.
 
+When adding install step DSL methods, update the matching RuboCop allow-list so
+formula or cask tap syntax checks accept the new method in the same context.
+
 RuboCop autocorrection converts the simplest existing `post_install` and
 `*flight` Ruby blocks to steps blocks when every statement is a supported file
 preparation operation with literal paths and known bases. Future post-install

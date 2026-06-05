@@ -28,7 +28,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
 
         post_install_steps do
           system "true"
-          ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`.
+          ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`.
         end
       end
     RUBY
@@ -45,6 +45,12 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
           mv "source", "target"
           move_children "source", "target"
           ln_sf "source", "target", source_base: :relative, uninstall: true
+          compile_gsettings_schemas
+          gio_querymodules
+          gdk_pixbuf_query_loaders
+          gtk_update_icon_cache
+          update_mime_database
+          update_desktop_database
         end
       end
     RUBY
