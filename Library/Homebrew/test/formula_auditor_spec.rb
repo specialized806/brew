@@ -1039,6 +1039,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
         let(:f_openssl) do
           formula do
+            T.bind(self, T.class_of(Formula))
             url "https://brew.sh/openssl-1.0.tgz"
             homepage "https://brew.sh"
 
@@ -1071,6 +1072,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
         let(:f_bc) do
           formula do
+            T.bind(self, T.class_of(Formula))
             url "https://brew.sh/bc-1.0.tgz"
             homepage "https://brew.sh"
 
@@ -1107,6 +1109,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       end
       let(:f_bar) do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "https://brew.sh/bar-1.0.tgz"
           homepage "https://brew.sh"
         end
@@ -1173,6 +1176,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         let(:tag) { "with-debug" }
         let(:f_bar) do
           formula do
+            T.bind(self, T.class_of(Formula))
             url "https://brew.sh/bar-1.0.tgz"
             homepage "https://brew.sh"
             option "with-debug"
@@ -1837,6 +1841,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
     specify "it warns when conflicting with non-existing formula", :no_api do
       foo = formula("foo") do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/bar-1.0.tgz"
 
         conflicts_with "bar"
@@ -1851,6 +1856,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
     specify "it warns when conflicting with itself", :no_api do
       foo = formula("foo") do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/bar-1.0.tgz"
 
         conflicts_with "foo"
@@ -1865,15 +1871,27 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     specify "it warns when another formula does not have a symmetric conflict", :no_api do
-      stub_formula_loader formula("gcc") { url "gcc-1.0" }
-      stub_formula_loader formula("glibc") { url "glibc-1.0" }
+      stub_formula_loader(
+        formula("gcc") do
+          T.bind(self, T.class_of(Formula))
+          url "gcc-1.0"
+        end,
+      )
+      stub_formula_loader(
+        formula("glibc") do
+          T.bind(self, T.class_of(Formula))
+          url "glibc-1.0"
+        end,
+      )
 
       foo = formula("foo") do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/foo-1.0.tgz"
       end
       stub_formula_loader foo
 
       bar = formula("bar") do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/bar-1.0.tgz"
 
         conflicts_with "foo"

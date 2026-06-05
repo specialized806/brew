@@ -6,6 +6,7 @@ require "formula"
 RSpec.describe Formula do
   def formula(&block)
     super do
+      T.bind(self, T.class_of(Formula))
       url "file://#{TEST_FIXTURE_DIR}/tarballs/testball-0.1.tbz"
       instance_eval(&block)
     end

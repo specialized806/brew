@@ -7,7 +7,12 @@ require "caveats"
 RSpec.describe Caveats do
   subject(:caveats) { described_class.new(f) }
 
-  let(:f) { formula { url "foo-1.0" } }
+  let(:f) do
+    formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+    end
+  end
 
   specify "#f" do
     expect(caveats.formula).to eq(f)
@@ -20,6 +25,7 @@ RSpec.describe Caveats do
 
     it "returns false if the Formula has caveats" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         def caveats
@@ -39,6 +45,7 @@ RSpec.describe Caveats do
 
       it "gives information about service" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"php", "test"]
@@ -53,6 +60,7 @@ RSpec.describe Caveats do
 
       it "prints warning when no service daemon is found" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -65,6 +73,7 @@ RSpec.describe Caveats do
 
       it "prints service startup information when service.require_root is true" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -77,6 +86,7 @@ RSpec.describe Caveats do
 
       it "prints service login information" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -88,6 +98,7 @@ RSpec.describe Caveats do
 
       it "gives information about require_root restarting services after upgrade" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -101,6 +112,7 @@ RSpec.describe Caveats do
 
       it "gives information about user restarting services after upgrade" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -113,6 +125,7 @@ RSpec.describe Caveats do
 
       it "gives information about require_root starting services after upgrade" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -126,6 +139,7 @@ RSpec.describe Caveats do
 
       it "gives information about user starting services after upgrade" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd"]
@@ -138,6 +152,7 @@ RSpec.describe Caveats do
 
       it "gives information about service manual command" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             run [bin/"cmd", "start"]
@@ -153,6 +168,7 @@ RSpec.describe Caveats do
 
       it "prints info when there are custom service files" do
         f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
             name macos: "custom.mxcl.foo", linux: "custom.foo"
@@ -167,6 +183,7 @@ RSpec.describe Caveats do
     context "when f.keg_only is not nil" do
       let(:f) do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           keg_only "some reason"
         end
@@ -218,6 +235,7 @@ RSpec.describe Caveats do
       context "when joining different caveat types together" do
         let(:f) do
           formula do
+            T.bind(self, T.class_of(Formula))
             url "foo-1.0"
             keg_only "some reason"
 
@@ -244,7 +262,12 @@ RSpec.describe Caveats do
     end
 
     describe "PATH shadowing" do
-      let(:f) { formula { url "foo-1.0" } }
+      let(:f) do
+        formula do
+          T.bind(self, T.class_of(Formula))
+          url "foo-1.0"
+        end
+      end
 
       before do
         Pathname.new(f.opt_bin).mkpath
@@ -280,6 +303,7 @@ RSpec.describe Caveats do
 
       it "does not warn for keg-only formulae" do
         keg_only_f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           keg_only "some reason"
         end
@@ -294,6 +318,7 @@ RSpec.describe Caveats do
 
       it "does not warn when the queried formula itself is not installed" do
         uninstalled_f = formula("foo@old") do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           keg_only :versioned_formula
         end
@@ -317,6 +342,7 @@ RSpec.describe Caveats do
 
       it "warns for a keg-only formula when a sibling keg is linked over it" do
         keg_only_f = formula("foo@1.0") do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           keg_only :versioned_formula
         end
@@ -342,6 +368,7 @@ RSpec.describe Caveats do
 
       it "warns when a keg-only formula has been linked" do
         keg_only_f = formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           keg_only "some reason"
         end
@@ -426,6 +453,7 @@ RSpec.describe Caveats do
     describe "shell completions" do
       let(:f) do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
         end
       end

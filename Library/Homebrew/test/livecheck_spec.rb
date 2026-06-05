@@ -7,6 +7,7 @@ require "livecheck"
 RSpec.describe Livecheck do
   let(:f) do
     formula do
+      T.bind(self, T.class_of(Formula))
       homepage "https://brew.sh"
       url "https://brew.sh/test-0.0.1.tgz"
       head "https://github.com/Homebrew/brew.git", branch: "main"
@@ -269,6 +270,7 @@ RSpec.describe Livecheck do
 
     let(:f_version) do
       formula do
+        T.bind(self, T.class_of(Formula))
         homepage "https://brew.sh"
         url "https://brew.sh/test-0.0.1.tgz"
 

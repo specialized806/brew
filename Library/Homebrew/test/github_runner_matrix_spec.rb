@@ -319,6 +319,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
 
   def setup_test_runner_formula(name, dependencies = [], **kwargs)
     f = formula name do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/#{name}-1.0.tar.gz"
       dependencies.each { |dependency| depends_on dependency }
 

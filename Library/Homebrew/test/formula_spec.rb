@@ -106,6 +106,7 @@ RSpec.describe Formula do
   describe "#follow_installed_alias?" do
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
@@ -128,12 +129,14 @@ RSpec.describe Formula do
   describe "#versioned_formula?" do
     let(:f) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:f2) do
       formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
     end
@@ -147,24 +150,28 @@ RSpec.describe Formula do
   describe "#versioned_formulae" do
     let(:f) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:f2) do
       formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
     end
 
     let(:f_full) do
       formula "foo-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-1.0"
       end
     end
 
     let(:f_full2) do
       formula "foo@2.0-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-2.0"
       end
     end
@@ -203,24 +210,28 @@ RSpec.describe Formula do
   describe "#full_formulae_names" do
     let(:f) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:f_full) do
       formula "foo-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-1.0"
       end
     end
 
     let(:f_versioned) do
       formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
     end
 
     let(:f_versioned_full) do
       formula "foo@2.0-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-2.0"
       end
     end
@@ -240,6 +251,7 @@ RSpec.describe Formula do
       allow(f_versioned_full).to receive(:tap).and_return(nil)
       FileUtils.touch f_versioned_full.path
       f_versioned_with_full = formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
       allow(f_versioned_with_full).to receive(:tap).and_return(nil)
@@ -252,12 +264,14 @@ RSpec.describe Formula do
   describe "#full_formulae" do
     let(:f) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:f_full) do
       formula "foo-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-1.0"
       end
     end
@@ -278,18 +292,21 @@ RSpec.describe Formula do
   describe "#unversioned_formula_name" do
     let(:f) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:f_full) do
       formula "foo@2.0-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-2.0"
       end
     end
 
     let(:f_versioned) do
       formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
     end
@@ -304,9 +321,11 @@ RSpec.describe Formula do
   describe "#link_overwrite_reason" do
     it "explains why a formula was not linked" do
       f = formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
       other_formula = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       allow(other_formula).to receive_messages(any_version_installed?: true, linked?: true)
@@ -319,9 +338,11 @@ RSpec.describe Formula do
   describe "#link_overwrite_formulae" do
     it "deduplicates formulae shared by an alias and canonical name" do
       f = formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
       other_formula = formula "foo@1.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       allow(f).to receive(:link_overwrite_formulae_names).and_return(["foo", "foo@1.0"])
@@ -335,24 +356,28 @@ RSpec.describe Formula do
   describe "#link_overwrite_formulae_names" do
     let(:f) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:f_full) do
       formula "foo-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-1.0"
       end
     end
 
     let(:f_versioned) do
       formula "foo@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
     end
 
     let(:f_versioned_full) do
       formula "foo@2.0-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-2.0"
       end
     end
@@ -381,12 +406,14 @@ RSpec.describe Formula do
   describe "#link_overwrite?" do
     let(:versioned_formula) do
       formula "foo@22" do
+        T.bind(self, T.class_of(Formula))
         url "foo-22.0"
       end
     end
 
     let(:related_formula) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
@@ -430,6 +457,7 @@ RSpec.describe Formula do
 
     it "returns false for unrelated keg names" do
       unrelated_formula = formula "bar" do
+        T.bind(self, T.class_of(Formula))
         url "bar-1.0"
       end
       allow(versioned_formula).to receive(:link_overwrite_keg_name).and_return("bar")
@@ -441,6 +469,7 @@ RSpec.describe Formula do
 
     it "allows explicit link_overwrite paths" do
       formula_with_explicit_overwrite = formula "baz" do
+        T.bind(self, T.class_of(Formula))
         url "baz-1.0"
         link_overwrite "bin/baz"
       end
@@ -467,6 +496,7 @@ RSpec.describe Formula do
 
     it "returns false for missing conflicts without explicit or implied overwrites" do
       formula_without_overwrites = formula "qux" do
+        T.bind(self, T.class_of(Formula))
         url "qux-1.0"
       end
       allow(formula_without_overwrites).to receive_messages(link_overwrite_keg_name: :missing,
@@ -479,12 +509,14 @@ RSpec.describe Formula do
   describe "#implied_link_overwrite?" do
     let(:versioned_formula) do
       formula "foo@22" do
+        T.bind(self, T.class_of(Formula))
         url "foo-22.0"
       end
     end
 
     let(:related_formula) do
       formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
@@ -520,6 +552,7 @@ RSpec.describe Formula do
 
   example "installed alias with core" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -555,6 +588,7 @@ RSpec.describe Formula do
     name = "foo"
     path = tap.path/"Formula/#{name}.rb"
     f = formula(name, path:) do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -606,6 +640,7 @@ RSpec.describe Formula do
 
   specify "#any_version_installed?" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo"
       version "1.0"
     end
@@ -669,6 +704,7 @@ RSpec.describe Formula do
   describe "#latest_installed_prefix" do
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.9"
         head "foo"
@@ -770,6 +806,7 @@ RSpec.describe Formula do
       alias_path = (CoreTap.instance.alias_dir/"another_name")
 
       f = formula(alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       f.build = BuildOptions.new(Options.new, f.options)
@@ -783,6 +820,7 @@ RSpec.describe Formula do
       source_path = CoreTap.instance.new_formula_path("another_other_name")
 
       f = formula(alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       f.build = Tab.new(source: { "path" => source_path.to_s })
@@ -796,6 +834,7 @@ RSpec.describe Formula do
       source_path = (CoreTap.instance.alias_dir/"another_other_name")
 
       f = formula(alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       f.build = Tab.new(source: { "path" => source_path.to_s })
@@ -810,6 +849,7 @@ RSpec.describe Formula do
   describe "::inreplace" do
     specify "raises build error on failure" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
       end
 
@@ -824,6 +864,7 @@ RSpec.describe Formula do
         cd
       EOS
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
       end
       f.inreplace(file.path) do |s|
@@ -847,18 +888,21 @@ RSpec.describe Formula do
       different_alias_path = CoreTap.instance.alias_dir/"another_alias"
 
       formula_with_alias = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       formula_with_alias.build = Tab.empty
       formula_with_alias.build.source["path"] = alias_path.to_s
 
       formula_without_alias = formula "bar" do
+        T.bind(self, T.class_of(Formula))
         url "bar-1.0"
       end
       formula_without_alias.build = Tab.empty
       formula_without_alias.build.source["path"] = formula_without_alias.path.to_s
 
       formula_with_different_alias = formula "baz" do
+        T.bind(self, T.class_of(Formula))
         url "baz-1.0"
       end
       formula_with_different_alias.build = Tab.empty
@@ -882,6 +926,7 @@ RSpec.describe Formula do
 
   specify ".url" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -890,6 +935,7 @@ RSpec.describe Formula do
 
   specify "spec integration" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       homepage "https://brew.sh"
 
       url "https://brew.sh/test-0.1.tbz"
@@ -909,6 +955,7 @@ RSpec.describe Formula do
 
   specify "#active_spec=" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo"
       version "1.0"
       revision 1
@@ -923,6 +970,7 @@ RSpec.describe Formula do
 
   specify "class specs are always initialized" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -940,6 +988,7 @@ RSpec.describe Formula do
 
   specify "incomplete instance specs are not accessible" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -949,6 +998,7 @@ RSpec.describe Formula do
   describe "#ensure_installed!" do
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.2.3"
       end
     end
@@ -996,6 +1046,7 @@ RSpec.describe Formula do
 
   it "honors attributes declared before specs" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       depends_on "foo"
@@ -1008,6 +1059,7 @@ RSpec.describe Formula do
   describe "#pkg_version" do
     specify "simple version" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0.bar"
       end
 
@@ -1016,6 +1068,7 @@ RSpec.describe Formula do
 
     specify "version with revision" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0.bar"
         revision 1
       end
@@ -1025,6 +1078,7 @@ RSpec.describe Formula do
 
     specify "head uses revisions" do
       f = formula "test", spec: :head do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0.bar"
         revision 1
 
@@ -1037,6 +1091,7 @@ RSpec.describe Formula do
 
   specify "#update_head_version" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       head "foo", using: :git
     end
 
@@ -1057,6 +1112,7 @@ RSpec.describe Formula do
 
   specify "#desc" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       desc "a formula"
 
       url "foo-1.0"
@@ -1067,6 +1123,7 @@ RSpec.describe Formula do
 
   specify "#post_install_defined?" do
     f1 = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       def post_install
@@ -1075,6 +1132,7 @@ RSpec.describe Formula do
     end
 
     f2 = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -1084,6 +1142,7 @@ RSpec.describe Formula do
 
   specify "#post_install_steps" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       post_install_steps do
@@ -1121,6 +1180,7 @@ RSpec.describe Formula do
 
   specify "#post_install_steps_defined? with an empty block" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       # This intentionally declares no steps to test definition tracking.
@@ -1136,6 +1196,7 @@ RSpec.describe Formula do
 
   specify "#post_install_steps_conflict?" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       # This intentionally declares no steps to test conflict tracking.
@@ -1152,6 +1213,7 @@ RSpec.describe Formula do
 
   specify "#run_post_install_steps uses the versioned prefix" do
     f = formula "post-install-steps-prefix" do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       post_install_steps do
@@ -1176,6 +1238,7 @@ RSpec.describe Formula do
   describe "#install_etc_var" do
     let(:f) do
       formula "config-upgrade" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
         version "2.0"
       end
@@ -1225,6 +1288,7 @@ RSpec.describe Formula do
 
   specify "test fixtures" do
     f1 = formula do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
     end
 
@@ -1233,6 +1297,7 @@ RSpec.describe Formula do
 
   specify "#livecheck" do
     f = formula do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/test-1.0.tbz"
       livecheck do
         skip "foo"
@@ -1250,6 +1315,7 @@ RSpec.describe Formula do
   describe "#livecheck_defined?" do
     specify "no `livecheck` block defined" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
       end
 
@@ -1258,6 +1324,7 @@ RSpec.describe Formula do
 
     specify "`livecheck` block defined" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
         livecheck do
           regex(/test-v?(\d+(?:\.\d+)+)\.t/i)
@@ -1269,6 +1336,7 @@ RSpec.describe Formula do
 
     specify "livecheck references Formula URL" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         homepage "https://brew.sh/test"
 
         url "https://brew.sh/test-1.0.tbz"
@@ -1285,6 +1353,7 @@ RSpec.describe Formula do
   describe "#service" do
     specify "no service defined" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
       end
 
@@ -1293,6 +1362,7 @@ RSpec.describe Formula do
 
     specify "service complicated" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
 
         service do
@@ -1310,6 +1380,7 @@ RSpec.describe Formula do
 
     specify "service uses simple run" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
         service do
           run opt_bin/"beanstalkd"
@@ -1321,6 +1392,7 @@ RSpec.describe Formula do
 
     specify "service with only custom names" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
         service do
           name macos: "custom.macos.beanstalkd", linux: "custom.linux.beanstalkd"
@@ -1334,6 +1406,7 @@ RSpec.describe Formula do
 
     specify "service helpers return data" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
       end
 
@@ -1350,14 +1423,17 @@ RSpec.describe Formula do
     allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
 
     f1 = formula "f1" do
+      T.bind(self, T.class_of(Formula))
       url "f1-1.0"
     end
 
     f2 = formula "f2" do
+      T.bind(self, T.class_of(Formula))
       url "f2-1.0"
     end
 
     f3 = formula "f3" do
+      T.bind(self, T.class_of(Formula))
       url "f3-1.0"
 
       depends_on "f1" => :build
@@ -1365,6 +1441,7 @@ RSpec.describe Formula do
     end
 
     f4 = formula "f4" do
+      T.bind(self, T.class_of(Formula))
       url "f4-1.0"
 
       depends_on "f1"
@@ -1376,6 +1453,7 @@ RSpec.describe Formula do
     stub_formula_loader(f4)
 
     f5 = formula "f5" do
+      T.bind(self, T.class_of(Formula))
       url "f5-1.0"
 
       depends_on "f3" => :build
@@ -1398,9 +1476,16 @@ RSpec.describe Formula do
       allow(Formulary).to receive(:loader_for).with("foo/bar/f1", from: nil).and_return(tap_loader)
 
       f2_path = Tap.fetch("baz", "qux").path/"Formula/f2.rb"
-      stub_formula_loader(formula("f2", path: f2_path) { url("f2-1.0") }, "baz/qux/f2")
+      stub_formula_loader(
+        formula("f2", path: f2_path) do
+          T.bind(self, T.class_of(Formula))
+          url("f2-1.0")
+        end,
+        "baz/qux/f2",
+      )
 
       f3 = formula "f3" do
+        T.bind(self, T.class_of(Formula))
         url "f3-1.0"
 
         depends_on "foo/bar/f1" => :optional
@@ -1412,7 +1497,13 @@ RSpec.describe Formula do
       described_class.clear_cache
 
       f1_path = Tap.fetch("foo", "bar").path/"Formula/f1.rb"
-      stub_formula_loader(formula("f1", path: f1_path) { url("f1-1.0") }, "foo/bar/f1")
+      stub_formula_loader(
+        formula("f1", path: f1_path) do
+          T.bind(self, T.class_of(Formula))
+          url("f1-1.0")
+        end,
+        "foo/bar/f1",
+      )
 
       f3.build = BuildOptions.new(Options.create(["--with-f1"]), f3.options)
 
@@ -1421,7 +1512,10 @@ RSpec.describe Formula do
 
     it "includes non-declared direct dependencies" do
       formula = Class.new(Testball).new
-      dependency = formula("dependency") { url "f-1.0" }
+      dependency = formula("dependency") do
+        T.bind(self, T.class_of(Formula))
+        url "f-1.0"
+      end
 
       formula.brew { formula.install }
       keg = Keg.for(formula.latest_installed_prefix)
@@ -1449,7 +1543,12 @@ RSpec.describe Formula do
   end
 
   describe "#missing_dependencies" do
-    let(:f) { formula("foo") { url "foo-1.0" } }
+    let(:f) do
+      formula("foo") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
     let(:keg) { instance_double(Keg) }
 
     before do
@@ -1490,6 +1589,7 @@ RSpec.describe Formula do
     allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
 
     f1 = formula "f1" do
+      T.bind(self, T.class_of(Formula))
       url "f1-1"
 
       depends_on xcode: ["1.0", :optional]
@@ -1506,6 +1606,7 @@ RSpec.describe Formula do
 
     f1.build = f1.stable.build
     f2 = formula "f2" do
+      T.bind(self, T.class_of(Formula))
       url "f2-1"
 
       depends_on "f1"
@@ -1527,6 +1628,7 @@ RSpec.describe Formula do
 
   specify "#to_hash" do
     f1 = formula "foo" do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       bottle do
@@ -1549,6 +1651,7 @@ RSpec.describe Formula do
   describe "#to_hash patches" do
     it "serialises an external patch" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch do
           url "https://example.com/foo.diff"
@@ -1563,6 +1666,7 @@ RSpec.describe Formula do
 
     it "serialises an external patch with apply and directory" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch :p0 do
           url "https://example.com/patches.tar.gz"
@@ -1585,6 +1689,7 @@ RSpec.describe Formula do
 
     it "serialises an embedded DATA patch" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch :p1, :DATA
       end
@@ -1594,6 +1699,7 @@ RSpec.describe Formula do
 
     it "serialises a string patch" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch :p2, "--- a\n+++ b\n"
       end
@@ -1603,6 +1709,7 @@ RSpec.describe Formula do
 
     it "serialises a local file patch" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch do
           file "Patches/foo.diff"
@@ -1768,6 +1875,7 @@ RSpec.describe Formula do
 
     specify "with HEAD installed" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         version("0.1")
         head("foo")
       end
@@ -1789,6 +1897,7 @@ RSpec.describe Formula do
   describe "#pour_bottle?" do
     it "returns false if set to false" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         def pour_bottle?
@@ -1801,6 +1910,7 @@ RSpec.describe Formula do
 
     it "returns true if set to true" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         def pour_bottle?
@@ -1813,6 +1923,7 @@ RSpec.describe Formula do
 
     it "returns false if set to false via DSL" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         pour_bottle? do
@@ -1826,6 +1937,7 @@ RSpec.describe Formula do
 
     it "returns true if set to true via DSL" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         pour_bottle? do
@@ -1842,6 +1954,7 @@ RSpec.describe Formula do
       allow(MacOS::CLT).to receive(:installed?).and_return(false)
 
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         pour_bottle? only_if: :clt_installed
@@ -1855,6 +1968,7 @@ RSpec.describe Formula do
       allow(MacOS::CLT).to receive(:installed?).and_return(true)
 
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         pour_bottle? only_if: :clt_installed
@@ -1865,6 +1979,7 @@ RSpec.describe Formula do
 
     it "returns true with `only_if: :clt_installed` on Linux", :needs_linux do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         pour_bottle? only_if: :clt_installed
@@ -1876,6 +1991,7 @@ RSpec.describe Formula do
     it "throws an error if passed both a symbol and a block" do
       expect do
         formula "foo" do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
 
           pour_bottle? only_if: :clt_installed do
@@ -1889,6 +2005,7 @@ RSpec.describe Formula do
     it "throws an error if passed an invalid symbol" do
       expect do
         formula "foo" do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
 
           pour_bottle? only_if: :foo
@@ -1900,12 +2017,14 @@ RSpec.describe Formula do
   describe "alias changes" do
     let(:f) do
       formula("formula_name", alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:new_formula) do
       formula("new_formula_name", alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.1"
       end
     end
@@ -1989,6 +2108,7 @@ RSpec.describe Formula do
 
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.20"
       end
@@ -1996,12 +2116,14 @@ RSpec.describe Formula do
 
     let(:old_formula) do
       formula "foo@1" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     let(:new_formula) do
       formula "foo@2" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
     end
@@ -2097,6 +2219,7 @@ RSpec.describe Formula do
       f.build = setup_tab_for_prefix(same_prefix, path: alias_path)
 
       f2 = formula "foo@2" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
       end
 
@@ -2106,6 +2229,7 @@ RSpec.describe Formula do
 
     example "outdated old alias targets installed" do
       f = formula(alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
 
@@ -2121,6 +2245,7 @@ RSpec.describe Formula do
 
     example "outdated old alias targets not installed" do
       f = formula(alias_path:) do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
 
@@ -2200,6 +2325,7 @@ RSpec.describe Formula do
       let(:f) do
         repo = testball_repo
         formula "testball" do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "2.10"
           head "file://#{repo}", using: :git
@@ -2259,6 +2385,7 @@ RSpec.describe Formula do
     describe "with changed version scheme" do
       let(:f) do
         formula "testball" do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "20141010"
           version_scheme 1
@@ -2276,6 +2403,7 @@ RSpec.describe Formula do
     describe "with mixed version schemes" do
       let(:f) do
         formula "testball" do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "20141010"
           version_scheme 3
@@ -2307,6 +2435,7 @@ RSpec.describe Formula do
     describe "with version scheme" do
       let(:f) do
         formula "testball" do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "1.0"
           version_scheme 2
@@ -2349,6 +2478,7 @@ RSpec.describe Formula do
   describe "OS support" do
     it "returns false for Linux when macOS is required at the top level" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.0"
         depends_on macos: :catalina
@@ -2359,6 +2489,7 @@ RSpec.describe Formula do
 
     it "returns true for Linux when macOS is required in an on_macos block" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.0"
         on_macos do
@@ -2371,6 +2502,7 @@ RSpec.describe Formula do
 
     it "returns false for macOS when Linux is required at the top level" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.0"
         depends_on :linux
@@ -2383,6 +2515,7 @@ RSpec.describe Formula do
     it "deprecates bare and versioned macOS requirements" do
       expect do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "1.0"
           depends_on :macos
@@ -2395,6 +2528,7 @@ RSpec.describe Formula do
     it "does not allow duplicate bare macOS requirements" do
       expect do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "1.0"
           depends_on :macos
@@ -2405,6 +2539,7 @@ RSpec.describe Formula do
 
     it "returns false for Linux when maximum macOS is required at the top level" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.0"
         depends_on maximum_macos: :tahoe
@@ -2416,6 +2551,7 @@ RSpec.describe Formula do
     it "does not allow Linux then macOS requirements" do
       expect do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "1.0"
           depends_on :linux
@@ -2427,6 +2563,7 @@ RSpec.describe Formula do
     it "does not allow macOS then Linux requirements" do
       expect do
         formula do
+          T.bind(self, T.class_of(Formula))
           url "foo"
           version "1.0"
           depends_on macos: :catalina
@@ -2761,6 +2898,7 @@ RSpec.describe Formula do
   describe "#preserve_rpath" do
     it "defaults to false" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
 
@@ -2769,6 +2907,7 @@ RSpec.describe Formula do
 
     it "can be enabled" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         preserve_rpath
       end
@@ -2778,6 +2917,7 @@ RSpec.describe Formula do
 
     it "can be explicitly disabled" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         preserve_rpath value: false
       end
@@ -2795,6 +2935,7 @@ RSpec.describe Formula do
         deprecation_date_ = deprecation_date
         disable_date_ = disable_date
         formula "foo" do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           deprecate! date: deprecation_date_.to_s, because: :unmaintained
           disable! date: disable_date_.to_s, because: :unsupported
@@ -2831,6 +2972,7 @@ RSpec.describe Formula do
         deprecation_date_ = deprecation_date
         disable_date_ = disable_date
         formula "foo" do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           disable! date: disable_date_.to_s, because: :unsupported
           deprecate! date: deprecation_date_.to_s, because: :unmaintained
@@ -2865,7 +3007,8 @@ RSpec.describe Formula do
     context "with only disable date" do
       let(:f) do
         disable_date_ = disable_date
-        formula "foo" do
+        formula("foo") do
+          T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           disable! date: disable_date_.to_s, because: :unsupported
         end
@@ -2929,6 +3072,7 @@ RSpec.describe Formula do
   describe "#std_pip_args" do
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end

@@ -39,6 +39,7 @@ RSpec.describe Homebrew::Cmd::Untap do
           Formulary.factory(path)
         else
           formula(name, tap:) do
+            T.bind(self, T.class_of(Formula))
             url "https://brew.sh/#{name}-1.0.tgz"
           end
         end

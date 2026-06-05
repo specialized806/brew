@@ -14,6 +14,7 @@ RSpec.describe Homebrew::Livecheck do
   let(:resource_url) { "https://brew.sh/foo-1.0.tar.gz" }
   let(:f) do
     formula("test") do
+      T.bind(self, T.class_of(Formula))
       desc "Test formula"
       homepage "https://brew.sh"
       url "https://brew.sh/test-0.0.1.tgz"
@@ -39,6 +40,7 @@ RSpec.describe Homebrew::Livecheck do
     stable_url_s = stable_url
 
     formula("test_stable_url_only") do
+      T.bind(self, T.class_of(Formula))
       desc "Test formula with only a stable URL"
       url stable_url_s
     end
@@ -159,6 +161,7 @@ RSpec.describe Homebrew::Livecheck do
       resource_url_s = resource_url
 
       formula("test_livecheck_url") do
+        T.bind(self, T.class_of(Formula))
         desc "Test Livecheck URL formula"
         homepage homepage_url_s
         url stable_url_s
@@ -245,6 +248,7 @@ RSpec.describe Homebrew::Livecheck do
     let(:resource_url) { "https://brew.sh/foo-1.0.tar.gz" }
     let(:f_duplicate_urls) do
       formula("test_duplicate_urls") do
+        T.bind(self, T.class_of(Formula))
         desc "Test formula with a duplicate URL"
         homepage "https://github.com/Homebrew/brew.git"
         url "https://brew.sh/test-0.0.1.tgz"
@@ -267,6 +271,7 @@ RSpec.describe Homebrew::Livecheck do
 
     let(:f_homebrew_curl) do
       formula("test") do
+        T.bind(self, T.class_of(Formula))
         desc "Test formula"
         homepage "https://brew.sh"
         url "https://brew.sh/test-0.0.1.tgz", using: :homebrew_curl
@@ -330,6 +335,7 @@ RSpec.describe Homebrew::Livecheck do
   describe "::latest_version" do
     let(:f_throttle_rate) do
       formula("test_throttle_rate") do
+        T.bind(self, T.class_of(Formula))
         desc "Test formula"
         homepage "https://brew.sh"
         url "https://brew.sh/test-0.0.1.tgz"
@@ -344,6 +350,7 @@ RSpec.describe Homebrew::Livecheck do
 
     let(:f_throttle_days) do
       formula("test_throttle_days") do
+        T.bind(self, T.class_of(Formula))
         desc "Test formula"
         homepage "https://brew.sh"
         url "https://brew.sh/test-0.0.1.tgz"
@@ -358,6 +365,7 @@ RSpec.describe Homebrew::Livecheck do
 
     let(:f_throttle_rate_and_days) do
       formula("test_throttle_rate_and_days") do
+        T.bind(self, T.class_of(Formula))
         desc "Test formula"
         homepage "https://brew.sh"
         url "https://brew.sh/test-0.0.1.tgz"

@@ -274,6 +274,7 @@ RSpec.describe Sandbox do
   describe "#allow_write_cellar" do
     it "fails when the formula has a name including )" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/foo-1.0.tar.gz"
         version "1.0"
 
@@ -290,6 +291,7 @@ RSpec.describe Sandbox do
 
     it "fails when the formula has a name including \"" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/foo-1.0.tar.gz"
         version "1.0"
 
