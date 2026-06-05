@@ -8,6 +8,7 @@ RSpec.describe Language::Java do
 
   let(:f) do
     formula("openjdk") do
+      T.bind(self, T.class_of(Formula))
       url "openjdk"
       version "15.0.1"
     end

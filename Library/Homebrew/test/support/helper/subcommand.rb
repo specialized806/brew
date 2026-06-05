@@ -97,14 +97,34 @@ module Test
         end
       end
 
+      sig {
+        params(
+          subcommand: T.nilable(T.any(String, Symbol)),
+          named:      T.untyped,
+          options:    T.untyped,
+        ).returns(Test::Helper::Subcommand::Args)
+      }
       def args_for_subcommand(subcommand = nil, *named, **options)
         Test::Helper::Subcommand::Args.new(named:, subcommand: subcommand&.to_s, **options)
       end
 
+      require "cmd/bundle"
+      sig {
+        params(
+          subcommand:   T.any(String, Symbol),
+          global:       T::Boolean,
+          file:         T.nilable(String),
+          no_upgrade:   T::Boolean,
+          verbose:      T::Boolean,
+          force:        T::Boolean,
+          ask:          T::Boolean,
+          jobs:         Integer,
+          zap:          T::Boolean,
+          no_type_args: T::Boolean,
+        ).returns(Homebrew::Cmd::Bundle::SubcommandContext)
+      }
       def bundle_subcommand_context(subcommand, global: false, file: nil, no_upgrade: false, verbose: false,
                                     force: false, ask: false, jobs: 1, zap: false, no_type_args: true)
-        require "cmd/bundle"
-
         Homebrew::Cmd::Bundle::SubcommandContext.new(
           subcommand:   subcommand.to_s,
           global:,

@@ -101,7 +101,10 @@ RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
 
     before do
       ENV["HOMEBREW_BUNDLE_FILE"] = ""
-      stub_formula_loader formula("mas") { url "mas-1.0" }
+      stub_formula_loader formula("mas") {
+        T.bind(self, T.class_of(Formula))
+        url "mas-1.0"
+      }
       allow_any_instance_of(Pathname).to receive(:exist?).and_return(true)
       allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(true)
       allow(Cask::Caskroom).to receive(:casks).and_return([])

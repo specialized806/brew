@@ -48,8 +48,13 @@ RSpec.describe Utils::Analytics do
   end
 
   describe "::report_package_event" do
-    let(:f) { formula { url "foo-1.0" } }
-    let(:package_name)  { f.name }
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+    let(:package_name) { f.name }
     let(:tap_name) { f.tap.name }
     let(:on_request) { false }
     let(:options) { "--HEAD" }
@@ -92,7 +97,12 @@ RSpec.describe Utils::Analytics do
   end
 
   describe "::report_influx" do
-    let(:f) { formula { url "foo-1.0" } }
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
     let(:package)  { f.name }
     let(:tap_name) { f.tap.name }
     let(:on_request) { false }
@@ -110,7 +120,12 @@ RSpec.describe Utils::Analytics do
   describe "::report_build_error" do
     context "when tap is installed" do
       let(:err) { BuildError.new(f, "badprg", %w[arg1 arg2], {}) }
-      let(:f) { formula { url "foo-1.0" } }
+      let(:f) do
+        formula do
+          T.bind(self, T.class_of(Formula))
+          url "foo-1.0"
+        end
+      end
 
       it "reports event if BuildError raised for a formula with a public remote repository" do
         allow_any_instance_of(Tap).to receive(:custom_remote?).and_return(false)

@@ -19,7 +19,10 @@ RSpec.describe Homebrew::Cmd::Bundle::CheckSubcommand, :no_api do
   before do
     Homebrew::Bundle::Checker.reset!
     allow_any_instance_of(IO).to receive(:puts)
-    stub_formula_loader formula("mas") { url "mas-1.0" }
+    stub_formula_loader formula("mas") {
+      T.bind(self, T.class_of(Formula))
+      url "mas-1.0"
+    }
   end
 
   context "when dependencies are satisfied" do
@@ -85,7 +88,10 @@ RSpec.describe Homebrew::Cmd::Bundle::CheckSubcommand, :no_api do
     before do
       allow(Homebrew::Bundle::Cask).to receive(:casks).and_return([])
       allow(Homebrew::Bundle::Brew).to receive_messages(upgradable_formulae: [], installed_formulae: ["abc"])
-      stub_formula_loader formula("abc") { url "abc-1.0" }
+      stub_formula_loader formula("abc") {
+        T.bind(self, T.class_of(Formula))
+        url "abc-1.0"
+      }
     end
 
     it "raises an error" do

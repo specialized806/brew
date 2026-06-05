@@ -46,7 +46,10 @@ RSpec.describe Homebrew::Cmd::Reinstall do
 
   it "asks for casks before shared prefetch when reinstalling formulae and casks" do
     cmd = klass.new(["--ask", "testball", "local-caffeine"])
-    formula = formula("testball") { url "https://brew.sh/testball-0.1.tar.gz" }
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
     formula_installer = FormulaInstaller.new(formula)
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))

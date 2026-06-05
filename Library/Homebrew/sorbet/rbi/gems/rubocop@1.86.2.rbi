@@ -5,6 +5,23 @@
 # Please instead update this file by running `bin/tapioca gem rubocop`.
 
 
+module CopHelper
+  extend ::RSpec::Core::SharedContext
+
+  def _investigate(cop, processed_source); end
+  def autocorrect_source(source, file = T.unsafe(nil)); end
+  def autocorrect_source_file(source); end
+  def configuration; end
+  def inspect_source(source, file = T.unsafe(nil)); end
+  def parse_source(source, file = T.unsafe(nil)); end
+  def registry; end
+
+  class << self
+    def integrated_plugins; end
+    def integrated_plugins=(_arg0); end
+  end
+end
+
 class Parser::Source::Comment
   include ::RuboCop::Ext::Comment
 end
@@ -4022,9 +4039,9 @@ RuboCop::Formatter::PacmanFormatter::FALLBACK_TERMINAL_WIDTH = T.let(T.unsafe(ni
 
 RuboCop::Formatter::PacmanFormatter::GHOST = T.let(T.unsafe(nil), String)
 
-RuboCop::Formatter::PacmanFormatter::PACDOT = T.let(T.unsafe(nil), Rainbow::NullPresenter)
+RuboCop::Formatter::PacmanFormatter::PACDOT = T.let(T.unsafe(nil), Rainbow::Presenter)
 
-RuboCop::Formatter::PacmanFormatter::PACMAN = T.let(T.unsafe(nil), Rainbow::NullPresenter)
+RuboCop::Formatter::PacmanFormatter::PACMAN = T.let(T.unsafe(nil), Rainbow::Presenter)
 
 RuboCop::Formatter::ProgressFormatter::DOT = T.let(T.unsafe(nil), String)
 
