@@ -3118,13 +3118,17 @@ If set, \fBbrew bundle dump\fP will not dump WinGet packages\.
 If set, run \fBbrew bundle cleanup \-\-force\fP after \fBbrew bundle install\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_JOBS\fP
-Use this value as the number of formula installations to run in parallel for \fBbrew bundle install\fP\&\. Use \fBauto\fP for the number of CPU cores (max 4)\. Enabled by default with a value of \fBauto\fP if \fB$HOMEBREW_DEVELOPER\fP is set\. This will become the default behaviour in a later minor release\.
+Use this value as the number of formula installations to run in parallel for \fBbrew bundle install\fP\&\. Use \fBauto\fP for the number of CPU cores (max 4)\.
+.RS
+.P
+\fIDefault:\fP \fBauto\fP\&\.
+.RE
 .TP
 \fBHOMEBREW_BUNDLE_NO_DESCRIBE\fP
 If set, do not enable bundle description comments from \fB$HOMEBREW_BUNDLE_DESCRIBE\fP or the \fB$HOMEBREW_DEVELOPER\fP default\. This does not disable an explicit \fB\-\-describe\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_NO_JOBS\fP
-If set, do not enable parallel jobs from \fB$HOMEBREW_BUNDLE_JOBS\fP or the \fB$HOMEBREW_DEVELOPER\fP default\. This does not disable an explicit \fB\-\-jobs\fP\&\.
+If set, do not enable parallel jobs from \fB$HOMEBREW_BUNDLE_JOBS\fP or its default\. This does not disable an explicit \fB\-\-jobs\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_NO_SECRETS\fP
 If set, \fBbrew bundle exec\fP, \fBbrew bundle env\fP and \fBbrew bundle sh\fP will attempt to remove secrets from the environment\. Enabled by default if \fB$HOMEBREW_DEVELOPER\fP is set\. This will become the default behaviour in a later minor release\.

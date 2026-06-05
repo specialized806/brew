@@ -4832,9 +4832,9 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_BUNDLE_JOBS`
 
 : Use this value as the number of formula installations to run in parallel for
-  `brew bundle install`. Use `auto` for the number of CPU cores (max 4). Enabled
-  by default with a value of `auto` if `$HOMEBREW_DEVELOPER` is set. This will
-  become the default behaviour in a later minor release.
+  `brew bundle install`. Use `auto` for the number of CPU cores (max 4).
+  
+  *Default:* `auto`.
 
 `HOMEBREW_BUNDLE_NO_DESCRIBE`
 
@@ -4844,8 +4844,8 @@ command execution (e.g. `$(cat file)`).
 
 `HOMEBREW_BUNDLE_NO_JOBS`
 
-: If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or the
-  `$HOMEBREW_DEVELOPER` default. This does not disable an explicit `--jobs`.
+: If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or its
+  default. This does not disable an explicit `--jobs`.
 
 `HOMEBREW_BUNDLE_NO_SECRETS`
 
