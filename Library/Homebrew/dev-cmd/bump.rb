@@ -4,13 +4,13 @@
 require "abstract_command"
 require "bump_version_parser"
 require "livecheck/livecheck"
+require "release_cooldown"
 require "utils/curl"
 require "utils/repology"
 
 module Homebrew
   module DevCmd
     class Bump < AbstractCommand
-      MIN_RELEASE_AGE_DAYS = 1
       DEFAULT_CURL_ARGS = T.let([
         "--compressed",
         "--fail-with-body",
@@ -908,7 +908,7 @@ module Homebrew
 
           current_str = current.to_s
           current_is_prerelease = current_str.include?("-")
-          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
           release_dates.sort_by { |_, date| date }.reverse_each do |version_str, date|
             version = Version.new(version_str)
             return version if version_str == current_str
@@ -941,7 +941,7 @@ module Homebrew
 
           current_str = current.to_s
           current_is_prerelease = current_str.match?(PYPI_UNSTABLE_VERSION_REGEX)
-          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
           releases.sort_by { |k, _| Version.new(k) }.reverse_each do |version_str, assets|
             version = Version.new(version_str)
             return version if version_str == current_str
@@ -973,7 +973,7 @@ module Homebrew
           return unless json.is_a?(Array)
 
           current_str = current.to_s
-          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
           json.sort_by { |release| Version.new(release["number"]) }.reverse_each do |release|
             next if release["platform"] != (match[:platform] || "ruby")
 

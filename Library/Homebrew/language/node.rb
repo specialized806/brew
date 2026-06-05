@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "release_cooldown"
 require "utils/output"
 
 module Language
@@ -18,7 +19,7 @@ module Language
     sig { params(ignore_scripts: T::Boolean).returns(T::Array[String]) }
     def self.npm_install_security_args(ignore_scripts: true)
       args = %W[
-        --min-release-age=1
+        --min-release-age=#{Homebrew::RELEASE_COOLDOWN_DAYS}
         --#{npm_cache_config}
       ]
 

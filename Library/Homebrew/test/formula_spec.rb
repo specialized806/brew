@@ -2939,6 +2939,18 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#common_stage_test_env" do
+    let(:f) do
+      formula do
+        url "foo-1.0"
+      end
+    end
+
+    it "sets Bundler cooldown for RubyGems dependencies" do
+      expect(f.send(:common_stage_test_env, mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
+    end
+  end
+
   describe ".no_autobump!" do
     it "raises an error when used in an unofficial tap" do
       unofficial_tap = Tap.fetch("someone", "repo")
