@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "release_cooldown"
 require "utils/output"
 require "utils/ast"
 require "time"
@@ -495,7 +496,8 @@ module PyPI
     # likely to pick a freshly compromised PyPI release.
     command = [
       Formula[python_name].opt_libexec/"bin/python", "-m", "pip", "install", "-q", "--disable-pip-version-check",
-      "--dry-run", "--ignore-installed", "--uploaded-prior-to=#{(Time.now.utc - (24 * 60 * 60)).iso8601(0)}",
+      "--dry-run", "--ignore-installed",
+      "--uploaded-prior-to=#{(Time.now.utc - Homebrew::RELEASE_COOLDOWN_SECONDS).iso8601(0)}",
       "--report=/dev/stdout", *packages.map(&:to_s)
     ]
     options = {}

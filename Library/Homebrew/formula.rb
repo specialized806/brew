@@ -43,6 +43,7 @@ require "utils/spdx"
 require "on_system"
 require "api"
 require "api_hashable"
+require "release_cooldown"
 require "trust"
 require "utils/output"
 require "pypi_packages"
@@ -2217,7 +2218,7 @@ class Formula
     args = ["--verbose", "--no-deps", "--no-binary=:all:", "--ignore-installed", "--no-compile"]
     # Delay packages published in the last day so builds are less likely to
     # install a freshly compromised PyPI release.
-    args << "--uploaded-prior-to=#{(Time.now.utc - (24 * 60 * 60)).iso8601(0)}"
+    args << "--uploaded-prior-to=#{(Time.now.utc - Homebrew::RELEASE_COOLDOWN_SECONDS).iso8601(0)}"
     args << "--prefix=#{prefix}" if prefix
     args << "--no-build-isolation" unless build_isolation
     args
@@ -3745,6 +3746,7 @@ class Formula
       GOCACHE:                 "#{HOMEBREW_CACHE}/go_cache",
       GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
       CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
+      BUNDLE_COOLDOWN:         Homebrew::RELEASE_COOLDOWN_DAYS.to_s,
       PIP_CACHE_DIR:           "#{HOMEBREW_CACHE}/pip_cache",
       CURL_HOME:               ENV.fetch("CURL_HOME") { home.to_s },
       PYTHONDONTWRITEBYTECODE: "1",
