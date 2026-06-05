@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cleaner"
@@ -12,7 +12,12 @@ RSpec.describe Cleaner do
   describe "#clean" do
     subject(:cleaner) { klass.new(f) }
 
-    let(:f) { formula("cleaner_test") { url "foo-1.0" } }
+    let(:f) do
+      formula("cleaner_test") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
 
     before do
       f.prefix.mkpath
@@ -209,6 +214,7 @@ RSpec.describe Cleaner do
   describe "::skip_clean" do
     def stub_formula_skip_clean(skip_paths)
       formula("cleaner_test") do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
 
         skip_clean skip_paths

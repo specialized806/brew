@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -68,29 +68,35 @@ RSpec.describe Homebrew::Cmd::Bundle::ListSubcommand do
     end
 
     describe "limiting when certain options are passed" do
-      COMBINATIONS.each do |options_list|
-        opts_string = options_list.map { |o| "`#{o}`" }.join(" and ")
-        verb = if options_list.length == 1
-          "is"
-        else
-          "are"
-        end
-        words = options_list.join(" and ")
+      it "shows only the requested type(s) for all combinations" do
+        COMBINATIONS.each do |options_list|
+          formulae = options_list.include?(:formulae)
+          casks = options_list.include?(:casks)
+          taps = options_list.include?(:taps)
+          mas = options_list.include?(:mas)
+          vscode = options_list.include?(:vscode)
+          go = options_list.include?(:go)
+          cargo = options_list.include?(:cargo)
+          uv = options_list.include?(:uv)
 
-        context "when #{opts_string} #{verb} passed" do
-          let(:formulae) { options_list.include?(:formulae) }
-          let(:casks)    { options_list.include?(:casks) }
-          let(:taps)     { options_list.include?(:taps) }
-          let(:mas)      { options_list.include?(:mas) }
-          let(:vscode)   { options_list.include?(:vscode) }
-          let(:go)       { options_list.include?(:go) }
-          let(:cargo)    { options_list.include?(:cargo) }
-          let(:uv)       { options_list.include?(:uv) }
+          no_type_args = [formulae, casks, taps, mas, vscode, go, cargo, uv].none?
+          context = bundle_subcommand_context(:list, no_type_args:)
+          args_object = args_for_subcommand(
+            :list,
+            formulae?: formulae,
+            casks?:    casks,
+            taps?:     taps,
+            mas?:      mas,
+            vscode?:   vscode,
+            cargo?:    cargo,
+            flatpak?:  false,
+            go?:       go,
+            uv?:       uv,
+            all?:      false,
+          )
 
-          it "shows only #{words}" do
-            expected = options_list.map { |opt| TYPES_AND_DEPS[opt] }.join("\n")
-            expect { list }.to output("#{expected}\n").to_stdout
-          end
+          expected = options_list.map { |opt| TYPES_AND_DEPS[opt] }.join("\n")
+          expect { klass.new(args_object, context:).run }.to output("#{expected}\n").to_stdout
         end
       end
     end

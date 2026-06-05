@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -86,7 +86,7 @@ RSpec.describe Homebrew::Cmd::VersionInstall do
     let(:formulary_factory) do
       lambda do |ref, **_opts|
         return current_formula if ref == formula
-        return raise FormulaUnavailableError, ref if ref == "#{formula}@#{version}"
+        raise FormulaUnavailableError, ref if ref == "#{formula}@#{version}"
 
         raise "Unexpected ref: #{ref}"
       end
