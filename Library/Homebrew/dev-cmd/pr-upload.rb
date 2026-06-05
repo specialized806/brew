@@ -39,6 +39,8 @@ module Homebrew
         conflicts "--upload-only", "--no-commit"
 
         named_args :none
+
+        hide_from_man_page!
       end
 
       sig { override.void }

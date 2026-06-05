@@ -15,6 +15,8 @@ module Homebrew
       :aliases,
       :builtin_command_descriptions,
       :completion_functions,
+      :maintainer_descriptions,
+      :maintainer_commands,
       :function_mappings,
     )
 
@@ -125,7 +127,10 @@ module Homebrew
 
     sig { void }
     def self.update_shell_completions!
-      commands = Commands.commands(external: false).sort
+      commands = (Commands.internal_commands_paths + Commands.internal_developer_commands_paths)
+                 .map { |path| Commands.basename_without_extension(path) }
+                 .uniq
+                 .sort
 
       puts "Writing completions to #{COMPLETIONS_DIR}"
 
@@ -137,6 +142,21 @@ module Homebrew
     sig { params(command: String).returns(T::Boolean) }
     def self.command_gets_completions?(command)
       command_options(command).any? || Commands.command_subcommands(command).any?
+    end
+
+    sig { params(command: String).returns(T::Boolean) }
+    def self.command_hidden_from_manpage?(command)
+      return false unless (cmd_path = Commands.path(command))
+
+      Homebrew::CLI::Parser.from_cmd_path(cmd_path)&.hide_from_man_page == true
+    end
+
+    sig { params(command: String).returns(T.nilable(String)) }
+    def self.zsh_command_description(command)
+      description = Commands.command_description(command, short: true)
+      return if description.blank?
+
+      "'#{command}:#{format_description(description)}'"
     end
 
     sig { params(subcommands: T::Array[Homebrew::CLI::Parser::Subcommand]).returns(T::Array[String]) }
@@ -293,6 +313,7 @@ module Homebrew
         completion_functions: commands.filter_map do |command|
           generate_bash_subcommand_completion command
         end,
+        maintainer_commands:  commands.select { |command| command_hidden_from_manpage?(command) },
         function_mappings:    commands.filter_map do |command|
           next unless command_gets_completions? command
 
@@ -466,12 +487,15 @@ module Homebrew
 
         builtin_command_descriptions: commands.filter_map do |command|
           next if Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.key? command
+          next if command_hidden_from_manpage?(command)
 
-          description = Commands.command_description(command, short: true)
-          next if description.blank?
+          zsh_command_description(command)
+        end,
 
-          description = format_description description
-          "'#{command}:#{description}'"
+        maintainer_descriptions:      commands.filter_map do |command|
+          next unless command_hidden_from_manpage?(command)
+
+          zsh_command_description(command)
         end,
 
         completion_functions:         commands.filter_map do |command|
@@ -484,18 +508,20 @@ module Homebrew
 
     sig { params(command: String).returns(T.nilable(String)) }
     def self.generate_fish_subcommand_completion(command)
-      return unless command_gets_completions? command
-
-      subcommands = Commands.command_subcommands(command)
-      return generate_fish_nested_subcommand_completion(command, subcommands) if subcommands.present?
-
       command_description = format_description Commands.command_description(command, short: true).to_s, fish: true
       lines = if COMPLETIONS_EXCLUSION_LIST.include?(command) ||
                  Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.key?(command)
         []
+      elsif command_hidden_from_manpage?(command)
+        ["complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' " \
+         "-a '#{command}' -d '#{command_description}'"]
       else
         ["__fish_brew_complete_cmd '#{command}' '#{command_description}'"]
       end
+      return unless command_gets_completions? command
+
+      subcommands = Commands.command_subcommands(command)
+      return generate_fish_nested_subcommand_completion(command, subcommands) if subcommands.present?
 
       options = command_options(command).sort.filter_map do |opt, desc|
         arg_line = "__fish_brew_complete_arg '#{command}' -l #{opt.sub(/^-+/, "")}"

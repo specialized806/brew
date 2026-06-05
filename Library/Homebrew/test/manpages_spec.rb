@@ -47,4 +47,29 @@ RSpec.describe Homebrew::Manpages do
     expect(info_section).to include("`--json`")
     expect(info_section).not_to include("`--force`")
   end
+
+  it "does not include commands hidden from the manpage" do
+    hidden_commands = %w[
+      dispatch-build-bottle
+      formula-analytics
+      generate-analytics-api
+      generate-cask-api
+      generate-formula-api
+      generate-internal-api
+      pr-automerge
+      pr-publish
+      pr-pull
+      pr-upload
+      release
+      update-license-data
+      update-maintainers
+      update-sponsors
+    ]
+
+    manpage = Homebrew::Manpages.generate_cmd_manpages(
+      hidden_commands.map { |command| Commands::HOMEBREW_DEV_CMD_PATH/"#{command}.rb" },
+    )
+
+    expect(manpage).not_to include(*hidden_commands)
+  end
 end

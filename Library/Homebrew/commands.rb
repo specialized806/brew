@@ -211,7 +211,10 @@ module Commands
     require "completions"
 
     cmds = internal_commands + internal_developer_commands
-    cmds.reject! { |cmd| Homebrew::Completions::COMPLETIONS_EXCLUSION_LIST.include? cmd }
+    cmds.reject! do |cmd|
+      Homebrew::Completions::COMPLETIONS_EXCLUSION_LIST.include?(cmd) ||
+        Homebrew::Completions.command_hidden_from_manpage?(cmd)
+    end
 
     file = HOMEBREW_REPOSITORY/"completions/internal_commands_list.txt"
     file.atomic_write("#{cmds.sort.join("\n")}\n")
@@ -225,6 +228,7 @@ module Commands
     HOMEBREW_CACHE.mkpath
 
     cmds = commands - Homebrew::Completions::COMPLETIONS_EXCLUSION_LIST
+    cmds.reject! { |cmd| Homebrew::Completions.command_hidden_from_manpage?(cmd) }
 
     all_commands_file = HOMEBREW_CACHE/"all_commands_list.txt"
     external_commands_file = HOMEBREW_CACHE/"external_commands_list.txt"

@@ -98,6 +98,7 @@ __brew_complete_commands() {
 
   local cur="${COMP_WORDS[COMP_CWORD]}"
   local cmds
+  local maintainer_cmds
 
   if [[ -n ${__HOMEBREW_COMMANDS} ]]
   then
@@ -109,11 +110,15 @@ __brew_complete_commands() {
   then
     cmds="$(< "${HOMEBREW_REPOSITORY}/completions/internal_commands_list.txt")"
   fi
+  if [[ -n ${HOMEBREW_DEVELOPER:-} ]]
+  then
+    maintainer_cmds="determine-test-runners dispatch-build-bottle formula-analytics generate-analytics-api generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
+  fi
   while read -r line
   do
     [[ $(__brew_internal_command_alias "${line}") == "${line}" ]] || continue
     COMPREPLY+=("${line}")
-  done < <(compgen -W "${cmds}" -- "${cur}")
+  done < <(compgen -W "${cmds} ${maintainer_cmds}" -- "${cur}")
   export __HOMEBREW_COMMANDS=${cmds}
 }
 
@@ -1305,6 +1310,24 @@ _brew_desc() {
   __brew_complete_casks
 }
 
+_brew_determine_test_runners() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --all-supported
+      --debug
+      --dependents
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_developer() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   local subcommand=""
@@ -1619,6 +1642,28 @@ _brew_generate_cask_api() {
       ;;
     *) ;;
   esac
+}
+
+_brew_generate_cask_ci_matrix() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --cask
+      --debug
+      --help
+      --new
+      --quiet
+      --skip-install
+      --syntax-only
+      --url
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+  __brew_complete_casks
 }
 
 _brew_generate_formula_api() {
@@ -3244,6 +3289,22 @@ _brew_update_perl_resources() {
   __brew_complete_formulae
 }
 
+_brew_update_portable_ruby() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_update_python_resources() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3268,6 +3329,24 @@ _brew_update_python_resources() {
     *) ;;
   esac
   __brew_complete_formulae
+}
+
+_brew_update_report() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --auto-update
+      --debug
+      --force
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
 }
 
 _brew_update_reset() {
@@ -3424,6 +3503,22 @@ _brew_vendor_gems() {
   esac
 }
 
+_brew_vendor_install() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_verify() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3568,6 +3663,7 @@ _brew() {
     debugger) _brew_debugger ;;
     deps) _brew_deps ;;
     desc) _brew_desc ;;
+    determine-test-runners) _brew_determine_test_runners ;;
     developer) _brew_developer ;;
     dispatch-build-bottle) _brew_dispatch_build_bottle ;;
     docs) _brew_docs ;;
@@ -3581,6 +3677,7 @@ _brew() {
     formulae) _brew_formulae ;;
     generate-analytics-api) _brew_generate_analytics_api ;;
     generate-cask-api) _brew_generate_cask_api ;;
+    generate-cask-ci-matrix) _brew_generate_cask_ci_matrix ;;
     generate-formula-api) _brew_generate_formula_api ;;
     generate-internal-api) _brew_generate_internal_api ;;
     generate-man-completions) _brew_generate_man_completions ;;
@@ -3648,13 +3745,16 @@ _brew() {
     update-license-data) _brew_update_license_data ;;
     update-maintainers) _brew_update_maintainers ;;
     update-perl-resources) _brew_update_perl_resources ;;
+    update-portable-ruby) _brew_update_portable_ruby ;;
     update-python-resources) _brew_update_python_resources ;;
+    update-report) _brew_update_report ;;
     update-reset) _brew_update_reset ;;
     update-sponsors) _brew_update_sponsors ;;
     update-test) _brew_update_test ;;
     upgrade) _brew_upgrade ;;
     uses) _brew_uses ;;
     vendor-gems) _brew_vendor_gems ;;
+    vendor-install) _brew_vendor_install ;;
     verify) _brew_verify ;;
     version-install) _brew_version_install ;;
     which-formula) _brew_which_formula ;;

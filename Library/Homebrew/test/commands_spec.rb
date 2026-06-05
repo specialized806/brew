@@ -50,6 +50,15 @@ RSpec.describe Commands do
     expect(cmds).not_to include("rbdevcmd"), "Dev commands shouldn't be included"
   end
 
+  specify "::internal_commands omits commands hidden from the manpage" do
+    hidden_parser = instance_double(Homebrew::CLI::Parser, hide_from_man_page: true)
+    allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).and_call_original
+    allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).with(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
+                                                           .and_return(hidden_parser)
+
+    expect(klass.internal_commands).not_to include("rbcmd")
+  end
+
   specify "::internal_developer_commands" do
     cmds = klass.internal_developer_commands
     expect(cmds).to include("rbdevcmd"), "Ruby commands files should be recognized"
@@ -91,6 +100,22 @@ RSpec.describe Commands do
         expect(commands & klass.internal_commands_aliases).to be_empty
       end
     end
+
+    it "omits commands hidden from the manpage" do
+      mktmpdir do |repository|
+        stub_const("HOMEBREW_REPOSITORY", repository)
+        (repository/"completions").mkpath
+        hidden_parser = instance_double(Homebrew::CLI::Parser, hide_from_man_page: true)
+        allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).and_call_original
+        allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).with(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
+                                                               .and_return(hidden_parser)
+
+        klass.rebuild_internal_commands_completion_list
+
+        commands = (repository/"completions/internal_commands_list.txt").read.lines(chomp: true)
+        expect(commands).not_to include("rbcmd")
+      end
+    end
   end
 
   describe "::rebuild_commands_completion_list" do
@@ -103,6 +128,22 @@ RSpec.describe Commands do
 
         commands = (cache/"all_commands_list.txt").read.lines(chomp: true)
         expect(commands & klass.internal_commands_aliases).to be_empty
+      end
+    end
+
+    it "omits commands hidden from the manpage from the cached command list" do
+      mktmpdir do |cache|
+        stub_const("HOMEBREW_CACHE", cache)
+        allow(klass).to receive(:external_commands).and_return(["external"])
+        hidden_parser = instance_double(Homebrew::CLI::Parser, hide_from_man_page: true)
+        allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).and_call_original
+        allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).with(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
+                                                               .and_return(hidden_parser)
+
+        klass.rebuild_commands_completion_list
+
+        commands = (cache/"all_commands_list.txt").read.lines(chomp: true)
+        expect(commands).not_to include("rbcmd")
       end
     end
   end

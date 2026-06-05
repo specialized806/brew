@@ -35,6 +35,8 @@ module Homebrew
         conflicts "--linux", "--linux-self-hosted"
 
         named_args :formula, min: 1
+
+        hide_from_man_page!
       end
 
       sig { override.void }

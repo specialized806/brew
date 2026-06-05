@@ -2066,35 +2066,6 @@ To pass flags to the command, use \fB\-\-\fP to separate them from the \fBbrew\f
 .TP
 \fB\-O\fP, \fB\-\-open\fP
 Start remote debugging over a Unix socket\.
-.SS "\fBdispatch\-build\-bottle\fP \fR[\fIoptions\fP] \fIformula\fP \fR[\.\.\.]"
-Build bottles for these formulae with GitHub Actions\.
-.TP
-\fB\-\-tap\fP
-Target tap repository (default: \fBhomebrew/core\fP)\.
-.TP
-\fB\-\-timeout\fP
-Build timeout (in minutes, default: 60)\.
-.TP
-\fB\-\-issue\fP
-If specified, post a comment to this issue number if the job fails\.
-.TP
-\fB\-\-macos\fP
-macOS version (or comma\-separated list of versions) the bottle should be built for\.
-.TP
-\fB\-\-workflow\fP
-Dispatch specified workflow (default: \fBdispatch\-build\-bottle\.yml\fP)\.
-.TP
-\fB\-\-upload\fP
-Upload built bottles\.
-.TP
-\fB\-\-linux\fP
-Dispatch bottle for Linux x86_64 (using GitHub runners)\.
-.TP
-\fB\-\-linux\-arm64\fP
-Dispatch bottle for Linux arm64 (using GitHub runners)\.
-.TP
-\fB\-\-linux\-self\-hosted\fP
-Dispatch bottle for Linux x86_64 (using self\-hosted runner)\.
 .SS "\fBedit\fP \fR[\fIoptions\fP] \fR[\fIformula\fP|\fIcask\fP|\fItap\fP \.\.\.]"
 Open a \fIformula\fP, \fIcask\fP or \fItap\fP in the editor set by \fB$EDITOR\fP or \fB$HOMEBREW_EDITOR\fP, or open the Homebrew repository for editing if no argument is provided\.
 .TP
@@ -2119,81 +2090,6 @@ Extract the specified \fIversion\fP of \fIformula\fP instead of the most recent\
 Overwrite the destination formula if it already exists\.
 .SS "\fBformula\fP \fIformula\fP \fR[\.\.\.]"
 Display the path where \fIformula\fP is located\.
-.SS "\fBformula\-analytics\fP"
-Query Homebrew\[u2019]s analytics\.
-.TP
-\fB\-\-days\-ago\fP
-Query from the specified days ago until the present\. The default is 30 days\.
-.TP
-\fB\-\-install\fP
-Output the number of specifically requested installations or installation as dependencies of formulae\. This is the default\.
-.TP
-\fB\-\-install\-on\-request\fP
-Output the number of specifically requested installations of formulae\.
-.TP
-\fB\-\-cask\-install\fP
-Output the number of installations of casks\.
-.TP
-\fB\-\-build\-error\fP
-Output the number of build errors for formulae\.
-.TP
-\fB\-\-os\-version\fP
-Output the number of events by OS name and version\.
-.TP
-\fB\-\-homebrew\-devcmdrun\-developer\fP
-Output the number of devcmdrun/HOMEBREW_DEVELOPER events\.
-.TP
-\fB\-\-homebrew\-os\-arch\-ci\fP
-Output the number of OS/Architecture/CI events\.
-.TP
-\fB\-\-homebrew\-prefixes\fP
-Output Homebrew prefixes\.
-.TP
-\fB\-\-homebrew\-versions\fP
-Output Homebrew versions\.
-.TP
-\fB\-\-brew\-command\-run\fP
-Output \fBbrew\fP commands run\.
-.TP
-\fB\-\-brew\-command\-run\-options\fP
-Output \fBbrew\fP commands run with options\.
-.TP
-\fB\-\-brew\-test\-bot\-test\fP
-Output \fBbrew test\-bot\fP steps run\.
-.TP
-\fB\-\-json\fP
-Output JSON\. This is required: plain text support has been removed\.
-.TP
-\fB\-\-all\-core\-formulae\-json\fP
-Output a different JSON format containing the JSON data for all Homebrew/homebrew\-core formulae\.
-.TP
-\fB\-\-setup\fP
-Install the necessary gems, require them and exit without running a query\.
-.SS "\fBgenerate\-analytics\-api\fP"
-Generates analytics API data files for 
-.UR https://formulae\.brew\.sh
-.UE \&\. The generated files are written to the current directory\.
-.SS "\fBgenerate\-cask\-api\fP \fR[\fB\-\-dry\-run\fP]"
-Generate \fBhomebrew/cask\fP API data files for 
-.UR https://formulae\.brew\.sh
-.UE \&\. The generated files are written to the current directory\.
-.TP
-\fB\-n\fP, \fB\-\-dry\-run\fP
-Generate API data without writing it to files\.
-.SS "\fBgenerate\-formula\-api\fP \fR[\fB\-\-dry\-run\fP]"
-Generate \fBhomebrew/core\fP API data files for 
-.UR https://formulae\.brew\.sh
-.UE \&\. The generated files are written to the current directory\.
-.TP
-\fB\-n\fP, \fB\-\-dry\-run\fP
-Generate API data without writing it to files\.
-.SS "\fBgenerate\-internal\-api\fP \fR[\fB\-\-dry\-run\fP]"
-Generate internal API data files for 
-.UR https://formulae\.brew\.sh
-.UE \&\. The generated files are written to the current directory\.
-.TP
-\fB\-n\fP, \fB\-\-dry\-run\fP
-Generate internal API data without writing it to files\.
 .SS "\fBgenerate\-man\-completions\fP \fR[\fB\-\-no\-exit\-code\fP]"
 Generate Homebrew\[u2019]s manpages and shell completions\.
 .TP
@@ -2280,137 +2176,6 @@ Enable checking multiple casks with ExtractPlist strategy\.
 .TP
 \fB\-\-autobump\fP
 Include packages that are autobumped by BrewTestBot\. By default these are skipped\.
-.SS "\fBpr\-automerge\fP \fR[\fIoptions\fP]"
-Find pull requests that can be automatically merged using \fBbrew pr\-publish\fP\&\.
-.TP
-\fB\-\-tap\fP
-Target tap repository (default: \fBhomebrew/core\fP)\.
-.TP
-\fB\-\-workflow\fP
-Workflow file to use with \fBbrew pr\-publish\fP\&\.
-.TP
-\fB\-\-with\-label\fP
-Pull requests must have this label\.
-.TP
-\fB\-\-without\-labels\fP
-Pull requests must not have these labels (default: \fBdo not merge\fP, \fBnew formula\fP, \fBautomerge\-skip\fP, \fBpre\-release\fP, \fBCI\-published\-bottle\-commits\fP)\.
-.TP
-\fB\-\-without\-approval\fP
-Pull requests do not require approval to be merged\.
-.TP
-\fB\-\-publish\fP
-Run \fBbrew pr\-publish\fP on matching pull requests\.
-.TP
-\fB\-\-autosquash\fP
-Instruct \fBbrew pr\-publish\fP to automatically reformat and reword commits in the pull request to the preferred format\.
-.TP
-\fB\-\-ignore\-failures\fP
-Include pull requests that have failing status checks\.
-.SS "\fBpr\-publish\fP \fR[\fIoptions\fP] \fIpull_request\fP \fR[\.\.\.]"
-Publish bottles for a pull request with GitHub Actions\. Requires write access to the repository\.
-.TP
-\fB\-\-autosquash\fP
-If supported on the target tap, automatically reformat and reword commits to our preferred format\.
-.TP
-\fB\-\-large\-runner\fP
-Run the upload job on a large runner\.
-.TP
-\fB\-\-branch\fP
-Branch to use the workflow from (default: \fBmain\fP)\.
-.TP
-\fB\-\-message\fP
-Message to include when autosquashing revision bumps, deletions and rebuilds\.
-.TP
-\fB\-\-tap\fP
-Target tap repository (default: \fBhomebrew/core\fP)\.
-.TP
-\fB\-\-workflow\fP
-Target workflow filename (default: \fBpublish\-commit\-bottles\.yml\fP)\.
-.SS "\fBpr\-pull\fP \fR[\fIoptions\fP] \fIpull_request\fP \fR[\.\.\.]"
-Download and publish bottles and apply the bottle commit from a pull request with artifacts generated by GitHub Actions\. Requires write access to the repository\.
-.TP
-\fB\-\-no\-upload\fP
-Download the bottles but don\[u2019]t upload them\.
-.TP
-\fB\-\-no\-commit\fP
-Do not generate a new commit before uploading\.
-.TP
-\fB\-\-no\-cherry\-pick\fP
-Do not cherry\-pick commits from the pull request branch\.
-.TP
-\fB\-n\fP, \fB\-\-dry\-run\fP
-Print what would be done rather than doing it\.
-.TP
-\fB\-\-clean\fP
-Do not amend the commits from pull requests\.
-.TP
-\fB\-\-keep\-old\fP
-If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL\.
-.TP
-\fB\-\-autosquash\fP
-Automatically reformat and reword commits in the pull request to our preferred format\.
-.TP
-\fB\-\-branch\-okay\fP
-Do not warn if pulling to a branch besides the repository default (useful for testing)\.
-.TP
-\fB\-\-resolve\fP
-When a patch fails to apply, leave in progress and allow user to resolve, instead of aborting\.
-.TP
-\fB\-\-warn\-on\-upload\-failure\fP
-Warn instead of raising an error if the bottle upload fails\. Useful for repairing bottle uploads that previously failed\.
-.TP
-\fB\-\-retain\-bottle\-dir\fP
-Does not clean up the tmp directory for the bottle so it can be used later\.
-.TP
-\fB\-\-committer\fP
-Specify a committer name and email in \fBgit\fP\[u2019]s standard author format\.
-.TP
-\fB\-\-message\fP
-Message to include when autosquashing revision bumps, deletions and rebuilds\.
-.TP
-\fB\-\-artifact\-pattern\fP
-Download artifacts with the specified pattern (default: \fBbottles{,_*}\fP)\.
-.TP
-\fB\-\-tap\fP
-Target tap repository (default: \fBhomebrew/core\fP)\.
-.TP
-\fB\-\-root\-url\fP
-Use the specified \fIURL\fP as the root of the bottle\[u2019]s URL instead of Homebrew\[u2019]s default\.
-.TP
-\fB\-\-root\-url\-using\fP
-Use the specified download strategy class for downloading the bottle\[u2019]s URL instead of Homebrew\[u2019]s default\.
-.TP
-\fB\-\-workflows\fP
-Retrieve artifacts from the specified workflow (default: \fBtests\.yml\fP)\. Can be a comma\-separated list to include multiple workflows\.
-.TP
-\fB\-\-ignore\-missing\-artifacts\fP
-Comma\-separated list of workflows which can be ignored if they have not been run\.
-.SS "\fBpr\-upload\fP \fR[\fIoptions\fP]"
-Apply the bottle commit and publish bottles to a host\.
-.TP
-\fB\-\-keep\-old\fP
-If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL\. When using GitHub Packages, this also appends the manifest to the existing list\.
-.TP
-\fB\-n\fP, \fB\-\-dry\-run\fP
-Print what would be done rather than doing it\.
-.TP
-\fB\-\-no\-commit\fP
-Do not generate a new commit before uploading\.
-.TP
-\fB\-\-warn\-on\-upload\-failure\fP
-Warn instead of raising an error if the bottle upload fails\. Useful for repairing bottle uploads that previously failed\.
-.TP
-\fB\-\-upload\-only\fP
-Skip running \fBbrew bottle\fP before uploading\.
-.TP
-\fB\-\-committer\fP
-Specify a committer name and email in \fBgit\fP\[u2019]s standard author format\.
-.TP
-\fB\-\-root\-url\fP
-Use the specified \fIURL\fP as the root of the bottle\[u2019]s URL instead of Homebrew\[u2019]s default\.
-.TP
-\fB\-\-root\-url\-using\fP
-Use the specified download strategy class for downloading the bottle\[u2019]s URL instead of Homebrew\[u2019]s default\.
 .SS "\fBprof\fP \fR[\fB\-\-stackprof\fP] \fR[\fB\-\-vernier\fP] \fIcommand\fP \fR[\.\.\.]"
 Run Homebrew with a Ruby profiler\. For example, \fBbrew prof readall\fP\&\.
 .TP
@@ -2419,23 +2184,6 @@ Use \fBstackprof\fP instead of \fBruby\-prof\fP (the default)\.
 .TP
 \fB\-\-vernier\fP
 Use \fBvernier\fP instead of \fBruby\-prof\fP (the default)\.
-.SS "\fBrelease\fP \fR[\fIoptions\fP]"
-Create a new draft Homebrew/brew release with the appropriate version number and release notes\.
-.P
-By default, \fBbrew release\fP will bump the patch version number\. Pass \fB\-\-major\fP or \fB\-\-minor\fP to bump the major or minor version numbers, respectively\. The command will fail if the previous major or minor release was made less than one month ago\.
-.P
-Without \fB\-\-force\fP, this command will just output the release notes without creating the release or triggering the workflow\.
-.P
-\fINote:\fP Requires write access to the Homebrew/brew repository\.
-.TP
-\fB\-\-major\fP
-Create a major release\.
-.TP
-\fB\-\-minor\fP
-Create a minor release\.
-.TP
-\fB\-\-force\fP
-Actually create the release and trigger the workflow\. Without this, just show what would be done\.
 .SS "\fBrubocop\fP"
 Installs, configures and runs Homebrew\[u2019]s \fBrubocop\fP\&\.
 .SS "\fBruby\fP \fR[\fIoptions\fP] (\fB\-e\fP \fItext\fP|\fIfile\fP)"
@@ -2758,10 +2506,6 @@ Treat all named arguments as formulae\.
 .TP
 \fB\-\-cask\fP
 Treat all named arguments as casks\.
-.SS "\fBupdate\-license\-data\fP"
-Update SPDX license data in the Homebrew repository\.
-.SS "\fBupdate\-maintainers\fP"
-Update the list of maintainers in the \fBHomebrew/brew\fP README\.
 .SS "\fBupdate\-perl\-resources\fP \fR[\fIoptions\fP] \fIformula\fP \fR[\.\.\.]"
 Update versions for CPAN resource blocks in \fIformula\fP\&\.
 .TP
@@ -2802,8 +2546,6 @@ Include these additional packages when finding resources\.
 .TP
 \fB\-\-exclude\-packages\fP
 Exclude these packages when finding resources\.
-.SS "\fBupdate\-sponsors\fP"
-Update the list of GitHub Sponsors in the \fBHomebrew/brew\fP README\.
 .SS "\fBupdate\-test\fP \fR[\fIoptions\fP]"
 Run a test of \fBbrew update\fP with a new repository clone\. If no options are passed, use \fBorigin/main\fP as the start commit\.
 .TP
