@@ -154,6 +154,9 @@ module Homebrew
 
         formula = begin
           Formulary.from_rack(HOMEBREW_CELLAR/formula_name)
+        rescue Homebrew::UntrustedTapError
+          opoo "Skipping #{formula_name}: tap formula is not trusted"
+          nil
         rescue FormulaUnavailableError, TapFormulaAmbiguityError
           nil
         end
@@ -162,6 +165,9 @@ module Homebrew
         if formula.blank? && formula_name.delete_suffix!("_bottle_manifest")
           formula = begin
             Formulary.from_rack(HOMEBREW_CELLAR/formula_name)
+          rescue Homebrew::UntrustedTapError
+            opoo "Skipping #{formula_name}: tap formula is not trusted"
+            nil
           rescue FormulaUnavailableError, TapFormulaAmbiguityError
             nil
           end

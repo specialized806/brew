@@ -69,6 +69,19 @@ RSpec.describe Homebrew::Cleanup do
       expect(lock_file).to exist
     end
 
+    it "doesn't load untrusted installed formulae while cleaning the cache" do
+      cache_file = HOMEBREW_CACHE/"untrusted--1.0"
+      cache_file.write "cached"
+      (HOMEBREW_CELLAR/"untrusted/1.0").mkpath
+
+      expect(Formulary).to receive(:from_rack).with(HOMEBREW_CELLAR/"untrusted")
+                                              .and_raise(Homebrew::UntrustedTapError)
+
+      expect { cleanup.cleanup_cache([{ path: cache_file, type: nil }]) }
+        .to output(/Skipping untrusted: tap formula is not trusted/).to_stderr
+      expect(cache_file).to exist
+    end
+
     context "when it can't remove a keg" do
       let(:formula_zero_dot_one) { Class.new(Testball) { version "0.1" }.new }
       let(:formula_zero_dot_two) { Class.new(Testball) { version "0.2" }.new }
