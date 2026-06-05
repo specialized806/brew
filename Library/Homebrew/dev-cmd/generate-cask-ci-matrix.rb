@@ -129,22 +129,25 @@ module Homebrew
       def filter_runners(cask)
         filtered_runners = T.let({}, T::Hash[T::Hash[Symbol, T.any(Symbol, String)], Float])
         if cask.supports_macos?
-          filtered_macos_runners = RUNNERS.select do |runner, _|
-            runner[:symbol] != :linux &&
-              cask.depends_on.macos.present? &&
-              cask.depends_on.macos.allows?(MacOSVersion.from_symbol(runner.fetch(:symbol).to_sym))
-          end
+          # Skip macOS if no runner satisfies the cask's min/max macOS requirements.
+          macos_requirements = [cask.depends_on.macos, cask.depends_on.maximum_macos]
+                               .compact.select(&:version_specified?)
 
-          filtered_runners = if filtered_macos_runners.any?
-            filtered_macos_runners
-          else
+          filtered_runners = if macos_requirements.empty?
             MACOS_RUNNERS.dup
+          else
+            MACOS_RUNNERS.select do |runner, _|
+              macos_version = MacOSVersion.from_symbol(runner.fetch(:symbol).to_sym)
+              macos_requirements.all? { |requirement| requirement.allows?(macos_version) }
+            end
           end
-        end
 
-        macos_archs = architectures(cask:, os: :macos)
-        filtered_runners.select! do |runner, _|
-          macos_archs.include?(runner.fetch(:arch))
+          if filtered_runners.any?
+            macos_archs = architectures(cask:, os: :macos)
+            filtered_runners.select! do |runner, _|
+              macos_archs.include?(runner.fetch(:arch))
+            end
+          end
         end
 
         return filtered_runners unless cask.supports_linux?

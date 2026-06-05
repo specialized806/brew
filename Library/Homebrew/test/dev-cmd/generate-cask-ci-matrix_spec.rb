@@ -131,6 +131,63 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       app "Test.app"
     end
   end
+  let(:c_minimum_macos) do
+    Cask::Cask.new("test-minimum-macos") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on macos: :sequoia
+
+      app "Test.app"
+    end
+  end
+  let(:c_maximum_macos) do
+    Cask::Cask.new("test-maximum-macos") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on maximum_macos: :sonoma
+
+      app "Test.app"
+    end
+  end
+  let(:c_maximum_macos_below_all_runners) do
+    Cask::Cask.new("test-maximum-macos-below-all-runners") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on maximum_macos: :ventura
+
+      app "Test.app"
+    end
+  end
+  let(:c_minimum_and_maximum_macos) do
+    Cask::Cask.new("test-minimum-and-maximum-macos") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on macos: :sonoma
+      depends_on maximum_macos: :sequoia
+
+      app "Test.app"
+    end
+  end
   let(:c_linux) do
     Cask::Cask.new("test-linux") do
       version "0.0.1,2"
@@ -215,6 +272,30 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
             { arch: :arm, name: "macos-26", symbol: :tahoe }           => 1.0,
             { arch: :intel, name: "macos-15-intel", symbol: :sequoia } => 1.0,
           })
+      end
+    end
+
+    context "when cask has a macOS version requirement" do
+      it "filters macOS runners by the minimum and maximum macOS requirements" do
+        expect(generate_matrix.filter_runners(c_minimum_macos))
+          .to eq({
+            { arch: :arm, name: "macos-15", symbol: :sequoia }         => 0.0,
+            { arch: :arm, name: "macos-26", symbol: :tahoe }           => 1.0,
+            { arch: :intel, name: "macos-15-intel", symbol: :sequoia } => 1.0,
+          })
+
+        expect(generate_matrix.filter_runners(c_maximum_macos))
+          .to eq({ { arch: :arm, name: "macos-14", symbol: :sonoma } => 0.0 })
+
+        expect(generate_matrix.filter_runners(c_minimum_and_maximum_macos))
+          .to eq({
+            { arch: :arm, name: "macos-14", symbol: :sonoma }          => 0.0,
+            { arch: :arm, name: "macos-15", symbol: :sequoia }         => 0.0,
+            { arch: :intel, name: "macos-15-intel", symbol: :sequoia } => 1.0,
+          })
+
+        # A requirement excluding all runners must skip macOS, not test them all.
+        expect(generate_matrix.filter_runners(c_maximum_macos_below_all_runners)).to eq({})
       end
     end
 
