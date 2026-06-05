@@ -411,6 +411,14 @@ RSpec.describe Homebrew::Completions do
         expect(file).to match(/^ {4}up\) echo "update" ;;$/)
         expect(file).to match(/^ {4}update\) _brew_update ;;$/)
       end
+
+      it "keeps argument completions for commands hidden from the manpage" do
+        file = klass.generate_bash_completion_file(%w[generate-internal-api])
+        expect(file).to include("if [[ -n ${HOMEBREW_DEVELOPER:-} ]]")
+        expect(file).to include('maintainer_cmds="generate-internal-api"')
+        expect(file).to match(/^_brew_generate_internal_api\(\) {$/)
+        expect(file).to match(/^ {4}generate-internal-api\) _brew_generate_internal_api ;;/)
+      end
     end
 
     describe ".generate_zsh_subcommand_completion" do
@@ -505,6 +513,14 @@ RSpec.describe Homebrew::Completions do
         expect(file).to match(/^_brew_update\(\) {$/)
         expect(file).to match(/^_brew "\$@"$/)
       end
+
+      it "maintainer-gates command completions but keeps argument completions for commands hidden from the manpage" do
+        file = klass.generate_zsh_completion_file(%w[generate-internal-api])
+        expect(file).to include("if [[ -n ${HOMEBREW_DEVELOPER:-} ]]; then")
+        expect(file).to match(/^      'generate-internal-api:Generate internal API data files for .*'$/)
+        expect(file).to match(/^# brew generate-internal-api$/)
+        expect(file).to match(/^_brew_generate_internal_api\(\) {$/)
+      end
     end
 
     describe ".generate_fish_subcommand_completion" do
@@ -564,6 +580,13 @@ RSpec.describe Homebrew::Completions do
                                       "-l all -d 'List all test services'")
         expect(completion).to include("__fish_brew_complete_sub_arg 'subcommand-test' 'info i' " \
                                       "-a '(__fish_brew_suggest_services)'")
+      end
+
+      it "maintainer-gates command completions but keeps argument completions for commands hidden from the manpage" do
+        completion = klass.generate_fish_subcommand_completion("generate-internal-api")
+        expect(completion).to include("set -q HOMEBREW_DEVELOPER")
+        expect(completion).to include("-a 'generate-internal-api'")
+        expect(completion).to include("__fish_brew_complete_arg 'generate-internal-api' -l dry-run")
       end
     end
 

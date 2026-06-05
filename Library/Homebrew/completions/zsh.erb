@@ -132,6 +132,11 @@ __brew_internal_commands() {
   commands=(
     <%= builtin_command_descriptions.join("\n    ") + "\n" %>
   )
+  if [[ -n ${HOMEBREW_DEVELOPER:-} ]]; then
+    commands+=(
+      <%= maintainer_descriptions.join("\n      ") + "\n" %>
+    )
+  fi
   _describe -t internal-commands 'internal commands' commands
 }
 

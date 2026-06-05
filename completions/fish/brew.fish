@@ -919,6 +919,15 @@ __fish_brew_complete_arg 'desc; and not __fish_seen_argument -l cask -l casks' -
 __fish_brew_complete_arg 'desc; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'determine-test-runners' -d 'Determines the runners used to test formulae or their dependents'
+__fish_brew_complete_arg 'determine-test-runners' -l all-supported -d 'Instead of selecting runners based on the chosen formula, return all supported runners'
+__fish_brew_complete_arg 'determine-test-runners' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'determine-test-runners' -l dependents -d 'Determine runners for testing dependents. Requires `HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` to be set'
+__fish_brew_complete_arg 'determine-test-runners' -l help -d 'Show this message'
+__fish_brew_complete_arg 'determine-test-runners' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'determine-test-runners' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'developer' 'Control Homebrew\'s developer mode'
 __fish_brew_complete_sub_cmd 'developer' 'state' 'Display the current state of Homebrew\'s developer mode'
 __fish_brew_complete_sub_cmd 'developer' 'on' 'Turn Homebrew\'s developer mode on'
@@ -941,7 +950,7 @@ __fish_brew_complete_sub_arg 'developer' 'off' -l quiet -d 'Make some output mor
 __fish_brew_complete_sub_arg 'developer' 'off' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'dispatch-build-bottle' 'Build bottles for these formulae with GitHub Actions'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'dispatch-build-bottle' -d 'Build bottles for these formulae with GitHub Actions'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l help -d 'Show this message'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l issue -d 'If specified, post a comment to this issue number if the job fails'
@@ -1038,7 +1047,7 @@ __fish_brew_complete_arg 'formula' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'formula' -a '(__fish_brew_suggest_formulae_all)'
 
 
-__fish_brew_complete_cmd 'formula-analytics' 'Query Homebrew\'s analytics'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'formula-analytics' -d 'Query Homebrew\'s analytics'
 __fish_brew_complete_arg 'formula-analytics' -l all-core-formulae-json -d 'Output a different JSON format containing the JSON data for all Homebrew/homebrew-core formulae'
 __fish_brew_complete_arg 'formula-analytics' -l brew-command-run -d 'Output `brew` commands run'
 __fish_brew_complete_arg 'formula-analytics' -l brew-command-run-options -d 'Output `brew` commands run with options'
@@ -1068,14 +1077,14 @@ __fish_brew_complete_arg 'formulae' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'formulae' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'generate-analytics-api' 'Generates analytics API data files for https://formulae.brew.sh'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-analytics-api' -d 'Generates analytics API data files for https://formulae.brew.sh'
 __fish_brew_complete_arg 'generate-analytics-api' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-analytics-api' -l help -d 'Show this message'
 __fish_brew_complete_arg 'generate-analytics-api' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'generate-analytics-api' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'generate-cask-api' 'Generate `homebrew/cask` API data files for https://formulae.brew.sh'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-cask-api' -d 'Generate `homebrew/cask` API data files for https://formulae.brew.sh'
 __fish_brew_complete_arg 'generate-cask-api' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-cask-api' -l dry-run -d 'Generate API data without writing it to files'
 __fish_brew_complete_arg 'generate-cask-api' -l help -d 'Show this message'
@@ -1083,7 +1092,20 @@ __fish_brew_complete_arg 'generate-cask-api' -l quiet -d 'Make some output more 
 __fish_brew_complete_arg 'generate-cask-api' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'generate-formula-api' 'Generate `homebrew/core` API data files for https://formulae.brew.sh'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-cask-ci-matrix' -d 'Generate a GitHub Actions matrix for a given pull request URL or list of cask names'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l cask -d 'Treat all named arguments as cask tokens'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l help -d 'Show this message'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l new -d 'Run new cask checks'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l skip-install -d 'Skip installing casks'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l syntax-only -d 'Only run syntax checks'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l url -d 'Treat named argument as a pull request URL'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'generate-cask-ci-matrix' -a '(__fish_brew_suggest_casks_all)'
+
+
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-formula-api' -d 'Generate `homebrew/core` API data files for https://formulae.brew.sh'
 __fish_brew_complete_arg 'generate-formula-api' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-formula-api' -l dry-run -d 'Generate API data without writing it to files'
 __fish_brew_complete_arg 'generate-formula-api' -l help -d 'Show this message'
@@ -1091,7 +1113,7 @@ __fish_brew_complete_arg 'generate-formula-api' -l quiet -d 'Make some output mo
 __fish_brew_complete_arg 'generate-formula-api' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'generate-internal-api' 'Generate internal API data files for https://formulae.brew.sh'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-internal-api' -d 'Generate internal API data files for https://formulae.brew.sh'
 __fish_brew_complete_arg 'generate-internal-api' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-internal-api' -l dry-run -d 'Generate internal API data without writing it to files'
 __fish_brew_complete_arg 'generate-internal-api' -l help -d 'Show this message'
@@ -1415,7 +1437,7 @@ __fish_brew_complete_arg 'postinstall' -l verbose -d 'Make some output more verb
 __fish_brew_complete_arg 'postinstall' -a '(__fish_brew_suggest_formulae_installed)'
 
 
-__fish_brew_complete_cmd 'pr-automerge' 'Find pull requests that can be automatically merged using `brew pr-publish`'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'pr-automerge' -d 'Find pull requests that can be automatically merged using `brew pr-publish`'
 __fish_brew_complete_arg 'pr-automerge' -l autosquash -d 'Instruct `brew pr-publish` to automatically reformat and reword commits in the pull request to the preferred format'
 __fish_brew_complete_arg 'pr-automerge' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'pr-automerge' -l help -d 'Show this message'
@@ -1430,7 +1452,7 @@ __fish_brew_complete_arg 'pr-automerge' -l without-labels -d 'Pull requests must
 __fish_brew_complete_arg 'pr-automerge' -l workflow -d 'Workflow file to use with `brew pr-publish`'
 
 
-__fish_brew_complete_cmd 'pr-publish' 'Publish bottles for a pull request with GitHub Actions'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'pr-publish' -d 'Publish bottles for a pull request with GitHub Actions'
 __fish_brew_complete_arg 'pr-publish' -l autosquash -d 'If supported on the target tap, automatically reformat and reword commits to our preferred format'
 __fish_brew_complete_arg 'pr-publish' -l branch -d 'Branch to use the workflow from (default: `main`)'
 __fish_brew_complete_arg 'pr-publish' -l debug -d 'Display any debugging information'
@@ -1443,7 +1465,7 @@ __fish_brew_complete_arg 'pr-publish' -l verbose -d 'Make some output more verbo
 __fish_brew_complete_arg 'pr-publish' -l workflow -d 'Target workflow filename (default: `publish-commit-bottles.yml`)'
 
 
-__fish_brew_complete_cmd 'pr-pull' 'Download and publish bottles and apply the bottle commit from a pull request with artifacts generated by GitHub Actions'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'pr-pull' -d 'Download and publish bottles and apply the bottle commit from a pull request with artifacts generated by GitHub Actions'
 __fish_brew_complete_arg 'pr-pull' -l artifact-pattern -d 'Download artifacts with the specified pattern (default: `bottles{,_*}`)'
 __fish_brew_complete_arg 'pr-pull' -l autosquash -d 'Automatically reformat and reword commits in the pull request to our preferred format'
 __fish_brew_complete_arg 'pr-pull' -l branch-okay -d 'Do not warn if pulling to a branch besides the repository default (useful for testing)'
@@ -1469,7 +1491,7 @@ __fish_brew_complete_arg 'pr-pull' -l warn-on-upload-failure -d 'Warn instead of
 __fish_brew_complete_arg 'pr-pull' -l workflows -d 'Retrieve artifacts from the specified workflow (default: `tests.yml`). Can be a comma-separated list to include multiple workflows'
 
 
-__fish_brew_complete_cmd 'pr-upload' 'Apply the bottle commit and publish bottles to a host'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'pr-upload' -d 'Apply the bottle commit and publish bottles to a host'
 __fish_brew_complete_arg 'pr-upload' -l committer -d 'Specify a committer name and email in `git`\'s standard author format'
 __fish_brew_complete_arg 'pr-upload' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'pr-upload' -l dry-run -d 'Print what would be done rather than doing it'
@@ -1564,7 +1586,7 @@ __fish_brew_complete_arg 'reinstall; and not __fish_seen_argument -l cask -l cas
 __fish_brew_complete_arg 'reinstall; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
-__fish_brew_complete_cmd 'release' 'Create a new draft Homebrew/brew release with the appropriate version number and release notes'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'release' -d 'Create a new draft Homebrew/brew release with the appropriate version number and release notes'
 __fish_brew_complete_arg 'release' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'release' -l force -d 'Actually create the release and trigger the workflow. Without this, just show what would be done'
 __fish_brew_complete_arg 'release' -l help -d 'Show this message'
@@ -2022,14 +2044,14 @@ __fish_brew_complete_arg 'update-if-needed' -l quiet -d 'Make some output more q
 __fish_brew_complete_arg 'update-if-needed' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'update-license-data' 'Update SPDX license data in the Homebrew repository'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'update-license-data' -d 'Update SPDX license data in the Homebrew repository'
 __fish_brew_complete_arg 'update-license-data' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-license-data' -l help -d 'Show this message'
 __fish_brew_complete_arg 'update-license-data' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'update-license-data' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'update-maintainers' 'Update the list of maintainers in the `Homebrew/brew` README'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'update-maintainers' -d 'Update the list of maintainers in the `Homebrew/brew` README'
 __fish_brew_complete_arg 'update-maintainers' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-maintainers' -l help -d 'Show this message'
 __fish_brew_complete_arg 'update-maintainers' -l quiet -d 'Make some output more quiet'
@@ -2045,6 +2067,13 @@ __fish_brew_complete_arg 'update-perl-resources' -l quiet -d 'Make some output m
 __fish_brew_complete_arg 'update-perl-resources' -l silent -d 'Suppress any output'
 __fish_brew_complete_arg 'update-perl-resources' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'update-perl-resources' -a '(__fish_brew_suggest_formulae_all)'
+
+
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'update-portable-ruby' -d 'Update the vendored `portable-ruby` from the current `portable-ruby` formula: write the version files and bottle checksums, run `brew vendor-install ruby`, then sync `utils/ruby.sh`, vendored gems and RBI files to the bundler shipped by the new ruby'
+__fish_brew_complete_arg 'update-portable-ruby' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'update-portable-ruby' -l help -d 'Show this message'
+__fish_brew_complete_arg 'update-portable-ruby' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'update-portable-ruby' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'update-python-resources' 'Update versions for PyPI resource blocks in formula'
@@ -2064,6 +2093,14 @@ __fish_brew_complete_arg 'update-python-resources' -l version -d 'Use the specif
 __fish_brew_complete_arg 'update-python-resources' -a '(__fish_brew_suggest_formulae_all)'
 
 
+__fish_brew_complete_arg 'update-report' -l auto-update -d 'Run in \'auto-update\' mode (faster, less output)'
+__fish_brew_complete_arg 'update-report' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'update-report' -l force -d 'Treat installed and updated formulae as if they are from the same taps and migrate them anyway'
+__fish_brew_complete_arg 'update-report' -l help -d 'Show this message'
+__fish_brew_complete_arg 'update-report' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'update-report' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'update-reset' 'Fetch and reset Homebrew and all tap repositories (or any specified repository) using `git`(1) to their latest `origin/HEAD`'
 __fish_brew_complete_arg 'update-reset' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-reset' -l help -d 'Show this message'
@@ -2071,7 +2108,7 @@ __fish_brew_complete_arg 'update-reset' -l quiet -d 'Make some output more quiet
 __fish_brew_complete_arg 'update-reset' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'update-sponsors' 'Update the list of GitHub Sponsors in the `Homebrew/brew` README'
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'update-sponsors' -d 'Update the list of GitHub Sponsors in the `Homebrew/brew` README'
 __fish_brew_complete_arg 'update-sponsors' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-sponsors' -l help -d 'Show this message'
 __fish_brew_complete_arg 'update-sponsors' -l quiet -d 'Make some output more quiet'
@@ -2162,6 +2199,13 @@ __fish_brew_complete_arg 'vendor-gems' -l no-commit -d 'Do not generate a new co
 __fish_brew_complete_arg 'vendor-gems' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'vendor-gems' -l update -d 'Update the specified list of vendored gems to the latest version'
 __fish_brew_complete_arg 'vendor-gems' -l verbose -d 'Make some output more verbose'
+
+
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'vendor-install' -d 'Install Homebrew\'s portable Ruby'
+__fish_brew_complete_arg 'vendor-install' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'vendor-install' -l help -d 'Show this message'
+__fish_brew_complete_arg 'vendor-install' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'vendor-install' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'verify' 'Verify the build provenance of bottles using GitHub\'s attestation tools'

@@ -20,6 +20,8 @@ module Homebrew
                description: "Generate internal API data without writing it to files."
 
         named_args :none
+
+        hide_from_man_page!
       end
 
       sig { override.void }

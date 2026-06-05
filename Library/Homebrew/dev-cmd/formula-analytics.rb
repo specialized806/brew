@@ -54,6 +54,8 @@ module Homebrew
         conflicts "--json", "--all-core-formulae-json", "--setup"
 
         named_args :none
+
+        hide_from_man_page!
       end
 
       FIRST_INFLUXDB_ANALYTICS_DATE = T.let(Date.new(2023, 03, 27).freeze, Date)

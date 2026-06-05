@@ -27,6 +27,8 @@ module Homebrew
         EOS
 
         named_args :none
+
+        hide_from_man_page!
       end
 
       sig { params(category_name: String, data_source: T.nilable(String)).returns(String) }

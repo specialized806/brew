@@ -69,6 +69,8 @@ module Homebrew
         conflicts "--clean", "--autosquash"
 
         named_args :pull_request, min: 1
+
+        hide_from_man_page!
       end
 
       sig { override.void }
