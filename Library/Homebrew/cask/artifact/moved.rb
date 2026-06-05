@@ -218,7 +218,7 @@ module Cask
         [!source.parent.writable?, true].uniq.each do |sudo|
           result = command.run(
             "/bin/cp",
-            args:         ["-pR", target, source],
+            args:         backup_copy_args(target, source),
             must_succeed: sudo,
             sudo:,
           )
@@ -258,6 +258,11 @@ module Cask
       sig { params(target: Pathname).returns(T::Boolean) }
       def undeletable?(target)
         !target.parent.writable?
+      end
+
+      sig { overridable.params(target: Pathname, source: Pathname).returns(T::Array[T.any(String, Pathname)]) }
+      def backup_copy_args(target, source)
+        ["-pR", target, source]
       end
     end
   end
