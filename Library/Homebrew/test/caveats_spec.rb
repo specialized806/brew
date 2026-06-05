@@ -48,6 +48,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"php", "test"]
           end
         end
@@ -63,6 +64,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
           end
         end
@@ -76,6 +78,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
             require_root true
           end
@@ -89,6 +92,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
           end
         end
@@ -101,6 +105,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
             require_root true
           end
@@ -115,6 +120,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
           end
         end
@@ -128,6 +134,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
             require_root true
           end
@@ -142,6 +149,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd"]
           end
         end
@@ -155,6 +163,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             run [bin/"cmd", "start"]
             environment_variables VAR: "foo"
           end
@@ -171,6 +180,7 @@ RSpec.describe Caveats do
           T.bind(self, T.class_of(Formula))
           url "foo-1.0"
           service do
+            T.bind(self, Homebrew::Service)
             name macos: "custom.mxcl.foo", linux: "custom.foo"
           end
         end
@@ -244,6 +254,7 @@ RSpec.describe Caveats do
             end
 
             service do
+              T.bind(self, Homebrew::Service)
               run [bin/"cmd"]
             end
           end

@@ -1366,6 +1366,7 @@ RSpec.describe Formula do
         url "https://brew.sh/test-1.0.tbz"
 
         service do
+          T.bind(self, Homebrew::Service)
           run [opt_bin/"beanstalkd"]
           run_type :immediate
           error_log_path var/"log/beanstalkd.error.log"
@@ -1383,6 +1384,7 @@ RSpec.describe Formula do
         T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
         service do
+          T.bind(self, Homebrew::Service)
           run opt_bin/"beanstalkd"
         end
       end
