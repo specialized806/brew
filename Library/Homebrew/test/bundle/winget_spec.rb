@@ -46,42 +46,6 @@ RSpec.describe Homebrew::Bundle::Winget do
     end
 
     context "when winget is available" do
-      let(:winget_export) do
-        <<~JSON
-          {
-            "Sources": [
-              {
-                "Packages": [
-                  { "PackageIdentifier": "Microsoft.EdgeWebView2Runtime" },
-                  { "PackageIdentifier": "Microsoft.OneDrive" },
-                  { "PackageIdentifier": "Microsoft.WSL" },
-                  { "PackageIdentifier": "Valve.Steam" }
-                ],
-                "SourceDetails": { "Name": "winget" }
-              }
-            ]
-          }
-        JSON
-      end
-
-      let(:msstore_export) do
-        <<~JSON
-          {
-            "Sources": [
-              {
-                "Packages": [
-                  { "PackageIdentifier": "9NBLGGH4NNS1" },
-                  { "PackageIdentifier": "XP89DCGQ3K6VLD" },
-                  { "PackageIdentifier": "Microsoft.UI.Xaml.2.8" },
-                  { "PackageIdentifier": "9N0DX20HK701" }
-                ],
-                "SourceDetails": { "Name": "msstore" }
-              }
-            ]
-          }
-        JSON
-      end
-
       before do
         klass.reset!
         allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("winget.exe"))

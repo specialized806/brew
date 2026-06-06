@@ -454,7 +454,6 @@ RSpec.describe Cask::Audit, :cask do
       let(:only) { ["signing"] }
       let(:tap) { CoreCaskTap.instance }
       let(:download_double) { instance_double(Cask::Download) }
-      let(:unpack_double) { instance_double(UnpackStrategy::Zip) }
 
       before do
         allow(audit).to receive_messages(download: download_double, signing?: true)

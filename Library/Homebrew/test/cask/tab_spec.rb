@@ -30,8 +30,6 @@ RSpec.describe Cask::Tab, :cask do
   let(:klass) { Cask::Tab }
   let(:time) { Time.now.to_i }
   let(:f) { formula { url "foo-1.0" } }
-  let(:f_tab_path) { f.prefix/"INSTALL_RECEIPT.json" }
-  let(:f_tab_content) { (TEST_FIXTURE_DIR/"receipt.json").read }
 
   matcher :be_installed_on_request do
     match do |actual|

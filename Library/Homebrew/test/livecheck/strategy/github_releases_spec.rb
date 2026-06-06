@@ -81,7 +81,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubReleases do
       ]
     JSON
   end
-  let(:json) { JSON.parse(content) }
   let(:matches) { ["1.2.3", "1.2.2"] }
 
   describe "::match?" do

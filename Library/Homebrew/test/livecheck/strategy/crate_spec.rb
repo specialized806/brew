@@ -47,19 +47,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Crate do
     JSON
   end
   let(:matches) { ["1.0.0", "1.0.1"] }
-  let(:find_versions_return_hash) do
-    {
-      matches: {
-        "1.0.1" => Version.new("1.0.1"),
-        "1.0.0" => Version.new("1.0.0"),
-      },
-      regex:   Homebrew::Livecheck::Strategy::Crate::DEFAULT_REGEX,
-      url:     generated[:url],
-    }
-  end
-  let(:find_versions_cached_return_hash) do
-    find_versions_return_hash.merge({ cached: true })
-  end
 
   describe "::match?" do
     it "returns true for a crate URL" do
