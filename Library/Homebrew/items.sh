@@ -82,13 +82,16 @@ homebrew-trusted-items() {
     store="$("${jq}" -c 'if type == "object" then . else {} end' "${trust_file}")" || store='{}'
   fi
 
-  local tap
-  while read -r tap
-  do
-    [[ -n "${tap}" ]] || continue
-    echo "Warning: Skipping ${tap} because it is not trusted. Run \`brew trust ${tap}\` to trust it." >&2
-  done < <(echo "${items}" | "${jq}" -Rr --argjson store "${store}" --arg trust_key "${trust_key}" \
-    --arg official_tap "${official_tap}" --arg item_dir "${item_dir}" "${untrusted_tap_filter}" | sort -u)
+  if [[ -z "${HOMEBREW_COMPLETION:-}" ]]
+  then
+    local tap
+    while read -r tap
+    do
+      [[ -n "${tap}" ]] || continue
+      opoo "Skipping ${tap} because it is not trusted. Run \`brew trust ${tap}\` to trust it."
+    done < <(echo "${items}" | "${jq}" -Rr --argjson store "${store}" --arg trust_key "${trust_key}" \
+      --arg official_tap "${official_tap}" --arg item_dir "${item_dir}" "${untrusted_tap_filter}" | sort -u)
+  fi
 
   local trusted
   trusted="$(echo "${items}" | "${jq}" -Rr --argjson store "${store}" --arg trust_key "${trust_key}" \

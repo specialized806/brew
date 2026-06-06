@@ -58,7 +58,7 @@ __brew_formulae() {
   local -a list
   local comp_cachename=brew_formulae
   if ! _retrieve_cache $comp_cachename; then
-    list=( $(brew formulae) )
+    list=( $(HOMEBREW_COMPLETION=1 brew formulae) )
     _store_cache $comp_cachename list
   fi
   _describe -t formulae 'all formulae' list
@@ -88,7 +88,7 @@ __brew_casks() {
   local comp_cachename=brew_casks
 
   if ! _retrieve_cache $comp_cachename; then
-    list=( $(brew casks) )
+    list=( $(HOMEBREW_COMPLETION=1 brew casks) )
     _store_cache $comp_cachename list
   fi
 

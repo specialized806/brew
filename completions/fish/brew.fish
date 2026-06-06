@@ -132,7 +132,7 @@ end
 # These functions return lists of suggestions for arguments completion
 
 function __fish_brew_suggest_formulae_all -d 'Lists all available formulae with their descriptions'
-    brew formulae
+    HOMEBREW_COMPLETION=1 brew formulae
 end
 
 function __fish_brew_suggest_formulae_installed
@@ -159,7 +159,7 @@ function __fish_brew_suggest_formula_options -a formula -d "List installation op
 end
 
 function __fish_brew_suggest_casks_all -d "Lists locally available casks"
-    brew casks
+    HOMEBREW_COMPLETION=1 brew casks
 end
 
 function __fish_brew_suggest_casks_installed -d "Lists installed casks"
