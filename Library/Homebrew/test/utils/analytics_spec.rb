@@ -7,6 +7,25 @@ require "formula_installer"
 RSpec.describe Utils::Analytics do
   let(:klass) { Utils::Analytics }
 
+  describe "::with_wsl_suffix_if_needed" do
+    it "adds WSL by default on WSL" do
+      allow(OS).to receive(:wsl?).and_return(true)
+
+      expect(klass.with_wsl_suffix_if_needed("Ubuntu 24.04 LTS")).to eq(
+        "Ubuntu 24.04 LTS#{Utils::Analytics::WSL_SUFFIX}",
+      )
+    end
+
+    it "does not add WSL with an explicit override" do
+      expect(klass.with_wsl_suffix_if_needed("Ubuntu 24.04 LTS", wsl: false)).to eq("Ubuntu 24.04 LTS")
+    end
+
+    it "does not add duplicate WSL suffixes" do
+      expect(klass.with_wsl_suffix_if_needed("Ubuntu 24.04 LTS#{Utils::Analytics::WSL_SUFFIX}", wsl: true))
+        .to eq("Ubuntu 24.04 LTS#{Utils::Analytics::WSL_SUFFIX}")
+    end
+  end
+
   describe "::default_package_tags" do
     let(:ci) { ", CI" if ENV["CI"] }
 
@@ -44,6 +63,22 @@ RSpec.describe Utils::Analytics do
     it "includes developer when ENV['HOMEBREW_DEVELOPER'] is set" do
       expect(Homebrew::EnvConfig).to receive(:developer?).and_return(true)
       expect(klass.default_package_tags).to have_key(:developer)
+    end
+
+    it "includes WSL in the OS tag on WSL" do
+      klass.clear_cache
+      allow(OS).to receive(:wsl?).and_return(true)
+
+      expect(klass.default_package_tags[:os]).to eq("#{HOMEBREW_SYSTEM}#{Utils::Analytics::WSL_SUFFIX}")
+    end
+  end
+
+  describe "::default_package_fields" do
+    it "includes WSL in the OS name and version on WSL" do
+      klass.clear_cache
+      allow(OS).to receive(:wsl?).and_return(true)
+
+      expect(klass.default_package_fields[:os_name_and_version]).to eq("#{OS_VERSION}#{Utils::Analytics::WSL_SUFFIX}")
     end
   end
 
