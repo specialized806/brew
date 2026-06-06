@@ -16,7 +16,7 @@ module Cask
         audit_strict: T.nilable(T::Boolean), audit_signing: T.nilable(T::Boolean),
         audit_new_cask: T.nilable(T::Boolean), quarantine: T::Boolean,
         any_named_args: T::Boolean, language: T.nilable(String), only: T::Array[String], except: T::Array[String]
-      ).returns(T::Set[String])
+      ).returns(T::Set[Audit::Error])
     }
     def self.audit(
       cask, audit_download: false, audit_online: nil, audit_strict: nil, audit_signing: nil,
@@ -71,7 +71,7 @@ module Cask
 
     LANGUAGE_BLOCK_LIMIT = 10
 
-    sig { returns(T::Set[String]) }
+    sig { returns(T::Set[Audit::Error]) }
     def audit
       errors = Set.new
 
