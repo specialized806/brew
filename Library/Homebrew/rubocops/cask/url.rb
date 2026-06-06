@@ -37,7 +37,16 @@ module RuboCop
           url_stanza = stanza_node.first_argument
           hash_node = stanza_node.last_argument
 
+          if url_stanza.nil? || url_stanza.hash_type?
+            add_offense(stanza_node.source_range, message: "The `url` stanza requires a URL argument.")
+            return
+          end
+
           audit_url(:cask, [stanza_node], [], livecheck_urls: [])
+
+          if cask_tap == "homebrew-cask" && !url_stanza.type?(:str, :dstr)
+            add_offense(url_stanza.source_range, message: "Casks in homebrew/cask should use string literal URLs.")
+          end
 
           # Check for http:// URLs in homebrew-cask (skip deprecated/disabled casks)
           # TODO: Remove the deprecated/disabled check after Homebrew/cask has no more
