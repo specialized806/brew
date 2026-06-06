@@ -1083,15 +1083,15 @@ class Tap
   sig { overridable.returns(T::Array[String]) }
   def autobump
     autobump_packages = if core_cask_tap?
-      Homebrew::API::Internal.cask_hashes
+      Homebrew::API::Cask.all_casks
     elsif core_tap?
-      Homebrew::API::Internal.formula_hashes
+      Homebrew::API::Formula.all_formulae
     else
       {}
     end
 
     @autobump ||= T.let(autobump_packages.select do |_, p|
-      next if p["disable_present"]
+      next if p["disabled"]
       next if p["skip_livecheck"]
 
       p["autobump"] == true

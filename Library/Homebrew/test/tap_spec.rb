@@ -860,6 +860,32 @@ RSpec.describe Tap do
       expect { core_tap.uninstall }.to raise_error(RuntimeError)
     end
 
+    specify "#autobump reads public formula API metadata" do
+      core_tap.remove_instance_variable(:@autobump) if core_tap.instance_variable_defined?(:@autobump)
+      expect(Homebrew::API::Internal).not_to receive(:formula_hashes)
+      allow(Homebrew::API::Formula).to receive(:all_formulae).and_return({
+        "autobumped" => { "autobump" => true, "skip_livecheck" => false },
+        "disabled"   => { "autobump" => true, "disabled" => true },
+        "skipped"    => { "autobump" => true, "skip_livecheck" => true },
+      })
+
+      expect(core_tap.autobump).to eq(["autobumped"])
+    end
+
+    specify "#autobump reads public cask API metadata" do
+      cask_tap = CoreCaskTap.instance
+      cask_tap.remove_instance_variable(:@autobump) if cask_tap.instance_variable_defined?(:@autobump)
+      expect(Homebrew::API::Formula).not_to receive(:all_formulae)
+      expect(Homebrew::API::Internal).not_to receive(:cask_hashes)
+      allow(Homebrew::API::Cask).to receive(:all_casks).and_return({
+        "autobumped" => { "autobump" => true, "skip_livecheck" => false },
+        "disabled"   => { "autobump" => true, "disabled" => true },
+        "skipped"    => { "autobump" => true, "skip_livecheck" => true },
+      })
+
+      expect(cask_tap.autobump).to eq(["autobumped"])
+    end
+
     specify "files", :no_api do
       path = HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-core"
       formula_file = core_tap.formula_dir/"foo.rb"
