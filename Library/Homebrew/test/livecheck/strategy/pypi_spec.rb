@@ -28,18 +28,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Pypi do
     JSON
   end
   let(:matches) { ["1.2.3-456"] }
-  let(:find_versions_return_hash) do
-    {
-      matches: {
-        "1.2.3-456" => Version.new("1.2.3-456"),
-      },
-      regex:,
-      url:     generated[:url],
-    }
-  end
-  let(:find_versions_cached_return_hash) do
-    find_versions_return_hash.merge({ cached: true })
-  end
 
   describe "::match?" do
     it "returns true for a PyPI URL" do

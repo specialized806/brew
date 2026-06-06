@@ -13,7 +13,6 @@ RSpec.describe Homebrew::Livecheck do
   let(:livecheck_url) { "https://formulae.brew.sh/api/formula/ruby.json" }
   let(:stable_url) { "https://brew.sh/test-0.0.1.tgz" }
   let(:resource_url) { "https://brew.sh/foo-1.0.tar.gz" }
-  let(:brew_regex) { /href=.*?test[._-]v?(\d+(?:\.\d+)+)\.(?:t|dmg)/i }
   let(:f) do
     formula("test") do
       desc "Test formula"

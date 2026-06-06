@@ -7,7 +7,6 @@ RSpec.describe Homebrew::Attestation do
   let(:klass) { Homebrew::Attestation }
 
   let(:fake_gh) { Pathname.new("/extremely/fake/gh") }
-  let(:fake_old_gh) { Pathname.new("/extremely/fake/old/gh") }
   let(:fake_gh_creds) { "fake-gh-api-token" }
   let(:fake_error_status) { instance_double(Process::Status, exitstatus: 1, termsig: nil) }
   let(:fake_auth_status) { instance_double(Process::Status, exitstatus: 4, termsig: nil) }
