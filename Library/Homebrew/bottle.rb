@@ -142,7 +142,7 @@ class Bottle
   # Does the bottle need to be relocated?
   sig { returns(T::Boolean) }
   def skip_relocation?
-    @spec.skip_relocation?(tag: @tag)
+    @spec.skip_relocation?(tag: @tag, tab: Tab.new(tab_attributes))
   end
 
   sig { void }
