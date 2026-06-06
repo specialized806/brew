@@ -17,7 +17,7 @@ RSpec.describe ErrorDuringExecution do
     end
 
     it "fails when only given a status" do
-      error_during_execution = T.let(described_class, T.untyped)
+      error_during_execution = T.let(ErrorDuringExecution, T.untyped)
       expect { error_during_execution.new(status:) }.to raise_error(ArgumentError)
     end
 

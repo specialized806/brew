@@ -25,6 +25,7 @@ RSpec.describe Dependency do
         expect(dependent).to eq(formula)
         expect(deps[i]).to eq(dep)
         i += 1
+        nil
       end
     end
 
