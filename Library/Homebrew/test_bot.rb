@@ -118,7 +118,6 @@ module Homebrew
       end
 
       if !args.only_cleanup_before? &&
-         !args.only_setup? &&
          !args.only_tap_syntax? &&
          !args.only_formulae_detect? &&
          !args.only_bottles_fetch? &&
