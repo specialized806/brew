@@ -946,18 +946,6 @@ module Formulary
 
     sig { overridable.params(flags: T::Array[String]).void }
     def load_from_api(flags:)
-      return load_from_internal_api(flags:) if Homebrew::EnvConfig.use_internal_api?
-
-      api_source = Homebrew::API::Formula.all_formulae[name]
-      raise FormulaUnavailableError, name if api_source.nil?
-
-      tap_git_head = api_source.fetch("tap_git_head", "")
-      formula_struct = Homebrew::API::Formula::FormulaStructGenerator.generate_formula_struct_hash(api_source)
-      Formulary.load_formula_from_struct!(name, formula_struct, api_source:, tap_git_head:, flags:)
-    end
-
-    sig { params(flags: T::Array[String]).void }
-    def load_from_internal_api(flags:)
       formula_struct = Homebrew::API::Internal.formula_struct(name)
       api_source = Homebrew::API::Internal.formula_hashes[name]
       tap_git_head = Homebrew::API::Internal.formula_tap_git_head

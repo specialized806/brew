@@ -216,7 +216,6 @@ RSpec.describe Homebrew::API::Internal do
   end
 
   it "writes formula executables from the internal packages JSON" do
-    allow(Homebrew::EnvConfig).to receive(:use_internal_api?).and_return(true)
     Homebrew::API.write_names_and_aliases
 
     expect((cache_dir/"internal/executables.txt").read).to eq("foo:foo-bin food\n")

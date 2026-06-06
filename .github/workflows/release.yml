@@ -117,18 +117,7 @@ jobs:
           package_api_cache="${RUNNER_TEMP}/homebrew-api-cache"
           rm -rvf ~/Library/Caches/Homebrew/api "${package_api_cache}"
 
-          # TODO: Remove this forced regular API refresh when the internal API is default.
-          # Developer mode currently downloads the internal API cache, but the package
-          # should keep shipping the regular API files until all installs use internal API.
-          unset HOMEBREW_DEVELOPER HOMEBREW_DEV_CMD_RUN HOMEBREW_USE_INTERNAL_API HOMEBREW_NO_INSTALL_FROM_API
-          HOMEBREW_UPDATE_SKIP_BREW=1 brew update --auto-update --verbose
-          mkdir -vp "${package_api_cache}"
-          cp -vR ~/Library/Caches/Homebrew/api/. "${package_api_cache}/"
-
-          # Run developer mode too so the package cache works with both current
-          # developer behaviour and the future internal API default.
           HOMEBREW_DEVELOPER=1 HOMEBREW_UPDATE_SKIP_BREW=1 brew update --auto-update --verbose
-          cp -vR "${package_api_cache}/." ~/Library/Caches/Homebrew/api
           cp -vR ~/Library/Caches/Homebrew/api brew/cache_api
 
       - name: Check installer Git safety

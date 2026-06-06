@@ -79,7 +79,7 @@ module Homebrew
                  "#{unofficial} additional " \
                  "#{Utils.pluralize("formula", unofficial)} in third party taps."
           end
-          formulae = Homebrew::API::Formula.all_formulae
+          formulae = Homebrew::API::Internal.formula_hashes
           descriptions = formulae.transform_values { |data| data["desc"] }
           status_data = formulae.transform_values do |data|
             { deprecated: data["deprecate_present"].present?, disabled: data["disable_present"].present? }
@@ -104,8 +104,8 @@ module Homebrew
                "#{unofficial} additional " \
                "#{Utils.pluralize("cask", unofficial)} in third party taps."
         end
-        casks = Homebrew::API::Cask.all_casks
-        descriptions = casks.transform_values { |cask| [cask["name"].join(", "), cask["desc"]] }
+        casks = Homebrew::API::Internal.cask_hashes
+        descriptions = casks.transform_values { |cask| [cask["names"].join(", "), cask["desc"]] }
         status_data = casks.transform_values do |cask|
           { deprecated: cask["deprecate_present"].present?, disabled: cask["disable_present"].present? }
         end

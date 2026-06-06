@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "cmd/bundle"
+require "bundle"
 require "cmd/shared_examples/args_parse"
 require "commands"
 

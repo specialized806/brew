@@ -981,12 +981,7 @@ EOS
 
   if [[ -z "${HOMEBREW_NO_INSTALL_FROM_API}" ]]
   then
-    if [[ -n "${HOMEBREW_USE_INTERNAL_API}" ]]
-    then
-      api_files=("internal/packages.$(bottle_tag)")
-    else
-      api_files=(formula cask formula_tap_migrations cask_tap_migrations)
-    fi
+    api_files=("internal/packages.$(bottle_tag)")
 
     for json in "${api_files[@]}"
     do
@@ -994,15 +989,8 @@ EOS
       fetch_api_file "${filename}" "${update_failed_file}"
     done
 
-    if [[ -n "${HOMEBREW_USE_INTERNAL_API}" ]]
-    then
-      # Remove files only downloaded by the regular API
-      rm -f "${HOMEBREW_CACHE}/api/formula.jws.json" "${HOMEBREW_CACHE}/api/cask.jws.json"
-      rm -f "${HOMEBREW_CACHE}/api/formula_tap_migrations.jws.json" "${HOMEBREW_CACHE}/api/cask_tap_migrations.jws.json"
-    else
-      # Remove files only downloaded by the internal API
-      rm -f "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json"
-    fi
+    rm -f "${HOMEBREW_CACHE}/api/formula.jws.json" "${HOMEBREW_CACHE}/api/cask.jws.json"
+    rm -f "${HOMEBREW_CACHE}/api/formula_tap_migrations.jws.json" "${HOMEBREW_CACHE}/api/cask_tap_migrations.jws.json"
 
     # Not a typo, these are the files we used to download that no longer need so should cleanup.
     rm -f "${HOMEBREW_CACHE}/api/formula.json" "${HOMEBREW_CACHE}/api/cask.json"

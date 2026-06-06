@@ -360,34 +360,4 @@ RSpec.describe Homebrew::EnvConfig do
       expect(env_config.no_require_tap_trust?).to be(true)
     end
   end
-
-  describe ".use_internal_api?" do
-    around do |example|
-      with_env(
-        HOMEBREW_USE_INTERNAL_API:    nil,
-        HOMEBREW_NO_INSTALL_FROM_API: nil,
-      ) { example.run }
-    end
-
-    it "returns true if HOMEBREW_USE_INTERNAL_API is set" do
-      ENV["HOMEBREW_USE_INTERNAL_API"] = "1"
-      expect(env_config.use_internal_api?).to be(true)
-    end
-
-    it "returns false if HOMEBREW_USE_INTERNAL_API is not set" do
-      ENV["HOMEBREW_USE_INTERNAL_API"] = nil
-      expect(env_config.use_internal_api?).to be(false)
-    end
-
-    it "returns true if HOMEBREW_USE_INTERNAL_API is set to a falsey value" do
-      ENV["HOMEBREW_USE_INTERNAL_API"] = "0"
-      expect(env_config.use_internal_api?).to be(true)
-    end
-
-    it "returns false if HOMEBREW_NO_INSTALL_FROM_API is set" do
-      ENV["HOMEBREW_USE_INTERNAL_API"] = "1"
-      ENV["HOMEBREW_NO_INSTALL_FROM_API"] = "1"
-      expect(env_config.use_internal_api?).to be(false)
-    end
-  end
 end
