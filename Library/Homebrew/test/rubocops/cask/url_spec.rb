@@ -43,6 +43,59 @@ RSpec.describe RuboCop::Cop::Cask::Url, :config do
     CASK
   end
 
+  it "reports an offense for a keyword parameter on the same line as the URL" do
+    expect_offense <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg", verified: "example.com/download/"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            verified: "example.com/download/"
+      end
+    CASK
+  end
+
+  it "reports an offense for a `url` stanza with only keyword arguments" do
+    expect_offense <<~CASK
+      cask "foo" do
+        url verified: "example.com/download/"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ The `url` stanza requires a URL argument.
+      end
+    CASK
+  end
+
+  it "accepts a method call URL with a keyword parameter on a new indented line" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version "1.2.0"
+        url Utils.download_url(version),
+            header: "Accept: application/octet-stream"
+      end
+    CASK
+  end
+
+  it "reports an offense for a method call URL with a keyword parameter on the same line" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version "1.2.0"
+        url Utils.download_url(version), header: "Accept: application/octet-stream"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        version "1.2.0"
+        url Utils.download_url(version),
+            header: "Accept: application/octet-stream"
+      end
+    CASK
+  end
+
   it "accepts a `verified` value that does not start with a protocol" do
     expect_no_offenses <<~CASK
       cask "foo" do
@@ -211,6 +264,34 @@ RSpec.describe RuboCop::Cop::Cask::Url, :config do
     expect_no_offenses <<~CASK, "/homebrew-mytap/Casks/f/foo.rb"
       cask "foo" do
         url "http://example.com/download/foo-v1.2.0.dmg"
+      end
+    CASK
+  end
+
+  it "reports an offense for a non-string-literal URL in homebrew-cask" do
+    expect_offense <<~CASK, "/homebrew-cask/Casks/f/foo.rb"
+      cask "foo" do
+        version "1.2.3"
+        url Utils.download_url(version)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^ Casks in homebrew/cask should use string literal URLs.
+      end
+    CASK
+  end
+
+  it "accepts an interpolated string URL in homebrew-cask" do
+    expect_no_offenses <<~CASK, "/homebrew-cask/Casks/f/foo.rb"
+      cask "foo" do
+        version "1.2.3"
+        url "https://example.com/download/foo-v\#{version}.dmg"
+      end
+    CASK
+  end
+
+  it "accepts a non-string-literal URL outside homebrew-cask" do
+    expect_no_offenses <<~CASK, "/homebrew-tap/Casks/f/foo.rb"
+      cask "foo" do
+        version "1.2.3"
+        url Utils.download_url(version)
       end
     CASK
   end
