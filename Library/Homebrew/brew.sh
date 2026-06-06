@@ -1078,8 +1078,7 @@ fi
 # Enable features for users who have run a devcmd before they become the default for everyone.
 if [[ -n "${HOMEBREW_DEVELOPER}" || -n "${HOMEBREW_DEV_CMD_RUN}" ]]
 then
-  # odeprecated: make default next release
-  export HOMEBREW_USE_INTERNAL_API="1"
+  :
 fi
 
 # Only enable runtime typechecking for commands where correctness matters more

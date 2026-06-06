@@ -301,6 +301,23 @@ RSpec.configure do |config|
     Pathname("#{ENV.fetch("HOMEBREW_CACHE")}/api").glob("*.json").each do |path|
       FileUtils.ln_s path, HOMEBREW_CACHE/"api/#{path.basename}"
     end
+    Pathname("#{ENV.fetch("HOMEBREW_CACHE")}/api").glob("*.txt").each do |path|
+      FileUtils.cp path, HOMEBREW_CACHE/"api/#{path.basename}"
+    end
+    Pathname("#{ENV.fetch("HOMEBREW_CACHE")}/api/internal").glob("*.{json,txt}").each do |path|
+      target = HOMEBREW_CACHE/"api/internal/#{path.basename}"
+      target.dirname.mkpath
+      (path.extname == ".txt") ? FileUtils.cp(path, target) : FileUtils.ln(path, target)
+      next unless path.basename.to_s.start_with?("packages.")
+
+      [:generic, :linux, :macos, *MacOSVersion::SYMBOLS.keys].product([:arm, :intel]).each do |system, arch|
+        tag = Utils::Bottles::Tag.new(system:, arch:)
+        next unless tag.valid_combination?
+
+        target = HOMEBREW_CACHE/"api/internal/packages.#{tag}.jws.json"
+        FileUtils.ln path, target unless target.exist?
+      end
+    end
 
     begin
       if example.metadata.keys.exclude?(:focus) && !ENV.key?("HOMEBREW_VERBOSE_TESTS")

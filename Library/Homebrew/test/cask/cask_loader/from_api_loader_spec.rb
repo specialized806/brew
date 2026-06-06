@@ -18,6 +18,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     let(:api_loader) { klass.new(api_token, from_json: cask_json) }
 
     before do
+      allow(Homebrew::API).to receive_messages(cask_tokens: casks_from_api_hash.keys, cask_renames: {})
       allow(Homebrew::API::Cask)
         .to receive_messages(all_casks: casks_from_api_hash, all_renames: {})
 
@@ -50,7 +51,6 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     end
 
     before do
-      allow(Homebrew::EnvConfig).to receive(:use_internal_api?).and_return(true)
       allow(Homebrew::API::Internal)
         .to receive_messages(cask_hashes:         casks_from_internal_api_hash,
                              cask_renames:        {},

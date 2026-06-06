@@ -698,12 +698,6 @@ module Homebrew
         description: "A space-separated list of casks. Homebrew will act as " \
                      "if `--greedy` was passed when upgrading any cask on this list.",
       },
-      HOMEBREW_USE_INTERNAL_API:                 {
-        # odeprecated: make default next release
-        description: "If set, test the new beta internal API for fetching formula and cask data.",
-        boolean:     :set,
-        disabled_by: :HOMEBREW_NO_INSTALL_FROM_API,
-      },
       HOMEBREW_VERBOSE:                          {
         description: "If set, always assume `--verbose` when running commands.",
         boolean:     :set,

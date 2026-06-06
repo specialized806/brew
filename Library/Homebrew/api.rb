@@ -194,16 +194,7 @@ module Homebrew
         DEFAULT_API_STALE_SECONDS
       end
 
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
-      else
-        Homebrew::API::Formula.fetch_api!(download_queue:, stale_seconds:, enqueue: true)
-        Homebrew::API::Formula.fetch_tap_migrations!(download_queue:, stale_seconds: DEFAULT_API_STALE_SECONDS,
-                                                     enqueue: true)
-        Homebrew::API::Cask.fetch_api!(download_queue:, stale_seconds:, enqueue: true)
-        Homebrew::API::Cask.fetch_tap_migrations!(download_queue:, stale_seconds: DEFAULT_API_STALE_SECONDS,
-                                                  enqueue: true)
-      end
+      Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
 
       ENV["HOMEBREW_API_UPDATED"] = "1"
 
@@ -216,13 +207,8 @@ module Homebrew
 
     sig { void }
     def self.write_names_and_aliases
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.write_formula_names_and_aliases
-        Homebrew::API::Internal.write_cask_names
-      else
-        Homebrew::API::Formula.write_names_and_aliases
-        Homebrew::API::Cask.write_names
-      end
+      Homebrew::API::Internal.write_formula_names_and_aliases
+      Homebrew::API::Internal.write_cask_names
     end
 
     sig { params(names: T::Array[String], type: String, regenerate: T::Boolean).returns(T::Boolean) }
@@ -373,83 +359,47 @@ module Homebrew
 
     sig { returns(T::Array[String]) }
     def self.formula_names
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_hashes.keys
-      else
-        Homebrew::API::Formula.all_formulae.keys
-      end
+      Homebrew::API::Internal.formula_hashes.keys
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.formula_aliases
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_aliases
-      else
-        Homebrew::API::Formula.all_aliases
-      end
+      Homebrew::API::Internal.formula_aliases
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.formula_renames
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_renames
-      else
-        Homebrew::API::Formula.all_renames
-      end
+      Homebrew::API::Internal.formula_renames
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.formula_tap_migrations
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_tap_migrations
-      else
-        Homebrew::API::Formula.tap_migrations
-      end
+      Homebrew::API::Internal.formula_tap_migrations
     end
 
     sig { returns(Pathname) }
     def self.cached_formula_json_file_path
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cached_packages_json_file_path
-      else
-        Homebrew::API::Formula.cached_json_file_path
-      end
+      Homebrew::API::Internal.cached_packages_json_file_path
     end
 
     sig { returns(T::Array[String]) }
     def self.cask_tokens
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cask_hashes.keys
-      else
-        Homebrew::API::Cask.all_casks.keys
-      end
+      Homebrew::API::Internal.cask_hashes.keys
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.cask_renames
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cask_renames
-      else
-        Homebrew::API::Cask.all_renames
-      end
+      Homebrew::API::Internal.cask_renames
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.cask_tap_migrations
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cask_tap_migrations
-      else
-        Homebrew::API::Cask.tap_migrations
-      end
+      Homebrew::API::Internal.cask_tap_migrations
     end
 
     sig { returns(Pathname) }
     def self.cached_cask_json_file_path
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cached_packages_json_file_path
-      else
-        Homebrew::API::Cask.cached_json_file_path
-      end
+      Homebrew::API::Internal.cached_packages_json_file_path
     end
   end
 

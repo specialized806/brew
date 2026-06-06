@@ -158,12 +158,11 @@ RSpec.describe Homebrew::Search do
       end
 
       let(:api_casks) do
-        { "testball" => { "desc" => "Some test", "name" => ["Test Ball"] } }
+        { "testball" => { "desc" => "Some test", "names" => ["Test Ball"] } }
       end
 
       before do
-        allow(Homebrew::API::Formula).to receive(:all_formulae).and_return(api_formulae)
-        allow(Homebrew::API::Cask).to receive(:all_casks).and_return(api_casks)
+        allow(Homebrew::API::Internal).to receive_messages(formula_hashes: api_formulae, cask_hashes: api_casks)
       end
 
       it "searches formula descriptions" do

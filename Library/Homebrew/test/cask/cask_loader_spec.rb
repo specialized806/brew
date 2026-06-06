@@ -25,6 +25,7 @@ RSpec.describe Cask::CaskLoader, :cask do
       end
 
       before do
+        allow(Homebrew::API).to receive_messages(cask_tokens: api_casks.keys, cask_renames:)
         allow(Homebrew::API::Cask)
           .to receive(:all_casks)
           .and_return(api_casks)

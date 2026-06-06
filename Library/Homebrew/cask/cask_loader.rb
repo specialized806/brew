@@ -438,25 +438,12 @@ module Cask
           else
             load_from_json(config:, api_source:)
           end
-        elsif Homebrew::EnvConfig.use_internal_api?
-          load_from_internal_api(config:)
         else
-          load_from_api(config:)
+          load_from_internal_api(config:)
         end
       end
 
       private
-
-      sig { params(config: T.nilable(Config)).returns(Cask) }
-      def load_from_api(config:)
-        api_source = Homebrew::API::Cask.all_casks.fetch(token)
-        tap_git_head = api_source["tap_git_head"]
-        cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
-          api_source, ignore_types: @from_installed_caskfile
-        )
-
-        load_from_struct(config:, cask_struct:, api_source:, tap_git_head:)
-      end
 
       sig { params(config: T.nilable(Config)).returns(Cask) }
       def load_from_internal_api(config:)

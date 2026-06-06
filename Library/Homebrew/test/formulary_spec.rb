@@ -573,6 +573,15 @@ RSpec.describe Formulary do
 
       before do
         # avoid unnecessary network calls
+        allow(Homebrew::API).to receive_messages(formula_names: [formula_name], formula_aliases: {},
+                                                 formula_renames: {})
+        allow(Homebrew::API::Internal).to receive(:formula_hashes) { Homebrew::API::Formula.all_formulae }
+        allow(Homebrew::API::Internal).to receive(:formula_struct) do |name|
+          Homebrew::API::Formula::FormulaStructGenerator.generate_formula_struct_hash(
+            Homebrew::API::Formula.all_formulae.fetch(name),
+          )
+        end
+        allow(Homebrew::API::Internal).to receive(:formula_tap_git_head).and_return("")
         allow(Homebrew::API::Formula).to receive_messages(all_aliases: {}, all_renames: {})
         allow(CoreTap.instance).to receive(:tap_migrations).and_return({})
         allow(CoreCaskTap.instance).to receive(:tap_migrations).and_return({})
@@ -621,16 +630,13 @@ RSpec.describe Formulary do
         end.to raise_error("Cannot build from source from abstract formula.")
       end
 
-      it "returns a Formula that can regenerate its JSON API" do
+      it "returns a Formula loaded from the internal API" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents
 
         formula = klass.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.loaded_from_api?).to be true
-        expect(formula.loaded_from_internal_api?).to be false
-
-        expected_hash = formula_json_contents[formula_name]
-        expect(formula.to_hash_with_variations).to eq(expected_hash)
+        expect(formula.loaded_from_internal_api?).to be true
       end
 
       it "loads patches from API JSON" do
@@ -748,6 +754,8 @@ RSpec.describe Formulary do
         let(:foo_tap) { Tap.fetch("homebrew", "foo") }
 
         before do
+          allow(Homebrew::API)
+            .to receive_messages(formula_names: [formula_name], formula_aliases: {}, formula_renames: {})
           allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents
           foo_tap.path.mkpath
         end

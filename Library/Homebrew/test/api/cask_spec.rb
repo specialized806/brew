@@ -57,7 +57,17 @@ RSpec.describe Homebrew::API::Cask do
     end
 
     before do
-      allow(Homebrew::API).to receive(:fetch_json_api_file).and_return([[], true])
+      allow(Homebrew::API).to receive(:fetch_json_api_file).and_return([{
+        "formulae"               => {},
+        "casks"                  => {},
+        "formula_aliases"        => {},
+        "formula_renames"        => {},
+        "cask_renames"           => {},
+        "formula_tap_git_head"   => "",
+        "cask_tap_git_head"      => "",
+        "formula_tap_migrations" => {},
+        "cask_tap_migrations"    => {},
+      }, true])
       allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:fetch)
       allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(
         TEST_FIXTURE_DIR/"cask/Casks/everything.rb",

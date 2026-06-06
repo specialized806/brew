@@ -5048,10 +5048,6 @@ command execution (e.g. `$(cat file)`).
 : A space-separated list of casks. Homebrew will act as if `--greedy` was passed
   when upgrading any cask on this list.
 
-`HOMEBREW_USE_INTERNAL_API`
-
-: If set, test the new beta internal API for fetching formula and cask data.
-
 `HOMEBREW_VERBOSE`
 
 : If set, always assume `--verbose` when running commands.
