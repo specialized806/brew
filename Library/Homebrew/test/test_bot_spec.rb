@@ -92,7 +92,6 @@ RSpec.describe Homebrew::TestBot do
 
       [
         :only_cleanup_before?,
-        :only_setup?,
         :only_tap_syntax?,
         :only_formulae_detect?,
         :only_bottles_fetch?,
@@ -123,9 +122,9 @@ RSpec.describe Homebrew::TestBot do
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
 
-      expect(klass).to receive(:setup_github_actions_sandbox!).twice
+      expect(klass).to receive(:setup_github_actions_sandbox!).exactly(3).times
 
-      [:only_formulae?, :only_formulae_dependents?].each do |only_arg|
+      [:only_setup?, :only_formulae?, :only_formulae_dependents?].each do |only_arg|
         args = double(
           cleanup?:       false,
           local?:         false,

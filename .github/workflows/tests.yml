@@ -344,6 +344,8 @@ jobs:
           - name: test-bot (Linux x86_64)
             runs-on: ubuntu-latest
             container: ghcr.io/homebrew/brew:main
+          - name: test-bot (Linux containerless)
+            runs-on: ubuntu-latest
           # Use Debian Old Stable for testing Homebrew's glibc support.
           - name: test-bot (Linux Homebrew glibc)
             runs-on: ubuntu-latest
