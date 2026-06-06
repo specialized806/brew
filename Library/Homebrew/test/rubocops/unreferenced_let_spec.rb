@@ -1,7 +1,6 @@
 # typed: true
 # frozen_string_literal: true
 
-require "tempfile"
 require "yaml"
 require "rubocops/unreferenced_let"
 
@@ -17,10 +16,6 @@ RSpec.describe RuboCop::Cop::Homebrew::UnreferencedLet, :config do
     ).fetch("RSpec").fetch("Language")
     { "RSpec" => { "Language" => language } }
   end
-
-  # Keep the file-detection examples independent of whatever `test/support/**` happens to exist
-  # in the working directory; the framework-contract behavior is exercised explicitly below.
-  before { RuboCop::Cop::Homebrew::UnreferencedLet.instance_variable_set(:@framework_let_names, Set.new) }
 
   it "flags and removes unreferenced lazy lets" do
     expect_offense(<<~RUBY)
@@ -367,100 +362,5 @@ RSpec.describe RuboCop::Cop::Homebrew::UnreferencedLet, :config do
         config.let(:unused) { create(:thing) }
       end
     RUBY
-  end
-
-  it "does not flag a let that overrides a framework contract defined in test/support" do
-    RuboCop::Cop::Homebrew::UnreferencedLet.instance_variable_set(:@framework_let_names, Set[:query])
-
-    expect_no_offenses(<<~RUBY)
-      RSpec.describe Thing do
-        let(:query) { "mutation { ... }" }
-
-        it { is_expected.to be_present }
-      end
-    RUBY
-  end
-
-  describe "framework let-name discovery" do
-    it "memoizes the scanned name set" do
-      RuboCop::Cop::Homebrew::UnreferencedLet.instance_variable_set(:@framework_let_names, nil)
-
-      first = RuboCop::Cop::Homebrew::UnreferencedLet.framework_let_names
-      second = RuboCop::Cop::Homebrew::UnreferencedLet.framework_let_names
-
-      expect(first).to be_a(Set).and equal(second)
-    end
-
-    it "extracts let, let! and subject names from source" do
-      names = RuboCop::Cop::Homebrew::UnreferencedLet.extract_let_names(<<~RUBY, Set.new)
-        let(:foo) { 1 }
-        let! :bar do
-          2
-        end
-        subject(:baz) { 3 }
-        plain_method(:not_a_let)
-      RUBY
-
-      expect(names).to contain_exactly(:foo, :bar, :baz)
-    end
-
-    it "scans paths for let names, tolerating unreadable files" do
-      file = Tempfile.new(["support", ".rb"])
-      file.write("let(:harness_thing) { 1 }")
-      file.close
-
-      names = RuboCop::Cop::Homebrew::UnreferencedLet.scan_framework_let_names([file.path.to_s,
-                                                                                "/no/such/support/file.rb"])
-
-      expect(names).to contain_exactly(:harness_thing)
-    ensure
-      file&.close!
-    end
-
-    it "returns an empty string when a file cannot be read" do
-      expect(RuboCop::Cop::Homebrew::UnreferencedLet.read_source("/no/such/support/file.rb")).to eq("")
-    end
-  end
-
-  describe "support-file enumeration" do
-    it "selects test/support .rb paths from the git index" do
-      status = instance_double(Process::Status, success?: true)
-      output = [
-        "Library/Homebrew/test/support/helper.rb", "Library/Homebrew/utils.rb",
-        "test/support/root.rb", "test/supportive/no.rb", ""
-      ].join("\x0")
-      allow(Open3).to receive(:capture2).with("git", "ls-files", "-z").and_return([output, status])
-
-      expect(RuboCop::Cop::Homebrew::UnreferencedLet.git_tracked_support_files)
-        .to contain_exactly("Library/Homebrew/test/support/helper.rb", "test/support/root.rb")
-    end
-
-    it "returns nil when git ls-files exits non-zero" do
-      status = instance_double(Process::Status, success?: false)
-      allow(Open3).to receive(:capture2).and_return(["", status])
-
-      expect(RuboCop::Cop::Homebrew::UnreferencedLet.git_tracked_support_files).to be_nil
-    end
-
-    it "returns nil when git is unavailable" do
-      allow(Open3).to receive(:capture2).and_raise(Errno::ENOENT)
-
-      expect(RuboCop::Cop::Homebrew::UnreferencedLet.git_tracked_support_files).to be_nil
-    end
-
-    it "uses the git-tracked files when available" do
-      allow(RuboCop::Cop::Homebrew::UnreferencedLet).to receive(:git_tracked_support_files)
-        .and_return(["test/support/tracked.rb"])
-
-      expect(RuboCop::Cop::Homebrew::UnreferencedLet.support_file_paths).to eq(["test/support/tracked.rb"])
-    end
-
-    it "falls back to Dir.glob when git tracking is unavailable" do
-      allow(RuboCop::Cop::Homebrew::UnreferencedLet).to receive(:git_tracked_support_files).and_return(nil)
-      glob = RuboCop::Cop::Homebrew::UnreferencedLet::SUPPORT_FILES_GLOB
-      allow(Dir).to receive(:glob).with(glob).and_return(["test/support/from_glob.rb"])
-
-      expect(RuboCop::Cop::Homebrew::UnreferencedLet.support_file_paths).to eq(["test/support/from_glob.rb"])
-    end
   end
 end

@@ -1,7 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "open3"
 require "rubocop-rspec"
 
 module RuboCop
@@ -26,8 +25,6 @@ module RuboCop
       # - every `let` in a file that uses `it_behaves_like` / `it_should_behave_like` /
       #   `include_examples` / `include_context` is skipped, because an included shared block may
       #   reference the binding by a name we cannot follow statically;
-      # - any `let` whose name is also defined as a `let`/`subject` in a `test/support/**` helper is
-      #   skipped, because it is almost certainly overriding a contract an included harness consumes;
       # - `let(:cop_config)` is skipped: it is a rubocop-rspec contract consumed by the `:config`
       #   shared context, not by a reference in the spec file; and
       # - every `let` in a file that reflectively dispatches through a name we cannot resolve
@@ -68,80 +65,20 @@ module RuboCop
         # the called name cannot be known, so the whole file is left untouched.
         DYNAMIC_DISPATCH_METHODS = [:send, :public_send, :__send__, :try, :try!, :method, :public_method,
                                     :respond_to?].freeze
-        FRAMEWORK_LET_PATTERN = /\b(?:let!?|subject)\s*\(?\s*:([A-Za-z_]\w*[!?]?)/
         # Identifier-shaped tokens inside a string/heredoc literal. A `let` whose name appears only
         # inside string text -- e.g. a binding or column referenced in raw SQL/GraphQL the spec
         # later executes -- counts as referenced, so it is not deleted.
         IDENTIFIER_IN_STRING = /[A-Za-z_]\w*[!?]?/
         MSG = "Remove unreferenced `let(:%<name>s)` -- its name is never used, so the block never runs."
         RESTRICT_ON_SEND = [:let].freeze
-        # The glob and the pathspec encode the SAME set of files two ways: `Dir.glob` (fallback) and
-        # a regexp filter over `git ls-files` output. Keep them in sync if either changes.
-        SUPPORT_FILES_GLOB = "**/test/support/**/*.rb"
-        SUPPORT_FILES_PATHSPEC = %r{(?:\A|/)test/support/.+\.rb\z}
 
         # The name symbol of any definition (`let`/`let!`/`subject`) in any block form -- used to
         # count how many times a name is defined, so override / `super` chains (including a
         # `subject` that overrides a `let` of the same name) are never flagged.
         # @!method definition_name(node)
         def_node_matcher :definition_name, <<~PATTERN
-          (any_block (send nil? {:let :let! :subject} (sym $_) ...) ...)
+          (any_block (send nil? {#{DEFINITION_METHODS.map { |method| ":#{method}" }.join(" ")}} (sym $_) ...) ...)
         PATTERN
-
-        class << self
-          # Names defined as `let`/`subject` anywhere under `test/support/**`. Computed once per
-          # process (lazily, after boot) and shared across every file the cop inspects.
-          sig { returns(T::Set[Symbol]) }
-          def framework_let_names
-            @framework_let_names ||= T.let(
-              scan_framework_let_names(support_file_paths),
-              T.nilable(T::Set[Symbol]),
-            )
-          end
-
-          # Enumerate `test/support/**/*.rb`. Prefer `git ls-files` (reads the git index, skipping
-          # untracked trees like `vendor`): a leading-`**` `Dir.glob` walks the entire repository
-          # and costs seconds, while reading the index costs tens of milliseconds. Fall back to
-          # `Dir.glob` when not in a git work tree or `git` is unavailable.
-          #
-          # Tradeoff: an untracked (brand-new, uncommitted) `test/support/*.rb` override is invisible
-          # to `git ls-files`. In that narrow window its contract names are not exempted; once
-          # committed it is seen like any other support file.
-          sig { returns(T::Array[String]) }
-          def support_file_paths
-            git_tracked_support_files || ::Dir.glob(SUPPORT_FILES_GLOB)
-          end
-
-          sig { returns(T.nilable(T::Array[String])) }
-          def git_tracked_support_files
-            output, status = ::Open3.capture2("git", "ls-files", "-z")
-            return unless status.success?
-
-            output.split("\x0").grep(SUPPORT_FILES_PATHSPEC)
-          rescue ::SystemCallError
-            nil
-          end
-
-          sig { params(paths: T::Array[String]).returns(T::Set[Symbol]) }
-          def scan_framework_let_names(paths)
-            paths.each_with_object(Set.new) do |path, names|
-              extract_let_names(read_source(path), names)
-            end
-          end
-
-          sig { params(source: String, names: T::Set[Symbol]).returns(T::Set[Symbol]) }
-          def extract_let_names(source, names)
-            source.scan(FRAMEWORK_LET_PATTERN) { |(captured)| names << captured.to_sym }
-            names
-          end
-
-          sig { params(path: String).returns(String) }
-          def read_source(path)
-            return "" unless ::File.file?(path)
-
-            ::File.read(path)
-          end
-        end
 
         sig { params(node: RuboCop::AST::SendNode).void }
         def on_send(node)
@@ -166,16 +103,14 @@ module RuboCop
         # A lazy `let` is exempt from deletion whenever file-scoped analysis cannot prove its name
         # is dead: its name is a framework-reserved contract (e.g. `cop_config`), the file
         # dispatches through a name we cannot resolve statically, it consumes shared examples, the
-        # `let` is lexically inside a shared-example definition, its name is a `test/support/**`
-        # framework contract, it is overridden by another definition of the same name, or it is
-        # referenced somewhere in the file.
+        # `let` is lexically inside a shared-example definition, it is overridden by another
+        # definition of the same name, or it is referenced somewhere in the file.
         sig { params(name: Symbol, block: RuboCop::AST::BlockNode).returns(T::Boolean) }
         def exempt_from_deletion?(name, block)
           FRAMEWORK_RESERVED_NAMES.include?(name) ||
             dynamic_dispatch? ||
             consumes_shared_examples? ||
             within_shared_definition?(block) ||
-            self.class.framework_let_names.include?(name) ||
             overridden?(name) ||
             referenced?(name)
         end
