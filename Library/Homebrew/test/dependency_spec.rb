@@ -28,8 +28,8 @@ RSpec.describe Dependency do
     end
 
     it "rejects nil names" do
-      dependency_class = T.let(Dependency, T.untyped)
-      expect { dependency_class.new(nil) }.to raise_error(TypeError)
+      # Intentionally using T.unsafe to check runtime behaviour rather than static analysis
+      expect { T.unsafe(described_class).new(nil) }.to raise_error(TypeError)
     end
   end
 

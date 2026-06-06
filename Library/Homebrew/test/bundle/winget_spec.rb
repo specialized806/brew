@@ -47,40 +47,42 @@ RSpec.describe Homebrew::Bundle::Winget do
       before do
         described_class.reset!
         allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("winget.exe"))
-        allow(described_class).to receive(:export_apps).with(Pathname.new("winget.exe"),
-                                                             source: "winget").and_return(
-                                                               [
-                                                                 Homebrew::Bundle::Winget::App.new(
-                                                                   id:     "Microsoft.EdgeWebView2Runtime",
-                                                                   name:   "Microsoft Edge WebView2 Runtime",
-                                                                   source: "winget",
-                                                                 ),
-                                                                 Homebrew::Bundle::Winget::App.new(
-                                                                   id: "Microsoft.OneDrive", name: "Microsoft OneDrive", source: "winget",
-                                                                 ),
-                                                                 Homebrew::Bundle::Winget::App.new(id: "Microsoft.WSL", name: "Windows Subsystem for Linux",
-                                                                                                   source: "winget"),
-                                                                 Homebrew::Bundle::Winget::App.new(
-                                                                   id: "Valve.Steam", name: "Steam", source: "winget",
-                                                                 ),
-                                                               ],
-                                                             )
-        allow(described_class).to receive(:export_apps).with(Pathname.new("winget.exe"),
-                                                             source: "msstore").and_return(
-                                                               [
-                                                                 Homebrew::Bundle::Winget::App.new(
-                                                                   id: "9NBLGGH4NNS1", name: "App Installer", source: "msstore",
-                                                                 ),
-                                                                 Homebrew::Bundle::Winget::App.new(
-                                                                   id: "XP89DCGQ3K6VLD", name: "PowerToys", source: "msstore",
-                                                                 ),
-                                                                 Homebrew::Bundle::Winget::App.new(id: "Microsoft.UI.Xaml.2.8", name: "Microsoft.UI.Xaml.2.8",
-                                                                                                   source: "msstore"),
-                                                                 Homebrew::Bundle::Winget::App.new(
-                                                                   id: "9N0DX20HK701", name: "Windows Terminal", source: "msstore",
-                                                                 ),
-                                                               ],
-                                                             )
+        allow(described_class).to receive(:export_apps)
+          .with(Pathname.new("winget.exe"), source: "winget")
+          .and_return(
+            [
+              Homebrew::Bundle::Winget::App.new(
+                id:     "Microsoft.EdgeWebView2Runtime",
+                name:   "Microsoft Edge WebView2 Runtime",
+                source: "winget",
+              ),
+              Homebrew::Bundle::Winget::App.new(
+                id: "Microsoft.OneDrive", name: "Microsoft OneDrive", source: "winget",
+              ),
+              Homebrew::Bundle::Winget::App.new(id: "Microsoft.WSL", name: "Windows Subsystem for Linux",
+                                                source: "winget"),
+              Homebrew::Bundle::Winget::App.new(
+                id: "Valve.Steam", name: "Steam", source: "winget",
+              ),
+            ],
+          )
+        allow(described_class).to receive(:export_apps)
+          .with(Pathname.new("winget.exe"), source: "msstore")
+          .and_return(
+            [
+              Homebrew::Bundle::Winget::App.new(
+                id: "9NBLGGH4NNS1", name: "App Installer", source: "msstore",
+              ),
+              Homebrew::Bundle::Winget::App.new(
+                id: "XP89DCGQ3K6VLD", name: "PowerToys", source: "msstore",
+              ),
+              Homebrew::Bundle::Winget::App.new(id: "Microsoft.UI.Xaml.2.8", name: "Microsoft.UI.Xaml.2.8",
+                                                source: "msstore"),
+              Homebrew::Bundle::Winget::App.new(
+                id: "9N0DX20HK701", name: "Windows Terminal", source: "msstore",
+              ),
+            ],
+          )
       end
 
       it "returns app details and dumps Brewfile entries" do
@@ -324,18 +326,16 @@ RSpec.describe Homebrew::Bundle::Winget do
     before do
       described_class.reset!
       allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("winget.exe"))
-      allow(described_class).to receive(:exported_apps).with(Pathname("winget.exe"),
-                                                             source: "winget").and_return([
-                                                               Homebrew::Bundle::Winget::App.new(
-                                                                 id: "Valve.Steam", name: "Steam", source: "winget",
-                                                               ),
-                                                             ])
-      allow(described_class).to receive(:exported_apps).with(Pathname("winget.exe"),
-                                                             source: "msstore").and_return([
-                                                               Homebrew::Bundle::Winget::App.new(
-                                                                 id: "XPDC2RH70K22MN", name: "Discord", source: "msstore",
-                                                               ),
-                                                             ])
+      allow(described_class).to receive(:exported_apps).with(Pathname("winget.exe"), source: "winget").and_return([
+        Homebrew::Bundle::Winget::App.new(
+          id: "Valve.Steam", name: "Steam", source: "winget",
+        ),
+      ])
+      allow(described_class).to receive(:exported_apps).with(Pathname("winget.exe"), source: "msstore").and_return([
+        Homebrew::Bundle::Winget::App.new(
+          id: "XPDC2RH70K22MN", name: "Discord", source: "msstore",
+        ),
+      ])
     end
 
     it "returns packages not in Brewfile entries by source and ID" do

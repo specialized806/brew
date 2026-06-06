@@ -12,8 +12,8 @@ RSpec.describe DependencyCollector do
     collector.deps.find { |dep| dep.name == name }
   end
 
-  def find_requirement(collector)
-    collector.requirements.find { |req| req.is_a? DependencyCollector }
+  def find_requirement(klass)
+    collector.requirements.find { |req| req.is_a? klass }
   end
 
   describe "#add" do
