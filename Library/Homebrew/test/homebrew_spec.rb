@@ -22,7 +22,7 @@ RSpec.describe Homebrew do
         end
       end
 
-      Homebrew.inject_dump_stats!(klass, /^check_/)
+      described_class.inject_dump_stats!(klass, /^check_/)
 
       expect(klass.new.check_something).to eq("result")
       expect($times).to have_key(:check_something)
@@ -42,7 +42,7 @@ RSpec.describe Homebrew do
       end
 
       klass.prepend(mod)
-      Homebrew.inject_dump_stats!(klass, /^check_/)
+      described_class.inject_dump_stats!(klass, /^check_/)
 
       expect(klass.new.check_example).to eq("base_extended")
       expect($times).to have_key(:check_example)
@@ -59,7 +59,7 @@ RSpec.describe Homebrew do
         end
       end
 
-      Homebrew.inject_dump_stats!(klass, /^check_/)
+      described_class.inject_dump_stats!(klass, /^check_/)
 
       instance = klass.new
       instance.check_matched

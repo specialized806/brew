@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Hackage do
-  subject(:hackage) { klass }
+  subject(:hackage) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Hackage }
   let(:hackage_urls) do
     {
       package:   "https://hackage.haskell.org/package/abc-1.2.3/abc-1.2.3.tar.gz",

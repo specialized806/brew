@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
-  subject(:launchpad) { klass }
+  subject(:launchpad) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Launchpad }
   let(:launchpad_urls) do
     {
       version_dir:    "https://launchpad.net/abc/1.2/1.2.3/+download/abc-1.2.3.tar.gz",

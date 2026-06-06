@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Lines do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::Lines }
+  subject(:cop) { described_class.new }
 
   context "when auditing deprecated special dependencies" do
     it "reports an offense when using depends_on :automake" do

@@ -2,8 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
-  let(:klass) { Cask::CaskLoader::FromAPILoader }
-
   shared_context "with API setup" do |local_token|
     let(:api_token) { "#{local_token}-api" }
     let(:cask_from_source) { Cask::CaskLoader.load(local_token) }
@@ -15,7 +13,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       JSON.parse(json)
     end
     let(:casks_from_api_hash) { { api_token => cask_json.except("token") } }
-    let(:api_loader) { klass.new(api_token, from_json: cask_json) }
+    let(:api_loader) { described_class.new(api_token, from_json: cask_json) }
 
     before do
       allow(Homebrew::API).to receive_messages(cask_tokens: casks_from_api_hash.keys, cask_renames: {})
@@ -47,7 +45,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     # let(:cask_structs_from_api_hash) { { internal_api_token => cask_internal_struct } }
     let(:casks_from_internal_api_hash) { { internal_api_token => cask_internal_json.except("tap_git_head") } }
     let(:internal_api_loader) do
-      klass.new(internal_api_token, from_json: cask_internal_json, from_internal_json: true)
+      described_class.new(internal_api_token, from_json: cask_internal_json, from_internal_json: true)
     end
 
     before do
@@ -67,7 +65,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       include_context "with API setup", "test-opera"
 
       it "returns false" do
-        expect(klass.try_new(api_token)).to be_nil
+        expect(described_class.try_new(api_token)).to be_nil
       end
     end
 
@@ -75,19 +73,19 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       include_context "with API setup", "test-opera"
 
       it "returns a loader for valid token" do
-        expect(klass.try_new(api_token))
-          .to be_a(klass)
+        expect(described_class.try_new(api_token))
+          .to be_a(described_class)
           .and have_attributes(token: api_token)
       end
 
       it "returns a loader for valid full name" do
-        expect(klass.try_new("homebrew/cask/#{api_token}"))
-          .to be_a(klass)
+        expect(described_class.try_new("homebrew/cask/#{api_token}"))
+          .to be_a(described_class)
           .and have_attributes(token: api_token)
       end
 
       it "returns nil for full name with invalid tap" do
-        expect(klass.try_new("homebrew/foo/#{api_token}")).to be_nil
+        expect(described_class.try_new("homebrew/foo/#{api_token}")).to be_nil
       end
 
       context "with core tap migration renames" do
@@ -108,7 +106,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           JSON
 
           loader = Cask::CaskLoader::FromNameLoader.try_new(old_token)
-          expect(loader).to be_a(klass)
+          expect(loader).to be_a(described_class)
           expect(loader.token).to eq api_token
           expect(loader.path).not_to exist
         end
@@ -120,7 +118,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           JSON
 
           loader = Cask::CaskLoader::FromTapLoader.try_new("#{foo_tap}/#{old_token}")
-          expect(loader).to be_a(klass)
+          expect(loader).to be_a(described_class)
           expect(loader.token).to eq api_token
           expect(loader.path).not_to exist
         end
@@ -131,19 +129,19 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       include_context "with internal API setup", "test-opera"
 
       it "returns a loader for valid token" do
-        expect(klass.try_new(internal_api_token))
-          .to be_a(klass)
+        expect(described_class.try_new(internal_api_token))
+          .to be_a(described_class)
           .and have_attributes(token: internal_api_token)
       end
 
       it "returns a loader for valid full name" do
-        expect(klass.try_new("homebrew/cask/#{internal_api_token}"))
-          .to be_a(klass)
+        expect(described_class.try_new("homebrew/cask/#{internal_api_token}"))
+          .to be_a(described_class)
           .and have_attributes(token: internal_api_token)
       end
 
       it "returns nil for full name with invalid tap" do
-        expect(klass.try_new("homebrew/foo/#{internal_api_token}")).to be_nil
+        expect(described_class.try_new("homebrew/foo/#{internal_api_token}")).to be_nil
       end
 
       context "with core tap migration renames" do
@@ -164,7 +162,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           JSON
 
           loader = Cask::CaskLoader::FromNameLoader.try_new(old_token)
-          expect(loader).to be_a(klass)
+          expect(loader).to be_a(described_class)
           expect(loader.token).to eq internal_api_token
           expect(loader.path).not_to exist
         end
@@ -176,7 +174,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           JSON
 
           loader = Cask::CaskLoader::FromTapLoader.try_new("#{foo_tap}/#{old_token}")
-          expect(loader).to be_a(klass)
+          expect(loader).to be_a(described_class)
           expect(loader.token).to eq internal_api_token
           expect(loader.path).not_to exist
         end

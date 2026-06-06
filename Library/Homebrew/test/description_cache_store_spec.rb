@@ -7,7 +7,7 @@ require "description_cache_store"
 RSpec.describe DescriptionCacheStore do
   subject(:cache_store) { klass.new(database) }
 
-  let(:klass) { DescriptionCacheStore }
+  let(:klass) { described_class }
   let(:database) { instance_double(CacheStoreDatabase, "database") }
   let(:formula_name) { "test_name" }
   let(:description) { "test_description" }
@@ -62,7 +62,7 @@ RSpec.describe DescriptionCacheStore do
   describe CaskDescriptionCacheStore do
     subject(:cache_store) { klass.new(database) }
 
-    let(:klass) { CaskDescriptionCacheStore }
+    let(:klass) { described_class }
     let(:database) { instance_double(CacheStoreDatabase, "database") }
 
     describe "#update_from_report!" do

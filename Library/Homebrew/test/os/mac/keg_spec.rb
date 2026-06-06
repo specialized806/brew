@@ -4,9 +4,7 @@
 require "keg"
 
 RSpec.describe Keg do
-  subject(:keg) { klass.new(keg_path) }
-
-  let(:klass) { Keg }
+  subject(:keg) { described_class.new(keg_path) }
 
   include FileUtils
 

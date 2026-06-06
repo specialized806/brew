@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LicenseArrays do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::LicenseArrays }
+  subject(:cop) { described_class.new }
 
   context "when auditing license arrays" do
     it "reports no offenses for license strings" do

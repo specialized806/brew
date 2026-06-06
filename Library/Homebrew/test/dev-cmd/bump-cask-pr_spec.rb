@@ -6,9 +6,8 @@ require "dev-cmd/bump-cask-pr"
 require "bump_version_parser"
 
 RSpec.describe Homebrew::DevCmd::BumpCaskPr do
-  subject(:bump_cask_pr) { klass.new(["test"]) }
+  subject(:bump_cask_pr) { described_class.new(["test"]) }
 
-  let(:klass) { Homebrew::DevCmd::BumpCaskPr }
   let(:newest_macos) { MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym }
   let(:c) do
     Cask::Cask.new("test") do

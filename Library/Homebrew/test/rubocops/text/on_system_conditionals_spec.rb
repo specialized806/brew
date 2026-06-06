@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::OnSystemConditionals do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::OnSystemConditionals }
+  subject(:cop) { described_class.new }
 
   context "when auditing OS conditionals" do
     it "reports an offense when `OS.linux?` is used on Formula class" do

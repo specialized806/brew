@@ -14,7 +14,7 @@ RSpec.describe Homebrew::DevCmd::Prof do
     end
 
     it "does not open HTML profiles outside a TTY" do
-      prof = Homebrew::DevCmd::Prof.new(["help"])
+      prof = described_class.new(["help"])
 
       allow($stdout).to receive(:tty?).and_return(false)
       expect(prof).to receive(:safe_system)
@@ -26,7 +26,7 @@ RSpec.describe Homebrew::DevCmd::Prof do
     end
 
     it "runs Vernier without passing it to child Ruby processes" do
-      prof = Homebrew::DevCmd::Prof.new(["--vernier", "commands"])
+      prof = described_class.new(["--vernier", "commands"])
 
       expect(prof).to receive(:safe_system)
         .with(

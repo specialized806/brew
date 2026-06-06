@@ -2,14 +2,12 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::App, :cask do
-  let(:klass) { Cask::Artifact::App }
-
   let(:cask) { Cask::CaskLoader.load(cask_path("local-caffeine")) }
   let(:command) { NeverSudoSystemCommand }
   let(:adopt) { false }
   let(:force) { false }
   let(:auto_updates) { false }
-  let(:app) { cask.artifacts.find { |a| a.is_a?(klass) } }
+  let(:app) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
   let(:source_path) { cask.staged_path.join("Caffeine.app") }
   let(:target_path) { cask.config.appdir.join("Caffeine.app") }

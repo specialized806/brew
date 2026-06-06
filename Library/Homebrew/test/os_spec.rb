@@ -4,13 +4,11 @@
 require "os"
 
 RSpec.describe OS do
-  let(:klass) { OS }
-
   it "detects nix-homebrew from its repository" do
     stub_const("HOMEBREW_REPOSITORY", HOMEBREW_PREFIX/"Library/.homebrew-is-managed-by-nix")
 
-    expect(klass.nix_managed_homebrew?).to be(true)
-    expect(klass.nix_managed_homebrew_issues_url)
+    expect(described_class.nix_managed_homebrew?).to be(true)
+    expect(described_class.nix_managed_homebrew_issues_url)
       .to eq("https://github.com/zhaofengli/nix-homebrew/issues")
   end
 
@@ -21,7 +19,7 @@ RSpec.describe OS do
 
       (prefix/".managed_by_nix_darwin").write("")
 
-      expect(klass.nix_managed_homebrew?).to be(true)
+      expect(described_class.nix_managed_homebrew?).to be(true)
     end
   end
 
@@ -34,7 +32,7 @@ RSpec.describe OS do
       ENV["HOMEBREW_UPDATE_BEFORE"] = "nix"
       ENV["HOMEBREW_UPDATE_AFTER"] = "nix"
 
-      expect(klass.nix_managed_homebrew?).to be(true)
+      expect(described_class.nix_managed_homebrew?).to be(true)
     end
   ensure
     ENV["HOMEBREW_UPDATE_BEFORE"] = old_update_before
@@ -47,8 +45,8 @@ RSpec.describe OS do
       stub_const("HOMEBREW_REPOSITORY", prefix/"Library/Homebrew")
       stub_const("ARGV", ["bundle", "--file=/nix/store/example-Brewfile"])
 
-      expect(klass.nix_managed_homebrew?).to be(true)
-      expect(klass.nix_managed_homebrew_issues_url)
+      expect(described_class.nix_managed_homebrew?).to be(true)
+      expect(described_class.nix_managed_homebrew_issues_url)
         .to eq("https://github.com/nix-darwin/nix-darwin/issues")
     end
   end

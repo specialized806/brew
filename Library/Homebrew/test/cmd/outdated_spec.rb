@@ -5,8 +5,6 @@ require "cmd/outdated"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Outdated do
-  let(:klass) { Homebrew::Cmd::Outdated }
-
   it_behaves_like "parseable arguments"
 
   def install_formula_version(name, version, linked: false)
@@ -34,18 +32,18 @@ RSpec.describe Homebrew::Cmd::Outdated do
   end
 
   it "requires one named argument with --minimum-version" do
-    expect { klass.new(["--minimum-version=1.2.3"]).run }
+    expect { described_class.new(["--minimum-version=1.2.3"]).run }
       .to raise_error(UsageError, /`--minimum-version` requires exactly one formula or cask argument/)
   end
 
   it "rejects multiple named arguments with --minimum-version" do
-    expect { klass.new(["foo", "bar", "--minimum-version=1.2.3"]).run }
+    expect { described_class.new(["foo", "bar", "--minimum-version=1.2.3"]).run }
       .to raise_error(UsageError, /`--minimum-version` requires exactly one formula or cask argument/)
   end
 
   it "excludes non-outdated auto-updating casks without --greedy-auto-updates", :cask do
     cask = Cask::CaskLoader.load(cask_path("auto-updates"))
-    cmd = klass.new([])
+    cmd = described_class.new([])
 
     expect(cask).to receive(:outdated?)
       .with(greedy: false, greedy_latest: false, greedy_auto_updates: false)
@@ -55,7 +53,7 @@ RSpec.describe Homebrew::Cmd::Outdated do
 
   it "checks auto-updating casks with --greedy-auto-updates", :cask do
     cask = Cask::CaskLoader.load(cask_path("auto-updates"))
-    cmd = klass.new(["--greedy-auto-updates"])
+    cmd = described_class.new(["--greedy-auto-updates"])
 
     expect(cask).to receive(:outdated?)
       .with(greedy: false, greedy_latest: false, greedy_auto_updates: true)
@@ -96,7 +94,7 @@ RSpec.describe Homebrew::Cmd::Outdated do
     RUBY
     install_formula_version "minimum-version-formula", "1.2.2"
 
-    expect { klass.new(["minimum-version-formula", "--min-version=1.2.3"]).run }
+    expect { described_class.new(["minimum-version-formula", "--min-version=1.2.3"]).run }
       .to output("minimum-version-formula\n").to_stdout
     expect(Homebrew).to have_failed
   end
@@ -107,14 +105,14 @@ RSpec.describe Homebrew::Cmd::Outdated do
     RUBY
     install_formula_version "minimum-version-formula", "1.2.3", linked: true
 
-    expect { klass.new(["minimum-version-formula", "--minimum-version=1.2.3"]).run }
+    expect { described_class.new(["minimum-version-formula", "--minimum-version=1.2.3"]).run }
       .not_to output.to_stdout
   end
 
   it "reports a cask installed below --minimum-version", :cask do
     InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("outdated/local-caffeine")))
 
-    expect { klass.new(["--cask", "local-caffeine", "--minimum-version=1.2.3"]).run }
+    expect { described_class.new(["--cask", "local-caffeine", "--minimum-version=1.2.3"]).run }
       .to output("local-caffeine\n").to_stdout
     expect(Homebrew).to have_failed
   end
@@ -122,14 +120,14 @@ RSpec.describe Homebrew::Cmd::Outdated do
   it "does not report a cask installed at --minimum-version", :cask do
     InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("local-caffeine")))
 
-    expect { klass.new(["--cask", "local-caffeine", "--minimum-version=1.2.3"]).run }
+    expect { described_class.new(["--cask", "local-caffeine", "--minimum-version=1.2.3"]).run }
       .not_to output.to_stdout
   end
 
   it "raises UsageError for an invalid cask --minimum-version", :cask do
     InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("local-caffeine")))
 
-    expect { klass.new(["--cask", "local-caffeine", "--minimum-version=1/2"]).run }
+    expect { described_class.new(["--cask", "local-caffeine", "--minimum-version=1/2"]).run }
       .to raise_error(UsageError, %r{invalid `--minimum-version`: 1/2})
   end
 
@@ -138,7 +136,7 @@ RSpec.describe Homebrew::Cmd::Outdated do
       url "https://brew.sh/minimum-version-formula-1.2.3"
     RUBY
 
-    expect { klass.new(["minimum-version-formula", "--minimum-version=1.2.3"]).run }
+    expect { described_class.new(["minimum-version-formula", "--minimum-version=1.2.3"]).run }
       .not_to output.to_stdout
   end
 
@@ -159,7 +157,7 @@ RSpec.describe Homebrew::Cmd::Outdated do
       casks:    [],
     })
 
-    expect { klass.new(["minimum-version-formula", "--minimum-version=1.2.3", "--json=v2"]).run }
+    expect { described_class.new(["minimum-version-formula", "--minimum-version=1.2.3", "--json=v2"]).run }
       .to output("#{expected_json}\n").to_stdout
     expect(Homebrew).to have_failed
   end
@@ -178,7 +176,7 @@ RSpec.describe Homebrew::Cmd::Outdated do
       }],
     })
 
-    expect { klass.new(["--cask", "local-caffeine", "--minimum-version=1.2.3", "--json=v2"]).run }
+    expect { described_class.new(["--cask", "local-caffeine", "--minimum-version=1.2.3", "--json=v2"]).run }
       .to output("#{expected_json}\n").to_stdout
     expect(Homebrew).to have_failed
   end

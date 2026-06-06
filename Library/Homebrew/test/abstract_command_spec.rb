@@ -4,11 +4,9 @@
 require "abstract_command"
 
 RSpec.describe Homebrew::AbstractCommand do
-  let(:klass) { Homebrew::AbstractCommand }
-
   describe "subclasses" do
     before do
-      test_cat = Class.new(klass) do
+      test_cat = Class.new(Homebrew::AbstractCommand) do
         cmd_args do
           description "test"
           switch "--foo"
@@ -39,7 +37,7 @@ RSpec.describe Homebrew::AbstractCommand do
       end
 
       it "can lookup command" do
-        expect(klass.command("test-cat")).to be(TestCat)
+        expect(described_class.command("test-cat")).to be(TestCat)
       end
 
       it "removes -cmd suffix from command name" do
@@ -49,7 +47,7 @@ RSpec.describe Homebrew::AbstractCommand do
 
       describe "when command name is overridden" do
         before do
-          tac = Class.new(klass) do
+          tac = Class.new(Homebrew::AbstractCommand) do
             def self.command_name = "t-a-c"
             def run; end
           end
@@ -57,7 +55,7 @@ RSpec.describe Homebrew::AbstractCommand do
         end
 
         it "can be looked up by command name" do
-          expect(klass.command("t-a-c")).to be(Tac)
+          expect(described_class.command("t-a-c")).to be(Tac)
         end
       end
     end
@@ -69,7 +67,7 @@ RSpec.describe Homebrew::AbstractCommand do
         Dir[File.join(__dir__, "../#{dir}", "*.rb")].each do |file|
           filename = File.basename(file, ".rb")
           require(file)
-          command = klass.command(filename)
+          command = described_class.command(filename)
           expect(Pathname(File.join(__dir__, "../#{dir}/#{command.command_name}.rb"))).to exist
         end
       end

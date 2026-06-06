@@ -65,7 +65,7 @@ RSpec.describe Formula do
     end
 
     specify "formula instantiation without a subclass" do
-      expect { Formula.new(name, path, spec) }
+      expect { described_class.new(name, path, spec) }
         .to raise_error(RuntimeError, "Do not call `Formula.new' directly without a subclass.")
     end
 
@@ -839,7 +839,7 @@ RSpec.describe Formula do
 
   describe "::installed_with_alias_path" do
     specify "with alias path with nil" do
-      expect(Formula.installed_with_alias_path(nil)).to be_empty
+      expect(described_class.installed_with_alias_path(nil)).to be_empty
     end
 
     specify "with alias path with a path" do
@@ -870,12 +870,12 @@ RSpec.describe Formula do
         formula_with_different_alias,
       ]
 
-      allow(Formula).to receive(:installed).and_return(formulae)
+      allow(described_class).to receive(:installed).and_return(formulae)
 
       CoreTap.instance.alias_dir.mkpath
       FileUtils.ln_sf formula_with_alias.path, alias_path
 
-      expect(Formula.installed_with_alias_path(alias_path))
+      expect(described_class.installed_with_alias_path(alias_path))
         .to eq([formula_with_alias])
     end
   end
@@ -1409,7 +1409,7 @@ RSpec.describe Formula do
 
       expect(f3.runtime_dependencies.map(&:name)).to eq(["baz/qux/f2"])
 
-      Formula.clear_cache
+      described_class.clear_cache
 
       f1_path = Tap.fetch("foo", "bar").path/"Formula/f1.rb"
       stub_formula_loader(formula("f1", path: f1_path) { url("f1-1.0") }, "foo/bar/f1")
@@ -1917,7 +1917,7 @@ RSpec.describe Formula do
     before do
       stub_formula_loader(f)
       stub_formula_loader(new_formula)
-      allow(Formula).to receive(:installed).and_return([f])
+      allow(described_class).to receive(:installed).and_return([f])
 
       f.build = tab
       new_formula.build = tab
@@ -2111,7 +2111,7 @@ RSpec.describe Formula do
 
       tab = setup_tab_for_prefix(old_alias_target_prefix, path: alias_path)
       old_formula.build = tab
-      allow(Formula).to receive(:installed).and_return([old_formula])
+      allow(described_class).to receive(:installed).and_return([old_formula])
 
       CoreTap.instance.alias_dir.mkpath
       FileUtils.ln_sf f.path, alias_path
@@ -2126,7 +2126,7 @@ RSpec.describe Formula do
 
       tab = setup_tab_for_prefix(old_alias_target_prefix, path: old_formula.path)
       old_formula.build = tab
-      allow(Formula).to receive(:installed).and_return([old_formula])
+      allow(described_class).to receive(:installed).and_return([old_formula])
       expect(f.outdated_kegs).to be_empty
     end
 
@@ -2150,7 +2150,7 @@ RSpec.describe Formula do
       expect(f.outdated_kegs).to be_empty
 
       setup_tab_for_prefix(greater_prefix, tap: "homebrew/core")
-      Formula.clear_cache
+      described_class.clear_cache
 
       expect(f.outdated_kegs).to be_empty
     end
@@ -2162,12 +2162,12 @@ RSpec.describe Formula do
 
       setup_tab_for_prefix(outdated_prefix)
       setup_tab_for_prefix(extra_outdated_prefix, tap: "homebrew/core")
-      Formula.clear_cache
+      described_class.clear_cache
 
       expect(f.outdated_kegs).not_to be_empty
 
       setup_tab_for_prefix(outdated_prefix, tap: "user/repo")
-      Formula.clear_cache
+      described_class.clear_cache
 
       expect(f.outdated_kegs).not_to be_empty
     end
@@ -2179,7 +2179,7 @@ RSpec.describe Formula do
       expect(f.outdated_kegs).to be_empty
 
       setup_tab_for_prefix(same_prefix, tap: "user/repo")
-      Formula.clear_cache
+      described_class.clear_cache
 
       expect(f.outdated_kegs).to be_empty
     end
@@ -2191,7 +2191,7 @@ RSpec.describe Formula do
 
       tab.source["versions"] = { "stable" => f.version.to_s }
       tab.write
-      Formula.clear_cache
+      described_class.clear_cache
 
       expect(f.outdated_kegs).to be_empty
     end
@@ -2230,15 +2230,15 @@ RSpec.describe Formula do
 
         tab_a.source["versions"] = { "stable" => f.version.to_s }
         tab_a.write
-        Formula.clear_cache
+        described_class.clear_cache
         expect(f.outdated_kegs(fetch_head: true)).not_to be_empty
 
         FileUtils.rm_r(head_prefix_a)
-        Formula.clear_cache
+        described_class.clear_cache
         expect(f.outdated_kegs(fetch_head: true)).not_to be_empty
 
         setup_tab_for_prefix(head_prefix_c, source_modified_time: 1)
-        Formula.clear_cache
+        described_class.clear_cache
         expect(f.outdated_kegs(fetch_head: true)).to be_empty
       ensure
         FileUtils.rm_r(testball_repo) if testball_repo.exist?
@@ -2290,13 +2290,13 @@ RSpec.describe Formula do
         setup_tab_for_prefix(prefix_b, versions: { "stable" => "2.14", "version_scheme" => 2 })
 
         expect(f.outdated_kegs).not_to be_empty
-        Formula.clear_cache
+        described_class.clear_cache
 
         prefix_c = HOMEBREW_CELLAR/"testball/20141009"
         setup_tab_for_prefix(prefix_c, versions: { "stable" => "20141009", "version_scheme" => 3 })
 
         expect(f.outdated_kegs).not_to be_empty
-        Formula.clear_cache
+        described_class.clear_cache
 
         prefix_d = HOMEBREW_CELLAR/"testball/20141011"
         setup_tab_for_prefix(prefix_d, versions: { "stable" => "20141009", "version_scheme" => 3 })
@@ -2319,7 +2319,7 @@ RSpec.describe Formula do
         setup_tab_for_prefix(head_prefix, versions: { "stable" => "1.0", "version_scheme" => 1 })
         expect(f.outdated_kegs).not_to be_empty
 
-        Formula.clear_cache
+        described_class.clear_cache
         FileUtils.rm_r(head_prefix)
 
         setup_tab_for_prefix(head_prefix, versions: { "stable" => "1.0", "version_scheme" => 2 })
@@ -2888,13 +2888,13 @@ RSpec.describe Formula do
 
   describe ".all" do
     it "skips formulas that raise FormulaSpecificationError" do
-      allow(Formula).to receive_messages(core_names: ["testball"], tap_files: [])
+      allow(described_class).to receive_messages(core_names: ["testball"], tap_files: [])
       allow(Formulary).to receive(:factory).with("testball").and_raise(
         FormulaSpecificationError, "testball: formula requires at least a URL"
       )
 
-      expect { Formula.all(eval_all: true) }.not_to raise_error
-      expect(Formula.all(eval_all: true)).to eq([])
+      expect { described_class.all(eval_all: true) }.not_to raise_error
+      expect(described_class.all(eval_all: true)).to eq([])
     end
 
     it "skips untrusted tap formulae when trust is enabled" do
@@ -2905,11 +2905,11 @@ RSpec.describe Formula do
         raise "untrusted formula evaluated"
       RUBY
 
-      allow(Formula).to receive_messages(core_names: [], tap_files: [formula_path])
+      allow(described_class).to receive_messages(core_names: [], tap_files: [formula_path])
       expect(Formulary).not_to receive(:factory).with(formula_path)
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect { expect(Formula.all(eval_all: true)).to eq([]) }
+        expect { expect(described_class.all(eval_all: true)).to eq([]) }
           .to output(%r{Skipping thirdparty/foo because it is not trusted}).to_stderr
       end
     ensure
@@ -2917,10 +2917,10 @@ RSpec.describe Formula do
     end
 
     it "allows all formulae when trust is enabled" do
-      allow(Formula).to receive_messages(core_names: [], tap_files: [])
+      allow(described_class).to receive_messages(core_names: [], tap_files: [])
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect(Formula.all).to eq([])
+        expect(described_class.all).to eq([])
       end
     end
   end

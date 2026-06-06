@@ -2,8 +2,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Cask, :cask do
-  let(:klass) { Cask::Cask }
-  let(:cask) { klass.new("versioned-cask") }
+  let(:cask) { described_class.new("versioned-cask") }
 
   def write_info_plist(path, short_version: nil, bundle_version: nil, contents: nil)
     info_plist = path/"Contents/Info.plist"
@@ -71,7 +70,7 @@ RSpec.describe Cask::Cask, :cask do
       expect(Cask::CaskLoader).not_to receive(:load).with(cask_path)
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect { expect(klass.all(eval_all: true)).to eq([]) }
+        expect { expect(described_class.all(eval_all: true)).to eq([]) }
           .to output(%r{Skipping thirdparty/foo because it is not trusted}).to_stderr
       end
     ensure
@@ -83,7 +82,7 @@ RSpec.describe Cask::Cask, :cask do
       allow(Tap).to receive(:reject).and_return([])
 
       with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") do
-        expect(klass.all).to eq([])
+        expect(described_class.all).to eq([])
       end
     end
   end
@@ -144,13 +143,13 @@ RSpec.describe Cask::Cask, :cask do
 
     it "returns an instance of the Cask for the given token" do
       c = Cask::CaskLoader.load("local-caffeine")
-      expect(c).to be_a(klass)
+      expect(c).to be_a(described_class)
       expect(c.token).to eq("local-caffeine")
     end
 
     it "returns an instance of the Cask from a specific file location" do
       c = Cask::CaskLoader.load("#{tap_path}/Casks/local-caffeine.rb")
-      expect(c).to be_a(klass)
+      expect(c).to be_a(described_class)
       expect(c).not_to be_loaded_from_api
       expect(c).not_to be_loaded_from_internal_api
       expect(c.token).to eq("local-caffeine")
@@ -158,7 +157,7 @@ RSpec.describe Cask::Cask, :cask do
 
     it "returns an instance of the Cask from a JSON file" do
       c = Cask::CaskLoader.load("#{TEST_FIXTURE_DIR}/cask/caffeine.json")
-      expect(c).to be_a(klass)
+      expect(c).to be_a(described_class)
       expect(c).to be_loaded_from_api
       expect(c).not_to be_loaded_from_internal_api
       expect(c.token).to eq("caffeine")
@@ -166,7 +165,7 @@ RSpec.describe Cask::Cask, :cask do
 
     it "returns an instance of the Cask from an internal JSON file" do
       c = Cask::CaskLoader.load("#{TEST_FIXTURE_DIR}/cask/caffeine.internal.json")
-      expect(c).to be_a(klass)
+      expect(c).to be_a(described_class)
       expect(c).to be_loaded_from_api
       expect(c).to be_loaded_from_internal_api
       expect(c.token).to eq("caffeine")
@@ -174,7 +173,7 @@ RSpec.describe Cask::Cask, :cask do
 
     it "returns an instance of the Cask from a URL", :needs_utils_curl do
       c = Cask::CaskLoader.load("file://#{tap_path}/Casks/local-caffeine.rb")
-      expect(c).to be_a(klass)
+      expect(c).to be_a(described_class)
       expect(c.token).to eq("local-caffeine")
     end
 
@@ -186,7 +185,7 @@ RSpec.describe Cask::Cask, :cask do
 
     it "returns an instance of the Cask from a relative file location" do
       c = Cask::CaskLoader.load(relative_tap_path/"Casks/local-caffeine.rb")
-      expect(c).to be_a(klass)
+      expect(c).to be_a(described_class)
       expect(c.token).to eq("local-caffeine")
     end
 
@@ -227,7 +226,7 @@ RSpec.describe Cask::Cask, :cask do
     describe "versioned casks" do
       subject { cask.outdated_version }
 
-      let(:cask) { klass.new("basic-cask") }
+      let(:cask) { described_class.new("basic-cask") }
 
       shared_examples "versioned casks" do |tap_version, expectations|
         expectations.each do |installed_version, expected_output|
@@ -391,7 +390,7 @@ RSpec.describe Cask::Cask, :cask do
     end
 
     describe ":latest casks" do
-      let(:cask) { klass.new("basic-cask") }
+      let(:cask) { described_class.new("basic-cask") }
 
       shared_examples ":latest cask" do |greedy, outdated_sha, tap_version, expectations|
         expectations.each do |installed_version, expected_output|
@@ -802,12 +801,12 @@ RSpec.describe Cask::Cask, :cask do
     # NOTE: The calls to `Cask.generating_hash!` and `Cask.generated_hash!`
     #       are not idempotent so they can only be used in one test.
     it "returns the correct hash placeholders" do
-      klass.generating_hash!
-      expect(klass).to be_generating_hash
+      described_class.generating_hash!
+      expect(described_class).to be_generating_hash
       c = Cask::CaskLoader.load("placeholders")
       h = c.to_hash_with_variations
-      klass.generated_hash!
-      expect(klass).not_to be_generating_hash
+      described_class.generated_hash!
+      expect(described_class).not_to be_generating_hash
 
       expect(h).to be_a(Hash)
       expect(h["artifacts"].first[:binary].first).to eq "$APPDIR/some/path"

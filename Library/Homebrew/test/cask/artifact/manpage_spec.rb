@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::Manpage, :cask do
-  let(:klass) { Cask::Artifact::Manpage }
   let(:cask_token) { "basic-cask" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
@@ -17,7 +16,7 @@ RSpec.describe Cask::Artifact::Manpage, :cask do
   context "with install" do
     let(:install_phase) do
       lambda do
-        cask.artifacts.grep(klass).each do |artifact|
+        cask.artifacts.grep(described_class).each do |artifact|
           artifact.install_phase(command: NeverSudoSystemCommand, force: false)
         end
       end

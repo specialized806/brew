@@ -5,11 +5,10 @@ require "system_command"
 
 RSpec.describe SystemCommand::Result do
   subject(:result) do
-    klass.new([], output_array, instance_double(Process::Status, exitstatus: 0, success?: true),
-              secrets: [])
+    described_class.new([], output_array, instance_double(Process::Status, exitstatus: 0, success?: true),
+                        secrets: [])
   end
 
-  let(:klass) { SystemCommand::Result }
   let(:output_array) do
     [
       [:stdout, "output\n"],

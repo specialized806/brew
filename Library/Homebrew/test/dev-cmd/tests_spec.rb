@@ -5,12 +5,10 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/tests"
 
 RSpec.describe Homebrew::DevCmd::Tests do
-  let(:klass) { Homebrew::DevCmd::Tests }
-
   it_behaves_like "parseable arguments"
 
   describe "#check_test_environment!", :needs_linux do
-    subject(:tests) { klass.new([]) }
+    subject(:tests) { described_class.new([]) }
 
     before do
       require "extend/os/linux/dev-cmd/tests"
@@ -64,7 +62,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
   describe "#changed_test_files" do
     subject(:changed_test_files) { tests.send(:changed_test_files) }
 
-    let(:tests) { klass.new([]) }
+    let(:tests) { described_class.new([]) }
 
     context "when a spec file changed" do
       let(:changed_file) { "Library/Homebrew/test/cmd/help_spec.rb\n" }

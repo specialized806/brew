@@ -12,8 +12,8 @@ RSpec.describe UnpackStrategy::Dmg, :needs_macos do
     specify "#extract" do
       Dir.mktmpdir do |dir|
         unpack_dir = Pathname(dir)
-        mount = instance_double(UnpackStrategy::Dmg.const_get(:Mount, false))
-        unpack_strategy = UnpackStrategy::Dmg.new(path)
+        mount = instance_double(described_class.const_get(:Mount, false))
+        unpack_strategy = described_class.new(path)
 
         allow(unpack_strategy).to receive(:mount).with(verbose: false).and_yield([mount])
         allow(mount).to receive(:extract).with(to: unpack_dir, verbose: false) do

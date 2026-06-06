@@ -5,9 +5,7 @@ require "dependencies"
 require "dependency"
 
 RSpec.describe Dependencies do
-  subject(:dependencies) { klass.new }
-
-  let(:klass) { Dependencies }
+  subject(:dependencies) { described_class.new }
 
   describe "#<<" do
     it "returns itself" do
@@ -60,8 +58,8 @@ RSpec.describe Dependencies do
   end
 
   specify "equality" do
-    a = klass.new
-    b = klass.new
+    a = described_class.new
+    b = described_class.new
 
     dep = Dependency.new("foo")
 

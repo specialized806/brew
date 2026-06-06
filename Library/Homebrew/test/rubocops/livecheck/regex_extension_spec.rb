@@ -4,9 +4,7 @@
 require "rubocops/livecheck"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LivecheckRegexExtension do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::LivecheckRegexExtension }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when the `regex` does not use `\\.t` for archive file extensions" do
     expect_offense(<<~RUBY)

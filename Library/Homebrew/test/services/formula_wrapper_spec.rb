@@ -6,9 +6,8 @@ require "services/formula_wrapper"
 require "tempfile"
 
 RSpec.describe Homebrew::Services::FormulaWrapper do
-  subject(:service) { klass.new(formula) }
+  subject(:service) { described_class.new(formula) }
 
-  let(:klass) { Homebrew::Services::FormulaWrapper }
   let(:formula) do
     instance_double(Formula,
                     name:                   "mysql",
@@ -384,7 +383,8 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
   describe "#to_hash" do
     it "represents non-service values" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
-      allow_any_instance_of(klass).to receive_messages(service?: false, service_file_present?: false)
+      allow_any_instance_of(described_class).to receive_messages(service?:              false,
+                                                                 service_file_present?: false)
       expected = {
         exit_code:    nil,
         file:         Pathname.new("/usr/local/opt/mysql/homebrew.mysql.plist"),

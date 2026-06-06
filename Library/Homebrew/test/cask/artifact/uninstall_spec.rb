@@ -4,8 +4,6 @@
 require_relative "shared_examples/uninstall_zap"
 
 RSpec.describe Cask::Artifact::Uninstall, :cask do
-  let(:klass) { Cask::Artifact::Uninstall }
-
   describe "#uninstall_phase" do
     let(:fake_system_command) { NeverSudoSystemCommand }
 
@@ -14,7 +12,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     describe "upgrade/reinstall uninstall directives" do
       context "with-uninstall-quit" do
         let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
-        let(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+        let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
         it "invokes :quit during upgrade" do
           quit_called = false
@@ -52,7 +50,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
       context "with-uninstall-signal" do
         let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-signal")) }
-        let(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+        let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
         it "skips :signal by default during upgrade" do
           signal_called = false
@@ -79,7 +77,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
       context "with-uninstall-signal-on-upgrade" do
         let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-signal-on-upgrade")) }
-        let(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+        let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
         it "invokes :signal during upgrade" do
           signal_called = false
@@ -107,7 +105,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
     context "with-uninstall-both-on-upgrade" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-both-on-upgrade")) }
-      let(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+      let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
       it "invokes both quit and signal during upgrade when on_upgrade: :signal" do
         quit_called = false
@@ -125,7 +123,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
     context "with-uninstall-quit-only-on-upgrade" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit-only-on-upgrade")) }
-      let(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+      let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
       it "invokes quit but not signal during upgrade without on_upgrade: :signal" do
         quit_called = false
@@ -143,7 +141,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
   end
 
   describe "#bundle_ids_to_reopen" do
-    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
     let(:fake_system_command) { NeverSudoSystemCommand }
     let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
@@ -186,7 +184,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
   end
 
   describe "#post_uninstall_phase" do
-    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
     context "when using :rmdir" do
       let(:fake_system_command) { NeverSudoSystemCommand }

@@ -5,9 +5,8 @@ require "cmd/shared_examples/args_parse"
 require "cmd/version-install"
 
 RSpec.describe Homebrew::Cmd::VersionInstall do
-  subject(:version_install) { klass.new(args) }
+  subject(:version_install) { described_class.new(args) }
 
-  let(:klass) { Homebrew::Cmd::VersionInstall }
   let(:formulary_factory) { ->(ref, **_opts) { raise FormulaUnavailableError, ref } }
   let(:installed_taps) { [] }
   let(:installed_formula_names) { [] }

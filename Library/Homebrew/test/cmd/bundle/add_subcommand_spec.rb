@@ -7,10 +7,9 @@ require "cask/cask_loader"
 
 RSpec.describe Homebrew::Cmd::Bundle::AddSubcommand do
   subject(:add) do
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
-  let(:klass) { Homebrew::Cmd::Bundle::AddSubcommand }
   let(:global) { false }
   let(:context) { bundle_subcommand_context(:add, global:, file:, no_type_args: false) }
   let(:args_object) do

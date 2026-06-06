@@ -5,19 +5,17 @@ require "services/system"
 require "services/system/systemctl"
 
 RSpec.describe Homebrew::Services::System::Systemctl do
-  let(:klass) { Homebrew::Services::System::Systemctl }
-
   let(:bindir) { mktmpdir }
 
   describe ".scope" do
     it "outputs systemctl scope for user" do
       allow(Homebrew::Services::System).to receive(:root?).and_return(false)
-      expect(klass.scope).to eq("--user")
+      expect(described_class.scope).to eq("--user")
     end
 
     it "outputs systemctl scope for root" do
       allow(Homebrew::Services::System).to receive(:root?).and_return(true)
-      expect(klass.scope).to eq("--system")
+      expect(described_class.scope).to eq("--system")
     end
   end
 
@@ -29,10 +27,10 @@ RSpec.describe Homebrew::Services::System::Systemctl do
         exit 0
       SH
       systemctl.chmod 0755
-      klass.reset_executable!
+      described_class.reset_executable!
 
       with_env(PATH: bindir.to_s) do
-        expect(klass.executable).to eq(systemctl)
+        expect(described_class.executable).to eq(systemctl)
       end
     end
   end

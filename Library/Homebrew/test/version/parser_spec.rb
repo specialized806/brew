@@ -4,7 +4,7 @@
 require "version/parser"
 
 RSpec.describe Version::Parser do
-  let(:klass) { Version::Parser }
+  let(:klass) { described_class }
 
   specify "::new" do
     expect { klass.new }
@@ -12,7 +12,7 @@ RSpec.describe Version::Parser do
   end
 
   describe Version::RegexParser do
-    let(:klass) { Version::RegexParser }
+    let(:klass) { described_class }
 
     specify "::new" do
       expect { klass.new(/[._-](\d+(?:\.\d+)+)/) }
@@ -27,7 +27,7 @@ RSpec.describe Version::Parser do
   end
 
   describe Version::UrlParser do
-    let(:klass) { Version::UrlParser }
+    let(:klass) { described_class }
 
     specify "::new" do
       expect { klass.new(/[._-](\d+(?:\.\d+)+)/) }.not_to raise_error
@@ -52,7 +52,7 @@ RSpec.describe Version::Parser do
   end
 
   describe Version::StemParser do
-    let(:klass) { Version::StemParser }
+    let(:klass) { described_class }
 
     before { Pathname("#{TEST_TMPDIR}/testdir-0.1.test").mkpath }
 

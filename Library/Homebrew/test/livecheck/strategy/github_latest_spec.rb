@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::GithubLatest do
-  subject(:github_latest) { klass }
+  subject(:github_latest) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::GithubLatest }
   let(:github_urls) do
     {
       release_asset:     "https://github.com/abc/def/releases/download/1.2.3/ghi-1.2.3.tar.gz",

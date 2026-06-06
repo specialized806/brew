@@ -4,9 +4,8 @@
 require "download_strategy"
 
 RSpec.describe PyPIDownloadStrategy do
-  subject(:strategy) { klass.new(url, "foo", "1.2.3") }
+  subject(:strategy) { described_class.new(url, "foo", "1.2.3") }
 
-  let(:klass) { PyPIDownloadStrategy }
   let(:url) { "https://files.pythonhosted.org/packages/ab/cd/efg/foo-1.2.3.tar.gz" }
   let(:last_modified) { Time.utc(2026, 5, 6, 13, 43, 5) }
 

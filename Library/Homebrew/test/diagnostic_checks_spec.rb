@@ -4,9 +4,7 @@
 require "diagnostic"
 
 RSpec.describe Homebrew::Diagnostic::Checks do
-  subject(:checks) { klass.new }
-
-  let(:klass) { Homebrew::Diagnostic::Checks }
+  subject(:checks) { described_class.new }
 
   specify "#inject_file_list" do
     expect(checks.inject_file_list([], "foo:\n")).to eq("foo:\n")

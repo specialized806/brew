@@ -4,9 +4,7 @@
 require "rubocops/livecheck"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LivecheckRegexCaseInsensitive do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::LivecheckRegexCaseInsensitive }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when the `regex` is not case-insensitive" do
     expect_offense(<<~RUBY)

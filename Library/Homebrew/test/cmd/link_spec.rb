@@ -5,8 +5,6 @@ require "cmd/link"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Link do
-  let(:klass) { Homebrew::Cmd::Link }
-
   it_behaves_like "parseable arguments"
 
   it "uses formula-aware conflict handling when linking a Formula" do
@@ -15,7 +13,7 @@ RSpec.describe Homebrew::Cmd::Link do
     end
     keg = instance_double(Keg, rack: HOMEBREW_CELLAR/"testball", linked?: false, name: "testball")
 
-    cmd = klass.new(["testball"])
+    cmd = described_class.new(["testball"])
     allow(cmd.args.named).to receive(:to_latest_kegs).and_return([keg])
     allow(Formulary).to receive(:keg_only?).with(keg.rack).and_return(false)
     allow(keg).to receive(:to_formula).and_return(formula)
@@ -62,7 +60,7 @@ RSpec.describe Homebrew::Cmd::Link do
         to_formula: test_formula,
         to_s:       "#{formula_name}/1.0",
       )
-      cmd = klass.new([formula_name])
+      cmd = described_class.new([formula_name])
 
       allow(cmd.args.named).to receive(:to_latest_kegs).and_return([keg])
       allow(Formulary).to receive(:keg_only?).with(keg.rack).and_return(true)

@@ -5,8 +5,6 @@ require "cmd/gist-logs"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::GistLogs do
-  let(:klass) { Homebrew::Cmd::GistLogs }
-
   it_behaves_like "parseable arguments"
 
   describe ".truncate_text_to_approximate_size" do
@@ -16,7 +14,7 @@ RSpec.describe Homebrew::Cmd::GistLogs do
       n = 20
       long_s = "x" * 40
 
-      s = klass.truncate_text_to_approximate_size(long_s, n)
+      s = described_class.truncate_text_to_approximate_size(long_s, n)
       expect(s.length).to eq(n)
       expect(s).to match(/^x+#{Regexp.escape(glue)}x+$/)
     end
@@ -25,7 +23,7 @@ RSpec.describe Homebrew::Cmd::GistLogs do
       n = 20
       long_s = "x" * 40
 
-      s = klass.truncate_text_to_approximate_size(long_s, n, front_weight: 0.0)
+      s = described_class.truncate_text_to_approximate_size(long_s, n, front_weight: 0.0)
       expect(s).to eq(glue + ("x" * (n - glue.length)))
     end
 
@@ -33,7 +31,7 @@ RSpec.describe Homebrew::Cmd::GistLogs do
       n = 20
       long_s = "x" * 40
 
-      s = klass.truncate_text_to_approximate_size(long_s, n, front_weight: 1.0)
+      s = described_class.truncate_text_to_approximate_size(long_s, n, front_weight: 1.0)
       expect(s).to eq(("x" * (n - glue.length)) + glue)
     end
   end

@@ -4,9 +4,7 @@
 require "rubocops/urls"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::HttpUrls do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::HttpUrls }
+  subject(:cop) { described_class.new }
 
   context "when auditing HTTP URLs" do
     it "reports an offense for http:// URLs in homebrew-core" do

@@ -4,9 +4,7 @@
 require "dependency_collector"
 
 RSpec.describe DependencyCollector do
-  subject(:collector) { klass.new }
-
-  let(:klass) { DependencyCollector }
+  subject(:collector) { described_class.new }
 
   alias_matcher :be_a_build_requirement, :be_build
 
@@ -14,8 +12,8 @@ RSpec.describe DependencyCollector do
     collector.deps.find { |dep| dep.name == name }
   end
 
-  def find_requirement(klass)
-    collector.requirements.find { |req| req.is_a? klass }
+  def find_requirement(collector)
+    collector.requirements.find { |req| req.is_a? DependencyCollector }
   end
 
   describe "#add" do

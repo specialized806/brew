@@ -4,8 +4,6 @@
 require "api"
 
 RSpec.describe Homebrew::API::Cask do
-  let(:klass) { Homebrew::API::Cask }
-
   let(:cache_dir) { mktmpdir }
 
   before do
@@ -42,7 +40,7 @@ RSpec.describe Homebrew::API::Cask do
 
     it "returns the expected cask JSON list" do
       mock_curl_download stdout: casks_json
-      casks_output = klass.all_casks
+      casks_output = described_class.all_casks
       expect(casks_output).to eq casks_hash
     end
   end
@@ -80,7 +78,7 @@ RSpec.describe Homebrew::API::Cask do
         Checksum.new("00ae1ae330365f3d6e4387776f67a9c4b096da3d4546bd0827b5dcafa985234e"),
         any_args,
       ).and_call_original
-      klass.source_download(cask)
+      described_class.source_download(cask)
     end
   end
 end

@@ -9,11 +9,11 @@ RSpec.describe Requirement do
 
   subject(:requirement) { klass.new }
 
-  let(:klass) { Class.new(Requirement) }
+  let(:klass) { Class.new(described_class) }
 
   describe "base class" do
     it "raises an error when instantiated" do
-      expect { Requirement.new }
+      expect { described_class.new }
         .to raise_error(RuntimeError, "Requirement is declared as abstract; it cannot be instantiated")
     end
   end
@@ -223,7 +223,7 @@ RSpec.describe Requirement do
     let(:klass) { self.class.const_get(const) }
 
     before do
-      stub_const const.to_s, Class.new(Requirement)
+      stub_const const.to_s, Class.new(described_class)
     end
 
     it(:name) { expect(requirement.name).to eq("foo") }
@@ -232,7 +232,7 @@ RSpec.describe Requirement do
 
   describe "#modify_build_environment" do
     context "without env proc" do
-      let(:klass) { Class.new(Requirement) }
+      let(:klass) { Class.new(described_class) }
 
       it "returns nil" do
         expect { requirement.modify_build_environment }.not_to raise_error

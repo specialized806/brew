@@ -6,8 +6,6 @@ require "bundle/dsl"
 require "bundle/extensions/cargo"
 
 RSpec.describe Homebrew::Bundle::Cargo do
-  let(:klass) { Homebrew::Bundle::Cargo }
-
   around do |example|
     with_env({
       "HOMEBREW_CARGO_HOME"         => "~/.cargo",
@@ -22,12 +20,12 @@ RSpec.describe Homebrew::Bundle::Cargo do
   end
 
   describe "dumping" do
-    subject(:dumper) { klass }
+    subject(:dumper) { described_class }
 
     context "when cargo is not installed" do
       before do
-        klass.reset!
-        allow(klass).to receive(:package_manager_executable).and_return(nil)
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       specify do
@@ -38,12 +36,12 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
     context "when cargo is installed" do
       before do
-        klass.reset!
-        allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("cargo"))
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("cargo"))
       end
 
       it "returns package list" do
-        expect(klass).to receive(:`).with("cargo install --list") do
+        expect(described_class).to receive(:`).with("cargo install --list") do
           expect(ENV.fetch("CARGO_HOME", nil)).to eq("~/.cargo")
           expect(ENV.fetch("CARGO_INSTALL_ROOT", nil)).to eq("~/.cargo/bin")
           expect(ENV.fetch("RUSTUP_HOME", nil)).to eq("~/.rustup")
@@ -67,39 +65,40 @@ RSpec.describe Homebrew::Bundle::Cargo do
   describe "installing" do
     context "when Cargo is not installed" do
       before do
-        klass.reset!
-        allow(klass).to receive(:package_manager_executable).and_return(nil)
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "tries to install rust" do
         expect(Homebrew::Bundle).to \
           receive(:system).with(HOMEBREW_BREW_FILE, "install", "--formula", "rust", verbose: false)
                           .and_return(true)
-        expect { klass.preinstall!("ripgrep") }.to raise_error(RuntimeError)
+        expect { described_class.preinstall!("ripgrep") }.to raise_error(RuntimeError)
       end
     end
 
     context "when Cargo is installed" do
       before do
-        allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("cargo"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("cargo"))
       end
 
       context "when package is installed" do
         before do
-          allow(klass).to receive(:installed_packages)
+          allow(described_class).to receive(:installed_packages)
             .and_return(["ripgrep"])
         end
 
         it "skips" do
           expect(Homebrew::Bundle).not_to receive(:system)
-          expect(klass.preinstall!("ripgrep")).to be(false)
+          expect(described_class.preinstall!("ripgrep")).to be(false)
         end
       end
 
       context "when package is not installed" do
         before do
-          allow(klass).to receive_messages(package_manager_executable: Pathname.new("/tmp/rust/bin/cargo"),
-                                           installed_packages:         [])
+          allow(described_class).to receive_messages(
+            package_manager_executable: Pathname.new("/tmp/rust/bin/cargo"), installed_packages: [],
+          )
         end
 
         it "installs package" do
@@ -112,8 +111,8 @@ RSpec.describe Homebrew::Bundle::Cargo do
             expect(verbose).to be(false)
             true
           end
-          expect(klass.preinstall!("ripgrep")).to be(true)
-          expect(klass.install!("ripgrep")).to be(true)
+          expect(described_class.preinstall!("ripgrep")).to be(true)
+          expect(described_class.install!("ripgrep")).to be(true)
         end
       end
     end
@@ -121,8 +120,8 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
   describe "cleanup" do
     before do
-      klass.reset!
-      allow(klass).to receive_messages(
+      described_class.reset!
+      allow(described_class).to receive_messages(
         package_manager_executable: Pathname.new("/tmp/rust/bin/cargo"),
         packages:                   %w[ripgrep fd-find bat],
         installed_packages:         %w[ripgrep fd-find bat],
@@ -131,13 +130,13 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
     it "returns packages not in Brewfile entries" do
       entries = [Homebrew::Bundle::Dsl::Entry.new(:cargo, "ripgrep")]
-      expect(klass.cleanup_items(entries)).to eql(%w[fd-find bat])
+      expect(described_class.cleanup_items(entries)).to eql(%w[fd-find bat])
     end
 
     it "returns frozen empty array when cargo is not installed" do
-      allow(klass).to receive(:package_manager_installed?).and_return(false)
+      allow(described_class).to receive(:package_manager_installed?).and_return(false)
       entries = [Homebrew::Bundle::Dsl::Entry.new(:cargo, "ripgrep")]
-      expect(klass.cleanup_items(entries)).to eql([])
+      expect(described_class.cleanup_items(entries)).to eql([])
     end
   end
 end

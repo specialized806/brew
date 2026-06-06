@@ -4,7 +4,6 @@
 require "utils/git_repository"
 
 RSpec.describe Utils do
-  let(:klass) { Utils }
   let(:commit_message) { "File added" }
   let(:branch_name) { "test-branch" }
   let(:head_revision) { HOMEBREW_CACHE.cd { `git rev-parse HEAD`.chomp } }
@@ -13,11 +12,11 @@ RSpec.describe Utils do
   shared_examples "git_repository helper function" do |method_name|
     context "when directory is not a Git repository" do
       it "returns nil if `safe` parameter is `false`" do
-        expect(Utils.public_send(method_name, TEST_TMPDIR, safe: false)).to be_nil
+        expect(described_class.public_send(method_name, TEST_TMPDIR, safe: false)).to be_nil
       end
 
       it "raises an error if `safe` parameter is `true`" do
-        expect { Utils.public_send(method_name, TEST_TMPDIR, safe: true) }
+        expect { described_class.public_send(method_name, TEST_TMPDIR, safe: true) }
           .to raise_error("Not a Git repository: #{TEST_TMPDIR}")
       end
     end
@@ -28,11 +27,11 @@ RSpec.describe Utils do
       end
 
       it "returns nil if `safe` parameter is `false`" do
-        expect(Utils.public_send(method_name, HOMEBREW_CACHE, safe: false)).to be_nil
+        expect(described_class.public_send(method_name, HOMEBREW_CACHE, safe: false)).to be_nil
       end
 
       it "raises an error if `safe` parameter is `true`" do
-        expect { Utils.public_send(method_name, HOMEBREW_CACHE, safe: true) }
+        expect { described_class.public_send(method_name, HOMEBREW_CACHE, safe: true) }
           .to raise_error("Git is unavailable")
       end
     end
@@ -50,11 +49,11 @@ RSpec.describe Utils do
 
   describe "::git_head" do
     it "returns the revision at HEAD" do
-      expect(klass.git_head(HOMEBREW_CACHE)).to eq(head_revision)
-      expect(klass.git_head(HOMEBREW_CACHE, length: 5)).to eq(head_revision[0...5])
+      expect(described_class.git_head(HOMEBREW_CACHE)).to eq(head_revision)
+      expect(described_class.git_head(HOMEBREW_CACHE, length: 5)).to eq(head_revision[0...5])
       HOMEBREW_CACHE.cd do
-        expect(klass.git_head).to eq(head_revision)
-        expect(klass.git_head(length: 5)).to eq(head_revision[0...5])
+        expect(described_class.git_head).to eq(head_revision)
+        expect(described_class.git_head(length: 5)).to eq(head_revision[0...5])
       end
     end
 
@@ -63,11 +62,11 @@ RSpec.describe Utils do
 
   describe "::git_short_head" do
     it "returns the short revision at HEAD" do
-      expect(klass.git_short_head(HOMEBREW_CACHE)).to eq(short_head_revision)
-      expect(klass.git_short_head(HOMEBREW_CACHE, length: 5)).to eq(head_revision[0...5])
+      expect(described_class.git_short_head(HOMEBREW_CACHE)).to eq(short_head_revision)
+      expect(described_class.git_short_head(HOMEBREW_CACHE, length: 5)).to eq(head_revision[0...5])
       HOMEBREW_CACHE.cd do
-        expect(klass.git_short_head).to eq(short_head_revision)
-        expect(klass.git_short_head(length: 5)).to eq(head_revision[0...5])
+        expect(described_class.git_short_head).to eq(short_head_revision)
+        expect(described_class.git_short_head(length: 5)).to eq(head_revision[0...5])
       end
     end
 
@@ -78,9 +77,9 @@ RSpec.describe Utils do
     include_examples "git_repository helper function", :git_branch
 
     it "returns the current Git branch" do
-      expect(klass.git_branch(HOMEBREW_CACHE)).to eq(branch_name)
+      expect(described_class.git_branch(HOMEBREW_CACHE)).to eq(branch_name)
       HOMEBREW_CACHE.cd do
-        expect(klass.git_branch).to eq(branch_name)
+        expect(described_class.git_branch).to eq(branch_name)
       end
     end
   end
@@ -89,11 +88,11 @@ RSpec.describe Utils do
     include_examples "git_repository helper function", :git_commit_message
 
     it "returns the commit message of HEAD" do
-      expect(klass.git_commit_message(HOMEBREW_CACHE)).to eq(commit_message)
-      expect(klass.git_commit_message(HOMEBREW_CACHE, commit: head_revision)).to eq(commit_message)
+      expect(described_class.git_commit_message(HOMEBREW_CACHE)).to eq(commit_message)
+      expect(described_class.git_commit_message(HOMEBREW_CACHE, commit: head_revision)).to eq(commit_message)
       HOMEBREW_CACHE.cd do
-        expect(klass.git_commit_message).to eq(commit_message)
-        expect(klass.git_commit_message(commit: head_revision)).to eq(commit_message)
+        expect(described_class.git_commit_message).to eq(commit_message)
+        expect(described_class.git_commit_message(commit: head_revision)).to eq(commit_message)
       end
     end
   end

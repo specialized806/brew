@@ -35,7 +35,7 @@ RSpec.describe Homebrew::Cmd::Home do
 
   it "opens the homepage for a given Formula" do
     stub_formula_loader testballhome, call_original: true
-    cmd = Homebrew::Cmd::Home.new(["testballhome"])
+    cmd = described_class.new(["testballhome"])
     expect(cmd).to receive(:exec_browser).with(testballhome_homepage)
 
     expect { cmd.run }
@@ -44,13 +44,13 @@ RSpec.describe Homebrew::Cmd::Home do
   end
 
   it "opens the homepage for a given Cask", :cask, :needs_macos do
-    cmd = Homebrew::Cmd::Home.new([local_caffeine_path.to_s])
+    cmd = described_class.new([local_caffeine_path.to_s])
     expect(cmd).to receive(:exec_browser).with(local_caffeine_homepage)
 
     expect { cmd.run }
       .to output(/Opening homepage for Cask local-caffeine/).to_stdout
       .and output(/Treating #{Regexp.escape(local_caffeine_path)} as a cask/).to_stderr
-    cmd = Homebrew::Cmd::Home.new(["--cask", local_caffeine_path.to_s])
+    cmd = described_class.new(["--cask", local_caffeine_path.to_s])
     expect(cmd).to receive(:exec_browser).with(local_caffeine_homepage)
 
     expect { cmd.run }
@@ -60,7 +60,7 @@ RSpec.describe Homebrew::Cmd::Home do
 
   it "opens the homepages for a given formula and Cask", :cask, :needs_macos do
     stub_formula_loader testballhome, call_original: true
-    cmd = Homebrew::Cmd::Home.new(["testballhome", local_caffeine_path.to_s])
+    cmd = described_class.new(["testballhome", local_caffeine_path.to_s])
     expect(cmd).to receive(:exec_browser).with(testballhome_homepage, local_caffeine_homepage)
 
     expect { cmd.run }

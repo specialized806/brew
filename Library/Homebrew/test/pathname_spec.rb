@@ -5,7 +5,7 @@ require "extend/pathname"
 require "install_renamed"
 
 RSpec.describe Pathname do
-  let(:klass) { Pathname }
+  let(:klass) { described_class }
   let(:src) { mktmpdir }
   let(:dst) { mktmpdir }
   let(:file) { src/"foo" }
@@ -253,7 +253,7 @@ RSpec.describe Pathname do
   end
 
   describe InstallRenamed do
-    let(:klass) { InstallRenamed }
+    let(:klass) { described_class }
 
     before do
       dst.extend(klass)

@@ -5,8 +5,6 @@ require "cmd/search"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::SearchCmd do
-  let(:klass) { Homebrew::Cmd::SearchCmd }
-
   it_behaves_like "parseable arguments"
 
   it "finds formula in search", :integration_test, :no_api do
@@ -18,7 +16,7 @@ RSpec.describe Homebrew::Cmd::SearchCmd do
   end
 
   describe "::print_missing_formula_help" do
-    let(:search_cmd) { klass.new([""]) }
+    let(:search_cmd) { described_class.new([""]) }
 
     context "when $stdout is not a TTY" do
       before { allow_any_instance_of(StringIO).to receive(:tty?).and_return(false) }

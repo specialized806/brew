@@ -5,14 +5,12 @@ require "utils/output"
 require "utils/github/actions"
 
 RSpec.describe Utils::Output do
-  let(:klass) { Utils::Output }
-
   def esc(code)
     /(\e\[\d+m)*\e\[#{code}m/
   end
 
   describe "#pretty_installed" do
-    subject(:pretty_installed_output) { klass.pretty_installed("foo") }
+    subject(:pretty_installed_output) { described_class.pretty_installed("foo") }
 
     context "when $stdout is a TTY" do
       before { allow($stdout).to receive(:tty?).and_return(true) }
@@ -44,7 +42,7 @@ RSpec.describe Utils::Output do
   end
 
   describe "#pretty_uninstalled" do
-    subject(:pretty_uninstalled_output) { klass.pretty_uninstalled("foo") }
+    subject(:pretty_uninstalled_output) { described_class.pretty_uninstalled("foo") }
 
     context "when $stdout is a TTY" do
       before { allow($stdout).to receive(:tty?).and_return(true) }
@@ -76,7 +74,7 @@ RSpec.describe Utils::Output do
   end
 
   describe "#pretty_deprecated" do
-    subject(:pretty_deprecated_output) { klass.pretty_deprecated("foo") }
+    subject(:pretty_deprecated_output) { described_class.pretty_deprecated("foo") }
 
     context "when $stdout is a TTY" do
       before { allow($stdout).to receive(:tty?).and_return(true) }
@@ -97,7 +95,7 @@ RSpec.describe Utils::Output do
   end
 
   describe "#pretty_disabled" do
-    subject(:pretty_disabled_output) { klass.pretty_disabled("foo") }
+    subject(:pretty_disabled_output) { described_class.pretty_disabled("foo") }
 
     context "when $stdout is a TTY" do
       before { allow($stdout).to receive(:tty?).and_return(true) }
@@ -119,18 +117,18 @@ RSpec.describe Utils::Output do
 
   describe "#pretty_duration" do
     it "converts seconds to a human-readable string" do
-      expect(klass.pretty_duration(1)).to eq("1 second")
-      expect(klass.pretty_duration(2.5)).to eq("2 seconds")
-      expect(klass.pretty_duration(42)).to eq("42 seconds")
-      expect(klass.pretty_duration(240)).to eq("4 minutes")
-      expect(klass.pretty_duration(252.45)).to eq("4 minutes 12 seconds")
+      expect(described_class.pretty_duration(1)).to eq("1 second")
+      expect(described_class.pretty_duration(2.5)).to eq("2 seconds")
+      expect(described_class.pretty_duration(42)).to eq("42 seconds")
+      expect(described_class.pretty_duration(240)).to eq("4 minutes")
+      expect(described_class.pretty_duration(252.45)).to eq("4 minutes 12 seconds")
     end
   end
 
   describe "#ofail" do
     it "sets Homebrew.failed to true" do
       expect do
-        klass.ofail "foo"
+        described_class.ofail "foo"
       end.to output("Error: foo\n").to_stderr
 
       expect(Homebrew).to have_failed
@@ -143,7 +141,7 @@ RSpec.describe Utils::Output do
         expect(GitHub::Actions).not_to receive(:puts_annotation_if_env_set!)
 
         expect do
-          klass.opoo_without_github_actions_annotation "foo"
+          described_class.opoo_without_github_actions_annotation "foo"
         end.to output("Warning: foo\n").to_stderr
       end
     end
@@ -152,7 +150,7 @@ RSpec.describe Utils::Output do
   describe "#odie" do
     it "exits with 1" do
       expect do
-        klass.odie "foo"
+        described_class.odie "foo"
       end.to output("Error: foo\n").to_stderr.and raise_error SystemExit
     end
   end
@@ -161,7 +159,7 @@ RSpec.describe Utils::Output do
     it "raises a MethodDeprecatedError when `disable` is true" do
       ENV.delete("HOMEBREW_DEVELOPER")
       expect do
-        klass.odeprecated(
+        described_class.odeprecated(
           "method", "replacement",
           caller:  ["#{HOMEBREW_LIBRARY}/Taps/playbrew/homebrew-play/"],
           disable: true

@@ -2,8 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::PreflightBlock, :cask do
-  let(:klass) { Cask::Artifact::PreflightBlock }
-
   describe "install_phase" do
     it "calls the specified block before installing, passing a Cask mini-dsl" do
       called = false
@@ -16,7 +14,7 @@ RSpec.describe Cask::Artifact::PreflightBlock, :cask do
         end
       end
 
-      cask.artifacts.grep(klass).each do |artifact|
+      cask.artifacts.grep(described_class).each do |artifact|
         artifact.install_phase(command: NeverSudoSystemCommand, force: false)
       end
 
@@ -37,7 +35,7 @@ RSpec.describe Cask::Artifact::PreflightBlock, :cask do
         end
       end
 
-      cask.artifacts.grep(klass).each do |artifact|
+      cask.artifacts.grep(described_class).each do |artifact|
         artifact.uninstall_phase(command: NeverSudoSystemCommand, force: false)
       end
 

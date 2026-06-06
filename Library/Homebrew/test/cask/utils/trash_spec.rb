@@ -4,17 +4,15 @@
 require "cask/utils/trash"
 
 RSpec.describe Cask::Utils::Trash do
-  let(:klass) { Cask::Utils::Trash }
-
   describe "::trash" do
     let(:path) { Pathname("/tmp/example") }
 
     it "uses the Swift trash implementation on macOS" do
-      expect(klass).to receive(:swift_trash)
+      expect(described_class).to receive(:swift_trash)
         .with(path, command: nil)
         .and_return([[path.to_s], []])
 
-      expect(klass.trash(path)).to eq([[path.to_s], []])
+      expect(described_class.trash(path)).to eq([[path.to_s], []])
     end
   end
 
@@ -23,13 +21,13 @@ RSpec.describe Cask::Utils::Trash do
     let(:system_command_result) { instance_double(SystemCommand::Result, stdout: "#{path}\n") }
 
     it "uses the Swift helper on macOS" do
-      expect(klass).to receive(:system_command)
+      expect(described_class).to receive(:system_command)
         .with(HOMEBREW_LIBRARY_PATH/"cask/utils/trash.swift",
               args:         [path],
               print_stderr: Homebrew::EnvConfig.developer?)
         .and_return(system_command_result)
 
-      expect(klass.send(:swift_trash, path)).to eq([[path.to_s], []])
+      expect(described_class.send(:swift_trash, path)).to eq([[path.to_s], []])
     end
   end
 
@@ -54,7 +52,7 @@ RSpec.describe Cask::Utils::Trash do
       path.write("example")
       allow(Time).to receive(:now).and_return(deletion_time)
 
-      trashed, untrashable = klass.send(:freedesktop_trash, path)
+      trashed, untrashable = described_class.send(:freedesktop_trash, path)
 
       expect(path).not_to exist
       expect(trashed).to eq([path.to_s])

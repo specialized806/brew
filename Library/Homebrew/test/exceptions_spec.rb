@@ -12,7 +12,7 @@ RSpec.describe "Exception" do
       EOS
     end
 
-    let(:klass) { MultipleVersionsInstalledError }
+    let(:klass) { described_class }
 
     it(:to_s) do
       expect(error.to_s).to eq <<~EOS
@@ -23,7 +23,7 @@ RSpec.describe "Exception" do
   end
 
   describe NoSuchKegError do
-    let(:klass) { NoSuchKegError }
+    let(:klass) { described_class }
 
     context "without a tap" do
       subject(:error) { klass.new("foo") }
@@ -43,7 +43,7 @@ RSpec.describe "Exception" do
   describe FormulaValidationError do
     subject(:error) { klass.new("foo", "sha257", "magic") }
 
-    let(:klass) { FormulaValidationError }
+    let(:klass) { described_class }
 
     it(:to_s) do
       expect(error.to_s).to eq(%q(invalid attribute for formula 'foo': sha257 ("magic")))
@@ -53,7 +53,7 @@ RSpec.describe "Exception" do
   describe TapFormulaOrCaskUnavailableError do
     subject(:error) { klass.new(tap, "foo") }
 
-    let(:klass) { TapFormulaOrCaskUnavailableError }
+    let(:klass) { described_class }
     let(:tap) { instance_double(Tap, user: "u", repository: "r", to_s: "u/r", installed?: false) }
 
     it(:to_s) {
@@ -64,7 +64,7 @@ RSpec.describe "Exception" do
   describe FormulaUnavailableError do
     subject(:error) { klass.new("foo") }
 
-    let(:klass) { FormulaUnavailableError }
+    let(:klass) { described_class }
 
     describe "#dependent_s" do
       it "returns nil if there is no dependent" do
@@ -100,7 +100,7 @@ RSpec.describe "Exception" do
   describe TapFormulaUnavailableError do
     subject(:error) { klass.new(tap, "foo") }
 
-    let(:klass) { TapFormulaUnavailableError }
+    let(:klass) { described_class }
     let(:tap) { instance_double(Tap, user: "u", repository: "r", to_s: "u/r", installed?: false) }
 
     it(:to_s) {
@@ -111,7 +111,7 @@ RSpec.describe "Exception" do
   describe FormulaClassUnavailableError do
     subject(:error) { klass.new("foo", "foo.rb", "Foo", list) }
 
-    let(:klass) { FormulaClassUnavailableError }
+    let(:klass) { described_class }
     let(:mod) do
       Module.new do
         const_set :Bar, Class.new(Requirement)
@@ -145,7 +145,7 @@ RSpec.describe "Exception" do
   describe FormulaUnreadableError do
     subject(:error) { klass.new("foo", formula_error) }
 
-    let(:klass) { FormulaUnreadableError }
+    let(:klass) { described_class }
     let(:formula_error) { LoadError.new("bar") }
 
     it(:to_s) { expect(error.to_s).to eq("foo: bar") }
@@ -154,7 +154,7 @@ RSpec.describe "Exception" do
   describe TapUnavailableError do
     subject(:error) { klass.new("foo") }
 
-    let(:klass) { TapUnavailableError }
+    let(:klass) { described_class }
 
     it(:to_s) { expect(error.to_s).to eq("No available tap foo.\nRun brew tap-new foo to create a new foo tap!\n") }
   end
@@ -162,7 +162,7 @@ RSpec.describe "Exception" do
   describe TapAlreadyTappedError do
     subject(:error) { klass.new("foo") }
 
-    let(:klass) { TapAlreadyTappedError }
+    let(:klass) { described_class }
 
     it(:to_s) { expect(error.to_s).to eq("Tap foo already tapped.\n") }
   end
@@ -170,7 +170,7 @@ RSpec.describe "Exception" do
   describe BuildError do
     subject(:error) { klass.new(formula, "badprg", ["arg1", 2, Pathname.new("arg3"), :arg4], {}) }
 
-    let(:klass) { BuildError }
+    let(:klass) { described_class }
     let(:formula) { instance_double(Formula, name: "foo") }
 
     it(:to_s) { expect(error.to_s).to eq("Failed executing: badprg arg1 2 arg3 arg4") }
@@ -179,7 +179,7 @@ RSpec.describe "Exception" do
   describe OperationInProgressError do
     subject(:error) { klass.new(Pathname("foo")) }
 
-    let(:klass) { OperationInProgressError }
+    let(:klass) { described_class }
 
     it(:to_s) { expect(error.to_s).to match(/has already locked foo/) }
   end
@@ -187,7 +187,7 @@ RSpec.describe "Exception" do
   describe FormulaInstallationAlreadyAttemptedError do
     subject(:error) { klass.new(formula) }
 
-    let(:klass) { FormulaInstallationAlreadyAttemptedError }
+    let(:klass) { described_class }
     let(:formula) { instance_double(Formula, full_name: "foo/bar") }
 
     it(:to_s) { expect(error.to_s).to eq("Formula installation already attempted: foo/bar") }
@@ -196,7 +196,7 @@ RSpec.describe "Exception" do
   describe FormulaConflictError do
     subject(:error) { klass.new(formula, [conflict]) }
 
-    let(:klass) { FormulaConflictError }
+    let(:klass) { described_class }
     let(:formula) { instance_double(Formula, full_name: "foo/qux") }
     let(:conflict) { instance_double(Formula::FormulaConflict, name: "bar", reason: "I decided to") }
 
@@ -206,14 +206,14 @@ RSpec.describe "Exception" do
   describe CompilerSelectionError do
     subject(:error) { klass.new(formula) }
 
-    let(:klass) { CompilerSelectionError }
+    let(:klass) { described_class }
     let(:formula) { instance_double(Formula, full_name: "foo") }
 
     it(:to_s) { expect(error.to_s).to match(/foo cannot be built with any available compilers\./) }
   end
 
   describe CurlDownloadStrategyError do
-    let(:klass) { CurlDownloadStrategyError }
+    let(:klass) { described_class }
 
     context "when the file does not exist" do
       subject(:error) { klass.new("file:///tmp/foo") }
@@ -231,7 +231,7 @@ RSpec.describe "Exception" do
   describe ErrorDuringExecution do
     subject(:error) { klass.new(["badprg", "arg1", "arg2"], status:) }
 
-    let(:klass) { ErrorDuringExecution }
+    let(:klass) { described_class }
     let(:status) { instance_double(Process::Status, exitstatus: 17, termsig: nil) }
 
     it(:to_s) { expect(error.to_s).to eq("Failure while executing; `badprg arg1 arg2` exited with 17.") }
@@ -240,7 +240,7 @@ RSpec.describe "Exception" do
   describe ChecksumMismatchError do
     subject(:error) { klass.new("/file.tar.gz", expected_checksum, actual_checksum) }
 
-    let(:klass) { ChecksumMismatchError }
+    let(:klass) { described_class }
     let(:expected_checksum) { instance_double(Checksum, to_s: "deadbeef") }
     let(:actual_checksum) { instance_double(Checksum, to_s: "deadcafe") }
 
@@ -270,7 +270,7 @@ RSpec.describe "Exception" do
   describe ResourceMissingError do
     subject(:error) { klass.new(formula, resource) }
 
-    let(:klass) { ResourceMissingError }
+    let(:klass) { described_class }
     let(:formula) { instance_double(Formula, full_name: "bar") }
     let(:resource) { instance_double(Resource, inspect: "<resource foo>") }
 
@@ -280,7 +280,7 @@ RSpec.describe "Exception" do
   describe DuplicateResourceError do
     subject(:error) { klass.new(resource) }
 
-    let(:klass) { DuplicateResourceError }
+    let(:klass) { described_class }
     let(:resource) { instance_double(Resource, inspect: "<resource foo>") }
 
     it(:to_s) { expect(error.to_s).to eq("Resource <resource foo> is defined more than once") }
@@ -289,7 +289,7 @@ RSpec.describe "Exception" do
   describe BottleFormulaUnavailableError do
     subject(:error) { klass.new("/foo.bottle.tar.gz", "foo/1.0/.brew/foo.rb") }
 
-    let(:klass) { BottleFormulaUnavailableError }
+    let(:klass) { described_class }
     let(:formula) { instance_double(Formula, full_name: "foo") }
 
     it(:to_s) { expect(error.to_s).to match(/This bottle does not contain the formula file/) }
@@ -298,7 +298,7 @@ RSpec.describe "Exception" do
   describe BuildFlagsError do
     subject(:error) { klass.new(["-s"]) }
 
-    let(:klass) { BuildFlagsError }
+    let(:klass) { described_class }
 
     it(:to_s) { expect(error.to_s).to match(/flag:\s+-s\nrequires building tools/) }
   end

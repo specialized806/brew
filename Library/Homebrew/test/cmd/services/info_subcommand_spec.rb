@@ -4,8 +4,6 @@
 require "cmd/services"
 
 RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
-  let(:klass) { Homebrew::Cmd::Services::InfoSubcommand }
-
   before do
     allow_any_instance_of(IO).to receive(:tty?).and_return(false)
   end
@@ -19,7 +17,8 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
   describe "#run" do
     it "fails with empty list" do
       expect do
-        klass.new(Homebrew::Cmd::Services.new(%w[info testball]).args, targets: []).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[info testball]).args,
+                            targets: []).run
       end.to raise_error UsageError,
                          "Invalid usage: Formula(e) missing, please provide a formula name or use `--all`."
     end
@@ -36,8 +35,8 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
         schedulable: false,
       })
       expect do
-        klass.new(Homebrew::Cmd::Services.new(%w[info testball]).args,
-                  targets: [formula_wrapper]).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[info testball]).args,
+                            targets: [formula_wrapper]).run
       end.to output(out).to_stdout
     end
 
@@ -54,8 +53,8 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
       out = "#{JSON.pretty_generate([formula])}\n"
       formula_wrapper = instance_double(Homebrew::Services::FormulaWrapper, to_hash: formula)
       expect do
-        klass.new(Homebrew::Cmd::Services.new(%w[info testball --json]).args,
-                  targets: [formula_wrapper]).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[info testball --json]).args,
+                            targets: [formula_wrapper]).run
       end.to output(out).to_stdout
     end
   end
@@ -73,7 +72,7 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
         loaded:      true,
         schedulable: false,
       }
-      expect(klass.output(formula, verbose: false)).to eq(out)
+      expect(described_class.output(formula, verbose: false)).to eq(out)
     end
 
     it "returns normal output" do
@@ -90,7 +89,7 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
         schedulable: false,
         pid:         42,
       }
-      expect(klass.output(formula, verbose: false)).to eq(out)
+      expect(described_class.output(formula, verbose: false)).to eq(out)
     end
 
     it "returns verbose output" do
@@ -117,7 +116,7 @@ RSpec.describe Homebrew::Cmd::Services::InfoSubcommand do
         interval:       3600,
         cron:           "5 * * * *",
       }
-      expect(klass.output(formula, verbose: true)).to eq(out)
+      expect(described_class.output(formula, verbose: true)).to eq(out)
     end
   end
 end

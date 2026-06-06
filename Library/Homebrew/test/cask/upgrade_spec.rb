@@ -4,7 +4,6 @@
 require "cask/upgrade"
 
 RSpec.describe Cask::Upgrade, :cask do
-  let(:klass) { Cask::Upgrade }
   let(:version_latest_paths) do
     [
       version_latest.config.appdir.join("Caffeine Mini.app"),
@@ -68,8 +67,8 @@ RSpec.describe Cask::Upgrade, :cask do
 
     describe "without --greedy" do
       it 'includes "auto_updates true" casks when the installed bundle version is older than the tap version' do
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
           expect(dry_run).to be(true)
           expect(cask_upgrades).to include(
             "local-caffeine 1.2.2 -> 1.2.3",
@@ -93,7 +92,7 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(renamed_app_new_path).not_to be_a_directory
         expect(renamed_app.installed_version).to eq "1.0.0"
 
-        klass.upgrade_casks!(dry_run: true, args:)
+        described_class.upgrade_casks!(dry_run: true, args:)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -112,8 +111,8 @@ RSpec.describe Cask::Upgrade, :cask do
       it 'excludes "auto_updates true" casks when HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS is set' do
         allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(false)
 
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
           expect(dry_run).to be(true)
           expect(cask_upgrades).to include(
             "local-caffeine 1.2.2 -> 1.2.3",
@@ -123,7 +122,7 @@ RSpec.describe Cask::Upgrade, :cask do
           expect(cask_upgrades.grep(/auto-updates/)).to be_empty
         end
 
-        klass.upgrade_casks!(dry_run: true, args:)
+        described_class.upgrade_casks!(dry_run: true, args:)
       end
 
       it "lets HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS override HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS" do
@@ -133,7 +132,7 @@ RSpec.describe Cask::Upgrade, :cask do
           "HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"    => "1",
           "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
         ) do
-          expect { klass.upgrade_casks!(dry_run: true, args:) }
+          expect { described_class.upgrade_casks!(dry_run: true, args:) }
             .not_to raise_error
         end
       end
@@ -146,7 +145,7 @@ RSpec.describe Cask::Upgrade, :cask do
           "HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"    => "1",
           "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
         ) do
-          expect { klass.upgrade_casks!(dry_run: true, args:) }
+          expect { described_class.upgrade_casks!(dry_run: true, args:) }
             .not_to raise_error
         end
       end
@@ -154,8 +153,8 @@ RSpec.describe Cask::Upgrade, :cask do
       it 'excludes "auto_updates true" casks when the installed bundle matches the tap version' do
         write_info_plist(auto_updates_path, short_version: "2.61", bundle_version: "2061")
 
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
           expect(dry_run).to be(true)
           expect(cask_upgrades).to include(
             "local-caffeine 1.2.2 -> 1.2.3",
@@ -165,7 +164,7 @@ RSpec.describe Cask::Upgrade, :cask do
           expect(cask_upgrades.grep(/auto-updates/)).to be_empty
         end
 
-        klass.upgrade_casks!(dry_run: true, args:)
+        described_class.upgrade_casks!(dry_run: true, args:)
       end
 
       it "records final cask upgrade summary details" do
@@ -173,7 +172,7 @@ RSpec.describe Cask::Upgrade, :cask do
         summary_deprecated = []
         allow(local_caffeine).to receive(:deprecated?).and_return(true)
 
-        klass.upgrade_casks!(
+        described_class.upgrade_casks!(
           local_caffeine,
           dry_run:              true,
           show_upgrade_summary: false,
@@ -187,11 +186,11 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it "passes the quit option to cask upgrades" do
-        expect(Cask::Upgrade).to receive(:upgrade_cask) do |_, _, **options|
+        expect(described_class).to receive(:upgrade_cask) do |_, _, **options|
           expect(options[:quit]).to be(false)
         end
 
-        Cask::Upgrade.upgrade_casks!(
+        described_class.upgrade_casks!(
           local_caffeine,
           quit:                 false,
           skip_prefetch:        true,
@@ -205,8 +204,8 @@ RSpec.describe Cask::Upgrade, :cask do
         summary_pinned = []
 
         begin
-          expect(klass).not_to receive(:upgrade_cask)
-          expect(klass).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+          expect(described_class).not_to receive(:upgrade_cask)
+          expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
             expect(dry_run).to be(true)
             expect(cask_upgrades).to include(
               "local-transmission-zip 2.60 -> 2.61",
@@ -216,7 +215,7 @@ RSpec.describe Cask::Upgrade, :cask do
             expect(cask_upgrades.grep(/local-caffeine/)).to be_empty
           end
 
-          klass.upgrade_casks!(dry_run: true, quiet: true, summary_pinned:, args:)
+          described_class.upgrade_casks!(dry_run: true, quiet: true, summary_pinned:, args:)
           expect(summary_pinned).to include("local-caffeine 1.2.2")
         ensure
           local_caffeine.unpin
@@ -227,10 +226,10 @@ RSpec.describe Cask::Upgrade, :cask do
         local_caffeine.pin
 
         begin
-          expect(klass).not_to receive(:upgrade_cask)
+          expect(described_class).not_to receive(:upgrade_cask)
 
           expect do
-            klass.upgrade_casks!(local_caffeine, dry_run: true, args:)
+            described_class.upgrade_casks!(local_caffeine, dry_run: true, args:)
           end.to not_to_output.to_stdout
              .and output(/Not upgrading 1 pinned package:.*local-caffeine 1\.2\.2/m).to_stderr
           expect(Homebrew).to be_failed
@@ -241,8 +240,8 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it "would update only the Casks specified in the command line" do
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary)
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
           .with(["local-caffeine 1.2.2 -> 1.2.3"], dry_run: true)
 
         expect(local_caffeine).to be_installed
@@ -253,7 +252,7 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(local_transmission_path).to be_a_directory
         expect(local_transmission.installed_version).to eq "2.60"
 
-        klass.upgrade_casks!(local_caffeine, dry_run: true, args:)
+        described_class.upgrade_casks!(local_caffeine, dry_run: true, args:)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -265,8 +264,8 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it 'would update "auto_updates" and "latest" Casks when their tokens are provided in the command line' do
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary)
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
           .with(["local-caffeine 1.2.2 -> 1.2.3", "auto-updates 2.57 -> 2.61"], dry_run: true)
 
         expect(local_caffeine).to be_installed
@@ -282,7 +281,7 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(renamed_app_new_path).not_to be_a_directory
         expect(renamed_app.installed_version).to eq "1.0.0"
 
-        klass.upgrade_casks!(local_caffeine, auto_updates, dry_run: true, args:)
+        described_class.upgrade_casks!(local_caffeine, auto_updates, dry_run: true, args:)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -301,7 +300,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
     describe "with --greedy it checks additional Casks" do
       it 'would include the Casks with "auto_updates true" or "version latest"' do
-        expect(klass).not_to receive(:upgrade_cask)
+        expect(described_class).not_to receive(:upgrade_cask)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -325,7 +324,7 @@ RSpec.describe Cask::Upgrade, :cask do
         version_latest.download_sha_path.write("fake download sha")
         expect(version_latest.outdated_download_sha?).to be(true)
 
-        klass.upgrade_casks!(greedy: true, dry_run: true, args:)
+        described_class.upgrade_casks!(greedy: true, dry_run: true, args:)
 
         expect(local_caffeine).to be_installed
         expect(local_caffeine_path).to be_a_directory
@@ -349,15 +348,15 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it 'would update outdated Casks with "auto_updates true"' do
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary)
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
           .with(["auto-updates 2.57 -> 2.61"], dry_run: true)
 
         expect(auto_updates).to be_installed
         expect(auto_updates_path).to be_a_directory
         expect(auto_updates.installed_version).to eq "2.57"
 
-        klass.upgrade_casks!(auto_updates, dry_run: true, greedy: true, args:)
+        described_class.upgrade_casks!(auto_updates, dry_run: true, greedy: true, args:)
 
         expect(auto_updates).to be_installed
         expect(auto_updates_path).to be_a_directory
@@ -365,8 +364,8 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it 'would update outdated Casks with "version latest"' do
-        expect(klass).not_to receive(:upgrade_cask)
-        expect(klass).to receive(:show_upgrade_summary)
+        expect(described_class).not_to receive(:upgrade_cask)
+        expect(described_class).to receive(:show_upgrade_summary)
           .with(["version-latest latest -> latest"], dry_run: true)
 
         expect(version_latest).to be_installed
@@ -376,7 +375,7 @@ RSpec.describe Cask::Upgrade, :cask do
         version_latest.download_sha_path.write("fake download sha")
         expect(version_latest.outdated_download_sha?).to be(true)
 
-        klass.upgrade_casks!(version_latest, dry_run: true, greedy: true, args:)
+        described_class.upgrade_casks!(version_latest, dry_run: true, greedy: true, args:)
 
         expect(version_latest).to be_installed
         expect(version_latest_paths).to all be_a_directory
@@ -405,7 +404,7 @@ RSpec.describe Cask::Upgrade, :cask do
                                                                                      "broken DSL"))
 
       expect do
-        klass.upgrade_casks!(dry_run: true, args:)
+        described_class.upgrade_casks!(dry_run: true, args:)
       end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
     end
 
@@ -416,7 +415,7 @@ RSpec.describe Cask::Upgrade, :cask do
                                                                                         "syntax error"))
 
       expect do
-        klass.upgrade_casks!(dry_run: true, args:)
+        described_class.upgrade_casks!(dry_run: true, args:)
       end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
     end
 
@@ -430,7 +429,7 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       expect do
-        klass.upgrade_casks!(auto_updates, dry_run: true, args:)
+        described_class.upgrade_casks!(auto_updates, dry_run: true, args:)
       end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
     end
   end
@@ -468,15 +467,15 @@ RSpec.describe Cask::Upgrade, :cask do
         expect(options[:quarantine]).to be(true)
         installer
       end
-      expect(klass).to receive(:upgrade_cask)
+      expect(described_class).to receive(:upgrade_cask)
 
-      klass.upgrade_casks!(auto_updates, show_upgrade_summary: false, args:)
+      described_class.upgrade_casks!(auto_updates, show_upgrade_summary: false, args:)
     end
 
     it "releases quarantine when Gatekeeper was already approved and identity matches" do
       allow(Cask::Quarantine).to receive(:signing_identity).with(auto_updates_path).and_return(auto_updates_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_auto_updates,
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
@@ -488,7 +487,7 @@ RSpec.describe Cask::Upgrade, :cask do
       allow(Cask::Quarantine).to receive(:signing_identity).with(auto_updates_path)
                                                            .and_return(auto_updates_changed_team_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_auto_updates,
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
@@ -500,7 +499,7 @@ RSpec.describe Cask::Upgrade, :cask do
       allow(Cask::Quarantine).to receive(:signing_identity).with(auto_updates_path)
                                                            .and_return(auto_updates_changed_identifier_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_auto_updates,
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
@@ -512,7 +511,7 @@ RSpec.describe Cask::Upgrade, :cask do
       allow(Cask::Quarantine).to receive(:signing_identity).with(auto_updates_path)
                                                            .and_return(auto_updates_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_auto_updates,
                auto_updates,
                { auto_updates_path.to_s => Cask::Quarantine::SigningIdentity.new(identifier:      nil,
@@ -524,7 +523,7 @@ RSpec.describe Cask::Upgrade, :cask do
     it "still keeps quarantine when Gatekeeper was not approved" do
       allow(Cask::Quarantine).to receive(:signing_identity).with(auto_updates_path).and_return(auto_updates_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_auto_updates,
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
@@ -537,7 +536,7 @@ RSpec.describe Cask::Upgrade, :cask do
       allow(Cask::Quarantine).to receive(:signing_identity).with(local_caffeine_path)
                                                            .and_return(local_caffeine_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_local_caffeine,
                local_caffeine,
                { local_caffeine_path.to_s => local_caffeine_identity },
@@ -549,7 +548,7 @@ RSpec.describe Cask::Upgrade, :cask do
       allow(Cask::Quarantine).to receive(:signing_identity).with(local_caffeine_path)
                                                            .and_return(local_caffeine_identity)
 
-      expect(klass.release_app_upgrade_quarantine?(
+      expect(described_class.release_app_upgrade_quarantine?(
                outdated_local_caffeine,
                local_caffeine,
                { local_caffeine_path.to_s => local_caffeine_identity },
@@ -564,10 +563,10 @@ RSpec.describe Cask::Upgrade, :cask do
     allow(cask).to receive(:outdated?).with(greedy: true).and_return(true)
     summary_disabled = []
 
-    expect(klass).not_to receive(:upgrade_cask)
+    expect(described_class).not_to receive(:upgrade_cask)
 
     expect do
-      klass.upgrade_casks!(cask, dry_run: true, summary_disabled:, args:)
+      described_class.upgrade_casks!(cask, dry_run: true, summary_disabled:, args:)
     end.to output(/Not upgrading livecheck-disabled, it is disabled/).to_stderr
     expect(summary_disabled).to eq(["livecheck-disabled"])
   end
@@ -599,7 +598,7 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(will_fail_if_upgraded.installed_version).to eq "1.2.2"
 
       expect do
-        klass.upgrade_casks!(will_fail_if_upgraded, args:)
+        described_class.upgrade_casks!(will_fail_if_upgraded, args:)
       end.to raise_error(Cask::CaskError).and output(output_reverted).to_stderr
 
       expect(will_fail_if_upgraded).to be_installed
@@ -617,7 +616,7 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum.installed_version).to eq "1.2.2"
 
       expect do
-        klass.upgrade_casks!(bad_checksum, args:)
+        described_class.upgrade_casks!(bad_checksum, args:)
       end.to raise_error(ChecksumMismatchError).and(not_to_output(output_reverted).to_stderr)
 
       expect(bad_checksum).to be_installed
@@ -663,7 +662,7 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum_2_path).to be_a_file
       expect(bad_checksum_2.installed_version).to eq "1.2.2"
 
-      allow(klass).to receive(:upgrade_cask) do |_, new_cask, **|
+      allow(described_class).to receive(:upgrade_cask) do |_, new_cask, **|
         upgraded_tokens << new_cask.token
         raise Cask::CaskError, "failed" if new_cask.token.start_with?("bad-checksum")
 
@@ -671,7 +670,7 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       expect do
-        klass.upgrade_casks!(args:, skip_prefetch: true)
+        described_class.upgrade_casks!(args:, skip_prefetch: true)
       end.to raise_error(Cask::MultipleCaskErrors)
 
       expect(upgraded_tokens).to contain_exactly("bad-checksum", "bad-checksum2", "local-transmission-zip")

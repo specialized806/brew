@@ -7,11 +7,9 @@ require "bundle/brewfile"
 require "bundle/brew_services"
 
 RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
-  let(:klass) { Homebrew::Cmd::Bundle::ExecSubcommand }
-
   context "when a Brewfile is not found" do
     it "raises an error" do
-      expect { klass.run_external_command }.to raise_error(RuntimeError)
+      expect { described_class.run_external_command }.to raise_error(RuntimeError)
     end
   end
 
@@ -33,17 +31,17 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
 
     context "with valid command setup" do
       before do
-        allow(klass).to receive(:exec).and_return(nil)
+        allow(described_class).to receive(:exec).and_return(nil)
         Homebrew::Bundle.reset!
       end
 
       it "does not raise an error" do
-        expect { klass.run_external_command("bundle", "install") }.not_to raise_error
+        expect { described_class.run_external_command("bundle", "install") }.not_to raise_error
       end
 
       it "does not raise an error when HOMEBREW_BUNDLE_EXEC_ALL_KEG_ONLY_DEPS is set" do
         ENV["HOMEBREW_BUNDLE_EXEC_ALL_KEG_ONLY_DEPS"] = "1"
-        expect { klass.run_external_command("bundle", "install") }.not_to raise_error
+        expect { described_class.run_external_command("bundle", "install") }.not_to raise_error
       end
 
       it "uses the formula version from the environment variable" do
@@ -51,18 +49,18 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         ENV["PATH"] = "/opt/homebrew/opt/openssl/bin:/usr/bin:/bin"
         ENV["MANPATH"] = "/opt/homebrew/opt/openssl/man"
         ENV["HOMEBREW_BUNDLE_FORMULA_VERSION_OPENSSL"] = openssl_version
-        allow(klass).to receive(:which).and_return(Pathname("/usr/bin/bundle"))
-        klass.run_external_command("bundle", "install")
+        allow(described_class).to receive(:which).and_return(Pathname("/usr/bin/bundle"))
+        described_class.run_external_command("bundle", "install")
         expect(ENV.fetch("PATH")).to include("/Cellar/openssl/1.1.1/bin")
       end
 
       it "is able to run without bundle arguments" do
-        allow(klass).to receive(:exec).with("bundle", "install").and_return(nil)
-        expect { klass.run_external_command("bundle", "install") }.not_to raise_error
+        allow(described_class).to receive(:exec).with("bundle", "install").and_return(nil)
+        expect { described_class.run_external_command("bundle", "install") }.not_to raise_error
       end
 
       it "raises an exception if called without a command" do
-        expect { klass.run_external_command }.to raise_error(RuntimeError)
+        expect { described_class.run_external_command }.to raise_error(RuntimeError)
       end
 
       describe "--no-secrets" do
@@ -78,7 +76,8 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         it "removes sensitive environment variables when requested" do
           ENV["SECRET_TOKEN"] = "password"
 
-          klass.run_external_command("/usr/bin/true", subcommand: "exec", no_secrets: true)
+          described_class.run_external_command("/usr/bin/true", subcommand: "exec",
+                                                                no_secrets: true)
 
           expect(ENV).not_to have_key("SECRET_TOKEN")
         end
@@ -86,7 +85,8 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         it "preserves non-sensitive environment variables when removing secrets" do
           ENV["NORMAL_VAR"] = "value"
 
-          klass.run_external_command("/usr/bin/true", subcommand: "exec", no_secrets: true)
+          described_class.run_external_command("/usr/bin/true", subcommand: "exec",
+                                                                no_secrets: true)
 
           expect(ENV.fetch("NORMAL_VAR")).to eq("value")
         end
@@ -97,22 +97,26 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
       it "outputs the environment variables" do
         allow(OS).to receive(:linux?).and_return(true)
 
-        expect { klass.run_external_command("env", subcommand: "env") }.to \
+        expect { described_class.run_external_command("env", subcommand: "env") }.to \
           output(/export PATH=".+:\${PATH:-}"/).to_stdout
       end
     end
 
     it "raises if called with a command that's not on the PATH" do
-      allow(klass).to receive_messages(exec: nil, which: nil)
-      expect { klass.run_external_command("bundle", "install") }.to raise_error(RuntimeError)
+      allow(described_class).to receive_messages(exec: nil, which: nil)
+      expect do
+        described_class.run_external_command("bundle", "install")
+      end.to raise_error(RuntimeError)
     end
 
     it "prepends the path of the requested command to PATH before running" do
-      expect(klass).to receive(:exec).with("bundle", "install").and_return(nil)
-      expect(klass).to receive(:which).twice.and_return(Pathname("/usr/local/bin/bundle"))
+      expect(described_class).to receive(:exec).with("bundle", "install").and_return(nil)
+      expect(
+        described_class,
+      ).to receive(:which).twice.and_return(Pathname("/usr/local/bin/bundle"))
       allow(ENV).to receive(:prepend_path).with(any_args).and_call_original
       expect(ENV).to receive(:prepend_path).with("PATH", "/usr/local/bin").once.and_call_original
-      klass.run_external_command("bundle", "install")
+      described_class.run_external_command("bundle", "install")
     end
 
     describe "when running a command which exists but is not on the PATH" do
@@ -124,9 +128,9 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
 
       shared_examples "allows command execution" do |command|
         it "does not raise" do
-          allow(klass).to receive(:exec).with(command).and_return(nil)
-          expect(klass).not_to receive(:which)
-          expect { klass.run_external_command(command) }.not_to raise_error
+          allow(described_class).to receive(:exec).with(command).and_return(nil)
+          expect(described_class).not_to receive(:which)
+          expect { described_class.run_external_command(command) }.not_to raise_error
         end
       end
 
@@ -145,13 +149,13 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
       end
 
       it "prepends the path of the rbenv shims to PATH before running" do
-        allow(klass).to receive(:exec).with("/usr/bin/true").and_return(0)
+        allow(described_class).to receive(:exec).with("/usr/bin/true").and_return(0)
         allow(ENV).to receive(:fetch).with(any_args).and_call_original
         allow(ENV).to receive(:prepend_path).with(any_args).once.and_call_original
 
         expect(ENV).to receive(:fetch).with("HOMEBREW_RBENV_ROOT", "#{Dir.home}/.rbenv").once.and_call_original
         expect(ENV).to receive(:prepend_path).with("PATH", rbenv_root/"shims").once.and_call_original
-        klass.run_external_command("/usr/bin/true")
+        described_class.run_external_command("/usr/bin/true")
       end
     end
 
@@ -215,7 +219,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         allow_any_instance_of(Pathname).to receive(:file?).and_return(true)
         allow_any_instance_of(Pathname).to receive(:realpath) { |path| path }
 
-        allow(klass).to receive(:exit!).and_return(nil)
+        allow(described_class).to receive(:exit!).and_return(nil)
       end
 
       shared_examples "handles service lifecycle correctly" do
@@ -266,7 +270,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
           # Restart registered services we stopped due to conflicts (skip httpd as not registered)
           expect(Homebrew::Bundle::Brew::Services).to receive(:run).with("redis@6.2").and_return(true).ordered
 
-          klass.run_external_command("/usr/bin/true", services: true)
+          described_class.run_external_command("/usr/bin/true", services: true)
         end
       end
 

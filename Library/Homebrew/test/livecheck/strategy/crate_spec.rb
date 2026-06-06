@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Crate do
-  subject(:crate) { klass }
+  subject(:crate) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Crate }
   let(:crate_url) { "https://static.crates.io/crates/example/example-0.1.0.crate" }
   let(:non_crate_url) { "https://brew.sh/test" }
   # This only differs from the `DEFAULT_REGEX` so we can distinguish between a

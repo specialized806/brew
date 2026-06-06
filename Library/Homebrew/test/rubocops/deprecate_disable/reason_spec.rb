@@ -4,9 +4,7 @@
 require "rubocops/deprecate_disable"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::DeprecateDisableReason do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::DeprecateDisableReason }
+  subject(:cop) { described_class.new }
 
   context "when auditing `deprecate!`" do
     it "reports no offenses if `reason` is acceptable" do

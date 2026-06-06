@@ -4,19 +4,17 @@
 require "checksum"
 
 RSpec.describe Checksum do
-  let(:klass) { Checksum }
-
   describe "#empty?" do
-    subject { klass.new("") }
+    subject { described_class.new("") }
 
     it { is_expected.to be_empty }
   end
 
   describe "#==" do
-    subject(:checksum) { klass.new(TEST_SHA256) }
+    subject(:checksum) { described_class.new(TEST_SHA256) }
 
-    let(:other) { klass.new(TEST_SHA256) }
-    let(:other_reversed) { klass.new(TEST_SHA256.reverse) }
+    let(:other) { described_class.new(TEST_SHA256) }
+    let(:other_reversed) { described_class.new(TEST_SHA256.reverse) }
 
     specify(:aggregate_failures) do
       expect(checksum).to eq(other)

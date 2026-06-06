@@ -7,15 +7,13 @@ require "bundle/installer"
 require "bundle/parallel_installer"
 
 RSpec.describe Homebrew::Bundle::Installer do
-  let(:klass) { Homebrew::Bundle::Installer }
-
   let(:formula_entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql") }
   let(:second_formula_entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "redis") }
   let(:cask_options) { { args: {}, full_name: "homebrew/cask/google-chrome" } }
   let(:cask_entry) { Homebrew::Bundle::Dsl::Entry.new(:cask, "google-chrome", cask_options) }
 
   before do
-    klass.reset!
+    described_class.reset!
     allow(Homebrew::Bundle::Skipper).to receive(:skip?).and_return(false)
     allow(Homebrew::Bundle::Brew).to receive_messages(formula_upgradable?: false, install!: true)
     allow(Homebrew::Bundle::Brew).to receive_messages(formula_installed_and_up_to_date?: false,
@@ -33,8 +31,8 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle::Cask.cask_names).to eq(["stale"])
 
-    klass.reset!
-    klass.install!([cask_entry], verbose: false, force: false, quiet: true)
+    described_class.reset!
+    described_class.install!([cask_entry], verbose: false, force: false, quiet: true)
   end
 
   it "prefetches installable formulae and casks before installing" do
@@ -57,7 +55,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       .ordered
       .and_return(true)
 
-    klass.install!([formula_entry, cask_entry], verbose: false, force: false, quiet: true)
+    described_class.install!([formula_entry, cask_entry], verbose: false, force: false, quiet: true)
   end
 
   it "skips fetching when no formulae or casks need installation or upgrade" do
@@ -66,7 +64,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([formula_entry], no_upgrade: true, quiet: true)
+    described_class.install!([formula_entry], no_upgrade: true, quiet: true)
   end
 
   it "skips fetching formulae from untapped taps" do
@@ -78,7 +76,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([tap_entry, tapped_formula_entry], quiet: true)
+    described_class.install!([tap_entry, tapped_formula_entry], quiet: true)
   end
 
   it "skips fetching formulae from fully qualified untapped taps" do
@@ -89,7 +87,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([tapped_formula_entry], quiet: true)
+    described_class.install!([tapped_formula_entry], quiet: true)
   end
 
   it "skips fetching unqualified formulae when Brewfile taps are untapped" do
@@ -100,7 +98,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([tap_entry, untapped_formula_entry], quiet: true)
+    described_class.install!([tap_entry, untapped_formula_entry], quiet: true)
   end
 
   it "warns and skips fetching unqualified formulae when API metadata is unavailable" do
@@ -109,10 +107,10 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     allow(Homebrew::API).to receive(:formula_names).and_raise("API unavailable")
 
-    expect(klass).to receive(:opoo).with(/could not check API metadata: API unavailable/)
+    expect(described_class).to receive(:opoo).with(/could not check API metadata: API unavailable/)
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([tap_entry, untapped_formula_entry], quiet: true)
+    described_class.install!([tap_entry, untapped_formula_entry], quiet: true)
   end
 
   it "prefetches unqualified formulae available without untapped Brewfile taps" do
@@ -127,7 +125,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       .with("fetch", "mysql", verbose: false)
       .and_return(true)
 
-    klass.install!([tap_entry, formula_entry], quiet: true)
+    described_class.install!([tap_entry, formula_entry], quiet: true)
   end
 
   it "skips fetching fully qualified casks from untapped taps" do
@@ -135,7 +133,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([tapped_cask_entry], quiet: true)
+    described_class.install!([tapped_cask_entry], quiet: true)
   end
 
   it "skips fetching unqualified casks when Brewfile taps are untapped" do
@@ -147,7 +145,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
-    klass.install!([tap_entry, untapped_cask_entry], quiet: true)
+    described_class.install!([tap_entry, untapped_cask_entry], quiet: true)
   end
 
   it "prefetches unqualified casks available without untapped Brewfile taps" do
@@ -162,7 +160,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       .with("fetch", "google-chrome", verbose: false)
       .and_return(true)
 
-    klass.install!([tap_entry, cask_entry], quiet: true)
+    described_class.install!([tap_entry, cask_entry], quiet: true)
   end
 
   describe "parallel installation" do
@@ -330,7 +328,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
         .with("redis", no_upgrade: false, verbose: false).ordered.and_return(true)
 
-      klass.install!([formula_entry, second_formula_entry], jobs: 1, quiet: true)
+      described_class.install!([formula_entry, second_formula_entry], jobs: 1, quiet: true)
     end
   end
 end

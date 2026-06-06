@@ -4,8 +4,6 @@
 require "style"
 
 RSpec.describe Homebrew::Style do
-  let(:klass) { Homebrew::Style }
-
   around do |example|
     FileUtils.ln_s HOMEBREW_LIBRARY_PATH, HOMEBREW_LIBRARY/"Homebrew"
     FileUtils.ln_s HOMEBREW_LIBRARY_PATH.parent/".rubocop.yml", HOMEBREW_LIBRARY/".rubocop.yml"
@@ -32,7 +30,7 @@ RSpec.describe Homebrew::Style do
         end
       RUBY
 
-      style_offenses = klass.check_style_json([formula])
+      style_offenses = described_class.check_style_json([formula])
 
       expect(style_offenses.for_path(formula.realpath).map(&:message))
         .to include("Extra empty line detected at class body beginning.")
@@ -47,7 +45,7 @@ RSpec.describe Homebrew::Style do
       # but not regular, cop violations
       target_file = HOMEBREW_LIBRARY_PATH/"utils.rb"
 
-      style_result = klass.check_style_and_print([target_file])
+      style_result = described_class.check_style_and_print([target_file])
 
       expect(style_result).to be true
     end
@@ -55,10 +53,10 @@ RSpec.describe Homebrew::Style do
 
   describe ".run_actionlint!" do
     before do
-      allow(klass).to receive_messages(actionlint: "actionlint", shellcheck: "shellcheck")
+      allow(described_class).to receive_messages(actionlint: "actionlint", shellcheck: "shellcheck")
       # Run a trivial command so $CHILD_STATUS is non-nil after the stubbed `system` call.
       system("true")
-      allow(klass).to receive(:system).and_return(true)
+      allow(described_class).to receive(:system).and_return(true)
     end
 
     it "uses a tap's actionlint config when present" do
@@ -71,7 +69,7 @@ RSpec.describe Homebrew::Style do
       tap_config = tap_path/".github/actionlint.yaml"
       tap_config.write "self-hosted-runner:\n  labels: []\n"
 
-      expect(klass).to receive(:system).with(
+      expect(described_class).to receive(:system).with(
         "actionlint", "-shellcheck", "shellcheck",
         "-config-file", tap_config,
         "-ignore", "image: string; options: string",
@@ -79,7 +77,7 @@ RSpec.describe Homebrew::Style do
         workflow
       )
 
-      klass.run_actionlint!([workflow])
+      described_class.run_actionlint!([workflow])
     end
 
     it "falls back to HOMEBREW_REPOSITORY config when no tap config exists" do
@@ -89,7 +87,7 @@ RSpec.describe Homebrew::Style do
       workflow = workflows_dir/"ci.yml"
       workflow.write "name: CI"
 
-      expect(klass).to receive(:system).with(
+      expect(described_class).to receive(:system).with(
         "actionlint", "-shellcheck", "shellcheck",
         "-config-file", HOMEBREW_REPOSITORY/".github/actionlint.yaml",
         "-ignore", "image: string; options: string",
@@ -97,7 +95,7 @@ RSpec.describe Homebrew::Style do
         workflow
       )
 
-      klass.run_actionlint!([workflow])
+      described_class.run_actionlint!([workflow])
     end
 
     it "falls back to HOMEBREW_REPOSITORY config when files span multiple taps" do
@@ -113,7 +111,7 @@ RSpec.describe Homebrew::Style do
       workflow2 = tap2_path/".github/workflows/ci.yml"
       workflow2.write "name: CI"
 
-      expect(klass).to receive(:system).with(
+      expect(described_class).to receive(:system).with(
         "actionlint", "-shellcheck", "shellcheck",
         "-config-file", HOMEBREW_REPOSITORY/".github/actionlint.yaml",
         "-ignore", "image: string; options: string",
@@ -121,7 +119,7 @@ RSpec.describe Homebrew::Style do
         workflow1, workflow2
       )
 
-      klass.run_actionlint!([workflow1, workflow2])
+      described_class.run_actionlint!([workflow1, workflow2])
     end
   end
 
@@ -135,7 +133,7 @@ RSpec.describe Homebrew::Style do
                                                          executable: "shellcheck")
                                                    .and_return(Pathname.new("/usr/bin/shellcheck"))
 
-      expect(klass.shellcheck).to eq(Pathname.new("/usr/bin/shellcheck"))
+      expect(described_class.shellcheck).to eq(Pathname.new("/usr/bin/shellcheck"))
     end
   end
 
@@ -150,7 +148,7 @@ RSpec.describe Homebrew::Style do
                                                          version_args: ["-version"])
                                                    .and_return(Pathname.new("/usr/bin/actionlint"))
 
-      expect(klass.actionlint).to eq(Pathname.new("/usr/bin/actionlint"))
+      expect(described_class.actionlint).to eq(Pathname.new("/usr/bin/actionlint"))
     end
   end
 
@@ -166,13 +164,13 @@ RSpec.describe Homebrew::Style do
                                                    .and_return(Pathname.new("/usr/bin/shfmt"))
       system("true")
 
-      expect(klass).to receive(:system).with(
+      expect(described_class).to receive(:system).with(
         { "HOMEBREW_SHFMT" => "/usr/bin/shfmt" },
         HOMEBREW_LIBRARY/"Homebrew/utils/shfmt.sh",
         "--language-dialect", "bash", "--indent", "2", "--case-indent", "--", shell_file
       ).and_return(true)
 
-      klass.run_shfmt!([shell_file])
+      described_class.run_shfmt!([shell_file])
     end
   end
 
@@ -190,12 +188,12 @@ RSpec.describe Homebrew::Style do
     it "passes --disable-uncorrectable when --todo is enabled" do
       result = double(status: double(exitstatus: 0), stdout: '{"files":[]}')
 
-      expect(klass).to receive(:system_command) do |_cmd, args:, **|
+      expect(described_class).to receive(:system_command) do |_cmd, args:, **|
         expect(args).to include("--disable-uncorrectable")
         result
       end
 
-      klass.run_rubocop([ruby_file], :json, fix: true, todo: true)
+      described_class.run_rubocop([ruby_file], :json, fix: true, todo: true)
     end
   end
 end

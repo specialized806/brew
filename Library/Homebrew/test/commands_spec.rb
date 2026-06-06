@@ -39,12 +39,10 @@ RSpec.shared_context "custom internal commands" do # rubocop:disable RSpec/Conte
 end
 
 RSpec.describe Commands do
-  let(:klass) { Commands }
-
   include_context "custom internal commands"
 
   specify "::internal_commands" do
-    cmds = klass.internal_commands
+    cmds = described_class.internal_commands
     expect(cmds).to include("rbcmd"), "Ruby commands files should be recognized"
     expect(cmds).to include("shcmd"), "Shell commands files should be recognized"
     expect(cmds).not_to include("rbdevcmd"), "Dev commands shouldn't be included"
@@ -56,11 +54,11 @@ RSpec.describe Commands do
     allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).with(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
                                                            .and_return(hidden_parser)
 
-    expect(klass.internal_commands).not_to include("rbcmd")
+    expect(described_class.internal_commands).not_to include("rbcmd")
   end
 
   specify "::internal_developer_commands" do
-    cmds = klass.internal_developer_commands
+    cmds = described_class.internal_developer_commands
     expect(cmds).to include("rbdevcmd"), "Ruby commands files should be recognized"
     expect(cmds).to include("shdevcmd"), "Shell commands files should be recognized"
     expect(cmds).not_to include("rbcmd"), "Non-dev commands shouldn't be included"
@@ -76,9 +74,9 @@ RSpec.describe Commands do
 
       FileUtils.touch "#{dir}/brew-t4"
 
-      allow(klass).to receive(:tap_cmd_directories).and_return([dir])
+      allow(described_class).to receive(:tap_cmd_directories).and_return([dir])
 
-      cmds = klass.external_commands
+      cmds = described_class.external_commands
 
       expect(cmds).to include("t0"), "Executable v2 Ruby files should be included"
       expect(cmds).to include("t1"), "Executable files should be included"
@@ -94,10 +92,10 @@ RSpec.describe Commands do
         stub_const("HOMEBREW_REPOSITORY", repository)
         (repository/"completions").mkpath
 
-        klass.rebuild_internal_commands_completion_list
+        described_class.rebuild_internal_commands_completion_list
 
         commands = (repository/"completions/internal_commands_list.txt").read.lines(chomp: true)
-        expect(commands & klass.internal_commands_aliases).to be_empty
+        expect(commands & described_class.internal_commands_aliases).to be_empty
       end
     end
 
@@ -110,7 +108,7 @@ RSpec.describe Commands do
         allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).with(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
                                                                .and_return(hidden_parser)
 
-        klass.rebuild_internal_commands_completion_list
+        described_class.rebuild_internal_commands_completion_list
 
         commands = (repository/"completions/internal_commands_list.txt").read.lines(chomp: true)
         expect(commands).not_to include("rbcmd")
@@ -122,25 +120,25 @@ RSpec.describe Commands do
     it "omits internal command aliases from the cached command list" do
       mktmpdir do |cache|
         stub_const("HOMEBREW_CACHE", cache)
-        allow(klass).to receive(:external_commands).and_return(["external"])
+        allow(described_class).to receive(:external_commands).and_return(["external"])
 
-        klass.rebuild_commands_completion_list
+        described_class.rebuild_commands_completion_list
 
         commands = (cache/"all_commands_list.txt").read.lines(chomp: true)
-        expect(commands & klass.internal_commands_aliases).to be_empty
+        expect(commands & described_class.internal_commands_aliases).to be_empty
       end
     end
 
     it "omits commands hidden from the manpage from the cached command list" do
       mktmpdir do |cache|
         stub_const("HOMEBREW_CACHE", cache)
-        allow(klass).to receive(:external_commands).and_return(["external"])
+        allow(described_class).to receive(:external_commands).and_return(["external"])
         hidden_parser = instance_double(Homebrew::CLI::Parser, hide_from_man_page: true)
         allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).and_call_original
         allow(Homebrew::CLI::Parser).to receive(:from_cmd_path).with(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
                                                                .and_return(hidden_parser)
 
-        klass.rebuild_commands_completion_list
+        described_class.rebuild_commands_completion_list
 
         commands = (cache/"all_commands_list.txt").read.lines(chomp: true)
         expect(commands).not_to include("rbcmd")
@@ -150,14 +148,14 @@ RSpec.describe Commands do
 
   describe "::path" do
     specify "returns the path for an internal command" do
-      expect(klass.path("rbcmd")).to eq(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
-      expect(klass.path("shcmd")).to eq(Commands::HOMEBREW_CMD_PATH/"shcmd.sh")
-      expect(klass.path("idontexist1234")).to be_nil
+      expect(described_class.path("rbcmd")).to eq(Commands::HOMEBREW_CMD_PATH/"rbcmd.rb")
+      expect(described_class.path("shcmd")).to eq(Commands::HOMEBREW_CMD_PATH/"shcmd.sh")
+      expect(described_class.path("idontexist1234")).to be_nil
     end
 
     specify "returns the path for an internal developer-command" do
-      expect(klass.path("rbdevcmd")).to eq(Commands::HOMEBREW_DEV_CMD_PATH/"rbdevcmd.rb")
-      expect(klass.path("shdevcmd")).to eq(Commands::HOMEBREW_DEV_CMD_PATH/"shdevcmd.sh")
+      expect(described_class.path("rbdevcmd")).to eq(Commands::HOMEBREW_DEV_CMD_PATH/"rbdevcmd.rb")
+      expect(described_class.path("shdevcmd")).to eq(Commands::HOMEBREW_DEV_CMD_PATH/"shdevcmd.sh")
     end
   end
 end

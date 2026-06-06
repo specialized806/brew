@@ -2,13 +2,11 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Config, :cask do
-  subject(:config) { klass.new }
-
-  let(:klass) { Cask::Config }
+  subject(:config) { described_class.new }
 
   describe "::from_json" do
     it "deserializes a configuration in JSON format" do
-      config = klass.from_json <<~EOS
+      config = described_class.from_json <<~EOS
         {
           "default": {
             "appdir": "/path/to/apps"
@@ -39,7 +37,7 @@ RSpec.describe Cask::Config, :cask do
     end
 
     specify "specific overwrites default" do
-      config = klass.new(explicit: { appdir: "/explicit/path/to/apps" })
+      config = described_class.new(explicit: { appdir: "/explicit/path/to/apps" })
 
       expect(config.appdir).to eq(Pathname("/explicit/path/to/apps"))
     end
@@ -47,7 +45,7 @@ RSpec.describe Cask::Config, :cask do
     specify "explicit overwrites environment" do
       ENV["HOMEBREW_CASK_OPTS"] = "--appdir=/path/to/apps"
 
-      config = klass.new(explicit: { appdir: "/explicit/path/to/apps" })
+      config = described_class.new(explicit: { appdir: "/explicit/path/to/apps" })
 
       expect(config.appdir).to eq(Pathname("/explicit/path/to/apps"))
     end
@@ -63,8 +61,8 @@ RSpec.describe Cask::Config, :cask do
 
   describe "#explicit" do
     let(:config) do
-      klass.new(explicit: { appdir:    "/explicit/path/to/apps",
-                            languages: ["zh-TW", "en"] })
+      described_class.new(explicit: { appdir:    "/explicit/path/to/apps",
+                                      languages: ["zh-TW", "en"] })
     end
 
     it "returns directories explicitly given as arguments" do
@@ -87,7 +85,7 @@ RSpec.describe Cask::Config, :cask do
           "explicit": {}
         }
       EOS
-      klass.from_json(json)
+      described_class.from_json(json)
     end
 
     describe "#appdir" do

@@ -4,9 +4,8 @@
 require "descriptions"
 
 RSpec.describe Descriptions do
-  subject(:descriptions) { klass.new(descriptions_hash) }
+  subject(:descriptions) { described_class.new(descriptions_hash) }
 
-  let(:klass) { Descriptions }
   let(:descriptions_hash) { {} }
 
   it "can print description for a core Formula" do
@@ -79,7 +78,7 @@ RSpec.describe Descriptions do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     descriptions_hash["homebrew/core/foo"] = "Core foo"
 
-    descriptions = klass.new(
+    descriptions = described_class.new(
       descriptions_hash,
       status_data: { "homebrew/core/foo" => { deprecated: true, disabled: false } },
     )

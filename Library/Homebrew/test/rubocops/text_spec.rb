@@ -4,9 +4,7 @@
 require "rubocops/text"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Text do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::Text }
+  subject(:cop) { described_class.new }
 
   context "when auditing formula text" do
     it 'reports an offense if `require "formula"` is present' do

@@ -5,9 +5,7 @@ require "sandbox"
 require "extend/os/linux/sandbox" if OS.linux?
 
 RSpec.describe Sandbox, :needs_linux do
-  subject(:sandbox) { klass.new }
-
-  let(:klass) { Sandbox }
+  subject(:sandbox) { described_class.new }
 
   around do |example|
     with_env(HOMEBREW_SANDBOX_LINUX: "1") { example.run }
@@ -15,7 +13,7 @@ RSpec.describe Sandbox, :needs_linux do
 
   describe "::bubblewrap_executable" do
     let(:sandbox_class) do
-      Class.new(klass) do
+      Class.new(Sandbox) do
         class << self
           attr_accessor :test_executable_candidate_paths
 
@@ -39,7 +37,8 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "searches Homebrew Bubblewrap before system Bubblewrap and skips setuid candidates" do
-      expect(klass.executable_candidate_paths.to_a).to start_with("#{HOMEBREW_PREFIX}/bin", "/usr/bin", "/bin")
+      expect(described_class.executable_candidate_paths.to_a).to start_with("#{HOMEBREW_PREFIX}/bin", "/usr/bin",
+                                                                            "/bin")
       expect(sandbox_class.bubblewrap_executable).to eq(usable_bubblewrap)
     end
 
@@ -53,7 +52,7 @@ RSpec.describe Sandbox, :needs_linux do
 
   describe "::available?" do
     let(:sandbox_class) do
-      Class.new(klass) do
+      Class.new(Sandbox) do
         class << self
           attr_accessor :test_executable_candidate_paths
 
@@ -162,7 +161,7 @@ RSpec.describe Sandbox, :needs_linux do
   end
 
   describe "::configuration_commands" do
-    let(:sandbox_class) { Class.new(klass) }
+    let(:sandbox_class) { Class.new(described_class) }
 
     around do |example|
       with_env(GITHUB_ACTIONS: nil, HOMEBREW_GITHUB_HOSTED_RUNNER: nil) { example.run }
@@ -221,7 +220,7 @@ RSpec.describe Sandbox, :needs_linux do
   end
 
   describe "::ensure_sandbox_installed!" do
-    let(:sandbox_class) { Class.new(klass) }
+    let(:sandbox_class) { Class.new(described_class) }
 
     around do |example|
       with_env(GITHUB_ACTIONS: nil, HOMEBREW_GITHUB_HOSTED_RUNNER: nil,
@@ -400,7 +399,7 @@ RSpec.describe Sandbox, :needs_linux do
 
   describe "#run" do
     before do
-      skip "Sandbox not implemented." if !ENV["CI"] && !klass.available?
+      skip "Sandbox not implemented." if !ENV["CI"] && !described_class.available?
     end
 
     it "allows writing to an allowed path" do

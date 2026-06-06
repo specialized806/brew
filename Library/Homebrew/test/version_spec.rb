@@ -6,14 +6,14 @@ require "version"
 RSpec.describe Version do
   subject(:version) { klass.new("1.2.3") }
 
-  let(:klass) { Version }
+  let(:klass) { described_class }
 
   specify ".formula_optionally_versioned_regex" do
     expect(klass.formula_optionally_versioned_regex("foo")).to match("foo@1.2")
   end
 
   describe Version::Token do
-    let(:klass) { Version::Token }
+    let(:klass) { described_class }
 
     specify do
       expect(klass.create("foo").inspect).to eq('#<Version::StringToken "foo">')

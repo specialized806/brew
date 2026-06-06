@@ -4,10 +4,8 @@
 require "sbom"
 
 RSpec.describe SBOM do
-  let(:klass) { SBOM }
-
   describe "#schema_validation_errors" do
-    subject(:sbom) { klass.create(f, tab) }
+    subject(:sbom) { described_class.create(f, tab) }
 
     before { ENV.delete("HOMEBREW_ENFORCE_SBOM") }
 

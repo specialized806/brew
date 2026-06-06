@@ -4,8 +4,6 @@
 require "cask/list"
 
 RSpec.describe Cask::List, :cask do
-  let(:klass) { Cask::List }
-
   it "lists the installed Casks in a pretty fashion" do
     casks = %w[local-caffeine local-transmission].map { |c| Cask::CaskLoader.load(c) }
 
@@ -14,7 +12,7 @@ RSpec.describe Cask::List, :cask do
     end
 
     expect do
-      klass.list_casks
+      described_class.list_casks
     end.to output(<<~EOS).to_stdout
       local-caffeine
       local-transmission
@@ -33,7 +31,7 @@ RSpec.describe Cask::List, :cask do
     end
 
     expect do
-      klass.list_casks(one: true)
+      described_class.list_casks(one: true)
     end.to output(<<~EOS).to_stdout
       local-caffeine
       local-transmission
@@ -53,7 +51,7 @@ RSpec.describe Cask::List, :cask do
     end
 
     expect do
-      klass.list_casks(full_name: true)
+      described_class.list_casks(full_name: true)
     end.to output(<<~EOS).to_stdout
       local-caffeine
       local-transmission
@@ -83,13 +81,13 @@ RSpec.describe Cask::List, :cask do
 
     it "of all installed Casks" do
       expect do
-        klass.list_casks(versions: true)
+        described_class.list_casks(versions: true)
       end.to output(expected_output).to_stdout
     end
 
     it "of given Casks" do
       expect do
-        klass.list_casks(*casks, versions: true)
+        described_class.list_casks(*casks, versions: true)
       end.to output(expected_output).to_stdout
     end
   end
@@ -107,7 +105,7 @@ RSpec.describe Cask::List, :cask do
       end
 
       expect do
-        klass.list_casks(transmission, caffeine)
+        described_class.list_casks(transmission, caffeine)
       end.to output(<<~EOS).to_stdout
         ==> App
         #{transmission.config.appdir.join("Transmission.app")} (#{transmission.config.appdir.join("Transmission.app").abv})

@@ -7,15 +7,13 @@ require "cmd/uses"
 require "fileutils"
 
 RSpec.describe Homebrew::Cmd::Uses do
-  let(:klass) { Homebrew::Cmd::Uses }
-
   include FileUtils
 
   it_behaves_like "parseable arguments"
 
   it "uses tap trust environment to evaluate all formulae" do
     used_formula = instance_double(Formula, full_name: "foo")
-    cmd = klass.new(["--formula", "foo"])
+    cmd = described_class.new(["--formula", "foo"])
 
     allow(cmd.args.named).to receive(:to_formulae).and_return([used_formula])
     expect(Formula).to receive(:all).with(eval_all: true).and_return([])
@@ -66,7 +64,7 @@ RSpec.describe Homebrew::Cmd::Uses do
     expect_any_instance_of(Homebrew::CLI::NamedArgs)
       .to receive(:to_formulae)
       .and_raise(FormulaUnavailableError, "foo")
-    cmd = klass.new(%w[foo --include-optional --recursive])
+    cmd = described_class.new(%w[foo --include-optional --recursive])
     allow(cmd).to receive(:intersection_of_dependents)
       .and_return([
         instance_double(Formula, full_name: "bar"),

@@ -5,14 +5,12 @@ require "formula_installer"
 require "test/support/fixtures/testball"
 
 RSpec.describe FormulaInstaller do
-  subject(:keg) { klass.new(keg_path) }
-
-  let(:klass) { FormulaInstaller }
+  subject(:keg) { described_class.new(keg_path) }
 
   include FileUtils
 
   describe "#fresh_install" do
-    subject(:formula_installer) { klass.new(Testball.new) }
+    subject(:formula_installer) { described_class.new(Testball.new) }
 
     it "is true by default" do
       formula = Testball.new

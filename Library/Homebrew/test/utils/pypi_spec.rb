@@ -5,7 +5,7 @@ require "utils/pypi"
 require "formulary"
 
 RSpec.describe PyPI do
-  let(:klass) { PyPI }
+  let(:klass) { described_class }
 
   let(:pypi_package_url) do
     "https://files.pythonhosted.org/packages/b0/3f/2e1dad67eb172b6443b5eb37eb885a054a55cfd733393071499514140282/" \
@@ -20,7 +20,7 @@ RSpec.describe PyPI do
   end
 
   describe PyPI::Package do
-    let(:klass) { PyPI::Package }
+    let(:klass) { described_class }
 
     let(:package_checksum) { "47417307d08ecb0707b3b29effc933bd63d8c8e3ab15509c62b685b7614c6568" }
     let(:old_package_checksum) { "2367ce91baf7f8fa7738d33aff9670ffdf5410bbac49aeb209f73b45a3425046" }

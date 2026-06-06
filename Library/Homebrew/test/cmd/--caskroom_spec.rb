@@ -5,8 +5,6 @@ require "cmd/--caskroom"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Caskroom do
-  let(:klass) { Homebrew::Cmd::Caskroom }
-
   it_behaves_like "parseable arguments"
 
   it "prints Homebrew's Caskroom", :integration_test do
@@ -17,7 +15,7 @@ RSpec.describe Homebrew::Cmd::Caskroom do
   end
 
   it "prints the Caskroom for Casks" do
-    cmd = klass.new(%w[local-transmission local-caffeine])
+    cmd = described_class.new(%w[local-transmission local-caffeine])
     allow(cmd.args.named).to receive(:to_casks).and_return([
       instance_double(Cask::Cask, token: "local-transmission"),
       instance_double(Cask::Cask, token: "local-caffeine"),

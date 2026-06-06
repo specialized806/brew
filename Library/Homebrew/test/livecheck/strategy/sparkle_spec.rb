@@ -5,9 +5,8 @@ require "livecheck/strategy"
 require "bundle_version"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Sparkle do
-  subject(:sparkle) { klass }
+  subject(:sparkle) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Sparkle }
   let(:appcast_url) { "https://www.example.com/example/appcast.xml" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:title_regex) { /Version\s+v?(\d+(?:\.\d+)+)\s*$/i }

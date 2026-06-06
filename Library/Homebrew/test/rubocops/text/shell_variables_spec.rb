@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::ShellVariables do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::ShellVariables }
+  subject(:cop) { described_class.new }
 
   context "when auditing shell variables" do
     it "reports and corrects unexpanded shell variables in `Utils.popen`" do

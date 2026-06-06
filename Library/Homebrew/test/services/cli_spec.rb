@@ -6,9 +6,8 @@ require "services/system"
 require "services/formula_wrapper"
 
 RSpec.describe Homebrew::Services::Cli do
-  subject(:services_cli) { klass }
+  subject(:services_cli) { described_class }
 
-  let(:klass) { Homebrew::Services::Cli }
   let(:service_string) { "service" }
 
   describe "#bin" do
@@ -571,7 +570,7 @@ RSpec.describe Homebrew::Services::Cli do
       expect(Homebrew::Services::System).to receive(:launchctl?).once.and_return(true)
       expect(Homebrew::Services::System).not_to receive(:systemctl?)
       expect(Homebrew::Services::System).to receive(:root?).twice.and_return(false)
-      expect(klass).to receive(:launchctl_load).once.and_return(true)
+      expect(described_class).to receive(:launchctl_load).once.and_return(true)
       expect do
         services_cli.service_load(
           instance_double(
@@ -597,7 +596,7 @@ RSpec.describe Homebrew::Services::Cli do
         mktmpdir/"var/run",
         mktmpdir/"var/log",
       ]
-      expect(klass).to receive(:launchctl_load).once do
+      expect(described_class).to receive(:launchctl_load).once do
         path_dirs.each { expect(it).to be_a_directory }
       end
 

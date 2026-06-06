@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::MacOSOnLinux do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::MacOSOnLinux }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when `MacOS` is used in the `Formula` class" do
     expect_offense(<<~RUBY, "/homebrew-core/Formula/foo.rb")

@@ -4,7 +4,7 @@
 require "utils/cpan"
 
 RSpec.describe CPAN do
-  let(:klass) { CPAN }
+  let(:klass) { described_class }
 
   let(:cpan_package_url) do
     "https://cpan.metacpan.org/authors/id/P/PE/PEVANS/Scalar-List-Utils-1.68.tar.gz"
@@ -17,7 +17,7 @@ RSpec.describe CPAN do
   end
 
   describe CPAN::Package do
-    let(:klass) { CPAN::Package }
+    let(:klass) { described_class }
 
     let(:package_from_cpan_url) { klass.new("Scalar::Util", cpan_package_url) }
     let(:package_from_tgz_url) { klass.new("Example::Module", cpan_tgz_url) }

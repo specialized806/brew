@@ -4,9 +4,7 @@
 require "rubocops/version"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Version do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::Version }
+  subject(:cop) { described_class.new }
 
   context "when auditing version" do
     it "reports an offense if `version` is an empty string" do

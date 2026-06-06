@@ -5,8 +5,6 @@ require "os/linux/ld"
 require "tmpdir"
 
 RSpec.describe OS::Linux::Ld do
-  let(:klass) { OS::Linux::Ld }
-
   let(:diagnostics) do
     <<~EOS
       path.prefix="/usr"
@@ -21,44 +19,44 @@ RSpec.describe OS::Linux::Ld do
 
     before do
       allow(File).to receive(:executable?).and_return(false)
-      klass.instance_variable_set(:@system_ld_so, nil)
+      described_class.instance_variable_set(:@system_ld_so, nil)
     end
 
     it "returns the path to a known dynamic linker" do
       allow(File).to receive(:executable?).with(ld_so).and_return(true)
-      expect(klass.system_ld_so).to eq(Pathname(ld_so))
+      expect(described_class.system_ld_so).to eq(Pathname(ld_so))
     end
 
     it "returns nil when there is no known dynamic linker" do
-      expect(klass.system_ld_so).to be_nil
+      expect(described_class.system_ld_so).to be_nil
     end
   end
 
   describe "::sysconfdir" do
     it "returns path.sysconfdir" do
-      allow(klass).to receive(:ld_so_diagnostics).and_return(diagnostics)
-      expect(klass.sysconfdir).to eq("/usr/local/etc")
-      expect(klass.sysconfdir(brewed: false)).to eq("/usr/local/etc")
+      allow(described_class).to receive(:ld_so_diagnostics).and_return(diagnostics)
+      expect(described_class.sysconfdir).to eq("/usr/local/etc")
+      expect(described_class.sysconfdir(brewed: false)).to eq("/usr/local/etc")
     end
 
     it "returns fallback on blank diagnostics" do
-      allow(klass).to receive(:ld_so_diagnostics).and_return("")
-      expect(klass.sysconfdir).to eq("/etc")
-      expect(klass.sysconfdir(brewed: false)).to eq("/etc")
+      allow(described_class).to receive(:ld_so_diagnostics).and_return("")
+      expect(described_class.sysconfdir).to eq("/etc")
+      expect(described_class.sysconfdir(brewed: false)).to eq("/etc")
     end
   end
 
   describe "::system_dirs" do
     it "returns all path.system_dirs" do
-      allow(klass).to receive(:ld_so_diagnostics).and_return(diagnostics)
-      expect(klass.system_dirs).to eq(["/lib64", "/var/lib"])
-      expect(klass.system_dirs(brewed: false)).to eq(["/lib64", "/var/lib"])
+      allow(described_class).to receive(:ld_so_diagnostics).and_return(diagnostics)
+      expect(described_class.system_dirs).to eq(["/lib64", "/var/lib"])
+      expect(described_class.system_dirs(brewed: false)).to eq(["/lib64", "/var/lib"])
     end
 
     it "returns an empty array on blank diagnostics" do
-      allow(klass).to receive(:ld_so_diagnostics).and_return("")
-      expect(klass.system_dirs).to eq([])
-      expect(klass.system_dirs(brewed: false)).to eq([])
+      allow(described_class).to receive(:ld_so_diagnostics).and_return("")
+      expect(described_class.system_dirs).to eq([])
+      expect(described_class.system_dirs(brewed: false)).to eq([])
     end
   end
 
@@ -99,7 +97,7 @@ RSpec.describe OS::Linux::Ld do
     end
 
     it "parses library paths successfully" do
-      expect(klass.library_paths(ld_etc/"ld.so.conf")).to eq(%w[/foo/bar /baz/qux /g/h/i /a/b/c /d/e/f])
+      expect(described_class.library_paths(ld_etc/"ld.so.conf")).to eq(%w[/foo/bar /baz/qux /g/h/i /a/b/c /d/e/f])
     end
   end
 end

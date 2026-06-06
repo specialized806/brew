@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::SafePopenCommands do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::SafePopenCommands }
+  subject(:cop) { described_class.new }
 
   context "when auditing popen commands" do
     it "reports and corrects `Utils.popen_read` usage" do

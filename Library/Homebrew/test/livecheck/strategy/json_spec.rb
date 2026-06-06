@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Json do
-  subject(:json) { klass }
+  subject(:json) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Json }
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }

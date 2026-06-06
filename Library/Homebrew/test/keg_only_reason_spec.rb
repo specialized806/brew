@@ -4,17 +4,14 @@
 require "keg_only_reason"
 
 RSpec.describe KegOnlyReason do
-  sig { returns(T.class_of(KegOnlyReason)) }
-  let(:klass) { KegOnlyReason }
-
   describe "#to_s" do
     it "returns the reason provided" do
-      r = klass.new :provided_by_macos, "test"
+      r = described_class.new :provided_by_macos, "test"
       expect(r.to_s).to eq("test")
     end
 
     it "returns a default message when no reason is provided" do
-      r = klass.new :provided_by_macos, ""
+      r = described_class.new :provided_by_macos, ""
       expect(r.to_s).to match(/^macOS already provides/)
     end
   end

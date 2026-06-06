@@ -5,12 +5,10 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/release"
 
 RSpec.describe Homebrew::DevCmd::Release do
-  let(:klass) { Homebrew::DevCmd::Release }
-
   it_behaves_like "parseable arguments"
 
   describe "release lookup helpers" do
-    let(:command) { klass.new([]) }
+    let(:command) { described_class.new([]) }
     let(:releases) do
       [
         {

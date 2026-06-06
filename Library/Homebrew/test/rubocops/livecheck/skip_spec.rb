@@ -4,9 +4,7 @@
 require "rubocops/livecheck"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LivecheckSkip do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::LivecheckSkip }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when a skipped formula's `livecheck` block contains other information" do
     expect_offense(<<~RUBY)

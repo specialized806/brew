@@ -17,7 +17,7 @@ RSpec.describe Homebrew::Cmd::Trust do
   end
 
   it "trusts a command with the plural switch alias" do
-    expect { Homebrew::Cmd::Trust.new(["--commands", "thirdparty/foo/hello"]).run }
+    expect { described_class.new(["--commands", "thirdparty/foo/hello"]).run }
       .to output("Trusted command: thirdparty/foo/hello\n").to_stdout
 
     expect(Homebrew::Trust.trusted?(:command, "thirdparty/foo/hello")).to be(true)
@@ -31,7 +31,7 @@ RSpec.describe Homebrew::Cmd::Trust do
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return([])
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:command).and_return([])
 
-    expect { Homebrew::Cmd::Trust.new([]).run }
+    expect { described_class.new([]).run }
       .to output(<<~EOS).to_stdout
         All official taps and commands are trusted.
         Trusted taps:

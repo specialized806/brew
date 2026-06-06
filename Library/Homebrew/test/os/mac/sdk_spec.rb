@@ -2,9 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe OS::Mac::CLTSDKLocator do
-  subject(:locator) { klass.new }
+  subject(:locator) { described_class.new }
 
-  let(:klass) { OS::Mac::CLTSDKLocator }
   let(:big_sur_sdk) { OS::Mac::SDK.new(MacOSVersion.new("11"), "/some/path/MacOSX.sdk", :clt) }
   let(:catalina_sdk) { OS::Mac::SDK.new(MacOSVersion.new("10.15"), "/some/path/MacOSX10.15.sdk", :clt) }
 

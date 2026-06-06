@@ -4,11 +4,9 @@
 require "tap_auditor"
 
 RSpec.describe Homebrew::TapAuditor do
-  let(:klass) { Homebrew::TapAuditor }
-
   let(:tap) { Tap.fetch("homebrew", "foo") }
   let(:tap_path) { tap.path }
-  let(:auditor) { klass.new(tap, strict: false) }
+  let(:auditor) { described_class.new(tap, strict: false) }
 
   def write_cask(token, path = tap_path/"Casks"/"#{token}.rb")
     path.dirname.mkpath

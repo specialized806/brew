@@ -4,15 +4,13 @@
 require "github_packages"
 
 RSpec.describe GitHubPackages do
-  let(:klass) { GitHubPackages }
-
   describe "#upload_bottle" do
     it "omits platform metadata from image index descriptors for all bottles" do
       mktmpdir.cd do
         bottle = Pathname("testball--1.0.all.bottle.tar.gz")
         Zlib::GzipWriter.open(bottle) { |gz| gz.write("test") }
 
-        github_packages = Class.new(klass) do
+        github_packages = Class.new(GitHubPackages) do
           private
 
           def validate_schema!(_schema_uri, _json); end

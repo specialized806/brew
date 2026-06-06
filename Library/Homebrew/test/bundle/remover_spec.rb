@@ -5,9 +5,8 @@ require "bundle"
 require "bundle/remover"
 
 RSpec.describe Homebrew::Bundle::Remover do
-  subject(:remover) { klass }
+  subject(:remover) { described_class }
 
-  let(:klass) { Homebrew::Bundle::Remover }
   let(:name) { "foo" }
 
   before { allow(Formulary).to receive(:factory).with(name).and_raise(FormulaUnavailableError.new(name)) }

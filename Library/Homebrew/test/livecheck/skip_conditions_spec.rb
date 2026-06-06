@@ -5,9 +5,8 @@ require "livecheck/livecheck"
 require "livecheck/skip_conditions"
 
 RSpec.describe Homebrew::Livecheck::SkipConditions do
-  subject(:skip_conditions) { klass }
+  subject(:skip_conditions) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::SkipConditions }
   let(:formulae) do
     {
       basic:               formula("test") do

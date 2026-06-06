@@ -4,9 +4,7 @@
 require "rubocops/bottle"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::BottleFormat do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::BottleFormat }
+  subject(:cop) { described_class.new }
 
   it "reports no offenses for `bottle :unneeded`" do
     expect_no_offenses(<<~RUBY)

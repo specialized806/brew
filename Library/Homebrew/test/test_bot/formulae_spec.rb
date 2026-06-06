@@ -4,9 +4,6 @@
 require "test_bot"
 
 RSpec.describe Homebrew::TestBot::Formulae do
-  sig { returns(T.class_of(Homebrew::TestBot::Formulae)) }
-  let(:klass) { Homebrew::TestBot::Formulae }
-
   describe "#dependency_name_match?" do
     it "requires exact matches when either name is tap-qualified", :aggregate_failures do
       Dir.mktmpdir do |tmpdir|
@@ -15,7 +12,7 @@ RSpec.describe Homebrew::TestBot::Formulae do
           linkage:                    Pathname.new("#{tmpdir}/linkage.txt"),
           skipped_or_failed_formulae: Pathname.new("#{tmpdir}/skipped.txt"),
         }
-        formulae = klass.new(
+        formulae = described_class.new(
           tap: nil, git: "git", dry_run: true, fail_fast: false, verbose: false,
           output_paths:
         )
@@ -69,7 +66,7 @@ RSpec.describe Homebrew::TestBot::Formulae do
           linkage:                    Pathname.new("#{tmpdir}/linkage.txt"),
           skipped_or_failed_formulae: Pathname.new("#{tmpdir}/skipped.txt"),
         }
-        formulae = klass.new(
+        formulae = described_class.new(
           tap: nil, git: "git", dry_run: true, fail_fast: false, verbose: false,
           output_paths:
         )
@@ -96,7 +93,7 @@ RSpec.describe Homebrew::TestBot::Formulae do
           linkage:                    Pathname.new("#{tmpdir}/linkage.txt"),
           skipped_or_failed_formulae: Pathname.new("#{tmpdir}/skipped.txt"),
         }
-        formulae = klass.new(
+        formulae = described_class.new(
           tap: nil, git: "git", dry_run: true, fail_fast: false, verbose: false,
           output_paths:
         )
@@ -117,7 +114,7 @@ RSpec.describe Homebrew::TestBot::Formulae do
           linkage:                    Pathname.new("#{tmpdir}/linkage.txt"),
           skipped_or_failed_formulae: Pathname.new("#{tmpdir}/skipped.txt"),
         }
-        formulae = klass.new(
+        formulae = described_class.new(
           tap: CoreTap.instance, git: "git", dry_run: true, fail_fast: false, verbose: false,
           output_paths:
         )
@@ -153,7 +150,7 @@ RSpec.describe Homebrew::TestBot::Formulae do
           config_file.dirname.mkpath
           config_file.write "old\n"
 
-          klass.new(
+          described_class.new(
             tap: nil, git: "git", dry_run: true, fail_fast: false, verbose: false,
             output_paths: {
               bottle:                     Pathname.new("#{tmpdir}/bottle.txt"),

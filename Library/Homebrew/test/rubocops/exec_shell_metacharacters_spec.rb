@@ -4,9 +4,7 @@
 require "rubocops/shell_commands"
 
 RSpec.describe RuboCop::Cop::Homebrew::ExecShellMetacharacters do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::Homebrew::ExecShellMetacharacters }
+  subject(:cop) { described_class.new }
 
   context "when auditing exec calls" do
     it "reports aan offense when output piping is used" do

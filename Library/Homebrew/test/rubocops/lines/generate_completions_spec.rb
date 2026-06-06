@@ -4,12 +4,12 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit do
-  let(:klass) { RuboCop::Cop::FormulaAudit }
+  let(:klass) { described_class }
 
   describe RuboCop::Cop::FormulaAudit::GenerateCompletionsDSL do
     subject(:cop) { klass.new }
 
-    let(:klass) { RuboCop::Cop::FormulaAudit::GenerateCompletionsDSL }
+    let(:klass) { described_class }
 
     it "reports an offense when writing to a shell completions file directly" do
       expect_offense(<<~RUBY, "/homebrew-core/Formula/foo.rb")
@@ -121,7 +121,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit do
   describe RuboCop::Cop::FormulaAudit::SingleGenerateCompletionsDSLCall do
     subject(:cop) { klass.new }
 
-    let(:klass) { RuboCop::Cop::FormulaAudit::SingleGenerateCompletionsDSLCall }
+    let(:klass) { described_class }
 
     it "reports an offense when using multiple #generate_completions_from_executable calls for different shells" do
       expect_offense(<<~RUBY)

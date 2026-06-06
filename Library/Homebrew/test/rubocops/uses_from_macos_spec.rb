@@ -4,9 +4,7 @@
 require "rubocops/uses_from_macos"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::UsesFromMacos do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::UsesFromMacos }
+  subject(:cop) { described_class.new }
 
   context "when auditing `uses_from_macos` dependencies" do
     it "reports an offense when used on non-macOS dependency" do

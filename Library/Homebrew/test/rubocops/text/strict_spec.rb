@@ -4,9 +4,7 @@
 require "rubocops/text"
 
 RSpec.describe RuboCop::Cop::FormulaAuditStrict::Text do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAuditStrict::Text }
+  subject(:cop) { described_class.new }
 
   context "when auditing formula text in homebrew/core" do
     it "reports an offense if `env :userpaths` is present" do

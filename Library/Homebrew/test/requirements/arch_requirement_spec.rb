@@ -4,9 +4,7 @@
 require "requirements/arch_requirement"
 
 RSpec.describe ArchRequirement do
-  subject(:requirement) { klass.new([Hardware::CPU.type]) }
-
-  let(:klass) { ArchRequirement }
+  subject(:requirement) { described_class.new([Hardware::CPU.type]) }
 
   describe "#satisfied?" do
     it "supports architecture symbols" do

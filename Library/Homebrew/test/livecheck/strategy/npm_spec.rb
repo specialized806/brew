@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Npm do
-  subject(:npm) { klass }
+  subject(:npm) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Npm }
   let(:npm_urls) do
     {
       typical:    "https://registry.npmjs.org/abc/-/def-1.2.3.tgz",

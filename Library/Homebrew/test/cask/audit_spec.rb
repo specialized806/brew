@@ -4,7 +4,6 @@
 require "cask/audit"
 
 RSpec.describe Cask::Audit, :cask do
-  let(:klass) { Cask::Audit }
   let(:cask) { instance_double(Cask::Cask) }
   let(:new_cask) { nil }
   let(:online) { nil }
@@ -13,12 +12,12 @@ RSpec.describe Cask::Audit, :cask do
   let(:strict) { nil }
   let(:signing) { nil }
   let(:audit) do
-    klass.new(cask, online:,
-                    strict:,
-                    new_cask:,
-                    signing:,
-                    only:,
-                    except:)
+    described_class.new(cask, online:,
+                              strict:,
+                              new_cask:,
+                              signing:,
+                              only:,
+                              except:)
   end
 
   def include_msg?(problems, msg)

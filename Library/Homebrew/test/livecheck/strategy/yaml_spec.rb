@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Yaml do
-  subject(:yaml) { klass }
+  subject(:yaml) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Yaml }
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }

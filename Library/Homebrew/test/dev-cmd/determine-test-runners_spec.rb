@@ -52,7 +52,7 @@ RSpec.describe Homebrew::DevCmd::DetermineTestRunners do
 
   it "requires eval-all mode when determining dependents" do
     with_env(HOMEBREW_EVAL_ALL: nil, HOMEBREW_REQUIRE_TAP_TRUST: nil, HOMEBREW_NO_REQUIRE_TAP_TRUST: nil) do
-      expect { Homebrew::DevCmd::DetermineTestRunners.new(["--dependents", "testball"]).run }
+      expect { described_class.new(["--dependents", "testball"]).run }
         .to raise_error(UsageError, /`brew determine-test-runners --dependents` needs/)
     end
   end

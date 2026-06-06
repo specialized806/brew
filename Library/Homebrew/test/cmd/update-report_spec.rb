@@ -8,14 +8,14 @@ require "cmd/shared_examples/args_parse"
 require "cmd/shared_examples/reinstall_pkgconf_if_needed"
 
 RSpec.describe Homebrew::Cmd::UpdateReport do
-  let(:klass) { Homebrew::Cmd::UpdateReport }
+  let(:klass) { described_class }
 
   it_behaves_like "parseable arguments"
 
   it_behaves_like "reinstall_pkgconf_if_needed"
 
   describe Reporter do
-    let(:klass) { Reporter }
+    let(:klass) { described_class }
 
     let(:tap) { CoreTap.instance }
     let(:reporter_class) do
@@ -199,7 +199,7 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
   end
 
   describe ReporterHub do
-    let(:klass) { ReporterHub }
+    let(:klass) { described_class }
 
     let(:hub) { klass.new }
 

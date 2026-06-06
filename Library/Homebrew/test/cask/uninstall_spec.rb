@@ -4,8 +4,6 @@
 require "cask/uninstall"
 
 RSpec.describe Cask::Uninstall, :cask do
-  let(:klass) { Cask::Uninstall }
-
   describe ".uninstall_casks" do
     it "displays the uninstallation progress" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
@@ -20,14 +18,14 @@ RSpec.describe Cask::Uninstall, :cask do
       EOS
 
       expect do
-        klass.uninstall_casks(caffeine)
+        described_class.uninstall_casks(caffeine)
       end.to output(output).to_stdout
     end
 
     it "shows an error when a Cask is provided that's not installed" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
-      expect { klass.uninstall_casks(caffeine) }
+      expect { described_class.uninstall_casks(caffeine) }
         .to raise_error(Cask::CaskNotInstalledError, /is not installed/)
     end
 
@@ -35,7 +33,7 @@ RSpec.describe Cask::Uninstall, :cask do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
       expect do
-        klass.uninstall_casks(caffeine, force: true)
+        described_class.uninstall_casks(caffeine, force: true)
       end.not_to raise_error
     end
 
@@ -46,7 +44,7 @@ RSpec.describe Cask::Uninstall, :cask do
 
       expect(Cask::Installer).not_to receive(:new)
       expect do
-        klass.uninstall_casks(caffeine)
+        described_class.uninstall_casks(caffeine)
       end.to output(/local-caffeine is pinned\. You must unpin it to uninstall\./).to_stderr
 
       expect(caffeine).to be_pinned
@@ -63,7 +61,7 @@ RSpec.describe Cask::Uninstall, :cask do
       expect(caffeine).to be_installed
       expect(transmission).to be_installed
 
-      klass.uninstall_casks(caffeine, transmission)
+      described_class.uninstall_casks(caffeine, transmission)
 
       expect(caffeine).not_to be_installed
       expect(caffeine.config.appdir.join("Transmission.app")).not_to exist
@@ -80,13 +78,13 @@ RSpec.describe Cask::Uninstall, :cask do
 
       FileUtils.rm_r(cask.config.appdir.join("MyFancyApp.app"))
 
-      expect { klass.uninstall_casks(cask) }
+      expect { described_class.uninstall_casks(cask) }
         .to raise_error(Cask::CaskError, /uninstall script .* does not exist/)
 
       expect(cask).to be_installed
 
       expect do
-        klass.uninstall_casks(cask, force: true)
+        described_class.uninstall_casks(cask, force: true)
       end.not_to raise_error
 
       expect(cask).not_to be_installed
@@ -109,7 +107,7 @@ RSpec.describe Cask::Uninstall, :cask do
         instance
       end
 
-      expect { klass.uninstall_casks(caffeine, transmission) }
+      expect { described_class.uninstall_casks(caffeine, transmission) }
         .to raise_error(Cask::CaskError, /caffeine uninstall failed/)
 
       expect(caffeine).to be_installed
@@ -143,13 +141,13 @@ RSpec.describe Cask::Uninstall, :cask do
       end
 
       it "uninstalls one version at a time" do
-        klass.uninstall_casks(Cask::Cask.new("versioned-cask"))
+        described_class.uninstall_casks(Cask::Cask.new("versioned-cask"))
 
         expect(caskroom_path.join(first_installed_version)).to exist
         expect(caskroom_path.join(last_installed_version)).not_to exist
         expect(caskroom_path).to exist
 
-        klass.uninstall_casks(Cask::Cask.new("versioned-cask"))
+        described_class.uninstall_casks(Cask::Cask.new("versioned-cask"))
 
         expect(caskroom_path.join(first_installed_version)).not_to exist
         expect(caskroom_path).not_to exist
@@ -184,7 +182,7 @@ RSpec.describe Cask::Uninstall, :cask do
       end
 
       it "can still uninstall them" do
-        klass.uninstall_casks(Cask::Cask.new("ive-been-renamed"))
+        described_class.uninstall_casks(Cask::Cask.new("ive-been-renamed"))
 
         expect(app).not_to exist
         expect(caskroom_path).not_to exist
@@ -207,7 +205,7 @@ RSpec.describe Cask::Uninstall, :cask do
       EOS
 
       expect do
-        klass.check_dependent_casks(local_transmission, named_args: ["local-transmission-zip"])
+        described_class.check_dependent_casks(local_transmission, named_args: ["local-transmission-zip"])
       end.to output(output).to_stderr
     end
 
@@ -230,7 +228,7 @@ RSpec.describe Cask::Uninstall, :cask do
       EOS
 
       expect do
-        klass.check_dependent_casks(local_transmission, named_args: ["local-transmission-zip"])
+        described_class.check_dependent_casks(local_transmission, named_args: ["local-transmission-zip"])
       end.to output(output).to_stderr
     end
 
@@ -256,7 +254,7 @@ RSpec.describe Cask::Uninstall, :cask do
       EOS
 
       expect do
-        klass.check_dependent_casks(local_transmission, local_caffeine, named_args:)
+        described_class.check_dependent_casks(local_transmission, local_caffeine, named_args:)
       end.to output(output).to_stderr
     end
 
@@ -267,7 +265,7 @@ RSpec.describe Cask::Uninstall, :cask do
       allow(Cask::Caskroom).to receive(:casks).and_return([depends_on_cask, local_transmission])
 
       expect do
-        klass.check_dependent_casks(depends_on_cask, named_args: ["with-depends-on-cask"])
+        described_class.check_dependent_casks(depends_on_cask, named_args: ["with-depends-on-cask"])
       end.not_to output.to_stderr
     end
 
@@ -278,7 +276,7 @@ RSpec.describe Cask::Uninstall, :cask do
       allow(Cask::Caskroom).to receive(:casks).and_return([depends_on_cask, local_transmission])
 
       expect do
-        klass.check_dependent_casks(
+        described_class.check_dependent_casks(
           local_transmission,
           depends_on_cask,
           named_args: ["local-transmission-zip", "with-depends-on-cask"],
@@ -298,7 +296,7 @@ RSpec.describe Cask::Uninstall, :cask do
       ])
 
       expect do
-        klass.check_dependent_casks(
+        described_class.check_dependent_casks(
           local_transmission,
           depends_on_cask,
           named_args: ["local-transmission-zip", "with-depends-on-cask"],
@@ -321,7 +319,7 @@ RSpec.describe Cask::Uninstall, :cask do
       EOS
 
       expect do
-        klass.check_dependent_casks(local_transmission, named_args:)
+        described_class.check_dependent_casks(local_transmission, named_args:)
       end.to output(output).to_stderr
     end
   end

@@ -5,9 +5,8 @@ require "build_options"
 require "options"
 
 RSpec.describe BuildOptions do
-  subject(:build_options) { klass.new(args, opts) }
+  subject(:build_options) { described_class.new(args, opts) }
 
-  let(:klass) { BuildOptions }
   let(:args) { Options.create(%w[--with-foo --with-bar --without-qux]) }
   let(:opts) { Options.create(%w[--with-foo --with-bar --without-baz --without-qux]) }
 

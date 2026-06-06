@@ -4,8 +4,6 @@
 require "hardware"
 
 RSpec.describe Hardware::CPU do
-  let(:klass) { Hardware::CPU }
-
   describe "::type" do
     let(:cpu_types) do
       [
@@ -17,7 +15,7 @@ RSpec.describe Hardware::CPU do
     end
 
     it "returns the current CPU's type as a symbol, or :dunno if it cannot be detected" do
-      expect(cpu_types).to include(klass.type)
+      expect(cpu_types).to include(described_class.type)
     end
   end
 
@@ -85,27 +83,27 @@ RSpec.describe Hardware::CPU do
     end
 
     it "returns the current CPU's family name as a symbol, or :dunno if it cannot be detected" do
-      expect(cpu_families).to include klass.family
+      expect(cpu_families).to include described_class.family
     end
 
     context "when hw.cpufamily is 0x573b5eec on a Mac", :needs_macos do
       before do
-        allow(klass)
+        allow(described_class)
           .to receive(:sysctl_int)
           .with("hw.cpufamily")
           .and_return(0x573b5eec)
       end
 
       it "returns :arm_firestorm_icestorm on ARM" do
-        allow(klass).to receive_messages(arm?: true, intel?: false)
+        allow(described_class).to receive_messages(arm?: true, intel?: false)
 
-        expect(klass.family).to eq(:arm_firestorm_icestorm)
+        expect(described_class.family).to eq(:arm_firestorm_icestorm)
       end
 
       it "returns :westmere on Intel" do
-        allow(klass).to receive_messages(arm?: false, intel?: true)
+        allow(described_class).to receive_messages(arm?: false, intel?: true)
 
-        expect(klass.family).to eq(:westmere)
+        expect(described_class.family).to eq(:westmere)
       end
     end
   end

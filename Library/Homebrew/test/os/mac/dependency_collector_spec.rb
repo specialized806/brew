@@ -4,9 +4,7 @@
 require "dependency_collector"
 
 RSpec.describe DependencyCollector do
-  subject(:collector) { klass.new }
-
-  let(:klass) { DependencyCollector }
+  subject(:collector) { described_class.new }
 
   alias_matcher :need_tar_xz_dependency, :be_tar_needs_xz_dependency
 

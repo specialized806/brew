@@ -5,8 +5,6 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/bottle"
 
 RSpec.describe Homebrew::DevCmd::Bottle do
-  let(:klass) { Homebrew::DevCmd::Bottle }
-
   def stub_hash(parameters)
     <<~JSON
       {
@@ -362,7 +360,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
   end
 
   describe "bottle_cmd" do
-    subject(:homebrew) { klass.new(["foo"]) }
+    subject(:homebrew) { described_class.new(["foo"]) }
 
     let(:hello_hash_big_sur) do
       JSON.parse stub_hash(

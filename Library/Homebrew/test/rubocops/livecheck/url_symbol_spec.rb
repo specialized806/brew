@@ -4,9 +4,7 @@
 require "rubocops/livecheck"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::LivecheckUrlSymbol do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::LivecheckUrlSymbol }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when the `url` specified in the `livecheck` block is identical to a formula URL" do
     expect_offense(<<~RUBY)

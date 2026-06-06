@@ -7,8 +7,6 @@ require "cmd/shared_examples/args_parse"
 require "cmd/which-formula"
 
 RSpec.describe Homebrew::Cmd::WhichFormula do
-  let(:klass) { Homebrew::Cmd::WhichFormula }
-
   it_behaves_like "parseable arguments"
 
   describe "which_formula" do
@@ -23,7 +21,7 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
     before do
       # Override DATABASE_FILE to use test environment's HOMEBREW_CACHE
       test_db_file = HOMEBREW_CACHE/"api"/Homebrew::Cmd::WhichFormula::ENDPOINT
-      stub_const("#{klass}::DATABASE_FILE", test_db_file)
+      stub_const("#{described_class}::DATABASE_FILE", test_db_file)
 
       db = Homebrew::Cmd::WhichFormula::DATABASE_FILE
       db.dirname.mkpath

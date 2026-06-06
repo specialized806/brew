@@ -4,7 +4,7 @@
 RSpec.describe Tap do
   subject(:homebrew_foo_tap) { klass.fetch("Homebrew", "foo") }
 
-  let(:klass) { Tap }
+  let(:klass) { described_class }
   let(:path) { HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-foo" }
   let(:formula_file) { path/"Formula/foo.rb" }
   let(:alias_file) { path/"Aliases/bar" }
@@ -844,7 +844,7 @@ RSpec.describe Tap do
   describe CoreTap do
     subject(:core_tap) { klass.instance }
 
-    let(:klass) { CoreTap }
+    let(:klass) { described_class }
 
     specify "attributes" do
       expect(core_tap.user).to eq("Homebrew")

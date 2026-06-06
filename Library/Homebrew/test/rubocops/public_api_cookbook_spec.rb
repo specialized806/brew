@@ -4,9 +4,8 @@
 require "rubocops/public_api_cookbook"
 
 RSpec.describe RuboCop::Cop::Homebrew::PublicApiCookbook do
-  subject(:cop) { klass.new }
+  subject(:cop) { described_class.new }
 
-  let(:klass) { RuboCop::Cop::Homebrew::PublicApiCookbook }
   let(:formula_path) { "formula.rb" }
   let(:cask_dsl_path) { "cask/dsl.rb" }
   let(:helper_path) { "rubocops/shared/api_annotation_helper.rb" }

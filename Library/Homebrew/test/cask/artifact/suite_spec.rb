@@ -2,13 +2,11 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::Suite, :cask do
-  let(:klass) { Cask::Artifact::Suite }
-
   let(:cask) { Cask::CaskLoader.load(cask_path("with-suite")) }
 
   let(:install_phase) do
     lambda do
-      cask.artifacts.grep(klass).each do |artifact|
+      cask.artifacts.grep(described_class).each do |artifact|
         artifact.install_phase(command: NeverSudoSystemCommand, force: false)
       end
     end

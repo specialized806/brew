@@ -4,7 +4,7 @@
 require "patch"
 
 RSpec.describe Patch do
-  let(:klass) { Patch }
+  let(:klass) { described_class }
 
   describe "#create" do
     context "with a simple patch" do
@@ -161,7 +161,7 @@ RSpec.describe Patch do
   describe ExternalPatch do
     subject(:patch) { klass.new(:p1) { url "file:///my.patch" } }
 
-    let(:klass) { ExternalPatch }
+    let(:klass) { described_class }
 
     describe "#url" do
       it(:url) { expect(patch.url).to eq("file:///my.patch") }

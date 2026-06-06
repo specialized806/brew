@@ -4,9 +4,8 @@
 require "software_spec"
 
 RSpec.describe SoftwareSpec do
-  subject(:spec) { klass.new }
+  subject(:spec) { described_class.new }
 
-  let(:klass) { SoftwareSpec }
   let(:owner) { instance_double(Cask::Cask, name: "some_name", full_name: "some_name", tap: "homebrew/core") }
 
   alias_matcher :have_defined_resource, :be_resource_defined
