@@ -207,11 +207,17 @@ RSpec.configure do |config|
 
   svn_path_dirs = nil
   svn_skip_reason = nil
+  svn_client_path_dirs = nil
+  svn_client_skip_reason = nil
+
+  config.define_derived_metadata(:needs_svnadmin) do |metadata|
+    metadata[:needs_svn] = true
+  end
 
   config.before(:each, :needs_svn) do
-    skip svn_skip_reason if svn_skip_reason
-    if svn_path_dirs
-      ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_path_dirs)
+    skip svn_client_skip_reason if svn_client_skip_reason
+    if svn_client_path_dirs
+      ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_client_path_dirs)
       next
     end
 
@@ -222,16 +228,10 @@ RSpec.configure do |config|
       svn_paths.append(File.dirname(xcrun_svn)) if $CHILD_STATUS.success? && xcrun_svn.present?
     end
 
-    svnadmin = which("svnadmin", svn_paths)
-    unless svnadmin
-      svn_skip_reason = "svnadmin is not installed."
-      skip svn_skip_reason
-    end
-
     svn_shim = HOMEBREW_SHIMS_PATH/"shared/svn"
     unless quiet_system svn_shim, "--version"
-      svn_skip_reason = "Subversion is not installed."
-      skip svn_skip_reason
+      svn_client_skip_reason = "Subversion is not installed."
+      skip svn_client_skip_reason
     end
 
     svn_shim_path = Pathname(Utils.popen_read(svn_shim, "--homebrew=print-path").chomp.presence)
@@ -239,11 +239,28 @@ RSpec.configure do |config|
 
     svn = which("svn", svn_paths)
     unless svn
-      svn_skip_reason = "svn is not installed."
+      svn_client_skip_reason = "svn is not installed."
+      skip svn_client_skip_reason
+    end
+
+    svn_client_path_dirs = [svn.dirname]
+    ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_client_path_dirs)
+  end
+
+  config.before(:each, :needs_svnadmin) do
+    skip svn_skip_reason if svn_skip_reason
+    if svn_path_dirs
+      ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_path_dirs)
+      next
+    end
+
+    svnadmin = which("svnadmin")
+    unless svnadmin
+      svn_skip_reason = "svnadmin is not installed."
       skip svn_skip_reason
     end
 
-    svn_path_dirs = [svn.dirname, svnadmin.dirname]
+    svn_path_dirs = [svnadmin.dirname]
     ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_path_dirs)
   end
 

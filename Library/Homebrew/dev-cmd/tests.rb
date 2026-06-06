@@ -202,6 +202,7 @@ module Homebrew
       sig { params(bundle_args: T::Array[String]).returns(T::Array[String]) }
       def non_macos_bundle_args(bundle_args)
         bundle_args << "--tag" << "~needs_homebrew_core" if ENV["CI"]
+        bundle_args << "--tag" << "~needs_svnadmin" unless args.online?
         bundle_args << "--tag" << "~needs_svn" unless args.online?
 
         bundle_args << "--tag" << "~needs_macos" << "--tag" << "~cask"
