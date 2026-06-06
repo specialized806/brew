@@ -54,12 +54,18 @@ module RuboCop
 
           return unless hash_node.hash_type?
 
-          unless stanza_node.source.match?(/",\n      *\w+:/)
+          # TODO: also enforce that each keyword parameter after the first
+          #       starts on its own line (e.g. `verified:` and `header:`
+          #       should not share a line).
+          if hash_node.first_line <= url_stanza.last_line || hash_node.loc.column <= stanza_node.loc.column
             add_offense(
               stanza_node.source_range,
               message: "Keyword URL parameter should be on a new indented line.",
             ) do |corrector|
-              corrector.replace(stanza_node.source_range, stanza_node.source.gsub(/",\s*/, "\",\n      "))
+              corrector.replace(
+                range_between(url_stanza.source_range.end_pos, hash_node.source_range.begin_pos),
+                ",\n#{" " * url_stanza.loc.column}",
+              )
             end
           end
 

@@ -43,6 +43,50 @@ RSpec.describe RuboCop::Cop::Cask::Url, :config do
     CASK
   end
 
+  it "reports an offense for a keyword parameter on the same line as the URL" do
+    expect_offense <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg", verified: "example.com/download/"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            verified: "example.com/download/"
+      end
+    CASK
+  end
+
+  it "accepts a method call URL with a keyword parameter on a new indented line" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version "1.2.0"
+        url Utils.download_url(version),
+            header: "Accept: application/octet-stream"
+      end
+    CASK
+  end
+
+  it "reports an offense for a method call URL with a keyword parameter on the same line" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version "1.2.0"
+        url Utils.download_url(version), header: "Accept: application/octet-stream"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        version "1.2.0"
+        url Utils.download_url(version),
+            header: "Accept: application/octet-stream"
+      end
+    CASK
+  end
+
   it "accepts a `verified` value that does not start with a protocol" do
     expect_no_offenses <<~CASK
       cask "foo" do
