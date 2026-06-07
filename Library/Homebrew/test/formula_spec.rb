@@ -23,7 +23,7 @@ RSpec.describe Formula do
 
   describe "::new" do
     let(:klass) do
-      Class.new(Formula) do
+      Class.new(described_class) do
         url "https://brew.sh/foo-1.0.tar.gz"
       end
     end
@@ -2711,7 +2711,7 @@ RSpec.describe Formula do
 
   describe "#specified_path" do
     let(:klass) do
-      Class.new(Formula) do
+      Class.new(described_class) do
         url "https://brew.sh/foo-1.0.tar.gz"
       end
     end

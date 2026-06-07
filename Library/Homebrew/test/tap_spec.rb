@@ -2,9 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Tap do
-  subject(:homebrew_foo_tap) { klass.fetch("Homebrew", "foo") }
+  subject(:homebrew_foo_tap) { described_class.fetch("Homebrew", "foo") }
 
-  let(:klass) { described_class }
   let(:path) { HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-foo" }
   let(:formula_file) { path/"Formula/foo.rb" }
   let(:alias_file) { path/"Aliases/bar" }
@@ -92,47 +91,47 @@ RSpec.describe Tap do
   end
 
   specify "::fetch" do
-    expect(klass.fetch("Homebrew", "core")).to be_a(CoreTap)
-    expect(klass.fetch("Homebrew", "homebrew")).to be_a(CoreTap)
-    tap = klass.fetch("Homebrew", "foo")
-    expect(tap).to be_a(klass)
+    expect(described_class.fetch("Homebrew", "core")).to be_a(CoreTap)
+    expect(described_class.fetch("Homebrew", "homebrew")).to be_a(CoreTap)
+    tap = described_class.fetch("Homebrew", "foo")
+    expect(tap).to be_a(described_class)
     expect(tap.name).to eq("homebrew/foo")
 
     expect do
-      klass.fetch("foo")
+      described_class.fetch("foo")
     end.to raise_error(Tap::InvalidNameError, /Invalid tap name/)
 
     expect do
-      klass.fetch("homebrew/homebrew/bar")
+      described_class.fetch("homebrew/homebrew/bar")
     end.to raise_error(Tap::InvalidNameError, /Invalid tap name/)
 
     expect do
-      klass.fetch("homebrew", "homebrew/baz")
+      described_class.fetch("homebrew", "homebrew/baz")
     end.to raise_error(Tap::InvalidNameError, /Invalid tap name/)
   end
 
   describe "::from_path" do
-    let(:tap) { klass.fetch("Homebrew", "core") }
+    let(:tap) { described_class.fetch("Homebrew", "core") }
     let(:path) { tap.path }
     let(:formula_path) { path/"Formula/formula.rb" }
 
     it "returns the Tap for a Formula path" do
-      expect(klass.from_path(formula_path)).to eq tap
+      expect(described_class.from_path(formula_path)).to eq tap
     end
 
     it "returns the Tap when given its exact path" do
-      expect(klass.from_path(path)).to eq tap
+      expect(described_class.from_path(path)).to eq tap
     end
 
     context "when path contains a dot" do
-      let(:tap) { klass.fetch("str4d.xyz", "rage") }
+      let(:tap) { described_class.fetch("str4d.xyz", "rage") }
 
       after do
         tap.uninstall
       end
 
       it "returns the Tap when given its exact path" do
-        expect(klass.from_path(path)).to eq tap
+        expect(described_class.from_path(path)).to eq tap
       end
     end
   end
@@ -141,8 +140,8 @@ RSpec.describe Tap do
     before { allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("homebrew/allowed") }
 
     it "returns a set of allowed taps according to the environment" do
-      expect(klass.allowed_taps)
-        .to contain_exactly(klass.fetch("homebrew/allowed"))
+      expect(described_class.allowed_taps)
+        .to contain_exactly(described_class.fetch("homebrew/allowed"))
     end
   end
 
@@ -150,8 +149,8 @@ RSpec.describe Tap do
     before { allow(Homebrew::EnvConfig).to receive(:forbidden_taps).and_return("homebrew/forbidden") }
 
     it "returns a set of forbidden taps according to the environment" do
-      expect(klass.forbidden_taps)
-        .to contain_exactly(klass.fetch("homebrew/forbidden"))
+      expect(described_class.forbidden_taps)
+        .to contain_exactly(described_class.fetch("homebrew/forbidden"))
     end
   end
 
@@ -166,7 +165,7 @@ RSpec.describe Tap do
   end
 
   specify "#issues_url" do
-    t = klass.fetch("someone", "foo")
+    t = described_class.fetch("someone", "foo")
     path = HOMEBREW_TAP_DIRECTORY/"someone/homebrew-foo"
     path.mkpath
     cd path do
@@ -178,7 +177,7 @@ RSpec.describe Tap do
     expect(homebrew_foo_tap.issues_url).to eq("https://github.com/Homebrew/homebrew-foo/issues")
 
     (HOMEBREW_TAP_DIRECTORY/"someone/homebrew-no-git").mkpath
-    expect(klass.fetch("someone", "no-git").issues_url).to be_nil
+    expect(described_class.fetch("someone", "no-git").issues_url).to be_nil
   ensure
     FileUtils.rm_rf(path.parent)
   end
@@ -218,7 +217,7 @@ RSpec.describe Tap do
       expect(homebrew_foo_tap.remote).to eq("https://github.com/Homebrew/homebrew-foo")
       expect(homebrew_foo_tap).not_to have_custom_remote
 
-      services_tap = klass.fetch("Homebrew", "test-bot")
+      services_tap = described_class.fetch("Homebrew", "test-bot")
       services_tap.path.mkpath
       services_tap.path.cd do
         system "git", "init"
@@ -244,7 +243,7 @@ RSpec.describe Tap do
 
       expect(homebrew_foo_tap.remote_repository).to eq("Homebrew/homebrew-foo")
 
-      services_tap = klass.fetch("Homebrew", "test-bot")
+      services_tap = described_class.fetch("Homebrew", "test-bot")
       services_tap.path.mkpath
       services_tap.path.cd do
         system "git", "init"
@@ -258,7 +257,7 @@ RSpec.describe Tap do
 
       expect(homebrew_foo_tap.remote_repository).to eq("Homebrew/homebrew-foo")
 
-      services_tap = klass.fetch("Homebrew", "test-bot")
+      services_tap = described_class.fetch("Homebrew", "test-bot")
       services_tap.path.mkpath
       services_tap.path.cd do
         system "git", "init"
@@ -279,7 +278,7 @@ RSpec.describe Tap do
   end
 
   describe "#custom_remote?" do
-    subject(:tap) { klass.fetch("Homebrew", "test-bot") }
+    subject(:tap) { described_class.fetch("Homebrew", "test-bot") }
 
     let(:remote) { nil }
 
@@ -324,14 +323,14 @@ RSpec.describe Tap do
   describe "#install" do
     it "raises an error when the Tap is already tapped" do
       setup_git_repo
-      already_tapped_tap = klass.fetch("Homebrew", "foo")
+      already_tapped_tap = described_class.fetch("Homebrew", "foo")
       expect(already_tapped_tap).to be_installed
       expect { already_tapped_tap.install }.to raise_error(TapAlreadyTappedError)
     end
 
     it "raises an error when the Tap is already tapped with the right remote" do
       setup_git_repo
-      already_tapped_tap = klass.fetch("Homebrew", "foo")
+      already_tapped_tap = described_class.fetch("Homebrew", "foo")
       expect(already_tapped_tap).to be_installed
       right_remote = homebrew_foo_tap.remote
       expect { already_tapped_tap.install clone_target: right_remote }.to raise_error(TapAlreadyTappedError)
@@ -339,7 +338,7 @@ RSpec.describe Tap do
 
     it "raises an error when the remote doesn't match" do
       setup_git_repo
-      already_tapped_tap = klass.fetch("Homebrew", "foo")
+      already_tapped_tap = described_class.fetch("Homebrew", "foo")
       expect(already_tapped_tap).to be_installed
       wrong_remote = "#{homebrew_foo_tap.remote}-oops"
       expect do
@@ -348,7 +347,7 @@ RSpec.describe Tap do
     end
 
     it "raises an error when the remote for Homebrew/core doesn't match HOMEBREW_CORE_GIT_REMOTE" do
-      core_tap = klass.fetch("Homebrew", "core")
+      core_tap = described_class.fetch("Homebrew", "core")
       wrong_remote = "#{Homebrew::EnvConfig.core_git_remote}-oops"
       expect do
         core_tap.install clone_target: wrong_remote
@@ -460,7 +459,7 @@ RSpec.describe Tap do
 
     it "raises an error when run `brew tap --custom-remote` without a custom remote (already installed)" do
       setup_git_repo
-      already_tapped_tap = klass.fetch("Homebrew", "foo")
+      already_tapped_tap = described_class.fetch("Homebrew", "foo")
       expect(already_tapped_tap).to be_installed
 
       expect do
@@ -469,7 +468,7 @@ RSpec.describe Tap do
     end
 
     it "raises an error when run `brew tap --custom-remote` without a custom remote (not installed)" do
-      not_tapped_tap = klass.fetch("Homebrew", "bar")
+      not_tapped_tap = described_class.fetch("Homebrew", "bar")
       expect(not_tapped_tap).not_to be_installed
 
       expect do
@@ -478,7 +477,7 @@ RSpec.describe Tap do
     end
 
     specify "Git error" do
-      tap = klass.fetch("user", "repo")
+      tap = described_class.fetch("user", "repo")
 
       expect do
         tap.install clone_target: "file:///not/existed/remote/url"
@@ -491,7 +490,7 @@ RSpec.describe Tap do
 
   describe "#uninstall" do
     it "raises an error if the Tap is not available" do
-      tap = klass.fetch("Homebrew", "bar")
+      tap = described_class.fetch("Homebrew", "bar")
       expect { tap.uninstall }.to raise_error(TapUnavailableError)
     end
 
@@ -521,7 +520,7 @@ RSpec.describe Tap do
     setup_git_repo
     setup_completion link: true
 
-    tap = klass.fetch("Homebrew", "bar")
+    tap = described_class.fetch("Homebrew", "bar")
 
     tap.install clone_target: homebrew_foo_tap.path/".git"
 
@@ -547,7 +546,7 @@ RSpec.describe Tap do
     setup_tap_files
     setup_git_repo
     setup_completion link: true
-    tap = klass.fetch("NotHomebrew", "baz")
+    tap = described_class.fetch("NotHomebrew", "baz")
     tap.install clone_target: homebrew_foo_tap.path/".git"
     (HOMEBREW_PREFIX/"share/man/man1/brew-tap-cmd.1").delete
     (HOMEBREW_PREFIX/"etc/bash_completion.d/brew-tap-cmd").delete
@@ -568,7 +567,7 @@ RSpec.describe Tap do
     setup_tap_files
     setup_git_repo
     setup_completion link: false
-    tap = klass.fetch("NotHomebrew", "baz")
+    tap = described_class.fetch("NotHomebrew", "baz")
     tap.install clone_target: homebrew_foo_tap.path/".git"
     (HOMEBREW_PREFIX/"share/man/man1/brew-tap-cmd.1").delete
     tap.link_completions_and_manpages
@@ -586,7 +585,7 @@ RSpec.describe Tap do
     setup_tap_files
     setup_git_repo
     setup_completion link: false
-    tap = klass.fetch("Homebrew", "baz")
+    tap = described_class.fetch("Homebrew", "baz")
     tap.install clone_target: homebrew_foo_tap.path/".git"
     (HOMEBREW_PREFIX/"share/man/man1/brew-tap-cmd.1").delete
     (HOMEBREW_PREFIX/"etc/bash_completion.d/brew-tap-cmd").delete
@@ -615,7 +614,7 @@ RSpec.describe Tap do
 
   describe ".each" do
     it "returns an enumerator if no block is passed" do
-      expect(klass.each).to be_an_instance_of(Enumerator)
+      expect(described_class.each).to be_an_instance_of(Enumerator)
     end
 
     context "when the core tap is not installed" do
@@ -627,35 +626,35 @@ RSpec.describe Tap do
       end
 
       it "includes the core tap with the api" do
-        expect(klass.to_a).to include(CoreTap.instance)
+        expect(described_class.to_a).to include(CoreTap.instance)
       end
 
       it "omits the core tap without the api", :no_api do
-        expect(klass.to_a).not_to include(CoreTap.instance)
+        expect(described_class.to_a).not_to include(CoreTap.instance)
       end
     end
   end
 
   describe ".installed" do
     it "includes only installed taps" do
-      expect(klass.installed)
-        .to contain_exactly(CoreTap.instance, klass.fetch("homebrew/foo"))
+      expect(described_class.installed)
+        .to contain_exactly(CoreTap.instance, described_class.fetch("homebrew/foo"))
     end
   end
 
   describe ".all" do
     it "includes the core and cask taps by default", :needs_macos do
-      expect(klass.all).to contain_exactly(
+      expect(described_class.all).to contain_exactly(
         CoreTap.instance,
         CoreCaskTap.instance,
-        klass.fetch("homebrew/foo"),
-        klass.fetch("third-party/tap"),
+        described_class.fetch("homebrew/foo"),
+        described_class.fetch("third-party/tap"),
       )
     end
 
     it "includes the core tap and excludes the cask tap by default", :needs_linux do
-      expect(klass.all)
-        .to contain_exactly(CoreTap.instance, klass.fetch("homebrew/foo"))
+      expect(described_class.all)
+        .to contain_exactly(CoreTap.instance, described_class.fetch("homebrew/foo"))
     end
   end
 
@@ -713,7 +712,7 @@ RSpec.describe Tap do
             [cask_tap, "schism-tracker", %w[schismtracker]],
             [cask_tap, "google-cloud-sdk", %w[app-engine-go-32 app-engine-go-64]],
           ].each do |tap, name, result|
-            expect(klass.tap_migration_oldnames(tap, name)).to eq(result)
+            expect(described_class.tap_migration_oldnames(tap, name)).to eq(result)
           end
         end
       end
@@ -745,7 +744,7 @@ RSpec.describe Tap do
 
     describe "#formula_file?" do
       it "matches files from Formula/" do
-        tap = klass.fetch("hard/core")
+        tap = described_class.fetch("hard/core")
         FileUtils.mkdir_p(tap.path/"Formula")
 
         %w[
@@ -770,7 +769,7 @@ RSpec.describe Tap do
       end
 
       it "matches files from HomebrewFormula/" do
-        tap = klass.fetch("hard/core")
+        tap = described_class.fetch("hard/core")
         FileUtils.mkdir_p(tap.path/"HomebrewFormula")
 
         %w[
@@ -795,7 +794,7 @@ RSpec.describe Tap do
       end
 
       it "matches files from the top-level directory" do
-        tap = klass.fetch("hard/core")
+        tap = described_class.fetch("hard/core")
         FileUtils.mkdir_p(tap.path)
 
         %w[
@@ -818,7 +817,7 @@ RSpec.describe Tap do
 
     describe "#cask_file?" do
       it "matches files from Casks/" do
-        tap = klass.fetch("hard/core")
+        tap = described_class.fetch("hard/core")
 
         %w[
           kvazaar.rb
@@ -842,9 +841,7 @@ RSpec.describe Tap do
   end
 
   describe CoreTap do
-    subject(:core_tap) { klass.instance }
-
-    let(:klass) { described_class }
+    subject(:core_tap) { described_class.instance }
 
     specify "attributes" do
       expect(core_tap.user).to eq("Homebrew")
@@ -929,30 +926,32 @@ RSpec.describe Tap do
   describe "#repository_var_suffix" do
     specify do
       expect(CoreTap.instance.repository_var_suffix).to eq "_HOMEBREW_HOMEBREW_CORE"
-      expect(klass.fetch("my",
-                         "tap-with-dashes").repository_var_suffix).to eq "_MY_HOMEBREW_TAP_WITH_DASHES"
-      expect(klass.fetch("my",
-                         "tap-with-@-symbol").repository_var_suffix).to eq "_MY_HOMEBREW_TAP_WITH___SYMBOL"
+      expect(
+        described_class.fetch("my", "tap-with-dashes").repository_var_suffix,
+      ).to eq "_MY_HOMEBREW_TAP_WITH_DASHES"
+      expect(
+        described_class.fetch("my", "tap-with-@-symbol").repository_var_suffix,
+      ).to eq "_MY_HOMEBREW_TAP_WITH___SYMBOL"
     end
   end
 
   describe "::with_formula_name" do
     it "returns the tap and formula name when given a full name" do
-      expect(klass.with_formula_name("homebrew/core/gcc")).to eq [CoreTap.instance, "gcc"]
+      expect(described_class.with_formula_name("homebrew/core/gcc")).to eq [CoreTap.instance, "gcc"]
     end
 
     it "returns nil when given a relative path" do
-      expect(klass.with_formula_name("./Formula/gcc.rb")).to be_nil
+      expect(described_class.with_formula_name("./Formula/gcc.rb")).to be_nil
     end
   end
 
   describe "::with_cask_token" do
     it "returns the tap and cask token when given a full token" do
-      expect(klass.with_cask_token("homebrew/cask/alfred")).to eq [CoreCaskTap.instance, "alfred"]
+      expect(described_class.with_cask_token("homebrew/cask/alfred")).to eq [CoreCaskTap.instance, "alfred"]
     end
 
     it "returns nil when given a relative path" do
-      expect(klass.with_cask_token("./Casks/alfred.rb")).to be_nil
+      expect(described_class.with_cask_token("./Casks/alfred.rb")).to be_nil
     end
   end
 end

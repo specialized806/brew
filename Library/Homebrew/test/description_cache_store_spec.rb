@@ -5,9 +5,8 @@ require "cmd/update-report"
 require "description_cache_store"
 
 RSpec.describe DescriptionCacheStore do
-  subject(:cache_store) { klass.new(database) }
+  subject(:cache_store) { described_class.new(database) }
 
-  let(:klass) { described_class }
   let(:database) { instance_double(CacheStoreDatabase, "database") }
   let(:formula_name) { "test_name" }
   let(:description) { "test_description" }
@@ -60,9 +59,8 @@ RSpec.describe DescriptionCacheStore do
   end
 
   describe CaskDescriptionCacheStore do
-    subject(:cache_store) { klass.new(database) }
+    subject(:cache_store) { described_class.new(database) }
 
-    let(:klass) { described_class }
     let(:database) { instance_double(CacheStoreDatabase, "database") }
 
     describe "#update_from_report!" do
