@@ -60,7 +60,8 @@ module RuboCop
           step_lines = simple_install_step_lines(block_node.body,
                                                  default_base:        :staged_path,
                                                  default_source_base: :staged_path,
-                                                 default_target_base: :staged_path)
+                                                 default_target_base: :staged_path,
+                                                 rebuild_actions:     false)
           return if step_lines.blank?
 
           add_offense(block_node.source_range,

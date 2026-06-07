@@ -36,6 +36,20 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
     CASK
   end
 
+  it "reports an offense when cask steps contain formula rebuild actions" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          update_desktop_database
+          ^^^^^^^^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`.
+        end
+      end
+    CASK
+  end
+
   it "accepts install step DSL calls" do
     expect_no_offenses <<~CASK
       cask "foo" do
@@ -48,20 +62,6 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
           mv "source", "target"
           move_children "source", "target"
           ln_sf "source", "target", source_base: :relative, uninstall: true
-        end
-      end
-    CASK
-  end
-
-  it "reports an offense when cask steps contain formula rebuild actions" do
-    expect_offense <<~CASK
-      cask "foo" do
-        version :latest
-        sha256 :no_check
-
-        preflight_steps do
-          gio_querymodules
-          ^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`.
         end
       end
     CASK
@@ -106,6 +106,19 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         postflight do
           system_command "/usr/bin/true"
+        end
+      end
+    CASK
+  end
+
+  it "does not autocorrect formula rebuild actions in flight blocks" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          system Formula["desktop-file-utils"].opt_bin/"update-desktop-database", HOMEBREW_PREFIX/"share/applications"
         end
       end
     CASK

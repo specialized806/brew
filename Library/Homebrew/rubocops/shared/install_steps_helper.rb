@@ -29,6 +29,41 @@ module RuboCop
         String,
       )
       SIMPLE_STEP_CONVERSION_MSG = T.let("Use `%<steps_block>s` for simple file preparation.", String)
+      REBUILD_ACTION_STEP_LINES = T.let(
+        T.let([
+          [
+            "system Formula[\"glib\"].opt_bin/\"glib-compile-schemas\", " \
+            "HOMEBREW_PREFIX/\"share/glib-2.0/schemas\"",
+            "compile_gsettings_schemas",
+          ],
+          [
+            "system Formula[\"glib\"].opt_bin/\"gio-querymodules\", " \
+            "HOMEBREW_PREFIX/\"lib/gio/modules\"",
+            "gio_querymodules",
+          ],
+          [
+            "system Formula[\"gdk-pixbuf\"].opt_bin/\"gdk-pixbuf-query-loaders\", " \
+            "\"--update-cache\"",
+            "gdk_pixbuf_query_loaders",
+          ],
+          [
+            "system Formula[\"gtk+3\"].opt_bin/\"gtk3-update-icon-cache\", " \
+            "\"-q\", \"-t\", \"-f\", HOMEBREW_PREFIX/\"share/icons/hicolor\"",
+            "gtk_update_icon_cache",
+          ],
+          [
+            "system Formula[\"shared-mime-info\"].opt_bin/\"update-mime-database\", " \
+            "HOMEBREW_PREFIX/\"share/mime\"",
+            "update_mime_database",
+          ],
+          [
+            "system Formula[\"desktop-file-utils\"].opt_bin/\"update-desktop-database\", " \
+            "HOMEBREW_PREFIX/\"share/applications\"",
+            "update_desktop_database",
+          ],
+        ], T::Array[[String, String]]).to_h.freeze,
+        T::Hash[String, String],
+      )
 
       sig { params(allowed_methods: T::Array[Symbol]).returns(String) }
       def step_block_msg(allowed_methods)
@@ -75,14 +110,16 @@ module RuboCop
           default_base:        Symbol,
           default_source_base: Symbol,
           default_target_base: Symbol,
+          rebuild_actions:     T::Boolean,
         ).returns(T.nilable(T::Array[String]))
       }
-      def simple_install_step_lines(body_node, default_base:, default_source_base:, default_target_base:)
+      def simple_install_step_lines(body_node, default_base:, default_source_base:, default_target_base:,
+                                    rebuild_actions: true)
         return if body_node.nil?
 
         direct_nodes = body_node.begin_type? ? body_node.child_nodes : [body_node]
         step_lines = direct_nodes.map do |node|
-          simple_install_step_line(node, default_base:, default_source_base:, default_target_base:)
+          simple_install_step_line(node, default_base:, default_source_base:, default_target_base:, rebuild_actions:)
         end
         return if step_lines.any?(&:nil?)
 
@@ -108,12 +145,17 @@ module RuboCop
           default_base:        Symbol,
           default_source_base: Symbol,
           default_target_base: Symbol,
+          rebuild_actions:     T::Boolean,
         ).returns(T.nilable(String))
       }
-      def simple_install_step_line(node, default_base:, default_source_base:, default_target_base:)
+      def simple_install_step_line(node, default_base:, default_source_base:, default_target_base:, rebuild_actions:)
         return unless node.send_type?
 
         send_node = T.cast(node, RuboCop::AST::SendNode)
+        if rebuild_actions && send_node.receiver.nil? && send_node.method_name == :system
+          return REBUILD_ACTION_STEP_LINES[send_node.source.gsub(/\s+/, " ")]
+        end
+
         if send_node.method_name == :mkpath && send_node.arguments.empty? && send_node.receiver
           path = install_step_path(send_node.receiver)
           return mkdir_step_line(:mkdir_p, path, default_base)

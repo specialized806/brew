@@ -393,6 +393,9 @@ class Formula
     if latest && !latest_version_installed?
       ohai "Upgrading `#{name}`#{reason}..."
       safe_system HOMEBREW_BREW_FILE, "upgrade", "--formula", full_name
+    elsif missing_dependencies.present?
+      ohai "Reinstalling `#{name}`#{reason}..."
+      safe_system HOMEBREW_BREW_FILE, "reinstall", "--formula", full_name
     end
 
     executable ? opt_bin/executable : self
