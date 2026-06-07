@@ -18,7 +18,7 @@ defaults:
     shell: bash -xeuo pipefail {0}
 
 env:
-  # odeprecated: remove 22.04 image in Homebrew >=5.4
+  # odeprecated: remove 22.04 image in Homebrew >=6.1
   VERSIONS: '["22.04", "24.04"]'
 
 jobs:
@@ -169,7 +169,7 @@ jobs:
           VERSION: ${{ matrix.version }}
           PUSH: ${{ needs.generate-tags.outputs.push }}
         run: |
-          # odeprecated: remove 22.04 image in Homebrew >=5.4
+          # odeprecated: remove 22.04 image in Homebrew >=6.1
           if [[ "${VERSION}" == "22.04" ]]; then
             echo "The homebrew/ubuntu22.04 image is deprecated and will soon be retired. Use homebrew/brew." > .docker-deprecate
           fi
@@ -198,7 +198,7 @@ jobs:
 
       - name: Set environment variables
         if: matrix.version == '22.04'
-        # odeprecated: remove 22.04 in Homebrew >=5.4
+        # odeprecated: remove 22.04 in Homebrew >=6.1
         run: echo "HOMEBREW_GLIBC_TESTING=1" >> "$GITHUB_ENV"
 
       - name: Run brew test-bot --only-setup
