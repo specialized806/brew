@@ -18,6 +18,12 @@ RSpec.describe Homebrew::Cmd::Untap do
       .and be_a_success
   end
 
+  it "fails without a traceback when given a formula name" do
+    expect { described_class.new(["homebrew/foo/bar"]).run }
+      .to output(%r{Error: Invalid tap name: 'homebrew/foo/bar'}).to_stderr
+      .and raise_error(SystemExit)
+  end
+
   describe "#installed_formulae_for" do
     shared_examples "finds installed formulae in tap", :no_api do
       def load_formula(name:, with_formula_file: false, mock_install: false)
@@ -69,6 +75,29 @@ RSpec.describe Homebrew::Cmd::Untap do
       end
 
       it "returns the expected formulae" do
+        expect(class_instance.installed_formulae_for(tap:).map(&:full_name))
+          .to eq([currently_installed_formula.full_name])
+      end
+
+      it "ignores formulae with invalid specs" do
+        path = Formulary.find_formula_in_tap("invalid-spec", tap)
+        path.dirname.mkpath
+        path.write <<~RUBY
+          class InvalidSpec < Formula
+          end
+        RUBY
+        keg_path = HOMEBREW_CELLAR/"invalid-spec"/"1.2.3"
+        keg_path.mkpath
+
+        (keg_path/AbstractTab::FILENAME).write <<~JSON
+          {
+            "source": {
+              "tap": "#{tap}"
+            }
+          }
+        JSON
+        tap.clear_cache
+
         expect(class_instance.installed_formulae_for(tap:).map(&:full_name))
           .to eq([currently_installed_formula.full_name])
       end

@@ -19,7 +19,13 @@ module Homebrew
 
       sig { override.void }
       def run
-        args.named.to_installed_taps.each do |tap|
+        taps = begin
+          args.named.to_installed_taps
+        rescue Tap::InvalidNameError => e
+          odie e.message
+        end
+
+        taps.each do |tap|
           odie "Untapping #{tap} is not allowed" if tap.core_tap? && Homebrew::EnvConfig.no_install_from_api?
 
           if Homebrew::EnvConfig.no_install_from_api? || (!tap.core_tap? && !tap.core_cask_tap?)
@@ -54,8 +60,8 @@ module Homebrew
 
           formula = begin
             Formulary.factory(formula_name)
-          rescue FormulaUnavailableError
-            # Don't blow up because of a single unavailable formula.
+          rescue FormulaUnavailableError, FormulaSpecificationError
+            # Don't blow up because of a single unavailable or invalid formula.
             next
           end
 
