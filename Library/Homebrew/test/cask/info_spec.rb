@@ -216,7 +216,7 @@ RSpec.describe Cask::Info, :cask do
     expect do
       described_class.info(Cask::CaskLoader.load("with-languages"), args:)
     end.to output(<<~EOS).to_stdout
-      #{oh1_title uninstalled("with-languages")}: 1.2.3
+      #{oh1_title uninstalled("with-languages")} (Caffeine): 1.2.3
       https://brew.sh/
       Not installed
       From: https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-languages.rb
