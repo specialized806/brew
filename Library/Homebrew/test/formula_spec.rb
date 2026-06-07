@@ -1213,7 +1213,6 @@ RSpec.describe Formula do
 
   specify "#run_post_install_steps uses the versioned prefix" do
     f = formula "post-install-steps-prefix" do
-      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       post_install_steps do

@@ -451,7 +451,7 @@ RSpec.describe Homebrew::Livecheck do
         HTML
       })
 
-      f_result = nil
+      f_result = T.let(nil, T.nilable(T::Hash[Symbol, T.nilable(Version)]))
       expect { f_result = livecheck.latest_version(f_throttle_rate, debug: true, verbose: true) }
         .to output(
           a_string_matching(/Throttle: +4 versions/)
@@ -460,7 +460,7 @@ RSpec.describe Homebrew::Livecheck do
       expect(f_result[:latest]).to eq(Version.new("0.0.5"))
       expect(f_result[:latest_throttled]).to eq(Version.new("0.0.4"))
 
-      c_result = nil
+      c_result = T.let(nil, T.nilable(T::Hash[Symbol, T.nilable(Version)]))
       expect { c_result = livecheck.latest_version(c_throttle_rate, debug: true) }
         .to output(
           a_string_matching(/Throttle: +4 versions/)
@@ -475,7 +475,7 @@ RSpec.describe Homebrew::Livecheck do
       allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
       latest_version = Version.new("0.0.2")
 
-      f_result = nil
+      f_result = T.let(nil, T.nilable(T::Hash[Symbol, T.nilable(Version)]))
       expect { f_result = livecheck.latest_version(f_throttle_rate_and_days, debug: true) }
         .to output(a_string_matching(/Throttle: +4 versions or 1 day/)).to_stdout
       expect(f_result[:latest]).to eq(latest_version)
@@ -491,7 +491,7 @@ RSpec.describe Homebrew::Livecheck do
       allow(livecheck).to receive(:throttle_interval_elapsed?).and_return(true)
       latest_version = Version.new("0.0.2")
 
-      f_result = nil
+      f_result = T.let(nil, T.nilable(T::Hash[Symbol, T.nilable(Version)]))
       expect { f_result = livecheck.latest_version(f_throttle_days, debug: true) }
         .to output(
           a_string_matching(/Throttle: +1 day/)
