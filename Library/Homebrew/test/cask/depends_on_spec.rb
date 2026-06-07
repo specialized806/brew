@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # TODO: this test should be named after the corresponding class, once
@@ -10,9 +10,10 @@ RSpec.describe "Satisfy Dependencies and Requirements", :cask do
     Cask::Installer.new(cask).install
   end
 
+  let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-cask")) }
+
   describe "depends_on cask" do
     let(:dependency) { Cask::CaskLoader.load(cask.depends_on.cask.first) }
-    let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-cask")) }
 
     it "installs the dependency of a Cask and the Cask itself" do
       expect { install }.not_to raise_error

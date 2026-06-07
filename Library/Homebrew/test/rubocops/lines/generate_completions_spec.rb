@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "rubocops/lines"
@@ -139,6 +139,24 @@ RSpec.describe RuboCop::Cop::FormulaAudit do
 
           def install
             generate_completions_from_executable(bin/"foo", "completions")
+          end
+        end
+      RUBY
+    end
+
+    it "does not report an offense when shells are generated dynamically" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions")
+            [:zsh, :bash].each do |shell|
+              generate_completions_from_executable(
+                bin/"foo", "completions", shell.to_s, "bar", shells: [shell], base_name: "bar",
+                shell_parameter_format: :none
+              )
+            end
           end
         end
       RUBY

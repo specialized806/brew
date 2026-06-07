@@ -1,10 +1,29 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/analytics"
 require "formula_installer"
 
 RSpec.describe Utils::Analytics do
+  describe "::with_wsl_suffix_if_needed" do
+    it "adds WSL by default on WSL" do
+      allow(OS).to receive(:wsl?).and_return(true)
+
+      expect(described_class.with_wsl_suffix_if_needed("Ubuntu 24.04 LTS")).to eq(
+        "Ubuntu 24.04 LTS#{Utils::Analytics::WSL_SUFFIX}",
+      )
+    end
+
+    it "does not add WSL with an explicit override" do
+      expect(described_class.with_wsl_suffix_if_needed("Ubuntu 24.04 LTS", wsl: false)).to eq("Ubuntu 24.04 LTS")
+    end
+
+    it "does not add duplicate WSL suffixes" do
+      expect(described_class.with_wsl_suffix_if_needed("Ubuntu 24.04 LTS#{Utils::Analytics::WSL_SUFFIX}", wsl: true))
+        .to eq("Ubuntu 24.04 LTS#{Utils::Analytics::WSL_SUFFIX}")
+    end
+  end
+
   describe "::default_package_tags" do
     let(:ci) { ", CI" if ENV["CI"] }
 
@@ -43,11 +62,32 @@ RSpec.describe Utils::Analytics do
       expect(Homebrew::EnvConfig).to receive(:developer?).and_return(true)
       expect(described_class.default_package_tags).to have_key(:developer)
     end
+
+    it "includes WSL in the OS tag on WSL" do
+      described_class.clear_cache
+      allow(OS).to receive(:wsl?).and_return(true)
+
+      expect(described_class.default_package_tags[:os]).to eq("#{HOMEBREW_SYSTEM}#{Utils::Analytics::WSL_SUFFIX}")
+    end
+  end
+
+  describe "::default_package_fields" do
+    it "includes WSL in the OS name and version on WSL" do
+      described_class.clear_cache
+      allow(OS).to receive(:wsl?).and_return(true)
+
+      expect(described_class.default_package_fields[:os_name_and_version]).to eq("#{OS_VERSION}#{Utils::Analytics::WSL_SUFFIX}")
+    end
   end
 
   describe "::report_package_event" do
-    let(:f) { formula { url "foo-1.0" } }
-    let(:package_name)  { f.name }
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+    let(:package_name) { f.name }
     let(:tap_name) { f.tap.name }
     let(:on_request) { false }
     let(:options) { "--HEAD" }
@@ -90,7 +130,12 @@ RSpec.describe Utils::Analytics do
   end
 
   describe "::report_influx" do
-    let(:f) { formula { url "foo-1.0" } }
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
     let(:package)  { f.name }
     let(:tap_name) { f.tap.name }
     let(:on_request) { false }
@@ -108,7 +153,12 @@ RSpec.describe Utils::Analytics do
   describe "::report_build_error" do
     context "when tap is installed" do
       let(:err) { BuildError.new(f, "badprg", %w[arg1 arg2], {}) }
-      let(:f) { formula { url "foo-1.0" } }
+      let(:f) do
+        formula do
+          T.bind(self, T.class_of(Formula))
+          url "foo-1.0"
+        end
+      end
 
       it "reports event if BuildError raised for a formula with a public remote repository" do
         allow_any_instance_of(Tap).to receive(:custom_remote?).and_return(false)

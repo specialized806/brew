@@ -18,11 +18,18 @@ RSpec.describe Homebrew::Cmd::Untap do
       .and be_a_success
   end
 
-  describe "#installed_formulae_for", :integration_test do
+  describe "#installed_formulae_for" do
     shared_examples "finds installed formulae in tap", :no_api do
       def load_formula(name:, with_formula_file: false, mock_install: false)
         formula = if with_formula_file
-          path = setup_test_formula(name, tap:)
+          path = Formulary.find_formula_in_tap(name, tap)
+          path.dirname.mkpath
+          path.write <<~RUBY
+            class #{Formulary.class_s(name)} < Formula
+              url "https://brew.sh/#{name}-1.0.tgz"
+            end
+          RUBY
+          tap.clear_cache
           Formulary.factory(path)
         else
           formula(name, tap:) do

@@ -6,9 +6,6 @@ require "git_repository"
 require "securerandom"
 
 RSpec.describe Homebrew::FormulaAuditor do
-  include FileUtils
-  include Test::Helper::Formula
-
   let(:dir) { mktmpdir }
   let(:foo_version) do
     @count ||= 0
@@ -19,6 +16,9 @@ RSpec.describe Homebrew::FormulaAuditor do
   let(:origin_formula_path) { origin_tap_path/formula_subpath }
   let(:tap_path) { HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-bar" }
   let(:formula_path) { tap_path/formula_subpath }
+
+  include FileUtils
+  include Test::Helper::Formula
 
   def formula_auditor(name, text, options = {})
     path = Pathname.new "#{dir}/#{name}.rb"
@@ -35,7 +35,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       options.delete :tap_audit_exceptions
     end
 
-    described_class.new(formula, **options)
+    Homebrew::FormulaAuditor.new(formula, **options)
   end
 
   def formula_gsub(before, after = "")
@@ -932,7 +932,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       expect(fa.problems).to be_empty
     end
 
-    it "doesn't allow patch versions that aren't multiples when throttle interval has not elapsed" do
+    it "allows patch versions that aren't multiples when throttle interval has not elapsed" do
       fa = formula_auditor "foo", <<~RUBY, core_tap: true
         class Foo < Formula
           url "https://brew.sh/foo-1.0.1.tgz"
@@ -944,8 +944,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       allow(Homebrew::Livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
 
       fa.audit_specs
-      expect(fa.problems.first[:message])
-        .to match "Should only be updated every 10 releases on multiples of 10 or 1 day"
+      expect(fa.problems).to be_empty
     end
 
     it "allows throttle with only days when throttle interval has elapsed" do
@@ -963,7 +962,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       expect(fa.problems).to be_empty
     end
 
-    it "doesn't allow throttle with only days when throttle interval has not elapsed" do
+    it "allows throttle with only days when throttle interval has not elapsed" do
       fa = formula_auditor "foo", <<~RUBY, core_tap: true
         class Foo < Formula
           url "https://brew.sh/foo-1.0.1.tgz"
@@ -975,7 +974,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       allow(Homebrew::Livecheck).to receive(:throttle_interval_elapsed?).and_return(false)
 
       fa.audit_specs
-      expect(fa.problems.first[:message]).to match "Should only be updated every 1 day"
+      expect(fa.problems).to be_empty
     end
 
     it "allows non-versioned formulae to have a `HEAD` spec" do

@@ -152,7 +152,6 @@ RSpec.describe Language::Python::Virtualenv, :needs_python do
     subject(:virtualenv) { described_class.new(formula, dir, "python") }
 
     let(:dir) { mktmpdir }
-
     let(:resource) { instance_double(Resource, "resource", stage: true) }
     let(:formula_bin) { dir/"formula_bin" }
     let(:formula_man) { dir/"formula_man" }

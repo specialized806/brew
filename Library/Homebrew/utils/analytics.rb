@@ -14,6 +14,7 @@ module Utils
     INFLUX_TOKEN = "iVdsgJ_OjvTYGAA79gOfWlA_fX0QCuj4eYUNdb-qVUTrC3tp3JTWCADVNE9HxV0kp2ZjIK9tuthy_teX4szr9A=="
     INFLUX_HOST = "https://eu-central-1-1.aws.cloud2.influxdata.com"
     INFLUX_ORG = "d81a3e6d582d485f"
+    WSL_SUFFIX = " [WSL]"
 
     extend Utils::Output::Mixin
     extend T::Generic
@@ -366,6 +367,13 @@ module Utils
         nil
       end
 
+      sig { params(value: String, wsl: T::Boolean).returns(String) }
+      def with_wsl_suffix_if_needed(value, wsl: OS.wsl?)
+        return value if !wsl || value.end_with?(WSL_SUFFIX)
+
+        "#{value}#{WSL_SUFFIX}"
+      end
+
       sig { returns(T::Hash[Symbol, T.any(T::Boolean, String)]) }
       def default_package_tags
         cache[:default_package_tags] ||= begin
@@ -380,7 +388,7 @@ module Utils
             developer:      Homebrew::EnvConfig.developer?,
             devcmdrun:      Homebrew::EnvConfig.devcmdrun?,
             arch:           HOMEBREW_PHYSICAL_PROCESSOR,
-            os:             HOMEBREW_SYSTEM,
+            os:             with_wsl_suffix_if_needed(HOMEBREW_SYSTEM),
           }
         end
       end
@@ -399,7 +407,7 @@ module Utils
 
           # Only include OS versions with an actual name.
           os_name_and_version = if (os_version = OS_VERSION.presence) && os_version.downcase.match?(/^[a-z]/)
-            os_version
+            with_wsl_suffix_if_needed(os_version)
           end
 
           {

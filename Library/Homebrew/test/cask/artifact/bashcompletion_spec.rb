@@ -1,7 +1,8 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::BashCompletion, :cask do
+  let(:cask_token) { "basic-cask" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
   context "with install" do

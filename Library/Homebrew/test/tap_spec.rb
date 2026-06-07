@@ -1,13 +1,7 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Tap do
-  include FileUtils
-
-  alias_matcher :have_cask_file, :be_cask_file
-  alias_matcher :have_formula_file, :be_formula_file
-  alias_matcher :have_custom_remote, :be_custom_remote
-
   subject(:homebrew_foo_tap) { described_class.fetch("Homebrew", "foo") }
 
   let(:path) { HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-foo" }
@@ -18,6 +12,12 @@ RSpec.describe Tap do
   let(:bash_completion_file) { path/"completions/bash/brew-tap-cmd" }
   let(:zsh_completion_file) { path/"completions/zsh/_brew-tap-cmd" }
   let(:fish_completion_file) { path/"completions/fish/brew-tap-cmd.fish" }
+
+  include FileUtils
+
+  alias_matcher :have_cask_file, :be_cask_file
+  alias_matcher :have_formula_file, :be_formula_file
+  alias_matcher :have_custom_remote, :be_custom_remote
 
   before do
     path.mkpath
@@ -354,6 +354,109 @@ RSpec.describe Tap do
       end.to raise_error(TapCoreRemoteMismatchError)
     end
 
+    it "creates core and cask taps as worktrees when the brew source repository has them" do
+      source_repository = HOMEBREW_PREFIX.parent/"source-repository"
+      worktree_git_dir = HOMEBREW_REPOSITORY/".git"
+
+      [CoreTap.instance, CoreCaskTap.instance].each do |tap|
+        source_tap = source_repository/"Library/Taps/#{tap.full_name.downcase}"
+
+        FileUtils.rm_rf tap.path
+        source_tap.mkpath
+        source_tap.cd do
+          system "git", "init"
+          FileUtils.touch "README.md"
+          system "git", "add", "--all"
+          system "git", "commit", "-m", "init"
+        end
+        FileUtils.mkdir_p worktree_git_dir.dirname
+        worktree_git_dir.write "gitdir: #{source_repository}/.git/worktrees/#{HOMEBREW_REPOSITORY.basename}\n"
+
+        allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
+                                       formula_names: [], cask_tokens: [])
+        expect(tap).to receive(:safe_system)
+          .with("git", "-C", source_tap, "worktree", "add", "--detach", tap.path, "HEAD")
+          .and_wrap_original do
+            tap.path.mkpath
+            (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
+          end
+
+        tap.install
+      end
+    ensure
+      FileUtils.rm_rf source_repository
+      FileUtils.rm_rf CoreTap.instance.path
+      FileUtils.rm_rf CoreCaskTap.instance.path
+      (CoreTap.instance.path/"Formula").mkpath
+    end
+
+    it "creates a tap from another brew worktree when that has the source repository" do
+      tap = CoreCaskTap.instance
+      source_repository = HOMEBREW_PREFIX.parent/"source-repository"
+      source_worktree = HOMEBREW_PREFIX.parent/"source-worktree"
+      source_tap = source_worktree/"Library/Taps/#{tap.full_name.downcase}"
+
+      FileUtils.rm_rf tap.path
+      source_tap.mkpath
+      source_tap.cd do
+        system "git", "init"
+        FileUtils.touch "README.md"
+        system "git", "add", "--all"
+        system "git", "commit", "-m", "init"
+      end
+      FileUtils.mkdir_p (HOMEBREW_REPOSITORY/".git").dirname
+      (HOMEBREW_REPOSITORY/".git")
+        .write "gitdir: #{source_repository}/.git/worktrees/#{HOMEBREW_REPOSITORY.basename}\n"
+
+      allow(Utils).to receive(:popen_read).and_call_original
+      allow(Utils).to receive(:popen_read)
+        .with("git", "-C", HOMEBREW_REPOSITORY, "worktree", "list", "--porcelain")
+        .and_return("worktree #{source_worktree}\n")
+      allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
+                                     formula_names: [], cask_tokens: [])
+      expect(tap).to receive(:safe_system)
+        .with("git", "-C", source_tap, "worktree", "add", "--detach", tap.path, "HEAD")
+        .and_wrap_original do
+          tap.path.mkpath
+          (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
+        end
+
+      tap.install
+    ensure
+      FileUtils.rm_rf source_repository
+      FileUtils.rm_rf source_worktree
+      FileUtils.rm_rf CoreCaskTap.instance.path
+    end
+
+    it "uses the requested remote for cask taps with an explicit clone target" do
+      tap = CoreCaskTap.instance
+      requested_remote = "https://example.com/Homebrew/homebrew-cask"
+      source_repository = HOMEBREW_PREFIX.parent/"source-repository"
+      source_tap = source_repository/"Library/Taps/#{tap.full_name.downcase}"
+
+      FileUtils.rm_rf tap.path
+      source_tap.mkpath
+      (source_tap/".git").mkpath
+      FileUtils.mkdir_p (HOMEBREW_REPOSITORY/".git").dirname
+      (HOMEBREW_REPOSITORY/".git")
+        .write "gitdir: #{source_repository}/.git/worktrees/#{HOMEBREW_REPOSITORY.basename}\n"
+
+      allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
+                                     formula_names: [], cask_tokens: [])
+      expect(tap).to receive(:safe_system)
+        .with("git", "clone", requested_remote, tap.path.to_s, "--origin=origin", "--template=",
+              "--config", "core.fsmonitor=false")
+        .and_wrap_original do
+          tap.path.mkpath
+          (tap.path/".git").mkpath
+        end
+
+      tap.install clone_target: requested_remote, force: true
+    ensure
+      FileUtils.rm_rf source_repository
+      FileUtils.rm_rf CoreCaskTap.instance.path
+    end
+
     it "raises an error when run `brew tap --custom-remote` without a custom remote (already installed)" do
       setup_git_repo
       already_tapped_tap = described_class.fetch("Homebrew", "foo")
@@ -389,6 +492,26 @@ RSpec.describe Tap do
     it "raises an error if the Tap is not available" do
       tap = described_class.fetch("Homebrew", "bar")
       expect { tap.uninstall }.to raise_error(TapUnavailableError)
+    end
+
+    it "removes Git worktree metadata for worktree-installed taps" do
+      tap = CoreCaskTap.instance
+      source_tap = HOMEBREW_PREFIX.parent/"source-tap"
+
+      FileUtils.rm_rf tap.path
+      source_tap.mkpath
+      (source_tap/".git").mkpath
+      tap.path.mkpath
+      (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
+
+      allow(tap).to receive_messages(contents: [], formula_names: [], cask_tokens: [])
+      expect(tap).to receive(:safe_system)
+        .with("git", "-C", source_tap, "worktree", "remove", "--force", tap.path)
+
+      tap.uninstall
+    ensure
+      FileUtils.rm_rf source_tap
+      FileUtils.rm_rf CoreCaskTap.instance.path
     end
   end
 
@@ -734,6 +857,32 @@ RSpec.describe Tap do
       expect { core_tap.uninstall }.to raise_error(RuntimeError)
     end
 
+    specify "#autobump reads public formula API metadata" do
+      core_tap.remove_instance_variable(:@autobump) if core_tap.instance_variable_defined?(:@autobump)
+      expect(Homebrew::API::Internal).not_to receive(:formula_hashes)
+      allow(Homebrew::API::Formula).to receive(:all_formulae).and_return({
+        "autobumped" => { "autobump" => true, "skip_livecheck" => false },
+        "disabled"   => { "autobump" => true, "disabled" => true },
+        "skipped"    => { "autobump" => true, "skip_livecheck" => true },
+      })
+
+      expect(core_tap.autobump).to eq(["autobumped"])
+    end
+
+    specify "#autobump reads public cask API metadata" do
+      cask_tap = CoreCaskTap.instance
+      cask_tap.remove_instance_variable(:@autobump) if cask_tap.instance_variable_defined?(:@autobump)
+      expect(Homebrew::API::Formula).not_to receive(:all_formulae)
+      expect(Homebrew::API::Internal).not_to receive(:cask_hashes)
+      allow(Homebrew::API::Cask).to receive(:all_casks).and_return({
+        "autobumped" => { "autobump" => true, "skip_livecheck" => false },
+        "disabled"   => { "autobump" => true, "disabled" => true },
+        "skipped"    => { "autobump" => true, "skip_livecheck" => true },
+      })
+
+      expect(cask_tap.autobump).to eq(["autobumped"])
+    end
+
     specify "files", :no_api do
       path = HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-core"
       formula_file = core_tap.formula_dir/"foo.rb"
@@ -775,15 +924,14 @@ RSpec.describe Tap do
   end
 
   describe "#repository_var_suffix" do
-    it "converts the repo directory to an environment variable suffix" do
+    specify do
       expect(CoreTap.instance.repository_var_suffix).to eq "_HOMEBREW_HOMEBREW_CORE"
-    end
-
-    it "converts non-alphanumeric characters to underscores" do # rubocop:todo RSpec/AggregateExamples
-      expect(described_class.fetch("my",
-                                   "tap-with-dashes").repository_var_suffix).to eq "_MY_HOMEBREW_TAP_WITH_DASHES"
-      expect(described_class.fetch("my",
-                                   "tap-with-@-symbol").repository_var_suffix).to eq "_MY_HOMEBREW_TAP_WITH___SYMBOL"
+      expect(
+        described_class.fetch("my", "tap-with-dashes").repository_var_suffix,
+      ).to eq "_MY_HOMEBREW_TAP_WITH_DASHES"
+      expect(
+        described_class.fetch("my", "tap-with-@-symbol").repository_var_suffix,
+      ).to eq "_MY_HOMEBREW_TAP_WITH___SYMBOL"
     end
   end
 

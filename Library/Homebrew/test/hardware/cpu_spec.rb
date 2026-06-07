@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "hardware"
@@ -33,12 +33,14 @@ RSpec.describe Hardware::CPU do
         :arm_brava,
         :arm_donan,
         :arm_firestorm_icestorm,
+        :arm_hidra,
         :arm_hurricane_zephyr,
         :arm_ibiza,
         :arm_lightning_thunder,
         :arm_lobos,
         :arm_monsoon_mistral,
         :arm_palma,
+        :arm_sotra,
         :arm_twister,
         :arm_typhoon,
         :arm_vortex_tempest,

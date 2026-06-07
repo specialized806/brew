@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "api"
@@ -136,6 +136,32 @@ RSpec.describe Homebrew::API::CaskStruct do
       .to eq([:preflight, ["foo"], { bar: "baz" }, nil])
   end
 
+  it "preserves zero values in serialized artifact arguments" do
+    struct = described_class.new(
+      sha256:               "abc123",
+      version:              "1.0.0",
+      ruby_source_checksum: { sha256: "def456" },
+      raw_artifacts:        [
+        [
+          :pkg,
+          ["Test.pkg"],
+          { choices: [{ choiceIdentifier: "choice1", choiceAttribute: "selected", attributeSetting: 0 }] },
+          nil,
+        ],
+      ],
+    )
+
+    expect(struct.serialize.fetch("raw_artifacts"))
+      .to eq([
+        [
+          ":pkg",
+          ["Test.pkg"],
+          { ":choices" => [{ ":choiceIdentifier" => "choice1", ":choiceAttribute" => "selected",
+                             ":attributeSetting" => 0 }] },
+        ],
+      ])
+  end
+
   specify "::deserialize_artifact_args", :aggregate_failures do
     expect(described_class.deserialize_artifact_args([:foo]))
       .to eq([:foo, [], {}, nil])
@@ -147,19 +173,19 @@ RSpec.describe Homebrew::API::CaskStruct do
       .to eq([:foo, [], { ghi: "jkl" }, nil])
 
     expect(described_class.deserialize_artifact_args([:foo, :empty_block]))
-      .to eq([:foo, [], {}, described_class::EMPTY_BLOCK])
+      .to eq([:foo, [], {}, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
     expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }]))
       .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, nil])
 
     expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"], :empty_block]))
-      .to eq([:foo, ["abc", "def"], {}, described_class::EMPTY_BLOCK])
+      .to eq([:foo, ["abc", "def"], {}, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
     expect(described_class.deserialize_artifact_args([:foo, { ghi: "jkl" }, :empty_block]))
-      .to eq([:foo, [], { ghi: "jkl" }, described_class::EMPTY_BLOCK])
+      .to eq([:foo, [], { ghi: "jkl" }, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
     expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }, :empty_block]))
-      .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, described_class::EMPTY_BLOCK])
+      .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, Homebrew::API::CaskStruct::EMPTY_BLOCK])
   end
 
   describe "::deserialize" do
@@ -172,7 +198,7 @@ RSpec.describe Homebrew::API::CaskStruct do
 
       struct = described_class.deserialize(hash)
 
-      described_class::PREDICATES.each do |predicate|
+      Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
         expect(struct.send(:"#{predicate}?")).to be false
       end
     end
@@ -195,7 +221,7 @@ RSpec.describe Homebrew::API::CaskStruct do
 
       struct = described_class.deserialize(hash)
 
-      described_class::PREDICATES.each do |predicate|
+      Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
         expect(struct.send(:"#{predicate}?")).to be true
       end
     end
@@ -205,22 +231,13 @@ RSpec.describe Homebrew::API::CaskStruct do
     it "reconstructs an equivalent struct after serialize then deserialize", :needs_macos do
       original = described_class.new(
         auto_updates:         true,
-        auto_updates_present: true,
-        caveats_present:      true,
-        conflicts_present:    true,
         conflicts_with_args:  { cask: ["other-cask"] },
-        container_args:       { type: :zip },
-        container_present:    true,
+        container_args:       { nested: nil, type: :zip },
         depends_on_args:      { macos: ">= :catalina" },
-        depends_on_present:   true,
         deprecate_args:       { date: "2025-01-01", because: :unmaintained },
-        deprecate_present:    true,
         desc:                 "A description",
-        desc_present:         true,
         disable_args:         { date: "2025-01-01", because: :unmaintained },
-        disable_present:      true,
         homepage:             "https://example.com",
-        homepage_present:     true,
         languages:            ["en"],
         names:                ["Test Cask"],
         raw_artifacts:        [[:app, ["#{HOMEBREW_CASK_APPDIR_PLACEHOLDER}/Test.app"], {}, nil]],

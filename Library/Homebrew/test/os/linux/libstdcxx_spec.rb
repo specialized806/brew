@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "os/linux/libstdcxx"
@@ -18,8 +18,8 @@ RSpec.describe OS::Linux::Libstdcxx do
 
   describe "::system_version" do
     let(:tmpdir) { mktmpdir }
-    let(:libstdcxx) { tmpdir/described_class::SONAME }
-    let(:soversion) { Version.new(described_class::SOVERSION.to_s) }
+    let(:libstdcxx) { tmpdir/OS::Linux::Libstdcxx::SONAME }
+    let(:soversion) { Version.new(OS::Linux::Libstdcxx::SOVERSION.to_s) }
 
     before do
       tmpdir.mkpath

@@ -4,13 +4,13 @@
 require "abstract_command"
 require "bump_version_parser"
 require "livecheck/livecheck"
+require "release_cooldown"
 require "utils/curl"
 require "utils/repology"
 
 module Homebrew
   module DevCmd
     class Bump < AbstractCommand
-      MIN_RELEASE_AGE_DAYS = 1
       DEFAULT_CURL_ARGS = T.let([
         "--compressed",
         "--fail-with-body",
@@ -71,9 +71,11 @@ module Homebrew
                description: "Check only formulae."
         switch "--cask", "--casks",
                description: "Check only casks."
+        # odeprecated: remove in a future release.
         switch "--eval-all",
-               description: "Evaluate all formulae and casks.",
-               env:         :eval_all
+               description: "Evaluate all available formulae and casks.",
+               env:         :eval_all,
+               hidden:      true
         switch "--repology",
                description: "Use Repology to check for outdated packages."
         flag   "--tap=",
@@ -105,6 +107,7 @@ module Homebrew
 
         Homebrew.with_no_api_env do
           eval_all = args.eval_all?
+          eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
 
           excluded_autobump = []
           if args.no_autobump? && eval_all
@@ -154,19 +157,18 @@ module Homebrew
             formulae + casks
           else
             raise UsageError,
-                  "`brew bump` without named arguments needs `--installed` or `--eval-all` passed or " \
-                  "`HOMEBREW_EVAL_ALL=1` set!"
+                  "`brew bump` without named arguments needs `--installed`, `HOMEBREW_REQUIRE_TAP_TRUST=1` or " \
+                  "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
           end
 
           if (start_with = args.start_with)
             formulae_and_casks.select! do |formula_or_cask|
-              name = formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
-              name.start_with?(start_with)
+              Utils.name_or_token(formula_or_cask).start_with?(start_with)
             end
           end
 
           formulae_and_casks = formulae_and_casks.sort_by do |formula_or_cask|
-            formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+            Utils.name_or_token(formula_or_cask)
           end
 
           formulae_and_casks -= excluded_autobump
@@ -906,7 +908,7 @@ module Homebrew
 
           current_str = current.to_s
           current_is_prerelease = current_str.include?("-")
-          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
           release_dates.sort_by { |_, date| date }.reverse_each do |version_str, date|
             version = Version.new(version_str)
             return version if version_str == current_str
@@ -939,7 +941,7 @@ module Homebrew
 
           current_str = current.to_s
           current_is_prerelease = current_str.match?(PYPI_UNSTABLE_VERSION_REGEX)
-          cooldown_interval = (DateTime.now - MIN_RELEASE_AGE_DAYS)
+          cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
           releases.sort_by { |k, _| Version.new(k) }.reverse_each do |version_str, assets|
             version = Version.new(version_str)
             return version if version_str == current_str
@@ -954,6 +956,36 @@ module Homebrew
               date = DateTime.parse(date_str)
               return version if date < cooldown_interval
             end
+          end
+        when "RubyGems"
+          url = version_info.dig(:meta, :url, :strategy)&.sub(%r{/latest\.json\z}, ".json")
+          original_url = version_info.dig(:meta, :url, :original)
+          return if !url || !original_url
+
+          match = Homebrew::Livecheck::Strategy::RubyGems::URL_MATCH_REGEX.match(original_url)
+          return unless match
+
+          stdout, _stderr, status = Utils::Curl.curl_output(*DEFAULT_CURL_ARGS, url, **DEFAULT_CURL_OPTIONS)
+          return unless status.success?
+          return if (content = stdout.scrub).blank?
+
+          json = Homebrew::Livecheck::Strategy::Json.parse_json(content)
+          return unless json.is_a?(Array)
+
+          current_str = current.to_s
+          cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
+          json.sort_by { |release| Version.new(release["number"]) }.reverse_each do |release|
+            next if release["platform"] != (match[:platform] || "ruby")
+
+            version_str = release["number"]
+            version = Version.new(version_str)
+            return version if version_str == current_str
+            next if (version > latest) || (version < current)
+            next if release["prerelease"] &&
+                    !(Gem::Version.correct?(current_str) && Gem::Version.new(current_str).prerelease?)
+            next unless (date_str = release["created_at"])
+
+            return version if DateTime.parse(date_str) < cooldown_interval
           end
         end
       end

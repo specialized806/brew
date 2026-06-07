@@ -11,7 +11,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
     end
 
     it "returns started services" do
-      allow(Utils).to receive(:safe_popen_read).and_return <<~EOS
+      allow(Utils).to receive(:safe_popen_read).and_return <<~JSON
         [
           {
             "name": "nginx",
@@ -26,7 +26,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
             "status": "started"
           }
         ]
-      EOS
+      JSON
       expect(described_class.started_services).to contain_exactly("nginx", "mysql")
     end
 

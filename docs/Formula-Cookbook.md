@@ -152,6 +152,8 @@ A `String` (e.g. `"jpeg"`) specifies a formula dependency.
 
 A `Symbol` (e.g. `:xcode`) specifies a [`Requirement`](/rubydoc/Requirement.html) to restrict installation to systems meeting certain criteria, which can be fulfilled by one or more formulae, casks or other system-wide installed software (e.g. Xcode). Some [`Requirement`](/rubydoc/Requirement.html)s can also take a string or symbol specifying their minimum version that the formula depends on.
 
+Top-level `depends_on :macos` marks a formula as macOS-only. Top-level `depends_on macos: :sonoma` marks a formula as macOS-only and declares the minimum compatible macOS release. Top-level `depends_on maximum_macos: :ventura` marks a formula as macOS-only and declares the newest compatible macOS release. Top-level `depends_on :linux` marks a formula as Linux-only. For a formula that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`.
+
 A `Hash` (e.g. `=>`) adds information to a dependency. Given a string or symbol, the value can be one or more of the following values:
 
 * `:build` means this is a build-time only dependency so it can be skipped when installing from a bottle or when listing missing dependencies using `brew missing`.
@@ -1096,6 +1098,50 @@ end
 ### Running commands after installation
 
 Any initialization steps that aren't necessarily part of the install process can be located in a `post_install` block, such as setup commands or data directory creation. This block can be re-run separately with `brew postinstall <formula>`.
+
+For simple file preparation, prefer [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method). These steps are stored in the JSON API and do not require evaluating formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code.
+
+```ruby
+class Foo < Formula
+  # ...
+  url "https://example.com/foo-1.0.tar.gz"
+
+  post_install_steps do
+    mkdir_p "log/foo"
+    touch "foo/state"
+    mv "default.conf", "foo/default.conf"
+    ln_s "cert.pem", "foo/cert.pem", source_base: :relative
+  end
+  # ...
+end
+```
+
+A formula may define either `post_install_steps` or `post_install`, not both.
+
+#### File preparation steps
+
+`mkdir`, `mkdir_p` and `touch` default to paths relative to `var`. `move`, `mv`, `move_children`, `symlink`, `ln_s` and `ln_sf` default their source and target paths to `prefix`. Use `base:`, `source_base:` or `target_base:` when a step needs another formula path such as `pkgetc`; use `source_base: :relative` for relative symlink sources.
+
+* `mkdir`: create one directory; example: `mkdir "log/foo"`.
+* `mkdir_p`: create a directory and any missing parents; example: `mkdir_p "log/foo"`.
+* `touch`: create or update a file timestamp; example: `touch "foo/state"`.
+* `move`: move one file or directory; example: `move "default.conf", "foo/default.conf"`.
+* `mv`: alias for `move`; example: `mv "default.conf", "foo/default.conf"`.
+* `move_children`: move the contents of one directory into another; example: `move_children "defaults", "foo/defaults"`.
+* `symlink`: create a symlink; example: `symlink "cert.pem", "foo/cert.pem", source_base: :relative`.
+* `ln_s`: alias for `symlink`; example: `ln_s "cert.pem", "foo/cert.pem", source_base: :relative`.
+* `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
+
+#### Desktop and cache rebuild steps
+
+These steps rebuild shared desktop and cache state using Homebrew-owned tools.
+
+* `compile_gsettings_schemas`: compile GSettings schemas in `share/glib-2.0/schemas`.
+* `gio_querymodules`: rebuild the GIO module cache in `lib/gio/modules`.
+* `gdk_pixbuf_query_loaders`: update the GDK Pixbuf loader cache.
+* `gtk_update_icon_cache`: refresh the `hicolor` GTK icon cache.
+* `update_mime_database`: rebuild the shared MIME database in `share/mime`.
+* `update_desktop_database`: rebuild the desktop entry database in `share/applications`.
 
 ```ruby
 class Foo < Formula

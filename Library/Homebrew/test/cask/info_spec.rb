@@ -1,13 +1,13 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils"
 require "cask/info"
 
 RSpec.describe Cask::Info, :cask do
-  include Utils::Output::Mixin
-
   let(:args) { instance_double(Homebrew::Cmd::Info::Args) }
+
+  include Utils::Output::Mixin
 
   def uninstalled(string)
     "#{Tty.bold}#{string} #{Formatter.error("✘")}#{Tty.reset}"
@@ -29,7 +29,7 @@ RSpec.describe Cask::Info, :cask do
     allow(cask).to receive(:installed?).and_return(true)
     allow(Cask::CaskLoader).to receive(:load).and_call_original
     allow(Cask::CaskLoader).to receive(:load).with(cask_name).and_return(cask)
-    allow(described_class).to receive(:installation_info).and_wrap_original do |method, arg, **kwargs|
+    allow(Cask::Info).to receive(:installation_info).and_wrap_original do |method, arg, **kwargs|
       (arg.token == cask_name) ? "Installed" : method.call(arg, **kwargs)
     end
     (Cask::Caskroom.path/cask_name).mkpath
@@ -68,7 +68,7 @@ RSpec.describe Cask::Info, :cask do
       Not installed
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-cask-multiple.rb")}
       #{ohai_title "Dependencies"}
-      Required (2): #{uninstalled("local-caffeine (cask)")}, #{uninstalled("local-transmission-zip (cask)")}
+      Required (2): local-caffeine (cask), local-transmission-zip (cask)
       Recursive Runtime (2): 0 installed #{Formatter.success("✔")}, 2 missing #{Formatter.error("✘")}
       #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
@@ -99,7 +99,7 @@ RSpec.describe Cask::Info, :cask do
       Not installed
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-cask-multiple.rb")}
       #{ohai_title "Dependencies"}
-      Required (2): #{uninstalled("local-caffeine (cask)")}, #{installed("local-transmission-zip (cask)")}
+      Required (2): local-caffeine (cask), #{installed("local-transmission-zip (cask)")}
       Recursive Runtime (2): 1 installed #{Formatter.success("✔")}, 1 missing #{Formatter.error("✘")}
       #{requirements_section(installed("macOS >= 10.15"))}
       #{ohai_title "Artifacts"}
@@ -119,9 +119,9 @@ RSpec.describe Cask::Info, :cask do
   it "prints cask and formulas dependencies if the Cask has both" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     arch_requirements = if Hardware::CPU.arm?
-      "#{uninstalled("x86_64 architecture")}, #{installed("arm64 architecture")}"
+      "x86_64 architecture, #{installed("arm64 architecture")}"
     else
-      "#{installed("x86_64 architecture")}, #{uninstalled("arm64 architecture")}"
+      "#{installed("x86_64 architecture")}, arm64 architecture"
     end
 
     expect do
@@ -132,7 +132,7 @@ RSpec.describe Cask::Info, :cask do
       Not installed
       From: #{Formatter.url("https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/with-depends-on-everything.rb")}
       #{ohai_title "Dependencies"}
-      Required (3): #{uninstalled("unar")}, #{uninstalled("local-caffeine (cask)")}, #{uninstalled("with-depends-on-cask (cask)")}
+      Required (3): unar, local-caffeine (cask), with-depends-on-cask (cask)
       Recursive Runtime (4): 0 installed #{Formatter.success("✔")}, 4 missing #{Formatter.error("✘")}
       #{requirements_section("#{arch_requirements}, #{installed("macOS >= 10.15")}")}
       #{ohai_title "Artifacts"}
@@ -154,6 +154,18 @@ RSpec.describe Cask::Info, :cask do
       ==> Artifacts
       AutoUpdates.app (App)
     EOS
+  end
+
+  it "prints pinned cask metadata" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    cask = Cask::CaskLoader.load("local-caffeine")
+    InstallHelper.stub_cask_installation(cask)
+    cask.pin
+
+    expect { described_class.info(cask, args:) }
+      .to output(/Pinned: 1\.2\.3 on \d{4}-\d{2}-\d{2} at \d{2}:\d{2}:\d{2}/).to_stdout
+
+    cask.unpin
   end
 
   it "prints caveats if the Cask provided one" do

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "formula"
@@ -52,6 +52,7 @@ RSpec.describe Bottle::Filename do
 
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/foo.tar.gz"
         version "1.0"
       end

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "tempfile"
@@ -85,9 +85,8 @@ RSpec.describe Utils::Inreplace do
 
   describe ".inreplace_pairs" do
     it "raises error if there is no old value" do
-      expect do
-        described_class.inreplace_pairs(file.path, [[nil, "f"]])
-      end.to raise_error(TypeError)
+      inreplace = T.let(described_class, T.untyped)
+      expect { inreplace.inreplace_pairs(file.path, [[nil, "f"]]) }.to raise_error(TypeError)
     end
 
     it "substitutes returned string but not file when `read_only_run: true`" do

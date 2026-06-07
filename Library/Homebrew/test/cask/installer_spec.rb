@@ -2,6 +2,14 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Installer, :cask do
+  def stub_dmg_extraction
+    allow(UnpackStrategy::Dmg).to receive(:can_extract?).and_return(true)
+    allow_any_instance_of(UnpackStrategy::Dmg).to receive(:extract_nestedly) do |_strategy, to:, **|
+      to.mkpath
+      yield to
+    end
+  end
+
   describe "install" do
     it "downloads and installs a nice fresh Cask" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
@@ -14,6 +22,7 @@ RSpec.describe Cask::Installer, :cask do
 
     it "works with HFS+ dmg-based Casks" do
       asset = Cask::CaskLoader.load(cask_path("container-dmg"))
+      stub_dmg_extraction { |path| FileUtils.touch path/"container" }
 
       described_class.new(asset).install
 
@@ -86,6 +95,13 @@ RSpec.describe Cask::Installer, :cask do
       end.to raise_error(/--require-sha/)
     end
 
+    it "fails to install if Linux is required" do
+      linux_cask = Cask::CaskLoader.load("with-depends-on-linux-bare")
+      expect do
+        described_class.new(linux_cask).check_stanza_os_requirements
+      end.to raise_error(Cask::CaskError, "Linux is required for this software.")
+    end
+
     it "installs fine if sha256 :no_check is used with --require-sha and --force" do
       no_checksum = Cask::CaskLoader.load(cask_path("no-checksum"))
 
@@ -156,6 +172,7 @@ RSpec.describe Cask::Installer, :cask do
 
     it "installs a cask from a dmg file" do
       transmission = Cask::CaskLoader.load(cask_path("local-transmission"))
+      stub_dmg_extraction { |path| (path/"Transmission.app").mkpath }
 
       expect(transmission).not_to be_installed
 
@@ -511,6 +528,56 @@ RSpec.describe Cask::Installer, :cask do
       end
 
       expect { described_class.new(cask).forbidden_cask_artifacts_check }.not_to raise_error
+    end
+  end
+
+  describe "#prelude" do
+    it "raises on forbidden cask before fetching the caskfile from the Source API" do
+      ENV["HOMEBREW_FORBIDDEN_CASKS"] = cask_name = "homebrew-forbidden-cask"
+      cask = Cask::Cask.new(cask_name) do
+        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+      end
+      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true)
+      installer = described_class.new(cask)
+
+      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+      expect(installer).not_to receive(:download)
+
+      expect { installer.prelude }.to raise_error(Cask::CaskCannotBeInstalledError, /forbidden for installation/)
+    end
+  end
+
+  describe "#prelude_fetch" do
+    it "enqueues source API caskfiles before the main cask download" do
+      cask = Cask::Cask.new("source-api-cask") do
+        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+      end
+      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: ["en"])
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = described_class.new(cask, download_queue:)
+      source_download = instance_double(Homebrew::API::SourceDownload, downloaded?: false)
+
+      expect(Homebrew::API::Cask).to receive(:source_download_for).with(cask).and_return(source_download)
+      expect(download_queue).to receive(:enqueue).with(source_download)
+      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+      expect(installer).not_to receive(:download)
+
+      installer.prelude_fetch
+    end
+
+    it "leaves source API caskfiles in the main queue when their URL is known" do
+      cask = Cask::Cask.new("source-api-cask") do
+        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+      end
+      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: [])
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = described_class.new(cask, download_queue:)
+
+      expect(Homebrew::API::Cask).to receive(:source_download).with(cask, download_queue:, enqueue: true)
+      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
+      expect(download_queue).to receive(:enqueue).with(instance_of(Cask::Download))
+
+      installer.enqueue_downloads
     end
   end
 

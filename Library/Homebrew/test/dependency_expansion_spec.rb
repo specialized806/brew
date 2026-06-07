@@ -1,22 +1,22 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "dependency"
 
 RSpec.describe Dependency do
-  def build_dep(name, tags = [], deps = [])
-    dep = described_class.new(name.to_s, tags)
-    allow(dep).to receive(:to_formula).and_return \
-      instance_double(Formula, deps:, name:, full_name: name)
-    dep
-  end
-
   let(:foo) { build_dep(:foo) }
   let(:bar) { build_dep(:bar) }
   let(:baz) { build_dep(:baz) }
   let(:qux) { build_dep(:qux) }
   let(:deps) { [foo, bar, baz, qux] }
   let(:formula) { instance_double(Formula, deps:, name: "f") }
+
+  def build_dep(name, tags = [], deps = [])
+    dep = Dependency.new(name.to_s, tags)
+    allow(dep).to receive(:to_formula).and_return \
+      instance_double(Formula, deps:, name:, full_name: name)
+    dep
+  end
 
   describe "::expand" do
     it "yields dependent and dependency pairs" do
@@ -25,6 +25,7 @@ RSpec.describe Dependency do
         expect(dependent).to eq(formula)
         expect(deps[i]).to eq(dep)
         i += 1
+        nil
       end
     end
 
@@ -33,12 +34,12 @@ RSpec.describe Dependency do
     end
 
     it "prunes all when given a block with PRUNE" do
-      expect(described_class.expand(formula) { next described_class::PRUNE }).to be_empty
+      expect(described_class.expand(formula) { next Dependable::PRUNE }).to be_empty
     end
 
     it "can prune selectively" do
       deps = described_class.expand(formula) do |_, dep|
-        next described_class::PRUNE if dep.name == "foo"
+        next Dependable::PRUNE if dep.name == "foo"
       end
 
       expect(deps).to eq([bar, baz, qux])
@@ -69,7 +70,7 @@ RSpec.describe Dependency do
     deps << foo2 << baz2
     deps = [foo2, bar, baz2, qux]
     deps.zip(described_class.expand(formula)) do |expected, actual|
-      expect(expected.tags).to eq(actual.tags)
+      expect(expected.tags).to eq(T.must(actual).tags)
       expect(expected).to eq(actual)
     end
   end
@@ -79,7 +80,7 @@ RSpec.describe Dependency do
     foo3 = build_dep(:foo, ["option"])
     deps << foo2 << foo3
 
-    expect(described_class.expand(formula).first.tags).to eq(%w[option])
+    expect(T.must(described_class.expand(formula).first).tags).to eq(%w[option])
   end
 
   it "skips parent but yields children with SKIP" do
@@ -93,7 +94,7 @@ RSpec.describe Dependency do
     )
 
     deps = described_class.expand(f) do |_dependent, dep|
-      next described_class::SKIP if %w[foo qux].include? dep.name
+      next Dependable::SKIP if %w[foo qux].include? dep.name
     end
 
     expect(deps).to eq([bar, baz])
@@ -105,7 +106,7 @@ RSpec.describe Dependency do
     f = instance_double(Formula, name: "f", deps: [foo, baz])
 
     deps = described_class.expand(f) do |_dependent, dep|
-      next described_class::KEEP_BUT_PRUNE_RECURSIVE_DEPS if dep.test?
+      next Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS if dep.test?
     end
 
     expect(deps).to eq([foo, baz])

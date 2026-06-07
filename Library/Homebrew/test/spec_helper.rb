@@ -53,6 +53,7 @@ require "test/support/helper/files"
 require "test/support/helper/fixtures"
 require "test/support/helper/formula"
 require "test/support/helper/mktmpdir"
+require "test/support/helper/subcommand"
 
 require "test/support/helper/spec/shared_context/homebrew_cask" if OS.mac?
 require "test/support/helper/spec/shared_context/integration_test"
@@ -147,6 +148,7 @@ RSpec.configure do |config|
   config.include(Test::Helper::Fixtures)
   config.include(Test::Helper::Formula)
   config.include(Test::Helper::MkTmpDir)
+  config.include(Test::Helper::Subcommand)
 
   # Enable aggregate failures by default
   config.define_derived_metadata do |metadata|
@@ -203,28 +205,63 @@ RSpec.configure do |config|
     ENV["HOMEBREW_NO_INSTALL_FROM_API"] = "1"
   end
 
-  config.before(:each, :needs_svn) do
-    svn_shim = HOMEBREW_SHIMS_PATH/"shared/svn"
-    skip "Subversion is not installed." unless quiet_system svn_shim, "--version"
+  svn_path_dirs = nil
+  svn_skip_reason = nil
+  svn_client_path_dirs = nil
+  svn_client_skip_reason = nil
 
-    svn_shim_path = Pathname(Utils.popen_read(svn_shim, "--homebrew=print-path").chomp.presence)
+  config.define_derived_metadata(:needs_svnadmin) do |metadata|
+    metadata[:needs_svn] = true
+  end
+
+  config.before(:each, :needs_svn) do
+    skip svn_client_skip_reason if svn_client_skip_reason
+    if svn_client_path_dirs
+      ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_client_path_dirs)
+      next
+    end
+
     svn_paths = PATH.new(ENV.fetch("PATH"))
-    svn_paths.prepend(svn_shim_path.dirname)
 
     if OS.mac?
       xcrun_svn = Utils.popen_read("xcrun", "-f", "svn")
       svn_paths.append(File.dirname(xcrun_svn)) if $CHILD_STATUS.success? && xcrun_svn.present?
     end
 
+    svn_shim = HOMEBREW_SHIMS_PATH/"shared/svn"
+    unless quiet_system svn_shim, "--version"
+      svn_client_skip_reason = "Subversion is not installed."
+      skip svn_client_skip_reason
+    end
+
+    svn_shim_path = Pathname(Utils.popen_read(svn_shim, "--homebrew=print-path").chomp.presence)
+    svn_paths.prepend(svn_shim_path.dirname)
+
     svn = which("svn", svn_paths)
-    skip "svn is not installed." unless svn
+    unless svn
+      svn_client_skip_reason = "svn is not installed."
+      skip svn_client_skip_reason
+    end
 
-    svnadmin = which("svnadmin", svn_paths)
-    skip "svnadmin is not installed." unless svnadmin
+    svn_client_path_dirs = [svn.dirname]
+    ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_client_path_dirs)
+  end
 
-    ENV["PATH"] = PATH.new(ENV.fetch("PATH"))
-                      .append(svn.dirname)
-                      .append(svnadmin.dirname)
+  config.before(:each, :needs_svnadmin) do
+    skip svn_skip_reason if svn_skip_reason
+    if svn_path_dirs
+      ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_path_dirs)
+      next
+    end
+
+    svnadmin = which("svnadmin")
+    unless svnadmin
+      svn_skip_reason = "svnadmin is not installed."
+      skip svn_skip_reason
+    end
+
+    svn_path_dirs = [svnadmin.dirname]
+    ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_path_dirs)
   end
 
   config.before(:each, :needs_homebrew_curl) do
@@ -263,6 +300,23 @@ RSpec.configure do |config|
     # Link original API cache files to test cache directory.
     Pathname("#{ENV.fetch("HOMEBREW_CACHE")}/api").glob("*.json").each do |path|
       FileUtils.ln_s path, HOMEBREW_CACHE/"api/#{path.basename}"
+    end
+    Pathname("#{ENV.fetch("HOMEBREW_CACHE")}/api").glob("*.txt").each do |path|
+      FileUtils.cp path, HOMEBREW_CACHE/"api/#{path.basename}"
+    end
+    Pathname("#{ENV.fetch("HOMEBREW_CACHE")}/api/internal").glob("*.{json,txt}").each do |path|
+      target = HOMEBREW_CACHE/"api/internal/#{path.basename}"
+      target.dirname.mkpath
+      (path.extname == ".txt") ? FileUtils.cp(path, target) : FileUtils.ln(path, target)
+      next unless path.basename.to_s.start_with?("packages.")
+
+      [:generic, :linux, :macos, *MacOSVersion::SYMBOLS.keys].product([:arm, :intel]).each do |system, arch|
+        tag = Utils::Bottles::Tag.new(system:, arch:)
+        next unless tag.valid_combination?
+
+        target = HOMEBREW_CACHE/"api/internal/packages.#{tag}.jws.json"
+        FileUtils.ln path, target unless target.exist?
+      end
     end
 
     begin
@@ -305,6 +359,8 @@ RSpec.configure do |config|
         *Keg.must_exist_subdirectories,
         HOMEBREW_LINKED_KEGS,
         HOMEBREW_PINNED_KEGS,
+        HOMEBREW_PINNED_CASKS,
+        Pathname(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json",
         HOMEBREW_PREFIX/"Caskroom",
         HOMEBREW_PREFIX/"Frameworks",
         HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-cask",

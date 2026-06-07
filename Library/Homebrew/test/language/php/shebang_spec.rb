@@ -69,7 +69,8 @@ RSpec.describe Language::PHP::Shebang do
 
     it "can fix broken shebang like `#!php`" do
       allow(Formulary).to receive(:factory).with(f[:php81].name).and_return(f[:php81])
-      Utils::Shebang.rewrite_shebang described_class.detected_php_shebang(f[:versioned_php_dep]), broken_file.path
+      Utils::Shebang.rewrite_shebang described_class.detected_php_shebang(f[:versioned_php_dep]),
+                                     broken_file.path
 
       expect(File.read(broken_file)).to eq <<~EOS
         #!#{HOMEBREW_PREFIX/"opt/php@8.1/bin/php"}

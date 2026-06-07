@@ -29,6 +29,8 @@ module Homebrew
                description: "Target workflow filename (default: `publish-commit-bottles.yml`)."
 
         named_args :pull_request, min: 1
+
+        hide_from_man_page!
       end
 
       sig { override.void }

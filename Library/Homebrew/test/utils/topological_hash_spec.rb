@@ -90,7 +90,8 @@ RSpec.describe Utils::TopologicalHash do
       })
 
       sorted = [formula1, cask1, cask2, cask3, formula2]
-      expect(described_class.graph_package_dependencies([cask3, cask2, cask1, formula2, formula1]).tsort).to eq sorted
+      expect(described_class.graph_package_dependencies([cask3, cask2, cask1, formula2,
+                                                         formula1]).tsort).to eq sorted
       expect(described_class.graph_package_dependencies([cask3, formula2]).tsort).to eq sorted
 
       expect { described_class.graph_package_dependencies([formula3, formula4]).tsort }.to raise_error TSort::Cyclic

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -8,11 +8,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::PageMatch do
 
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
-
   let(:regex) { %r{href=.*?/homebrew[._-]v?(\d+(?:\.\d+)+)/?["' >]}i }
-
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE html>
       <html>
         <head>
@@ -34,9 +32,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::PageMatch do
           </ul>
         </body>
       </html>
-    EOS
+    HTML
   end
-
   let(:matches) { ["2.6.0", "2.5.0", "2.4.0", "2.3.0", "2.2.0", "2.1.0", "2.0.0", "1.9.0"] }
 
   describe "::match?" do

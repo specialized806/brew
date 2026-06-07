@@ -82,13 +82,100 @@ module Homebrew
               info += "\nHEAD: #{tap.git_head || "(none)"}"
               info += "\nlast commit: #{tap.git_last_commit || "never"}"
               info += "\nbranch: #{tap.git_branch || "(none)"}" if default_branches.exclude?(tap.git_branch)
+              puts info
+              print_tap_listings(tap)
             else
               info += "Not installed"
               Homebrew.failed = true
+              puts info
             end
-            puts info
           end
         end
+      end
+
+      LISTING_LIMIT = 30
+      private_constant :LISTING_LIMIT
+
+      sig { params(tap: Tap).void }
+      def print_tap_listings(tap)
+        commands = tap.command_files
+                      .map { |path| path.basename(path.extname).to_s.delete_prefix("brew-") }
+                      .sort
+        installed_formula_names = Formula.installed_formula_names.to_set
+        installed_cask_tokens = Cask::Caskroom.tokens.to_set
+        formula_names = tap.formula_names.map { |name| Utils.name_from_full_name(name) }.sort
+        cask_tokens = tap.cask_tokens.map { |token| Utils.name_from_full_name(token) }.sort
+        installed_formulae = formula_names.select { |name| installed_formula_names.include?(name) }
+        installed_casks = cask_tokens.select { |token| installed_cask_tokens.include?(token) }
+
+        if commands.any?
+          ohai "Commands"
+          puts commands.join(", ")
+        end
+
+        min_width = (formula_names + cask_tokens).map { |n| Tty.strip_ansi(pretty_uninstalled(n)).length }.max || 0
+        print_section(tap, "Formulae", formula_names, installed_formulae, min_width:) do |name|
+          decorate_formula(tap, name, installed: installed_formula_names.include?(name))
+        end
+        print_section(tap, "Casks", cask_tokens, installed_casks, min_width:) do |token|
+          decorate_cask(tap, token, installed: installed_cask_tokens.include?(token))
+        end
+      end
+
+      sig {
+        params(
+          tap:       Tap,
+          label:     String,
+          all:       T::Array[String],
+          installed: T::Array[String],
+          min_width: Integer,
+          block:     T.proc.params(name: String).returns(String),
+        ).void
+      }
+      def print_section(tap, label, all, installed, min_width:, &block)
+        return if all.none?
+
+        if all.size <= LISTING_LIMIT
+          ohai label, Formatter.columns(all.map(&block), min_width:)
+        elsif installed.any?
+          ohai label
+          opoo "Tap has more than #{LISTING_LIMIT} #{label.downcase}; showing only installed entries."
+          puts Formatter.columns(installed.map(&block), min_width:)
+        else
+          ohai label
+          opoo "Tap has more than #{LISTING_LIMIT} #{label.downcase} and none are installed."
+          puts "See: #{tap.remote}" if tap.remote.present?
+        end
+      end
+
+      sig { params(tap: Tap, name: String, installed: T::Boolean).returns(String) }
+      def decorate_formula(tap, name, installed:)
+        formula = Formulary.factory("#{tap.name}/#{name}")
+        pretty_install_status(
+          name,
+          installed:,
+          outdated:         installed && formula.outdated?,
+          deprecated:       formula.deprecated?,
+          disabled:         formula.disabled?,
+          mark_uninstalled: false,
+        )
+      rescue
+        pretty_install_status(name, installed:, mark_uninstalled: false)
+      end
+
+      sig { params(tap: Tap, token: String, installed: T::Boolean).returns(String) }
+      def decorate_cask(tap, token, installed:)
+        cask = Cask::CaskLoader.load("#{tap.name}/#{token}")
+        pretty_install_status(
+          token,
+          installed:,
+          outdated:         installed && cask.outdated?,
+          deprecated:       cask.deprecated?,
+          disabled:         cask.disabled?,
+          mark_uninstalled: false,
+        )
+      rescue
+        pretty_install_status(token, installed:, mark_uninstalled: false)
       end
 
       sig { params(taps: T::Array[Tap]).void }

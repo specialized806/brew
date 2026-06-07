@@ -77,7 +77,6 @@ RSpec.describe Homebrew::Livecheck::SkipConditions do
       end,
     }
   end
-
   let(:casks) do
     {
       basic:                                 Cask::Cask.new("test") do
@@ -181,7 +180,6 @@ RSpec.describe Homebrew::Livecheck::SkipConditions do
       end,
     }
   end
-
   let(:status_hashes) do
     {
       formula: {

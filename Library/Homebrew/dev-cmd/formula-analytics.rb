@@ -54,6 +54,8 @@ module Homebrew
         conflicts "--json", "--all-core-formulae-json", "--setup"
 
         named_args :none
+
+        hide_from_man_page!
       end
 
       FIRST_INFLUXDB_ANALYTICS_DATE = T.let(Date.new(2023, 03, 27).freeze, Date)
@@ -361,7 +363,10 @@ module Homebrew
         return if dimension.blank?
 
         require "macos_version"
+        require "utils/analytics"
 
+        wsl = dimension.end_with?(Utils::Analytics::WSL_SUFFIX)
+        dimension = dimension.delete_suffix(Utils::Analytics::WSL_SUFFIX)
         dimension = dimension.gsub(/^Intel ?/, "")
                              .gsub(/^macOS ?/, "")
                              .gsub(/ \(.+\)$/, "")
@@ -375,7 +380,7 @@ module Homebrew
           nil
         end
 
-        case dimension
+        formatted_dimension = case dimension
         when /Ubuntu(-Server)? (14|16|18|20|22|24)\.04/ then "Ubuntu #{Regexp.last_match(2)}.04 LTS"
         when /Ubuntu(-Server)? (\d+\.\d+).\d ?(LTS)?/
           "Ubuntu #{Regexp.last_match(2)} #{Regexp.last_match(3)}".strip
@@ -395,6 +400,8 @@ module Homebrew
         when /^10\.(\d+)/ then "macOS 10.#{Regexp.last_match(1)}"
         else dimension
         end
+
+        Utils::Analytics.with_wsl_suffix_if_needed(formatted_dimension, wsl:)
       end
     end
   end

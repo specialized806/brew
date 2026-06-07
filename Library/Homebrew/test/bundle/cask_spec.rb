@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -15,11 +15,8 @@ RSpec.describe Homebrew::Bundle::Cask do
         allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.cask_names).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -31,11 +28,8 @@ RSpec.describe Homebrew::Bundle::Cask do
         allow(Cask::Caskroom).to receive(:casks).and_return([])
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.cask_names).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
 
@@ -74,12 +68,13 @@ RSpec.describe Homebrew::Bundle::Cask do
       end
 
       it "dumps as `cask 'baz'` and `cask 'foo' cask 'bar'` plus descriptions and config values" do
-        expected = <<~EOS
+        expected = <<~RUBY
           cask "foo"
-          cask "bar", args: { fontdir: "/Library/Fonts", language: "zh-TW" }
+          cask "bar", args: { fontdir: "/Library/Fonts", language: "zh-TW" }, trusted: true
           # Software
           cask "baz"
-        EOS
+        RUBY
+        allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return(["bar"])
         expect(dumper.dump(describe: true)).to eql(expected.chomp)
       end
 
@@ -88,11 +83,19 @@ RSpec.describe Homebrew::Bundle::Cask do
       end
 
       it "wants to greedily update foo if there is an update available" do
+        allow(foo).to receive(:pinned?).and_return(false)
         expect(foo).to receive(:outdated?).with(greedy: true).and_return(true)
         expect(dumper.cask_is_outdated_using_greedy?("foo")).to be(true)
       end
 
+      it "does not want to greedily update foo if it is pinned" do
+        allow(foo).to receive(:pinned?).and_return(true)
+        expect(foo).not_to receive(:outdated?)
+        expect(dumper.cask_is_outdated_using_greedy?("foo")).to be(false)
+      end
+
       it "does not want to greedily update bar if there is no update available" do
+        allow(bar).to receive(:pinned?).and_return(false)
         expect(bar).to receive(:outdated?).with(greedy: true).and_return(false)
         expect(dumper.cask_is_outdated_using_greedy?("bar")).to be(false)
       end
@@ -186,6 +189,16 @@ RSpec.describe Homebrew::Bundle::Cask do
         it "returns empty array" do
           described_class.reset!
           expect(described_class.outdated_casks).to eql([])
+        end
+
+        it "does not include pinned casks" do
+          pinned_cask = instance_double(Cask::Cask, to_s: "google-chrome", pinned?: true)
+          unpinned_cask = instance_double(Cask::Cask, to_s: "firefox", pinned?: false)
+          allow(pinned_cask).to receive(:outdated?).with(greedy: false).and_return(true)
+          allow(unpinned_cask).to receive(:outdated?).with(greedy: false).and_return(true)
+          allow(Cask::Caskroom).to receive(:casks).and_return([pinned_cask, unpinned_cask])
+
+          expect(described_class.outdated_casks).to eql(["firefox"])
         end
       end
 

@@ -1,9 +1,14 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/git_repository"
 
 RSpec.describe Utils do
+  let(:commit_message) { "File added" }
+  let(:branch_name) { "test-branch" }
+  let(:head_revision) { HOMEBREW_CACHE.cd { `git rev-parse HEAD`.chomp } }
+  let(:short_head_revision) { HOMEBREW_CACHE.cd { `git rev-parse --short HEAD`.chomp } }
+
   shared_examples "git_repository helper function" do |method_name|
     context "when directory is not a Git repository" do
       it "returns nil if `safe` parameter is `false`" do
@@ -41,12 +46,6 @@ RSpec.describe Utils do
       system "git", "checkout", "-b", branch_name
     end
   end
-
-  let(:commit_message) { "File added" }
-  let(:branch_name) { "test-branch" }
-
-  let(:head_revision) { HOMEBREW_CACHE.cd { `git rev-parse HEAD`.chomp } }
-  let(:short_head_revision) { HOMEBREW_CACHE.cd { `git rev-parse --short HEAD`.chomp } }
 
   describe "::git_head" do
     it "returns the revision at HEAD" do

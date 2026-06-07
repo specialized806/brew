@@ -153,6 +153,22 @@ RSpec.describe Homebrew::McpServer do
       end
     end
 
+    it "passes tool arguments as argv when spawning brew" do
+      expect(Open3).to receive(:popen2e)
+        .with(Homebrew::McpServer::HOMEBREW_BREW_FILE, "search", "visual studio;beta")
+        .and_return("output")
+      request = {
+        "id"     => id,
+        "method" => "tools/call",
+        "params" => {
+          "name"      => "search",
+          "arguments" => { "text_or_regex" => "visual studio;beta" },
+        },
+      }
+
+      server.handle_request(request)
+    end
+
     it "responds to tools/call for unknown tool" do
       request = { "id" => id, "method" => "tools/call", "params" => { "name" => "not_a_tool", "arguments" => {} } }
       result = server.handle_request(request)
@@ -186,6 +202,14 @@ RSpec.describe Homebrew::McpServer do
     it "returns an error hash" do
       result = server.respond_error(id, "fail")
       expect(result).to eq({ jsonrpc:, id:, error: { message: "fail", code: } })
+    end
+  end
+
+  describe "#tool_command_arguments" do
+    it "preserves search text as a single raw argv argument" do
+      arguments = { "text_or_regex" => "visual studio;beta" }
+
+      expect(server.tool_command_arguments(:search, arguments)).to eq(["visual studio;beta"])
     end
   end
 

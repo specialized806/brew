@@ -20,17 +20,4 @@ class String
     Cask::CaskLoader.load(self, config: Cask::Config.new(**config))
   end
 end
-
-class Symbol # rubocop:todo Style/OneClassPerFile
-  # @!visibility private
-  sig { params(args: Integer).returns(Formula) }
-  def f(*args)
-    to_s.f(*args)
-  end
-
-  # @!visibility private
-  sig { params(config: T.nilable(T::Hash[Symbol, T.untyped])).returns(Cask::Cask) }
-  def c(config: nil)
-    to_s.c(config:)
-  end
-end
+require "brew_irb_helpers/symbol"

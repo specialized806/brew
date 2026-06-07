@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "language/node"
@@ -13,6 +13,7 @@ RSpec.describe Language::Node do
 
     it "calls prepend_path when node formula exists only during the first call" do
       node = formula "node" do
+        T.bind(self, T.class_of(Formula))
         url "node-test-v1.0"
       end
       stub_formula_loader(node)
@@ -72,6 +73,16 @@ RSpec.describe Language::Node do
       allow(Utils).to receive(:popen_read).with(*npm_pack_cmd).and_return(`echo pack.tgz`)
       resp = described_class.std_npm_install_args(npm_install_arg)
       expect(resp).to include("--min-release-age=1", "--prefix=#{npm_install_arg}", "#{Dir.pwd}/pack.tgz")
+    end
+  end
+
+  describe "#npm_install_security_args" do
+    it "includes only npm install security arguments" do
+      expect(described_class.npm_install_security_args).to eq([
+        "--min-release-age=1",
+        "--cache=#{HOMEBREW_CACHE}/npm_cache",
+        "--ignore-scripts",
+      ])
     end
   end
 

@@ -194,16 +194,7 @@ module Homebrew
         DEFAULT_API_STALE_SECONDS
       end
 
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
-      else
-        Homebrew::API::Formula.fetch_api!(download_queue:, stale_seconds:, enqueue: true)
-        Homebrew::API::Formula.fetch_tap_migrations!(download_queue:, stale_seconds: DEFAULT_API_STALE_SECONDS,
-                                                     enqueue: true)
-        Homebrew::API::Cask.fetch_api!(download_queue:, stale_seconds:, enqueue: true)
-        Homebrew::API::Cask.fetch_tap_migrations!(download_queue:, stale_seconds: DEFAULT_API_STALE_SECONDS,
-                                                  enqueue: true)
-      end
+      Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
 
       ENV["HOMEBREW_API_UPDATED"] = "1"
 
@@ -216,13 +207,8 @@ module Homebrew
 
     sig { void }
     def self.write_names_and_aliases
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.write_formula_names_and_aliases
-        Homebrew::API::Internal.write_cask_names
-      else
-        Homebrew::API::Formula.write_names_and_aliases
-        Homebrew::API::Cask.write_names
-      end
+      Homebrew::API::Internal.write_formula_names_and_aliases
+      Homebrew::API::Internal.write_cask_names
     end
 
     sig { params(names: T::Array[String], type: String, regenerate: T::Boolean).returns(T::Boolean) }
@@ -248,6 +234,84 @@ module Homebrew
         aliases_path.write(aliases_text.sort.join("\n"))
         return true
       end
+
+      false
+    end
+
+    sig {
+      params(
+        formulae:   T::Hash[String, T::Hash[String, T.untyped]],
+        regenerate: T::Boolean,
+      ).returns(T::Boolean)
+    }
+    def self.write_executables_file!(formulae, regenerate:)
+      executables_path = HOMEBREW_CACHE_API/"internal/executables.txt"
+      executables_lines = formulae.filter_map do |name, hash|
+        executables = T.cast(hash["executables"], T.nilable(T::Array[String]))
+        next if executables.blank?
+
+        "#{name}:#{executables.join(" ")}"
+      end
+      if executables_lines.empty?
+        begin
+          executables_path.unlink
+          return true
+        rescue Errno::ENOENT
+          return false
+        end
+      end
+
+      contents = "#{executables_lines.sort.join("\n")}\n"
+      cached_contents = begin
+        executables_path.read unless regenerate
+      rescue Errno::ENOENT
+        nil
+      end
+      if regenerate || cached_contents != contents
+        executables_path.dirname.mkpath
+        executables_path.write(contents)
+        return true
+      end
+
+      false
+    end
+
+    sig { params(target: Pathname).returns(T::Boolean) }
+    def self.download_executables_file_from_github_packages!(target)
+      github_packages_url = "https://ghcr.io/v2/homebrew/command-not-found/executables"
+      manifest_args = [
+        "--fail", "--location",
+        "--header", "Accept: application/vnd.oci.image.manifest.v1+json",
+        "#{github_packages_url}/manifests/latest"
+      ]
+      if HOMEBREW_GITHUB_PACKAGES_AUTH.present?
+        manifest_args.insert(-2, "--header", "Authorization: #{HOMEBREW_GITHUB_PACKAGES_AUTH}")
+      end
+
+      manifest_output = Utils::Curl.curl_output(*manifest_args, show_error: false)
+      return false unless manifest_output.success?
+
+      manifest = JSON.parse(manifest_output.stdout)
+      layers = T.cast(manifest.fetch("layers"), T::Array[T::Hash[String, T.untyped]])
+      layer = layers.find do |candidate|
+        candidate.dig("annotations", "org.opencontainers.image.title") == target.basename.to_s
+      end
+      return false if layer.nil?
+
+      digest = T.cast(layer["digest"], T.nilable(String))
+      return false if digest.blank?
+
+      download_args = ["--fail"]
+      if HOMEBREW_GITHUB_PACKAGES_AUTH.present?
+        download_args += ["--header", "Authorization: #{HOMEBREW_GITHUB_PACKAGES_AUTH}"]
+      end
+      download_args << "#{github_packages_url}/blobs/#{digest}"
+      target.dirname.mkpath
+      Utils::Curl.curl_download(*download_args, to: target, show_error: false)
+      FileUtils.touch(target)
+      true
+    rescue ErrorDuringExecution, JSON::ParserError, KeyError, TypeError
+      target.unlink if target.exist? && target.empty?
 
       false
     end
@@ -295,83 +359,47 @@ module Homebrew
 
     sig { returns(T::Array[String]) }
     def self.formula_names
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_hashes.keys
-      else
-        Homebrew::API::Formula.all_formulae.keys
-      end
+      Homebrew::API::Internal.formula_hashes.keys
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.formula_aliases
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_aliases
-      else
-        Homebrew::API::Formula.all_aliases
-      end
+      Homebrew::API::Internal.formula_aliases
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.formula_renames
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_renames
-      else
-        Homebrew::API::Formula.all_renames
-      end
+      Homebrew::API::Internal.formula_renames
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.formula_tap_migrations
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.formula_tap_migrations
-      else
-        Homebrew::API::Formula.tap_migrations
-      end
+      Homebrew::API::Internal.formula_tap_migrations
     end
 
     sig { returns(Pathname) }
     def self.cached_formula_json_file_path
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cached_packages_json_file_path
-      else
-        Homebrew::API::Formula.cached_json_file_path
-      end
+      Homebrew::API::Internal.cached_packages_json_file_path
     end
 
     sig { returns(T::Array[String]) }
     def self.cask_tokens
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cask_hashes.keys
-      else
-        Homebrew::API::Cask.all_casks.keys
-      end
+      Homebrew::API::Internal.cask_hashes.keys
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.cask_renames
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cask_renames
-      else
-        Homebrew::API::Cask.all_renames
-      end
+      Homebrew::API::Internal.cask_renames
     end
 
     sig { returns(T::Hash[String, String]) }
     def self.cask_tap_migrations
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cask_tap_migrations
-      else
-        Homebrew::API::Cask.tap_migrations
-      end
+      Homebrew::API::Internal.cask_tap_migrations
     end
 
     sig { returns(Pathname) }
     def self.cached_cask_json_file_path
-      if Homebrew::EnvConfig.use_internal_api?
-        Homebrew::API::Internal.cached_packages_json_file_path
-      else
-        Homebrew::API::Cask.cached_json_file_path
-      end
+      Homebrew::API::Internal.cached_packages_json_file_path
     end
   end
 

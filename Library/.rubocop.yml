@@ -76,6 +76,13 @@ Homebrew/NoFileutilsRmrf:
     - "/**/{Formula,Casks}/**/*.rb"
     - "**/{Formula,Casks}/**/*.rb"
 
+Homebrew/OSDependsOn:
+  Include:
+    - "/**/{Formula,Casks}/**/*.rb"
+    - "**/{Formula,Casks}/**/*.rb"
+  Exclude:
+    - "Homebrew/test/**/*.rb"
+
 # only used internally
 Homebrew/MoveToExtendOS:
   Enabled: false
@@ -86,6 +93,14 @@ Homebrew/NegateInclude:
     - "Homebrew/standalone/init.rb"
     - "Homebrew/rubocops/**/*"
     - "Homebrew/sorbet/tapioca/**/*"
+
+Homebrew/UnreferencedLet:
+  Description: "Removes a lazy `let` whose name is never referenced (its block never runs)."
+  Include:
+    - "Homebrew/test/**/*_spec.rb"
+  # Deletion is unsafe (explicit -A required, never applied on a plain run): the cop is heuristic
+  # and cannot see references made across files via shared examples or included harnesses.
+  SafeAutoCorrect: false
 
 # `system` is a special case and aligns on second argument, so allow this for formulae.
 Layout/ArgumentAlignment:

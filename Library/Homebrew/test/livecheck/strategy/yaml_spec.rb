@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -8,11 +8,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::Yaml do
 
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
-
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }
-
   let(:content) do
-    <<~EOS
+    <<~YAML
       versions:
         - version: 1.1.2
         - version: 1.1.2b
@@ -34,14 +32,12 @@ RSpec.describe Homebrew::Livecheck::Strategy::Yaml do
         - version: 1.0.0
         - version: 1.0.0-rc1
         - other: version is omitted from this object for testing
-    EOS
+    YAML
   end
   let(:content_simple) { "version: 1.2.3" }
-
   # This should produce a `Psych::SyntaxError` (`did not find expected comment
   # or line break while scanning a block scalar`)
   let(:content_invalid) { ">~" }
-
   let(:matches) do
     {
       content: ["1.1.2", "1.1.1", "1.1.0", "1.0.3", "1.0.2", "1.0.1", "1.0.0"],

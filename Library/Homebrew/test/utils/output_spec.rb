@@ -1,7 +1,8 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/output"
+require "utils/github/actions"
 
 RSpec.describe Utils::Output do
   def esc(code)
@@ -131,6 +132,18 @@ RSpec.describe Utils::Output do
       end.to output("Error: foo\n").to_stderr
 
       expect(Homebrew).to have_failed
+    end
+  end
+
+  describe "#opoo_without_github_actions_annotation" do
+    it "prints a warning without a GitHub Actions annotation" do
+      with_env(GITHUB_ACTIONS: "true") do
+        expect(GitHub::Actions).not_to receive(:puts_annotation_if_env_set!)
+
+        expect do
+          described_class.opoo_without_github_actions_annotation "foo"
+        end.to output("Warning: foo\n").to_stderr
+      end
     end
   end
 

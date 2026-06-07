@@ -92,8 +92,9 @@ module Homebrew
 
               next [:arch, :arm64]
             end
+            next [key, :any] if key == :linux
 
-            next [key, value] if key != :macos
+            next [key, value] unless [:macos, :maximum_macos].include?(key)
 
             value = value.to_h if value.is_a?(MacOSRequirement)
             dep_type = value.keys.first
@@ -110,6 +111,8 @@ module Homebrew
             next [key, :any] if version_symbol.blank?
 
             version_symbol = MacOSVersion::SYMBOLS.key(version_symbol)
+            next [key, version_symbol] if [:>=, :<=].include?(dep_type.to_sym) && version_symbol
+
             version_dep = "#{dep_type} :#{version_symbol}" if version_symbol
             [key, version_dep]
           end.compact

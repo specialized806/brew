@@ -271,13 +271,13 @@ module Homebrew
             virtualenv_install_with_resources
         <% elsif @mode == :ruby %>
             ENV["BUNDLE_FORCE_RUBY_PLATFORM"] = "1"
-            ENV["BUNDLE_WITHOUT"] = "development test"
             ENV["BUNDLE_VERSION"] = "system" # Avoid installing Bundler into the keg
+            ENV["BUNDLE_WITHOUT"] = "development test"
             ENV["GEM_HOME"] = libexec
 
             system "bundle", "install"
             system "gem", "build", "\#{name}.gemspec"
-            system "gem", "install", "\#{name}-\#{version}.gem"
+            system "gem", "install", "--ignore-dependencies", "\#{name}-\#{version}.gem"
 
             bin.install libexec/"bin/\#{name}"
             bin.env_script_all_files(libexec/"bin", GEM_HOME: ENV["GEM_HOME"])

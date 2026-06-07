@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "api/internal"
@@ -11,6 +11,7 @@ RSpec.describe Homebrew::API::Internal do
         "formulae": {
           "foo": {
             "desc": "Foo formula",
+            "executables": ["foo-bin", "food"],
             "homepage": "https://example.com/foo",
             "license": "MIT",
             "ruby_source_checksum": "09f88b61e36045188ddb1b1ba8e402b9f3debee1770cc4ca91355eeccb5f4a38",
@@ -87,6 +88,7 @@ RSpec.describe Homebrew::API::Internal do
     {
       "foo" => {
         "desc"                 => "Foo formula",
+        "executables"          => ["foo-bin", "food"],
         "homepage"             => "https://example.com/foo",
         "license"              => "MIT",
         "ruby_source_checksum" => "09f88b61e36045188ddb1b1ba8e402b9f3debee1770cc4ca91355eeccb5f4a38",
@@ -185,6 +187,7 @@ RSpec.describe Homebrew::API::Internal do
   before do
     FileUtils.mkdir_p(cache_dir/"internal")
     stub_const("Homebrew::API::HOMEBREW_CACHE_API", cache_dir)
+    described_class.clear_cache
     allow(Utils::Curl).to receive(:curl_download) do |*_args, **kwargs|
       kwargs[:to].write packages_json
     end
@@ -208,6 +211,12 @@ RSpec.describe Homebrew::API::Internal do
   it "returns the expected formula hashes" do
     formula_hashes_output = described_class.formula_hashes
     expect(formula_hashes_output).to eq formula_hashes
+  end
+
+  it "writes formula executables from the internal packages JSON" do
+    Homebrew::API.write_names_and_aliases
+
+    expect((cache_dir/"internal/executables.txt").read).to eq("foo:foo-bin food\n")
   end
 
   it "returns the expected cask hashes" do

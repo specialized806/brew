@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "api"
@@ -99,27 +99,39 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
 
   specify "::process_dependencies_and_requirements", :aggregate_failures do
     expect(
-      described_class.process_dependencies_and_requirements(raw_dependency_hash, requirements_array, :stable),
+      described_class.process_dependencies_and_requirements(
+        raw_dependency_hash, requirements_array, :stable
+      ),
     ).to eq [dependency_args + stable_requirements_args, uses_from_macos_args]
 
     expect(
-      described_class.process_dependencies_and_requirements(raw_dependency_hash, requirements_array, :head),
+      described_class.process_dependencies_and_requirements(
+        raw_dependency_hash, requirements_array, :head
+      ),
     ).to eq [dependency_args + head_requirements_args, uses_from_macos_args]
 
     expect(
-      described_class.process_dependencies_and_requirements(raw_dependency_hash, nil, :head),
+      described_class.process_dependencies_and_requirements(
+        raw_dependency_hash, nil, :head
+      ),
     ).to eq [dependency_args, uses_from_macos_args]
 
     expect(
-      described_class.process_dependencies_and_requirements(nil, requirements_array, :stable),
+      described_class.process_dependencies_and_requirements(
+        nil, requirements_array, :stable
+      ),
     ).to eq [stable_requirements_args, []]
 
     expect(
-      described_class.process_dependencies_and_requirements(nil, requirements_array, :head),
+      described_class.process_dependencies_and_requirements(
+        nil, requirements_array, :head
+      ),
     ).to eq [head_requirements_args, []]
 
     expect(
-      described_class.process_dependencies_and_requirements(nil, nil, :stable),
+      described_class.process_dependencies_and_requirements(
+        nil, nil, :stable
+      ),
     ).to eq [[], []]
   end
 
@@ -142,6 +154,26 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
 
     expect(struct.head_dependencies).not_to be_empty
     expect(struct.head_dependencies).to eq struct.stable_dependencies
+  end
+
+  specify "::generate_formula_struct_hash preserves stable patches" do
+    hash = {
+      "desc"                 => "Test formula",
+      "homepage"             => "https://example.com",
+      "license"              => "MIT",
+      "ruby_source_checksum" => { "sha256" => "abc123" },
+      "versions"             => { "stable" => "1.0.0" },
+      "urls"                 => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
+      "patches"              => [
+        {
+          "strip"  => "p1",
+          "url"    => "https://example.com/foo.patch",
+          "sha256" => "def456",
+        },
+      ],
+    }
+
+    expect(described_class.generate_formula_struct_hash(hash).stable_patches).to eq hash["patches"]
   end
 
   specify "::symbolize_dependency_hash" do

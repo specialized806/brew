@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cask/list"
@@ -118,28 +118,28 @@ RSpec.describe Cask::List, :cask do
   describe "TAP_AND_NAME_COMPARISON" do
     describe "both strings are only names" do
       it "alphabetizes the strings" do
-        expect(%w[a b].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[a b])
-        expect(%w[b a].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[a b])
+        expect(%w[a b].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[a b])
+        expect(%w[b a].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[a b])
       end
     end
 
     describe "both strings include tap" do
       it "alphabetizes the strings" do
-        expect(%w[a/z/z b/z/z].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[a/z/z b/z/z])
-        expect(%w[b/z/z a/z/z].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[a/z/z b/z/z])
+        expect(%w[a/z/z b/z/z].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[a/z/z b/z/z])
+        expect(%w[b/z/z a/z/z].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[a/z/z b/z/z])
 
-        expect(%w[z/a/z z/b/z].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[z/a/z z/b/z])
-        expect(%w[z/b/z z/a/z].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[z/a/z z/b/z])
+        expect(%w[z/a/z z/b/z].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[z/a/z z/b/z])
+        expect(%w[z/b/z z/a/z].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[z/a/z z/b/z])
 
-        expect(%w[z/z/a z/z/b].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[z/z/a z/z/b])
-        expect(%w[z/z/b z/z/a].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[z/z/a z/z/b])
+        expect(%w[z/z/a z/z/b].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[z/z/a z/z/b])
+        expect(%w[z/z/b z/z/a].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[z/z/a z/z/b])
       end
     end
 
     describe "only one string includes tap" do
       it "prefers the string without tap" do
-        expect(%w[a/z/z z].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[z a/z/z])
-        expect(%w[z a/z/z].sort(&described_class::TAP_AND_NAME_COMPARISON)).to eq(%w[z a/z/z])
+        expect(%w[a/z/z z].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[z a/z/z])
+        expect(%w[z a/z/z].sort(&Cask::List::TAP_AND_NAME_COMPARISON)).to eq(%w[z a/z/z])
       end
     end
   end

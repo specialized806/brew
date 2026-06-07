@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -16,11 +16,8 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
         allow(described_class).to receive_messages(package_manager_executable: nil, "`": "")
       end
 
-      it "returns an empty list" do
+      specify do
         expect(dumper.extensions).to be_empty
-      end
-
-      it "dumps an empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -48,6 +45,21 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
           "streetsidesoftware.code-spell-checker",
           "tamasfe.even-better-toml",
         ])
+      end
+
+      it "ignores VSCode server setup output" do
+        output = <<~EOF
+          updating vs code server to version f6cfa2ea2403534de03f069bdf160d06451ed282
+          downloading:     \b\b\b\b  0%\b\b\b\b100%
+          unpacked 3485 files and folders to /home/mike/.vscode-server/bin/f6cfa2ea2403534de03f069bdf160d06451ed282.
+          GitHub.codespaces
+        EOF
+
+        allow(described_class).to receive(:`)
+          .with('"code" --list-extensions 2>/dev/null')
+          .and_return(output)
+
+        expect(dumper.extensions).to eql(["github.codespaces"])
       end
     end
   end

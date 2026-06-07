@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -14,18 +14,17 @@ RSpec.describe Homebrew::DevCmd::Ruby do
       .and not_to_output.to_stderr
   end
 
-  # Doesn't actually need Linux but only running there as integration tests are slow.
-  describe "-e 'puts \"testball\".f.path'", :integration_test, :needs_linux do
-    let!(:target) do
-      target_path = setup_test_formula "testball"
-      { path: target_path }
-    end
+  # Keep the richer expression path in-process as `brew ruby` subprocesses are slow.
+  it "passes Homebrew libraries and code to Ruby" do
+    cmd = described_class.new(["-e", "puts 'testball'.f.path"])
 
-    it "prints the path of a test formula" do
-      expect { brew "ruby", "-e", "puts 'testball'.f.path" }
-        .to be_a_success
-        .and output(/^#{target[:path]}$/).to_stdout
-        .and not_to_output.to_stderr
-    end
+    expect(cmd).to receive(:exec).with(
+      *HOMEBREW_RUBY_EXEC_ARGS,
+      "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
+      "-rglobal", "-rbrew_irb_helpers",
+      "-e puts 'testball'.f.path"
+    )
+
+    cmd.run
   end
 end

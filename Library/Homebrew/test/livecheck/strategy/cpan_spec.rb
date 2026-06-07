@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -15,7 +15,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Cpan do
     }
   end
   let(:non_cpan_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       no_subdirectory:   {
@@ -28,10 +27,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::Cpan do
       },
     }
   end
-
   # CPAN doesn't specify a DOCTYPE, so it's also omitted here.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <html>
       <head>
         <title>Index of /authors/id/H/HO/HOMEBREW/</title>
@@ -56,9 +54,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Cpan do
       </body>
       </html>
 
-    EOS
+    HTML
   end
-
   let(:matches) { ["1.2.3", "1.2.2", "1.2.1"] }
 
   describe "::match?" do

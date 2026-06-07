@@ -1,10 +1,12 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/string_inreplace_extension"
 
 RSpec.describe StringInreplaceExtension do
   subject(:string_extension) { described_class.new(string.dup) }
+
+  let(:string) { "" }
 
   describe "#change_make_var!" do
     context "with a flag" do
@@ -192,7 +194,7 @@ RSpec.describe StringInreplaceExtension do
         EOS
       end
 
-      specify "are be successfully removed" do
+      specify "are successfully removed" do
         string_extension.remove_make_var! ["FLAG", "FLAG2"]
         expect(string_extension.inreplace_string).to eq <<~EOS
           OTHER=def

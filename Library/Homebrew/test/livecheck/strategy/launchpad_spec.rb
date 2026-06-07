@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -14,17 +14,15 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
     }
   end
   let(:non_launchpad_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       url: "https://launchpad.net/abc/",
     }
   end
-
   # The whitespace in a real response is a bit looser and this has been
   # reformatted for the sake of brevity.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE html>
       <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" dir="ltr">
         <head>
@@ -52,9 +50,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
           </div>
         </body>
       </html>
-    EOS
+    HTML
   end
-
   let(:matches) { ["1.2.3"] }
 
   describe "::match?" do
@@ -85,7 +82,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
     let(:match_data) do
       cached = {
         matches: matches.to_h { |v| [v, Version.new(v)] },
-        regex:   launchpad::DEFAULT_REGEX,
+        regex:   Homebrew::Livecheck::Strategy::Launchpad::DEFAULT_REGEX,
         url:     generated[:url],
         cached:  true,
       }

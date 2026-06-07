@@ -41,7 +41,7 @@ module Homebrew
         # @return [Array]
         sig {
           params(
-            headers: T::Array[T::Hash[String, String]],
+            headers: T::Array[T::Hash[String, T.any(String, T::Array[String])]],
             regex:   T.nilable(Regexp),
             block:   T.nilable(Proc),
           ).returns(T::Array[String])
@@ -49,7 +49,7 @@ module Homebrew
         def self.versions_from_content(headers, regex = nil, &block)
           # Merge the last value of each header from all responses into one hash
           # for convenience
-          merged_headers = T.cast(headers.reduce(&:merge), T::Hash[String, String])
+          merged_headers = T.cast(headers.reduce(&:merge), T::Hash[String, T.any(String, T::Array[String])])
 
           if block
             block_return_value = case block.parameters[0]
@@ -66,6 +66,7 @@ module Homebrew
 
           DEFAULT_HEADERS_TO_CHECK.filter_map do |header_name|
             header_value = merged_headers[header_name]
+            header_value = header_value.last if header_value.is_a?(Array)
             next if header_value.blank?
 
             if regex

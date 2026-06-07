@@ -4,30 +4,6 @@
 require "cask"
 
 RSpec.describe Cask::Tab, :cask do
-  matcher :be_installed_on_request do
-    match do |actual|
-      actual.installed_on_request == true
-    end
-  end
-
-  matcher :be_loaded_from_api do
-    match do |actual|
-      actual.loaded_from_api == true
-    end
-  end
-
-  matcher :be_loaded_from_internal_api do
-    match do |actual|
-      actual.loaded_from_internal_api == true
-    end
-  end
-
-  matcher :have_uninstall_flight_blocks do
-    match do |actual|
-      actual.uninstall_flight_blocks == true
-    end
-  end
-
   subject(:tab) do
     described_class.new(
       "homebrew_version"         => HOMEBREW_VERSION,
@@ -52,10 +28,31 @@ RSpec.describe Cask::Tab, :cask do
   end
 
   let(:time) { Time.now.to_i }
-
   let(:f) { formula { url "foo-1.0" } }
-  let(:f_tab_path) { f.prefix/"INSTALL_RECEIPT.json" }
-  let(:f_tab_content) { (TEST_FIXTURE_DIR/"receipt.json").read }
+
+  matcher :be_installed_on_request do
+    match do |actual|
+      actual.installed_on_request == true
+    end
+  end
+
+  matcher :be_loaded_from_api do
+    match do |actual|
+      actual.loaded_from_api == true
+    end
+  end
+
+  matcher :be_loaded_from_internal_api do
+    match do |actual|
+      actual.loaded_from_internal_api == true
+    end
+  end
+
+  matcher :have_uninstall_flight_blocks do
+    match do |actual|
+      actual.uninstall_flight_blocks == true
+    end
+  end
 
   specify "defaults" do
     stub_const("HOMEBREW_VERSION", "4.3.7")

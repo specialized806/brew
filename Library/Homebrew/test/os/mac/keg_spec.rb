@@ -4,9 +4,9 @@
 require "keg"
 
 RSpec.describe Keg do
-  include FileUtils
-
   subject(:keg) { described_class.new(keg_path) }
+
+  include FileUtils
 
   describe "#mach_o_files" do
     let(:keg_path) { HOMEBREW_CELLAR/"a/1.0" }

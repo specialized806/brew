@@ -1,7 +1,8 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::Manpage, :cask do
+  let(:cask_token) { "basic-cask" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
   context "without section" do

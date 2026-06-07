@@ -218,6 +218,8 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         end
       end
 
+      let(:languages) { [] }
+
       before do
         config = cask.config
         config.languages = languages
@@ -449,6 +451,14 @@ RSpec.describe Cask::DSL, :cask, :no_api do
       end
     end
 
+    context "when a symbol is used" do
+      let(:token) { "with-depends-on-macos-symbol" }
+
+      it "creates a minimum MacOSRequirement" do
+        expect(cask.depends_on.macos).to eq(MacOSRequirement.new([MacOS.version.to_sym], comparator: ">="))
+      end
+    end
+
     context "when the depends_on macos value is invalid" do
       let(:token) { "invalid-depends-on-macos-bad-release" }
 
@@ -459,6 +469,76 @@ RSpec.describe Cask::DSL, :cask, :no_api do
 
     context "when there are conflicting depends_on macos forms" do
       let(:token) { "invalid-depends-on-macos-conflicting-forms" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
+
+    context "when bare macOS and a macOS version are used" do
+      let(:token) { "invalid-depends-on-macos-bare-and-version" }
+
+      it "allows the migration-only combination" do
+        expect(cask.depends_on.macos).to eq(MacOSRequirement.new([:monterey], comparator: ">="))
+        expect(cask.depends_on.requires_macos?).to be true
+      end
+    end
+
+    context "when bare macOS and a block-scoped macOS version are used" do
+      it "allows the active block to provide the macOS version" do
+        Homebrew::SimulateSystem.with(os: :tahoe, arch: :intel) do
+          cask = Cask::Cask.new("with-block-scoped-macos-version") do
+            depends_on :macos
+
+            on_intel do
+              depends_on macos: :ventura
+            end
+          end
+
+          expect(cask.depends_on.macos).to eq(MacOSRequirement.new([:ventura], comparator: ">="))
+          expect(cask.depends_on.requires_macos?).to be true
+        end
+      end
+    end
+  end
+
+  describe "depends_on linux" do
+    context "when bare :linux is used" do
+      let(:token) { "with-depends-on-linux-bare" }
+
+      it "creates a LinuxRequirement" do
+        expect(cask.depends_on.linux).to be_a(LinuxRequirement)
+      end
+    end
+
+    context "when macOS and Linux are both required" do
+      let(:token) { "invalid-depends-on-macos-and-linux" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
+  end
+
+  describe "depends_on maximum_macos" do
+    context "when a symbol is used" do
+      let(:token) { "with-depends-on-maximum-macos" }
+
+      it "creates a maximum MacOSRequirement" do
+        expect(cask.depends_on.maximum_macos).to eq(MacOSRequirement.new([:tahoe], comparator: "<="))
+      end
+    end
+
+    context "when the comparator is not an upper bound" do
+      let(:token) { "invalid-depends-on-maximum-macos-comparator" }
+
+      it "refuses to load" do
+        expect { cask }.to raise_error(Cask::CaskInvalidError)
+      end
+    end
+
+    context "when multiple values are used" do
+      let(:token) { "invalid-depends-on-maximum-macos-array" }
 
       it "refuses to load" do
         expect { cask }.to raise_error(Cask::CaskInvalidError)

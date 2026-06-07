@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -9,30 +9,27 @@ RSpec.describe Homebrew::Livecheck::Strategy::ExtractPlist do
 
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
-
   let(:items) do
     {
-      "first"  => extract_plist::Item.new(
+      "first"  => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2"),
       ),
-      "second" => extract_plist::Item.new(
+      "second" => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2.3"),
       ),
     }
   end
-
   let(:multipart_items) do
     {
-      "first"  => extract_plist::Item.new(
+      "first"  => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2.3-45"),
       ),
-      "second" => extract_plist::Item.new(
+      "second" => Homebrew::Livecheck::Strategy::ExtractPlist::Item.new(
         bundle_version: Homebrew::BundleVersion.new(nil, "1.2.3-45-abcdef"),
       ),
     }
   end
   let(:multipart_regex) { /^v?(\d+(?:\.\d+)+)(?:[._-](\d+))?(?:[._-]([0-9a-f]+))?$/i }
-
   let(:versions) { ["1.2", "1.2.3"] }
   let(:multipart_versions) { ["1.2.3,45", "1.2.3,45,abcdef"] }
 
@@ -42,7 +39,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::ExtractPlist do
         expect(items["first"].to_h).to eq({
           bundle_version: { version: "1.2" },
         })
-        expect(extract_plist::Item.new.to_h).to eq({})
+        expect(Homebrew::Livecheck::Strategy::ExtractPlist::Item.new.to_h).to eq({})
       end
     end
   end

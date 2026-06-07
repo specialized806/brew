@@ -38,9 +38,11 @@ class CaskDependent
     @cask.full_name
   end
 
-  sig { returns(T::Array[Dependency]) }
-  def runtime_dependencies
-    deps.flat_map { |dep| [dep, *dep.to_installed_formula.runtime_dependencies] }.uniq
+  sig { params(read_from_tab: T::Boolean, undeclared: T::Boolean).returns(T::Array[Dependency]) }
+  def runtime_dependencies(read_from_tab: true, undeclared: true)
+    deps.flat_map do |dep|
+      [dep, *dep.to_installed_formula.runtime_dependencies(read_from_tab:, undeclared:)]
+    end.uniq
   end
 
   sig { returns(T::Array[Dependency]) }
@@ -77,7 +79,9 @@ class CaskDependent
         dsl_reqs.cask.each do |cask_ref|
           requirements << CaskDependent::Requirement.new([{ cask: cask_ref }])
         end
+        requirements << dsl_reqs.linux if dsl_reqs.linux
         requirements << dsl_reqs.macos if dsl_reqs.macos
+        requirements << dsl_reqs.maximum_macos if dsl_reqs.maximum_macos
 
         requirements
       end,

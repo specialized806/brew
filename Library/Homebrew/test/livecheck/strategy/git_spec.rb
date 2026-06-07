@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -8,7 +8,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
 
   let(:git_url) { "https://github.com/Homebrew/brew.git" }
   let(:non_git_url) { "https://brew.sh/test" }
-
   let(:regexes) do
     {
       standard: /^v?(\d+(?:\.\d+)+)$/i,
@@ -16,7 +15,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
       brew:     %r{^brew/v?(\d+(?:\.\d+)+)$}i,
     }
   end
-
   let(:content) do
     normal = <<~EOS
       e0f1758045b8194f77a43050ca433cbe928f27fb\trefs/tags/brew/1.2
@@ -33,14 +31,12 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
       hyphens:,
     }
   end
-
   let(:tags) do
     {
       normal:  ["brew/1.2", "brew/1.2.1", "brew/1.2.2", "brew/1.2.3", "brew/1.2.4", "1.2.5"],
       hyphens: ["brew/1-2", "brew/1-2-1", "brew/1-2-2", "brew/1-2-3", "brew/1-2-4", "1-2-5"],
     }
   end
-
   let(:matches) do
     {
       default:        ["1.2", "1.2.1", "1.2.2", "1.2.3", "1.2.4", "1.2.5"],
@@ -48,7 +44,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
       brew_regex:     ["1.2", "1.2.1", "1.2.2", "1.2.3", "1.2.4"],
     }
   end
-
   let(:messages) do
     [
       "remote: Support for password authentication was removed on August 13, 2021.",

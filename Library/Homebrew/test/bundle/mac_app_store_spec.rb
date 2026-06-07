@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -15,11 +15,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
         allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.apps).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -27,14 +24,12 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
     context "when there is no apps" do
       before do
         described_class.reset!
-        allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"), "`": "")
+        allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"),
+                                                   "`":                        "")
       end
 
-      it "returns empty list" do
+      specify do
         expect(dumper.apps).to be_empty
-      end
-
-      it "dumps as empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -147,11 +142,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
                                                    "`":                        invalid_mas_output)
       end
 
-      it "returns only valid apps" do
+      specify do
         expect(dumper.apps).to eql(expected_app_details_array)
-      end
-
-      it "dumps excluding invalid apps" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eq(expected_mas_dumped_output.strip)
       end
     end
@@ -187,7 +179,10 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
   describe "installing" do
     before do
-      stub_formula_loader formula("mas") { url "mas-1.0" }
+      stub_formula_loader formula("mas") {
+        T.bind(self, T.class_of(Formula))
+        url "mas-1.0"
+      }
     end
 
     describe ".installed_app_ids" do
@@ -198,7 +193,8 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
 
     describe ".app_id_installed_and_up_to_date?" do
       it "returns result" do
-        allow(described_class).to receive_messages(installed_app_ids: [123, 456], outdated_app_ids: [456])
+        allow(described_class).to receive_messages(installed_app_ids: [123, 456],
+                                                   outdated_app_ids:  [456])
         expect(described_class.app_id_installed_and_up_to_date?(123)).to be(true)
         expect(described_class.app_id_installed_and_up_to_date?(456)).to be(false)
       end
@@ -267,12 +263,47 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
         end
 
         it "installs app" do
+          expect(Homebrew::Bundle).to receive(:system).with(Pathname("mas"), "install", "123", verbose: false)
+                                                      .and_return(true)
+          expect(described_class.preinstall!("foo", 123)).to be(true)
+          expect(described_class.install!("foo", 123)).to be(true)
+        end
+
+        it "falls back to `mas get` when `mas install` fails" do
+          expect(Homebrew::Bundle).to receive(:system).with(Pathname("mas"), "install", "123", verbose: false)
+                                                      .and_return(false)
           expect(Homebrew::Bundle).to receive(:system).with(Pathname("mas"), "get", "123", verbose: false)
                                                       .and_return(true)
           expect(described_class.preinstall!("foo", 123)).to be(true)
           expect(described_class.install!("foo", 123)).to be(true)
         end
       end
+    end
+  end
+
+  describe "cleanup" do
+    before do
+      described_class.reset!
+      allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"), packages: [
+        Homebrew::Bundle::MacAppStore::App.new(id: "123", name: "foo"),
+        Homebrew::Bundle::MacAppStore::App.new(id: "456", name: "bar"),
+        Homebrew::Bundle::MacAppStore::App.new(id: "0", name: "testflight"),
+      ])
+    end
+
+    it "returns apps not in Brewfile entries by ID" do
+      entries = [Homebrew::Bundle::Dsl::Entry.new(:mas, "renamed foo", id: 123)]
+      items = described_class.cleanup_items(entries)
+
+      expect(items.map { |item| described_class.cleanup_item_name(item) }).to eql(["bar (456)"])
+    end
+
+    it "uninstalls apps by ID" do
+      items = described_class.cleanup_items([Homebrew::Bundle::Dsl::Entry.new(:mas, "foo", id: 123)])
+      expect(Homebrew::Bundle).to receive(:system).with(Pathname("mas"), "uninstall", "456", verbose: false)
+                                                  .and_return(true)
+
+      expect { described_class.cleanup!(items) }.to output(/Uninstalled 1 Mac App Store app/).to_stdout
     end
   end
 end

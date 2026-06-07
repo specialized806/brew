@@ -31,12 +31,12 @@ module Homebrew
                description: "Dispatch bottle for Linux arm64 (using GitHub runners)."
         switch "--linux-self-hosted",
                description: "Dispatch bottle for Linux x86_64 (using self-hosted runner)."
-        switch "--linux-wheezy",
-               description: "Use Debian Wheezy container for building the bottle on Linux."
 
         conflicts "--linux", "--linux-self-hosted"
 
         named_args :formula, min: 1
+
+        hide_from_man_page!
       end
 
       sig { override.void }

@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::DSL::Version, :cask do
+  let(:version) { described_class.new(raw_version) }
+
   shared_examples "expectations hash" do |input_name, expectations|
     expectations.each do |input_value, expected_output|
       context "when #{input_name} is #{input_value.inspect}" do
@@ -49,8 +51,6 @@ RSpec.describe Cask::DSL::Version, :cask do
       end
     end
   end
-
-  let(:version) { described_class.new(raw_version) }
 
   describe "#initialize" do
     it "raises an error when the version contains a slash" do

@@ -23,6 +23,7 @@ RSpec.describe Cask::CaskLoader, :cask do
       end
 
       before do
+        allow(Homebrew::API).to receive_messages(cask_tokens: api_casks.keys, cask_renames:)
         allow(Homebrew::API::Cask)
           .to receive(:all_casks)
           .and_return(api_casks)
@@ -79,7 +80,7 @@ RSpec.describe Cask::CaskLoader, :cask do
           (old_tap.path/"tap_migrations.json").write tap_migrations.to_json
         end
 
-        context "to a cask in an other tap" do
+        context "to a cask in another tap" do
           # Can't use local-caffeine. It is a fixture in the :core_cask_tap and would take precedence over :new_tap.
           let(:token) { "some-cask" }
 
@@ -147,6 +148,26 @@ RSpec.describe Cask::CaskLoader, :cask do
           end
         end
 
+        context "to a formula in another tap" do
+          let(:token) { "some-cask" }
+
+          let(:old_tap) { Tap.fetch("homebrew", "foo") }
+          let(:new_tap) { Tap.fetch("homebrew", "bar") }
+
+          let(:formula_file) { new_tap.formula_dir/"#{token}.rb" }
+
+          before do
+            new_tap.formula_dir.mkpath
+            FileUtils.touch formula_file
+          end
+
+          it "does not warn when loading the short token" do
+            expect do
+              described_class.for(token)
+            end.not_to output.to_stderr
+          end
+        end
+
         context "to the default tap" do
           let(:old_tap) { core_tap }
           let(:new_tap) { core_cask_tap }
@@ -186,7 +207,7 @@ RSpec.describe Cask::CaskLoader, :cask do
           #
           #   it "stops recursing" do
           #     expect do
-          #       described_class.for("#{new_tap}/#{token}")
+          #       klass.for("#{new_tap}/#{token}")
           #     end.not_to output.to_stderr
           #   end
           # end
@@ -252,6 +273,114 @@ RSpec.describe Cask::CaskLoader, :cask do
   end
 
   describe "FromPathLoader" do
+    it "clears sensitive environment variables while evaluating casks" do
+      cask_token = "sensitive-env"
+      cask_file = mktmpdir/"#{cask_token}.rb"
+      cask_file.write <<~RUBY
+        cask "#{cask_token}" do
+          version "1.0.0"
+          sha256 "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+          url "https://example.com/app.dmg"
+          name "Sensitive Env"
+          desc ENV.key?("SECRET_TOKEN") ? "Secret present" : "Secret absent"
+          homepage "https://example.com"
+
+          app "App.app"
+        end
+      RUBY
+
+      with_env(SECRET_TOKEN: "password") do
+        cask = Cask::CaskLoader::FromPathLoader.new(cask_file).load(config: nil)
+
+        expect(cask.desc).to eq("Secret absent")
+        expect(ENV.fetch("SECRET_TOKEN", nil)).to eq("password")
+      end
+    end
+
+    it "allows the GitHub API token while evaluating casks" do
+      cask_token = "github-token-env"
+      cask_file = mktmpdir/"#{cask_token}.rb"
+      cask_file.write <<~RUBY
+        cask "#{cask_token}" do
+          version "1.0.0"
+          sha256 "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+          url "https://example.com/app.dmg"
+          name "GitHub Token Env"
+          desc ENV.key?("HOMEBREW_GITHUB_API_TOKEN") ? "Token present" : "Token absent"
+          homepage "https://example.com"
+
+          app "App.app"
+        end
+      RUBY
+
+      with_env(HOMEBREW_GITHUB_API_TOKEN: "github-token") do
+        cask = Cask::CaskLoader::FromPathLoader.new(cask_file).load(config: nil)
+
+        expect(cask.desc).to eq("Token present")
+      end
+    end
+
+    it "supports temporarily opting out of scrubbing while evaluating casks" do
+      cask_token = "unscrubbed-env"
+      cask_file = mktmpdir/"#{cask_token}.rb"
+      cask_file.write <<~RUBY
+        cask "#{cask_token}" do
+          version "1.0.0"
+          sha256 "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+          url "https://example.com/app.dmg"
+          name "Unscrubbed Env"
+          desc ENV.key?("SECRET_TOKEN") ? "Secret present" : "Secret absent"
+          homepage "https://example.com"
+
+          app "App.app"
+        end
+      RUBY
+
+      with_env(HOMEBREW_NO_EVAL_ENV_SCRUBBING: "1", SECRET_TOKEN: "password") do
+        cask = Cask::CaskLoader::FromPathLoader.new(cask_file).load(config: nil)
+
+        expect(cask.desc).to eq("Secret present")
+      end
+    end
+
+    it "refuses untrusted third-party tap casks when trust is enabled" do
+      tap = Tap.fetch("thirdparty", "foo")
+      cask_token = "sensitive-env"
+      cask_file = tap.cask_dir/"#{cask_token}.rb"
+      cask_file.dirname.mkpath
+      cask_file.write <<~RUBY
+        cask "#{cask_token}" do
+          version "1.0.0"
+          sha256 "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+          url "https://example.com/app.dmg"
+          name "Sensitive Env"
+          desc "Sensitive Env"
+          homepage "https://example.com"
+
+          app "App.app"
+        end
+      RUBY
+
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+        expect { Cask::CaskLoader::FromPathLoader.new(cask_file).load(config: nil) }
+          .to raise_error(Homebrew::UntrustedTapError, %r{thirdparty/foo})
+      end
+
+      Homebrew::Trust.trust!(:cask, "thirdparty/foo/sensitive-env")
+
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+        expect(Cask::CaskLoader::FromPathLoader.new(cask_file).load(config: nil).full_name)
+          .to eq("thirdparty/foo/sensitive-env")
+      end
+    ensure
+      Homebrew::Trust.clear!(:cask)
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
     describe "loading a cask with a removed DSL method" do
       let(:tmpdir) { mktmpdir }
       let(:cask_token) { "removed-method-cask" }

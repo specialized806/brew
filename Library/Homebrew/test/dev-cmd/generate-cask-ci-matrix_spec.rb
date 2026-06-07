@@ -110,6 +110,7 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       desc "Test cask"
       homepage "https://brew.sh"
 
+      depends_on :macos
       depends_on arch: :x86_64
 
       app "Test.app"
@@ -124,7 +125,80 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       desc "Test cask"
       homepage "https://brew.sh"
 
+      depends_on :macos
+
       app "Test.app"
+    end
+  end
+  let(:c_minimum_macos) do
+    Cask::Cask.new("test-minimum-macos") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on macos: :sequoia
+
+      app "Test.app"
+    end
+  end
+  let(:c_maximum_macos) do
+    Cask::Cask.new("test-maximum-macos") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on maximum_macos: :sonoma
+
+      app "Test.app"
+    end
+  end
+  let(:c_maximum_macos_below_all_runners) do
+    Cask::Cask.new("test-maximum-macos-below-all-runners") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on maximum_macos: :ventura
+
+      app "Test.app"
+    end
+  end
+  let(:c_minimum_and_maximum_macos) do
+    Cask::Cask.new("test-minimum-and-maximum-macos") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on macos: :sonoma
+      depends_on maximum_macos: :sequoia
+
+      app "Test.app"
+    end
+  end
+  let(:c_linux) do
+    Cask::Cask.new("test-linux") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.tar.gz"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      depends_on :linux
+
+      binary "test"
     end
   end
   let(:c_app_only_macos) do
@@ -200,6 +274,40 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       end
     end
 
+    context "when cask has a macOS version requirement" do
+      it "filters macOS runners by the minimum and maximum macOS requirements" do
+        expect(generate_matrix.filter_runners(c_minimum_macos))
+          .to eq({
+            { arch: :arm, name: "macos-15", symbol: :sequoia }         => 0.0,
+            { arch: :arm, name: "macos-26", symbol: :tahoe }           => 1.0,
+            { arch: :intel, name: "macos-15-intel", symbol: :sequoia } => 1.0,
+          })
+
+        expect(generate_matrix.filter_runners(c_maximum_macos))
+          .to eq({ { arch: :arm, name: "macos-14", symbol: :sonoma } => 0.0 })
+
+        expect(generate_matrix.filter_runners(c_minimum_and_maximum_macos))
+          .to eq({
+            { arch: :arm, name: "macos-14", symbol: :sonoma }          => 0.0,
+            { arch: :arm, name: "macos-15", symbol: :sequoia }         => 0.0,
+            { arch: :intel, name: "macos-15-intel", symbol: :sequoia } => 1.0,
+          })
+
+        # A requirement excluding all runners must skip macOS, not test them all.
+        expect(generate_matrix.filter_runners(c_maximum_macos_below_all_runners)).to eq({})
+      end
+    end
+
+    context "when cask only supports Linux" do
+      it "returns an array including all Linux" do
+        expect(generate_matrix.filter_runners(c_linux))
+          .to eq({
+            { arch: :arm, name: arm_linux_runner, symbol: :linux }  => 1.0,
+            { arch: :intel, name: "ubuntu-latest", symbol: :linux } => 1.0,
+          })
+      end
+    end
+
     context "when cask does not have on_system blocks/calls but has `depends_on arch`" do
       it "returns an array only including macOS/`depends_on arch` value" do
         expect(generate_matrix.filter_runners(c_depends_macos_on_intel))
@@ -260,6 +368,20 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
             { arch: :intel, name: "macos-15-intel", symbol: :sequoia } => 1.0,
           })
       end
+    end
+  end
+
+  describe "::runners" do
+    it "selects macOS and Linux runners independently" do
+      allow(generate_matrix).to receive(:random_runner) do |runners|
+        runners.keys.find { |runner| runner.fetch(:symbol) == :linux } || runners.keys.first
+      end
+
+      runners, multi_os = generate_matrix.send(:runners, cask: c)
+
+      expect(runners.map { |runner| [(runner.fetch(:symbol) == :linux) ? :linux : :macos, runner.fetch(:arch)] })
+        .to contain_exactly([:macos, :arm], [:macos, :intel], [:linux, :arm], [:linux, :intel])
+      expect(multi_os).to be(false)
     end
   end
 

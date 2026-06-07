@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/user"
@@ -9,6 +9,8 @@ RSpec.describe User do
   it { is_expected.to eq ENV.fetch("USER") }
 
   describe "#gui?" do
+    let(:who_output) { "" }
+
     before do
       allow(SystemCommand).to receive(:run)
         .with("who", any_args)

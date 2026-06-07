@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -14,7 +14,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sourceforge do
     }
   end
   let(:non_sourceforge_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       typical: {
@@ -26,9 +25,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sourceforge do
       },
     }
   end
-
   let(:content) do
-    <<~EOS
+    <<~XML
       <?xml version="1.0" encoding="utf-8"?>
       <rss xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:files="https://sourceforge.net/api/files.rdf#" xmlns:media="http://video.search.yahoo.com/mrss/" xmlns:doap="http://usefulinc.com/ns/doap#" xmlns:sf="https://sourceforge.net/api/sfelements.rdf#" version="2.0">
         <channel xmlns:files="https://sourceforge.net/api/files.rdf#" xmlns:media="http://video.search.yahoo.com/mrss/" xmlns:doap="http://usefulinc.com/ns/doap#" xmlns:sf="https://sourceforge.net/api/sfelements.rdf#">
@@ -50,9 +48,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Sourceforge do
           </item>
         </channel>
       </rss>
-    EOS
+    XML
   end
-
   let(:matches) { ["1.2.3"] }
 
   describe "::match?" do

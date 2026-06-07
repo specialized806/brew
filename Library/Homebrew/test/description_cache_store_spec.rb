@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/update-report"
@@ -11,7 +11,7 @@ RSpec.describe DescriptionCacheStore do
   let(:formula_name) { "test_name" }
   let(:description) { "test_description" }
 
-  before { allow(Homebrew::EnvConfig).to receive(:eval_all?).and_return(true) }
+  before { allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(true) }
 
   describe "#update!" do
     it "sets the formula description" do
@@ -39,6 +39,7 @@ RSpec.describe DescriptionCacheStore do
   describe "#update_from_formula_names!" do
     it "sets the formulae descriptions" do
       f = formula do
+        T.bind(self, T.class_of(Formula))
         url "url-1"
         desc "desc"
       end

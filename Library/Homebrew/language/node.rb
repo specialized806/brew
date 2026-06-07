@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "release_cooldown"
 require "utils/output"
 
 module Language
@@ -13,6 +14,18 @@ module Language
     sig { returns(String) }
     def self.npm_cache_config
       "cache=#{HOMEBREW_CACHE}/npm_cache"
+    end
+
+    sig { params(ignore_scripts: T::Boolean).returns(T::Array[String]) }
+    def self.npm_install_security_args(ignore_scripts: true)
+      args = %W[
+        --min-release-age=#{Homebrew::RELEASE_COOLDOWN_DAYS}
+        --#{npm_cache_config}
+      ]
+
+      args << "--ignore-scripts" if ignore_scripts
+
+      args
     end
 
     sig { returns(String) }
@@ -68,17 +81,15 @@ module Language
       # npm install args for global style module format installed into libexec
       # Delay packages published in the last day so builds are less likely to
       # install a freshly compromised npm release or dependency.
-      args = %W[
+      args = %w[
         --loglevel=silly
         --global
         --build-from-source
-        --min-release-age=1
-        --#{npm_cache_config}
+      ] + npm_install_security_args(ignore_scripts:) + %W[
         --prefix=#{libexec}
         #{Dir.pwd}/#{pack}
       ]
 
-      args << "--ignore-scripts" if ignore_scripts
       args << "--unsafe-perm" if Process.uid.zero?
 
       args
@@ -90,16 +101,10 @@ module Language
       # npm install args for local style module format
       # Delay packages published in the last day so builds are less likely to
       # install a freshly compromised npm release or dependency.
-      args = %W[
+      %w[
         --loglevel=silly
         --build-from-source
-        --min-release-age=1
-        --#{npm_cache_config}
-      ]
-
-      args << "--ignore-scripts" if ignore_scripts
-
-      args
+      ] + npm_install_security_args(ignore_scripts:)
     end
 
     # Mixin module for {Formula} adding shebang rewrite features.

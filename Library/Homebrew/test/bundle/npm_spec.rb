@@ -1,9 +1,10 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
 require "bundle/dsl"
 require "bundle/extensions/npm"
+require "language/node"
 
 RSpec.describe Homebrew::Bundle::Npm do
   describe "dumping" do
@@ -15,11 +16,8 @@ RSpec.describe Homebrew::Bundle::Npm do
         allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
-      it "returns an empty list" do
+      specify do
         expect(dumper.packages).to be_empty
-      end
-
-      it "dumps an empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -42,6 +40,20 @@ RSpec.describe Homebrew::Bundle::Npm do
         JSON
 
         expect(dumper.packages).to eql(%w[vercel typescript])
+      end
+
+      it "adds npm's directory to PATH when listing packages" do
+        npm = mktmpdir/"bin/npm"
+        npm.dirname.mkpath
+        npm.write("")
+
+        allow(described_class).to receive(:package_manager_executable).and_return(npm)
+        expect(described_class).to receive(:`).with("#{npm} list -g --depth=0 --json 2>/dev/null") do
+          expect(ENV.fetch("PATH", "")).to start_with("#{npm.dirname}:")
+          '{"dependencies":{"eslint":{"version":"10.4.0"}}}'
+        end
+
+        expect(dumper.packages).to eql(["eslint"])
       end
 
       it "excludes npm itself from the package list" do
@@ -148,7 +160,16 @@ RSpec.describe Homebrew::Bundle::Npm do
 
         it "installs package" do
           expect(Homebrew::Bundle).to receive(:system)
-            .with("/opt/homebrew/bin/npm", "install", "-g", "vercel", verbose: false)
+            .with(
+              "/opt/homebrew/bin/npm",
+              "install",
+              "--min-release-age=1",
+              "--cache=#{HOMEBREW_CACHE}/npm_cache",
+              "--ignore-scripts",
+              "-g",
+              "vercel",
+              verbose: false,
+            )
             .and_return(true)
           expect(described_class.preinstall!("vercel")).to be(true)
           expect(described_class.install!("vercel")).to be(true)

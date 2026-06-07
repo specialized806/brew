@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cask/installer"
@@ -67,11 +67,13 @@ RSpec.describe Cask::Reinstall, :cask do
 
     failing_installer = instance_double(Cask::Installer)
     allow(failing_installer).to receive(:prelude)
+    allow(failing_installer).to receive(:source_download_requires_pre_fetch?).and_return(false)
     allow(failing_installer).to receive(:enqueue_downloads)
     allow(failing_installer).to receive(:install).and_raise(Cask::CaskError.new("reinstall failed"))
 
     successful_installer = instance_double(Cask::Installer)
     allow(successful_installer).to receive(:prelude)
+    allow(successful_installer).to receive(:source_download_requires_pre_fetch?).and_return(false)
     allow(successful_installer).to receive(:enqueue_downloads)
 
     allow(Cask::Installer).to receive(:new).and_return(failing_installer, successful_installer)

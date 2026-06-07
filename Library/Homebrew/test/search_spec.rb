@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "search"
@@ -156,17 +156,30 @@ RSpec.describe Homebrew::Search do
       end
 
       let(:api_casks) do
-        { "testball" => { "desc" => "Some test", "name" => ["Test Ball"] } }
+        { "testball" => { "desc" => "Some test", "names" => ["Test Ball"] } }
       end
 
       before do
-        allow(Homebrew::API::Formula).to receive(:all_formulae).and_return(api_formulae)
-        allow(Homebrew::API::Cask).to receive(:all_casks).and_return(api_casks)
+        allow(Homebrew::API::Internal).to receive_messages(formula_hashes: api_formulae, cask_hashes: api_casks)
       end
 
       it "searches formula descriptions" do
         expect { described_class.search_descriptions(described_class.query_regexp("some"), args) }
           .to output(/testball: Some test/).to_stdout
+      end
+
+      it "searches all trusted descriptions with tap trust enabled" do
+        cache_store = instance_double(DescriptionCacheStore)
+        allow(DescriptionCacheStore).to receive(:new).and_return(cache_store)
+        allow(CacheStoreDatabase).to receive(:use).with(:descriptions).and_yield(instance_double(CacheStoreDatabase))
+        expect(Descriptions).to receive(:search)
+          .with("some", Descriptions::SearchField::Description, cache_store, eval_all: true)
+          .and_return(instance_double(Descriptions, print: nil))
+
+        with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+          args = Homebrew::Cmd::Desc.new(["--formula", "min_arg_placeholder"]).args
+          described_class.search_descriptions("some", args)
+        end
       end
 
       it "searches cask descriptions", :needs_macos do

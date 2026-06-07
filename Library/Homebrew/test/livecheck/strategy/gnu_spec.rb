@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -15,7 +15,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Gnu do
     }
   end
   let(:non_gnu_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       no_version_dir: {
@@ -33,11 +32,10 @@ RSpec.describe Homebrew::Livecheck::Strategy::Gnu do
       savannah:       {},
     }
   end
-
   # The whitespace in a real response is a bit looser and this has been
   # reformatted for the sake of brevity.
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
       <html>
       <head>
@@ -99,9 +97,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Gnu do
       </body>
       </html>
 
-    EOS
+    HTML
   end
-
   let(:matches) { ["1.2.2", "1.2.3"] }
 
   describe "::match?" do

@@ -16,6 +16,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     let(:api_loader) { described_class.new(api_token, from_json: cask_json) }
 
     before do
+      allow(Homebrew::API).to receive_messages(cask_tokens: casks_from_api_hash.keys, cask_renames: {})
       allow(Homebrew::API::Cask)
         .to receive_messages(all_casks: casks_from_api_hash, all_renames: {})
 
@@ -48,7 +49,6 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     end
 
     before do
-      allow(Homebrew::EnvConfig).to receive(:use_internal_api?).and_return(true)
       allow(Homebrew::API::Internal)
         .to receive_messages(cask_hashes:         casks_from_internal_api_hash,
                              cask_renames:        {},
@@ -234,6 +234,29 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
 
     context "with a zap stanza" do
       include_examples "loads from API", "with-zap", caskfile_only: false
+    end
+
+    context "with install step stanzas" do
+      include_examples "loads from API", "with-install-steps", caskfile_only: false
+
+      context "when running install steps loaded from internal JSON API" do
+        include_context "with internal API setup", "with-install-steps"
+
+        it "runs the loaded steps" do
+          cask = internal_api_loader.load(config: nil)
+          cask.staged_path.mkpath
+          cask.config_path.dirname.mkpath
+          (cask.staged_path/"container").write "app"
+          (cask.staged_path/"move-source").write "moved"
+
+          Cask::Installer.new(cask, command: NeverSudoSystemCommand).install_artifacts
+
+          expect(cask.staged_path/"Prepared").to be_a_directory
+          expect(cask.staged_path/"Prepared/touched").to exist
+          expect(cask.staged_path/"Prepared/moved").to exist
+          expect(cask.staged_path/"PreparedLink").to be_a_symlink
+        end
+      end
     end
 
     context "with a preflight stanza" do

@@ -11,6 +11,7 @@
 # HOMEBREW_FORCE_BREWED_CURL, HOMEBREW_FORCE_BREWED_GIT,
 # HOMEBREW_SYSTEM_CURL_TOO_OLD, HOMEBREW_USER_AGENT_CURL are set by brew.sh
 # shellcheck disable=SC2154
+source "${HOMEBREW_LIBRARY}/Homebrew/utils/api.sh"
 source "${HOMEBREW_LIBRARY}/Homebrew/utils/lock.sh"
 
 macos_version_name() {
@@ -419,20 +420,14 @@ fetch_api_file() {
     echo "Checking if we need to fetch ${filename}..."
   fi
 
-  JSON_URLS=()
-  if [[ -n "${HOMEBREW_API_DOMAIN}" && "${HOMEBREW_API_DOMAIN}" != "${HOMEBREW_API_DEFAULT_DOMAIN}" ]]
-  then
-    JSON_URLS=("${HOMEBREW_API_DOMAIN}/${filename}")
-  fi
-
-  JSON_URLS+=("${HOMEBREW_API_DEFAULT_DOMAIN}/${filename}")
-  for json_url in "${JSON_URLS[@]}"
+  local arg json_url
+  while read -r json_url
   do
     time_cond=()
-    if [[ -s "${cache_path}" ]]
-    then
-      time_cond=("--time-cond" "${cache_path}")
-    fi
+    while read -r arg
+    do
+      time_cond+=("${arg}")
+    done < <(api_time_cond_args "${cache_path}")
     curl \
       "${CURL_DISABLE_CURLRC_ARGS[@]}" \
       --fail --compressed --silent \
@@ -443,7 +438,7 @@ fetch_api_file() {
       "${json_url}"
     curl_exit_code=$?
     [[ ${curl_exit_code} -eq 0 ]] && break
-  done
+  done < <(api_urls "${filename}")
 
   if [[ -n ${is_formula_file} ]] && [[ -f "${api_cache}/formula_names.txt" ]]
   then
@@ -479,6 +474,7 @@ fetch_api_file() {
 }
 
 homebrew-update() {
+  local arg
   local option
   local DIR
   local UPSTREAM_BRANCH
@@ -652,16 +648,11 @@ EOS
   fi
 
   # HOMEBREW_CURLRC is optionally defined in the user environment.
-  # shellcheck disable=SC2153
-  if [[ -z "${HOMEBREW_CURLRC}" ]]
-  then
-    CURL_DISABLE_CURLRC_ARGS=(-q)
-  elif [[ "${HOMEBREW_CURLRC}" == /* ]]
-  then
-    CURL_DISABLE_CURLRC_ARGS=(-q --config "${HOMEBREW_CURLRC}")
-  else
-    CURL_DISABLE_CURLRC_ARGS=()
-  fi
+  CURL_DISABLE_CURLRC_ARGS=()
+  while read -r arg
+  do
+    CURL_DISABLE_CURLRC_ARGS+=("${arg}")
+  done < <(api_curlrc_args)
 
   # only allow one instance of brew update
   lock update
@@ -691,12 +682,6 @@ EOS
   fi
 
   safe_cd "${HOMEBREW_REPOSITORY}"
-
-  # This means the user has run `brew which-formula` before and we should fetch executables.txt
-  if [[ "$(git config get --type=bool homebrew.commandnotfound 2>/dev/null)" == "true" ]]
-  then
-    export HOMEBREW_FETCH_EXECUTABLES_TXT=1
-  fi
 
   # if an older system had a newer curl installed, change each repo's remote URL from git to https
   if [[ -n "${HOMEBREW_SYSTEM_CURL_TOO_OLD}" && -x "${HOMEBREW_PREFIX}/opt/curl/bin/curl" ]] &&
@@ -996,12 +981,7 @@ EOS
 
   if [[ -z "${HOMEBREW_NO_INSTALL_FROM_API}" ]]
   then
-    if [[ -n "${HOMEBREW_USE_INTERNAL_API}" ]]
-    then
-      api_files=("internal/packages.$(bottle_tag)")
-    else
-      api_files=(formula cask formula_tap_migrations cask_tap_migrations)
-    fi
+    api_files=("internal/packages.$(bottle_tag)")
 
     for json in "${api_files[@]}"
     do
@@ -1009,15 +989,8 @@ EOS
       fetch_api_file "${filename}" "${update_failed_file}"
     done
 
-    if [[ -n "${HOMEBREW_USE_INTERNAL_API}" ]]
-    then
-      # Remove files only downloaded by the regular API
-      rm -f "${HOMEBREW_CACHE}/api/formula.jws.json" "${HOMEBREW_CACHE}/api/cask.jws.json"
-      rm -f "${HOMEBREW_CACHE}/api/formula_tap_migrations.jws.json" "${HOMEBREW_CACHE}/api/cask_tap_migrations.jws.json"
-    else
-      # Remove files only downloaded by the internal API
-      rm -f "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json"
-    fi
+    rm -f "${HOMEBREW_CACHE}/api/formula.jws.json" "${HOMEBREW_CACHE}/api/cask.jws.json"
+    rm -f "${HOMEBREW_CACHE}/api/formula_tap_migrations.jws.json" "${HOMEBREW_CACHE}/api/cask_tap_migrations.jws.json"
 
     # Not a typo, these are the files we used to download that no longer need so should cleanup.
     rm -f "${HOMEBREW_CACHE}/api/formula.json" "${HOMEBREW_CACHE}/api/cask.json"
@@ -1037,12 +1010,6 @@ EOS
     then
       echo "HOMEBREW_NO_INSTALL_FROM_API set: skipping API JSON downloads."
     fi
-  fi
-
-  # Update executables.txt if the user has ever run `brew which-formula` before.
-  if [[ -n "${HOMEBREW_FETCH_EXECUTABLES_TXT}" ]]
-  then
-    fetch_api_file "internal/executables.txt" "${update_failed_file}"
   fi
 
   if [[ -f "${update_failed_file}" ]]

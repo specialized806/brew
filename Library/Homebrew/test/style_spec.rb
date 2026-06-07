@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "style"
@@ -24,11 +24,11 @@ RSpec.describe Homebrew::Style do
     it "returns offenses when RuboCop reports offenses" do
       formula = dir/"my-formula.rb"
 
-      formula.write <<~EOS
+      formula.write <<~RUBY
         class MyFormula < Formula
 
         end
-      EOS
+      RUBY
 
       style_offenses = described_class.check_style_json([formula])
 
@@ -120,6 +120,57 @@ RSpec.describe Homebrew::Style do
       )
 
       described_class.run_actionlint!([workflow1, workflow2])
+    end
+  end
+
+  describe ".shellcheck" do
+    it "uses a matching system shellcheck" do
+      formula = instance_double(Formula)
+
+      allow(Formula).to receive(:[]).with("shellcheck").and_return(formula)
+      allow(formula).to receive(:ensure_installed!).with(latest:     true,
+                                                         reason:     "shell style checks",
+                                                         executable: "shellcheck")
+                                                   .and_return(Pathname.new("/usr/bin/shellcheck"))
+
+      expect(described_class.shellcheck).to eq(Pathname.new("/usr/bin/shellcheck"))
+    end
+  end
+
+  describe ".actionlint" do
+    it "uses a matching system actionlint" do
+      formula = instance_double(Formula)
+
+      allow(Formula).to receive(:[]).with("actionlint").and_return(formula)
+      allow(formula).to receive(:ensure_installed!).with(latest:       true,
+                                                         reason:       "GitHub Actions checks",
+                                                         executable:   "actionlint",
+                                                         version_args: ["-version"])
+                                                   .and_return(Pathname.new("/usr/bin/actionlint"))
+
+      expect(described_class.actionlint).to eq(Pathname.new("/usr/bin/actionlint"))
+    end
+  end
+
+  describe ".run_shfmt!" do
+    it "passes a matching system shfmt to the shfmt wrapper" do
+      shell_file = Pathname.new("/tmp/test.sh")
+      formula = instance_double(Formula)
+
+      allow(Formula).to receive(:[]).with("shfmt").and_return(formula)
+      allow(formula).to receive(:ensure_installed!).with(latest:     true,
+                                                         reason:     "formatting shell scripts",
+                                                         executable: "shfmt")
+                                                   .and_return(Pathname.new("/usr/bin/shfmt"))
+      system("true")
+
+      expect(described_class).to receive(:system).with(
+        { "HOMEBREW_SHFMT" => "/usr/bin/shfmt" },
+        HOMEBREW_LIBRARY/"Homebrew/utils/shfmt.sh",
+        "--language-dialect", "bash", "--indent", "2", "--case-indent", "--", shell_file
+      ).and_return(true)
+
+      described_class.run_shfmt!([shell_file])
     end
   end
 

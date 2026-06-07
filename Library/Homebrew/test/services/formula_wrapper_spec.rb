@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "services/system"
@@ -20,7 +20,6 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
                     any_version_installed?: true,
                     service?:               false)
   end
-
   let(:service_object) do
     instance_double(Homebrew::Service,
                     requires_root?: false,
@@ -179,9 +178,9 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
 
     it "true if installed and file" do
       tempfile = File.new("/tmp/foo", File::CREAT)
-      allow(service).to receive_messages(installed?: true, service_file: Pathname.new(tempfile))
+      allow(service).to receive_messages(installed?: true, service_file: tempfile_path = Pathname.new(tempfile))
       expect(service.plist?).to be(true)
-      File.delete(tempfile)
+      File.delete(tempfile_path)
     end
 
     it "false if opt_prefix missing" do
@@ -384,7 +383,8 @@ RSpec.describe Homebrew::Services::FormulaWrapper do
   describe "#to_hash" do
     it "represents non-service values" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
-      allow_any_instance_of(described_class).to receive_messages(service?: false, service_file_present?: false)
+      allow_any_instance_of(described_class).to receive_messages(service?:              false,
+                                                                 service_file_present?: false)
       expected = {
         exit_code:    nil,
         file:         Pathname.new("/usr/local/opt/mysql/homebrew.mysql.plist"),

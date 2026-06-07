@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -28,11 +28,8 @@ RSpec.describe Homebrew::Bundle::Cargo do
         allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
-      it "returns an empty list" do
+      specify do
         expect(dumper.packages).to be_empty
-      end
-
-      it "dumps an empty string" do # rubocop:todo RSpec/AggregateExamples
         expect(dumper.dump).to eql("")
       end
     end
@@ -99,8 +96,9 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
       context "when package is not installed" do
         before do
-          allow(described_class).to receive_messages(package_manager_executable: Pathname.new("/tmp/rust/bin/cargo"),
-                                                     installed_packages:         [])
+          allow(described_class).to receive_messages(
+            package_manager_executable: Pathname.new("/tmp/rust/bin/cargo"), installed_packages: [],
+          )
         end
 
         it "installs package" do

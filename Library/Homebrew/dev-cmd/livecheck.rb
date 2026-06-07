@@ -14,14 +14,19 @@ module Homebrew
           Check for newer versions of formulae and/or casks from upstream.
           If no formula or cask argument is passed, the list of formulae and
           casks to check is taken from `$HOMEBREW_LIVECHECK_WATCHLIST` or
-          `~/.homebrew/livecheck_watchlist.txt`.
+          `${XDG_CONFIG_HOME}/homebrew/livecheck_watchlist.txt` if
+          `$XDG_CONFIG_HOME` is set or `~/.homebrew/livecheck_watchlist.txt`
+          otherwise.
         EOS
         switch "--full-name",
                description: "Print formulae and casks with fully-qualified names."
         flag   "--tap=",
                description: "Check formulae and casks within the given tap, specified as <user>`/`<repo>."
+        # odeprecated: remove in a future release.
         switch "--eval-all",
-               description: "Evaluate all available formulae and casks, whether installed or not, to check them."
+               description: "Evaluate all available formulae and casks, whether installed or not, to check them.",
+               env:         :eval_all,
+               hidden:      true
         switch "--installed",
                description: "Check formulae and casks that are currently installed."
         switch "--newer-only",
@@ -54,6 +59,7 @@ module Homebrew
         Homebrew.install_bundler_gems!(groups: ["livecheck"])
 
         eval_all = args.eval_all?
+        eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
 
         if args.debug? && args.verbose?
           puts args
@@ -96,7 +102,8 @@ module Homebrew
               end
             else
               raise UsageError,
-                    "`brew livecheck` with no arguments needs a watchlist file to be present or `--eval-all` passed!"
+                    "`brew livecheck` with no arguments needs a watchlist file, " \
+                    "`HOMEBREW_REQUIRE_TAP_TRUST=1` or `HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
             end
           end,
           T::Array[T.any(Formula, Cask::Cask)],
@@ -112,7 +119,7 @@ module Homebrew
 
             autobump_lists[tap] ||= tap.autobump
 
-            name = formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+            name = Utils.name_or_token(formula_or_cask)
             next unless autobump_lists[tap].include?(name)
 
             odebug "Skipping #{name} as it is autobumped in #{tap}."
@@ -122,7 +129,7 @@ module Homebrew
         end
 
         formulae_and_casks_to_check = formulae_and_casks_to_check.sort_by do |formula_or_cask|
-          formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
+          Utils.name_or_token(formula_or_cask)
         end
 
         raise UsageError, "No formulae or casks to check." if formulae_and_casks_to_check.blank? && !skipped_autobump

@@ -28,6 +28,29 @@ class MacOSRequirement < Requirement
   ].freeze, T::Array[Symbol])
   DEPRECATED_MACOS_VERSIONS = T.let([].freeze, T::Array[Symbol])
 
+  sig { params(args: T::Array[T.any(String, Symbol)], comparator: String).returns(MacOSRequirement) }
+  def self.parse(args, comparator:)
+    first_arg = args.first
+    first_arg_s = first_arg&.to_s
+
+    if first_arg == :any
+      new
+    elsif args.count > 1
+      new([args], comparator: "==")
+    elsif first_arg.is_a?(Symbol) && MacOSVersion::SYMBOLS.key?(first_arg)
+      new([first_arg], comparator:)
+    elsif (md = /^\s*(?<comparator><|>|[=<>]=)\s*:(?<version>\S+)\s*$/.match(first_arg_s))
+      # odeprecated "string comparison format for `depends_on macos:`"
+      new([T.must(md[:version]).to_sym], comparator: T.must(md[:comparator]))
+    elsif (md = /^\s*(?<comparator><|>|[=<>]=)\s*(?<version>\S+)\s*$/.match(first_arg_s))
+      # odeprecated "string comparison format for `depends_on macos:`"
+      new([md[:version]], comparator: T.must(md[:comparator]))
+    else
+      # odeprecated "strict symbol format for `depends_on macos:`"
+      new([first_arg], comparator: "==")
+    end
+  end
+
   sig { params(tags: T.untyped, comparator: String).void }
   def initialize(tags = [], comparator: ">=")
     @version = T.let(begin

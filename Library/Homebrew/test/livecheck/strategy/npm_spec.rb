@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -13,7 +13,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Npm do
     }
   end
   let(:non_npm_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       typical:    {
@@ -24,18 +23,16 @@ RSpec.describe Homebrew::Livecheck::Strategy::Npm do
       },
     }
   end
-
   # This is a limited subset of a `latest` response object, for the sake of
   # testing.
   let(:content) do
-    <<~EOS
+    <<~JSON
       {
         "name": "example",
         "version": "1.2.3"
       }
-    EOS
+    JSON
   end
-
   let(:matches) { ["1.2.3"] }
 
   describe "::match?" do

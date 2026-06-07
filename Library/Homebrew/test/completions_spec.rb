@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "completions"
@@ -12,7 +12,7 @@ RSpec.describe Homebrew::Completions do
     HOMEBREW_REPOSITORY.cd do
       system "git", "init"
     end
-    described_class::SHELLS.each do |shell|
+    Homebrew::Completions::SHELLS.each do |shell|
       (completions_dir/shell).mkpath
     end
     internal_path.mkpath
@@ -155,10 +155,64 @@ RSpec.describe Homebrew::Completions do
     #       an actual regression.
     # describe ".update_shell_completions!" do
     #   it "generates shell completions" do
-    #     described_class.update_shell_completions!
+    #     klass.update_shell_completions!
     #     expect(completions_dir/"bash/brew").to be_a_file
     #   end
     # end
+
+    let(:nested_completion_command) { "subcommand-test" }
+    let(:nested_completion_subcommands) do
+      [
+        Homebrew::CLI::Parser::Subcommand.new(
+          name:        "list",
+          aliases:     ["ls"],
+          description: "List test services.",
+          default:     true,
+        ),
+        Homebrew::CLI::Parser::Subcommand.new(
+          name:        "info",
+          aliases:     ["i"],
+          description: "Show service information.",
+        ),
+        Homebrew::CLI::Parser::Subcommand.new(
+          name:        "start",
+          aliases:     ["s"],
+          description: "Start a service.",
+        ),
+      ]
+    end
+
+    def stub_nested_completion_command(command, subcommands)
+      allow(Commands).to receive(:command_subcommands).and_call_original
+      allow(Commands).to receive(:command_subcommands).with(command).and_return(subcommands)
+      allow(Commands).to receive(:command_description).and_call_original
+      allow(Commands).to receive(:command_description)
+        .with(command, short: true)
+        .and_return("Manage test services.")
+      allow(Commands).to receive(:command_options).and_call_original
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: nil)
+        .and_return([["--global", "Use the global test file."]])
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: "list")
+        .and_return([["--all", "List all test services."]])
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: "info")
+        .and_return([["--json", "Output as JSON."]])
+      allow(Commands).to receive(:command_options)
+        .with(command, subcommand: "start")
+        .and_return([["--file", "Use the service file from this location to `start` the service."]])
+      allow(Commands).to receive(:named_args_type).and_call_original
+      allow(Commands).to receive(:named_args_type)
+        .with(command, subcommand: "list")
+        .and_return([])
+      allow(Commands).to receive(:named_args_type)
+        .with(command, subcommand: "info")
+        .and_return([:service])
+      allow(Commands).to receive(:named_args_type)
+        .with(command, subcommand: "start")
+        .and_return([:service])
+    end
 
     describe ".format_description" do
       it "escapes single quotes" do
@@ -188,7 +242,7 @@ RSpec.describe Homebrew::Completions do
           "--debug"   => "Display any debugging information.",
           "--help"    => "Show this message.",
           "--hide"    => "Act as if none of the specified <hidden> are installed. <hidden> should be " \
-                         "a comma-separated list of formulae.",
+                         "a comma-separated list of formulae or casks.",
           "--quiet"   => "Make some output more quiet.",
           "--verbose" => "Make some output more verbose.",
         }
@@ -226,6 +280,21 @@ RSpec.describe Homebrew::Completions do
       it "overrides global options with local descriptions" do
         options = described_class.command_options("upgrade")
         expect(options["--verbose"]).to eq "Print the verification and post-install steps."
+      end
+
+      it "returns options for a nested subcommand" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+
+        root_options = described_class.command_options(nested_completion_command)
+        info_options = described_class.command_options(nested_completion_command, subcommand: "info")
+        start_options = described_class.command_options(nested_completion_command, subcommand: "start")
+
+        expect(root_options).to include("--global")
+        expect(root_options).not_to include("--all")
+        expect(info_options).to include("--json")
+        expect(info_options).not_to include("--file")
+        expect(start_options).to include("--file")
+        expect(start_options).not_to include("--json")
       end
     end
 
@@ -267,6 +336,7 @@ RSpec.describe Homebrew::Completions do
               *) ;;
             esac
             __brew_complete_formulae
+            __brew_complete_casks
           }
         COMPLETION
       end
@@ -299,12 +369,26 @@ RSpec.describe Homebrew::Completions do
         completion = described_class.generate_bash_subcommand_completion("upgrade")
         expect(completion).to match(/__brew_complete_installed_formulae\n  __brew_complete_installed_casks\n}$/)
       end
+
+      it "returns appropriate completion for a command with nested subcommands" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+        completion = described_class.generate_bash_subcommand_completion(nested_completion_command)
+
+        expect(completion).to include('info|i) subcommand="info"; break ;;')
+        expect(completion).to include('__brewcomp "list ls info i start s"')
+        expect(completion).to include("          --global\n          \"")
+        expect(completion).not_to include("          --all\n          \"")
+        expect(completion).to include("list)\n        __brewcomp \"\n        --all")
+        expect(completion).to include("__brew_complete_services")
+        expect(completion).to include("        *) ;;\n      esac\n      ;;")
+      end
     end
 
     describe ".generate_bash_completion_file" do
       it "returns the correct completion file" do
         file = described_class.generate_bash_completion_file(%w[install missing update])
         expect(file).to match(/^__brewcomp\(\) {$/)
+        expect(file).to match(/^__brew_complete_services\(\) {$/)
         expect(file).to match(/^_brew_install\(\) {$/)
         expect(file).to match(/^_brew_missing\(\) {$/)
         expect(file).to match(/^_brew_update\(\) {$/)
@@ -313,6 +397,25 @@ RSpec.describe Homebrew::Completions do
         expect(file).to match(/^ {4}missing\) _brew_missing ;;/)
         expect(file).to match(/^ {4}update\) _brew_update ;;/)
         expect(file).to match(/^complete -o bashdefault -o default -F _brew brew$/)
+      end
+
+      it "doesn't add aliases to command completions" do
+        file = described_class.generate_bash_completion_file(%w[install missing up update])
+        expect(file).not_to include("cmd_aliases")
+        expect(file).not_to match(/^_brew_up\(\) {$/)
+        expect(file).not_to match(/^ {4}up\) _brew_up ;;/)
+        expect(file).to include('[[ $(__brew_internal_command_alias "${line}") == "${line}" ]] || continue')
+        expect(file).to include('cmd="$(__brew_internal_command_alias "${cmd}")"')
+        expect(file).to match(/^ {4}up\) echo "update" ;;$/)
+        expect(file).to match(/^ {4}update\) _brew_update ;;$/)
+      end
+
+      it "keeps argument completions for commands hidden from the manpage" do
+        file = described_class.generate_bash_completion_file(%w[generate-internal-api])
+        expect(file).to include("if [[ -n ${HOMEBREW_DEVELOPER:-} ]]")
+        expect(file).to include('maintainer_cmds="generate-internal-api"')
+        expect(file).to match(/^_brew_generate_internal_api\(\) {$/)
+        expect(file).to match(/^ {4}generate-internal-api\) _brew_generate_internal_api ;;/)
       end
     end
 
@@ -329,11 +432,13 @@ RSpec.describe Homebrew::Completions do
             _arguments \\
               '--debug[Display any debugging information]' \\
               '--help[Show this message]' \\
-              '--hide[Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae]' \\
+              '--hide[Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae or casks]' \\
               '--quiet[Make some output more quiet]' \\
               '--verbose[Make some output more verbose]' \\
               - formula \\
-              '*:formula:__brew_formulae'
+              '*:formula:__brew_formulae' \\
+              - cask \\
+              '*:cask:__brew_casks'
           }
         COMPLETION
       end
@@ -364,21 +469,55 @@ RSpec.describe Homebrew::Completions do
           /'*:cask:__brew_casks'\n}$/,
         )
       end
+
+      it "returns appropriate completion for a command with nested subcommands" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+        completion = described_class.generate_zsh_subcommand_completion(nested_completion_command)
+
+        expect(completion).to include('case "$words[1]" in')
+        expect(completion).to include("'1:subcommand:->subcommand'")
+        expect(completion).to include("  _arguments -C \\\n    '--global[Use the global test file]' \\\n    " \
+                                      "'1:subcommand:->subcommand'")
+        expect(completion).to include(
+          "list|ls)\n        _arguments \\\n          '--all[List all test services]'",
+        )
+        expect(completion).to include("'i:Show service information'")
+        expect(completion).to include("info|i)")
+        expect(completion).to include("*:service:__brew_services")
+      end
+
+      it "doesn't generate alias completion functions" do
+        file = described_class.generate_zsh_completion_file(%w[up update])
+        expect(file).not_to match(/^# brew up$/)
+        expect(file).not_to match(/^_brew_up\(\) {$/)
+        expect(file).to match(/^    up update$/)
+        expect(file).to include('command="${aliases[$command_or_alias]:-$command_or_alias}"')
+        expect(file).to include('local completion_func="_brew_${command//-/_}"')
+      end
     end
 
     describe ".generate_zsh_completion_file" do
       it "returns the correct completion file" do
         file = described_class.generate_zsh_completion_file(%w[install missing update])
         expect(file).to match(/^__brew_list_aliases\(\) {$/)
+        expect(file).to match(/^__brew_services\(\) {$/)
         expect(file).to match(/^    up update$/)
         expect(file).to match(/^__brew_internal_commands\(\) {$/)
         expect(file).to match(/^    'install:Install a formula or cask'$/)
-        expect(file).to match(/^    'missing:Check the given formula kegs for missing dependencies'$/)
+        expect(file).to match(/^    'missing:Check the given formula kegs and cask installations for .*'$/)
         expect(file).to match(/^    'update:Fetch the newest version of Homebrew and all formulae from GitHub .*'$/)
         expect(file).to match(/^_brew_install\(\) {$/)
         expect(file).to match(/^_brew_missing\(\) {$/)
         expect(file).to match(/^_brew_update\(\) {$/)
         expect(file).to match(/^_brew "\$@"$/)
+      end
+
+      it "maintainer-gates command completions but keeps argument completions for commands hidden from the manpage" do
+        file = described_class.generate_zsh_completion_file(%w[generate-internal-api])
+        expect(file).to include("if [[ -n ${HOMEBREW_DEVELOPER:-} ]]; then")
+        expect(file).to match(/^      'generate-internal-api:Generate internal API data files for .*'$/)
+        expect(file).to match(/^# brew generate-internal-api$/)
+        expect(file).to match(/^_brew_generate_internal_api\(\) {$/)
       end
     end
 
@@ -390,13 +529,14 @@ RSpec.describe Homebrew::Completions do
       it "returns appropriate completion for a ruby command" do
         completion = described_class.generate_fish_subcommand_completion("missing")
         expect(completion).to eq <<~COMPLETION
-          __fish_brew_complete_cmd 'missing' 'Check the given formula kegs for missing dependencies'
+          __fish_brew_complete_cmd 'missing' 'Check the given formula kegs and cask installations for missing dependencies'
           __fish_brew_complete_arg 'missing' -l debug -d 'Display any debugging information'
           __fish_brew_complete_arg 'missing' -l help -d 'Show this message'
-          __fish_brew_complete_arg 'missing' -l hide -d 'Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae'
+          __fish_brew_complete_arg 'missing' -l hide -d 'Act as if none of the specified hidden are installed. hidden should be a comma-separated list of formulae or casks'
           __fish_brew_complete_arg 'missing' -l quiet -d 'Make some output more quiet'
           __fish_brew_complete_arg 'missing' -l verbose -d 'Make some output more verbose'
           __fish_brew_complete_arg 'missing' -a '(__fish_brew_suggest_formulae_all)'
+          __fish_brew_complete_arg 'missing' -a '(__fish_brew_suggest_casks_all)'
         COMPLETION
       end
 
@@ -424,6 +564,28 @@ RSpec.describe Homebrew::Completions do
           /#{expected_line_start} -l formula -l formulae' -a '\(__fish_brew_suggest_casks_installed\)'/,
         )
       end
+
+      it "returns appropriate completion for a command with nested subcommands" do
+        stub_nested_completion_command(nested_completion_command, nested_completion_subcommands)
+        completion = described_class.generate_fish_subcommand_completion(nested_completion_command)
+
+        expect(completion).to include("__fish_brew_complete_sub_cmd 'subcommand-test' 'info'")
+        expect(completion).to include("__fish_brew_complete_sub_cmd 'subcommand-test' 'i' " \
+                                      "'Show service information'")
+        root_option = "__fish_brew_complete_arg 'subcommand-test; and [ (count (__fish_brew_args)) = 1 ]' "
+        expect(completion).to include("#{root_option}-l global -d 'Use the global test file'")
+        expect(completion).to include("__fish_brew_complete_sub_arg 'subcommand-test' 'list ls' " \
+                                      "-l all -d 'List all test services'")
+        expect(completion).to include("__fish_brew_complete_sub_arg 'subcommand-test' 'info i' " \
+                                      "-a '(__fish_brew_suggest_services)'")
+      end
+
+      it "maintainer-gates command completions but keeps argument completions for commands hidden from the manpage" do
+        completion = described_class.generate_fish_subcommand_completion("generate-internal-api")
+        expect(completion).to include("set -q HOMEBREW_DEVELOPER")
+        expect(completion).to include("-a 'generate-internal-api'")
+        expect(completion).to include("__fish_brew_complete_arg 'generate-internal-api' -l dry-run")
+      end
     end
 
     describe ".generate_fish_completion_file" do
@@ -431,8 +593,18 @@ RSpec.describe Homebrew::Completions do
         file = described_class.generate_fish_completion_file(%w[install missing update])
         expect(file).to match(/^function __fish_brew_complete_cmd/)
         expect(file).to match(/^__fish_brew_complete_cmd 'install' 'Install a formula or cask'$/)
-        expect(file).to match(/^__fish_brew_complete_cmd 'missing' 'Check the given formula kegs for .*'$/)
+        expect(file).to match(/^__fish_brew_complete_cmd 'missing' 'Check the given formula kegs and cask .*'$/)
         expect(file).to match(/^__fish_brew_complete_cmd 'update' 'Fetch the newest version of Homebrew .*'$/)
+      end
+
+      it "omits aliases from command completions" do
+        file = described_class.generate_fish_completion_file(%w[up update])
+        expect(file).not_to match(/^__fish_brew_complete_cmd 'up'/)
+        expect(file).not_to match(/^__fish_brew_complete_arg 'up'/)
+        expect(file).to match(/^        case 'up'$/)
+        expect(file).to match(/^            echo 'update'$/)
+        expect(file).to include("set -l cmd (__fish_brew_expand_alias $args[1])")
+        expect(file).to match(/^__fish_brew_complete_cmd 'update'/)
       end
     end
   end

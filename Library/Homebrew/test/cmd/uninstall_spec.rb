@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/uninstall"
@@ -32,5 +32,23 @@ RSpec.describe Homebrew::Cmd::UninstallCmd do
       .to output(/test cask error/).to_stderr
 
     expect(Homebrew).to have_failed
+  ensure
+    Homebrew.failed = false
+  end
+
+  it "untrusts uninstalled casks" do
+    cask = Cask::Cask.new("test-cask")
+    allow(cask).to receive(:full_name).and_return("thirdparty/foo/test-cask")
+    cmd = described_class.new(["thirdparty/foo/test-cask"])
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable).and_return([cask])
+    allow(Cask::Uninstall).to receive(:check_dependent_casks)
+    allow(Cask::Uninstall).to receive(:uninstall_casks)
+    allow(Homebrew::Uninstall).to receive(:uninstall_kegs)
+    allow(Homebrew::Cleanup).to receive(:autoremove)
+
+    expect(Homebrew::Trust).to receive(:untrust!)
+      .with(:cask, "thirdparty/foo/test-cask")
+
+    cmd.run
   end
 end

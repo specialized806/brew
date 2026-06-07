@@ -31,6 +31,8 @@ module Homebrew
         conflicts "--major", "--minor"
 
         named_args :none
+
+        hide_from_man_page!
       end
 
       sig { override.void }

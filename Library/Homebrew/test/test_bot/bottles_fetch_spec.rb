@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "test_bot"
@@ -17,8 +17,9 @@ RSpec.describe Homebrew::TestBot::BottlesFetch do
 
       fetch.run!(args: instance_double(Homebrew::Cmd::TestBotCmd::Args))
 
-      expect(fetch.steps.last).to be_passed
-      expect(fetch.steps.last.command).to include("--bottle-tag=#{tag}")
+      last_step = T.must(fetch.steps.last)
+      expect(last_step).to be_passed
+      expect(last_step.command).to include("--bottle-tag=#{tag}")
     end
   end
 end

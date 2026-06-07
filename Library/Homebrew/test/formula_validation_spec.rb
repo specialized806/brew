@@ -25,7 +25,7 @@ RSpec.describe Formula do
         formula do
           def brew; end
         end
-      end.to raise_error(RuntimeError, /\AThe method `brew` on #{described_class} was declared as final/)
+      end.to raise_error(RuntimeError, /\AThe method `brew` on #{described_class} was declared as final/o)
     end
 
     it "validates the `name`" do

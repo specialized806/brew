@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -32,7 +32,10 @@ RSpec.describe Homebrew::Bundle::Skipper do
       it "returns true" do
         allow(Hardware::CPU).to receive(:arm?).and_return(true)
         allow(Homebrew).to receive(:default_prefix?).and_return(true)
-        stub_formula_loader formula("mysql") { url "mysql-1.0" }
+        stub_formula_loader formula("mysql") {
+          T.bind(self, T.class_of(Formula))
+          url "mysql-1.0"
+        }
 
         expect(skipper.skip?(entry)).to be true
       end
@@ -62,10 +65,42 @@ RSpec.describe Homebrew::Bundle::Skipper do
       end
     end
 
+    context "with a WinGet entry", :needs_macos do
+      let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:winget, "Valve.Steam") }
+
+      it "skips on macOS with warning" do
+        expect($stdout).to receive(:puts).with(
+          Formatter.warning("Skipping winget Valve.Steam (requires WSL)"),
+        )
+        expect(skipper.skip?(entry)).to be true
+      end
+    end
+
     context "with a flatpak entry on Linux", :needs_linux do
       let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:flatpak, "org.gnome.Calculator") }
 
       it "does not skip" do
+        expect(skipper.skip?(entry)).to be false
+      end
+    end
+
+    context "with a WinGet entry on Linux outside WSL", :needs_linux do
+      let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:winget, "App Installer") }
+
+      it "skips with warning" do
+        allow(OS).to receive(:wsl?).and_return(false)
+        expect($stdout).to receive(:puts).with(
+          Formatter.warning("Skipping winget App Installer (requires WSL)"),
+        )
+        expect(skipper.skip?(entry)).to be true
+      end
+    end
+
+    context "with a WinGet entry on WSL", :needs_linux do
+      let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:winget, "App Installer") }
+
+      it "does not skip" do
+        allow(OS).to receive(:wsl?).and_return(true)
         expect(skipper.skip?(entry)).to be false
       end
     end

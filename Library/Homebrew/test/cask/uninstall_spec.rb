@@ -37,6 +37,20 @@ RSpec.describe Cask::Uninstall, :cask do
       end.not_to raise_error
     end
 
+    it "does not uninstall a pinned Cask" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      InstallHelper.stub_cask_installation(caffeine)
+      caffeine.pin
+
+      expect(Cask::Installer).not_to receive(:new)
+      expect do
+        described_class.uninstall_casks(caffeine)
+      end.to output(/local-caffeine is pinned\. You must unpin it to uninstall\./).to_stderr
+
+      expect(caffeine).to be_pinned
+      caffeine.unpin
+    end
+
     it "can uninstall and unlink multiple Casks at once" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
       transmission = Cask::CaskLoader.load(cask_path("local-transmission-zip"))

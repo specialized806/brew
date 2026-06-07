@@ -928,8 +928,37 @@ class ChecksumMismatchError < RuntimeError
       Expected: #{Formatter.success(expected.to_s)}
         Actual: #{Formatter.error(actual.to_s)}
           File: #{path}
-      To retry an incomplete download, remove the file above.
+      To retry an incomplete download, remove the file above.#{ChecksumMismatchError.html_hint(path)}
     EOS
+  end
+
+  # Detect downloads that are HTML pages (bot-protection challenges, rate-limit
+  # or error pages served as `text/html`) rather than the expected binary
+  # artifact. Returns an extra hint for the error message, or an empty string.
+  sig { params(path: T.any(Pathname, String)).returns(String) }
+  def self.html_hint(path)
+    return "" unless path.is_a?(Pathname)
+    return "" unless path.file?
+
+    head = path.binread(512).to_s
+    return "" unless head.match?(/\A\s*(?:<!doctype\s+html|<html|<\?xml[^>]*\?>\s*<html)/i)
+
+    rm_command = if path.to_s.start_with?("#{HOMEBREW_CACHE}/")
+      relative = path.relative_path_from(HOMEBREW_CACHE)
+      %Q(rm "$(brew --cache)/#{relative}")
+    else
+      %Q(rm "#{path}")
+    end
+
+    <<~EOS
+
+      The start of the downloaded file is HTML/XML, not a binary.
+      The server may have returned a bot-protection, rate-limit or
+      error page instead. Delete the file and retry:
+        #{rm_command}
+    EOS
+  rescue SystemCallError
+    ""
   end
 end
 

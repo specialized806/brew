@@ -103,22 +103,8 @@ RSpec.describe "Exception" do
 
     let(:mod) do
       Module.new do
-        # These are defined within an anonymous module to avoid polluting the global namespace.
-        # rubocop:disable RSpec/LeakyConstantDeclaration,Lint/ConstantDefinitionInBlock
-        class Bar < Requirement
-          # Sorbet type members are mutable by design and cannot be frozen.
-          # rubocop:disable Style/MutableConstant
-          Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
-          # rubocop:enable Style/MutableConstant
-        end
-
-        class Baz < Formula
-          # Sorbet type members are mutable by design and cannot be frozen.
-          # rubocop:disable Style/MutableConstant
-          Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
-          # rubocop:enable Style/MutableConstant
-        end
-        # rubocop:enable RSpec/LeakyConstantDeclaration,Lint/ConstantDefinitionInBlock
+        const_set :Bar, Class.new(Requirement)
+        const_set :Baz, Class.new(Formula)
       end
     end
 
@@ -233,6 +219,26 @@ RSpec.describe "Exception" do
     let(:actual_checksum) { instance_double(Checksum, to_s: "deadcafe") }
 
     it(:to_s) { expect(error.to_s).to match(/SHA-256 mismatch/) }
+
+    it "does not add an HTML hint for non-HTML downloads" do
+      Tempfile.create("brew-checksum-test") do |file|
+        file.binmode
+        file.write("PK\x03\x04binary-content")
+        file.flush
+        message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
+        expect(message).not_to match(%r{HTML/XML})
+      end
+    end
+
+    it "adds an HTML hint when the download is an HTML page" do
+      Tempfile.create("brew-checksum-test") do |file|
+        file.binmode
+        file.write('<!doctype html><html lang="en"><head><title>Oh noes!</title>')
+        file.flush
+        message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
+        expect(message).to match(%r{HTML/XML, not a binary})
+      end
+    end
   end
 
   describe ResourceMissingError do

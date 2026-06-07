@@ -4,6 +4,13 @@
 require "installed_dependents"
 
 RSpec.describe InstalledDependents do
+  let!(:keg) { setup_test_keg("foo", "1.0") }
+  let!(:keg_only_keg) do
+    setup_test_keg("foo-keg-only", "1.0") do
+      keg_only "a good reason"
+    end
+  end
+
   include FileUtils
 
   def stub_formula(name, version = "1.0", &block)
@@ -32,17 +39,34 @@ RSpec.describe InstalledDependents do
     Keg.new(path)
   end
 
-  let!(:keg) { setup_test_keg("foo", "1.0") }
-  let!(:keg_only_keg) do
-    setup_test_keg("foo-keg-only", "1.0") do
-      keg_only "a good reason"
-    end
-  end
-
   describe "::find_some_installed_dependents" do
     def setup_test_keg(name, version, &block)
       keg = super
-      Tab.create(keg.to_formula, DevelopmentTools.default_compiler, :libcxx).write
+      tab = Tab.new(
+        "homebrew_version"         => HOMEBREW_VERSION,
+        "installed_on_request"     => false,
+        "loaded_from_api"          => false,
+        "loaded_from_internal_api" => false,
+        "source"                   => {
+          "path"         => nil,
+          "tap"          => "homebrew/core",
+          "tap_git_head" => nil,
+          "spec"         => "stable",
+          "versions"     => {
+            "stable"                => version,
+            "head"                  => nil,
+            "version_scheme"        => 0,
+            "compatibility_version" => nil,
+          },
+        },
+        "built_on"                 => {},
+      )
+      tab.tabfile = keg/AbstractTab::FILENAME
+      tab.stdlib = :libcxx
+      tab.compiler = DevelopmentTools.default_compiler
+      tab.aliases = []
+      tab.runtime_dependencies = []
+      tab.write
       keg
     end
 

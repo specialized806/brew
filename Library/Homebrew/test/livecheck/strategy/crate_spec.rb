@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -8,19 +8,16 @@ RSpec.describe Homebrew::Livecheck::Strategy::Crate do
 
   let(:crate_url) { "https://static.crates.io/crates/example/example-0.1.0.crate" }
   let(:non_crate_url) { "https://brew.sh/test" }
-
   # This only differs from the `DEFAULT_REGEX` so we can distinguish between a
   # provided regex and the default strategy regex in testing.
   let(:regex) { /v?(\d+(?:\.\d+)+)/i }
-
   let(:generated) do
     { url: "https://crates.io/api/v1/crates/example/versions" }
   end
-
   # This is a limited subset of a `versions` response object, for the sake of
   # testing.
   let(:content) do
-    <<~EOS
+    <<~JSON
       {
         "versions": [
           {
@@ -46,25 +43,9 @@ RSpec.describe Homebrew::Livecheck::Strategy::Crate do
           }
         ]
       }
-    EOS
+    JSON
   end
-
   let(:matches) { ["1.0.0", "1.0.1"] }
-
-  let(:find_versions_return_hash) do
-    {
-      matches: {
-        "1.0.1" => Version.new("1.0.1"),
-        "1.0.0" => Version.new("1.0.0"),
-      },
-      regex:   crate::DEFAULT_REGEX,
-      url:     generated[:url],
-    }
-  end
-
-  let(:find_versions_cached_return_hash) do
-    find_versions_return_hash.merge({ cached: true })
-  end
 
   describe "::match?" do
     it "returns true for a crate URL" do

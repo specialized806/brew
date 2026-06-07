@@ -4,23 +4,6 @@
 require "cask/upgrade"
 
 RSpec.describe Cask::Upgrade, :cask do
-  def write_info_plist(path, short_version:, bundle_version:)
-    info_plist = path/"Contents/Info.plist"
-    info_plist.dirname.mkpath
-    info_plist.write <<~PLIST
-      <?xml version="1.0" encoding="UTF-8"?>
-      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
-      <plist version="1.0">
-      <dict>
-        <key>CFBundleShortVersionString</key>
-        <string>#{short_version}</string>
-        <key>CFBundleVersion</key>
-        <string>#{bundle_version}</string>
-      </dict>
-      </plist>
-    PLIST
-  end
-
   let(:version_latest_paths) do
     [
       version_latest.config.appdir.join("Caffeine Mini.app"),
@@ -41,6 +24,23 @@ RSpec.describe Cask::Upgrade, :cask do
     parser = Homebrew::CLI::Parser.new(Homebrew::Cmd::Brew)
     parser.cask_options
     parser.args
+  end
+
+  def write_info_plist(path, short_version:, bundle_version:)
+    info_plist = path/"Contents/Info.plist"
+    info_plist.dirname.mkpath
+    info_plist.write <<~PLIST
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>CFBundleShortVersionString</key>
+        <string>#{short_version}</string>
+        <key>CFBundleVersion</key>
+        <string>#{bundle_version}</string>
+      </dict>
+      </plist>
+    PLIST
   end
 
   before do
@@ -125,7 +125,7 @@ RSpec.describe Cask::Upgrade, :cask do
         described_class.upgrade_casks!(dry_run: true, args:)
       end
 
-      it "raises if HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS and HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS are set" do
+      it "lets HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS override HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS" do
         allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_call_original
 
         with_env(
@@ -133,7 +133,20 @@ RSpec.describe Cask::Upgrade, :cask do
           "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
         ) do
           expect { described_class.upgrade_casks!(dry_run: true, args:) }
-            .to raise_error(UsageError, /cannot both be set/i)
+            .not_to raise_error
+        end
+      end
+
+      it "lets HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS override the developer default" do
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_call_original
+
+        with_env(
+          "HOMEBREW_DEVELOPER"                     => "1",
+          "HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS"    => "1",
+          "HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS" => "1",
+        ) do
+          expect { described_class.upgrade_casks!(dry_run: true, args:) }
+            .not_to raise_error
         end
       end
 
@@ -170,6 +183,60 @@ RSpec.describe Cask::Upgrade, :cask do
 
         expect(summary_upgrades).to include("local-caffeine 1.2.2 -> 1.2.3")
         expect(summary_deprecated).to include("local-caffeine")
+      end
+
+      it "passes the quit option to cask upgrades" do
+        expect(described_class).to receive(:upgrade_cask) do |_, _, **options|
+          expect(options[:quit]).to be(false)
+        end
+
+        described_class.upgrade_casks!(
+          local_caffeine,
+          quit:                 false,
+          skip_prefetch:        true,
+          show_upgrade_summary: false,
+          args:,
+        )
+      end
+
+      it "excludes pinned Casks" do
+        local_caffeine.pin
+        summary_pinned = []
+
+        begin
+          expect(described_class).not_to receive(:upgrade_cask)
+          expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
+            expect(dry_run).to be(true)
+            expect(cask_upgrades).to include(
+              "local-transmission-zip 2.60 -> 2.61",
+              "auto-updates 2.57 -> 2.61",
+              "renamed-app 1.0.0 -> 2.0.0",
+            )
+            expect(cask_upgrades.grep(/local-caffeine/)).to be_empty
+          end
+
+          described_class.upgrade_casks!(dry_run: true, quiet: true, summary_pinned:, args:)
+          expect(summary_pinned).to include("local-caffeine 1.2.2")
+        ensure
+          local_caffeine.unpin
+        end
+      end
+
+      it "fails and skips explicitly named pinned Casks" do
+        local_caffeine.pin
+
+        begin
+          expect(described_class).not_to receive(:upgrade_cask)
+
+          expect do
+            described_class.upgrade_casks!(local_caffeine, dry_run: true, args:)
+          end.to not_to_output.to_stdout
+             .and output(/Not upgrading 1 pinned package:.*local-caffeine 1\.2\.2/m).to_stderr
+          expect(Homebrew).to be_failed
+        ensure
+          local_caffeine.unpin
+          Homebrew.failed = false
+        end
       end
 
       it "would update only the Casks specified in the command line" do
@@ -393,7 +460,7 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it 'prefetches "auto_updates true" casks with quarantine until signed identity is checked' do
-      installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil)
+      installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
 
       expect(Cask::Installer).to receive(:new) do |cask, **options|
         expect(cask).to eq(auto_updates)
@@ -560,19 +627,23 @@ RSpec.describe Cask::Upgrade, :cask do
   end
 
   context "when there were multiple failures" do
-    # These tests perform actual upgrades and test error handling,
-    # so they need full real installations.
+    # This test exercises upgrade error handling, so it needs installed Casks.
     before do
       [
         "outdated/bad-checksum",
         "outdated/local-transmission-zip",
         "outdated/bad-checksum2",
       ].each do |cask|
-        Cask::Installer.new(Cask::CaskLoader.load(cask_path(cask))).install
+        InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path(cask)))
       end
+
+      bad_checksum_2_path = Cask::CaskLoader.load("bad-checksum2").config.appdir.join("container")
+      FileUtils.rm_rf(bad_checksum_2_path)
+      FileUtils.touch(bad_checksum_2_path)
     end
 
     it "does not end the upgrade process" do
+      upgraded_tokens = []
       bad_checksum = Cask::CaskLoader.load("bad-checksum")
       bad_checksum_path = bad_checksum.config.appdir.join("Caffeine.app")
 
@@ -591,9 +662,18 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum_2_path).to be_a_file
       expect(bad_checksum_2.installed_version).to eq "1.2.2"
 
+      allow(described_class).to receive(:upgrade_cask) do |_, new_cask, **|
+        upgraded_tokens << new_cask.token
+        raise Cask::CaskError, "failed" if new_cask.token.start_with?("bad-checksum")
+
+        InstallHelper.stub_cask_installation(new_cask)
+      end
+
       expect do
-        described_class.upgrade_casks!(args:)
+        described_class.upgrade_casks!(args:, skip_prefetch: true)
       end.to raise_error(Cask::MultipleCaskErrors)
+
+      expect(upgraded_tokens).to contain_exactly("bad-checksum", "bad-checksum2", "local-transmission-zip")
 
       expect(bad_checksum).to be_installed
       expect(bad_checksum_path).to be_a_directory

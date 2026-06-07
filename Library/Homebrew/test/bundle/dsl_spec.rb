@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -6,12 +6,12 @@ require "bundle/dsl"
 
 RSpec.describe Homebrew::Bundle::Dsl do
   def dsl_from_string(string)
-    described_class.new(StringIO.new(string))
+    Homebrew::Bundle::Dsl.new(StringIO.new(string))
   end
 
   context "with a DSL example" do
     subject(:dsl) do
-      dsl_from_string <<~EOS
+      dsl_from_string <<~RUBY
         # frozen_string_literal: true
         cask_args appdir: '/Applications'
         tap 'homebrew/cask'
@@ -25,10 +25,11 @@ RSpec.describe Homebrew::Bundle::Dsl do
         cask 'firefox', args: { appdir: '~/my-apps/Applications' }
         mas '1Password', id: 443987910
         vscode 'GitHub.codespaces'
+        winget 'PowerToys', id: 'XP89DCGQ3K6VLD', source: 'msstore'
         go 'github.com/charmbracelet/crush'
         cargo 'ripgrep'
         uv 'mkdocs', with: ['mkdocs-material<10']
-      EOS
+      RUBY
     end
 
     before do
@@ -56,20 +57,22 @@ RSpec.describe Homebrew::Bundle::Dsl do
       expect(dsl.entries[9].name).to eql("1Password")
       expect(dsl.entries[9].options).to eql(id: 443_987_910)
       expect(dsl.entries[10].name).to eql("GitHub.codespaces")
-      expect(dsl.entries[11].name).to eql("github.com/charmbracelet/crush")
-      expect(dsl.entries[12].name).to eql("ripgrep")
-      expect(dsl.entries[13].name).to eql("mkdocs")
-      expect(dsl.entries[13].options).to eql(with: ["mkdocs-material<10"])
+      expect(dsl.entries[11].name).to eql("PowerToys")
+      expect(dsl.entries[11].options).to eql(id: "XP89DCGQ3K6VLD", source: "msstore")
+      expect(dsl.entries[12].name).to eql("github.com/charmbracelet/crush")
+      expect(dsl.entries[13].name).to eql("ripgrep")
+      expect(dsl.entries[14].name).to eql("mkdocs")
+      expect(dsl.entries[14].options).to eql(with: ["mkdocs-material<10"])
     end
   end
 
   context "with multiple cask_args" do
     subject(:dsl) do
-      dsl_from_string <<~EOS
+      dsl_from_string <<~RUBY
         cask_args appdir: '/global-apps'
         cask_args require_sha: true
         cask_args appdir: '~/my-apps'
-      EOS
+      RUBY
     end
 
     it "merges the arguments" do
@@ -147,6 +150,21 @@ RSpec.describe Homebrew::Bundle::Dsl do
         dsl_from_string 'uv "mkdocs", with: false'
       end.to raise_error(RuntimeError, /options\[:with\].*Array of String objects/)
     end
+
+    it "errors on invalid winget options" do
+      expect do
+        dsl_from_string 'winget "PowerToys", id: 123'
+      end.to raise_error(RuntimeError, /options\[:id\].*String object/)
+      expect do
+        dsl_from_string 'winget "PowerToys", source: "chocolatey"'
+      end.to raise_error(RuntimeError, /options\[:source\].*one of/)
+      expect do
+        dsl_from_string 'winget "PowerToys", interactive: true'
+      end.to raise_error(RuntimeError, /unknown options\(\[:interactive\]\) for winget/)
+      expect do
+        dsl_from_string 'winget "PowerToys", elevated: true'
+      end.to raise_error(RuntimeError, /unknown options\(\[:elevated\]\) for winget/)
+    end
   end
 
   it ".sanitize_brew_name" do
@@ -162,7 +180,8 @@ RSpec.describe Homebrew::Bundle::Dsl do
   end
 
   it ".sanitize_cask_name" do
-    expect(described_class.send(:sanitize_cask_name, "homebrew/cask-versions/adoptopenjdk8")).to eql("adoptopenjdk8")
+    expect(described_class.send(:sanitize_cask_name,
+                                "homebrew/cask-versions/adoptopenjdk8")).to eql("adoptopenjdk8")
     expect(described_class.send(:sanitize_cask_name, "adoptopenjdk8")).to eql("adoptopenjdk8")
   end
 end

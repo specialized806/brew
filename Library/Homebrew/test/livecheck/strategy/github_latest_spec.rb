@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -16,7 +16,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubLatest do
     }
   end
   let(:non_github_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       def:  {
@@ -31,21 +30,18 @@ RSpec.describe Homebrew::Livecheck::Strategy::GithubLatest do
       },
     }
   end
-
   # For the sake of brevity, this is a limited subset of the information found
   # in release objects in a response from the GitHub API.
   let(:content) do
-    <<~EOS
+    <<~JSON
       {
         "tag_name": "1.2.3",
         "name": "1.2.3",
         "draft": false,
         "prerelease": false
       }
-    EOS
+    JSON
   end
-  let(:json) { JSON.parse(content) }
-
   let(:matches) { ["1.2.3"] }
 
   describe "::match?" do

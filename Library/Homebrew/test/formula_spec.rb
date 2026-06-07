@@ -138,11 +138,8 @@ RSpec.describe Formula do
       end
     end
 
-    it "returns true for @-versioned formulae" do
+    specify do
       expect(f2.versioned_formula?).to be true
-    end
-
-    it "returns false for non-@-versioned formulae" do # rubocop:todo RSpec/AggregateExamples
       expect(f.versioned_formula?).to be false
     end
   end
@@ -949,6 +946,54 @@ RSpec.describe Formula do
     expect(f.head).to be_nil
   end
 
+  describe "#ensure_installed!" do
+    let(:f) do
+      formula do
+        url "foo-1.2.3"
+      end
+    end
+
+    let(:executable) { Pathname.new("/usr/bin/foo") }
+
+    it "uses a system executable without checking the version by default" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+
+      expect(SystemCommand).not_to receive(:run)
+      expect(f).not_to receive(:any_version_installed?)
+
+      expect(f.ensure_installed!(executable: "foo", output_to_stderr: false)).to eq(executable)
+    end
+
+    it "uses a matching system executable when latest is requested" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+      allow(SystemCommand).to receive(:run)
+        .with(executable, args: ["--version"], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "foo 1.2.3\n"))
+
+      expect(f.ensure_installed!(executable: "foo", latest: true, output_to_stderr: false)).to eq(executable)
+    end
+
+    it "passes custom version arguments to the version check" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+      allow(SystemCommand).to receive(:run)
+        .with(executable, args: ["-version"], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "1.2.3\n"))
+
+      expect(f.ensure_installed!(executable: "foo", latest: true, output_to_stderr: false,
+                                 version_args: ["-version"])).to eq(executable)
+    end
+
+    it "returns the brewed executable path when the system version does not match latest" do
+      allow(f).to receive(:which).with("foo", ORIGINAL_PATHS).and_return(executable)
+      allow(SystemCommand).to receive(:run)
+        .with(executable, args: ["--version"], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "foo 1.2.2\n"))
+      allow(f).to receive_messages(any_version_installed?: true, latest_version_installed?: true)
+
+      expect(f.ensure_installed!(executable: "foo", latest: true, output_to_stderr: false)).to eq(f.opt_bin/"foo")
+    end
+  end
+
   it "honors attributes declared before specs" do
     f = formula do
       url "foo-1.0"
@@ -1035,6 +1080,147 @@ RSpec.describe Formula do
 
     expect(f1).to have_post_install_defined
     expect(f2).not_to have_post_install_defined
+  end
+
+  specify "#post_install_steps" do
+    f = formula do
+      url "foo-1.0"
+
+      post_install_steps do
+        mkdir_p "log/foo"
+        touch "foo/marker"
+        mv "move-source", "move-target"
+        move_children "children-source", "children-target"
+        ln_s "move-target", "linked-target", source_base: :relative, uninstall: true
+      end
+    end
+
+    expect(f.post_install_steps).to eq([
+      { "type" => "mkdir_p", "path" => { "base" => "var", "path" => "log/foo" } },
+      { "type" => "touch", "path" => { "base" => "var", "path" => "foo/marker" } },
+      {
+        "type"   => "move",
+        "source" => { "base" => "prefix", "path" => "move-source" },
+        "target" => { "base" => "prefix", "path" => "move-target" },
+      },
+      {
+        "type"   => "move_children",
+        "source" => { "base" => "prefix", "path" => "children-source" },
+        "target" => { "base" => "prefix", "path" => "children-target" },
+      },
+      {
+        "type"      => "symlink",
+        "source"    => { "base" => "relative", "path" => "move-target" },
+        "target"    => { "base" => "prefix", "path" => "linked-target" },
+        "uninstall" => true,
+      },
+    ])
+    expect(f.post_install_steps_defined?).to be(true)
+    expect(f.to_hash["post_install_steps"]).to eq(f.post_install_steps)
+  end
+
+  specify "#post_install_steps_defined? with an empty block" do
+    f = formula do
+      url "foo-1.0"
+
+      # This intentionally declares no steps to test definition tracking.
+      # rubocop:disable Lint/EmptyBlock
+      post_install_steps do
+      end
+      # rubocop:enable Lint/EmptyBlock
+    end
+
+    expect(f.post_install_steps).to be_empty
+    expect(f.post_install_steps_defined?).to be(true)
+  end
+
+  specify "#post_install_steps_conflict?" do
+    f = formula do
+      url "foo-1.0"
+
+      # This intentionally declares no steps to test conflict tracking.
+      # rubocop:disable Lint/EmptyBlock
+      post_install_steps do
+      end
+      # rubocop:enable Lint/EmptyBlock
+
+      def post_install; end
+    end
+
+    expect(f.post_install_steps_conflict?).to be(true)
+  end
+
+  specify "#run_post_install_steps uses the versioned prefix" do
+    f = formula "post-install-steps-prefix" do
+      url "foo-1.0"
+
+      post_install_steps do
+        ln_s "source", "linked", source_base: :prefix, target_base: :prefix
+      end
+    end
+
+    versioned_prefix = f.rack/f.pkg_version.to_s
+    FileUtils.rm_f f.opt_prefix
+    versioned_prefix.mkpath
+    f.opt_prefix.parent.mkpath
+    FileUtils.ln_s versioned_prefix, f.opt_prefix
+
+    f.run_post_install_steps
+
+    expect((versioned_prefix/"linked").readlink).to eq(versioned_prefix/"source")
+  ensure
+    FileUtils.rm_f f.opt_prefix
+    FileUtils.rm_rf f.rack
+  end
+
+  describe "#install_etc_var" do
+    let(:f) do
+      formula "config-upgrade" do
+        url "foo-2.0"
+        version "2.0"
+      end
+    end
+    let(:config_file) { HOMEBREW_PREFIX/"etc/config-upgrade.conf" }
+    let(:default_config_file) { Pathname("#{config_file}.default") }
+    let(:old_default_file) { f.rack/"1.0/.bottle/etc/config-upgrade.conf" }
+    let(:new_default_file) { f.bottle_prefix/"etc/config-upgrade.conf" }
+
+    before do
+      FileUtils.rm_rf f.rack
+      FileUtils.rm_f config_file
+      FileUtils.rm_f default_config_file
+
+      old_default_file.dirname.mkpath
+      old_default_file.write "old\n"
+      new_default_file.dirname.mkpath
+      new_default_file.write "new\n"
+      config_file.dirname.mkpath
+    end
+
+    it "replaces config that matches the previous default" do
+      config_file.write "old\n"
+
+      f.install_etc_var
+
+      expect([config_file.read, default_config_file.exist?]).to eq(["new\n", false])
+    end
+
+    it "writes a default file when the config was modified" do
+      config_file.write "custom\n"
+
+      f.install_etc_var
+
+      expect([config_file.read, default_config_file.read]).to eq(["custom\n", "new\n"])
+    end
+
+    it "replaces config that matches the previous default when the keg is opt-linked" do
+      config_file.write "old\n"
+      Keg.new(f.rack/"2.0").optlink
+
+      f.install_etc_var
+
+      expect([config_file.read, default_config_file.exist?]).to eq(["new\n", false])
+    end
   end
 
   specify "test fixtures" do
@@ -1357,6 +1543,74 @@ RSpec.describe Formula do
     expect(h["tap"]).to eq("homebrew/core")
     expect(h["versions"]["stable"]).to eq("1.0")
     expect(h["versions"]["bottle"]).to be_truthy
+    expect(h["patches"]).to eq([])
+  end
+
+  describe "#to_hash patches" do
+    it "serialises an external patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch do
+          url "https://example.com/foo.diff"
+          sha256 TEST_SHA256
+        end
+      end
+
+      expect(f.to_hash["patches"]).to eq([
+        { "strip" => "p1", "url" => "https://example.com/foo.diff", "sha256" => TEST_SHA256 },
+      ])
+    end
+
+    it "serialises an external patch with apply and directory" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch :p0 do
+          url "https://example.com/patches.tar.gz"
+          sha256 TEST_SHA256
+          directory "src"
+          apply "fix-a.patch", "fix-b.patch"
+        end
+      end
+
+      expect(f.to_hash["patches"]).to eq([
+        {
+          "strip"     => "p0",
+          "url"       => "https://example.com/patches.tar.gz",
+          "sha256"    => TEST_SHA256,
+          "apply"     => ["fix-a.patch", "fix-b.patch"],
+          "directory" => "src",
+        },
+      ])
+    end
+
+    it "serialises an embedded DATA patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch :p1, :DATA
+      end
+
+      expect(f.to_hash["patches"]).to eq([{ "strip" => "p1", "data" => true }])
+    end
+
+    it "serialises a string patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch :p2, "--- a\n+++ b\n"
+      end
+
+      expect(f.to_hash["patches"]).to eq([{ "strip" => "p2", "data" => true }])
+    end
+
+    it "serialises a local file patch" do
+      f = formula "foo" do
+        url "foo-1.0"
+        patch do
+          file "Patches/foo.diff"
+        end
+      end
+
+      expect(f.to_hash["patches"]).to eq([{ "strip" => "p1", "file" => "Patches/foo.diff" }])
+    end
   end
 
   describe "#to_hash_with_variations", :needs_macos do
@@ -2092,6 +2346,95 @@ RSpec.describe Formula do
     end
   end
 
+  describe "OS support" do
+    it "returns false for Linux when macOS is required at the top level" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on macos: :catalina
+      end
+
+      expect(f.supports_linux?).to be false
+    end
+
+    it "returns true for Linux when macOS is required in an on_macos block" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        on_macos do
+          depends_on macos: :catalina
+        end
+      end
+
+      expect(f.supports_linux?).to be true
+    end
+
+    it "returns false for macOS when Linux is required at the top level" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on :linux
+      end
+
+      expect(f.supports_macos?).to be false
+      expect(f.supports_linux?).to be true
+    end
+
+    it "allows bare and versioned macOS requirements for now" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on :macos
+        depends_on macos: :catalina
+      end
+
+      expect(f.requirements.grep(MacOSRequirement).count).to eq(2)
+    end
+
+    it "does not allow duplicate bare macOS requirements" do
+      expect do
+        formula do
+          url "foo"
+          version "1.0"
+          depends_on :macos
+          depends_on :macos
+        end
+      end.to raise_error(ArgumentError, "`depends_on :macos` cannot be combined with another macOS `depends_on`")
+    end
+
+    it "returns false for Linux when maximum macOS is required at the top level" do
+      f = formula do
+        url "foo"
+        version "1.0"
+        depends_on maximum_macos: :tahoe
+      end
+
+      expect(f.supports_linux?).to be false
+    end
+
+    it "does not allow Linux then macOS requirements" do
+      expect do
+        formula do
+          url "foo"
+          version "1.0"
+          depends_on :linux
+          depends_on macos: :catalina
+        end
+      end.to raise_error(ArgumentError, "`depends_on :linux` cannot be combined with `depends_on macos:`")
+    end
+
+    it "does not allow macOS then Linux requirements" do
+      expect do
+        formula do
+          url "foo"
+          version "1.0"
+          depends_on macos: :catalina
+          depends_on :linux
+        end
+      end.to raise_error(ArgumentError, "`depends_on :linux` cannot be combined with `depends_on macos:`")
+    end
+  end
+
   describe "#on_macos", :needs_macos do
     let(:f) do
       Class.new(Testball) do
@@ -2553,6 +2896,33 @@ RSpec.describe Formula do
       expect { described_class.all(eval_all: true) }.not_to raise_error
       expect(described_class.all(eval_all: true)).to eq([])
     end
+
+    it "skips untrusted tap formulae when trust is enabled" do
+      tap = Tap.fetch("thirdparty", "foo")
+      formula_path = tap.formula_dir/"untrusted.rb"
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        raise "untrusted formula evaluated"
+      RUBY
+
+      allow(described_class).to receive_messages(core_names: [], tap_files: [formula_path])
+      expect(Formulary).not_to receive(:factory).with(formula_path)
+
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+        expect { expect(described_class.all(eval_all: true)).to eq([]) }
+          .to output(%r{Skipping thirdparty/foo because it is not trusted}).to_stderr
+      end
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
+    it "allows all formulae when trust is enabled" do
+      allow(described_class).to receive_messages(core_names: [], tap_files: [])
+
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+        expect(described_class.all).to eq([])
+      end
+    end
   end
 
   describe "#std_pip_args" do
@@ -2566,6 +2936,18 @@ RSpec.describe Formula do
       allow(Time).to receive(:now).and_return(Time.utc(2026, 4, 4, 12, 0, 0))
 
       expect(f.std_pip_args).to include("--uploaded-prior-to=2026-04-03T12:00:00Z")
+    end
+  end
+
+  describe "#common_stage_test_env" do
+    let(:f) do
+      formula do
+        url "foo-1.0"
+      end
+    end
+
+    it "sets Bundler cooldown for RubyGems dependencies" do
+      expect(f.send(:common_stage_test_env, mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
     end
   end
 

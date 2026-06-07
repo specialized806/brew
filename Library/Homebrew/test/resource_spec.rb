@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "resource"
@@ -73,11 +73,8 @@ RSpec.describe Resource do
   end
 
   describe "#livecheck_defined?" do
-    it "returns false if `livecheck` block is not set in resource" do
+    specify do
       expect(resource.livecheck_defined?).to be false
-    end
-
-    specify "`livecheck` block defined in resources" do # rubocop:todo RSpec/AggregateExamples
       expect(livecheck_resource.livecheck_defined?).to be true
     end
   end
@@ -165,6 +162,7 @@ RSpec.describe Resource do
       allow(resource.downloader).to receive(:_fetch) do
         resource.downloader.temporary_path.dirname.mkpath
         FileUtils.cp tarball, resource.downloader.temporary_path
+        FileUtils.touch resource.downloader.temporary_path, mtime: last_modified
       end
     end
 
@@ -186,7 +184,10 @@ RSpec.describe Resource do
     end
 
     it "sets its owner to be the patches' owner" do
-      resource.patch(:p1) { url "file:///my.patch" }
+      resource.patch(:p1) do
+        T.bind(self, Resource::Patch)
+        url "file:///my.patch"
+      end
       resource.owner = owner
       resource.patches.each do |p|
         expect(p.resource.owner).to eq(owner)

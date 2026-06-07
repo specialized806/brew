@@ -270,6 +270,36 @@ class Tap
     @config = nil
   end
 
+  sig { params(path: Pathname).returns(T.nilable(Pathname)) }
+  def worktree_source_tap_path_for(path:)
+    return unless (git_file = path/".git").file?
+    return unless (git_dir = git_file.read[/\Agitdir: (.+)\n?\z/, 1])
+
+    git_dir_path = Pathname(git_dir)
+    git_dir_path = path/git_dir_path unless git_dir_path.absolute?
+
+    # A linked worktree points at `<source>/.git/worktrees/<name>`, so use
+    # the matching source tap when it is already checked out there.
+    if git_dir_path.dirname.dirname.basename.to_s == ".git" && git_dir_path.dirname.basename.to_s == "worktrees"
+      source_path = git_dir_path.dirname.dirname.dirname
+      return source_path if path != HOMEBREW_REPOSITORY
+
+      candidate_source_tap_path = source_path/"Library/Taps/#{full_name.downcase}"
+      return candidate_source_tap_path if (candidate_source_tap_path/".git").exist?
+
+    end
+
+    Utils.popen_read("git", "-C", path, "worktree", "list", "--porcelain")
+         .each_line do |line|
+      next unless line.start_with?("worktree ")
+
+      candidate_source_tap_path = Pathname(line.delete_prefix("worktree ").chomp)/"Library/Taps/#{full_name.downcase}"
+      return candidate_source_tap_path if (candidate_source_tap_path/".git").exist?
+    end
+
+    nil
+  end
+
   sig { overridable.void }
   def ensure_installed!
     return if installed?
@@ -486,6 +516,9 @@ class Tap
     # ensure git is installed
     Utils::Git.ensure_installed!
 
+    use_worktree_source_tap = core_tap? || (core_cask_tap? && clone_target.nil? && !custom_remote)
+    worktree_source_tap_path = use_worktree_source_tap ? worktree_source_tap_path_for(path: HOMEBREW_REPOSITORY) : nil
+
     if installed?
       if requested_remote != remote # we are sure that clone_target is not nil and custom_remote is true here
         fix_remote_configuration(requested_remote:, quiet:)
@@ -500,7 +533,8 @@ class Tap
       args << "-q" if quiet
       path.cd { safe_system "git", *args }
       return
-    elsif (core_tap? || core_cask_tap?) && !Homebrew::EnvConfig.no_install_from_api? && !force
+    elsif (core_tap? || core_cask_tap?) && !Homebrew::EnvConfig.no_install_from_api? && !force &&
+          worktree_source_tap_path.blank?
       odie "Tapping #{name} is no longer typically necessary.\n" \
            "Add #{Formatter.option("--force")} if you are sure you need it for contributing to Homebrew."
     end
@@ -522,7 +556,15 @@ class Tap
     args << "--config" << "core.fsmonitor=false"
 
     begin
-      safe_system "git", *args
+      if worktree_source_tap_path
+        # Keep core and cask taps connected to the same local source checkout as brew.
+        worktree_args = ["-C", worktree_source_tap_path, "worktree", "add"]
+        worktree_args << "--quiet" if quiet
+        worktree_args += ["--detach", path, "HEAD"]
+        safe_system "git", *worktree_args
+      else
+        safe_system "git", *args
+      end
 
       if verify && !Homebrew::EnvConfig.developer? && !Readall.valid_tap?(self, aliases: true)
         raise "Cannot tap #{name}: invalid syntax in tap!"
@@ -659,7 +701,10 @@ class Tap
     require "utils/link"
     Utils::Link.unlink_manpages(path)
     Utils::Link.unlink_completions(path)
-    FileUtils.rm_r(path)
+    if (worktree_source_tap_path = worktree_source_tap_path_for(path:))
+      safe_system "git", "-C", worktree_source_tap_path, "worktree", "remove", "--force", path
+    end
+    FileUtils.rm_r(path) if path.exist?
     path.parent.rmdir_if_possible
     $stderr.puts "Untapped#{formatted_contents} (#{abv})."
 
@@ -1247,380 +1292,9 @@ class Tap
     list
   end
 end
-
-# An abstract {Tap} class for the homebrew-core and homebrew-cask.
-class AbstractCoreTap < Tap # rubocop:todo Style/OneClassPerFile
-  extend T::Helpers
-
-  abstract!
-
-  class << self
-    Cache = type_member { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
-    Elem = type_member(:out) { { fixed: Tap } }
-  end
-
-  private_class_method :fetch
-
-  # Get the singleton instance for this {Tap}.
-  #
-  # @api internal
-  sig { returns(T.attached_class) }
-  def self.instance
-    @instance ||= T.let(T.unsafe(self).new, T.nilable(T.attached_class))
-  end
-
-  sig { override.void }
-  def ensure_installed!
-    return unless Homebrew::EnvConfig.no_install_from_api?
-    return if Homebrew::EnvConfig.automatically_set_no_install_from_api?
-
-    super
-  end
-
-  sig { override.params(file: Pathname).returns(String) }
-  def formula_file_to_name(file)
-    file.basename(".rb").to_s
-  end
-
-  sig { override.returns(T::Boolean) }
-  def should_report_analytics?
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    true
-  end
-end
-
-# A specialized {Tap} class for the core formulae.
-class CoreTap < AbstractCoreTap # rubocop:todo Style/OneClassPerFile
-  class << self
-    Cache = type_member { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
-    Elem = type_member(:out) { { fixed: Tap } }
-  end
-
-  sig { void }
-  def initialize
-    super "Homebrew", "core"
-  end
-
-  sig { override.void }
-  def ensure_installed!
-    return if ENV["HOMEBREW_TESTS"]
-
-    super
-  end
-
-  sig { override.returns(T.nilable(String)) }
-  def remote
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    Homebrew::EnvConfig.core_git_remote
-  end
-
-  # CoreTap never allows shallow clones (on request from GitHub).
-  sig {
-    override.params(quiet: T::Boolean, clone_target: T.nilable(T.any(Pathname, String)),
-                    custom_remote: T::Boolean, verify: T::Boolean, force: T::Boolean).void
-  }
-  def install(quiet: false, clone_target: nil,
-              custom_remote: false, verify: false, force: false)
-    remote = Homebrew::EnvConfig.core_git_remote # set by HOMEBREW_CORE_GIT_REMOTE
-    requested_remote = clone_target || remote
-
-    # The remote will changed again on `brew update` since remotes for homebrew/core are mismatched
-    raise TapCoreRemoteMismatchError.new(name, remote, requested_remote) if requested_remote != remote
-
-    if remote != default_remote
-      $stderr.puts "HOMEBREW_CORE_GIT_REMOTE set: using #{remote} as the Homebrew/homebrew-core Git remote."
-    end
-
-    super(quiet:, clone_target: remote, custom_remote:, force:)
-  end
-
-  sig { override.params(manual: T::Boolean).void }
-  def uninstall(manual: false)
-    raise "Tap#uninstall is not available for CoreTap" if Homebrew::EnvConfig.no_install_from_api?
-
-    super
-  end
-
-  sig { override.returns(T::Boolean) }
-  def core_tap?
-    true
-  end
-
-  sig { returns(T::Boolean) }
-  def linuxbrew_core?
-    remote_repository.to_s.end_with?("/linuxbrew-core") || remote_repository == "Linuxbrew/homebrew-core"
-  end
-
-  sig { override.returns(Pathname) }
-  def formula_dir
-    @formula_dir ||= T.let(begin
-      ensure_installed!
-      super
-    end, T.nilable(Pathname))
-  end
-
-  sig { params(name: String).returns(String) }
-  def new_formula_subdirectory(name)
-    if name.start_with?("lib")
-      "lib"
-    else
-      name[0].to_s
-    end
-  end
-
-  sig { override.params(name: String).returns(Pathname) }
-  def new_formula_path(name)
-    formula_subdir = new_formula_subdirectory(name)
-
-    return super unless (formula_dir/formula_subdir).directory?
-
-    formula_dir/formula_subdir/"#{name.downcase}.rb"
-  end
-
-  sig { override.returns(Pathname) }
-  def alias_dir
-    @alias_dir ||= T.let(begin
-      ensure_installed!
-      super
-    end, T.nilable(Pathname))
-  end
-
-  sig { override.returns(T::Hash[String, String]) }
-  def formula_renames
-    @formula_renames ||= T.let(
-      if Homebrew::EnvConfig.no_install_from_api?
-        ensure_installed!
-        super
-      else
-        Homebrew::API.formula_renames
-      end,
-      T.nilable(T::Hash[String, String]),
-    )
-  end
-
-  sig { override.returns(T::Hash[String, T.untyped]) }
-  def tap_migrations
-    @tap_migrations ||= T.let(
-      if Homebrew::EnvConfig.no_install_from_api?
-        ensure_installed!
-        super
-      else
-        Homebrew::API.formula_tap_migrations
-      end,
-      T.nilable(T::Hash[String, T.untyped]),
-    )
-  end
-
-  sig { override.returns(T::Array[String]) }
-  def autobump
-    @autobump ||= T.let(begin
-      ensure_installed!
-      super
-    end, T.nilable(T::Array[String]))
-  end
-
-  sig { override.returns(T::Hash[Symbol, T.untyped]) }
-  def audit_exceptions
-    @audit_exceptions ||= T.let(begin
-      ensure_installed!
-      super
-    end, T.nilable(T::Hash[Symbol, T.untyped]))
-  end
-
-  sig { override.returns(T::Hash[Symbol, T.untyped]) }
-  def style_exceptions
-    @style_exceptions ||= T.let(begin
-      ensure_installed!
-      super
-    end, T.nilable(T::Hash[Symbol, T.untyped]))
-  end
-
-  sig { override.returns(T::Array[T::Array[String]]) }
-  def synced_versions_formulae
-    @synced_versions_formulae ||= T.let(begin
-      ensure_installed!
-      super
-    end, T.nilable(T::Array[T::Array[String]]))
-  end
-
-  sig { override.params(file: Pathname).returns(String) }
-  def alias_file_to_name(file)
-    file.basename.to_s
-  end
-
-  sig { override.returns(T::Hash[String, String]) }
-  def alias_table
-    @alias_table ||= T.let(
-      if Homebrew::EnvConfig.no_install_from_api?
-        super
-      else
-        Homebrew::API.formula_aliases
-      end,
-      T.nilable(T::Hash[String, String]),
-    )
-  end
-
-  sig { override.returns(T::Array[Pathname]) }
-  def formula_files
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    formula_files_by_name.values
-  end
-
-  sig { override.returns(T::Array[String]) }
-  def formula_names
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    Homebrew::API.formula_names
-  end
-
-  sig { override.returns(T::Hash[String, Pathname]) }
-  def formula_files_by_name
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    @formula_files_by_name ||= T.let(
-      begin
-        formula_directory_path = formula_dir.to_s
-        Homebrew::API.formula_names.each_with_object({}) do |name, hash|
-          # If there's more than one item with the same path: use the longer one to prioritise more specific results.
-          existing_path = hash[name]
-          # Pathname equivalent is slow in a tight loop
-          new_path = File.join(formula_directory_path, new_formula_subdirectory(name), "#{name.downcase}.rb")
-          hash[name] = Pathname(new_path) if existing_path.nil? || existing_path.to_s.length < new_path.length
-        end
-      end,
-      T.nilable(T::Hash[String, Pathname]),
-    )
-  end
-end
-
-# A specialized {Tap} class for homebrew-cask.
-class CoreCaskTap < AbstractCoreTap # rubocop:todo Style/OneClassPerFile
-  class << self
-    Cache = type_member { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
-    Elem = type_member(:out) { { fixed: Tap } }
-  end
-
-  sig { void }
-  def initialize
-    super "Homebrew", "cask"
-  end
-
-  sig { override.returns(T::Boolean) }
-  def core_cask_tap?
-    true
-  end
-
-  sig { params(token: String).returns(String) }
-  def new_cask_subdirectory(token)
-    if token.start_with?("font-")
-      "font/font-#{token.delete_prefix("font-")[0]}"
-    else
-      token[0].to_s
-    end
-  end
-
-  sig { override.params(token: String).returns(Pathname) }
-  def new_cask_path(token)
-    cask_dir/new_cask_subdirectory(token)/"#{token.downcase}.rb"
-  end
-
-  sig { override.returns(T::Array[Pathname]) }
-  def cask_files
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    cask_files_by_name.values
-  end
-
-  sig { override.returns(T::Array[String]) }
-  def cask_tokens
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    Homebrew::API.cask_tokens
-  end
-
-  sig { override.returns(T::Hash[String, Pathname]) }
-  def cask_files_by_name
-    return super if Homebrew::EnvConfig.no_install_from_api?
-
-    @cask_files_by_name ||= T.let(
-      begin
-        cask_directory_path = cask_dir.to_s
-        Homebrew::API.cask_tokens.each_with_object({}) do |name, hash|
-          # If there's more than one item with the same path: use the longer one to prioritise more specific results.
-          existing_path = hash[name]
-          # Pathname equivalent is slow in a tight loop
-          new_path = File.join(cask_directory_path, new_cask_subdirectory(name), "#{name.downcase}.rb")
-          hash[name] = Pathname(new_path) if existing_path.nil? || existing_path.to_s.length < new_path.length
-        end
-      end,
-      T.nilable(T::Hash[String, Pathname]),
-    )
-  end
-
-  sig { override.returns(T::Hash[String, String]) }
-  def cask_renames
-    @cask_renames ||= T.let(
-      if Homebrew::EnvConfig.no_install_from_api?
-        super
-      else
-        Homebrew::API.cask_renames
-      end,
-      T.nilable(T::Hash[String, String]),
-    )
-  end
-
-  sig { override.returns(T::Hash[String, T.untyped]) }
-  def tap_migrations
-    @tap_migrations ||= T.let(
-      if Homebrew::EnvConfig.no_install_from_api?
-        super
-      else
-        Homebrew::API.cask_tap_migrations
-      end,
-      T.nilable(T::Hash[String, T.untyped]),
-    )
-  end
-end
-
-# Permanent configuration per {Tap} using `git-config(1)`.
-class TapConfig # rubocop:todo Style/OneClassPerFile
-  sig { returns(Tap) }
-  attr_reader :tap
-
-  sig { params(tap: Tap).void }
-  def initialize(tap)
-    @tap = tap
-  end
-
-  sig { params(key: Symbol).returns(T.nilable(T::Boolean)) }
-  def [](key)
-    return unless tap.git?
-    return unless Utils::Git.available?
-
-    case Homebrew::Settings.read(key, repo: tap.path)
-    when "true" then true
-    when "false" then false
-    end
-  end
-
-  sig { params(key: Symbol, value: T::Boolean).void }
-  def []=(key, value)
-    return unless tap.git?
-    return unless Utils::Git.available?
-
-    Homebrew::Settings.write key, value.to_s, repo: tap.path
-  end
-
-  sig { params(key: Symbol).void }
-  def delete(key)
-    return unless tap.git?
-    return unless Utils::Git.available?
-
-    Homebrew::Settings.delete key, repo: tap.path
-  end
-end
+require "tap/abstract_core_tap"
+require "tap/core_tap"
+require "tap/core_cask_tap"
+require "tap/tap_config"
 
 require "extend/os/tap"

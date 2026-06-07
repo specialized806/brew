@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "api"
@@ -11,6 +11,7 @@ RSpec.describe Homebrew::API::Formula do
   before do
     stub_const("Homebrew::API::HOMEBREW_CACHE_API", cache_dir)
     stub_const("Homebrew::API::HOMEBREW_CACHE_API_SOURCE", source_cache_dir)
+    described_class.clear_cache
   end
 
   def mock_curl_download(stdout:)
@@ -28,7 +29,8 @@ RSpec.describe Homebrew::API::Formula do
         [{
           "name": "foo",
           "url": "https://brew.sh/foo",
-          "aliases": ["foo-alias1", "foo-alias2"]
+          "aliases": ["foo-alias1", "foo-alias2"],
+          "executables": ["foo-bin", "food"]
         }, {
           "name": "bar",
           "url": "https://brew.sh/bar",
@@ -42,7 +44,11 @@ RSpec.describe Homebrew::API::Formula do
     end
     let(:formulae_hash) do
       {
-        "foo" => { "url" => "https://brew.sh/foo", "aliases" => ["foo-alias1", "foo-alias2"] },
+        "foo" => {
+          "url"         => "https://brew.sh/foo",
+          "aliases"     => ["foo-alias1", "foo-alias2"],
+          "executables" => ["foo-bin", "food"],
+        },
         "bar" => { "url" => "https://brew.sh/bar", "aliases" => ["bar-alias"] },
         "baz" => { "url" => "https://brew.sh/baz", "aliases" => [] },
       }
@@ -65,6 +71,57 @@ RSpec.describe Homebrew::API::Formula do
       mock_curl_download stdout: formulae_json
       aliases_output = described_class.all_aliases
       expect(aliases_output).to eq formulae_aliases
+    end
+
+    it "writes formula executables from the formula JSON list" do
+      mock_curl_download stdout: formulae_json
+      described_class.write_names_and_aliases
+
+      expect((cache_dir/"internal/executables.txt").read).to eq("foo:foo-bin food\n")
+    end
+
+    it "removes the executables database if formula JSON has no executable entries" do
+      allow(Utils::Curl).to receive(:curl_download) do |*args, **kwargs|
+        raise "unexpected download URL: #{args.last}" unless args.last.end_with?("formula.jws.json")
+
+        kwargs[:to].write <<~JSON
+          [{
+            "name": "foo",
+            "url": "https://brew.sh/foo",
+            "aliases": []
+          }]
+        JSON
+      end
+      expect(Homebrew::API).not_to receive(:download_executables_file_from_github_packages!)
+      allow(Homebrew::API).to receive(:verify_and_parse_jws) do |json_data|
+        [true, json_data]
+      end
+      (cache_dir/"internal").mkpath
+      (cache_dir/"internal/executables.txt").write "foo:foo-bin\n"
+
+      described_class.write_names_and_aliases
+
+      expect(cache_dir/"internal/executables.txt").not_to exist
+    end
+
+    it "does not download the executables database while reading formula JSON" do
+      allow(Utils::Curl).to receive(:curl_download) do |*args, **kwargs|
+        raise "unexpected download URL: #{args.last}" unless args.last.end_with?("formula.jws.json")
+
+        kwargs[:to].write <<~JSON
+          [{
+            "name": "foo",
+            "url": "https://brew.sh/foo",
+            "aliases": []
+          }]
+        JSON
+      end
+      allow(Homebrew::API).to receive(:verify_and_parse_jws) do |json_data|
+        [true, json_data]
+      end
+
+      expect(described_class.all_formulae).to eq("foo" => { "url" => "https://brew.sh/foo", "aliases" => [] })
+      expect(cache_dir/"internal/executables.txt").not_to exist
     end
   end
 

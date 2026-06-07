@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/strategy"
@@ -18,7 +18,6 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xorg do
     }
   end
   let(:non_xorg_url) { "https://brew.sh/test" }
-
   let(:generated) do
     {
       app:         {
@@ -51,9 +50,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xorg do
       },
     }
   end
-
   let(:content) do
-    <<~EOS
+    <<~HTML
       <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
       <html>
       <head>
@@ -114,9 +112,8 @@ RSpec.describe Homebrew::Livecheck::Strategy::Xorg do
         <address>Apache/2.4.38 (Debian) Server at www.x.org Port 443</address>
       </body>
       </html>
-    EOS
+    HTML
   end
-
   let(:matches) { ["1.2.2", "1.2.3"] }
 
   describe "::match?" do

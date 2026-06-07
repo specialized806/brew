@@ -4,12 +4,12 @@
 require "software_spec"
 
 RSpec.describe SoftwareSpec do
-  alias_matcher :have_defined_resource, :be_resource_defined
-  alias_matcher :have_defined_option, :be_option_defined
-
   subject(:spec) { described_class.new }
 
   let(:owner) { instance_double(Cask::Cask, name: "some_name", full_name: "some_name", tap: "homebrew/core") }
+
+  alias_matcher :have_defined_resource, :be_resource_defined
+  alias_matcher :have_defined_option, :be_option_defined
 
   describe "#resource" do
     it "defines a resource" do
@@ -116,6 +116,11 @@ RSpec.describe SoftwareSpec do
     it "allows specifying dependencies" do
       spec.depends_on("foo")
       expect(spec.deps.first.name).to eq("foo")
+    end
+
+    it "allows specifying requirements with keyword syntax" do
+      spec.depends_on macos: :sonoma
+      expect(spec.requirements.first).to eq(MacOSRequirement.new([:sonoma]))
     end
 
     it "allows specifying optional dependencies" do

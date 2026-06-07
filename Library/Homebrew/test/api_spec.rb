@@ -113,6 +113,66 @@ RSpec.describe Homebrew::API do
     end
   end
 
+  describe "::download_executables_file_from_github_packages!" do
+    it "downloads executables.txt from the GitHub Packages OCI artifact" do
+      target = mktmpdir/"executables.txt"
+      stub_const("HOMEBREW_GITHUB_PACKAGES_AUTH", "Bearer QQ==")
+      manifest = {
+        "layers" => [{
+          "digest"      => "sha256:abc123",
+          "annotations" => {
+            "org.opencontainers.image.title" => "executables.txt",
+          },
+        }],
+      }
+
+      expect(Utils::Curl).to receive(:curl_output).with(
+        "--fail", "--location",
+        "--header", "Accept: application/vnd.oci.image.manifest.v1+json",
+        "--header", "Authorization: Bearer QQ==",
+        "https://ghcr.io/v2/homebrew/command-not-found/executables/manifests/latest",
+        show_error: false
+      ).and_return(instance_double(SystemCommand::Result, stdout: JSON.generate(manifest), success?: true))
+      expect(Utils::Curl).to receive(:curl_download).with(
+        "--fail",
+        "--header", "Authorization: Bearer QQ==",
+        "https://ghcr.io/v2/homebrew/command-not-found/executables/blobs/sha256:abc123",
+        to:         target,
+        show_error: false
+      ) { |*_args, **kwargs| kwargs[:to].write "foo:foo-bin\n" }
+
+      expect(described_class.download_executables_file_from_github_packages!(target)).to be true
+      expect(target.read).to eq("foo:foo-bin\n")
+    end
+  end
+
+  describe "::write_executables_file!" do
+    it "handles the executables database being removed before comparison" do
+      cache_dir = mktmpdir
+      target = cache_dir/"internal/executables.txt"
+      target.dirname.mkpath
+      target.write "stale:stale-bin\n"
+      stub_const("Homebrew::API::HOMEBREW_CACHE_API", cache_dir)
+
+      removed = false
+      allow_any_instance_of(Pathname).to receive(:read).and_wrap_original do |method, *args|
+        if !removed && method.receiver == target
+          removed = true
+          target.unlink
+          raise Errno::ENOENT
+        end
+
+        method.call(*args)
+      end
+
+      expect(described_class.write_executables_file!(
+               { "foo" => { "executables" => ["foo-bin"] } },
+               regenerate: false,
+             )).to be true
+      expect(target.read).to eq("foo:foo-bin\n")
+    end
+  end
+
   describe "::tap_from_source_download" do
     let(:api_cache_root) { Homebrew::API::HOMEBREW_CACHE_API_SOURCE }
     let(:cache_path) do

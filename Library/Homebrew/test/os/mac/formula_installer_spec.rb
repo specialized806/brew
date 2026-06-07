@@ -5,9 +5,9 @@ require "formula_installer"
 require "test/support/fixtures/testball"
 
 RSpec.describe FormulaInstaller do
-  include FileUtils
-
   subject(:keg) { described_class.new(keg_path) }
+
+  include FileUtils
 
   describe "#fresh_install" do
     subject(:formula_installer) { described_class.new(Testball.new) }
