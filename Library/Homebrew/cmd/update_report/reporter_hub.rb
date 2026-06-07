@@ -24,7 +24,7 @@ class ReporterHub
   def add(reporter, auto_update: false)
     @reporters << reporter
     report = reporter.report(auto_update:).reject { |_k, v| v.empty? }
-    @hash.update(report) { |_key, oldval, newval| oldval.concat(newval) }
+    @hash.update(report) { |_key, oldval, newval| oldval + newval }
   end
 
   sig { returns(T::Boolean) }
