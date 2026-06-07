@@ -978,7 +978,7 @@ on_request: installed_on_request?, options:)
 
     install_service
 
-    fix_dynamic_linkage(keg) if !@poured_bottle || !formula.bottle_specification.skip_relocation?
+    fix_dynamic_linkage(keg) if !@poured_bottle || !formula.bottle_specification.skip_relocation?(tab: keg.tab)
 
     require "install"
     Homebrew::Install.global_post_install
@@ -1564,7 +1564,7 @@ on_request: installed_on_request?, options:)
     tab.write
 
     keg = Keg.new(formula.prefix)
-    skip_linkage = formula.bottle_specification.skip_relocation?
+    skip_linkage = formula.bottle_specification.skip_relocation?(tab:)
     keg.replace_placeholders_with_locations(tab.changed_files, skip_linkage:)
 
     cellar = formula.bottle_specification.tag_to_cellar(Utils::Bottles.tag)

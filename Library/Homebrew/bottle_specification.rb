@@ -90,8 +90,12 @@ class BottleSpecification
   end
 
   # Does the {Bottle} this {BottleSpecification} belongs to need to be relocated?
-  sig { params(tag: Utils::Bottles::Tag).returns(T::Boolean) }
-  def skip_relocation?(tag: Utils::Bottles.tag)
+  #
+  # This will always return false on Linux unless a `tab` is provided that
+  # reports the bottle was built with Homebrew 5.1.15 or newer. The caller must
+  # make sure that the provided `tab` is for the requested `tag`.
+  sig { params(tag: Utils::Bottles::Tag, tab: T.nilable(Tab)).returns(T::Boolean) }
+  def skip_relocation?(tag: Utils::Bottles.tag, tab: nil)
     spec = collector.specification_for(tag)
     spec&.cellar == :any_skip_relocation
   end
