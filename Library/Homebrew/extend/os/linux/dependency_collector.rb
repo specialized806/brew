@@ -64,6 +64,8 @@ module OS
           global_dep_tree[GLIBC] = Set.new(global_deps_for(GLIBC))
           # gcc depends on glibc
           global_dep_tree[GCC] = Set.new([*global_deps_for(GCC), GLIBC, *@@global_dep_tree[GLIBC]])
+          # bubblewrap depends on gcc
+          global_dep_tree[BUBBLEWRAP]&.merge([GCC, *@@global_dep_tree[GCC]])
         end
         built_global_dep_tree!
       end
