@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Git do
-  subject(:git) { klass }
+  subject(:git) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Git }
   let(:git_url) { "https://github.com/Homebrew/brew.git" }
   let(:non_git_url) { "https://brew.sh/test" }
   let(:regexes) do

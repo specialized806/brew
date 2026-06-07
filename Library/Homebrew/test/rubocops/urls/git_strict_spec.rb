@@ -4,9 +4,7 @@
 require "rubocops/urls"
 
 RSpec.describe RuboCop::Cop::FormulaAuditStrict::GitUrls do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAuditStrict::GitUrls }
+  subject(:cop) { described_class.new }
 
   context "when a git URL is used" do
     it "reports no offenses with both a tag and a revision" do

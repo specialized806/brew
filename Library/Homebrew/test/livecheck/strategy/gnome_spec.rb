@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Gnome do
-  subject(:gnome) { klass }
+  subject(:gnome) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Gnome }
   let(:gnome_url) { "https://download.gnome.org/sources/abc/1.2/abc-1.2.3.tar.xz" }
   let(:non_gnome_url) { "https://brew.sh/test" }
   let(:generated) do

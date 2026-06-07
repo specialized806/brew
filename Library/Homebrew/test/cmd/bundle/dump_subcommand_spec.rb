@@ -6,10 +6,9 @@ require "bundle/subcommand/dump"
 
 RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
   subject(:dump) do
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
-  let(:klass) { Homebrew::Cmd::Bundle::DumpSubcommand }
   let(:force) { false }
   let(:global) { false }
   let(:context) { bundle_subcommand_context(:dump, global:, force:, no_type_args: false) }
@@ -65,7 +64,7 @@ RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
       expect(extension_types[:vscode]).to be(true)
     end
 
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
   it "treats --no-tap as --no-dump-tap" do
@@ -76,7 +75,7 @@ RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
       expect(taps).to be(false)
     end
 
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
   it "does not dump types disabled by environment" do
@@ -92,7 +91,7 @@ RSpec.describe Homebrew::Cmd::Bundle::DumpSubcommand do
       expect(extension_types[:vscode]).to be(true)
     end
 
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
   context "when files existed and `--force` and `--global` are passed" do

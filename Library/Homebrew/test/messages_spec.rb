@@ -5,9 +5,7 @@ require "messages"
 require "spec_helper"
 
 RSpec.describe Messages do
-  let(:klass) { Messages }
-
-  let(:messages) { klass.new }
+  let(:messages) { described_class.new }
   let(:test_formula) do
     formula("foo") do
       T.bind(self, T.class_of(Formula))

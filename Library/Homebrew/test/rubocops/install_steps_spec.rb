@@ -4,7 +4,7 @@
 require "rubocops/install_steps"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
-  subject(:cop) { RuboCop::Cop::FormulaAudit::InstallSteps.new }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when `post_install` and `post_install_steps` are both present" do
     expect_offense(<<~RUBY)

@@ -4,9 +4,7 @@
 require "rubocops/checksum"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::ChecksumCase do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::ChecksumCase }
+  subject(:cop) { described_class.new }
 
   context "when auditing spec checksums" do
     it "reports an offense if a checksum contains uppercase letters" do

@@ -5,8 +5,6 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/generate-internal-api"
 
 RSpec.describe Homebrew::DevCmd::GenerateInternalApi do
-  let(:klass) { Homebrew::DevCmd::GenerateInternalApi }
-
   it_behaves_like "parseable arguments"
 
   it "writes metadata and formula executables to each generated packages file" do
@@ -48,7 +46,7 @@ RSpec.describe Homebrew::DevCmd::GenerateInternalApi do
     stub_const("OnSystem::VALID_OS_ARCH_TAGS", [bottle_tag])
 
     mktmpdir do |path|
-      path.cd { klass.new([]).run }
+      path.cd { described_class.new([]).run }
 
       json = JSON.parse((path/"api/internal/packages.arm64_sonoma.json").read)
       expect(json["metadata"]).to eq({

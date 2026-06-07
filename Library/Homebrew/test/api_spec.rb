@@ -4,8 +4,6 @@
 require "api"
 
 RSpec.describe Homebrew::API do
-  let(:klass) { Homebrew::API }
-
   let(:text) { "foo" }
   let(:json) { '{"foo":"bar"}' }
   let(:json_hash) { JSON.parse(json) }
@@ -25,18 +23,18 @@ RSpec.describe Homebrew::API do
   describe "::fetch" do
     it "fetches a JSON file" do
       mock_curl_output stdout: json
-      fetched_json = klass.fetch("foo.json")
+      fetched_json = described_class.fetch("foo.json")
       expect(fetched_json).to eq json_hash
     end
 
     it "raises an error if the file does not exist" do
       mock_curl_output success: false
-      expect { klass.fetch("bar.txt") }.to raise_error(ArgumentError, /No file found/)
+      expect { described_class.fetch("bar.txt") }.to raise_error(ArgumentError, /No file found/)
     end
 
     it "raises an error if the JSON file is invalid" do
       mock_curl_output stdout: text
-      expect { klass.fetch("baz.txt") }.to raise_error(ArgumentError, /Invalid JSON file/)
+      expect { described_class.fetch("baz.txt") }.to raise_error(ArgumentError, /Invalid JSON file/)
     end
   end
 
@@ -49,20 +47,20 @@ RSpec.describe Homebrew::API do
 
     it "fetches a JSON file" do
       mock_curl_download stdout: json
-      fetched_json, = klass.fetch_json_api_file("foo.json", target: cache_dir/"foo.json")
+      fetched_json, = described_class.fetch_json_api_file("foo.json", target: cache_dir/"foo.json")
       expect(fetched_json).to eq json_hash
     end
 
     it "updates an existing JSON file" do
       mock_curl_download stdout: json
-      fetched_json, = klass.fetch_json_api_file("bar.json", target: cache_dir/"bar.json")
+      fetched_json, = described_class.fetch_json_api_file("bar.json", target: cache_dir/"bar.json")
       expect(fetched_json).to eq json_hash
     end
 
     it "raises an error if the JSON file is invalid" do
       mock_curl_download stdout: json_invalid
       expect do
-        klass.fetch_json_api_file("baz.json", target: cache_dir/"baz.json")
+        described_class.fetch_json_api_file("baz.json", target: cache_dir/"baz.json")
       end.to raise_error(SystemExit)
     end
 
@@ -75,7 +73,7 @@ RSpec.describe Homebrew::API do
       allow(Utils::Curl).to receive(:curl_download).and_raise(ErrorDuringExecution.new(["curl"], status: 1))
 
       expect do
-        klass.fetch_json_api_file(
+        described_class.fetch_json_api_file(
           "bar.json",
           target:        target,
           stale_seconds: 3600,
@@ -101,7 +99,7 @@ RSpec.describe Homebrew::API do
         kwargs[:to].write json
       end
 
-      klass.fetch_json_api_file(
+      described_class.fetch_json_api_file(
         "bar.json",
         target:        target,
         stale_seconds: 3600,
@@ -143,7 +141,7 @@ RSpec.describe Homebrew::API do
         show_error: false
       ) { |*_args, **kwargs| kwargs[:to].write "foo:foo-bin\n" }
 
-      expect(Homebrew::API.download_executables_file_from_github_packages!(target)).to be true
+      expect(described_class.download_executables_file_from_github_packages!(target)).to be true
       expect(target.read).to eq("foo:foo-bin\n")
     end
   end
@@ -167,7 +165,7 @@ RSpec.describe Homebrew::API do
         method.call(*args)
       end
 
-      expect(Homebrew::API.write_executables_file!(
+      expect(described_class.write_executables_file!(
                { "foo" => { "executables" => ["foo-bin"] } },
                regenerate: false,
              )).to be true
@@ -183,7 +181,7 @@ RSpec.describe Homebrew::API do
 
     context "when given a path inside the API source cache" do
       it "returns the corresponding tap" do
-        expect(klass.tap_from_source_download(cache_path)).to eq CoreTap.instance
+        expect(described_class.tap_from_source_download(cache_path)).to eq CoreTap.instance
       end
     end
 
@@ -191,13 +189,13 @@ RSpec.describe Homebrew::API do
       let(:api_cache_root) { mktmpdir }
 
       it "returns nil" do
-        expect(klass.tap_from_source_download(cache_path)).to be_nil
+        expect(described_class.tap_from_source_download(cache_path)).to be_nil
       end
     end
 
     context "when given a relative path that is not inside the API source cache" do
       it "returns nil" do
-        expect(klass.tap_from_source_download(Pathname("../foo.rb"))).to be_nil
+        expect(described_class.tap_from_source_download(Pathname("../foo.rb"))).to be_nil
       end
     end
   end
@@ -236,47 +234,47 @@ RSpec.describe Homebrew::API do
     end
 
     it "returns the original JSON if no variations are found" do
-      result = klass.merge_variations(arm64_sequoia_result, bottle_tag: arm64_sequoia_tag)
+      result = described_class.merge_variations(arm64_sequoia_result, bottle_tag: arm64_sequoia_tag)
       expect(result).to eq arm64_sequoia_result
     end
 
     it "returns the original JSON if no variations are found for the current system" do
-      result = klass.merge_variations(arm64_sequoia_result)
+      result = described_class.merge_variations(arm64_sequoia_result)
       expect(result).to eq arm64_sequoia_result
     end
 
     it "returns the original JSON without the variations if no matching variation is found" do
-      result = klass.merge_variations(json, bottle_tag: x86_64_linux_tag)
+      result = described_class.merge_variations(json, bottle_tag: x86_64_linux_tag)
       expect(result).to eq json.except("variations")
     end
 
     it "returns the original JSON without the variations if no matching variation is found for the current system" do
       Homebrew::SimulateSystem.with(os: :linux, arch: :intel) do
-        result = klass.merge_variations(json)
+        result = described_class.merge_variations(json)
         expect(result).to eq json.except("variations")
       end
     end
 
     it "returns the JSON with the matching variation applied from a string key" do
-      result = klass.merge_variations(json, bottle_tag: arm64_sequoia_tag)
+      result = described_class.merge_variations(json, bottle_tag: arm64_sequoia_tag)
       expect(result).to eq arm64_sequoia_result
     end
 
     it "returns the JSON with the matching variation applied from a string key for the current system" do
       Homebrew::SimulateSystem.with(os: :sequoia, arch: :arm) do
-        result = klass.merge_variations(json)
+        result = described_class.merge_variations(json)
         expect(result).to eq arm64_sequoia_result
       end
     end
 
     it "returns the JSON with the matching variation applied from a symbol key" do
-      result = klass.merge_variations(json, bottle_tag: sonoma_tag)
+      result = described_class.merge_variations(json, bottle_tag: sonoma_tag)
       expect(result).to eq sonoma_result
     end
 
     it "returns the JSON with the matching variation applied from a symbol key for the current system" do
       Homebrew::SimulateSystem.with(os: :sonoma, arch: :intel) do
-        result = klass.merge_variations(json)
+        result = described_class.merge_variations(json)
         expect(result).to eq sonoma_result
       end
     end

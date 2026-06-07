@@ -4,9 +4,7 @@
 require "rubocops/uses_from_macos"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::ProvidedByMacos do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::ProvidedByMacos }
+  subject(:cop) { described_class.new }
 
   it "fails for formulae not in PROVIDED_BY_MACOS_FORMULAE list" do
     expect_offense(<<~RUBY)

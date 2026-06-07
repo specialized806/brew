@@ -4,9 +4,6 @@
 require "test_bot"
 
 RSpec.describe Homebrew::TestBot::Junit do
-  sig { returns(T.class_of(Homebrew::TestBot::Junit)) }
-  let(:klass) { Homebrew::TestBot::Junit }
-
   # Regression test: Junit requires REXML before use. Without the require calls in #initialize,
   # environments that don't load REXML elsewhere (e.g. Linux CI) raise
   # "uninitialized constant Homebrew::TestBot::Junit::REXML".
@@ -24,7 +21,7 @@ RSpec.describe Homebrew::TestBot::Junit do
       )
       test = instance_double(Homebrew::TestBot::Test, steps: [step])
 
-      junit = klass.new([test])
+      junit = described_class.new([test])
       junit.build(filters: ["audit"])
 
       Dir.mktmpdir do |tmpdir|
@@ -53,7 +50,7 @@ RSpec.describe Homebrew::TestBot::Junit do
       )
       test = instance_double(Homebrew::TestBot::Test, steps: [step])
 
-      junit = klass.new([test])
+      junit = described_class.new([test])
       junit.build(filters: ["test"])
 
       Dir.mktmpdir do |tmpdir|

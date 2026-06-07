@@ -4,9 +4,7 @@
 require "rubocops/shell_commands"
 
 RSpec.describe RuboCop::Cop::Homebrew::ShellCommands do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::Homebrew::ShellCommands }
+  subject(:cop) { described_class.new }
 
   context "when auditing shell commands" do
     it "reports and corrects an offense when `system` arguments should be separated" do

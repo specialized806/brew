@@ -5,8 +5,6 @@ require "cmd/desc"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Desc do
-  let(:klass) { Homebrew::Cmd::Desc }
-
   it_behaves_like "parseable arguments"
 
   it "shows a given Formula's description", :integration_test do
@@ -26,7 +24,7 @@ RSpec.describe Homebrew::Cmd::Desc do
       desc "BitTorrent client"
       url "https://example.com/local-transmission.zip"
     end
-    cmd = klass.new(["--cask", "local-transmission"])
+    cmd = described_class.new(["--cask", "local-transmission"])
 
     allow(cmd.args.named).to receive(:to_formulae_and_casks).and_return([cask])
     allow(Cask::Caskroom).to receive(:casks).and_return([cask])
@@ -46,7 +44,7 @@ RSpec.describe Homebrew::Cmd::Desc do
       name "No Description"
       url "https://example.com/no-description.zip"
     end
-    cmd = klass.new(["--cask", "no-description"])
+    cmd = described_class.new(["--cask", "no-description"])
 
     allow(cmd.args.named).to receive(:to_formulae_and_casks).and_return([cask])
 
@@ -57,7 +55,7 @@ RSpec.describe Homebrew::Cmd::Desc do
 
   it "errors when searching without tap trust mode" do
     with_env("HOMEBREW_NO_INSTALL_FROM_API" => "1") do
-      expect { klass.new(["--search", "testball"]).run }
+      expect { described_class.new(["--search", "testball"]).run }
         .to raise_error(UsageError, /`brew desc --search` needs `HOMEBREW_REQUIRE_TAP_TRUST=1`/)
     end
   end
@@ -66,7 +64,7 @@ RSpec.describe Homebrew::Cmd::Desc do
     expect(Homebrew::Search).to receive(:search_descriptions)
       .with("ball", anything, search_type: Descriptions::SearchField::Either)
 
-    expect { with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") { klass.new(["--search", "ball"]).run } }
+    expect { with_env(HOMEBREW_NO_REQUIRE_TAP_TRUST: "1") { described_class.new(["--search", "ball"]).run } }
       .to not_to_output.to_stderr
   end
 
@@ -74,7 +72,7 @@ RSpec.describe Homebrew::Cmd::Desc do
     expect(Homebrew::Search).to receive(:search_descriptions)
       .with("ball", anything, search_type: Descriptions::SearchField::Either)
 
-    expect { with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") { klass.new(["--search", "ball"]).run } }
+    expect { with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") { described_class.new(["--search", "ball"]).run } }
       .to not_to_output.to_stderr
   end
 
@@ -82,7 +80,7 @@ RSpec.describe Homebrew::Cmd::Desc do
     expect(Homebrew::Search).to receive(:search_descriptions)
       .with("testball", anything, search_type: Descriptions::SearchField::Either)
 
-    expect { klass.new(["--search", "testball"]).run }
+    expect { described_class.new(["--search", "testball"]).run }
       .to not_to_output.to_stderr
   end
 end

@@ -4,7 +4,7 @@
 require "download_strategy"
 
 RSpec.describe AbstractFileDownloadStrategy do
-  subject(:strategy) { Class.new(AbstractFileDownloadStrategy).new(url, "foo", "1.2.3") }
+  subject(:strategy) { Class.new(described_class).new(url, "foo", "1.2.3") }
 
   let(:url) { "https://example.com/foo.tar.gz" }
 

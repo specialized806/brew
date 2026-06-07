@@ -5,7 +5,6 @@ require "extend/pathname"
 require "install_renamed"
 
 RSpec.describe Pathname do
-  let(:klass) { Pathname }
   let(:src) { mktmpdir }
   let(:dst) { mktmpdir }
   let(:file) { src/"foo" }
@@ -134,12 +133,12 @@ RSpec.describe Pathname do
 
   describe "#extname" do
     specify do
-      expect(klass.new("foo-0.1.tar.gz").extname).to eq(".tar.gz")
-      expect(klass.new("foo-0.1.cpio.gz").extname).to eq(".cpio.gz")
-      expect(klass.new("foo-0.1").extname).to eq("")
-      expect(klass.new("foo-1.0-rc1").extname).to eq("")
-      expect(klass.new("foo-1.2.3").extname).to eq ""
-      expect(klass.new("snap7-full-1.4.2.7z").extname).to eq ".7z"
+      expect(described_class.new("foo-0.1.tar.gz").extname).to eq(".tar.gz")
+      expect(described_class.new("foo-0.1.cpio.gz").extname).to eq(".cpio.gz")
+      expect(described_class.new("foo-0.1").extname).to eq("")
+      expect(described_class.new("foo-1.0-rc1").extname).to eq("")
+      expect(described_class.new("foo-1.2.3").extname).to eq ""
+      expect(described_class.new("snap7-full-1.4.2.7z").extname).to eq ".7z"
     end
   end
 
@@ -240,23 +239,21 @@ RSpec.describe Pathname do
 
     it "can install relative paths as symlinks" do
       dst.install_symlink "foo" => "bar"
-      expect((dst/"bar").readlink).to eq(klass.new("foo"))
+      expect((dst/"bar").readlink).to eq(described_class.new("foo"))
     end
 
     it "can install relative symlinks in a symlinked directory" do
       mkdir_p dst/"1/2"
       dst.install_symlink "1/2" => "12"
-      expect((dst/"12").readlink).to eq(klass.new("1/2"))
+      expect((dst/"12").readlink).to eq(described_class.new("1/2"))
       (dst/"12").install_symlink dst/"foo"
-      expect((dst/"12/foo").readlink).to eq(klass.new("../../foo"))
+      expect((dst/"12/foo").readlink).to eq(described_class.new("../../foo"))
     end
   end
 
   describe InstallRenamed do
-    let(:klass) { InstallRenamed }
-
     before do
-      dst.extend(klass)
+      dst.extend(described_class)
     end
 
     it "renames the installed file if it already exists" do

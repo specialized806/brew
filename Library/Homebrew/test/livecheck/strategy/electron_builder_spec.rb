@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::ElectronBuilder do
-  subject(:electron_builder) { klass }
+  subject(:electron_builder) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::ElectronBuilder }
   let(:http_url) { "https://www.example.com/example/latest-mac.yml" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /Example[._-]v?(\d+(?:\.\d+)+)[._-]mac\.zip/i }

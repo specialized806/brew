@@ -5,8 +5,6 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/ruby"
 
 RSpec.describe Homebrew::DevCmd::Ruby do
-  let(:klass) { Homebrew::DevCmd::Ruby }
-
   it_behaves_like "parseable arguments"
 
   it "executes ruby code with Homebrew's libraries loaded", :integration_test do
@@ -18,7 +16,7 @@ RSpec.describe Homebrew::DevCmd::Ruby do
 
   # Keep the richer expression path in-process as `brew ruby` subprocesses are slow.
   it "passes Homebrew libraries and code to Ruby" do
-    cmd = klass.new(["-e", "puts 'testball'.f.path"])
+    cmd = described_class.new(["-e", "puts 'testball'.f.path"])
 
     expect(cmd).to receive(:exec).with(
       *HOMEBREW_RUBY_EXEC_ARGS,

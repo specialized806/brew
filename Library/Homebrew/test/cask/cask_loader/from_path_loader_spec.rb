@@ -2,8 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::CaskLoader::FromPathLoader do
-  let(:klass) { Cask::CaskLoader::FromPathLoader }
-
   describe "#load" do
     context "when the file does not contain a cask" do
       let(:path) do
@@ -16,7 +14,7 @@ RSpec.describe Cask::CaskLoader::FromPathLoader do
 
       it "raises an error" do
         expect do
-          klass.new(path).load(config: nil)
+          described_class.new(path).load(config: nil)
         end.to raise_error(Cask::CaskUnreadableError, /does not contain a cask/)
       end
     end
@@ -32,7 +30,7 @@ RSpec.describe Cask::CaskLoader::FromPathLoader do
 
       it "raises an error" do
         expect do
-          klass.new(path).load(config: nil)
+          described_class.new(path).load(config: nil)
         end.to raise_error(Cask::CaskUnreadableError, /undefined local variable or method/)
       end
     end
@@ -40,7 +38,7 @@ RSpec.describe Cask::CaskLoader::FromPathLoader do
     context "when the file contains an outdated cask" do
       it "raises an error" do
         expect do
-          klass.new(cask_path("invalid/invalid-depends-on-macos-bad-release")).load(config: nil)
+          described_class.new(cask_path("invalid/invalid-depends-on-macos-bad-release")).load(config: nil)
         end.to raise_error(Cask::CaskInvalidError,
                            /invalid 'depends_on macos' value: unknown or unsupported macOS version:/)
       end
@@ -50,7 +48,7 @@ RSpec.describe Cask::CaskLoader::FromPathLoader do
       let(:sourcefile_path) { TEST_FIXTURE_DIR/"cask/everything.json" }
 
       it "loads a cask with a source file path" do
-        cask = klass.new(sourcefile_path).load(config: nil)
+        cask = described_class.new(sourcefile_path).load(config: nil)
         expect(cask.loaded_from_api?).to be true
         expect(cask.loaded_from_internal_api?).to be false
         expect(cask.sourcefile_path).to eq sourcefile_path
@@ -61,7 +59,7 @@ RSpec.describe Cask::CaskLoader::FromPathLoader do
       let(:sourcefile_path) { TEST_FIXTURE_DIR/"cask/everything.internal.json" }
 
       it "loads a cask with a source file path" do
-        cask = klass.new(sourcefile_path).load(config: nil)
+        cask = described_class.new(sourcefile_path).load(config: nil)
         expect(cask.loaded_from_api?).to be true
         expect(cask.loaded_from_internal_api?).to be true
         expect(cask.sourcefile_path).to eq sourcefile_path

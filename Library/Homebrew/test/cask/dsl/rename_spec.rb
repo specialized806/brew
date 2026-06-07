@@ -2,9 +2,8 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::DSL::Rename do
-  subject(:rename) { klass.new(from, to) }
+  subject(:rename) { described_class.new(from, to) }
 
-  let(:klass) { Cask::DSL::Rename }
   let(:from) { "Source File*.pkg" }
   let(:to) { "Target File.pkg" }
 

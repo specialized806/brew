@@ -4,9 +4,7 @@
 require "rubocops/components_order"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::ComponentsOrder do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::ComponentsOrder }
+  subject(:cop) { described_class.new }
 
   context "when auditing formula components order" do
     it "reports and corrects an offense when `uses_from_macos` precedes `depends_on`" do

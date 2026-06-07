@@ -5,12 +5,10 @@ require "cleaner"
 require "formula"
 
 RSpec.describe Cleaner do
-  let(:klass) { Cleaner }
-
   include FileUtils
 
   describe "#clean" do
-    subject(:cleaner) { klass.new(f) }
+    subject(:cleaner) { described_class.new(f) }
 
     let(:f) do
       formula("cleaner_test") do
@@ -225,7 +223,7 @@ RSpec.describe Cleaner do
       f = stub_formula_skip_clean("bin")
       f.bin.mkpath
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(f.bin).to be_a_directory
     end
@@ -235,7 +233,7 @@ RSpec.describe Cleaner do
       subdir = f.bin/"subdir"
       subdir.mkpath
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(f.bin).to be_a_directory
       expect(subdir).to be_a_directory
@@ -247,7 +245,7 @@ RSpec.describe Cleaner do
       symlink = f.prefix/"symlink"
       ln_s "target", symlink
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(symlink).to be_a_symlink
     end
@@ -260,7 +258,7 @@ RSpec.describe Cleaner do
       dir.mkpath
       ln_s dir.basename, symlink
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(dir).not_to exist
       expect(symlink).to be_a_symlink
@@ -275,7 +273,7 @@ RSpec.describe Cleaner do
       dir.mkpath
       ln_s dir.basename, symlink
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(dir).not_to exist
       expect(symlink).to be_a_symlink
@@ -290,7 +288,7 @@ RSpec.describe Cleaner do
       f.lib.mkpath
       touch file
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(file).to exist
     end
@@ -302,7 +300,7 @@ RSpec.describe Cleaner do
 
       dir.mkpath
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(dir).to be_a_directory
     end
@@ -316,7 +314,7 @@ RSpec.describe Cleaner do
       dir1.mkpath
       dir2.mkpath
 
-      klass.new(f).clean
+      described_class.new(f).clean
 
       expect(dir1).to exist
       expect(dir2).not_to exist

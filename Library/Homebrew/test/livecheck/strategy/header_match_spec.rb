@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::HeaderMatch do
-  subject(:header_match) { klass }
+  subject(:header_match) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::HeaderMatch }
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regexes) do

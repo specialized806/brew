@@ -6,13 +6,11 @@ require "formula_installer"
 require "utils/bottles"
 
 RSpec.describe Formulary do
-  let(:klass) { Formulary }
-
   let(:formula_name) { "testball_bottle" }
   let(:formula_path) { CoreTap.instance.new_formula_path(formula_name) }
   let(:formula_content) do
     <<~RUBY
-      class #{klass.class_s(formula_name)} < Formula
+      class #{described_class.class_s(formula_name)} < Formula
         url "file://#{TEST_FIXTURE_DIR}/tarballs/testball-0.1.tbz"
         sha256 TESTBALL_SHA256
 
@@ -33,34 +31,34 @@ RSpec.describe Formulary do
 
   describe "::class_s" do
     it "replaces '+' with 'x'" do
-      expect(klass.class_s("foo++")).to eq("Fooxx")
+      expect(described_class.class_s("foo++")).to eq("Fooxx")
     end
 
     it "converts a string with dots to PascalCase" do
-      expect(klass.class_s("shell.fm")).to eq("ShellFm")
+      expect(described_class.class_s("shell.fm")).to eq("ShellFm")
     end
 
     it "converts a string with hyphens to PascalCase" do
-      expect(klass.class_s("pkg-config")).to eq("PkgConfig")
+      expect(described_class.class_s("pkg-config")).to eq("PkgConfig")
     end
 
     it "converts a string with a single letter separated by a hyphen to PascalCase" do
-      expect(klass.class_s("s-lang")).to eq("SLang")
+      expect(described_class.class_s("s-lang")).to eq("SLang")
     end
 
     it "converts a string with underscores to PascalCase" do
-      expect(klass.class_s("foo_bar")).to eq("FooBar")
+      expect(described_class.class_s("foo_bar")).to eq("FooBar")
     end
 
     it "replaces '@' with 'AT'" do
-      expect(klass.class_s("openssl@1.1")).to eq("OpensslAT11")
+      expect(described_class.class_s("openssl@1.1")).to eq("OpensslAT11")
     end
   end
 
   describe "::load_formula" do
     it "clears sensitive environment variables while evaluating formulae" do
       with_env(SECRET_TOKEN: "password") do
-        formula_class = Formulary.load_formula(
+        formula_class = described_class.load_formula(
           "sensitive-env",
           mktmpdir/"sensitive-env.rb",
           <<~RUBY,
@@ -81,7 +79,7 @@ RSpec.describe Formulary do
 
     it "allows the GitHub API token while evaluating formulae" do
       with_env(HOMEBREW_GITHUB_API_TOKEN: "github-token") do
-        formula_class = Formulary.load_formula(
+        formula_class = described_class.load_formula(
           "github-token-env",
           mktmpdir/"github-token-env.rb",
           <<~RUBY,
@@ -101,7 +99,7 @@ RSpec.describe Formulary do
 
     it "supports temporarily opting out of scrubbing while evaluating formulae" do
       with_env(HOMEBREW_NO_EVAL_ENV_SCRUBBING: "1", SECRET_TOKEN: "password") do
-        formula_class = Formulary.load_formula(
+        formula_class = described_class.load_formula(
           "unscrubbed-env",
           mktmpdir/"unscrubbed-env.rb",
           <<~RUBY,
@@ -130,14 +128,14 @@ RSpec.describe Formulary do
       RUBY
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect { Formulary.factory(formula_path) }
+        expect { described_class.factory(formula_path) }
           .to raise_error(Homebrew::UntrustedTapError, %r{thirdparty/foo})
       end
 
       Homebrew::Trust.trust!(:formula, "thirdparty/foo/sensitive-env")
 
       with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-        expect(Formulary.factory(formula_path).full_name).to eq("thirdparty/foo/sensitive-env")
+        expect(described_class.factory(formula_path).full_name).to eq("thirdparty/foo/sensitive-env")
       end
     ensure
       Homebrew::Trust.clear!(:formula)
@@ -153,22 +151,22 @@ RSpec.describe Formulary do
       end
 
       it "returns a Formula" do
-        expect(klass.factory(formula_name)).to be_a(Formula)
+        expect(described_class.factory(formula_name)).to be_a(Formula)
       end
 
       it "returns a Formula when given a fully qualified name" do
-        expect(klass.factory("homebrew/core/#{formula_name}")).to be_a(Formula)
+        expect(described_class.factory("homebrew/core/#{formula_name}")).to be_a(Formula)
       end
 
       it "raises an error if the Formula cannot be found" do
         expect do
-          klass.factory("not_existed_formula")
+          described_class.factory("not_existed_formula")
         end.to raise_error(FormulaUnavailableError)
       end
 
       it "raises an error if ref is nil" do
         expect do
-          klass.factory(nil)
+          described_class.factory(nil)
         end.to raise_error(TypeError)
       end
 
@@ -181,11 +179,11 @@ RSpec.describe Formulary do
         end
 
         it "returns a Formula" do
-          expect(klass.factory(formula_name)).to be_a(Formula)
+          expect(described_class.factory(formula_name)).to be_a(Formula)
         end
 
         it "returns a Formula when given a fully qualified name" do
-          expect(klass.factory("homebrew/core/#{formula_name}")).to be_a(Formula)
+          expect(described_class.factory("homebrew/core/#{formula_name}")).to be_a(Formula)
         end
       end
 
@@ -193,20 +191,20 @@ RSpec.describe Formulary do
         let(:formula_name) { "giraffe" }
         let(:formula_content) do
           <<~RUBY
-            class Wrong#{klass.class_s(formula_name)} < Formula
+            class Wrong#{described_class.class_s(formula_name)} < Formula
             end
           RUBY
         end
 
         it "raises an error" do
           expect do
-            klass.factory(formula_name)
+            described_class.factory(formula_name)
           end.to raise_error(TapFormulaClassUnavailableError)
         end
       end
 
       it "returns a Formula when given a path" do
-        expect(klass.factory(formula_path)).to be_a(Formula)
+        expect(described_class.factory(formula_path)).to be_a(Formula)
       end
 
       it "errors when given a path but paths are disabled" do
@@ -214,21 +212,21 @@ RSpec.describe Formulary do
         FileUtils.cp formula_path, HOMEBREW_TEMP
         temp_formula_path = HOMEBREW_TEMP/formula_path.basename
         expect do
-          klass.factory(temp_formula_path)
+          described_class.factory(temp_formula_path)
         ensure
           temp_formula_path.unlink
         end.to raise_error(RuntimeError, /requires formulae to be in a tap, rejecting/)
       end
 
       it "returns a Formula when given a URL", :needs_utils_curl do
-        formula = klass.factory("file://#{formula_path}")
+        formula = described_class.factory("file://#{formula_path}")
         expect(formula).to be_a(Formula)
       end
 
       it "errors when given a URL but paths are disabled" do
         ENV["HOMEBREW_FORBID_PACKAGES_FROM_PATHS"] = "1"
         expect do
-          klass.factory("file://#{formula_path}")
+          described_class.factory("file://#{formula_path}")
         end.to raise_error(FormulaUnavailableError)
       end
 
@@ -249,13 +247,13 @@ RSpec.describe Formulary do
         it "disallows cache paths when paths are explicitly disabled" do
           ENV["HOMEBREW_FORBID_PACKAGES_FROM_PATHS"] = "1"
           expect do
-            klass.factory(cache_formula_path)
+            described_class.factory(cache_formula_path)
           end.to raise_error(/requires formulae to be in a tap/)
         end
       end
 
       context "when given a bottle" do
-        subject(:formula) { klass.factory(bottle) }
+        subject(:formula) { described_class.factory(bottle) }
 
         specify do
           expect(formula).to be_a(Formula)
@@ -264,7 +262,7 @@ RSpec.describe Formulary do
       end
 
       context "when given an alias" do
-        subject(:formula) { klass.factory("foo") }
+        subject(:formula) { described_class.factory("foo") }
 
         let(:alias_dir) { CoreTap.instance.alias_dir }
         let(:alias_path) { alias_dir/"foo" }
@@ -286,14 +284,14 @@ RSpec.describe Formulary do
           allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
         end
 
-        let(:installed_formula) { klass.factory(formula_path) }
+        let(:installed_formula) { described_class.factory(formula_path) }
         let(:installer) { FormulaInstaller.new(installed_formula) }
 
         it "returns a Formula when given a rack" do
           installer.fetch
           installer.install
 
-          f = klass.from_rack(installed_formula.rack)
+          f = described_class.from_rack(installed_formula.rack)
           expect(f).to be_a(Formula)
         end
 
@@ -302,7 +300,7 @@ RSpec.describe Formulary do
           installer.install
 
           keg = Keg.new(installed_formula.prefix)
-          f = klass.from_keg(keg)
+          f = described_class.from_keg(keg)
           expect(f).to be_a(Formula)
         end
       end
@@ -330,7 +328,7 @@ RSpec.describe Formulary do
               "#{formula_name}": "homebrew/core"
             }
           JSON
-          formula = klass.factory("#{tap}/#{formula_name}")
+          formula = described_class.factory("#{tap}/#{formula_name}")
           expect(formula).to be_a(Formula)
           expect(formula.tap).to eq(CoreTap.instance)
           expect(formula.path).to eq(formula_path)
@@ -342,7 +340,7 @@ RSpec.describe Formulary do
               "#{formula_name}": "#{another_tap}"
             }
           JSON
-          formula = klass.factory("#{tap}/#{formula_name}")
+          formula = described_class.factory("#{tap}/#{formula_name}")
           expect(formula).to be_a(Formula)
           expect(formula.tap).to eq(another_tap)
           expect(formula.path).to eq(another_tap_formula_path)
@@ -358,7 +356,7 @@ RSpec.describe Formulary do
 
           expect(another_tap).not_to receive(:ensure_installed!)
 
-          expect { klass.factory("#{tap}/#{formula_name}") }
+          expect { described_class.factory("#{tap}/#{formula_name}") }
             .to raise_error(TapFormulaUnavailableError, /If you trust this tap/)
         end
       end
@@ -377,25 +375,25 @@ RSpec.describe Formulary do
         end
 
         it "returns a Formula when given a name" do
-          expect(klass.factory(formula_name)).to be_a(Formula)
+          expect(described_class.factory(formula_name)).to be_a(Formula)
         end
 
         it "returns a Formula from an Alias path" do
-          expect(klass.factory(alias_name)).to be_a(Formula)
+          expect(described_class.factory(alias_name)).to be_a(Formula)
         end
 
         it "returns a Formula from a fully qualified Alias path" do
-          expect(klass.factory("#{tap.name}/#{alias_name}")).to be_a(Formula)
+          expect(described_class.factory("#{tap.name}/#{alias_name}")).to be_a(Formula)
         end
 
         it "raises an error when the Formula cannot be found" do
           expect do
-            klass.factory("#{tap}/not_existed_formula")
+            described_class.factory("#{tap}/not_existed_formula")
           end.to raise_error(TapFormulaUnavailableError)
         end
 
         it "returns a Formula when given a fully qualified name" do
-          expect(klass.factory("#{tap}/#{formula_name}")).to be_a(Formula)
+          expect(described_class.factory("#{tap}/#{formula_name}")).to be_a(Formula)
         end
 
         it "raises an error if a Formula is in multiple Taps" do
@@ -403,7 +401,7 @@ RSpec.describe Formulary do
           (another_tap.path/"Formula/#{formula_name}.rb").write formula_content
 
           expect do
-            klass.factory(formula_name)
+            described_class.factory(formula_name)
           end.to raise_error(TapFormulaAmbiguityError)
         end
       end
@@ -593,7 +591,7 @@ RSpec.describe Formulary do
       it "returns a Formula when given a name" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
 
         expect(formula.keg_only_reason.reason).to eq :provided_by_macos
@@ -633,7 +631,7 @@ RSpec.describe Formulary do
       it "returns a Formula loaded from the internal API" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.loaded_from_api?).to be true
         expect(formula.loaded_from_internal_api?).to be true
@@ -650,7 +648,7 @@ RSpec.describe Formulary do
           ],
         )
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
 
         expect(formula.patchlist.first).to be_a(ExternalPatch)
       end
@@ -658,7 +656,7 @@ RSpec.describe Formulary do
       it "returns a deprecated Formula when given a name" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(deprecate_json)
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.deprecated?).to be true
         expect(formula.deprecation_date).to eq(Date.parse("2022-06-15"))
@@ -671,7 +669,7 @@ RSpec.describe Formulary do
       it "returns a disabled Formula when given a name" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(disable_json)
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.disabled?).to be true
         expect(formula.disable_date).to eq(Date.parse("2022-06-15"))
@@ -685,7 +683,7 @@ RSpec.describe Formulary do
         contents = formula_json_contents(deprecate_future_json)
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return contents
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.deprecated?).to be false
         expect(formula.deprecation_date).to eq(future_date)
@@ -700,7 +698,7 @@ RSpec.describe Formulary do
       it "returns a future-disabled Formula when given a name" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(disable_future_json)
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.deprecated?).to be true
         expect(formula.deprecation_date).to be_nil
@@ -720,7 +718,7 @@ RSpec.describe Formulary do
       it "returns a Formula with variations when given a name", :needs_macos do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(variations_json)
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.declared_deps.count).to eq 7
         expect(formula.deps.count).to eq 6
@@ -732,7 +730,7 @@ RSpec.describe Formulary do
         allow(Homebrew::API::Formula)
           .to receive(:all_formulae).and_return formula_json_contents(linux_variations_json)
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.declared_deps.count).to eq 6
         expect(formula.deps.count).to eq 6
@@ -743,7 +741,7 @@ RSpec.describe Formulary do
         allow(Homebrew::API::Formula)
           .to receive(:all_formulae).and_return formula_json_contents(older_macos_variations_json)
 
-        formula = klass.factory(formula_name)
+        formula = described_class.factory(formula_name)
         expect(formula).to be_a(Formula)
         expect(formula.declared_deps.count).to eq 6
         expect(formula.deps.count).to eq 5
@@ -793,31 +791,31 @@ RSpec.describe Formulary do
     context "when passed a URL" do
       it "raises an error when given an https URL" do
         expect do
-          klass.factory("https://brew.sh/foo.rb")
+          described_class.factory("https://brew.sh/foo.rb")
         end.to raise_error(UnsupportedInstallationMethod)
       end
 
       it "raises an error when given a bottle URL" do
         expect do
-          klass.factory("https://brew.sh/foo-1.0.arm64_catalina.bottle.tar.gz")
+          described_class.factory("https://brew.sh/foo-1.0.arm64_catalina.bottle.tar.gz")
         end.to raise_error(UnsupportedInstallationMethod)
       end
 
       it "raises an error when given an ftp URL" do
         expect do
-          klass.factory("ftp://brew.sh/foo.rb")
+          described_class.factory("ftp://brew.sh/foo.rb")
         end.to raise_error(UnsupportedInstallationMethod)
       end
 
       it "raises an error when given an sftp URL" do
         expect do
-          klass.factory("sftp://brew.sh/foo.rb")
+          described_class.factory("sftp://brew.sh/foo.rb")
         end.to raise_error(UnsupportedInstallationMethod)
       end
 
       it "does not raise an error when given a file URL", :needs_utils_curl do
         expect do
-          klass.factory("file://#{TEST_FIXTURE_DIR}/testball.rb")
+          described_class.factory("file://#{TEST_FIXTURE_DIR}/testball.rb")
         end.not_to raise_error
       end
     end
@@ -825,14 +823,14 @@ RSpec.describe Formulary do
     context "when passed ref with spaces" do
       it "raises a FormulaUnavailableError error" do
         expect do
-          klass.factory("foo bar")
+          described_class.factory("foo bar")
         end.to raise_error(FormulaUnavailableError)
       end
     end
   end
 
   specify "::from_contents" do
-    expect(klass.from_contents(formula_name, formula_path, formula_content)).to be_a(Formula)
+    expect(described_class.from_contents(formula_name, formula_path, formula_content)).to be_a(Formula)
   end
 
   describe "::to_rack" do
@@ -842,7 +840,7 @@ RSpec.describe Formulary do
 
     context "when the Rack does not exist" do
       it "returns the Rack" do
-        expect(klass.to_rack(formula_name)).to eq(rack_path)
+        expect(described_class.to_rack(formula_name)).to eq(rack_path)
       end
     end
 
@@ -852,13 +850,13 @@ RSpec.describe Formulary do
       end
 
       it "returns the Rack" do
-        expect(klass.to_rack(formula_name)).to eq(rack_path)
+        expect(described_class.to_rack(formula_name)).to eq(rack_path)
       end
     end
 
     it "raises an error if the Formula is not available" do
       expect do
-        klass.to_rack("a/b/#{formula_name}")
+        described_class.to_rack("a/b/#{formula_name}")
       end.to raise_error(TapFormulaUnavailableError)
     end
   end
@@ -866,7 +864,7 @@ RSpec.describe Formulary do
   describe "::core_path" do
     it "returns the path to a Formula in the core tap" do
       name = "foo-bar"
-      expect(klass.core_path(name))
+      expect(described_class.core_path(name))
         .to eq(Pathname.new("#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/Formula/#{name}.rb"))
     end
   end
@@ -877,14 +875,14 @@ RSpec.describe Formulary do
         mktmpdir.cd do
           FileUtils.mkdir "Formula"
           FileUtils.touch "Formula/gcc.rb"
-          expect(klass.loader_for("./Formula/gcc.rb")).to be_a Formulary::FromPathLoader
+          expect(described_class.loader_for("./Formula/gcc.rb")).to be_a Formulary::FromPathLoader
         end
       end
     end
 
     context "when given a tapped name" do
       it "returns a `FromTapLoader`", :no_api do
-        expect(klass.loader_for("homebrew/core/gcc")).to be_a Formulary::FromTapLoader
+        expect(described_class.loader_for("homebrew/core/gcc")).to be_a Formulary::FromTapLoader
       end
     end
 
@@ -922,7 +920,7 @@ RSpec.describe Formulary do
 
           it "does not warn when loading the short token" do
             expect do
-              klass.loader_for(token)
+              described_class.loader_for(token)
             end.not_to output.to_stderr
           end
         end
@@ -940,19 +938,19 @@ RSpec.describe Formulary do
 
           it "does not warn when loading the short token" do
             expect do
-              klass.loader_for(token)
+              described_class.loader_for(token)
             end.not_to output.to_stderr
           end
 
           it "does not warn when loading the full token in the default tap" do
             expect do
-              klass.loader_for("#{new_tap}/#{token}")
+              described_class.loader_for("#{new_tap}/#{token}")
             end.not_to output.to_stderr
           end
 
           it "warns when loading the full token in the old tap" do
             expect do
-              klass.loader_for("#{old_tap}/#{token}")
+              described_class.loader_for("#{old_tap}/#{token}")
             end.to output(
               a_string_including("Formula #{old_tap}/#{token} was renamed to #{token}.").once,
             ).to_stderr
@@ -990,7 +988,7 @@ RSpec.describe Formulary do
 
           it "does not warn when loading the short token" do
             expect do
-              klass.loader_for(token)
+              described_class.loader_for(token)
             end.not_to output.to_stderr
           end
         end
@@ -1013,7 +1011,7 @@ RSpec.describe Formulary do
           # It would be preferable not to print a warning when installing with the short token
           it "warns when loading the short token" do
             expect do
-              klass.loader_for(token)
+              described_class.loader_for(token)
             end.to output(
               a_string_including("Formula #{old_tap}/#{token} was renamed to #{new_tap}/#{token}.").once,
             ).to_stderr
@@ -1021,7 +1019,7 @@ RSpec.describe Formulary do
 
           it "warns with the canonical token when loading an uppercase short token" do
             expect do
-              klass.loader_for(token.upcase)
+              described_class.loader_for(token.upcase)
             end.to output(
               a_string_including("Formula #{old_tap}/#{token} was renamed to #{new_tap}/#{token}.").once,
             ).to_stderr
@@ -1029,13 +1027,13 @@ RSpec.describe Formulary do
 
           it "does not warn when loading the full token in the new tap" do
             expect do
-              klass.loader_for("#{new_tap}/#{token}")
+              described_class.loader_for("#{new_tap}/#{token}")
             end.not_to output.to_stderr
           end
 
           it "warns when loading the full token in the old tap" do
             expect do
-              klass.loader_for("#{old_tap}/#{token}")
+              described_class.loader_for("#{old_tap}/#{token}")
             end.to output(
               a_string_including("Formula #{old_tap}/#{token} was renamed to #{new_tap}/#{token}.").once,
             ).to_stderr

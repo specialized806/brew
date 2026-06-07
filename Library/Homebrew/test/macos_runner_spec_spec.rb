@@ -4,9 +4,7 @@
 require "macos_runner_spec"
 
 RSpec.describe MacOSRunnerSpec do
-  let(:klass) { MacOSRunnerSpec }
-
-  let(:spec) { klass.new(name: "macOS 11-arm64", runner: "11-arm64", timeout: 90, cleanup: true) }
+  let(:spec) { described_class.new(name: "macOS 11-arm64", runner: "11-arm64", timeout: 90, cleanup: true) }
 
   it "has immutable attributes" do
     [:name, :runner, :timeout, :cleanup].each do |attribute|

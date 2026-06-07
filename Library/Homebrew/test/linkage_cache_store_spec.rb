@@ -4,9 +4,8 @@
 require "linkage_cache_store"
 
 RSpec.describe LinkageCacheStore do
-  subject(:linkage_cache) { klass.new(keg_name, database) }
+  subject(:linkage_cache) { described_class.new(keg_name, database) }
 
-  let(:klass) { LinkageCacheStore }
   let(:keg_name) { "keg_name" }
   let(:database) { instance_double(CacheStoreDatabase, "database") }
 

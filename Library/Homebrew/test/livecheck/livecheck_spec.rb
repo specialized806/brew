@@ -4,9 +4,8 @@
 require "livecheck/livecheck"
 
 RSpec.describe Homebrew::Livecheck do
-  subject(:livecheck) { klass }
+  subject(:livecheck) { described_class }
 
-  let(:klass) { Homebrew::Livecheck }
   let(:cask_url) { "https://brew.sh/test-0.0.1.dmg" }
   let(:head_url) { "https://github.com/Homebrew/brew.git" }
   let(:homepage_url) { "https://brew.sh" }

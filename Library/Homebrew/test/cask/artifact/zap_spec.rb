@@ -4,13 +4,11 @@
 require_relative "shared_examples/uninstall_zap"
 
 RSpec.describe Cask::Artifact::Zap, :cask do
-  let(:klass) { Cask::Artifact::Zap }
-
   describe "#zap_phase" do
     include_examples "#uninstall_phase or #zap_phase"
 
     context "when using :rmdir" do
-      subject(:artifact) { cask.artifacts.find { |a| a.is_a?(klass) } }
+      subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
       let(:fake_system_command) { NeverSudoSystemCommand }
       let(:cask) { Cask::CaskLoader.load(cask_path("with-zap-rmdir")) }

@@ -4,11 +4,9 @@
 require "utils/topological_hash"
 
 RSpec.describe Utils::TopologicalHash do
-  let(:klass) { Utils::TopologicalHash }
-
   describe "#tsort" do
     it "returns a topologically sorted array" do
-      hash = klass.new
+      hash = described_class.new
       hash[1] = [2, 3]
       hash[2] = [3]
       hash[3] = []
@@ -19,7 +17,7 @@ RSpec.describe Utils::TopologicalHash do
 
   describe "#strongly_connected_components" do
     it "returns an array of arrays" do
-      hash = klass.new
+      hash = described_class.new
       hash[1] = [2]
       hash[2] = [3, 4]
       hash[3] = [2]
@@ -81,7 +79,7 @@ RSpec.describe Utils::TopologicalHash do
       stub_cask_loader cask3
 
       packages = [formula1, formula2, formula3, formula4, cask1, cask2, cask3]
-      expect(klass.graph_package_dependencies(packages)).to eq({
+      expect(described_class.graph_package_dependencies(packages)).to eq({
         formula1 => [],
         formula2 => [formula1],
         formula3 => [formula4],
@@ -92,10 +90,11 @@ RSpec.describe Utils::TopologicalHash do
       })
 
       sorted = [formula1, cask1, cask2, cask3, formula2]
-      expect(klass.graph_package_dependencies([cask3, cask2, cask1, formula2, formula1]).tsort).to eq sorted
-      expect(klass.graph_package_dependencies([cask3, formula2]).tsort).to eq sorted
+      expect(described_class.graph_package_dependencies([cask3, cask2, cask1, formula2,
+                                                         formula1]).tsort).to eq sorted
+      expect(described_class.graph_package_dependencies([cask3, formula2]).tsort).to eq sorted
 
-      expect { klass.graph_package_dependencies([formula3, formula4]).tsort }.to raise_error TSort::Cyclic
+      expect { described_class.graph_package_dependencies([formula3, formula4]).tsort }.to raise_error TSort::Cyclic
     end
   end
 end

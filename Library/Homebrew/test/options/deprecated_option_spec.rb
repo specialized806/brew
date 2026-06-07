@@ -4,9 +4,7 @@
 require "options"
 
 RSpec.describe DeprecatedOption do
-  subject(:option) { klass.new("foo", "bar") }
-
-  let(:klass) { DeprecatedOption }
+  subject(:option) { described_class.new("foo", "bar") }
 
   specify do
     expect(option.old).to eq("foo")
@@ -16,8 +14,8 @@ RSpec.describe DeprecatedOption do
   end
 
   specify "equality" do
-    foobar = klass.new("foo", "bar")
-    boofar = klass.new("boo", "far")
+    foobar = described_class.new("foo", "bar")
+    boofar = described_class.new("boo", "far")
     expect(foobar).to eq(option)
     expect(option).to eq(foobar)
     expect(boofar).not_to eq(option)

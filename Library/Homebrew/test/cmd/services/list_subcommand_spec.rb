@@ -4,8 +4,6 @@
 require "cmd/services"
 
 RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
-  let(:klass) { Homebrew::Cmd::Services::ListSubcommand }
-
   describe "#TRIGGERS" do
     it "contains all restart triggers" do
       expect(Homebrew::Cmd::Services::ListSubcommand::TRIGGERS).to eq([nil, "list", "ls"])
@@ -17,14 +15,14 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([])
       expect do
         allow($stderr).to receive(:tty?).and_return(true)
-        klass.new(Homebrew::Cmd::Services.new(%w[list]).args).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[list]).args).run
       end.to output(a_string_including("No services available to control with `brew services`")).to_stderr
     end
 
     it "outputs empty JSON array with empty list and --json" do
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([])
       expect do
-        klass.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
       end.to output("[]\n").to_stdout
     end
 
@@ -39,7 +37,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       }
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([formula])
       expect do
-        klass.new(Homebrew::Cmd::Services.new(%w[list]).args).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[list]).args).run
       end.to output(out).to_stdout
     end
 
@@ -59,7 +57,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
 
       expect(Homebrew::Services::Formulae).to receive(:services_list).and_return([formula])
       expect do
-        klass.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
+        described_class.new(Homebrew::Cmd::Services.new(%w[list --json]).args).run
       end.to output(expected_output).to_stdout
     end
   end
@@ -68,14 +66,14 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
     it "prints all standard values" do
       formula = { name: "a", user: "u", file: Pathname.new("/tmp/file.file"), status: :stopped }
       expect do
-        klass.print_table([formula])
+        described_class.print_table([formula])
       end.to output("Name Status User File\na    stopped         u    \n").to_stdout
     end
 
     it "prints without user or file data" do
       formula = { name: "a", user: nil, file: nil, status: :started, loaded: true }
       expect do
-        klass.print_table([formula])
+        described_class.print_table([formula])
       end.to output("Name Status User File\na    started              \n").to_stdout
     end
 
@@ -84,7 +82,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       formula = { name: "a", user: "u", file: Pathname.new("/tmp/file.file"), status: :started, loaded: true }
       expected_output = "Name Status User File\na    started         u    ~/file.file\n"
       expect do
-        klass.print_table([formula])
+        described_class.print_table([formula])
       end.to output(expected_output).to_stdout
     end
 
@@ -93,7 +91,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       formula = { name: "a", user: "u", file:, status: :error, exit_code: 256, loaded: true }
       expected_output = "Name Status User File\na    error  256      u    /tmp/file.file\n"
       expect do
-        klass.print_table([formula])
+        described_class.print_table([formula])
       end.to output(expected_output).to_stdout
     end
   end
@@ -103,7 +101,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       formula = { name: "a", status: :stopped, user: "u", file: Pathname.new("/tmp/file.file") }
       expected_output = "#{JSON.pretty_generate([formula])}\n"
       expect do
-        klass.print_json([formula])
+        described_class.print_json([formula])
       end.to output(expected_output).to_stdout
     end
 
@@ -112,7 +110,7 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       filtered_formula = formula.slice(*Homebrew::Cmd::Services::ListSubcommand::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
       expect do
-        klass.print_json([formula])
+        described_class.print_json([formula])
       end.to output(expected_output).to_stdout
     end
 
@@ -122,30 +120,30 @@ RSpec.describe Homebrew::Cmd::Services::ListSubcommand do
       filtered_formula = formula.slice(*Homebrew::Cmd::Services::ListSubcommand::JSON_FIELDS)
       expected_output = "#{JSON.pretty_generate([filtered_formula])}\n"
       expect do
-        klass.print_json([formula])
+        described_class.print_json([formula])
       end.to output(expected_output).to_stdout
     end
   end
 
   describe "#get_status_string" do
     it "returns started" do
-      expect(klass.get_status_string(:started)).to eq("started")
+      expect(described_class.get_status_string(:started)).to eq("started")
     end
 
     it "returns stopped" do
-      expect(klass.get_status_string(:stopped)).to eq("stopped")
+      expect(described_class.get_status_string(:stopped)).to eq("stopped")
     end
 
     it "returns error" do
-      expect(klass.get_status_string(:error)).to eq("error  ")
+      expect(described_class.get_status_string(:error)).to eq("error  ")
     end
 
     it "returns unknown" do
-      expect(klass.get_status_string(:unknown)).to eq("unknown")
+      expect(described_class.get_status_string(:unknown)).to eq("unknown")
     end
 
     it "returns other" do
-      expect(klass.get_status_string(:other)).to eq("other")
+      expect(described_class.get_status_string(:other)).to eq("other")
     end
   end
 end

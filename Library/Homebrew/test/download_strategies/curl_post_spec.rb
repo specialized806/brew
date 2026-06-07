@@ -4,9 +4,8 @@
 require "download_strategy"
 
 RSpec.describe CurlPostDownloadStrategy do
-  subject(:strategy) { klass.new(url, name, version, **specs) }
+  subject(:strategy) { described_class.new(url, name, version, **specs) }
 
-  let(:klass) { CurlPostDownloadStrategy }
   let(:name) { "foo" }
   let(:url) { "https://example.com/foo.tar.gz" }
   let(:version) { "1.2.3" }

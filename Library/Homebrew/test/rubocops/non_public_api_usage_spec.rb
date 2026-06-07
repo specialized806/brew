@@ -4,9 +4,7 @@
 require "rubocops/non_public_api_usage"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::NonPublicApiUsage do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::NonPublicApiUsage }
+  subject(:cop) { described_class.new }
 
   before do
     allow(RuboCop::Cop::ApiAnnotationHelper).to receive(:methods_with_api_level).and_return(Set.new)

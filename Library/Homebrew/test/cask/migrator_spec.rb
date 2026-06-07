@@ -4,8 +4,6 @@
 require "cask/migrator"
 
 RSpec.describe Cask::Migrator do
-  let(:klass) { Cask::Migrator }
-
   describe ".migrate_if_needed" do
     let(:new_cask) do
       instance_double(
@@ -22,9 +20,9 @@ RSpec.describe Cask::Migrator do
 
       it "returns without loading or migrating" do
         expect(Cask::Cask).not_to receive(:new)
-        expect(klass).not_to receive(:new)
+        expect(described_class).not_to receive(:new)
 
-        klass.migrate_if_needed(new_cask)
+        described_class.migrate_if_needed(new_cask)
       end
     end
 
@@ -34,13 +32,13 @@ RSpec.describe Cask::Migrator do
 
       it "migrates using the installed token from the caskfile path" do
         old_cask = instance_double(Cask::Cask)
-        migrator = instance_double(klass)
+        migrator = instance_double(described_class)
 
         expect(Cask::Cask).to receive(:new).with("old-token").and_return(old_cask)
-        expect(klass).to receive(:new).with(old_cask, new_cask).and_return(migrator)
+        expect(described_class).to receive(:new).with(old_cask, new_cask).and_return(migrator)
         expect(migrator).to receive(:migrate).with(dry_run: false)
 
-        klass.migrate_if_needed(new_cask)
+        described_class.migrate_if_needed(new_cask)
       end
     end
   end
@@ -79,19 +77,19 @@ RSpec.describe Cask::Migrator do
                                             new_caskfile)
       allow(FileUtils).to receive(:rm_r).with(old_caskroom_path)
       allow(FileUtils).to receive(:ln_s).with(new_caskroom_path.basename, old_caskroom_path)
-      allow(klass).to receive(:replace_caskfile_token).with(new_caskfile, "old-token", "new-token")
+      allow(described_class).to receive(:replace_caskfile_token).with(new_caskfile, "old-token", "new-token")
     end
 
     it "moves a cask pin to the new token" do
       expect(old_cask).to receive(:unpin)
       expect(new_pin_path).to receive(:make_relative_symlink).with(new_caskroom_path/"1.0")
 
-      klass.new(old_cask, new_cask).migrate
+      described_class.new(old_cask, new_cask).migrate
     end
 
     it "prints relative cask pin targets in dry run" do
       expect do
-        klass.new(old_cask, new_cask).migrate(dry_run: true)
+        described_class.new(old_cask, new_cask).migrate(dry_run: true)
       end.to output(%r{ln -s ../Caskroom/new-token/1\.0 /tmp/pinned_casks/new-token}).to_stdout
     end
 
@@ -100,7 +98,7 @@ RSpec.describe Cask::Migrator do
       expect(old_cask).not_to receive(:unpin)
 
       expect do
-        klass.new(old_cask, new_cask).migrate
+        described_class.new(old_cask, new_cask).migrate
       end.to output(/Failed to migrate cask pin from old-token to new-token: failed/).to_stderr
     end
   end

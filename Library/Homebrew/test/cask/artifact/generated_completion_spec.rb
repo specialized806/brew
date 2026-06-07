@@ -2,8 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
-  let(:klass) { Cask::Artifact::GeneratedCompletion }
-
   let(:staged_path) { Pathname(Dir.mktmpdir) }
 
   let(:cask) do
@@ -33,7 +31,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
 
   describe "#install_phase" do
     it "generates completion scripts for default shells" do
-      artifact = cask.artifacts.grep(klass).first
+      artifact = cask.artifacts.grep(described_class).first
 
       allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
       allow(Sandbox).to receive(:new) do
@@ -59,7 +57,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     end
 
     it "sandboxes completion generation without network access" do
-      artifact = cask.artifacts.grep(klass).first
+      artifact = cask.artifacts.grep(described_class).first
       sandboxes = []
       calls = []
       homes = []
@@ -89,7 +87,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     end
 
     it "does not sandbox when HOMEBREW_NO_SANDBOX_CASK is set" do
-      artifact = cask.artifacts.grep(klass).first
+      artifact = cask.artifacts.grep(described_class).first
 
       ENV["HOMEBREW_NO_SANDBOX_CASK"] = "1"
       allow(Sandbox).to receive(:available?).and_return(true)
@@ -105,7 +103,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
 
     context "when generation fails for one shell" do
       it "warns and continues generating other shells" do
-        artifact = cask.artifacts.grep(klass).first
+        artifact = cask.artifacts.grep(described_class).first
 
         allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
         allow(Sandbox).to receive(:new) do
@@ -132,7 +130,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
 
   describe "#uninstall_phase" do
     it "removes generated completion scripts" do
-      artifact = cask.artifacts.grep(klass).first
+      artifact = cask.artifacts.grep(described_class).first
 
       bash_dir.mkpath
       zsh_dir.mkpath
@@ -163,7 +161,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     end
 
     it "generates only for the specified shell with the correct format" do
-      artifact = cask.artifacts.grep(klass).first
+      artifact = cask.artifacts.grep(described_class).first
       captured_args = nil
 
       allow(Sandbox).to receive_messages(ensure_sandbox_installed!: nil, available?: true)
@@ -204,7 +202,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
     end
 
     it "normalizes shells to symbols" do
-      artifact = cask.artifacts.grep(klass).first
+      artifact = cask.artifacts.grep(described_class).first
 
       expect(artifact.shells).to eq([:bash, :zsh, :fish, :pwsh])
     end

@@ -5,9 +5,8 @@ require "livecheck/strategy"
 require "bundle_version"
 
 RSpec.describe Homebrew::Livecheck::Strategy::ExtractPlist do
-  subject(:extract_plist) { klass }
+  subject(:extract_plist) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::ExtractPlist }
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:items) do

@@ -5,8 +5,6 @@ require "cmd/shared_examples/args_parse"
 require "cmd/unpin"
 
 RSpec.describe Homebrew::Cmd::Unpin do
-  let(:klass) { Homebrew::Cmd::Unpin }
-
   it_behaves_like "parseable arguments"
 
   it "unpins a Formula's version", :integration_test do
@@ -21,7 +19,7 @@ RSpec.describe Homebrew::Cmd::Unpin do
     InstallHelper.stub_cask_installation(cask)
     cask.pin
 
-    expect { klass.new(["--cask", "local-caffeine"]).run }
+    expect { described_class.new(["--cask", "local-caffeine"]).run }
       .to not_to_output.to_stderr
 
     expect(cask).not_to be_pinned
@@ -36,7 +34,7 @@ RSpec.describe Homebrew::Cmd::Unpin do
     expect(cask).not_to be_pinned
     expect(cask.pin_path).to be_a_symlink
 
-    expect { klass.new(["--cask", "local-caffeine"]).run }
+    expect { described_class.new(["--cask", "local-caffeine"]).run }
       .to not_to_output.to_stderr
 
     expect(cask.pin_path).not_to be_a_symlink

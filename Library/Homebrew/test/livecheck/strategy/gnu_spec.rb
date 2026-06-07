@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Gnu do
-  subject(:gnu) { klass }
+  subject(:gnu) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Gnu }
   let(:gnu_urls) do
     {
       no_version_dir: "https://ftpmirror.gnu.org/gnu/abc/abc-1.2.3.tar.gz",

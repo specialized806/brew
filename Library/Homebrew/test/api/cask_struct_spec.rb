@@ -4,8 +4,6 @@
 require "api"
 
 RSpec.describe Homebrew::API::CaskStruct do
-  let(:klass) { Homebrew::API::CaskStruct }
-
   describe "::from_hash" do
     it "constructs a valid struct from a hash with all field types" do
       hash = {
@@ -27,7 +25,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         "raw_caveats"          => "Requires restart.",
       }
 
-      struct = klass.from_hash(hash)
+      struct = described_class.from_hash(hash)
 
       expect(struct.sha256).to eq("abc123")
       expect(struct.version).to eq("1.0.0")
@@ -47,13 +45,13 @@ RSpec.describe Homebrew::API::CaskStruct do
         "another_unknown"      => 42,
       }
 
-      expect { klass.from_hash(hash) }.not_to raise_error
+      expect { described_class.from_hash(hash) }.not_to raise_error
     end
   end
 
   describe "predicate methods" do
     it "defaults all predicates to false for a minimal struct" do
-      struct = klass.new(
+      struct = described_class.new(
         sha256:               "abc123",
         version:              "1.0.0",
         ruby_source_checksum: { sha256: "def456" },
@@ -70,7 +68,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         [:"#{predicate}_present", true]
       end
 
-      struct = klass.new(
+      struct = described_class.new(
         sha256:               "abc123",
         version:              "1.0.0",
         ruby_source_checksum: { sha256: "def456" },
@@ -86,7 +84,7 @@ RSpec.describe Homebrew::API::CaskStruct do
 
   describe "#artifacts" do
     it "replaces placeholders in artifact arguments" do
-      struct = klass.new(
+      struct = described_class.new(
         sha256:               "abc123",
         version:              "1.0.0",
         ruby_source_checksum: { sha256: "def456" },
@@ -101,7 +99,7 @@ RSpec.describe Homebrew::API::CaskStruct do
 
   describe "#caveats" do
     it "replaces placeholders in caveats string" do
-      struct = klass.new(
+      struct = described_class.new(
         sha256:               "abc123",
         version:              "1.0.0",
         ruby_source_checksum: { sha256: "def456" },
@@ -114,7 +112,7 @@ RSpec.describe Homebrew::API::CaskStruct do
     end
 
     it "returns nil when raw_caveats is nil" do
-      struct = klass.new(
+      struct = described_class.new(
         sha256:               "abc123",
         version:              "1.0.0",
         ruby_source_checksum: { sha256: "def456" },
@@ -125,7 +123,7 @@ RSpec.describe Homebrew::API::CaskStruct do
   end
 
   specify "#serialize_artifact_args", :aggregate_failures do
-    struct = klass.new(
+    struct = described_class.new(
       sha256:               "abc123",
       version:              "1.0.0",
       ruby_source_checksum: { sha256: "def456" },
@@ -139,7 +137,7 @@ RSpec.describe Homebrew::API::CaskStruct do
   end
 
   it "preserves zero values in serialized artifact arguments" do
-    struct = klass.new(
+    struct = described_class.new(
       sha256:               "abc123",
       version:              "1.0.0",
       ruby_source_checksum: { sha256: "def456" },
@@ -165,28 +163,28 @@ RSpec.describe Homebrew::API::CaskStruct do
   end
 
   specify "::deserialize_artifact_args", :aggregate_failures do
-    expect(klass.deserialize_artifact_args([:foo]))
+    expect(described_class.deserialize_artifact_args([:foo]))
       .to eq([:foo, [], {}, nil])
 
-    expect(klass.deserialize_artifact_args([:foo, ["abc", "def"]]))
+    expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"]]))
       .to eq([:foo, ["abc", "def"], {}, nil])
 
-    expect(klass.deserialize_artifact_args([:foo, { ghi: "jkl" }]))
+    expect(described_class.deserialize_artifact_args([:foo, { ghi: "jkl" }]))
       .to eq([:foo, [], { ghi: "jkl" }, nil])
 
-    expect(klass.deserialize_artifact_args([:foo, :empty_block]))
+    expect(described_class.deserialize_artifact_args([:foo, :empty_block]))
       .to eq([:foo, [], {}, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
-    expect(klass.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }]))
+    expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }]))
       .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, nil])
 
-    expect(klass.deserialize_artifact_args([:foo, ["abc", "def"], :empty_block]))
+    expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"], :empty_block]))
       .to eq([:foo, ["abc", "def"], {}, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
-    expect(klass.deserialize_artifact_args([:foo, { ghi: "jkl" }, :empty_block]))
+    expect(described_class.deserialize_artifact_args([:foo, { ghi: "jkl" }, :empty_block]))
       .to eq([:foo, [], { ghi: "jkl" }, Homebrew::API::CaskStruct::EMPTY_BLOCK])
 
-    expect(klass.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }, :empty_block]))
+    expect(described_class.deserialize_artifact_args([:foo, ["abc", "def"], { ghi: "jkl" }, :empty_block]))
       .to eq([:foo, ["abc", "def"], { ghi: "jkl" }, Homebrew::API::CaskStruct::EMPTY_BLOCK])
   end
 
@@ -198,7 +196,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         "ruby_source_checksum" => { sha256: "def456" },
       }
 
-      struct = klass.deserialize(hash)
+      struct = described_class.deserialize(hash)
 
       Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
         expect(struct.send(:"#{predicate}?")).to be false
@@ -221,7 +219,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         "ruby_source_checksum" => { sha256: "def456" },
       }
 
-      struct = klass.deserialize(hash)
+      struct = described_class.deserialize(hash)
 
       Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
         expect(struct.send(:"#{predicate}?")).to be true
@@ -231,24 +229,15 @@ RSpec.describe Homebrew::API::CaskStruct do
 
   describe "serialize/deserialize round-trip" do
     it "reconstructs an equivalent struct after serialize then deserialize", :needs_macos do
-      original = klass.new(
+      original = described_class.new(
         auto_updates:         true,
-        auto_updates_present: true,
-        caveats_present:      true,
-        conflicts_present:    true,
         conflicts_with_args:  { cask: ["other-cask"] },
-        container_args:       { type: :zip },
-        container_present:    true,
+        container_args:       { nested: nil, type: :zip },
         depends_on_args:      { macos: ">= :catalina" },
-        depends_on_present:   true,
         deprecate_args:       { date: "2025-01-01", because: :unmaintained },
-        deprecate_present:    true,
         desc:                 "A description",
-        desc_present:         true,
         disable_args:         { date: "2025-01-01", because: :unmaintained },
-        disable_present:      true,
         homepage:             "https://example.com",
-        homepage_present:     true,
         languages:            ["en"],
         names:                ["Test Cask"],
         raw_artifacts:        [[:app, ["#{HOMEBREW_CASK_APPDIR_PLACEHOLDER}/Test.app"], {}, nil]],
@@ -264,7 +253,7 @@ RSpec.describe Homebrew::API::CaskStruct do
       )
 
       serialized = original.serialize
-      restored = klass.deserialize(serialized)
+      restored = described_class.deserialize(serialized)
 
       expect(restored).to eq(original)
     end

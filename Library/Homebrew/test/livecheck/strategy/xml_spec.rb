@@ -6,9 +6,8 @@ require "rexml/document"
 require "rexml/undefinednamespaceexception"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Xml do
-  subject(:xml) { klass }
+  subject(:xml) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Xml }
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { /^v?(\d+(?:\.\d+)+)$/i }

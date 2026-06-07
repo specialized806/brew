@@ -5,9 +5,7 @@ require "socket"
 require "formula_free_port"
 
 RSpec.describe Homebrew::FreePort do
-  subject(:instance) { Object.new.extend(klass) }
-
-  let(:klass) { Homebrew::FreePort }
+  subject(:instance) { Object.new.extend(described_class) }
 
   describe "#free_port" do
     it "returns a free TCP/IP port" do

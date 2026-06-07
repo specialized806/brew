@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::ClassInheritance do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::ClassInheritance }
+  subject(:cop) { described_class.new }
 
   context "when auditing formula class inheritance" do
     it "reports an offense when not using spaces for class inheritance" do

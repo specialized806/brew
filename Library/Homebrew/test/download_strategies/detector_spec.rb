@@ -4,10 +4,8 @@
 require "download_strategy"
 
 RSpec.describe DownloadStrategyDetector do
-  let(:klass) { DownloadStrategyDetector }
-
   describe "::detect" do
-    subject(:strategy_detector) { klass.detect(url, strategy) }
+    subject(:strategy_detector) { described_class.detect(url, strategy) }
 
     let(:url) { "invalidurl" }
     let(:strategy) { nil }
@@ -44,7 +42,7 @@ RSpec.describe DownloadStrategyDetector do
 
     it "raises an error when passed an unrecognized strategy" do
       expect do
-        klass.detect("foo", Class.new)
+        described_class.detect("foo", Class.new)
       end.to raise_error(TypeError)
     end
   end

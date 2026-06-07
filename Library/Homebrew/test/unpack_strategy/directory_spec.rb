@@ -4,8 +4,6 @@
 require_relative "shared_examples"
 
 RSpec.describe UnpackStrategy::Directory do
-  let(:klass) { UnpackStrategy::Directory }
-
   let(:path) do
     mktmpdir.tap do |path|
       FileUtils.touch path/"file"
@@ -19,7 +17,7 @@ RSpec.describe UnpackStrategy::Directory do
   let(:unpack_dir) { mktmpdir }
 
   shared_examples "extract directory" do |move:|
-    subject(:strategy) { klass.new(path, move:) }
+    subject(:strategy) { described_class.new(path, move:) }
 
     it "does not follow symlinks" do
       strategy.extract(to: unpack_dir)

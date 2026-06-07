@@ -4,9 +4,7 @@
 require "rubocops/options"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Options do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::Options }
+  subject(:cop) { described_class.new }
 
   context "when auditing options" do
     it "reports an offense when using bad option names" do

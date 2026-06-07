@@ -4,13 +4,11 @@
 require_relative "../../cli/parser"
 
 RSpec.describe Homebrew::CLI::Parser do
-  let(:klass) { Homebrew::CLI::Parser }
-
   before { stub_const("Cmd", Class.new(Homebrew::AbstractCommand)) }
 
   describe "test switch options" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         switch "--more-verbose", description: "Flag for higher verbosity"
         switch "--pry", env: :pry
         switch "--foo", env: :foo
@@ -28,7 +26,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     context "when using binary options" do
       subject(:parser) do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           switch "--[no-]positive"
         end
       end
@@ -56,7 +54,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     context "when using negative options" do
       subject(:parser) do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           switch "--no-positive"
         end
       end
@@ -128,7 +126,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "ask environment variable precedence" do
     subject(:parser) do
-      Homebrew::CLI::Parser.new(Cmd) do
+      described_class.new(Cmd) do
         switch "--ask", env: :ask
       end
     end
@@ -148,7 +146,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test long flag options" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         flag        "--filename=", description: "Name of the file"
         comma_array "--files",     description: "Comma-separated filenames"
         flag        "--hidden=",      hidden: true
@@ -179,7 +177,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test short flag options" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         flag "-f", "--filename=", description: "Name of the file"
       end
     end
@@ -193,7 +191,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test constraints for flag options" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         flag      "--flag1="
         flag      "--flag2=", depends_on: "--flag1="
         flag      "--flag3="
@@ -224,7 +222,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test invalid constraints" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         flag      "--flag1="
         flag      "--flag2=", depends_on: "--flag1="
 
@@ -239,7 +237,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test constraints for switch options" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         switch      "-a", "--switch-a", env: "switch_a"
         switch      "-b", "--switch-b", env: "switch_b"
         switch      "--switch-c", depends_on: "--switch-a"
@@ -286,7 +284,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test immutability of args" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         switch "-a", "--switch-a"
         switch "-b", "--switch-b"
       end
@@ -300,7 +298,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test inferrability of args" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         switch "--switch-a"
         switch "--switch-b"
         switch "--foo-switch"
@@ -336,7 +334,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "test argv extensions" do
     subject(:parser) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         switch "--foo"
         flag   "--bar"
         switch "-s"
@@ -366,7 +364,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "usage banner generation" do
     it "includes `[options]` if more than two non-global options are available" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         switch "--foo"
         switch "--baz"
         switch "--bar"
@@ -375,7 +373,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "includes individual options if less than two non-global options are available" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         switch "--foo"
         switch "--bar"
       end
@@ -383,7 +381,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "formats flags correctly when less than two non-global options are available" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         flag "--foo"
         flag "--bar="
       end
@@ -391,26 +389,26 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "formats comma arrays correctly when less than two non-global options are available" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         comma_array "--foo"
       end
       expect(parser.generate_help_text).to match(/\[--foo=\]/)
     end
 
     it "does not include hidden options" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         switch "--foo", hidden: true
       end
       expect(parser.generate_help_text).not_to match(/\[--foo\]/)
     end
 
     it "doesn't include `[options]` if non non-global options are available" do
-      parser = klass.new(Cmd)
+      parser = described_class.new(Cmd)
       expect(parser.generate_help_text).not_to match(/\[options\]/)
     end
 
     it "includes a description" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         description <<~EOS
           This command does something
         EOS
@@ -419,14 +417,14 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "allows the usage banner to be overridden" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         usage_banner "`test` [foo] <bar>"
       end
       expect(parser.generate_help_text).to match(/test \[foo\] bar/)
     end
 
     it "allows a usage banner and a description to be overridden" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         usage_banner "`test` [foo] <bar>"
         description <<~EOS
           This command does something
@@ -437,42 +435,42 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "shows the correct usage for no named argument" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args :none
       end
       expect(parser.generate_help_text).to match(/^Usage: [^\[]+$/s)
     end
 
     it "shows the correct usage for a single typed argument" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args :formula, number: 1
       end
       expect(parser.generate_help_text).to match(/^Usage: .* formula$/s)
     end
 
     it "shows the correct usage for a subcommand argument with a maximum" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args %w[off on], max: 1
       end
       expect(parser.generate_help_text).to match(/^Usage: .* \[subcommand\]$/s)
     end
 
     it "shows the correct usage for multiple typed argument with no maximum or minimum" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args [:tap, :command]
       end
       expect(parser.generate_help_text).to match(/^Usage: .* \[tap|command ...\]$/s)
     end
 
     it "shows the correct usage for a subcommand argument with a minimum of 1" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args :installed_formula, min: 1
       end
       expect(parser.generate_help_text).to match(/^Usage: .* installed_formula \[...\]$/s)
     end
 
     it "shows the correct usage for a subcommand argument with a minimum greater than 1" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args :installed_formula, min: 2
       end
       expect(parser.generate_help_text).to match(/^Usage: .* installed_formula ...$/s)
@@ -481,19 +479,19 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "named_args" do
     let(:parser_none) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         named_args :none
       end
     end
     let(:parser_number) do
-      klass.new(Cmd) do
+      described_class.new(Cmd) do
         named_args number: 1
       end
     end
 
     it "doesn't allow :none passed with a number" do
       expect do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           named_args :none, number: 1
         end
       end.to raise_error(ArgumentError, /Do not specify both `number`, `min` or `max` with `named_args :none`/)
@@ -501,7 +499,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     it "doesn't allow number and min" do
       expect do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           named_args number: 1, min: 1
         end
       end.to raise_error(ArgumentError, /Do not specify both `number` and `min` or `max`/)
@@ -529,7 +527,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "displays the correct error message with no arg types and min" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args min: 2
       end
       expect { parser.parse([]) }.to raise_error(
@@ -538,7 +536,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "displays the correct error message with no arg types and number" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args number: 2
       end
       expect { parser.parse([]) }.to raise_error(
@@ -547,7 +545,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "displays the correct error message with no arg types and max" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args max: 1
       end
       expect { parser.parse(%w[foo bar]) }.to raise_error(
@@ -556,7 +554,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "displays the correct error message with an array of strings" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args %w[on off], number: 1
       end
       expect { parser.parse([]) }.to raise_error(
@@ -565,7 +563,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "displays the correct error message with an array of symbols" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args [:formula, :cask], min: 1
       end
       expect { parser.parse([]) }.to raise_error(
@@ -574,7 +572,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "displays the correct error message with an array of symbols and max" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args [:formula, :cask], max: 1
       end
       expect { parser.parse(%w[foo bar]) }.to raise_error(
@@ -583,14 +581,14 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "accepts commands with :command" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args :command
       end
       expect { parser.parse(["--prefix", "--version"]) }.not_to raise_error
     end
 
     it "doesn't accept invalid options with :command" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         named_args :command
       end
       expect { parser.parse(["--not-a-command"]) }.to raise_error(OptionParser::InvalidOption, /--not-a-command/)
@@ -599,7 +597,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "subcommands" do
     def subcommand_parser
-      klass.new(Cmd) do
+      Homebrew::CLI::Parser.new(Cmd) do
         usage_banner "`test` [<subcommand>]"
         description "Test command."
         switch "--global"
@@ -688,7 +686,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     it "rejects multiple positional names when defining a subcommand" do
       expect do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           subcommand "install", "upgrade"
         end
       end.to raise_error(ArgumentError, /wrong number of arguments/)
@@ -713,7 +711,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     it "accepts global options re-declared inside a subcommand on every subcommand", :aggregate_failures do
       parser = lambda do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           subcommand "install", default: true do
             switch "-v", "--verbose", description: "Print output from commands as they are run."
             named_args :none
@@ -732,7 +730,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     it "applies option constraints only for the matching subcommand", :aggregate_failures do
       parser = lambda do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           subcommand "install", default: true do
             switch "--cleanup"
             switch "--zap", depends_on: "--cleanup"
@@ -760,7 +758,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "applies implied options from subcommand aliases", :aggregate_failures do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         subcommand "install", alias_options: { "upgrade" => "--upgrade" } do
           switch "--upgrade"
           switch "--force"
@@ -792,7 +790,7 @@ RSpec.describe Homebrew::CLI::Parser do
   describe "--cask on linux", :needs_linux do
     context "without --formula switch" do
       subject(:parser) do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           switch "--cask"
         end
       end
@@ -808,7 +806,7 @@ RSpec.describe Homebrew::CLI::Parser do
 
     context "with conflicting --formula switch" do
       subject(:parser) do
-        klass.new(Cmd) do
+        described_class.new(Cmd) do
           switch "--cask"
           switch "--formula"
           conflicts "--cask", "--formula"
@@ -824,13 +822,13 @@ RSpec.describe Homebrew::CLI::Parser do
 
   describe "--formula on linux", :needs_linux do
     it "doesn't set --formula when not defined" do
-      parser = klass.new(Cmd)
+      parser = described_class.new(Cmd)
       args = parser.parse([])
       expect(args.respond_to?(:formula?)).to be(false)
     end
 
     it "doesn't set --formula when defined" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         switch "--formula"
       end
       args = parser.parse([])
@@ -838,7 +836,7 @@ RSpec.describe Homebrew::CLI::Parser do
     end
 
     it "does not set --formula to true when --cask" do
-      parser = klass.new(Cmd) do
+      parser = described_class.new(Cmd) do
         switch "--cask"
       end
       args = parser.parse([])

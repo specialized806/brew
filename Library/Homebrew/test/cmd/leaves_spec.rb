@@ -5,8 +5,6 @@ require "cmd/leaves"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Leaves do
-  let(:klass) { Homebrew::Cmd::Leaves }
-
   it_behaves_like "parseable arguments"
 
   context "when there are no installed Formulae" do
@@ -14,7 +12,7 @@ RSpec.describe Homebrew::Cmd::Leaves do
       allow(Formula).to receive(:installed).and_return([])
       allow(Cask::Caskroom).to receive(:casks).and_return([])
 
-      expect { klass.new([]).run }
+      expect { described_class.new([]).run }
         .to not_to_output.to_stdout
         .and not_to_output.to_stderr
     end
@@ -33,7 +31,7 @@ RSpec.describe Homebrew::Cmd::Leaves do
       ])
       allow(Cask::Caskroom).to receive(:casks).and_return([])
 
-      expect { klass.new([]).run }
+      expect { described_class.new([]).run }
         .to output("foo\n").to_stdout
         .and not_to_output.to_stderr
     end
@@ -77,7 +75,7 @@ RSpec.describe Homebrew::Cmd::Leaves do
       ])
       allow(Cask::Caskroom).to receive(:casks).and_return([])
 
-      expect { klass.new([]).run }
+      expect { described_class.new([]).run }
         .to output("bar\n").to_stdout
         .and not_to_output.to_stderr
     end

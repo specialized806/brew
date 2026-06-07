@@ -54,7 +54,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
 
     it "retrieves the specified version of formula" do
       path = target[:path]/"Formula/testball@0.1.rb"
-      expect { Homebrew::DevCmd::Extract.new(["testball", target[:name], "--version=0.1"]).run }
+      expect { described_class.new(["testball", target[:name], "--version=0.1"]).run }
         .to output(/^#{path}$/).to_stdout
       expect(path).to exist
       expect(Formulary.factory(path).version).to eq "0.1"
@@ -62,7 +62,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
 
     it "retrieves the compatible version of formula" do
       path = target[:path]/"Formula/testball@0.rb"
-      expect { Homebrew::DevCmd::Extract.new(["testball", target[:name], "--version=0"]).run }
+      expect { described_class.new(["testball", target[:name], "--version=0"]).run }
         .to output(/^#{path}$/).to_stdout
       expect(path).to exist
       expect(Formulary.factory(path).version).to eq "0.2"

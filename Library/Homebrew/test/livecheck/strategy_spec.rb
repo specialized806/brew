@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy do
-  subject(:strategy) { klass }
+  subject(:strategy) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy }
   let(:url) { "https://brew.sh/" }
   let(:redirection_url) { "https://brew.sh/redirection" }
   let(:post_hash) do

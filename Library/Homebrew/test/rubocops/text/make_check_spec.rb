@@ -4,9 +4,8 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAuditStrict::MakeCheck do
-  subject(:cop) { klass.new }
+  subject(:cop) { described_class.new }
 
-  let(:klass) { RuboCop::Cop::FormulaAuditStrict::MakeCheck }
   let(:path) { HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-core" }
 
   before do

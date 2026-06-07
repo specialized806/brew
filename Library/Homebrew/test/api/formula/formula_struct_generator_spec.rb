@@ -4,8 +4,6 @@
 require "api"
 
 RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
-  let(:klass) { Homebrew::API::Formula::FormulaStructGenerator }
-
   let(:raw_dependency_hash) do
     {
       "dependencies"           => [
@@ -101,27 +99,39 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
 
   specify "::process_dependencies_and_requirements", :aggregate_failures do
     expect(
-      klass.process_dependencies_and_requirements(raw_dependency_hash, requirements_array, :stable),
+      described_class.process_dependencies_and_requirements(
+        raw_dependency_hash, requirements_array, :stable
+      ),
     ).to eq [dependency_args + stable_requirements_args, uses_from_macos_args]
 
     expect(
-      klass.process_dependencies_and_requirements(raw_dependency_hash, requirements_array, :head),
+      described_class.process_dependencies_and_requirements(
+        raw_dependency_hash, requirements_array, :head
+      ),
     ).to eq [dependency_args + head_requirements_args, uses_from_macos_args]
 
     expect(
-      klass.process_dependencies_and_requirements(raw_dependency_hash, nil, :head),
+      described_class.process_dependencies_and_requirements(
+        raw_dependency_hash, nil, :head
+      ),
     ).to eq [dependency_args, uses_from_macos_args]
 
     expect(
-      klass.process_dependencies_and_requirements(nil, requirements_array, :stable),
+      described_class.process_dependencies_and_requirements(
+        nil, requirements_array, :stable
+      ),
     ).to eq [stable_requirements_args, []]
 
     expect(
-      klass.process_dependencies_and_requirements(nil, requirements_array, :head),
+      described_class.process_dependencies_and_requirements(
+        nil, requirements_array, :head
+      ),
     ).to eq [head_requirements_args, []]
 
     expect(
-      klass.process_dependencies_and_requirements(nil, nil, :stable),
+      described_class.process_dependencies_and_requirements(
+        nil, nil, :stable
+      ),
     ).to eq [[], []]
   end
 
@@ -140,7 +150,7 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       "uses_from_macos_bounds"   => [],
     }
 
-    struct = klass.generate_formula_struct_hash(hash)
+    struct = described_class.generate_formula_struct_hash(hash)
 
     expect(struct.head_dependencies).not_to be_empty
     expect(struct.head_dependencies).to eq struct.stable_dependencies
@@ -163,21 +173,21 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       ],
     }
 
-    expect(klass.generate_formula_struct_hash(hash).stable_patches).to eq hash["patches"]
+    expect(described_class.generate_formula_struct_hash(hash).stable_patches).to eq hash["patches"]
   end
 
   specify "::symbolize_dependency_hash" do
-    output = klass.symbolize_dependency_hash(raw_dependency_hash)
+    output = described_class.symbolize_dependency_hash(raw_dependency_hash)
     expect(output).to eq symbolized_dependency_hash
   end
 
   specify "::process_dependencies" do
-    output = klass.process_dependencies(symbolized_dependency_hash)
+    output = described_class.process_dependencies(symbolized_dependency_hash)
     expect(output).to eq dependency_args
   end
 
   specify "::process_uses_from_macos" do
-    output = klass.process_uses_from_macos(symbolized_dependency_hash)
+    output = described_class.process_uses_from_macos(symbolized_dependency_hash)
     expect(output).to eq uses_from_macos_args
   end
 end

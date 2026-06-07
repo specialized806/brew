@@ -4,9 +4,7 @@
 require "rubocops/lines"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::OptionDeclarations do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::OptionDeclarations }
+  subject(:cop) { described_class.new }
 
   context "when auditing options" do
     it "reports an offense when `build.without?` is used in homebrew/core" do

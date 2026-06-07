@@ -5,9 +5,7 @@ require "diagnostic"
 require "sandbox"
 
 RSpec.describe Homebrew::Diagnostic::Checks do
-  subject(:checks) { klass.new }
-
-  let(:klass) { Homebrew::Diagnostic::Checks }
+  subject(:checks) { described_class.new }
 
   before do
     allow(OS::Linux).to receive(:inside_docker?).and_return(false)

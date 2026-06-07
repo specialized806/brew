@@ -5,7 +5,7 @@ require "utils/ast"
 
 RSpec.describe Utils::AST::CaskAST do
   subject(:cask_ast) do
-    klass.new <<~RUBY
+    described_class.new <<~RUBY
       cask "foo" do
         version "1.0"
         sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -20,8 +20,6 @@ RSpec.describe Utils::AST::CaskAST do
       end
     RUBY
   end
-
-  let(:klass) { Utils::AST::CaskAST }
 
   describe "#replace_first_stanza_value" do
     it "replaces the first matching stanza argument" do
@@ -56,7 +54,7 @@ RSpec.describe Utils::AST::CaskAST do
     end
 
     it "replaces matching hash argument values" do
-      cask_ast = klass.new <<~RUBY
+      cask_ast = described_class.new <<~RUBY
         cask "foo" do
           version "1.0"
           sha256 arm:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -82,7 +80,7 @@ RSpec.describe Utils::AST::CaskAST do
 
   describe "#depends_on_macos?" do
     it "detects casks with a macOS dependency" do
-      cask_ast = klass.new <<~RUBY
+      cask_ast = described_class.new <<~RUBY
         cask "foo" do
           version "1.0"
           sha256 :no_check

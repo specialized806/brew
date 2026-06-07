@@ -4,9 +4,8 @@
 require "test_bot"
 
 RSpec.describe Homebrew::TestBot::Step do
-  subject(:step) { klass.new(command, env:, verbose:) }
+  subject(:step) { described_class.new(command, env:, verbose:) }
 
-  let(:klass) { Homebrew::TestBot::Step }
   let(:command) { ["brew", "config"] }
   let(:env) { {} }
   let(:verbose) { false }

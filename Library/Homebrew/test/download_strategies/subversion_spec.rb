@@ -5,9 +5,8 @@ require "download_strategy"
 require "utils/svn"
 
 RSpec.describe SubversionDownloadStrategy do
-  subject(:strategy) { klass.new(url, name, version, **specs) }
+  subject(:strategy) { described_class.new(url, name, version, **specs) }
 
-  let(:klass) { SubversionDownloadStrategy }
   let(:name) { "foo" }
   let(:url) { "https://example.com/foo.tar.gz" }
   let(:version) { "1.2.3" }

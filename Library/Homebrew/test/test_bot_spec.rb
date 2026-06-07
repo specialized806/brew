@@ -4,9 +4,6 @@
 require "dev-cmd/test-bot"
 
 RSpec.describe Homebrew::TestBot do
-  sig { returns(T.class_of(Homebrew::TestBot)) }
-  let(:klass) { Homebrew::TestBot }
-
   describe "::run!" do
     it "trusts a third-party tap before running test-bot" do
       tap = Tap.fetch("thirdparty", "foo")
@@ -26,13 +23,13 @@ RSpec.describe Homebrew::TestBot do
                                       only_formulae_detect?: false,
                                       only_bottles_fetch?:   false,
                                       only_cleanup_after?:   false)
-      allow(klass).to receive(:setup_github_actions_sandbox!)
+      allow(described_class).to receive(:setup_github_actions_sandbox!)
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
 
       mktmpdir do |workdir|
         with_env(HOMEBREW_USER_CONFIG_HOME: "#{workdir}/.homebrew") do
-          expect { klass.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
+          expect { described_class.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
           expect(Homebrew::Trust.trusted?(:tap, "thirdparty/foo")).to be(true)
         end
       end
@@ -59,7 +56,7 @@ RSpec.describe Homebrew::TestBot do
                                       only_formulae_detect?: false,
                                       only_bottles_fetch?:   false,
                                       only_cleanup_after?:   false)
-      allow(klass).to receive(:setup_github_actions_sandbox!)
+      allow(described_class).to receive(:setup_github_actions_sandbox!)
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
 
@@ -70,7 +67,7 @@ RSpec.describe Homebrew::TestBot do
             HOME:                      "#{workdir}/original",
             XDG_CONFIG_HOME:           "#{workdir}/xdg",
           ) do
-            expect { klass.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
+            expect { described_class.run!(args) }.to output(%r{==> Trusted tap: thirdparty/foo}).to_stdout
 
             trust_file = workdir/"home/.homebrew/trust.json"
             expect(trust_file).to exist
@@ -84,11 +81,11 @@ RSpec.describe Homebrew::TestBot do
     end
 
     it "does not set up the sandbox for only runs without sandboxed code" do
-      allow(klass).to receive(:local?).and_return(false)
+      allow(described_class).to receive(:local?).and_return(false)
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
 
-      expect(klass).not_to receive(:setup_github_actions_sandbox!)
+      expect(described_class).not_to receive(:setup_github_actions_sandbox!)
 
       [
         :only_cleanup_before?,
@@ -113,16 +110,16 @@ RSpec.describe Homebrew::TestBot do
                                         only_cleanup_after?:   false,
                                         only_arg => true)
 
-        klass.run!(args)
+        described_class.run!(args)
       end
     end
 
     it "sets up the sandbox for formulae runs" do
-      allow(klass).to receive(:local?).and_return(false)
+      allow(described_class).to receive(:local?).and_return(false)
       allow(Utils).to receive(:safe_popen_read).and_return("revision")
       allow(Homebrew::TestBot::TestRunner).to receive(:run!).and_return(true)
 
-      expect(klass).to receive(:setup_github_actions_sandbox!).exactly(3).times
+      expect(described_class).to receive(:setup_github_actions_sandbox!).exactly(3).times
 
       [:only_setup?, :only_formulae?, :only_formulae_dependents?].each do |only_arg|
         args = double(
@@ -142,7 +139,7 @@ RSpec.describe Homebrew::TestBot do
                                         only_bottles_fetch?:       false,
                                         only_cleanup_after?:       false)
 
-        klass.run!(args)
+        described_class.run!(args)
       end
     end
   end
@@ -159,39 +156,39 @@ RSpec.describe Homebrew::TestBot do
 
     it "enables the Linux sandbox for GitHub Actions developers" do
       allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_call_original
-      expect(klass).to receive(:configure_sandbox!).and_return(true)
+      expect(described_class).to receive(:configure_sandbox!).and_return(true)
 
       with_env(HOMEBREW_DEVELOPER: "1", HOMEBREW_SANDBOX_LINUX: nil) do
-        klass.setup_github_actions_sandbox!
+        described_class.setup_github_actions_sandbox!
       end
     end
 
     it "configures the Linux sandbox for GitHub Actions" do
-      expect(klass).to receive(:configure_sandbox!).and_return(true)
+      expect(described_class).to receive(:configure_sandbox!).and_return(true)
 
-      klass.setup_github_actions_sandbox!
+      described_class.setup_github_actions_sandbox!
     end
 
     it "disables the Linux sandbox if GitHub Actions cannot configure it" do
-      allow(klass).to receive(:configure_sandbox!).and_return(false)
+      allow(described_class).to receive(:configure_sandbox!).and_return(false)
 
-      klass.setup_github_actions_sandbox!
+      described_class.setup_github_actions_sandbox!
 
       expect(ENV.fetch("HOMEBREW_NO_SANDBOX_LINUX")).to eq("1")
     end
 
     it "does nothing outside GitHub Actions" do
       allow(GitHub::Actions).to receive(:env_set?).and_return(false)
-      expect(klass).not_to receive(:configure_sandbox!)
+      expect(described_class).not_to receive(:configure_sandbox!)
 
-      klass.setup_github_actions_sandbox!
+      described_class.setup_github_actions_sandbox!
     end
 
     it "does nothing when the Linux sandbox is disabled" do
       allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
-      expect(klass).not_to receive(:configure_sandbox!)
+      expect(described_class).not_to receive(:configure_sandbox!)
 
-      klass.setup_github_actions_sandbox!
+      described_class.setup_github_actions_sandbox!
     end
   end
 end

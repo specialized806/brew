@@ -4,9 +4,7 @@
 require "head_software_spec"
 
 RSpec.describe HeadSoftwareSpec do
-  subject(:head_spec) { klass.new }
-
-  let(:klass) { HeadSoftwareSpec }
+  subject(:head_spec) { described_class.new }
 
   specify "#version" do
     expect(head_spec.version).to eq(Version.new("HEAD"))

@@ -4,7 +4,6 @@
 require "cli/named_args"
 
 RSpec.describe Homebrew::CLI::NamedArgs do
-  let(:klass) { Homebrew::CLI::NamedArgs }
   let(:foo) do
     formula "foo" do
       T.bind(self, T.class_of(Formula))
@@ -52,15 +51,15 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       stub_formula_loader foo, call_original: true
       stub_formula_loader bar
 
-      expect(klass.new("foo", "bar").to_formulae).to eq [foo, bar]
+      expect(described_class.new("foo", "bar").to_formulae).to eq [foo, bar]
     end
 
     it "raises an error when a Formula is unavailable" do
-      expect { klass.new("mxcl").to_formulae }.to raise_error FormulaUnavailableError
+      expect { described_class.new("mxcl").to_formulae }.to raise_error FormulaUnavailableError
     end
 
     it "returns an empty array when there are no Formulae" do
-      expect(klass.new.to_formulae).to be_empty
+      expect(described_class.new.to_formulae).to be_empty
     end
   end
 
@@ -69,7 +68,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       stub_formula_loader foo, call_original: true
       stub_cask_loader baz, call_original: true
 
-      expect(klass.new("foo", "baz").to_formulae_and_casks).to eq [foo, baz]
+      expect(described_class.new("foo", "baz").to_formulae_and_casks).to eq [foo, baz]
     end
 
     context "when both formula and cask are present" do
@@ -79,15 +78,15 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       end
 
       it "returns formula by default" do
-        expect(klass.new("foo").to_formulae_and_casks).to eq [foo]
+        expect(described_class.new("foo").to_formulae_and_casks).to eq [foo]
       end
 
       it "returns formula if loading formula only" do
-        expect(klass.new("foo").to_formulae_and_casks(only: :formula)).to eq [foo]
+        expect(described_class.new("foo").to_formulae_and_casks(only: :formula)).to eq [foo]
       end
 
       it "returns cask if loading cask only" do
-        expect(klass.new("foo").to_formulae_and_casks(only: :cask)).to eq [foo_cask]
+        expect(described_class.new("foo").to_formulae_and_casks(only: :cask)).to eq [foo_cask]
       end
     end
 
@@ -106,15 +105,15 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       end
 
       it "returns the cask by default" do
-        expect(klass.new("foo").to_formulae_and_casks).to eq [foo_cask]
+        expect(described_class.new("foo").to_formulae_and_casks).to eq [foo_cask]
       end
 
       it "returns formula if loading formula only" do
-        expect(klass.new("foo").to_formulae_and_casks(only: :formula)).to eq [non_core_formula]
+        expect(described_class.new("foo").to_formulae_and_casks(only: :formula)).to eq [non_core_formula]
       end
 
       it "returns cask if loading cask only" do
-        expect(klass.new("foo").to_formulae_and_casks(only: :cask)).to eq [foo_cask]
+        expect(described_class.new("foo").to_formulae_and_casks(only: :cask)).to eq [foo_cask]
       end
     end
 
@@ -125,50 +124,56 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       end
 
       it "raises an error" do
-        expect { klass.new("foo").to_formulae_and_casks }.to raise_error(FormulaUnreadableError)
+        expect { described_class.new("foo").to_formulae_and_casks }.to raise_error(FormulaUnreadableError)
       end
 
       it "raises an error if loading formula only" do
-        expect { klass.new("foo").to_formulae_and_casks(only: :formula) }
+        expect { described_class.new("foo").to_formulae_and_casks(only: :formula) }
           .to raise_error(FormulaUnreadableError)
       end
 
       it "raises an error if loading cask only" do
-        expect { klass.new("foo").to_formulae_and_casks(only: :cask) }
+        expect { described_class.new("foo").to_formulae_and_casks(only: :cask) }
           .to raise_error(Cask::CaskUnreadableError)
       end
     end
 
     it "raises an error when neither formula nor cask is present" do
-      expect { klass.new("foo").to_formulae_and_casks }.to raise_error(FormulaOrCaskUnavailableError)
+      expect do
+        described_class.new("foo").to_formulae_and_casks
+      end.to raise_error(FormulaOrCaskUnavailableError)
     end
 
     it "returns formula when formula is present and cask is unreadable", :needs_macos do
       stub_formula_loader foo
       setup_unredable_cask "foo"
 
-      expect(klass.new("foo").to_formulae_and_casks).to eq [foo]
-      expect { klass.new("foo").to_formulae_and_casks }.to output(/Failed to load cask: foo/).to_stderr
+      expect(described_class.new("foo").to_formulae_and_casks).to eq [foo]
+      expect do
+        described_class.new("foo").to_formulae_and_casks
+      end.to output(/Failed to load cask: foo/).to_stderr
     end
 
     it "returns cask when formula is unreadable and cask is present", :needs_macos do
       setup_unredable_formula "foo"
       stub_cask_loader foo_cask
 
-      expect(klass.new("foo").to_formulae_and_casks).to eq [foo_cask]
-      expect { klass.new("foo").to_formulae_and_casks }.to output(/Failed to load formula: foo/).to_stderr
+      expect(described_class.new("foo").to_formulae_and_casks).to eq [foo_cask]
+      expect do
+        described_class.new("foo").to_formulae_and_casks
+      end.to output(/Failed to load formula: foo/).to_stderr
     end
 
     it "raises an error when formula is absent and cask is unreadable", :needs_macos do
       setup_unredable_cask "foo"
 
-      expect { klass.new("foo").to_formulae_and_casks }.to raise_error(Cask::CaskUnreadableError)
+      expect { described_class.new("foo").to_formulae_and_casks }.to raise_error(Cask::CaskUnreadableError)
     end
 
     it "raises an error when formula is unreadable and cask is absent" do
       setup_unredable_formula "foo"
 
-      expect { klass.new("foo").to_formulae_and_casks }.to raise_error(FormulaUnreadableError)
+      expect { described_class.new("foo").to_formulae_and_casks }.to raise_error(FormulaUnreadableError)
     end
   end
 
@@ -176,7 +181,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     it "returns resolved formulae" do
       allow(Formulary).to receive(:resolve).and_return(foo, bar)
 
-      expect(klass.new("foo", "bar").to_resolved_formulae).to eq [foo, bar]
+      expect(described_class.new("foo", "bar").to_resolved_formulae).to eq [foo, bar]
     end
   end
 
@@ -186,7 +191,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       allow(Formulary).to receive(:resolve).with("foo", any_args).and_return foo
       stub_cask_loader baz, call_original: true
 
-      resolved_formulae, casks = klass.new("foo", "baz").to_resolved_formulae_to_casks
+      resolved_formulae, casks = described_class.new("foo", "baz").to_resolved_formulae_to_casks
 
       expect(resolved_formulae).to eq [foo]
       expect(casks).to eq [baz]
@@ -197,7 +202,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     it "returns casks" do
       stub_cask_loader baz
 
-      expect(klass.new("baz").to_casks).to eq [baz]
+      expect(described_class.new("baz").to_casks).to eq [baz]
     end
   end
 
@@ -209,16 +214,16 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     end
 
     it "resolves kegs with #resolve_kegs" do
-      expect(klass.new("foo", "bar").to_kegs.map(&:name)).to eq ["foo", "foo", "bar"]
+      expect(described_class.new("foo", "bar").to_kegs.map(&:name)).to eq ["foo", "foo", "bar"]
     end
 
     specify do
-      expect(klass.new("foo").to_kegs.map { |k| k.version.version.to_s }.sort).to eq ["1.0", "2.0"]
-      expect(klass.new.to_kegs).to be_empty
+      expect(described_class.new("foo").to_kegs.map { |k| k.version.version.to_s }.sort).to eq ["1.0", "2.0"]
+      expect(described_class.new.to_kegs).to be_empty
     end
 
     it "raises an error when a Keg is unavailable" do
-      expect { klass.new("baz").to_kegs }.to raise_error NoSuchKegError
+      expect { described_class.new("baz").to_kegs }.to raise_error NoSuchKegError
     end
 
     context "when a keg specifies a tap" do
@@ -231,19 +236,21 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       it "returns kegs if no tap is specified" do
         stub_formula_loader bar, "user/repo/bar"
 
-        expect(klass.new("bar").to_kegs.map(&:name)).to eq ["bar"]
+        expect(described_class.new("bar").to_kegs.map(&:name)).to eq ["bar"]
       end
 
       it "returns kegs if the tap is specified" do
         stub_formula_loader bar, "user/repo/bar"
 
-        expect(klass.new("user/repo/bar").to_kegs.map(&:name)).to eq ["bar"]
+        expect(described_class.new("user/repo/bar").to_kegs.map(&:name)).to eq ["bar"]
       end
 
       it "raises an error if there is no tap match" do
         stub_formula_loader bar, "other/tap/bar"
 
-        expect { klass.new("other/tap/bar").to_kegs }.to raise_error(NoSuchKegError, %r{from tap other/tap})
+        expect do
+          described_class.new("other/tap/bar").to_kegs
+        end.to raise_error(NoSuchKegError, %r{from tap other/tap})
       end
     end
   end
@@ -258,15 +265,15 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     end
 
     it "resolves kegs with #resolve_default_keg" do
-      expect(klass.new("foo", "bar").to_default_kegs.map(&:name)).to eq ["foo", "bar"]
+      expect(described_class.new("foo", "bar").to_default_kegs.map(&:name)).to eq ["foo", "bar"]
     end
 
     it "resolves the default keg" do
-      expect(klass.new("foo").to_default_kegs.map { |k| k.version.version.to_s }).to eq ["2.0"]
+      expect(described_class.new("foo").to_default_kegs.map { |k| k.version.version.to_s }).to eq ["2.0"]
     end
 
     it "when there are no matching kegs returns an empty array" do
-      expect(klass.new.to_default_kegs).to be_empty
+      expect(described_class.new.to_default_kegs).to be_empty
     end
   end
 
@@ -282,13 +289,13 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     end
 
     it "resolves the latest kegs with #resolve_latest_keg" do
-      latest_kegs = klass.new("foo", "bar", "baz").to_latest_kegs
+      latest_kegs = described_class.new("foo", "bar", "baz").to_latest_kegs
       expect(latest_kegs.map(&:name)).to eq ["foo", "bar", "baz"]
       expect(latest_kegs.map { |k| k.version.version.to_s }).to eq ["2.0", "1.0", "HEAD-2"]
     end
 
     it "when there are no matching kegs returns an empty array" do
-      expect(klass.new.to_latest_kegs).to be_empty
+      expect(described_class.new.to_latest_kegs).to be_empty
     end
   end
 
@@ -300,7 +307,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     it "returns kegs, as well as casks", :needs_macos do
       stub_cask_loader baz, call_original: true
 
-      kegs, casks = klass.new("foo", "baz").to_kegs_to_casks
+      kegs, casks = described_class.new("foo", "baz").to_kegs_to_casks
 
       expect(kegs.map(&:name)).to eq ["foo"]
       expect(casks).to eq [baz]
@@ -309,9 +316,9 @@ RSpec.describe Homebrew::CLI::NamedArgs do
 
   describe "#homebrew_tap_cask_names" do
     specify do
-      expect(klass.new("foo", "homebrew/cask/local-caffeine").homebrew_tap_cask_names)
+      expect(described_class.new("foo", "homebrew/cask/local-caffeine").homebrew_tap_cask_names)
         .to eq ["homebrew/cask/local-caffeine"]
-      expect(klass.new("foo").homebrew_tap_cask_names).to be_empty
+      expect(described_class.new("foo").homebrew_tap_cask_names).to be_empty
     end
   end
 
@@ -332,7 +339,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       expect(Formulary).to receive(:path).with("foo").and_return(formula_path)
       expect(Cask::CaskLoader).to receive(:path).with("baz").and_return(cask_path)
 
-      expect(klass.new("homebrew/core", "foo", "baz", existing_path.to_s).to_paths)
+      expect(described_class.new("homebrew/core", "foo", "baz", existing_path.to_s).to_paths)
         .to eq [Tap.fetch("homebrew/core").path, formula_path, cask_path, existing_path]
     end
 
@@ -340,19 +347,20 @@ RSpec.describe Homebrew::CLI::NamedArgs do
       expect(Formulary).to receive(:path).with("foo").and_return(formula_path)
       expect(Cask::CaskLoader).to receive(:path).with("baz").and_return(cask_path)
 
-      expect(klass.new("foo", "baz").to_paths).to eq [formula_path, cask_path]
+      expect(described_class.new("foo", "baz").to_paths).to eq [formula_path, cask_path]
     end
 
     it "returns only formulae when `only: :formula` is specified" do
       expect(Formulary).to receive(:path).with("foo").and_return(formula_path)
 
-      expect(klass.new("foo", "baz").to_paths(only: :formula)).to eq [formula_path, Formulary.path("baz")]
+      expect(described_class.new("foo",
+                                 "baz").to_paths(only: :formula)).to eq [formula_path, Formulary.path("baz")]
     end
 
     it "returns only casks when `only: :cask` is specified" do
       expect(Cask::CaskLoader).to receive(:path).with("foo").and_return(cask_path)
 
-      expect(klass.new("foo", "baz").to_paths(only: :cask)).to eq [cask_path, Cask::CaskLoader.path("baz")]
+      expect(described_class.new("foo", "baz").to_paths(only: :cask)).to eq [cask_path, Cask::CaskLoader.path("baz")]
     end
 
     context "when without_api: true" do
@@ -363,7 +371,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
         allow(Homebrew::API).to receive(:formula_names).and_return(["foo"])
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return("foo" => {})
 
-        named_args = klass.new("foo", without_api: true)
+        named_args = described_class.new("foo", without_api: true)
         paths = named_args.to_paths
 
         # to_paths returns a bare expanded path (not the core formula path) because
@@ -377,12 +385,12 @@ RSpec.describe Homebrew::CLI::NamedArgs do
 
   describe "#to_taps" do
     it "returns taps" do
-      taps = klass.new("homebrew/foo", "bar/baz")
+      taps = described_class.new("homebrew/foo", "bar/baz")
       expect(taps.to_taps.map(&:name)).to eq %w[homebrew/foo bar/baz]
     end
 
     it "raises an error for invalid tap" do
-      taps = klass.new("homebrew/foo", "barbaz")
+      taps = described_class.new("homebrew/foo", "barbaz")
       expect { taps.to_taps }.to raise_error(Tap::InvalidNameError, /Invalid tap name/)
     end
   end
@@ -393,17 +401,17 @@ RSpec.describe Homebrew::CLI::NamedArgs do
     end
 
     it "returns installed taps" do
-      taps = klass.new("homebrew/foo")
+      taps = described_class.new("homebrew/foo")
       expect(taps.to_installed_taps.map(&:name)).to eq %w[homebrew/foo]
     end
 
     it "raises an error for uninstalled tap" do
-      taps = klass.new("homebrew/foo", "bar/baz")
+      taps = described_class.new("homebrew/foo", "bar/baz")
       expect { taps.to_installed_taps }.to raise_error(TapUnavailableError)
     end
 
     it "raises an error for invalid tap" do
-      taps = klass.new("homebrew/foo", "barbaz")
+      taps = described_class.new("homebrew/foo", "barbaz")
       expect { taps.to_installed_taps }.to raise_error(Tap::InvalidNameError, /Invalid tap name/)
     end
   end

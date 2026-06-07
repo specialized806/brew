@@ -6,13 +6,11 @@ require "bundle/dsl"
 require "bundle/extensions/flatpak"
 
 RSpec.describe Homebrew::Bundle::Flatpak do
-  let(:klass) { Homebrew::Bundle::Flatpak }
-
   describe "checking" do
-    subject(:checker) { klass.new }
+    subject(:checker) { described_class.new }
 
     before do
-      allow(klass).to receive(:package_installed?).and_return(false)
+      allow(described_class).to receive(:package_installed?).and_return(false)
     end
 
     describe "#installed_and_up_to_date?", :needs_linux do
@@ -21,13 +19,13 @@ RSpec.describe Homebrew::Bundle::Flatpak do
       end
 
       it "returns true when package is installed" do
-        allow(klass).to receive(:package_installed?).and_return(true)
+        allow(described_class).to receive(:package_installed?).and_return(true)
         expect(checker.installed_and_up_to_date?("org.gnome.Calculator")).to be(true)
       end
 
       describe "3-tier remote handling" do
         it "checks Tier 1 package with default remote (flathub)" do
-          allow(klass).to receive(:package_installed?)
+          allow(described_class).to receive(:package_installed?)
             .with("org.gnome.Calculator", remote: "flathub")
             .and_return(true)
 
@@ -38,7 +36,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
         end
 
         it "checks Tier 1 package with named remote" do
-          allow(klass).to receive(:package_installed?)
+          allow(described_class).to receive(:package_installed?)
             .with("org.gnome.Calculator", remote: "fedora")
             .and_return(true)
 
@@ -49,7 +47,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
         end
 
         it "checks Tier 2 package with URL remote (resolves to single-app remote)" do
-          allow(klass).to receive(:package_installed?)
+          allow(described_class).to receive(:package_installed?)
             .with("org.godotengine.Godot", remote: "org.godotengine.Godot-origin")
             .and_return(true)
 
@@ -60,7 +58,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
         end
 
         it "checks Tier 2 package with .flatpakref by name only" do
-          allow(klass).to receive(:package_installed?)
+          allow(described_class).to receive(:package_installed?)
             .with("org.example.App")
             .and_return(true)
 
@@ -71,7 +69,7 @@ RSpec.describe Homebrew::Bundle::Flatpak do
         end
 
         it "checks Tier 3 package with URL and remote name" do
-          allow(klass).to receive(:package_installed?)
+          allow(described_class).to receive(:package_installed?)
             .with("org.godotengine.Godot", remote: "flathub-beta")
             .and_return(true)
 
@@ -98,18 +96,18 @@ RSpec.describe Homebrew::Bundle::Flatpak do
 
     context "when on macOS", :needs_macos do
       it "flatpak is not available" do
-        expect(klass.package_manager_installed?).to be(false)
+        expect(described_class.package_manager_installed?).to be(false)
       end
     end
   end
 
   describe "dumping" do
-    subject(:dumper) { klass }
+    subject(:dumper) { described_class }
 
     context "when flatpak is not installed" do
       before do
-        klass.reset!
-        allow(klass).to receive(:package_manager_executable).and_return(nil)
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns an empty list and dumps an empty string" do
@@ -120,13 +118,13 @@ RSpec.describe Homebrew::Bundle::Flatpak do
 
     context "when flatpak is installed", :needs_linux do
       before do
-        klass.reset!
-        allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
       end
 
       it "returns remote URLs" do
-        allow(klass).to receive(:`).with("flatpak remote-list --system --columns=name,url 2>/dev/null")
-                                   .and_return("flathub\thttps://dl.flathub.org/repo/\nfedora\thttps://registry.fedoraproject.org/\n")
+        allow(described_class).to receive(:`).with("flatpak remote-list --system --columns=name,url 2>/dev/null")
+                                             .and_return("flathub\thttps://dl.flathub.org/repo/\nfedora\thttps://registry.fedoraproject.org/\n")
         expect(dumper.remote_urls).to eql({
           "flathub" => "https://dl.flathub.org/repo/",
           "fedora"  => "https://registry.fedoraproject.org/",
@@ -134,10 +132,10 @@ RSpec.describe Homebrew::Bundle::Flatpak do
       end
 
       it "returns package list with remotes and URLs" do
-        allow(klass).to receive(:`)
+        allow(described_class).to receive(:`)
           .with("flatpak list --app --columns=application,origin 2>/dev/null")
           .and_return("org.gnome.Calculator\tflathub\ncom.spotify.Client\tflathub\n")
-        allow(klass).to receive(:`)
+        allow(described_class).to receive(:`)
           .with("flatpak remote-list --system --columns=name,url 2>/dev/null")
           .and_return("flathub\thttps://dl.flathub.org/repo/\n")
         expect(dumper.packages_with_remotes).to eql([
@@ -147,10 +145,10 @@ RSpec.describe Homebrew::Bundle::Flatpak do
       end
 
       it "returns package names only" do
-        allow(klass).to receive(:`)
+        allow(described_class).to receive(:`)
           .with("flatpak list --app --columns=application,origin 2>/dev/null")
           .and_return("org.gnome.Calculator\tflathub\ncom.spotify.Client\tflathub\n")
-        allow(klass).to receive(:`)
+        allow(described_class).to receive(:`)
           .with("flatpak remote-list --system --columns=name,url 2>/dev/null")
           .and_return("flathub\thttps://dl.flathub.org/repo/\n")
         expect(dumper.packages).to eql(["com.spotify.Client", "org.gnome.Calculator"])
@@ -220,10 +218,10 @@ RSpec.describe Homebrew::Bundle::Flatpak do
       end
 
       it "handles packages without origin" do
-        allow(klass).to receive(:`).with("flatpak list --app --columns=application,origin 2>/dev/null")
-                                   .and_return("org.gnome.Calculator\n")
-        allow(klass).to receive(:`).with("flatpak remote-list --system --columns=name,url 2>/dev/null")
-                                   .and_return("flathub\thttps://dl.flathub.org/repo/\n")
+        allow(described_class).to receive(:`).with("flatpak list --app --columns=application,origin 2>/dev/null")
+                                             .and_return("org.gnome.Calculator\n")
+        allow(described_class).to receive(:`).with("flatpak remote-list --system --columns=name,url 2>/dev/null")
+                                             .and_return("flathub\thttps://dl.flathub.org/repo/\n")
         expect(dumper.packages_with_remotes).to eql([
           { name: "org.gnome.Calculator", remote: "flathub", remote_url: "https://dl.flathub.org/repo/" },
         ])
@@ -234,37 +232,37 @@ RSpec.describe Homebrew::Bundle::Flatpak do
   describe "installing" do
     context "when Flatpak is not installed", :needs_linux do
       before do
-        klass.reset!
-        allow(klass).to receive(:package_manager_executable).and_return(nil)
+        described_class.reset!
+        allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
       it "returns false without attempting installation" do
         expect(Homebrew::Bundle).not_to receive(:system)
-        expect(klass.preinstall!("org.gnome.Calculator")).to be(false)
-        expect(klass.install!("org.gnome.Calculator")).to be(true)
+        expect(described_class.preinstall!("org.gnome.Calculator")).to be(false)
+        expect(described_class.install!("org.gnome.Calculator")).to be(true)
       end
     end
 
     context "when Flatpak is installed", :needs_linux do
       before do
-        allow(klass).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
       end
 
       context "when package is installed" do
         before do
-          allow(klass).to receive(:installed_packages)
+          allow(described_class).to receive(:installed_packages)
             .and_return([{ name: "org.gnome.Calculator", remote: "flathub" }])
         end
 
         it "skips" do
           expect(Homebrew::Bundle).not_to receive(:system)
-          expect(klass.preinstall!("org.gnome.Calculator")).to be(false)
+          expect(described_class.preinstall!("org.gnome.Calculator")).to be(false)
         end
       end
 
       context "when package is not installed" do
         before do
-          allow(klass).to receive(:installed_packages).and_return([])
+          allow(described_class).to receive(:installed_packages).and_return([])
         end
 
         describe "Tier 1: no URL (flathub default)" do
@@ -273,8 +271,8 @@ RSpec.describe Homebrew::Bundle::Flatpak do
               receive(:system).with("flatpak", "install", "-y", "--system", "flathub", "org.gnome.Calculator",
                                     verbose: false)
                               .and_return(true)
-            expect(klass.preinstall!("org.gnome.Calculator")).to be(true)
-            expect(klass.install!("org.gnome.Calculator")).to be(true)
+            expect(described_class.preinstall!("org.gnome.Calculator")).to be(true)
+            expect(described_class.install!("org.gnome.Calculator")).to be(true)
           end
 
           it "installs package from named remote" do
@@ -282,14 +280,14 @@ RSpec.describe Homebrew::Bundle::Flatpak do
               receive(:system).with("flatpak", "install", "-y", "--system", "fedora", "org.gnome.Calculator",
                                     verbose: false)
                               .and_return(true)
-            expect(klass.preinstall!("org.gnome.Calculator", remote: "fedora")).to be(true)
-            expect(klass.install!("org.gnome.Calculator", remote: "fedora")).to be(true)
+            expect(described_class.preinstall!("org.gnome.Calculator", remote: "fedora")).to be(true)
+            expect(described_class.install!("org.gnome.Calculator", remote: "fedora")).to be(true)
           end
         end
 
         describe "Tier 2: URL only (single-app remote)" do
           it "creates single-app remote with -origin suffix" do
-            allow(klass).to receive(:get_remote_url).and_return(nil)
+            allow(described_class).to receive(:get_remote_url).and_return(nil)
 
             expect(Homebrew::Bundle).to \
               receive(:system).with("flatpak", "remote-add", "--if-not-exists", "--system",
@@ -301,14 +299,14 @@ RSpec.describe Homebrew::Bundle::Flatpak do
                                     "org.godotengine.Godot", verbose: false)
                               .and_return(true)
 
-            expect(klass.preinstall!("org.godotengine.Godot", remote: "https://dl.flathub.org/beta-repo/"))
+            expect(described_class.preinstall!("org.godotengine.Godot", remote: "https://dl.flathub.org/beta-repo/"))
               .to be(true)
-            expect(klass.install!("org.godotengine.Godot", remote: "https://dl.flathub.org/beta-repo/"))
+            expect(described_class.install!("org.godotengine.Godot", remote: "https://dl.flathub.org/beta-repo/"))
               .to be(true)
           end
 
           it "replaces single-app remote when URL changes" do
-            allow(klass).to receive(:get_remote_url)
+            allow(described_class).to receive(:get_remote_url)
               .with(anything, "org.godotengine.Godot-origin")
               .and_return("https://old.url/repo/")
 
@@ -326,27 +324,27 @@ RSpec.describe Homebrew::Bundle::Flatpak do
                                     "org.godotengine.Godot", verbose: false)
                               .and_return(true)
 
-            expect(klass.install!("org.godotengine.Godot", remote: "https://dl.flathub.org/beta-repo/"))
+            expect(described_class.install!("org.godotengine.Godot", remote: "https://dl.flathub.org/beta-repo/"))
               .to be(true)
           end
 
           it "installs from .flatpakref directly" do
-            allow(klass).to receive(:`).with("flatpak list --app --columns=application,origin 2>/dev/null")
-                                       .and_return("org.example.App\texample-origin\n")
+            allow(described_class).to receive(:`).with("flatpak list --app --columns=application,origin 2>/dev/null")
+                                                 .and_return("org.example.App\texample-origin\n")
 
             expect(Homebrew::Bundle).to \
               receive(:system).with("flatpak", "install", "-y", "--system",
                                     "https://example.com/app.flatpakref", verbose: false)
                               .and_return(true)
 
-            expect(klass.install!("org.example.App", remote: "https://example.com/app.flatpakref"))
+            expect(described_class.install!("org.example.App", remote: "https://example.com/app.flatpakref"))
               .to be(true)
           end
         end
 
         describe "Tier 3: URL + name (shared remote)" do
           it "creates named shared remote" do
-            allow(klass).to receive(:get_remote_url).and_return(nil)
+            allow(described_class).to receive(:get_remote_url).and_return(nil)
 
             expect(Homebrew::Bundle).to \
               receive(:system).with("flatpak", "remote-add", "--if-not-exists", "--system", "--no-gpg-verify",
@@ -357,14 +355,14 @@ RSpec.describe Homebrew::Bundle::Flatpak do
                                     "org.godotengine.Godot", verbose: false)
                               .and_return(true)
 
-            expect(klass.install!("org.godotengine.Godot",
-                                  remote: "flathub-beta",
-                                  url:    "https://dl.flathub.org/beta-repo/"))
+            expect(described_class.install!("org.godotengine.Godot",
+                                            remote: "flathub-beta",
+                                            url:    "https://dl.flathub.org/beta-repo/"))
               .to be(true)
           end
 
           it "warns but uses existing remote with different URL" do
-            allow(klass).to receive(:get_remote_url)
+            allow(described_class).to receive(:get_remote_url)
               .with(anything, "flathub-beta")
               .and_return("https://different.url/repo/")
 
@@ -380,14 +378,14 @@ RSpec.describe Homebrew::Bundle::Flatpak do
                                     "org.godotengine.Godot", verbose: false)
                               .and_return(true)
 
-            expect(klass.install!("org.godotengine.Godot",
-                                  remote: "flathub-beta",
-                                  url:    "https://dl.flathub.org/beta-repo/"))
+            expect(described_class.install!("org.godotengine.Godot",
+                                            remote: "flathub-beta",
+                                            url:    "https://dl.flathub.org/beta-repo/"))
               .to be(true)
           end
 
           it "reuses existing shared remote when URL matches" do
-            allow(klass).to receive(:get_remote_url)
+            allow(described_class).to receive(:get_remote_url)
               .with(anything, "flathub-beta")
               .and_return("https://dl.flathub.org/beta-repo/")
 
@@ -400,9 +398,9 @@ RSpec.describe Homebrew::Bundle::Flatpak do
                                     "org.godotengine.Godot", verbose: false)
                               .and_return(true)
 
-            expect(klass.install!("org.godotengine.Godot",
-                                  remote: "flathub-beta",
-                                  url:    "https://dl.flathub.org/beta-repo/"))
+            expect(described_class.install!("org.godotengine.Godot",
+                                            remote: "flathub-beta",
+                                            url:    "https://dl.flathub.org/beta-repo/"))
               .to be(true)
           end
         end
@@ -411,12 +409,12 @@ RSpec.describe Homebrew::Bundle::Flatpak do
 
     describe ".generate_single_app_remote_name" do
       it "generates name with -origin suffix" do
-        expect(klass.generate_single_app_remote_name("org.godotengine.Godot"))
+        expect(described_class.generate_single_app_remote_name("org.godotengine.Godot"))
           .to eq("org.godotengine.Godot-origin")
       end
 
       it "handles various app ID formats" do
-        expect(klass.generate_single_app_remote_name("com.example.App"))
+        expect(described_class.generate_single_app_remote_name("com.example.App"))
           .to eq("com.example.App-origin")
       end
     end

@@ -4,9 +4,8 @@
 require "rubocops/urls"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
-  subject(:cop) { klass.new }
+  subject(:cop) { described_class.new }
 
-  let(:klass) { RuboCop::Cop::FormulaAudit::Urls }
   let(:offense_list) do
     [{
       "url" => "https://ftp.gnu.org/lightning/lightning-2.1.0.tar.gz",

@@ -5,8 +5,6 @@ require "cmd/--prefix"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Prefix do
-  let(:klass) { Homebrew::Cmd::Prefix }
-
   it_behaves_like "parseable arguments"
 
   it "prints Homebrew's prefix", :integration_test do
@@ -17,7 +15,7 @@ RSpec.describe Homebrew::Cmd::Prefix do
   end
 
   it "prints the prefix for a Formula" do
-    cmd = klass.new(["testball"])
+    cmd = described_class.new(["testball"])
     allow(cmd.args.named).to receive(:to_resolved_formulae)
       .and_return([instance_double(Formula, opt_prefix: HOMEBREW_PREFIX/"opt/testball")])
 
@@ -27,7 +25,7 @@ RSpec.describe Homebrew::Cmd::Prefix do
   end
 
   it "errors if the given Formula doesn't exist" do
-    cmd = klass.new(["nonexistent"])
+    cmd = described_class.new(["nonexistent"])
     allow(cmd.args.named).to receive(:to_resolved_formulae)
       .and_raise(FormulaUnavailableError.new("nonexistent"))
 
@@ -35,7 +33,7 @@ RSpec.describe Homebrew::Cmd::Prefix do
   end
 
   it "prints a warning when `--installed` is used and the given Formula is not installed" do
-    cmd = klass.new(["--installed", "testball"])
+    cmd = described_class.new(["--installed", "testball"])
     allow(cmd.args.named).to receive(:to_resolved_formulae).and_return([
       instance_double(Formula, name: "testball", opt_prefix: HOMEBREW_PREFIX/"opt/testball", optlinked?: false),
     ])

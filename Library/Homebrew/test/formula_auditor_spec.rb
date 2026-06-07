@@ -6,7 +6,6 @@ require "git_repository"
 require "securerandom"
 
 RSpec.describe Homebrew::FormulaAuditor do
-  let(:klass) { Homebrew::FormulaAuditor }
   let(:dir) { mktmpdir }
   let(:foo_version) do
     @count ||= 0
@@ -36,7 +35,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       options.delete :tap_audit_exceptions
     end
 
-    klass.new(formula, **options)
+    Homebrew::FormulaAuditor.new(formula, **options)
   end
 
   def formula_gsub(before, after = "")
@@ -1183,7 +1182,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
   describe "#audit_stable_version" do
     subject do
-      fa = klass.new(Formulary.factory(formula_path), git: true)
+      fa = described_class.new(Formulary.factory(formula_path), git: true)
       fa.audit_stable_version
       fa.problems.first&.fetch(:message)
     end
@@ -1243,7 +1242,7 @@ RSpec.describe Homebrew::FormulaAuditor do
 
   describe "#audit_revision dependency relationships" do
     subject do
-      fa = klass.new(Formulary.factory(formula_path), git: true)
+      fa = described_class.new(Formulary.factory(formula_path), git: true)
       fa.audit_revision
       fa.problems.first&.fetch(:message)
     end
@@ -1422,7 +1421,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         name:     "bar",
       )
     end
-    let(:auditor) { klass.new(target_formula, git: true) }
+    let(:auditor) { described_class.new(target_formula, git: true) }
     let(:foo_path) { tap_path/"Formula/f/foo.rb" }
 
     it "resolves sharded formula paths when filtering by names" do
@@ -1475,7 +1474,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         name:     "foo",
       )
     end
-    let(:auditor) { klass.new(target_formula, git: true) }
+    let(:auditor) { described_class.new(target_formula, git: true) }
     let(:formula_versions) { instance_double(FormulaVersions) }
 
     it "walks history from the merge-base with origin/HEAD" do
@@ -1513,7 +1512,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         compatibility_version: current_compatibility_version,
       )
     end
-    let(:auditor) { klass.new(target_formula, git: true) }
+    let(:auditor) { described_class.new(target_formula, git: true) }
     let(:foo_path) { tap_path/"Formula/foo.rb" }
     let(:bar_path) { tap_path/"Formula/bar.rb" }
 
@@ -1668,7 +1667,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         depends_on: dependency_names,
       )
     end
-    let(:auditor) { klass.new(target_formula, git: true) }
+    let(:auditor) { described_class.new(target_formula, git: true) }
     let(:bar_path) { tap_path/"Formula/bar.rb" }
     let(:foo_path) { tap_path/"Formula/foo.rb" }
     let(:current_dependency_compatibility) { 1 }
@@ -1839,7 +1838,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         conflicts_with "bar"
       end
 
-      fa = klass.new foo
+      fa = described_class.new foo
       fa.audit_conflicts
 
       expect(fa.problems.first[:message])
@@ -1854,7 +1853,7 @@ RSpec.describe Homebrew::FormulaAuditor do
       end
       stub_formula_loader foo
 
-      fa = klass.new foo
+      fa = described_class.new foo
       fa.audit_conflicts
 
       expect(fa.problems.first[:message])
@@ -1876,7 +1875,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         conflicts_with "foo"
       end
 
-      fa = klass.new bar
+      fa = described_class.new bar
       fa.audit_conflicts
 
       expect(fa.problems.first[:message])

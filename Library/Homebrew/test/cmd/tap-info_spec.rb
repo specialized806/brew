@@ -5,8 +5,6 @@ require "cmd/shared_examples/args_parse"
 require "cmd/tap-info"
 
 RSpec.describe Homebrew::Cmd::TapInfo do
-  let(:klass) { Homebrew::Cmd::TapInfo }
-
   it_behaves_like "parseable arguments"
 
   it "gets information for a given Tap", :integration_test, :needs_network do
@@ -22,13 +20,13 @@ RSpec.describe Homebrew::Cmd::TapInfo do
     tap = instance_double(Tap, formula_files: [], command_files: [], private?: false)
     allow(Tap).to receive(:installed).and_return([tap])
 
-    expect { klass.new([]).run }
+    expect { described_class.new([]).run }
       .to output(/\d+ taps?, \d+ private/).to_stdout
       .and not_to_output.to_stderr
   end
 
   describe "#decorate_formula" do
-    let(:tap_info) { klass.new([]) }
+    let(:tap_info) { described_class.new([]) }
     let(:tap) { instance_double(Tap, name: "homebrew/foo") }
 
     before do
@@ -70,7 +68,7 @@ RSpec.describe Homebrew::Cmd::TapInfo do
   end
 
   describe "#decorate_cask" do
-    let(:tap_info) { klass.new([]) }
+    let(:tap_info) { described_class.new([]) }
     let(:tap) { instance_double(Tap, name: "homebrew/foo") }
 
     before do
@@ -112,7 +110,7 @@ RSpec.describe Homebrew::Cmd::TapInfo do
   end
 
   describe "#print_tap_listings" do
-    let(:tap_info) { klass.new([]) }
+    let(:tap_info) { described_class.new([]) }
 
     before do
       allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)

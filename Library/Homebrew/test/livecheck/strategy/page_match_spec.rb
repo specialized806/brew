@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::PageMatch do
-  subject(:page_match) { klass }
+  subject(:page_match) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::PageMatch }
   let(:http_url) { "https://brew.sh/blog/" }
   let(:non_http_url) { "ftp://brew.sh/" }
   let(:regex) { %r{href=.*?/homebrew[._-]v?(\d+(?:\.\d+)+)/?["' >]}i }

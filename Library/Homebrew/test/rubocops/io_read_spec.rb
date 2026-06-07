@@ -4,9 +4,7 @@
 require "rubocops/io_read"
 
 RSpec.describe RuboCop::Cop::Homebrew::IORead do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::Homebrew::IORead }
+  subject(:cop) { described_class.new }
 
   it "reports an offense when `IO.read` is used with a pipe character" do
     expect_offense(<<~RUBY)

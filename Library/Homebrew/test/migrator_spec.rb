@@ -7,9 +7,8 @@ require "tab"
 require "keg"
 
 RSpec.describe Migrator do
-  subject(:migrator) { klass.new(new_formula, old_formula.name) }
+  subject(:migrator) { described_class.new(new_formula, old_formula.name) }
 
-  let(:klass) { Migrator }
   let(:new_formula) { Testball.new("newname") }
   let(:old_formula) { Testball.new("oldname") }
   let(:new_keg_record) { HOMEBREW_CELLAR/"newname/0.1" }
@@ -59,7 +58,7 @@ RSpec.describe Migrator do
   describe "::new" do
     it "raises an error if there is no old path" do
       expect do
-        klass.new(new_formula, "oldname")
+        described_class.new(new_formula, "oldname")
       end.to raise_error(Migrator::MigratorNoOldpathError)
     end
 
@@ -72,7 +71,7 @@ RSpec.describe Migrator do
       tab.write
 
       expect do
-        klass.new(new_formula, "oldname")
+        described_class.new(new_formula, "oldname")
       end.to raise_error(Migrator::MigratorDifferentTapsError)
     end
   end
@@ -208,7 +207,7 @@ RSpec.describe Migrator do
     tab.tabfile = HOMEBREW_CELLAR/"oldname/0.1/INSTALL_RECEIPT.json"
     tab.source["path"] = "/should/be/the/same"
     tab.write
-    migrator = klass.new(new_formula, "oldname")
+    migrator = described_class.new(new_formula, "oldname")
     tab.tabfile.delete
     migrator.backup_old_tabs
     expect(Tab.for_keg(old_keg_record).source["path"]).to eq("/should/be/the/same")

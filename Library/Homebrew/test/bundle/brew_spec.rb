@@ -11,10 +11,8 @@ require "trust"
 require "utils/bottles"
 
 RSpec.describe Homebrew::Bundle::Brew do
-  let(:klass) { Homebrew::Bundle::Brew }
-
   describe "dumping" do
-    subject(:dumper) { klass }
+    subject(:dumper) { described_class }
 
     let(:foo) do
       instance_double(Formula,
@@ -163,7 +161,7 @@ RSpec.describe Homebrew::Bundle::Brew do
     end
 
     before do
-      klass.reset!
+      described_class.reset!
     end
 
     describe "#formulae" do
@@ -277,7 +275,7 @@ RSpec.describe Homebrew::Bundle::Brew do
   describe "installing" do
     let(:formula_name) { "mysql" }
     let(:options) { { args: ["with-option"] } }
-    let(:installer) { klass.new(formula_name, options) }
+    let(:installer) { described_class.new(formula_name, options) }
 
     before do
       # don't try to load gcc/glibc
@@ -288,13 +286,13 @@ RSpec.describe Homebrew::Bundle::Brew do
 
     context "when the formula is installed" do
       before do
-        allow_any_instance_of(klass).to receive(:installed?).and_return(true)
+        allow_any_instance_of(described_class).to receive(:installed?).and_return(true)
       end
 
       context "with a true start_service option" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
-          allow_any_instance_of(klass).to receive(:installed?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:installed?).and_return(true)
           allow(Homebrew::Bundle).to receive(:brew).with("link", formula_name, verbose: false).and_return(true)
         end
 
@@ -306,15 +304,15 @@ RSpec.describe Homebrew::Bundle::Brew do
           context "with a successful installation" do
             it "start service" do
               expect(Homebrew::Bundle::Brew::Services).not_to receive(:start)
-              klass.preinstall!(formula_name, start_service: true)
-              klass.install!(formula_name, start_service: true)
+              described_class.preinstall!(formula_name, start_service: true)
+              described_class.install!(formula_name, start_service: true)
             end
           end
 
           context "with a skipped installation" do
             it "start service" do
               expect(Homebrew::Bundle::Brew::Services).not_to receive(:start)
-              klass.install!(formula_name, preinstall: false, start_service: true)
+              described_class.install!(formula_name, preinstall: false, start_service: true)
             end
           end
         end
@@ -328,8 +326,8 @@ RSpec.describe Homebrew::Bundle::Brew do
             it "start service" do
               expect(Homebrew::Bundle::Brew::Services).to \
                 receive(:start).with(formula_name, file: nil, verbose: false).and_return(true)
-              klass.preinstall!(formula_name, start_service: true)
-              klass.install!(formula_name, start_service: true)
+              described_class.preinstall!(formula_name, start_service: true)
+              described_class.install!(formula_name, start_service: true)
             end
           end
 
@@ -337,7 +335,7 @@ RSpec.describe Homebrew::Bundle::Brew do
             it "start service" do
               expect(Homebrew::Bundle::Brew::Services).to \
                 receive(:start).with(formula_name, file: nil, verbose: false).and_return(true)
-              klass.install!(formula_name, preinstall: false, start_service: true)
+              described_class.install!(formula_name, preinstall: false, start_service: true)
             end
           end
         end
@@ -345,8 +343,8 @@ RSpec.describe Homebrew::Bundle::Brew do
 
       context "with an always restart_service option" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
-          allow_any_instance_of(klass).to receive(:installed?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:installed?).and_return(true)
           allow(Homebrew::Bundle).to receive(:brew).with("link", formula_name, verbose: false).and_return(true)
         end
 
@@ -354,8 +352,8 @@ RSpec.describe Homebrew::Bundle::Brew do
           it "restart service" do
             expect(Homebrew::Bundle::Brew::Services).to \
               receive(:restart).with(formula_name, file: nil, verbose: false).and_return(true)
-            klass.preinstall!(formula_name, restart_service: :always)
-            klass.install!(formula_name, restart_service: :always)
+            described_class.preinstall!(formula_name, restart_service: :always)
+            described_class.install!(formula_name, restart_service: :always)
           end
         end
 
@@ -363,90 +361,90 @@ RSpec.describe Homebrew::Bundle::Brew do
           it "restart service" do
             expect(Homebrew::Bundle::Brew::Services).to \
               receive(:restart).with(formula_name, file: nil, verbose: false).and_return(true)
-            klass.install!(formula_name, preinstall: false, restart_service: :always)
+            described_class.install!(formula_name, preinstall: false, restart_service: :always)
           end
         end
       end
 
       context "when the link option is true" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
         end
 
         it "links formula" do
-          allow_any_instance_of(klass).to receive(:linked?).and_return(false)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(false)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "link", "mysql",
                                                             verbose: false).and_return(true)
-          klass.preinstall!(formula_name, link: true)
-          klass.install!(formula_name, link: true)
+          described_class.preinstall!(formula_name, link: true)
+          described_class.install!(formula_name, link: true)
         end
 
         it "force-links keg-only formula" do
-          allow_any_instance_of(klass).to receive(:linked?).and_return(false)
-          allow_any_instance_of(klass).to receive(:keg_only?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(false)
+          allow_any_instance_of(described_class).to receive(:keg_only?).and_return(true)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "link", "--force", "mysql",
                                                             verbose: false).and_return(true)
-          klass.preinstall!(formula_name, link: true)
-          klass.install!(formula_name, link: true)
+          described_class.preinstall!(formula_name, link: true)
+          described_class.install!(formula_name, link: true)
         end
       end
 
       context "when the link option is :overwrite" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
         end
 
         it "overwrite links formula" do
-          allow_any_instance_of(klass).to receive(:linked?).and_return(false)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(false)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "link", "--overwrite", "mysql",
                                                             verbose: false).and_return(true)
-          klass.preinstall!(formula_name, link: :overwrite)
-          klass.install!(formula_name, link: :overwrite)
+          described_class.preinstall!(formula_name, link: :overwrite)
+          described_class.install!(formula_name, link: :overwrite)
         end
       end
 
       context "when the link option is false" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
         end
 
         it "unlinks formula" do
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql",
                                                             verbose: false).and_return(true)
-          klass.preinstall!(formula_name, link: false)
-          klass.install!(formula_name, link: false)
+          described_class.preinstall!(formula_name, link: false)
+          described_class.install!(formula_name, link: false)
         end
       end
 
       context "when the link option is nil and formula is unlinked and not keg-only" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
-          allow_any_instance_of(klass).to receive(:linked?).and_return(false)
-          allow_any_instance_of(klass).to receive(:keg_only?).and_return(false)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(false)
+          allow_any_instance_of(described_class).to receive(:keg_only?).and_return(false)
         end
 
         it "links formula" do
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "link", "mysql",
                                                             verbose: false).and_return(true)
-          klass.preinstall!(formula_name, link: nil)
-          klass.install!(formula_name, link: nil)
+          described_class.preinstall!(formula_name, link: nil)
+          described_class.install!(formula_name, link: nil)
         end
       end
 
       context "when the link option is nil and formula is linked and keg-only" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
-          allow_any_instance_of(klass).to receive(:keg_only?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:keg_only?).and_return(true)
         end
 
         it "unlinks formula" do
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql",
                                                             verbose: false).and_return(true)
-          klass.preinstall!(formula_name, link: nil)
+          described_class.preinstall!(formula_name, link: nil)
 
-          klass.install!(formula_name, link: nil)
+          described_class.install!(formula_name, link: nil)
         end
       end
 
@@ -456,14 +454,14 @@ RSpec.describe Homebrew::Bundle::Brew do
             url "mysql-1.0"
             conflicts_with "mysql55"
           }
-          allow(klass).to receive(:formula_installed?).and_return(true)
-          allow_any_instance_of(klass).to receive(:install_formula!).and_return(true)
-          allow_any_instance_of(klass).to receive(:upgrade_formula!).and_return(true)
+          allow(described_class).to receive(:formula_installed?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_formula!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:upgrade_formula!).and_return(true)
         end
 
         it "unlinks conflicts and stops their services" do
           verbose = false
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql55",
                                                             verbose:).and_return(true)
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql56",
@@ -472,13 +470,13 @@ RSpec.describe Homebrew::Bundle::Brew do
           expect(Homebrew::Bundle::Brew::Services).to receive(:stop).with("mysql56", verbose:).and_return(true)
           expect(Homebrew::Bundle::Brew::Services).to receive(:restart).with(formula_name, file:    nil,
                                                                                            verbose:).and_return(true)
-          klass.preinstall!(formula_name, restart_service: :always, conflicts_with: ["mysql56"])
-          klass.install!(formula_name, restart_service: :always, conflicts_with: ["mysql56"])
+          described_class.preinstall!(formula_name, restart_service: :always, conflicts_with: ["mysql56"])
+          described_class.install!(formula_name, restart_service: :always, conflicts_with: ["mysql56"])
         end
 
         it "prints a message" do
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
-          allow_any_instance_of(klass).to receive(:puts)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:puts)
           verbose = true
           expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "unlink", "mysql55",
                                                             verbose:).and_return(true)
@@ -488,47 +486,47 @@ RSpec.describe Homebrew::Bundle::Brew do
           expect(Homebrew::Bundle::Brew::Services).to receive(:stop).with("mysql56", verbose:).and_return(true)
           expect(Homebrew::Bundle::Brew::Services).to receive(:restart).with(formula_name, file:    nil,
                                                                                            verbose:).and_return(true)
-          klass.preinstall!(formula_name, restart_service: :always, conflicts_with: ["mysql56"],
+          described_class.preinstall!(formula_name, restart_service: :always, conflicts_with: ["mysql56"],
           verbose: true)
-          klass.install!(formula_name, restart_service: :always, conflicts_with: ["mysql56"],
+          described_class.install!(formula_name, restart_service: :always, conflicts_with: ["mysql56"],
           verbose: true)
         end
       end
 
       context "when the postinstall option is provided" do
         before do
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
-          allow_any_instance_of(klass).to receive(:installed?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:installed?).and_return(true)
           allow(Homebrew::Bundle).to receive(:brew).with("link", formula_name, verbose: false).and_return(true)
         end
 
         context "when formula has changed" do
           before do
-            allow_any_instance_of(klass).to receive(:changed?).and_return(true)
+            allow_any_instance_of(described_class).to receive(:changed?).and_return(true)
           end
 
           it "runs the postinstall command" do
             expect(Kernel).to receive(:system).with("custom command").and_return(true)
-            klass.preinstall!(formula_name, postinstall: "custom command")
-            klass.install!(formula_name, postinstall: "custom command")
+            described_class.preinstall!(formula_name, postinstall: "custom command")
+            described_class.install!(formula_name, postinstall: "custom command")
           end
 
           it "reports a failure" do
             expect(Kernel).to receive(:system).with("custom command").and_return(false)
-            klass.preinstall!(formula_name, postinstall: "custom command")
-            expect(klass.install!(formula_name, postinstall: "custom command")).to be(false)
+            described_class.preinstall!(formula_name, postinstall: "custom command")
+            expect(described_class.install!(formula_name, postinstall: "custom command")).to be(false)
           end
         end
 
         context "when formula has not changed" do
           before do
-            allow_any_instance_of(klass).to receive(:changed?).and_return(false)
+            allow_any_instance_of(described_class).to receive(:changed?).and_return(false)
           end
 
           it "does not run the postinstall command" do
             expect(Kernel).not_to receive(:system)
-            klass.preinstall!(formula_name, postinstall: "custom command")
-            klass.install!(formula_name, postinstall: "custom command")
+            described_class.preinstall!(formula_name, postinstall: "custom command")
+            described_class.install!(formula_name, postinstall: "custom command")
           end
         end
       end
@@ -537,9 +535,9 @@ RSpec.describe Homebrew::Bundle::Brew do
         before do
           Homebrew::Bundle.reset!
 
-          allow_any_instance_of(klass).to receive(:install_change_state!).and_return(true)
-          allow_any_instance_of(klass).to receive(:installed?).and_return(true)
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(true)
+          allow_any_instance_of(described_class).to receive(:installed?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
         end
 
         let(:version_file) { "version.txt" }
@@ -547,22 +545,22 @@ RSpec.describe Homebrew::Bundle::Brew do
 
         context "when formula versions are changed and specified by the environment" do
           before do
-            allow_any_instance_of(klass).to receive(:changed?).and_return(false)
+            allow_any_instance_of(described_class).to receive(:changed?).and_return(false)
             ENV["HOMEBREW_BUNDLE_EXEC_FORMULA_VERSION_#{formula_name.upcase}"] = version
           end
 
           it "writes the version to the file" do
             expect(File).to receive(:write).with(version_file, "#{version}\n")
-            klass.preinstall!(formula_name, version_file:)
-            klass.install!(formula_name, version_file:)
+            described_class.preinstall!(formula_name, version_file:)
+            described_class.install!(formula_name, version_file:)
           end
         end
 
         context "when using the latest formula" do
           it "writes the version to the file" do
             expect(File).to receive(:write).with(version_file, "#{version}\n")
-            klass.preinstall!(formula_name, version_file:)
-            klass.install!(formula_name, version_file:)
+            described_class.preinstall!(formula_name, version_file:)
+            described_class.install!(formula_name, version_file:)
           end
         end
       end
@@ -570,50 +568,50 @@ RSpec.describe Homebrew::Bundle::Brew do
 
     context "when a formula isn't installed" do
       before do
-        allow_any_instance_of(klass).to receive(:installed?).and_return(false)
-        allow_any_instance_of(klass).to receive(:install_change_state!).and_return(false)
+        allow_any_instance_of(described_class).to receive(:installed?).and_return(false)
+        allow_any_instance_of(described_class).to receive(:install_change_state!).and_return(false)
       end
 
       it "did not call restart service" do
         expect(Homebrew::Bundle::Brew::Services).not_to receive(:restart)
-        klass.preinstall!(formula_name, restart_service: true)
+        described_class.preinstall!(formula_name, restart_service: true)
       end
     end
 
     describe ".outdated_formulae" do
       it "calls Homebrew" do
-        klass.reset!
-        expect(klass).to receive(:formulae).and_return(
+        described_class.reset!
+        expect(described_class).to receive(:formulae).and_return(
           [
             { name: "a", outdated?: true },
             { name: "b", outdated?: true },
             { name: "c", outdated?: false },
           ],
         )
-        expect(klass.outdated_formulae).to eql(%w[a b])
+        expect(described_class.outdated_formulae).to eql(%w[a b])
       end
     end
 
     describe ".pinned_formulae" do
       it "calls Homebrew" do
-        klass.reset!
-        expect(klass).to receive(:formulae).and_return(
+        described_class.reset!
+        expect(described_class).to receive(:formulae).and_return(
           [
             { name: "a", pinned?: true },
             { name: "b", pinned?: true },
             { name: "c", pinned?: false },
           ],
         )
-        expect(klass.pinned_formulae).to eql(%w[a b])
+        expect(described_class.pinned_formulae).to eql(%w[a b])
       end
     end
 
     describe ".formula_installed_and_up_to_date?" do
       before do
-        klass.reset!
+        described_class.reset!
         allow_any_instance_of(Formula).to receive(:outdated?).and_return(true)
         allow(Formula).to receive(:installed_formula_names).and_return(%w[foo bar])
-        allow(klass).to receive_messages(outdated_formulae: %w[bar], formulae: [
+        allow(described_class).to receive_messages(outdated_formulae: %w[bar], formulae: [
           {
             name:         "foo",
             full_name:    "homebrew/tap/foo",
@@ -638,16 +636,16 @@ RSpec.describe Homebrew::Bundle::Brew do
       end
 
       it "returns result" do
-        expect(klass.formula_installed_and_up_to_date?("foo")).to be(true)
-        expect(klass.formula_installed_and_up_to_date?("foobar")).to be(true)
-        expect(klass.formula_installed_and_up_to_date?("bar")).to be(false)
-        expect(klass.formula_installed_and_up_to_date?("baz")).to be(false)
+        expect(described_class.formula_installed_and_up_to_date?("foo")).to be(true)
+        expect(described_class.formula_installed_and_up_to_date?("foobar")).to be(true)
+        expect(described_class.formula_installed_and_up_to_date?("bar")).to be(false)
+        expect(described_class.formula_installed_and_up_to_date?("baz")).to be(false)
       end
     end
 
     describe ".formula_installed_and_up_to_date? with an untrusted tap formula" do
       before do
-        klass.reset!
+        described_class.reset!
         allow(Homebrew::EnvConfig).to receive(:require_tap_trust?).and_return(true)
         allow(Formula).to receive(:installed_formula_names).and_return(["php@7.2"])
         allow(Homebrew::Trust).to receive(:trusted?).with(:formula, "shivammathur/php/php@7.2").and_return(false)
@@ -656,7 +654,7 @@ RSpec.describe Homebrew::Bundle::Brew do
       it "warns and marks the formula actionable without loading it" do
         expect(Formula).not_to receive(:installed)
         expect(Formula).not_to receive(:[])
-        expect { expect(klass.formula_installed_and_up_to_date?("shivammathur/php/php@7.2")).to be(false) }
+        expect { expect(described_class.formula_installed_and_up_to_date?("shivammathur/php/php@7.2")).to be(false) }
           .to output(/Cannot check whether.*not trusted/).to_stderr
       end
 
@@ -664,7 +662,8 @@ RSpec.describe Homebrew::Bundle::Brew do
         expect(Formula).not_to receive(:installed)
         expect(Formula).not_to receive(:[])
         expect do
-          expect(klass.formula_installed_and_up_to_date?("shivammathur/php/php@7.2", no_upgrade: true)).to be(true)
+          expect(described_class.formula_installed_and_up_to_date?("shivammathur/php/php@7.2",
+                                                                   no_upgrade: true)).to be(true)
         end
           .not_to output.to_stderr
       end
@@ -674,7 +673,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
         expect(Formula).not_to receive(:installed)
         expect(Formula).not_to receive(:[])
-        expect { expect(klass.formula_installed_and_up_to_date?("shivammathur/php/php@7.2")).to be(false) }
+        expect { expect(described_class.formula_installed_and_up_to_date?("shivammathur/php/php@7.2")).to be(false) }
           .not_to output.to_stderr
       end
     end
@@ -682,9 +681,9 @@ RSpec.describe Homebrew::Bundle::Brew do
     context "when brew is installed" do
       context "when no formula is installed" do
         before do
-          allow(klass).to receive(:installed_formulae).and_return([])
-          allow_any_instance_of(klass).to receive(:conflicts_with).and_return([])
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
+          allow(described_class).to receive(:installed_formulae).and_return([])
+          allow_any_instance_of(described_class).to receive(:conflicts_with).and_return([])
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
         end
 
         it "install formula" do
@@ -706,15 +705,15 @@ RSpec.describe Homebrew::Bundle::Brew do
 
       context "when formula is installed" do
         before do
-          allow(klass).to receive(:installed_formulae).and_return([formula_name])
-          allow_any_instance_of(klass).to receive(:conflicts_with).and_return([])
-          allow_any_instance_of(klass).to receive(:linked?).and_return(true)
+          allow(described_class).to receive(:installed_formulae).and_return([formula_name])
+          allow_any_instance_of(described_class).to receive(:conflicts_with).and_return([])
+          allow_any_instance_of(described_class).to receive(:linked?).and_return(true)
           allow_any_instance_of(Formula).to receive(:outdated?).and_return(true)
         end
 
         context "when formula upgradable" do
           before do
-            allow(klass).to receive(:outdated_formulae).and_return([formula_name])
+            allow(described_class).to receive(:outdated_formulae).and_return([formula_name])
           end
 
           it "upgrade formula" do
@@ -735,7 +734,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
           context "when formula pinned" do
             before do
-              allow(klass).to receive(:pinned_formulae).and_return([formula_name])
+              allow(described_class).to receive(:pinned_formulae).and_return([formula_name])
             end
 
             it "does not upgrade formula" do
@@ -747,7 +746,7 @@ RSpec.describe Homebrew::Bundle::Brew do
 
           context "when formula not upgraded" do
             before do
-              allow(klass).to receive(:outdated_formulae).and_return([])
+              allow(described_class).to receive(:outdated_formulae).and_return([])
             end
 
             it "does not upgrade formula" do
@@ -761,18 +760,18 @@ RSpec.describe Homebrew::Bundle::Brew do
 
     describe "#changed?" do
       it "is false by default" do
-        expect(klass.new(formula_name).changed?).to be(false)
+        expect(described_class.new(formula_name).changed?).to be(false)
       end
     end
 
     describe "#start_service?" do
       it "is false by default" do
-        expect(klass.new(formula_name).start_service?).to be(false)
+        expect(described_class.new(formula_name).start_service?).to be(false)
       end
 
       context "when the start_service option is true" do
         it "is true" do
-          expect(klass.new(formula_name, start_service: true).start_service?).to be(true)
+          expect(described_class.new(formula_name, start_service: true).start_service?).to be(true)
         end
       end
     end
@@ -784,11 +783,13 @@ RSpec.describe Homebrew::Bundle::Brew do
         end
 
         specify do
-          expect(klass.new(formula_name).start_service_needed?).to be(false)
-          expect(klass.new(formula_name, start_service: true).start_service_needed?).to be(false)
-          expect(klass.new(formula_name, restart_service: true).start_service_needed?).to be(false)
-          expect(klass.new(formula_name, restart_service: :changed).start_service_needed?).to be(false)
-          expect(klass.new(formula_name, restart_service: :always).start_service_needed?).to be(false)
+          expect(described_class.new(formula_name).start_service_needed?).to be(false)
+          expect(described_class.new(formula_name, start_service: true).start_service_needed?).to be(false)
+          expect(described_class.new(formula_name, restart_service: true).start_service_needed?).to be(false)
+          expect(described_class.new(formula_name,
+                                     restart_service: :changed).start_service_needed?).to be(false)
+          expect(described_class.new(formula_name,
+                                     restart_service: :always).start_service_needed?).to be(false)
         end
       end
 
@@ -798,65 +799,70 @@ RSpec.describe Homebrew::Bundle::Brew do
         end
 
         specify do
-          expect(klass.new(formula_name).start_service_needed?).to be(false)
-          expect(klass.new(formula_name, start_service: true).start_service_needed?).to be(true)
-          expect(klass.new(formula_name, restart_service: true).start_service_needed?).to be(true)
-          expect(klass.new(formula_name, restart_service: :changed).start_service_needed?).to be(true)
-          expect(klass.new(formula_name, restart_service: :always).start_service_needed?).to be(true)
+          expect(described_class.new(formula_name).start_service_needed?).to be(false)
+          expect(described_class.new(formula_name, start_service: true).start_service_needed?).to be(true)
+          expect(described_class.new(formula_name, restart_service: true).start_service_needed?).to be(true)
+          expect(described_class.new(formula_name,
+                                     restart_service: :changed).start_service_needed?).to be(true)
+          expect(described_class.new(formula_name, restart_service: :always).start_service_needed?).to be(true)
         end
       end
     end
 
     describe "#restart_service?" do
       it "is false by default" do
-        expect(klass.new(formula_name).restart_service?).to be(false)
+        expect(described_class.new(formula_name).restart_service?).to be(false)
       end
 
       context "when the restart_service option is true" do
         it "is true" do
-          expect(klass.new(formula_name, restart_service: true).restart_service?).to be(true)
+          expect(described_class.new(formula_name, restart_service: true).restart_service?).to be(true)
         end
       end
 
       context "when the restart_service option is always" do
         it "is true" do
-          expect(klass.new(formula_name, restart_service: :always).restart_service?).to be(true)
+          expect(described_class.new(formula_name, restart_service: :always).restart_service?).to be(true)
         end
       end
 
       context "when the restart_service option is changed" do
         it "is true" do
-          expect(klass.new(formula_name, restart_service: :changed).restart_service?).to be(true)
+          expect(described_class.new(formula_name, restart_service: :changed).restart_service?).to be(true)
         end
       end
     end
 
     describe "#restart_service_needed?" do
       it "is false by default" do
-        expect(klass.new(formula_name).restart_service_needed?).to be(false)
+        expect(described_class.new(formula_name).restart_service_needed?).to be(false)
       end
 
       context "when a service is unchanged" do
         before do
-          allow_any_instance_of(klass).to receive(:changed?).and_return(false)
+          allow_any_instance_of(described_class).to receive(:changed?).and_return(false)
         end
 
         specify do
-          expect(klass.new(formula_name, restart_service: true).restart_service_needed?).to be(false)
-          expect(klass.new(formula_name, restart_service: :always).restart_service_needed?).to be(true)
-          expect(klass.new(formula_name, restart_service: :changed).restart_service_needed?).to be(false)
+          expect(described_class.new(formula_name, restart_service: true).restart_service_needed?).to be(false)
+          expect(described_class.new(formula_name,
+                                     restart_service: :always).restart_service_needed?).to be(true)
+          expect(described_class.new(formula_name,
+                                     restart_service: :changed).restart_service_needed?).to be(false)
         end
       end
 
       context "when a service is changed" do
         before do
-          allow_any_instance_of(klass).to receive(:changed?).and_return(true)
+          allow_any_instance_of(described_class).to receive(:changed?).and_return(true)
         end
 
         specify do
-          expect(klass.new(formula_name, restart_service: true).restart_service_needed?).to be(true)
-          expect(klass.new(formula_name, restart_service: :always).restart_service_needed?).to be(true)
-          expect(klass.new(formula_name, restart_service: :changed).restart_service_needed?).to be(true)
+          expect(described_class.new(formula_name, restart_service: true).restart_service_needed?).to be(true)
+          expect(described_class.new(formula_name,
+                                     restart_service: :always).restart_service_needed?).to be(true)
+          expect(described_class.new(formula_name,
+                                     restart_service: :changed).restart_service_needed?).to be(true)
         end
       end
     end

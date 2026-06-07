@@ -4,9 +4,8 @@
 require "download_queue"
 
 RSpec.describe Homebrew::DownloadQueue do
-  subject(:download_queue) { klass.new }
+  subject(:download_queue) { described_class.new }
 
-  let(:klass) { Homebrew::DownloadQueue }
   let(:cached_download) { HOMEBREW_CACHE/"downloads/testball--0.1.tar.gz" }
   let(:downloadable) do
     instance_double(

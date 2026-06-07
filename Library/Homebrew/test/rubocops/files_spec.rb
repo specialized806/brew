@@ -4,9 +4,7 @@
 require "rubocops/files"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::Files do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::Files }
+  subject(:cop) { described_class.new }
 
   context "when auditing files" do
     it "reports an offense when the permissions are invalid" do

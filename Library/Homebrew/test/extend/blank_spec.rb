@@ -4,10 +4,8 @@
 require "extend/blank"
 
 RSpec.describe Object do
-  let(:klass) { Object }
-
   let(:empty_true) do
-    Class.new(klass) do
+    Class.new(Object) do
       # This API is intentionally non-ideal for testing.
       # rubocop:disable Naming/PredicateMethod
       def empty?
@@ -17,14 +15,14 @@ RSpec.describe Object do
     end
   end
   let(:empty_false) do
-    Class.new(klass) do
+    Class.new(Object) do
       def empty?
         false
       end
     end
   end
   let(:blank) { [empty_true.new, nil, false, "", "   ", "  \n\t  \r ", "　", "\u00a0", [], {}] }
-  let(:present) { [empty_false.new, klass.new, true, 0, 1, "a", [nil], { nil => 0 }, Time.now] }
+  let(:present) { [empty_false.new, described_class.new, true, 0, 1, "a", [nil], { nil => 0 }, Time.now] }
 
   describe ".blank?" do
     it "checks if an object is blank" do

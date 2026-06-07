@@ -29,14 +29,14 @@ RSpec.describe Homebrew::Cmd::Untrust do
   end
 
   it "notes official taps are always trusted" do
-    expect { Homebrew::Cmd::Untrust.new(["homebrew/core"]).run }
+    expect { described_class.new(["homebrew/core"]).run }
       .to output("Official tap homebrew/core is always trusted.\n").to_stdout
   end
 
   it "untrusts a command with the plural switch alias" do
     expect(Homebrew::Trust).to receive(:untrust!).with(:command, "thirdparty/foo/hello").and_return(true)
 
-    expect { Homebrew::Cmd::Untrust.new(["--commands", "thirdparty/foo/hello"]).run }
+    expect { described_class.new(["--commands", "thirdparty/foo/hello"]).run }
       .to output("Untrusted command: thirdparty/foo/hello\n").to_stdout
   end
 
@@ -49,7 +49,7 @@ RSpec.describe Homebrew::Cmd::Untrust do
     expect(Homebrew::Trust).to receive(:untrust!).with(:cask, "thirdparty/foo/baz").and_return(true)
     expect(Homebrew::Trust).to receive(:untrust!).with(:command, "thirdparty/foo/hello").and_return(true)
 
-    expect { Homebrew::Cmd::Untrust.new(["thirdparty/foo"]).run }
+    expect { described_class.new(["thirdparty/foo"]).run }
       .to output("Untrusted tap: thirdparty/foo\n").to_stdout
   end
 
@@ -58,7 +58,7 @@ RSpec.describe Homebrew::Cmd::Untrust do
     tap.cask_dir.mkpath
     (tap.cask_dir/"bar.rb").write("cask 'bar'\n")
 
-    expect { Homebrew::Cmd::Untrust.new([]).run }
+    expect { described_class.new([]).run }
       .to output(<<~EOS).to_stdout
         Untrusted taps:
           untrustlist/foo

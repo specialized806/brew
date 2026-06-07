@@ -33,7 +33,7 @@ RSpec.describe Homebrew::Manpages do
   end
 
   it "lists options under the root command and matching subcommands", :aggregate_failures do
-    root_section, install_and_info_sections = Homebrew::Manpages
+    root_section, install_and_info_sections = described_class
                                               .cmd_parser_manpage_lines(subcommand_parser)
                                               .join
                                               .split("`test install`:")
@@ -66,7 +66,7 @@ RSpec.describe Homebrew::Manpages do
       update-sponsors
     ]
 
-    manpage = Homebrew::Manpages.generate_cmd_manpages(
+    manpage = described_class.generate_cmd_manpages(
       hidden_commands.map { |command| Commands::HOMEBREW_DEV_CMD_PATH/"#{command}.rb" },
     )
 

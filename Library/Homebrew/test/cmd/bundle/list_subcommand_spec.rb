@@ -24,10 +24,9 @@ end.freeze
 
 RSpec.describe Homebrew::Cmd::Bundle::ListSubcommand do
   subject(:list) do
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
-  let(:klass) { Homebrew::Cmd::Bundle::ListSubcommand }
   let(:context) { bundle_subcommand_context(:list, no_type_args:) }
   let(:args_object) do
     args_for_subcommand(:list, formulae?: formulae, casks?: casks, taps?: taps, mas?: mas, vscode?: vscode,
@@ -96,7 +95,9 @@ RSpec.describe Homebrew::Cmd::Bundle::ListSubcommand do
           )
 
           expected = options_list.map { |opt| TYPES_AND_DEPS[opt] }.join("\n")
-          expect { klass.new(args_object, context:).run }.to output("#{expected}\n").to_stdout
+          expect do
+            described_class.new(args_object, context:).run
+          end.to output("#{expected}\n").to_stdout
         end
       end
     end

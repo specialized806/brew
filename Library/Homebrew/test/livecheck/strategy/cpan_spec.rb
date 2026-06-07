@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Cpan do
-  subject(:cpan) { klass }
+  subject(:cpan) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Cpan }
   let(:cpan_urls) do
     {
       no_subdirectory:       "https://cpan.metacpan.org/authors/id/H/HO/HOMEBREW/Brew-v1.2.3.tar.gz",

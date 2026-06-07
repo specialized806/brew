@@ -5,8 +5,6 @@ require "cmd/--cellar"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Cellar do
-  let(:klass) { Homebrew::Cmd::Cellar }
-
   it_behaves_like "parseable arguments"
 
   it "prints Homebrew's Cellar", :integration_test do
@@ -17,7 +15,7 @@ RSpec.describe Homebrew::Cmd::Cellar do
   end
 
   it "prints the Cellar for a Formula" do
-    cmd = klass.new(["testball"])
+    cmd = described_class.new(["testball"])
     allow(cmd.args.named).to receive(:to_resolved_formulae)
       .and_return([instance_double(Formula, rack: HOMEBREW_CELLAR/"testball")])
 

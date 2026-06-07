@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Apache do
-  subject(:apache) { klass }
+  subject(:apache) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Apache }
   let(:apache_urls) do
     {
       version_dir:                    "https://www.apache.org/dyn/closer.lua?path=abc/1.2.3/def-1.2.3.tar.gz",

@@ -2,8 +2,6 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Pkg, :cask do
-  let(:klass) { Cask::Pkg }
-
   describe "#uninstall" do
     let(:fake_system_command) { NeverSudoSystemCommand }
     let(:empty_response) do
@@ -13,7 +11,7 @@ RSpec.describe Cask::Pkg, :cask do
         plist:  { "volume" => "/", "install-location" => "", "paths" => {} },
       )
     end
-    let(:pkg) { klass.new("my.fake.pkg", fake_system_command) }
+    let(:pkg) { described_class.new("my.fake.pkg", fake_system_command) }
 
     it "removes files and dirs referenced by the pkg" do
       some_files = Array.new(3) { Pathname.new(Tempfile.new("plain_file").path) }
@@ -176,7 +174,7 @@ RSpec.describe Cask::Pkg, :cask do
     end
 
     it "correctly parses a Property List" do
-      pkg = klass.new(pkg_id, fake_system_command)
+      pkg = described_class.new(pkg_id, fake_system_command)
 
       expect(fake_system_command).to receive(:run!).with(
         "/usr/sbin/pkgutil",

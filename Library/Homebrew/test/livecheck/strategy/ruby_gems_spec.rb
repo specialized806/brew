@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::RubyGems do
-  subject(:ruby_gems) { klass }
+  subject(:ruby_gems) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::RubyGems }
   let(:ruby_gems_url) { "https://rubygems.org/downloads/example-package-1.2.3.gem" }
   let(:platform_ruby_gems_url) { "https://rubygems.org/downloads/example-package-1.2.3-arm64-darwin.gem" }
   let(:non_ruby_gems_url) { "https://brew.sh/test" }

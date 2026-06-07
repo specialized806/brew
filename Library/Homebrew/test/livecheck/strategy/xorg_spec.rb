@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Xorg do
-  subject(:xorg) { klass }
+  subject(:xorg) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Xorg }
   let(:xorg_urls) do
     {
       app:         "https://www.x.org/archive/individual/app/abc-1.2.3.tar.bz2",

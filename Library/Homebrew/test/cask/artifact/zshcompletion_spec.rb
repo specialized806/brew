@@ -2,15 +2,13 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::ZshCompletion, :cask do
-  let(:klass) { Cask::Artifact::ZshCompletion }
-
   let(:cask_token) { "with-shellcompletion" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
   context "with install" do
     let(:install_phase) do
       lambda do
-        cask.artifacts.grep(klass).each do |artifact|
+        cask.artifacts.grep(described_class).each do |artifact|
           artifact.install_phase(command: NeverSudoSystemCommand, force: false)
         end
       end

@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Bitbucket do
-  subject(:bitbucket) { klass }
+  subject(:bitbucket) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Bitbucket }
   let(:bitbucket_urls) do
     {
       get:       "https://bitbucket.org/abc/def/get/1.2.3.tar.gz",

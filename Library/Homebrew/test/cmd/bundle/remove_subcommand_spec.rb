@@ -7,10 +7,9 @@ require "cask/cask_loader"
 
 RSpec.describe Homebrew::Cmd::Bundle::RemoveSubcommand do
   subject(:remove) do
-    klass.new(args_object, context:).run
+    described_class.new(args_object, context:).run
   end
 
-  let(:klass) { Homebrew::Cmd::Bundle::RemoveSubcommand }
   let(:global) { false }
   let(:context) { bundle_subcommand_context(:remove, global:, file:, no_type_args: type == :none) }
 

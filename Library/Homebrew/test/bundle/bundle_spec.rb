@@ -5,30 +5,28 @@ require "bundle"
 require "bundle/dsl"
 
 RSpec.describe Homebrew::Bundle do
-  let(:klass) { Homebrew::Bundle }
-
   context "when the system call succeeds" do
     it "omits all stdout output if verbose is false" do
-      expect { klass.system "echo", "foo", verbose: false }.not_to output.to_stdout_from_any_process
+      expect { described_class.system "echo", "foo", verbose: false }.not_to output.to_stdout_from_any_process
     end
 
     it "emits all stdout output if verbose is true" do
-      expect { klass.system "echo", "foo", verbose: true }.to output("foo\n").to_stdout_from_any_process
+      expect { described_class.system "echo", "foo", verbose: true }.to output("foo\n").to_stdout_from_any_process
     end
   end
 
   context "when the system call fails" do
     it "emits all stdout output even if verbose is false" do
       expect do
-        klass.system "/bin/bash", "-c", "echo foo && false",
-                     verbose: false
+        described_class.system "/bin/bash", "-c", "echo foo && false",
+                               verbose: false
       end.to output("foo\n").to_stdout_from_any_process
     end
 
     it "emits all stdout output only once if verbose is true" do
       expect do
-        klass.system "/bin/bash", "-c", "echo foo && true",
-                     verbose: true
+        described_class.system "/bin/bash", "-c", "echo foo && true",
+                               verbose: true
       end.to output("foo\n").to_stdout_from_any_process
     end
   end
@@ -39,12 +37,12 @@ RSpec.describe Homebrew::Bundle do
       allow(File).to receive(:directory?)
         .with("#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-cask")
         .and_return(true)
-      expect(klass.cask_installed?).to be(true)
+      expect(described_class.cask_installed?).to be(true)
     end
   end
 
   describe ".mark_as_installed_on_request!", :no_api do
-    subject(:mark_installed!) { klass.mark_as_installed_on_request!(entries) }
+    subject(:mark_installed!) { described_class.mark_as_installed_on_request!(entries) }
 
     let(:brewfile_content) { "brew 'myformula'" }
     let(:entries) { dsl.entries }

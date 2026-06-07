@@ -5,8 +5,6 @@ require "cmd/pin"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Pin do
-  let(:klass) { Homebrew::Cmd::Pin }
-
   it_behaves_like "parseable arguments"
 
   it "pins a Formula's version", :integration_test do
@@ -19,7 +17,7 @@ RSpec.describe Homebrew::Cmd::Pin do
     cask = Cask::CaskLoader.load("local-caffeine")
     InstallHelper.stub_cask_installation(cask)
 
-    expect { klass.new(["--cask", "local-caffeine"]).run }
+    expect { described_class.new(["--cask", "local-caffeine"]).run }
       .to not_to_output.to_stderr
 
     expect(cask).to be_pinned
@@ -32,7 +30,7 @@ RSpec.describe Homebrew::Cmd::Pin do
     InstallHelper.stub_cask_installation(cask)
 
     expect do
-      klass.new(["--cask", "auto-updates"]).run
+      described_class.new(["--cask", "auto-updates"]).run
     end.to output(/auto-updates has `auto_updates true`.*outside Homebrew/).to_stderr
 
     cask.unpin
@@ -40,7 +38,7 @@ RSpec.describe Homebrew::Cmd::Pin do
 
   it "fails with an uninstalled Formula" do
     package = instance_double(Formula, pinned?: false, pinnable?: false, full_name: "testball")
-    cmd = klass.new(["testball"])
+    cmd = described_class.new(["testball"])
     allow(cmd.args.named).to receive(:to_resolved_formulae_to_casks).and_return([[package], []])
 
     expect { cmd.run }

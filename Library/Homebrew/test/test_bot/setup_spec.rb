@@ -4,9 +4,7 @@
 require "dev-cmd/test-bot"
 
 RSpec.describe Homebrew::TestBot::Setup do
-  subject(:setup) { klass.new }
-
-  let(:klass) { Homebrew::TestBot::Setup }
+  subject(:setup) { described_class.new }
 
   describe "#run!" do
     it "is successful" do

@@ -7,7 +7,6 @@ require "cmd/list"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::List do
-  let(:klass) { Homebrew::Cmd::List }
   let(:formulae) { %w[bar foo qux] }
 
   def list_versions_json(formulae: [], casks: [])
@@ -118,7 +117,7 @@ RSpec.describe Homebrew::Cmd::List do
       install_formula_version f, "1.0"
     end
 
-    expect { klass.new(["--formula"]).run }
+    expect { described_class.new(["--formula"]).run }
       .to output("#{formulae.join("\n")}\n").to_stdout
       .and not_to_output.to_stderr
   end
@@ -171,12 +170,12 @@ RSpec.describe Homebrew::Cmd::List do
   end
 
   it "fails when versions JSON reaches the Ruby fallback" do
-    expect { klass.new(["--versions", "--json"]).run }
+    expect { described_class.new(["--versions", "--json"]).run }
       .to raise_error(UsageError, /`brew list --versions --json` is only supported by the fast Bash path with `jq`\./)
   end
 
   it "fails clearly when JSON without versions reaches the Ruby fallback" do
-    expect { klass.new(["--json"]).run }
+    expect { described_class.new(["--json"]).run }
       .to raise_error(UsageError, /`brew list --json` requires `--versions`\./)
   end
 
@@ -202,7 +201,7 @@ RSpec.describe Homebrew::Cmd::List do
     InstallHelper.stub_cask_installation(cask)
     cask.pin
 
-    expect { klass.new(["--pinned", "--versions", "testball", "local-caffeine", "missing"]).run }
+    expect { described_class.new(["--pinned", "--versions", "testball", "local-caffeine", "missing"]).run }
       .to output("local-caffeine 1.2.3\ntestball 0.1\n").to_stdout
     expect(Homebrew).to have_failed
 
@@ -213,7 +212,7 @@ RSpec.describe Homebrew::Cmd::List do
     cask = Cask::CaskLoader.load("local-caffeine")
     InstallHelper.stub_cask_installation(cask)
 
-    expect { klass.new(["--pinned", "--cask", "local-caffeine"]).run }
+    expect { described_class.new(["--pinned", "--cask", "local-caffeine"]).run }
       .to not_to_output.to_stdout
       .and output(/local-caffeine not pinned/).to_stderr
   end
@@ -221,7 +220,7 @@ RSpec.describe Homebrew::Cmd::List do
   it "does not fail for unpinned Caskroom entries without named arguments", :cask do
     (Cask::Caskroom.path/"broken").mkpath
 
-    expect { klass.new(["--pinned", "--cask"]).run }
+    expect { described_class.new(["--pinned", "--cask"]).run }
       .to not_to_output.to_stdout
   end
 end

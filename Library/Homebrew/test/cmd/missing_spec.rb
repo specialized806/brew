@@ -37,14 +37,14 @@ RSpec.describe Homebrew::Cmd::Missing do
     allow(Cask::Caskroom).to receive(:casks).and_return([cask])
     allow(Cask::Tab).to receive(:for_cask).with(cask).and_return(tab)
 
-    expect { Homebrew::Cmd::Missing.new([]).run }
+    expect { described_class.new([]).run }
       .to output("local-caffeine unar\n").to_stdout
 
     expect(Homebrew).to have_failed
   end
 
   it "prints missing cask dependencies for named casks", :cask, :no_api do
-    cmd = Homebrew::Cmd::Missing.new(["with-depends-on-everything"])
+    cmd = described_class.new(["with-depends-on-everything"])
     cask = instance_double(Cask::Cask, full_name: "with-depends-on-everything",
                                        to_s:      "with-depends-on-everything")
     tab = instance_double(Cask::Tab, runtime_dependencies: {

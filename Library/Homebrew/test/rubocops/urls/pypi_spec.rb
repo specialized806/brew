@@ -4,9 +4,7 @@
 require "rubocops/urls"
 
 RSpec.describe RuboCop::Cop::FormulaAudit::PyPiUrls do
-  subject(:cop) { klass.new }
-
-  let(:klass) { RuboCop::Cop::FormulaAudit::PyPiUrls }
+  subject(:cop) { described_class.new }
 
   context "when a pypi URL is used" do
     it "reports an offense for pypi.python.org urls" do

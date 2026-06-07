@@ -9,9 +9,8 @@ require "uninstall"
 require "fileutils"
 
 RSpec.describe Homebrew::Cleanup do
-  subject(:cleanup) { klass.new }
+  subject(:cleanup) { described_class.new }
 
-  let(:klass) { Homebrew::Cleanup }
   let(:ds_store) { Pathname.new("#{HOMEBREW_CELLAR}/.DS_Store") }
   let(:lock_file) { Pathname.new("#{HOMEBREW_LOCKS}/foo") }
 
@@ -38,11 +37,11 @@ RSpec.describe Homebrew::Cleanup do
     it "returns true when ctime and mtime < days_default" do
       allow_any_instance_of(Pathname).to receive(:ctime).and_return((DateTime.now - 2).to_time)
       allow_any_instance_of(Pathname).to receive(:mtime).and_return((DateTime.now - 2).to_time)
-      expect(klass.prune?(path, 1)).to be true
+      expect(described_class.prune?(path, 1)).to be true
     end
 
     it "returns false when ctime and mtime >= days_default" do
-      expect(klass.prune?(path, 2)).to be false
+      expect(described_class.prune?(path, 2)).to be false
     end
   end
 
@@ -55,7 +54,7 @@ RSpec.describe Homebrew::Cleanup do
     end
 
     it "doesn't remove anything if `dry_run` is true" do
-      klass.new(dry_run: true).clean!
+      described_class.new(dry_run: true).clean!
 
       expect(ds_store).to exist
       expect(lock_file).to exist
@@ -133,7 +132,7 @@ RSpec.describe Homebrew::Cleanup do
     it "does not print or uninstall formulae required by installed dependents" do
       expect(Homebrew::Uninstall).not_to receive(:uninstall_kegs)
 
-      expect { klass.autoremove }.not_to output.to_stdout
+      expect { described_class.autoremove }.not_to output.to_stdout
     end
   end
 
@@ -191,7 +190,7 @@ RSpec.describe Homebrew::Cleanup do
 
       it "doesn't remove anything and only prints removal steps if `dry_run` is true" do
         expect do
-          klass.new(dry_run: true).prune_prefix_symlinks_and_directories
+          described_class.new(dry_run: true).prune_prefix_symlinks_and_directories
         end.to output(<<~EOS).to_stdout
           Would remove (broken link): #{link_to_broken_link}
           Would remove (broken link): #{broken_link}
@@ -325,7 +324,7 @@ RSpec.describe Homebrew::Cleanup do
     end
 
     it "cleans all logs if prune is 0" do
-      klass.new(days: 0).cleanup_logs
+      described_class.new(days: 0).cleanup_logs
       expect(path).not_to exist
     end
 
@@ -417,7 +416,7 @@ RSpec.describe Homebrew::Cleanup do
       gist.mkpath
       FileUtils.touch svn
 
-      klass.new(days: 0).cleanup_cache
+      described_class.new(days: 0).cleanup_cache
 
       expect(git).not_to exist
       expect(gist).to exist
@@ -428,7 +427,7 @@ RSpec.describe Homebrew::Cleanup do
       git = (HOMEBREW_CACHE/"git")
       git.mkpath
 
-      klass.new(days: 0).cleanup_cache
+      described_class.new(days: 0).cleanup_cache
 
       expect(git).to exist
     end
@@ -438,14 +437,14 @@ RSpec.describe Homebrew::Cleanup do
       foo.mkpath
       allow_any_instance_of(Pathname).to receive(:ctime).and_return(Time.now - (2 * 60 * 60 * 24))
       allow_any_instance_of(Pathname).to receive(:mtime).and_return(Time.now - (2 * 60 * 60 * 24))
-      klass.new(days: 1).cleanup_cache
+      described_class.new(days: 1).cleanup_cache
       expect(foo).not_to exist
     end
 
     it "does not clean up VCS checkout directories with modified time >= prune time" do
       foo = (HOMEBREW_CACHE/"--foo")
       foo.mkpath
-      klass.new(days: 1).cleanup_cache
+      described_class.new(days: 1).cleanup_cache
       expect(foo).to exist
     end
 
@@ -465,7 +464,7 @@ RSpec.describe Homebrew::Cleanup do
       FileUtils.touch symlink_target
       FileUtils.ln_s symlink_target, nested_symlink
 
-      klass.new(days: 0).cleanup_cache
+      described_class.new(days: 0).cleanup_cache
 
       expect([root_file.exist?, nested_file.exist?, nested_symlink.exist?, nested_directory.exist?])
         .to eq([false, false, false, true])
@@ -524,7 +523,7 @@ RSpec.describe Homebrew::Cleanup do
       end
 
       it "cleans up file if `scrub` is true and formula not installed" do
-        klass.new(scrub: true).cleanup_cache
+        described_class.new(scrub: true).cleanup_cache
         expect(bottle).not_to exist
         expect(testball).not_to exist
         expect(testball_resource).not_to exist
@@ -618,7 +617,7 @@ RSpec.describe Homebrew::Cleanup do
 
       allow_any_instance_of(Pathname).to receive(:ctime).and_return(Time.now - (2 * 60 * 60 * 24))
       allow_any_instance_of(Pathname).to receive(:mtime).and_return(Time.now - (2 * 60 * 60 * 24))
-      klass.new(days: 1).cleanup_python_site_packages
+      described_class.new(days: 1).cleanup_python_site_packages
       expect(foo_pyc).not_to exist
     end
   end

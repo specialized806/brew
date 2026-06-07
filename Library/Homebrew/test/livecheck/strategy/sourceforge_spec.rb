@@ -4,9 +4,8 @@
 require "livecheck/strategy"
 
 RSpec.describe Homebrew::Livecheck::Strategy::Sourceforge do
-  subject(:sourceforge) { klass }
+  subject(:sourceforge) { described_class }
 
-  let(:klass) { Homebrew::Livecheck::Strategy::Sourceforge }
   let(:sourceforge_urls) do
     {
       typical:       "https://downloads.sourceforge.net/project/abc/def-1.2.3.tar.gz",

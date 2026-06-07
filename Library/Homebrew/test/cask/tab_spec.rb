@@ -5,7 +5,7 @@ require "cask"
 
 RSpec.describe Cask::Tab, :cask do
   subject(:tab) do
-    klass.new(
+    described_class.new(
       "homebrew_version"         => HOMEBREW_VERSION,
       "loaded_from_api"          => false,
       "loaded_from_internal_api" => false,
@@ -27,7 +27,6 @@ RSpec.describe Cask::Tab, :cask do
     )
   end
 
-  let(:klass) { Cask::Tab }
   let(:time) { Time.now.to_i }
   let(:f) { formula { url "foo-1.0" } }
 
@@ -58,7 +57,7 @@ RSpec.describe Cask::Tab, :cask do
   specify "defaults" do
     stub_const("HOMEBREW_VERSION", "4.3.7")
 
-    tab = klass.empty
+    tab = described_class.empty
 
     expect(tab.homebrew_version).to eq(HOMEBREW_VERSION)
     expect(tab).not_to be_installed_on_request
@@ -72,7 +71,7 @@ RSpec.describe Cask::Tab, :cask do
   end
 
   specify "#runtime_dependencies" do
-    tab = klass.new
+    tab = described_class.new
     expect(tab.runtime_dependencies).to be_nil
 
     tab.runtime_dependencies = {}
@@ -88,7 +87,7 @@ RSpec.describe Cask::Tab, :cask do
     specify "with no dependencies" do
       cask = Cask::CaskLoader.load("local-transmission")
 
-      expect(klass.runtime_deps_hash(cask)).to eq({})
+      expect(described_class.runtime_deps_hash(cask)).to eq({})
     end
 
     specify "with cask dependencies" do
@@ -99,25 +98,25 @@ RSpec.describe Cask::Tab, :cask do
           { "full_name"=>"local-transmission-zip", "version"=>"2.61", "declared_directly"=>true },
         ],
       }
-      expect(klass.runtime_deps_hash(cask)).to eq(expected_hash)
+      expect(described_class.runtime_deps_hash(cask)).to eq(expected_hash)
     end
 
     it "ignores macos symbol dependencies" do
       cask = Cask::CaskLoader.load("with-depends-on-macos-symbol")
 
-      expect(klass.runtime_deps_hash(cask)).to eq({})
+      expect(described_class.runtime_deps_hash(cask)).to eq({})
     end
 
     it "ignores macos array dependencies" do
       cask = Cask::CaskLoader.load("with-depends-on-macos-array")
 
-      expect(klass.runtime_deps_hash(cask)).to eq({})
+      expect(described_class.runtime_deps_hash(cask)).to eq({})
     end
 
     it "ignores arch dependencies" do
       cask = Cask::CaskLoader.load("with-depends-on-arch")
 
-      expect(klass.runtime_deps_hash(cask)).to eq({})
+      expect(described_class.runtime_deps_hash(cask)).to eq({})
     end
 
     specify "with all types of dependencies" do
@@ -140,8 +139,8 @@ RSpec.describe Cask::Tab, :cask do
         ],
       }
 
-      runtime_deps_hash = klass.runtime_deps_hash(cask)
-      tab = klass.new
+      runtime_deps_hash = described_class.runtime_deps_hash(cask)
+      tab = described_class.new
       tab.runtime_dependencies = runtime_deps_hash
       expect(tab.runtime_dependencies).to eql(expected_hash)
     end
@@ -159,7 +158,7 @@ RSpec.describe Cask::Tab, :cask do
   describe "::from_file" do
     it "parses a cask Tab from a file" do
       path = Pathname.new("#{TEST_FIXTURE_DIR}/cask_receipt.json")
-      tab = klass.from_file(path)
+      tab = described_class.from_file(path)
       source_path = "/opt/homebrew/Library/Taps/homebrew/homebrew-cask/Casks/f/foo.rb"
       runtime_dependencies = {
         "cask"    => [
@@ -200,7 +199,7 @@ RSpec.describe Cask::Tab, :cask do
   describe "::from_file_content" do
     it "parses a cask Tab from a file" do
       path = Pathname.new("#{TEST_FIXTURE_DIR}/cask_receipt.json")
-      tab = klass.from_file_content(path.read, path)
+      tab = described_class.from_file_content(path.read, path)
       source_path = "/opt/homebrew/Library/Taps/homebrew/homebrew-cask/Casks/f/foo.rb"
       runtime_dependencies = {
         "cask"    => [
@@ -239,7 +238,7 @@ RSpec.describe Cask::Tab, :cask do
     end
 
     it "raises a parse exception message including the Tab filename" do
-      expect { klass.from_file_content("''", "cask_receipt.json") }.to raise_error(
+      expect { described_class.from_file_content("''", "cask_receipt.json") }.to raise_error(
         JSON::ParserError,
         /receipt.json:/,
       )
@@ -254,7 +253,7 @@ RSpec.describe Cask::Tab, :cask do
         { zap: [{ trash: "#{TEST_FIXTURE_DIR}/cask/caffeine/org.example.caffeine.plist" }] },
       ]
 
-      tab = klass.create(cask)
+      tab = described_class.create(cask)
       expect(tab).not_to be_loaded_from_api
       expect(tab).not_to be_loaded_from_internal_api
       expect(tab).not_to have_uninstall_flight_blocks
@@ -276,7 +275,7 @@ RSpec.describe Cask::Tab, :cask do
     let(:cask_tab_content) { (TEST_FIXTURE_DIR/"cask_receipt.json").read }
 
     it "creates a Tab for a given cask" do
-      tab = klass.for_cask(cask)
+      tab = described_class.for_cask(cask)
       expect(tab.source["path"]).to eq(cask.sourcefile_path.to_s)
     end
 
@@ -284,20 +283,20 @@ RSpec.describe Cask::Tab, :cask do
       cask_tab_path.dirname.mkpath
       cask_tab_path.write cask_tab_content
 
-      tab = klass.for_cask(cask)
+      tab = described_class.for_cask(cask)
       expect(tab.tabfile).to eq(cask_tab_path)
     end
 
     it "can create a Tab for a non-existent cask" do
       cask_tab_path.dirname.mkpath
 
-      tab = klass.for_cask(cask)
+      tab = described_class.for_cask(cask)
       expect(tab.tabfile).to be_nil
     end
   end
 
   specify "#to_json" do
-    json_tab = klass.new(JSON.parse(tab.to_json))
+    json_tab = described_class.new(JSON.parse(tab.to_json))
     expect(json_tab.homebrew_version).to eq(tab.homebrew_version)
     expect(json_tab.loaded_from_api).to eq(tab.loaded_from_api)
     expect(json_tab.loaded_from_internal_api).to eq(tab.loaded_from_internal_api)
@@ -319,7 +318,7 @@ RSpec.describe Cask::Tab, :cask do
     let(:time_string) { Time.at(1_720_189_863).strftime("%Y-%m-%d at %H:%M:%S") }
 
     it "returns install information for a Tab with a time that was loaded from the API" do
-      tab = klass.new(
+      tab = described_class.new(
         loaded_from_api: true,
         time:            1_720_189_863,
       )
@@ -328,7 +327,7 @@ RSpec.describe Cask::Tab, :cask do
     end
 
     it "returns install information for a Tab with a time that was loaded from the internal API" do
-      tab = klass.new(
+      tab = described_class.new(
         loaded_from_api:          true,
         loaded_from_internal_api: true,
         time:                     1_720_189_863,
@@ -338,7 +337,7 @@ RSpec.describe Cask::Tab, :cask do
     end
 
     it "returns install information for a Tab with a time that was not loaded from the API" do
-      tab = klass.new(
+      tab = described_class.new(
         loaded_from_api: false,
         time:            1_720_189_863,
       )
@@ -347,7 +346,7 @@ RSpec.describe Cask::Tab, :cask do
     end
 
     it "returns install information for a Tab without a time that was loaded from the API" do
-      tab = klass.new(
+      tab = described_class.new(
         loaded_from_api: true,
         time:            nil,
       )
@@ -356,7 +355,7 @@ RSpec.describe Cask::Tab, :cask do
     end
 
     it "returns install information for a Tab without a time that was loaded from the internal API" do
-      tab = klass.new(
+      tab = described_class.new(
         loaded_from_api:          true,
         loaded_from_internal_api: true,
         time:                     nil,
@@ -366,7 +365,7 @@ RSpec.describe Cask::Tab, :cask do
     end
 
     it "returns install information for a Tab without a time that was not loaded from the API" do
-      tab = klass.new(
+      tab = described_class.new(
         loaded_from_api: false,
         time:            nil,
       )
