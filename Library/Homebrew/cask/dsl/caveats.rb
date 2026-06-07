@@ -20,7 +20,7 @@ module Cask
       sig { params(args: T.anything).void }
       def initialize(*args)
         super
-        @built_in_caveats = T.let({}, T::Hash[T::Array[Symbol], String])
+        @built_in_caveats = T.let({}, T::Hash[T::Array[T.any(String, Symbol)], String])
         @custom_caveats = T.let([], T::Array[String])
         @discontinued = T.let(false, T::Boolean)
         @invoked_caveats = T.let(Set.new, T::Set[Symbol])
@@ -86,16 +86,10 @@ module Cask
       caveat :kext do
         next if MacOS.version < :sonoma
 
-        navigation_path = if MacOS.version >= :ventura
-          "System Settings → Privacy & Security"
-        else
-          "System Preferences → Security & Privacy → General"
-        end
-
         <<~EOS
           #{cask} requires a kernel extension to work.
           If the installation fails, retry after you enable it in:
-            #{navigation_path}
+            System Settings → Privacy & Security
 
           For more information, refer to vendor documentation or this Apple Technical Note:
             #{Formatter.url("https://developer.apple.com/library/content/technotes/tn2459/_index.html")}
@@ -211,7 +205,7 @@ module Cask
       sig { returns(T::Set[Symbol]) }
       attr_reader :invoked_caveats
 
-      sig { returns(T::Hash[T::Array[Symbol], String]) }
+      sig { returns(T::Hash[T::Array[T.any(String, Symbol)], String]) }
       attr_reader :built_in_caveats
     end
   end
