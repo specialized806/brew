@@ -143,7 +143,7 @@ class Bottle
   sig { returns(T::Boolean) }
   def skip_relocation?
     attrs = tab_attributes
-    tab = attrs.empty? ? nil : Tab.new(attrs)
+    tab = Tab.new(attrs) unless attrs.empty?
     @spec.skip_relocation?(tag: @tag, tab:)
   end
 
