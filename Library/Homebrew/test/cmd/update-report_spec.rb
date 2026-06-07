@@ -280,5 +280,15 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
       allow(Cask::Caskroom).to receive(:casks).and_return([])
       expect { hub.dump }.not_to output.to_stdout
     end
+
+    it "merges frozen report arrays" do
+      first_reporter = instance_double(Reporter, report: { A: ["foo"].freeze })
+      second_reporter = instance_double(Reporter, report: { A: ["bar"] })
+
+      hub.add(first_reporter)
+      hub.add(second_reporter)
+
+      expect(hub.instance_variable_get(:@hash)[:A]).to eq(%w[foo bar])
+    end
   end
 end
