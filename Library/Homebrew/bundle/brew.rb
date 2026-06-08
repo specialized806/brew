@@ -456,6 +456,7 @@ module Homebrew
         @link = T.let(options.fetch(:link, nil), T.nilable(T.any(Symbol, T::Boolean)))
         @postinstall = T.let(options.fetch(:postinstall, nil), T.nilable(String))
         @version_file = T.let(options.fetch(:version_file, nil), T.nilable(String))
+        @trusted = T.let(options.fetch(:trusted, false), T::Boolean)
         @changed = T.let(nil, T.nilable(T::Boolean))
       end
 
@@ -552,6 +553,13 @@ module Homebrew
       sig { params(no_upgrade: T::Boolean, verbose: T::Boolean, force: T::Boolean).returns(T::Boolean) }
       def install_change_state!(no_upgrade:, verbose:, force:)
         require "tap"
+
+        # Trust before tapping: installing the tap loads the formula, which
+        # triggers the trust check before any later step could grant trust.
+        # Only fully-qualified names map to a tap, so unqualified names cannot
+        # be meaningfully trusted.
+        Homebrew::Trust.trust!(:formula, @full_name) if @trusted && @full_name.count("/") == 2
+
         if (tap_with_name = ::Tap.with_formula_name(@full_name))
           tap, = tap_with_name
           tap.ensure_installed!

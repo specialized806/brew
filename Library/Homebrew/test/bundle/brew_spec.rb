@@ -278,6 +278,10 @@ RSpec.describe Homebrew::Bundle::Brew do
     let(:installer) { described_class.new(formula_name, options) }
 
     before do
+      # Clear the class-level formula cache so a hash memoised by an earlier
+      # example (e.g. without conflicts) doesn't leak into this one.
+      described_class.reset!
+
       # don't try to load gcc/glibc
       allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
 
@@ -575,6 +579,31 @@ RSpec.describe Homebrew::Bundle::Brew do
       it "did not call restart service" do
         expect(Homebrew::Bundle::Brew::Services).not_to receive(:restart)
         described_class.preinstall!(formula_name, restart_service: true)
+      end
+    end
+
+    context "when the trusted option is true" do
+      let(:tapped_name) { "foo/bar/baz" }
+
+      before do
+        allow_any_instance_of(described_class).to receive_messages(installed?: false, resolve_conflicts!: true,
+                                                                   install_formula!: true)
+      end
+
+      it "trusts the formula before installing the tap that loads it" do
+        order = []
+        tap = instance_double(Tap, ensure_installed!: nil)
+        allow(Tap).to receive(:with_formula_name).with(tapped_name).and_return([tap, "baz"])
+        allow(tap).to receive(:ensure_installed!) { order << :tap }
+        allow(Homebrew::Trust).to receive(:trust!).with(:formula, tapped_name) { order << :trust }
+        described_class.install!(tapped_name, trusted: true)
+        expect(order).to eq([:trust, :tap])
+      end
+
+      it "does not trust an unqualified formula name" do
+        allow(Tap).to receive(:with_formula_name).and_return(nil)
+        expect(Homebrew::Trust).not_to receive(:trust!)
+        described_class.install!("baz", trusted: true)
       end
     end
 
