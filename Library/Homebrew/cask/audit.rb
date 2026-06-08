@@ -899,11 +899,7 @@ module Cask
       end
       return if items.blank?
 
-      min_os = items[0]&.minimum_system_version&.strip_patch
-      # Big Sur is sometimes identified as 10.16, so we override it to the
-      # expected macOS version (11).
-      min_os = MacOSVersion.new("11") if min_os == "10.16"
-      min_os
+      normalize_min_os(items[0]&.minimum_system_version)
     end
 
     sig { returns(T.nilable(MacOSVersion)) }
@@ -992,11 +988,27 @@ module Cask
         end
       end
 
-      begin
+      normalize_min_os(min_os)
+    end
+
+    sig { params(min_os: T.nilable(T.any(String, MacOSVersion))).returns(T.nilable(MacOSVersion)) }
+    def normalize_min_os(min_os)
+      return if min_os.nil?
+      return if min_os.is_a?(String) && min_os.blank?
+
+      min_os = if min_os.is_a?(MacOSVersion)
+        min_os.strip_patch
+      else
         MacOSVersion.new(min_os).strip_patch
-      rescue MacOSVersion::Error
-        nil
       end
+
+      # Big Sur is sometimes identified as 10.16, so we override it to the
+      # expected macOS version (11).
+      min_os = MacOSVersion.new("11") if min_os == "10.16"
+
+      min_os
+    rescue MacOSVersion::Error
+      nil
     end
 
     sig { params(path: Pathname).returns(T.nilable(String)) }

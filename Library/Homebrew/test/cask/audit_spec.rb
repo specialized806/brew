@@ -1127,6 +1127,10 @@ RSpec.describe Cask::Audit, :cask do
       end
 
       it { is_expected.to pass }
+
+      it "normalizes 10.16.0 minimum macOS to Big Sur" do
+        expect(audit.send(:normalize_min_os, "10.16.0")).to eq(MacOSVersion.from_symbol(:big_sur))
+      end
     end
 
     describe "preferred download URL formats" do
