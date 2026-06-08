@@ -648,8 +648,8 @@ RSpec.describe FormulaInstaller do
     let(:homebrew_forbidden) { Tap.fetch("homebrew/forbidden") }
     let(:allowed_third_party) { Tap.fetch("nothomebrew/allowed") }
     let(:disallowed_third_party) { Tap.fetch("nothomebrew/notallowed") }
-    let(:allowed_taps_set) { Set.new([allowed_third_party]) }
-    let(:forbidden_taps_set) { Set.new([homebrew_forbidden]) }
+    let(:allowed_taps_set) { [allowed_third_party.name] }
+    let(:forbidden_taps_set) { [homebrew_forbidden.name] }
 
     it "raises on forbidden tap on formula" do
       f_tap = homebrew_forbidden
@@ -807,7 +807,7 @@ RSpec.describe FormulaInstaller do
   describe "#prelude_fetch" do
     it "raises on forbidden formula tap before fetching the source from the API" do
       homebrew_forbidden = Tap.fetch("homebrew/forbidden")
-      allow(Tap).to receive_messages(allowed_taps: Set.new, forbidden_taps: Set.new([homebrew_forbidden]))
+      allow(Tap).to receive_messages(allowed_taps: [], forbidden_taps: [homebrew_forbidden.name])
       f_name = "homebrew-forbidden-fail-fast-tap"
       f_path = homebrew_forbidden.new_formula_path(f_name)
       f_path.parent.mkpath

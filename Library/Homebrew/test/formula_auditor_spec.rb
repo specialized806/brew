@@ -20,6 +20,10 @@ RSpec.describe Homebrew::FormulaAuditor do
   include FileUtils
   include Test::Helper::Formula
 
+  # These specs audit formula content loaded from fixture taps cloned over local
+  # paths, not tap trust, so treat those taps as trusted when loading formulae.
+  before { allow(Homebrew::Trust).to receive(:trusted_tap?).and_return(true) }
+
   def formula_auditor(name, text, options = {})
     path = Pathname.new "#{dir}/#{name}.rb"
     path.open("w") do |f|

@@ -31,6 +31,36 @@ RSpec.describe Homebrew::Trust do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "does not trust a custom-remote tap by its name but does by its remote URL" do
+    tap = Tap.fetch("thirdparty", "custom")
+    tap.path.mkpath
+    system "git", "-C", tap.path.to_s, "init"
+    system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://gitlab.com/other/repo"
+
+    described_class.trust!(:tap, "thirdparty/custom")
+    expect(described_class.trusted_tap?(tap)).to be(false)
+
+    described_class.trust!(:tap, "https://gitlab.com/other/repo")
+    expect(described_class.trusted_tap?(tap)).to be(true)
+  ensure
+    described_class.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "refuses new per-item trust for a custom-remote tap but still resolves existing entries to untrust" do
+    tap = Tap.fetch("thirdparty", "custom")
+    tap.path.mkpath
+    system "git", "-C", tap.path.to_s, "init"
+    system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://gitlab.com/other/repo"
+
+    expect { described_class.target("thirdparty/custom/bar", type: :formula) }
+      .to raise_error(UsageError, /custom remote/)
+    expect(described_class.target("thirdparty/custom/bar", type: :formula, include_existing: true))
+      .to eq([:formula, "thirdparty/custom/bar"])
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
   it "trusts formulae from trusted taps" do
     Tap.fetch("trustedformulae", "foo")
 

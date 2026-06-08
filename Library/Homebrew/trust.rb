@@ -64,7 +64,7 @@ module Homebrew
         tap_name = name.split("/").first(2).join("/")
         item_name = ::Utils.name_from_full_name(name)
         tap = Tap.fetch(tap_name)
-        next if tap.official?
+        next if tap.official? || tap.uses_custom_remote?
 
         types = if type == :formula
           tap.formula_files_by_name.key?(item_name) ? [:formula] : []
@@ -104,7 +104,7 @@ module Homebrew
 
     sig { params(tap: T.untyped).returns(T::Boolean) }
     def self.trusted_tap?(tap)
-      tap.official? || trusted?(:tap, tap.name)
+      tap.implicitly_trusted? || trusted_entries(:tap).any? { |reference| tap.matches_reference?(reference) }
     end
 
     sig { params(name: String, path: Pathname).void }
@@ -114,7 +114,7 @@ module Homebrew
       return if trusted_tap?(tap)
 
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(name)}"
-      return if trusted?(:formula, full_name)
+      return if !tap.uses_custom_remote? && trusted?(:formula, full_name)
       return if explicitly_allowed?(:formula, full_name, tap)
       return unless Homebrew::EnvConfig.require_tap_trust?
 
@@ -128,7 +128,7 @@ module Homebrew
       return if trusted_tap?(tap)
 
       full_name = "#{tap.name}/#{::Utils.name_from_full_name(token)}"
-      return if trusted?(:cask, full_name)
+      return if !tap.uses_custom_remote? && trusted?(:cask, full_name)
       return if explicitly_allowed?(:cask, full_name, tap)
       return unless Homebrew::EnvConfig.require_tap_trust?
 
@@ -142,7 +142,7 @@ module Homebrew
       return if trusted_tap?(tap)
 
       full_name = "#{tap.name}/#{command || path.basename(path.extname).to_s.delete_prefix("brew-")}"
-      return if trusted?(:command, full_name)
+      return if !tap.uses_custom_remote? && trusted?(:command, full_name)
       return unless Homebrew::EnvConfig.require_tap_trust?
 
       raise_untrusted!(:command, full_name, tap)
@@ -175,7 +175,7 @@ module Homebrew
 
     sig { returns(T::Array[Tap]) }
     def self.untrusted_taps
-      Tap.installed.reject(&:official?).reject { |tap| trusted?(:tap, tap.name) }.sort_by(&:name)
+      Tap.installed.reject(&:official?).reject { |tap| trusted_tap?(tap) }.sort_by(&:name)
     end
 
     sig { returns(T::Array[Tap]) }
@@ -204,7 +204,7 @@ module Homebrew
 
     sig { params(name: String, type: T.nilable(Symbol), include_existing: T::Boolean).returns([Symbol, String]) }
     def self.target(name, type: nil, include_existing: false)
-      return [type, trust_name(type, name)] if type
+      return [type, trust_name(type, name, include_existing:)] if type
 
       infer_target(name, include_existing:)
     end
@@ -240,19 +240,22 @@ module Homebrew
     end
     private_class_method :infer_target
 
-    sig { params(type: Symbol, name: String).returns(String) }
-    def self.trust_name(type, name)
+    sig { params(type: Symbol, name: String, include_existing: T::Boolean).returns(String) }
+    def self.trust_name(type, name, include_existing: false)
       case type
       when :tap
-        Tap.fetch(name).name
+        Tap.fetch(name).reference
       when :formula
         tap, formula_name = fully_qualified_package_name(name, "Formulae")
+        require_default_remote_item!(tap) unless include_existing
         "#{tap.name}/#{formula_name}"
       when :cask
         tap, token = fully_qualified_package_name(name, "Casks")
+        require_default_remote_item!(tap) unless include_existing
         "#{tap.name}/#{token}"
       when :command
         tap, command_name = fully_qualified_package_name(name, "Commands")
+        require_default_remote_item!(tap) unless include_existing
         "#{tap.name}/#{command_name}"
       else
         raise UsageError, "Unsupported trust target type: #{type}"
@@ -261,6 +264,17 @@ module Homebrew
       raise UsageError, e.message
     end
     private_class_method :trust_name
+
+    # Per-item trust cannot be created for custom-remote taps (trust the whole tap by URL); existing
+    # entries are still resolvable so `brew untrust` (`include_existing`) can remove legacy ones.
+    sig { params(tap: Tap).void }
+    def self.require_default_remote_item!(tap)
+      return unless tap.uses_custom_remote?
+
+      raise UsageError, "Cannot trust individual items in #{tap.name} as it uses a custom remote.\n" \
+                        "Run `brew trust #{tap.name}` to trust the whole tap instead."
+    end
+    private_class_method :require_default_remote_item!
 
     sig { params(name: String, noun: String).returns([Tap, String]) }
     def self.fully_qualified_package_name(name, noun)
@@ -320,7 +334,7 @@ module Homebrew
       name = path.basename(path.extname).to_s
       name = name.delete_prefix("brew-") if type == :command
       full_name = "#{tap.name}/#{name}"
-      return true if trusted?(type, full_name)
+      return true if !tap.uses_custom_remote? && trusted?(type, full_name)
       return true if explicitly_allowed?(type, full_name, tap)
 
       !Homebrew::EnvConfig.require_tap_trust?

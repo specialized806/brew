@@ -47,7 +47,9 @@ module Homebrew
       HOMEBREW_ALLOWED_TAPS:                     {
         description: "A space-separated list of taps. Homebrew will refuse to install a " \
                      "formula unless it and all of its dependencies are in an official tap " \
-                     "or in a tap on this list.",
+                     "or in a tap on this list. Each entry is a `user/repository` name " \
+                     "(which matches only taps using the default GitHub remote) or a remote " \
+                     "URL (required to match taps with a custom remote).",
       },
       HOMEBREW_API_AUTO_UPDATE_SECS:             {
         description: "Check Homebrew's API for new formulae or cask data every " \
@@ -347,7 +349,10 @@ module Homebrew
       },
       HOMEBREW_FORBIDDEN_TAPS:                   {
         description: "A space-separated list of taps. Homebrew will refuse to install a " \
-                     "formula if it or any of its dependencies is in a tap on this list.",
+                     "formula if it or any of its dependencies is in a tap on this list. " \
+                     "Each entry is a `user/repository` name (which matches only taps using " \
+                     "the default GitHub remote) or a remote URL (required to match taps " \
+                     "with a custom remote).",
       },
       HOMEBREW_FORBID_CASKS:                     {
         description: "If set, Homebrew will refuse to install any casks.",

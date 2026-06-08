@@ -144,18 +144,104 @@ RSpec.describe Tap do
   describe "::allowed_taps" do
     before { allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("homebrew/allowed") }
 
-    it "returns a set of allowed taps according to the environment" do
-      expect(described_class.allowed_taps)
-        .to contain_exactly(described_class.fetch("homebrew/allowed"))
+    it "returns the references from the environment" do
+      expect(described_class.allowed_taps).to contain_exactly("homebrew/allowed")
+    end
+
+    it "normalises a `user/homebrew-repository` entry to a canonical tap name" do
+      allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("User/homebrew-Repo")
+      expect(described_class.allowed_taps).to contain_exactly("user/repo")
+    end
+
+    it "preserves a remote URL entry verbatim" do
+      allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("https://gitlab.com/other/repo")
+      expect(described_class.allowed_taps).to contain_exactly("https://gitlab.com/other/repo")
+    end
+
+    it "warns about and ignores an invalid tap name" do
+      allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("not-a-tap")
+      expect { expect(described_class.allowed_taps).to be_empty }.to output(/Invalid tap name/).to_stderr
     end
   end
 
   describe "::forbidden_taps" do
     before { allow(Homebrew::EnvConfig).to receive(:forbidden_taps).and_return("homebrew/forbidden") }
 
-    it "returns a set of forbidden taps according to the environment" do
-      expect(described_class.forbidden_taps)
-        .to contain_exactly(described_class.fetch("homebrew/forbidden"))
+    it "returns the references from the environment" do
+      expect(described_class.forbidden_taps).to contain_exactly("homebrew/forbidden")
+    end
+  end
+
+  describe "#matches_reference?" do
+    let(:tap) { described_class.fetch("user", "repo") }
+
+    it "matches a default-remote tap by its name" do
+      expect(tap.matches_reference?("user/repo", remote: "https://github.com/user/homebrew-repo")).to be true
+    end
+
+    it "does not match a custom-remote tap by its name" do
+      expect(tap.matches_reference?("user/repo", remote: "https://gitlab.com/other/repo")).to be false
+    end
+
+    it "matches a custom-remote tap by its remote URL" do
+      expect(tap.matches_reference?("https://gitlab.com/other/repo", remote: "https://gitlab.com/other/repo"))
+        .to be true
+    end
+
+    it "matches a tap by its local path remote" do
+      expect(tap.matches_reference?("/Users/me/homebrew-tap", remote: "/Users/me/homebrew-tap")).to be true
+    end
+  end
+
+  describe "#allowed_by_env?" do
+    before { allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("user/repo") }
+
+    it "does not allow a name-matched tap fetched from a custom remote" do
+      expect(described_class.fetch("user", "repo").allowed_by_env?(remote: "https://evil.example/repo")).to be false
+    end
+
+    it "does not implicitly allow an official tap fetched from a custom remote" do
+      expect(described_class.fetch("Homebrew",
+                                   "foo").allowed_by_env?(remote: "https://evil.example/repo")).to be false
+    end
+  end
+
+  describe "#implicitly_trusted?" do
+    it "is true for an official tap on its default remote" do
+      expect(described_class.fetch("Homebrew", "foo")
+        .implicitly_trusted?(remote: "https://github.com/Homebrew/homebrew-foo")).to be true
+    end
+
+    it "is false for an official tap on a custom remote" do
+      expect(described_class.fetch("Homebrew", "foo").implicitly_trusted?(remote: "https://evil.example/repo"))
+        .to be false
+    end
+
+    it "is true for homebrew/core in API mode regardless of remote" do
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: nil) do
+        expect(CoreTap.instance.implicitly_trusted?(remote: "https://evil.example/core")).to be true
+      end
+    end
+
+    it "is false for a homebrew/core Git checkout from a non-official remote" do
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
+        expect(CoreTap.instance.implicitly_trusted?(remote: "https://evil.example/core")).to be false
+      end
+    end
+
+    it "accepts the configured HOMEBREW_CORE_GIT_REMOTE as official" do
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1", HOMEBREW_CORE_GIT_REMOTE: "https://mirror.example/core") do
+        expect(CoreTap.instance.implicitly_trusted?(remote: "https://mirror.example/core")).to be true
+      end
+    end
+  end
+
+  describe "#forbidden_by_env?" do
+    before { allow(Homebrew::EnvConfig).to receive(:forbidden_taps).and_return("https://github.com/evil/homebrew-tap") }
+
+    it "forbids any locally-named tap fetched from a forbidden remote URL" do
+      expect(described_class.fetch("notevil", "tap").forbidden_by_env?(remote: "https://github.com/evil/homebrew-tap"))
+        .to be true
     end
   end
 
@@ -339,6 +425,14 @@ RSpec.describe Tap do
       expect(already_tapped_tap).to be_installed
       right_remote = homebrew_foo_tap.remote
       expect { already_tapped_tap.install clone_target: right_remote }.to raise_error(TapAlreadyTappedError)
+    end
+
+    it "refuses a name-allowed tap cloned from a custom remote (no HOMEBREW_ALLOWED_TAPS bypass)" do
+      allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("user/repo")
+      tap = described_class.fetch("user", "repo")
+
+      expect { tap.install clone_target: "https://evil.example/repo" }.to raise_error(SystemExit)
+      expect(tap).not_to be_installed
     end
 
     it "raises an error when the remote doesn't match" do
