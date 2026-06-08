@@ -5128,14 +5128,6 @@ Homebrew's other Maintainers are Anton Melnikov, Caleb Xu, Daeho Ro, Douglas
 Eichelberger, Eric Knibbe, Klaus Hipp, Markus Reiter, Rylan Polster, Štefan
 Baebler and William Woodruff.
 
-Former Maintainers with significant contributions include Alexander Bayandin,
-Miccal Matthews, Misty De Méo, Shaun Jackman, Vítor Galvão, Claudia Pellegrino,
-Seeker, Jan Viljanen, JCount, commitay, Dominyk Tiller, Tim Smith, Baptiste
-Fontaine, Xu Cheng, Martin Afanasjew, Brett Koonce, Charlie Sharpsteen, Jack
-Nagel, Adam Vandenberg, Andrew Janke, Alex Dunn, neutric, Tomasz Pajor,
-Uladzislau Shablinski, Alyssa Ross, ilovezfs, Chongyu Zhu and Homebrew's
-creator: Max Howell.
-
 ## BUGS
 
 See our issues on GitHub:
