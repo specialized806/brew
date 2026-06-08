@@ -134,7 +134,7 @@ module Homebrew
         def formula_installed?(formula)
           # Fully qualified tap formulae can be checked by their Cellar rack name
           # without loading the formula from an untrusted tap.
-          return installed_formulae.include?(Utils.name_from_full_name(formula)) if formula.count("/") == 2
+          return installed_formulae.include?(Utils.name_from_full_name(formula)) if Utils.full_name?(formula)
 
           formula_in_array?(formula, installed_formulae)
         end
@@ -145,7 +145,7 @@ module Homebrew
 
           # Reading the formula is needed for authoritative outdated state, so
           # report trust problems before the upgrade check tries to load it.
-          if formula.count("/") == 2 && Homebrew::EnvConfig.require_tap_trust?
+          if Utils.full_name?(formula) && Homebrew::EnvConfig.require_tap_trust?
             require "trust"
 
             unless Homebrew::Trust.trusted?(:formula, formula)
@@ -558,7 +558,7 @@ module Homebrew
         # triggers the trust check before any later step could grant trust.
         # Only fully-qualified names map to a tap, so unqualified names cannot
         # be meaningfully trusted.
-        Homebrew::Trust.trust!(:formula, @full_name) if @trusted && @full_name.count("/") == 2
+        Homebrew::Trust.trust!(:formula, @full_name) if @trusted && Utils.full_name?(@full_name)
 
         if (tap_with_name = ::Tap.with_formula_name(@full_name))
           tap, = tap_with_name

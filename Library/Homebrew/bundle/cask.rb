@@ -99,7 +99,7 @@ module Homebrew
 
           # Only fully-qualified names map to a tap, so unqualified tokens
           # cannot be meaningfully trusted.
-          Homebrew::Trust.trust!(:cask, full_name) if options[:trusted] && full_name.count("/") == 2
+          Homebrew::Trust.trust!(:cask, full_name) if options[:trusted] && Utils.full_name?(full_name)
 
           install_result = if cask_installed?(name) && upgrading?(no_upgrade, name, options)
             status = "#{options[:greedy] ? "may not be" : "not"} up-to-date"

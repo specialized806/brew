@@ -1095,7 +1095,7 @@ class Tap
         # Only include renames:
         # + `homebrew/cask/water-buffalo`
         # - `homebrew/cask`
-        next if new_name.count("/") != 2
+        next unless Utils.full_name?(new_name)
 
         hash[new_name] ||= []
         hash[new_name] << old_name

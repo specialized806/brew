@@ -59,7 +59,7 @@ module Homebrew
     sig { params(names: T::Array[String], type: T.nilable(Symbol)).void }
     def self.trust_fully_qualified_items!(names, type: nil)
       names.each do |name|
-        next if name.count("/") != 2
+        next unless ::Utils.full_name?(name)
 
         tap_name = name.split("/").first(2).join("/")
         item_name = ::Utils.name_from_full_name(name)
