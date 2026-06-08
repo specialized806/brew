@@ -103,7 +103,8 @@ class Keg
     man/cat1 man/cat2 man/cat3 man/cat4
     man/cat5 man/cat6 man/cat7 man/cat8
     applications gnome gnome/help icons
-    mime-info pixmaps sounds postgresql
+    mime mime/packages mime-info pixmaps
+    postgresql sounds
   ].freeze
 
   ELISP_EXTENSIONS = %w[.el .elc].freeze
