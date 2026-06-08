@@ -139,6 +139,23 @@ class Tap
     reference.include?("://") || reference.include?("@") || reference.start_with?("/", ".", "~")
   end
 
+  # On GitHub a `.git` suffix and trailing slashes are insignificant; we don't assume so elsewhere.
+  sig { params(remote: T.nilable(String)).returns(T.nilable(String)) }
+  def self.normalize_remote(remote)
+    return if remote.blank?
+
+    remote = remote.strip.downcase
+    return remote unless remote.match?(%r{\A(?:[a-z][a-z0-9+.-]*://)?(?:[^@/]+@)?github\.com[/:]})
+
+    remote.sub(%r{/+\z}, "").delete_suffix(".git")
+  end
+
+  sig { params(first: T.nilable(String), second: T.nilable(String)).returns(T::Boolean) }
+  def self.same_remote?(first, second)
+    first = normalize_remote(first)
+    first.present? && first == normalize_remote(second)
+  end
+
   # Normalise `user/repository` entries in a tap allow/forbid list to canonical tap names,
   # warning about invalid ones, while preserving remote URL or path entries verbatim.
   sig { params(env_taps: String, env_var: String).returns(T::Array[String]) }
@@ -737,7 +754,7 @@ class Tap
   def custom_remote?
     return true unless (remote = self.remote)
 
-    !T.must(remote.casecmp(default_remote)).zero?
+    !self.class.same_remote?(remote, default_remote)
   end
 
   # Unlike {#custom_remote?} this is false when no remote is set, so a remote-less
@@ -761,9 +778,9 @@ class Tap
   sig { params(reference: String, remote: T.nilable(String)).returns(T::Boolean) }
   def matches_reference?(reference, remote: self.remote)
     if self.class.remote_reference?(reference)
-      remote.present? && reference.casecmp?(remote) == true
+      self.class.same_remote?(reference, remote)
     else
-      uses_custom_remote = remote.present? && !remote.casecmp?(default_remote)
+      uses_custom_remote = remote.present? && !self.class.same_remote?(remote, default_remote)
       !uses_custom_remote && name == reference.downcase
     end
   end
@@ -1310,7 +1327,7 @@ class Tap
 
   sig { overridable.params(remote: T.nilable(String)).returns(T::Boolean) }
   def canonical_remote?(remote = self.remote)
-    remote.blank? || remote.casecmp?(default_remote) == true
+    remote.blank? || self.class.same_remote?(remote, default_remote)
   end
 
   private

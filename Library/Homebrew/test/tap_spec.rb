@@ -172,11 +172,42 @@ RSpec.describe Tap do
     end
   end
 
+  describe "::same_remote?" do
+    it "ignores a GitHub `.git` suffix, trailing slash and case" do
+      expect(described_class.same_remote?("https://github.com/Homebrew/homebrew-core.git/",
+                                          "https://github.com/homebrew/homebrew-core")).to be true
+    end
+
+    it "keeps a `.git` suffix significant on non-GitHub remotes" do
+      expect(described_class.same_remote?("https://gitlab.com/other/repo.git",
+                                          "https://gitlab.com/other/repo")).to be false
+    end
+
+    it "still matches non-GitHub remotes case-insensitively" do
+      expect(described_class.same_remote?("https://gitlab.com/other/repo",
+                                          "https://GitLab.com/Other/Repo")).to be true
+    end
+
+    it "keeps a different scheme distinct" do
+      expect(described_class.same_remote?("git@github.com:Homebrew/homebrew-core",
+                                          "https://github.com/Homebrew/homebrew-core")).to be false
+    end
+
+    it "keeps a different host distinct" do
+      expect(described_class.same_remote?("https://evil.example/Homebrew/homebrew-core",
+                                          "https://github.com/Homebrew/homebrew-core")).to be false
+    end
+  end
+
   describe "#matches_reference?" do
     let(:tap) { described_class.fetch("user", "repo") }
 
     it "matches a default-remote tap by its name" do
       expect(tap.matches_reference?("user/repo", remote: "https://github.com/user/homebrew-repo")).to be true
+    end
+
+    it "matches a default-remote tap whose remote has a `.git` suffix" do
+      expect(tap.matches_reference?("user/repo", remote: "https://github.com/user/homebrew-repo.git")).to be true
     end
 
     it "does not match a custom-remote tap by its name" do
@@ -220,6 +251,13 @@ RSpec.describe Tap do
     it "is true for homebrew/core in API mode regardless of remote" do
       with_env(HOMEBREW_NO_INSTALL_FROM_API: nil) do
         expect(CoreTap.instance.implicitly_trusted?(remote: "https://evil.example/core")).to be true
+      end
+    end
+
+    it "is true for a homebrew/core Git checkout whose remote has a `.git` suffix" do
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
+        expect(CoreTap.instance.implicitly_trusted?(remote: "https://github.com/Homebrew/homebrew-core.git"))
+          .to be true
       end
     end
 
@@ -388,6 +426,12 @@ RSpec.describe Tap do
 
     context "when using the default remote" do
       let(:remote) { "https://github.com/Homebrew/homebrew-test-bot" }
+
+      it(:custom_remote?) { expect(tap.custom_remote?).to be false }
+    end
+
+    context "when the default remote has a `.git` suffix" do
+      let(:remote) { "https://github.com/Homebrew/homebrew-test-bot.git" }
 
       it(:custom_remote?) { expect(tap.custom_remote?).to be false }
     end
