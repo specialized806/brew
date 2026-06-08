@@ -8,7 +8,7 @@ module Utils
   module Inreplace
     # Error during text replacement.
     class Error < RuntimeError
-      sig { params(errors: T::Hash[String, T::Array[String]]).void }
+      sig { params(errors: T::Hash[T.any(String, Pathname), T::Array[String]]).void }
       def initialize(errors)
         formatted_errors = errors.reduce(+"inreplace failed\n") do |s, (path, errs)|
           s << "#{path}:\n" << errs.map { |e| "  #{e}\n" }.join
