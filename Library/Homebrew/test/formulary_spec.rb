@@ -883,6 +883,7 @@ RSpec.describe Formulary do
           old_tap.path.mkpath
           new_tap.path.mkpath
           (old_tap.path/"tap_migrations.json").write tap_migrations.to_json
+          old_tap.clear_cache
         end
 
         context "to a cask in the default tap" do
