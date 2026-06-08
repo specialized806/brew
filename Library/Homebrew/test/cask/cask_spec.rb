@@ -87,6 +87,14 @@ RSpec.describe Cask::Cask, :cask do
     end
   end
 
+  describe "#any_version_installed?" do
+    it "matches #installed?" do
+      allow(cask).to receive(:installed?).and_return(true)
+
+      expect(cask.any_version_installed?).to be true
+    end
+  end
+
   context "when multiple versions are installed" do
     describe "#installed_version" do
       context "when there are duplicate versions" do
