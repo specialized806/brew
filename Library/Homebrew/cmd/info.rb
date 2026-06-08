@@ -118,7 +118,7 @@ module Homebrew
           print_analytics
         elsif (json = args.json)
           eval_all = args.eval_all?
-          eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
+          eval_all ||= args.no_named? && !args.installed? && Homebrew::EnvConfig.tap_trust_configured?
           print_json(json, eval_all)
         elsif args.installed?
           T.let([
