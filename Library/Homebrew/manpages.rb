@@ -8,7 +8,6 @@ module Homebrew
   # Helper functions for generating homebrew manual.
   module Manpages
     Variables = Struct.new(
-      :alumni,
       :commands,
       :developer_commands,
       :environment_variables,
@@ -58,8 +57,6 @@ module Homebrew
         lead_maintainers:      readme.read[/(Homebrew's \[Lead Maintainers.*\.)/, 1]
                                      .gsub(/\[([^\]]+)\]\([^)]+\)/, '\1'),
         maintainers:           readme.read[/(Homebrew's other Maintainers .*\.)/, 1]
-                                     .gsub(/\[([^\]]+)\]\([^)]+\)/, '\1'),
-        alumni:                readme.read[/(Former Maintainers .*\.)/, 1]
                                      .gsub(/\[([^\]]+)\]\([^)]+\)/, '\1'),
       )
 
