@@ -196,7 +196,7 @@ module Homebrew
     sig { returns(String) }
     def self.env_vars_manpage
       lines = Homebrew::EnvConfig::ENVS.filter_map do |env, hash|
-        next if hash[:hidden]
+        next if Homebrew::EnvConfig.hidden?(hash)
 
         entry = "`#{env}`\n\n: #{hash[:description]}\n"
         default = hash[:default_text]
