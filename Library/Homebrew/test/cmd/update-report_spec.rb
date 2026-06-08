@@ -154,6 +154,29 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
       end
     end
 
+    describe "#ensure_trusted_tap_installed!" do
+      let(:other_tap) { Tap.fetch("foo", "bar") }
+
+      before { allow(other_tap).to receive(:installed?).and_return(false) }
+
+      it "recommends trusting just the migrated package then migrating a rename" do
+        expect(other_tap).not_to receive(:ensure_installed!)
+        expect { reporter.send(:ensure_trusted_tap_installed!, "oldfoo", "newfoo", other_tap) }
+          .to output(%r{brew trust foo/bar/newfoo.*brew migrate oldfoo}m).to_stderr
+      end
+
+      it "recommends a reinstall for an unchanged-name tap migration" do
+        expect { reporter.send(:ensure_trusted_tap_installed!, "foo", "foo", other_tap) }
+          .to output(/brew reinstall foo/).to_stderr
+      end
+
+      it "taps a trusted tap" do
+        allow(other_tap).to receive(:official?).and_return(true)
+        expect(other_tap).to receive(:ensure_installed!)
+        reporter.send(:ensure_trusted_tap_installed!, "foo", "foo", other_tap)
+      end
+    end
+
     describe "#diff" do
       context "when using the API" do
         subject(:reporter) do
