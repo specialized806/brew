@@ -4174,7 +4174,9 @@ command execution (e.g. `$(cat file)`).
 
 : A space-separated list of taps. Homebrew will refuse to install a formula
   unless it and all of its dependencies are in an official tap or in a tap on
-  this list.
+  this list. Each entry is a `user/repository` name (which matches only taps
+  using the default GitHub remote) or a remote URL (required to match taps with
+  a custom remote).
 
 `HOMEBREW_API_AUTO_UPDATE_SECS`
 
@@ -4584,7 +4586,9 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_FORBIDDEN_TAPS`
 
 : A space-separated list of taps. Homebrew will refuse to install a formula if
-  it or any of its dependencies is in a tap on this list.
+  it or any of its dependencies is in a tap on this list. Each entry is a
+  `user/repository` name (which matches only taps using the default GitHub
+  remote) or a remote URL (required to match taps with a custom remote).
 
 `HOMEBREW_FORBID_CASKS`
 

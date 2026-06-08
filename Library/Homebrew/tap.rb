@@ -120,34 +120,37 @@ class Tap
     [tap, token.downcase]
   end
 
-  sig { returns(T::Set[Tap]) }
+  sig { returns(T::Array[String]) }
   def self.allowed_taps
     cache_key = :"allowed_taps_#{Homebrew::EnvConfig.allowed_taps.to_s.tr(" ", "_")}"
-    cache[cache_key] ||= begin
-      allowed_tap_list = Homebrew::EnvConfig.allowed_taps.to_s.split
-
-      Set.new(allowed_tap_list.filter_map do |tap|
-        Tap.fetch(tap)
-      rescue Tap::InvalidNameError
-        opoo "Invalid tap name in `$HOMEBREW_ALLOWED_TAPS`: #{tap}"
-        nil
-      end).freeze
-    end
+    cache[cache_key] ||= tap_list_references(Homebrew::EnvConfig.allowed_taps.to_s, "HOMEBREW_ALLOWED_TAPS")
   end
 
-  sig { returns(T::Set[Tap]) }
+  sig { returns(T::Array[String]) }
   def self.forbidden_taps
     cache_key = :"forbidden_taps_#{Homebrew::EnvConfig.forbidden_taps.to_s.tr(" ", "_")}"
-    cache[cache_key] ||= begin
-      forbidden_tap_list = Homebrew::EnvConfig.forbidden_taps.to_s.split
+    cache[cache_key] ||= tap_list_references(Homebrew::EnvConfig.forbidden_taps.to_s, "HOMEBREW_FORBIDDEN_TAPS")
+  end
 
-      Set.new(forbidden_tap_list.filter_map do |tap|
-        Tap.fetch(tap)
-      rescue Tap::InvalidNameError
-        opoo "Invalid tap name in `$HOMEBREW_FORBIDDEN_TAPS`: #{tap}"
-        nil
-      end).freeze
-    end
+  # Whether an allow/forbid/trust list reference is a remote URL or local path rather than a
+  # `user/repository` tap name (which can only match a tap on its default GitHub remote).
+  sig { params(reference: String).returns(T::Boolean) }
+  def self.remote_reference?(reference)
+    reference.include?("://") || reference.include?("@") || reference.start_with?("/", ".", "~")
+  end
+
+  # Normalise `user/repository` entries in a tap allow/forbid list to canonical tap names,
+  # warning about invalid ones, while preserving remote URL or path entries verbatim.
+  sig { params(env_taps: String, env_var: String).returns(T::Array[String]) }
+  def self.tap_list_references(env_taps, env_var)
+    env_taps.split.filter_map do |reference|
+      next reference if remote_reference?(reference)
+
+      Tap.fetch(reference).name
+    rescue Tap::InvalidNameError
+      opoo "Invalid tap name in `$#{env_var}`: #{reference}"
+      nil
+    end.freeze
   end
 
   class << self
@@ -498,16 +501,18 @@ class Tap
       raise TapAlreadyTappedError, name unless shallow?
     end
 
-    if !allowed_by_env? || forbidden_by_env?
+    tap_allowed = allowed_by_env?(remote: requested_remote)
+    tap_forbidden = forbidden_by_env?(remote: requested_remote)
+    if !tap_allowed || tap_forbidden
       owner = Homebrew::EnvConfig.forbidden_owner
       owner_contact = if (contact = Homebrew::EnvConfig.forbidden_owner_contact.presence)
         "\n#{contact}"
       end
 
       error_message = "The installation of the #{full_name} was requested but #{owner}\n"
-      error_message << "has not allowed this tap in `$HOMEBREW_ALLOWED_TAPS`" unless allowed_by_env?
-      error_message << " and\n" if !allowed_by_env? && forbidden_by_env?
-      error_message << "has forbidden this tap in `$HOMEBREW_FORBIDDEN_TAPS`" if forbidden_by_env?
+      error_message << "has not allowed this tap in `$HOMEBREW_ALLOWED_TAPS`" unless tap_allowed
+      error_message << " and\n" if !tap_allowed && tap_forbidden
+      error_message << "has forbidden this tap in `$HOMEBREW_FORBIDDEN_TAPS`" if tap_forbidden
       error_message << ".#{owner_contact}"
 
       odie error_message
@@ -733,6 +738,34 @@ class Tap
     return true unless (remote = self.remote)
 
     !T.must(remote.casecmp(default_remote)).zero?
+  end
+
+  # Unlike {#custom_remote?} this is false when no remote is set, so a remote-less
+  # local tap is still matched by its {#name} rather than requiring a URL.
+  sig { returns(T::Boolean) }
+  def uses_custom_remote?
+    remote.present? && custom_remote?
+  end
+
+  # The canonical allow/forbid/trust list reference for this {Tap}.
+  sig { returns(String) }
+  def reference
+    remote = self.remote
+    return name if remote.nil? || !custom_remote?
+
+    remote
+  end
+
+  # A `user/repository` reference matches only a tap on its default GitHub remote; a tap with a
+  # custom remote must be referenced by URL. The `remote` keyword matches a not-yet-installed remote.
+  sig { params(reference: String, remote: T.nilable(String)).returns(T::Boolean) }
+  def matches_reference?(reference, remote: self.remote)
+    if self.class.remote_reference?(reference)
+      remote.present? && reference.casecmp?(remote) == true
+    else
+      uses_custom_remote = remote.present? && !remote.casecmp?(default_remote)
+      !uses_custom_remote && name == reference.downcase
+    end
   end
 
   # Path to the directory of all {Formula} files for this {Tap}.
@@ -1254,18 +1287,30 @@ class Tap
     end
   end
 
-  sig { returns(T::Boolean) }
-  def allowed_by_env?
-    @allowed_by_env ||= T.let(begin
-      allowed_taps = self.class.allowed_taps
+  sig { params(remote: T.nilable(String)).returns(T::Boolean) }
+  def allowed_by_env?(remote: self.remote)
+    allowed_taps = self.class.allowed_taps
 
-      official? || allowed_taps.blank? || allowed_taps.include?(self)
-    end, T.nilable(T::Boolean))
+    implicitly_trusted?(remote:) || allowed_taps.blank? ||
+      allowed_taps.any? { |reference| matches_reference?(reference, remote:) }
   end
 
-  sig { returns(T::Boolean) }
-  def forbidden_by_env?
-    @forbidden_by_env ||= T.let(self.class.forbidden_taps.include?(self), T.nilable(T::Boolean))
+  sig { params(remote: T.nilable(String)).returns(T::Boolean) }
+  def forbidden_by_env?(remote: self.remote)
+    self.class.forbidden_taps.any? { |reference| matches_reference?(reference, remote:) }
+  end
+
+  # Whether to implicitly allow/trust this tap as an official one without it appearing in an
+  # allow/trust list. Only when its formulae come from the API or it is a Git checkout of an
+  # official remote, so an official-named tap on an untrusted custom remote is not implicitly trusted.
+  sig { overridable.params(remote: T.nilable(String)).returns(T::Boolean) }
+  def implicitly_trusted?(remote: self.remote)
+    official? && canonical_remote?(remote)
+  end
+
+  sig { overridable.params(remote: T.nilable(String)).returns(T::Boolean) }
+  def canonical_remote?(remote = self.remote)
+    remote.blank? || remote.casecmp?(default_remote) == true
   end
 
   private

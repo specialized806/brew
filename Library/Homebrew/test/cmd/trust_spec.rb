@@ -25,6 +25,31 @@ RSpec.describe Homebrew::Cmd::Trust do
     Homebrew::Trust.clear!(:command)
   end
 
+  context "with a custom-remote tap" do
+    before do
+      tap = Tap.fetch("thirdparty", "custom")
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://gitlab.com/other/repo"
+    end
+
+    after do
+      Homebrew::Trust.clear!(:tap)
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
+    it "trusts the whole tap by its remote URL" do
+      expect { described_class.new(["--tap", "thirdparty/custom"]).run }
+        .to output("Trusted tap: https://gitlab.com/other/repo\n").to_stdout
+      expect(Homebrew::Trust.trusted_entries(:tap)).to contain_exactly("https://gitlab.com/other/repo")
+    end
+
+    it "refuses to trust an individual formula" do
+      expect { described_class.new(["--formula", "thirdparty/custom/bar"]).run }
+        .to raise_error(UsageError, /custom remote/)
+    end
+  end
+
   it "lists trusted entries with no arguments" do
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["thirdparty/foo"])
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])

@@ -56,7 +56,7 @@ module Homebrew
 
         args.named.each do |name|
           type, trust_name = Homebrew::Trust.target(name, type: selected_type)
-          if type == :tap && Tap.fetch(trust_name).official?
+          if type == :tap && Tap.fetch(name).official?
             puts "Official tap #{trust_name} is always trusted."
             next
           end
