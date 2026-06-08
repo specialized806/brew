@@ -502,6 +502,9 @@ class Formula
     alias_path || @unresolved_path
   end
 
+  sig { returns(T.any(String, Pathname)) }
+  def reloadable_ref = loaded_from_api? ? full_name : path
+
   # The name specified to find this formula.
   sig { returns(String) }
   def specified_name

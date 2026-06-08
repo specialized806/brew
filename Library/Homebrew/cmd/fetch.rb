@@ -98,7 +98,7 @@ module Homebrew
           case formula_or_cask
           when Formula
             formula = formula_or_cask
-            ref = formula.loaded_from_api? ? formula.full_name : formula.path
+            ref = formula.reloadable_ref
 
             os_arch_combinations.each do |os, arch|
               SimulateSystem.with(os:, arch:) do
@@ -118,11 +118,7 @@ module Homebrew
                   begin
                     formula.clear_cache if args.force?
 
-                    bottle_tag = if (bottle_tag = args.bottle_tag&.to_sym)
-                      Utils::Bottles::Tag.from_symbol(bottle_tag)
-                    else
-                      Utils::Bottles::Tag.new(system: os, arch:)
-                    end
+                    bottle_tag = Utils::Bottles::Tag.from_arg(args.bottle_tag&.to_sym, os:, arch:)
 
                     bottle = formula.bottle_for_tag(bottle_tag)
 
@@ -173,8 +169,7 @@ module Homebrew
 
       sig { params(cask: Cask::Cask).returns(T::Array[Cask::Download]) }
       def cask_downloads(cask)
-        ref = cask.loaded_from_api? ? cask.full_name : cask.sourcefile_path
-        odie "unexpected nil cask sourcefile_path" unless ref
+        ref = cask.reloadable_ref
 
         if args.all_platforms? && cask.loaded_from_api?
           opoo "Cask #{cask} was loaded from the API; cannot fetch all operating system and " \
