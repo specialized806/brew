@@ -172,6 +172,13 @@ RSpec.describe Tap do
     end
   end
 
+  describe "::normalize_remote" do
+    it "keeps an explicit port on a GitHub remote rather than turning it into a path" do
+      expect(described_class.normalize_remote("https://github.com:443/Homebrew/homebrew-core"))
+        .to eq("https://github.com:443/homebrew/homebrew-core")
+    end
+  end
+
   describe "::same_remote?" do
     it "ignores a GitHub `.git` suffix, trailing slash and case" do
       expect(described_class.same_remote?("https://github.com/Homebrew/homebrew-core.git/",
