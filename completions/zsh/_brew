@@ -2447,6 +2447,7 @@ _brew_trust() {
     '--debug[Display any debugging information]' \
     '(--tap --cask --command)--formula[Trust the named formula]' \
     '--help[Show this message]' \
+    '--json[Print trusted entries as JSON. A version number is required. The only accepted value for version is `v1`]' \
     '--quiet[Make some output more quiet]' \
     '(--formula --cask --command)--tap[Trust the named tap]' \
     '--verbose[Make some output more verbose]'

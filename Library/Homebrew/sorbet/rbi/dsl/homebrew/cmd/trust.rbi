@@ -29,6 +29,9 @@ class Homebrew::Cmd::Trust::Args < Homebrew::CLI::Args
   sig { returns(T::Boolean) }
   def formulae?; end
 
+  sig { returns(T.nilable(String)) }
+  def json; end
+
   sig { returns(T::Boolean) }
   def tap?; end
 end

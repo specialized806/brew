@@ -2997,6 +2997,7 @@ _brew_trust() {
       --debug
       --formula
       --help
+      --json
       --quiet
       --tap
       --verbose
