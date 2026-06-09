@@ -344,6 +344,8 @@ module Homebrew
         # Avoid local configuration messing with tests, e.g. git being configured
         # to use GPG to sign by default
         ENV["HOME"] = "#{HOMEBREW_LIBRARY_PATH}/test"
+        # Sandbox the config home too, so the spec teardown can't delete the real `trust.json`.
+        ENV["HOMEBREW_USER_CONFIG_HOME"] = "#{Dir.home}/.homebrew"
 
         # Print verbose output when requesting debug or verbose output.
         ENV["HOMEBREW_VERBOSE_TESTS"] = "1" if args.debug? || args.verbose?

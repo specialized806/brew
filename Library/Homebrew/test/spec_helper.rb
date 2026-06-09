@@ -354,13 +354,22 @@ RSpec.configure do |config|
       Tap.all.each(&:clear_cache)
       Cachable::Registry.clear_all_caches
 
+      # Refuse to clean a config home outside the sandboxed `HOME`, else this deletes the user's
+      # real `~/.homebrew/trust.json`; canonicalise first so `..`/symlinks can't slip past.
+      home = Pathname(Dir.home).realpath
+      user_config_home = Pathname(ENV.fetch("HOMEBREW_USER_CONFIG_HOME")).expand_path
+      resolved_ancestor = user_config_home.ascend.find(&:exist?)&.realpath
+      unless resolved_ancestor&.ascend&.include?(home)
+        raise "HOMEBREW_USER_CONFIG_HOME (#{user_config_home}) is not sandboxed under HOME (#{Dir.home})"
+      end
+
       FileUtils.rm_rf [
         *TEST_DIRECTORIES,
         *Keg.must_exist_subdirectories,
         HOMEBREW_LINKED_KEGS,
         HOMEBREW_PINNED_KEGS,
         HOMEBREW_PINNED_CASKS,
-        Pathname(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json",
+        user_config_home/"trust.json",
         HOMEBREW_PREFIX/"Caskroom",
         HOMEBREW_PREFIX/"Frameworks",
         HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-cask",
