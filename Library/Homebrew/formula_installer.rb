@@ -1566,7 +1566,7 @@ on_request: installed_on_request?, options:)
     keg.replace_placeholders_with_locations(tab.changed_files, skip_linkage:)
 
     cellar = formula.bottle_specification.tag_to_cellar(Utils::Bottles.tag)
-    return if [:any, :any_skip_relocation].include?(cellar)
+    return if BottleSpecification::RELOCATABLE_CELLARS.include?(cellar)
 
     prefix = Pathname(cellar).parent.to_s
     return if cellar == HOMEBREW_CELLAR.to_s && prefix == HOMEBREW_PREFIX.to_s
