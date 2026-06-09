@@ -1,12 +1,13 @@
 ---
-last_review_date: "2026-04-25"
+last_review_date: "2026-06-08"
 ---
 
-# Documentation
+Start with [installation](Installation.md),
+[`man brew`](Manpage.md),
+[troubleshooting](Troubleshooting.md) and
+[FAQ (Frequently Asked Questions)](FAQ.md) guides if you are new to Homebrew.
 
-Start with the `brew` manual, installation, troubleshooting and FAQ (Frequently
-Asked Questions) guides if you are using Homebrew. Formulae, cask and tap
-documentation is grouped below for contributors and maintainers.
+Documentation is grouped below by audience: users, contributors, maintainers and those interested in Homebrew's governance.
 
 ## Users
 
@@ -71,7 +72,7 @@ documentation is grouped below for contributors and maintainers.
 - [Type Checking with Sorbet](Typechecking.md)
 - [Reproducible Builds](Reproducible-Builds.md)
 
-- [Ruby API Documentation](/rubydoc/index.html) (e.g. for `Formula` etc.)
+- [Ruby API Documentation](/rubydoc/index.html) (e.g. for `Formula`, `Cask` etc.)
 
 ## Maintainers
 
