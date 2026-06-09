@@ -211,7 +211,7 @@ module Homebrew
 
     sig { params(name: String, include_existing: T::Boolean).returns([Symbol, String]) }
     def self.infer_target(name, include_existing:)
-      return [:tap, trust_name(:tap, name)] if name.count("/") == 1
+      return [:tap, trust_name(:tap, name)] if name.count("/") == 1 || Tap.remote_reference?(name)
 
       tap_with_name = Tap.with_formula_name(name)
       unless tap_with_name
@@ -244,7 +244,14 @@ module Homebrew
     def self.trust_name(type, name, include_existing: false)
       case type
       when :tap
-        Tap.fetch(name).reference
+        if Tap.remote_reference?(name)
+          reference = Tap.remote_to_reference(name)
+          raise UsageError, "Invalid tap remote URL: #{name}" if reference.nil?
+
+          reference
+        else
+          Tap.fetch(name).reference
+        end
       when :formula
         tap, formula_name = fully_qualified_package_name(name, "Formulae")
         require_default_remote_item!(tap) unless include_existing

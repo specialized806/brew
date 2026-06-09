@@ -134,9 +134,12 @@ class Tap
 
   # Whether an allow/forbid/trust list reference is a remote URL or local path rather than a
   # `user/repository` tap name (which can only match a tap on its default GitHub remote).
+  # A genuine remote reference is a URL (contains `://`), scp-like syntax (`user@host:path`,
+  # i.e. an `@` followed later by a `:`) or a local path (starts with `/`, `.` or `~`).
+  # A bare `@`-containing string such as `foo@bar` is not a remote reference.
   sig { params(reference: String).returns(T::Boolean) }
   def self.remote_reference?(reference)
-    reference.include?("://") || reference.include?("@") || reference.start_with?("/", ".", "~")
+    reference.include?("://") || reference.match?(/@[^@]+:/) || reference.start_with?("/", ".", "~")
   end
 
   # On GitHub a `.git` suffix and trailing slashes are insignificant; we don't assume so elsewhere.
@@ -148,6 +151,28 @@ class Tap
     return remote unless remote.match?(%r{\A(?:[a-z][a-z0-9+.-]*://)?(?:[^@/]+@)?github\.com[/:]})
 
     remote.sub(%r{/+\z}, "").delete_suffix(".git")
+  end
+
+  # Converts a remote URL to the canonical trust-list reference for the tap it identifies.
+  # A default-style GitHub remote canonicalises to the `owner/repo` name form (matching how
+  # {#reference} works for an installed tap); any other remote is stored as the normalised URL.
+  # Returns `nil` if the URL is blank or otherwise invalid.
+  sig { params(url: String).returns(T.nilable(String)) }
+  def self.remote_to_reference(url)
+    normalised = normalize_remote(url)
+    return if normalised.blank?
+
+    match = normalised.match(HOMEBREW_TAP_REPOSITORY_REGEX)
+    return normalised unless match
+
+    remote_repo = T.must(match[:remote_repository])
+    user, full_repo = remote_repo.split("/", 2)
+    return normalised if user.nil? || full_repo.nil?
+
+    tap = fetch(user, full_repo)
+    same_remote?(normalised, tap.default_remote) ? tap.name : normalised
+  rescue InvalidNameError
+    normalised
   end
 
   sig { params(first: T.nilable(String), second: T.nilable(String)).returns(T::Boolean) }
