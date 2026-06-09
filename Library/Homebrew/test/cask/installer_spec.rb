@@ -50,6 +50,13 @@ RSpec.describe Cask::Installer, :cask do
 
     it "works with pure bzip2-based Casks" do
       asset = Cask::CaskLoader.load(cask_path("container-bzip2"))
+      # The bzip2 container depends on the `bzip2` formula via its unpack
+      # strategy. Exercise dependency resolution without pouring a real
+      # bottle (and flaking on its GitHub Packages manifest).
+      allow_any_instance_of(Formula).to receive(:any_version_installed?).and_return(false)
+      allow(Homebrew::Install).to receive(:fetch_formulae) { |installers| installers }
+      allow_any_instance_of(FormulaInstaller).to receive(:install)
+      allow_any_instance_of(FormulaInstaller).to receive(:finish)
 
       described_class.new(asset).install
 
