@@ -56,14 +56,14 @@ RSpec.describe Formulary do
   end
 
   describe "::load_formula" do
-    it "clears sensitive environment variables while evaluating formulae" do
-      with_env(SECRET_TOKEN: "password") do
+    it "masks sensitive environment variables while evaluating formulae" do
+      with_env(HOMEBREW_SECRET_TOKEN: "password") do
         formula_class = described_class.load_formula(
           "sensitive-env",
           mktmpdir/"sensitive-env.rb",
           <<~RUBY,
             class SensitiveEnv < Formula
-              SECRET_TOKEN_PRESENT = ENV.key?("SECRET_TOKEN")
+              SECRET_TOKEN_VALUE = ENV.fetch("HOMEBREW_SECRET_TOKEN", nil)
               url "https://brew.sh/sensitive-env-1.0.tar.gz"
             end
           RUBY
@@ -72,8 +72,8 @@ RSpec.describe Formulary do
           ignore_errors: false,
         )
 
-        expect(formula_class::SECRET_TOKEN_PRESENT).to be(false)
-        expect(ENV.fetch("SECRET_TOKEN", nil)).to eq("password")
+        expect(formula_class::SECRET_TOKEN_VALUE).not_to eq("password")
+        expect(ENV.fetch("HOMEBREW_SECRET_TOKEN", nil)).to eq("password")
       end
     end
 
