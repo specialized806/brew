@@ -464,7 +464,7 @@ jobs:
           brew bundle env | grep PATH | grep git
           brew bundle env --install
           brew bundle exec --services true
-          brew bundle dump --force --describe
+          brew bundle dump --force
           brew services list
           brew services info memcached postgresql@15
           brew services info --json memcached postgresql@15

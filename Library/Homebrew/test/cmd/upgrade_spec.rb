@@ -203,7 +203,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "does not ask again when upgrading discovered outdated casks" do
-    cmd = described_class.new(["--ask", "--cask"])
+    cmd = described_class.new(["--cask"])
 
     expect(Homebrew::Install).not_to receive(:ask_casks)
     expect(Cask::Upgrade).to receive(:upgrade_casks!).and_return(true)
@@ -237,7 +237,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   # upgrades with asking for user prompts
   it "prints formula and cask ask plans before upgrading" do
-    cmd = described_class.new(["--ask"])
+    cmd = described_class.new([])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: false, shutdown: nil)
 
     expect(cmd).to receive(:upgrade_outdated_formulae!)
@@ -297,7 +297,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "does not ask before upgrading when nothing would upgrade" do
-    cmd = described_class.new(["--ask"])
+    cmd = described_class.new([])
 
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with([], dry_run: true, show_upgrade_summary: false)
@@ -334,7 +334,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     formula = formula("testball") do
       url "https://brew.sh/testball-0.2"
     end
-    cmd = described_class.new(["--ask", "oldtestball"])
+    cmd = described_class.new(["oldtestball"])
     allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
       .with(method: :resolve)
       .and_return([formula])
@@ -460,7 +460,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "uses the final summary for dry-run upgrade lists" do
-    cmd = described_class.new(["--dry-run"])
+    cmd = described_class.new(["--dry-run", "--yes"])
 
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with([], use_prefetched: false, show_upgrade_summary: false)
@@ -476,7 +476,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "prints a combined upgrade summary before fetching combined downloads" do
-    cmd = described_class.new([])
+    cmd = described_class.new(["-y"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: false, shutdown: nil)
     cask = instance_double(
       Cask::Cask,
@@ -522,7 +522,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "asks before fetching formulae and casks in the same download queue" do
-    cmd = described_class.new(["--ask"])
+    cmd = described_class.new([])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, fetch_failed: false, shutdown: nil)
     cask = instance_double(
       Cask::Cask,
@@ -571,7 +571,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "prefetches language cask files before fetching combined downloads" do
-    cmd = described_class.new([])
+    cmd = described_class.new(["--yes"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch_failed: false, shutdown: nil)
     cask = instance_double(
       Cask::Cask,
@@ -621,7 +621,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "omits the cask file heading for cached language cask files" do
-    cmd = described_class.new([])
+    cmd = described_class.new(["-y"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch_failed: false, shutdown: nil)
     cask = instance_double(
       Cask::Cask,

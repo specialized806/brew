@@ -117,10 +117,10 @@ You can do this with `brew bundle dump --global --force` to write to e.g. `~/.Br
 brew bundle dump --global --force
 ```
 
-If you also pass `--describe`, you can also get the `Brewfile` to contain descriptions of each of the packages:
+By default, the generated `Brewfile` also contains descriptions of each of the packages:
 
 ```console
-brew bundle dump --global --force --describe
+brew bundle dump --global --force
 ```
 
 might add something like the following:

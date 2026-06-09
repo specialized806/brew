@@ -316,10 +316,9 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
         keg_only "test reason"
       RUBY
 
-      with_env(HOMEBREW_NO_ASK: "1", HOMEBREW_NO_INSTALL_FROM_API: "1") do
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
         expect do
-          brew "install", source_formula_name, bottle_formula_name,
-               "HOMEBREW_NO_ASK"              => "1",
+          brew "install", "--yes", source_formula_name, bottle_formula_name,
                "HOMEBREW_NO_INSTALL_FROM_API" => "1"
         end
           .to output(/#{Regexp.escape(source_formula_prefix)}.*#{Regexp.escape(bottle_formula_prefix)}/m).to_stdout
@@ -360,11 +359,10 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
         end
       RUBY
 
-      with_env(HOMEBREW_NO_ASK: "1", HOMEBREW_NO_INSTALL_FROM_API: "1") do
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
         expect do
-          brew "install", formula_name, "--HEAD",
+          brew "install", "-y", formula_name, "--HEAD",
                "HOMEBREW_DOWNLOAD_CONCURRENCY" => "1",
-               "HOMEBREW_NO_ASK"               => "1",
                "HOMEBREW_NO_INSTALL_FROM_API"  => "1"
         end
           .to output(/#{Regexp.escape(testball1_prefix)}/o).to_stdout
@@ -377,7 +375,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
   end
 
   it "prints a shared fetch heading and correct upgrade count", :cask do
-    cmd = described_class.new(["codex"])
+    cmd = described_class.new(["--yes", "codex"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
     formula = formula("testball_bottle") do
       T.bind(self, T.class_of(Formula))

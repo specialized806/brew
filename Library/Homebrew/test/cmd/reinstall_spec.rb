@@ -43,7 +43,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
   end
 
   it "asks for casks before shared prefetch when reinstalling formulae and casks" do
-    cmd = described_class.new(["--ask", "testball", "local-caffeine"])
+    cmd = described_class.new(["testball", "local-caffeine"])
     formula = formula("testball") do
       T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.1.tar.gz"
@@ -104,7 +104,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
 
     FileUtils.rm_r(formula_bin)
 
-    expect { brew "reinstall", "--ask", formula_name }
+    expect { brew "reinstall", formula_name }
       .to output(/.*Would reinstall 1 formula:\s*#{formula_name}.*/).to_stdout
       .and output(/✔︎.*/m).to_stderr
       .and be_a_success

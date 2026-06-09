@@ -378,8 +378,8 @@ Dump npm packages\.
 \fB\-\-no\-dump\-npm\fP
 \fBdump\fP without npm packages\. Enabled by default if \fB$HOMEBREW_BUNDLE_DUMP_NO_NPM\fP is set\.
 .TP
-\fB\-\-describe\fP
-Add a description comment above each line, unless the dependency does not have a description\. Enabled by default if \fB$HOMEBREW_BUNDLE_DESCRIBE\fP is set\.
+\fB\-\-no\-describe\fP
+Do not add description comments above each line\. Description comments are the default\. Enabled by default if \fB$HOMEBREW_BUNDLE_NO_DESCRIBE\fP is set\.
 .TP
 \fB\-\-no\-restart\fP
 Do not add \fBrestart_service\fP to formula lines\.
@@ -561,8 +561,8 @@ Add entries for Krew plugins\.
 \fB\-\-npm\fP
 Add entries for npm packages\.
 .TP
-\fB\-\-describe\fP
-Add a description comment above each line, unless the dependency does not have a description\. Enabled by default if \fB$HOMEBREW_BUNDLE_DESCRIBE\fP is set\.
+\fB\-\-no\-describe\fP
+Do not add description comments above each line\. Description comments are the default\. Enabled by default if \fB$HOMEBREW_BUNDLE_NO_DESCRIBE\fP is set\.
 .SS "\fBcasks\fP"
 List all locally installable casks including short names\.
 .SS "\fBcleanup\fP \fR[\fIoptions\fP] \fR[\fIformula\fP|\fIcask\fP \.\.\.]"
@@ -864,8 +864,8 @@ Print the verification and post\-install steps\.
 \fB\-n\fP, \fB\-\-dry\-run\fP
 Show what would be installed, but do not actually install anything\.
 .TP
-\fB\-\-ask\fP
-Ask for confirmation before downloading and installing\. Print the same plan as \fB\-\-dry\-run\fP before prompting\. Only prompts if the plan includes dependencies or dependants; if the requested formulae or casks are the only things to install, it only prints the plan\. The confirmation prompt is skipped without a TTY\.
+\fB\-y\fP, \fB\-\-no\-ask\fP
+Do not ask for confirmation before downloading and installing\. Ask mode is the default\. Enabled by default if \fB$HOMEBREW_NO_ASK\fP is set\.
 .TP
 \fB\-\-formula\fP
 Treat all named arguments as formulae\.
@@ -1154,8 +1154,8 @@ Install without checking for previously installed keg\-only or non\-migrated ver
 \fB\-v\fP, \fB\-\-verbose\fP
 Print the verification and post\-install steps\.
 .TP
-\fB\-\-ask\fP
-Ask for confirmation before downloading and reinstalling\. Print what would be reinstalled before prompting\. Only prompts if the plan includes dependencies or dependants; if the requested formulae or casks are the only things to reinstall, it only prints the plan\. The confirmation prompt is skipped without a TTY\.
+\fB\-y\fP, \fB\-\-no\-ask\fP
+Do not ask for confirmation before downloading and reinstalling\. Ask mode is the default\. Enabled by default if \fB$HOMEBREW_NO_ASK\fP is set\.
 .TP
 \fB\-\-formula\fP
 Treat all named arguments as formulae\.
@@ -1480,8 +1480,8 @@ Show what would be upgraded, but do not actually upgrade anything\.
 \fB\-\-minimum\-version\fP
 Only upgrade a named formula or cask with an installed version below the given minimum version\.
 .TP
-\fB\-\-ask\fP
-Ask for confirmation before downloading and upgrading\. Print the same plan as \fB\-\-dry\-run\fP, including available download sizes\. When named arguments are provided, only prompts if the plan includes packages other than those arguments; if the requested formulae or casks are the only things to upgrade, it only prints the plan\. With no named arguments, prompts if anything would be upgraded\. The confirmation prompt is skipped without a TTY\.
+\fB\-y\fP, \fB\-\-no\-ask\fP
+Do not ask for confirmation before downloading and upgrading\. Ask mode is the default\. Enabled by default if \fB$HOMEBREW_NO_ASK\fP is set\.
 .TP
 \fB\-\-formula\fP
 Treat all named arguments as formulae\. If no named arguments are specified, upgrade only outdated formulae\.
@@ -2768,13 +2768,6 @@ If set, \fBbrew bundle cleanup\fP will not clean up VSCode (and forks/variants) 
 \fBHOMEBREW_BUNDLE_CLEANUP_NO_WINGET\fP
 If set, \fBbrew bundle cleanup\fP will not clean up WinGet packages\.
 .TP
-\fBHOMEBREW_BUNDLE_DESCRIBE\fP
-If set, add a description comment above each line in \fBbrew bundle dump\fP and \fBbrew bundle add\fP, unless the dependency does not have a description\. This is the default unless \fB$HOMEBREW_BUNDLE_NO_DESCRIBE\fP is set\.
-.RS
-.P
-\fIDefault:\fP \fBtrue\fP\&\.
-.RE
-.TP
 \fBHOMEBREW_BUNDLE_DUMP_NO_BREW\fP
 If set, \fBbrew bundle dump\fP will not dump formula dependencies\.
 .TP
@@ -3227,13 +3220,6 @@ Use this path as the temporary directory for building packages\. Changing this m
 .TP
 \fBHOMEBREW_UPDATE_TO_TAG\fP
 If set, always use the latest stable tag (even if developer commands have been run)\.
-.TP
-\fBHOMEBREW_UPGRADE_AUTO_UPDATES_CASKS\fP
-If set, \fBbrew upgrade\fP will automatically upgrade casks with \fBauto_updates true\fP when Homebrew detects that the version in the app bundle is older than the version in the tap\. Does not affect \fB\-\-greedy\fP or \fB\-\-greedy\-auto\-updates\fP upgrades\. This is the default unless \fB$HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS\fP is set\.
-.RS
-.P
-\fIDefault:\fP \fBtrue\fP\&\.
-.RE
 .TP
 \fBHOMEBREW_UPGRADE_GREEDY\fP
 If set, pass \fB\-\-greedy\fP to all cask upgrade commands\.
