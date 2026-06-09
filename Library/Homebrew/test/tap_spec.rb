@@ -178,9 +178,19 @@ RSpec.describe Tap do
                                           "https://github.com/homebrew/homebrew-core")).to be true
     end
 
-    it "keeps a `.git` suffix significant on non-GitHub remotes" do
+    it "ignores a `.git` suffix on non-GitHub remotes" do
       expect(described_class.same_remote?("https://gitlab.com/other/repo.git",
-                                          "https://gitlab.com/other/repo")).to be false
+                                          "https://gitlab.com/other/repo")).to be true
+    end
+
+    it "ignores a trailing slash on non-GitHub remotes" do
+      expect(described_class.same_remote?("https://gitlab.com/other/repo/",
+                                          "https://gitlab.com/other/repo")).to be true
+    end
+
+    it "ignores a `.git` suffix and trailing slash on a self-hosted remote" do
+      expect(described_class.same_remote?("https://git.example.com/other/repo.git/",
+                                          "https://git.example.com/other/repo")).to be true
     end
 
     it "still matches non-GitHub remotes case-insensitively" do
@@ -188,9 +198,29 @@ RSpec.describe Tap do
                                           "https://GitLab.com/Other/Repo")).to be true
     end
 
-    it "keeps a different scheme distinct" do
+    it "keeps non-GitHub remotes with different paths distinct" do
+      expect(described_class.same_remote?("https://gitlab.com/other/repo",
+                                          "https://gitlab.com/other/other-repo")).to be false
+    end
+
+    it "treats a GitHub SSH SCP remote the same as HTTPS" do
       expect(described_class.same_remote?("git@github.com:Homebrew/homebrew-core",
-                                          "https://github.com/Homebrew/homebrew-core")).to be false
+                                          "https://github.com/Homebrew/homebrew-core")).to be true
+    end
+
+    it "treats a GitHub ssh:// remote the same as HTTPS" do
+      expect(described_class.same_remote?("ssh://git@github.com/Homebrew/homebrew-core",
+                                          "https://github.com/Homebrew/homebrew-core")).to be true
+    end
+
+    it "treats a GitHub git:// remote the same as HTTPS" do
+      expect(described_class.same_remote?("git://github.com/Homebrew/homebrew-core",
+                                          "https://github.com/Homebrew/homebrew-core")).to be true
+    end
+
+    it "treats a GitHub SSH SCP remote with .git suffix the same as HTTPS" do
+      expect(described_class.same_remote?("git@github.com:Homebrew/homebrew-core.git",
+                                          "https://github.com/Homebrew/homebrew-core")).to be true
     end
 
     it "keeps a different host distinct" do
@@ -221,6 +251,15 @@ RSpec.describe Tap do
 
     it "matches a tap by its local path remote" do
       expect(tap.matches_reference?("/Users/me/homebrew-tap", remote: "/Users/me/homebrew-tap")).to be true
+    end
+
+    it "matches a GitHub SSH-remote tap by its name" do
+      expect(tap.matches_reference?("user/repo", remote: "git@github.com:user/homebrew-repo")).to be true
+    end
+
+    it "matches a GitHub SSH-remote tap by its HTTPS URL reference" do
+      expect(tap.matches_reference?("https://github.com/user/homebrew-repo",
+                                    remote: "git@github.com:user/homebrew-repo")).to be true
     end
   end
 
@@ -436,8 +475,14 @@ RSpec.describe Tap do
       it(:custom_remote?) { expect(tap.custom_remote?).to be false }
     end
 
-    context "when using a non-default remote" do
+    context "when using the SSH SCP remote for the same repository" do
       let(:remote) { "git@github.com:Homebrew/homebrew-test-bot" }
+
+      it(:custom_remote?) { expect(tap.custom_remote?).to be false }
+    end
+
+    context "when using a truly non-default remote" do
+      let(:remote) { "https://gitlab.com/Homebrew/homebrew-test-bot" }
 
       it(:custom_remote?) { expect(tap.custom_remote?).to be true }
     end

@@ -139,13 +139,23 @@ class Tap
     reference.include?("://") || reference.include?("@") || reference.start_with?("/", ".", "~")
   end
 
-  # On GitHub a `.git` suffix and trailing slashes are insignificant; we don't assume so elsewhere.
+  # A `.git` suffix and trailing slashes never change which repository a remote identifies, so we
+  # strip them for all hosts. On GitHub the scheme and userinfo are also insignificant (any of
+  # HTTPS, SSH SCP syntax, `ssh://`, or `git://` identify the same repository), so those forms are
+  # canonicalised to HTTPS; we don't assume that for other hosts.
   sig { params(remote: T.nilable(String)).returns(T.nilable(String)) }
   def self.normalize_remote(remote)
     return if remote.blank?
 
     remote = remote.strip.downcase
-    return remote unless remote.match?(%r{\A(?:[a-z][a-z0-9+.-]*://)?(?:[^@/]+@)?github\.com[/:]})
+
+    # Canonicalise every GitHub remote form to `https://github.com/<owner>/<repo>` so SSH and
+    # HTTPS remotes for the same repository compare equal.
+    remote = remote
+             # scheme URLs, e.g. `https://`, `ssh://git@`, `git://`
+             .sub(%r{\A(?:https?|ssh|git)://(?:[^@/]+@)?github\.com/}, "https://github.com/")
+             # SCP-style SSH shorthand, e.g. `git@github.com:`
+             .sub(%r{\A(?:[^@/]+@)?github\.com:}, "https://github.com/")
 
     remote.sub(%r{/+\z}, "").delete_suffix(".git")
   end

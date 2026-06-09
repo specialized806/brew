@@ -83,6 +83,20 @@ RSpec.describe Homebrew::Trust do
     trust_file.unlink if trust_file&.exist?
   end
 
+  it "trusts a GitHub SSH-remote tap by its name" do
+    tap = Tap.fetch("thirdparty", "foo")
+    tap.path.mkpath
+    system "git", "-C", tap.path.to_s, "init"
+    system "git", "-C", tap.path.to_s, "remote", "add", "origin", "git@github.com:thirdparty/homebrew-foo"
+
+    described_class.trust!(:tap, "thirdparty/foo")
+
+    expect(described_class.trusted_tap?(tap)).to be(true)
+  ensure
+    described_class.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
   it "untrusts third-party taps" do
     described_class.trust!(:tap, "thirdparty/foo")
 
