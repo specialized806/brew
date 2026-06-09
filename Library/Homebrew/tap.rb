@@ -150,6 +150,28 @@ class Tap
     remote.sub(%r{/+\z}, "").delete_suffix(".git")
   end
 
+  # Converts a remote URL to the canonical trust-list reference for the tap it identifies.
+  # A default-style GitHub remote canonicalises to the `owner/repo` name form (matching how
+  # {#reference} works for an installed tap); any other remote is stored as the normalised URL.
+  # Returns `nil` if the URL is blank or otherwise invalid.
+  sig { params(url: String).returns(T.nilable(String)) }
+  def self.remote_to_reference(url)
+    normalised = normalize_remote(url)
+    return if normalised.blank?
+
+    match = normalised.match(HOMEBREW_TAP_REPOSITORY_REGEX)
+    return normalised unless match
+
+    remote_repo = T.must(match[:remote_repository])
+    user, full_repo = remote_repo.split("/", 2)
+    return normalised if user.nil? || full_repo.nil?
+
+    tap = fetch(user, full_repo)
+    same_remote?(normalised, tap.default_remote) ? tap.name : normalised
+  rescue InvalidNameError
+    normalised
+  end
+
   sig { params(first: T.nilable(String), second: T.nilable(String)).returns(T::Boolean) }
   def self.same_remote?(first, second)
     first = normalize_remote(first)

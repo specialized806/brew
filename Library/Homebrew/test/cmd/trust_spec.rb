@@ -50,6 +50,22 @@ RSpec.describe Homebrew::Cmd::Trust do
     end
   end
 
+  it "trusts a not-yet-installed tap directly by its non-GitHub remote URL" do
+    expect { described_class.new(["--tap", "https://gitlab.com/absent/repo"]).run }
+      .to output("Trusted tap: https://gitlab.com/absent/repo\n").to_stdout
+    expect(Homebrew::Trust.trusted_entries(:tap)).to contain_exactly("https://gitlab.com/absent/repo")
+  ensure
+    Homebrew::Trust.clear!(:tap)
+  end
+
+  it "canonicalises a GitHub default-remote URL to the tap name" do
+    expect { described_class.new(["--tap", "https://github.com/thirdparty/homebrew-foo"]).run }
+      .to output("Trusted tap: thirdparty/foo\n").to_stdout
+    expect(Homebrew::Trust.trusted_entries(:tap)).to contain_exactly("thirdparty/foo")
+  ensure
+    Homebrew::Trust.clear!(:tap)
+  end
+
   it "lists trusted entries with no arguments" do
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["thirdparty/foo"])
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])

@@ -47,6 +47,38 @@ RSpec.describe Homebrew::Trust do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "canonicalises a GitHub default-remote URL to the tap name" do
+    result = described_class.target("https://github.com/thirdparty/homebrew-foo", type: :tap)
+    expect(result).to eq([:tap, "thirdparty/foo"])
+  end
+
+  it "stores a non-GitHub URL verbatim" do
+    result = described_class.target("https://gitlab.com/other/repo", type: :tap)
+    expect(result).to eq([:tap, "https://gitlab.com/other/repo"])
+  end
+
+  it "trusts a not-yet-installed tap by its non-GitHub remote URL" do
+    described_class.trust!(:tap, "https://gitlab.com/absent/repo")
+    expect(described_class.trusted_entries(:tap)).to include("https://gitlab.com/absent/repo")
+  ensure
+    described_class.clear!(:tap)
+  end
+
+  it "untrusts a tap by its remote URL" do
+    described_class.trust!(:tap, "https://gitlab.com/other/repo")
+    type, trust_name = described_class.target("https://gitlab.com/other/repo", type: :tap, include_existing: true)
+    removed = described_class.untrust!(type, trust_name)
+    expect(removed).to be(true)
+    expect(described_class.trusted_entries(:tap)).not_to include("https://gitlab.com/other/repo")
+  ensure
+    described_class.clear!(:tap)
+  end
+
+  it "infers tap type for a remote URL argument" do
+    result = described_class.target("https://gitlab.com/other/repo")
+    expect(result).to eq([:tap, "https://gitlab.com/other/repo"])
+  end
+
   it "refuses new per-item trust for a custom-remote tap but still resolves existing entries to untrust" do
     tap = Tap.fetch("thirdparty", "custom")
     tap.path.mkpath
