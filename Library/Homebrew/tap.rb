@@ -134,9 +134,12 @@ class Tap
 
   # Whether an allow/forbid/trust list reference is a remote URL or local path rather than a
   # `user/repository` tap name (which can only match a tap on its default GitHub remote).
+  # A genuine remote reference is a URL (contains `://`), scp-like syntax (`user@host:path`,
+  # i.e. an `@` followed later by a `:`) or a local path (starts with `/`, `.` or `~`).
+  # A bare `@`-containing string such as `foo@bar` is not a remote reference.
   sig { params(reference: String).returns(T::Boolean) }
   def self.remote_reference?(reference)
-    reference.include?("://") || reference.include?("@") || reference.start_with?("/", ".", "~")
+    reference.include?("://") || reference.match?(/@[^@]+:/) || reference.start_with?("/", ".", "~")
   end
 
   # On GitHub a `.git` suffix and trailing slashes are insignificant; we don't assume so elsewhere.

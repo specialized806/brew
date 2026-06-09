@@ -66,6 +66,14 @@ RSpec.describe Homebrew::Cmd::Trust do
     Homebrew::Trust.clear!(:tap)
   end
 
+  it "rejects a bare @-string instead of trusting it as a tap" do
+    expect { described_class.new(["foo@bar"]).run }
+      .to raise_error(UsageError, /fully-qualified/)
+    expect(Homebrew::Trust.trusted_entries(:tap)).to be_empty
+  ensure
+    Homebrew::Trust.clear!(:tap)
+  end
+
   it "lists trusted entries with no arguments" do
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["thirdparty/foo"])
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])

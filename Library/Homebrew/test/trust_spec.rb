@@ -79,6 +79,23 @@ RSpec.describe Homebrew::Trust do
     expect(result).to eq([:tap, "https://gitlab.com/other/repo"])
   end
 
+  it "infers tap type for an scp-style remote URL argument" do
+    result = described_class.target("git@gitlab.com:other/repo")
+    expect(result).to eq([:tap, "git@gitlab.com:other/repo"])
+  end
+
+  it "rejects a bare @-string rather than trusting it as a tap" do
+    expect { described_class.target("foo@bar") }
+      .to raise_error(UsageError, /fully-qualified/)
+    expect(described_class.trusted_entries(:tap)).to be_empty
+  end
+
+  it "rejects a bare @-string even with an explicit tap type" do
+    expect { described_class.target("not@valid", type: :tap) }
+      .to raise_error(UsageError, /Invalid tap name/)
+    expect(described_class.trusted_entries(:tap)).to be_empty
+  end
+
   it "refuses new per-item trust for a custom-remote tap but still resolves existing entries to untrust" do
     tap = Tap.fetch("thirdparty", "custom")
     tap.path.mkpath
