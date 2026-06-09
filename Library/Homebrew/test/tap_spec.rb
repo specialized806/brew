@@ -360,6 +360,17 @@ RSpec.describe Tap do
   specify "files" do
     setup_tap_files
 
+    allow(Homebrew::Trust).to receive(:trusted_tap?).with(homebrew_foo_tap).and_return(true)
+    allow(homebrew_foo_tap).to receive_messages(
+      cask_tokens:     [],
+      remote:          "https://github.com/Homebrew/homebrew-foo",
+      custom_remote?:  false,
+      private?:        false,
+      git_head:        "abc123",
+      git_last_commit: "1 day ago",
+      git_branch:      "main",
+    )
+
     expect(homebrew_foo_tap.formula_files).to eq([formula_file])
     expect(homebrew_foo_tap.formula_names).to eq(["homebrew/foo/foo"])
     expect(homebrew_foo_tap.alias_files).to eq([alias_file])
@@ -369,7 +380,29 @@ RSpec.describe Tap do
     expect(homebrew_foo_tap.formula_renames).to eq("oldname" => "foo")
     expect(homebrew_foo_tap.tap_migrations).to eq("removed-formula" => "homebrew/foo")
     expect(homebrew_foo_tap.command_files).to eq([cmd_file])
-    expect(homebrew_foo_tap.to_hash).to be_a(Hash)
+    expect(homebrew_foo_tap.to_hash).to eq(
+      {
+        "name"          => "homebrew/foo",
+        "user"          => "Homebrew",
+        "repo"          => "foo",
+        "repository"    => "foo",
+        "path"          => path.to_s,
+        "installed"     => true,
+        "official"      => true,
+        "trusted"       => true,
+        "formula_names" => ["homebrew/foo/foo"],
+        "cask_tokens"   => [],
+        "formula_files" => [formula_file.to_s],
+        "cask_files"    => [],
+        "command_files" => [cmd_file.to_s],
+        "remote"        => "https://github.com/Homebrew/homebrew-foo",
+        "custom_remote" => false,
+        "private"       => false,
+        "HEAD"          => "abc123",
+        "last_commit"   => "1 day ago",
+        "branch"        => "main",
+      },
+    )
     expect(homebrew_foo_tap).to have_formula_file("Formula/foo.rb")
     expect(homebrew_foo_tap).not_to have_formula_file("bar.rb")
     expect(homebrew_foo_tap).not_to have_formula_file("Formula/baz.sh")

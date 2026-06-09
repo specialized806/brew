@@ -1084,6 +1084,7 @@ class Tap
       "path"          => path.to_s,
       "installed"     => installed?,
       "official"      => official?,
+      "trusted"       => Homebrew::Trust.trusted_tap?(self),
       "formula_names" => formula_names,
       "cask_tokens"   => cask_tokens,
     }

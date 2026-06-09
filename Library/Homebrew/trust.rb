@@ -102,7 +102,7 @@ module Homebrew
       false
     end
 
-    sig { params(tap: T.untyped).returns(T::Boolean) }
+    sig { params(tap: Tap).returns(T::Boolean) }
     def self.trusted_tap?(tap)
       tap.implicitly_trusted? || trusted_entries(:tap).any? { |reference| tap.matches_reference?(reference) }
     end
