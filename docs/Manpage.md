@@ -2189,6 +2189,11 @@ when `$HOMEBREW_REQUIRE_TAP_TRUST` is set. Trusted entries are stored in
 
 : Trust the named external command.
 
+`--json`
+
+: Print trusted entries as JSON. A *`version`* number is required. The only
+  accepted value for *`version`* is `v1`.
+
 ### `unalias` *`alias`* \[...\]
 
 Remove aliases.

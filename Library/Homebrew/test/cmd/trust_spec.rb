@@ -6,6 +6,15 @@ require "cmd/trust"
 require "trust"
 
 RSpec.describe Homebrew::Cmd::Trust do
+  RSpec::Matchers.define :match_json do |expected|
+    T.bind(self, T.class_of(RSpec::Matchers::DSL::Matcher))
+    match do |actual|
+      JSON.parse(actual) == expected
+    rescue JSON::ParserError
+      false
+    end
+  end
+
   it_behaves_like "parseable arguments"
 
   it "notes official taps are always trusted", :integration_test do
@@ -88,5 +97,41 @@ RSpec.describe Homebrew::Cmd::Trust do
         Trusted formulae:
           thirdparty/foo/bar
       EOS
+  end
+
+  it "lists trusted entries as json with no arguments" do
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["thirdparty/foo"])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return([])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:command).and_return([])
+
+    expect { described_class.new(["--json=v1"]).run }
+      .to output(
+        match_json(
+          {
+            "taps"     => ["thirdparty/foo"],
+            "formulae" => ["thirdparty/foo/bar"],
+            "casks"    => [],
+            "commands" => [],
+          },
+        ),
+      ).to_stdout
+  end
+
+  it "lists trusted entries as a json array for a selected type" do
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])
+
+    expect { described_class.new(["--json=v1", "--formula"]).run }
+      .to output(match_json(["thirdparty/foo/bar"])).to_stdout
+  end
+
+  it "rejects json output with named arguments" do
+    expect { described_class.new(["--json=v1", "thirdparty/foo"]).run }
+      .to raise_error(UsageError, /requires no named arguments/)
+  end
+
+  it "rejects json without an explicit version" do
+    expect { described_class.new(["--json"]).run }
+      .to raise_error(OptionParser::MissingArgument, /--json/)
   end
 end

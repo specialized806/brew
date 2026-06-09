@@ -1908,6 +1908,7 @@ __fish_brew_complete_arg 'trust' -l command -d 'Trust the named external command
 __fish_brew_complete_arg 'trust' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'trust' -l formula -d 'Trust the named formula'
 __fish_brew_complete_arg 'trust' -l help -d 'Show this message'
+__fish_brew_complete_arg 'trust' -l json -d 'Print trusted entries as JSON. A version number is required. The only accepted value for version is `v1`'
 __fish_brew_complete_arg 'trust' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'trust' -l tap -d 'Trust the named tap'
 __fish_brew_complete_arg 'trust' -l verbose -d 'Make some output more verbose'
