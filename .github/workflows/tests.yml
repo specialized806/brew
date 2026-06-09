@@ -450,7 +450,7 @@ jobs:
             brew "postgresql@15", restart_service: true
             cask "rectangle"
             cask "1password-cli"
-            cask "google-chrome"
+            cask "firefox"
             # VSCode cask is not available on Linux.
             vscode "shopify.ruby-lsp" if OS.mac?
           EOS

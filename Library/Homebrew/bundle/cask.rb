@@ -95,7 +95,11 @@ module Homebrew
         def install!(name, preinstall: true, no_upgrade: false, verbose: false, force: false, **options)
           return true unless preinstall
 
-          full_name = options.fetch(:full_name, name)
+          full_name = T.cast(options.fetch(:full_name, name), String)
+
+          # Only fully-qualified names map to a tap, so unqualified tokens
+          # cannot be meaningfully trusted.
+          Homebrew::Trust.trust!(:cask, full_name) if options[:trusted] && Utils.full_name?(full_name)
 
           install_result = if cask_installed?(name) && upgrading?(no_upgrade, name, options)
             status = "#{options[:greedy] ? "may not be" : "not"} up-to-date"
