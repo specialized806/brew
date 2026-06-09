@@ -817,6 +817,13 @@ RSpec.describe Cask::Cask, :cask do
       expect(h["variations"]).not_to include(:arm64_linux)
     end
 
+    it "emits Linux variations for a cask with Linux checksums but no `os` stanza" do
+      c = Cask::CaskLoader.load("sha256-linux")
+      h = c.to_hash_with_variations
+
+      expect(h["variations"]).to include(:x86_64_linux, :arm64_linux)
+    end
+
     # NOTE: The calls to `Cask.generating_hash!` and `Cask.generated_hash!`
     #       are not idempotent so they can only be used in one test.
     it "returns the correct hash placeholders" do
