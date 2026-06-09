@@ -2,6 +2,7 @@
 
 <!-- Do not tick a checkbox if you haven’t performed its action. Honesty is indispensable for a smooth review process. -->
 <!-- Use [x] to mark item done before creation, or just click the checkboxes with device pointer after creation -->
+<!-- Do not delete these checkboxes or this pull request will be closed automatically. -->
 
 - [ ] Have you followed the guidelines in our [Contributing](https://github.com/Homebrew/brew/blob/HEAD/CONTRIBUTING.md) document?
 - [ ] Have you checked to ensure there aren't other open [Pull Requests](https://github.com/Homebrew/brew/pulls) for the same change?
