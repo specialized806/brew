@@ -79,8 +79,8 @@ module Homebrew
 
           cask = begin
             Cask::CaskLoader.load(cask_token)
-          rescue Cask::CaskUnavailableError
-            # Don't blow up because of a single unavailable cask.
+          rescue Cask::CaskUnavailableError, MethodDeprecatedError
+            # Don't blow up because of a single unavailable cask or a deprecated method.
             next
           end
 
