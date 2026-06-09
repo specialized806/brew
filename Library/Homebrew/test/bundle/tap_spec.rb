@@ -27,13 +27,17 @@ RSpec.describe Homebrew::Bundle::Tap do
 
         bar = instance_double(Tap, name: "bitbucket/bar", custom_remote?: true,
                               remote: "https://bitbucket.org/bitbucket/bar.git")
-        baz = instance_double(Tap, name: "homebrew/baz", custom_remote?: false)
-        foo = instance_double(Tap, name: "homebrew/foo", custom_remote?: false)
+        baz = instance_double(Tap, name: "homebrew/baz", custom_remote?: false, remote: nil)
+        foo = instance_double(Tap, name: "homebrew/foo", custom_remote?: false, remote: nil)
 
         ENV["HOMEBREW_GITHUB_API_TOKEN_BEFORE"] = ENV.fetch("HOMEBREW_GITHUB_API_TOKEN", nil)
         ENV["HOMEBREW_GITHUB_API_TOKEN"] = "some-token"
         private_tap = instance_double(Tap, name: "privatebrew/private", custom_remote?: true,
           remote: "https://#{ENV.fetch("HOMEBREW_GITHUB_API_TOKEN")}@github.com/privatebrew/homebrew-private")
+
+        [bar, baz, foo, private_tap].each do |tap|
+          allow(tap).to receive(:matches_reference?) { |reference| reference == tap.remote }
+        end
 
         allow(Tap).to receive(:select).and_return [bar, baz, foo, private_tap]
       end
@@ -58,7 +62,8 @@ RSpec.describe Homebrew::Bundle::Tap do
       end
 
       it "dumps trusted taps with trusted true" do
-        allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return(["bitbucket/bar"])
+        allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap)
+                                                           .and_return(["https://bitbucket.org/bitbucket/bar.git"])
 
         expect(dumper.dump).to include(
           "tap \"bitbucket/bar\", \"https://bitbucket.org/bitbucket/bar.git\", trusted: true",

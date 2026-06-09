@@ -82,7 +82,6 @@ module Homebrew
 
         sig { override.returns(String) }
         def dump
-          trusted_taps = Homebrew::Trust.trusted_entries(:tap)
           taps.map do |tap|
             remote = if tap.custom_remote? && (tap_remote = tap.remote)
               if (api_token = ENV.fetch("HOMEBREW_GITHUB_API_TOKEN", false).presence)
@@ -93,7 +92,7 @@ module Homebrew
               ", \"#{tap_remote}\""
             end
             tapline = "tap \"#{tap.name}\"#{remote}"
-            tapline += ", trusted: true" if trusted_taps.include?(tap.name)
+            tapline += ", trusted: true" if Homebrew::Trust.explicitly_trusted_tap?(tap)
             tapline
           end.sort.uniq.join("\n")
         end
