@@ -331,7 +331,6 @@ module Homebrew
 
         ENV["HOMEBREW_TESTS"] = "1"
         ENV.delete("HOMEBREW_ASK")
-        ENV["HOMEBREW_NO_ASK"] = "1"
         ENV["HOMEBREW_NO_AUTO_UPDATE"] = "1"
         ENV["HOMEBREW_NO_ANALYTICS_THIS_RUN"] = "1"
         ENV["HOMEBREW_TEST_GENERIC_OS"] = "1" if args.generic?

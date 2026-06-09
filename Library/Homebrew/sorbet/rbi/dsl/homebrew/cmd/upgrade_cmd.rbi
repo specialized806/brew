@@ -114,6 +114,15 @@ class Homebrew::Cmd::UpgradeCmd::Args < Homebrew::CLI::Args
   def minimum_version; end
 
   sig { returns(T::Boolean) }
+  def no_ask?; end
+
+  sig { returns(T::Boolean) }
+  def yes?; end
+
+  sig { returns(T::Boolean) }
+  def y?; end
+
+  sig { returns(T::Boolean) }
   def n?; end
 
   sig { returns(T::Boolean) }

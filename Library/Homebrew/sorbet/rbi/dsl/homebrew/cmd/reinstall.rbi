@@ -98,6 +98,15 @@ class Homebrew::Cmd::Reinstall::Args < Homebrew::CLI::Args
   sig { returns(T.nilable(String)) }
   def mdimporterdir; end
 
+  sig { returns(T::Boolean) }
+  def no_ask?; end
+
+  sig { returns(T::Boolean) }
+  def yes?; end
+
+  sig { returns(T::Boolean) }
+  def y?; end
+
   sig { returns(T.nilable(String)) }
   def prefpanedir; end
 

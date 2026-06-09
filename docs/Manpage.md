@@ -591,10 +591,10 @@ flags which will help with finding keg-only dependencies like `openssl`,
 : `dump` without npm packages. Enabled by default if
   `$HOMEBREW_BUNDLE_DUMP_NO_NPM` is set.
 
-`--describe`
+`--no-describe`
 
-: Add a description comment above each line, unless the dependency does not have
-  a description. Enabled by default if `$HOMEBREW_BUNDLE_DESCRIBE` is set.
+: Do not add description comments above each line. Description comments are the
+  default. Enabled by default if `$HOMEBREW_BUNDLE_NO_DESCRIBE` is set.
 
 `--no-restart`
 
@@ -865,10 +865,10 @@ useful for scripting. Use `--verbose` to list unmet dependencies.
 
 : Add entries for npm packages.
 
-`--describe`
+`--no-describe`
 
-: Add a description comment above each line, unless the dependency does not have
-  a description. Enabled by default if `$HOMEBREW_BUNDLE_DESCRIBE` is set.
+: Do not add description comments above each line. Description comments are the
+  default. Enabled by default if `$HOMEBREW_BUNDLE_NO_DESCRIBE` is set.
 
 ### `casks`
 
@@ -1350,13 +1350,10 @@ upgrade *`formula`* if it is already installed but outdated.
 
 : Show what would be installed, but do not actually install anything.
 
-`--ask`
+`-y`, `--no-ask`
 
-: Ask for confirmation before downloading and installing. Print the same plan as
-  `--dry-run` before prompting. Only prompts if the plan includes dependencies
-  or dependants; if the requested formulae or casks are the only things to
-  install, it only prints the plan. The confirmation prompt is skipped without a
-  TTY.
+: Do not ask for confirmation before downloading and installing. Ask mode is the
+  default. Enabled by default if `$HOMEBREW_NO_ASK` is set.
 
 `--formula`
 
@@ -1830,13 +1827,10 @@ for the reinstalled formulae or, every 30 days, for all formulae.
 
 : Print the verification and post-install steps.
 
-`--ask`
+`-y`, `--no-ask`
 
-: Ask for confirmation before downloading and reinstalling. Print what would be
-  reinstalled before prompting. Only prompts if the plan includes dependencies
-  or dependants; if the requested formulae or casks are the only things to
-  reinstall, it only prints the plan. The confirmation prompt is skipped without
-  a TTY.
+: Do not ask for confirmation before downloading and reinstalling. Ask mode is
+  the default. Enabled by default if `$HOMEBREW_NO_ASK` is set.
 
 `--formula`
 
@@ -2357,14 +2351,10 @@ for the upgraded formulae or, every 30 days, for all formulae.
 : Only upgrade a named formula or cask with an installed version below the given
   minimum version.
 
-`--ask`
+`-y`, `--no-ask`
 
-: Ask for confirmation before downloading and upgrading. Print the same plan as
-  `--dry-run`, including available download sizes. When named arguments are
-  provided, only prompts if the plan includes packages other than those
-  arguments; if the requested formulae or casks are the only things to upgrade,
-  it only prints the plan. With no named arguments, prompts if anything would be
-  upgraded. The confirmation prompt is skipped without a TTY.
+: Do not ask for confirmation before downloading and upgrading. Ask mode is the
+  default. Enabled by default if `$HOMEBREW_NO_ASK` is set.
 
 `--formula`
 
@@ -4315,14 +4305,6 @@ command execution (e.g. `$(cat file)`).
 
 : If set, `brew bundle cleanup` will not clean up WinGet packages.
 
-`HOMEBREW_BUNDLE_DESCRIBE`
-
-: If set, add a description comment above each line in `brew bundle dump` and
-  `brew bundle add`, unless the dependency does not have a description. This is
-  the default unless `$HOMEBREW_BUNDLE_NO_DESCRIBE` is set.
-  
-  *Default:* `true`.
-
 `HOMEBREW_BUNDLE_DUMP_NO_BREW`
 
 : If set, `brew bundle dump` will not dump formula dependencies.
@@ -4951,16 +4933,6 @@ command execution (e.g. `$(cat file)`).
 
 : If set, always use the latest stable tag (even if developer commands have been
   run).
-
-`HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS`
-
-: If set, `brew upgrade` will automatically upgrade casks with `auto_updates
-  true` when Homebrew detects that the version in the app bundle is older than
-  the version in the tap. Does not affect `--greedy` or `--greedy-auto-updates`
-  upgrades. This is the default unless `$HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS`
-  is set.
-  
-  *Default:* `true`.
 
 `HOMEBREW_UPGRADE_GREEDY`
 

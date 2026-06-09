@@ -46,13 +46,18 @@ module Homebrew
                description: "Print the verification and post-install steps."
         switch "-n", "--dry-run",
                description: "Show what would be installed, but do not actually install anything."
+        switch "--no-ask", "--yes", "-y",
+               description: "Do not ask for confirmation before downloading and installing. Ask mode is the default.",
+               env:         :no_ask
         switch "--ask",
                description: "Ask for confirmation before downloading and installing. " \
                             "Print the same plan as `--dry-run` before prompting. Only prompts if the plan " \
                             "includes dependencies or dependants; if the requested formulae or casks are the " \
                             "only things to install, it only prints the plan. The confirmation prompt is " \
-                            "skipped without a TTY.",
-               env:         :ask
+                            "skipped without a TTY. This is the default unless `$HOMEBREW_NO_ASK` is set.",
+               env:         :ask,
+               replacement: "the default behaviour",
+               odeprecated: true
         [
           [:switch, "--formula", "--formulae", {
             description: "Treat all named arguments as formulae.",
@@ -170,6 +175,7 @@ module Homebrew
         cask_options
 
         conflicts "--ignore-dependencies", "--only-dependencies"
+        conflicts "--ask", "--no-ask"
         conflicts "--build-from-source", "--build-bottle", "--force-bottle"
         conflicts "--adopt", "--force"
 
@@ -210,6 +216,7 @@ module Homebrew
           args.named.to_formulae_and_casks(warn: false).partition { it.is_a?(Formula) },
           [T::Array[Formula], T::Array[Cask::Cask]],
         )
+        ask = !args.no_ask?
 
         installed_casks = T.let([], T::Array[Cask::Cask])
         new_casks = T.let([], T::Array[Cask::Cask])
@@ -231,7 +238,7 @@ module Homebrew
             upgrade_casks = Cask::Upgrade.outdated_casks(casks, args:, force: true, quiet: true)
             new_casks | upgrade_casks
           end
-          Install.ask_casks fetch_casks, skip_cask_deps: args.skip_cask_deps? if args.ask?
+          Install.ask_casks fetch_casks, skip_cask_deps: args.skip_cask_deps? if ask
         end
 
         if Homebrew::EnvConfig.verify_attestations?
@@ -300,7 +307,7 @@ module Homebrew
         dependants = Upgrade.dependants(
           installed_formulae,
           flags:                      args.flags_only,
-          ask:                        args.ask?,
+          ask:                        ask,
           installed_on_request:       !args.as_dependency?,
           force_bottle:               args.force_bottle?,
           build_from_source_formulae: args.build_from_source_formulae,
@@ -315,7 +322,7 @@ module Homebrew
         )
 
         # Main block: if asking the user is enabled, show dry-run information.
-        if args.ask?
+        if ask
           Install.ask_formulae(
             formulae_installer,
             dependants,

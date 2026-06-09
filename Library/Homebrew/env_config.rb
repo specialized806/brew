@@ -93,6 +93,7 @@ module Homebrew
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_ASK,
         default:     true,
+        replacement: "the default behaviour",
         odeprecated: true,
       },
       HOMEBREW_AUTO_UPDATE_SECS:                 {
@@ -141,6 +142,8 @@ module Homebrew
         boolean:     true,
         disabled_by: :HOMEBREW_BUNDLE_NO_DESCRIBE,
         default:     true,
+        replacement: "the default behaviour",
+        odeprecated: true,
       },
       HOMEBREW_BUNDLE_DUMP_DESCRIBE:             {
         description: "If set, add a description comment above each line in `brew bundle dump` " \
@@ -702,6 +705,8 @@ module Homebrew
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS,
         default:     true,
+        replacement: "the default behaviour",
+        odeprecated: true,
       },
       HOMEBREW_UPGRADE_GREEDY:                   {
         description: "If set, pass `--greedy` to all cask upgrade commands.",
@@ -816,7 +821,9 @@ module Homebrew
       env_value = ENV.fetch(env, nil)
       return if env_value.nil?
 
-      odeprecated_env(env, hash) if env_value.present?
+      if env_value.present? && (hash[:default] != true || FALSY_VALUES.exclude?(env_value.downcase))
+        odeprecated_env(env, hash)
+      end
       if (replacement = hash[:replacement]).is_a?(Symbol)
         ENV[replacement.to_s] ||= env_value
       end

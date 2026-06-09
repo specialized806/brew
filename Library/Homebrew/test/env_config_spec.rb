@@ -170,6 +170,13 @@ RSpec.describe Homebrew::EnvConfig do
         expect(env_config.bundle_describe?).to be(false)
       end
     end
+
+    it "deprecates HOMEBREW_BUNDLE_DESCRIBE" do
+      with_env(HOMEBREW_BUNDLE_DESCRIBE: "1") do
+        expect { env_config.bundle_describe? }
+          .to raise_error(MethodDeprecatedError, /HOMEBREW_BUNDLE_DESCRIBE.*deprecated/)
+      end
+    end
   end
 
   describe ".bundle_jobs" do

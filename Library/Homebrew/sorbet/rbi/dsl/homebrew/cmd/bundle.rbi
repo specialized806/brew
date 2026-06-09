@@ -90,6 +90,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   def no_casks?; end
 
   sig { returns(T::Boolean) }
+  def no_describe?; end
+
+  sig { returns(T::Boolean) }
   def no_cleanup_brew?; end
 
   sig { returns(T::Boolean) }
