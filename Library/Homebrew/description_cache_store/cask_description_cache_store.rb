@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "formula_versions"
+
 #
 # {CaskDescriptionCacheStore} provides methods to fetch and mutate cask descriptions used
 # by the `brew desc` and `brew search` commands.
