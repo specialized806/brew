@@ -88,6 +88,9 @@ RSpec.describe Homebrew::Trust do
     tap.path.mkpath
     system "git", "-C", tap.path.to_s, "init"
     system "git", "-C", tap.path.to_s, "remote", "add", "origin", "git@github.com:thirdparty/homebrew-foo"
+    # Guard the setup so the test genuinely exercises SSH-vs-HTTPS equivalence: a
+    # remote-less tap would also be trusted by name, passing for the wrong reason.
+    expect(tap.remote).to eq("git@github.com:thirdparty/homebrew-foo")
 
     described_class.trust!(:tap, "thirdparty/foo")
 
