@@ -17,7 +17,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(caffeine).install
 
       expect(Cask::Caskroom.path.join("local-caffeine", caffeine.version)).to be_a_directory
-      expect(caffeine.config.appdir.join("Caffeine.app")).to be_a_directory
+      expect(Pathname(caffeine.config.appdir).join("Caffeine.app")).to be_a_directory
     end
 
     it "works with HFS+ dmg-based Casks" do
@@ -27,7 +27,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(asset).install
 
       expect(Cask::Caskroom.path.join("container-dmg", asset.version)).to be_a_directory
-      expect(asset.config.appdir.join("container")).to be_a_file
+      expect(Pathname(asset.config.appdir).join("container")).to be_a_file
     end
 
     it "works with tar-gz-based Casks" do
@@ -36,7 +36,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(asset).install
 
       expect(Cask::Caskroom.path.join("container-tar-gz", asset.version)).to be_a_directory
-      expect(asset.config.appdir.join("container")).to be_a_file
+      expect(Pathname(asset.config.appdir).join("container")).to be_a_file
     end
 
     it "works with xar-based Casks" do
@@ -45,7 +45,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(asset).install
 
       expect(Cask::Caskroom.path.join("container-xar", asset.version)).to be_a_directory
-      expect(asset.config.appdir.join("container")).to be_a_file
+      expect(Pathname(asset.config.appdir).join("container")).to be_a_file
     end
 
     it "works with pure bzip2-based Casks" do
@@ -54,7 +54,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(asset).install
 
       expect(Cask::Caskroom.path.join("container-bzip2", asset.version)).to be_a_directory
-      expect(asset.config.appdir.join("container")).to be_a_file
+      expect(Pathname(asset.config.appdir).join("container")).to be_a_file
     end
 
     it "works with pure gzip-based Casks" do
@@ -63,7 +63,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(asset).install
 
       expect(Cask::Caskroom.path.join("container-gzip", asset.version)).to be_a_directory
-      expect(asset.config.appdir.join("container")).to be_a_file
+      expect(Pathname(asset.config.appdir).join("container")).to be_a_file
     end
 
     it "blows up on a bad checksum" do
@@ -202,7 +202,7 @@ RSpec.describe Cask::Installer, :cask do
 
       described_class.new(nested_app).install
 
-      expect(nested_app.config.appdir.join("MyNestedApp.app")).to be_a_directory
+      expect(Pathname(nested_app.config.appdir).join("MyNestedApp.app")).to be_a_directory
     end
 
     it "generates and finds a timestamped metadata directory for an installed Cask" do
@@ -301,7 +301,7 @@ RSpec.describe Cask::Installer, :cask do
       described_class.new(caffeine).zap
 
       expect(caffeine).not_to be_installed
-      expect(caffeine.config.appdir.join("Caffeine.app")).not_to be_a_symlink
+      expect(Pathname(caffeine.config.appdir).join("Caffeine.app")).not_to be_a_symlink
     end
   end
 
@@ -431,7 +431,7 @@ RSpec.describe Cask::Installer, :cask do
           version "0.1"
         end
       RUBY
-      Formulary.cache.delete(dep_path)
+      Formulary.cache.delete(dep_path.to_s)
 
       cask = Cask::Cask.new("homebrew-forbidden-dependent-tap") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
@@ -467,7 +467,7 @@ RSpec.describe Cask::Installer, :cask do
           version "0.1"
         end
       RUBY
-      Formulary.cache.delete(dep_path)
+      Formulary.cache.delete(dep_path.to_s)
 
       cask = Cask::Cask.new("homebrew-forbidden-dependent-cask") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"

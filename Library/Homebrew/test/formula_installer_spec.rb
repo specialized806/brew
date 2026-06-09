@@ -89,6 +89,7 @@ RSpec.describe FormulaInstaller do
   describe "#build_bottle_postinstall" do
     let(:f) do
       formula "bottle-config" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
@@ -138,6 +139,7 @@ RSpec.describe FormulaInstaller do
   describe "#fetch_bottle_tab" do
     it "does not enqueue cached bottle manifests" do
       formula = formula("deno") do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/deno-2.7.11.tar.gz"
 
         bottle do
@@ -163,6 +165,7 @@ RSpec.describe FormulaInstaller do
 
     it "enqueues invalid cached bottle manifests" do
       formula = formula("deno") do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/deno-2.7.11.tar.gz"
 
         bottle do
@@ -192,6 +195,7 @@ RSpec.describe FormulaInstaller do
   describe "linking defaults" do
     it "links non-keg-only formulae when link_keg is false" do
       ordinary_formula = formula "homebrew-link-default" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
 
@@ -200,12 +204,17 @@ RSpec.describe FormulaInstaller do
 
     it "links non-keg-only dependencies even when they were not previously linked" do
       dependency_formula = formula "homebrew-link-default-dependency" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       dependency = instance_double(Dependency, to_formula: dependency_formula, name: dependency_formula.name,
                                                options: Options.new)
       installer = described_class.new(Testball.new)
-      child_installer = nil
+      # Sorbet doesn't like `T.let(nil, T.nilable(described_class))`, but the
+      # RuboCop will always autocorrect to that.
+      # rubocop:disable RSpec/DescribedClass
+      child_installer = T.let(nil, T.nilable(FormulaInstaller))
+      # rubocop:enable RSpec/DescribedClass
 
       allow(dependency_formula).to receive_messages(
         linked_keg:                Pathname("/tmp/nonexistent-linked-keg"),
@@ -231,6 +240,7 @@ RSpec.describe FormulaInstaller do
 
     it "disables Bubblewrap auto-install until the implicit Bubblewrap dependency is installed" do
       formula = formula "homebrew-bubblewrap-bootstrap-target" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       installer = described_class.new(formula)
@@ -260,6 +270,7 @@ RSpec.describe FormulaInstaller do
     let(:formula_name) { "#{base_name}@1.0" }
     let(:keg_only_formula) do
       formula formula_name do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         keg_only :versioned_formula
       end
@@ -300,6 +311,7 @@ RSpec.describe FormulaInstaller do
 
     it "does not link by default when another @-versioned formula is installed" do
       other_version = formula "#{base_name}@2.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
         keg_only :versioned_formula
       end
@@ -313,6 +325,7 @@ RSpec.describe FormulaInstaller do
 
     it "does not link by default when the unversioned sibling is installed" do
       unversioned_formula = formula base_name do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       allow(unversioned_formula).to receive(:any_version_installed?).and_return(true)
@@ -325,6 +338,7 @@ RSpec.describe FormulaInstaller do
 
     it "does not link by default when the unversioned sibling is keg-only" do
       unversioned_formula = formula base_name do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         keg_only "some reason"
       end
@@ -337,6 +351,7 @@ RSpec.describe FormulaInstaller do
 
     it "does not link by default when the -full variant is installed" do
       full_variant = formula "#{base_name}-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-1.0"
         keg_only :versioned_formula
       end
@@ -350,10 +365,12 @@ RSpec.describe FormulaInstaller do
 
     it "does not link by default when the non-full variant is installed" do
       full_formula = formula "#{base_name}-full" do
+        T.bind(self, T.class_of(Formula))
         url "foo-full-1.0"
         keg_only :versioned_formula
       end
       non_full_variant = formula base_name do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         keg_only :versioned_formula
       end
@@ -370,12 +387,14 @@ RSpec.describe FormulaInstaller do
   describe "#link" do
     let(:versioned_formula) do
       formula "homebrew-versioned-formula@1.0" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         keg_only :versioned_formula
       end
     end
     let(:other_version) do
       formula "homebrew-versioned-formula" do
+        T.bind(self, T.class_of(Formula))
         url "foo-2.0"
         keg_only :versioned_formula
       end
@@ -420,6 +439,7 @@ RSpec.describe FormulaInstaller do
     let(:formula_name) { "#{base_name}@1.0" }
     let(:keg_only_formula) do
       formula formula_name do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         keg_only :versioned_formula
       end
@@ -427,6 +447,7 @@ RSpec.describe FormulaInstaller do
 
     it "explains why a versioned formula was installed but not linked" do
       unversioned_formula = formula base_name do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
       allow(unversioned_formula).to receive_messages(any_version_installed?: true, linked?: true)
@@ -456,7 +477,7 @@ RSpec.describe FormulaInstaller do
           depends_on "#{dep_name}"
         end
       RUBY
-      Formulary.cache.delete(dep_path)
+      Formulary.cache.delete(dep_path.to_s)
       f = Formulary.factory(dep_name)
 
       fi = described_class.new(f)
@@ -479,7 +500,7 @@ RSpec.describe FormulaInstaller do
           depends_on "#{formula2_name}"
         end
       RUBY
-      Formulary.cache.delete(formula1_path)
+      Formulary.cache.delete(formula1_path.to_s)
       formula1 = Formulary.factory(formula1_name)
 
       formula2_path = CoreTap.instance.new_formula_path(formula2_name)
@@ -513,6 +534,7 @@ RSpec.describe FormulaInstaller do
       dependency = Formulary.factory(dep_name)
 
       dependent = formula do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "0.5"
         depends_on dependency.name.to_s
@@ -1001,6 +1023,7 @@ RSpec.describe FormulaInstaller do
       formula_path = mktmpdir/"homebrew-local-formula.rb"
       FileUtils.touch formula_path
       formula = formula("homebrew-local-formula", path: formula_path) do
+        T.bind(self, T.class_of(Formula))
         url "foo"
         version "1.0"
       end

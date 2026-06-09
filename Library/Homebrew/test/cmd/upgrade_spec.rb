@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -332,6 +332,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "asks before upgrading formulae that resolve from a different name" do
     formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.2"
     end
     cmd = described_class.new(["--ask", "oldtestball"])
@@ -362,6 +363,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   it "prints formula download sizes in dry-run upgrade summaries" do
     cmd = described_class.new(["--dry-run"])
     formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.2"
     end
     bottle = instance_double(Bottle, fetch_tab: nil, bottle_size: 500)
@@ -376,9 +378,11 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "prints dry-run cleanup output from one formula cleanup run" do
     formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.2"
     end
     other_formula = formula("otherball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/otherball-0.2"
     end
 
@@ -404,9 +408,11 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "omits dry-run dependencies already listed in the final summary" do
     formula = formula("yt-dlp") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/yt-dlp-2026.3.17_2.tar.gz"
     end
     dependency_formula = formula("python@3.14") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/python@3.14-3.14.5.tar.gz"
     end
     formula_installer = FormulaInstaller.new(formula)
@@ -426,9 +432,11 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "omits dry-run dependents already listed in the final summary" do
     formula = formula("sqlite") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/sqlite-3.53.1.tar.gz"
     end
     dependent = formula("python@3.14") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/python@3.14-3.14.5.tar.gz"
     end
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [dependent], pinned: [], skipped: [])
@@ -669,6 +677,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   it "prints a bottle manifest heading before formula prefetches" do
     cmd = described_class.new([])
     formula = formula("deno") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/deno-2.7.11.tar.gz"
 
       bottle do
@@ -690,6 +699,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   it "omits the bottle manifest heading for cached formula manifests" do
     cmd = described_class.new([])
     formula = formula("deno") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/deno-2.7.11.tar.gz"
 
       bottle do
@@ -811,20 +821,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "records final formula upgrade summary details" do
     formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.2"
     end
     pinned = formula("pinnedball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/pinnedball-1.0"
     end
     deprecated = formula("oldball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/oldball-1.0"
       deprecate! date: "2020-01-01", because: :unmaintained
     end
     disabled = formula("disabledball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/disabledball-1.0"
       disable! date: "2020-01-01", because: :unsupported
     end
     source_build = formula("sourceball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/sourceball-1.0"
     end
     old_keg = HOMEBREW_CELLAR/"testball/0.1"
@@ -856,6 +871,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "records formula upgrade versions before upgrading" do
     formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.2"
     end
     old_keg = HOMEBREW_CELLAR/"testball/0.1"
