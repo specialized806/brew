@@ -147,7 +147,18 @@ class Tap
   # (including self-hosted GitLab and GitHub Enterprise) where `repo.git` and `repo` may differ.
   NORMALIZE_REMOTE_HOSTS = %w[github.com gitlab.com].freeze
 
-  # On GitHub the scheme and userinfo are insignificant (any of HTTPS, SSH SCP syntax, `ssh://`, or
+  # An optional RFC 3986-ish `scheme://` (e.g. `https://`, `ssh://` or `git+https://`) followed by
+  # optional `user@` userinfo: the part of a remote URL that can precede the host.
+  REMOTE_SCHEME_USERINFO_REGEX = %r{(?:[a-z][a-z0-9+.-]*://)?(?:[^@/]+@)?}
+  # The leading `<scheme>://<user>@github.com/` of a GitHub URL or the SCP-style `<user>@github.com:`
+  # shorthand. The `:` form is only SCP syntax when there is no scheme; with a scheme a `:` starts a
+  # port rather than the path, so it must not be rewritten.
+  GITHUB_REMOTE_PREFIX_REGEX =
+    %r{\A(?:[a-z][a-z0-9+.-]*://(?:[^@/]+@)?github\.com/|(?:[^@/]+@)?github\.com:)}
+  # The host of a remote: the first `/`- or `:`-delimited segment after any scheme and userinfo.
+  REMOTE_HOST_REGEX = %r{\A#{REMOTE_SCHEME_USERINFO_REGEX.source}([^/:]+)}
+
+  # On GitHub the scheme and userinfo are insignificant (any of HTTPS, SSH SCP syntax, `ssh://` or
   # `git://` identify the same repository), so those forms are canonicalised to HTTPS. For hosts in
   # {NORMALIZE_REMOTE_HOSTS} a `.git` suffix and trailing slashes are also insignificant, so we
   # strip them; we don't assume that for other hosts.
@@ -159,14 +170,10 @@ class Tap
 
     # Canonicalise every GitHub remote form to `https://github.com/<owner>/<repo>` so SSH and
     # HTTPS remotes for the same repository compare equal.
-    remote = remote
-             # scheme URLs, e.g. `https://`, `ssh://git@`, `git://`
-             .sub(%r{\A(?:https?|ssh|git)://(?:[^@/]+@)?github\.com/}, "https://github.com/")
-             # SCP-style SSH shorthand, e.g. `git@github.com:`
-             .sub(%r{\A(?:[^@/]+@)?github\.com:}, "https://github.com/")
+    remote = remote.sub(GITHUB_REMOTE_PREFIX_REGEX, "https://github.com/")
 
     # Only strip `.git`/trailing slashes for hosts where this is known to be safe.
-    host = remote[%r{\A(?:[^@/]+://)?(?:[^@/]+@)?([^/:]+)}, 1]
+    host = remote[REMOTE_HOST_REGEX, 1]
     return remote unless NORMALIZE_REMOTE_HOSTS.include?(host)
 
     remote.sub(%r{/+\z}, "").delete_suffix(".git")
@@ -184,12 +191,15 @@ class Tap
     match = normalised.match(HOMEBREW_TAP_REPOSITORY_REGEX)
     return normalised unless match
 
-    remote_repo = T.must(match[:remote_repository])
-    user, full_repo = remote_repo.split("/", 2)
-    return normalised if user.nil? || full_repo.nil?
+    remote_repository = match[:remote_repository]
+    return normalised unless remote_repository
 
-    tap = fetch(user, full_repo)
-    same_remote?(normalised, tap.default_remote) ? tap.name : normalised
+    tap = fetch(remote_repository)
+    if same_remote?(normalised, tap.default_remote)
+      tap.name
+    else
+      normalised
+    end
   rescue InvalidNameError
     normalised
   end
