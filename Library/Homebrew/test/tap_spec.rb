@@ -178,19 +178,19 @@ RSpec.describe Tap do
                                           "https://github.com/homebrew/homebrew-core")).to be true
     end
 
-    it "ignores a `.git` suffix on non-GitHub remotes" do
+    it "ignores a `.git` suffix on GitLab remotes" do
       expect(described_class.same_remote?("https://gitlab.com/other/repo.git",
                                           "https://gitlab.com/other/repo")).to be true
     end
 
-    it "ignores a trailing slash on non-GitHub remotes" do
+    it "ignores a trailing slash on GitLab remotes" do
       expect(described_class.same_remote?("https://gitlab.com/other/repo/",
                                           "https://gitlab.com/other/repo")).to be true
     end
 
-    it "ignores a `.git` suffix and trailing slash on a self-hosted remote" do
+    it "keeps a `.git` suffix and trailing slash significant on a self-hosted remote" do
       expect(described_class.same_remote?("https://git.example.com/other/repo.git/",
-                                          "https://git.example.com/other/repo")).to be true
+                                          "https://git.example.com/other/repo")).to be false
     end
 
     it "still matches non-GitHub remotes case-insensitively" do

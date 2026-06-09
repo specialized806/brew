@@ -139,10 +139,15 @@ class Tap
     reference.include?("://") || reference.include?("@") || reference.start_with?("/", ".", "~")
   end
 
-  # A `.git` suffix and trailing slashes never change which repository a remote identifies, so we
-  # strip them for all hosts. On GitHub the scheme and userinfo are also insignificant (any of
-  # HTTPS, SSH SCP syntax, `ssh://`, or `git://` identify the same repository), so those forms are
-  # canonicalised to HTTPS; we don't assume that for other hosts.
+  # Hosts where a `.git` suffix and trailing slashes are known not to change which repository a
+  # remote identifies, so we can safely strip them. We don't assume this for arbitrary hosts
+  # (including self-hosted GitLab and GitHub Enterprise) where `repo.git` and `repo` may differ.
+  NORMALIZE_REMOTE_HOSTS = %w[github.com gitlab.com].freeze
+
+  # On GitHub the scheme and userinfo are insignificant (any of HTTPS, SSH SCP syntax, `ssh://`, or
+  # `git://` identify the same repository), so those forms are canonicalised to HTTPS. For hosts in
+  # {NORMALIZE_REMOTE_HOSTS} a `.git` suffix and trailing slashes are also insignificant, so we
+  # strip them; we don't assume that for other hosts.
   sig { params(remote: T.nilable(String)).returns(T.nilable(String)) }
   def self.normalize_remote(remote)
     return if remote.blank?
@@ -156,6 +161,10 @@ class Tap
              .sub(%r{\A(?:https?|ssh|git)://(?:[^@/]+@)?github\.com/}, "https://github.com/")
              # SCP-style SSH shorthand, e.g. `git@github.com:`
              .sub(%r{\A(?:[^@/]+@)?github\.com:}, "https://github.com/")
+
+    # Only strip `.git`/trailing slashes for hosts where this is known to be safe.
+    host = remote[%r{\A(?:[^@/]+://)?(?:[^@/]+@)?([^/:]+)}, 1]
+    return remote unless NORMALIZE_REMOTE_HOSTS.include?(host)
 
     remote.sub(%r{/+\z}, "").delete_suffix(".git")
   end
