@@ -107,7 +107,14 @@ module Homebrew
 
     sig { params(tap: Tap).returns(T::Boolean) }
     def self.trusted_tap?(tap)
-      tap.implicitly_trusted? || trusted_entries(:tap).any? { |reference| tap.matches_reference?(reference) }
+      tap.implicitly_trusted? || explicitly_trusted_tap?(tap)
+    end
+
+    # Whether the tap appears in the trust list, ignoring any implicit official-tap trust. The
+    # entries may be `user/repository` names or remote URLs, so match via {Tap#matches_reference?}.
+    sig { params(tap: T.untyped).returns(T::Boolean) }
+    def self.explicitly_trusted_tap?(tap)
+      trusted_entries(:tap).any? { |reference| tap.matches_reference?(reference) }
     end
 
     sig { params(name: String, path: Pathname).void }
