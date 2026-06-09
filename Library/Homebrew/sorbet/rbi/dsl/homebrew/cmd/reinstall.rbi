@@ -105,9 +105,6 @@ class Homebrew::Cmd::Reinstall::Args < Homebrew::CLI::Args
   def qlplugindir; end
 
   sig { returns(T::Boolean) }
-  def quarantine?; end
-
-  sig { returns(T::Boolean) }
   def require_sha?; end
 
   sig { returns(T::Boolean) }
