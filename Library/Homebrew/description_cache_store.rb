@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "cache_store"
+require "formula_versions"
 
 #
 # {DescriptionCacheStore} provides methods to fetch and mutate formula descriptions used
