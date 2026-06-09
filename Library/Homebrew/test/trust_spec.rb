@@ -165,7 +165,12 @@ RSpec.describe Homebrew::Trust do
     (tap.formula_dir/"bar.rb").write("class Bar < Formula; end\n")
     (tap.cask_dir/"baz.rb").write("cask 'baz'\n")
 
-    described_class.trust_fully_qualified_items!(["qualified/foo/bar", "qualified/foo/baz"])
+    without_partial_double_verification do
+      expect($stderr).to receive(:ohai).with("Trusted formula qualified/foo/bar").ordered
+      expect($stderr).to receive(:ohai).with("Trusted cask qualified/foo/baz").ordered
+
+      described_class.trust_fully_qualified_items!(["qualified/foo/bar", "qualified/foo/baz"])
+    end
 
     expect(described_class.trusted?(:formula, "qualified/foo/bar")).to be(true)
     expect(described_class.trusted?(:cask, "qualified/foo/baz")).to be(true)

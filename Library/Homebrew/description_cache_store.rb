@@ -80,7 +80,7 @@ class DescriptionCacheStore < CacheStore
 
     formula_names.each do |name|
       update!(name, Formula[name].desc)
-    rescue FormulaUnavailableError, *FormulaVersions::IGNORED_EXCEPTIONS
+    rescue FormulaUnavailableError, Homebrew::UntrustedTapError, *FormulaVersions::IGNORED_EXCEPTIONS
       delete!(name)
     end
   end

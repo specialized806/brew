@@ -77,7 +77,10 @@ module Homebrew
         else
           []
         end
-        types.each { |item_type| trust!(item_type, "#{tap.name}/#{item_name}") }
+        types.each do |item_type|
+          full_name = "#{tap.name}/#{item_name}"
+          $stderr.ohai "Trusted #{item_type} #{full_name}" if trust!(item_type, full_name)
+        end
       rescue Tap::InvalidNameError
         nil
       end
