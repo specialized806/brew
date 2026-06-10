@@ -158,6 +158,18 @@ RSpec.describe Homebrew::Trust do
     described_class.clear!(:tap)
   end
 
+  it "does not lose entries when trusting concurrently" do
+    names = Array.new(10) { |i| "thirdparty/foo/formula#{i}" }
+
+    names.map do |name|
+      Thread.new { described_class.trust!(:formula, name) }
+    end.each(&:join)
+
+    expect(described_class.trusted_entries(:formula)).to match_array(names)
+  ensure
+    described_class.clear!(:formula)
+  end
+
   it "trusts fully-qualified formulae and casks" do
     tap = Tap.fetch("qualified", "foo")
     tap.formula_dir.mkpath

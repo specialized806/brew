@@ -29,31 +29,35 @@ module Homebrew
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trust!(type, name)
       key = setting_key(type)
-      entries = trusted_entries(type)
       name = normalise_name(name)
-      return false if entries.include?(name)
+      with_trust_store_lock do
+        store = trust_store
+        entries = store.fetch(key, [])
+        next false if entries.include?(name)
 
-      store = trust_store
-      store[key] = (entries + [name]).sort
-      write_trust_store(store)
-      true
+        store[key] = (entries + [name]).sort
+        write_trust_store(store)
+        true
+      end
     end
 
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.untrust!(type, name)
       key = setting_key(type)
-      entries = trusted_entries(type)
       name = normalise_name(name)
-      return false unless entries.delete(name)
+      with_trust_store_lock do
+        store = trust_store
+        entries = store.fetch(key, [])
+        next false unless entries.delete(name)
 
-      store = trust_store
-      if entries.empty?
-        store.delete(key)
-      else
-        store[key] = entries.sort
+        if entries.empty?
+          store.delete(key)
+        else
+          store[key] = entries.sort
+        end
+        write_trust_store(store)
+        true
       end
-      write_trust_store(store)
-      true
     end
 
     sig { params(names: T::Array[String], type: T.nilable(Symbol)).void }
@@ -88,9 +92,11 @@ module Homebrew
 
     sig { params(type: Symbol).void }
     def self.clear!(type)
-      store = trust_store
-      store.delete(setting_key(type))
-      write_trust_store(store)
+      with_trust_store_lock do
+        store = trust_store
+        store.delete(setting_key(type))
+        write_trust_store(store)
+      end
     end
 
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
@@ -335,6 +341,22 @@ module Homebrew
       trust_path.chmod(0600)
     end
     private_class_method :write_trust_store
+
+    # Serialises trust store mutations so concurrent processes or threads
+    # (e.g. parallel `brew bundle` installs) cannot lose entries in the
+    # read-modify-write cycle.
+    sig {
+      type_parameters(:U).params(_block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U))
+    }
+    def self.with_trust_store_lock(&_block)
+      lock_path = Pathname.new("#{trust_file}.lock")
+      lock_path.dirname.mkpath
+      File.open(lock_path, File::RDWR | File::CREAT, 0600) do |lock_file|
+        lock_file.flock(File::LOCK_EX)
+        yield
+      end
+    end
+    private_class_method :with_trust_store_lock
 
     sig { params(path: Pathname).returns(T.untyped) }
     def self.tap_from_path(path)
