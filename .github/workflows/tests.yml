@@ -405,13 +405,12 @@ jobs:
           uninstall: true
 
       - name: Setup environment variables
+        if: matrix.name == 'test-bot (Linux Homebrew glibc)'
         run: |
-          # Set environment variables to bypass `brew doctor` failures on Tier >=2 configurations
-          if [[ "${MATRIX_NAME}" == "test-bot (Linux Homebrew glibc)" ]]; then
-            echo "HOMEBREW_GLIBC_TESTING=1" >> "$GITHUB_ENV"
-          fi
-        env:
-          MATRIX_NAME: ${{ matrix.name }}
+          # Set environment variables to bypass `brew doctor` failures and disable
+          # recursive Sorbet runtime checks for speed on Tier >=2 configurations
+          echo "HOMEBREW_GLIBC_TESTING=1" >> "$GITHUB_ENV"
+          echo "HOMEBREW_SORBET_RECURSIVE=0" >> "$GITHUB_ENV"
 
       - run: brew test-bot --only-cleanup-before
 
