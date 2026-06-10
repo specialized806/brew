@@ -219,6 +219,7 @@
 # Unignore AI configuration
 !/.cursor
 !/.claude
+!/.codex
 
 # Ignore local AI configuration
 /.claude/settings.local.json
