@@ -409,6 +409,7 @@ jobs:
           # Set environment variables to bypass `brew doctor` failures on Tier >=2 configurations
           if [[ "${MATRIX_NAME}" == "test-bot (Linux Homebrew glibc)" ]]; then
             echo "HOMEBREW_GLIBC_TESTING=1" >> "$GITHUB_ENV"
+            echo "HOMEBREW_SORBET_RECURSIVE=0" >> "$GITHUB_ENV"
           fi
         env:
           MATRIX_NAME: ${{ matrix.name }}
