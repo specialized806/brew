@@ -704,7 +704,7 @@ sh)
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
           '--help[Show this message]' \
           '--install[Run `install` before starting the shell]' \
-          '--no-secrets[Attempt to remove secrets from the environment before starting the shell. Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set]' \
+          '--no-secrets[Attempt to remove secrets from the environment before starting the shell]' \
           '--quiet[Make some output more quiet]' \
           '--services[Temporarily start services while running the shell. Enabled by default if `$HOMEBREW_BUNDLE_SERVICES` is set]' \
           '--verbose[Make some output more verbose]'
@@ -778,7 +778,7 @@ exec)
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
           '--help[Show this message]' \
           '--install[Run `install` before executing the command]' \
-          '--no-secrets[Attempt to remove secrets from the environment before executing the command. Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set]' \
+          '--no-secrets[Attempt to remove secrets from the environment before executing the command]' \
           '--quiet[Make some output more quiet]' \
           '--services[Temporarily start services while executing the command. Enabled by default if `$HOMEBREW_BUNDLE_SERVICES` is set]' \
           '--verbose[Make some output more verbose]' \
@@ -793,7 +793,7 @@ env)
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
           '--help[Show this message]' \
           '--install[Run `install` before printing the environment]' \
-          '--no-secrets[Attempt to remove secrets from the environment before printing it. Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set]' \
+          '--no-secrets[Attempt to remove secrets from the environment before printing it]' \
           '--quiet[Make some output more quiet]' \
           '--verbose[Make some output more verbose]'
         ;;

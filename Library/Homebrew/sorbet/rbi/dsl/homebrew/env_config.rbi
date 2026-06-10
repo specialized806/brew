@@ -458,6 +458,9 @@ module Homebrew::EnvConfig
     def upgrade_greedy_casks; end
 
     sig { returns(T::Boolean) }
+    def use_internal_api?; end
+
+    sig { returns(T::Boolean) }
     def verbose?; end
 
     sig { returns(T::Boolean) }
