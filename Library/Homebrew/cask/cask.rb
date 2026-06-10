@@ -616,7 +616,7 @@ module Cask
       if dsl!.on_system_blocks_exist?
         begin
           OnSystem::VALID_OS_ARCH_TAGS.each do |bottle_tag|
-            next if bottle_tag.linux? && dsl!.os.nil?
+            next if bottle_tag.linux? && dsl!.os.nil? && !dsl!.sha256_set_for_linux?
 
             macos_requirements = [depends_on.macos, depends_on.maximum_macos].compact
             next if bottle_tag.macos? &&
