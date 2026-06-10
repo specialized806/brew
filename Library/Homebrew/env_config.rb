@@ -184,10 +184,12 @@ module Homebrew
         boolean:     true,
         disabled_by: :HOMEBREW_BUNDLE_SECRETS,
         default:     true,
+        replacement: "the default behaviour",
+        odeprecated: true,
       },
       HOMEBREW_BUNDLE_SECRETS:                   {
-        description: "If set, do not enable secret scrubbing from `$HOMEBREW_BUNDLE_NO_SECRETS` or the " \
-                     "default. This does not disable an explicit `--no-secrets`.",
+        description: "If set, do not enable the default secret scrubbing. " \
+                     "This does not disable an explicit `--no-secrets`.",
         boolean:     true,
       },
       HOMEBREW_BUNDLE_USER_CACHE:                {
@@ -716,6 +718,12 @@ module Homebrew
         description: "A space-separated list of casks. Homebrew will act as " \
                      "if `--greedy` was passed when upgrading any cask on this list.",
       },
+      HOMEBREW_USE_INTERNAL_API:                 {
+        description: "If set, fetch formula and cask data from Homebrew's internal API. This is now the default.",
+        boolean:     :set,
+        replacement: "the default behaviour",
+        odeprecated: true,
+      },
       HOMEBREW_VERBOSE:                          {
         description: "If set, always assume `--verbose` when running commands.",
         boolean:     :set,
@@ -910,8 +918,11 @@ module Homebrew
         return
       end
 
-      ENV["HOMEBREW_BUNDLE_JOBS"].presence ||
-        ENVS.fetch(:HOMEBREW_BUNDLE_JOBS).fetch(:default).to_s
+      default = ENVS.fetch(:HOMEBREW_BUNDLE_JOBS).fetch(:default).to_s
+      jobs = ENV["HOMEBREW_BUNDLE_JOBS"].presence
+      opoo "HOMEBREW_BUNDLE_JOBS=#{default} is now the default and no longer needs to be set." if jobs == default
+
+      jobs || default
     end
 
     sig { returns(T::Boolean) }

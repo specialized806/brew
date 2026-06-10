@@ -170,7 +170,6 @@ Note: Flatpak support is only available on Linux.
 `--no-secrets`
 
 : Attempt to remove secrets from the environment before starting the shell.
-  Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set.
 
 `brew bundle remove` *`name`* \[...\]
 
@@ -379,7 +378,6 @@ flags which will help with finding keg-only dependencies like `openssl`,
 `--no-secrets`
 
 : Attempt to remove secrets from the environment before executing the command.
-  Enabled by default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set.
 
 `brew bundle env` \[`--check`\] \[`--no-secrets`\]
 
@@ -397,8 +395,7 @@ flags which will help with finding keg-only dependencies like `openssl`,
 
 `--no-secrets`
 
-: Attempt to remove secrets from the environment before printing it. Enabled by
-  default if `$HOMEBREW_BUNDLE_NO_SECRETS` is set.
+: Attempt to remove secrets from the environment before printing it.
 
 `brew bundle edit`
 
@@ -4381,18 +4378,10 @@ command execution (e.g. `$(cat file)`).
 : If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or its
   default. This does not disable an explicit `--jobs`.
 
-`HOMEBREW_BUNDLE_NO_SECRETS`
-
-: If set, `brew bundle exec`, `brew bundle env` and `brew bundle sh` will
-  attempt to remove secrets from the environment. This is the default unless
-  `$HOMEBREW_BUNDLE_SECRETS` is set.
-  
-  *Default:* `true`.
-
 `HOMEBREW_BUNDLE_SECRETS`
 
-: If set, do not enable secret scrubbing from `$HOMEBREW_BUNDLE_NO_SECRETS` or
-  the default. This does not disable an explicit `--no-secrets`.
+: If set, do not enable the default secret scrubbing. This does not disable an
+  explicit `--no-secrets`.
 
 `HOMEBREW_BUNDLE_USER_CACHE`
 

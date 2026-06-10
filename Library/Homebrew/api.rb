@@ -198,6 +198,8 @@ module Homebrew
         DEFAULT_API_STALE_SECONDS
       end
 
+      # The internal API is now always used; read this only to surface its deprecation.
+      Homebrew::EnvConfig.use_internal_api?
       Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
 
       ENV["HOMEBREW_API_UPDATED"] = "1"

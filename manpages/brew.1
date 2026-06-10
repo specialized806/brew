@@ -100,7 +100,7 @@ Temporarily start services while running the shell\. Enabled by default if \fB$H
 Check that all dependencies in the Brewfile are installed before starting the shell\. Enabled by default if \fB$HOMEBREW_BUNDLE_CHECK\fP is set\.
 .TP
 \fB\-\-no\-secrets\fP
-Attempt to remove secrets from the environment before starting the shell\. Enabled by default if \fB$HOMEBREW_BUNDLE_NO_SECRETS\fP is set\.
+Attempt to remove secrets from the environment before starting the shell\.
 .TP
 \fBbrew bundle remove\fP \fIname\fP [\.\.\.]
 Remove entries that match \fBname\fP from your \fBBrewfile\fP\&\. Use \fB\-\-formula\fP, \fB\-\-cask\fP, \fB\-\-tap\fP, \fB\-\-mas\fP, \fB\-\-vscode\fP, \fB\-\-go\fP, \fB\-\-cargo\fP, \fB\-\-uv\fP, \fB\-\-flatpak\fP, \fB\-\-winget\fP, \fB\-\-krew\fP and \fB\-\-npm\fP to remove only entries of the corresponding type\. Passing \fB\-\-formula\fP also removes matches against formula aliases and old formula names\.
@@ -241,7 +241,7 @@ Temporarily start services while executing the command\. Enabled by default if \
 Check that all dependencies in the Brewfile are installed before executing the command\. Enabled by default if \fB$HOMEBREW_BUNDLE_CHECK\fP is set\.
 .TP
 \fB\-\-no\-secrets\fP
-Attempt to remove secrets from the environment before executing the command\. Enabled by default if \fB$HOMEBREW_BUNDLE_NO_SECRETS\fP is set\.
+Attempt to remove secrets from the environment before executing the command\.
 .TP
 \fBbrew bundle env\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP]
 Print the environment variables that would be set in a \fBbrew bundle exec\fP environment\.
@@ -253,7 +253,7 @@ Run \fBinstall\fP before printing the environment\.
 Check that all dependencies in the Brewfile are installed before printing the environment\. Enabled by default if \fB$HOMEBREW_BUNDLE_CHECK\fP is set\.
 .TP
 \fB\-\-no\-secrets\fP
-Attempt to remove secrets from the environment before printing it\. Enabled by default if \fB$HOMEBREW_BUNDLE_NO_SECRETS\fP is set\.
+Attempt to remove secrets from the environment before printing it\.
 .TP
 \fBbrew bundle edit\fP
 Edit the \fBBrewfile\fP in your editor\.
@@ -2823,15 +2823,8 @@ If set, do not enable bundle description comments from \fB$HOMEBREW_BUNDLE_DESCR
 \fBHOMEBREW_BUNDLE_NO_JOBS\fP
 If set, do not enable parallel jobs from \fB$HOMEBREW_BUNDLE_JOBS\fP or its default\. This does not disable an explicit \fB\-\-jobs\fP\&\.
 .TP
-\fBHOMEBREW_BUNDLE_NO_SECRETS\fP
-If set, \fBbrew bundle exec\fP, \fBbrew bundle env\fP and \fBbrew bundle sh\fP will attempt to remove secrets from the environment\. This is the default unless \fB$HOMEBREW_BUNDLE_SECRETS\fP is set\.
-.RS
-.P
-\fIDefault:\fP \fBtrue\fP\&\.
-.RE
-.TP
 \fBHOMEBREW_BUNDLE_SECRETS\fP
-If set, do not enable secret scrubbing from \fB$HOMEBREW_BUNDLE_NO_SECRETS\fP or the default\. This does not disable an explicit \fB\-\-no\-secrets\fP\&\.
+If set, do not enable the default secret scrubbing\. This does not disable an explicit \fB\-\-no\-secrets\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_USER_CACHE\fP
 If set, use this directory as the \fBbundle\fP(1) user cache\.
