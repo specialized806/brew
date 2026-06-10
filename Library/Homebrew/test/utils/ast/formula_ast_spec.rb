@@ -17,6 +17,52 @@ RSpec.describe Utils::AST::FormulaAST do
     RUBY
   end
 
+  describe "#resource" do
+    it "finds resource block in a formula" do
+      formula_ast = described_class.new <<~RUBY
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tar.gz"
+
+          resource "foo" do
+            url "https://brew.sh/foo-1.0.tar.gz"
+          end
+        end
+      RUBY
+
+      expect(formula_ast.resource("foo").children[2].children[2].value).to eq("https://brew.sh/foo-1.0.tar.gz")
+    end
+
+    it "finds resource in `stable` block" do
+      formula_ast = described_class.new <<~RUBY
+        class Foo < Formula
+          stable do
+            url "https://brew.sh/foo-1.0.tar.gz"
+
+            resource "foo" do
+              url "https://brew.sh/foo-1.1.tar.gz"
+            end
+          end
+
+          resource "foo" do
+            url "https://brew.sh/foo-1.0.tar.gz"
+          end
+        end
+      RUBY
+
+      expect(formula_ast.resource("foo").children[2].children[2].value).to eq("https://brew.sh/foo-1.1.tar.gz")
+    end
+
+    it "raises an exception when resource block does not exist" do
+      formula_ast = described_class.new <<~RUBY
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tar.gz"
+        end
+      RUBY
+
+      expect { formula_ast.resource("foo") }.to raise_error("Could not find resource 'foo' block!")
+    end
+  end
+
   describe "#replace_stanza" do
     it "replaces the specified stanza in a formula" do
       formula_ast.replace_stanza(:license, :public_domain)

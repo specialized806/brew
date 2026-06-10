@@ -118,7 +118,14 @@ module Utils
 
       sig { params(name: String).returns(BlockNode) }
       def resource(name)
-        resource = stanzas(:resource, type: :block_call).find do |resource_node|
+        possible_resource_stanzas = if stanza(:stable, type: :block_call).present?
+          # Needed resource block may be either in `stable` or in formula body, hence appending
+          # `children` nodes
+          stable_children + children
+        else
+          children
+        end
+        resource = matching_stanzas(possible_resource_stanzas, :resource, type: :block_call).find do |resource_node|
           T.cast(resource_node, BlockNode).send_node.first_argument&.str_content == name
         end
         raise "Could not find resource '#{name}' block!" if resource.blank?
