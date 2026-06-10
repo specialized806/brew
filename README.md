@@ -64,7 +64,7 @@ First, please read our [Contribution Guide](CONTRIBUTING.md) and [Code of Conduc
 A good starting point for contributing is:
 
 - `brew tap --force homebrew/core` or `brew tap --force homebrew/cask` (depending on whether you'd rather work on formulae or casks)
-- perform a strict audit on a package you use e.g. `brew audit --strict ffempg` for FFmpeg
+- perform a strict audit on a package you use e.g. `brew audit --strict ffmpeg` for FFmpeg
 - if no warnings, run `brew audit --strict` to run on all packages and pick one to fix
 - read through the warnings and fix them until `brew audit --strict <package>` shows no results
 - [submit a pull request](https://docs.brew.sh/How-To-Open-a-Homebrew-Pull-Request) with your fixes
