@@ -5,7 +5,7 @@ require "cmd/shared_examples/args_parse"
 require "cmd/trust"
 require "trust"
 
-RSpec.describe Homebrew::Cmd::Trust do
+RSpec.describe Homebrew::Cmd::Trust, :trust_store do
   RSpec::Matchers.define :match_json do |expected|
     T.bind(self, T.class_of(RSpec::Matchers::DSL::Matcher))
     match do |actual|
