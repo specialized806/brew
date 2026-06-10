@@ -5,7 +5,7 @@ require "cmd/shared_examples/args_parse"
 require "cmd/untrust"
 require "trust"
 
-RSpec.describe Homebrew::Cmd::Untrust do
+RSpec.describe Homebrew::Cmd::Untrust, :trust_store do
   it_behaves_like "parseable arguments"
 
   it "untrusts a given tap", :integration_test do
