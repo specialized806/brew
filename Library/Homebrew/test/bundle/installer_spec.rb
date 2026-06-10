@@ -5,6 +5,7 @@ require "bundle"
 require "bundle/dsl"
 require "bundle/installer"
 require "bundle/parallel_installer"
+require "trust"
 
 RSpec.describe Homebrew::Bundle::Installer do
   let(:formula_entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql") }
@@ -77,6 +78,61 @@ RSpec.describe Homebrew::Bundle::Installer do
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
     described_class.install!([tap_entry, tapped_formula_entry], quiet: true)
+  end
+
+  it "trusts `trusted: true` formulae before fetching them" do
+    trusted_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "thirdparty/tap/bar", { trusted: true })
+
+    allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["thirdparty/tap"])
+
+    expect(Homebrew::Trust).to receive(:trust!).with(:formula, "thirdparty/tap/bar").ordered.and_return(true)
+    expect(Homebrew::Bundle).to receive(:brew)
+      .with("fetch", "thirdparty/tap/bar", verbose: false)
+      .ordered
+      .and_return(true)
+
+    described_class.install!([trusted_formula_entry], quiet: true)
+  end
+
+  it "trusts `trusted: true` casks before fetching them" do
+    options = { args: {}, full_name: "thirdparty/tap/baz", trusted: true }
+    trusted_cask_entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "baz", options)
+
+    allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["thirdparty/tap"])
+
+    expect(Homebrew::Trust).to receive(:trust!).with(:cask, "thirdparty/tap/baz").ordered.and_return(true)
+    expect(Homebrew::Bundle).to receive(:brew)
+      .with("fetch", "thirdparty/tap/baz", verbose: false)
+      .ordered
+      .and_return(true)
+
+    described_class.install!([trusted_cask_entry], quiet: true)
+  end
+
+  it "trusts `trusted: true` taps by name" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "thirdparty/tap", { trusted: true })
+
+    expect(Homebrew::Trust).to receive(:trust!).with(:tap, "thirdparty/tap").and_return(true)
+
+    described_class.install!([tap_entry], quiet: true)
+  end
+
+  it "trusts `trusted: true` taps with a clone target by their remote reference" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(
+      :tap, "thirdparty/custom", { clone_target: "https://github.com/thirdparty/homebrew-custom", trusted: true }
+    )
+
+    expect(Homebrew::Trust).to receive(:trust!).with(:tap, "thirdparty/custom").and_return(true)
+
+    described_class.install!([tap_entry], quiet: true)
+  end
+
+  it "does not trust unqualified `trusted: true` names" do
+    trusted_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql", { trusted: true })
+
+    expect(Homebrew::Trust).not_to receive(:trust!)
+
+    described_class.install!([trusted_formula_entry], quiet: true)
   end
 
   it "skips fetching formulae from fully qualified untapped taps" do
