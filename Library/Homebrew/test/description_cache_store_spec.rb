@@ -93,6 +93,15 @@ RSpec.describe DescriptionCacheStore do
         expect(database).to receive(:set).with(c.full_name, [c.name.join(", "), c.desc.presence])
         cache_store.update_from_cask_tokens!([c.token])
       end
+
+      it "deletes untrusted cask descriptions" do
+        token = "thirdparty/tap/untrusted-cask"
+        expect(Cask::CaskLoader).to receive(:load).with(token, any_args).and_raise(Homebrew::UntrustedTapError)
+        expect(database).to receive(:empty?).and_return(false)
+        expect(database).to receive(:delete).with(token)
+
+        cache_store.update_from_cask_tokens!([token])
+      end
     end
   end
 end
