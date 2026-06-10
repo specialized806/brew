@@ -11,19 +11,36 @@ homebrew-which-formula() {
     case "$1" in
       --explain)
         HOMEBREW_EXPLAIN=1
-        shift
         ;;
+      -\? | -h | --help | --usage)
+        brew help which-formula
+        return $?
+        ;;
+      --verbose) : ;;
+      --debug) HOMEBREW_DEBUG=1 ;;
+      --quiet) : ;;
       --*)
-        echo "Unknown option: $1" >&2
+        onoe "Unknown option: $1"
         brew help which-formula
         return 1
         ;;
-      *)
-        args+=("$1")
-        shift
+      -*)
+        if [[ "$1" == *h* ]]
+        then
+          brew help which-formula
+          return $?
+        fi
+        [[ "$1" == *d* ]] && HOMEBREW_DEBUG=1
         ;;
+      *) args+=("$1") ;;
     esac
+    shift
   done
+
+  if [[ -n "${HOMEBREW_DEBUG}" ]]
+  then
+    set -x
+  fi
 
   if [[ ${#args[@]} -eq 0 ]]
   then
