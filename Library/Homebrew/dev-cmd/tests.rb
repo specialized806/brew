@@ -5,6 +5,7 @@ require "abstract_command"
 require "fileutils"
 require "hardware"
 require "system_command"
+require "utils/git"
 
 module Homebrew
   module DevCmd
@@ -235,15 +236,14 @@ module Homebrew
 
       sig { returns(T::Array[String]) }
       def changed_test_files
-        changed_files = Utils.popen_read("git", "diff", "--name-only", "main")
+        changed_files = Utils::Git.changed_files(HOMEBREW_REPOSITORY)
 
-        odebug "No files have been changed from the `main` branch." if changed_files.blank?
-        return [] if changed_files.blank?
+        odebug "No files have been changed from the default branch." if changed_files.empty?
+        return [] if changed_files.empty?
 
         filestub_regex = %r{Library/Homebrew/([\w/-]+).rb}
-        T.cast(changed_files.scan(filestub_regex), T::Array[T::Array[String]])
-         .map { it.fetch(-1) }
-         .flat_map do |filestub|
+        changed_files.filter_map { |file| file[filestub_regex, 1] }
+                     .flat_map do |filestub|
           shared_context_tests = shared_context_test_files(filestub)
           next shared_context_tests if shared_context_tests.present?
 

@@ -110,6 +110,18 @@ module Utils
       Utils.popen_read(git, "-C", repo, "show", "#{commit}:#{relative_file}")
     end
 
+    # The paths (relative to `repository`'s root) changed in its working tree
+    # since it diverged from the upstream default branch. The base is the
+    # `origin/HEAD` merge-base rather than the local default branch ref, which
+    # is often stale (e.g. in worktrees and freshly-cloned taps); it falls back
+    # to `main` when `origin/HEAD` is unavailable.
+    sig { params(repository: T.any(Pathname, String)).returns(T::Array[String]) }
+    def self.changed_files(repository)
+      base_ref = Utils.popen_read(git, "-C", repository, "merge-base", "origin/HEAD", "HEAD").chomp.presence
+      base_ref ||= "main"
+      Utils.popen_read(git, "-C", repository, "diff", "--name-only", "--no-relative", base_ref).split("\n")
+    end
+
     sig { void }
     def self.ensure_installed!
       return if available?
