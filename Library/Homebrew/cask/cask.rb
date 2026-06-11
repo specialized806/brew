@@ -748,6 +748,16 @@ module Cask
       installed_short_version = nil if AUTO_UPDATES_BAD_BUNDLE_VERSIONS.include?(installed_short_version)
       return false if installed_short_version.nil? && installed_bundle_version.nil?
 
+      # Some apps split a cask version like 2.61-2057 across the short
+      # version and bundle version fields.
+      if installed_short_version && installed_bundle_version
+        combined_version_comparisons = version.csv.filter_map do |candidate|
+          compare_version_strings("#{installed_short_version}-#{installed_bundle_version}", candidate.to_s)
+        end
+        return false if combined_version_comparisons.include?(0)
+        return false if combined_version_comparisons.present? && combined_version_comparisons.exclude?(-1)
+      end
+
       return false if [installed_short_version, installed_bundle_version].any? do |installed_plist_version|
         compare_version_strings(installed_plist_version, tap_short_version)&.zero?
       end
