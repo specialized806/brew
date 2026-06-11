@@ -237,32 +237,6 @@ RSpec.describe FormulaInstaller do
       expect(child_installer).not_to be_installed_on_request
       expect(child_installer&.link_keg).to be true
     end
-
-    it "disables Bubblewrap auto-install until the implicit Bubblewrap dependency is installed" do
-      formula = formula "homebrew-bubblewrap-bootstrap-target" do
-        T.bind(self, T.class_of(Formula))
-        url "foo-1.0"
-      end
-      installer = described_class.new(formula)
-      dependency_names = %w[libcap bubblewrap zlib]
-      dependencies = dependency_names.map do |name|
-        instance_double(Dependency, name:, implicit?: name == "bubblewrap")
-      end
-      installing_bubblewrap_env = []
-
-      allow(installer).to receive(:oh1)
-      allow(installer).to receive(:install_dependency) do |dependency|
-        installing_bubblewrap_env << [dependency.name, ENV.fetch("HOMEBREW_INSTALLING_BUBBLEWRAP", nil)]
-      end
-
-      installer.send(:install_dependencies, dependencies)
-
-      expect(installing_bubblewrap_env).to eq([
-        ["libcap", "1"],
-        ["bubblewrap", "1"],
-        ["zlib", nil],
-      ])
-    end
   end
 
   describe "versioned keg-only linking defaults" do
@@ -514,6 +488,78 @@ RSpec.describe FormulaInstaller do
       Formulary.cache.delete(formula2_path)
 
       fi = described_class.new(formula1)
+
+      expect do
+        fi.check_install_sanity
+      end.to raise_error(CannotInstallFormulaError)
+    end
+
+    it "does not raise on cyclic dependency through direct implicit Bubblewrap" do
+      ENV["HOMEBREW_DEVELOPER"] = "1"
+
+      formula_name = "homebrew-test-formula"
+      f = formula formula_name do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      dep = Dependency.new("bubblewrap", [:implicit])
+
+      allow(f).to receive_messages(deps: [dep], recursive_dependencies: [])
+
+      fi = described_class.new(f)
+
+      expect do
+        fi.check_install_sanity
+      end.not_to raise_error
+    end
+
+    it "does not raise on cyclic dependency through recursive implicit Bubblewrap" do
+      ENV["HOMEBREW_DEVELOPER"] = "1"
+
+      formula_name = "homebrew-test-formula"
+      f = formula formula_name do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      dep = Dependency.new("cmake", [:build])
+      implicit_bubblewrap = Dependency.new("bubblewrap", [:implicit])
+      recursive_dep = Dependency.new(formula_name)
+      dep_formula = instance_double(Formula)
+
+      allow(f).to receive_messages(deps: [dep], recursive_dependencies: [])
+      allow(dep).to receive(:to_formula).and_return(dep_formula)
+      allow(dep_formula).to receive(:recursive_dependencies) do |&block|
+        (block&.call(dep_formula, implicit_bubblewrap) == Dependable::PRUNE) ? [] : [recursive_dep]
+      end
+
+      fi = described_class.new(f)
+
+      expect do
+        fi.check_install_sanity
+      end.not_to raise_error
+    end
+
+    it "raises on cyclic dependency through recursive explicit Bubblewrap" do
+      ENV["HOMEBREW_DEVELOPER"] = "1"
+
+      formula_name = "homebrew-test-formula"
+      f = formula formula_name do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      dep = Dependency.new("cmake", [:build])
+      explicit_bubblewrap = Dependency.new("bubblewrap")
+      recursive_dep = Dependency.new(formula_name)
+      dep_formula = instance_double(Formula)
+
+      allow(f).to receive_messages(deps: [dep], recursive_dependencies: [])
+      allow(dep).to receive(:to_formula).and_return(dep_formula)
+      allow(dep_formula).to receive(:recursive_dependencies) do |&block|
+        block&.call(dep_formula, explicit_bubblewrap)
+        [recursive_dep]
+      end
+
+      fi = described_class.new(f)
 
       expect do
         fi.check_install_sanity
