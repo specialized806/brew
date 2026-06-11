@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-10"
+last_review_date: "2026-06-10"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -136,6 +136,7 @@ Homebrew refuses to work using sudo.
 You should only ever sudo a tool you trust. Of course, you can trust Homebrew 😉 — but do you trust the multi-megabyte Makefile that Homebrew runs? Developers often understand C++ far better than they understand `make` syntax. It’s too high a risk to sudo such stuff. It could modify (or upload) any files on your system. And indeed, we’ve seen some build scripts try to modify `/usr` even when the prefix was specified as something else entirely.
 
 We use the macOS sandbox to stop this but this doesn't work when run as the `root` user (which also has read and write access to almost everything on the system).
+The sandbox is part of Homebrew's wider [Software Supply Chain Security](Supply-Chain-Security.md) measures.
 
 Did you `chown root /Applications/TextMate.app`? Probably not. So is it that important to `chown root wget`?
 
