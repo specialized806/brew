@@ -14,6 +14,6 @@
 
 - [ ] AI was used to generate or assist with generating this PR.
 
-<!-- If ticked, explain below how AI was used and how you verified the changes. Non-maintainers may only have one AI-assisted/generated PR open at a time. -->
+<!-- If ticked, explain below how AI was used and how you verified the changes. Non-maintainers may only have one AI-assisted/generated PR open at a time. See https://docs.brew.sh/Responsible-AI-Usage for guidance. -->
 
 -----
