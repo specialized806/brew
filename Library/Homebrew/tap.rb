@@ -1303,7 +1303,7 @@ class Tap
 
   sig { returns(T::Array[Tap]) }
   def self.core_taps
-    [CoreTap.instance].freeze
+    [CoreTap.instance, CoreCaskTap.instance].freeze
   end
 
   # Enumerate all available {Tap}s.
@@ -1417,5 +1417,3 @@ require "tap/abstract_core_tap"
 require "tap/core_tap"
 require "tap/core_cask_tap"
 require "tap/tap_config"
-
-require "extend/os/tap"

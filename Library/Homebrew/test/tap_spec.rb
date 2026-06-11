@@ -921,9 +921,12 @@ RSpec.describe Tap do
       )
     end
 
-    it "includes the core tap and excludes the cask tap by default", :needs_linux do
-      expect(described_class.all)
-        .to contain_exactly(CoreTap.instance, described_class.fetch("homebrew/foo"))
+    it "includes the core and cask taps by default", :needs_linux do
+      expect(described_class.all).to contain_exactly(
+        CoreTap.instance,
+        CoreCaskTap.instance,
+        described_class.fetch("homebrew/foo"),
+      )
     end
   end
 
