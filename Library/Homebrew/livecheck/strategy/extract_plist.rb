@@ -104,9 +104,8 @@ module Homebrew
         def self.cask_with_url(cask, url, url_options)
           # Collect the `Cask::URL` initializer keyword parameter symbols
           @cask_url_kw_params ||= T.let(
-            T::Utils.signature_for_method(
-              Cask::URL.instance_method(:initialize),
-            ).parameters.filter_map { |type, sym| sym if type == :key },
+            (T::Utils.signature_for_method(Cask::URL.instance_method(:initialize))&.parameters ||
+             Cask::URL.instance_method(:initialize).parameters).filter_map { |type, sym| sym if type == :key },
             T.nilable(T::Array[Symbol]),
           )
 
