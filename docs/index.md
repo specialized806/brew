@@ -51,6 +51,7 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 ## Contributors
 
 - [How to Open a Pull Request (and get it merged)](How-To-Open-a-Homebrew-Pull-Request.md)
+- [Responsible AI Usage](Responsible-AI-Usage.md)
 - [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md)
 - [Formula Cookbook](Formula-Cookbook.md)
 - [Cask Cookbook](Cask-Cookbook.md)
