@@ -435,7 +435,20 @@ class FormulaInstaller
     if Homebrew::EnvConfig.developer?
       # `recursive_dependencies` trims cyclic dependencies, so we do one level and take the recursive deps of that.
       # Mapping direct dependencies to deeper dependencies in a hash is also useful for the cyclic output below.
-      recursive_dep_map = formula.deps.to_h { |dep| [dep, dep.to_formula.recursive_dependencies] }
+      recursive_dep_map = formula.deps.to_h do |dep|
+        # We cheat a bit with bubblewrap. We eagerly add it to build dependencies on tier-one systems.
+        # But this cyclic dependency check is (intentionally) overly strict and forbids cyclic build dependencies,
+        # to help prevent cases that would break, for example, mass bottling.
+        recursive_deps = if dep.name == "bubblewrap" && dep.implicit?
+          []
+        else
+          dep.to_formula.recursive_dependencies do |_dependent, recursive_dep|
+            Dependable::PRUNE if recursive_dep.name == "bubblewrap" && recursive_dep.implicit?
+          end
+        end
+
+        [dep, recursive_deps]
+      end
 
       cyclic_dependencies = []
       recursive_dep_map.each do |dep, recursive_deps|
@@ -807,14 +820,7 @@ on_request: installed_on_request?, options:)
             "#{deps.map { Formatter.identifier(it) }.to_sentence}",
             truncate: false
       end
-      bubblewrap_dependency_index = deps.index { |dep| dep.name == "bubblewrap" && dep.implicit? }
-      deps.each_with_index do |dep, index|
-        if formula.name == "bubblewrap" || (bubblewrap_dependency_index && index <= bubblewrap_dependency_index)
-          with_env(HOMEBREW_INSTALLING_BUBBLEWRAP: "1") { install_dependency(dep) }
-        else
-          install_dependency(dep)
-        end
-      end
+      deps.each { install_dependency(it) }
     end
 
     @show_header = true if deps.length > 1
@@ -1128,7 +1134,6 @@ on_request: installed_on_request?, options:)
       formula_path,
     ].concat(build_argv)
 
-    Sandbox.ensure_sandbox_installed!
     if Sandbox.available?
       sandbox = Sandbox.new
       sandbox.allow_read_if_exists path: formula_path
@@ -1148,6 +1153,7 @@ on_request: installed_on_request?, options:)
       sandbox.deny_all_network unless formula.network_access_allowed?(:build)
       sandbox.run(*args)
     else
+      opoo "Sandbox unavailable: building without sandboxing!"
       Utils.safe_fork do
         exec(*args)
       end
@@ -1376,7 +1382,6 @@ on_request: installed_on_request?, options:)
 
     args << post_install_formula_path
 
-    Sandbox.ensure_sandbox_installed!
     if Sandbox.available?
       sandbox = Sandbox.new
       formula.logs.mkpath
@@ -1393,6 +1398,7 @@ on_request: installed_on_request?, options:)
       end
       sandbox.run(*args)
     else
+      opoo "Sandbox unavailable: running post-install without sandboxing!"
       Utils.safe_fork do
         exec(*args)
       end
