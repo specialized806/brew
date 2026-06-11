@@ -17,7 +17,7 @@ module Homebrew
           Trusted entries are stored in `${XDG_CONFIG_HOME}/homebrew/trust.json` if
           `$XDG_CONFIG_HOME` is set or `~/.homebrew/trust.json` otherwise.
         EOS
-        switch "--tap",
+        switch "--tap", "--taps",
                description: "Trust the named tap."
         switch "--formula", "--formulae",
                description: "Trust the named formula."

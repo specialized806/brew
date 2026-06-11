@@ -34,4 +34,7 @@ class Homebrew::Cmd::Trust::Args < Homebrew::CLI::Args
 
   sig { returns(T::Boolean) }
   def tap?; end
+
+  sig { returns(T::Boolean) }
+  def taps?; end
 end
