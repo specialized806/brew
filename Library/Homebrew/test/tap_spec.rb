@@ -172,6 +172,28 @@ RSpec.describe Tap do
     end
   end
 
+  describe "::remote_reference?" do
+    it "recognises scp-like syntax without a `user@`" do
+      expect(described_class.remote_reference?("ssh_host:/srv/git/homebrew-custom_tap")).to be true
+    end
+
+    it "recognises scp-like syntax with a `user@`" do
+      expect(described_class.remote_reference?("git@github.com:user/homebrew-repo")).to be true
+    end
+
+    it "treats a `user/repository` tap name as not a remote reference" do
+      expect(described_class.remote_reference?("user/repo")).to be false
+    end
+
+    it "treats a bare `@`-containing string as not a remote reference" do
+      expect(described_class.remote_reference?("foo@bar")).to be false
+    end
+
+    it "treats a `host:` with an empty path as not a remote reference" do
+      expect(described_class.remote_reference?("host:")).to be false
+    end
+  end
+
   describe "::normalize_remote" do
     it "keeps an explicit port on a GitHub remote rather than turning it into a path" do
       expect(described_class.normalize_remote("https://github.com:443/Homebrew/homebrew-core"))
