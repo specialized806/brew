@@ -263,6 +263,20 @@ Or use the `--greedy` switch:
 
 Refer to the `upgrade` section of the [`brew` manual page](Manpage.md) for more details.
 
+## Why don't you rewrite Homebrew in Rust to make it faster?
+
+[We tried](https://github.com/Homebrew/brew-rs/blob/main/README.md).
+We built `brew-rs`, a Rust frontend, and benchmarked it against Ruby with zero delegation back to Ruby and cold-cache I/O included.
+Rust did win some narrow operations: it was faster at fetching batches of bottles, especially with a warm archive cache.
+But fetching is not where users spend their time.
+
+For `brew install`, the operation people actually care about, Ruby was faster on representative comparisons.
+A real install does far more than fetch a file: it resolves metadata, pours bottles, links files, writes tabs, runs postinstall and preserves Homebrew's existing semantics.
+The Rust frontend only looked faster when it skipped that work or delegated it back to Ruby, and delegating defeats the point.
+
+So a rewrite would mean reimplementing the Cellar layout, tabs, links, caveats, postinstall, cask behaviour, source fallback and tap logic in another language for little or no gain on the path that matters.
+The performance work that does help is happening in Ruby: starting useful network and disk I/O sooner, using API-backed bottle metadata earlier and trimming overhead in simple bottle fetch paths without duplicating install semantics in a second frontend.
+
 ## Why do my cask apps lose their Dock position / Launchpad position / permission settings when I run `brew upgrade`?
 
 Homebrew has two possible strategies to update cask apps: uninstalling the old version and reinstalling the new one, or replacing the contents of the app with the new contents. With the uninstall/reinstall strategy, [macOS thinks the app is being deleted without any intent to reinstall it](https://github.com/Homebrew/brew/pull/15138), and so it removes some internal metadata for the old app, including where it appears in the Dock and Launchpad and which permissions it's been granted. The content replacement strategy works around this by treating the upgrade as an in-place upgrade. However, starting in macOS Ventura, these in-place upgrades are only allowed when the updater application (in this case, the terminal running Homebrew) has [certain permissions granted](https://github.com/Homebrew/brew/pull/15483). Either the "App Management" or "Full Disk Access" permission will suffice.
