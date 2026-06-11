@@ -257,14 +257,6 @@ module Utils
         remove_stanza_node(stanza_node)
       end
 
-      sig { params(name: Symbol, type: T.nilable(Symbol)).void }
-      def remove_stanzas(name, type: nil)
-        stanza_nodes = stanzas(name, type:)
-        raise "Could not find '#{name}' stanza!" if stanza_nodes.empty?
-
-        stanza_nodes.each { |stanza_node| remove_stanza_node(stanza_node) }
-      end
-
       sig { params(name: Symbol, replacement: T.any(Numeric, String, Symbol), type: T.nilable(Symbol)).void }
       def replace_stanza(name, replacement, type: nil)
         stanza_node = stanza(name, type:)

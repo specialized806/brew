@@ -263,17 +263,6 @@ module Utils
       end
 
       sig { params(string: String).returns(String) }
-      def pretty_outdated(string)
-        if !$stdout.tty?
-          string
-        elsif Homebrew::EnvConfig.no_emoji?
-          Formatter.error("#{Tty.bold}#{string} (outdated)#{Tty.reset}")
-        else
-          "#{Tty.bold}#{string} #{Formatter.warning("⚠")}#{Tty.reset}"
-        end
-      end
-
-      sig { params(string: String).returns(String) }
       def pretty_upgradable(string)
         if !$stdout.tty?
           string

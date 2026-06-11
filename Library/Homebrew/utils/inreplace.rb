@@ -82,30 +82,5 @@ module Utils
 
       raise Utils::Inreplace::Error, errors if errors.present?
     end
-
-    sig {
-      params(
-        path:              T.any(String, Pathname),
-        replacement_pairs: T::Array[[T.any(Regexp, Pathname, String), T.any(Pathname, String)]],
-        read_only_run:     T::Boolean,
-        silent:            T::Boolean,
-      ).returns(String)
-    }
-    def self.inreplace_pairs(path, replacement_pairs, read_only_run: false, silent: false)
-      str = File.binread(path)
-      contents = StringInreplaceExtension.new(str)
-      replacement_pairs.each do |old, new|
-        if old.blank?
-          contents.errors << "No old value for new value #{new}! Did you pass the wrong arguments?"
-          next
-        end
-
-        contents.gsub!(old, new)
-      end
-      raise Utils::Inreplace::Error, path => contents.errors if contents.errors.present?
-
-      Pathname(path).atomic_write(contents.inreplace_string) unless read_only_run
-      contents.inreplace_string
-    end
   end
 end

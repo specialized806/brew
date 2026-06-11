@@ -134,30 +134,6 @@ RSpec.describe Utils::AST::FormulaAST do
     end
   end
 
-  describe "#remove_stanzas" do
-    subject(:formula_ast) do
-      described_class.new <<~RUBY
-        class Foo < Formula
-          url "https://brew.sh/foo-1.0.tar.gz"
-          mirror "https://example.com/foo-1.0.tar.gz"
-          mirror "https://mirror.example.com/foo-1.0.tar.gz"
-          sha256 "#{"e" * 64}"
-        end
-      RUBY
-    end
-
-    it "removes all matching stanzas" do
-      formula_ast.remove_stanzas(:mirror)
-
-      expect(formula_ast.process).to eq <<~RUBY
-        class Foo < Formula
-          url "https://brew.sh/foo-1.0.tar.gz"
-          sha256 "#{"e" * 64}"
-        end
-      RUBY
-    end
-  end
-
   describe "#add_stanzas_after" do
     it "adds multiple stanzas after the specified stanza" do
       formula_ast.add_stanzas_after(:url, [[:mirror, "https://example.com/foo-1.0.tar.gz"], [:version, "1.0"]])
