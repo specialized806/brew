@@ -5,6 +5,7 @@ require "bundle"
 require "bundle/subcommand/exec"
 require "bundle/brewfile"
 require "bundle/brew_services"
+require "sandbox"
 
 RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
   context "when a Brewfile is not found" do
@@ -63,6 +64,13 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
       it "is able to run without bundle arguments" do
         allow(described_class).to receive(:exec).with("bundle", "install").and_return(nil)
         expect { described_class.run_external_command("bundle", "install") }.not_to raise_error
+      end
+
+      it "runs commands in the requested sandbox" do
+        expect(Sandbox).to receive(:run_command)
+          .with("/usr/bin/true", writable_path: ".", deny_network: true)
+
+        described_class.run_external_command("/usr/bin/true", sandbox_path: ".", deny_network: true)
       end
 
       it "raises an exception if called without a command" do

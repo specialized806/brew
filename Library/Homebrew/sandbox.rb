@@ -4,6 +4,7 @@
 require "io/console"
 require "pty"
 require "tempfile"
+require "exceptions"
 require "utils/fork"
 require "utils/output"
 
@@ -102,6 +103,26 @@ class Sandbox
   def self.configure!
     ensure_sandbox_installed!
     reset_state!
+  end
+
+  sig { params(command: T.any(String, Pathname), writable_path: T.any(String, Pathname), deny_network: T::Boolean).void }
+  def self.run_command(*command, writable_path:, deny_network: false)
+    ensure_sandbox_installed!
+    raise failure_reason || "The sandbox is not available." unless available?
+
+    writable_path = Pathname(writable_path).expand_path
+    if !writable_path.directory? || !writable_path.writable?
+      raise UsageError,
+            "`#{writable_path}` is not a writable directory."
+    end
+
+    writable_path = writable_path.realpath
+    sandbox = new
+    sandbox.allow_write_temp_and_cache
+    sandbox.allow_write_path writable_path
+    sandbox.deny_read_home
+    sandbox.deny_all_network if deny_network
+    sandbox.run "/bin/sh", "-c", "cd \"$1\" && shift && exec \"$@\"", "brew-sandbox-exec", writable_path, *command
   end
 
   sig { returns(String) }
