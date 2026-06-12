@@ -278,6 +278,40 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     expect(Homebrew).to have_failed
   end
 
+  it "starts formula prelude fetches before dependant checks when not asking" do
+    cmd = described_class.new(["--yes", "testball"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    formula_installer = instance_double(FormulaInstaller, formula:)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
+    allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).and_return([formula])
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::Install).to receive(:check_cc_argv)
+    allow(Homebrew::Install).to receive_messages(install_formula?: true, formula_installers: [formula_installer])
+    allow(Homebrew::Install).to receive(:install_formulae)
+    allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew.messages).to receive(:display_messages)
+    expect(Homebrew::DownloadQueue).to receive(:new).ordered.and_return(download_queue)
+    expect(formula_installer).to receive(:download_queue=).with(download_queue).ordered
+    expect(formula_installer).to receive(:prelude_fetch).ordered
+    expect(Homebrew::Upgrade).to receive(:dependants).ordered.and_return(dependants)
+    expect(Homebrew::Install).to receive(:enqueue_formulae)
+      .with([formula_installer], download_queue:)
+      .ordered
+      .and_return([formula_installer])
+    expect(download_queue).to receive(:fetch).ordered
+    expect(download_queue).to receive(:shutdown).ordered
+
+    cmd.run
+  end
+
   it "does not install `homebrew/cask` when a cask remains unavailable" do
     cmd = described_class.new(["foo"])
     cask_tap = CoreCaskTap.instance
@@ -407,6 +441,8 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
       formula_installers: [formula_installer],
       enqueue_formulae:   [formula_installer],
     )
+    allow(formula_installer).to receive(:download_queue=)
+    allow(formula_installer).to receive(:prelude_fetch)
     allow(Cask::Installer).to receive(:new).and_return(installer)
     allow(Homebrew::Install).to receive(:install_formulae)
     allow(Homebrew::Upgrade).to receive(:upgrade_dependents)

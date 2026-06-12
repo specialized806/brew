@@ -86,6 +86,47 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     cmd.run
   end
 
+  it "starts formula prelude fetches before dependant checks when not asking" do
+    cmd = described_class.new(["--yes", "testball"])
+    download_queue = instance_double(Homebrew::DownloadQueue, shutdown: nil)
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    formula_installer = FormulaInstaller.new(formula)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+    reinstall_context = Homebrew::Reinstall::InstallationContext.new(
+      formula_installer:,
+      formula:,
+      keg:               nil,
+      options:           Options.create([]),
+    )
+
+    allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
+      .with(method: :resolve)
+      .and_return([formula])
+    allow(formula).to receive_messages(latest_formula: formula, pinned?: false)
+    allow(Migrator).to receive(:migrate_if_needed)
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::Reinstall).to receive(:build_install_context).and_return(reinstall_context)
+    allow(Homebrew::Reinstall).to receive(:reinstall_formula)
+    allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew.messages).to receive(:display_messages)
+    expect(Homebrew::DownloadQueue).to receive(:new).ordered.and_return(download_queue)
+    expect(formula_installer).to receive(:download_queue=).with(download_queue).ordered
+    expect(formula_installer).to receive(:prelude_fetch).ordered
+    expect(Homebrew::Upgrade).to receive(:dependants).ordered.and_return(dependants)
+    expect(Homebrew::Install).to receive(:fetch_formulae)
+      .with([formula_installer], download_queue:, shutdown_download_queue: false)
+      .ordered
+      .and_return([formula_installer])
+    expect(download_queue).to receive(:shutdown).ordered
+
+    cmd.run
+  end
+
   it "reinstalls a Formula", :aggregate_failures, :integration_test do
     formula_name = "testball_bottle"
     formula_prefix = HOMEBREW_CELLAR/formula_name/"0.1"

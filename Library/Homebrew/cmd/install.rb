@@ -304,22 +304,35 @@ module Homebrew
           skip_link:                  args.skip_link?,
         )
 
-        dependants = Upgrade.dependants(
-          installed_formulae,
-          flags:                      args.flags_only,
-          ask:                        ask,
-          installed_on_request:       !args.as_dependency?,
-          force_bottle:               args.force_bottle?,
-          build_from_source_formulae: args.build_from_source_formulae,
-          interactive:                args.interactive?,
-          keep_tmp:                   args.keep_tmp?,
-          debug_symbols:              args.debug_symbols?,
-          force:                      args.force?,
-          debug:                      args.debug?,
-          quiet:                      args.quiet?,
-          verbose:                    args.verbose?,
-          dry_run:                    args.dry_run?,
-        )
+        shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
+        if !ask && !args.dry_run? && formulae_installer.any?
+          shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
+          formulae_installer = Install.prelude_fetch_formulae(formulae_installer,
+                                                              download_queue: shared_download_queue)
+        end
+
+        dependants = begin
+          Upgrade.dependants(
+            installed_formulae,
+            flags:                      args.flags_only,
+            ask:                        ask,
+            installed_on_request:       !args.as_dependency?,
+            force_bottle:               args.force_bottle?,
+            build_from_source_formulae: args.build_from_source_formulae,
+            interactive:                args.interactive?,
+            keep_tmp:                   args.keep_tmp?,
+            debug_symbols:              args.debug_symbols?,
+            force:                      args.force?,
+            debug:                      args.debug?,
+            quiet:                      args.quiet?,
+            verbose:                    args.verbose?,
+            dry_run:                    args.dry_run?,
+          )
+        # Ensure the early download queue is shut down on interrupts.
+        rescue Exception # rubocop:disable Lint/RescueException
+          shared_download_queue&.shutdown
+          raise
+        end
 
         # Main block: if asking the user is enabled, show dry-run information.
         if ask
@@ -340,7 +353,9 @@ module Homebrew
         end
 
         if !args.dry_run? && (formulae_installer.any? || fetch_casks.any?)
-          download_queue = Homebrew::DownloadQueue.new(pour: true)
+          download_queue = T.let(shared_download_queue || Homebrew::DownloadQueue.new(pour: true),
+                                 Homebrew::DownloadQueue)
+          shared_download_queue = nil
           begin
             Cask::Upgrade.show_upgrade_summary(
               upgrade_casks.map { |cask| "#{cask.full_name} #{cask.installed_version} -> #{cask.version}" },
@@ -376,6 +391,7 @@ module Homebrew
             download_queue.shutdown
           end
         end
+        shared_download_queue&.shutdown
 
         exit 1 if Homebrew.failed?
 
