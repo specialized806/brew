@@ -200,7 +200,7 @@ module OS
               reason,
               "",
               "Homebrew's Linux sandbox requires rootless Bubblewrap and unprivileged",
-              "user namespaces. Check and update this system configuration:",
+              "user namespaces. Run `sudo brew setup-sandbox` or check and update this system configuration:",
               *::Sandbox.configuration_command_messages,
             ]
           else
