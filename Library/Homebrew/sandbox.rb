@@ -212,7 +212,7 @@ class Sandbox
   sig { void }
   def deny_read_home
     home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
-    required = [
+    if [
       HOMEBREW_PREFIX,
       HOMEBREW_REPOSITORY,
       HOMEBREW_CACHE,
@@ -223,23 +223,85 @@ class Sandbox
       ENV.fetch("RUNNER_TEMP", nil),
       Homebrew::Trust.trust_file,
       *home_write_paths.select { |path| File.exist?(path) },
-    ].compact.flat_map do |path|
+    ].compact.any? do |path|
       path = Pathname(path)
-      [path.expand_path, (path.realpath if path.exist?)]
+      [path.expand_path, (path.realpath if path.exist?)].compact.any? { |pathname| pathname.ascend.include?(home) }
     end
-    required = required.compact.select { |path| path.ascend.include?(home) }
+      # When Homebrew or CI needs some `$HOME` paths to stay readable, deny only
+      # well-known credential and personal-data paths instead of enumerating all
+      # of `$HOME`.
+      [
+        ".ssh",
+        ".aws",
+        ".azure",
+        ".boto",
+        ".docker",
+        ".config/gh",
+        ".config/gcloud",
+        ".config/huggingface",
+        ".config/pip",
+        ".config/pypoetry",
+        ".config/rclone",
+        ".config/containers/auth.json",
+        ".config/composer/auth.json",
+        ".config/sops/age/keys.txt",
+        ".gnupg",
+        ".git-credentials",
+        ".gitconfig",
+        ".gsutil",
+        ".kube",
+        ".netrc",
+        ".npmrc",
+        ".yarnrc",
+        ".yarnrc.yml",
+        ".pnpmrc",
+        ".bunfig.toml",
+        ".pypirc",
+        ".pip",
+        ".poetry",
+        ".local/share/pypoetry",
+        ".gem/credentials",
+        ".bundle/config",
+        ".cargo/credentials",
+        ".cargo/credentials.toml",
+        ".composer/auth.json",
+        ".condarc",
+        ".m2/settings.xml",
+        ".gradle/gradle.properties",
+        ".sbt/1.0/credentials.sbt",
+        ".terraform.d/credentials.tfrc.json",
+        ".pulumi/credentials.json",
+        ".oci/config",
+        ".huggingface/token",
+        ".cache/huggingface/token",
+        ".claude",
+        ".claude.json",
+        ".kiro",
+        ".bash_history",
+        ".zsh_history",
+        ".python_history",
+        ".mysql_history",
+        ".psql_history",
+        ".env",
+        ".env.local",
+        "Documents",
+        "Movies",
+        "Music",
+        "Pictures",
+        "Library/Keychains",
+        "Library/Mobile Documents",
+        "Library/CloudStorage",
+        "Dropbox",
+        "Google Drive",
+        "OneDrive",
+      ].each do |path|
+        path = home/path
+        deny_read_path path if path.exist?
+      end
+      return
+    end
 
-    # Block as much of `$HOME` as possible so a malicious build or install script
-    # cannot read SSH keys, cloud and package-registry tokens, browser or
-    # crypto-wallet data or any other secret kept in the home directory. When no
-    # Homebrew or CI directory lives inside `$HOME` the whole thing is denied;
-    # otherwise deny every entry except those Homebrew and its build tools must
-    # read, such as `~/Library/Caches/Homebrew`, `~/Library/Logs/Homebrew`, the
-    # `~/.homebrew/trust.json` tap trust store the sandboxed build re-checks and
-    # the `home_write_paths` that builds write to (the Xcode dirs on macOS).
-    return deny_read_path(home) if required.empty?
-
-    deny_read_home_except home, required
+    deny_read_path home
   end
 
   sig { params(path: T.nilable(T.any(String, Pathname)), type: Symbol).void }
@@ -459,26 +521,6 @@ class Sandbox
 
   sig { returns(T.nilable(Time)) }
   attr_reader :start
-
-  sig { params(dir: Pathname, required: T::Array[Pathname]).void }
-  def deny_read_home_except(dir, required)
-    dir.children.each do |child|
-      next if required.include?(child)
-
-      # Only descend into real, non-symlink directories on the way to a path
-      # Homebrew needs, so a non-directory ancestor cannot raise and a symlink
-      # loop cannot cause infinite recursion.
-      if child.directory? && !child.symlink? && required.any? { |path| path.ascend.include?(child) }
-        deny_read_home_except child, required
-      else
-        deny_read_path child
-      end
-    rescue SystemCallError
-      next
-    end
-  rescue SystemCallError
-    # `dir` is unreadable, so there is nothing inside it left to deny.
-  end
 
   # Home directories a build needs to write to, and so must also read;
   # overridden per-OS (e.g. the Xcode directories on macOS).
