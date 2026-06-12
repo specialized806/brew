@@ -550,6 +550,62 @@ RSpec.describe Tap do
     end
   end
 
+  describe "#update_remote_from_git_redirect!" do
+    it "moves default GitHub taps to the redirected name and invalidates old trust", :trust_store do
+      require "trust"
+
+      tap = described_class.fetch("oldowner", "foo")
+      old_path = tap.path
+      new_path = described_class.fetch("newowner", "foo").path
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://github.com/oldowner/homebrew-foo"
+      Homebrew::Trust.trust!(:tap, "oldowner/foo")
+      Homebrew::Trust.trust!(:tap, "https://github.com/oldowner/homebrew-foo")
+      Homebrew::Trust.trust!(:formula, "oldowner/foo/bar")
+
+      tap.update_remote_from_git_redirect!(
+        "warning: redirecting to https://github.com/newowner/homebrew-foo\n",
+        quiet: true,
+      )
+
+      expect(tap.name).to eq("newowner/foo")
+      expect(tap.path).to eq(new_path)
+      expect(new_path).to be_a_directory
+      expect(old_path).not_to exist
+      expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+        .to eq("https://github.com/newowner/homebrew-foo")
+      expect(Homebrew::Trust.trusted_entries(:tap)).to be_empty
+      expect(Homebrew::Trust.trusted_entries(:formula)).to be_empty
+    ensure
+      Homebrew::Trust.clear!(:tap)
+      Homebrew::Trust.clear!(:formula)
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"oldowner"
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"newowner"
+    end
+
+    it "prints tap redirect and untrust messages", :trust_store do
+      require "trust"
+
+      tap = described_class.fetch("oldoutput", "foo")
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://github.com/oldoutput/homebrew-foo"
+      Homebrew::Trust.trust!(:tap, "oldoutput/foo")
+
+      expect($stderr).to receive(:ohai).with("Redirected tap oldoutput/foo to tap newoutput/foo")
+      expect($stderr).to receive(:puts).with("Untrusted tap: oldoutput/foo")
+
+      tap.update_remote_from_git_redirect!(
+        "warning: redirecting to https://github.com/newoutput/homebrew-foo\n",
+      )
+    ensure
+      Homebrew::Trust.clear!(:tap)
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"oldoutput"
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"newoutput"
+    end
+  end
+
   specify "Git variant" do
     touch path/"README"
     setup_git_repo
@@ -708,12 +764,13 @@ RSpec.describe Tap do
 
       allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
                                      formula_names: [], cask_tokens: [], link_completions_and_manpages: nil)
-      expect(tap).to receive(:safe_system)
-        .with("git", "clone", requested_remote, tap.path.to_s, "--origin=origin", "--template=",
-              "--config", "core.fsmonitor=false")
+      expect(tap).to receive(:git_command!)
+        .with(["clone", requested_remote, tap.path.to_s, "--origin=origin", "--template=",
+               "--config", "core.fsmonitor=false"])
         .and_wrap_original do
           tap.path.mkpath
           (tap.path/".git").mkpath
+          double(stderr: "")
         end
 
       tap.install clone_target: requested_remote, force: true

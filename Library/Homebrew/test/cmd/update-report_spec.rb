@@ -12,6 +12,34 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
 
   it_behaves_like "reinstall_pkgconf_if_needed"
 
+  it "copies update revisions for redirected tap names" do
+    redirected_remotes_file = mktmpdir/"redirected-remotes"
+    redirected_remotes_file.write("/tmp/homebrew-foo\thttps://github.com/new/homebrew-foo.git\n")
+
+    tap = instance_double(Tap, repository_var_suffix: "_OLD_HOMEBREW_FOO")
+    allow(Tap).to receive(:from_path).with("/tmp/homebrew-foo").and_return(tap)
+    allow(tap).to receive(:apply_redirected_remote!)
+      .with("https://github.com/new/homebrew-foo.git", quiet: true) do
+        allow(tap).to receive(:repository_var_suffix).and_return("_NEW_HOMEBREW_FOO")
+      end
+    allow(Homebrew::EnvConfig).to receive_messages(disable_load_formula?: true, no_install_from_api?: true)
+    update_report = described_class.new(["--quiet"])
+    allow(update_report).to receive(:tap_or_untap_core_taps_if_necessary)
+
+    with_env(
+      HOMEBREW_REDIRECTED_REMOTES_FILE:        redirected_remotes_file.to_s,
+      HOMEBREW_UPDATE_BEFORE:                  "abc",
+      HOMEBREW_UPDATE_AFTER:                   "abc",
+      HOMEBREW_UPDATE_BEFORE_OLD_HOMEBREW_FOO: "123",
+      HOMEBREW_UPDATE_AFTER_OLD_HOMEBREW_FOO:  "456",
+    ) do
+      update_report.run
+
+      expect(ENV.fetch("HOMEBREW_UPDATE_BEFORE_NEW_HOMEBREW_FOO")).to eq("123")
+      expect(ENV.fetch("HOMEBREW_UPDATE_AFTER_NEW_HOMEBREW_FOO")).to eq("456")
+    end
+  end
+
   describe Reporter do
     let(:tap) { CoreTap.instance }
     let(:reporter_class) do
