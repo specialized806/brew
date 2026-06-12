@@ -5,6 +5,7 @@ require "io/console"
 require "pty"
 require "tempfile"
 require "exceptions"
+require "trust"
 require "utils/fork"
 require "utils/output"
 
@@ -220,6 +221,7 @@ class Sandbox
       ENV.fetch("GITHUB_WORKSPACE", nil),
       ENV.fetch("RUNNER_WORKSPACE", nil),
       ENV.fetch("RUNNER_TEMP", nil),
+      Homebrew::Trust.trust_file,
       *home_write_paths.select { |path| File.exist?(path) },
     ].compact.flat_map do |path|
       path = Pathname(path)
@@ -232,7 +234,8 @@ class Sandbox
     # crypto-wallet data or any other secret kept in the home directory. When no
     # Homebrew or CI directory lives inside `$HOME` the whole thing is denied;
     # otherwise deny every entry except those Homebrew and its build tools must
-    # read, such as `~/Library/Caches/Homebrew`, `~/Library/Logs/Homebrew` and
+    # read, such as `~/Library/Caches/Homebrew`, `~/Library/Logs/Homebrew`, the
+    # `~/.homebrew/trust.json` tap trust store the sandboxed build re-checks and
     # the `home_write_paths` that builds write to (the Xcode dirs on macOS).
     return deny_read_path(home) if required.empty?
 
@@ -429,11 +432,10 @@ class Sandbox
   # @api private
   sig { params(path: T.any(String, Pathname), type: Symbol).returns(SandboxPathFilter) }
   def path_filter(path, type)
-    invalid_char = ['"', "'", "(", ")", "\n", "\\"].find do |c|
-      path.to_s.include?(c)
-    end
-    raise ArgumentError, "Invalid character '#{invalid_char}' in path: #{path}" if invalid_char
-
+    # Any character is allowed: the OS-specific renderer quotes paths safely
+    # (the seatbelt renderer escapes the `"` and `\` string delimiters; the
+    # Linux sandbox passes each path as a separate argument), so even paths
+    # with spaces, parentheses, quotes, backslashes or newlines are expressible.
     filter_path = case type
     when :regex   then path.to_s
     when :subpath, :literal

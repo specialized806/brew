@@ -176,11 +176,10 @@ RSpec.describe Sandbox do
   end
 
   describe "#path_filter" do
-    ["'", '"', "(", ")", "\n", "\\"].each do |char|
-      it "fails if the path contains #{char}" do
-        expect do
-          sandbox.path_filter("foo#{char}bar", :subpath)
-        end.to raise_error(ArgumentError)
+    # The OS-specific renderer quotes paths safely, so no character is rejected.
+    ["'", '"', "(", ")", "\\", " ", ";", "#", "\n"].each do |char|
+      it "allows paths containing #{char.inspect}" do
+        expect { sandbox.path_filter(mktmpdir/"foo#{char}bar", :subpath) }.not_to raise_error
       end
     end
   end
@@ -308,6 +307,35 @@ RSpec.describe Sandbox do
       )
     end
 
+    it "denies home entries whose names contain parentheses or backslashes without raising" do
+      stub_const("HOMEBREW_LOGS", home/"Library/Logs/Homebrew")
+      teams_log = home/"Library/Logs/Microsoft Teams Helper (Renderer)"
+      backslash_dir = home/"I:\\"
+      [home/"Library/Logs/Homebrew", teams_log, backslash_dir].each(&:mkpath)
+
+      sandbox.deny_read_home
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).to include(teams_log.realpath.to_s, backslash_dir.realpath.to_s)
+    end
+
+    it "keeps the trust store readable so sandboxed builds can re-check tap trust" do
+      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
+      config_home = home/".homebrew"
+      [home/"Library/Caches/Homebrew", config_home].each(&:mkpath)
+      trust_file = config_home/"trust.json"
+      secret = config_home/"secret"
+      [trust_file, secret].each { |file| FileUtils.touch file }
+
+      with_env(HOMEBREW_USER_CONFIG_HOME: config_home.to_s) do
+        sandbox.deny_read_home
+      end
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).to include(secret.realpath.to_s)
+      expect(denied).not_to include(trust_file.realpath.to_s)
+    end
+
     it "keeps the Xcode directories readable so builds can use them", :needs_macos do
       stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
       developer = home/"Library/Developer"
@@ -344,42 +372,6 @@ RSpec.describe Sandbox do
       sandbox.allow_write_path_if_exists nil
 
       expect(sandbox.send(:profile).rules).to be_empty
-    end
-  end
-
-  describe "#allow_write_cellar" do
-    it "fails when the formula has a name including )" do
-      f = formula do
-        T.bind(self, T.class_of(Formula))
-        url "https://brew.sh/foo-1.0.tar.gz"
-        version "1.0"
-
-        def initialize(*, **)
-          super
-          @name = "foo)bar"
-        end
-      end
-
-      expect do
-        sandbox.allow_write_cellar f
-      end.to raise_error(ArgumentError)
-    end
-
-    it "fails when the formula has a name including \"" do
-      f = formula do
-        T.bind(self, T.class_of(Formula))
-        url "https://brew.sh/foo-1.0.tar.gz"
-        version "1.0"
-
-        def initialize(*, **)
-          super
-          @name = "foo\"bar"
-        end
-      end
-
-      expect do
-        sandbox.allow_write_cellar f
-      end.to raise_error(ArgumentError)
     end
   end
 end

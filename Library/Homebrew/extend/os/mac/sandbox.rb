@@ -155,10 +155,18 @@ module OS
       def seatbelt_path_filter(filter)
         case filter.type
         when :regex   then "regex #\"#{filter.path}\""
-        when :subpath then "subpath \"#{filter.path}\""
-        when :literal then "literal \"#{filter.path}\""
+        when :subpath then "subpath \"#{seatbelt_quote(filter.path)}\""
+        when :literal then "literal \"#{seatbelt_quote(filter.path)}\""
         else raise ArgumentError, "Invalid path filter type: #{filter.type}"
         end
+      end
+
+      # `"` and `\` are the only characters special inside a double-quoted
+      # seatbelt string, so escaping just those two lets any path (spaces,
+      # parentheses, quotes, backslashes, even newlines) be expressed safely.
+      sig { params(path: String).returns(String) }
+      def seatbelt_quote(path)
+        path.gsub(/["\\]/) { |char| "\\#{char}" }
       end
     end
   end
