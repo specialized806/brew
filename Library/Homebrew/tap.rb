@@ -157,6 +157,8 @@ class Tap
     %r{\A(?:[a-z][a-z0-9+.-]*://(?:[^@/]+@)?github\.com/|(?:[^@/]+@)?github\.com:)}
   # The host of a remote: the first `/`- or `:`-delimited segment after any scheme and userinfo.
   REMOTE_HOST_REGEX = %r{\A#{REMOTE_SCHEME_USERINFO_REGEX.source}([^/:]+)}
+  GIT_REDIRECT_REMOTE_REGEX = /redirecting to (?<remote>\S+)/i
+  private_constant :GIT_REDIRECT_REMOTE_REGEX
 
   # On GitHub the scheme and userinfo are insignificant (any of HTTPS, SSH SCP syntax, `ssh://` or
   # `git://` identify the same repository), so those forms are canonicalised to HTTPS. For hosts in
@@ -533,6 +535,69 @@ class Tap
     false
   end
 
+  sig { params(output: String, quiet: T::Boolean).void }
+  def update_remote_from_git_redirect!(output, quiet: false)
+    output.each_line do |line|
+      next unless (match = line.match(GIT_REDIRECT_REMOTE_REGEX))
+
+      apply_redirected_remote!(T.must(match[:remote]), quiet:)
+      break
+    end
+  end
+
+  sig { params(redirected_remote: String, quiet: T::Boolean).void }
+  def apply_redirected_remote!(redirected_remote, quiet: false)
+    old_name = name
+    old_remote = remote
+    return if old_remote.present? && self.class.same_remote?(old_remote, redirected_remote)
+
+    redirected_reference = self.class.remote_to_reference(redirected_remote)
+    if redirected_reference.present? && !self.class.remote_reference?(redirected_reference)
+      redirected_tap = self.class.fetch(redirected_reference)
+      if redirected_tap.name != name && !redirected_tap.installed?
+        old_path = path
+        redirected_tap.path.dirname.mkpath
+        FileUtils.mv(old_path, redirected_tap.path)
+        old_path.parent.rmdir_if_possible
+
+        @user = redirected_tap.user
+        @repository = redirected_tap.repository
+        @name = redirected_tap.name
+        @full_repository = redirected_tap.full_repository
+        @full_name = redirected_tap.full_name
+        @path = redirected_tap.path
+        @git_repository = GitRepository.new(@path)
+        clear_cache
+      end
+    end
+
+    safe_system "git", "-C", path, "remote", "set-url", "origin", redirected_remote
+    clear_cache
+    Tap.clear_cache
+
+    require "trust"
+    trust_invalidated = Homebrew::Trust.invalidate_tap_references!(old_name, remote: old_remote)
+
+    return if quiet
+
+    $stderr.ohai(
+      if old_name == name
+        "Redirected tap #{name} remote to #{redirected_remote}"
+      else
+        "Redirected tap #{old_name} to tap #{name}"
+      end,
+    )
+    $stderr.puts "#{trust_invalidated ? "Untrusted" : "Not trusted"} tap: #{old_name}"
+  end
+
+  sig { params(args: T::Array[T.any(String, Pathname)], chdir: T.nilable(Pathname)).returns(T.untyped) }
+  def git_command!(args, chdir: nil)
+    require "system_command"
+
+    SystemCommand.run!("git", args:, chdir:, print_stderr: true)
+  end
+  private :git_command!
+
   # Install this {Tap}.
   #
   # @param clone_target If passed, it will be used as the clone remote.
@@ -607,7 +672,8 @@ class Tap
       # Git throws an error when attempting to unshallow a full clone
       args << "--unshallow" if shallow?
       args << "-q" if quiet
-      path.cd { safe_system "git", *args }
+      result = git_command!(args, chdir: path)
+      update_remote_from_git_redirect!(result.stderr, quiet:)
       return
     elsif (core_tap? || core_cask_tap?) && !Homebrew::EnvConfig.no_install_from_api? && !force &&
           worktree_source_tap_path.blank?
@@ -619,7 +685,7 @@ class Tap
     Tap.clear_cache
 
     $stderr.ohai "Tapping #{name}" unless quiet
-    args =  %W[clone #{requested_remote} #{path}]
+    args = %W[clone #{requested_remote} #{path}]
 
     # Override possible user configs like:
     #   git config --global clone.defaultRemoteName notorigin
@@ -639,7 +705,8 @@ class Tap
         worktree_args += ["--detach", path, "HEAD"]
         safe_system "git", *worktree_args
       else
-        safe_system "git", *args
+        result = git_command!(args)
+        update_remote_from_git_redirect!(result.stderr, quiet:)
       end
 
       if verify && !Homebrew::EnvConfig.developer? && !Readall.valid_tap?(self, aliases: true)
@@ -738,7 +805,8 @@ class Tap
     args << "--quiet" if quiet
     args << "origin"
     args << "+refs/heads/*:refs/remotes/origin/*"
-    safe_system "git", "-C", path, *args
+    result = git_command!(args, chdir: path)
+    update_remote_from_git_redirect!(result.stderr, quiet:)
     git_repository.set_head_origin_auto
 
     current_upstream_head ||= T.must(git_repository.origin_branch_name)

@@ -67,6 +67,27 @@ RSpec.describe Homebrew::Trust, :trust_store do
     described_class.clear!(:tap)
   end
 
+  it "invalidates old tap trust entries after a redirect" do
+    described_class.trust!(:tap, "thirdparty/foo")
+    described_class.trust!(:tap, "https://gitlab.com/old/repo")
+    described_class.trust!(:formula, "thirdparty/foo/bar")
+    described_class.trust!(:cask, "thirdparty/foo/baz")
+    described_class.trust!(:command, "thirdparty/foo/hello")
+
+    expect(described_class.invalidate_tap_references!("thirdparty/foo",
+                                                      remote: "https://gitlab.com/old/repo")).to be(true)
+
+    expect(described_class.trusted_entries(:tap)).to be_empty
+    expect(described_class.trusted_entries(:formula)).to be_empty
+    expect(described_class.trusted_entries(:cask)).to be_empty
+    expect(described_class.trusted_entries(:command)).to be_empty
+  ensure
+    described_class.clear!(:tap)
+    described_class.clear!(:formula)
+    described_class.clear!(:cask)
+    described_class.clear!(:command)
+  end
+
   it "infers tap type for a remote URL argument" do
     result = described_class.target("https://gitlab.com/other/repo")
     expect(result).to eq([:tap, "https://gitlab.com/other/repo"])

@@ -68,6 +68,38 @@ module Homebrew
       end
     end
 
+    sig { params(name: String, remote: T.nilable(String)).returns(T::Boolean) }
+    def self.invalidate_tap_references!(name, remote: nil)
+      name = normalise_name(name)
+      references = [name]
+      references << normalise_name(remote) if remote.present?
+      if remote.present? && (remote_reference = Tap.remote_to_reference(remote))
+        references << normalise_name(remote_reference)
+      end
+      references.uniq!
+
+      with_trust_store_lock do
+        store = trust_store
+        changed = T.let(false, T::Boolean)
+        store.keys.each do |key|
+          entries = store.fetch(key)
+          filtered_entries = entries.reject do |entry|
+            references.include?(entry) || entry.start_with?("#{name}/")
+          end
+          next if filtered_entries == entries
+
+          changed = true
+          if filtered_entries.empty?
+            store.delete(key)
+          else
+            store[key] = filtered_entries.sort
+          end
+        end
+        write_trust_store(store) if changed
+        changed
+      end
+    end
+
     sig { params(names: T::Array[String], type: T.nilable(Symbol)).void }
     def self.trust_fully_qualified_items!(names, type: nil)
       names.each do |name|
