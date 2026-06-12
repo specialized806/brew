@@ -48,6 +48,20 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     end
   end
 
+  def setup_pinned_dependency_upgrade
+    write_formula "pinned-dep", <<~RUBY
+      url "https://brew.sh/pinned-dep-2.0"
+    RUBY
+    install_formula_version "pinned-dep", "1.0", optlinked: true
+    Formula["pinned-dep"].pin
+
+    write_formula "needs-pinned-dep", <<~RUBY
+      url "https://brew.sh/needs-pinned-dep-2.0"
+      depends_on "pinned-dep"
+    RUBY
+    install_formula_version "needs-pinned-dep", "1.0", optlinked: true
+  end
+
   it "upgrades a Formula and Cask", :cask, :integration_test do
     formula_name = "testball_bottle"
     formula_rack = HOMEBREW_CELLAR/formula_name
@@ -146,6 +160,37 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .and output(
         /Not upgrading minimum-version-formula, the installed version is not below the minimum version 1\.2\.3/,
       ).to_stderr
+  end
+
+  it "does not summarize dry-run formula upgrades blocked by pinned dependencies" do
+    setup_pinned_dependency_upgrade
+
+    expect do
+      described_class.new(["--dry-run", "--yes", "--formula"]).run
+    end
+      .to not_to_output(/Pinned formula|needs-pinned-dep/).to_stdout
+      .and output(/You must `brew unpin pinned-dep` as installing needs-pinned-dep requires the latest version/)
+      .to_stderr
+
+    expect(Homebrew).to have_failed
+  ensure
+    Formula["pinned-dep"].unpin if Formula["pinned-dep"].pinned?
+  end
+
+  it "does not warn about pinned formulae before ask-mode pinned dependency failures" do
+    setup_pinned_dependency_upgrade
+
+    expect do
+      described_class.new(["--formula"]).run
+    end
+      .to not_to_output(/Pinned formula|needs-pinned-dep/).to_stdout
+      .and output(a_string_matching(
+                    /\A(?=.*You must `brew unpin pinned-dep`)(?!.*Not upgrading \d+ pinned package).*\z/m,
+                  )).to_stderr
+
+    expect(Homebrew).to have_failed
+  ensure
+    Formula["pinned-dep"].unpin if Formula["pinned-dep"].pinned?
   end
 
   it "requires one named argument with --minimum-version" do
