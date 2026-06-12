@@ -2893,7 +2893,8 @@ class Formula
       # A dep is "missing" if it's in the hide list (pretend uninstalled) or
       # genuinely not installed in the cellar.
       base_name = Utils.name_from_full_name(full_name)
-      next if hide.exclude?(base_name) && (HOMEBREW_CELLAR/base_name).directory?
+      next if hide.exclude?(base_name) && ((HOMEBREW_CELLAR/base_name).directory? ||
+                                           (HOMEBREW_PREFIX/"opt"/base_name).directory?)
 
       Dependency.new(full_name)
     end
