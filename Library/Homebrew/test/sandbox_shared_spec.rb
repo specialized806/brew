@@ -307,6 +307,7 @@ RSpec.describe Sandbox do
         home/".claude",
         home/".config/gcloud",
         home/".config/gh",
+        home/".config/fish",
         home/".config/huggingface",
         home/".config/pip",
         home/".config/pypoetry",
@@ -317,6 +318,10 @@ RSpec.describe Sandbox do
         home/"Documents",
       ]
       sensitive_files = [
+        home/".bash_login",
+        home/".bash_logout",
+        home/".bash_profile",
+        home/".bashrc",
         home/".bash_history",
         home/".cache/huggingface/token",
         home/".claude.json",
@@ -329,10 +334,16 @@ RSpec.describe Sandbox do
         home/".mysql_history",
         home/".netrc",
         home/".npmrc",
+        home/".profile",
         home/".psql_history",
         home/".pypirc",
         home/".python_history",
         home/".terraform.d/credentials.tfrc.json",
+        home/".zlogin",
+        home/".zlogout",
+        home/".zprofile",
+        home/".zshenv",
+        home/".zshrc",
         home/".zsh_history",
       ]
 
