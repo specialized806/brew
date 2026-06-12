@@ -53,9 +53,10 @@ RSpec.describe Homebrew::Cmd::Trust, :trust_store do
       expect(Homebrew::Trust.trusted_entries(:tap)).to contain_exactly("https://gitlab.com/other/repo")
     end
 
-    it "refuses to trust an individual formula" do
+    it "trusts an individual formula by its remote-qualified entry" do
       expect { described_class.new(["--formula", "thirdparty/custom/bar"]).run }
-        .to raise_error(UsageError, /custom remote/)
+        .to output("Trusted formula: https://gitlab.com/other/repo/bar\n").to_stdout
+      expect(Homebrew::Trust.trusted_entries(:formula)).to contain_exactly("https://gitlab.com/other/repo/bar")
     end
   end
 
