@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./bin/brew lgtm",
+            "command": "./bin/brew lgtm >&2 && printf '{\"continue\":true}'",
             "timeout": 360
           }
         ]
