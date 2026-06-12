@@ -193,22 +193,33 @@ module Homebrew
             )
           end
 
-          dependants = Upgrade.dependants(
-            formulae,
-            flags:                      args.flags_only,
-            ask:                        ask,
-            force_bottle:               args.force_bottle?,
-            build_from_source_formulae: args.build_from_source_formulae,
-            interactive:                args.interactive?,
-            keep_tmp:                   args.keep_tmp?,
-            debug_symbols:              args.debug_symbols?,
-            force:                      args.force?,
-            debug:                      args.debug?,
-            quiet:                      args.quiet?,
-            verbose:                    args.verbose?,
-          )
-
           formulae_installers = reinstall_contexts.map(&:formula_installer)
+          if !ask && formulae_installers.any?
+            download_queue = Homebrew::DownloadQueue.new(pour: true)
+            shared_download_queue = download_queue
+            formulae_installers = Install.prelude_fetch_formulae(formulae_installers, download_queue:)
+          end
+
+          dependants = begin
+            Upgrade.dependants(
+              formulae,
+              flags:                      args.flags_only,
+              ask:                        ask,
+              force_bottle:               args.force_bottle?,
+              build_from_source_formulae: args.build_from_source_formulae,
+              interactive:                args.interactive?,
+              keep_tmp:                   args.keep_tmp?,
+              debug_symbols:              args.debug_symbols?,
+              force:                      args.force?,
+              debug:                      args.debug?,
+              quiet:                      args.quiet?,
+              verbose:                    args.verbose?,
+            )
+          # Ensure the early download queue is shut down on interrupts.
+          rescue Exception # rubocop:disable Lint/RescueException
+            shared_download_queue&.shutdown
+            raise
+          end
 
           # Main block: if asking the user is enabled, show dry-run information.
           if ask
@@ -230,7 +241,8 @@ module Homebrew
           end
 
           valid_formula_installers = if casks.any?
-            shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
+            shared_download_queue ||= Homebrew::DownloadQueue.new(pour: true)
+            download_queue = shared_download_queue
             begin
               Install.show_combined_fetch_downloads_heading(
                 formula_names: formulae_installers.map { |fi| fi.formula.name },
@@ -238,7 +250,7 @@ module Homebrew
               )
 
               valid_formula_installers = Install.enqueue_formulae(formulae_installers,
-                                                                  download_queue: shared_download_queue)
+                                                                  download_queue:)
 
               require "cask/installer"
               fetch_cask_installers = casks.map do |cask|
@@ -251,16 +263,25 @@ module Homebrew
                   require_sha:    args.require_sha?,
                   reinstall:      true,
                   zap:            args.zap?,
-                  download_queue: shared_download_queue,
+                  download_queue:,
                   defer_fetch:    true,
                 )
               end
-              Install.enqueue_cask_installers(fetch_cask_installers, download_queue: shared_download_queue)
-              shared_download_queue.fetch
+              Install.enqueue_cask_installers(fetch_cask_installers, download_queue:)
+              download_queue.fetch
               casks_prefetched = true
               valid_formula_installers
             ensure
-              shared_download_queue.shutdown
+              download_queue.shutdown
+            end
+          elsif shared_download_queue
+            download_queue = shared_download_queue
+            begin
+              Install.fetch_formulae(formulae_installers,
+                                     download_queue:,
+                                     shutdown_download_queue: false)
+            ensure
+              download_queue.shutdown
             end
           else
             Install.fetch_formulae(formulae_installers)

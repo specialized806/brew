@@ -303,6 +303,8 @@ class FormulaInstaller
 
   sig { void }
   def prelude_fetch
+    return if @ran_prelude_fetch
+
     deprecate_disable_type = DeprecateDisable.type(formula)
     if deprecate_disable_type.present?
       message = "#{formula.full_name} has been #{DeprecateDisable.message(formula)}"

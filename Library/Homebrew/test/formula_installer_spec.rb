@@ -910,6 +910,23 @@ RSpec.describe FormulaInstaller do
       installer.prelude_fetch
     end
 
+    it "does not repeat source download prelude work" do
+      f = formula("homebrew-prelude-fetch-once") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/prelude-fetch-once-0.1.tar.gz"
+      end
+      allow(f).to receive(:loaded_from_api?).and_return(true)
+      fi = described_class.new(f, ignore_deps: true)
+      fi.download_queue = instance_double(Homebrew::DownloadQueue)
+
+      expect(Homebrew::API::Formula).to receive(:source_download)
+        .with(f, download_queue: fi.download_queue, enqueue: true)
+        .once
+
+      fi.prelude_fetch
+      fi.prelude_fetch
+    end
+
     it "raises on forbidden formula tap before fetching the source from the API" do
       homebrew_forbidden = Tap.fetch("homebrew/forbidden")
       allow(Tap).to receive_messages(allowed_taps: [], forbidden_taps: [homebrew_forbidden.name])
