@@ -293,60 +293,120 @@ RSpec.describe Sandbox do
       expect(sandbox.send(:profile).rules).to be_empty
     end
 
-    it "denies every home entry except the directories Homebrew needs" do
+    it "denies known sensitive home paths when Homebrew needs home access" do
       cache = home/"Library/Caches/Homebrew"
       stub_const("HOMEBREW_CACHE", cache)
-      [cache, home/"Library/Preferences", home/".config", home/".ssh", home/"src"].each(&:mkpath)
-      FileUtils.touch home/".netrc"
+      allowed_dirs = [
+        cache,
+        home/"Library/Preferences",
+        home/".config",
+        home/".config/homebrew",
+        home/"src",
+      ]
+      sensitive_dirs = [
+        home/".claude",
+        home/".config/gcloud",
+        home/".config/gh",
+        home/".config/huggingface",
+        home/".config/pip",
+        home/".config/pypoetry",
+        home/".config/rclone",
+        home/".kiro",
+        home/".pip",
+        home/".ssh",
+        home/"Documents",
+      ]
+      sensitive_files = [
+        home/".bash_history",
+        home/".cache/huggingface/token",
+        home/".claude.json",
+        home/".config/composer/auth.json",
+        home/".config/containers/auth.json",
+        home/".config/sops/age/keys.txt",
+        home/".cargo/credentials.toml",
+        home/".gem/credentials",
+        home/".git-credentials",
+        home/".mysql_history",
+        home/".netrc",
+        home/".npmrc",
+        home/".psql_history",
+        home/".pypirc",
+        home/".python_history",
+        home/".terraform.d/credentials.tfrc.json",
+        home/".zsh_history",
+      ]
 
-      sandbox.deny_read_home
-
-      expect(sandbox.send(:profile).rules.map { |rule| rule.filter&.path }).to match_array(
-        [home/".config", home/".netrc", home/".ssh", home/"src", home/"Library/Preferences"]
-          .map { |path| path.realpath.to_s },
-      )
-    end
-
-    it "denies home entries whose names contain parentheses or backslashes without raising" do
-      stub_const("HOMEBREW_LOGS", home/"Library/Logs/Homebrew")
-      teams_log = home/"Library/Logs/Microsoft Teams Helper (Renderer)"
-      backslash_dir = home/"I:\\"
-      [home/"Library/Logs/Homebrew", teams_log, backslash_dir].each(&:mkpath)
+      [*allowed_dirs, *sensitive_dirs].each(&:mkpath)
+      sensitive_files.each do |path|
+        path.dirname.mkpath
+        FileUtils.touch path
+      end
 
       sandbox.deny_read_home
 
       denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
-      expect(denied).to include(teams_log.realpath.to_s, backslash_dir.realpath.to_s)
+      expect(denied).to include(*(sensitive_dirs + sensitive_files).map { |path| path.realpath.to_s })
+      expect(denied).not_to include(*allowed_dirs.map { |path| path.realpath.to_s })
+    end
+
+    it "does not deny arbitrary home entries whose names contain parentheses or backslashes" do
+      stub_const("HOMEBREW_LOGS", home/"Library/Logs/Homebrew")
+      teams_log = home/"Library/Logs/Microsoft Teams Helper (Renderer)"
+      backslash_dir = home/"I:\\"
+      [home/"Library/Logs/Homebrew", teams_log, backslash_dir, home/".ssh"].each(&:mkpath)
+
+      sandbox.deny_read_home
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).to include((home/".ssh").realpath.to_s)
+      expect(denied).not_to include(teams_log.realpath.to_s, backslash_dir.realpath.to_s)
     end
 
     it "keeps the trust store readable so sandboxed builds can re-check tap trust" do
       stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
       config_home = home/".homebrew"
-      [home/"Library/Caches/Homebrew", config_home].each(&:mkpath)
+      [home/"Library/Caches/Homebrew", config_home, home/".ssh"].each(&:mkpath)
       trust_file = config_home/"trust.json"
-      secret = config_home/"secret"
-      [trust_file, secret].each { |file| FileUtils.touch file }
+      FileUtils.touch trust_file
 
       with_env(HOMEBREW_USER_CONFIG_HOME: config_home.to_s) do
         sandbox.deny_read_home
       end
 
       denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
-      expect(denied).to include(secret.realpath.to_s)
+      expect(denied).to include((home/".ssh").realpath.to_s)
+      expect(denied).not_to include(trust_file.realpath.to_s)
+    end
+
+    it "keeps the XDG trust store readable so sandboxed builds can re-check tap trust" do
+      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
+      config_home = home/".config/homebrew"
+      gh_config = home/".config/gh"
+      [home/"Library/Caches/Homebrew", config_home, gh_config, home/".ssh"].each(&:mkpath)
+      trust_file = config_home/"trust.json"
+      FileUtils.touch trust_file
+
+      with_env(HOMEBREW_USER_CONFIG_HOME: config_home.to_s) do
+        sandbox.deny_read_home
+      end
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).to include(gh_config.realpath.to_s)
+      expect(denied).to include((home/".ssh").realpath.to_s)
+      expect(denied).not_to include((home/".config").realpath.to_s)
       expect(denied).not_to include(trust_file.realpath.to_s)
     end
 
     it "keeps the Xcode directories readable so builds can use them", :needs_macos do
-      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
       developer = home/"Library/Developer"
       swiftpm = home/"Library/Caches/org.swift.swiftpm"
-      [home/"Library/Caches/Homebrew", developer, swiftpm, home/"Library/Preferences"].each(&:mkpath)
+      [developer, swiftpm, home/".ssh"].each(&:mkpath)
 
       sandbox.deny_read_home
 
       denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
       expect(denied).not_to include(developer.realpath.to_s, swiftpm.realpath.to_s)
-      expect(denied).to include((home/"Library/Preferences").realpath.to_s)
+      expect(denied).to include((home/".ssh").realpath.to_s)
     end
   end
 
