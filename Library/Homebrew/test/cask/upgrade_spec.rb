@@ -643,6 +643,7 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it "does not end the upgrade process" do
+      summary_upgrades = []
       upgraded_tokens = []
       bad_checksum = Cask::CaskLoader.load("bad-checksum")
       bad_checksum_path = Pathname(bad_checksum.config.appdir).join("Caffeine.app")
@@ -670,10 +671,11 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       expect do
-        described_class.upgrade_casks!(args:, skip_prefetch: true)
+        described_class.upgrade_casks!(args:, skip_prefetch: true, summary_upgrades:)
       end.to raise_error(Cask::MultipleCaskErrors)
 
       expect(upgraded_tokens).to contain_exactly("bad-checksum", "bad-checksum2", "local-transmission-zip")
+      expect(summary_upgrades).to contain_exactly("local-transmission-zip 2.60 -> 2.61")
 
       expect(bad_checksum).to be_installed
       expect(bad_checksum_path).to be_a_directory

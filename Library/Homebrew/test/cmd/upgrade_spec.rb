@@ -924,23 +924,63 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     old_keg.mkpath
     new_keg.mkpath
     allow(formula).to receive_messages(optlinked?: true, opt_prefix: old_keg)
+    formula_installer = FormulaInstaller.new(formula)
     cmd = described_class.new([])
 
     allow(cmd).to receive(:formulae_upgrade_context).and_return(
       Homebrew::Cmd::UpgradeCmd::FormulaeUpgradeContext.new(
         formulae_to_install: [formula],
-        formulae_installer:  [FormulaInstaller.new(formula)],
+        formulae_installer:  [formula_installer],
         dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),
       ),
     )
     allow(Homebrew::Upgrade).to receive(:upgrade_formulae) do
       allow(formula).to receive(:opt_prefix).and_return(new_keg)
+      [formula_installer]
     end
     allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
 
     cmd.send(:upgrade_outdated_formulae!, [])
 
     expect(cmd.send(:final_upgrade_summary).version_changes).to include("testball 0.1 -> 0.2")
+  end
+
+  it "omits failed formula version changes from the final summary" do
+    successful_formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.2"
+    end
+    failed_formula = formula("failball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/failball-0.2"
+      deprecate! date: "2020-01-01", because: :unmaintained
+    end
+    successful_formula_installer = FormulaInstaller.new(successful_formula)
+    failed_formula_installer = FormulaInstaller.new(failed_formula)
+    old_successful_keg = HOMEBREW_CELLAR/"testball/0.1"
+    old_failed_keg = HOMEBREW_CELLAR/"failball/0.1"
+    old_successful_keg.mkpath
+    old_failed_keg.mkpath
+    allow(successful_formula).to receive_messages(optlinked?: true, opt_prefix: old_successful_keg)
+    allow(failed_formula).to receive_messages(optlinked?: true, opt_prefix: old_failed_keg)
+    cmd = described_class.new([])
+
+    allow(cmd).to receive(:formulae_upgrade_context).and_return(
+      Homebrew::Cmd::UpgradeCmd::FormulaeUpgradeContext.new(
+        formulae_to_install: [successful_formula, failed_formula],
+        formulae_installer:  [successful_formula_installer, failed_formula_installer],
+        dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),
+      ),
+    )
+    allow(Homebrew::Upgrade).to receive(:upgrade_formulae).and_return([successful_formula_installer])
+    allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
+
+    cmd.send(:upgrade_outdated_formulae!, [])
+
+    expect(cmd.send(:final_upgrade_summary)).to have_attributes(
+      version_changes: contain_exactly("testball 0.1 -> 0.2"),
+      deprecated:      contain_exactly("failball"),
+    )
   end
 
   it_behaves_like "reinstall_pkgconf_if_needed"
