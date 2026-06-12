@@ -46,6 +46,33 @@ RSpec.describe Homebrew::Cmd::FetchCmd do
     expect(enqueued_downloads).to include(an_instance_of(Bottle))
   end
 
+  it "uses API cask metadata before loading simple core casks" do
+    cmd = described_class.new(["--cask", "fast-cask"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    cask_struct = Homebrew::API::CaskStruct.new(
+      sha256:   "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97",
+      url_args: ["https://example.com/fast-cask.zip"],
+      version:  "1.0",
+    )
+    enqueued_downloads = []
+
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    allow(download_queue).to receive(:enqueue) { |download| enqueued_downloads << download }
+    allow(Homebrew::API::Internal).to receive_messages(
+      cask_hashes:  { "fast-cask" => {} },
+      cask_renames: {},
+      cask_struct:  cask_struct,
+    )
+
+    expect(cmd.args.named).not_to receive(:to_formulae_and_casks)
+    expect(Cask::CaskLoader).not_to receive(:load)
+    expect(download_queue).to receive(:shutdown)
+
+    with_env(HOMEBREW_TEST_GENERIC_OS: nil) { cmd.run }
+
+    expect(enqueued_downloads).to include(an_instance_of(Cask::Download))
+  end
+
   it "downloads Formula and Cask URLs concurrently", :cask, :integration_test do
     setup_test_formula "testball1"
     setup_test_formula "testball2"
