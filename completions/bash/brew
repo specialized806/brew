@@ -789,12 +789,14 @@ exec)
         __brewcomp "
         --check
         --debug
+        --deny-network
         --file
         --global
         --help
         --install
         --no-secrets
         --quiet
+        --sandbox
         --services
         --verbose
         "
@@ -1485,9 +1487,11 @@ _brew_exec() {
     -*)
       __brewcomp "
       --debug
+      --deny-network
       --formulae
       --help
       --quiet
+      --sandbox
       --verbose
       "
       return
@@ -2512,6 +2516,23 @@ _brew_rubydoc() {
       --help
       --only-public
       --open
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
+_brew_sandbox_exec() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --deny-network
+      --help
       --quiet
       --verbose
       "
@@ -3710,6 +3731,7 @@ _brew() {
     rubocop) _brew_rubocop ;;
     ruby) _brew_ruby ;;
     rubydoc) _brew_rubydoc ;;
+    sandbox-exec) _brew_sandbox_exec ;;
     search) _brew_search ;;
     services) _brew_services ;;
     setup-ruby) _brew_setup_ruby ;;

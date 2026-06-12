@@ -226,7 +226,7 @@ Perform cleanup after installing dependencies without asking\. Enabled by defaul
 \fB\-\-zap\fP
 Use \fBzap\fP instead of \fBuninstall\fP when cleaning up casks after installing dependencies\.
 .TP
-\fBbrew bundle exec\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP] \fIcommand\fP
+\fBbrew bundle exec\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP] [\fB\-\-sandbox=\fP\fIpath\fP] [\fB\-\-deny\-network\fP] \fIcommand\fP
 Run an external command in an isolated build environment based on the \fBBrewfile\fP dependencies\.
 .P
 This sanitized build environment ignores unrequested dependencies, which makes sure that things you didn\[u2019]t specify in your \fBBrewfile\fP won\[u2019]t get picked up by commands like \fBbundle install\fP, \fBnpm install\fP, etc\. It will also add compiler flags which will help with finding keg\-only dependencies like \fBopenssl\fP, \fBicu4c\fP, etc\.
@@ -242,6 +242,12 @@ Check that all dependencies in the Brewfile are installed before executing the c
 .TP
 \fB\-\-no\-secrets\fP
 Attempt to remove secrets from the environment before executing the command\.
+.TP
+\fB\-\-sandbox\fP
+Run \fIcommand\fP in Homebrew\[u2019]s sandbox, allowing writes to \fIpath\fP and Homebrew\[u2019]s temporary and cache directories\.
+.TP
+\fB\-\-deny\-network\fP
+Deny network access from inside the sandbox\.
 .TP
 \fBbrew bundle env\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP]
 Print the environment variables that would be set in a \fBbrew bundle exec\fP environment\.
@@ -726,7 +732,7 @@ List all audit methods, which can be run individually if provided as arguments\.
 .TP
 \fB\-D\fP, \fB\-\-audit\-debug\fP
 Enable debugging and profiling of audit methods\.
-.SS "\fBexec\fP, \fBx\fP \fR[\fB\-\-formulae=\fP\fIformulae\fP] \fR[\fB\-\-\fP] \fIcommand\fP \fR[\fIargs\fP \.\.\.]"
+.SS "\fBexec\fP, \fBx\fP \fR[\fB\-\-formulae=\fP\fIformulae\fP] \fR[\fB\-\-sandbox=\fP\fIpath\fP] \fR[\fB\-\-deny\-network\fP] \fR[\fB\-\-\fP] \fIcommand\fP \fR[\fIargs\fP \.\.\.]"
 Run \fIcommand\fP in an environment populated by Homebrew formulae\.
 .P
 If \fB\-\-formulae\fP is passed, Homebrew installs those comma\-separated formulae if needed, prepends their executable directories and those of their dependencies to \fBPATH\fP and runs \fIcommand\fP\&\. This allows \fIcommand\fP to be a script path such as \fB\&\./script\.sh\fP\&\.
@@ -739,6 +745,12 @@ Scripts can also use a shebang on systems with \fBenv \-S\fP: \fB#!/usr/bin/env 
 .TP
 \fB\-\-formulae\fP
 Comma\-separated formulae to install and add to \fBPATH\fP before running \fIcommand\fP\&\.
+.TP
+\fB\-\-sandbox\fP
+Run \fIcommand\fP in Homebrew\[u2019]s sandbox, allowing writes to \fIpath\fP and Homebrew\[u2019]s temporary and cache directories\.
+.TP
+\fB\-\-deny\-network\fP
+Deny network access from inside the sandbox\.
 .SS "\fBfetch\fP \fR[\fIoptions\fP] \fIformula\fP|\fIcask\fP \fR[\.\.\.]"
 Download a bottle (if available) or source packages for \fIformula\fPe and binaries for \fIcask\fPs\. For files, also print SHA\-256 checksums\.
 .TP
@@ -1195,6 +1207,13 @@ Skip installing cask dependencies\.
 .TP
 \fB\-\-zap\fP
 For use with \fBbrew reinstall \-\-cask\fP\&\. Remove all files associated with a cask\. \fIMay remove files which are shared between applications\.\fP
+.SS "\fBsandbox\-exec\fP \fR[\fB\-\-deny\-network\fP] \fIwritable\-path\fP \fR[\fB\-\-\fP] \fIcommand\fP \fR[\fIargs\fP \.\.\.]"
+Run \fIcommand\fP in Homebrew\[u2019]s sandbox, allowing writes to \fIwritable\-path\fP and Homebrew\[u2019]s temporary and cache directories\.
+.P
+Example: \fBbrew sandbox\-exec \. \-\- make test\fP
+.TP
+\fB\-\-deny\-network\fP
+Deny network access from inside the sandbox\.
 .SS "\fBsearch\fP, \fB\-S\fP \fR[\fIoptions\fP] \fItext\fP|\fB/\fP\fIregex\fP\fB/\fP \fR[\.\.\.]"
 Perform a substring search of cask tokens and formula names for \fItext\fP\&\. If \fItext\fP is flanked by slashes, it is interpreted as a regular expression\.
 .TP
