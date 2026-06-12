@@ -610,12 +610,14 @@ __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l verbose -d 'Print out
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l zap -d 'Use `zap` instead of `uninstall` when cleaning up casks after installing dependencies'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l check -d 'Check that all dependencies in the Brewfile are installed before executing the command. Enabled by default if `$HOMEBREW_BUNDLE_CHECK` is set'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l debug -d 'Display any debugging information'
+__fish_brew_complete_sub_arg 'bundle' 'exec' -l deny-network -d 'Deny network access from inside the sandbox'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l file -d 'Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l global -d 'Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l help -d 'Show this message'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l install -d 'Run `install` before executing the command'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l no-secrets -d 'Attempt to remove secrets from the environment before executing the command'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_sub_arg 'bundle' 'exec' -l sandbox -d 'Run command in Homebrew\'s sandbox, allowing writes to path and Homebrew\'s temporary and cache directories'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l services -d 'Temporarily start services while executing the command. Enabled by default if `$HOMEBREW_BUNDLE_SERVICES` is set'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_sub_arg 'bundle' 'exec' -a '(__fish_brew_suggest_commands)'
@@ -1015,9 +1017,11 @@ __fish_brew_complete_arg 'edit' -a '(__fish_brew_suggest_taps_installed)'
 
 __fish_brew_complete_cmd 'exec' 'Run command in an environment populated by Homebrew formulae'
 __fish_brew_complete_arg 'exec' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'exec' -l deny-network -d 'Deny network access from inside the sandbox'
 __fish_brew_complete_arg 'exec' -l formulae -d 'Comma-separated formulae to install and add to `PATH` before running command'
 __fish_brew_complete_arg 'exec' -l help -d 'Show this message'
 __fish_brew_complete_arg 'exec' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'exec' -l sandbox -d 'Run command in Homebrew\'s sandbox, allowing writes to path and Homebrew\'s temporary and cache directories'
 __fish_brew_complete_arg 'exec' -l verbose -d 'Make some output more verbose'
 
 
@@ -1629,6 +1633,14 @@ __fish_brew_complete_arg 'rubydoc' -l only-public -d 'Only generate public API d
 __fish_brew_complete_arg 'rubydoc' -l open -d 'Open generated documentation in a browser'
 __fish_brew_complete_arg 'rubydoc' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'rubydoc' -l verbose -d 'Make some output more verbose'
+
+
+__fish_brew_complete_cmd 'sandbox-exec' 'Run command in Homebrew\'s sandbox, allowing writes to writable-path and Homebrew\'s temporary and cache directories'
+__fish_brew_complete_arg 'sandbox-exec' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'sandbox-exec' -l deny-network -d 'Deny network access from inside the sandbox'
+__fish_brew_complete_arg 'sandbox-exec' -l help -d 'Show this message'
+__fish_brew_complete_arg 'sandbox-exec' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'sandbox-exec' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'search' 'Perform a substring search of cask tokens and formula names for text'

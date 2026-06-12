@@ -350,7 +350,7 @@ to one or more of the following environment variables:
 : Use `zap` instead of `uninstall` when cleaning up casks after installing
   dependencies.
 
-`brew bundle exec` \[`--check`\] \[`--no-secrets`\] *`command`*
+`brew bundle exec` \[`--check`\] \[`--no-secrets`\] \[`--sandbox=`*`path`*\] \[`--deny-network`\] *`command`*
 
 : Run an external command in an isolated build environment based on the
   `Brewfile` dependencies.
@@ -378,6 +378,15 @@ flags which will help with finding keg-only dependencies like `openssl`,
 `--no-secrets`
 
 : Attempt to remove secrets from the environment before executing the command.
+
+`--sandbox`
+
+: Run *`command`* in Homebrew's sandbox, allowing writes to *`path`* and
+  Homebrew's temporary and cache directories.
+
+`--deny-network`
+
+: Deny network access from inside the sandbox.
 
 `brew bundle env` \[`--check`\] \[`--no-secrets`\]
 
@@ -1121,7 +1130,7 @@ working fine: please don't worry or file an issue; just ignore this.
 
 : Enable debugging and profiling of audit methods.
 
-### `exec`, `x` \[`--formulae=`*`formulae`*\] \[`--`\] *`command`* \[*`args`* ...\]
+### `exec`, `x` \[`--formulae=`*`formulae`*\] \[`--sandbox=`*`path`*\] \[`--deny-network`\] \[`--`\] *`command`* \[*`args`* ...\]
 
 Run *`command`* in an environment populated by Homebrew formulae.
 
@@ -1142,6 +1151,15 @@ exec --formulae=jq,yq --`
 
 : Comma-separated formulae to install and add to `PATH` before running
   *`command`*.
+
+`--sandbox`
+
+: Run *`command`* in Homebrew's sandbox, allowing writes to *`path`* and
+  Homebrew's temporary and cache directories.
+
+`--deny-network`
+
+: Deny network access from inside the sandbox.
 
 ### `fetch` \[*`options`*\] *`formula`*\|*`cask`* \[...\]
 
@@ -1885,6 +1903,17 @@ for the reinstalled formulae or, every 30 days, for all formulae.
 
 : For use with `brew reinstall --cask`. Remove all files associated with a cask.
   *May remove files which are shared between applications.*
+
+### `sandbox-exec` \[`--deny-network`\] *`writable-path`* \[`--`\] *`command`* \[*`args`* ...\]
+
+Run *`command`* in Homebrew's sandbox, allowing writes to *`writable-path`* and
+Homebrew's temporary and cache directories.
+
+Example: `brew sandbox-exec . -- make test`
+
+`--deny-network`
+
+: Deny network access from inside the sandbox.
 
 ### `search`, `-S` \[*`options`*\] *`text`*\|`/`*`regex`*`/` \[...\]
 

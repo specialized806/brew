@@ -229,6 +229,7 @@ __brew_internal_commands() {
     'rubocop:Installs, configures and runs Homebrew'\''s `rubocop`'
     'ruby:Run a Ruby instance with Homebrew'\''s libraries loaded'
     'rubydoc:Generate Homebrew'\''s RubyDoc documentation'
+    'sandbox-exec:Run command in Homebrew'\''s sandbox, allowing writes to writable-path and Homebrew'\''s temporary and cache directories'
     'search:Perform a substring search of cask tokens and formula names for text'
     'services:Manage background services with macOS'\'' `launchctl`(1) daemon manager or Linux'\''s `systemctl`(1) service manager'
     'setup-ruby:Installs and configures Homebrew'\''s Ruby'
@@ -798,12 +799,14 @@ exec)
         _arguments \
           '--check[Check that all dependencies in the Brewfile are installed before executing the command. Enabled by default if `$HOMEBREW_BUNDLE_CHECK` is set]' \
           '--debug[Display any debugging information]' \
+          '--deny-network[Deny network access from inside the sandbox]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
           '--help[Show this message]' \
           '--install[Run `install` before executing the command]' \
           '--no-secrets[Attempt to remove secrets from the environment before executing the command]' \
           '--quiet[Make some output more quiet]' \
+          '--sandbox[Run command in Homebrew'\''s sandbox, allowing writes to path and Homebrew'\''s temporary and cache directories]' \
           '--services[Temporarily start services while executing the command. Enabled by default if `$HOMEBREW_BUNDLE_SERVICES` is set]' \
           '--verbose[Make some output more verbose]' \
           - command \
@@ -1336,9 +1339,11 @@ _brew_edit() {
 _brew_exec() {
   _arguments \
     '--debug[Display any debugging information]' \
+    '--deny-network[Deny network access from inside the sandbox]' \
     '--formulae[Comma-separated formulae to install and add to `PATH` before running command]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
+    '--sandbox[Run command in Homebrew'\''s sandbox, allowing writes to path and Homebrew'\''s temporary and cache directories]' \
     '--verbose[Make some output more verbose]'
 }
 
@@ -2077,6 +2082,16 @@ _brew_rubydoc() {
     '--help[Show this message]' \
     '--only-public[Only generate public API documentation]' \
     '--open[Open generated documentation in a browser]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
+}
+
+# brew sandbox-exec
+_brew_sandbox_exec() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--deny-network[Deny network access from inside the sandbox]' \
+    '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
 }
