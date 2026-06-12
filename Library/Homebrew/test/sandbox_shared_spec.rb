@@ -225,24 +225,31 @@ RSpec.describe Sandbox do
       expect(sandbox.send(:profile).rules).to be_empty
     end
 
-    it "denies sensitive home paths when the real home cannot be denied" do
-      [".ssh", "Documents", "Library/Keychains", "Library/Mobile Documents", "Dropbox"].each do |directory|
-        (home/directory).mkpath
-      end
+    it "denies every home entry except the directories Homebrew needs" do
+      cache = home/"Library/Caches/Homebrew"
+      stub_const("HOMEBREW_CACHE", cache)
+      [cache, home/"Library/Preferences", home/".config", home/".ssh", home/"src"].each(&:mkpath)
+      FileUtils.touch home/".netrc"
 
-      with_env(GITHUB_WORKSPACE: (home/"workspace").to_s) do
-        sandbox.deny_read_home
-      end
+      sandbox.deny_read_home
 
-      expect(sandbox.send(:profile).rules.map { |rule| rule.filter&.path }).to eq(
-        [
-          home/".ssh",
-          home/"Documents",
-          home/"Library/Keychains",
-          home/"Library/Mobile Documents",
-          home/"Dropbox",
-        ].map { |path| path.realpath.to_s },
+      expect(sandbox.send(:profile).rules.map { |rule| rule.filter&.path }).to match_array(
+        [home/".config", home/".netrc", home/".ssh", home/"src", home/"Library/Preferences"]
+          .map { |path| path.realpath.to_s },
       )
+    end
+
+    it "keeps the Xcode directories readable so builds can use them", :needs_macos do
+      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
+      developer = home/"Library/Developer"
+      swiftpm = home/"Library/Caches/org.swift.swiftpm"
+      [home/"Library/Caches/Homebrew", developer, swiftpm, home/"Library/Preferences"].each(&:mkpath)
+
+      sandbox.deny_read_home
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).not_to include(developer.realpath.to_s, swiftpm.realpath.to_s)
+      expect(denied).to include((home/"Library/Preferences").realpath.to_s)
     end
   end
 
