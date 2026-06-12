@@ -190,7 +190,7 @@ class Sandbox
   sig { void }
   def deny_read_home
     home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
-    if [
+    required = [
       HOMEBREW_PREFIX,
       HOMEBREW_REPOSITORY,
       HOMEBREW_CACHE,
@@ -199,40 +199,23 @@ class Sandbox
       ENV.fetch("GITHUB_WORKSPACE", nil),
       ENV.fetch("RUNNER_WORKSPACE", nil),
       ENV.fetch("RUNNER_TEMP", nil),
-    ].compact.any? do |path|
+      *home_write_paths.select { |path| File.exist?(path) },
+    ].compact.flat_map do |path|
       path = Pathname(path)
-      [path.expand_path, path.exist? ? path.realpath : nil].compact.any? { |pathname| pathname.ascend.include?(home) }
+      [path.expand_path, (path.realpath if path.exist?)]
     end
-      [
-        ".ssh",
-        ".aws",
-        ".azure",
-        ".config/gcloud",
-        ".docker",
-        ".gnupg",
-        ".kube",
-        ".netrc",
-        ".npmrc",
-        ".pypirc",
-        ".gem/credentials",
-        "Documents",
-        "Movies",
-        "Music",
-        "Pictures",
-        "Library/Keychains",
-        "Library/Mobile Documents",
-        "Library/CloudStorage",
-        "Dropbox",
-        "Google Drive",
-        "OneDrive",
-      ].each do |path|
-        path = home/path
-        deny_read_path path if path.exist?
-      end
-      return
-    end
+    required = required.compact.select { |path| path.ascend.include?(home) }
 
-    deny_read_path home
+    # Block as much of `$HOME` as possible so a malicious build or install script
+    # cannot read SSH keys, cloud and package-registry tokens, browser or
+    # crypto-wallet data or any other secret kept in the home directory. When no
+    # Homebrew or CI directory lives inside `$HOME` the whole thing is denied;
+    # otherwise deny every entry except those Homebrew and its build tools must
+    # read, such as `~/Library/Caches/Homebrew`, `~/Library/Logs/Homebrew` and
+    # the `home_write_paths` that builds write to (the Xcode dirs on macOS).
+    return deny_read_path(home) if required.empty?
+
+    deny_read_home_except home, required
   end
 
   sig { params(path: T.nilable(T.any(String, Pathname)), type: Symbol).void }
@@ -453,6 +436,31 @@ class Sandbox
 
   sig { returns(T.nilable(Time)) }
   attr_reader :start
+
+  sig { params(dir: Pathname, required: T::Array[Pathname]).void }
+  def deny_read_home_except(dir, required)
+    dir.children.each do |child|
+      next if required.include?(child)
+
+      # Only descend into real, non-symlink directories on the way to a path
+      # Homebrew needs, so a non-directory ancestor cannot raise and a symlink
+      # loop cannot cause infinite recursion.
+      if child.directory? && !child.symlink? && required.any? { |path| path.ascend.include?(child) }
+        deny_read_home_except child, required
+      else
+        deny_read_path child
+      end
+    rescue SystemCallError
+      next
+    end
+  rescue SystemCallError
+    # `dir` is unreadable, so there is nothing inside it left to deny.
+  end
+
+  # Home directories a build needs to write to, and so must also read;
+  # overridden per-OS (e.g. the Xcode directories on macOS).
+  sig { returns(T::Array[String]) }
+  def home_write_paths = []
 
   sig { params(_args: T::Array[T.any(String, Pathname)], _tmpdir: String).returns(T::Array[T.any(String, Pathname)]) }
   def sandbox_command(_args, _tmpdir)

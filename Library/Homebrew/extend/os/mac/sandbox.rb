@@ -53,8 +53,7 @@ module OS
       # Xcode projects expect access to certain cache/archive dirs.
       sig { void }
       def allow_write_xcode
-        allow_write_path "#{Dir.home(ENV.fetch("USER"))}/Library/Developer"
-        allow_write_path "#{Dir.home(ENV.fetch("USER"))}/Library/Caches/org.swift.swiftpm"
+        home_write_paths.each { |path| allow_write_path path }
       end
 
       module ClassMethods
@@ -74,6 +73,12 @@ module OS
       end
 
       private
+
+      sig { returns(T::Array[String]) }
+      def home_write_paths
+        home = Dir.home(ENV.fetch("USER"))
+        ["#{home}/Library/Developer", "#{home}/Library/Caches/org.swift.swiftpm"]
+      end
 
       sig { params(args: T::Array[T.any(String, ::Pathname)], tmpdir: String).returns(T::Array[T.any(String, ::Pathname)]) }
       def sandbox_command(args, tmpdir)
