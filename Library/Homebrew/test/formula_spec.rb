@@ -1140,6 +1140,27 @@ RSpec.describe Formula do
     expect(f2).not_to have_post_install_defined
   end
 
+  specify "#run_post_install prevents build tools from reading user configuration" do
+    env = {}
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+    end
+
+    allow(Tab).to receive(:for_formula).with(f).and_return(f.build)
+    allow(f).to receive(:post_install) { env = ENV.to_hash }
+
+    f.run_post_install
+
+    expect(env).to include(
+      "GIT_CONFIG_GLOBAL"     => File::NULL,
+      "GOENV"                 => "off",
+      "NPM_CONFIG_USERCONFIG" => File::NULL,
+      "PIP_CONFIG_FILE"       => File::NULL,
+      "XDG_CONFIG_HOME"       => "#{env.fetch("HOME")}/.config",
+    )
+  end
+
   specify "#post_install_steps" do
     f = formula do
       T.bind(self, T.class_of(Formula))
@@ -3085,7 +3106,7 @@ RSpec.describe Formula do
     end
   end
 
-  describe "#common_stage_test_env" do
+  describe "#common_sandbox_env" do
     let(:f) do
       formula do
         url "foo-1.0"
@@ -3093,7 +3114,19 @@ RSpec.describe Formula do
     end
 
     it "sets Bundler cooldown for RubyGems dependencies" do
-      expect(f.send(:common_stage_test_env, mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
+      expect(f.send(:common_sandbox_env, mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
+    end
+
+    it "prevents build tools from reading user configuration" do
+      home = mktmpdir
+
+      expect(f.send(:common_sandbox_env, home)).to include(
+        GIT_CONFIG_GLOBAL:     File::NULL,
+        GOENV:                 "off",
+        NPM_CONFIG_USERCONFIG: File::NULL,
+        PIP_CONFIG_FILE:       File::NULL,
+        XDG_CONFIG_HOME:       (home/".config").to_s,
+      )
     end
   end
 

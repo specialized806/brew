@@ -47,6 +47,12 @@ class GitDownloadStrategy < VCSDownloadStrategy
 
   private
 
+  # Avoid user Git config reads; sandbox-denied config files make Git exit.
+  sig { override.returns(T::Hash[String, String]) }
+  def env
+    { "GIT_CONFIG_GLOBAL" => File::NULL }
+  end
+
   sig { override.returns(String) }
   def cache_tag
     if partial_clone_sparse_checkout?
