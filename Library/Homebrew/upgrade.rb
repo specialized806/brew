@@ -112,17 +112,28 @@ module Homebrew
         installers.filter_map do |fi|
           fi.determine_bottle_tab_attributes
 
-          all_runtime_deps_installed = fi.bottle_tab_runtime_dependencies.presence&.all? do |dependency, hash|
-            minimum_version = if (version = hash["version"])
-              Version.new(version)
+          if !dry_run && dependents
+            all_runtime_deps_installed = fi.bottle_tab_runtime_dependencies.presence&.all? do |dependency, hash|
+              minimum_version = if (version = hash["version"])
+                Version.new(version)
+              end
+              Dependency.new(dependency).installed?(minimum_version:, minimum_revision: hash["revision"].to_i)
             end
-            Dependency.new(dependency).installed?(minimum_version:, minimum_revision: hash["revision"].to_i)
+
+            if all_runtime_deps_installed
+              # Don't need to install this bottle if all of the runtime
+              # dependencies have the same or newer version already installed.
+              next
+            end
           end
 
-          if !dry_run && dependents && all_runtime_deps_installed
-            # Don't need to install this bottle if all of the runtime
-            # dependencies have the same or newer version already installed.
-            next
+          if dry_run
+            begin
+              fi.check_install_sanity
+            rescue CannotInstallFormulaError => e
+              ofail e.message
+              next
+            end
           end
 
           fi
