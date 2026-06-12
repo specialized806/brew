@@ -4,6 +4,7 @@
 require "abstract_command"
 require "formula"
 require "fetch"
+require "api/formula_bottle"
 require "cask/config"
 require "cask/download"
 require "download_queue"
@@ -76,6 +77,11 @@ module Homebrew
       sig { override.void }
       def run
         Formulary.enable_factory_cache!
+
+        if enqueue_api_formula_bottles?
+          download_queue.fetch
+          return
+        end
 
         bucket = if args.deps?
           args.named.to_formulae_and_casks.flat_map do |formula_or_cask|
@@ -166,6 +172,58 @@ module Homebrew
       end
 
       private
+
+      sig { returns(T::Boolean) }
+      def enqueue_api_formula_bottles?
+        return false if Homebrew::EnvConfig.no_install_from_api?
+        return false if args.only_formula_or_cask == :cask
+        return false if args.deps? || args.HEAD?
+        return false if args.build_from_source? || args.build_bottle?
+        return false if args.all_platforms? || args.os.present? || args.arch.present? || args.bottle_tag.present?
+        return false if ENV["HOMEBREW_TEST_GENERIC_OS"].present?
+
+        formula_hashes = Homebrew::API::Internal.formula_hashes
+        aliases = Homebrew::API::Internal.formula_aliases
+        renames = Homebrew::API::Internal.formula_renames
+        names = T.let([], T::Array[String])
+
+        args.named.downcased_unique_named.each do |requested_name|
+          name = requested_name[HOMEBREW_DEFAULT_TAP_FORMULA_REGEX, :name]
+          return false if name.blank?
+
+          name = name.downcase
+          name = aliases.fetch(name, name)
+          name = renames.fetch(name, name)
+          return false unless formula_hashes.key?(name)
+
+          names << name
+        end
+
+        bottles = T.let([], T::Array[[String, Bottle]])
+        bottle_tag = Utils::Bottles.tag
+        names.each do |name|
+          formula_struct = Homebrew::API::Internal.formula_struct(name)
+          return false if formula_struct.pour_bottle?
+
+          bottle = Homebrew::API::FormulaBottle.bottle(name:, formula_struct:, bottle_tag:)
+          return false if bottle.nil?
+          return false if !args.force_bottle? && !bottle.compatible_locations?
+
+          bottles << [name, bottle]
+        end
+
+        puts "Fetching: #{names * ", "}" if names.size > 1
+        bottles.each do |name, bottle|
+          ohai "Fetching #{name} from #{CoreTap.instance}"
+          bottle.clear_cache if args.force?
+
+          if (manifest_resource = bottle.github_packages_manifest_resource)
+            download_queue.enqueue(manifest_resource)
+          end
+          download_queue.enqueue(bottle)
+        end
+        true
+      end
 
       sig { params(cask: Cask::Cask).returns(T::Array[Cask::Download]) }
       def cask_downloads(cask)
