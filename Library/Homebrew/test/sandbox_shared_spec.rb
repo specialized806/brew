@@ -6,6 +6,75 @@ require "sandbox"
 RSpec.describe Sandbox do
   subject(:sandbox) { described_class.new }
 
+  describe "::run_command" do
+    let(:command_sandbox) { instance_double(described_class) }
+    let(:writable_path) { mktmpdir }
+
+    before do
+      allow(described_class).to receive_messages(
+        ensure_sandbox_installed!: nil,
+        available?:                true,
+        new:                       command_sandbox,
+      )
+      allow(command_sandbox).to receive_messages(
+        allow_write_temp_and_cache: nil,
+        allow_write_path:           nil,
+        deny_read_home:             nil,
+        deny_all_network:           nil,
+        run:                        nil,
+      )
+    end
+
+    it "runs a command with the requested writable path" do
+      expect(command_sandbox).to receive(:allow_write_temp_and_cache).ordered
+      expect(command_sandbox).to receive(:allow_write_path).with(writable_path.realpath).ordered
+      expect(command_sandbox).to receive(:deny_read_home).ordered
+      expect(command_sandbox).not_to receive(:deny_all_network)
+      expect(command_sandbox).to receive(:run).with(
+        "/bin/sh",
+        "-c",
+        "cd \"$1\" && shift && exec \"$@\"",
+        "brew-sandbox-exec",
+        writable_path.realpath,
+        "make",
+        "test",
+      ).ordered
+
+      described_class.run_command("make", "test", writable_path:)
+    end
+
+    it "can deny network access" do
+      expect(command_sandbox).to receive(:deny_all_network)
+
+      described_class.run_command("make", writable_path:, deny_network: true)
+    end
+
+    it "does not run unsandboxed when sandboxing is unavailable" do
+      allow(described_class).to receive_messages(available?: false, failure_reason: "sandbox unavailable")
+      expect(command_sandbox).not_to receive(:run)
+
+      expect { described_class.run_command("make", writable_path:) }
+        .to raise_error(RuntimeError, "sandbox unavailable")
+    end
+
+    it "raises a usage error when the writable path does not exist" do
+      missing_path = writable_path/"missing"
+      expect(command_sandbox).not_to receive(:run)
+
+      expect { described_class.run_command("make", writable_path: missing_path) }
+        .to raise_error(UsageError, "Invalid usage: `#{missing_path}` is not a writable directory.")
+    end
+
+    it "raises a usage error when the writable path is not a directory" do
+      file_path = writable_path/"file"
+      FileUtils.touch file_path
+      expect(command_sandbox).not_to receive(:run)
+
+      expect { described_class.run_command("make", writable_path: file_path) }
+        .to raise_error(UsageError, "Invalid usage: `#{file_path}` is not a writable directory.")
+    end
+  end
+
   describe "::failure_reason" do
     let(:sandbox_class) { Class.new(described_class) }
 

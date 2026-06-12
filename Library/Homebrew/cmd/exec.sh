@@ -80,6 +80,9 @@ homebrew-exec() {
   local formulae=()
   local formulae_arg=""
   local formulae_seen=0
+  local sandbox_path=""
+  local sandbox_seen=0
+  local deny_network=0
 
   while [[ "$#" -gt 0 ]]
   do
@@ -94,6 +97,22 @@ homebrew-exec() {
         [[ "$#" -gt 0 && "$1" != -* ]] || odie "\`--formulae\` requires a comma-separated formula list."
         formulae_arg="$1"
         formulae_seen=1
+        shift
+        ;;
+      --sandbox=*)
+        sandbox_path="${1#--sandbox=}"
+        sandbox_seen=1
+        shift
+        ;;
+      --sandbox)
+        shift
+        [[ "$#" -gt 0 && "$1" != -* ]] || odie "\`--sandbox\` requires a writable path."
+        sandbox_path="$1"
+        sandbox_seen=1
+        shift
+        ;;
+      --deny-network)
+        deny_network=1
         shift
         ;;
       --help | -h)
@@ -114,6 +133,9 @@ homebrew-exec() {
         ;;
     esac
   done
+
+  [[ "${sandbox_seen}" -eq 0 || -n "${sandbox_path}" ]] || odie "\`--sandbox\` requires a writable path."
+  [[ "${sandbox_seen}" -eq 1 || "${deny_network}" -eq 0 ]] || odie "\`--deny-network\` requires \`--sandbox\`."
 
   if [[ "${formulae_seen}" -eq 1 ]]
   then
@@ -258,5 +280,13 @@ homebrew-exec() {
   export PATH
   # Replace the shell with the target command so signals and exit status behave
   # as if the executable had been run directly.
+  if [[ -n "${sandbox_path}" ]]
+  then
+    local -a sandbox_args=("sandbox-exec")
+    [[ "${deny_network}" -eq 1 ]] && sandbox_args+=("--deny-network")
+    sandbox_args+=("${sandbox_path}" "--" "${executable_path}" "$@")
+    exec "${HOMEBREW_BREW_FILE}" "${sandbox_args[@]}"
+  fi
+
   exec "${executable_path}" "$@"
 }

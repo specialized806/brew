@@ -33,6 +33,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
   def cleanup?; end
 
   sig { returns(T::Boolean) }
+  def deny_network?; end
+
+  sig { returns(T::Boolean) }
   def describe?; end
 
   sig { returns(T::Boolean) }
@@ -211,6 +214,9 @@ class Homebrew::Cmd::Bundle::Args < Homebrew::CLI::Args
 
   sig { returns(T::Boolean) }
   def npm?; end
+
+  sig { returns(T.nilable(String)) }
+  def sandbox; end
 
   sig { returns(T::Boolean) }
   def services?; end
