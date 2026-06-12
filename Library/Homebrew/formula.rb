@@ -1662,7 +1662,6 @@ class Formula
         TMPDIR:        HOMEBREW_TEMP,
         TEMP:          HOMEBREW_TEMP,
         TMP:           HOMEBREW_TEMP,
-        _JAVA_OPTIONS: "-Djava.io.tmpdir=#{HOMEBREW_TEMP}",
         HOMEBREW_PATH: nil,
         PATH:          PATH.new(ORIGINAL_PATHS),
       }
@@ -1670,6 +1669,10 @@ class Formula
       Dir.mktmpdir("#{name}-postinstall-") do |home|
         postinstall_home = Pathname(home)
         new_env[:HOME] = postinstall_home.to_s
+        new_env.merge!(common_sandbox_env(postinstall_home))
+        # Keep postinstall Java temp files in Homebrew temp while the common
+        # sandbox environment points Java's user home at the cache.
+        new_env[:_JAVA_OPTIONS] += " -Djava.io.tmpdir=#{HOMEBREW_TEMP}"
         setup_home postinstall_home
 
         with_env(new_env) do
@@ -3284,11 +3287,14 @@ class Formula
 
     mktemp("#{name}-test") do |staging|
       staging.retain! if keep_tmp
-      @testpath = T.let(staging.tmpdir, T.nilable(Pathname))
-      test_env[:HOME] = @testpath
-      test_env.merge!(common_stage_test_env(T.must(@testpath)))
+      testpath = staging.tmpdir
+      raise "Test path is unexpectedly unset." if testpath.nil?
+
+      @testpath = T.let(testpath, T.nilable(Pathname))
+      test_env[:HOME] = testpath
+      test_env.merge!(common_sandbox_env(testpath))
       test_env[:_JAVA_OPTIONS] += " -Djava.io.tmpdir=#{HOMEBREW_TEMP}"
-      setup_home T.must(@testpath)
+      setup_home testpath
       begin
         with_logging("test") do
           with_env(test_env) do
@@ -3738,18 +3744,23 @@ class Formula
     exit! 1 # never gets here unless exec threw or failed
   end
 
-  # Common environment variables used at both build and test time.
+  # Common environment variables used by sandboxed build, test and postinstall phases.
   sig { params(home: Pathname).returns(T::Hash[Symbol, String]) }
-  def common_stage_test_env(home)
+  def common_sandbox_env(home)
     {
       _JAVA_OPTIONS:           "-Duser.home=#{HOMEBREW_CACHE}/java_cache",
       GOCACHE:                 "#{HOMEBREW_CACHE}/go_cache",
+      GIT_CONFIG_GLOBAL:       File::NULL,
+      GOENV:                   "off",
       GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
       CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
       BUNDLE_COOLDOWN:         Homebrew::RELEASE_COOLDOWN_DAYS.to_s,
       PIP_CACHE_DIR:           "#{HOMEBREW_CACHE}/pip_cache",
+      PIP_CONFIG_FILE:         File::NULL,
+      NPM_CONFIG_USERCONFIG:   File::NULL,
       CURL_HOME:               ENV.fetch("CURL_HOME") { home.to_s },
       PYTHONDONTWRITEBYTECODE: "1",
+      XDG_CONFIG_HOME:         "#{home}/.config",
     }
   end
 
@@ -3767,7 +3778,7 @@ class Formula
 
       unless interactive
         stage_env[:HOME] = env_home
-        stage_env.merge!(common_stage_test_env(env_home))
+        stage_env.merge!(common_sandbox_env(env_home))
       end
 
       setup_home env_home

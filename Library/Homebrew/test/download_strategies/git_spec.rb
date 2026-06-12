@@ -39,6 +39,19 @@ RSpec.describe GitDownloadStrategy do
       end
       expect(strategy.source_modified_time.to_i).to eq(1_485_115_153)
     end
+
+    it "does not read user Git configuration" do
+      expect(strategy).to receive(:system_command)
+        .with(
+          "git",
+          args:         ["--git-dir", cached_location/".git", "show", "-s", "--format=%cD"],
+          env:          { "GIT_CONFIG_GLOBAL" => File::NULL },
+          print_stderr: false,
+        )
+        .and_return(instance_double(SystemCommand::Result, stdout: "Fri, 12 Jun 2026 06:12:11 -0700"))
+
+      expect(strategy.source_modified_time).to eq(Time.parse("Fri, 12 Jun 2026 06:12:11 -0700"))
+    end
   end
 
   specify "#last_commit" do
