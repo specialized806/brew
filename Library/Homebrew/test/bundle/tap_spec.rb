@@ -106,6 +106,30 @@ RSpec.describe Homebrew::Bundle::Tap do
         expect(described_class.install!("homebrew/cask")).to be(true)
       end
 
+      it "clears cached tap contents after tapping" do
+        tap = Tap.fetch("bundle-test/rootformula")
+        FileUtils.rm_rf(tap.path)
+        tap.clear_cache
+
+        expect(tap.formula_dir).to eq(tap.path/"Formula")
+
+        expect(Homebrew::Bundle).to receive(:system).with(HOMEBREW_BREW_FILE, "tap", tap.name,
+                                                          verbose: false) do
+          tap.path.mkpath
+          FileUtils.touch tap.path/"foo.rb"
+          true
+        end
+
+        expect(described_class.install!(tap.name)).to be(true)
+        expect(tap.formula_dir).to eq(tap.path)
+        expect(tap.formula_files_by_name).to include("foo" => tap.path/"foo.rb")
+      ensure
+        if tap
+          FileUtils.rm_rf(tap.path)
+          tap.path.parent.rmdir_if_possible
+        end
+      end
+
       context "with clone target" do
         it "taps" do
           expect(Homebrew::Bundle).to \

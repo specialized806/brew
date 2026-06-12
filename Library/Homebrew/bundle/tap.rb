@@ -71,6 +71,8 @@ module Homebrew
             return false
           end
 
+          require "tap"
+          ::Tap.fetch(name).clear_cache
           installed_taps << name
           true
         end
