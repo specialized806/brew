@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "formula"
+require "api/formula_bottle"
 require "keg"
 require "tab"
 require "utils/bottles"
@@ -140,6 +141,8 @@ class FormulaInstaller
     @show_summary_heading = T.let(false, T::Boolean)
     @etc_var_preinstall = T.let([], T::Array[Pathname])
     @download_queue = T.let(Homebrew.default_download_queue, Homebrew::DownloadQueue)
+    @api_bottle = T.let(nil, T.nilable(Bottle))
+    @api_bottle_loaded = T.let(false, T::Boolean)
 
     # Take the original formula instance, which might have been swapped from an API instance to a source instance
     @formula = T.let(T.must(previously_fetched_formula), Formula) if previously_fetched_formula
@@ -267,7 +270,7 @@ class FormulaInstaller
 
     return true if formula.local_bottle_path.present?
 
-    bottle = formula.bottle_for_tag(Utils::Bottles.tag)
+    bottle = api_bottle || formula.bottle_for_tag(Utils::Bottles.tag)
     return false if bottle.nil?
 
     unless bottle.compatible_locations?
@@ -1447,7 +1450,7 @@ on_request: installed_on_request?, options:)
     return if @fetch_bottle_tab
     return if formula.local_bottle_path.present?
 
-    if (bottle = formula.bottle) &&
+    if (bottle = api_bottle || formula.bottle) &&
        (manifest_resource = bottle.github_packages_manifest_resource) &&
        enqueue
       download_queue.enqueue(manifest_resource) unless manifest_resource.downloaded_and_valid?
@@ -1516,10 +1519,30 @@ on_request: installed_on_request?, options:)
     if (bottle_path = formula.local_bottle_path)
       Resource::Local.new(bottle_path.to_s)
     elsif pour_bottle?
-      T.must(formula.bottle)
+      bottle = api_bottle || formula.bottle
+      odie "Bottle for #{formula.full_name} is unavailable." if bottle.nil?
+
+      bottle
     else
-      T.must(formula.resource)
+      resource = formula.resource
+      odie "Resource for #{formula.full_name} is unavailable." if resource.nil?
+
+      resource
     end
+  end
+
+  sig { returns(T.nilable(Bottle)) }
+  def api_bottle
+    return @api_bottle if @api_bottle_loaded
+
+    @api_bottle_loaded = true
+    return unless formula.loaded_from_internal_api?
+    return unless formula.core_formula?
+
+    @api_bottle = Homebrew::API::FormulaBottle.bottle(
+      name:           formula.name,
+      formula_struct: Homebrew::API::Internal.formula_struct(formula.name),
+    )
   end
 
   sig { void }
