@@ -555,6 +555,30 @@ RSpec.describe Cask::Installer, :cask do
   end
 
   describe "#prelude_fetch" do
+    it "uses API cask metadata for API-loaded cask downloads" do
+      cask = Cask::Cask.new("api-cask", loaded_from_api: true, loaded_from_internal_api: true) do
+        url "https://example.com/source-cask.zip"
+        version "0.9"
+        sha256 "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
+      end
+      cask_struct = Homebrew::API::CaskStruct.new(
+        sha256:   "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97",
+        url_args: ["https://example.com/api-cask.zip"],
+        version:  "1.0",
+      )
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = described_class.new(cask, download_queue:)
+
+      allow(Homebrew::API::Internal).to receive(:cask_struct).with("api-cask").and_return(cask_struct)
+      expect(Homebrew::API::Cask).not_to receive(:source_download)
+      expect(download_queue).to receive(:enqueue) do |download|
+        expect(download).to be_a(Cask::Download)
+        expect(download.url.to_s).to eq("https://example.com/api-cask.zip")
+      end
+
+      installer.enqueue_downloads
+    end
+
     it "enqueues source API caskfiles before the main cask download" do
       cask = Cask::Cask.new("source-api-cask") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
