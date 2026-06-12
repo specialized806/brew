@@ -184,6 +184,7 @@ module Homebrew
         @final_upgrade_summary = T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
         @ask_prompt_required = false
         ask = !args.no_ask?
+        skip_upgrades_after_failed_ask_preview = T.let(false, T::Boolean)
 
         if args.named.present?
           Homebrew::Trust.trust_fully_qualified_items!(args.named, type: args.only_formula_or_cask)
@@ -251,6 +252,7 @@ module Homebrew
             Cask::Upgrade.show_upgrade_summary(final_upgrade_summary.version_changes)
           end
           ask_upgrade_planned = final_upgrade_summary.version_changes.present?
+          skip_upgrades_after_failed_ask_preview = Homebrew.failed? && !ask_upgrade_planned
           @final_upgrade_summary = FinalUpgradeSummary.new
         end
 
@@ -293,14 +295,14 @@ module Homebrew
           end
         end
 
-        unless only_upgrade_casks
+        if !only_upgrade_casks && !skip_upgrades_after_failed_ask_preview
           upgrade_outdated_formulae!(
             formulae,
             use_prefetched:       formulae_prefetched,
             show_upgrade_summary: prefetched_formulae_upgrades.blank? && !args.dry_run? && !ask,
           )
         end
-        unless only_upgrade_formulae
+        if !only_upgrade_formulae && !skip_upgrades_after_failed_ask_preview
           upgrade_outdated_casks!(
             casks,
             skip_prefetch:        prefetched_casks,
@@ -416,17 +418,6 @@ module Homebrew
           end
         end
 
-        if pinned.any?
-          message = "Not upgrading #{pinned.count} pinned #{Utils.pluralize("package", pinned.count)}:"
-          # only fail when pinned formulae are named explicitly
-          if formulae.any?
-            ofail message
-          else
-            opoo message
-          end
-          puts pinned.map { |f| "#{f.full_specified_name} #{f.pkg_version}" } * ", "
-        end
-
         if formulae_to_install.empty?
           oh1 "No packages to upgrade" if show_upgrade_summary
         elsif show_upgrade_summary
@@ -461,8 +452,22 @@ module Homebrew
         )
 
         if formulae_installer.blank?
+          return if formulae_to_install.present?
           return if pinned.blank?
+        end
 
+        if pinned.any?
+          message = "Not upgrading #{pinned.count} pinned #{Utils.pluralize("package", pinned.count)}:"
+          # only fail when pinned formulae are named explicitly
+          if formulae.any?
+            ofail message
+          else
+            opoo message
+          end
+          puts pinned.map { |f| "#{f.full_specified_name} #{f.pkg_version}" } * ", "
+        end
+
+        if formulae_installer.blank?
           return FormulaeUpgradeContext.new(
             formulae_to_install:,
             formulae_installer:  formulae_installer,

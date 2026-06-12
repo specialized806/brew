@@ -62,5 +62,6 @@ Do not use conventional commit prefixes such as `feat:`, `fix:`, `chore:`, `refa
 9. Inline new or existing methods as methods or local variables unless they are reused 2+ times or needed for unit tests.
 10. Avoid `T.must`; prefer explicit nil checks or APIs that return non-nil values.
 11. Avoid `T.unsafe(self)` whenever possible; prefer `requires_ancestor` or similar typed module patterns.
-12. Keep `extend/os/*` prepends as thin as possible; put the `prepend` in the OS-specific `linux` or `macos` file rather than the shared `extend/os/*` loader with an inline `if`, and prefer putting substantive logic in shared code outside `extend/` when practical so it can be tested on all platforms instead of relying on `:needs_linux` or `:needs_macos` specs.
-13. When Bash logic mirrors Ruby logic, keep both implementations in sync and add two-way comments naming the matching Ruby and Bash locations; keep matching helper filenames aligned where practical.
+12. Avoid `.send` in tests; call methods directly and make the method public or, for dynamic calls, use `.public_send`.
+13. Keep `extend/os/*` prepends as thin as possible; put the `prepend` in the OS-specific `linux` or `macos` file rather than the shared `extend/os/*` loader with an inline `if`, and prefer putting substantive logic in shared code outside `extend/` when practical so it can be tested on all platforms instead of relying on `:needs_linux` or `:needs_macos` specs.
+14. When Bash logic mirrors Ruby logic, keep both implementations in sync and add two-way comments naming the matching Ruby and Bash locations; keep matching helper filenames aligned where practical.
