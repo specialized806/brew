@@ -1588,6 +1588,14 @@ RSpec.describe Formula do
       expect(f.missing_dependencies).to be_empty
     end
 
+    it "returns empty when dep is present as alias or oldname" do
+      (HOMEBREW_CELLAR/"bar@2/2.0").mkpath
+      (HOMEBREW_PREFIX/"opt").mkpath
+      FileUtils.ln_sf HOMEBREW_CELLAR/"bar@2/2.0", HOMEBREW_PREFIX/"opt/bar"
+      allow(keg).to receive(:runtime_dependencies).and_return([{ "full_name" => "bar" }])
+      expect(f.missing_dependencies).to be_empty
+    end
+
     it "returns dep when not present in cellar" do
       allow(keg).to receive(:runtime_dependencies).and_return([{ "full_name" => "baz" }])
       expect(f.missing_dependencies.map(&:name)).to eq(["baz"])
