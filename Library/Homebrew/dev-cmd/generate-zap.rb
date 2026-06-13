@@ -85,6 +85,8 @@ module Homebrew
         "/Library/Preferences",
       ].freeze, T::Array[String])
 
+      FULL_DISK_ACCESS_TCC_PATH = T.let("~/Library/Application Support/com.apple.TCC", String)
+
       UUID_PATTERN = T.let(/[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}/i, Regexp)
 
       sig { override.void }
