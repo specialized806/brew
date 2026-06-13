@@ -42,7 +42,7 @@ RSpec.describe Homebrew::Diagnostic::Checks do
   end
 
   specify "#fatal_build_from_source_checks" do
-    expect(checks.fatal_build_from_source_checks).to include("check_linux_sandbox")
+    expect(checks.fatal_build_from_source_checks).not_to include("check_linux_sandbox")
   end
 
   specify "#check_linux_sandbox returns nil when Linux sandboxing is disabled" do

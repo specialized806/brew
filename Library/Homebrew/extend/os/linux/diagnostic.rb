@@ -28,13 +28,6 @@ module OS
         end
 
         sig { returns(T::Array[String]) }
-        def fatal_build_from_source_checks
-          (super + %w[
-            check_linux_sandbox
-          ]).freeze
-        end
-
-        sig { returns(T::Array[String]) }
         def supported_configuration_checks
           %w[
             check_glibc_minimum_version
