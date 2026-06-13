@@ -11,6 +11,7 @@
 # HOMEBREW_FORCE_BREWED_CURL, HOMEBREW_FORCE_BREWED_GIT,
 # HOMEBREW_SYSTEM_CURL_TOO_OLD, HOMEBREW_USER_AGENT_CURL are set by brew.sh
 # shellcheck disable=SC2154
+source "${HOMEBREW_LIBRARY}/Homebrew/utils/cmd.sh"
 source "${HOMEBREW_LIBRARY}/Homebrew/utils/api.sh"
 source "${HOMEBREW_LIBRARY}/Homebrew/utils/lock.sh"
 
@@ -485,14 +486,16 @@ homebrew-update() {
 
   for option in "$@"
   do
+    if homebrew-command-help update "${option}"
+    then
+      exit $?
+    fi
+    if homebrew-command-common-option "${option}"
+    then
+      continue
+    fi
+
     case "${option}" in
-      -\? | -h | --help | --usage)
-        brew help update
-        exit $?
-        ;;
-      --verbose) HOMEBREW_VERBOSE=1 ;;
-      --debug) HOMEBREW_DEBUG=1 ;;
-      --quiet) HOMEBREW_QUIET=1 ;;
       --merge)
         shift
         HOMEBREW_MERGE=1
@@ -509,9 +512,7 @@ homebrew-update() {
         exit 1
         ;;
       -*)
-        [[ "${option}" == *v* ]] && HOMEBREW_VERBOSE=1
-        [[ "${option}" == *q* ]] && HOMEBREW_QUIET=1
-        [[ "${option}" == *d* ]] && HOMEBREW_DEBUG=1
+        homebrew-command-common-short-options "${option}"
         [[ "${option}" == *f* ]] && HOMEBREW_UPDATE_FORCE=1
         ;;
       *)
@@ -521,10 +522,7 @@ homebrew-update() {
     esac
   done
 
-  if [[ -n "${HOMEBREW_DEBUG}" ]]
-  then
-    set -x
-  fi
+  homebrew-command-enable-debug
 
   if [[ -z "${HOMEBREW_UPDATE_TO_TAG}" ]]
   then

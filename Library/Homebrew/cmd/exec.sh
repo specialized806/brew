@@ -1,6 +1,7 @@
 # Documentation defined in Library/Homebrew/cmd/exec.rb
 
 # shellcheck disable=SC2154
+source "${HOMEBREW_LIBRARY}/Homebrew/utils/cmd.sh"
 source "${HOMEBREW_LIBRARY}/Homebrew/utils/executables.sh"
 
 exec-formula-name() {
@@ -86,6 +87,16 @@ homebrew-exec() {
 
   while [[ "$#" -gt 0 ]]
   do
+    if homebrew-command-help exec "$1"
+    then
+      return $?
+    fi
+    if homebrew-command-common-option "$1"
+    then
+      shift
+      continue
+    fi
+
     case "$1" in
       --formulae=*)
         formulae_arg="${1#--formulae=}"
@@ -115,10 +126,6 @@ homebrew-exec() {
         deny_network=1
         shift
         ;;
-      --help | -h)
-        "${HOMEBREW_BREW_FILE}" help exec
-        return
-        ;;
       --)
         shift
         break
@@ -136,6 +143,8 @@ homebrew-exec() {
 
   [[ "${sandbox_seen}" -eq 0 || -n "${sandbox_path}" ]] || odie "\`--sandbox\` requires a writable path."
   [[ "${sandbox_seen}" -eq 1 || "${deny_network}" -eq 0 ]] || odie "\`--deny-network\` requires \`--sandbox\`."
+
+  homebrew-command-enable-debug
 
   if [[ "${formulae_seen}" -eq 1 ]]
   then
