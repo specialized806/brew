@@ -5,7 +5,6 @@ require "io/console"
 require "pty"
 require "tempfile"
 require "exceptions"
-require "trust"
 require "utils/fork"
 require "utils/output"
 
@@ -211,6 +210,8 @@ class Sandbox
 
   sig { void }
   def deny_read_home
+    require "trust"
+
     home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
     if [
       HOMEBREW_PREFIX,
