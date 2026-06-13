@@ -183,11 +183,15 @@ module OS
           reason = ::Sandbox.failure_reason || "The Linux sandbox is not available."
           lines = case state
           when :missing
-            [
+            missing_lines = [
               reason,
               "",
               "Install Bubblewrap and ensure a rootless `bwrap` executable is available on `PATH`.",
             ]
+            if (install_command = ::Sandbox.sandbox_install_command)
+              missing_lines.push("", "On this system, install it with:", "  #{install_command}")
+            end
+            missing_lines
           when :setuid
             [
               reason,

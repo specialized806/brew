@@ -11,7 +11,8 @@ module Homebrew
 
       cmd_args do
         description <<~EOS
-          Set up the Homebrew sandbox. Must be run with `sudo`.
+          Run any necessary commands to setup the Homebrew sandbox.
+          Must be run with `sudo`. Currently a no-op on non-Linux.
         EOS
       end
     end
