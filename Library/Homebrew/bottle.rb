@@ -142,6 +142,20 @@ class Bottle
     retry
   end
 
+  sig { override.returns(T::Boolean) }
+  def downloaded_and_valid?
+    return false unless cached_download.file?
+
+    resource_checksum = resource.checksum
+    return false if resource_checksum.nil?
+
+    downloader = resource.downloader
+    return false unless downloader.is_a?(CurlGitHubPackagesDownloadStrategy)
+    return false unless downloader.immutable_bottle_blob?
+
+    downloader.bottle_blob_sha256 == resource_checksum.hexdigest
+  end
+
   sig { override.returns(T.nilable(Integer)) }
   def total_size
     bottle_size || super
