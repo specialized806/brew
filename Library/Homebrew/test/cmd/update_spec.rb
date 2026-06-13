@@ -29,7 +29,7 @@ RSpec.describe Homebrew::Cmd::Update do
   def setup_update_utils
     (test_root/"Library/Homebrew/utils").mkpath
     FileUtils.ln_s repository_root/"Library/Homebrew/utils.sh", test_root/"Library/Homebrew/utils.sh"
-    %w[api executables formatter lock tty].each do |name|
+    %w[api cmd executables formatter lock tty].each do |name|
       FileUtils.ln_s repository_root/"Library/Homebrew/utils/#{name}.sh",
                      test_root/"Library/Homebrew/utils/#{name}.sh"
     end
