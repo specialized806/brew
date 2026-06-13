@@ -99,6 +99,9 @@ class Sandbox
   sig { returns(T::Array[String]) }
   def self.configuration_command_messages = []
 
+  sig { returns(T.nilable(String)) }
+  def self.sandbox_install_command = nil
+
   sig { void }
   def self.configure!
     ensure_sandbox_installed!
