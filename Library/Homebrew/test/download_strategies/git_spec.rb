@@ -45,7 +45,7 @@ RSpec.describe GitDownloadStrategy do
         .with(
           "git",
           args:         ["--git-dir", cached_location/".git", "show", "-s", "--format=%cD"],
-          env:          { "GIT_CONFIG_GLOBAL" => File::NULL },
+          env:          Utils::Git.no_global_config_env,
           print_stderr: false,
         )
         .and_return(instance_double(SystemCommand::Result, stdout: "Fri, 12 Jun 2026 06:12:11 -0700"))

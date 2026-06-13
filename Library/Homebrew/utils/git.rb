@@ -15,10 +15,21 @@ module Utils
       !version.null?
     end
 
+    sig { returns(T::Hash[String, String]) }
+    def self.no_global_config_env
+      { "GIT_CONFIG_GLOBAL" => no_global_config_file }
+    end
+
+    sig { returns(String) }
+    def self.no_global_config_file
+      File::NULL
+    end
+
     sig { returns(Version) }
     def self.version
       @version ||= T.let(begin
-        stdout, _, status = system_command(git, args: ["--version"], verbose: false, print_stderr: false).to_a
+        stdout, _, status = system_command(git, args: ["--version"], env: no_global_config_env,
+                                                verbose: false, print_stderr: false).to_a
         version_str = status.success? ? stdout.chomp[/git version (\d+(?:\.\d+)*)/, 1] : nil
         version_str.nil? ? Version::NULL : Version.new(version_str)
       end, T.nilable(Version))

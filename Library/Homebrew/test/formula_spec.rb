@@ -1153,7 +1153,7 @@ RSpec.describe Formula do
     f.run_post_install
 
     expect(env).to include(
-      "GIT_CONFIG_GLOBAL"     => File::NULL,
+      "GIT_CONFIG_GLOBAL"     => Utils::Git.no_global_config_file,
       "GOENV"                 => "off",
       "NPM_CONFIG_USERCONFIG" => File::NULL,
       "PIP_CONFIG_FILE"       => File::NULL,
@@ -3129,7 +3129,7 @@ RSpec.describe Formula do
       home = mktmpdir
 
       expect(f.send(:common_sandbox_env, home)).to include(
-        GIT_CONFIG_GLOBAL:     File::NULL,
+        GIT_CONFIG_GLOBAL:     Utils::Git.no_global_config_file,
         GOENV:                 "off",
         NPM_CONFIG_USERCONFIG: File::NULL,
         PIP_CONFIG_FILE:       File::NULL,

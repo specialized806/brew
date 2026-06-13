@@ -50,7 +50,7 @@ class GitDownloadStrategy < VCSDownloadStrategy
   # Avoid user Git config reads; sandbox-denied config files make Git exit.
   sig { override.returns(T::Hash[String, String]) }
   def env
-    { "GIT_CONFIG_GLOBAL" => File::NULL }
+    Utils::Git.no_global_config_env
   end
 
   sig { override.returns(String) }
