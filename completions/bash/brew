@@ -2746,6 +2746,22 @@ _brew_setup_ruby() {
   __brew_complete_commands
 }
 
+_brew_setup_sandbox() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_sh() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3735,6 +3751,7 @@ _brew() {
     search) _brew_search ;;
     services) _brew_services ;;
     setup-ruby) _brew_setup_ruby ;;
+    setup-sandbox) _brew_setup_sandbox ;;
     sh) _brew_sh ;;
     shellenv) _brew_shellenv ;;
     source) _brew_source ;;

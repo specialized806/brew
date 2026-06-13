@@ -1336,6 +1336,8 @@ Output as JSON\.
 Remove all unused services\.
 .SS "\fBsetup\-ruby\fP \fR[\fIcommand\fP \.\.\.]"
 Installs and configures Homebrew\[u2019]s Ruby\. If \fBcommand\fP is passed, it will only run Bundler if necessary for that command\.
+.SS "\fBsetup\-sandbox\fP"
+Run any necessary commands to setup the Homebrew sandbox\. Must be run with \fBsudo\fP\&\. Currently a no\-op on non\-Linux\.
 .SS "\fBshellenv\fP \fR[\fIshell\fP \.\.\.]"
 Valid shells: bash|csh|fish|pwsh|sh|tcsh|zsh
 .P

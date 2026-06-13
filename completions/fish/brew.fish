@@ -1767,6 +1767,13 @@ __fish_brew_complete_arg 'setup-ruby' -l verbose -d 'Make some output more verbo
 __fish_brew_complete_arg 'setup-ruby' -a '(__fish_brew_suggest_commands)'
 
 
+__fish_brew_complete_cmd 'setup-sandbox' 'Run any necessary commands to setup the Homebrew sandbox'
+__fish_brew_complete_arg 'setup-sandbox' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'setup-sandbox' -l help -d 'Show this message'
+__fish_brew_complete_arg 'setup-sandbox' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'setup-sandbox' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'sh' 'Enter an interactive shell for Homebrew\'s build environment'
 __fish_brew_complete_arg 'sh' -l cmd -d 'Execute commands in a non-interactive shell'
 __fish_brew_complete_arg 'sh' -l debug -d 'Display any debugging information'
