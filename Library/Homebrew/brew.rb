@@ -89,8 +89,15 @@ begin
   # - no arguments are passed
   if empty_argv || help_flag
     require "help"
+    # `Homebrew::Help.help` may defer to a self-documenting external command's own
+    # `--help` (e.g. `brew help <cmd>`). Pass `--help`, not the Homebrew help flag
+    # that triggered this (`-h`, `--usage`, `-?`), which the command may not know.
+    if external_cmd_path
+      ARGV.reject! { |arg| help_flag_list.include?(arg) }
+      ARGV.push("--help")
+    end
     Homebrew::Help.help cmd, remaining_args: args.remaining, empty_argv:
-    # `Homebrew::Help.help` never returns, except for unknown commands.
+    # `Homebrew::Help.help` never returns, except for unknown and deferred commands.
   end
 
   if cmd.nil?
