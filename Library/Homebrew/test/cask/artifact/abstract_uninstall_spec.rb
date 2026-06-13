@@ -77,9 +77,7 @@ RSpec.describe Cask::Artifact::AbstractUninstall, :cask do
 
       it "surfaces Full Disk Access guidance when globbing raises EPERM" do
         allow(Pathname).to receive(:glob).and_raise(Errno::EPERM)
-        allow(File).to receive(:readable?).and_call_original
-        allow(File).to receive(:readable?).with(File.expand_path(Cask::Utils::FULL_DISK_ACCESS_TCC_PATH))
-                                          .and_return(false)
+        allow(Cask::Utils).to receive(:full_disk_access_enabled?).and_return(false)
         allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:ventura))
 
         expect do

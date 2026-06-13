@@ -24,6 +24,11 @@ module Cask
       "#{navigation_path} → #{access}"
     end
 
+    sig { returns(T::Boolean) }
+    def self.full_disk_access_enabled?
+      File.readable?(File.expand_path(FULL_DISK_ACCESS_TCC_PATH))
+    end
+
     sig { params(path: Pathname, command: T.class_of(SystemCommand)).void }
     def self.gain_permissions_mkpath(path, command: SystemCommand)
       dir = path.ascend.find(&:directory?)

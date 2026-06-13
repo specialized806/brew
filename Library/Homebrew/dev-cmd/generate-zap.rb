@@ -105,7 +105,7 @@ module Homebrew
         rescue Errno::EACCES, Errno::EPERM => e
           message = "Unable to generate a complete zap stanza: #{e.message}"
 
-          unless File.readable?(File.expand_path(Cask::Utils::FULL_DISK_ACCESS_TCC_PATH))
+          unless Cask::Utils.full_disk_access_enabled?
             message += " Please enable Full Disk Access for your terminal under " \
                        "#{Cask::Utils.privacy_security_preference_pane("Full Disk Access")}."
           end

@@ -486,7 +486,7 @@ module Cask
             end
             yield path, resolved_paths
           rescue Errno::EPERM
-            raise if File.readable?(File.expand_path(Cask::Utils::FULL_DISK_ACCESS_TCC_PATH))
+            raise if Cask::Utils.full_disk_access_enabled?
 
             odie "Unable to remove some files. Please enable Full Disk Access for your terminal under " \
                  "#{Cask::Utils.privacy_security_preference_pane("Full Disk Access")}."
