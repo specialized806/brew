@@ -11,6 +11,18 @@ module Cask
     extend ::Utils::Output::Mixin
 
     BUG_REPORTS_URL = "https://github.com/Homebrew/homebrew-cask#reporting-bugs"
+    FULL_DISK_ACCESS_TCC_PATH = T.let("~/Library/Application Support/com.apple.TCC", String)
+
+    sig { params(access: String).returns(String) }
+    def self.privacy_security_preference_pane(access)
+      navigation_path = if MacOS.version >= :ventura
+        "System Settings → Privacy & Security"
+      else
+        "System Preferences → Security & Privacy → Privacy"
+      end
+
+      "#{navigation_path} → #{access}"
+    end
 
     sig { params(path: Pathname, command: T.class_of(SystemCommand)).void }
     def self.gain_permissions_mkpath(path, command: SystemCommand)

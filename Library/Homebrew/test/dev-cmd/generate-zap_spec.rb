@@ -9,6 +9,23 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
 
   it_behaves_like "parseable arguments"
 
+  describe "#run" do
+    it "surfaces Full Disk Access guidance when scanning raises a permission error" do
+      generate_zap = described_class.new(["--name", "Test"])
+      protected_path = File.expand_path("~/Library/Application Support/com.apple.sharedfilelist")
+
+      allow(generate_zap).to receive(:scan_directories).and_raise(Errno::EACCES, protected_path)
+      allow(File).to receive(:readable?).and_call_original
+      allow(File).to receive(:readable?).with(File.expand_path(Cask::Utils::FULL_DISK_ACCESS_TCC_PATH)).and_return(false)
+      allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:ventura))
+
+      expect do
+        generate_zap.run
+      end.to raise_error(SystemExit)
+        .and output(/Full Disk Access/).to_stderr
+    end
+  end
+
   describe "#resolve_patterns_from_cask" do
     it "resolves app name from a cask with an app artifact" do
       app = instance_double(Cask::Artifact::App, target: Pathname.new("TestCask.app"))

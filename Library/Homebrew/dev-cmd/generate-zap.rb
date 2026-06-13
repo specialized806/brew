@@ -3,6 +3,7 @@
 
 require "abstract_command"
 require "cask/cask_loader"
+require "cask/utils"
 require "system_command"
 
 module Homebrew
@@ -98,8 +99,19 @@ module Homebrew
 
         ohai "Scanning for files matching #{format_patterns(patterns)}..."
 
-        trash_paths = scan_directories(USER_TRASH_PATHS, home_relative: true, patterns:) + scan_home_root(patterns)
-        delete_paths = scan_directories(SYSTEM_DELETE_PATHS, home_relative: false, patterns:)
+        begin
+          trash_paths = scan_directories(USER_TRASH_PATHS, home_relative: true, patterns:) + scan_home_root(patterns)
+          delete_paths = scan_directories(SYSTEM_DELETE_PATHS, home_relative: false, patterns:)
+        rescue Errno::EACCES, Errno::EPERM => e
+          message = "Unable to generate a complete zap stanza: #{e.message}"
+
+          unless File.readable?(File.expand_path(Cask::Utils::FULL_DISK_ACCESS_TCC_PATH))
+            message += " Please enable Full Disk Access for your terminal under " \
+                       "#{Cask::Utils.privacy_security_preference_pane("Full Disk Access")}."
+          end
+
+          odie message
+        end
 
         trash_paths  = replace_uuids(collapse_to_wildcards(trash_paths))
         delete_paths = replace_uuids(collapse_to_wildcards(delete_paths))

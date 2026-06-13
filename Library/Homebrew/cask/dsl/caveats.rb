@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "cask/utils"
+
 module Cask
   class DSL
     # Class corresponding to the `caveats` stanza.
@@ -99,18 +101,12 @@ module Cask
       caveat :unsigned_accessibility do |access = "Accessibility"|
         # access: the category in the privacy settings the app requires.
 
-        navigation_path = if MacOS.version >= :ventura
-          "System Settings → Privacy & Security"
-        else
-          "System Preferences → Security & Privacy → Privacy"
-        end
-
         <<~EOS
           #{cask} is not signed and requires Accessibility access,
           so you will need to re-grant Accessibility access every time the app is updated.
 
           Enable or re-enable it in:
-            #{navigation_path} → #{access}
+            #{Cask::Utils.privacy_security_preference_pane(access)}
           To re-enable, untick and retick #{cask}.app.
         EOS
       end
