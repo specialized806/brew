@@ -100,13 +100,14 @@ module Cask
 
       caveat :unsigned_accessibility do |access = "Accessibility"|
         # access: the category in the privacy settings the app requires.
+        access = "Accessibility" if access.nil?
 
         <<~EOS
           #{cask} is not signed and requires Accessibility access,
           so you will need to re-grant Accessibility access every time the app is updated.
 
           Enable or re-enable it in:
-            #{Cask::Utils.privacy_security_preference_pane(access)}
+            #{::Cask::Utils.privacy_security_preference_pane(access)}
           To re-enable, untick and retick #{cask}.app.
         EOS
       end
