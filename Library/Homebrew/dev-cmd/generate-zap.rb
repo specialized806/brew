@@ -96,14 +96,10 @@ module Homebrew
           resolve_patterns_from_cask(input)
         end
 
-        ohai "Scanning for files matching #{patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence}..."
+        ohai "Scanning for files matching #{format_patterns(patterns)}..."
 
-        trash_paths = patterns.flat_map do |pattern|
-          scan_directories(USER_TRASH_PATHS, home_relative: true, pattern:) + scan_home_root(pattern)
-        end
-        delete_paths = patterns.flat_map do |pattern|
-          scan_directories(SYSTEM_DELETE_PATHS, home_relative: false, pattern:)
-        end
+        trash_paths = scan_directories(USER_TRASH_PATHS, home_relative: true, patterns:) + scan_home_root(patterns)
+        delete_paths = scan_directories(SYSTEM_DELETE_PATHS, home_relative: false, patterns:)
 
         trash_paths  = replace_uuids(collapse_to_wildcards(trash_paths))
         delete_paths = replace_uuids(collapse_to_wildcards(delete_paths))
@@ -111,7 +107,7 @@ module Homebrew
         rmdir_paths = derive_rmdir_candidates(trash_paths + delete_paths)
 
         if trash_paths.empty? && delete_paths.empty?
-          opoo "No files found matching #{patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence}."
+          opoo "No files found matching #{format_patterns(patterns)}."
           puts "# No zap stanza required"
           return
         end
@@ -136,6 +132,14 @@ module Homebrew
         end
       end
 
+      sig { params(patterns: T::Array[String]).returns(String) }
+      def format_patterns(patterns)
+        quoted_patterns = patterns.map { |pattern| "\"#{pattern}\"" }
+        return quoted_patterns.fetch(0) if quoted_patterns.one?
+
+        "#{quoted_patterns.take(quoted_patterns.size - 1).join(", ")} and #{quoted_patterns.fetch(-1)}"
+      end
+
       sig { params(app_artifact: Cask::Artifact::App).returns(T::Array[String]) }
       def bundle_identifiers(app_artifact)
         info_plist = app_artifact.target/"Contents/Info.plist"
@@ -152,11 +156,12 @@ module Homebrew
         params(
           directories:   T::Array[String],
           home_relative: T::Boolean,
-          pattern:       String,
+          patterns:      T::Array[String],
         ).returns(T::Array[String])
       }
-      def scan_directories(directories, home_relative:, pattern:)
+      def scan_directories(directories, home_relative:, patterns:)
         home = Dir.home
+        downcased_patterns = patterns.map(&:downcase)
         matches = []
 
         directories.each do |dir|
@@ -164,7 +169,8 @@ module Homebrew
           next unless File.directory?(full_dir)
 
           Dir.each_child(full_dir) do |entry|
-            next unless entry.downcase.include?(pattern.downcase)
+            downcased_entry = entry.downcase
+            next unless downcased_patterns.any? { |pattern| downcased_entry.include?(pattern) }
 
             full_path = File.join(full_dir, entry)
             matches << normalize_path(full_path)
@@ -174,14 +180,17 @@ module Homebrew
         matches.uniq.sort
       end
 
-      sig { params(pattern: String).returns(T::Array[String]) }
-      def scan_home_root(pattern)
+      sig { params(patterns: T::Array[String]).returns(T::Array[String]) }
+      def scan_home_root(patterns)
         home = Dir.home
+        downcased_patterns = patterns.map(&:downcase)
         matches = []
 
         Dir.each_child(home) do |entry|
           next unless entry.start_with?(".")
-          next unless entry.downcase.include?(pattern.downcase)
+
+          downcased_entry = entry.downcase
+          next unless downcased_patterns.any? { |pattern| downcased_entry.include?(pattern) }
 
           matches << normalize_path(File.join(home, entry))
         end
