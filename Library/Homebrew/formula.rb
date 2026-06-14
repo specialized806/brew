@@ -2234,19 +2234,24 @@ class Formula
   #
   # @api public
   sig {
-    params(prefix:       T.any(String, Pathname),
-           release_mode: Symbol).returns(T::Array[String])
+    params(
+      prefix:       T.any(String, Pathname),
+      release_mode: Symbol,
+      cpu:          T.nilable(Symbol),
+    ).returns(T::Array[String])
   }
-  def std_zig_args(prefix: self.prefix, release_mode: :fast)
+  def std_zig_args(prefix: self.prefix, release_mode: :fast, cpu: nil)
     raise ArgumentError, "Invalid Zig release mode: #{release_mode}" if [:safe, :fast, :small].exclude?(release_mode)
 
+    cpu ||= Hardware.zig_cpu(ENV.effective_arch)
     release_mode_downcased = release_mode.to_s.downcase
     release_mode_capitalized = release_mode.to_s.capitalize
     [
       "--prefix", prefix.to_s,
       "--release=#{release_mode_downcased}",
       "-Doptimize=Release#{release_mode_capitalized}",
-      "--summary", "all"
+      "--summary", "all",
+      "-Dcpu=#{cpu}"
     ]
   end
 

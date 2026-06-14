@@ -3114,6 +3114,27 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_zig_args" do
+    let(:f) do
+      formula do
+        url "foo-1.0"
+      end
+    end
+
+    it "raises an error when provided an unknown release mode" do
+      expect { f.std_zig_args(release_mode: :test) }.to raise_error(ArgumentError)
+    end
+
+    it "includes equivalent Zig CPU for known target arch" do
+      allow(ENV).to receive(:effective_arch).and_return(:arm_vortex_tempest)
+      expect(f.std_zig_args).to include("-Dcpu=apple_m1")
+    end
+
+    it "allows overriding Zig CPU" do
+      expect(f.std_zig_args(cpu: :generic)).to include("-Dcpu=generic")
+    end
+  end
+
   describe "#common_sandbox_env" do
     let(:f) do
       formula do
