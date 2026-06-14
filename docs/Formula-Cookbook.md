@@ -578,6 +578,7 @@ prefix
 "-Doptimize=Release#{release_mode}"
 "--summary"
 "all"
+"-Dcpu=#{Hardware.zig_cpu(ENV.effective_arch)}"
 ```
 
 `release_mode` is a symbol that accepts only `:fast`, `:safe`, and `:small` values (with `:fast` being default).
