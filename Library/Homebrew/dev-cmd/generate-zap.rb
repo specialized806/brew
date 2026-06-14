@@ -3,10 +3,13 @@
 
 require "abstract_command"
 require "cask/cask_loader"
+require "system_command"
 
 module Homebrew
   module DevCmd
     class GenerateZap < AbstractCommand
+      include SystemCommand::Mixin
+
       cmd_args do
         description <<~EOS
           Generate a `zap` stanza for a cask by scanning the system for associated
@@ -87,17 +90,20 @@ module Homebrew
       def run
         input = args.named.fetch(0)
 
-        app_name = if args.name?
-          input
+        patterns = if args.name?
+          [input]
         else
-          resolve_app_name_from_cask(input)
+          resolve_patterns_from_cask(input)
         end
 
-        ohai "Scanning for files matching \"#{app_name}\"..."
+        ohai "Scanning for files matching #{patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence}..."
 
-        trash_paths  = scan_directories(USER_TRASH_PATHS, home_relative: true, pattern: app_name)
-        trash_paths += scan_home_root(app_name)
-        delete_paths = scan_directories(SYSTEM_DELETE_PATHS, home_relative: false, pattern: app_name)
+        trash_paths = patterns.flat_map do |pattern|
+          scan_directories(USER_TRASH_PATHS, home_relative: true, pattern:) + scan_home_root(pattern)
+        end
+        delete_paths = patterns.flat_map do |pattern|
+          scan_directories(SYSTEM_DELETE_PATHS, home_relative: false, pattern:)
+        end
 
         trash_paths  = replace_uuids(collapse_to_wildcards(trash_paths))
         delete_paths = replace_uuids(collapse_to_wildcards(delete_paths))
@@ -105,7 +111,7 @@ module Homebrew
         rmdir_paths = derive_rmdir_candidates(trash_paths + delete_paths)
 
         if trash_paths.empty? && delete_paths.empty?
-          opoo "No files found matching \"#{app_name}\"."
+          opoo "No files found matching #{patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence}."
           puts "# No zap stanza required"
           return
         end
@@ -115,17 +121,31 @@ module Homebrew
 
       private
 
-      sig { params(token: String).returns(String) }
-      def resolve_app_name_from_cask(token)
+      sig { params(token: String).returns(T::Array[String]) }
+      def resolve_patterns_from_cask(token)
         cask = Cask::CaskLoader.load(token)
 
         app_artifact = cask.artifacts.find { |a| a.is_a?(Cask::Artifact::App) }
         if app_artifact
-          app_artifact.target.basename(".app").to_s
+          patterns = [app_artifact.target.basename(".app").to_s]
+          patterns.concat(bundle_identifiers(app_artifact))
+          patterns.uniq
         else
           ohai "No app artifact found in cask \"#{token}\"; using token as app name."
-          token.tr("-", " ").split.map(&:capitalize).join(" ")
+          [token.tr("-", " ").split.map(&:capitalize).join(" ")]
         end
+      end
+
+      sig { params(app_artifact: Cask::Artifact::App).returns(T::Array[String]) }
+      def bundle_identifiers(app_artifact)
+        info_plist = app_artifact.target/"Contents/Info.plist"
+        return [] if !info_plist.exist? || !info_plist.readable?
+
+        plist = system_command!("plutil", args: ["-convert", "xml1", "-o", "-", info_plist]).plist
+        bundle_identifier = plist["CFBundleIdentifier"]
+        return [] unless bundle_identifier.is_a?(String)
+
+        [bundle_identifier]
       end
 
       sig {

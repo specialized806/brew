@@ -9,14 +9,36 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
 
   it_behaves_like "parseable arguments"
 
-  describe "#resolve_app_name_from_cask" do
+  describe "#resolve_patterns_from_cask" do
     it "resolves app name from a cask with an app artifact" do
       app = instance_double(Cask::Artifact::App, target: Pathname.new("TestCask.app"))
       allow(app).to receive(:is_a?).with(Cask::Artifact::App).and_return(true)
       cask = instance_double(Cask::Cask, artifacts: [app])
       allow(Cask::CaskLoader).to receive(:load).with("test-cask").and_return(cask)
 
-      expect(generate_zap.send(:resolve_app_name_from_cask, "test-cask")).to eq("TestCask")
+      expect(generate_zap.send(:resolve_patterns_from_cask, "test-cask")).to eq(["TestCask"])
+    end
+
+    it "resolves bundle identifier from an installed app artifact" do
+      Dir.mktmpdir do |tmpdir|
+        app_path = Pathname.new("#{tmpdir}/TestCask.app")
+        info_plist = app_path/"Contents/Info.plist"
+        info_plist.dirname.mkpath
+        info_plist.write("")
+
+        app = instance_double(Cask::Artifact::App, target: app_path)
+        result = instance_double(SystemCommand::Result, plist: { "CFBundleIdentifier" => "com.example.testcask" })
+        cask = instance_double(Cask::Cask, artifacts: [app])
+
+        allow(app).to receive(:is_a?).with(Cask::Artifact::App).and_return(true)
+        allow(Cask::CaskLoader).to receive(:load).with("test-cask").and_return(cask)
+        allow(generate_zap).to receive(:system_command!)
+          .with("plutil", args: ["-convert", "xml1", "-o", "-", info_plist])
+          .and_return(result)
+
+        expect(generate_zap.send(:resolve_patterns_from_cask, "test-cask"))
+          .to eq(["TestCask", "com.example.testcask"])
+      end
     end
 
     it "falls back to title-cased token when no app artifact exists" do
@@ -24,7 +46,7 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
 
       allow(Cask::CaskLoader).to receive(:load).with("test-cask").and_return(cask)
 
-      expect(generate_zap.send(:resolve_app_name_from_cask, "test-cask")).to eq("Test Cask")
+      expect(generate_zap.send(:resolve_patterns_from_cask, "test-cask")).to eq(["Test Cask"])
     end
   end
 
