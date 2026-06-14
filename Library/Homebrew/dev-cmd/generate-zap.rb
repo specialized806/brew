@@ -134,10 +134,7 @@ module Homebrew
 
       sig { params(patterns: T::Array[String]).returns(String) }
       def format_patterns(patterns)
-        quoted_patterns = patterns.map { |pattern| "\"#{pattern}\"" }
-        return quoted_patterns.fetch(0) if quoted_patterns.one?
-
-        "#{quoted_patterns.take(quoted_patterns.size - 1).join(", ")} and #{quoted_patterns.fetch(-1)}"
+        patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence
       end
 
       sig { params(app_artifact: Cask::Artifact::App).returns(T::Array[String]) }
