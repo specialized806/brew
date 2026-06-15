@@ -368,6 +368,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     cmd.run
   end
 
+  it "does not prompt for confirmation in dry-run mode" do
+    cmd = described_class.new(["--dry-run"])
+
+    expect(Homebrew::Install).not_to receive(:ask)
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], use_prefetched: false, show_upgrade_summary: false)
+      .ordered
+      .and_return(false)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .ordered
+      .and_return(false)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
+  end
+
   it "does not ask before upgrading only explicitly named formulae" do
     expect(Homebrew::Install.ask_prompt_needed?(
              planned_names:   ["testball"],
