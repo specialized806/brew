@@ -183,7 +183,7 @@ module Homebrew
         prefetched_cask_upgrades = T.let([], T::Array[String])
         @final_upgrade_summary = T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
         @ask_prompt_required = false
-        ask = !args.no_ask?
+        ask = !args.no_ask? && !args.dry_run?
         skip_upgrades_after_failed_ask_preview = T.let(false, T::Boolean)
 
         if args.named.present?
