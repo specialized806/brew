@@ -174,6 +174,7 @@ RSpec.describe Livecheck do
       # implemented.]
       livecheck_f.url(
         url_string,
+        compressed:    false,
         cookies:       { "cookie_key" => "cookie_value" },
         header:        "Accept: */*",
         homebrew_curl: true,
@@ -182,6 +183,7 @@ RSpec.describe Livecheck do
         user_agent:    :browser,
       )
       livecheck_f.url(url_string, post_json: post_hash)
+      expect(livecheck_f.options.compressed).to be(false)
       expect(livecheck_f.options.homebrew_curl).to be(true)
       expect(livecheck_f.options.post_form).to eq(post_hash)
       expect(livecheck_f.options.post_json).to eq(post_hash)
