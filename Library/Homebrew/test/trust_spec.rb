@@ -357,6 +357,24 @@ RSpec.describe Homebrew::Trust, :trust_store do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "does not warn about a partially trusted tap when other files are untrusted" do
+    tap = Tap.fetch("thirdparty", "foo")
+    trusted_path = tap.formula_dir/"trusted.rb"
+    untrusted_path = tap.formula_dir/"untrusted.rb"
+    trusted_path.dirname.mkpath
+    FileUtils.touch [trusted_path, untrusted_path]
+    described_class.trust!(:formula, "thirdparty/foo/trusted")
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { expect(described_class.trusted_formula_files([trusted_path, untrusted_path])).to eq([trusted_path]) }
+        .not_to output.to_stderr
+    end
+  ensure
+    described_class.clear!(:tap)
+    described_class.clear!(:formula)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
   it "does not store default trust when trust checks are disabled" do
     tap = Tap.fetch("thirdparty", "foo")
     formula_path = tap.formula_dir/"default-trust.rb"
