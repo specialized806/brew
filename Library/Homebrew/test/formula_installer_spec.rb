@@ -6,6 +6,7 @@ require "formula_installer"
 require "keg"
 require "sandbox"
 require "tab"
+require "trust"
 require "cmd/install"
 require "test/support/fixtures/testball"
 require "test/support/fixtures/testball_bottle"
@@ -1119,7 +1120,7 @@ RSpec.describe FormulaInstaller do
       end.to raise_error(CannotInstallFormulaError, /source code not found/)
     end
 
-    it "exposes local formula paths to the sandbox" do
+    it "exposes local formula and trust paths to the sandbox" do
       formula_path = mktmpdir/"homebrew-local-formula.rb"
       FileUtils.touch formula_path
       formula = formula("homebrew-local-formula", path: formula_path) do
@@ -1140,9 +1141,12 @@ RSpec.describe FormulaInstaller do
                                          network_access_allowed?: true)
       allow(Keg).to receive(:new).and_return(instance_double(Keg, empty_installation?: false))
 
-      expect(sandbox).to receive(:allow_read_if_exists).with(path: formula_path)
+      expect(sandbox).to receive(:allow_read_if_exists).with(path: formula_path).ordered
+      expect(sandbox).to receive(:allow_read_if_exists).with(path: Homebrew::Trust.trust_file).ordered
 
-      installer.build
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+        installer.build
+      end
     end
   end
 end

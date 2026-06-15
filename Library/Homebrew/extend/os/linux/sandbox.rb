@@ -236,7 +236,7 @@ module OS
           ohai "Configuring Bubblewrap..."
           command = [HOMEBREW_BREW_FILE, "setup-sandbox"]
           command.unshift("sudo") unless Process.euid.zero?
-          raise ErrorDuringExecution.new(command, status: $CHILD_STATUS) unless system(*command)
+          raise ErrorDuringExecution.new(command, status: $CHILD_STATUS || 1) unless system(*command)
 
           reset_state!
         end

@@ -1142,6 +1142,10 @@ on_request: installed_on_request?, options:)
     if Sandbox.available?
       sandbox = Sandbox.new
       sandbox.allow_read_if_exists path: formula_path
+      if Homebrew::EnvConfig.require_tap_trust?
+        require "trust"
+        sandbox.allow_read_if_exists path: Homebrew::Trust.trust_file
+      end
       formula.logs.mkpath
       sandbox.record_log(formula.logs/"build.sandbox.log")
       if interactive?
