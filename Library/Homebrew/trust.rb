@@ -255,12 +255,16 @@ module Homebrew
 
     sig { returns(T::Array[Tap]) }
     def self.wholly_untrusted_taps
-      untrusted_taps.reject do |tap|
-        trusted_entry_prefix?(:formula, tap) ||
-          trusted_entry_prefix?(:cask, tap) ||
-          trusted_entry_prefix?(:command, tap)
-      end
+      untrusted_taps.reject { |tap| partially_trusted_tap?(tap) }
     end
+
+    sig { params(tap: Tap).returns(T::Boolean) }
+    def self.partially_trusted_tap?(tap)
+      trusted_entry_prefix?(:formula, tap) ||
+        trusted_entry_prefix?(:cask, tap) ||
+        trusted_entry_prefix?(:command, tap)
+    end
+    private_class_method :partially_trusted_tap?
 
     sig { params(type: Symbol).returns(String) }
     def self.setting_key(type)
@@ -455,6 +459,8 @@ module Homebrew
 
       skipped_taps = (files - trusted_files).filter_map { |file| tap_from_path(file) }.uniq.sort_by(&:name)
       skipped_taps.each do |tap|
+        next if partially_trusted_tap?(tap)
+
         opoo "Skipping #{tap.name} because it is not trusted. Run `brew trust #{tap.name}` to trust it."
       end
 
