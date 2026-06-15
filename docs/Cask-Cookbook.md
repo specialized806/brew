@@ -753,19 +753,7 @@ The first argument to the `pkg` stanza should be a relative path to the `.pkg` f
 pkg "Unity.pkg"
 ```
 
-Subsequent arguments to `pkg` are key-value pairs which modify the install process. Currently supported keys are `allow_untrusted:` and `choices:`.
-
-#### `pkg` *allow_untrusted*
-
-`pkg allow_untrusted: true` can be used to install a `.pkg` containing an untrusted certificate by passing `-allowUntrusted` to `/usr/sbin/installer`.
-
-This option is not permitted in official Homebrew Cask taps; it is only provided for use in third-party taps or local casks.
-
-Historical example (from [alinof-timer.rb](https://github.com/Homebrew/homebrew-cask/blob/312ae841f1f1b2ec07f4d88b7dfdd7fbdf8d4f94/Casks/alinof-timer.rb#L10)):
-
-```ruby
-pkg "AlinofTimer.pkg", allow_untrusted: true
-```
+Subsequent arguments to `pkg` are key-value pairs which modify the install process. The only currently supported key is `choices:`.
 
 #### `pkg` *choices*
 
