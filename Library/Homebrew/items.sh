@@ -1,3 +1,9 @@
+# `opoo` is defined in utils.sh, which the early `formulae`/`casks` dispatch in
+# brew.sh runs before sourcing, so source it here for these commands.
+# HOMEBREW_LIBRARY is set by bin/brew
+# shellcheck disable=SC2154
+source "${HOMEBREW_LIBRARY}/Homebrew/utils.sh"
+
 homebrew-items() {
   local items
   local find_include_filter="$1"
