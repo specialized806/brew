@@ -7,16 +7,16 @@ require "erb"
 module Homebrew
   # Helper functions for generating homebrew manual.
   module Manpages
-    Variables = Struct.new(
-      :commands,
-      :developer_commands,
-      :environment_variables,
-      :global_cask_options,
-      :global_options,
-      :project_leader,
-      :lead_maintainers,
-      :maintainers,
-    )
+    class Variables < T::Struct
+      const :commands, String
+      const :developer_commands, String
+      const :environment_variables, String
+      const :global_cask_options, String
+      const :global_options, String
+      const :project_leader, String
+      const :lead_maintainers, String
+      const :maintainers, String
+    end
 
     SOURCE_PATH = T.let((HOMEBREW_LIBRARY_PATH/"manpages").freeze, Pathname)
     TARGET_MAN_PATH = T.let((HOMEBREW_REPOSITORY/"manpages").freeze, Pathname)
