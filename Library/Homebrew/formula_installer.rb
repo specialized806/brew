@@ -825,7 +825,8 @@ on_request: installed_on_request?, options:)
         names = deps_with_formulae.map do |dep, dep_formula|
           installed = dep_formula.any_version_installed?
           pretty_install_status(Formatter.identifier(dep), installed:,
-                                outdated: installed && dep_formula.outdated?, mark_uninstalled: false)
+                                outdated: installed && dep_formula.outdated?, mark_uninstalled: false,
+                                bold: false)
         end
         oh1 "Installing dependencies for #{formula.full_name}: #{names.to_sentence}", truncate: false
       end
