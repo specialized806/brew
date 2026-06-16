@@ -509,7 +509,10 @@ module Homebrew
           dependency = dep.to_formula
           next if skip_formula_names.include?(dependency.full_name)
 
-          yield dependency
+          name = yield dependency
+          installed = dependency.any_version_installed?
+          pretty_install_status(name, installed:, outdated: installed && dependency.outdated?,
+                                mark_uninstalled: false)
         end
         return if formula_names.empty?
 

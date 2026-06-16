@@ -820,12 +820,16 @@ on_request: installed_on_request?, options:)
     if deps.empty? && only_deps?
       puts "All dependencies for #{formula.full_name} are satisfied."
     elsif !deps.empty?
+      deps_with_formulae = deps.map { |dep| [dep, dep.to_formula] }
       if deps.length > 1
-        oh1 "Installing dependencies for #{formula.full_name}: " \
-            "#{deps.map { Formatter.identifier(it) }.to_sentence}",
-            truncate: false
+        names = deps_with_formulae.map do |dep, dep_formula|
+          installed = dep_formula.any_version_installed?
+          pretty_install_status(Formatter.identifier(dep), installed:,
+                                outdated: installed && dep_formula.outdated?, mark_uninstalled: false)
+        end
+        oh1 "Installing dependencies for #{formula.full_name}: #{names.to_sentence}", truncate: false
       end
-      deps.each { install_dependency(it) }
+      deps_with_formulae.each { |dep, dep_formula| install_dependency(dep, dep_formula) }
     end
 
     @show_header = true if deps.length > 1
@@ -856,12 +860,10 @@ on_request: installed_on_request?, options:)
     fi.enqueue_fetch
   end
 
-  sig { params(dep: Dependency).void }
-  def install_dependency(dep)
-    df = dep.to_formula
-
-    if df.linked_keg.directory?
-      linked_keg = Keg.new(df.linked_keg.resolved_path)
+  sig { params(dep: Dependency, dep_formula: Formula).void }
+  def install_dependency(dep, dep_formula = dep.to_formula)
+    if dep_formula.linked_keg.directory?
+      linked_keg = Keg.new(dep_formula.linked_keg.resolved_path)
       tab = linked_keg.tab
       keg_had_linked_keg = true
       keg_was_linked = linked_keg.linked?
@@ -870,31 +872,31 @@ on_request: installed_on_request?, options:)
       keg_had_linked_keg = false
     end
 
-    if df.latest_version_installed?
-      installed_keg = Keg.new(df.prefix)
+    if dep_formula.latest_version_installed?
+      installed_keg = Keg.new(dep_formula.prefix)
       tab ||= installed_keg.tab
       tmp_keg = Pathname.new("#{installed_keg}.tmp")
       installed_keg.rename(tmp_keg) unless tmp_keg.directory?
     end
 
-    if df.tap.present? && tab.present? && (tab_tap = tab.source["tap"].presence) &&
-       df.tap.to_s != tab_tap.to_s
+    if dep_formula.tap.present? && tab.present? && (tab_tap = tab.source["tap"].presence) &&
+       dep_formula.tap.to_s != tab_tap.to_s
       odie <<~EOS
-        #{df} is already installed from #{tab_tap}!
-        Please `brew uninstall #{df}` first."
+        #{dep_formula} is already installed from #{tab_tap}!
+        Please `brew uninstall #{dep_formula}` first."
       EOS
     end
 
     options = Options.new
     options |= tab.used_options if tab.present?
-    options |= Tab.remap_deprecated_options(df.deprecated_options, dep.options)
-    options &= df.options
+    options |= Tab.remap_deprecated_options(dep_formula.deprecated_options, dep.options)
+    options &= dep_formula.options
 
-    installed_on_request = df.any_version_installed? && tab.present? && tab.installed_on_request
+    installed_on_request = dep_formula.any_version_installed? && tab.present? && tab.installed_on_request
     installed_on_request ||= false
 
     fi = FormulaInstaller.new(
-      df,
+      dep_formula,
       options:,
       link_keg:                   keg_had_linked_keg && keg_was_linked,
       installed_on_request:,
