@@ -1437,9 +1437,8 @@ RSpec.describe Homebrew::FormulaAuditor do
       foo_path.write(test_formula_source(name: "foo"))
       allow(tap).to receive(:formula_files_by_name)
         .and_return({ "foo" => foo_path, "bar" => tap_path/"Formula/bar.rb" })
-      allow(Utils::Git).to receive(:git).and_return("git")
       allow(Utils).to receive(:popen_read).and_call_original
-      allow(Utils).to receive(:popen_read).with("git", "-C", tap.path, "merge-base", "origin/HEAD", "HEAD")
+      allow(Utils).to receive(:popen_read).with(Utils::Git.git, "-C", tap.path, "merge-base", "origin/HEAD", "HEAD")
                                           .and_return("merge-base-sha\n")
       allow(Utils).to receive(:safe_popen_read).and_return("Formula/f/foo.rb\n")
 
@@ -1452,11 +1451,11 @@ RSpec.describe Homebrew::FormulaAuditor do
       foo_path.dirname.mkpath
       foo_path.write(test_formula_source(name: "foo"))
       allow(tap).to receive(:formula_files_by_name).and_return({ "foo" => foo_path })
-      allow(Utils::Git).to receive(:git).and_return("git")
       allow(Utils).to receive(:popen_read).and_call_original
-      allow(Utils).to receive(:popen_read).with("git", "-C", tap.path, "merge-base", "origin/HEAD", "HEAD")
+      allow(Utils).to receive(:popen_read).with(Utils::Git.git, "-C", tap.path, "merge-base", "origin/HEAD", "HEAD")
                                           .and_return("merge-base-sha\n")
-      expect(Utils).to receive(:safe_popen_read).with("git", "-C", tap.path, "diff", "--name-only", "merge-base-sha")
+      expect(Utils).to receive(:safe_popen_read).with(Utils::Git.git, "-C", tap.path, "diff", "--name-only",
+                                                      "merge-base-sha")
                                                 .and_return("Formula/f/foo.rb\n")
 
       expect(auditor.send(:changed_formulae_paths, tap, only_names: ["foo"])).to eq([foo_path])
@@ -1486,9 +1485,8 @@ RSpec.describe Homebrew::FormulaAuditor do
     let(:formula_versions) { instance_double(FormulaVersions) }
 
     it "walks history from the merge-base with origin/HEAD" do
-      allow(Utils::Git).to receive(:git).and_return("git")
       allow(Utils).to receive(:popen_read).and_call_original
-      allow(Utils).to receive(:popen_read).with("git", "-C", tap.path, "merge-base", "origin/HEAD", "HEAD")
+      allow(Utils).to receive(:popen_read).with(Utils::Git.git, "-C", tap.path, "merge-base", "origin/HEAD", "HEAD")
                                           .and_return("merge-base-sha\n")
       allow(FormulaVersions).to receive(:new).with(target_formula).and_return(formula_versions)
       expect(formula_versions).to receive(:rev_list).with("merge-base-sha")
