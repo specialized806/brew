@@ -246,6 +246,94 @@ RSpec.describe Homebrew::Trust, :trust_store do
     described_class.clear!(:tap)
   end
 
+  it "creates the trust store directory with user-only permissions" do
+    trust_file = described_class.trust_file
+    FileUtils.rm_rf trust_file.dirname
+    old_umask = T.let(nil, T.nilable(Integer))
+    old_umask = File.umask(0002)
+
+    described_class.trust!(:tap, "thirdparty/foo")
+
+    expect(trust_file.dirname.stat.mode & 0777).to eq(0700)
+  ensure
+    File.umask(old_umask) if old_umask
+    described_class.clear!(:tap)
+  end
+
+  it "rejects a trust store in a group-writable directory" do
+    trust_file = T.let(nil, T.nilable(Pathname))
+    trust_file = described_class.trust_file
+    trust_file.dirname.chmod(0770)
+
+    expect { described_class.trust!(:tap, "thirdparty/foo") }
+      .to raise_error(Homebrew::InsecureTrustStoreError, /Refusing to write insecure trust store/)
+  ensure
+    if trust_file
+      trust_file.dirname.chmod(0700) if trust_file.dirname.exist?
+      FileUtils.rm_f trust_file
+    end
+  end
+
+  it "rejects a group-writable trust store" do
+    trust_file = T.let(nil, T.nilable(Pathname))
+    trust_file = described_class.trust_file
+    trust_file.write(JSON.generate({ trustedtaps: ["thirdparty/foo"] }))
+    trust_file.chmod(0660)
+
+    expect { described_class.trust!(:tap, "thirdparty/bar") }
+      .to raise_error(Homebrew::InsecureTrustStoreError, /Refusing to write insecure trust store/)
+  ensure
+    trust_file.chmod(0600) if trust_file&.exist?
+    FileUtils.rm_f trust_file if trust_file
+  end
+
+  it "writes a symlinked trust store through to its target" do
+    trust_file = described_class.trust_file
+    target_dir = T.let(nil, T.nilable(Pathname))
+    target_dir = Pathname(TEST_TMPDIR)/"trust-target"
+    target_dir.mkpath
+    target_file = target_dir/"trust.json"
+    target_file.write(JSON.generate({ trustedtaps: ["thirdparty/foo"] }))
+    FileUtils.ln_s target_file, trust_file
+
+    described_class.trust!(:tap, "thirdparty/bar")
+
+    expect(trust_file).to be_a_symlink
+    expect(JSON.parse(target_file.read).fetch("trustedtaps")).to eq(["thirdparty/bar", "thirdparty/foo"])
+  ensure
+    described_class.clear!(:tap)
+    FileUtils.rm_rf target_dir if target_dir
+  end
+
+  it "rejects a symlinked trust store in a group-writable directory" do
+    trust_file = described_class.trust_file
+    target_dir = T.let(nil, T.nilable(Pathname))
+    target_dir = Pathname(TEST_TMPDIR)/"trust-target"
+    target_dir.mkpath
+    target_dir.chmod(0770)
+    FileUtils.ln_s target_dir/"trust.json", trust_file
+
+    expect { described_class.trust!(:tap, "thirdparty/foo") }
+      .to raise_error(Homebrew::InsecureTrustStoreError, /Refusing to write insecure trust store/)
+  ensure
+    target_dir.chmod(0700) if target_dir&.exist?
+    FileUtils.rm_rf target_dir if target_dir
+  end
+
+  it "rejects a symlinked trust store pointing to another symlink" do
+    trust_file = described_class.trust_file
+    target_dir = T.let(nil, T.nilable(Pathname))
+    target_dir = Pathname(TEST_TMPDIR)/"trust-target"
+    target_dir.mkpath
+    FileUtils.ln_s target_dir/"real-trust.json", target_dir/"trust.json"
+    FileUtils.ln_s target_dir/"trust.json", trust_file
+
+    expect { described_class.trust!(:tap, "thirdparty/foo") }
+      .to raise_error(Homebrew::InsecureTrustStoreError, /Refusing to write insecure trust store/)
+  ensure
+    FileUtils.rm_rf target_dir if target_dir
+  end
+
   it "requires third-party taps by default" do
     described_class.clear!(:tap)
     tap = Tap.fetch("thirdparty", "foo")
