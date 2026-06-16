@@ -16,7 +16,9 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
 
       allow(generate_zap).to receive(:scan_directories).and_raise(Errno::EACCES, protected_path)
       allow(Cask::Utils).to receive(:full_disk_access_enabled?).and_return(false)
-      allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:ventura))
+      allow(Cask::Utils).to receive(:privacy_security_preference_pane)
+        .with("Full Disk Access")
+        .and_return("System Settings -> Privacy & Security -> Full Disk Access")
 
       expect do
         generate_zap.run
