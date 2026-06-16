@@ -165,6 +165,8 @@ module Formulary
 
     class_name = class_s(name)
 
+    # The formula's class name and module constants are only known at runtime.
+    # rubocop:disable Sorbet/ConstantsFromStrings
     begin
       mod.const_get(class_name)
     rescue NameError => e
@@ -175,6 +177,7 @@ module Formulary
       remove_const(namespace)
       raise new_exception, "", e.backtrace
     end
+    # rubocop:enable Sorbet/ConstantsFromStrings
   ensure
     # TODO: Make printing to stdout an error so that we can print a tap name.
     #       See discussion at https://github.com/Homebrew/brew/pull/20226#discussion_r2195886888

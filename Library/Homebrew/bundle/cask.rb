@@ -11,10 +11,13 @@ module Homebrew
     class Cask < Homebrew::Bundle::PackageType
       extend ::Utils::Output::Mixin
 
-      PACKAGE_TYPE = :cask
-      PACKAGE_TYPE_NAME = "Cask"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :cask
+
+        sig { override.returns(String) }
+        def check_label = "Cask"
+
         sig { override.void }
         def reset!
           @casks = T.let(nil, T.nilable(T::Array[::Cask::Cask]))

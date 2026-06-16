@@ -139,9 +139,8 @@ begin
     Homebrew.require?(external_ruby_cmd_path)
     exit Homebrew.failed? ? 1 : 0
   elsif external_cmd_path
-    %w[CACHE LIBRARY_PATH].each do |env|
-      ENV["HOMEBREW_#{env}"] = Object.const_get(:"HOMEBREW_#{env}").to_s
-    end
+    ENV["HOMEBREW_CACHE"] = HOMEBREW_CACHE.to_s
+    ENV["HOMEBREW_LIBRARY_PATH"] = HOMEBREW_LIBRARY_PATH.to_s
     exec external_cmd_path.to_s, *ARGV
   else
     raise UsageError, "Unknown command: brew #{cmd}"
