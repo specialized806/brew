@@ -8,6 +8,7 @@ require "utils"
 require "utils/output"
 
 module Homebrew
+  class InsecureTrustStoreError < RuntimeError; end
   class UntrustedTapError < RuntimeError; end
 
   module Trust
@@ -388,17 +389,74 @@ module Homebrew
 
     sig { params(store: T::Hash[String, T::Array[String]]).void }
     def self.write_trust_store(store)
-      trust_path = trust_file
+      write_path = trust_file
+      if write_path.symlink?
+        link_parent = write_path.dirname.realpath
+        assert_secure_trust_store_path!(link_parent, link_parent.stat, "symlink directory")
+        if write_path.lstat.uid != Process.euid
+          raise InsecureTrustStoreError,
+                "Refusing to write insecure trust store: symlink #{write_path} is not owned by the current user."
+        end
+        target_path = write_path.readlink
+        target_path = write_path.dirname/target_path unless target_path.absolute?
+        target_parent = target_path.dirname.realpath
+        assert_secure_trust_store_path!(target_parent, target_parent.stat, "target directory")
+        write_path = target_parent/target_path.basename
+        if write_path.symlink?
+          raise InsecureTrustStoreError,
+                "Refusing to write insecure trust store: target is a symlink."
+        end
+        if write_path.exist?
+          assert_secure_trust_store_path!(write_path, write_path.stat, "target")
+          unless write_path.file?
+            raise InsecureTrustStoreError,
+                  "Refusing to write insecure trust store: target is not a regular file."
+          end
+        end
+      else
+        ensure_secure_trust_store_directory!(write_path.dirname, "trust store directory")
+        if write_path.exist?
+          assert_secure_trust_store_path!(write_path, write_path.stat, "trust store")
+          unless write_path.file?
+            raise InsecureTrustStoreError,
+                  "Refusing to write insecure trust store: trust store is not a regular file."
+          end
+        end
+      end
       if store.empty?
-        trust_path.unlink if trust_path.exist?
+        write_path.unlink if write_path.exist?
         return
       end
 
-      trust_path.dirname.mkpath
-      trust_path.atomic_write("#{JSON.pretty_generate(store)}\n")
-      trust_path.chmod(0600)
+      write_path.atomic_write("#{JSON.pretty_generate(store)}\n")
+      write_path.chmod(0600)
+    rescue Errno::ENOENT
+      raise InsecureTrustStoreError, "Refusing to write insecure trust store: target directory does not exist."
     end
     private_class_method :write_trust_store
+
+    sig { params(path: Pathname, description: String).void }
+    def self.ensure_secure_trust_store_directory!(path, description)
+      existed = path.exist?
+      path.mkpath
+      path.chmod(0700) unless existed
+      assert_secure_trust_store_path!(path, path.stat, description)
+    end
+    private_class_method :ensure_secure_trust_store_directory!
+
+    sig { params(path: Pathname, stat: File::Stat, description: String).void }
+    def self.assert_secure_trust_store_path!(path, stat, description)
+      if stat.uid != Process.euid
+        raise InsecureTrustStoreError,
+              "Refusing to write insecure trust store: #{description} #{path} is not owned by the current user."
+      end
+
+      return if stat.mode.nobits?(022)
+
+      raise InsecureTrustStoreError,
+            "Refusing to write insecure trust store: #{description} #{path} is group or world writable."
+    end
+    private_class_method :assert_secure_trust_store_path!
 
     # Serialises trust store mutations so concurrent processes or threads
     # (e.g. parallel `brew bundle` installs) cannot lose entries in the
@@ -408,7 +466,7 @@ module Homebrew
     }
     def self.with_trust_store_lock(&_block)
       lock_path = Pathname.new("#{trust_file}.lock")
-      lock_path.dirname.mkpath
+      ensure_secure_trust_store_directory!(lock_path.dirname, "trust store directory")
       File.open(lock_path, File::RDWR | File::CREAT, 0600) do |lock_file|
         lock_file.flock(File::LOCK_EX)
         yield
