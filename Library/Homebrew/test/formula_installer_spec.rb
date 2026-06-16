@@ -240,6 +240,32 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#install_dependencies" do
+    it "marks only outdated dependencies as upgradable in the header" do
+      outdated = formula "outdated-dependency" do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      uninstalled = formula "uninstalled-dependency" do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      allow(outdated).to receive_messages(any_version_installed?: true, outdated?: true)
+      allow(uninstalled).to receive_messages(any_version_installed?: false, outdated?: false)
+      deps = [
+        instance_double(Dependency, to_formula: outdated, name: outdated.name, to_s: outdated.name),
+        instance_double(Dependency, to_formula: uninstalled, name: uninstalled.name, to_s: uninstalled.name),
+      ]
+      installer = described_class.new(Testball.new)
+      allow(installer).to receive(:install_dependency)
+      allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+      allow(Homebrew::EnvConfig).to receive(:no_emoji?).and_return(true)
+
+      expect { installer.install_dependencies(deps) }
+        .to output(/outdated-dependency.*\(upgradable\).*and.*uninstalled-dependency[^(]*$/m).to_stdout
+    end
+  end
+
   describe "versioned keg-only linking defaults" do
     let(:base_name) { "homebrew-versioned-formula" }
     let(:formula_name) { "#{base_name}@1.0" }
