@@ -837,6 +837,27 @@ RSpec.describe Formulary do
         described_class.to_rack("a/b/#{formula_name}")
       end.to raise_error(TapFormulaUnavailableError)
     end
+
+    it "locates an installed Rack from an untrusted tap without evaluating its formula" do
+      tap = Tap.fetch("untrustedrack", "foo")
+      formula_path = tap.formula_dir/"#{formula_name}.rb"
+      formula_path.dirname.mkpath
+      eval_marker = mktmpdir/"evaluated"
+      formula_path.write <<~RUBY
+        class #{described_class.class_s(formula_name)} < Formula
+          url "https://brew.sh/#{formula_name}-1.0.tar.gz"
+          File.write("#{eval_marker}", "evaluated")
+        end
+      RUBY
+      rack_path.mkpath
+
+      with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1", HOMEBREW_USER_CONFIG_HOME: mktmpdir) do
+        expect(described_class.to_rack("#{tap.name}/#{formula_name}")).to eq(rack_path)
+        expect(eval_marker).not_to exist
+      end
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"untrustedrack"
+    end
   end
 
   describe "::core_path" do
