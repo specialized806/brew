@@ -651,6 +651,8 @@ on_request: installed_on_request?, options:)
   sig { void }
   def check_conflicts
     return if force?
+    return if skip_link?
+    return unless link_keg
 
     conflicts = formula.conflicts.select do |c|
       f = Formulary.factory(c.name)

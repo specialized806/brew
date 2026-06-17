@@ -240,6 +240,67 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#check_conflicts" do
+    let(:test_formula) do
+      formula "testball" do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/testball-0.1.tar.gz"
+        conflicts_with "other"
+      end
+    end
+
+    let(:conflicting_formula) do
+      formula "other" do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/other-0.1.tar.gz"
+        conflicts_with "testball"
+      end
+    end
+
+    before { allow(Formulary).to receive(:factory).with("other").and_return(conflicting_formula) }
+
+    context "when conflicting formula is installed but not linked" do
+      before do
+        linked_keg = instance_double(Pathname, exist?: false)
+        opt_prefix = instance_double(Pathname, exist?: true)
+        allow(conflicting_formula).to receive_messages(linked_keg:, opt_prefix:)
+      end
+
+      it "does not raise an error" do
+        installer = described_class.new(test_formula, link_keg: true)
+        expect { installer.check_conflicts }.not_to raise_error
+      end
+    end
+
+    context "when conflicting formula is installed" do
+      before do
+        linked_keg = opt_prefix = instance_double(Pathname, exist?: true)
+        allow(conflicting_formula).to receive_messages(linked_keg:, opt_prefix:)
+      end
+
+      it "raises an error if linking keg" do
+        installer = described_class.new(test_formula, link_keg: true)
+        expect { installer.check_conflicts }.to raise_error(FormulaConflictError)
+      end
+
+      it "does not raise an error with force set" do
+        installer = described_class.new(test_formula, link_keg: true, force: true)
+        expect { installer.check_conflicts }.not_to raise_error
+      end
+
+      it "does not raise an error with skip_link set" do
+        installer = described_class.new(test_formula, link_keg: true, skip_link: true)
+        expect { installer.check_conflicts }.not_to raise_error
+      end
+
+      it "does not raise an error if not linking keg" do
+        allow(test_formula).to receive(:keg_only?).and_return(true)
+        installer = described_class.new(test_formula, link_keg: false, installed_on_request: false)
+        expect { installer.check_conflicts }.not_to raise_error
+      end
+    end
+  end
+
   describe "#install_dependencies" do
     it "marks only outdated dependencies as upgradable in the header" do
       outdated = formula "outdated-dependency" do
