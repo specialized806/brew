@@ -978,17 +978,9 @@ on_request: installed_on_request?, options:)
     ohai "Finishing up" if verbose?
 
     keg = Keg.new(formula.prefix)
-    if skip_link?
-      unless quiet?
-        ohai "Skipping 'link' on request"
-        puts "You can run it manually using:"
-        puts "  brew link #{formula.full_name}"
-      end
-    else
-      link(keg)
-      warning = link_manual_command_warning
-      opoo warning if !quiet? && warning.present?
-    end
+    link(keg)
+    warning = link_manual_command_warning
+    opoo warning if !quiet? && warning.present?
 
     install_service
 
@@ -1206,9 +1198,13 @@ on_request: installed_on_request?, options:)
     if cask_installed_with_formula_name
       ohai "#{formula.name} cask is installed, skipping link."
       @link_keg = false
+    elsif skip_link? && !quiet?
+      ohai "Skipping 'link' on request"
+      puts "You can run it manually using:"
+      puts "  brew link #{formula.full_name}"
     end
 
-    unless link_keg
+    if !link_keg || skip_link?
       begin
         keg.optlink(verbose: verbose?, overwrite: overwrite?)
       rescue Keg::LinkError => e
