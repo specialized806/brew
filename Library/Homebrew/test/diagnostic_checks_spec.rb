@@ -127,19 +127,34 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     tap = instance_double(Tap, name: "thirdparty/foo")
     rack = HOMEBREW_CELLAR/"bar"
     keg = instance_double(Keg, tab: instance_double(Tab, tap:))
+    cask = instance_double(Cask::Cask, token: "baz", tab: instance_double(Cask::Tab, tap:))
     allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
     allow(Formula).to receive(:racks).and_return([rack])
     allow(Keg).to receive(:from_rack).with(rack).and_return(keg)
+    allow(Cask::Caskroom).to receive(:casks).and_return([cask])
 
     with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-      expect(checks.check_untrusted_taps)
-        .to include(
-          "Homebrew is currently ignoring formulae, casks and commands from these taps " \
-          "because tap trust is required.",
-          "brew untap thirdparty/foo",
-          "brew trust thirdparty/foo",
-          "brew trust --formula thirdparty/foo/bar",
-          "Prefer trusting only the specific formulae, casks or commands you need.",
+      check_untrusted_taps = checks.check_untrusted_taps
+      expect(check_untrusted_taps).to include <<~EOS
+        Homebrew is currently ignoring formulae, casks and commands from these taps because tap trust is required.
+        Prefer trusting only the specific formulae, casks or commands you need.
+        Trust installed formulae from these taps with:
+          brew trust --formula thirdparty/foo/bar
+        Trust installed casks from these taps with:
+          brew trust --cask thirdparty/foo/baz
+        Trust other specific commands with:
+          brew trust --command <user>/<tap>/<command>
+      EOS
+
+      expect(check_untrusted_taps).to include(
+        "brew untap thirdparty/foo",
+        "brew trust thirdparty/foo",
+        Formatter.url("https://docs.brew.sh/Tap-Trust"),
+      )
+      expect(check_untrusted_taps)
+        .not_to include(
+          "brew trust --formula <user>/<tap>/<formula>",
+          "brew trust --cask <user>/<tap>/<cask>",
         )
     end
   end
@@ -148,14 +163,17 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     tap = instance_double(Tap, name: "thirdparty/foo")
     allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
     allow(Formula).to receive(:racks).and_return([])
+    allow(Cask::Caskroom).to receive(:casks).and_return([])
 
     with_env(HOMEBREW_REQUIRE_TAP_TRUST: nil, HOMEBREW_NO_REQUIRE_TAP_TRUST: nil) do
       expect(checks.check_untrusted_taps)
         .to include(
           "Homebrew is currently ignoring formulae, casks and commands from these taps " \
           "because tap trust is required.",
+          Formatter.url("https://docs.brew.sh/Tap-Trust"),
           "brew untap thirdparty/foo",
           "brew trust thirdparty/foo",
+          "If you intentionally trust an entire tap",
           "export HOMEBREW_NO_REQUIRE_TAP_TRUST=1",
           "This is not recommended and will be removed in a later release.",
           "Prefer trusting only the specific formulae, casks or commands you need.",
