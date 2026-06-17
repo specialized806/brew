@@ -192,7 +192,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
       bump.send(:retrieve_and_display_info_and_open_pr, c_basic, "basic-cask", [], ambiguous_cask: false)
     end
 
-    it "passes a single version argument when an arch-specific cask moves to one version" do
+    it "passes arch-specific version arguments when an arch-specific cask moves to one version" do
       version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
         type:                          :cask,
         deprecated:                    { arm: false, intel: false },
@@ -256,11 +256,11 @@ RSpec.describe Homebrew::DevCmd::Bump do
   end
 
   describe "::version_args_for_bump" do
-    let(:current_general) { Homebrew::BumpVersionParser.new(general: "26.519.41501") }
+    let(:current_general) { Homebrew::BumpVersionParser.new(general: "1.2.5") }
     let(:new_split) do
       Homebrew::BumpVersionParser.new(
-        arm:   "26.519.81530",
-        intel: "26.519.41501",
+        arm:   "1.2.6",
+        intel: "1.2.5",
       )
     end
     let(:current_split) do
@@ -277,8 +277,8 @@ RSpec.describe Homebrew::DevCmd::Bump do
                   current_version:   current_general,
                   new_version:       new_split,
                   multiple_versions: { current: false, new: true },
-                  name:              "codex-app"),
-      ).to eq(["--version-arm=26.519.81530"])
+                  name:              "foo"),
+      ).to eq(["--version-arm=1.2.6"])
     end
 
     it "emits arch arguments for both architectures when split cask versions merge" do
@@ -318,7 +318,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
     it "ignores message versions in arch-specific routing" do
       new_split = Homebrew::BumpVersionParser.new(
-        arm:   "26.519.81530",
+        arm:   "1.2.6",
         intel: "skipped",
       )
 
@@ -328,7 +328,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
                   new_version:       new_split,
                   multiple_versions: { current: false, new: true },
                   name:              "foo"),
-      ).to eq(["--version-arm=26.519.81530"])
+      ).to eq(["--version-arm=1.2.6"])
     end
   end
 

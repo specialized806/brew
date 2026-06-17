@@ -482,6 +482,46 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
       RUBY
     end
 
+    it "updates arch-specific version and no_check checksum stanzas when new version is general" do
+      contents = <<~RUBY
+        cask "foo" do
+          on_arm do
+            version "1.0"
+            sha256 :no_check
+          end
+
+          on_intel do
+            version "1.5"
+            sha256 :no_check
+          end
+
+          url "https://brew.sh/foo-\#{version}.dmg"
+          name "Foo"
+        end
+      RUBY
+      cask = cask_from_contents(contents)
+      new_version = Homebrew::BumpVersionParser.new(general: "2.0")
+
+      expect(
+        bump_cask_pr.send(:replace_version_and_checksum, cask, new_hash, new_version, contents),
+      ).to eq <<~RUBY
+        cask "foo" do
+          on_arm do
+            version "2.0"
+            sha256 "#{new_hash}"
+          end
+
+          on_intel do
+            version "2.0"
+            sha256 "#{new_hash}"
+          end
+
+          url "https://brew.sh/foo-\#{version}.dmg"
+          name "Foo"
+        end
+      RUBY
+    end
+
     it "leaves nested architecture stanzas unchanged when matching values could be replaced globally" do
       contents = <<~RUBY
         cask "foo" do

@@ -649,13 +649,6 @@ module Utils
         return if stanza_node.blank?
 
         indent = " " * stanza_node.source_range.column
-        replacement = [
-          "#{indent}on_arm do",
-          "#{indent}  #{name} #{ruby_literal(old_value)}",
-          "#{indent}end",
-          "#{indent}on_intel do",
-          "#{indent}  #{name} #{ruby_literal(old_value)}",
-          "#{indent}end",
         replacement = <<~EOS
           #{indent}on_arm do
           #{indent}  #{name} #{ruby_literal(old_value)}
@@ -664,7 +657,7 @@ module Utils
           #{indent}  #{name} #{ruby_literal(old_value)}
           #{indent}end
         EOS
-        tree_rewriter.replace(whole_line_range(stanza_node.source_range), "#{replacement}\n")
+        tree_rewriter.replace(whole_line_range(stanza_node.source_range), replacement)
       end
 
       sig { returns(T::Boolean) }
