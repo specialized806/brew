@@ -40,27 +40,27 @@ and external commands from that tap being loaded by Homebrew.
 Installing a fully-qualified formula or cask name trusts only that item:
 
 ```sh
-brew install user/repo/formula
-brew install --cask user/repo/cask
+brew install user/repository/formula
+brew install --cask user/repository/cask
 ```
 
 To install by short name from a tapped repository, trust the specific item
 first:
 
 ```sh
-brew tap user/repo
-brew trust --formula user/repo/formula
+brew tap user/repository
+brew trust --formula user/repository/formula
 brew install formula
 ```
 
-Use `brew trust --cask user/repo/cask` for casks and
-`brew trust --command user/repo/command` for external commands.
+Use `brew trust --cask user/repository/cask` for casks and
+`brew trust --command user/repository/command` for external commands.
 
 You can also trust the whole tap:
 
 ```sh
-brew tap user/repo
-brew trust user/repo
+brew tap user/repository
+brew trust user/repository
 brew install formula
 ```
 
@@ -72,19 +72,8 @@ you need.
 
 ## Trusting in a `Brewfile`
 
-You can declare trust in a [`Brewfile`](Brew-Bundle-and-Brewfile.md) with
-`trusted: true` on `tap`, `brew` and `cask` entries:
-
-```ruby
-tap "user/repo", trusted: true
-brew "user/repo/formula", trusted: true
-cask "user/repo/cask", trusted: true
-```
-
-`brew bundle` trusts each entry before installing it, so non-official taps,
-formulae and casks load even when tap trust is required. As on the command line,
-prefer trusting the specific formula or cask you need over the whole tap.
-`brew bundle dump` writes `trusted: true` for entries you have already trusted.
+For `Brewfile` trust syntax and `brew bundle` dump and cleanup behaviour, see
+the [`trusted` section of the Homebrew Bundle documentation](Brew-Bundle-and-Brewfile.md#trusted).
 
 ## Managing trust
 
@@ -103,8 +92,8 @@ brew untrust
 Stop trusting a tap or item:
 
 ```sh
-brew untrust user/repo
-brew untrust --formula user/repo/formula
+brew untrust user/repository
+brew untrust --formula user/repository/formula
 ```
 
 A trusted tap behaves as it did before tap trust checks were introduced. An

@@ -30,11 +30,25 @@ module Homebrew
         selected_package_types[:tap] = taps
         selected_package_types[:brew] = formulae
         selected_package_types[:cask] = casks
+        dumped_formulae = if formulae
+          Homebrew::Bundle::Brew.formulae.filter_map { |f| f[:full_name] if f[:installed_on_request?] }
+        else
+          []
+        end
+        dumped_casks = if casks
+          Homebrew::Bundle::Cask.casks.map(&:full_name)
+        else
+          []
+        end
         content = []
         Homebrew::Bundle.dump_package_types.select(&:dump_supported?).each do |package_type|
           next unless selected_package_types.fetch(package_type.type, false)
 
-          content << package_type.dump_output(describe:, no_restart:)
+          content << if package_type == Homebrew::Bundle::Tap
+            Homebrew::Bundle::Tap.dump(dumped_formulae:, dumped_casks:)
+          else
+            package_type.dump_output(describe:, no_restart:)
+          end
         end
         "#{content.reject(&:empty?).join("\n")}\n"
       end

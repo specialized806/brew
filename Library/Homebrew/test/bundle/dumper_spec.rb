@@ -54,6 +54,43 @@ RSpec.describe Homebrew::Bundle::Dumper do
            )).to eql("cask \"google-chrome\"\ncask \"java\"\ncask \"homebrew/cask-versions/iterm2-beta\"\n")
   end
 
+  it "dumps tap trust entries not represented by dumped formulae" do
+    tap = instance_double(Tap, name: "thirdparty/tap", custom_remote?: false, remote: nil)
+    allow(tap).to receive(:matches_reference?) { |reference| reference == "thirdparty/tap" }
+    allow(Tap).to receive(:select).and_return([tap])
+    allow(Homebrew::Bundle::Brew).to receive(:formulae).and_return([
+      {
+        args:                  [],
+        full_name:             "thirdparty/tap/requested",
+        installed_on_request?: true,
+        link?:                 nil,
+      },
+      {
+        args:                  [],
+        full_name:             "thirdparty/tap/dependency",
+        installed_on_request?: false,
+        link?:                 nil,
+      },
+    ])
+    allow(Homebrew::Bundle::Brew::Services).to receive(:started?).and_return(false)
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:tap).and_return([])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula)
+                                                       .and_return(%w[
+                                                         thirdparty/tap/dependency
+                                                         thirdparty/tap/requested
+                                                       ])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:cask).and_return([])
+    allow(Homebrew::Trust).to receive(:trusted_entries).with(:command).and_return([])
+
+    expect(dumper.build_brewfile(
+             describe: false, no_restart: false, formulae: true, taps: true, casks: false,
+             extension_types: {}
+           )).to eql(<<~BREWFILE)
+             tap "thirdparty/tap", trusted: { formulae: ["dependency"] }
+             brew "thirdparty/tap/requested", trusted: true
+           BREWFILE
+  end
+
   it "determines the brewfile correctly" do
     expect(dumper.brewfile_path).to eql(Pathname.new(Dir.pwd).join("Brewfile"))
   end

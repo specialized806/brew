@@ -9,6 +9,8 @@ require "utils/formatter"
 require "utils"
 require "bundle/dsl"
 require "bundle/extensions"
+require "bundle/trust"
+require "trust"
 require "ask"
 module Homebrew
   module Cmd
@@ -145,6 +147,11 @@ module Homebrew
             [extension, extension.cleanup_items(@dsl.entries)]
           end
           if force
+            dsl = @dsl
+            raise ArgumentError, "dsl is unset!" unless dsl
+
+            Homebrew::Trust.replace!(Homebrew::Bundle::Trust.entries(dsl.entries))
+
             if casks.any?
               args = if zap
                 ["--zap"]
@@ -156,11 +163,9 @@ module Homebrew
             end
 
             if formulae.any?
-              raise ArgumentError, "dsl is unset!" unless @dsl
-
               # Mark Brewfile formulae as installed_on_request to prevent autoremove
               # from removing them when their dependents are uninstalled
-              Homebrew::Bundle.mark_as_installed_on_request!(@dsl.entries)
+              Homebrew::Bundle.mark_as_installed_on_request!(dsl.entries)
 
               Kernel.system HOMEBREW_BREW_FILE, "uninstall", "--formula", "--force", *formulae
               puts "Uninstalled #{formulae.size} formula#{"e" if formulae.size != 1}"
