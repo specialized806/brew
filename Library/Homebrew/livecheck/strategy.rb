@@ -56,7 +56,6 @@ module Homebrew
 
       # `curl` arguments used in `Strategy#page_content` method.
       PAGE_CONTENT_CURL_ARGS = T.let(([
-        "--compressed",
         # Return an error when the HTTP response code is 400 or greater but
         # continue to return body content
         "--fail-with-body",
@@ -267,6 +266,12 @@ module Homebrew
           )]
         end
 
+        args = if options.compressed == false
+          PAGE_CONTENT_CURL_ARGS
+        else
+          PAGE_CONTENT_CURL_ARGS + ["--compressed"]
+        end
+
         user_agents = if options.user_agent
           [options.user_agent]
         else
@@ -277,7 +282,8 @@ module Homebrew
         user_agents.each do |user_agent|
           stdout, stderr, status = curl_output(
             *curl_post_args,
-            *PAGE_CONTENT_CURL_ARGS, url,
+            *args,
+            url,
             **DEFAULT_CURL_OPTIONS,
             use_homebrew_curl: options.homebrew_curl ||
                                !curl_supports_fail_with_body? ||
@@ -285,7 +291,7 @@ module Homebrew
             cookies:           options.cookies,
             header:            options.header,
             referer:           options.referer,
-            user_agent:
+            user_agent:,
           )
           next unless status.success?
 

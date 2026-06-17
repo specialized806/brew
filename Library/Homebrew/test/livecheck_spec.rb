@@ -167,6 +167,9 @@ RSpec.describe Livecheck do
     end
 
     it "sets `url` options when provided" do
+      cookies = { "cookie_key" => "cookie_value" }
+      header_str = "Accept: */*"
+
       # This test makes sure that we can set multiple options at once and
       # options from subsequent `url` calls are merged with existing values
       # (i.e. existing values aren't reset to `nil`). [We only call `url` once
@@ -174,14 +177,18 @@ RSpec.describe Livecheck do
       # implemented.]
       livecheck_f.url(
         url_string,
-        cookies:       { "cookie_key" => "cookie_value" },
-        header:        "Accept: */*",
+        compressed:    false,
+        cookies:,
+        header:        header_str,
         homebrew_curl: true,
         post_form:     post_hash,
         referer:       referer_url,
         user_agent:    :browser,
       )
       livecheck_f.url(url_string, post_json: post_hash)
+      expect(livecheck_f.options.compressed).to be(false)
+      expect(livecheck_f.options.cookies).to eq(cookies)
+      expect(livecheck_f.options.header).to eq(header_str)
       expect(livecheck_f.options.homebrew_curl).to be(true)
       expect(livecheck_f.options.post_form).to eq(post_hash)
       expect(livecheck_f.options.post_json).to eq(post_hash)
