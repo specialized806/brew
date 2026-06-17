@@ -1138,8 +1138,15 @@ module Formulary
 
   sig { params(ref: String).returns(Pathname) }
   def self.to_rack(ref)
-    # If using a fully-scoped reference, check if the formula can be resolved.
-    factory(ref) if ref.include? "/"
+    # If using a fully-scoped reference, check the formula can be resolved to
+    # reject a bogus reference like `fake/tap/hello`. An untrusted tap is no
+    # barrier to uninstalling an installed formula: this error only fires once
+    # the formula file exists and is raised before the file is evaluated.
+    begin
+      factory(ref) if ref.include? "/"
+    rescue Homebrew::UntrustedTapError
+      nil
+    end
 
     # Check whether the rack with the given name exists.
     if (rack = HOMEBREW_CELLAR/File.basename(ref, ".rb")).directory?
