@@ -4287,8 +4287,11 @@ class Formula
       namespace = T.must(to_s.split("::")[0..-2]).join("::")
       return [] if namespace.empty?
 
+      # The namespace is derived dynamically from the formula's own name.
+      # rubocop:disable Sorbet/ConstantsFromStrings
       mod = const_get(namespace)
       mod.const_get(:BUILD_FLAGS)
+      # rubocop:enable Sorbet/ConstantsFromStrings
     end
 
     # Allows adding {.depends_on} and {Patch}es just to the {.stable} {SoftwareSpec}.

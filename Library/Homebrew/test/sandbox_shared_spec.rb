@@ -257,7 +257,10 @@ RSpec.describe Sandbox do
     ].each do |constant, directory|
       it "skips the deny when #{constant} is inside the real home" do
         stub_const(constant.to_s, home/directory)
+        # The constant under test is chosen dynamically per example.
+        # rubocop:disable Sorbet/ConstantsFromStrings
         Object.const_get(constant).mkpath
+        # rubocop:enable Sorbet/ConstantsFromStrings
 
         sandbox.deny_read_home
 

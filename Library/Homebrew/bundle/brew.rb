@@ -13,10 +13,13 @@ module Homebrew
     class Brew < Homebrew::Bundle::PackageType
       extend Utils::Output::Mixin
 
-      PACKAGE_TYPE = :brew
-      PACKAGE_TYPE_NAME = "Formula"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :brew
+
+        sig { override.returns(String) }
+        def check_label = "Formula"
+
         sig { override.params(subclass: T.class_of(Homebrew::Bundle::PackageType)).void }
         def inherited(subclass)
           return if subclass.name == "Homebrew::Bundle::Brew::Services"

@@ -8,10 +8,13 @@ require "trust"
 module Homebrew
   module Bundle
     class Tap < Homebrew::Bundle::PackageType
-      PACKAGE_TYPE = :tap
-      PACKAGE_TYPE_NAME = "Tap"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :tap
+
+        sig { override.returns(String) }
+        def check_label = "Tap"
+
         sig { override.void }
         def reset!
           @taps = T.let(nil, T.nilable(T::Array[::Tap]))

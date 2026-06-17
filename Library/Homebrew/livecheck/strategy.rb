@@ -97,6 +97,8 @@ module Homebrew
       # @return [Hash]
       sig { returns(T::Hash[Symbol, T.untyped]) }
       def self.strategies
+        # Strategies (including tap-provided ones) are discovered dynamically.
+        # rubocop:disable Sorbet/ConstantsFromStrings
         @strategies ||= T.let(Strategy.constants.sort.each_with_object({}) do |const_symbol, hash|
           constant = Strategy.const_get(const_symbol)
           next unless constant.is_a?(Class)
@@ -104,6 +106,7 @@ module Homebrew
           key = Utils.underscore(const_symbol).to_sym
           hash[key] = constant
         end, T.nilable(T::Hash[Symbol, T.untyped]))
+        # rubocop:enable Sorbet/ConstantsFromStrings
       end
       private_class_method :strategies
 
@@ -146,9 +149,12 @@ module Homebrew
             # Only treat the strategy as usable if the `livecheck` block
             # specifies the strategy and contains a `strategy` block
             next if (livecheck_strategy != strategy_symbol) || !block_provided
+          # The strategy's optional `PRIORITY` constant is read dynamically.
+          # rubocop:disable Sorbet/ConstantsFromStrings
           elsif strategy.const_defined?(:PRIORITY) &&
                 !strategy.const_get(:PRIORITY).positive? &&
                 livecheck_strategy != strategy_symbol
+            # rubocop:enable Sorbet/ConstantsFromStrings
             # Ignore strategies with a priority of 0 or lower, unless the
             # strategy is specified in the `livecheck` block
             next
@@ -160,7 +166,10 @@ module Homebrew
         # Sort usable strategies in descending order by priority, using the
         # DEFAULT_PRIORITY when a strategy doesn't contain a PRIORITY constant
         usable_strategies.sort_by do |strategy|
+          # The strategy's optional `PRIORITY` constant is read dynamically.
+          # rubocop:disable Sorbet/ConstantsFromStrings
           strategy.const_defined?(:PRIORITY) ? -strategy.const_get(:PRIORITY) : -DEFAULT_PRIORITY
+          # rubocop:enable Sorbet/ConstantsFromStrings
         end
       end
 
