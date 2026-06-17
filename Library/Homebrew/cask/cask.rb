@@ -65,7 +65,8 @@ module Cask
                              .then { |files| Homebrew::Trust.trusted_cask_files(files) }
       tokens_and_files.filter_map do |token_or_file|
         CaskLoader.load(token_or_file)
-      rescue CaskUnreadableError => e
+      rescue CaskUnreadableError, CaskInvalidError => e
+        # Don't let one broken cask break commands. But do complain.
         opoo e.message
 
         nil
