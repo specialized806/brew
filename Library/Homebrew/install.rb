@@ -512,7 +512,7 @@ module Homebrew
           name = yield dependency
           installed = dependency.any_version_installed?
           pretty_install_status(name, installed:, outdated: installed && dependency.outdated?,
-                                mark_uninstalled: false)
+                                mark_uninstalled: false, bold: false)
         end
         return if formula_names.empty?
 
