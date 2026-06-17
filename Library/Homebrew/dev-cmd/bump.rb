@@ -759,12 +759,12 @@ module Homebrew
             version_args << "--version-#{arch}=#{new_arch_version}"
           end
         elsif multiple_versions[:current]
-          if (new_general_version = new_version.general) && !message?(new_general_version)
+          if (new_version_general = new_version.general) && !message?(new_version_general)
             (BumpVersionParser::VERSION_SYMBOLS - [:general]).each do |arch|
               current_arch_version = current_version.send(arch)
-              next if current_arch_version.blank? || new_general_version <= current_arch_version
+              next if current_arch_version.blank? || new_version_general <= current_arch_version
 
-              version_args << "--version-#{arch}=#{new_general_version}"
+              version_args << "--version-#{arch}=#{new_version_general}"
             end
           end
 
