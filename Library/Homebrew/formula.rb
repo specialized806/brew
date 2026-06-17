@@ -3757,6 +3757,7 @@ class Formula
       _JAVA_OPTIONS:           "-Duser.home=#{HOMEBREW_CACHE}/java_cache",
       GOCACHE:                 "#{HOMEBREW_CACHE}/go_cache",
       GIT_CONFIG_GLOBAL:       Utils::Git.no_global_config_file,
+      GIT_TERMINAL_PROMPT:     "0",
       GOENV:                   "off",
       GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
       CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
