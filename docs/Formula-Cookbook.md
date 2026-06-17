@@ -1133,6 +1133,17 @@ A formula may define either `post_install_steps` or `post_install`, not both.
 * `ln_s`: alias for `symlink`; example: `ln_s "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
 
+#### Default config and template steps
+
+`write` creates a default configuration or data file from literal content. It defaults to the same base as the other file preparation steps; pass `base:` (such as `base: :etc`) to target another formula path. By default `write` does not overwrite an existing file, so user edits are preserved across upgrades; pass `overwrite: true` to always replace the file.
+
+* `write`: write literal content to a file unless it already exists; example: `write "foo.conf", "key = value", base: :etc`.
+* `write` with `overwrite: true`: always replace the file; example: `write "foo/version", "1.0", overwrite: true`.
+
+A trailing newline is appended unless the content already ends with one, so written files end in a newline as POSIX expects.
+
+Content may use a fixed set of `{{...}}` tokens that are expanded at install time so paths are not hardcoded into the JSON API: `{{HOMEBREW_PREFIX}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
+
 #### Desktop and cache rebuild steps
 
 These steps rebuild shared desktop and cache state using Homebrew-owned tools.
