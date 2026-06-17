@@ -6,9 +6,8 @@ require "bump_version_parser"
 require "dev-cmd/bump"
 
 RSpec.describe Homebrew::DevCmd::Bump do
-  subject(:bump) { klass.new(["test"]) }
+  subject(:bump) { described_class.new(["test"]) }
 
-  let(:klass) { Homebrew::DevCmd::Bump }
   let(:f_basic) do
     formula("basic_formula") do
       desc "Basic formula"
@@ -60,7 +59,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
   it "gives an error for `--tap` with official taps" do
     allow(Homebrew).to receive(:install_bundler_gems!)
 
-    expect { klass.new(["--tap", "Homebrew/core"]).run }
+    expect { described_class.new(["--tap", "Homebrew/core"]).run }
       .to raise_error(UsageError, /`--tap` requires `--auto` for official taps/)
   end
 
@@ -154,7 +153,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
   end
 
   describe "::retrieve_and_display_info_and_open_pr" do
-    subject(:bump) { klass.new(["--open-pr", "test"]) }
+    subject(:bump) { described_class.new(["--open-pr", "test"]) }
 
     before do
       allow(bump).to receive(:retrieve_pull_requests)
