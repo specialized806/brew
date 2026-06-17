@@ -47,10 +47,11 @@ class GitDownloadStrategy < VCSDownloadStrategy
 
   private
 
-  # Avoid user Git config reads; sandbox-denied config files make Git exit.
+  # Read user Git config so credential helpers work for private downloads,
+  # but never block on an interactive credential prompt.
   sig { override.returns(T::Hash[String, String]) }
   def env
-    Utils::Git.no_global_config_env
+    { "GIT_TERMINAL_PROMPT" => "0" }
   end
 
   sig { override.returns(String) }

@@ -40,12 +40,12 @@ RSpec.describe GitDownloadStrategy do
       expect(strategy.source_modified_time.to_i).to eq(1_485_115_153)
     end
 
-    it "does not read user Git configuration" do
+    it "reads user Git configuration without prompting for credentials" do
       expect(strategy).to receive(:system_command)
         .with(
           "git",
           args:         ["--git-dir", cached_location/".git", "show", "-s", "--format=%cD"],
-          env:          Utils::Git.no_global_config_env,
+          env:          { "GIT_TERMINAL_PROMPT" => "0" },
           print_stderr: false,
         )
         .and_return(instance_double(SystemCommand::Result, stdout: "Fri, 12 Jun 2026 06:12:11 -0700"))
