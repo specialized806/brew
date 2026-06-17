@@ -656,7 +656,14 @@ module Utils
           "#{indent}on_intel do",
           "#{indent}  #{name} #{ruby_literal(old_value)}",
           "#{indent}end",
-        ].join("\n")
+        replacement = <<~EOS
+          #{indent}on_arm do
+          #{indent}  #{name} #{ruby_literal(old_value)}
+          #{indent}end
+          #{indent}on_intel do
+          #{indent}  #{name} #{ruby_literal(old_value)}
+          #{indent}end
+        EOS
         tree_rewriter.replace(whole_line_range(stanza_node.source_range), "#{replacement}\n")
       end
 
