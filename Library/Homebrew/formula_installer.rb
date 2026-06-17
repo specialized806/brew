@@ -655,6 +655,8 @@ on_request: installed_on_request?, options:)
     return unless link_keg
 
     conflicts = formula.conflicts.select do |c|
+      next false if c.name == formula.name || c.name == formula.full_name
+
       f = Formulary.factory(c.name)
     rescue TapFormulaUnavailableError
       # If the formula name is a fully-qualified name let's silently

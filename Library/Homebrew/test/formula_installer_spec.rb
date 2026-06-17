@@ -299,6 +299,20 @@ RSpec.describe FormulaInstaller do
         expect { installer.check_conflicts }.not_to raise_error
       end
     end
+
+    it "ignores conflicts that name the formula being installed" do
+      f = formula("terraform", tap: Tap.fetch("thirdparty", "selfconflict")) do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+        conflicts_with "terraform"
+      end
+
+      expect(Formulary).not_to receive(:factory)
+
+      described_class.new(f).check_conflicts
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
   end
 
   describe "#install_dependencies" do
