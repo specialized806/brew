@@ -1,15 +1,10 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "bundle/dsl"
+
 module Homebrew
   module Bundle
-    EntryOptionScalar = T.type_alias { T.nilable(T.any(String, Integer, Symbol, TrueClass, FalseClass)) }
-    NestedEntryOptionValue = T.type_alias { T.any(EntryOptionScalar, T::Array[String]) }
-    NestedEntryOptions = T.type_alias { T::Hash[Symbol, NestedEntryOptionValue] }
-    EntryOption = T.type_alias { T.any(EntryOptionScalar, T::Array[String], NestedEntryOptions) }
-    EntryOptions = T.type_alias { T::Hash[Symbol, EntryOption] }
-    EntryInputOptions = T.type_alias { T::Hash[Symbol, Object] }
-
     class PackageType
       extend T::Helpers
 
@@ -86,11 +81,11 @@ module Homebrew
 
       sig {
         params(
-          entries:             T::Array[Object],
+          entries:             T::Array[Dsl::Entry],
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.check(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
         new.find_actionable(entries, exit_on_first_error:, no_upgrade:, verbose:)
@@ -107,13 +102,14 @@ module Homebrew
         dump
       end
 
-      sig { params(packages: T::Array[Object], no_upgrade: T::Boolean).returns(T::Array[Object]) }
+      sig { params(packages: T::Array[Object], no_upgrade: T::Boolean).returns(T::Array[String]) }
       def exit_early_check(packages, no_upgrade:)
-        work_to_be_done = packages.find do |pkg|
-          !installed_and_up_to_date?(pkg, no_upgrade:)
-        end
+        packages.each do |pkg|
+          next if installed_and_up_to_date?(pkg, no_upgrade:)
 
-        Array(work_to_be_done)
+          return [failure_reason(pkg, no_upgrade:)]
+        end
+        []
       end
 
       sig { overridable.params(name: Object, no_upgrade: T::Boolean).returns(String) }
@@ -132,11 +128,10 @@ module Homebrew
                 .map { |pkg| failure_reason(pkg, no_upgrade:) }
       end
 
-      sig { params(all_entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { params(all_entries: T::Array[Dsl::Entry]).returns(T::Array[Dsl::Entry]) }
       def checkable_entries(all_entries)
         require "bundle/skipper"
         all_entries.filter_map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           next if entry.type != self.class.type
           next if Bundle::Skipper.skip?(entry)
 
@@ -144,12 +139,9 @@ module Homebrew
         end
       end
 
-      sig { params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
-        checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
-          entry.name
-        end
+        checkable_entries(entries).map(&:name)
       end
 
       sig { params(_pkg: Object, no_upgrade: T::Boolean).returns(T::Boolean) }
@@ -159,11 +151,11 @@ module Homebrew
 
       sig {
         params(
-          entries:             T::Array[Object],
+          entries:             T::Array[Dsl::Entry],
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
         requested = format_checkable(entries)

@@ -356,12 +356,11 @@ module Homebrew
           end
         end
 
-        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
+        sig { params(entries: T::Array[Dsl::Entry]).returns(T::Array[String]) }
         def cleanup_items(entries)
           return [].freeze unless package_manager_installed?
 
           kept_flatpaks = entries.filter_map do |entry|
-            entry = T.cast(entry, Dsl::Entry)
             entry.name if entry.type == type
           end
 
@@ -379,10 +378,9 @@ module Homebrew
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { override.params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           { name: entry.name, options: entry.options }
         end
       end

@@ -490,11 +490,11 @@ module Homebrew
 
       sig {
         override.params(
-          entries:             T::Array[Object],
+          entries:             T::Array[Dsl::Entry],
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
         requested = instance_of?(Homebrew::Bundle::Brew) ? checkable_entries(entries) : format_checkable(entries)

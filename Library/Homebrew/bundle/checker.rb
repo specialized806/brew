@@ -8,7 +8,11 @@ require "bundle/brew_services"
 module Homebrew
   module Bundle
     module Checker
-      CheckResult = Struct.new :work_to_be_done, :errors
+      class CheckResult < T::Struct
+        const :work_to_be_done, T::Boolean
+        const :errors, T::Array[String]
+      end
+
       CheckStep = T.type_alias { Symbol }
 
       CORE_CHECKS = T.let([
@@ -34,7 +38,7 @@ module Homebrew
         @dsl = T.let(@dsl, T.nilable(Homebrew::Bundle::Dsl))
         @dsl ||= Brewfile.read(global:, file:)
 
-        errors = T.let([], T::Array[Object])
+        errors = T.let([], T::Array[String])
         enumerator = exit_on_first_error ? :find : :map
 
         work_to_be_done = CORE_CHECKS.public_send(enumerator) do |check_step|
@@ -46,7 +50,7 @@ module Homebrew
 
         work_to_be_done = Array(work_to_be_done).flatten.any?
 
-        CheckResult.new work_to_be_done, errors
+        CheckResult.new(work_to_be_done:, errors:)
       end
 
       sig {
@@ -54,7 +58,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.apps_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
         extension_errors(:apps_to_install, exit_on_first_error:, no_upgrade:, verbose:)
@@ -65,7 +69,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.formulae_to_start(exit_on_first_error: false, no_upgrade: false, verbose: false)
         raise ArgumentError, "dsl is unset!" unless @dsl
@@ -81,7 +85,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.taps_to_tap(exit_on_first_error: false, no_upgrade: false, verbose: false)
         package_type_errors(:tap, exit_on_first_error:, no_upgrade:, verbose:)
@@ -92,7 +96,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.casks_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
         package_type_errors(:cask, exit_on_first_error:, no_upgrade:, verbose:)
@@ -103,7 +107,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.formulae_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
         package_type_errors(:brew, exit_on_first_error:, no_upgrade:, verbose:)
@@ -114,7 +118,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.registered_extensions_to_install(exit_on_first_error: false, no_upgrade: false, verbose: false)
         extension_errors(:registered_extensions_to_install, exit_on_first_error:, no_upgrade:, verbose:)
@@ -126,13 +130,13 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.extension_errors(step, exit_on_first_error:, no_upgrade:, verbose:)
         raise ArgumentError, "dsl is unset!" unless @dsl
 
         matching_extensions = Homebrew::Bundle.extensions.select { |extension| extension.legacy_check_step == step }
-        errors = T.let([], T::Array[Object])
+        errors = T.let([], T::Array[String])
 
         matching_extensions.each do |extension|
           check_errors = extension.check(
@@ -162,7 +166,7 @@ module Homebrew
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.package_type_errors(type, exit_on_first_error:, no_upgrade:, verbose:)
         raise ArgumentError, "dsl is unset!" unless @dsl

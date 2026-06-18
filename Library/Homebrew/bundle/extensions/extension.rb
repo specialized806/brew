@@ -217,11 +217,11 @@ module Homebrew
 
       sig {
         params(
-          entries:             T::Array[Object],
+          entries:             T::Array[Dsl::Entry],
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.check(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
         new.find_actionable(entries, exit_on_first_error:, no_upgrade:, verbose:)

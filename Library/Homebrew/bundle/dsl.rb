@@ -1,11 +1,15 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "bundle/package_type"
-require "utils"
-
 module Homebrew
   module Bundle
+    EntryOptionScalar = T.type_alias { T.nilable(T.any(String, Integer, Symbol, TrueClass, FalseClass)) }
+    NestedEntryOptionValue = T.type_alias { T.any(EntryOptionScalar, T::Array[String]) }
+    NestedEntryOptions = T.type_alias { T::Hash[Symbol, NestedEntryOptionValue] }
+    EntryOption = T.type_alias { T.any(EntryOptionScalar, T::Array[String], NestedEntryOptions) }
+    EntryOptions = T.type_alias { T::Hash[Symbol, EntryOption] }
+    EntryInputOptions = T.type_alias { T::Hash[Symbol, Object] }
+
     class Dsl
       class Entry
         sig { returns(Symbol) }
@@ -134,6 +138,7 @@ module Homebrew
 
       sig { params(name: String).returns(String) }
       def self.sanitize_cask_name(name)
+        require "utils"
         Utils.name_from_full_name(name).downcase
       end
 
