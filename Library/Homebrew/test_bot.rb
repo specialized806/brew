@@ -143,7 +143,7 @@ module Homebrew
         end
 
         unless tap.official?
-          action = Homebrew::Trust.trust!(:tap, tap.name) ? "Trusted" : "Already trusted"
+          action = Homebrew::Trust.trust!(:tap, tap) ? "Trusted" : "Already trusted"
           Homebrew::TestBot.ohai "#{action} tap: #{tap.name}"
         end
       end

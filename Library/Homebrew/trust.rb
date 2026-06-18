@@ -27,8 +27,13 @@ module Homebrew
       Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json"
     end
 
-    sig { params(type: Symbol, name: String).returns(T::Boolean) }
+    sig { params(type: Symbol, name: T.any(String, Tap)).returns(T::Boolean) }
     def self.trust!(type, name)
+      if name.is_a?(Tap)
+        raise ArgumentError, "a #{type} trust name must be a String, not a Tap" if type != :tap
+
+        name = name.reference
+      end
       key = setting_key(type)
       name = normalise_name(name)
       with_trust_store_lock do

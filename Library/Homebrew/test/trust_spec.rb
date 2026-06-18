@@ -40,6 +40,24 @@ RSpec.describe Homebrew::Trust, :trust_store do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "trusts a custom-remote tap passed as a Tap object" do
+    tap = Tap.fetch("thirdparty", "custom")
+    tap.path.mkpath
+    system "git", "-C", tap.path.to_s, "init"
+    system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://gitlab.com/other/repo"
+
+    described_class.trust!(:tap, tap)
+    expect(described_class.trusted_tap?(tap)).to be(true)
+  ensure
+    described_class.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "rejects a Tap object for a non-tap trust type" do
+    tap = Tap.fetch("thirdparty", "custom")
+    expect { described_class.trust!(:formula, tap) }.to raise_error(ArgumentError)
+  end
+
   it "canonicalises a GitHub default-remote URL to the tap name" do
     result = described_class.target("https://github.com/thirdparty/homebrew-foo", type: :tap)
     expect(result).to eq([:tap, "thirdparty/foo"])
