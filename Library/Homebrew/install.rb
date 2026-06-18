@@ -510,8 +510,9 @@ module Homebrew
           next if skip_formula_names.include?(dependency.full_name)
 
           name = yield dependency
-          pretty_install_status(name, installed: dependency.any_version_installed?,
-                                outdated: dependency.outdated?, mark_uninstalled: false, bold: false)
+          installed = dependency.any_version_installed?
+          pretty_install_status(name, installed:, outdated: installed && dependency.outdated?,
+                                mark_uninstalled: false, bold: false)
         end
         return if formula_names.empty?
 

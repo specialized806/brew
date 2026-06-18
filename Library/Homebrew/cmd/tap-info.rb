@@ -158,7 +158,7 @@ module Homebrew
         pretty_install_status(
           name,
           installed:,
-          outdated:         formula.outdated?,
+          outdated:         installed && formula.outdated?,
           deprecated:       formula.deprecated?,
           disabled:         formula.disabled?,
           mark_uninstalled: false,
@@ -173,7 +173,7 @@ module Homebrew
         pretty_install_status(
           token,
           installed:,
-          outdated:         cask.outdated?,
+          outdated:         installed && cask.outdated?,
           deprecated:       cask.deprecated?,
           disabled:         cask.disabled?,
           mark_uninstalled: false,
