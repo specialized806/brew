@@ -706,40 +706,40 @@ module Homebrew
         return if untrusted_taps.empty?
 
         untrusted_tap_names = untrusted_taps.map(&:name)
-        installed_formulae_by_tap = T.let({}, T::Hash[String, T::Array[String]])
-        installed_casks_by_tap = T.let({}, T::Hash[String, T::Array[String]])
+        untrusted_tap_name_set = untrusted_tap_names.to_set
+        installed_formulae_by_tap = {}
+        installed_casks_by_tap = {}
         Formula.racks.each do |rack|
           next unless (keg = Keg.from_rack(rack))
           next unless (tap = keg.tab.tap)
-          next unless untrusted_tap_names.include?(tap.name)
+          next unless untrusted_tap_name_set.include?(tap.name)
 
-          installed_formulae_by_tap[tap.name] ||= []
-          installed_formulae_by_tap.fetch(tap.name) << "#{tap.name}/#{rack.basename}"
+          installed_formulae = installed_formulae_by_tap[tap.name] ||= []
+          installed_formulae << "#{tap.name}/#{rack.basename}"
         rescue
           nil
         end
-        installed_formula_message = installed_formulae_by_tap.filter_map do |_tap_name, formulae|
+        installed_formula_message = installed_formulae_by_tap.sort_by(&:first).filter_map do |_tap_name, formulae|
           next if formulae.empty?
 
           "  brew trust --formula #{formulae.sort.join(" ")}"
         end.join("\n")
         Cask::Caskroom.casks.each do |cask|
           next unless (tap = cask.tab.tap)
-          next unless untrusted_tap_names.include?(tap.name)
+          next unless untrusted_tap_name_set.include?(tap.name)
 
-          installed_casks_by_tap[tap.name] ||= []
-          installed_casks_by_tap.fetch(tap.name) << "#{tap.name}/#{cask.token}"
+          installed_casks = installed_casks_by_tap[tap.name] ||= []
+          installed_casks << "#{tap.name}/#{cask.token}"
         end
-        sorted_installed_casks_by_tap = installed_casks_by_tap.sort_by do |tap_name, _casks|
-          tap_name
-        end
-        installed_cask_message = sorted_installed_casks_by_tap.filter_map do |_tap_name, casks|
+        installed_cask_message = installed_casks_by_tap.sort_by(&:first).filter_map do |_tap_name, casks|
           next if casks.empty?
 
           "  brew trust --cask #{casks.sort.join(" ")}"
         end.join("\n")
-        generic_trust_types = T.let([], T::Array[String])
-        generic_trust_commands = T.let([], T::Array[String])
+        installed_items_from_untrusted_taps = installed_formula_message.present? || installed_cask_message.present?
+        untap_message = "Untap them with:\n  brew untap #{untrusted_tap_names.join(" ")}"
+        generic_trust_types = []
+        generic_trust_commands = []
         if installed_formula_message.blank?
           generic_trust_types << "formulae"
           generic_trust_commands << "  brew trust --formula <user>/<tap>/<formula>"
@@ -750,38 +750,49 @@ module Homebrew
         end
         generic_trust_types << "commands"
         generic_trust_commands << "  brew trust --command <user>/<tap>/<command>"
-        generic_trust_prefix = if installed_formula_message.present? || installed_cask_message.present?
+        generic_trust_prefix = if installed_items_from_untrusted_taps
           "Trust other specific"
         else
           "Trust specific"
         end
-        trust_messages = T.let(
-          ["Prefer trusting only the specific formulae, casks or commands you need."],
-          T::Array[String],
-        )
+        generic_trust_message = "#{generic_trust_prefix} #{generic_trust_types.to_sentence} with:\n" \
+                                "#{generic_trust_commands.join("\n")}"
+        trust_messages = if installed_items_from_untrusted_taps
+          ["Prefer trusting only the specific formulae, casks or commands you need."]
+        else
+          [untap_message]
+        end
         if installed_formula_message.present?
           trust_messages << "Trust installed formulae from these taps with:\n#{installed_formula_message}"
         end
         if installed_cask_message.present?
           trust_messages << "Trust installed casks from these taps with:\n#{installed_cask_message}"
         end
-        trust_messages << "#{generic_trust_prefix} #{generic_trust_types.to_sentence} with:\n" \
-                          "#{generic_trust_commands.join("\n")}"
+        trust_messages << generic_trust_message
+        trust_messages << <<~EOS.chomp
+          Whole-tap trust is broader and includes all current and future formulae,
+          casks and commands from the listed taps. Trust whole taps with:
+            brew trust #{untrusted_tap_names.join(" ")}
+        EOS
+        trust_messages << untap_message if installed_items_from_untrusted_taps
+        unless Homebrew::EnvConfig.no_env_hints?
+          trust_messages << <<~EOS.chomp
+            To disable trust checks:
+              export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+            This is not recommended and will be removed in a later release.
+          EOS
+        end
+        trust_messages << <<~EOS.chomp
+          For more information, see:
+            #{Formatter.url("https://docs.brew.sh/Tap-Trust")}
+        EOS
+
         <<~EOS
           The following taps are not trusted:
             #{untrusted_tap_names.join("\n  ")}
 
           Homebrew is currently ignoring formulae, casks and commands from these taps because tap trust is required.
           #{trust_messages.join("\n")}
-          If you intentionally trust an entire tap, trust all formulae, casks and commands from these taps with:
-            brew trust #{untrusted_tap_names.join(" ")}
-          Untap them with:
-            brew untap #{untrusted_tap_names.join(" ")}
-          To disable trust checks:
-            export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
-          This is not recommended and will be removed in a later release.
-          For more information, see:
-            #{Formatter.url("https://docs.brew.sh/Tap-Trust")}
         EOS
       end
 
