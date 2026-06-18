@@ -63,13 +63,28 @@ RSpec.describe GitDownloadStrategy do
     end
   end
 
-  specify "#last_commit" do
-    cached_location.cd do
-      setup_git_repo
-      FileUtils.touch "LICENSE"
-      git_commit_all
+  describe "#last_commit" do
+    specify "returns the short hash of the last commit" do
+      cached_location.cd do
+        setup_git_repo
+        FileUtils.touch "LICENSE"
+        git_commit_all
+      end
+      expect(strategy.last_commit).to eq("f68266e")
     end
-    expect(strategy.last_commit).to eq("f68266e")
+
+    it "nulls the global Git config so sandboxed staging reads do not fail" do
+      expect(strategy).to receive(:system_command)
+        .with(
+          "git",
+          args:         ["--git-dir", cached_location/".git", "rev-parse", "--short=7", "HEAD"],
+          env:          { "GIT_TERMINAL_PROMPT" => "0", "GIT_CONFIG_GLOBAL" => File::NULL },
+          print_stderr: false,
+        )
+        .and_return(instance_double(SystemCommand::Result, stdout: "f68266e\n"))
+
+      expect(strategy.last_commit).to eq("f68266e")
+    end
   end
 
   describe "#fetch_last_commit" do
