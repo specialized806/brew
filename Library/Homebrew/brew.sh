@@ -371,6 +371,21 @@ auto-update() {
       done
     fi
 
+    # When auto-updating before a zero-argument `brew upgrade` or `brew outdated`,
+    # that command lists the outdated packages itself so skip doing so here too.
+    # Two-way sync: `dump` in `Library/Homebrew/cmd/update_report/reporter_hub.rb`.
+    if [[ "${HOMEBREW_COMMAND}" == "upgrade" || "${HOMEBREW_COMMAND}" == "outdated" ]]
+    then
+      HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED="1"
+      for arg in "${@:2}"
+      do
+        [[ "${arg}" == -* ]] && continue
+        HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED=""
+        break
+      done
+      [[ -n "${HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED}" ]] && export HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED
+    fi
+
     if [[ -z "${HOMEBREW_AUTO_UPDATE_SECS}" ]]
     then
       if [[ -n "${HOMEBREW_NO_INSTALL_FROM_API}" || -n "${HOMEBREW_AUTO_UPDATE_TAP}" ]]
@@ -413,6 +428,7 @@ auto-update() {
     done
     if [[ -z "${needs_auto_update}" ]]
     then
+      unset HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED
       return
     fi
 
@@ -420,6 +436,7 @@ auto-update() {
 
     unset HOMEBREW_AUTO_UPDATING
     unset HOMEBREW_AUTO_UPDATE_TAP
+    unset HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED
 
     if [[ $# -gt 0 ]]
     then

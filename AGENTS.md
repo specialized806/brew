@@ -33,6 +33,7 @@ Do not use conventional commit prefixes such as `feat:`, `fix:`, `chore:`, `refa
   Write fast tests by preferring a single `expect` per unit test and combine expectations in a single test when it is an integration test or has non-trivial `before` for test setup.
 - When adding or tightening tests, verify them with a red/green cycle using the exact `--only=file:line` target for the example you changed.
 - Formula classes created in specs may be frozen; avoid stubbing class methods on them with RSpec mocks and prefer instance-level stubs or test setup that does not require class-method stubbing.
+- RSpec snapshots and restores `ENV` around every example via the global `config.around` hook in `Library/Homebrew/test/spec_helper.rb` (it saves `ENV.to_hash` before `example.run` and calls `ENV.replace` in the `ensure`), so specs can set environment variables directly without a `with_env` wrapper or manual cleanup.
 - Keep comments minimal; prefer self-documenting code through strings, variable names, etc. over more comments.
 - Put a comment immediately above each `shellcheck disable` explaining why it is needed.
 - Aim to wrap human-written user-facing terminal output at around 80 characters; this does not apply to generated output or code.

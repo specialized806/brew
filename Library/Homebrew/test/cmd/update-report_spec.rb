@@ -326,6 +326,15 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
       EOS
     end
 
+    it "skips the outdated count when auto-updating before a zero-argument upgrade or outdated" do
+      ENV["HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED"] = "1"
+      allow(Formula).to receive(:installed).and_return([
+        instance_double(Formula, name: "foo", outdated?: true),
+      ])
+      allow(Cask::Caskroom).to receive(:casks).and_return([])
+      expect { hub.dump(auto_update: true) }.not_to output.to_stdout
+    end
+
     it "prints nothing if there are no changes" do
       allow(Formula).to receive(:installed).and_return([])
       allow(Cask::Caskroom).to receive(:casks).and_return([])
