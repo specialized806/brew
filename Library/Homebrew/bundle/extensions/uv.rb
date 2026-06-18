@@ -229,10 +229,9 @@ module Homebrew
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { override.params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           with = if entry.options.is_a?(Hash)
             value = entry.options[:with]
             value.is_a?(Array) ? value : []

@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "bundle/dsl"
+require "bundle/extensions"
 require "bundle/package_types"
 
 module Homebrew
