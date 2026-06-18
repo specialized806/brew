@@ -147,6 +147,7 @@ module Homebrew
                         block: T.nilable(T.proc.void)).returns(T.untyped)
       }
       def method_missing(method_name, *args, **options, &block)
+        require "bundle/extensions"
         extension = Homebrew::Bundle.extension(method_name)
         return super if extension.nil?
         raise ArgumentError, "blocks are not supported for #{method_name}" if block
@@ -173,12 +174,9 @@ module Homebrew
 
       sig { override.params(method_name: T.any(String, Symbol), include_private: T::Boolean).returns(T::Boolean) }
       def respond_to_missing?(method_name, include_private = false)
-        Homebrew::Bundle.extension(method_name).present? || super
+        require "bundle/extensions"
+        !Homebrew::Bundle.extension(method_name).nil? || super
       end
     end
   end
 end
-
-# Load extensions after `Dsl` is defined because their `entry` methods build
-# `Dsl::Entry` instances.
-require "bundle/extensions"
