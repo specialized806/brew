@@ -198,7 +198,7 @@ module Homebrew
         elsif except_cops
           style_options[:except_cops] = except_cops
         elsif !strict
-          style_options[:except_cops] = [:FormulaAuditStrict]
+          style_options[:except_cops] = %w[FormulaAuditStrict]
         end
 
         # Run tap audits first
