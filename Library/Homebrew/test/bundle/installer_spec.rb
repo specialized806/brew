@@ -127,6 +127,38 @@ RSpec.describe Homebrew::Bundle::Installer do
     described_class.install!([tap_entry], quiet: true)
   end
 
+  it "trusts tap `trusted` hash entries" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(
+      :tap, "thirdparty/tap",
+      {
+        trusted: {
+          formula:  "foo",
+          formulae: ["bar"],
+          cask:     "baz",
+          casks:    ["qux"],
+          command:  "hello",
+          commands: ["world"],
+        },
+      }
+    )
+
+    expect(Homebrew::Trust).to receive(:trust!).with(:formula, "thirdparty/tap/foo").and_return(true)
+    expect(Homebrew::Trust).to receive(:trust!).with(:formula, "thirdparty/tap/bar").and_return(true)
+    expect(Homebrew::Trust).to receive(:trust!).with(:cask, "thirdparty/tap/baz").and_return(true)
+    expect(Homebrew::Trust).to receive(:trust!).with(:cask, "thirdparty/tap/qux").and_return(true)
+    expect(Homebrew::Trust).to receive(:trust!).with(:command, "thirdparty/tap/hello").and_return(true)
+    expect(Homebrew::Trust).to receive(:trust!).with(:command, "thirdparty/tap/world").and_return(true)
+
+    described_class.install!([tap_entry], quiet: true)
+  end
+
+  it "rejects unsupported tap `trusted` hash keys" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "thirdparty/tap", { trusted: { tap: "foo" } })
+
+    expect { described_class.install!([tap_entry], quiet: true) }
+      .to raise_error(UsageError, /Unsupported trusted keys: tap/)
+  end
+
   it "does not trust unqualified `trusted: true` names" do
     trusted_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql", { trusted: true })
 

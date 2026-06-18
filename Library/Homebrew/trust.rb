@@ -147,6 +147,23 @@ module Homebrew
       end
     end
 
+    sig { params(entries: T::Array[[Symbol, String]]).void }
+    def self.replace!(entries)
+      store = T.let({}, T::Hash[String, T::Array[String]])
+      entries.each do |type, name|
+        key = setting_key(type)
+        store[key] ||= []
+        store.fetch(key) << normalise_name(name)
+      end
+      store.keys.each do |key|
+        store[key] = store.fetch(key).uniq.sort
+      end
+
+      with_trust_store_lock do
+        write_trust_store(store)
+      end
+    end
+
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trusted?(type, name)
       name = normalise_name(name)

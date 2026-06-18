@@ -85,8 +85,8 @@ module Homebrew
           "Tapping"
         end
 
-        sig { override.returns(String) }
-        def dump
+        sig { override.params(dumped_formulae: T::Array[String], dumped_casks: T::Array[String]).returns(String) }
+        def dump(dumped_formulae: [], dumped_casks: [])
           taps.map do |tap|
             remote = if (tap_remote = tap.remote) && tap_remote != tap.default_remote
               if (api_token = ENV.fetch("HOMEBREW_GITHUB_API_TOKEN", false).presence)
@@ -97,7 +97,37 @@ module Homebrew
               ", \"#{tap_remote}\""
             end
             tapline = "tap \"#{tap.name}\"#{remote}"
-            tapline += ", trusted: true" if Homebrew::Trust.explicitly_trusted_tap?(tap)
+            trusted = if Homebrew::Trust.explicitly_trusted_tap?(tap)
+              true
+            else
+              tap_trust = T.let({}, T::Hash[Symbol, T::Array[String]])
+              {
+                formula: [:formulae, dumped_formulae],
+                cask:    [:casks, dumped_casks],
+                command: [:commands, []],
+              }.each do |type, values|
+                key, dumped_items = values
+                trusted_items = Homebrew::Trust.trusted_entries(type).filter_map do |entry|
+                  reference, _, item = entry.rpartition("/")
+                  next if reference.blank? || item.blank?
+                  next if reference != tap.name && !tap.matches_reference?(reference)
+                  next if dumped_items.include?("#{tap.name}/#{item}")
+
+                  item
+                end.sort.uniq
+                tap_trust[key] = trusted_items if trusted_items.present?
+              end
+              tap_trust.presence
+            end
+
+            if trusted == true
+              tapline += ", trusted: true"
+            elsif trusted.present?
+              trusted_options = trusted.map do |key, values|
+                "#{key}: [#{values.map(&:inspect).join(", ")}]"
+              end.join(", ")
+              tapline += ", trusted: { #{trusted_options} }"
+            end
             tapline
           end.sort.uniq.join("\n")
         end
