@@ -112,7 +112,7 @@ RSpec.describe "Exception" do
       let(:list) { [] }
 
       it(:to_s) do
-        expect(error.to_s).to match(/Expected to find class Foo, but found no classes\./)
+        expect(error.to_s).to include("Expected to find class Foo, but found no classes.")
       end
     end
 
@@ -123,7 +123,7 @@ RSpec.describe "Exception" do
       # rubocop:enable Sorbet/ConstantsFromStrings
 
       it(:to_s) do
-        expect(error.to_s).to match(/Expected to find class Foo, but only found: Bar \(not derived from Formula!\)\./)
+        expect(error.to_s).to include("Expected to find class Foo, but only found: Bar (not derived from Formula!).")
       end
     end
 
@@ -133,7 +133,7 @@ RSpec.describe "Exception" do
       let(:list) { [mod.const_get(:Baz)] }
       # rubocop:enable Sorbet/ConstantsFromStrings
 
-      it(:to_s) { expect(error.to_s).to match(/Expected to find class Foo, but only found: Baz\./) }
+      it(:to_s) { expect(error.to_s).to include("Expected to find class Foo, but only found: Baz.") }
     end
   end
 
@@ -168,7 +168,7 @@ RSpec.describe "Exception" do
   describe OperationInProgressError do
     subject(:error) { described_class.new(Pathname("foo")) }
 
-    it(:to_s) { expect(error.to_s).to match(/has already locked foo/) }
+    it(:to_s) { expect(error.to_s).to include("has already locked foo") }
   end
 
   describe FormulaInstallationAlreadyAttemptedError do
@@ -185,7 +185,7 @@ RSpec.describe "Exception" do
     let(:formula) { instance_double(Formula, full_name: "foo/qux") }
     let(:conflict) { instance_double(Formula::FormulaConflict, name: "bar", reason: "I decided to") }
 
-    it(:to_s) { expect(error.to_s).to match(/Please `brew unlink bar` before continuing\./) }
+    it(:to_s) { expect(error.to_s).to include("Please `brew unlink bar` before continuing.") }
   end
 
   describe CompilerSelectionError do
@@ -193,7 +193,7 @@ RSpec.describe "Exception" do
 
     let(:formula) { instance_double(Formula, full_name: "foo") }
 
-    it(:to_s) { expect(error.to_s).to match(/foo cannot be built with any available compilers\./) }
+    it(:to_s) { expect(error.to_s).to include("foo cannot be built with any available compilers.") }
   end
 
   describe CurlDownloadStrategyError do
@@ -224,7 +224,7 @@ RSpec.describe "Exception" do
     let(:expected_checksum) { instance_double(Checksum, to_s: "deadbeef") }
     let(:actual_checksum) { instance_double(Checksum, to_s: "deadcafe") }
 
-    it(:to_s) { expect(error.to_s).to match(/SHA-256 mismatch/) }
+    it(:to_s) { expect(error.to_s).to include("SHA-256 mismatch") }
 
     it "does not add an HTML hint for non-HTML downloads" do
       Tempfile.create("brew-checksum-test") do |file|
@@ -232,7 +232,7 @@ RSpec.describe "Exception" do
         file.write("PK\x03\x04binary-content")
         file.flush
         message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
-        expect(message).not_to match(%r{HTML/XML})
+        expect(message).not_to include("HTML/XML")
       end
     end
 
@@ -242,7 +242,7 @@ RSpec.describe "Exception" do
         file.write('<!doctype html><html lang="en"><head><title>Oh noes!</title>')
         file.flush
         message = described_class.new(Pathname(file.path), expected_checksum, actual_checksum).to_s
-        expect(message).to match(%r{HTML/XML, not a binary})
+        expect(message).to include("HTML/XML, not a binary")
       end
     end
   end
@@ -269,7 +269,7 @@ RSpec.describe "Exception" do
 
     let(:formula) { instance_double(Formula, full_name: "foo") }
 
-    it(:to_s) { expect(error.to_s).to match(/This bottle does not contain the formula file/) }
+    it(:to_s) { expect(error.to_s).to include("This bottle does not contain the formula file") }
   end
 
   describe BuildFlagsError do

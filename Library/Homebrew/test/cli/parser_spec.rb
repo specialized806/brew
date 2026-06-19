@@ -401,7 +401,7 @@ RSpec.describe Homebrew::CLI::Parser do
         switch "--baz"
         switch "--bar"
       end
-      expect(parser.generate_help_text).to match(/\[options\]/)
+      expect(parser.generate_help_text).to include("[options]")
     end
 
     it "includes individual options if less than two non-global options are available" do
@@ -409,7 +409,7 @@ RSpec.describe Homebrew::CLI::Parser do
         switch "--foo"
         switch "--bar"
       end
-      expect(parser.generate_help_text).to match(/\[--foo\] \[--bar\]/)
+      expect(parser.generate_help_text).to include("[--foo] [--bar]")
     end
 
     it "formats flags correctly when less than two non-global options are available" do
@@ -417,26 +417,26 @@ RSpec.describe Homebrew::CLI::Parser do
         flag "--foo"
         flag "--bar="
       end
-      expect(parser.generate_help_text).to match(/\[--foo\] \[--bar=\]/)
+      expect(parser.generate_help_text).to include("[--foo] [--bar=]")
     end
 
     it "formats comma arrays correctly when less than two non-global options are available" do
       parser = described_class.new(Cmd) do
         comma_array "--foo"
       end
-      expect(parser.generate_help_text).to match(/\[--foo=\]/)
+      expect(parser.generate_help_text).to include("[--foo=]")
     end
 
     it "does not include hidden options" do
       parser = described_class.new(Cmd) do
         switch "--foo", hidden: true
       end
-      expect(parser.generate_help_text).not_to match(/\[--foo\]/)
+      expect(parser.generate_help_text).not_to include("[--foo]")
     end
 
     it "doesn't include `[options]` if non non-global options are available" do
       parser = described_class.new(Cmd)
-      expect(parser.generate_help_text).not_to match(/\[options\]/)
+      expect(parser.generate_help_text).not_to include("[options]")
     end
 
     it "includes a description" do
@@ -445,14 +445,14 @@ RSpec.describe Homebrew::CLI::Parser do
           This command does something
         EOS
       end
-      expect(parser.generate_help_text).to match(/This command does something/)
+      expect(parser.generate_help_text).to include("This command does something")
     end
 
     it "allows the usage banner to be overridden" do
       parser = described_class.new(Cmd) do
         usage_banner "`test` [foo] <bar>"
       end
-      expect(parser.generate_help_text).to match(/test \[foo\] bar/)
+      expect(parser.generate_help_text).to include("test [foo] bar")
     end
 
     it "allows a usage banner and a description to be overridden" do
@@ -462,8 +462,8 @@ RSpec.describe Homebrew::CLI::Parser do
           This command does something
         EOS
       end
-      expect(parser.generate_help_text).to match(/test \[foo\] bar/)
-      expect(parser.generate_help_text).to match(/This command does something/)
+      expect(parser.generate_help_text).to include("test [foo] bar")
+      expect(parser.generate_help_text).to include("This command does something")
     end
 
     it "shows the correct usage for no named argument" do

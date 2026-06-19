@@ -144,6 +144,6 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     allow(File).to receive(:symlink?).with("/home").and_return(true)
 
     expect(checks.check_for_symlinked_home)
-      .to match(%r{Your /home directory is a symlink})
+      .to include("Your /home directory is a symlink")
   end
 end

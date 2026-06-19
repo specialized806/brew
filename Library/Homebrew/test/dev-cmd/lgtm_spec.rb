@@ -238,7 +238,7 @@ RSpec.describe Homebrew::DevCmd::Lgtm do
         expect(fallback_cache/"api/cask_names.txt").to be_a_file
         expect((fallback_cache/"api/cask_names.txt").read).to eq("copied-from-cache\n")
       elsif stderr.present?
-        expect(stderr).to match(/developer command/)
+        expect(stderr).to include("developer command")
       end
     end
   end

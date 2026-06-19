@@ -84,12 +84,12 @@ RSpec.describe Homebrew::Search do
 
     it "annotates deprecated formulae" do
       allow(formula).to receive(:deprecated?).and_return(true)
-      expect(described_class.search_formulae(/testball/)).to contain_exactly(match(/\(deprecated\)/))
+      expect(described_class.search_formulae(/testball/)).to contain_exactly(include("(deprecated)"))
     end
 
     it "annotates disabled formulae" do
       allow(formula).to receive(:disabled?).and_return(true)
-      expect(described_class.search_formulae(/testball/)).to contain_exactly(match(/\(disabled\)/))
+      expect(described_class.search_formulae(/testball/)).to contain_exactly(include("(disabled)"))
     end
 
     it "does not annotate normal formulae" do
@@ -121,12 +121,12 @@ RSpec.describe Homebrew::Search do
 
     it "annotates deprecated casks", :needs_macos do
       allow(cask).to receive(:deprecated?).and_return(true)
-      expect(described_class.search_casks(/testball/)).to contain_exactly(match(/\(deprecated\)/))
+      expect(described_class.search_casks(/testball/)).to contain_exactly(include("(deprecated)"))
     end
 
     it "annotates disabled casks", :needs_macos do
       allow(cask).to receive(:disabled?).and_return(true)
-      expect(described_class.search_casks(/testball/)).to contain_exactly(match(/\(disabled\)/))
+      expect(described_class.search_casks(/testball/)).to contain_exactly(include("(disabled)"))
     end
 
     it "does not annotate normal casks", :needs_macos do

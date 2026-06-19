@@ -378,7 +378,7 @@ RSpec.describe Homebrew::CLI::NamedArgs do
         # without_api: true sets HOMEBREW_NO_INSTALL_FROM_API=1 which defeats the
         # API name fallback check. The brew edit command works around this by
         # auto-tapping before calling to_paths.
-        expect(paths.first.to_s).not_to match(%r{homebrew-core/Formula})
+        expect(paths.first.to_s).not_to include("homebrew-core/Formula")
       end
     end
   end
