@@ -302,4 +302,21 @@ RSpec.describe Homebrew::API::FormulaStruct do
       expect(restored.post_install_steps).to eq(original.post_install_steps)
     end
   end
+
+  describe "::from_hash" do
+    it "does not replace home placeholders inside prefix placeholders" do
+      original = described_class.from_hash(
+        "desc"                 => "caveats replace test",
+        "homepage"             => "https://example.com",
+        "license"              => "MIT",
+        "ruby_source_checksum" => "abc123",
+        "stable_version"       => "1.0.0",
+        "caveats"              => "unix://$HOMEBREW_PREFIX",
+      )
+
+      expect(original.caveats).to eq(
+        "unix://#{HOMEBREW_PREFIX}",
+      )
+    end
+  end
 end
