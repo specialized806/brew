@@ -102,11 +102,30 @@ RSpec.describe Cask::Installer, :cask do
       end.to raise_error(/--require-sha/)
     end
 
-    it "fails to install if Linux is required" do
+    it "names the cask when Linux is required" do
       linux_cask = Cask::CaskLoader.load("with-depends-on-linux-bare")
       expect do
         described_class.new(linux_cask).check_stanza_os_requirements
-      end.to raise_error(Cask::CaskError, "Linux is required for this software.")
+      end.to raise_error(Cask::CaskError, "with-depends-on-linux-bare: This cask requires Linux.")
+    end
+
+    it "names the cask when the macOS requirement is not satisfied" do
+      macos_cask = Cask::CaskLoader.load("with-depends-on-macos-failure")
+      allow(macos_cask.depends_on.maximum_macos).to receive(:satisfied?).and_return(false)
+      expect do
+        described_class.new(macos_cask).check_macos_requirements
+      end.to raise_error(
+        Cask::CaskError,
+        "with-depends-on-macos-failure: This cask does not run on macOS versions newer than Monterey.",
+      )
+    end
+
+    it "names the cask when the architecture is not supported" do
+      arch_cask = Cask::CaskLoader.load("with-depends-on-arch")
+      allow(Hardware::CPU).to receive(:type).and_return(:ppc)
+      expect do
+        described_class.new(arch_cask).check_arch_requirements
+      end.to raise_error(Cask::CaskError, /\Awith-depends-on-arch: This cask depends on hardware architecture/)
     end
 
     it "installs fine if sha256 :no_check is used with --require-sha and --force" do

@@ -139,31 +139,33 @@ class MacOSRequirement < Requirement
 
   sig { override.params(type: Symbol).returns(String) }
   def message(type: :formula)
-    return "macOS is required for this software." unless version_specified?
+    subject = (type == :cask) ? "This cask" : "This formula"
+
+    return "#{subject} requires macOS." unless version_specified?
 
     version = @version
     case @comparator
     when ">="
-      "This software does not run on macOS versions older than #{T.cast(version, MacOSVersion).pretty_name}."
+      "#{subject} does not run on macOS versions older than #{T.cast(version, MacOSVersion).pretty_name}."
     when "<="
       case type
       when :formula
         <<~EOS
-          This formula either does not compile or function as expected on macOS
+          #{subject} either does not compile or function as expected on macOS
           versions newer than #{T.cast(version, MacOSVersion).pretty_name} due to an upstream incompatibility.
         EOS
       when :cask
-        "This cask does not run on macOS versions newer than #{T.cast(version, MacOSVersion).pretty_name}."
+        "#{subject} does not run on macOS versions newer than #{T.cast(version, MacOSVersion).pretty_name}."
       else
         ""
       end
     else
       if version.respond_to?(:to_ary) || version.is_a?(Array)
         *versions, last = T.unsafe(version).map(&:pretty_name)
-        return "This software does not run on macOS versions other than #{versions.join(", ")} and #{last}."
+        return "#{subject} does not run on macOS versions other than #{versions.join(", ")} and #{last}."
       end
 
-      "This software does not run on macOS versions other than #{T.cast(version, MacOSVersion).pretty_name}."
+      "#{subject} does not run on macOS versions other than #{T.cast(version, MacOSVersion).pretty_name}."
     end
   end
 

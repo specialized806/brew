@@ -13,7 +13,7 @@ module OS
         def check_stanza_os_requirements
           return if !cask.depends_on.requires_linux? && artifacts.all? { |artifact| supported_artifact?(artifact) }
 
-          raise ::Cask::CaskError, "Linux is required for this software."
+          raise ::Cask::CaskError, "#{cask}: This cask requires Linux."
         end
 
         private
