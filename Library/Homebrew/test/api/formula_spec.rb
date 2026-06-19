@@ -9,6 +9,7 @@ RSpec.describe Homebrew::API::Formula do
   let(:source_cache_dir) { mktmpdir }
 
   before do
+    stub_const("HOMEBREW_CACHE", cache_dir)
     stub_const("Homebrew::API::HOMEBREW_CACHE_API", cache_dir)
     stub_const("Homebrew::API::HOMEBREW_CACHE_API_SOURCE", source_cache_dir)
     described_class.clear_cache
@@ -198,7 +199,9 @@ RSpec.describe Homebrew::API::Formula do
     it "loads local patch files from API source cache" do
       source_path = source_cache_dir/"Homebrew/homebrew-core/abc123/Formula/testball.rb"
       source_path.dirname.mkpath
-      source_path.write <<~RUBY
+      cached_source_path = cache_dir/"downloads/testball.rb"
+      cached_source_path.dirname.mkpath
+      cached_source_path.write <<~RUBY
         class Testball < Formula
           url "https://brew.sh/testball-0.1.tar.gz"
 
@@ -207,12 +210,15 @@ RSpec.describe Homebrew::API::Formula do
           end
         end
       RUBY
+      FileUtils.ln_s cached_source_path.relative_path_from(source_path.dirname), source_path
 
       allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:fetch) do |download|
         next if download.symlink_location.basename.to_s != "noop-a.diff"
 
-        download.symlink_location.dirname.mkpath
-        download.symlink_location.write("patch contents")
+        cached_patch_path = download.downloader.cached_location
+        cached_patch_path.dirname.mkpath
+        cached_patch_path.write("patch contents")
+        download.downloader.create_symlink_to_cached_download(cached_patch_path)
       end
 
       result = described_class.source_download_formula(f)
