@@ -107,7 +107,7 @@ module Homebrew
                     token: ${{ secrets.GITHUB_TOKEN }}
 
                 - name: Cache Homebrew Bundler RubyGems
-                  uses: actions/cache@v4
+                  uses: actions/cache@v5
                   with:
                     path: ${{ steps.set-up-homebrew.outputs.gems-path }}
                     key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
@@ -138,7 +138,7 @@ module Homebrew
 
                 - name: Upload bottles as artifact
                   if: always() && github.event_name == 'pull_request'
-                  uses: actions/upload-artifact@v4
+                  uses: actions/upload-artifact@v7
                   with:
                     name: bottles_${{ matrix.os }}
                     path: '*.bottle.*'
