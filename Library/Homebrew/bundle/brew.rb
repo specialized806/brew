@@ -791,7 +791,7 @@ module Homebrew
 
         sig { override.params(node: String, block: T.proc.params(arg0: String).void).void }
         def tsort_each_child(node, &block)
-          fetch(node.downcase).sort.each(&block)
+          fetch(node, []).sort.each(&block)
         end
       end
     end
