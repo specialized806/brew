@@ -287,7 +287,7 @@ RSpec.describe Cask::Installer, :cask do
 
         expect do
           described_class.new(cask, download_queue:).enqueue_downloads
-        end.to raise_error(Cask::CaskError, "macOS is required")
+        end.to raise_error(Cask::CaskError, "with-preflight: macOS is required")
       end
 
       it "checks requirements before loading the source cask during fetch" do
@@ -295,7 +295,7 @@ RSpec.describe Cask::Installer, :cask do
 
         expect do
           described_class.new(cask).fetch
-        end.to raise_error(Cask::CaskError, "macOS is required")
+        end.to raise_error(Cask::CaskError, "with-preflight: macOS is required")
       end
     end
 
