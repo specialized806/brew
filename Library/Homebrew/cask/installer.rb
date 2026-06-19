@@ -393,11 +393,10 @@ on_request: true)
 
     sig { void }
     def check_macos_requirements
-      macos_requirements = [@cask.depends_on.macos, @cask.depends_on.maximum_macos].compact
-      return if macos_requirements.empty?
-      return if macos_requirements.all?(&:satisfied?)
+      macos_requirement = [@cask.depends_on.macos, @cask.depends_on.maximum_macos].compact.find { !it.satisfied? }
+      return unless macos_requirement
 
-      raise CaskError, macos_requirements.find { |requirement| !requirement.satisfied? }&.message(type: :cask)
+      raise CaskError, "#{@cask}: #{macos_requirement.message(type: :cask)}"
     end
 
     sig { void }
