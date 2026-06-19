@@ -200,7 +200,7 @@ module Homebrew
 
     # Whether the tap appears in the trust list, ignoring any implicit official-tap trust. The
     # entries may be `user/repository` names or remote URLs, so match via {Tap#matches_reference?}.
-    sig { params(tap: T.untyped).returns(T::Boolean) }
+    sig { params(tap: Tap).returns(T::Boolean) }
     def self.explicitly_trusted_tap?(tap)
       trusted_entries(:tap).any? { |reference| tap.matches_reference?(reference) }
     end
@@ -496,7 +496,7 @@ module Homebrew
     end
     private_class_method :with_trust_store_lock
 
-    sig { params(path: Pathname).returns(T.untyped) }
+    sig { params(path: Pathname).returns(T.nilable(Tap)) }
     def self.tap_from_path(path)
       Tap.from_path(path)
     end
@@ -518,7 +518,7 @@ module Homebrew
     end
     private_class_method :trusted_file?
 
-    sig { params(type: Symbol, full_name: String, tap: T.untyped).returns(T::Boolean) }
+    sig { params(type: Symbol, full_name: String, tap: Tap).returns(T::Boolean) }
     def self.explicitly_allowed?(type, full_name, tap)
       return false if type == :command
 
@@ -558,7 +558,7 @@ module Homebrew
     end
     private_class_method :trusted_entry_prefix?
 
-    sig { params(type: Symbol, name: String, tap: T.untyped).void }
+    sig { params(type: Symbol, name: String, tap: Tap).void }
     def self.raise_untrusted!(type, name, tap)
       raise UntrustedTapError, "Refusing to load #{type} #{name} from untrusted tap #{tap.name}.\n" \
                                "Run `brew trust --#{type} #{name}` or `brew trust #{tap.name}` to trust it."
