@@ -39,6 +39,14 @@ module Homebrew
       args.local? || GitHub::Actions.env_set?
     end
 
+    sig { params(tap: T.nilable(Tap)).void }
+    def trust_test_tap!(tap)
+      return if tap.nil? || tap.official?
+
+      action = Homebrew::Trust.trust!(:tap, tap) ? "Trusted" : "Already trusted"
+      Homebrew::TestBot.ohai "#{action} tap: #{tap.name}"
+    end
+
     sig { void }
     def setup_github_actions_sandbox!
       return unless GitHub::Actions.env_set?
@@ -142,10 +150,7 @@ module Homebrew
           raise unless quiet_system GIT, "-C", tap.path, "fetch", "--unshallow"
         end
 
-        unless tap.official?
-          action = Homebrew::Trust.trust!(:tap, tap) ? "Trusted" : "Already trusted"
-          Homebrew::TestBot.ohai "#{action} tap: #{tap.name}"
-        end
+        trust_test_tap!(tap)
       end
 
       brew_version = Utils.safe_popen_read(

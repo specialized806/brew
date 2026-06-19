@@ -41,6 +41,39 @@ RSpec.describe Homebrew::TestBot do
   end
 
   describe Homebrew::TestBot::CleanupBefore do
+    describe "#run!" do
+      it "restores trust for the tap being tested after cleanup" do
+        tap = Tap.fetch("thirdparty", "foo")
+        tap.path.mkpath
+        cleanup = described_class.new(
+          tap:       tap,
+          git:       "git",
+          dry_run:   true,
+          fail_fast: false,
+          verbose:   false,
+        )
+        args = double
+
+        allow(cleanup).to receive(:test_header)
+        allow(cleanup).to receive(:cleanup_shared) { FileUtils.rm_f Homebrew::Trust.trust_file }
+
+        mktmpdir do |workdir|
+          workdir.cd do
+            with_env(HOMEBREW_USER_CONFIG_HOME: "#{workdir}/.homebrew") do
+              Homebrew::Trust.trust!(:tap, tap)
+              cleanup.run!(args:)
+
+              expect(Homebrew::Trust.trust_file).to exist
+              expect(Homebrew::Trust.trusted_tap?(tap)).to be(true)
+            end
+          end
+        end
+      ensure
+        Homebrew::Trust.clear!(:tap)
+        FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+      end
+    end
+
     describe "#untap_untrusted_taps" do
       it "does not untap the tap being tested" do
         current_tap = instance_double(Tap, name: "current/tap", path: HOMEBREW_TAP_DIRECTORY/"current/homebrew-tap")
