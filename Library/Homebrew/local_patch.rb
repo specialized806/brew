@@ -35,7 +35,9 @@ class LocalPatch < EmbeddedPatch
     formula = T.cast(owner, SoftwareSpec).owner
     raise ArgumentError, "LocalPatch#contents requires a formula owner!" unless formula.is_a?(::Formula)
 
-    repository_path = repository_path(formula)
+    formula_path = formula.specified_path || formula.path
+    api_repository_path = api_source_repository_path(formula_path)
+    repository_path = api_repository_path || formula.tap&.path || formula_path.dirname
     file_path = repository_path/Pathname(file)
     repository_realpath = repository_path.realpath
     file_realpath = begin
@@ -43,7 +45,14 @@ class LocalPatch < EmbeddedPatch
     rescue Errno::ENOENT
       raise ArgumentError, "Patch file does not exist: #{file}"
     end
-    if file_realpath.ascend.none?(repository_realpath)
+    if file_realpath.ascend.none?(repository_realpath) &&
+       !(api_repository_path &&
+         begin
+           file_path.expand_path.ascend.any?(api_repository_path.expand_path) &&
+             file_realpath.ascend.any?((HOMEBREW_CACHE/"downloads").realpath)
+         rescue Errno::ENOENT
+           false
+         end)
       raise ArgumentError, "Patch file must be within the formula repository."
     end
     raise ArgumentError, "Patch file must be a file: #{file}" unless file_realpath.file?
@@ -57,12 +66,6 @@ class LocalPatch < EmbeddedPatch
   end
 
   private
-
-  sig { params(formula: ::Formula).returns(Pathname) }
-  def repository_path(formula)
-    formula_path = formula.specified_path || formula.path
-    api_source_repository_path(formula_path) || formula.tap&.path || formula_path.dirname
-  end
 
   sig { params(path: Pathname).returns(T.nilable(Pathname)) }
   def api_source_repository_path(path)
