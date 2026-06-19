@@ -1914,6 +1914,7 @@ _brew_pr_pull() {
     '(--autosquash)--clean[Do not amend the commits from pull requests]' \
     '--debug[Display any debugging information]' \
     '--dry-run[Print what would be done rather than doing it]' \
+    '--head-sha[Expected pull request head commit SHA]' \
     '--help[Show this message]' \
     '--ignore-missing-artifacts[Comma-separated list of workflows which can be ignored if they have not been run]' \
     '--keep-old[If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL]' \
@@ -2396,7 +2397,6 @@ _brew_tap_new() {
     '--github-packages[Upload bottles to GitHub Packages]' \
     '--help[Show this message]' \
     '--no-git[Don'\''t initialize a Git repository for the tap]' \
-    '--pull-label[Label name for pull requests ready to be pulled (default: `pr-pull`)]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]' \
     - tap \

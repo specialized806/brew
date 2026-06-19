@@ -3531,10 +3531,6 @@ Generate the template files for a new tap.
 
 : Don't initialize a Git repository for the tap.
 
-`--pull-label`
-
-: Label name for pull requests ready to be pulled (default: `pr-pull`).
-
 `--branch`
 
 : Initialize Git repository and setup GitHub Actions workflows with the

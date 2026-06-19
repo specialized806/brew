@@ -85,6 +85,16 @@ RSpec.describe Homebrew::DevCmd::PrPull do
 
   it_behaves_like "parseable arguments"
 
+  describe "#check_pull_request_head_sha!" do
+    it "outputs the pull request head SHA" do
+      allow(GitHub).to receive(:pull_request_commits).with("Homebrew", "foo", "1").and_return(["actual"])
+
+      expect do
+        described_class.new(["1"]).check_pull_request_head_sha!("Homebrew", "foo", "1")
+      end.to output(/Pull request #1 head SHA: actual/).to_stdout
+    end
+  end
+
   describe "#autosquash!" do
     it "squashes a formula or cask correctly" do
       secondary_author = "Someone Else <me@example.com>"

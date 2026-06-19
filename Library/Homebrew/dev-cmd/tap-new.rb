@@ -22,7 +22,8 @@ module Homebrew
         switch "--no-git",
                description: "Don't initialize a Git repository for the tap."
         flag   "--pull-label=",
-               description: "Label name for pull requests ready to be pulled (default: `pr-pull`)."
+               description: "Ignored; publishing pull requests is now manually dispatched.",
+               odeprecated: true
         flag   "--branch=",
                description: "Initialize Git repository and setup GitHub Actions workflows with the " \
                             "specified branch name (default: `main`)."
@@ -34,7 +35,6 @@ module Homebrew
 
       sig { override.void }
       def run
-        label = args.pull_label || "pr-pull"
         branch = args.branch || "main"
 
         tap = args.named.to_taps.fetch(0)
@@ -148,13 +148,16 @@ module Homebrew
           name: brew pr-pull
 
           on:
-            pull_request_target:
-              types:
-                - labeled
+            workflow_dispatch:
+              inputs:
+                pull_request:
+                  description: Pull request number
+                  required: true
+                head_sha:
+                  description: Expected pull request head commit SHA (optional)
 
           jobs:
             pr-pull:
-              if: contains(github.event.pull_request.labels.*.name, '<%= label %>')
               runs-on: ubuntu-latest
               permissions:
                 actions: read
@@ -181,19 +184,20 @@ module Homebrew
                     HOMEBREW_GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                     HOMEBREW_GITHUB_PACKAGES_USER: ${{ github.repository_owner }}
           <% end -%>
-                    PULL_REQUEST: ${{ github.event.pull_request.number }}
-                  run: brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"
+                    HEAD_SHA: ${{ inputs.head_sha }}
+                    PULL_REQUEST: ${{ inputs.pull_request }}
+                  run: |
+                    if [[ -n "$HEAD_SHA" ]]
+                    then
+                      brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA" "$PULL_REQUEST"
+                    else
+                      brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"
+                    fi
 
                 - name: Push commits
                   uses: Homebrew/actions/git-try-push@main
                   with:
                     branch: <%= branch %>
-
-                - name: Delete branch
-                  if: github.event.pull_request.head.repo.fork == false
-                  env:
-                    BRANCH: ${{ github.event.pull_request.head.ref }}
-                  run: git push --delete origin "$BRANCH"
         ERB
 
         (tap.path/".github/workflows").mkpath
@@ -235,7 +239,9 @@ module Homebrew
 
           When a pull request making changes to a formula (or formulae) becomes green
           (all checks passed), then you can publish the built bottles.
-          To do so, label your PR as `#{label}` and the workflow will be triggered.
+          To do so, run `brew pr-pull` locally or run the `brew pr-pull`
+          workflow with the pull request number and, optionally, the pull
+          request's expected head commit SHA.
         EOS
       end
 

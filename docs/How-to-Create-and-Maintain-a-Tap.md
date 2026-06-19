@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-25"
+last_review_date: "2026-06-19"
 ---
 
 # How to Create and Maintain a Tap
@@ -35,7 +35,31 @@ $ gh repo create $YOUR_GITHUB_USERNAME/homebrew-tap --push --public --source "$(
 ```
 
 Assuming you leave the default `.github/workflows` files in place,
-["bottles" (binary packages) will be built and uploaded to GitHub Releases](https://brew.sh/2020/11/18/homebrew-tap-with-bottles-uploaded-to-github-releases).
+["bottles" (binary packages) will be built by GitHub Actions](https://brew.sh/2020/11/18/homebrew-tap-with-bottles-uploaded-to-github-releases).
+After reviewing a pull request and checking that the pull request checks passed,
+publish the bottles immediately with `brew pr-pull`, passing the reviewed
+commit SHA. We recommend passing `--head-sha` for improved security:
+
+```console
+brew pr-pull --tap=$YOUR_GITHUB_USERNAME/tap --head-sha=0123456789abcdef0123456789abcdef01234567 123
+```
+
+You can omit `--head-sha`; `brew pr-pull` will output the pull request head
+commit SHA that it uses. This is less safe if the pull request head changes
+between your review and running `brew pr-pull`, because the command will publish
+the newer head commit instead of the commit you reviewed.
+
+```console
+brew pr-pull --tap=$YOUR_GITHUB_USERNAME/tap 123
+```
+
+You can also manually run the generated `brew pr-pull` workflow with the pull
+request number and, optionally, the reviewed commit SHA. In the tap's GitHub
+repository, open the **Actions** tab, choose the **brew pr-pull** workflow, select
+**Run workflow**, enter the pull request number and optionally the expected head
+SHA, then select **Run workflow**. If the pull request head changes before
+publishing completes when `--head-sha` or the workflow's head SHA input is used,
+`brew pr-pull` will fail rather than publishing bottles for a different commit.
 
 If you run `brew tap-new --github-packages`, you can upload to GitHub Packages instead.
 
