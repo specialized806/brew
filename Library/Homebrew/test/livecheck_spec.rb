@@ -209,6 +209,18 @@ RSpec.describe Livecheck do
       end.to raise_error ArgumentError
     end
 
+    it "raises an ArgumentError if `compressed: true` argument is provided" do
+      expect do
+        livecheck_f.url(:stable, compressed: true)
+      end.to raise_error ArgumentError
+    end
+
+    it "raises an ArgumentError if `homebrew_curl: false` argument is provided" do
+      expect do
+        livecheck_f.url(:stable, homebrew_curl: false)
+      end.to raise_error ArgumentError
+    end
+
     it "raises an ArgumentError if both `post_form` and `post_json` arguments are provided" do
       expect do
         livecheck_f.url(:stable, post_form: post_hash, post_json: post_hash)
