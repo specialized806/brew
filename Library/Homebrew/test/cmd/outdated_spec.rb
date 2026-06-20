@@ -61,6 +61,31 @@ RSpec.describe Homebrew::Cmd::Outdated do
     expect(cmd.send(:select_outdated, [cask])).to eq([cask])
   end
 
+  it "excludes auto-updating casks when auto-update upgrades are disabled", :cask do
+    InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("outdated/auto-updates")))
+
+    info_plist = Pathname(Cask::CaskLoader.load(cask_path("auto-updates")).config.appdir)
+                 .join("MyFancyApp.app/Contents/Info.plist")
+    info_plist.dirname.mkpath
+    info_plist.write <<~PLIST
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>CFBundleShortVersionString</key>
+        <string>2.57</string>
+        <key>CFBundleVersion</key>
+        <string>2057</string>
+      </dict>
+      </plist>
+    PLIST
+
+    with_env(HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS: "1") do
+      expect { described_class.new(["--cask"]).run }
+        .not_to output.to_stdout
+    end
+  end
+
   it "outputs JSON for outdated formulae and casks", :cask, :integration_test do
     setup_test_formula "testball"
     (HOMEBREW_CELLAR/"testball/0.0.1/foo").mkpath

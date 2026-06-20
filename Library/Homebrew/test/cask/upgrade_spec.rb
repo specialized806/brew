@@ -109,7 +109,7 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       it 'excludes "auto_updates true" casks when HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS is set' do
-        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(false)
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_call_original
 
         expect(described_class).not_to receive(:upgrade_cask)
         expect(described_class).to receive(:show_upgrade_summary) do |cask_upgrades, dry_run:|
@@ -122,7 +122,9 @@ RSpec.describe Cask::Upgrade, :cask do
           expect(cask_upgrades.grep(/auto-updates/)).to be_empty
         end
 
-        described_class.upgrade_casks!(dry_run: true, args:)
+        with_env(HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS: "1") do
+          described_class.upgrade_casks!(dry_run: true, args:)
+        end
       end
 
       it "lets HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS override HOMEBREW_UPGRADE_AUTO_UPDATES_CASKS" do

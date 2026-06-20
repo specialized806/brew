@@ -304,6 +304,16 @@ RSpec.describe Cask::Cask, :cask do
         expect(cask.outdated_version).to eq("2.57")
       end
 
+      it "is not outdated when auto-update upgrades are disabled" do
+        allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(false)
+        tap_version = "2.61"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.57", bundle_version: "2057")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
       it "is not outdated when the short version matches and the bundle version is lower than a CSV candidate" do
         tap_version = "2.61,3000"
         cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
