@@ -124,22 +124,53 @@ RSpec.describe Homebrew::Diagnostic::Checks do
   end
 
   specify "#check_untrusted_taps" do
-    tap = instance_double(Tap, name: "thirdparty/foo")
-    rack = HOMEBREW_CELLAR/"bar"
-    keg = instance_double(Keg, tab: instance_double(Tab, tap:))
-    allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
-    allow(Formula).to receive(:racks).and_return([rack])
-    allow(Keg).to receive(:from_rack).with(rack).and_return(keg)
+    foo_tap = instance_double(Tap, name: "thirdparty/foo")
+    bar_tap = instance_double(Tap, name: "thirdparty/bar")
+    foo_rack = HOMEBREW_CELLAR/"foo-formula"
+    bar_rack = HOMEBREW_CELLAR/"bar-formula"
+    foo_keg = instance_double(Keg, tab: instance_double(Tab, tap: foo_tap))
+    bar_keg = instance_double(Keg, tab: instance_double(Tab, tap: bar_tap))
+    foo_cask = instance_double(Cask::Cask, token: "foo-cask", tab: instance_double(Cask::Tab, tap: foo_tap))
+    bar_cask = instance_double(Cask::Cask, token: "bar-cask", tab: instance_double(Cask::Tab, tap: bar_tap))
+    allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([foo_tap, bar_tap])
+    allow(Formula).to receive(:racks).and_return([foo_rack, bar_rack])
+    allow(Keg).to receive(:from_rack).with(foo_rack).and_return(foo_keg)
+    allow(Keg).to receive(:from_rack).with(bar_rack).and_return(bar_keg)
+    allow(Cask::Caskroom).to receive(:casks).and_return([foo_cask, bar_cask])
 
     with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
-      expect(checks.check_untrusted_taps)
-        .to include(
-          "Homebrew is currently ignoring formulae, casks and commands from these taps " \
-          "because tap trust is required.",
-          "brew untap thirdparty/foo",
-          "brew trust thirdparty/foo",
-          "brew trust --formula thirdparty/foo/bar",
-          "Prefer trusting only the specific formulae, casks or commands you need.",
+      check_untrusted_taps = checks.check_untrusted_taps
+      expect(check_untrusted_taps).to eq <<~EOS
+        The following taps are not trusted:
+          thirdparty/foo
+          thirdparty/bar
+
+        Homebrew is currently ignoring formulae, casks and commands from these taps because tap trust is required.
+        Prefer trusting only the specific formulae, casks or commands you need.
+        Trust installed formulae from these taps with:
+          brew trust --formula thirdparty/bar/bar-formula
+          brew trust --formula thirdparty/foo/foo-formula
+        Trust installed casks from these taps with:
+          brew trust --cask thirdparty/bar/bar-cask
+          brew trust --cask thirdparty/foo/foo-cask
+        Trust other specific commands with:
+          brew trust --command <user>/<tap>/<command>
+        Whole-tap trust is broader and includes all current and future formulae,
+        casks and commands from the listed taps. Trust whole taps with:
+          brew trust thirdparty/foo thirdparty/bar
+        Untap them with:
+          brew untap thirdparty/foo thirdparty/bar
+        To disable trust checks:
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+        This is not recommended and will be removed in a later release.
+        For more information, see:
+          #{Formatter.url("https://docs.brew.sh/Tap-Trust")}
+      EOS
+
+      expect(check_untrusted_taps)
+        .not_to include(
+          "brew trust --formula <user>/<tap>/<formula>",
+          "brew trust --cask <user>/<tap>/<cask>",
         )
     end
   end
@@ -148,18 +179,43 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     tap = instance_double(Tap, name: "thirdparty/foo")
     allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
     allow(Formula).to receive(:racks).and_return([])
+    allow(Cask::Caskroom).to receive(:casks).and_return([])
 
     with_env(HOMEBREW_REQUIRE_TAP_TRUST: nil, HOMEBREW_NO_REQUIRE_TAP_TRUST: nil) do
-      expect(checks.check_untrusted_taps)
-        .to include(
-          "Homebrew is currently ignoring formulae, casks and commands from these taps " \
-          "because tap trust is required.",
-          "brew untap thirdparty/foo",
-          "brew trust thirdparty/foo",
-          "export HOMEBREW_NO_REQUIRE_TAP_TRUST=1",
-          "This is not recommended and will be removed in a later release.",
-          "Prefer trusting only the specific formulae, casks or commands you need.",
-        )
+      check_untrusted_taps = checks.check_untrusted_taps
+      expect(check_untrusted_taps).to eq <<~EOS
+        The following taps are not trusted:
+          thirdparty/foo
+
+        Homebrew is currently ignoring formulae, casks and commands from these taps because tap trust is required.
+        Untap them with:
+          brew untap thirdparty/foo
+        Trust specific formulae, casks and commands with:
+          brew trust --formula <user>/<tap>/<formula>
+          brew trust --cask <user>/<tap>/<cask>
+          brew trust --command <user>/<tap>/<command>
+        Whole-tap trust is broader and includes all current and future formulae,
+        casks and commands from the listed taps. Trust whole taps with:
+          brew trust thirdparty/foo
+        To disable trust checks:
+          export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+        This is not recommended and will be removed in a later release.
+        For more information, see:
+          #{Formatter.url("https://docs.brew.sh/Tap-Trust")}
+      EOS
+    end
+  end
+
+  specify "#check_untrusted_taps hides trust checks opt-out with HOMEBREW_NO_ENV_HINTS" do
+    tap = instance_double(Tap, name: "thirdparty/foo")
+    allow(Homebrew::Trust).to receive(:wholly_untrusted_taps).and_return([tap])
+    allow(Formula).to receive(:racks).and_return([])
+    allow(Cask::Caskroom).to receive(:casks).and_return([])
+
+    with_env(HOMEBREW_NO_ENV_HINTS: "1") do
+      check_untrusted_taps = checks.check_untrusted_taps
+      expect(check_untrusted_taps).to include(Formatter.url("https://docs.brew.sh/Tap-Trust"))
+      expect(check_untrusted_taps).not_to include("export HOMEBREW_NO_REQUIRE_TAP_TRUST=1")
     end
   end
 
