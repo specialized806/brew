@@ -37,10 +37,7 @@ class BazaarDownloadStrategy < VCSDownloadStrategy
 
   sig { override.returns(T::Hash[String, String]) }
   def env
-    {
-      "PATH"     => PATH.new(Formula["breezy"].opt_bin, ENV.fetch("PATH")),
-      "BZR_HOME" => HOMEBREW_TEMP,
-    }
+    Utils::Path.formula_opt_bin_env("breezy").merge("BZR_HOME" => HOMEBREW_TEMP.to_s)
   end
 
   sig { override.returns(String) }

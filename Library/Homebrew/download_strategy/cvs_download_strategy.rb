@@ -45,7 +45,7 @@ class CVSDownloadStrategy < VCSDownloadStrategy
 
   sig { override.returns(T::Hash[String, String]) }
   def env
-    { "PATH" => PATH.new("/usr/bin", Formula["cvs"].opt_bin, ENV.fetch("PATH")) }
+    { "PATH" => PATH.new("/usr/bin", Utils::Path.formula_opt_bin_path("cvs")).to_s }
   end
 
   sig { override.returns(String) }

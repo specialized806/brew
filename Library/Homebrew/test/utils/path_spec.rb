@@ -32,6 +32,37 @@ RSpec.describe Utils::Path do
     end
   end
 
+  describe "::formula_opt_bin" do
+    it "returns a formula opt bin path without loading a Formula object" do
+      expect(described_class.formula_opt_bin("foo")).to eq(HOMEBREW_PREFIX/"opt/foo/bin")
+    end
+  end
+
+  describe "::formula_opt_bin_path" do
+    it "prepends a formula opt bin path to the current PATH by default" do
+      expect(described_class.formula_opt_bin_path("foo")).to eq(PATH.new(HOMEBREW_PREFIX/"opt/foo/bin",
+                                                                         ENV.fetch("PATH")))
+    end
+
+    it "prepends a formula opt bin path to PATH entries" do
+      expect(described_class.formula_opt_bin_path("foo", "/usr/bin")).to eq(PATH.new(HOMEBREW_PREFIX/"opt/foo/bin",
+                                                                                     "/usr/bin",
+                                                                                     ENV.fetch("PATH")))
+    end
+  end
+
+  describe "::formula_opt_bin_env" do
+    it "returns a PATH environment with a formula opt bin path prepended to the current PATH by default" do
+      expect(described_class.formula_opt_bin_env("foo"))
+        .to eq({ "PATH" => PATH.new(HOMEBREW_PREFIX/"opt/foo/bin", ENV.fetch("PATH")).to_s })
+    end
+
+    it "returns a PATH environment with extra PATH entries" do
+      expect(described_class.formula_opt_bin_env("foo", "/usr/bin"))
+        .to eq({ "PATH" => PATH.new(HOMEBREW_PREFIX/"opt/foo/bin", "/usr/bin", ENV.fetch("PATH")).to_s })
+    end
+  end
+
   describe "::loadable_package_path?" do
     it "accepts formula paths under a symlinked cellar" do
       tmpdir = mktmpdir

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "system_command"
+require "utils/path"
 
 module Utils
   # Helper functions for querying Git information.
@@ -179,7 +180,7 @@ module Utils
 
     sig { void }
     def self.setup_gpg!
-      gnupg_bin = HOMEBREW_PREFIX/"opt/gnupg/bin"
+      gnupg_bin = Utils::Path.formula_opt_bin("gnupg")
       return unless gnupg_bin.directory?
 
       ENV["PATH"] = PATH.new(ENV.fetch("PATH")).prepend(gnupg_bin).to_s

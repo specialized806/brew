@@ -29,7 +29,7 @@ module UnpackStrategy
       quiet_flags = verbose ? [] : ["-q"]
       system_command! "bzip2",
                       args:    [*quiet_flags, "-d", unpack_dir/basename],
-                      env:     { "PATH" => PATH.new(Formula["bzip2"].opt_bin, ORIGINAL_PATHS, ENV.fetch("PATH")) },
+                      env:     Utils::Path.formula_opt_bin_env("bzip2", ORIGINAL_PATHS),
                       verbose:
     end
   end
