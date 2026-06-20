@@ -10,7 +10,7 @@ module Homebrew
     # set.
     class Options < T::Struct
       # Whether to request a compressed response.
-      prop :compressed, T.nilable(T::Boolean)
+      prop :compressed, T.nilable(FalseClass)
 
       # Cookies for curl to use when making a request.
       prop :cookies, T.nilable(T::Hash[String, String])
@@ -19,7 +19,7 @@ module Homebrew
       prop :header, T.nilable(T.any(String, T::Array[String]))
 
       # Whether to use brewed curl.
-      prop :homebrew_curl, T.nilable(T::Boolean)
+      prop :homebrew_curl, T.nilable(TrueClass)
 
       # Form data to use when making a `POST` request.
       prop :post_form, T.nilable(T::Hash[Symbol, String])
