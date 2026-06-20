@@ -439,6 +439,8 @@ module Cask
       return if installed_version == version
 
       if auto_updates && !greedy && !greedy_auto_updates
+        return unless Homebrew::EnvConfig.upgrade_auto_updates_casks?
+
         return installed_version if auto_updates_bundle_outdated?
 
         return
@@ -733,7 +735,6 @@ module Cask
 
     sig { returns(T::Boolean) }
     def auto_updates_bundle_outdated?
-      return false unless Homebrew::EnvConfig.upgrade_auto_updates_casks?
       return false if !auto_updates || version.latest?
       return false unless installed_app_info_plist
 
