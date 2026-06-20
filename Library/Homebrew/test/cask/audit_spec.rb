@@ -95,7 +95,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("eh", strict_only: true)
       end
 
-      it { is_expected.not_to include("failed") }
+      it { is_expected.to be_nil }
     end
 
     context "when there are errors" do
@@ -131,7 +131,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("a little bit bad", strict_only: true)
       end
 
-      it { is_expected.not_to include("failed") }
+      it { is_expected.to be_nil }
     end
 
     context "when there are warnings and `--strict` is passed" do
