@@ -638,7 +638,7 @@ RSpec.describe Homebrew::Services::Cli do
         mktmpdir/"var/log",
       ]
       expect(described_class).to receive(:launchctl_load).once do
-        path_dirs.each { expect(it).to be_a_directory }
+        expect(path_dirs).to all(be_a_directory)
       end
 
       expect do

@@ -272,7 +272,7 @@ RSpec.describe Homebrew::McpServer do
       rescue
         SystemExit
       end.to raise_error(SystemExit)
-      expect(stderr.string).to match(/Error: fail/)
+      expect(stderr.string).to include("Error: fail")
     end
   end
 end

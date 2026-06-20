@@ -48,7 +48,7 @@ module T::Private::Methods
   #   (This can matter for circular load-time behavior, where a method is
   #   called while its Signature is being built)
   # - It's `nil` if we've finished building the sig
-  DeclarationBlock = Struct.new(:mod, :loc, :blk_or_decl, :final)
+  DeclarationBlock = Struct.new(:mod, :method_name, :loc, :blk_or_decl, :final, :abstract, :override, :overridable)
 
   def self.declare_sig(mod, loc, arg, &blk)
     if T::Private::DeclState.current.active_declaration
@@ -60,13 +60,122 @@ module T::Private::Methods
       raise "Invalid argument to `sig`: #{arg}"
     end
 
-    T::Private::DeclState.current.active_declaration = DeclarationBlock.new(mod, loc, blk, arg == :final)
+    method_name = nil # will be filled in once the next method is defined
+    abstract = nil
+    override = nil
+    overridable = nil
+    T::Private::DeclState.current.active_declaration = DeclarationBlock.new(mod, method_name, loc, blk, arg == :final, abstract, override, overridable)
+
+    nil
+  end
+
+  private_class_method def self.ensure_valid_declare_dsl!(mod, method_name, dsl_name)
+    previous_declaration = T::Private::DeclState.current.previous_declaration
+    if previous_declaration.nil?
+      # TODO(jez) Eventually, relax this and allow these DSLs without a preceding `sig`
+      raise DeclBuilder::BuilderError.new("You must declare a `sig` before using `#{dsl_name}` on the method `#{method_name}`")
+    end
+
+    if !previous_declaration.blk_or_decl.is_a?(Proc)
+      raise DeclBuilder::BuilderError.new("Cannot call `#{dsl_name} #{method_name.inspect}`, because the sig block has already run")
+    end
+
+    # previous_declaration.mod is the method owner (which for `def self.foo`
+    # is the singleton class). The DSL caller's `self` is the class itself,
+    # so we also accept mod.singleton_class == previous_declaration.mod.
+    mod_matches = previous_declaration.mod == mod || previous_declaration.mod == mod.singleton_class
+    if !mod_matches || previous_declaration.method_name != method_name
+      raise DeclBuilder::BuilderError.new(
+        "Can only call `#{dsl_name} #{method_name.inspect}` for the previously sig'd method. " \
+        "Expected: #{previous_declaration.mod}##{previous_declaration.method_name}"
+      )
+    end
+
+    previous_declaration
+  end
+
+  def self.declare_abstract(mod, method_name)
+    previous_declaration = ensure_valid_declare_dsl!(mod, method_name, :abstract)
+    return unless previous_declaration
+
+    if previous_declaration.abstract
+      raise DeclBuilder::BuilderError.new("Cannot call `abstract` twice for the method `#{method_name}`")
+    end
+
+    previous_declaration.abstract = true
+
+    # # TODO(jez) In the future, we will want some logic like this, but ONLY if
+    # # the method did not have a sig. The first-call sig wrapper is normally in
+    # # charge of running the sig block (even for abstract methods) If we know
+    # # for sure that we're not going to have a sig, but we want the runtime
+    # # `super` logic (possibly because there is an RBS method annotation), we
+    # # are safe to eagerly call `create_abstract_wrapper` to overwrite the
+    # # user's method.
+    # #
+    # # (Omitting this until we support DSL methods without runtime `sig`'s)
+    # original_visibility = T::Private::ClassUtils.visibility_method_name(mod, method_name)
+    # T::Private::Methods::CallValidation.create_abstract_wrapper(mod, method_name, original_visibility)
+
+    nil
+  end
+
+  def self.declare_override(mod, method_name, allow_incompatible:)
+    previous_declaration = ensure_valid_declare_dsl!(mod, method_name, :override)
+    return unless previous_declaration
+
+    if previous_declaration.override
+      raise DeclBuilder::BuilderError.new("Cannot call `override` twice for the method `#{method_name}`")
+    end
+
+    method = mod.instance_method(method_name)
+    super_method = method.super_method
+    if super_method.nil?
+      source_loc = Kernel.caller_locations(2, 1)&.map { |loc| [loc.path || "<unknown>", loc.lineno] }&.first
+      T::Private::Methods::SignatureValidation.validate_non_override_mode(Modes.override, method_name, method, source_loc)
+    end
+
+    previous_declaration.override = {allow_incompatible: allow_incompatible}
+
+    nil
+  end
+
+  def self.declare_final(mod, method_name)
+    previous_declaration = ensure_valid_declare_dsl!(mod, method_name, :final)
+    return unless previous_declaration
+
+    if previous_declaration.final
+      raise DeclBuilder::BuilderError.new("Cannot declare `#{method_name}` final twice (from `sig(:final)` nor `final def`)")
+    end
+
+    previous_declaration.final = true
+
+    # Register final bookkeeping that _on_method_added would have done if it
+    # had seen final=true at that time. Use previous_declaration.mod (the actual
+    # method owner, which is the singleton_class for `def self.foo`).
+    add_module_with_final_method(previous_declaration.mod, method_name)
+
+    nil
+  end
+
+  def self.declare_overridable(mod, method_name)
+    previous_declaration = ensure_valid_declare_dsl!(mod, method_name, :overridable)
+    return unless previous_declaration
+
+    if previous_declaration.overridable
+      raise DeclBuilder::BuilderError.new("Cannot call `overridable` twice for the method `#{method_name}`")
+    end
+
+    previous_declaration.overridable = true
 
     nil
   end
 
   def self.start_proc
-    DeclBuilder.new(PROC_TYPE)
+    # abstract/override/overridable don't make sense on procs
+    abstract = false
+    override = nil
+    overridable = false
+    DeclBuilder.new(PROC_TYPE, abstract, override, overridable)
   end
 
   def self.finalize_proc(decl)
@@ -105,12 +214,17 @@ module T::Private::Methods
   #
   # we assume that source_method_names has already been filtered to only include method
   # names that were declared final at one point.
+  #
+  # Returns a boolean indicating whether it's okay to define any of `source_method_names` in `target`
+  # (e.g. true if no final method violations)
   def self._check_final_ancestors(target, source_method_names, source)
     source_ancestors = nil
     if T::Private::IS_TYPECHECKING
       # Need to avoid a pinning error, but don't want to use runtime types in _methods.rb
       source_ancestors = T.let(nil, T.nilable(T::Array[T::Module[T.anything]]))
+      found_error = T.let(false, T::Boolean)
     end
+    found_error = false
     # use reverse_each to check farther-up ancestors first, for better error messages.
     target.ancestors.reverse_each do |ancestor|
       final_methods = @modules_with_final.fetch(ancestor, nil)
@@ -142,6 +256,8 @@ module T::Private::Methods
           next if defining_ancestor_idx && source_ancestors[defining_ancestor_idx] == ancestor
         end
 
+        found_error = true
+
         final_sig = T::Private::Methods.signature_for_method(ancestor.instance_method(method_name))
         definition_file, definition_line = final_sig&.method&.source_location
         is_redefined = target == ancestor
@@ -158,19 +274,14 @@ module T::Private::Methods
                          "#{extra_info}"
 
         begin
+          # raise + rescue to populate the backtrace
           raise pretty_message
         rescue => e
-          # sig_validation_error_handler raises by default; on the off chance that
-          # it doesn't raise, we need to ensure that the rest of signature building
-          # sees a consistent state.  This sig failed to validate, so we should get
-          # rid of it.  If we don't do this, errors of the form "You called sig
-          # twice without declaring a method in between" will non-deterministically
-          # crop up in tests.
-          T::Private::DeclState.current.reset!
           T::Configuration.sig_validation_error_handler(e, {})
         end
       end
     end
+    !found_error
   end
 
   def self.add_module_with_final_method(mod, method_name)
@@ -192,23 +303,24 @@ module T::Private::Methods
       return
     end
 
-    current_declaration = T::Private::DeclState.current.active_declaration
+    current_declaration = T::Private::DeclState.current.consume!
 
     if T::Private::Final.final_module?(mod) && (current_declaration.nil? || !current_declaration.final)
       raise "#{mod} was declared as final but its method `#{method_name}` was not declared as final"
     end
     # Don't compute mod.ancestors if we don't need to bother checking final-ness.
-    if @was_ever_final_names.include?(method_name) && @modules_with_final.include?(mod)
-      _check_final_ancestors(mod, [method_name], nil)
-      # We need to fetch the active declaration again, as _check_final_ancestors
-      # may have reset it (see the comment in that method for details).
-      current_declaration = T::Private::DeclState.current.active_declaration
+    if @was_ever_final_names.include?(method_name) && @modules_with_final.include?(mod) &&
+       !_check_final_ancestors(mod, [method_name], nil)
+      # We want to pretend like the method did not have a sig, so return.
+      # (This code is not dead, because some `sig_validation_error_handler`'s do not raise.)
+      return
     end
 
     if current_declaration.nil?
       return
     end
-    T::Private::DeclState.current.reset!
+
+    current_declaration.method_name = method_name
 
     if method_name == :method_added || method_name == :singleton_method_added
       raise(
@@ -349,7 +461,12 @@ module T::Private::Methods
       raise "DeclarationBlock for #{declaration_block.mod} at #{declaration_block.loc} should have already been unwrapped"
     end
 
-    builder = DeclBuilder.new(declaration_block.mod)
+    builder = DeclBuilder.new(
+      declaration_block.mod,
+      declaration_block.abstract,
+      declaration_block.override,
+      declaration_block.overridable
+    )
     decl = builder.instance_exec(&blk_or_decl).finalize!.decl
     # Record that we've already run `blk` once and constructed a `Declaration`
     declaration_block.blk_or_decl = decl
@@ -471,12 +588,22 @@ module T::Private::Methods
   end
 
   def self.run_all_sig_blocks(force_type_init: true)
+    current_declaration = T::Private::DeclState.current.active_declaration
+    if !current_declaration.nil?
+      T::Private::DeclState.current.reset!
+      raise "Cannot call `run_all_sig_blocks` while there is a pending `sig` block in #{current_declaration.mod} at #{current_declaration.loc}"
+    end
+
     loop do
       first_wrapper = @sig_wrappers.first
       break unless first_wrapper
       key, = first_wrapper
       run_sig_block_for_key(key, force_type_init: force_type_init)
     end
+
+    # Make sure that there are no lingering declaration blocks being kept alive
+    # (so we're not retaining any extra references for a possible GC)
+    T::Private::DeclState.current.reset!
   end
 
   def self.all_checked_tests_sigs
@@ -507,6 +634,7 @@ module T::Private::Methods
     end
 
     _check_final_ancestors(target, methods, source)
+    nil
   end
 
   def self.set_final_checks_on_hooks(enable)

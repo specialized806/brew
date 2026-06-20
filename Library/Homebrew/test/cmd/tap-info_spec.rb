@@ -91,7 +91,7 @@ RSpec.describe Homebrew::Cmd::TapInfo do
     end
 
     it "does not mark an uninstalled formula" do
-      expect(tap_info.send(:decorate_formula, tap, "missing", installed: false)).not_to match(/✘/)
+      expect(tap_info.send(:decorate_formula, tap, "missing", installed: false)).not_to include("✘")
     end
 
     it "marks an installed formula as satisfied" do
@@ -133,7 +133,7 @@ RSpec.describe Homebrew::Cmd::TapInfo do
     end
 
     it "does not mark an uninstalled cask" do
-      expect(tap_info.send(:decorate_cask, tap, "missing", installed: false)).not_to match(/✘/)
+      expect(tap_info.send(:decorate_cask, tap, "missing", installed: false)).not_to include("✘")
     end
 
     it "marks an installed cask as satisfied" do

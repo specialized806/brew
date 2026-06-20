@@ -95,7 +95,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("eh", strict_only: true)
       end
 
-      it { is_expected.not_to match(/failed/) }
+      it { is_expected.to be_nil }
     end
 
     context "when there are errors" do
@@ -103,7 +103,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error "bad"
       end
 
-      it { is_expected.to match(/failed/) }
+      it { is_expected.to include("failed") }
     end
 
     context "when there are errors and warnings" do
@@ -112,7 +112,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("eh", strict_only: true)
       end
 
-      it { is_expected.to match(/failed/) }
+      it { is_expected.to include("failed") }
     end
 
     context "when there are errors and warnings and `--strict` is passed" do
@@ -123,7 +123,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("a little bit bad", strict_only: true)
       end
 
-      it { is_expected.to match(/failed/) }
+      it { is_expected.to include("failed") }
     end
 
     context "when there are warnings and `--strict` is not passed" do
@@ -131,7 +131,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("a little bit bad", strict_only: true)
       end
 
-      it { is_expected.not_to match(/failed/) }
+      it { is_expected.to be_nil }
     end
 
     context "when there are warnings and `--strict` is passed" do
@@ -141,7 +141,7 @@ RSpec.describe Cask::Audit, :cask do
         audit.add_error("a little bit bad", strict_only: true)
       end
 
-      it { is_expected.to match(/failed/) }
+      it { is_expected.to include("failed") }
     end
   end
 
