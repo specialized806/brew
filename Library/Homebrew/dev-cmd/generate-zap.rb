@@ -2,8 +2,7 @@
 # frozen_string_literal: true
 
 require "abstract_command"
-require "cask/cask_loader"
-require "cask/utils"
+require "cask"
 require "system_command"
 
 module Homebrew
@@ -89,12 +88,10 @@ module Homebrew
 
       sig { override.void }
       def run
-        input = args.named.fetch(0)
-
         patterns = if args.name?
-          [input]
+          [args.named.fetch(0)]
         else
-          resolve_patterns_from_cask(input)
+          resolve_patterns_from_cask(args.named.to_casks.fetch(0))
         end
 
         ohai "Scanning for files matching #{format_patterns(patterns)}..."
@@ -129,18 +126,16 @@ module Homebrew
 
       private
 
-      sig { params(token: String).returns(T::Array[String]) }
-      def resolve_patterns_from_cask(token)
-        cask = Cask::CaskLoader.load(token)
-
+      sig { params(cask: Cask::Cask).returns(T::Array[String]) }
+      def resolve_patterns_from_cask(cask)
         app_artifact = cask.artifacts.find { |a| a.is_a?(Cask::Artifact::App) }
         if app_artifact
           patterns = [app_artifact.target.basename(".app").to_s]
           patterns.concat(bundle_identifiers(app_artifact))
           patterns.uniq
         else
-          ohai "No app artifact found in cask \"#{token}\"; using token as app name."
-          [token.tr("-", " ").split.map(&:capitalize).join(" ")]
+          ohai "No app artifact found in cask \"#{cask.token}\"; using token as app name."
+          [cask.token.tr("-", " ").split.map(&:capitalize).join(" ")]
         end
       end
 
@@ -177,7 +172,7 @@ module Homebrew
           full_dir = home_relative ? File.join(home, dir) : dir
           next unless File.directory?(full_dir)
 
-          Dir.each_child(full_dir) do |entry|
+          each_readable_child(full_dir) do |entry|
             downcased_entry = entry.downcase
             next unless downcased_patterns.any? { |pattern| downcased_entry.include?(pattern) }
 
@@ -195,7 +190,7 @@ module Homebrew
         downcased_patterns = patterns.map(&:downcase)
         matches = []
 
-        Dir.each_child(home) do |entry|
+        each_readable_child(home) do |entry|
           next unless entry.start_with?(".")
 
           downcased_entry = entry.downcase
@@ -205,6 +200,14 @@ module Homebrew
         end
 
         matches.sort
+      end
+
+      sig { params(dir: String, block: T.proc.params(entry: String).void).void }
+      def each_readable_child(dir, &block)
+        Dir.each_child(dir, &block)
+      rescue Errno::EPERM, Errno::EACCES
+        # Skip directories we lack permission to read, e.g. macOS-protected paths.
+        nil
       end
 
       sig { params(paths: T::Array[String]).returns(T::Array[String]) }

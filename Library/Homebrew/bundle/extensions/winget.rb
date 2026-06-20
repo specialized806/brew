@@ -44,11 +44,16 @@ module Homebrew
         /\ANvidia\.PhysX\z/i,
       ].freeze, T::Array[Regexp])
 
-      PACKAGE_TYPE = :winget
-      PACKAGE_TYPE_NAME = "WinGet Package"
-      BANNER_NAME = "WinGet packages"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :winget
+
+        sig { override.returns(String) }
+        def check_label = "WinGet Package"
+
+        sig { override.returns(String) }
+        def banner_name = "WinGet packages"
+
         sig { override.params(description: String).returns(String) }
         def switch_description(description)
           "#{super} Note: WSL only."
@@ -511,10 +516,9 @@ module Homebrew
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { override.params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           App.new(id: T.cast(entry.options.fetch(:id), String), name: entry.name,
                   source: T.cast(entry.options.fetch(:source), String))
         end

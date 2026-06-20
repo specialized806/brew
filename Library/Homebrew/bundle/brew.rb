@@ -13,10 +13,13 @@ module Homebrew
     class Brew < Homebrew::Bundle::PackageType
       extend Utils::Output::Mixin
 
-      PACKAGE_TYPE = :brew
-      PACKAGE_TYPE_NAME = "Formula"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :brew
+
+        sig { override.returns(String) }
+        def check_label = "Formula"
+
         sig { override.params(subclass: T.class_of(Homebrew::Bundle::PackageType)).void }
         def inherited(subclass)
           return if subclass.name == "Homebrew::Bundle::Brew::Services"
@@ -487,11 +490,11 @@ module Homebrew
 
       sig {
         override.params(
-          entries:             T::Array[Object],
+          entries:             T::Array[Dsl::Entry],
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def find_actionable(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
         requested = instance_of?(Homebrew::Bundle::Brew) ? checkable_entries(entries) : format_checkable(entries)
@@ -788,7 +791,7 @@ module Homebrew
 
         sig { override.params(node: String, block: T.proc.params(arg0: String).void).void }
         def tsort_each_child(node, &block)
-          fetch(node.downcase).sort.each(&block)
+          fetch(node, []).sort.each(&block)
         end
       end
     end

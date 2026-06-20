@@ -26,6 +26,7 @@ module Homebrew
         # Keep all "brew" invocations after cleanup_shared
         # (which cleans up Homebrew/brew)
         cleanup_shared
+        Homebrew::TestBot.trust_test_tap!(tap)
       end
 
       sig { void }

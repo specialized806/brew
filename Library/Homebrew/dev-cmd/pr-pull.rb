@@ -55,6 +55,8 @@ module Homebrew
                description: "Download artifacts with the specified pattern (default: `bottles{,_*}`)."
         flag   "--tap=",
                description: "Target tap repository (default: `homebrew/core`)."
+        flag   "--head-sha=",
+               description: "Expected pull request head commit SHA."
         flag   "--root-url=",
                description: "Use the specified <URL> as the root of the bottle's URL instead of Homebrew's default."
         flag   "--root-url-using=",
@@ -109,6 +111,15 @@ module Homebrew
             opoo "Pull request is labelled `autosquash`: do you need to pass `--autosquash`?"
           end
 
+          pull_request_commits = nil
+          head_sha = if (head_sha_arg = args.head_sha.presence)
+            head_sha_arg = head_sha_arg.downcase
+            ohai "Pull request ##{pr} expected head SHA: #{head_sha_arg}"
+            head_sha_arg
+          else
+            pull_request_commits = check_pull_request_head_sha!(user, repo, pr)
+            pull_request_commits.fetch(-1)
+          end
           pr_check_conflicts("#{user}/#{repo}", pr)
 
           ohai "Fetching #{tap} pull request ##{pr}"
@@ -126,7 +137,10 @@ module Homebrew
               odebug "Pull request merge-base: #{original_commit}"
 
               unless args.no_commit?
-                cherry_pick_pr!(user, repo, pr, path: tap.path) unless args.no_cherry_pick?
+                unless args.no_cherry_pick?
+                  cherry_pick_pr!(user, repo, pr, path:    tap.path,
+                                                  commits: pull_request_commits, head_sha:)
+                end
                 if args.autosquash? && !args.dry_run?
                   autosquash!(original_commit, tap:, cherry_picked: !args.no_cherry_pick?,
                               verbose: args.verbose?, resolve: args.resolve?, reason: args.message)
@@ -141,7 +155,7 @@ module Homebrew
 
               workflows.each do |workflow|
                 workflow_run = GitHub.get_workflow_run(
-                  user, repo, pr, workflow_id: workflow, artifact_pattern:
+                  user, repo, pr, workflow_id: workflow, artifact_pattern:, head_sha:
                 )
                 if args.ignore_missing_artifacts.present? &&
                    args.ignore_missing_artifacts&.include?(workflow) &&
@@ -440,10 +454,27 @@ module Homebrew
         raise
       end
 
+      sig { params(user: String, repo: String, pull_request: String).returns(T::Array[String]) }
+      def check_pull_request_head_sha!(user, repo, pull_request)
+        commits = GitHub.pull_request_commits(user, repo, pull_request)
+        pull_request_head_sha = commits.fetch(-1)
+        ohai "Pull request ##{pull_request} head SHA: #{pull_request_head_sha}"
+        commits
+      end
+
       private
 
-      sig { params(user: String, repo: String, pull_request: String, path: T.any(String, Pathname)).void }
-      def cherry_pick_pr!(user, repo, pull_request, path: ".")
+      sig {
+        params(
+          user:         String,
+          repo:         String,
+          pull_request: String,
+          head_sha:     String,
+          path:         T.any(String, Pathname),
+          commits:      T.nilable(T::Array[String]),
+        ).void
+      }
+      def cherry_pick_pr!(user, repo, pull_request, head_sha:, path: ".", commits: nil)
         if args.dry_run?
           puts <<~EOS
             git fetch --force origin +refs/pull/#{pull_request}/head
@@ -453,7 +484,12 @@ module Homebrew
           return
         end
 
-        commits = GitHub.pull_request_commits(user, repo, pull_request)
+        commits ||= GitHub.pull_request_commits(user, repo, pull_request)
+        pull_request_head_sha = commits.fetch(-1).downcase
+        if pull_request_head_sha != head_sha
+          odie "Pull request ##{pull_request} is at #{pull_request_head_sha} but expected #{head_sha}."
+        end
+
         safe_system "git", "-C", path, "fetch", "--quiet", "--force", "origin", commits.last
         ohai "Using #{commits.count} commit#{"s" if commits.count != 1} from ##{pull_request}"
         Utils::Git.cherry_pick!(path, "--ff", "--allow-empty", *commits, verbose: args.verbose?,

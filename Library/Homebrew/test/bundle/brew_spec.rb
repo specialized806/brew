@@ -906,4 +906,14 @@ RSpec.describe Homebrew::Bundle::Brew do
       end
     end
   end
+
+  describe Homebrew::Bundle::Brew::Topo do
+    it "treats an edge to a missing node as a leaf" do
+      topo = described_class.new
+      topo["a"] = ["b"]
+      topo["b"] = ["libice"]
+
+      expect(topo.tsort).to eq(["libice", "b", "a"])
+    end
+  end
 end

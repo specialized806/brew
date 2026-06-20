@@ -275,9 +275,11 @@ module GitHub
       pull_request:     String,
       workflow_id:      String,
       artifact_pattern: String,
+      head_sha:         T.nilable(String),
     ).returns(WorkflowArray)
   }
-  def self.get_workflow_run(user, repo, pull_request, workflow_id: "tests.yml", artifact_pattern: "bottles{,_*}")
+  def self.get_workflow_run(user, repo, pull_request, workflow_id: "tests.yml", artifact_pattern: "bottles{,_*}",
+                            head_sha: nil)
     scopes = CREATE_ISSUE_FORK_OR_PR_SCOPES
 
     # GraphQL unfortunately has no way to get the workflow yml name, so we need an extra REST call.
@@ -292,6 +294,7 @@ module GitHub
             commits(last: 1) {
               nodes {
                 commit {
+                  oid
                   checkSuites(first: 100) {
                     nodes {
                       status,
@@ -320,7 +323,12 @@ module GitHub
 
     commit_node = result["repository"]["pullRequest"]["commits"]["nodes"].first
     check_suite = if commit_node.present?
-      commit_node["commit"]["checkSuites"]["nodes"].select do |suite|
+      commit = commit_node["commit"]
+      if head_sha.present? && commit["oid"].downcase != head_sha.downcase
+        raise API::Error, "Pull request ##{pull_request} is at #{commit["oid"]} but expected #{head_sha}."
+      end
+
+      commit["checkSuites"]["nodes"].select do |suite|
         suite.dig("workflowRun", "workflow", "databaseId") == workflow_id_num
       end
     else

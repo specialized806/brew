@@ -32,9 +32,8 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
       app = instance_double(Cask::Artifact::App, target: Pathname.new("TestCask.app"))
       allow(app).to receive(:is_a?).with(Cask::Artifact::App).and_return(true)
       cask = instance_double(Cask::Cask, artifacts: [app])
-      allow(Cask::CaskLoader).to receive(:load).with("test-cask").and_return(cask)
 
-      expect(generate_zap.send(:resolve_patterns_from_cask, "test-cask")).to eq(["TestCask"])
+      expect(generate_zap.send(:resolve_patterns_from_cask, cask)).to eq(["TestCask"])
     end
 
     it "resolves bundle identifier from an installed app artifact" do
@@ -49,12 +48,11 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
         cask = instance_double(Cask::Cask, artifacts: [app])
 
         allow(app).to receive(:is_a?).with(Cask::Artifact::App).and_return(true)
-        allow(Cask::CaskLoader).to receive(:load).with("test-cask").and_return(cask)
         allow(generate_zap).to receive(:system_command!)
           .with("plutil", args: ["-convert", "xml1", "-o", "-", info_plist])
           .and_return(result)
 
-        expect(generate_zap.send(:resolve_patterns_from_cask, "test-cask"))
+        expect(generate_zap.send(:resolve_patterns_from_cask, cask))
           .to eq(["TestCask", "com.example.testcask"])
       end
     end
@@ -62,9 +60,7 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
     it "falls back to title-cased token when no app artifact exists" do
       cask = Cask::Cask.new("test-cask")
 
-      allow(Cask::CaskLoader).to receive(:load).with("test-cask").and_return(cask)
-
-      expect(generate_zap.send(:resolve_patterns_from_cask, "test-cask")).to eq(["Test Cask"])
+      expect(generate_zap.send(:resolve_patterns_from_cask, cask)).to eq(["Test Cask"])
     end
   end
 
@@ -121,6 +117,26 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
         expect(results.size).to eq(1)
         expect(results.first).to include(".foo")
       end
+    end
+  end
+
+  describe "#each_readable_child" do
+    it "yields each child entry of a readable directory" do
+      Dir.mktmpdir do |tmpdir|
+        FileUtils.touch("#{tmpdir}/a")
+        FileUtils.touch("#{tmpdir}/b")
+
+        entries = []
+        generate_zap.send(:each_readable_child, tmpdir) { |entry| entries << entry }
+
+        expect(entries).to contain_exactly("a", "b")
+      end
+    end
+
+    it "skips directories that raise a permission error" do
+      allow(Dir).to receive(:each_child).and_raise(Errno::EPERM)
+
+      expect { generate_zap.send(:each_readable_child, "/protected") { |_entry| nil } }.not_to raise_error
     end
   end
 

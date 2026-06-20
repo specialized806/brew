@@ -4,6 +4,8 @@
 require "bundle/dsl"
 require "bundle/package_types"
 require "bundle/skipper"
+require "bundle/trust"
+require "trust"
 require "utils/output"
 
 module Homebrew
@@ -53,7 +55,9 @@ module Homebrew
         success = 0
         failure = 0
 
-        installable_entries = entries.filter_map do |entry|
+        installable_entries = T.let([], T::Array[InstallableEntry])
+        installable_brewfile_entries = T.let([], T::Array[Dsl::Entry])
+        entries.each do |entry|
           next if Homebrew::Bundle::Skipper.skip? entry
 
           name = entry.name
@@ -62,10 +66,17 @@ module Homebrew
           cls = Homebrew::Bundle.installable(type)
           next if cls.nil? || !cls.install_supported?
 
-          InstallableEntry.new(name:, options:, verb: cls.install_verb(name, options), cls:)
+          installable_brewfile_entries << entry
+          installable_entries << InstallableEntry.new(name:, options:, verb: cls.install_verb(name, options), cls:)
         end
 
-        apply_trust!(installable_entries)
+        # Apply `trusted: true` Brewfile options before anything fetches or
+        # loads the entries: the fetch phase and upgrade checks load formulae
+        # and casks, which triggers the tap trust check before the per-entry
+        # install step could grant trust.
+        Homebrew::Bundle::Trust.entries(installable_brewfile_entries).each do |type, name|
+          Homebrew::Trust.trust!(type, name)
+        end
 
         if (fetchable_names = fetchable_formulae_and_casks(installable_entries, no_upgrade:).presence)
           fetchable_names_joined = fetchable_names.join(", ")
@@ -110,39 +121,6 @@ module Homebrew
 
         true
       end
-
-      # Apply `trusted: true` Brewfile options before anything fetches or
-      # loads the entries: the fetch phase and upgrade checks load formulae
-      # and casks, which triggers the tap trust check before the per-entry
-      # install step could grant trust.
-      sig { params(entries: T::Array[InstallableEntry]).void }
-      def self.apply_trust!(entries)
-        entries.each do |entry|
-          next unless entry.options[:trusted]
-
-          require "trust"
-
-          if entry.cls == Tap
-            clone_target = entry.options[:clone_target].presence
-            reference = if clone_target
-              require "tap"
-              ::Tap.remote_to_reference(clone_target.to_s) || clone_target.to_s
-            else
-              entry.name
-            end
-            Homebrew::Trust.trust!(:tap, reference)
-          elsif ::Utils.full_name?(entry.full_name)
-            # Only fully-qualified names map to a tap, so unqualified names
-            # cannot be meaningfully trusted.
-            if entry.cls == Brew
-              Homebrew::Trust.trust!(:formula, entry.full_name)
-            elsif entry.cls == Cask
-              Homebrew::Trust.trust!(:cask, entry.full_name)
-            end
-          end
-        end
-      end
-      private_class_method :apply_trust!
 
       sig {
         params(

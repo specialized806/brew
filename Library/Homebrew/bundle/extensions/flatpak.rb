@@ -8,11 +8,16 @@ module Homebrew
     class Flatpak < Extension
       Package = T.type_alias { { name: String, remote: String, remote_url: T.nilable(String) } }
 
-      PACKAGE_TYPE = :flatpak
-      PACKAGE_TYPE_NAME = "Flatpak"
-      BANNER_NAME = "Flatpak packages"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :flatpak
+
+        sig { override.returns(String) }
+        def check_label = "Flatpak"
+
+        sig { override.returns(String) }
+        def banner_name = "Flatpak packages"
+
         sig { override.params(description: String).returns(String) }
         def switch_description(description)
           "#{super} Note: Linux only."
@@ -351,12 +356,11 @@ module Homebrew
           end
         end
 
-        sig { params(entries: T::Array[Object]).returns(T::Array[String]) }
+        sig { params(entries: T::Array[Dsl::Entry]).returns(T::Array[String]) }
         def cleanup_items(entries)
           return [].freeze unless package_manager_installed?
 
           kept_flatpaks = entries.filter_map do |entry|
-            entry = T.cast(entry, Dsl::Entry)
             entry.name if entry.type == type
           end
 
@@ -374,10 +378,9 @@ module Homebrew
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { override.params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           { name: entry.name, options: entry.options }
         end
       end

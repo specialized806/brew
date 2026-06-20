@@ -155,7 +155,7 @@ module Homebrew
           old_name
         end
 
-        sig { params(entries: T::Array[Object]).returns(T::Array[Object]) }
+        sig { params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
         def format_checkable(entries)
           checkable_entries(entries)
         end

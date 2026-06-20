@@ -183,7 +183,7 @@ module Homebrew
         prefetched_cask_upgrades = T.let([], T::Array[String])
         @final_upgrade_summary = T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
         @ask_prompt_required = false
-        ask = !args.no_ask?
+        ask = !args.no_ask? && !args.dry_run?
         skip_upgrades_after_failed_ask_preview = T.let(false, T::Boolean)
 
         if args.named.present?
@@ -369,6 +369,7 @@ module Homebrew
           end
         end
 
+        quiet = args.quiet? || (dry_run && !args.dry_run?)
         not_outdated = T.let([], T::Array[Formula])
         if formulae.blank?
           outdated = Formula.installed.select do |f|
@@ -383,7 +384,7 @@ module Homebrew
           end
 
           minimum_version_skipped.each do |f|
-            next if args.quiet?
+            next if quiet
 
             opoo "Not upgrading #{f.full_specified_name}, the installed version is not below " \
                  "the minimum version #{minimum_version}"
@@ -400,7 +401,7 @@ module Homebrew
             if latest_keg.nil?
               ofail "#{f.full_specified_name} not installed"
             else
-              opoo "#{f.full_specified_name} #{latest_keg.version} already installed" unless args.quiet?
+              opoo "#{f.full_specified_name} #{latest_keg.version} already installed" unless quiet
             end
           end
         end
@@ -821,7 +822,8 @@ module Homebrew
                                   download_queue: nil)
         return false if args.formula?
 
-        casks = minimum_version_casks(casks)
+        quiet = args.quiet? || (dry_run && !args.dry_run?)
+        casks = minimum_version_casks(casks, quiet:)
         return false if minimum_version.present? && casks.empty?
 
         Cask::Upgrade.upgrade_casks!(
@@ -836,7 +838,7 @@ module Homebrew
           skip_cask_deps:       args.skip_cask_deps?,
           quit:                 !args.no_quit?,
           verbose:              args.verbose?,
-          quiet:                args.quiet?,
+          quiet:,
           skip_prefetch:,
           show_upgrade_summary:,
           download_queue:,

@@ -162,6 +162,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       ).to_stderr
   end
 
+  it "warns once for a named formula that is already up-to-date" do
+    write_formula "up-to-date-formula", <<~RUBY
+      url "https://brew.sh/up-to-date-formula-1.2.3"
+    RUBY
+    install_formula_version "up-to-date-formula", "1.2.3", optlinked: true
+
+    warning = "Warning: up-to-date-formula 1.2.3 already installed\n"
+    expect { described_class.new(["up-to-date-formula"]).run }
+      .to output(satisfy { |stderr| stderr.scan(warning).one? }).to_stderr
+  end
+
+  it "warns once for a named cask that is already up-to-date", :cask do
+    InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("local-caffeine")))
+
+    warning = "Warning: Not upgrading local-caffeine, the latest version is already installed\n"
+    expect { described_class.new(["--cask", "local-caffeine"]).run }
+      .to output(satisfy { |stderr| stderr.scan(warning).one? }).to_stderr
+  end
+
   it "does not summarize dry-run formula upgrades blocked by pinned dependencies" do
     setup_pinned_dependency_upgrade
 
@@ -352,6 +371,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .with([], dry_run: true, skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
       .ordered
       .and_return(false)
+    expect(Homebrew::Install).not_to receive(:ask)
+    expect(cmd).to receive(:upgrade_outdated_formulae!)
+      .with([], use_prefetched: false, show_upgrade_summary: false)
+      .ordered
+      .and_return(false)
+    expect(cmd).to receive(:upgrade_outdated_casks!)
+      .with([], skip_prefetch: false, show_upgrade_summary: false, download_queue: nil)
+      .ordered
+      .and_return(false)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
+  end
+
+  it "does not prompt for confirmation in dry-run mode" do
+    cmd = described_class.new(["--dry-run"])
+
     expect(Homebrew::Install).not_to receive(:ask)
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with([], use_prefetched: false, show_upgrade_summary: false)

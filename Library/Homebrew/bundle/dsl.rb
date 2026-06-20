@@ -1,11 +1,15 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "bundle/package_type"
-require "utils"
-
 module Homebrew
   module Bundle
+    EntryOptionScalar = T.type_alias { T.nilable(T.any(String, Integer, Symbol, TrueClass, FalseClass)) }
+    NestedEntryOptionValue = T.type_alias { T.any(EntryOptionScalar, T::Array[String]) }
+    NestedEntryOptions = T.type_alias { T::Hash[Symbol, NestedEntryOptionValue] }
+    EntryOption = T.type_alias { T.any(EntryOptionScalar, T::Array[String], NestedEntryOptions) }
+    EntryOptions = T.type_alias { T::Hash[Symbol, EntryOption] }
+    EntryInputOptions = T.type_alias { T::Hash[Symbol, Object] }
+
     class Dsl
       class Entry
         sig { returns(Symbol) }
@@ -134,6 +138,7 @@ module Homebrew
 
       sig { params(name: String).returns(String) }
       def self.sanitize_cask_name(name)
+        require "utils"
         Utils.name_from_full_name(name).downcase
       end
 
@@ -142,6 +147,7 @@ module Homebrew
                         block: T.nilable(T.proc.void)).returns(T.untyped)
       }
       def method_missing(method_name, *args, **options, &block)
+        require "bundle/extensions"
         extension = Homebrew::Bundle.extension(method_name)
         return super if extension.nil?
         raise ArgumentError, "blocks are not supported for #{method_name}" if block
@@ -168,12 +174,9 @@ module Homebrew
 
       sig { override.params(method_name: T.any(String, Symbol), include_private: T::Boolean).returns(T::Boolean) }
       def respond_to_missing?(method_name, include_private = false)
-        Homebrew::Bundle.extension(method_name).present? || super
+        require "bundle/extensions"
+        !Homebrew::Bundle.extension(method_name).nil? || super
       end
     end
   end
 end
-
-# Load extensions after `Dsl` is defined because their `entry` methods build
-# `Dsl::Entry` instances.
-require "bundle/extensions"

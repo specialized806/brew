@@ -1154,6 +1154,7 @@ RSpec.describe Formula do
 
     expect(env).to include(
       "GIT_CONFIG_GLOBAL"     => Utils::Git.no_global_config_file,
+      "GIT_TERMINAL_PROMPT"   => "0",
       "GOENV"                 => "off",
       "NPM_CONFIG_USERCONFIG" => File::NULL,
       "PIP_CONFIG_FILE"       => File::NULL,
@@ -3151,6 +3152,7 @@ RSpec.describe Formula do
 
       expect(f.send(:common_sandbox_env, home)).to include(
         GIT_CONFIG_GLOBAL:     Utils::Git.no_global_config_file,
+        GIT_TERMINAL_PROMPT:   "0",
         GOENV:                 "off",
         NPM_CONFIG_USERCONFIG: File::NULL,
         PIP_CONFIG_FILE:       File::NULL,

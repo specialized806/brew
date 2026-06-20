@@ -24,6 +24,27 @@ RSpec.describe Homebrew::Cmd::Untap do
       .and raise_error(SystemExit)
   end
 
+  it "continues untapping remaining taps when one has installed formulae" do
+    tap1 = Tap.fetch("homebrew", "foo")
+    tap2 = Tap.fetch("homebrew", "bar")
+
+    cmd = described_class.new(["homebrew/foo", "homebrew/bar"])
+    allow(cmd.args.named).to receive(:to_installed_taps).and_return([tap1, tap2])
+
+    allow(cmd).to receive(:installed_formulae_for).with(tap: tap1).and_return(["homebrew/foo/testball"])
+    allow(cmd).to receive(:installed_formulae_for).with(tap: tap2).and_return([])
+    allow(cmd).to receive(:installed_casks_for).with(tap: tap1).and_return([])
+    allow(cmd).to receive(:installed_casks_for).with(tap: tap2).and_return([])
+
+    expect(tap1).not_to receive(:uninstall)
+    expect(tap2).to receive(:uninstall).with(manual: true)
+
+    expect { cmd.run }.to output(/Refusing to untap/).to_stderr
+    expect(Homebrew).to have_failed
+  ensure
+    Homebrew.failed = false
+  end
+
   describe "#installed_formulae_for" do
     shared_examples "finds installed formulae in tap", :no_api do
       def load_formula(name:, with_formula_file: false, mock_install: false)

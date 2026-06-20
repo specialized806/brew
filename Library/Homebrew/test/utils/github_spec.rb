@@ -47,6 +47,52 @@ RSpec.describe GitHub do
     end
   end
 
+  describe "::get_workflow_run" do
+    it "matches uppercase expected pull request head SHAs" do
+      allow(GitHub::API).to receive_messages(open_rest: { "id" => 1 }, open_graphql: {
+        "repository" => {
+          "pullRequest" => {
+            "commits" => {
+              "nodes" => [
+                {
+                  "commit" => {
+                    "oid"         => "abcdef",
+                    "checkSuites" => { "nodes" => [] },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      })
+
+      expect(described_class.get_workflow_run("Homebrew", "homebrew-core", "1", head_sha: "ABCDEF").first).to eq([])
+    end
+
+    it "fails when the pull request head has changed" do
+      allow(GitHub::API).to receive_messages(open_rest: { "id" => 1 }, open_graphql: {
+        "repository" => {
+          "pullRequest" => {
+            "commits" => {
+              "nodes" => [
+                {
+                  "commit" => {
+                    "oid"         => "actual",
+                    "checkSuites" => { "nodes" => [] },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      })
+
+      expect do
+        described_class.get_workflow_run("Homebrew", "homebrew-core", "1", head_sha: "expected")
+      end.to raise_error(GitHub::API::Error, /Pull request #1 is at actual but expected expected/)
+    end
+  end
+
   describe "::get_artifact_urls", :needs_network do
     it "fails to find a nonexistent workflow" do
       expect do

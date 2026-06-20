@@ -388,16 +388,15 @@ on_request: true)
     def check_stanza_os_requirements
       return if @cask.supports_macos?
 
-      raise CaskError, "Linux is required for this software."
+      raise CaskError, "#{@cask}: This cask requires Linux."
     end
 
     sig { void }
     def check_macos_requirements
-      macos_requirements = [@cask.depends_on.macos, @cask.depends_on.maximum_macos].compact
-      return if macos_requirements.empty?
-      return if macos_requirements.all?(&:satisfied?)
+      macos_requirement = [@cask.depends_on.macos, @cask.depends_on.maximum_macos].compact.find { !it.satisfied? }
+      return unless macos_requirement
 
-      raise CaskError, macos_requirements.find { |requirement| !requirement.satisfied? }&.message(type: :cask)
+      raise CaskError, "#{@cask}: #{macos_requirement.message(type: :cask)}"
     end
 
     sig { void }
@@ -412,7 +411,7 @@ on_request: true)
       end
 
       raise CaskError,
-            "Cask #{@cask} depends on hardware architecture being one of " \
+            "#{@cask}: This cask depends on hardware architecture being one of " \
             "[#{@cask.depends_on.arch.join(", ")}], " \
             "but you are running #{@current_arch}."
     end

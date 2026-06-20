@@ -13,11 +13,16 @@ module Homebrew
       end
       CheckablePackages = T.type_alias { T.any(T::Array[Object], T::Hash[Integer, String]) }
 
-      PACKAGE_TYPE = :mas
-      PACKAGE_TYPE_NAME = "App"
-      BANNER_NAME = "Mac App Store dependencies"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :mas
+
+        sig { override.returns(String) }
+        def check_label = "App"
+
+        sig { override.returns(String) }
+        def banner_name = "Mac App Store dependencies"
+
         sig { override.returns(Symbol) }
         def legacy_check_step
           :apps_to_install
@@ -259,21 +264,21 @@ module Homebrew
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { override.params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           [T.cast(entry.options.fetch(:id), Integer), entry.name]
         end
       end
 
-      sig { override.params(packages: CheckablePackages, no_upgrade: T::Boolean).returns(T::Array[Object]) }
+      sig { override.params(packages: CheckablePackages, no_upgrade: T::Boolean).returns(T::Array[String]) }
       def exit_early_check(packages, no_upgrade:)
-        work_to_be_done = (packages.is_a?(Hash) ? packages.to_a : packages).find do |id, _name|
-          !installed_and_up_to_date?(id, no_upgrade:)
-        end
+        (packages.is_a?(Hash) ? packages.to_a : packages).each do |id, name|
+          next if installed_and_up_to_date?(id, no_upgrade:)
 
-        Array(work_to_be_done)
+          return [failure_reason(name, no_upgrade:)]
+        end
+        []
       end
 
       sig { override.params(packages: CheckablePackages, no_upgrade: T::Boolean).returns(T::Array[String]) }

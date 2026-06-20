@@ -283,7 +283,7 @@ Rather than all `Brewfile` functionality one-by-one: here's a commented example 
 
 ```ruby
 # Run `brew tap` with a custom URL
-tap "user/tap-repo", "https://user@bitbucket.org/user/homebrew-tap-repo.git"
+tap "user/tap-repository", "https://user@bitbucket.org/user/homebrew-tap-repository.git"
 
 # Set arguments passed to all `brew install --cask` commands for `cask "..."`
 # In this example, pass `--appdir=~/Applications` and `--require_sha`
@@ -306,9 +306,16 @@ brew "ruby", version_file: ".ruby-version"
 
 # Trusts the tap, formula or cask so Homebrew loads it when tap trust is required.
 # This works on `tap`, `brew` and `cask` entries.
-tap "user/repo", trusted: true
-brew "user/repo/formula", trusted: true
-cask "user/repo/cask", trusted: true
+tap "user/repository", trusted: true
+brew "user/repository/formula", trusted: true
+cask "user/repository/cask", trusted: true
+
+# Trusts only named formulae, casks or commands from a tap.
+tap "user/repository", trusted: {
+  formula:  "formula",
+  casks:    ["cask"],
+  commands: ["command"],
+}
 
 # Runs `brew install gnupg` or `brew install glibc` only on the specified OS.
 # Note: `brew bundle list` will not output `gnupg` on Linux or `glibc` on macOS` in this case:
@@ -353,14 +360,38 @@ brew "ruby", version_file: ".ruby-version"
 entry before installing it, so it loads even when tap trust is required.
 
 ```ruby
-tap "user/repo", trusted: true
-brew "user/repo/formula", trusted: true
-cask "user/repo/cask", trusted: true
+tap "user/repository", trusted: true
+brew "user/repository/formula", trusted: true
+cask "user/repository/cask", trusted: true
 ```
 
-As with `brew trust`, prefer trusting the specific formula or cask you need over
-trusting a whole tap. `brew bundle dump` writes `trusted: true` for entries you
-have already trusted.
+Tap entries can also trust specific formulae, casks and commands from that tap
+without trusting the whole tap:
+
+```ruby
+tap "user/repository", trusted: {
+  formula:  "formula",
+  formulae: ["another-formula"],
+  cask:     "cask",
+  casks:    ["another-cask"],
+  command:  "command",
+  commands: ["another-command"],
+}
+```
+
+The singular and plural keys can both be used. The values are item names inside
+that tap, so `formula: "foo"` on `tap "user/repository"` trusts
+`user/repository/foo` as a formula.
+
+As with `brew trust`, prefer trusting the specific formula, cask or command you
+need over trusting a whole tap. `brew bundle dump` writes `trusted: true` for
+trusted `brew`, `cask` and whole-tap entries. It writes tap-level trust hashes
+for trusted formulae, casks and commands from a tap that are not otherwise
+present in the dumped `Brewfile`.
+
+When `brew bundle cleanup --force` runs, it resets Homebrew's tap trust file to
+the trust values declared by the `Brewfile` and removes trust entries that are
+not declared there.
 
 ## Versions
 

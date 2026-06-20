@@ -8,6 +8,7 @@ require "utils"
 require "utils/output"
 
 module Homebrew
+  class InsecureTrustStoreError < RuntimeError; end
   class UntrustedTapError < RuntimeError; end
 
   module Trust
@@ -26,8 +27,13 @@ module Homebrew
       Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))/"trust.json"
     end
 
-    sig { params(type: Symbol, name: String).returns(T::Boolean) }
+    sig { params(type: Symbol, name: T.any(String, Tap)).returns(T::Boolean) }
     def self.trust!(type, name)
+      if name.is_a?(Tap)
+        raise ArgumentError, "a #{type} trust name must be a String, not a Tap" if type != :tap
+
+        name = name.reference
+      end
       key = setting_key(type)
       name = normalise_name(name)
       with_trust_store_lock do
@@ -141,6 +147,23 @@ module Homebrew
       end
     end
 
+    sig { params(entries: T::Array[[Symbol, String]]).void }
+    def self.replace!(entries)
+      store = T.let({}, T::Hash[String, T::Array[String]])
+      entries.each do |type, name|
+        key = setting_key(type)
+        store[key] ||= []
+        store.fetch(key) << normalise_name(name)
+      end
+      store.keys.each do |key|
+        store[key] = store.fetch(key).uniq.sort
+      end
+
+      with_trust_store_lock do
+        write_trust_store(store)
+      end
+    end
+
     sig { params(type: Symbol, name: String).returns(T::Boolean) }
     def self.trusted?(type, name)
       name = normalise_name(name)
@@ -177,7 +200,7 @@ module Homebrew
 
     # Whether the tap appears in the trust list, ignoring any implicit official-tap trust. The
     # entries may be `user/repository` names or remote URLs, so match via {Tap#matches_reference?}.
-    sig { params(tap: T.untyped).returns(T::Boolean) }
+    sig { params(tap: Tap).returns(T::Boolean) }
     def self.explicitly_trusted_tap?(tap)
       trusted_entries(:tap).any? { |reference| tap.matches_reference?(reference) }
     end
@@ -255,12 +278,16 @@ module Homebrew
 
     sig { returns(T::Array[Tap]) }
     def self.wholly_untrusted_taps
-      untrusted_taps.reject do |tap|
-        trusted_entry_prefix?(:formula, tap) ||
-          trusted_entry_prefix?(:cask, tap) ||
-          trusted_entry_prefix?(:command, tap)
-      end
+      untrusted_taps.reject { |tap| partially_trusted_tap?(tap) }
     end
+
+    sig { params(tap: Tap).returns(T::Boolean) }
+    def self.partially_trusted_tap?(tap)
+      trusted_entry_prefix?(:formula, tap) ||
+        trusted_entry_prefix?(:cask, tap) ||
+        trusted_entry_prefix?(:command, tap)
+    end
+    private_class_method :partially_trusted_tap?
 
     sig { params(type: Symbol).returns(String) }
     def self.setting_key(type)
@@ -384,17 +411,74 @@ module Homebrew
 
     sig { params(store: T::Hash[String, T::Array[String]]).void }
     def self.write_trust_store(store)
-      trust_path = trust_file
+      write_path = trust_file
+      if write_path.symlink?
+        link_parent = write_path.dirname.realpath
+        assert_secure_trust_store_path!(link_parent, link_parent.stat, "symlink directory")
+        if write_path.lstat.uid != Process.euid
+          raise InsecureTrustStoreError,
+                "Refusing to write insecure trust store: symlink #{write_path} is not owned by the current user."
+        end
+        target_path = write_path.readlink
+        target_path = write_path.dirname/target_path unless target_path.absolute?
+        target_parent = target_path.dirname.realpath
+        assert_secure_trust_store_path!(target_parent, target_parent.stat, "target directory")
+        write_path = target_parent/target_path.basename
+        if write_path.symlink?
+          raise InsecureTrustStoreError,
+                "Refusing to write insecure trust store: target is a symlink."
+        end
+        if write_path.exist?
+          assert_secure_trust_store_path!(write_path, write_path.stat, "target")
+          unless write_path.file?
+            raise InsecureTrustStoreError,
+                  "Refusing to write insecure trust store: target is not a regular file."
+          end
+        end
+      else
+        ensure_secure_trust_store_directory!(write_path.dirname, "trust store directory")
+        if write_path.exist?
+          assert_secure_trust_store_path!(write_path, write_path.stat, "trust store")
+          unless write_path.file?
+            raise InsecureTrustStoreError,
+                  "Refusing to write insecure trust store: trust store is not a regular file."
+          end
+        end
+      end
       if store.empty?
-        trust_path.unlink if trust_path.exist?
+        write_path.unlink if write_path.exist?
         return
       end
 
-      trust_path.dirname.mkpath
-      trust_path.atomic_write("#{JSON.pretty_generate(store)}\n")
-      trust_path.chmod(0600)
+      write_path.atomic_write("#{JSON.pretty_generate(store)}\n")
+      write_path.chmod(0600)
+    rescue Errno::ENOENT
+      raise InsecureTrustStoreError, "Refusing to write insecure trust store: target directory does not exist."
     end
     private_class_method :write_trust_store
+
+    sig { params(path: Pathname, description: String).void }
+    def self.ensure_secure_trust_store_directory!(path, description)
+      existed = path.exist?
+      path.mkpath
+      path.chmod(0700) unless existed
+      assert_secure_trust_store_path!(path, path.stat, description)
+    end
+    private_class_method :ensure_secure_trust_store_directory!
+
+    sig { params(path: Pathname, stat: File::Stat, description: String).void }
+    def self.assert_secure_trust_store_path!(path, stat, description)
+      if stat.uid != Process.euid
+        raise InsecureTrustStoreError,
+              "Refusing to write insecure trust store: #{description} #{path} is not owned by the current user."
+      end
+
+      return if stat.mode.nobits?(022)
+
+      raise InsecureTrustStoreError,
+            "Refusing to write insecure trust store: #{description} #{path} is group or world writable."
+    end
+    private_class_method :assert_secure_trust_store_path!
 
     # Serialises trust store mutations so concurrent processes or threads
     # (e.g. parallel `brew bundle` installs) cannot lose entries in the
@@ -404,7 +488,7 @@ module Homebrew
     }
     def self.with_trust_store_lock(&_block)
       lock_path = Pathname.new("#{trust_file}.lock")
-      lock_path.dirname.mkpath
+      ensure_secure_trust_store_directory!(lock_path.dirname, "trust store directory")
       File.open(lock_path, File::RDWR | File::CREAT, 0600) do |lock_file|
         lock_file.flock(File::LOCK_EX)
         yield
@@ -412,7 +496,7 @@ module Homebrew
     end
     private_class_method :with_trust_store_lock
 
-    sig { params(path: Pathname).returns(T.untyped) }
+    sig { params(path: Pathname).returns(T.nilable(Tap)) }
     def self.tap_from_path(path)
       Tap.from_path(path)
     end
@@ -434,7 +518,7 @@ module Homebrew
     end
     private_class_method :trusted_file?
 
-    sig { params(type: Symbol, full_name: String, tap: T.untyped).returns(T::Boolean) }
+    sig { params(type: Symbol, full_name: String, tap: Tap).returns(T::Boolean) }
     def self.explicitly_allowed?(type, full_name, tap)
       return false if type == :command
 
@@ -455,6 +539,8 @@ module Homebrew
 
       skipped_taps = (files - trusted_files).filter_map { |file| tap_from_path(file) }.uniq.sort_by(&:name)
       skipped_taps.each do |tap|
+        next if partially_trusted_tap?(tap)
+
         opoo "Skipping #{tap.name} because it is not trusted. Run `brew trust #{tap.name}` to trust it."
       end
 
@@ -472,7 +558,7 @@ module Homebrew
     end
     private_class_method :trusted_entry_prefix?
 
-    sig { params(type: Symbol, name: String, tap: T.untyped).void }
+    sig { params(type: Symbol, name: String, tap: Tap).void }
     def self.raise_untrusted!(type, name, tap)
       raise UntrustedTapError, "Refusing to load #{type} #{name} from untrusted tap #{tap.name}.\n" \
                                "Run `brew trust --#{type} #{name}` or `brew trust #{tap.name}` to trust it."

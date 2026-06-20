@@ -3,6 +3,7 @@
 
 require "bundle"
 require "bundle/subcommand/cleanup"
+require "trust"
 require "utils"
 
 RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
@@ -303,6 +304,44 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
       expect(Kernel).not_to receive(:system)
       expect(described_class).to receive(:system_output_no_stderr).and_return("")
       described_class.cleanup(force: true)
+    end
+  end
+
+  context "when there are trusted Brewfile entries", :trust_store do
+    let(:dsl) do
+      Homebrew::Bundle::Dsl.new(StringIO.new(<<~RUBY))
+        tap "trusted/tap", trusted: true
+        tap "thirdparty/tap", trusted: {
+          formula: "foo",
+          casks: ["bar"],
+          command: "baz",
+        }
+        brew "thirdparty/tap/qux", trusted: true
+        cask "thirdparty/tap/quux", trusted: true
+      RUBY
+    end
+
+    before do
+      described_class.reset!
+      allow(described_class).to receive_messages(casks_to_uninstall: [],
+                                                 formulae_to_uninstall: [], taps_to_untap: [])
+      allow(Homebrew::Bundle::VscodeExtension).to receive(:cleanup_items).and_return([])
+      allow(Homebrew::Bundle::Flatpak).to receive(:cleanup_items).and_return([])
+      allow(described_class).to receive(:system_output_no_stderr).and_return("")
+
+      Homebrew::Trust.trust!(:tap, "old/tap")
+      Homebrew::Trust.trust!(:formula, "old/tap/foo")
+      Homebrew::Trust.trust!(:cask, "old/tap/bar")
+      Homebrew::Trust.trust!(:command, "old/tap/baz")
+    end
+
+    it "resets the trust store to the Brewfile entries on forced cleanup" do
+      described_class.cleanup(force: true, dsl:)
+
+      expect(Homebrew::Trust.trusted_entries(:tap)).to eq(["trusted/tap"])
+      expect(Homebrew::Trust.trusted_entries(:formula)).to eq(%w[thirdparty/tap/foo thirdparty/tap/qux])
+      expect(Homebrew::Trust.trusted_entries(:cask)).to eq(%w[thirdparty/tap/bar thirdparty/tap/quux])
+      expect(Homebrew::Trust.trusted_entries(:command)).to eq(["thirdparty/tap/baz"])
     end
   end
 

@@ -40,27 +40,51 @@ RSpec.describe GitDownloadStrategy do
       expect(strategy.source_modified_time.to_i).to eq(1_485_115_153)
     end
 
-    it "does not read user Git configuration" do
+    it "nulls the global Git config so sandboxed staging reads do not fail" do
       expect(strategy).to receive(:system_command)
         .with(
           "git",
           args:         ["--git-dir", cached_location/".git", "show", "-s", "--format=%cD"],
-          env:          Utils::Git.no_global_config_env,
+          env:          { "GIT_TERMINAL_PROMPT" => "0", "GIT_CONFIG_GLOBAL" => File::NULL },
           print_stderr: false,
         )
-        .and_return(instance_double(SystemCommand::Result, stdout: "Fri, 12 Jun 2026 06:12:11 -0700"))
+        .and_return(instance_double(SystemCommand::Result, success?: true,
+                                                           stdout:   "Fri, 12 Jun 2026 06:12:11 -0700"))
 
       expect(strategy.source_modified_time).to eq(Time.parse("Fri, 12 Jun 2026 06:12:11 -0700"))
     end
+
+    it "raises the underlying Git error instead of a Time parsing error on failure" do
+      allow(strategy).to receive(:system_command)
+        .and_return(instance_double(SystemCommand::Result, success?: false,
+                                                           stdout: "", stderr: "fatal: unable to access"))
+
+      expect { strategy.source_modified_time }.to raise_error(/fatal: unable to access/)
+    end
   end
 
-  specify "#last_commit" do
-    cached_location.cd do
-      setup_git_repo
-      FileUtils.touch "LICENSE"
-      git_commit_all
+  describe "#last_commit" do
+    specify "returns the short hash of the last commit" do
+      cached_location.cd do
+        setup_git_repo
+        FileUtils.touch "LICENSE"
+        git_commit_all
+      end
+      expect(strategy.last_commit).to eq("f68266e")
     end
-    expect(strategy.last_commit).to eq("f68266e")
+
+    it "nulls the global Git config so sandboxed staging reads do not fail" do
+      expect(strategy).to receive(:system_command)
+        .with(
+          "git",
+          args:         ["--git-dir", cached_location/".git", "rev-parse", "--short=7", "HEAD"],
+          env:          { "GIT_TERMINAL_PROMPT" => "0", "GIT_CONFIG_GLOBAL" => File::NULL },
+          print_stderr: false,
+        )
+        .and_return(instance_double(SystemCommand::Result, stdout: "f68266e\n"))
+
+      expect(strategy.last_commit).to eq("f68266e")
+    end
   end
 
   describe "#fetch_last_commit" do

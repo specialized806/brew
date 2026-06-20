@@ -186,6 +186,7 @@ class Livecheck
     params(
       # URL to check for version information.
       url:           T.any(String, Symbol),
+      compressed:    T.nilable(T::Boolean),
       cookies:       T.nilable(T::Hash[String, String]),
       header:        T.nilable(T.any(String, T::Array[String])),
       homebrew_curl: T.nilable(T::Boolean),
@@ -197,6 +198,7 @@ class Livecheck
   }
   def url(
     url = T.unsafe(nil),
+    compressed: nil,
     cookies: nil,
     header: nil,
     homebrew_curl: nil,
@@ -205,8 +207,11 @@ class Livecheck
     referer: nil,
     user_agent: nil
   )
+    raise ArgumentError, "`compressed` option should only be `false` or omitted" if compressed == true
+    raise ArgumentError, "`homebrew_curl` option should only be `true` or omitted" if homebrew_curl == false
     raise ArgumentError, "Only use `post_form` or `post_json`, not both" if post_form && post_json
 
+    @options.compressed = compressed unless compressed.nil?
     @options.cookies = cookies unless cookies.nil?
     @options.header = header unless header.nil?
     @options.homebrew_curl = homebrew_curl unless homebrew_curl.nil?

@@ -3757,6 +3757,7 @@ class Formula
       _JAVA_OPTIONS:           "-Duser.home=#{HOMEBREW_CACHE}/java_cache",
       GOCACHE:                 "#{HOMEBREW_CACHE}/go_cache",
       GIT_CONFIG_GLOBAL:       Utils::Git.no_global_config_file,
+      GIT_TERMINAL_PROMPT:     "0",
       GOENV:                   "off",
       GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
       CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
@@ -4287,8 +4288,11 @@ class Formula
       namespace = T.must(to_s.split("::")[0..-2]).join("::")
       return [] if namespace.empty?
 
+      # The namespace is derived dynamically from the formula's own name.
+      # rubocop:disable Sorbet/ConstantsFromStrings
       mod = const_get(namespace)
       mod.const_get(:BUILD_FLAGS)
+      # rubocop:enable Sorbet/ConstantsFromStrings
     end
 
     # Allows adding {.depends_on} and {Patch}es just to the {.stable} {SoftwareSpec}.

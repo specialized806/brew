@@ -89,6 +89,30 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     EOS
   end
 
+  it "marks an outdated dependency as upgradable in the dry-run plan" do
+    formula = formula("changed") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/changed-2.0.tar.gz"
+    end
+    dependency = formula("dependency") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/dependency-1.0.tar.gz"
+    end
+    allow(dependency).to receive_messages(any_version_installed?: true, outdated?: true)
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    allow(Homebrew::EnvConfig).to receive(:no_emoji?).and_return(true)
+    formula_installer = FormulaInstaller.new(formula)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(formula_installer).to receive(:compute_dependencies)
+      .and_return([instance_double(Dependency, to_formula: dependency)])
+    allow(Homebrew::Install).to receive(:ask_input)
+
+    expect do
+      Homebrew::Install.ask_formulae([formula_installer], dependants)
+    end.to output(/dependency \(upgradable\)/).to_stdout
+  end
+
   it "prompts again for return ask input" do
     ["\r", "\n"].each do |input|
       allow($stdin).to receive(:tty?).and_return(true)

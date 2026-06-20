@@ -29,7 +29,11 @@ class GitDownloadStrategy < VCSDownloadStrategy
   # @api public
   sig { override.returns(Time) }
   def source_modified_time
-    Time.parse(silent_command("git", args: ["--git-dir", git_dir, "show", "-s", "--format=%cD"]).stdout)
+    result = system_command("git", args: ["--git-dir", git_dir, "show", "-s", "--format=%cD"],
+                                   env:  local_git_env, print_stderr: false)
+    raise "Failed to read the Git commit time:\n#{result.stderr}" unless result.success?
+
+    Time.parse(result.stdout)
   end
 
   sig { override.returns(T.nilable(String)) }
@@ -41,16 +45,27 @@ class GitDownloadStrategy < VCSDownloadStrategy
   sig { override.returns(String) }
   def last_commit
     args = ["--git-dir", git_dir, "rev-parse", "--short=#{MINIMUM_COMMIT_HASH_LENGTH}", "HEAD"]
-    @last_commit ||= silent_command("git", args:).stdout.chomp.presence
+    @last_commit ||= system_command("git", args:, env: local_git_env, print_stderr: false).stdout.chomp.presence
     @last_commit || ""
   end
 
   private
 
-  # Avoid user Git config reads; sandbox-denied config files make Git exit.
+  # Read user Git config so credential helpers work for private downloads,
+  # but never block on an interactive credential prompt.
   sig { override.returns(T::Hash[String, String]) }
   def env
-    Utils::Git.no_global_config_env
+    { "GIT_TERMINAL_PROMPT" => "0" }
+  end
+
+  # Local, read-only repository inspections (`git --git-dir … rev-parse`/`show`)
+  # can run while staging inside the sandbox, where reading the user's global Git
+  # config is denied and makes Git exit. Null it here, unlike the download-time
+  # commands that read it for credential helpers.
+  sig { returns(T::Hash[String, String]) }
+  def local_git_env
+    require "utils/git"
+    env.merge(Utils::Git.no_global_config_env)
   end
 
   sig { override.returns(String) }
@@ -95,7 +110,8 @@ class GitDownloadStrategy < VCSDownloadStrategy
 
   sig { override.returns(String) }
   def current_revision
-    silent_command("git", args: ["--git-dir", git_dir, "rev-parse", "-q", "--verify", "HEAD"]).stdout.strip
+    system_command("git", args: ["--git-dir", git_dir, "rev-parse", "-q", "--verify", "HEAD"],
+                          env: local_git_env, print_stderr: false).stdout.strip
   end
 
   sig { override.returns(T::Boolean) }

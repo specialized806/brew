@@ -49,9 +49,9 @@ module APIHashable
     when Array
       value.map { |v| deep_remove_placeholders(v) }
     when String
-      value.gsub(HOMEBREW_HOME_PLACEHOLDER, Dir.home)
-           .gsub(HOMEBREW_PREFIX_PLACEHOLDER, HOMEBREW_PREFIX)
+      value.gsub(HOMEBREW_PREFIX_PLACEHOLDER, HOMEBREW_PREFIX)
            .gsub(HOMEBREW_CELLAR_PLACEHOLDER, HOMEBREW_CELLAR)
+           .gsub(HOMEBREW_HOME_PLACEHOLDER, Dir.home)
     else
       value
     end

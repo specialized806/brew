@@ -18,20 +18,8 @@ module Homebrew
         Homebrew::Bundle.register_extension(T.cast(subclass, T.class_of(Homebrew::Bundle::Extension)))
       end
 
-      sig { returns(Symbol) }
-      def self.type
-        T.cast(const_get(:PACKAGE_TYPE), Symbol)
-      end
-
-      sig { returns(String) }
-      def self.check_label
-        T.cast(const_get(:PACKAGE_TYPE_NAME), String)
-      end
-
-      sig { returns(String) }
-      def self.banner_name
-        T.cast(const_get(:BANNER_NAME), String)
-      end
+      sig { abstract.returns(String) }
+      def self.banner_name; end
 
       sig { params(description: String).returns(String) }
       def self.switch_description(description)
@@ -229,11 +217,11 @@ module Homebrew
 
       sig {
         params(
-          entries:             T::Array[Object],
+          entries:             T::Array[Dsl::Entry],
           exit_on_first_error: T::Boolean,
           no_upgrade:          T::Boolean,
           verbose:             T::Boolean,
-        ).returns(T::Array[Object])
+        ).returns(T::Array[String])
       }
       def self.check(entries, exit_on_first_error: false, no_upgrade: false, verbose: false)
         new.find_actionable(entries, exit_on_first_error:, no_upgrade:, verbose:)

@@ -73,6 +73,11 @@ class ReporterHub
 
     return if msg.blank?
 
+    # When auto-updating before a zero-argument `brew upgrade` or `brew outdated`,
+    # that command lists the outdated packages itself so don't duplicate it here.
+    # Two-way sync: `auto-update` in `Library/Homebrew/brew.sh`.
+    return if auto_update && ENV["HOMEBREW_AUTO_UPDATE_SKIP_OUTDATED"].present?
+
     puts
     puts "You have #{msg} installed."
     # If we're auto-updating, don't need to suggest commands that we're perhaps

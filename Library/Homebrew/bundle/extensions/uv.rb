@@ -11,11 +11,16 @@ module Homebrew
       Checkable = T.type_alias { { name: String, options: WithOptions } }
       ToolEntry = T.type_alias { T.any(Tool, Checkable) }
 
-      PACKAGE_TYPE = :uv
-      PACKAGE_TYPE_NAME = "uv Tool"
-      BANNER_NAME = "uv tools"
-
       class << self
+        sig { override.returns(Symbol) }
+        def type = :uv
+
+        sig { override.returns(String) }
+        def check_label = "uv Tool"
+
+        sig { override.returns(String) }
+        def banner_name = "uv tools"
+
         sig { override.params(name: String, options: Homebrew::Bundle::EntryInputOptions).returns(Dsl::Entry) }
         def entry(name, options = {})
           unknown_options = options.keys - [:with]
@@ -224,10 +229,9 @@ module Homebrew
         end
       end
 
-      sig { override.params(entries: T::Array[Object]).returns(T::Array[Object]) }
+      sig { override.params(entries: T::Array[Dsl::Entry]).returns(T::Array[Object]) }
       def format_checkable(entries)
         checkable_entries(entries).map do |entry|
-          entry = T.cast(entry, Dsl::Entry)
           with = if entry.options.is_a?(Hash)
             value = entry.options[:with]
             value.is_a?(Array) ? value : []
