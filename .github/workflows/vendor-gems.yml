@@ -126,7 +126,7 @@ jobs:
         id: app-token
         if: github.event_name == 'workflow_dispatch'
         with:
-          app-id: ${{ vars.BREW_COMMIT_APP_ID }}
+          client-id: ${{ vars.BREW_COMMIT_CLIENT_ID }}
           private-key: ${{ secrets.BREW_COMMIT_APP_KEY }}
           permission-contents: write
 
