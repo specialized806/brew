@@ -45,6 +45,9 @@ class Homebrew::Cmd::List::Args < Homebrew::CLI::Args
   def multiple?; end
 
   sig { returns(T::Boolean) }
+  def no_installed_on_request?; end
+
+  sig { returns(T::Boolean) }
   def pinned?; end
 
   sig { returns(T::Boolean) }
