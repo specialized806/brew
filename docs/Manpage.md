@@ -1569,6 +1569,10 @@ paths within its current keg. If *`cask`* is provided, list its artifacts.
 
 : List the formulae installed on request.
 
+`--no-installed-on-request`
+
+: List the formulae not installed on request (i.e. installed as dependencies).
+
 `--poured-from-bottle`
 
 : List the formulae installed from a bottle.

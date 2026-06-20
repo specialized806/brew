@@ -42,6 +42,8 @@ module Homebrew
                             "<cask> are provided. See also `pin`, `unpin`."
         switch "--installed-on-request",
                description: "List the formulae installed on request."
+        switch "--no-installed-on-request",
+               description: "List the formulae not installed on request (i.e. installed as dependencies)."
         switch "--installed-as-dependency",
                description: "List the formulae installed as dependencies.",
                odeprecated: true,
@@ -68,7 +70,7 @@ module Homebrew
         conflicts "--formula", "--cask"
         conflicts "--multiple", "--cask"
         conflicts "--pinned", "--multiple"
-        ["--installed-on-request", "--installed-as-dependency",
+        ["--installed-on-request", "--no-installed-on-request", "--installed-as-dependency",
          "--poured-from-bottle", "--built-from-source"].each do |flag|
           conflicts "--cask", flag
           conflicts "--versions", flag
@@ -97,8 +99,10 @@ module Homebrew
           raise UsageError, "`brew list --versions --json` is only supported by the fast Bash path with `jq`."
         end
 
+        installed_as_dependency = args.no_installed_on_request? || args.installed_as_dependency?
+
         if args.full_name? &&
-           !(args.installed_on_request? || args.installed_as_dependency? ||
+           !(args.installed_on_request? || installed_as_dependency ||
              args.poured_from_bottle? || args.built_from_source?)
           unless args.cask?
             formula_names = args.no_named? ? Formula.installed : args.named.to_resolved_formulae
@@ -174,12 +178,12 @@ module Homebrew
           filtered_list unless args.cask?
           list_casks if args.cask? || (!args.formula? && !args.multiple? && args.no_named?)
         elsif args.installed_on_request? ||
-              args.installed_as_dependency? ||
+              installed_as_dependency ||
               args.poured_from_bottle? ||
               args.built_from_source?
           flags = []
           flags << "`--installed-on-request`" if args.installed_on_request?
-          flags << "`--installed-as-dependency`" if args.installed_as_dependency?
+          flags << "`--no-installed-on-request`" if installed_as_dependency
           flags << "`--poured-from-bottle`" if args.poured_from_bottle?
           flags << "`--built-from-source`" if args.built_from_source?
 
@@ -199,7 +203,7 @@ module Homebrew
 
             statuses = []
             statuses << "installed on request" if args.installed_on_request? && tab.installed_on_request
-            statuses << "installed as dependency" if args.installed_as_dependency? && !tab.installed_on_request
+            statuses << "installed as dependency" if installed_as_dependency && !tab.installed_on_request
             statuses << "poured from bottle" if args.poured_from_bottle? && tab.poured_from_bottle
             statuses << "built from source" if args.built_from_source? && !tab.poured_from_bottle
             next if statuses.empty?

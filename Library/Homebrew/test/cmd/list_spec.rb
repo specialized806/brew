@@ -122,6 +122,42 @@ RSpec.describe Homebrew::Cmd::List do
       .and not_to_output.to_stderr
   end
 
+  describe "filtering by install-on-request status" do
+    let(:on_request) do
+      formula("on-request") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/on-request-1.0"
+      end
+    end
+    let(:dependency) do
+      formula("dependency") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/dependency-1.0"
+      end
+    end
+
+    before do
+      allow(Formula).to receive(:installed).and_return([on_request, dependency])
+      allow(Tab).to receive(:for_formula).with(on_request)
+                                         .and_return(instance_double(Tab, installed_on_request: true))
+      allow(Tab).to receive(:for_formula).with(dependency)
+                                         .and_return(instance_double(Tab, installed_on_request: false))
+    end
+
+    it "lists only formulae installed on request with --installed-on-request" do
+      expect { described_class.new(["--installed-on-request"]).run }.to output("on-request\n").to_stdout
+    end
+
+    it "lists only dependencies with --no-installed-on-request" do
+      expect { described_class.new(["--no-installed-on-request"]).run }.to output("dependency\n").to_stdout
+    end
+
+    it "lists every formula by category when both flags are combined" do
+      expect { described_class.new(["--installed-on-request", "--no-installed-on-request"]).run }
+        .to output("dependency: installed as dependency\non-request: installed on request\n").to_stdout
+    end
+  end
+
   it "covers Bash list output and errors", :cask do
     install_formula_version "testball", "0.1"
     install_formula_version "testball", "0.2"

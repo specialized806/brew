@@ -1999,6 +1999,7 @@ _brew_list() {
       --installed-on-request
       --json
       --multiple
+      --no-installed-on-request
       --pinned
       --poured-from-bottle
       --quiet
