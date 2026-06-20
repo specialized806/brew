@@ -4249,6 +4249,14 @@ command execution (e.g. `$(cat file)`).
   *Default:* `86400` (24 hours), `3600` (1 hour) if a developer command has been
   run or `300` (5 minutes) if `$HOMEBREW_NO_INSTALL_FROM_API` is set.
 
+`HOMEBREW_AVOID_NESTED_SANDBOXING`
+
+: If set, skip Homebrew's sandbox when it is itself running inside another
+  sandbox, for an unprivileged user outside the default prefix. This trades
+  Homebrew's build-time network and filesystem denial for trust in the outer
+  sandbox. Homebrew errors out if the prefix or group makes skipping
+  unsupported.
+
 `HOMEBREW_BAT`
 
 : If set, use `bat` for the `brew cat` command.

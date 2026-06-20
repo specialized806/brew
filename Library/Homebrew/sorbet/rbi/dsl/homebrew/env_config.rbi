@@ -35,6 +35,9 @@ module Homebrew::EnvConfig
     def auto_update_secs; end
 
     sig { returns(T::Boolean) }
+    def avoid_nested_sandboxing?; end
+
+    sig { returns(T::Boolean) }
     def bat?; end
 
     sig { returns(T.nilable(::String)) }

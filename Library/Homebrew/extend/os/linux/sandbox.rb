@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "env_config"
+require "utils/popen"
 require "utils/github/actions"
 
 module OS
@@ -31,6 +32,8 @@ module OS
       HOMEBREW_BUBBLEWRAP_PATHS = T.let([
         "#{HOMEBREW_PREFIX}/bin",
       ].freeze, T::Array[String])
+      NESTED_BUBBLEWRAP_ERROR = "Creating new namespace failed: nesting depth or /proc/sys/user/max_*_namespaces " \
+                                "exceeded"
       class SysctlSetting < T::Struct
         const :assignment, String
         const :description, T::Array[String]
@@ -76,7 +79,8 @@ module OS
         "apk"     => "sudo apk add bubblewrap",
       }.freeze, T::Hash[String, String])
       private_constant :BUBBLEWRAP, :BUBBLEWRAP_TEST_ARGS, :SYSTEM_BUBBLEWRAP_PATHS, :HOMEBREW_BUBBLEWRAP_PATHS,
-                       :SysctlSetting, :SANDBOX_SYSCTL_SETTINGS, :TIOCSCTTY, :BUBBLEWRAP_INSTALL_COMMANDS
+                       :NESTED_BUBBLEWRAP_ERROR, :SysctlSetting, :SANDBOX_SYSCTL_SETTINGS, :TIOCSCTTY,
+                       :BUBBLEWRAP_INSTALL_COMMANDS
 
       sig { returns(::PATH) }
       def self.bubblewrap_candidate_paths
@@ -189,6 +193,20 @@ module OS
         sig { returns(T::Boolean) }
         def available?
           state == :available
+        end
+
+        # Bubblewrap reports this specific namespace error when an outer
+        # Bubblewrap sandbox prevents Homebrew from creating another rootless
+        # sandbox. The shared `avoid_nested_sandboxing?` only calls this once the
+        # `$HOMEBREW_AVOID_NESTED_SANDBOXING` opt-in is set.
+        sig { returns(T::Boolean) }
+        def nested_sandbox?
+          return false unless Homebrew::EnvConfig.sandbox_linux?
+
+          bubblewrap = bubblewrap_executable
+          return false unless bubblewrap
+
+          Utils.popen_read(bubblewrap.to_s, *BUBBLEWRAP_TEST_ARGS, err: :out).include?(NESTED_BUBBLEWRAP_ERROR)
         end
 
         sig { returns(Symbol) }

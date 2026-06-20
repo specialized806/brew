@@ -1138,7 +1138,7 @@ on_request: installed_on_request?, options:)
       formula_path,
     ].concat(build_argv)
 
-    if Sandbox.available?
+    if use_sandbox?("building")
       sandbox = Sandbox.new
       sandbox.allow_read_if_exists path: formula_path
       if Homebrew::EnvConfig.require_tap_trust?
@@ -1161,7 +1161,6 @@ on_request: installed_on_request?, options:)
       sandbox.deny_all_network unless formula.network_access_allowed?(:build)
       sandbox.run(*args)
     else
-      opoo "Sandbox unavailable: building without sandboxing!"
       Utils.safe_fork do
         exec(*args)
       end
@@ -1394,7 +1393,7 @@ on_request: installed_on_request?, options:)
 
     args << post_install_formula_path
 
-    if Sandbox.available?
+    if use_sandbox?("running post-install")
       sandbox = Sandbox.new
       formula.logs.mkpath
       sandbox.record_log(formula.logs/"postinstall.sandbox.log")
@@ -1410,7 +1409,6 @@ on_request: installed_on_request?, options:)
       end
       sandbox.run(*args)
     else
-      opoo "Sandbox unavailable: running post-install without sandboxing!"
       Utils.safe_fork do
         exec(*args)
       end
@@ -1791,6 +1789,25 @@ on_request: installed_on_request?, options:)
   end
 
   private
+
+  # Whether to run the given install `step` (e.g. `"building"`) inside
+  # Homebrew's sandbox. Warns when it will not: noting reliance on the outer
+  # sandbox when `$HOMEBREW_AVOID_NESTED_SANDBOXING` skips a nested sandbox,
+  # otherwise that no sandbox is available.
+  sig { params(step: String).returns(T::Boolean) }
+  def use_sandbox?(step)
+    unless Sandbox.available?
+      opoo "Sandbox unavailable: #{step} without sandboxing!"
+      return false
+    end
+
+    if Sandbox.avoid_nested_sandboxing?
+      opoo "#{step.capitalize} without Homebrew's sandbox; relying on the outer sandbox."
+      return false
+    end
+
+    true
+  end
 
   sig { returns(T::Boolean) }
   def auto_link_versioned_keg_only?

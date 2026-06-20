@@ -3,6 +3,7 @@
 
 require "erb"
 require "fcntl"
+require "fiddle"
 
 module OS
   module Mac
@@ -64,6 +65,22 @@ module OS
         sig { returns(T::Boolean) }
         def available?
           File.executable?(SANDBOX_EXEC)
+        end
+
+        # Nested `sandbox-exec` invocations hang inside an existing macOS sandbox
+        # (e.g. an agent's), so detect that via the libSystem `sandbox_check`
+        # syscall. The shared `avoid_nested_sandboxing?` only calls this once the
+        # `$HOMEBREW_AVOID_NESTED_SANDBOXING` opt-in is set.
+        sig { returns(T::Boolean) }
+        def nested_sandbox?
+          sandbox_check = Fiddle::Function.new(
+            Fiddle.dlopen(nil)["sandbox_check"],
+            [Fiddle::TYPE_INT, Fiddle::TYPE_VOIDP, Fiddle::TYPE_INT],
+            Fiddle::TYPE_INT,
+          )
+          sandbox_check.call(Process.pid, nil, 0) == 1
+        rescue Fiddle::DLError
+          false
         end
 
         sig { returns(Integer) }
