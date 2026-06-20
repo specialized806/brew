@@ -3,6 +3,7 @@
 
 require "system_command"
 require "utils/output"
+require "utils/path"
 
 module GitHub
   sig { params(scopes: T::Array[String]).returns(String) }
@@ -169,10 +170,7 @@ module GitHub
     def self.github_cli_token
       require "utils/uid"
       # Avoid `Formula["gh"].opt_bin` so this method works even with `HOMEBREW_DISABLE_LOAD_FORMULA`.
-      env = {
-        "PATH" => PATH.new(HOMEBREW_PREFIX/"opt/gh/bin", ENV.fetch("PATH")),
-        "HOME" => Utils::UID.uid_home,
-      }.compact
+      env = Utils::Path.formula_opt_bin_env("gh").merge("HOME" => Utils::UID.uid_home).compact
       gh_out, _, result = system_command("gh",
                                          args:            ["auth", "token", "--hostname", "github.com"],
                                          env:,

@@ -34,7 +34,7 @@ class MercurialDownloadStrategy < VCSDownloadStrategy
 
   sig { override.returns(T::Hash[String, String]) }
   def env
-    { "PATH" => PATH.new(Formula["mercurial"].opt_bin, ENV.fetch("PATH")) }
+    Utils::Path.formula_opt_bin_env("mercurial")
   end
 
   sig { override.returns(String) }

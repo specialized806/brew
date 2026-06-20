@@ -4,6 +4,7 @@
 require "mktemp"
 require "system_command"
 require "utils/output"
+require "utils/path"
 
 # Module containing all available strategies for unpacking archives.
 module UnpackStrategy

@@ -12,6 +12,21 @@ module Utils
       false
     end
 
+    sig { params(formula_name: String).returns(Pathname) }
+    def self.formula_opt_bin(formula_name)
+      HOMEBREW_PREFIX/"opt/#{formula_name}/bin"
+    end
+
+    sig { params(formula_name: String, paths: PATH::Elements).returns(PATH) }
+    def self.formula_opt_bin_path(formula_name, *paths)
+      PATH.new(formula_opt_bin(formula_name), *paths, ENV.fetch("PATH"))
+    end
+
+    sig { params(formula_name: String, paths: PATH::Elements).returns(T::Hash[String, String]) }
+    def self.formula_opt_bin_env(formula_name, *paths)
+      { "PATH" => formula_opt_bin_path(formula_name, *paths).to_s }
+    end
+
     sig { params(path: Pathname, package_type: Symbol).returns(T::Boolean) }
     def self.loadable_package_path?(path, package_type)
       return true unless Homebrew::EnvConfig.forbid_packages_from_paths?

@@ -41,7 +41,7 @@ class FossilDownloadStrategy < VCSDownloadStrategy
 
   sig { override.returns(T::Hash[String, String]) }
   def env
-    { "PATH" => PATH.new(Formula["fossil"].opt_bin, ENV.fetch("PATH")) }
+    Utils::Path.formula_opt_bin_env("fossil")
   end
 
   sig { override.returns(String) }
