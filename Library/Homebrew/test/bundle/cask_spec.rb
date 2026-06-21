@@ -4,6 +4,7 @@
 require "bundle"
 require "bundle/cask"
 require "cask"
+require "cask/cask_loader"
 
 RSpec.describe Homebrew::Bundle::Cask do
   describe "dumping" do
@@ -136,14 +137,34 @@ RSpec.describe Homebrew::Bundle::Cask do
       context "when multiple casks have the same dependency" do
         before do
           described_class.reset!
-          foo = instance_double(Cask::Cask, to_s: "foo", depends_on: { formula: ["baz", "qux"] })
-          bar = instance_double(Cask::Cask, to_s: "bar", depends_on: {})
+          foo = instance_double(Cask::Cask, to_s: "foo", full_name: "foo", depends_on: { formula: ["baz", "qux"] })
+          bar = instance_double(Cask::Cask, to_s: "bar", full_name: "bar", depends_on: {})
           allow(Cask::Caskroom).to receive(:casks).and_return([foo, bar])
           allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(true)
         end
 
         it "returns an array of unique formula dependencies" do
           expect(dumper.formula_dependencies(["foo", "bar"])).to eql(["baz", "qux"])
+        end
+      end
+
+      context "when the cask is not installed" do
+        before do
+          described_class.reset!
+          allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
+        end
+
+        it "loads formula dependencies from the cask definition" do
+          cask = instance_double(
+            Cask::Cask,
+            to_s:       "tpack",
+            full_name:  "tmuxpack/tpack/tpack",
+            depends_on: { formula: ["tmux"] },
+          )
+
+          expect(Cask::CaskLoader).to receive(:load).with("tmuxpack/tpack/tpack").and_return(cask)
+
+          expect(dumper.formula_dependencies(["tmuxpack/tpack/tpack"])).to eql(["tmux"])
         end
       end
     end

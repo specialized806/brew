@@ -227,11 +227,21 @@ module Homebrew
 
         sig { params(cask_list: T::Array[String]).returns(T::Array[String]) }
         def formula_dependencies(cask_list)
-          return [] unless Bundle.cask_installed?
           return [] if cask_list.blank?
 
-          casks.flat_map do |cask|
-            next unless cask_list.include?(cask.to_s)
+          require "cask/cask_loader"
+
+          installed_cask_objects = casks
+          cask_list.flat_map do |cask_name|
+            cask = installed_cask_objects.find do |installed_cask|
+              cask_name == installed_cask.to_s || cask_name == installed_cask.full_name
+            end
+            cask ||= begin
+              ::Cask::CaskLoader.load(cask_name)
+            rescue ::Cask::CaskUnavailableError
+              nil
+            end
+            next unless cask
 
             cask.depends_on[:formula]
           end.compact

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "bundle"
+require "attestation"
 require "bundle/dsl"
 require "bundle/installer"
 require "bundle/parallel_installer"
@@ -290,6 +291,65 @@ RSpec.describe Homebrew::Bundle::Installer do
       expect(failure).to eq(0)
     end
 
+    it "counts false parallel install results as failures" do
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set.new)
+      allow(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("alpha", preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .and_return(true)
+      allow(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("beta", preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .and_return(false)
+
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
+        [alpha_entry, beta_entry],
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).run!
+
+      expect(success).to eq(1)
+      expect(failure).to eq(1)
+    end
+
+    it "prepares attestation verification before parallel installs" do
+      tpack_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "tpack",
+        options: { args: {}, full_name: "tmuxpack/tpack/tpack" },
+        verb:    "Installing",
+        cls:     Homebrew::Bundle::Cask,
+      )
+      install_order = []
+
+      allow(Homebrew::EnvConfig).to receive(:verify_attestations?).and_return(true)
+      allow(Homebrew::Attestation).to receive(:gh_executable) do
+        install_order << "gh"
+        Pathname("/fake/gh")
+      end
+      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"])
+                                                                     .and_return([])
+      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
+        [alpha_entry, tpack_entry],
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).run!
+
+      expect(success).to eq(2)
+      expect(failure).to eq(0)
+      expect(install_order.first).to eq("gh")
+    end
+
     it "serializes dependent formulae" do
       install_order = []
       allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
@@ -326,6 +386,62 @@ RSpec.describe Homebrew::Bundle::Installer do
       ).send(:build_dependency_map, entries)
 
       expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
+    end
+
+    it "installs a Brewfile `gh` before other entries when verifying attestations" do
+      gh_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "gh",
+        options: {},
+        verb:    "Installing",
+        cls:     Homebrew::Bundle::Brew,
+      )
+
+      allow(Homebrew::EnvConfig).to receive(:verify_attestations?).and_return(true)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("gh").and_return([])
+      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("gh").and_return(Set.new)
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+
+      entries = [alpha_entry, gh_entry]
+      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
+        entries,
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).send(:build_dependency_map, entries)
+
+      expect(dependency_map.fetch("alpha")).to eq(Set["gh"])
+    end
+
+    it "uses cask full names when resolving formula dependencies" do
+      tpack_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "tpack",
+        options: { args: {}, full_name: "tmuxpack/tpack/tpack" },
+        verb:    "Installing",
+        cls:     Homebrew::Bundle::Cask,
+      )
+      install_order = []
+
+      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"])
+                                                                     .and_return(["alpha"])
+      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
+        [alpha_entry, tpack_entry],
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).run!
+
+      expect(success).to eq(2)
+      expect(failure).to eq(0)
+      expect(install_order).to eq(["alpha", "tpack"])
     end
 
     it "installs unqualified formulae after Brewfile taps" do

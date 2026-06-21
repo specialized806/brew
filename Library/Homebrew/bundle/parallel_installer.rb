@@ -48,6 +48,7 @@ module Homebrew
         end
         ::Tap.clear_cache if tap_entries.present?
 
+        prepare_attestation_verification!(pending_entries)
         dependency_map = build_dependency_map(pending_entries)
         completed = T.let(Set.new, T::Set[String])
         until pending_entries.empty?
@@ -88,6 +89,9 @@ module Homebrew
       sig { params(entries: T::Array[Installer::InstallableEntry]).returns(T::Hash[String, T::Set[String]]) }
       def build_dependency_map(entries)
         installed_taps = Homebrew::Bundle::Tap.installed_taps
+        attestation_formula = if Homebrew::EnvConfig.verify_attestations?
+          entries.find { |entry| entry.cls == Homebrew::Bundle::Brew && entry.name == "gh" }
+        end
 
         # Phase 1: Map both full and short names so dep lookups work either way.
         entry_name_map = entries.each_with_object({}) do |entry, map|
@@ -103,13 +107,17 @@ module Homebrew
           when "Homebrew::Bundle::Brew"
             Homebrew::Bundle::Brew.formula_dep_names(entry.name)
           when "Homebrew::Bundle::Cask"
-            Homebrew::Bundle::Cask.formula_dependencies([entry.name])
+            Homebrew::Bundle::Cask.formula_dependencies([entry.full_name])
           else
             []
           end
 
           # Entries from non-default taps depend on the tap being installed first.
           deps += Homebrew::Bundle::Installer.tap_dependencies(entry, entries:, installed_taps:)
+          if attestation_formula && [Homebrew::Bundle::Brew, Homebrew::Bundle::Cask].include?(entry.cls) &&
+             entry.name != attestation_formula.name
+            deps << attestation_formula.name
+          end
 
           brewfile_deps[entry.name] = deps
         end
@@ -156,6 +164,17 @@ module Homebrew
         Utils.name_from_full_name(name)
       end
 
+      sig { params(entries: T::Array[Installer::InstallableEntry]).void }
+      def prepare_attestation_verification!(entries)
+        return unless Homebrew::EnvConfig.verify_attestations?
+        return unless entries.any? { |entry| [Homebrew::Bundle::Brew, Homebrew::Bundle::Cask].include?(entry.cls) }
+        return if entries.any? { |entry| entry.cls == Homebrew::Bundle::Brew && entry.name == "gh" }
+
+        require "attestation"
+
+        Homebrew::Attestation.gh_executable
+      end
+
       # Walk cask-on-cask dependencies transitively, returning the set of
       # cask names (from the Brewfile) that this cask depends on.
       sig { params(name: String, cask_names: T::Set[String]).returns(T::Set[String]) }
@@ -183,7 +202,7 @@ module Homebrew
         failure = 0
         entries.each do |entry|
           installed = begin
-            !futures.fetch(entry).value!.nil?
+            futures.fetch(entry).value! == true
           rescue => e
             write_output(Formatter.error("Installing #{entry.name} has failed!"), stream: $stderr)
             write_output("[#{entry.name}] #{e.message}", stream: $stderr) if @verbose
