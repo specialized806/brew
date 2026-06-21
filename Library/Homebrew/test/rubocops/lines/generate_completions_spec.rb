@@ -162,4 +162,149 @@ RSpec.describe RuboCop::Cop::FormulaAudit do
       RUBY
     end
   end
+
+  describe RuboCop::Cop::FormulaAudit::RedundantGenerateCompletionsShells do
+    subject(:cop) { described_class.new }
+
+    it "reports an offense and removes `shells:` when all default shells are passed" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions", shells: [:bash, :zsh, :fish])
+                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/RedundantGenerateCompletionsShells: Passing the default shells to `generate_completions_from_executable` is redundant
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions")
+          end
+        end
+      RUBY
+    end
+
+    it "reports an offense regardless of the order of the default shells" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions", shells: [:fish, :bash, :zsh])
+                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/RedundantGenerateCompletionsShells: Passing the default shells to `generate_completions_from_executable` is redundant
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions")
+          end
+        end
+      RUBY
+    end
+
+    it "removes only `shells:` and keeps other keyword arguments" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions", shells: [:bash, :zsh, :fish], base_name: "bar")
+                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/RedundantGenerateCompletionsShells: Passing the default shells to `generate_completions_from_executable` is redundant
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions", base_name: "bar")
+          end
+        end
+      RUBY
+    end
+
+    it "does not report an offense when only some default shells are passed" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions", shells: [:bash, :zsh])
+          end
+        end
+      RUBY
+    end
+
+    it "does not report an offense when a non-default shell is included" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", "completions", shells: [:bash, :zsh, :fish, :pwsh])
+          end
+        end
+      RUBY
+    end
+
+    it "treats `:pwsh` as a default when `shell_parameter_format` is `:cobra`" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", shells: [:bash, :zsh, :fish, :pwsh], shell_parameter_format: :cobra)
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/RedundantGenerateCompletionsShells: Passing the default shells to `generate_completions_from_executable` is redundant
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", shell_parameter_format: :cobra)
+          end
+        end
+      RUBY
+    end
+
+    it "does not report an offense when `:cobra` is used without its `:pwsh` default" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            generate_completions_from_executable(bin/"foo", shells: [:bash, :zsh, :fish], shell_parameter_format: :cobra)
+          end
+        end
+      RUBY
+    end
+
+    it "does not report an offense when `shell_parameter_format` is not a literal" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          name "foo"
+
+          def install
+            format = :cobra
+            generate_completions_from_executable(bin/"foo", shells: [:bash, :zsh, :fish], shell_parameter_format: format)
+          end
+        end
+      RUBY
+    end
+  end
 end
