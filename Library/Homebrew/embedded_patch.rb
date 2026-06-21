@@ -40,7 +40,9 @@ class EmbeddedPatch
     data = contents.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX)
     args = %W[-g 0 -f -#{strip}]
     dir = Pathname.pwd
-    dir /= T.must(directory) if directory.present?
+    if (subdirectory = directory.presence)
+      dir /= subdirectory
+    end
     dir.cd do
       Utils.safe_popen_write("patch", *args) { |p| p.write(data) }
     end
