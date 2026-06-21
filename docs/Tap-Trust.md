@@ -29,7 +29,7 @@ commands that are loaded just because their tap is present. It also makes
 automation clearer: scripts can trust exactly the tap, formula, cask or command
 they intend to use instead of relying on every tapped repository being loaded.
 
-Tap trust is one part of Homebrew's wider approach to [Software Supply Chain Security](Supply-Chain-Security.md).
+Tap trust is one part of Homebrew's wider approach to [Software Supply Chain Security](Homebrew-Security-and-Supply-Chain.md).
 
 Prefer trusting the specific formula, cask or command you need. Trust a whole
 tap only when you are comfortable with all current and future formulae, casks

@@ -1,12 +1,16 @@
 ---
+title: Homebrew Security and Supply Chain
+description: Homebrew security and supply chain defences, including package review, checksums, signed metadata, bottles, sandboxing and tap trust.
+redirect_from:
+  - /Supply-Chain-Security
 last_review_date: "2026-06-15"
 ---
 
-# Software Supply Chain Security
+# Homebrew Security and Supply Chain
 
 Homebrew installs software from across the open source ecosystem.
 That makes the security of the software supply chain, the humans involved, repositories, build systems and download servers that turn source code into something you run, a core concern for us.
-This document explains the recent supply-side security incidents affecting other package managers, how Homebrew's trust model differs and the steps we have taken to protect our users.
+This Homebrew security guide explains the recent supply-side security incidents affecting other package managers, how Homebrew's trust model differs and the steps we have taken to protect our users.
 
 * Table of Contents
 {:toc}

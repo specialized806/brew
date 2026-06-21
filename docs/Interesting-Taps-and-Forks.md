@@ -12,7 +12,7 @@ Your taps are Git repositories located at `$(brew --repository)/Library/Taps`. A
 
 The taps and forks below are third-party repositories that are not maintained, reviewed or trusted by Homebrew.
 Tapping or installing from them runs their code with your user's privileges, so only add ones you trust.
-See [Tap Trust](Tap-Trust.md) for how to trust only the specific formula, cask or command you need and [Software Supply Chain Security](Supply-Chain-Security.md) for why this matters.
+See [Tap Trust](Tap-Trust.md) for how to trust only the specific formula, cask or command you need and [Software Supply Chain Security](Homebrew-Security-and-Supply-Chain.md) for why this matters.
 
 ## Unsupported interesting taps
 
