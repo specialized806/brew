@@ -326,7 +326,8 @@ class GitHubRunnerMatrix
             next false if macos_version && !simulated_dependent_f.compatible_with?(macos_version)
 
             simulated_dependent_f.public_send(:"#{platform}_compatible?") &&
-              simulated_dependent_f.public_send(:"#{arch}_compatible?")
+              simulated_dependent_f.public_send(:"#{arch}_compatible?") &&
+              !simulated_dependent_f.formula.disabled?
           end
         end
 
