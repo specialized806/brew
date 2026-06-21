@@ -34,10 +34,9 @@ module Patch
         if (file = resource.file)
           raise ArgumentError, "Patch cannot have both `file` and `url`." if resource.url.present?
           raise ArgumentError, "Patch cannot use `sha256` with `file`." if resource.checksum
-          raise ArgumentError, "Patch cannot use `directory` with `file`." if resource.directory.present?
           raise ArgumentError, "Patch cannot use `apply` with `file`." if resource.patch_files.present?
 
-          LocalPatch.new(strip, file)
+          LocalPatch.new(strip, file, resource.directory)
         else
           external_patch
         end

@@ -120,6 +120,17 @@ RSpec.describe "patching", type: :system do
     ).to be_patched
   end
 
+  specify "local_patch_dsl_with_directory" do
+    expect(
+      formula(path: fixture("testball.rb")) do
+        patch do
+          file "patches/noop-b.diff"
+          directory "libexec"
+        end
+      end,
+    ).to be_patched
+  end
+
   specify "local_patch_dsl_with_strip" do
     expect(
       formula(path: fixture("testball.rb")) do

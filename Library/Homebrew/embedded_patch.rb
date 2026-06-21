@@ -17,10 +17,14 @@ class EmbeddedPatch
   sig { returns(T.any(String, Symbol)) }
   attr_reader :strip
 
+  sig { returns(T.nilable(T.any(String, Pathname))) }
+  attr_accessor :directory
+
   sig { params(strip: T.any(String, Symbol)).void }
   def initialize(strip)
     @strip = strip
     @owner = T.let(nil, T.nilable(Resource::Owner))
+    @directory = T.let(nil, T.nilable(T.any(String, Pathname)))
   end
 
   sig { returns(T::Boolean) }
@@ -35,7 +39,11 @@ class EmbeddedPatch
   def apply
     data = contents.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX)
     args = %W[-g 0 -f -#{strip}]
-    Utils.safe_popen_write("patch", *args) { |p| p.write(data) }
+    dir = Pathname.pwd
+    dir /= T.must(directory) if directory.present?
+    dir.cd do
+      Utils.safe_popen_write("patch", *args) { |p| p.write(data) }
+    end
   end
 
   sig { returns(String) }

@@ -21,10 +21,17 @@ class LocalPatch < EmbeddedPatch
       !path.to_s.start_with?("../")
   end
 
-  sig { params(strip: T.any(String, Symbol), file: T.any(String, Pathname)).void }
-  def initialize(strip, file)
+  sig {
+    params(
+      strip:     T.any(String, Symbol),
+      file:      T.any(String, Pathname),
+      directory: T.nilable(T.any(String, Pathname)),
+    ).void
+  }
+  def initialize(strip, file, directory = nil)
     super(strip)
     @file = file
+    self.directory = directory
   end
 
   sig { override.returns(String) }
