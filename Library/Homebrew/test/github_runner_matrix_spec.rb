@@ -234,6 +234,24 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
             expect(get_runner_names(runner_matrix)).to eq(get_runner_names(runner_matrix, :arm64?))
           end
         end
+
+        context "when dependents are disabled" do
+          it "activates no runners" do
+            testball_depender_disabled = setup_test_runner_formula("testball-depender-disabled", ["testball"])
+
+            allow(Formulary).to receive(:factory).and_call_original
+            allow(Formulary).to receive(:factory).with("testball-depender-disabled") do
+              formula = testball_depender_disabled.formula
+              allow(formula).to receive(:disabled?).and_return(true)
+              formula
+            end
+
+            allow(Formula).to receive(:all).and_return([testball, testball_depender_disabled].map(&:formula))
+
+            runner_matrix = described_class.new([testball], [], all_supported: false, dependent_matrix: true)
+            expect(runner_matrix.runners.any?(&:active)).to be(false)
+          end
+        end
       end
     end
   end
