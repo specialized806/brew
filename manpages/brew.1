@@ -2718,6 +2718,9 @@ Run \fBbrew update\fP once every \fB$HOMEBREW_AUTO_UPDATE_SECS\fP seconds before
 \fIDefault:\fP \fB86400\fP (24 hours), \fB3600\fP (1 hour) if a developer command has been run or \fB300\fP (5 minutes) if \fB$HOMEBREW_NO_INSTALL_FROM_API\fP is set\.
 .RE
 .TP
+\fBHOMEBREW_AVOID_NESTED_SANDBOXING\fP
+If set, skip Homebrew\[u2019]s sandbox when it is itself running inside another sandbox, for an unprivileged user outside the default prefix\. This trades Homebrew\[u2019]s build\-time network and filesystem denial for trust in the outer sandbox\. Homebrew errors out if the prefix or group makes skipping unsupported\.
+.TP
 \fBHOMEBREW_BAT\fP
 If set, use \fBbat\fP for the \fBbrew cat\fP command\.
 .TP

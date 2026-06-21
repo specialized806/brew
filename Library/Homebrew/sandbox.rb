@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "etc"
 require "io/console"
 require "pty"
 require "tempfile"
@@ -11,6 +12,10 @@ require "utils/output"
 # Helper class for running a sub-process inside of a sandboxed environment.
 class Sandbox
   include Utils::Output::Mixin
+  extend Utils::Output::Mixin
+
+  # Privileged groups that are expected to be able to use a working sandbox.
+  PRIVILEGED_GROUPS = T.let(%w[admin staff root wheel].freeze, T::Array[String])
 
   class SandboxPathFilter
     sig { returns(String) }
@@ -73,6 +78,43 @@ class Sandbox
   sig { returns(T::Boolean) }
   def self.available?
     false
+  end
+
+  # Whether Homebrew is itself running inside another sandbox, which would make
+  # its own nested sandbox hang (macOS) or fail to start (Linux). Overridden
+  # per-OS.
+  sig { returns(T::Boolean) }
+  def self.nested_sandbox? = false
+
+  # Skip Homebrew's own sandbox when it is opted into via
+  # `$HOMEBREW_AVOID_NESTED_SANDBOXING` and already running inside another
+  # sandbox. The skip is only supported for an unprivileged user in a custom
+  # prefix; error out explaining why rather than silently sandboxing (and
+  # hanging) when either is not the case.
+  sig { returns(T::Boolean) }
+  def self.avoid_nested_sandboxing?
+    return false unless Homebrew::EnvConfig.avoid_nested_sandboxing?
+    return false unless nested_sandbox?
+
+    if Homebrew.default_prefix?
+      odie "Refusing to skip the sandbox: `$HOMEBREW_AVOID_NESTED_SANDBOXING` is set " \
+           "inside another sandbox but Homebrew is using its default prefix " \
+           "(#{HOMEBREW_PREFIX}); this is only supported in a custom prefix."
+    end
+
+    privileged_group = PRIVILEGED_GROUPS.find do |name|
+      group = Etc.getgrnam(name)
+      group && Process.groups.include?(group.gid)
+    rescue ArgumentError
+      false
+    end
+    if privileged_group
+      odie "Refusing to skip the sandbox: `$HOMEBREW_AVOID_NESTED_SANDBOXING` is set " \
+           "inside another sandbox but you are in the privileged `#{privileged_group}` " \
+           "group; this is only supported for an unprivileged user."
+    end
+
+    true
   end
 
   sig { params(install_from_tests: T::Boolean).void }

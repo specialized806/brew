@@ -60,17 +60,33 @@ RSpec.describe Sandbox, :needs_linux do
     let(:bubblewrap) { bubblewrap_dir/"bwrap" }
     let(:fallback_bubblewrap_dir) { mktmpdir }
     let(:fallback_bubblewrap) { fallback_bubblewrap_dir/"bwrap" }
+    let(:bubblewrap_test_args) do
+      [
+        bubblewrap.to_s,
+        "--unshare-user",
+        "--unshare-ipc",
+        "--unshare-pid",
+        "--unshare-uts",
+        "--unshare-cgroup-try",
+        "--ro-bind", "/", "/",
+        "--proc", "/proc",
+        "--dev", "/dev",
+        "true",
+        { err: :out }
+      ]
+    end
 
     before do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(true)
       FileUtils.touch bubblewrap
       FileUtils.chmod "+x", bubblewrap
       sandbox_class.test_executable_candidate_paths = PATH.new(bubblewrap_dir)
     end
 
     it "returns false when Linux sandboxing is disabled" do
-      with_env(HOMEBREW_NO_SANDBOX_LINUX: "1") do
-        expect(sandbox_class.available?).to be(false)
-      end
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
+
+      expect(sandbox_class.available?).to be(false)
     end
 
     it "returns false when bubblewrap is unavailable" do
@@ -153,6 +169,27 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class.available?).to be(false)
       expect(sandbox_class.state).to eq(:unavailable)
       expect(sandbox_class.failure_reason).to include("cannot create a rootless sandbox")
+    end
+
+    it "does not treat generic bubblewrap sandbox probe failures as nested" do
+      FileUtils.touch fallback_bubblewrap
+      FileUtils.chmod "+x", fallback_bubblewrap
+      sandbox_class.test_executable_candidate_paths = PATH.new(bubblewrap_dir, fallback_bubblewrap_dir)
+
+      expect(Utils).to receive(:popen_read)
+        .with(*bubblewrap_test_args)
+        .and_return("bwrap: No permissions to create a new namespace\n")
+
+      expect(sandbox_class.nested_sandbox?).to be(false)
+    end
+
+    it "treats a bubblewrap namespace nesting failure as nested" do
+      expect(Utils).to receive(:popen_read)
+        .with(*bubblewrap_test_args)
+        .and_return("bwrap: Creating new namespace failed: " \
+                    "nesting depth or /proc/sys/user/max_*_namespaces exceeded (ENOSPC)\n")
+
+      expect(sandbox_class.nested_sandbox?).to be(true)
     end
   end
 

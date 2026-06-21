@@ -15,6 +15,39 @@ RSpec.describe Sandbox, :needs_macos do
     skip "Sandbox not implemented." unless described_class.available?
   end
 
+  describe ".avoid_nested_sandboxing?" do
+    before do
+      allow(Homebrew::EnvConfig).to receive(:avoid_nested_sandboxing?).and_return(true)
+      allow(described_class).to receive(:nested_sandbox?).and_return(true)
+      allow(Homebrew).to receive(:default_prefix?).and_return(false)
+      allow(Process).to receive(:groups).and_return([])
+    end
+
+    it "skips the sandbox for an unprivileged user in a custom prefix" do
+      expect(described_class.avoid_nested_sandboxing?).to be(true)
+    end
+
+    it "is false when not opted in via the environment" do
+      allow(Homebrew::EnvConfig).to receive(:avoid_nested_sandboxing?).and_return(false)
+      expect(described_class.avoid_nested_sandboxing?).to be(false)
+    end
+
+    it "is false when not running inside another sandbox" do
+      allow(described_class).to receive(:nested_sandbox?).and_return(false)
+      expect(described_class.avoid_nested_sandboxing?).to be(false)
+    end
+
+    it "errors out in the default prefix" do
+      allow(Homebrew).to receive(:default_prefix?).and_return(true)
+      expect { described_class.avoid_nested_sandboxing? }.to raise_error(SystemExit)
+    end
+
+    it "errors out for a user in a privileged group" do
+      allow(Process).to receive(:groups).and_return([Etc.getgrnam("staff")&.gid].compact)
+      expect { described_class.avoid_nested_sandboxing? }.to raise_error(SystemExit)
+    end
+  end
+
   specify "#allow_write" do
     sandbox.allow_write path: file
     sandbox.run "touch", file
