@@ -327,7 +327,8 @@ class GitHubRunnerMatrix
 
             simulated_dependent_f.public_send(:"#{platform}_compatible?") &&
               simulated_dependent_f.public_send(:"#{arch}_compatible?") &&
-              !simulated_dependent_f.formula.disabled?
+              !simulated_dependent_f.formula.disabled? &&
+              !simulated_dependent_f.formula.deprecated?
           end
         end
 
