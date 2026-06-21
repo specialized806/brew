@@ -110,13 +110,14 @@ RSpec.describe Patch do
       end.to raise_error(ArgumentError, "Patch cannot use `sha256` with `file`.")
     end
 
-    it "rejects local file patches with directory" do
-      expect do
-        described_class.create(:p1, nil) do
-          file "Patches/foo.diff"
-          directory "subdir"
-        end
-      end.to raise_error(ArgumentError, "Patch cannot use `directory` with `file`.")
+    it "accepts local file patches with directory" do
+      patch = described_class.create(:p1, nil) do
+        file "Patches/foo.diff"
+        directory "subdir"
+      end
+
+      expect(patch).to be_a LocalPatch
+      expect(T.cast(patch, LocalPatch).directory).to eq("subdir")
     end
 
     it "rejects local file patches with apply" do
