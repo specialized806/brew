@@ -27,7 +27,7 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Bottles (binary packages)](Bottles.md)
 - [Taps (third-party repositories)](Taps.md)
 - [Trusting Taps](Tap-Trust.md)
-- [Software Supply Chain Security](Supply-Chain-Security.md)
+- [Homebrew Security and Supply Chain](Homebrew-Security-and-Supply-Chain.md)
 - [Interesting Taps and Forks](Interesting-Taps-and-Forks.md)
 - [Tips and Tricks](Tips-and-Tricks.md)
 - [Anonymous Analytics](Analytics.md)
