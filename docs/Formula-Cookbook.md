@@ -694,7 +694,7 @@ In embedded and external patches, the string "@@HOMEBREW\_PREFIX@@" is replaced 
 
 External and `file` patches can optionally declare a `type` and what they `resolve`. These annotations are exposed in `brew info --json` and the formula API for downstream tools such as SBOM generators and vulnerability scanners; they have no effect on how the patch is applied.
 
-`type` describes where the patch came from, using [CycloneDX](https://cyclonedx.org/docs/1.6/json/#components_items_pedigree_patches) terminology.
+`type` describes where the patch came from, using the `pedigree.patches` terminology from the [CycloneDX specification](https://cyclonedx.org/docs/1.6/json/).
 
 `:backport` takes code from a newer version of the same software and applies it to the older version Homebrew ships. Most upstream-commit patches fall here. For example, `innoextract` applies an upstream commit that fixes the build with CMake 4 ahead of the next release:
 
@@ -718,13 +718,16 @@ end
 
 When in doubt between `:backport` and `:cherry_pick`, prefer `:backport` for anything taken from the upstream development tip.
 
-`:unofficial` is a patch not authored by the upstream maintainers, such as a Homebrew- or Debian-specific build fix. The widely-shared libtool/Big Sur configure fix is one example:
+`:unofficial` is a patch not authored by the upstream maintainers, such as a Homebrew- or distribution-specific build fix. As with all Homebrew patches, an `:unofficial` patch should have been [reported and/or submitted upstream](#patches) where practical. `unzip` carries a Debian-maintained patch set because upstream Info-ZIP no longer makes releases:
 
 ```ruby
 patch do
-  url "https://raw.githubusercontent.com/Homebrew/homebrew-core/1cf441a0/Patches/libtool/configure-pre-0.4.2.418-big_sur.diff"
-  sha256 "83af02f2aa2b746bb7225872cab29a253264be49db0ecebb12f841562d9a2923"
+  url "https://archive.ubuntu.com/ubuntu/pool/main/u/unzip/unzip_6.0-28ubuntu4.1.debian.tar.xz"
+  sha256 "d123c8e6972dbdd17ba1a4920fb57ed2ede9237dbae149dcbf55df829c77baf3"
   type :unofficial
+  apply "patches/04-handle-pkware-verification-bit.patch",
+        "patches/05-fix-uid-gid-handling.patch",
+        "patches/13-remove-build-date.patch"
 end
 ```
 
