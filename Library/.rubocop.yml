@@ -71,12 +71,6 @@ Homebrew/CompactBlank:
     # `blank?` is not necessarily available here:
     - "Homebrew/extend/enumerable.rb"
 
-Homebrew/FormulaPathMethods:
-  Exclude:
-    # TODO: Remove this after Homebrew/core has applied formula autocorrections.
-    - "/**/Formula/**/*.rb"
-    - "**/Formula/**/*.rb"
-
 Homebrew/NoFileutilsRmrf:
   Include:
     - "/**/{Formula,Casks}/**/*.rb"

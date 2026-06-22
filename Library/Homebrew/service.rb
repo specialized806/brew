@@ -3,6 +3,7 @@
 
 require "ipaddr"
 require "on_system"
+require "utils/path"
 require "utils/service"
 
 module Homebrew
@@ -12,6 +13,7 @@ module Homebrew
   class Service
     extend Forwardable
     include OnSystem::MacOSAndLinux
+    include Utils::Path
 
     RUN_TYPE_IMMEDIATE = :immediate
     RUN_TYPE_INTERVAL = :interval
