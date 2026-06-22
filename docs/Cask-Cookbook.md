@@ -146,7 +146,7 @@ Each cask must declare one or more [artifacts](/rubydoc/Cask/Artifact.html) (i.e
 | `bash_completion`                | yes                           | Relative path to a Bash completion file that should be linked into the `$(brew --prefix)/etc/bash_completion.d` folder on installation. |
 | `fish_completion`                | yes                           | Relative path to a fish completion file that should be linked into the `$(brew --prefix)/share/fish/vendor_completions.d` folder on installation. |
 | `zsh_completion`                 | yes                           | Relative path to a Zsh completion file that should be linked into the `$(brew --prefix)/share/zsh/site-functions` folder on installation. |
-| `generate_completions_from_executable` | yes                      | Command and arguments used to generate shell completions from an executable at installation time. |
+| [`generate_completions_from_executable`](#stanza-generate_completions_from_executable) | yes | Command and arguments used to generate shell completions from an executable at installation time. |
 | `colorpicker`                    | yes                           | Relative path to a ColorPicker plugin that should be moved into the `~/Library/ColorPickers` folder on installation. |
 | `dictionary`                     | yes                           | Relative path to a Dictionary that should be moved into the `~/Library/Dictionaries` folder on installation. |
 | `font`                           | yes                           | Relative path to a Font that should be moved into the `~/Library/Fonts` folder on installation. |
@@ -612,6 +612,40 @@ The following methods may be called to perform standard tasks:
 | `set_permissions(paths, permissions_str)` | `preflight`, `postflight`, `uninstall_preflight` | Set permissions in `paths` to `permissions_str`. (Example: [ngrok.rb](https://github.com/Homebrew/homebrew-cask/blob/41d91ff669d85343175202adf568e2328486205f/Casks/n/ngrok.rb#L30)) |
 
 `set_ownership(paths)` defaults to setting user and group ownership to the current user and `staff`. These can be changed by passing in extra options: `set_ownership(paths, user: "user", group: "group")`. (Example: [hummingbird.rb](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/h/hummingbird.rb#L24))
+
+### Stanza: `generate_completions_from_executable`
+
+`generate_completions_from_executable` runs an installed executable at cask install time to produce shell completion scripts for shells. The first argument is the path to the executable (relative to the cask's staged directory, or absolute). Any further positional arguments are subcommands passed to it.
+
+```ruby
+generate_completions_from_executable "My App.app/Contents/MacOS/my-app", "completions"
+```
+
+The optional keyword arguments are:
+
+| argument | description |
+| -------- | ----------- |
+| `shells:` | Array of shells to generate completions for. Defaults to `[:bash, :zsh, :fish]`. Use `[:bash, :zsh, :fish, :pwsh]` to include PowerShell. |
+| `base_name:` | Base filename for the generated completion scripts. Defaults to the basename of the executable, or the cask token if the basename is empty. |
+| `shell_parameter_format:` | How the shell name is passed to the executable. Defaults to passing it as a plain positional argument. See the table below for accepted values. |
+
+| `shell_parameter_format:` value | shell argument passed |
+| ------------------------------- | --------------------- |
+| _(omitted)_ | shell name as a plain argument (`bash`, `zsh`, etc.) |
+| `:arg` | `--shell=<shell>` |
+| `:clap` | sets `COMPLETE=<shell>` env var; no argument |
+| `:click` | sets `_<PROGNAME>_COMPLETE=<shell>_source` env var; no argument |
+| `:cobra` | `completion <shell>`; also enables `:pwsh` by default |
+| `:flag` | `--<shell>` |
+| `:none` | no argument |
+| `:typer` | `--show-completion <shell>`; also enables `:pwsh` by default |
+| `"<prefix>"` (custom string) | prefix concatenated with the shell name |
+
+```ruby
+generate_completions_from_executable "My App.app/Contents/MacOS/my-app",
+                                     shell_parameter_format: :cobra,
+                                     base_name:              "my-app"
+```
 
 ### Stanza: `installer`
 
