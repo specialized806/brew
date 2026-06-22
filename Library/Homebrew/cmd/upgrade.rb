@@ -425,7 +425,8 @@ module Homebrew
           verb = dry_run ? "Would upgrade" : "Upgrading"
           oh1 "#{verb} #{formulae_to_install.count} outdated #{Utils.pluralize("package",
                                                                                formulae_to_install.count)}:"
-          puts formula_upgrade_descriptions(formulae_to_install).join("\n") if args.no_ask?
+          puts Upgrade.format_upgrade_summary(formula_upgrade_descriptions(formulae_to_install)).join("\n") if
+            args.no_ask?
         end
 
         Install.perform_preinstall_checks_once
@@ -556,7 +557,7 @@ module Homebrew
           show_final_upgrade_summary_section(
             "#{dry_run ? "Would upgrade" : "Upgraded"} #{version_change_count} outdated " \
             "#{Utils.pluralize("package", version_change_count)}",
-            summary.version_changes,
+            Upgrade.format_upgrade_summary(summary.version_changes),
           )
         end
         if summary.pinned_formulae.present?

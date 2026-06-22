@@ -149,6 +149,31 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       .to output(/minimum-version-formula 1\.2\.2 -> 1\.2\.3/).to_stdout
   end
 
+  it "aligns formula-only no-ask upgrade summaries" do
+    write_formula "gh", <<~RUBY
+      url "https://brew.sh/gh-2.95.0"
+    RUBY
+    write_formula "visual-studio-code", <<~RUBY
+      url "https://brew.sh/visual-studio-code-1.125.1"
+    RUBY
+    install_formula_version "gh", "2.93.0", optlinked: true
+    install_formula_version "visual-studio-code", "1.111.0", optlinked: true
+    allow(Homebrew::Upgrade).to receive(:formula_installers).and_return([])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expected_summary = <<~EOS
+      ==> Upgrading 2 outdated packages:
+      gh                  2.93.0  -> 2.95.0
+      visual-studio-code  1.111.0 -> 1.125.1
+    EOS
+
+    expect do
+      described_class.new(["--yes", "--formula", "gh", "visual-studio-code"]).run
+    end.to output(a_string_starting_with(expected_summary)).to_stdout
+  end
+
   it "does not upgrade a named formula installed at --minimum-version" do
     write_formula "minimum-version-formula", <<~RUBY
       url "https://brew.sh/minimum-version-formula-1.2.4"
@@ -535,6 +560,37 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     end.not_to output.to_stdout
   end
 
+  it "aligns dependent formula upgrade summaries" do
+    formula = formula("sqlite") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/sqlite-3.53.2.tar.gz"
+    end
+    dependants = Homebrew::Upgrade::Dependents.new(
+      upgradeable: [
+        formula("gh") do
+          T.bind(self, T.class_of(Formula))
+          url "https://brew.sh/gh-2.95.0.tar.gz"
+        end,
+        formula("visual-studio-code") do
+          T.bind(self, T.class_of(Formula))
+          url "https://brew.sh/visual-studio-code-1.125.1.tar.gz"
+        end,
+      ],
+      pinned:      [],
+      skipped:     [],
+    )
+
+    with_env(HOMEBREW_NO_ENV_HINTS: "1") do
+      expect do
+        Homebrew::Upgrade.upgrade_dependents(dependants, [formula], flags: [], dry_run: true)
+      end.to output(<<~EOS).to_stdout
+        ==> Would upgrade 2 dependents of upgraded formula:
+        gh                  2.95.0
+        visual-studio-code  1.125.1
+      EOS
+    end
+  end
+
   it "does not print aggregate package sizes" do
     cmd = described_class.new(["--dry-run"])
     summary = Homebrew::Cmd::UpgradeCmd::FinalUpgradeSummary.new(
@@ -545,8 +601,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
     expect { cmd.send(:show_final_upgrade_summary) }.to output(<<~EOS).to_stdout
       ==> Would upgrade 2 outdated packages
-      testball 0.1 -> 0.2 (500B)
-      codex 1.0 -> 2.0
+      testball  0.1 -> 0.2 (500B)
+      codex     1.0 -> 2.0
     EOS
   end
 
@@ -606,8 +662,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
     expect { cmd.run }.to output(<<~EOS).to_stdout
       ==> Upgrading 2 outdated packages:
-      deno 2.7.10 -> 2.7.11
-      codex 0.117.0 -> 0.118.0
+      deno   2.7.10  -> 2.7.11
+      codex  0.117.0 -> 0.118.0
       ==> Fetching downloads for: deno and codex
     EOS
   end
@@ -705,8 +761,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect { cmd.run }.to output(<<~EOS).to_stdout
       ==> Downloading Cask files
       ==> Upgrading 2 outdated packages:
-      deno 2.7.10 -> 2.7.11
-      codex 0.117.0 -> 0.118.0
+      deno   2.7.10  -> 2.7.11
+      codex  0.117.0 -> 0.118.0
       ==> Fetching downloads for: deno and codex
     EOS
   end
@@ -751,8 +807,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
     expect { cmd.run }.to output(<<~EOS).to_stdout
       ==> Upgrading 2 outdated packages:
-      deno 2.7.10 -> 2.7.11
-      codex 0.117.0 -> 0.118.0
+      deno   2.7.10  -> 2.7.11
+      codex  0.117.0 -> 0.118.0
       ==> Fetching downloads for: deno and codex
     EOS
   end

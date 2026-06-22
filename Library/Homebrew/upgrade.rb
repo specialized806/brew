@@ -22,6 +22,37 @@ module Homebrew
     end
 
     class << self
+      sig { params(upgrades: T::Array[String]).returns(T::Array[String]) }
+      def format_upgrade_summary(upgrades)
+        return upgrades if upgrades.size < 2
+
+        name_width = upgrades.map { |upgrade| upgrade.split(" ", 2).fetch(0).length }.max
+        name_width ||= 0
+        old_version_width = upgrades.filter_map do |upgrade|
+          versions = upgrade.split(" ", 2).fetch(1, "")
+          next unless versions.include?(" -> ")
+
+          versions.split(" -> ", 2).fetch(0).length
+        end.max
+        old_version_width ||= 0
+
+        upgrades.map do |upgrade|
+          parts = upgrade.split(" ", 2)
+          name = parts.fetch(0)
+          versions = parts.fetch(1, "")
+          next name if versions.blank?
+
+          if versions.include?(" -> ")
+            version_parts = versions.split(" -> ", 2)
+            old_version = version_parts.fetch(0)
+            new_version = version_parts.fetch(1)
+            "#{name.ljust(name_width)}  #{old_version.ljust(old_version_width)} -> #{new_version}"
+          else
+            "#{name.ljust(name_width)}  #{versions}"
+          end
+        end
+      end
+
       sig {
         params(
           formulae_to_install: T::Array[Formula], flags: T::Array[String], dry_run: T::Boolean,
@@ -303,7 +334,7 @@ module Homebrew
               "#{name} #{f.pkg_version}"
             end
           end
-          puts formulae_upgrades.join("\n")
+          puts format_upgrade_summary(formulae_upgrades).join("\n")
         end
 
         return if upgradeable.blank?
