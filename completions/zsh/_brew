@@ -171,6 +171,7 @@ __brew_internal_commands() {
     'bottle:Generate a bottle (binary package) from a formula that was installed with `--build-bottle`'
     'bump:Displays out-of-date packages and the latest version available'
     'bump-cask-pr:Create a pull request to update cask with a new version'
+    'bump-compatibility-version:Create a commit to increment the compatibility_version of formula'
     'bump-formula-pr:Create a pull request to update formula with a new URL or a new tag'
     'bump-revision:Create a commit to increment the revision of formula'
     'bump-unversioned-casks:Check all casks with unversioned URLs in a given tap for updates'
@@ -622,6 +623,20 @@ _brew_bump_cask_pr() {
     '--write-only[Make the expected file modifications without taking any Git actions]' \
     - cask \
     '*:cask:__brew_casks'
+}
+
+# brew bump-compatibility-version
+_brew_bump_compatibility_version() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '(--write-only)--dry-run[Print what would be done rather than doing it]' \
+    '--help[Show this message]' \
+    '--message[Append message to the default commit message]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]' \
+    '(--dry-run)--write-only[Make the expected file modifications without taking any Git actions]' \
+    - formula \
+    '*:formula:__brew_formulae'
 }
 
 # brew bump-formula-pr

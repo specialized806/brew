@@ -169,6 +169,7 @@ The following checklist is intended to help maintainers decide on whether to mer
   - due to other formulae needing revision bumps - suggest using the following command:
 
         # in this example: PR is for `libuv` formula and `urbit` needs revision bump
+        brew bump-compatibility-version --write-only libuv
         brew bump-revision --message 'for libuv' urbit
 
     - make sure it has one commit per revision bump
