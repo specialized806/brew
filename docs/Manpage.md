@@ -2922,6 +2922,23 @@ supplied by the user.
 
 : Use the specified GitHub organization for forking.
 
+### `bump-compatibility-version` \[*`options`*\] *`formula`* \[...\]
+
+Create a commit to increment the compatibility\_version of *`formula`*. If no
+compatibility\_version is present, "compatibility\_version 1" will be added.
+
+`-n`, `--dry-run`
+
+: Print what would be done rather than doing it.
+
+`--write-only`
+
+: Make the expected file modifications without taking any Git actions.
+
+`--message`
+
+: Append *`message`* to the default commit message.
+
 ### `bump-formula-pr` \[*`options`*\] \[*`formula`*\]
 
 Create a pull request to update *`formula`* with a new URL or a new tag.

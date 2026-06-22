@@ -588,6 +588,26 @@ _brew_bump_cask_pr() {
   __brew_complete_casks
 }
 
+_brew_bump_compatibility_version() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --dry-run
+      --help
+      --message
+      --quiet
+      --verbose
+      --write-only
+      "
+      return
+      ;;
+    *) ;;
+  esac
+  __brew_complete_formulae
+}
+
 _brew_bump_formula_pr() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -3678,6 +3698,7 @@ _brew() {
     bottle) _brew_bottle ;;
     bump) _brew_bump ;;
     bump-cask-pr) _brew_bump_cask_pr ;;
+    bump-compatibility-version) _brew_bump_compatibility_version ;;
     bump-formula-pr) _brew_bump_formula_pr ;;
     bump-revision) _brew_bump_revision ;;
     bump-unversioned-casks) _brew_bump_unversioned_casks ;;

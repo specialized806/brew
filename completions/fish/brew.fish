@@ -474,6 +474,17 @@ __fish_brew_complete_arg 'bump-cask-pr' -l write-only -d 'Make the expected file
 __fish_brew_complete_arg 'bump-cask-pr' -a '(__fish_brew_suggest_casks_all)'
 
 
+__fish_brew_complete_cmd 'bump-compatibility-version' 'Create a commit to increment the compatibility_version of formula'
+__fish_brew_complete_arg 'bump-compatibility-version' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'bump-compatibility-version' -l dry-run -d 'Print what would be done rather than doing it'
+__fish_brew_complete_arg 'bump-compatibility-version' -l help -d 'Show this message'
+__fish_brew_complete_arg 'bump-compatibility-version' -l message -d 'Append message to the default commit message'
+__fish_brew_complete_arg 'bump-compatibility-version' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'bump-compatibility-version' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'bump-compatibility-version' -l write-only -d 'Make the expected file modifications without taking any Git actions'
+__fish_brew_complete_arg 'bump-compatibility-version' -a '(__fish_brew_suggest_formulae_all)'
+
+
 __fish_brew_complete_cmd 'bump-formula-pr' 'Create a pull request to update formula with a new URL or a new tag'
 __fish_brew_complete_arg 'bump-formula-pr' -l commit -d 'When passed with `--write-only`, generate a new commit after writing changes to the formula file'
 __fish_brew_complete_arg 'bump-formula-pr' -l debug -d 'Display any debugging information'

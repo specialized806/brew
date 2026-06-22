@@ -13,6 +13,7 @@ autoremove
 bottle
 bump
 bump-cask-pr
+bump-compatibility-version
 bump-formula-pr
 bump-revision
 bump-unversioned-casks

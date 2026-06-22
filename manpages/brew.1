@@ -1850,6 +1850,17 @@ Specify the \fISHA\-256\fP checksum of the new download\.
 .TP
 \fB\-\-fork\-org\fP
 Use the specified GitHub organization for forking\.
+.SS "\fBbump\-compatibility\-version\fP \fR[\fIoptions\fP] \fIformula\fP \fR[\.\.\.]"
+Create a commit to increment the compatibility_version of \fIformula\fP\&\. If no compatibility_version is present, \[u201c]compatibility_version 1\[u201d] will be added\.
+.TP
+\fB\-n\fP, \fB\-\-dry\-run\fP
+Print what would be done rather than doing it\.
+.TP
+\fB\-\-write\-only\fP
+Make the expected file modifications without taking any Git actions\.
+.TP
+\fB\-\-message\fP
+Append \fImessage\fP to the default commit message\.
 .SS "\fBbump\-formula\-pr\fP \fR[\fIoptions\fP] \fR[\fIformula\fP]"
 Create a pull request to update \fIformula\fP with a new URL or a new tag\.
 .P
