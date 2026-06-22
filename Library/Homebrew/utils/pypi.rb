@@ -4,6 +4,7 @@
 require "release_cooldown"
 require "utils/output"
 require "utils/ast"
+require "utils/path"
 require "time"
 
 # Helper functions for updating PyPI resources.
@@ -174,7 +175,7 @@ module PyPI
         # do below, in that it uses `--no-deps` because we only care about resolving
         # this specific URL's project metadata.
         command =
-          [Formula[@python_name].opt_libexec/"bin/python", "-m", "pip", "install", "-q", "--no-deps",
+          [Utils::Path.formula_opt_libexec(@python_name)/"bin/python", "-m", "pip", "install", "-q", "--no-deps",
            "--dry-run", "--ignore-installed", "--report", "/dev/stdout", @package_string]
         pip_output = Utils.popen_read({ "PIP_REQUIRE_VIRTUALENV" => "false" }, *command)
         unless $CHILD_STATUS.success?
@@ -495,7 +496,8 @@ module PyPI
     # Delay packages published in the last day so resource resolution is less
     # likely to pick a freshly compromised PyPI release.
     command = [
-      Formula[python_name].opt_libexec/"bin/python", "-m", "pip", "install", "-q", "--disable-pip-version-check",
+      Utils::Path.formula_opt_libexec(python_name)/"bin/python",
+      "-m", "pip", "install", "-q", "--disable-pip-version-check",
       "--dry-run", "--ignore-installed",
       "--uploaded-prior-to=#{(Time.now.utc - Homebrew::RELEASE_COOLDOWN_SECONDS).iso8601(0)}",
       "--report=/dev/stdout", *packages.map(&:to_s)

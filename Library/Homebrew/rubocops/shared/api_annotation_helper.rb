@@ -18,6 +18,7 @@ module RuboCop
         formula.rb
         cask/cask.rb
         cask/dsl.rb
+        utils/path.rb
       ].freeze, T::Array[String])
 
       # Methods documented in docs/Formula-Cookbook.md mapped to their

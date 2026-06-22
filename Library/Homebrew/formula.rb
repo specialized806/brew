@@ -46,6 +46,7 @@ require "api_hashable"
 require "release_cooldown"
 require "trust"
 require "utils/output"
+require "utils/path"
 require "pypi_packages"
 require "time"
 
@@ -83,6 +84,7 @@ class Formula
   include Utils::Shebang
   include Utils::Shell
   include Utils::Output::Mixin
+  include Utils::Path
   include Context
   include OnSystem::MacOSAndLinux
   include Homebrew::Livecheck::Constants
@@ -1091,12 +1093,7 @@ class Formula
 
   # All currently installed prefix directories.
   sig { returns(T::Array[Pathname]) }
-  def installed_prefixes
-    possible_names.map { |name| HOMEBREW_CELLAR/name }
-                  .select(&:directory?)
-                  .flat_map(&:subdirs)
-                  .sort_by(&:basename)
-  end
+  def installed_prefixes = Utils::Path.formula_installed_prefixes(possible_names)
 
   # All currently installed kegs.
   sig { returns(T::Array[Keg]) }
@@ -1533,7 +1530,7 @@ class Formula
   #
   # @api public
   sig { returns(Pathname) }
-  def opt_prefix = HOMEBREW_PREFIX/"opt"/name
+  def opt_prefix = formula_opt_prefix(name)
 
   # Same as {#bin}, but relative to {#opt_prefix} instead of {#prefix}.
   #

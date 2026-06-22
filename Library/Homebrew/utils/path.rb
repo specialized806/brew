@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils"
+
 module Utils
   # Helpers for Homebrew path handling and package path validation.
   module Path
@@ -12,16 +14,108 @@ module Utils
       false
     end
 
+    # The stable install path for a given formula name.
+    #
+    # @api public
     sig { params(formula_name: String).returns(Pathname) }
-    def self.formula_opt_bin(formula_name)
-      HOMEBREW_PREFIX/"opt/#{formula_name}/bin"
+    def self.formula_opt_prefix(formula_name)
+      HOMEBREW_PREFIX/"opt/#{Utils.name_from_full_name(formula_name)}"
     end
 
+    # The stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def formula_opt_prefix(formula_name)
+      Utils::Path.formula_opt_prefix(formula_name)
+    end
+
+    # The `bin` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def self.formula_opt_bin(formula_name)
+      formula_opt_prefix(formula_name)/"bin"
+    end
+
+    # The `bin` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def formula_opt_bin(formula_name)
+      Utils::Path.formula_opt_bin(formula_name)
+    end
+
+    # The `lib` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def self.formula_opt_lib(formula_name)
+      formula_opt_prefix(formula_name)/"lib"
+    end
+
+    # The `lib` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def formula_opt_lib(formula_name)
+      Utils::Path.formula_opt_lib(formula_name)
+    end
+
+    # The `libexec` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def self.formula_opt_libexec(formula_name)
+      formula_opt_prefix(formula_name)/"libexec"
+    end
+
+    # The `libexec` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def formula_opt_libexec(formula_name)
+      Utils::Path.formula_opt_libexec(formula_name)
+    end
+
+    # The installed prefix directories for one or more formula names.
+    #
+    # @api public
+    sig { params(formula_names: T.any(String, T::Array[String])).returns(T::Array[Pathname]) }
+    def self.formula_installed_prefixes(formula_names)
+      Array(formula_names).map { |formula_name| HOMEBREW_CELLAR/Utils.name_from_full_name(formula_name) }
+                          .select(&:directory?)
+                          .flat_map(&:subdirs)
+                          .sort_by(&:basename)
+    end
+
+    # Whether any installed keg for one or more formula names has an install receipt.
+    #
+    # @api public
+    sig { params(formula_names: T.any(String, T::Array[String])).returns(T::Boolean) }
+    def self.formula_any_version_installed?(formula_names)
+      formula_installed_prefixes(formula_names).any? { |keg| (keg/"INSTALL_RECEIPT.json").file? }
+    end
+
+    # Whether any installed keg for one or more formula names has an install receipt.
+    #
+    # @api public
+    sig { params(formula_names: T.any(String, T::Array[String])).returns(T::Boolean) }
+    def formula_any_version_installed?(formula_names)
+      Utils::Path.formula_any_version_installed?(formula_names)
+    end
+
+    # The current `PATH` with a formula's stable `bin` directory prepended.
+    #
+    # @api public
     sig { params(formula_name: String, paths: PATH::Elements).returns(PATH) }
     def self.formula_opt_bin_path(formula_name, *paths)
       PATH.new(formula_opt_bin(formula_name), *paths, ENV.fetch("PATH"))
     end
 
+    # An environment hash with `PATH` prepended by a formula's stable `bin` directory.
+    #
+    # @api public
     sig { params(formula_name: String, paths: PATH::Elements).returns(T::Hash[String, String]) }
     def self.formula_opt_bin_env(formula_name, *paths)
       { "PATH" => formula_opt_bin_path(formula_name, *paths).to_s }

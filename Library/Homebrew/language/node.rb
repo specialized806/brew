@@ -3,6 +3,7 @@
 
 require "release_cooldown"
 require "utils/output"
+require "utils/path"
 
 module Language
   # Helper functions for Node formulae.
@@ -137,7 +138,7 @@ module Language
         raise ShebangDetectionError.new("Node", "formula does not depend on Node") if node_deps.empty?
         raise ShebangDetectionError.new("Node", "formula has multiple Node dependencies") if node_deps.length > 1
 
-        node_shebang_rewrite_info(Formula[node_deps.first].opt_bin/"node")
+        node_shebang_rewrite_info(Utils::Path.formula_opt_bin(node_deps.first)/"node")
       end
     end
   end

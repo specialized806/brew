@@ -59,7 +59,7 @@ module OS
       def homebrew_extra_paths
         paths = super
         paths += %w[binutils make].filter_map do |f|
-          bin = Formulary.factory(f).opt_bin
+          bin = ::Formula[f].opt_bin
           bin if bin.directory?
         rescue FormulaUnavailableError
           nil

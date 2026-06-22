@@ -96,6 +96,7 @@ Style/Documentation:
     - utils/gzip.rb
     - utils/inreplace.rb
     - utils/output.rb
+    - utils/path.rb
     - utils/shebang.rb
     - utils/string_inreplace_extension.rb
     - version.rb

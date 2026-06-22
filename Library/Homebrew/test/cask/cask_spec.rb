@@ -124,17 +124,21 @@ RSpec.describe Cask::Cask, :cask do
     describe "#installed_version" do
       context "when there are duplicate versions" do
         it "uses the last unique version" do
-          allow(cask).to receive(:timestamped_versions).and_return([
-            ["1.2.2", "0999"],
-            ["1.2.3", "1000"],
-            ["1.2.2", "1001"],
-          ])
+          Dir.mktmpdir do |dir|
+            allow(Cask::Caskroom).to receive(:path).and_return(Pathname(dir))
+            [
+              ["1.2.2", "0999"],
+              ["1.2.3", "1000"],
+              ["1.2.2", "1001"],
+            ].each do |version, timestamp|
+              casks_dir = Pathname(dir)/"versioned-cask/.metadata/#{version}/#{timestamp}/Casks"
+              casks_dir.mkpath
+              # Installed caskfile must exist to count as installed.
+              (casks_dir/"versioned-cask.rb").write("cask \"versioned-cask\"\n")
+            end
 
-          # Installed caskfile must exist to count as installed.
-          allow_any_instance_of(Pathname).to receive(:exist?).and_return(true)
-
-          expect(cask).to receive(:timestamped_versions)
-          expect(cask.installed_version).to eq("1.2.2")
+            expect(cask.installed_version).to eq("1.2.2")
+          end
         end
       end
     end

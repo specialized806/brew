@@ -11,6 +11,19 @@ RSpec.describe Cask::DSL, :cask, :no_api do
       expect(cask.homepage).to eq("https://brew.sh/")
       expect(cask.version.to_s).to eq("1.2.3")
     end
+
+    it "exposes formula path helpers" do
+      cask = Cask::Cask.new("formula-path-helper") do
+        name formula_opt_bin("foo").to_s
+      end
+
+      expect(cask.name).to eq([(HOMEBREW_PREFIX/"opt/foo/bin").to_s])
+    end
+
+    it "exposes formula path helpers in flight blocks" do
+      expect(Cask::DSL::Postflight.new(Cask::Cask.new("formula-path-helper")).formula_opt_bin("foo"))
+        .to eq(HOMEBREW_PREFIX/"opt/foo/bin")
+    end
   end
 
   describe "when a Cask includes an unknown method" do

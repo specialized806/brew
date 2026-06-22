@@ -1,11 +1,14 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/path"
+
 module Cask
   class DSL
     # Superclass for all stanzas which take a block.
     class Base
       extend Forwardable
+      include ::Utils::Path
 
       sig { returns(Cask) }
       attr_reader :cask

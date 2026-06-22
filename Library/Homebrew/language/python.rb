@@ -3,6 +3,7 @@
 
 require "utils"
 require "utils/output"
+require "utils/path"
 
 module Language
   # Helper functions for Python formulae.
@@ -123,7 +124,7 @@ module Language
           end
 
           python_dep = python_deps.first
-          Formula[python_dep].opt_bin/python_dep.sub("@", "")
+          Utils::Path.formula_opt_bin(python_dep)/python_dep.sub("@", "")
         end
 
         python_shebang_rewrite_info(python_path)
@@ -328,7 +329,7 @@ module Language
 
             new_target = rp.sub(
               %r{#{HOMEBREW_CELLAR}/python#{version}/[^/]+},
-              Formula["python#{version}"].opt_prefix.to_s,
+              Utils::Path.formula_opt_prefix("python#{version}").to_s,
             )
             f.unlink
             f.make_symlink new_target
@@ -342,7 +343,7 @@ module Language
 
             prefix_path.sub!(
               %r{^#{HOMEBREW_CELLAR}/python#{version}/[^/]+},
-              Formula["python#{version}"].opt_prefix.to_s,
+              Utils::Path.formula_opt_prefix("python#{version}").to_s,
             )
             prefix_file.atomic_write prefix_path
           end
@@ -354,7 +355,7 @@ module Language
             cfg = cfg_file.read
             framework = "Frameworks/Python.framework/Versions"
             cfg.match(%r{= *(#{HOMEBREW_CELLAR}/(python@[\d.]+)/[^/]+(?:/#{framework}/[\d.]+)?/bin)}) do |match|
-              cfg.sub! match[1].to_s, Formula[T.must(match[2])].opt_bin.to_s
+              cfg.sub! match[1].to_s, Utils::Path.formula_opt_bin(T.must(match[2])).to_s
               cfg_file.atomic_write cfg
             end
           end

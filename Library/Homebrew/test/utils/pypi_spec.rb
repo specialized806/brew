@@ -154,16 +154,13 @@ RSpec.describe PyPI do
   end
 
   describe ".pip_report" do
-    let(:python_formula) { instance_double(Formula, opt_libexec: Pathname("/opt/homebrew/opt/python/libexec")) }
-
     it "filters packages uploaded within the last day" do
       allow(Time).to receive(:now).and_return(Time.utc(2026, 4, 4, 12, 0, 0))
-      allow(Formula).to receive(:[]).with("python").and_return(python_formula)
       `true`
 
       expect(Utils).to receive(:popen_read).with(
         { "PIP_REQUIRE_VIRTUALENV" => "false" },
-        Pathname("/opt/homebrew/opt/python/libexec/bin/python"), "-m", "pip", "install", "-q",
+        Utils::Path.formula_opt_libexec("python")/"bin/python", "-m", "pip", "install", "-q",
         "--disable-pip-version-check", "--dry-run", "--ignore-installed",
         "--uploaded-prior-to=2026-04-03T12:00:00Z", "--report=/dev/stdout", "snakemake"
       ).and_return('{"install":[]}')

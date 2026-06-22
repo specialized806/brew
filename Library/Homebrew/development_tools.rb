@@ -98,7 +98,7 @@ class DevelopmentTools
     sig { returns(Version) }
     def llvm_clang_build_version
       @llvm_clang_build_version ||= T.let(begin
-        path = Formulary.factory("llvm").opt_prefix/"bin/clang"
+        path = Formula["llvm"].opt_prefix/"bin/clang"
         if path.executable? && (build_version = `#{path} --version`[/clang version (\d+\.\d\.\d)/, 1])
           Version.new(build_version)
         else

@@ -11,6 +11,8 @@ module Cask
   module Caskroom
     extend ::Utils::Output::Mixin
 
+    CASKFILE_EXTENSIONS = %w[internal.json json rb].freeze
+
     sig { returns(Pathname) }
     def self.path
       @path ||= T.let(HOMEBREW_PREFIX/"Caskroom", T.nilable(Pathname))
@@ -36,6 +38,36 @@ module Cask
       paths.any?
     end
 
+    sig { params(token: String).returns(T::Boolean) }
+    def self.cask_installed?(token)
+      !cask_installed_version(token).nil?
+    end
+
+    sig { params(token: String, old_tokens: T::Array[String]).returns(T.nilable(Pathname)) }
+    def self.cask_installed_caskfile(token, old_tokens: [])
+      # Check if the cask is installed with an old name.
+      [token, *old_tokens].map { |cask_token| token_from_full_token(cask_token) }.uniq.each do |cask_token|
+        caskroom_path = path/cask_token
+        next if !caskroom_path.directory? || caskroom_path.symlink?
+
+        timestamped_path = Pathname.glob((caskroom_path/".metadata/*/*").to_s).max_by { |p| p.basename.to_s }
+        next unless timestamped_path
+
+        caskfile = CASKFILE_EXTENSIONS.map { |ext| timestamped_path/"Casks/#{cask_token}.#{ext}" }
+                                      .find(&:exist?)
+        return caskfile if caskfile
+      end
+
+      nil
+    end
+
+    sig { params(token: String, old_tokens: T::Array[String]).returns(T.nilable(String)) }
+    def self.cask_installed_version(token, old_tokens: [])
+      return unless (caskfile = cask_installed_caskfile(token, old_tokens:))
+
+      caskfile.dirname.dirname.dirname.basename.to_s
+    end
+
     # Return tokens for Caskroom directories missing expected installed metadata.
     sig { returns(T::Array[String]) }
     def self.corrupt_cask_dirs
@@ -47,6 +79,13 @@ module Cask
       cask_path.glob(".metadata/*/*/Casks/*.{rb,json}").any?
     end
     private_class_method :cask_with_metadata?
+
+    sig { params(token: String).returns(String) }
+    def self.token_from_full_token(token)
+      _, _, cask_token = token.split("/", 3)
+      cask_token || token
+    end
+    private_class_method :token_from_full_token
 
     sig { void }
     def self.ensure_caskroom_exists
