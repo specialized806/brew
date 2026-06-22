@@ -3,6 +3,7 @@
 
 require "rubocops/extend/formula_cop"
 require "rubocops/shared/on_system_conditionals_helper"
+require "utils/shell_completion"
 
 module RuboCop
   module Cop
@@ -827,6 +828,51 @@ module RuboCop
 
           problem "Use `#{replacement}` instead of `#{@offensive_node.source}`." do |corrector|
             corrector.replace(@offensive_node.source_range, replacement)
+          end
+        end
+      end
+
+      # This cop makes sure that the default shells are not passed to
+      # `generate_completions_from_executable`, as they are the default.
+      class RedundantGenerateCompletionsShells < FormulaCop
+        extend AutoCorrector
+        include RangeHelp
+
+        sig { override.params(formula_nodes: FormulaNodes).void }
+        def audit_formula(formula_nodes)
+          install = find_method_def(formula_nodes.body_node, :install)
+          return if install.blank?
+
+          find_every_method_call_by_name(install, :generate_completions_from_executable).each do |method|
+            kwargs = method.arguments.last
+            next unless kwargs&.hash_type?
+
+            pairs = T.cast(kwargs, RuboCop::AST::HashNode).pairs
+            shells_pair = pairs.find { |pair| pair.key.sym_type? && pair.key.value == :shells }
+            next if shells_pair.nil?
+
+            shells_node = shells_pair.value
+            next unless shells_node.array_type?
+            next unless shells_node.values.all?(&:sym_type?)
+
+            # The default shells depend on `shell_parameter_format`, so skip non-literal values.
+            format_node = pairs.find { |pair| pair.key.sym_type? && pair.key.value == :shell_parameter_format }&.value
+            next if format_node && !format_node.sym_type? && !format_node.str_type?
+
+            shells = shells_node.values.map(&:value)
+            default_shells = ::Utils::ShellCompletion.default_completion_shells(format_node&.value)
+            # Flag only when the passed shells are exactly the defaults for this format.
+            next if (default_shells - shells).any? || (shells - default_shells).any?
+
+            offending_node(shells_pair)
+            problem "Passing the default shells to `generate_completions_from_executable` is redundant" do |corrector|
+              corrector.remove(
+                range_with_surrounding_comma(
+                  range_with_surrounding_space(range: shells_pair.source_range, side: :left),
+                  :left,
+                ),
+              )
+            end
           end
         end
       end
