@@ -60,6 +60,45 @@ RSpec.describe Homebrew::Cmd::Info do
       .and be_a_success
   end
 
+  it "does not include installed casks in formula JSON" do
+    formula = installed_info_formula
+
+    allow(Formula).to receive(:installed).and_return([formula])
+    expect(Cask::Caskroom).not_to receive(:casks)
+
+    output = +""
+    expect { described_class.new(["--json=v2", "--installed", "--formula"]).run }
+      .to output(satisfy { |s|
+        output << s
+        true
+      }).to_stdout
+        .and not_to_output.to_stderr
+
+    json = JSON.parse(output)
+    expect(json["formulae"].length).to eq(1)
+    expect(json["casks"]).to be_empty
+  end
+
+  it "does not include eval-all casks in formula JSON" do
+    formula = installed_info_formula
+
+    allow(Formula).to receive(:all).and_return([formula])
+    allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(true)
+    expect(Cask::Cask).not_to receive(:all)
+
+    output = +""
+    expect { described_class.new(["--json=v2", "--formula"]).run }
+      .to output(satisfy { |s|
+        output << s
+        true
+      }).to_stdout
+        .and not_to_output.to_stderr
+
+    json = JSON.parse(output)
+    expect(json["formulae"].length).to eq(1)
+    expect(json["casks"]).to be_empty
+  end
+
   it "prints installed formulae in a human-readable inventory" do
     mktmpdir do |dir|
       tabfile = dir/AbstractTab::FILENAME
