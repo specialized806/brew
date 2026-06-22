@@ -642,7 +642,7 @@ The optional keyword arguments are:
 | `"<prefix>"` (custom string) | prefix concatenated with the shell name |
 
 ```ruby
-generate_completions_from_executable "My App.app/Contents/MacOS/my-app", "completions",
+generate_completions_from_executable "My App.app/Contents/MacOS/my-app",
                                      shell_parameter_format: :cobra,
                                      base_name:              "my-app"
 ```
