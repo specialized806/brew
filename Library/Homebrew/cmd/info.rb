@@ -524,12 +524,17 @@ module Homebrew
         when :v2
           formulae, casks = T.let(
             if eval_all
-              [
-                Formula.all(eval_all:).sort,
-                Cask::Cask.all(eval_all:).sort_by(&:full_name),
-              ]
+              formulae = [] if args.cask?
+              formulae ||= Formula.all(eval_all:).sort
+              casks = [] if args.formula?
+              casks ||= Cask::Cask.all(eval_all:).sort_by(&:full_name)
+              [formulae, casks]
             elsif args.installed?
-              [Formula.installed.sort, Cask::Caskroom.casks.sort_by(&:full_name)]
+              formulae = [] if args.cask?
+              formulae ||= Formula.installed.sort
+              casks = [] if args.formula?
+              casks ||= Cask::Caskroom.casks.sort_by(&:full_name)
+              [formulae, casks]
             else
               named_formulae, named_casks = T.cast(
                 args.named.to_formulae_to_casks, [T::Array[Formula], T::Array[Cask::Cask]]
