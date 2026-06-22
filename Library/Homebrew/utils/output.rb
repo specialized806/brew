@@ -264,7 +264,7 @@ module Utils
 
       sig { params(string: String, bold: T::Boolean).returns(String) }
       def pretty_upgradable(string, bold: true)
-        weight = bold ? Tty.bold : ""
+        weight = bold ? Tty.bold.to_s : ""
         if !$stdout.tty?
           string
         elsif Homebrew::EnvConfig.no_emoji?
@@ -294,29 +294,45 @@ module Utils
 
       # Keep status labels, colours and emoji in sync with
       # `pretty_uninstalled` in Library/Homebrew/utils.sh.
-      sig { params(string: String).returns(String) }
-      def pretty_uninstalled(string)
+      sig { params(string: String, bold: T::Boolean).returns(String) }
+      def pretty_uninstalled(string, bold: true)
+        weight = bold ? Tty.bold.to_s : ""
         if !$stdout.tty?
           string
         elsif Homebrew::EnvConfig.no_emoji?
-          Formatter.error("#{Tty.bold}#{string} (uninstalled)#{Tty.reset}")
+          Formatter.error("#{weight}#{string} (uninstalled)#{Tty.reset}")
         else
-          "#{Tty.bold}#{string} #{Formatter.error("✘")}#{Tty.reset}"
+          "#{weight}#{string} #{Formatter.error("✘")}#{Tty.reset}"
+        end
+      end
+
+      sig { params(string: String, bold: T::Boolean).returns(String) }
+      def pretty_warning(string, bold: true)
+        weight = bold ? Tty.bold.to_s : ""
+        if !$stdout.tty?
+          string
+        elsif Homebrew::EnvConfig.no_emoji?
+          Formatter.warning("#{weight}#{string} (warning)#{Tty.reset}")
+        else
+          "#{weight}#{string} #{Formatter.warning("⚠")}#{Tty.reset}"
         end
       end
 
       sig {
-        params(string: String, installed: T::Boolean, outdated: T::Boolean, deprecated: T::Boolean,
-               disabled: T::Boolean, mark_uninstalled: T::Boolean, bold: T::Boolean).returns(String)
+        params(string: String, installed: T::Boolean, warning: T::Boolean, outdated: T::Boolean,
+               deprecated: T::Boolean, disabled: T::Boolean, mark_uninstalled: T::Boolean,
+               bold: T::Boolean).returns(String)
       }
-      def pretty_install_status(string, installed:, outdated: false, deprecated: false, disabled: false,
-                                mark_uninstalled: true, bold: true)
-        status = if installed && outdated
+      def pretty_install_status(string, installed:, warning: false, outdated: false, deprecated: false,
+                                disabled: false, mark_uninstalled: true, bold: true)
+        status = if warning
+          pretty_warning(string, bold:)
+        elsif installed && outdated
           pretty_upgradable(string, bold:)
         elsif installed
           pretty_installed(string)
         elsif mark_uninstalled
-          pretty_uninstalled(string)
+          pretty_uninstalled(string, bold:)
         else
           string
         end

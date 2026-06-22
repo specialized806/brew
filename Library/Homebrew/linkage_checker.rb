@@ -23,7 +23,10 @@ class LinkageChecker
   attr_reader :indirect_deps, :undeclared_deps, :unwanted_system_dylibs
 
   sig { returns(T::Set[String]) }
-  attr_reader :system_dylibs
+  attr_reader :system_dylibs, :broken_dylibs
+
+  sig { returns(T::Hash[String, T::Array[String]]) }
+  attr_reader :broken_deps
 
   sig {
     params(

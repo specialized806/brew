@@ -3441,6 +3441,20 @@ class Formula
 
   public
 
+  sig { returns([T::Array[String], T::Set[String]]) }
+  def missing_library_linkage
+    keg = any_installed_keg
+    return [[], Set.new] unless keg&.directory?
+
+    CacheStoreDatabase.use(:linkage) do |db|
+      typed_db = T.cast(db, CacheStoreDatabase[String, T::Hash[T.any(String, Symbol), T.anything]])
+      linkage_checker = LinkageChecker.new(keg, self, cache_db: typed_db)
+      own_libraries = (linkage_checker.broken_deps.fetch(name, []) + linkage_checker.broken_dylibs.to_a).uniq.sort
+      dependency_names = linkage_checker.broken_deps.keys.reject { |dep| dep == name }.to_set
+      [own_libraries, dependency_names]
+    end
+  end
+
   # To call out to the system, we use the `system` method and we prefer
   # you give the args separately as in the line below, otherwise a subshell
   # has to be opened first.
