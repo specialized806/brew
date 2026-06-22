@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/path"
 require "utils/svn"
 
 module Homebrew
@@ -200,7 +201,7 @@ module Homebrew
         if strategy <= CurlDownloadStrategy && !url.start_with?("file")
 
           raise HomebrewCurlDownloadStrategyError, url if
-            strategy <= HomebrewCurlDownloadStrategy && !::Formula["curl"].any_version_installed?
+            strategy <= HomebrewCurlDownloadStrategy && !Utils::Path.formula_any_version_installed?("curl")
 
           # Skip ftp.gnu.org audit, upstream has asked us to reduce load.
           # See issue: https://github.com/Homebrew/brew/issues/20456

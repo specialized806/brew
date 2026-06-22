@@ -278,36 +278,13 @@ module Cask
 
     sig { returns(T.nilable(Pathname)) }
     def installed_caskfile
-      installed_caskroom_path = caskroom_path
-      installed_token = token
-
-      # Check if the cask is installed with an old name.
-      old_tokens.each do |old_token|
-        old_caskroom_path = Caskroom.path/old_token
-        next if !old_caskroom_path.directory? || old_caskroom_path.symlink?
-
-        installed_caskroom_path = old_caskroom_path
-        installed_token = old_token
-        break
-      end
-
-      installed_version = timestamped_versions(caskroom_path: installed_caskroom_path).last
-      return unless installed_version
-
-      caskfile_dir = metadata_main_container_path(caskroom_path: installed_caskroom_path)
-                     .join(*installed_version, "Casks")
-
-      ["internal.json", "json", "rb"]
-        .map { |ext| caskfile_dir.join("#{installed_token}.#{ext}") }
-        .find(&:exist?)
+      Caskroom.cask_installed_caskfile(token, old_tokens:)
     end
 
     sig { returns(T.nilable(String)) }
     def installed_version
-      return unless (installed_caskfile = self.installed_caskfile)
-
       # <caskroom_path>/.metadata/<version>/<timestamp>/Casks/<token>.{rb,json} -> <version>
-      installed_caskfile.dirname.dirname.dirname.basename.to_s
+      Caskroom.cask_installed_version(token, old_tokens:)
     end
 
     sig { void }

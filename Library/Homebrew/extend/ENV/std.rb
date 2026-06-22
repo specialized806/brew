@@ -109,7 +109,7 @@ module Stdenv
   def determine_cc
     s = super
     begin
-      return Formulary.factory("llvm").opt_bin/"clang" if s == "llvm_clang"
+      return Formula["llvm"].opt_bin/"clang" if s == "llvm_clang"
     rescue FormulaUnavailableError
       # Don't fail and just let callee handle Pathname("llvm_clang")
     end

@@ -15,7 +15,7 @@ require "development_tools"
 require "cache_store"
 require "linkage_checker"
 require "messages"
-require "cask/cask_loader"
+require "cask/caskroom"
 require "cmd/install"
 require "find"
 require "utils/spdx"
@@ -1189,12 +1189,7 @@ on_request: installed_on_request?, options:)
   def link(keg)
     Formula.clear_cache
 
-    cask_installed_with_formula_name = begin
-      (Cask::Caskroom.path/formula.name).exist? &&
-        Cask::CaskLoader.load(formula.name, warn: false).installed?
-    rescue Cask::CaskUnavailableError, Cask::CaskInvalidError
-      false
-    end
+    cask_installed_with_formula_name = Cask::Caskroom.cask_installed?(formula.name)
 
     if cask_installed_with_formula_name
       ohai "#{formula.name} cask is installed, skipping link."

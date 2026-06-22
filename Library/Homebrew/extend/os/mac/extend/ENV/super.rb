@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/path"
+
 module OS
   module Mac
     module Superenv
@@ -53,7 +55,7 @@ module OS
         paths = []
         if compiler == :llvm_clang
           paths << "#{self["HOMEBREW_SDKROOT"]}/usr/lib"
-          paths << ::Formula["llvm"].opt_lib
+          paths << Utils::Path.formula_opt_lib("llvm")
         end
         paths << "#{self["HOMEBREW_SDKROOT"]}/System/Library/Frameworks/OpenGL.framework/Versions/Current/Libraries"
         paths.map { |p| ::Pathname.new(p) }

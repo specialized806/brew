@@ -101,6 +101,35 @@ RSpec.describe Cask::Caskroom do
     end
   end
 
+  describe ".cask_installed?" do
+    it "checks cask metadata without loading a Cask object" do
+      Dir.mktmpdir do |dir|
+        allow(described_class).to receive(:path).and_return(Pathname(dir))
+        expect(described_class.cask_installed?("foo")).to be(false)
+
+        casks_dir = Pathname(dir)/"foo/.metadata/1.0/20250101000000.000/Casks"
+        casks_dir.mkpath
+        (casks_dir/"foo.rb").write("cask \"foo\"\n")
+
+        expect(described_class.cask_installed?("foo")).to be(true)
+        expect(described_class.cask_installed?("homebrew/cask/foo")).to be(true)
+        expect(described_class.cask_installed_version("foo")).to eq("1.0")
+      end
+    end
+
+    it "checks old-token metadata" do
+      Dir.mktmpdir do |dir|
+        allow(described_class).to receive(:path).and_return(Pathname(dir))
+        casks_dir = Pathname(dir)/"old-foo/.metadata/1.0/20250101000000.000/Casks"
+        casks_dir.mkpath
+        caskfile = casks_dir/"old-foo.rb"
+        caskfile.write("cask \"old-foo\"\n")
+
+        expect(described_class.cask_installed_caskfile("foo", old_tokens: ["old-foo"])).to eq(caskfile)
+      end
+    end
+  end
+
   describe ".casks" do
     sig { params(dir: Pathname, token: String, tap: T.nilable(Tap), version: String).void }
     def setup_cask_metadata(dir, token, tap: nil, version: "1.0")

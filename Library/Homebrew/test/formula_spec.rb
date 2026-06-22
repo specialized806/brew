@@ -654,6 +654,16 @@ RSpec.describe Formula do
     expect(f).to have_any_version_installed
   end
 
+  specify "#formula_opt_bin" do
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo"
+      version "1.0"
+    end
+
+    expect(f.formula_opt_bin("foo")).to eq(HOMEBREW_PREFIX/"opt/foo/bin")
+  end
+
   specify "#migration_needed" do
     f = Testball.new("newname")
     f.instance_variable_set(:@oldnames, ["oldname"])

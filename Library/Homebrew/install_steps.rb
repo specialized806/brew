@@ -408,7 +408,11 @@ module Homebrew
 
       sig { params(formula: String, executable: String, args: T.untyped).void }
       def run_formula_tool(formula, executable, *args)
+        # Load the formula so missing helper formulae fail before running a guessed path.
+        # `safe_system` is private on Formula contexts, so `public_send` cannot be used.
+        # rubocop:disable Homebrew/FormulaPathMethods
         @context.send(:safe_system, Formula[formula].opt_bin/executable, *args)
+        # rubocop:enable Homebrew/FormulaPathMethods
       end
 
       sig { params(base: String, formula: T.nilable(String)).returns(Pathname) }

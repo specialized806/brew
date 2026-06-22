@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "cask/caskroom"
 require "cli/args"
 require "utils"
 require "utils/output"
@@ -414,7 +415,7 @@ module Homebrew
               # If we're trying to get a keg-like Cask, do our best to handle it
               # not being readable and return something that can be used.
               if want_keg_like_cask
-                cask_version = Cask::Cask.new(name, config:).installed_version
+                cask_version = Cask::Caskroom.cask_installed_version(name)
                 Cask::Cask.new(name, config:) do
                   version cask_version if cask_version
                 end

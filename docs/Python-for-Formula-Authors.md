@@ -236,7 +236,7 @@ Distribute (not to be confused with Distutils) is an obsolete fork of Setuptools
 For when a formula needs to interact with `setup.py` instead of calling `pip`, Homebrew provides the helper method `Language::Python.setup_install_args` which returns useful arguments for invoking `setup.py`. Your formula should use this instead of invoking `setup.py` explicitly. The syntax is:
 
 ```ruby
-system Formula["python@3.y"].opt_bin/"python3.y", *Language::Python.setup_install_args(prefix)
+system formula_opt_bin("python@3.y")/"python3.y", *Language::Python.setup_install_args(prefix)
 ```
 
 where `prefix` is the destination prefix (usually `libexec` or `prefix`).

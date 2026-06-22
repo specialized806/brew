@@ -32,9 +32,79 @@ RSpec.describe Utils::Path do
     end
   end
 
+  describe "::formula_opt_prefix" do
+    it "returns a formula opt prefix without loading a Formula object" do
+      expect(described_class.formula_opt_prefix("foo")).to eq(HOMEBREW_PREFIX/"opt/foo")
+    end
+
+    it "returns a formula opt prefix for a fully qualified formula name" do
+      expect(described_class.formula_opt_prefix("homebrew/core/foo")).to eq(HOMEBREW_PREFIX/"opt/foo")
+    end
+  end
+
   describe "::formula_opt_bin" do
     it "returns a formula opt bin path without loading a Formula object" do
       expect(described_class.formula_opt_bin("foo")).to eq(HOMEBREW_PREFIX/"opt/foo/bin")
+    end
+  end
+
+  describe "::formula_opt_lib" do
+    it "returns a formula opt lib path without loading a Formula object" do
+      expect(described_class.formula_opt_lib("foo")).to eq(HOMEBREW_PREFIX/"opt/foo/lib")
+    end
+  end
+
+  describe "::formula_opt_libexec" do
+    it "returns a formula opt libexec path without loading a Formula object" do
+      expect(described_class.formula_opt_libexec("foo")).to eq(HOMEBREW_PREFIX/"opt/foo/libexec")
+    end
+  end
+
+  describe "::formula_installed_prefixes" do
+    it "returns installed prefixes for formula names" do
+      tmpdir = mktmpdir
+      stub_const("HOMEBREW_CELLAR", tmpdir)
+      (tmpdir/"old-foo/1.0").mkpath
+      (tmpdir/"foo/2.0").mkpath
+
+      expect(described_class.formula_installed_prefixes(["foo", "old-foo"]))
+        .to eq([tmpdir/"old-foo/1.0", tmpdir/"foo/2.0"])
+    end
+  end
+
+  describe "::formula_any_version_installed?" do
+    it "checks whether any formula keg has an install receipt without loading a Formula object" do
+      tmpdir = mktmpdir
+      stub_const("HOMEBREW_CELLAR", tmpdir)
+      expect(described_class.formula_any_version_installed?("foo")).to be(false)
+
+      (tmpdir/"foo/1.0").mkpath
+      expect(described_class.formula_any_version_installed?("foo")).to be(false)
+
+      (tmpdir/"foo/1.0/INSTALL_RECEIPT.json").write("{}")
+      expect(described_class.formula_any_version_installed?("foo")).to be(true)
+    end
+
+    it "checks fully qualified formula names" do
+      tmpdir = mktmpdir
+      stub_const("HOMEBREW_CELLAR", tmpdir)
+      (tmpdir/"foo/1.0/INSTALL_RECEIPT.json").tap do |receipt|
+        receipt.dirname.mkpath
+        receipt.write("{}")
+      end
+
+      expect(described_class.formula_any_version_installed?("homebrew/core/foo")).to be(true)
+    end
+
+    it "checks multiple possible formula names" do
+      tmpdir = mktmpdir
+      stub_const("HOMEBREW_CELLAR", tmpdir)
+      (tmpdir/"old-foo/1.0/INSTALL_RECEIPT.json").tap do |receipt|
+        receipt.dirname.mkpath
+        receipt.write("{}")
+      end
+
+      expect(described_class.formula_any_version_installed?(["foo", "old-foo"])).to be(true)
     end
   end
 
