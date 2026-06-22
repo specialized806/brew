@@ -20,6 +20,9 @@ If possible, PRs should also have [signed commits](https://docs.github.com/en/au
 ### Automatic approvals
 
 To ensure that non-urgent PRs have the opportunity to be seen and reviewed by any other maintainers who wish to take a look, all PRs require an approval before they can be merged.
+Stale `Homebrew/brew` PRs by lead maintainers may be approved automatically by [`github-actions[bot]`](https://github.com/apps/github-actions) after being open for at least 48 hours without human review when the PR is not from a fork, is not a draft, the author has approved another `Homebrew/brew` PR in the last 7 days, Copilot has already reviewed the PR, all CI jobs are passing, the workflow is running on a weekday and the PR does not modify sensitive paths.
+If the 48-hour window expires at the weekend, the workflow waits until Monday.
+The prior approval may be on a `Homebrew/brew` PR from a fork, because that approval is only evidence of recent maintainer review activity.
 
 ## CI
 

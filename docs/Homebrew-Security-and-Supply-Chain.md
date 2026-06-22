@@ -47,6 +47,8 @@ Most of these protections long predate the recent wave of supply-side attacks an
 Every change to a Homebrew repository, including all our official taps (such as [homebrew/core](https://github.com/Homebrew/homebrew-core) and [homebrew/cask](https://github.com/Homebrew/homebrew-cask)), goes through a pull request that is reviewed and merged by a human maintainer.
 Upstream authors cannot publish directly into official Homebrew repositories.
 There is always a human in the loop between an upstream release and that release reaching Homebrew users.
+The stale lead maintainer PR approval workflow is a narrow `Homebrew/brew` exception that can approve only non-fork, non-draft PRs by lead maintainers after recent maintainer review activity, Copilot review, passing CI, at least 48 hours open with no human review, a weekday approval window and a check that the PR does not modify sensitive paths.
+These laxer standards are acceptable in `Homebrew/brew` because most users run the stable branch and a human must still carry out a `Homebrew/brew` release before those changes reach stable Homebrew users.
 
 ### Maintainers, not package owners
 
@@ -140,6 +142,7 @@ The checked-in [Dependabot configuration](https://github.com/Homebrew/brew/blob/
 Homebrew also keeps the number of GitHub organisation owners minimal and limits high-privilege 1Password access to the people and teams documented in [Homebrew Governance](Homebrew-Governance.md) and the [New Maintainer Checklist](New-Maintainer-Checklist.md).
 Privileged pull request events are used sparingly: the [pull request checker](https://github.com/Homebrew/brew/blob/HEAD/.github/workflows/check-prs.yml) is the only `pull_request_target` workflow in this repository, refuses to run after a checkout and only reads trusted base-branch files through the GitHub API.
 Most workflows avoid `actions/checkout` unless they need a checkout; when it is used, it is pinned and normally sets `persist-credentials: false`.
+The stale lead maintainer PR approval workflow can only approve non-fork, non-draft `Homebrew/brew` PRs that meet its review and CI requirements during a weekday approval window, and it refuses to approve changes to sensitive paths.
 
 ### Homebrew's own supply chain
 
