@@ -6,6 +6,7 @@ require "cask/config"
 require "cask/quarantine"
 require "deprecate_disable"
 require "install"
+require "upgrade"
 require "utils/output"
 
 module Cask
@@ -92,7 +93,7 @@ module Cask
 
       verb = dry_run ? "Would upgrade" : "Upgrading"
       oh1 "#{verb} #{cask_upgrades.count} outdated #{::Utils.pluralize("package", cask_upgrades.count)}:"
-      puts cask_upgrades.join("\n")
+      puts Homebrew::Upgrade.format_upgrade_summary(cask_upgrades).join("\n")
     end
 
     sig {
