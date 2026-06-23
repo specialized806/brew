@@ -324,7 +324,7 @@ module Homebrew
       end
     end
 
-    sig { params(downloadable_type: String).returns(T::Array[String]) }
+    sig { params(downloadable_type: String).returns([String, String]) }
     def align_checksum_mismatch_message(downloadable_type)
       actual_checksum_output = "#{downloadable_type} reports different checksum:"
       expected_checksum_output = "SHA-256 checksum of downloaded file:"
