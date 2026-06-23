@@ -8,10 +8,6 @@ RSpec.describe Cask::Artifact::Zap, :cask do
     cask.artifacts.find { |a| a.is_a?(described_class) }
   end
 
-  before do
-    InstallHelper.install_without_artifacts(cask)
-  end
-
   describe "#uninstall_phase" do
     subject { zap_artifact }
 

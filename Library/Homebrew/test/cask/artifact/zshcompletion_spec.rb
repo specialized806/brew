@@ -19,12 +19,11 @@ RSpec.describe Cask::Artifact::ZshCompletion, :cask do
     let(:full_source_path) { cask.staged_path.join("test.zsh-completion") }
     let(:full_target_path) { cask.config.zsh_completion.join("_test") }
 
-    before do
-      InstallHelper.install_without_artifacts(cask)
-    end
-
     context "with completion" do
       it "links the completion to the proper directory" do
+        source_path.dirname.mkpath
+        source_path.write ""
+
         install_phase.call
 
         expect(File).to be_identical target_path, source_path
@@ -35,6 +34,9 @@ RSpec.describe Cask::Artifact::ZshCompletion, :cask do
       let(:cask_token) { "with-shellcompletion-long" }
 
       it "links the completion to the proper directory" do
+        full_source_path.dirname.mkpath
+        full_source_path.write ""
+
         install_phase.call
 
         expect(File).to be_identical full_target_path, full_source_path
