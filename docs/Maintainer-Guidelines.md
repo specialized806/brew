@@ -40,13 +40,19 @@ When reviewing a PR, use "approve", "approve with comments", "comment" or "reque
 Relatedly:
 
 - The default option should be to ✅ approve, with or without comments.
+- The most valuable thing a maintainer can do is unblock the work of another maintainer.
 - Whenever possible, you should try to use the GitHub "suggestion" feature to edit the code how you would like it to be.
-  If you don't have time or can't be bothered: you probably don't have the time to review the PR properly.
+  If you only have time for a quick skim: that is still much better than leaving the PR unreviewed.
 - We're a globally distributed team and this helps us move faster.
-- The PR review process is primarily a security measure, not a way to get consensus on the perfect code style before merging.
+- The PR review process is primarily a security measure, not a way to catch all bugs before merging.
+  The goal is to prevent obvious account or commit compromise: does the PR broadly do what it says it does, and does it avoid unrelated or surprising changes such as weakening sandboxing or other security boundaries?
+  Reviews can also improve code quality, help maintainers learn and ask useful questions, but a PR that is otherwise ready is usually better merged and iterated on than left waiting for the perfect review that never comes.
+  The review process is a useful guardrail, not an absolute technical barrier, so use it to add practical scrutiny rather than ceremony.
+- Longer tenure as a maintainer should result in higher levels of assumed competence when reviewing PRs.
 - When reviewing or creating AI-assisted contributions, follow [Responsible AI Usage](Responsible-AI-Usage.md); you are responsible for the output you submit and must review it before asking others to.
 - It is easy to make changes on a PR after approval, make follow-up PRs to address comments or revert PRs before a tag.
 - It is (nearly) impossible to merge a PR without approval.
+- `Homebrew/brew` has a narrow automatic approval workflow for stale, non-draft lead maintainer PRs that have recent maintainer review activity, Copilot review, passing CI, at least 48 hours open with no human review, a weekday approval window and no changes to sensitive paths.
 - Using `gh pr checkout <URL>` is a super easy way to check out a PR branch using the GitHub CLI.
 
 ## Mission
