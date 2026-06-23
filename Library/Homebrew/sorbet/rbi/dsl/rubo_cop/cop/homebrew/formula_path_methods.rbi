@@ -6,18 +6,18 @@
 
 
 class RuboCop::Cop::Homebrew::FormulaPathMethods
-  sig { params(node: T.nilable(RuboCop::AST::Node), kwargs: T.anything, block: T.nilable(Proc)).returns(T.anything) }
+  sig { params(node: RuboCop::AST::Node, kwargs: T.untyped, block: T.untyped).returns(T.untyped) }
   def cask_block?(node, **kwargs, &block); end
 
-  sig { params(node: T.nilable(RuboCop::AST::Node), kwargs: T.anything, block: T.nilable(Proc)).returns(T.anything) }
+  sig { params(node: RuboCop::AST::Node, kwargs: T.untyped, block: T.untyped).returns(T.untyped) }
   def cask_new_token_node(node, **kwargs, &block); end
 
-  sig { params(node: T.nilable(RuboCop::AST::Node), kwargs: T.anything, block: T.nilable(Proc)).returns(T.anything) }
+  sig { params(node: RuboCop::AST::Node, kwargs: T.untyped, block: T.untyped).returns(T.untyped) }
   def formula_class?(node, **kwargs, &block); end
 
-  sig { params(node: T.nilable(RuboCop::AST::Node), kwargs: T.anything, block: T.nilable(Proc)).returns(T.anything) }
+  sig { params(node: RuboCop::AST::Node, kwargs: T.untyped, block: T.untyped).returns(T.untyped) }
   def formula_lookup_name_node(node, **kwargs, &block); end
 
-  sig { params(node: T.nilable(RuboCop::AST::Node), kwargs: T.anything, block: T.nilable(Proc)).returns(T.anything) }
+  sig { params(node: RuboCop::AST::Node, kwargs: T.untyped, block: T.untyped).returns(T.untyped) }
   def formula_path_name_node(node, **kwargs, &block); end
 end
