@@ -193,7 +193,7 @@ module Cask
         invalid_cask ||= begin
           loaded_cask = CaskLoader.load(T.must(c.installed_caskfile))
           false
-        rescue CaskInvalidError, CaskUnavailableError
+        rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError
           true
         end
 
