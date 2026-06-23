@@ -648,6 +648,27 @@ module Homebrew
     end
 
     sig { void }
+    def audit_duplicate_formula
+      return unless @core_tap
+      return unless @new_formula
+
+      # Using internal API here as using `Formulary.factory` is too slow
+      return if !@online && Homebrew::API::Internal.cached_packages_json_file_path.blank?
+
+      formula_url = formula.stable&.url
+      return unless formula_url
+
+      formula_hashes = Homebrew::API::Internal.formula_hashes
+      duplicate_formula_name = formula_hashes.find do |name, formula_hash|
+        formula_hash["stable_url_args"].any?(formula_url) && name != formula.name
+      end&.first
+
+      return unless duplicate_formula_name
+
+      new_formula_problem "Possible duplicate, this formula has the same stable URL as `#{duplicate_formula_name}`"
+    end
+
+    sig { void }
     def audit_bottle_spec
       # special case: new versioned formulae should be audited
       return unless @new_formula_inclusive

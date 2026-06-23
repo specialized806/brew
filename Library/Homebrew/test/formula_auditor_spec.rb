@@ -1831,6 +1831,40 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
   end
 
+  describe "#audit_duplicate_formula" do
+    before do
+      allow(Homebrew::API::Internal).to receive(:formula_hashes).and_return(
+        { "foo" => { "stable_url_args" => ["https://brew.sh/foo-1.0.tgz"] },
+          "bar" => { "stable_url_args" => ["https://foo.com/bar-1.0.tgz"] } },
+      )
+    end
+
+    specify "it warns if new formula uses the same URL as already existing package" do
+      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: true, core_tap: true
+        class DuplicateFoo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+        end
+      RUBY
+
+      fa.audit_duplicate_formula
+
+      expect(fa.new_formula_problems.first[:message])
+        .to match("Possible duplicate, this formula has the same stable URL as `foo`")
+    end
+
+    specify "it does not warn about duplicates if formula is not new" do
+      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: false, core_tap: true
+        class DuplicateFoo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+        end
+      RUBY
+
+      fa.audit_duplicate_formula
+
+      expect(fa.new_formula_problems).to be_empty
+    end
+  end
+
   describe "#audit_conflicts" do
     before do
       # We don't really test the formula text retrieval here
