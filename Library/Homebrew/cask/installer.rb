@@ -1003,7 +1003,7 @@ on_request: true)
         begin
           @cask = CaskLoader.load_from_installed_caskfile(installed_caskfile)
           return
-        rescue CaskInvalidError, CaskUnavailableError
+        rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError
           # could be caused by trying to load outdated or deleted caskfile
         end
       end
