@@ -104,9 +104,7 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
         .to output(%r{trusthelp/foo}).to_stderr
         .and be_a_failure
 
-      expect { brew "trust", "--command", "trusthelp/foo/hello-trust-tap", trust_env.dup }
-        .to output(%r{Trusted command: trusthelp/foo/hello-trust-tap}).to_stdout
-        .and be_a_success
+      with_env(trust_env) { Homebrew::Trust.trust!(:command, "trusthelp/foo/hello-trust-tap") }
 
       expect { brew "help", "hello-trust-tap", require_trust_env.dup }
         .to output(%r{^From tap: trusthelp/foo$}).to_stdout

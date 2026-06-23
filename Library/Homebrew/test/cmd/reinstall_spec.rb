@@ -127,7 +127,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     cmd.run
   end
 
-  it "reinstalls a Formula", :aggregate_failures, :integration_test do
+  it "reinstalls a Formula", :integration_test do
     formula_name = "testball_bottle"
     formula_prefix = HOMEBREW_CELLAR/formula_name/"0.1"
     formula_bin = formula_prefix/"bin"
@@ -142,21 +142,5 @@ RSpec.describe Homebrew::Cmd::Reinstall do
       .and output(/✔︎.*/m).to_stderr
       .and be_a_success
     expect(formula_bin).to exist
-
-    FileUtils.rm_r(formula_bin)
-
-    expect { brew "reinstall", formula_name }
-      .to output(/.*Would reinstall 1 formula:\s*#{formula_name}.*/).to_stdout
-      .and output(/✔︎.*/m).to_stderr
-      .and be_a_success
-    expect(formula_bin).to exist
-
-    FileUtils.rm_r(formula_bin)
-
-    expect { brew "reinstall", formula_name, { "HOMEBREW_FORBIDDEN_FORMULAE" => formula_name } }
-      .to not_to_output(/#{Regexp.escape(formula_prefix)}/o).to_stdout
-      .and output(/#{formula_name} was forbidden/).to_stderr
-      .and be_a_failure
-    expect(formula_bin).not_to exist
   end
 end

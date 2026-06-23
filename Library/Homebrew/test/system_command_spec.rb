@@ -374,17 +374,17 @@ RSpec.describe SystemCommand do
             # Ignore SIGINT.
           end
 
-          described_class.run! "sleep", args: [5]
+          described_class.run! "sleep", args: [1]
 
           exit!
         end
 
-        sleep 1
+        sleep 0.1
         Process.kill("INT", pid)
 
         Process.waitpid(pid)
 
-        expect(Time.now - start_time).to be >= 5
+        expect(Time.now - start_time).to be >= 1
       end
     end
   end

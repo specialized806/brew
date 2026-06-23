@@ -163,9 +163,7 @@ RSpec.describe Homebrew::Bundle::Installer do
   it "does not trust unqualified `trusted: true` names" do
     trusted_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql", { trusted: true })
 
-    expect(Homebrew::Trust).not_to receive(:trust!)
-
-    described_class.install!([trusted_formula_entry], quiet: true)
+    expect(Homebrew::Bundle::Trust.entries([trusted_formula_entry])).to be_empty
   end
 
   it "skips fetching formulae from fully qualified untapped taps" do

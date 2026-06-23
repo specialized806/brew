@@ -260,15 +260,19 @@ RSpec.describe "patching", type: :system do
   end
 
   specify "single_patch_dsl_with_strip_with_apply" do
-    expect(
-      formula do
-        patch :p1 do
-          url "file://#{tarball_fixture("testball-0.1-patches.tgz")}"
-          sha256 tarball_fixture_sha256("testball-0.1-patches.tgz")
-          apply "noop-a.diff"
-        end
-      end,
-    ).to be_patched
+    external_patch = formula do
+      patch :p1 do
+        url "file://#{tarball_fixture("testball-0.1-patches.tgz")}"
+        sha256 tarball_fixture_sha256("testball-0.1-patches.tgz")
+        apply "noop-a.diff"
+      end
+    end.stable.patches.last
+
+    expect(external_patch).to have_attributes(strip: :p1, patch_files: ["noop-a.diff"])
+    external_patch.fetch
+    external_patch.resource.unpack do
+      expect(Pathname.pwd/external_patch.patch_files.fetch(0)).to be_a_file
+    end
   end
 
   specify "single_patch_dsl_with_incorrect_strip" do

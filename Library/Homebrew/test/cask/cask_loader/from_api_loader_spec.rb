@@ -84,10 +84,6 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           .and have_attributes(token: api_token)
       end
 
-      it "returns nil for full name with invalid tap" do
-        expect(described_class.try_new("homebrew/foo/#{api_token}")).to be_nil
-      end
-
       context "with core tap migration renames" do
         let(:foo_tap) { Tap.fetch("homebrew", "foo") }
 
@@ -140,10 +136,6 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           .and have_attributes(token: internal_api_token)
       end
 
-      it "returns nil for full name with invalid tap" do
-        expect(described_class.try_new("homebrew/foo/#{internal_api_token}")).to be_nil
-      end
-
       context "with core tap migration renames" do
         let(:foo_tap) { Tap.fetch("homebrew", "foo") }
 
@@ -179,6 +171,10 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           expect(loader.path).not_to exist
         end
       end
+    end
+
+    it "returns nil for full name with invalid tap" do
+      expect(described_class.try_new("homebrew/foo/test-opera")).to be_nil
     end
   end
 

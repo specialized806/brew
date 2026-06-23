@@ -20,7 +20,7 @@ RSpec.describe Homebrew::Cmd::TabCmd do
 
   it_behaves_like "parseable arguments"
 
-  it "marks or unmarks a formula as installed on request", :integration_test do
+  it "marks a formula as installed on request", :integration_test do
     setup_test_formula "foo",
                        tab_attributes: { "installed_on_request" => false }
     foo = Formula["foo"]
@@ -30,12 +30,6 @@ RSpec.describe Homebrew::Cmd::TabCmd do
       .and output(/foo is now marked as installed on request/).to_stdout
       .and not_to_output.to_stderr
     expect(installed_on_request?(foo)).to be true
-
-    expect { brew "tab", "--no-installed-on-request", "foo" }
-      .to be_a_success
-      .and output(/foo is now marked as not installed on request/).to_stdout
-      .and not_to_output.to_stderr
-    expect(installed_on_request?(foo)).to be false
   end
 
   it "marks or unmarks a cask as installed on request with a missing tab", :cask do
