@@ -421,6 +421,16 @@ RSpec.describe Cask::Upgrade, :cask do
       end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
     end
 
+    it "warns and skips when the installed caskfile raises MethodDeprecatedError" do
+      allow(Cask::CaskLoader).to receive(:load).and_call_original
+      allow(Cask::CaskLoader).to receive(:load).with(auto_updates.installed_caskfile)
+                                               .and_raise(MethodDeprecatedError.new)
+
+      expect do
+        described_class.upgrade_casks!(dry_run: true, args:)
+      end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
+    end
+
     it "warns and skips when the cask is not fully installed" do
       # Stub installed? to return false after outdated detection
       # to simulate a cask with a broken metadata directory
