@@ -44,6 +44,18 @@ RSpec.describe Homebrew::Service do
     end
   end
 
+  describe "#formula_opt_bin" do
+    it "is available in service blocks" do
+      f = stub_formula do
+        service do
+          run formula_opt_bin("foo")/"foo"
+        end
+      end
+
+      expect(f.service.run).to eq([(HOMEBREW_PREFIX/"opt/foo/bin/foo").to_s])
+    end
+  end
+
   describe "#process_type" do
     it "throws for unexpected type" do
       f = stub_formula do
