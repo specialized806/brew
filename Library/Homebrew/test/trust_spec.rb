@@ -147,6 +147,29 @@ RSpec.describe Homebrew::Trust, :trust_store do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "keys an item by a declared custom remote before the tap is installed" do
+    result = described_class.target("thirdparty/custom/bar", type:       :formula,
+                                                             tap_remote: "https://gitlab.com/other/repo")
+    expect(result).to eq([:formula, "https://gitlab.com/other/repo/bar"])
+  end
+
+  it "keys an item by its tap name when the declared remote is its default remote" do
+    result = described_class.target("thirdparty/custom/bar", type:       :formula,
+                                                             tap_remote: "https://github.com/thirdparty/homebrew-custom")
+    expect(result).to eq([:formula, "thirdparty/custom/bar"])
+  end
+
+  it "keeps a declared remote custom relative to its tap name even when it resembles another default" do
+    result = described_class.target("thirdparty/custom/bar", type:       :formula,
+                                                             tap_remote: "https://github.com/other/homebrew-project")
+    expect(result).to eq([:formula, "https://github.com/other/homebrew-project/bar"])
+  end
+
+  it "keys a whole tap by a declared custom remote before the tap is installed" do
+    result = described_class.target("thirdparty/custom", type: :tap, tap_remote: "https://gitlab.com/other/repo")
+    expect(result).to eq([:tap, "https://gitlab.com/other/repo"])
+  end
+
   it "trusts formulae from trusted taps" do
     Tap.fetch("trustedformulae", "foo")
 

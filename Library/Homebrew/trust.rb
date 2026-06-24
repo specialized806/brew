@@ -304,9 +304,13 @@ module Homebrew
       name.downcase
     end
 
-    sig { params(name: String, type: T.nilable(Symbol), include_existing: T::Boolean).returns([Symbol, String]) }
-    def self.target(name, type: nil, include_existing: false)
-      return [type, trust_name(type, name, include_existing:)] if type
+    sig {
+      params(
+        name: String, type: T.nilable(Symbol), include_existing: T::Boolean, tap_remote: T.nilable(String),
+      ).returns([Symbol, String])
+    }
+    def self.target(name, type: nil, include_existing: false, tap_remote: nil)
+      return [type, trust_name(type, name, include_existing:, tap_remote:)] if type
 
       infer_target(name, include_existing:)
     end
@@ -346,8 +350,12 @@ module Homebrew
     end
     private_class_method :infer_target
 
-    sig { params(type: Symbol, name: String, include_existing: T::Boolean).returns(String) }
-    def self.trust_name(type, name, include_existing: false)
+    sig {
+      params(
+        type: Symbol, name: String, include_existing: T::Boolean, tap_remote: T.nilable(String),
+      ).returns(String)
+    }
+    def self.trust_name(type, name, include_existing: false, tap_remote: nil)
       case type
       when :tap
         if Tap.remote_reference?(name)
@@ -356,17 +364,17 @@ module Homebrew
 
           reference
         else
-          Tap.fetch(name).reference
+          Tap.fetch(name).reference(remote: tap_remote)
         end
       when :formula
         tap, formula_name = fully_qualified_package_name(name, "Formulae")
-        item_trust_name(type, tap, formula_name, include_existing:)
+        item_trust_name(type, tap, formula_name, include_existing:, tap_remote:)
       when :cask
         tap, token = fully_qualified_package_name(name, "Casks")
-        item_trust_name(type, tap, token, include_existing:)
+        item_trust_name(type, tap, token, include_existing:, tap_remote:)
       when :command
         tap, command_name = fully_qualified_package_name(name, "Commands")
-        item_trust_name(type, tap, command_name, include_existing:)
+        item_trust_name(type, tap, command_name, include_existing:, tap_remote:)
       else
         raise UsageError, "Unsupported trust target type: #{type}"
       end
@@ -375,14 +383,20 @@ module Homebrew
     end
     private_class_method :trust_name
 
-    sig { params(type: Symbol, tap: Tap, item_name: String, include_existing: T::Boolean).returns(String) }
-    def self.item_trust_name(type, tap, item_name, include_existing: false)
+    sig {
+      params(
+        type: Symbol, tap: Tap, item_name: String, include_existing: T::Boolean, tap_remote: T.nilable(String),
+      ).returns(String)
+    }
+    def self.item_trust_name(type, tap, item_name, include_existing: false, tap_remote: nil)
       item_name = normalise_name(item_name)
       full_name = "#{tap.name}/#{item_name}"
       return full_name if include_existing && trusted_entries(type).include?(normalise_name(full_name))
-      return full_name unless tap.uses_custom_remote?
 
-      "#{normalise_name(tap.reference)}/#{item_name}"
+      reference = tap.reference(remote: tap_remote)
+      return full_name if reference == tap.name
+
+      "#{normalise_name(reference)}/#{item_name}"
     end
     private_class_method :item_trust_name
 
