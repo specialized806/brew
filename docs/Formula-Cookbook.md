@@ -692,6 +692,70 @@ patch :p0, "..."
 
 In embedded and external patches, the string "@@HOMEBREW\_PREFIX@@" is replaced with the value of the constant `HOMEBREW_PREFIX` before the patch is applied.
 
+### Annotating patches
+
+External and `file` patches can optionally declare a `type` and what they `resolve`. These annotations are exposed in `brew info --json` and the formula API for downstream tools such as SBOM generators and vulnerability scanners; they have no effect on how the patch is applied.
+
+`type` describes where the patch came from, using the `pedigree.patches` terminology from the [CycloneDX specification](https://cyclonedx.org/docs/1.6/json/).
+
+`:backport` takes code from a newer version of the same software and applies it to the older version Homebrew ships. Most upstream-commit patches fall here. For example, `innoextract` applies an upstream commit that fixes the build with CMake 4 ahead of the next release:
+
+```ruby
+patch do
+  url "https://github.com/dscharrer/innoextract/commit/83d0bf4365b09ddd17dddb400ba5d262ddf16fb8.patch?full_index=1"
+  sha256 "fe5299d1fdea5c66287aef2f70fee41d86aedc460c5b165da621d699353db07d"
+  type :backport
+end
+```
+
+`:cherry_pick` selectively applies an upstream commit that is *not* from a strictly newer release line, such as a fix that only exists on a maintenance or release branch. `gecode` pulls Qt 6 support from the upstream `release/6.3.0` branch rather than `master`:
+
+```ruby
+patch do
+  url "https://github.com/Gecode/gecode/commit/c0ca0e5f4406099be22f87236ea8547c2f31ded3.patch?full_index=1"
+  sha256 "233b266a943c0619b027b4cb19912e2a8c9d1f8e4323a3627765cb32b47c59fe"
+  type :cherry_pick
+end
+```
+
+When in doubt between `:backport` and `:cherry_pick`, prefer `:backport` for anything taken from the upstream development tip.
+
+`:unofficial` is a patch not authored by the upstream maintainers, such as a Homebrew- or distribution-specific build fix. As with all Homebrew patches, an `:unofficial` patch should have been [reported and/or submitted upstream](#patches) where practical. `unzip` carries a Debian-maintained patch set because upstream Info-ZIP no longer makes releases:
+
+```ruby
+patch do
+  url "https://archive.ubuntu.com/ubuntu/pool/main/u/unzip/unzip_6.0-28ubuntu4.1.debian.tar.xz"
+  sha256 "d123c8e6972dbdd17ba1a4920fb57ed2ede9237dbae149dcbf55df829c77baf3"
+  type :unofficial
+  apply "patches/04-handle-pkware-verification-bit.patch",
+        "patches/05-fix-uid-gid-handling.patch",
+        "patches/13-remove-build-date.patch"
+end
+```
+
+`resolves` records what the patch fixes: one or more CVE identifiers (`CVE-YYYY-NNNN`), GHSA identifiers (`GHSA-xxxx-xxxx-xxxx`) or issue/PR URLs. CVE identifiers are also inferred automatically from the patch `url`, `apply` paths and `file` path, so a Debian-style `CVE-2016-2399.patch` is picked up without an explicit `resolves`.
+
+```ruby
+patch do
+  url "https://deb.debian.org/debian/pool/main/libq/libquicktime/libquicktime_1.2.4-12.debian.tar.xz"
+  sha256 "e5b5fa3ec8391b92554d04528568d04ea9eb5145835e0c246eac7961c891a91a"
+  type :backport
+  resolves "CVE-2016-2399", "CVE-2017-9122"
+  apply "patches/CVE-2016-2399.patch", "patches/CVE-2017-9122_et_al.patch"
+end
+```
+
+For non-security build fixes, pass the upstream issue or PR URL instead:
+
+```ruby
+patch do
+  url "https://github.com/dscharrer/innoextract/commit/264c2fe6b84f90f6290c670e5f676660ec7b2387.patch?full_index=1"
+  sha256 "f968a9c0521083dd4076ce5eed56127099a9c9888113fc50f476b914396045cc"
+  type :backport
+  resolves "https://github.com/dscharrer/innoextract/pull/169"
+end
+```
+
 ### Creating the diff
 
 ```sh
