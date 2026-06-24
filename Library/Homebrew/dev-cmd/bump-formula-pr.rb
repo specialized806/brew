@@ -168,6 +168,8 @@ module Homebrew
 
         return if all_formulae.empty?
 
+        added_release_info = Set.new
+
         commits = all_formulae.filter_map do |formula_name|
           commit_formula = Formula[formula_name]
           raise FormulaUnspecifiedError if commit_formula.blank?
@@ -390,6 +392,7 @@ module Homebrew
             owner = Regexp.last_match(1)
             repo = Regexp.last_match(2)
             tag = Regexp.last_match(3)
+            release_id = "#{owner}/#{repo}/#{tag}"
             github_release_data = begin
               GitHub::API.open_rest("#{GitHub::API_URL}/repos/#{owner}/#{repo}/releases/tags/#{tag}")
             rescue GitHub::API::HTTPNotFoundError
@@ -397,7 +400,8 @@ module Homebrew
               nil
             end
 
-            if github_release_data.present? && github_release_data["body"].present?
+            if github_release_data.present? && github_release_data["body"].present? &&
+               added_release_info.exclude?(release_id)
               pre = "pre" if github_release_data["prerelease"].present?
               # maximum length of PR body is 65,536 characters so let's truncate release notes to half of that.
               body = Formatter.truncate(github_release_data["body"], max: 32_768)
@@ -412,6 +416,8 @@ module Homebrew
                   <p>View the full release notes at <a href="#{html_url}">#{html_url}</a>.</p>
                 </details>
               XML
+
+              added_release_info << release_id
             end
           end
 
