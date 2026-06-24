@@ -642,6 +642,9 @@ module Homebrew
         kegs = shadowing_formula ? [] : formula.installed_kegs
         installed = kegs.any?
         outdated = installed && formula.outdated?
+        missing_libraries, missing_library_deps = formula.missing_library_linkage if installed
+        missing_libraries ||= []
+        missing_library_deps ||= Set.new
         if outdated && (upgrade_version = specs.first.presence)
           installed_version = formula.linked_version ||
                               kegs.max_by(&:scheme_and_version)&.version
@@ -656,6 +659,7 @@ module Homebrew
         end
         name_with_status = pretty_install_status(
           title_name,
+          warning:    missing_libraries.present?,
           installed:,
           outdated:,
           deprecated: formula.deprecated?,
@@ -753,11 +757,17 @@ module Homebrew
 
           tab_deps = (kegs.any? && type != "build") ? tab_runtime_deps : nil
           "#{type.capitalize} (#{deps.count}): " \
-            "#{decorate_dependencies(deps, tab_runtime_deps: tab_deps, mark_uninstalled: kegs.any?)}"
+            "#{decorate_dependencies(deps, tab_runtime_deps: tab_deps, mark_uninstalled: kegs.any?,
+                                     missing_library_deps:)}"
         end
         if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
           puts dependency_lines
+          missing_library_names = missing_libraries.map { |lib| File.basename(lib) }.uniq
+          if missing_library_names.present?
+            decorated = missing_library_names.map { |lib| pretty_uninstalled(lib, bold: false) }.join(", ")
+            puts "Missing libraries (#{missing_library_names.count}): #{decorated}"
+          end
           if tab_runtime_deps.present?
             installed_count = tab_runtime_deps.count do |dep|
               dep_name = dep["full_name"]&.then { Utils.name_from_full_name(it) }
@@ -869,11 +879,13 @@ module Homebrew
       end
 
       sig {
-        params(dependencies:     T::Array[Dependency],
-               tab_runtime_deps: T.nilable(T::Array[T::Hash[String, T.untyped]]),
-               mark_uninstalled: T::Boolean).returns(String)
+        params(dependencies:         T::Array[Dependency],
+               tab_runtime_deps:     T.nilable(T::Array[T::Hash[String, T.untyped]]),
+               mark_uninstalled:     T::Boolean,
+               missing_library_deps: T::Set[String]).returns(String)
       }
-      def decorate_dependencies(dependencies, tab_runtime_deps: nil, mark_uninstalled: true)
+      def decorate_dependencies(dependencies, tab_runtime_deps: nil, mark_uninstalled: true,
+                                missing_library_deps: Set.new)
         dependencies.map do |dep|
           display = dep_display_s(dep)
           full_name = tab_runtime_deps&.find do |d|
@@ -889,7 +901,8 @@ module Homebrew
           end
           installed ||= formula.any_version_installed? if !installed && formula
           outdated = T.let(installed && formula&.outdated? == true, T::Boolean)
-          pretty_install_status(display, installed:, outdated:, mark_uninstalled:)
+          warning = missing_library_deps.include?(Utils.name_from_full_name(dep.name))
+          pretty_install_status(display, warning:, installed:, outdated:, mark_uninstalled:)
         end.join(", ")
       end
 

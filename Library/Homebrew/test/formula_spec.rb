@@ -1593,6 +1593,44 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#missing_library_linkage" do
+    let(:f) do
+      formula("foo") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "returns empty when no keg is installed" do
+      allow(f).to receive(:any_installed_keg).and_return(nil)
+      expect(f.missing_library_linkage).to eq([[], Set.new])
+    end
+
+    it "returns only the formula's own and orphan libraries, excluding dependency-owned ones" do
+      keg = instance_double(Keg, directory?: true)
+      allow(f).to receive(:any_installed_keg).and_return(keg)
+      linkage_checker = instance_double(
+        LinkageChecker,
+        broken_deps:   { "foo" => ["libfoo.1.dylib"], "gmp" => ["libgmp.10.dylib"] },
+        broken_dylibs: Set["liborphan.2.dylib"],
+      )
+      allow(LinkageChecker).to receive(:new).and_return(linkage_checker)
+      expect(f.missing_library_linkage.first).to eq(["libfoo.1.dylib", "liborphan.2.dylib"])
+    end
+
+    it "returns the dependency names that own missing libraries, excluding the formula itself" do
+      keg = instance_double(Keg, directory?: true)
+      allow(f).to receive(:any_installed_keg).and_return(keg)
+      linkage_checker = instance_double(
+        LinkageChecker,
+        broken_deps:   { "foo" => ["libfoo.1.dylib"], "gmp" => ["libgmp.10.dylib"] },
+        broken_dylibs: Set.new,
+      )
+      allow(LinkageChecker).to receive(:new).and_return(linkage_checker)
+      expect(f.missing_library_linkage.last).to eq(Set["gmp"])
+    end
+  end
+
   specify "requirements" do
     # don't try to load/fetch gcc/glibc
     allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
