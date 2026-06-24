@@ -78,6 +78,22 @@ module Utils
       Utils::Path.formula_opt_libexec(formula_name)
     end
 
+    # The `include` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def self.formula_opt_include(formula_name)
+      formula_opt_prefix(formula_name)/"include"
+    end
+
+    # The `include` directory under the stable install path for a given formula name.
+    #
+    # @api public
+    sig { params(formula_name: String).returns(Pathname) }
+    def formula_opt_include(formula_name)
+      Utils::Path.formula_opt_include(formula_name)
+    end
+
     # The installed prefix directories for one or more formula names.
     #
     # @api public
