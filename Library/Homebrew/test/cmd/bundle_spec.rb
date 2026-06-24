@@ -68,7 +68,7 @@ RSpec.describe Homebrew::Cmd::Bundle do
   it "disables ask mode for subcommands" do
     with_env(HOMEBREW_ASK: nil, HOMEBREW_NO_ASK: nil) do
       args = described_class.new(%w[cleanup]).args
-      expect(Homebrew::Cmd::Bundle::CleanupSubcommand).to receive(:new) do |_, context:|
+      expect(Homebrew::Cmd::Bundle::CleanupSubcommand).to receive(:new) do |_, context:, **|
         expect(context.ask).to be(true)
         expect(ENV.fetch("HOMEBREW_ASK", nil)).to be_nil
         expect(ENV.fetch("HOMEBREW_NO_ASK", nil)).to eq("1")
