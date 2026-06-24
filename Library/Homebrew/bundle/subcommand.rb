@@ -48,7 +48,7 @@ module Homebrew
           end
           raise UsageError, "Unknown subcommand: #{context.subcommand}" unless subcommand_class
 
-          subcommand_class.new(args, context:).run
+          subcommand_class.new(args, context:, quiet: args.quiet?).run
         end
 
         sig {
