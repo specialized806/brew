@@ -60,6 +60,12 @@ RSpec.describe Utils::Path do
     end
   end
 
+  describe "::formula_opt_include" do
+    it "returns a formula opt include path without loading a Formula object" do
+      expect(described_class.formula_opt_include("foo")).to eq(HOMEBREW_PREFIX/"opt/foo/include")
+    end
+  end
+
   describe "::formula_installed_prefixes" do
     it "returns installed prefixes for formula names" do
       tmpdir = mktmpdir
