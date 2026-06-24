@@ -619,6 +619,15 @@ RSpec.describe Tap do
   end
 
   describe "#install" do
+    it "disables terminal prompts for git commands" do
+      require "system_command"
+
+      expect(SystemCommand).to receive(:run!)
+        .with("git", args: %w[fetch], chdir: path, env: { "GIT_TERMINAL_PROMPT" => "0" }, print_stderr: true)
+
+      homebrew_foo_tap.send(:git_command!, %w[fetch], chdir: path)
+    end
+
     it "raises an error when the Tap is already tapped" do
       setup_git_repo
       already_tapped_tap = described_class.fetch("Homebrew", "foo")

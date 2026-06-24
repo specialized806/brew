@@ -594,7 +594,7 @@ class Tap
   def git_command!(args, chdir: nil)
     require "system_command"
 
-    SystemCommand.run!("git", args:, chdir:, print_stderr: true)
+    SystemCommand.run!("git", args:, chdir:, env: { "GIT_TERMINAL_PROMPT" => "0" }, print_stderr: true)
   end
   private :git_command!
 
