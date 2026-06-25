@@ -43,6 +43,7 @@ class EmbeddedPatch
     if (subdirectory = directory.presence)
       dir /= subdirectory
     end
+    Patch.ensure_targets_within!(data, strip:, base: dir)
     dir.cd do
       Utils.safe_popen_write("patch", *args) { |p| p.write(data) }
     end

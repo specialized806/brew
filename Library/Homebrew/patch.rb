@@ -6,6 +6,7 @@ require "data_patch"
 require "external_patch"
 require "string_patch"
 require "local_patch"
+require "utils/path"
 
 # Helper module for creating patches.
 module Patch
@@ -36,6 +37,22 @@ module Patch
     return "security" if id.match?(/\ACVE-\d{4}-\d{4,}\z/) || id.match?(GHSA_PATTERN)
 
     "defect"
+  end
+
+  # Reject patch target paths (absolute or `..`-traversing) that escape the staged source tree.
+  sig { params(text: String, strip: T.any(Symbol, String), base: Pathname).void }
+  def self.ensure_targets_within!(text, strip:, base:)
+    strip_count = strip.to_s[/\d+/].to_i
+    text.each_line do |line|
+      # Headers are whitespace-delimited; take the first token, ignoring any timestamp.
+      next unless (path = line[/\A(?:---|\+\+\+|\*\*\*)\s+(\S+)/, 1])
+      next if path == File::NULL
+
+      relative = path.split("/").drop(strip_count).join("/")
+      next if Utils::Path.child_of?(base, base/relative)
+
+      raise "Patch target path escapes the staged source tree: #{path}"
+    end
   end
 
   sig {
