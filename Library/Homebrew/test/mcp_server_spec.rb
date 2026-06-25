@@ -169,6 +169,20 @@ RSpec.describe Homebrew::McpServer do
       server.handle_request(request)
     end
 
+    it "rejects an inline cask definition argument without spawning brew" do
+      expect(Open3).not_to receive(:popen2e)
+      request = {
+        "id"     => id,
+        "method" => "tools/call",
+        "params" => {
+          "name"      => "info",
+          "arguments" => { "formula_or_cask" => %Q(cask "evil" do\n  url "https://example.com"\nend) },
+        },
+      }
+      result = server.handle_request(request)
+      expect(result).to eq({ jsonrpc:, id:, error: { message: "Invalid formula or cask argument", code: } })
+    end
+
     it "responds to tools/call for unknown tool" do
       request = { "id" => id, "method" => "tools/call", "params" => { "name" => "not_a_tool", "arguments" => {} } }
       result = server.handle_request(request)
