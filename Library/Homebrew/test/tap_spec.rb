@@ -604,6 +604,24 @@ RSpec.describe Tap do
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"oldoutput"
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"newoutput"
     end
+
+    it "updates the core cask tap remote from a redirect", :trust_store do
+      tap = CoreCaskTap.instance
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://github.com/caskroom/homebrew-cask"
+
+      tap.update_remote_from_git_redirect!(
+        "warning: redirecting to https://github.com/Homebrew/homebrew-cask\n",
+        quiet: true,
+      )
+
+      expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+        .to eq("https://github.com/Homebrew/homebrew-cask")
+    ensure
+      CoreCaskTap.instance.clear_cache
+      FileUtils.rm_rf CoreCaskTap.instance.path
+    end
   end
 
   specify "Git variant" do
