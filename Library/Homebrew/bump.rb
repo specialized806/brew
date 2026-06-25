@@ -3,6 +3,7 @@
 
 require "system_command"
 require "tap"
+require "utils/formatter"
 require "utils/git"
 require "utils/github"
 require "utils/output"
@@ -103,7 +104,7 @@ module Homebrew
             ohai "git add #{changed_files.join(" ")}"
             ohai "git commit --no-edit --verbose --message='#{commit_message}' " \
                  "-- #{changed_files.join(" ")}"
-            ohai "git push --set-upstream #{remote_url} #{branch}:#{branch}"
+            ohai "git push --set-upstream #{redacted_url(remote_url)} #{branch}:#{branch}"
             ohai "git checkout --quiet -"
             ohai "create pull request with GitHub API (base branch: #{remote_branch})"
           else
@@ -142,6 +143,12 @@ module Homebrew
         url.sub!(%r{^https://github\.com/}, "https://x-access-token:#{GitHub::API.credentials}@github.com/")
       end
       url
+    end
+
+    # Redact any token `add_auth_token_to_url!` embedded, so dry-run output doesn't leak it.
+    sig { params(url: T.nilable(String)).returns(String) }
+    private_class_method def self.redacted_url(url)
+      Formatter.redact_secrets(url.to_s, [GitHub::API.credentials].compact)
     end
 
     sig { params(tap_remote_repo: String, org: T.nilable(String)).returns([String, String]) }
