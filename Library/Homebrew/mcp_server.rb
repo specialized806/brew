@@ -19,6 +19,9 @@ module Homebrew
     MCP_PROTOCOL_VERSION = "2025-03-26"
     ERROR_CODE = -32601
 
+    # Reject inline `cask ... do`/`cask(...) {}` blocks the cask loader would eval as Ruby.
+    INLINE_CASK_DSL_REGEX = /\A\s*cask\s*['"(]/
+
     SERVER_INFO = T.let({
       name:    "brew-mcp-server",
       version: HOMEBREW_VERSION,
@@ -302,6 +305,11 @@ module Homebrew
       end
 
       require "open3"
+
+      formula_or_cask = request.dig("params", "arguments", "formula_or_cask")
+      if formula_or_cask.is_a?(String) && INLINE_CASK_DSL_REGEX.match?(formula_or_cask)
+        return respond_error(id, "Invalid formula or cask argument")
+      end
 
       command_args = tool_command_arguments(tool_name, request["params"]["arguments"])
       progress_token = request["params"]["_meta"]&.fetch("progressToken", nil)
