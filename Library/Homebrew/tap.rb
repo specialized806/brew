@@ -886,11 +886,12 @@ class Tap
     remote.present? && custom_remote?
   end
 
-  # The canonical allow/forbid/trust list reference for this {Tap}.
-  sig { returns(String) }
-  def reference
-    remote = self.remote
-    return name if remote.nil? || !custom_remote?
+  # The canonical allow/forbid/trust list reference for this {Tap}. Pass `remote` to resolve against
+  # a not-yet-cloned remote (e.g. a Brewfile `clone_target`) instead of the installed one.
+  sig { params(remote: T.nilable(String)).returns(String) }
+  def reference(remote: nil)
+    remote = remote.presence || self.remote
+    return name if remote.nil? || self.class.same_remote?(remote, default_remote)
 
     remote
   end

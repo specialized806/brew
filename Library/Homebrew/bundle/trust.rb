@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "bundle/dsl"
+require "trust"
 require "utils"
 
 module Homebrew
@@ -17,52 +18,62 @@ module Homebrew
 
       sig { params(entries: T::Array[Homebrew::Bundle::Dsl::Entry]).returns(T::Array[[Symbol, String]]) }
       def self.entries(entries)
+        # Resolve every item through `Homebrew::Trust.target`, the same canonicalizer `brew trust`
+        # uses, so bundle does not write a second, divergent entry for a custom-remote tap. A
+        # `brew`/`cask` entry takes its remote from the matching `tap` entry, which can appear later
+        # in the Brewfile, so map each tap name to its declared remote first.
+        tap_remotes = entries.filter_map do |entry|
+          next if entry.type != :tap
+
+          clone_target = entry.options[:clone_target].presence
+          [entry.name.downcase, clone_target.to_s] if clone_target
+        end.to_h
+
         entries.flat_map do |entry|
           trusted = entry.options[:trusted]
-          full_name = T.cast(entry.options.fetch(:full_name, entry.name), String)
+          next [] if trusted.blank?
 
-          entry_type = entry.type
-
-          case entry_type
+          targets = T.let([], T::Array[[Symbol, String, T.nilable(String)]])
+          case entry.type
           when :tap
-            next [] if trusted.blank?
+            tap_remote = entry.options[:clone_target].presence&.to_s
+            if trusted == true
+              targets << [:tap, entry.name, tap_remote]
+            elsif trusted.is_a?(Hash)
+              unsupported_keys = trusted.keys - TRUSTED_ITEM_KEYS.values.flatten
+              if unsupported_keys.present?
+                raise UsageError,
+                      "Unsupported trusted keys: #{unsupported_keys.join(", ")}"
+              end
 
-            clone_target = entry.options[:clone_target].presence
-            tap_reference = if clone_target
-              require "tap"
-              ::Tap.remote_to_reference(clone_target.to_s) || clone_target.to_s
-            else
-              entry.name
-            end
-            next [[:tap, tap_reference]] if trusted == true
-            next [] unless trusted.is_a?(Hash)
+              TRUSTED_ITEM_KEYS.each do |type, keys|
+                keys.each do |key|
+                  Array(trusted[key]).each do |item|
+                    item_name = case item
+                    when String, Symbol, Integer
+                      Utils.name_from_full_name(item.to_s)
+                    end
+                    next if item_name.blank?
 
-            unsupported_keys = trusted.keys - TRUSTED_ITEM_KEYS.values.flatten
-            raise UsageError, "Unsupported trusted keys: #{unsupported_keys.join(", ")}" if unsupported_keys.present?
-
-            TRUSTED_ITEM_KEYS.flat_map do |type, keys|
-              keys.flat_map do |key|
-                Array(trusted[key]).filter_map do |item|
-                  item_name = case item
-                  when String, Symbol, Integer
-                    Utils.name_from_full_name(item.to_s)
+                    targets << [type, "#{entry.name}/#{item_name}", tap_remote]
                   end
-                  next if item_name.blank?
-
-                  [type, "#{tap_reference}/#{item_name}"]
                 end
               end
             end
           when :brew, :cask
-            # Only fully-qualified names map to a tap, so unqualified names
-            # cannot be meaningfully trusted.
-            next [] if trusted != true || !Utils.full_name?(full_name)
+            full_name = T.cast(entry.options.fetch(:full_name, entry.name), String)
+            next [] if trusted != true
+            # Only fully-qualified names map to a tap, so unqualified names cannot be trusted.
+            next [] unless Utils.full_name?(full_name)
 
-            type = (entry_type == :brew) ? :formula : :cask
-            [[type, full_name]]
-          else
-            []
+            type = (entry.type == :brew) ? :formula : :cask
+            tap_name = Utils.tap_from_full_name(full_name)
+            canonical_tap_name = Dsl.sanitize_tap_name(tap_name) if tap_name
+            tap_remote = tap_remotes[canonical_tap_name] if canonical_tap_name
+            targets << [type, full_name, tap_remote]
           end
+
+          targets.map { |type, name, tap_remote| Homebrew::Trust.target(name, type:, tap_remote:) }
         end.uniq
       end
     end
