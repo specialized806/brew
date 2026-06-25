@@ -553,7 +553,7 @@ class Tap
 
     redirected_reference = self.class.remote_to_reference(redirected_remote)
     if redirected_reference.present? && !self.class.remote_reference?(redirected_reference)
-      redirected_tap = self.class.fetch(redirected_reference)
+      redirected_tap = Tap.fetch(redirected_reference)
       if redirected_tap.name != name && !redirected_tap.installed?
         old_path = path
         redirected_tap.path.dirname.mkpath
