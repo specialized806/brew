@@ -158,5 +158,52 @@ RSpec.describe Utils::Path do
 
       expect(described_class.loadable_package_path?(formula_path, :formula)).to be(true)
     end
+
+    it "accepts formula paths under a symlinked tap" do
+      tmpdir = mktmpdir.realpath
+      library = tmpdir/"Library"
+      (library/"Taps/homebrew").mkpath
+      stub_const("HOMEBREW_LIBRARY", library)
+      allow(Homebrew::EnvConfig).to receive(:forbid_packages_from_paths?).and_return(true)
+
+      external_tap = tmpdir/"external/homebrew-foo"
+      (external_tap/"Formula").mkpath
+      FileUtils.ln_s(external_tap, library/"Taps/homebrew/homebrew-foo")
+
+      formula_path = library/"Taps/homebrew/homebrew-foo/Formula/foo.rb"
+      formula_path.write "class Foo < Formula; end\n"
+
+      expect(described_class.loadable_package_path?(formula_path, :formula)).to be(true)
+    end
+
+    it "rejects formula paths that escape a trusted root via `..` segments" do
+      tmpdir = mktmpdir.realpath
+      library = tmpdir/"Library"
+      (library/"Taps").mkpath
+      stub_const("HOMEBREW_LIBRARY", library)
+      allow(Homebrew::EnvConfig).to receive(:forbid_packages_from_paths?).and_return(true)
+
+      escaped = tmpdir/"evil.rb"
+      escaped.write "class Evil < Formula; end\n"
+
+      # Textually starts under `Taps/` but resolves to `tmpdir/evil.rb` outside it.
+      traversal_path = library/"Taps/../../evil.rb"
+
+      expect { described_class.loadable_package_path?(traversal_path, :formula) }
+        .to raise_error(/to be in a tap/)
+    end
+
+    it "rejects local JSON cask paths" do
+      tmpdir = mktmpdir.realpath
+      (tmpdir/"Library/Taps").mkpath
+      stub_const("HOMEBREW_LIBRARY", tmpdir/"Library")
+      allow(Homebrew::EnvConfig).to receive(:forbid_packages_from_paths?).and_return(true)
+
+      cask_path = tmpdir/"evil.json"
+      cask_path.write "{}\n"
+
+      expect { described_class.loadable_package_path?(cask_path, :cask) }
+        .to raise_error(/to be in a tap/)
+    end
   end
 end
