@@ -287,6 +287,13 @@ RSpec.describe SystemCommand do
       end.not_to raise_error
     end
 
+    it "uses `Process.spawn` rather than `fork` when no privilege change is required" do
+      command = described_class.new("true")
+      expect(command).not_to receive(:fork)
+      expect(Process).to receive(:spawn).and_call_original
+      command.run!
+    end
+
     it 'does not format `stderr` when it starts with \r' do
       expect do
         Class.new.extend(SystemCommand::Mixin).system_command \
