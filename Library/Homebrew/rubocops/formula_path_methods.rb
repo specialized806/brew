@@ -16,6 +16,7 @@ module RuboCop
           :opt_bin,
           :opt_lib,
           :opt_libexec,
+          :opt_include,
           :opt_prefix,
         ].freeze
 
@@ -23,6 +24,7 @@ module RuboCop
           opt_bin:     "formula_opt_bin",
           opt_lib:     "formula_opt_lib",
           opt_libexec: "formula_opt_libexec",
+          opt_include: "formula_opt_include",
           opt_prefix:  "formula_opt_prefix",
         }.freeze, T::Hash[Symbol, String])
 
