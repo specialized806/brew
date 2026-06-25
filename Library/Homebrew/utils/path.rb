@@ -151,9 +151,13 @@ module Utils
         trusted_package_root(Cask::Caskroom.path)
       end
 
-      return true if !path_realpath.end_with?(".rb") && !path_string.end_with?(".rb")
-      return true if allowed_paths.any? { |path| path_realpath.start_with?(path) }
-      return true if allowed_paths.any? { |path| path_string.start_with?(path) }
+      # Casks can also be loaded from local JSON files, not just Ruby.
+      package_extnames = (package_type == :cask) ? %w[.rb .json] : %w[.rb]
+      return true if package_extnames.none? { |ext| path_realpath.end_with?(ext) || path_string.end_with?(ext) }
+
+      # Compare path ancestry, not string prefixes, so `..` can't escape a trusted root.
+      return true if allowed_paths.any? { |root| child_of?(root, path_realpath) }
+      return true if allowed_paths.any? { |root| child_of?(root, path) }
 
       # Looks like a local path, Ruby file and not a tap.
       if path_string.include?("./") || path_string.end_with?(".rb") || path_string.count("/") != 2
