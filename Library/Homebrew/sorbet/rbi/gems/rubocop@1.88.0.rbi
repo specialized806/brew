@@ -843,6 +843,7 @@ class RuboCop::Cop::Base
   def file_name_matches_any?(file, parameter, default_result); end
   def find_message(range, message); end
   def find_severity(_range, severity); end
+  def matches_absolute_include_pattern?(patterns, file); end
   def range_for_original(range); end
   def range_from_node_or_range(node_or_range); end
   def reset_investigation; end
@@ -1492,8 +1493,6 @@ RuboCop::Cop::Lint::DataDefineOverride::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::DataDefineOverride::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
 
-RuboCop::Cop::Lint::Debugger::BLOCK_TYPES = T.let(T.unsafe(nil), Array)
-
 RuboCop::Cop::Lint::Debugger::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::DeprecatedClassMethods::DIR_ENV_FILE_CONSTANTS = T.let(T.unsafe(nil), Array)
@@ -1859,6 +1858,8 @@ RuboCop::Cop::Lint::RedundantWithObject::MSG_EACH_WITH_OBJECT = T.let(T.unsafe(n
 RuboCop::Cop::Lint::RedundantWithObject::MSG_WITH_OBJECT = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::RefinementImportMethods::MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::RefinementImportMethods::MSG_REMOVED = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::RefinementImportMethods::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
 
