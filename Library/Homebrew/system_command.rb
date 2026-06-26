@@ -404,19 +404,29 @@ class SystemCommand
     err_r, err_w = IO.pipe
     options[:err] = err_w
 
-    pid = fork do
+    exec_env = env.merge({ "COLUMNS" => Tty.width.to_s })
+
+    # `Process.spawn` avoids running `malloc` in a `fork`ed child, which is not
+    # fork-safe on macOS and can abort it. `fork` is kept for privilege changes
+    # and as a fallback.
+    pid = if (run_as_real_uid? || reset_uid?) && Process.euid != Process.uid
+      nil
+    else
+      begin
+        Process.spawn(exec_env, [executable, executable], *args, **options)
+      rescue SystemCallError
+        nil
+      end
+    end
+
+    pid ||= fork do
       if run_as_real_uid? && Process.euid != Process.uid
         Process::UID.change_privilege(Process.uid)
       elsif reset_uid? && Process.euid != Process.uid
         Process::UID.change_privilege(Process.euid)
       end
 
-      exec(
-        env.merge({ "COLUMNS" => Tty.width.to_s }),
-        [executable, executable],
-        *args,
-        **options,
-      )
+      exec(exec_env, [executable, executable], *args, **options)
     rescue SystemCallError => e
       $stderr.puts(e.message)
       exit!(127)
