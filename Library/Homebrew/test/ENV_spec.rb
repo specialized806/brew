@@ -259,5 +259,31 @@ RSpec.describe "ENV" do
         expect(env["HOMEBREW_CCCFG"]).to include("D")
       end
     end
+
+    describe "when using versioned GCC" do
+      let(:gcc) { "gcc-#{CompilerConstants::GNU_GCC_VERSIONS.last}" }
+
+      before { env.method(gcc).call }
+
+      it "sets versioned HOMEBREW_CC" do
+        expect(env["HOMEBREW_CC"]).to eq gcc
+      end
+
+      it "sets unversioned CC/CXX on Linux", :needs_linux do
+        expect(env["CC"]).to eq "gcc"
+        expect(env["CXX"]).to eq "g++"
+        expect(env["OBJC"]).to eq "gcc"
+        expect(env["OBJCXX"]).to eq "g++"
+      end
+
+      # We keep versioned name on macOS as /usr/bin/gcc is Clang which may not
+      # be compatible with binaries created with GCC, e.g. if using libstdc++.
+      it "sets versioned CC/CXX on macOS", :needs_macos do
+        expect(env["CC"]).to eq gcc
+        expect(env["CXX"]).to eq gcc.sub("gcc", "g++")
+        expect(env["OBJC"]).to eq gcc
+        expect(env["OBJCXX"]).to eq gcc.sub("gcc", "g++")
+      end
+    end
   end
 end
