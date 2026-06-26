@@ -2164,9 +2164,9 @@ class Formula
   # Standard parameters for Meson builds.
   #
   # @api public
-  sig { returns(T::Array[String]) }
-  def std_meson_args
-    ["--prefix=#{prefix}", "--libdir=#{lib}", "--buildtype=release", "--wrap-mode=nofallback"]
+  sig { params(prefix: T.any(String, Pathname), libdir: T.any(String, Pathname)).returns(T::Array[String]) }
+  def std_meson_args(prefix: self.prefix, libdir: "lib")
+    ["--prefix=#{prefix}", "--libdir=#{libdir}", "--buildtype=release", "--wrap-mode=nofallback"]
   end
 
   # Standard parameters for npm builds.

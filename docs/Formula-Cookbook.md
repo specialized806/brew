@@ -546,7 +546,7 @@ It also provides a convenient way to set `-ldflags`, `-gcflags`, and `-tags`, se
 
 ```ruby
 "--prefix=#{prefix}"
-"--libdir=#{lib}"
+"--libdir=lib"
 "--buildtype=release"
 "--wrap-mode=nofallback"
 ```
