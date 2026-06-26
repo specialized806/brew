@@ -20,6 +20,8 @@ RSpec.describe Superenv do
     it "sets unversioned CC/CXX on Linux", :needs_linux do
       expect(ENV.fetch("CC", nil)).to eq "gcc"
       expect(ENV.fetch("CXX", nil)).to eq "g++"
+      expect(ENV.fetch("OBJC", nil)).to eq "gcc"
+      expect(ENV.fetch("OBJCXX", nil)).to eq "g++"
     end
 
     # We keep versioned name on macOS as /usr/bin/gcc is Clang which may not
@@ -27,6 +29,8 @@ RSpec.describe Superenv do
     it "sets versioned CC/CXX on macOS", :needs_macos do
       expect(ENV.fetch("CC", nil)).to eq gcc
       expect(ENV.fetch("CXX", nil)).to eq gcc.sub("gcc", "g++")
+      expect(ENV.fetch("OBJC", nil)).to eq gcc
+      expect(ENV.fetch("OBJCXX", nil)).to eq gcc.sub("gcc", "g++")
     end
   end
 end

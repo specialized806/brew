@@ -102,8 +102,8 @@ module OS
         define_method("gcc-#{n}") do
           T.bind(self, OS::Linux::Superenv)
           super()
-          self["CC"] = "gcc"
-          self["CXX"] = "g++"
+          self["CC"] = self["OBJC"] = "gcc"
+          self["CXX"] = self["OBJCXX"] = "g++"
         end
       end
     end
