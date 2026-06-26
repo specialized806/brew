@@ -16,6 +16,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   sig { params(url: String, name: String, version: T.nilable(T.any(String, Version)), meta: T.untyped).void }
   def initialize(url, name, version, **meta)
     @try_partial = T.let(true, T::Boolean)
+    @expand_deferred_environment = T.let(false, T::Boolean)
     @mirrors = T.let(meta.fetch(:mirrors, []), T::Array[String])
     @file_size = T.let(nil, T.nilable(Integer))
     @last_modified = T.let(nil, T.nilable(Time))
@@ -261,6 +262,20 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
     curl_download resolved_url, to:, try_partial: @try_partial, timeout:
   end
 
+  sig { void }
+  def allow_deferred_environment_expansion!
+    @expand_deferred_environment = true
+  end
+
+  sig { params(args: T::Array[String]).returns(T::Array[String]) }
+  def expand_deferred_environment_args(args)
+    return args unless @expand_deferred_environment
+
+    with_context(deferred_environment_expansion: true) do
+      args.map { |arg| ENV.expand_deferred_environment(arg) }
+    end
+  end
+
   # Curl options to be always passed to curl,
   # with raw head calls (`curl --head`) or with actual `fetch`.
   sig { returns(T::Array[String]) }
@@ -273,7 +288,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
 
     args += ["--user", meta.fetch(:user)] if meta.key?(:user)
 
-    args += meta.fetch(:headers, []).flat_map { |h| ["--header", ENV.expand_deferred_environment(h).strip] }
+    args += expand_deferred_environment_args(meta.fetch(:headers, [])).flat_map { |h| ["--header", h.strip] }
 
     args
   end
@@ -285,7 +300,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
 
   sig { override.params(args: String, options: T.untyped).returns(SystemCommand::Result) }
   def curl_output(*args, **options)
-    super(*_curl_args, *args, **_curl_opts, **options)
+    super(*_curl_args, *expand_deferred_environment_args(args), **_curl_opts, **options)
   end
 
   sig {
@@ -294,6 +309,6 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   }
   def curl(*args, print_stdout: true, **options)
     options[:connect_timeout] = 15 unless mirrors.empty?
-    super(*_curl_args, *args, **_curl_opts, **command_output_options, **options)
+    super(*_curl_args, *expand_deferred_environment_args(args), **_curl_opts, **command_output_options, **options)
   end
 end

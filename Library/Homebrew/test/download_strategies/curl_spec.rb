@@ -36,8 +36,35 @@ RSpec.describe CurlDownloadStrategy do
 
     after { ENV.delete("HOMEBREW_PRIVATE_TOKEN") }
 
-    it "expands the placeholder to the real value at download time" do
-      expect(strategy.send(:_curl_args)).to include("PRIVATE-TOKEN: glpat-secret")
+    it "does not expand the placeholder outside Downloadable#fetch" do
+      expect(header).to include(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)
+      expect(strategy.send(:_curl_args)).to include(header)
+    end
+  end
+
+  context "with a deferred HOMEBREW_ secret in the URL" do
+    let(:url) do
+      ENV["HOMEBREW_PRIVATE_TOKEN"] = "glpat-secret"
+      ENV.clear_sensitive_environment_for_eval! do
+        "https://example.com/foo.tar.gz?private_token=#{ENV.fetch("HOMEBREW_PRIVATE_TOKEN", nil)}"
+      end
+    end
+
+    after { ENV.delete("HOMEBREW_PRIVATE_TOKEN") }
+
+    it "does not expand the placeholder outside Downloadable#fetch" do
+      expect(url).to include(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)
+      expect(strategy).to receive(:system_command)
+        .with(
+          /curl/,
+          hash_including(args: array_including(url)),
+        )
+        .at_least(:once)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "", assert_success!: nil))
+
+      strategy.temporary_path.dirname.mkpath
+      FileUtils.touch strategy.temporary_path
+      strategy.fetch
     end
   end
 

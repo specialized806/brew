@@ -134,7 +134,11 @@ module Downloadable
       raise ArgumentError, "attempted to use a `Downloadable` without a URL!" if primary_url.blank?
 
       download_strategy.new(primary_url, download_name, version,
-                            mirrors:, cache:, **T.must(@url).specs)
+                            mirrors:, cache:, **T.must(@url).specs).tap do |downloader|
+        if AbstractDownloadStrategy.expand_deferred_environment_for?(downloader)
+          downloader.send(:allow_deferred_environment_expansion!)
+        end
+      end
     end
   end
 

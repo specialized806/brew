@@ -7,6 +7,8 @@ RSpec.describe "ENV" do
   subject(:env) { {}.extend(EnvActivation).extend(described_class) }
 
   shared_examples EnvActivation do
+    include Context
+
     it "supports switching compilers" do
       subject.clang
       expect(subject["LD"]).to be_nil
@@ -188,20 +190,23 @@ RSpec.describe "ENV" do
     end
 
     describe "#clear_sensitive_environment_for_eval!" do
-      it "defers HOMEBREW_ secrets to a placeholder that expands to the real value" do
+      it "defers HOMEBREW_ secrets to a placeholder" do
         subject["HOMEBREW_PRIVATE_TOKEN"] = "glpat-secret"
 
         deferred = subject.clear_sensitive_environment_for_eval! { subject["HOMEBREW_PRIVATE_TOKEN"] }
 
         expect(deferred).not_to eq("glpat-secret")
         expect(deferred).not_to be_empty
-        expect(subject.expand_deferred_environment("PRIVATE-TOKEN: #{deferred}")).to eq("PRIVATE-TOKEN: glpat-secret")
+        expect(subject.expand_deferred_environment("PRIVATE-TOKEN: #{deferred}")).to eq("PRIVATE-TOKEN: #{deferred}")
       end
 
       it "never expands a non-HOMEBREW_ secret back to its real value" do
         subject["SECRET_TOKEN"] = "password"
         deferred = subject.clear_sensitive_environment_for_eval! { subject["SECRET_TOKEN"] }
-        expect(subject.expand_deferred_environment("X: #{deferred}")).not_to include("password")
+
+        with_context(deferred_environment_expansion: true) do
+          expect(subject.expand_deferred_environment("X: #{deferred}")).not_to include("password")
+        end
       end
 
       it "keeps HOMEBREW_GITHUB_API_TOKEN readable during eval" do
@@ -221,6 +226,16 @@ RSpec.describe "ENV" do
     describe "#expand_deferred_environment" do
       it "leaves values without a deferred placeholder unchanged" do
         expect(subject.expand_deferred_environment("PRIVATE-TOKEN: plain")).to eq("PRIVATE-TOKEN: plain")
+      end
+
+      it "expands placeholders only during download strategy fetches" do
+        subject["HOMEBREW_PRIVATE_TOKEN"] = "glpat-secret"
+        deferred = subject.clear_sensitive_environment_for_eval! { subject["HOMEBREW_PRIVATE_TOKEN"] }
+
+        with_context(deferred_environment_expansion: true) do
+          expect(subject.expand_deferred_environment("PRIVATE-TOKEN: #{deferred}"))
+            .to eq("PRIVATE-TOKEN: glpat-secret")
+        end
       end
     end
   end

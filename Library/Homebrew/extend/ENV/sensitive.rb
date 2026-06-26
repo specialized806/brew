@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "env_config"
+require "context"
 
 module EnvSensitive
   extend T::Helpers
@@ -68,6 +69,7 @@ module EnvSensitive
   sig { params(value: String).returns(String) }
   def expand_deferred_environment(value)
     return value unless value.include?(DEFERRED_PLACEHOLDER_PREFIX)
+    return value unless Context.current.deferred_environment_expansion?
 
     prefix = Regexp.escape(DEFERRED_PLACEHOLDER_PREFIX)
     suffix = Regexp.escape(DEFERRED_PLACEHOLDER_SUFFIX)
