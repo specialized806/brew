@@ -154,11 +154,6 @@ module Superenv
     self["HOMEBREW_CC"] = super
   end
 
-  sig { params(val: T.any(String, Pathname)).returns(String) }
-  def cxx=(val)
-    self["HOMEBREW_CXX"] = super
-  end
-
   sig { returns(String) }
   def determine_cxx
     determine_cc.to_s.gsub("gcc", "g++").gsub("clang", "clang++")
