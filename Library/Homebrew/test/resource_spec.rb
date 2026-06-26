@@ -149,6 +149,66 @@ RSpec.describe Resource do
     end
   end
 
+  describe "#fetch" do
+    let(:url) do
+      ENV["HOMEBREW_PRIVATE_TOKEN"] = "glpat-secret"
+      ENV.clear_sensitive_environment_for_eval! do
+        "https://example.com/foo.tar.gz?private_token=#{ENV.fetch("HOMEBREW_PRIVATE_TOKEN", nil)}"
+      end
+    end
+    let(:headers) do
+      {
+        "accept-ranges"  => "bytes",
+        "content-length" => "37182",
+      }
+    end
+
+    before do
+      resource.url(url)
+      allow(resource.downloader).to receive(:curl_headers).with(any_args)
+                                                          .and_return({ responses: [{ headers: }] })
+    end
+
+    after do
+      ENV.delete("HOMEBREW_PRIVATE_TOKEN")
+      resource.clear_cache
+    end
+
+    it "expands deferred environment placeholders while downloading" do
+      expect(url).to include(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)
+      expect(resource.downloader).to receive(:system_command)
+        .with(
+          /curl/,
+          hash_including(args: array_including("https://example.com/foo.tar.gz?private_token=glpat-secret")),
+        )
+        .at_least(:once)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "", assert_success!: nil))
+
+      resource.downloader.temporary_path.dirname.mkpath
+      FileUtils.touch resource.downloader.temporary_path
+      resource.fetch(verify_download_integrity: false)
+    end
+
+    it "does not expand placeholders for custom curl download strategies" do
+      expect(url).to include(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)
+      resource.url(url, using: Class.new(CurlDownloadStrategy))
+      allow(resource.downloader).to receive(:curl_headers).with(any_args)
+                                                          .and_return({ responses: [{ headers: }] })
+
+      expect(resource.downloader).to receive(:system_command)
+        .with(
+          /curl/,
+          hash_including(args: array_including(url)),
+        )
+        .at_least(:once)
+        .and_return(instance_double(SystemCommand::Result, success?: true, stdout: "", assert_success!: nil))
+
+      resource.downloader.temporary_path.dirname.mkpath
+      FileUtils.touch resource.downloader.temporary_path
+      resource.fetch(verify_download_integrity: false)
+    end
+  end
+
   describe "#stage" do
     let(:last_modified) { Time.utc(2026, 5, 6, 13, 43, 5) }
     let(:tarball) { TEST_FIXTURE_DIR/"tarballs/testball-0.1.tbz" }

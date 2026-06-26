@@ -40,3 +40,14 @@ require "download_strategy/mercurial_download_strategy"
 require "download_strategy/bazaar_download_strategy"
 require "download_strategy/fossil_download_strategy"
 require "download_strategy/download_strategy_detector"
+
+AbstractDownloadStrategy::HOMEBREW_CONTROLLED_STRATEGIES = T.let([
+  CurlApacheMirrorDownloadStrategy,
+  CurlDownloadStrategy,
+  CurlGitHubPackagesDownloadStrategy,
+  CurlPostDownloadStrategy,
+  HomebrewCurlDownloadStrategy,
+  NoUnzipCurlDownloadStrategy,
+  PyPIDownloadStrategy,
+].freeze, T::Array[T::Class[AbstractDownloadStrategy]])
+AbstractDownloadStrategy.private_constant :HOMEBREW_CONTROLLED_STRATEGIES

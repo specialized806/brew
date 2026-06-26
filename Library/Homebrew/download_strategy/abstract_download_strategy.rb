@@ -77,6 +77,11 @@ class AbstractDownloadStrategy
     Context.current.quiet? || @quiet || false
   end
 
+  sig { params(downloader: AbstractDownloadStrategy).returns(T::Boolean) }
+  def self.expand_deferred_environment_for?(downloader)
+    HOMEBREW_CONTROLLED_STRATEGIES.include?(downloader.class)
+  end
+
   # Unpack {#cached_location} into the current working directory.
   #
   # Additionally, if a block is given, the working directory was previously empty

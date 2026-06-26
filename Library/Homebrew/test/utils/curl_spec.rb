@@ -651,6 +651,22 @@ RSpec.describe "Utils::Curl" do
 
       curl_output("--location", "https://example.com/example.tar.gz")
     end
+
+    it "does not expand deferred environment placeholders" do
+      ENV["HOMEBREW_PRIVATE_TOKEN"] = "glpat-secret"
+      url = ENV.clear_sensitive_environment_for_eval! do
+        "https://example.com/example.tar.gz?private_token=#{ENV.fetch("HOMEBREW_PRIVATE_TOKEN", nil)}"
+      end
+
+      expect(self).to receive(:system_command).with(
+        /curl/,
+        hash_including(args: array_including(url)),
+      ).and_return(
+        instance_double(SystemCommand::Result, success?: true, stdout: ""),
+      )
+
+      curl_output(url)
+    end
   end
 
   describe "::http_status_ok?" do
