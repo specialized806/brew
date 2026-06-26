@@ -53,6 +53,25 @@ RSpec.describe RuboCop::Cop::Homebrew::FormulaPathMethods, :config do
     RUBY
   end
 
+  it "registers an offense and corrects scoped formula helpers in service blocks" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        service do
+          Utils::Path.formula_opt_bin("foo")/"foo"
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Use `formula_opt_bin("foo")` instead of `Utils::Path.formula_opt_bin("foo")`.
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      class Foo < Formula
+        service do
+          formula_opt_bin("foo")/"foo"
+        end
+      end
+    RUBY
+  end
+
   it "registers an offense and corrects `Formulary.factory` opt path calls" do
     expect_offense(<<~RUBY)
       Formulary.factory("foo").opt_prefix/"bin/foo"
@@ -162,6 +181,16 @@ RSpec.describe RuboCop::Cop::Homebrew::FormulaPathMethods, :config do
         Formula[dependency].any_version_installed?
       rescue FormulaUnavailableError
         false
+      end
+    RUBY
+  end
+
+  it "does not register an offense for scoped formula helpers outside service blocks" do
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        on_linux do
+          Utils::Path.formula_any_version_installed?("glibc")
+        end
       end
     RUBY
   end
