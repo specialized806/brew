@@ -154,6 +154,42 @@ RSpec.describe Patch do
     end
   end
 
+  describe ".ensure_targets_within!" do
+    let(:base) { Pathname("/tmp/brew-build") }
+
+    it "allows targets that stay within the source tree" do
+      expect { described_class.ensure_targets_within!("--- a/src/foo.c\n+++ b/src/foo.c\n", strip: :p1, base:) }
+        .not_to raise_error
+    end
+
+    it "allows /dev/null headers for added or deleted files" do
+      expect { described_class.ensure_targets_within!("--- /dev/null\n+++ b/new.c\n", strip: :p1, base:) }
+        .not_to raise_error
+    end
+
+    it "rejects a target that escapes via `..`" do
+      expect { described_class.ensure_targets_within!("--- a/../evil\n+++ a/../evil\n", strip: :p1, base:) }
+        .to raise_error(/escapes the staged source tree/)
+    end
+
+    it "rejects an absolute target that survives the strip level" do
+      expect { described_class.ensure_targets_within!("--- /etc/passwd\n+++ /etc/passwd\n", strip: :p0, base:) }
+        .to raise_error(/escapes the staged source tree/)
+    end
+
+    it "allows /dev/null with a space-separated timestamp" do
+      expect do
+        described_class.ensure_targets_within!("--- /dev/null 2024-01-01 10:00:00\n+++ b/new.c\n", strip: :p0, base:)
+      end
+        .not_to raise_error
+    end
+
+    it "rejects a tab-delimited header that escapes via `..`" do
+      expect { described_class.ensure_targets_within!("---\ta/../evil\n+++\ta/../evil\n", strip: :p1, base:) }
+        .to raise_error(/escapes the staged source tree/)
+    end
+  end
+
   describe "#resolves" do
     it "merges explicit resolves with CVEs inferred from url and apply paths" do
       patch = T.cast(described_class.create(:p1, nil) do
@@ -244,6 +280,17 @@ RSpec.describe Patch do
       end
 
       it(:cached_download) { expect(patch.cached_download).to eq("/tmp/foo.tar.gz") }
+    end
+  end
+
+  describe StringPatch do
+    it "refuses to apply a patch whose target escapes the source tree" do
+      patch = described_class.new(:p1, "--- a/../evil\n+++ a/../evil\n@@ -1 +1 @@\n-x\n+y\n")
+      mktmpdir do |dir|
+        Dir.chdir(dir) do
+          expect { patch.apply }.to raise_error(/escapes the staged source tree/)
+        end
+      end
     end
   end
 end
