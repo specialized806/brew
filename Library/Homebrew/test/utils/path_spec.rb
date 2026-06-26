@@ -32,6 +32,16 @@ RSpec.describe Utils::Path do
     end
   end
 
+  describe "::ensure_child_of!" do
+    it "allows a path that is a child of the parent" do
+      expect { described_class.ensure_child_of!("/foo", "/foo/bar", message: "outside") }.not_to raise_error
+    end
+
+    it "raises the provided message for a path that is not a child" do
+      expect { described_class.ensure_child_of!("/foo", "/bar/baz", message: "outside") }.to raise_error("outside")
+    end
+  end
+
   describe "::formula_opt_prefix" do
     it "returns a formula opt prefix without loading a Formula object" do
       expect(described_class.formula_opt_prefix("foo")).to eq(HOMEBREW_PREFIX/"opt/foo")
