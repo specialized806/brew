@@ -294,44 +294,6 @@ check-array-membership() {
   fi
 }
 
-rust-frontend-enabled() {
-  if [[ -z "${HOMEBREW_DEVELOPER:-}" ]]
-  then
-    return 1
-  elif [[ -z "${HOMEBREW_EXPERIMENTAL_RUST_FRONTEND:-}" ]]
-  then
-    return 1
-  fi
-
-  if [[ -n "${HOMEBREW_NO_INSTALL_FROM_API:-}" ]]
-  then
-    return 1
-  fi
-
-  case "${HOMEBREW_COMMAND}" in
-    autoremove | cleanup | fetch | search | info | list | outdated | postinstall | install | reinstall | update-report | upgrade | uninstall | rs-*) ;;
-    *) return 1 ;;
-  esac
-
-  if [[ -n "${HOMEBREW_MACOS}" ]]
-  then
-    if [[ "${HOMEBREW_PROCESSOR}" != "arm64" ]]
-    then
-      return 1
-    fi
-  elif [[ -n "${HOMEBREW_LINUX}" ]]
-  then
-    if [[ "${HOMEBREW_PROCESSOR}" != "arm64" && "${HOMEBREW_PROCESSOR}" != "x86_64" ]]
-    then
-      return 1
-    fi
-  else
-    return 1
-  fi
-
-  return 0
-}
-
 # These variables are set from various Homebrew scripts.
 # shellcheck disable=SC2154
 auto-update() {
@@ -1173,34 +1135,6 @@ unset SUDO
 
 # Remove internal variables
 unset HOMEBREW_INTERNAL_ALLOW_PACKAGES_FROM_PATHS
-
-if rust-frontend-enabled
-then
-  HOMEBREW_RUST_BREW_FILE="${HOMEBREW_LIBRARY}/Homebrew/vendor/brew-rs/brew-rs"
-  source "${HOMEBREW_LIBRARY}/Homebrew/cmd/vendor-install.sh"
-  if ! brew-rs-vendor-up-to-date
-  then
-    cargo_path="$(PATH="${HOMEBREW_PATH:-${PATH}}" command -v cargo)"
-    if [[ ! -x "${cargo_path}" ]]
-    then
-      opoo "HOMEBREW_EXPERIMENTAL_RUST_FRONTEND is set but cargo from the rust formula was not found; falling back to the Ruby frontend."
-    else
-      homebrew-vendor-install brew-rs || exit $?
-      # Close the vendor-install lock FD opened by the sourced helper.
-      exec 200>&-
-    fi
-  fi
-
-  if [[ -x "${HOMEBREW_RUST_BREW_FILE}" ]]
-  then
-    [[ "${HOMEBREW_ARG_COUNT}" -gt 0 ]] && set -- "${HOMEBREW_COMMAND}" "$@"
-
-    auto-update "$@"
-
-    opoo "using the experimental brew-rs Rust frontend."
-    exec "${HOMEBREW_RUST_BREW_FILE}" "$@"
-  fi
-fi
 
 if [[ -n "${HOMEBREW_BASH_COMMAND}" ]]
 then
