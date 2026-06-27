@@ -14,6 +14,13 @@ module Utils
       false
     end
 
+    sig { params(parent: T.any(Pathname, String), child: T.any(Pathname, String), message: String).void }
+    def self.ensure_child_of!(parent, child, message:)
+      return if child_of?(parent, child)
+
+      raise message
+    end
+
     # The stable install path for a given formula name.
     #
     # @api public

@@ -49,9 +49,10 @@ module Patch
       next if path == File::NULL
 
       relative = path.split("/").drop(strip_count).join("/")
-      next if Utils::Path.child_of?(base, base/relative)
-
-      raise "Patch target path escapes the staged source tree: #{path}"
+      Utils::Path.ensure_child_of!(
+        base, base/relative,
+        message: "Patch target path escapes the staged source tree: #{path}"
+      )
     end
   end
 
