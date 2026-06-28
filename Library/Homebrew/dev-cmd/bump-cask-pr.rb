@@ -519,7 +519,7 @@ module Homebrew
         if args.no_audit?
           ohai "Skipping `brew audit`"
         else
-          system HOMEBREW_BREW_FILE, "audit", "--cask", "--online", cask.full_name,
+          system HOMEBREW_BREW_FILE.to_s, "audit", "--cask", "--online", cask.full_name,
                  "--except=#{audit_exceptions.join(",")}"
           failed_audit = !$CHILD_STATUS.success?
         end
@@ -549,7 +549,7 @@ module Homebrew
         if args.no_style?
           ohai "Skipping `brew style --fix`"
         else
-          system HOMEBREW_BREW_FILE, "style", "--fix", sourcefile_path.to_s
+          system HOMEBREW_BREW_FILE.to_s, "style", "--fix", sourcefile_path.to_s
           failed_style = !$CHILD_STATUS.success?
         end
         return unless failed_style

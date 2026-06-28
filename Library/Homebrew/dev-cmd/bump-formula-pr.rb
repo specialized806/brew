@@ -812,10 +812,10 @@ module Homebrew
         if args.no_audit?
           ohai "Skipping `brew audit`"
         elsif audit_args.present?
-          system HOMEBREW_BREW_FILE, "audit", *audit_args, formula.full_name
+          system HOMEBREW_BREW_FILE.to_s, "audit", *audit_args, formula.full_name
           failed_audit = !$CHILD_STATUS.success?
         else
-          system HOMEBREW_BREW_FILE, "audit", formula.full_name
+          system HOMEBREW_BREW_FILE.to_s, "audit", formula.full_name
           failed_audit = !$CHILD_STATUS.success?
         end
         failed_audit
