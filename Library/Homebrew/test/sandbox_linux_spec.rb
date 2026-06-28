@@ -214,7 +214,7 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class).not_to receive(:ensure_sandbox_installed!)
       expect(sandbox_class).to receive(:ohai).with("Configuring Bubblewrap...").ordered
       expect(sandbox_class).to receive(:system)
-        .with("sudo", HOMEBREW_BREW_FILE, "setup-sandbox").and_return(true).ordered
+        .with("sudo", HOMEBREW_BREW_FILE.to_s, "setup-sandbox").and_return(true).ordered
 
       sandbox_class.configure!
     end
@@ -237,7 +237,7 @@ RSpec.describe Sandbox, :needs_linux do
         .with(install_from_tests: true)
       expect(sandbox_class).to receive(:ohai).with("Configuring Bubblewrap...").ordered
       expect(sandbox_class).to receive(:system)
-        .with(HOMEBREW_BREW_FILE, "setup-sandbox").and_return(true).ordered
+        .with(HOMEBREW_BREW_FILE.to_s, "setup-sandbox").and_return(true).ordered
 
       sandbox_class.configure!
     end
@@ -247,7 +247,7 @@ RSpec.describe Sandbox, :needs_linux do
       allow(Process).to receive(:euid).and_return(0)
       allow(sandbox_class).to receive(:ohai)
       expect(sandbox_class).to receive(:system)
-        .with(HOMEBREW_BREW_FILE, "setup-sandbox").and_return(false)
+        .with(HOMEBREW_BREW_FILE.to_s, "setup-sandbox").and_return(false)
 
       expect { sandbox_class.configure! }.to raise_error(ErrorDuringExecution)
     end

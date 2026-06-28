@@ -253,7 +253,7 @@ class Reporter
 
         ohai "Installing #{new_name}..."
         begin
-          system HOMEBREW_BREW_FILE, "install", "--overwrite", new_full_name
+          system HOMEBREW_BREW_FILE.to_s, "install", "--overwrite", new_full_name
         # Rescue any possible exception types.
         rescue Exception => e # rubocop:disable Lint/RescueException
           if Homebrew::EnvConfig.developer?
@@ -281,11 +281,11 @@ class Reporter
         if new_tap.installed? && (HOMEBREW_PREFIX/"Caskroom").directory?
           ohai migration_message
           ohai "brew unlink #{name}"
-          system HOMEBREW_BREW_FILE, "unlink", name
+          system HOMEBREW_BREW_FILE.to_s, "unlink", name
           ohai "brew cleanup"
-          system HOMEBREW_BREW_FILE, "cleanup"
+          system HOMEBREW_BREW_FILE.to_s, "cleanup"
           ohai "brew install --cask #{new_full_name}"
-          system HOMEBREW_BREW_FILE, "install", "--cask", new_full_name
+          system HOMEBREW_BREW_FILE.to_s, "install", "--cask", new_full_name
           ohai migration_message, <<~EOS
             The existing keg has been unlinked.
             Please uninstall the formula when convenient by running:
