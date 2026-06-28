@@ -459,8 +459,13 @@ module Homebrew
           Install.print_dry_run_dependencies(formula, formula_installer.compute_dependencies,
                                              skip_formula_names:) do |f|
             name = f.full_specified_name
-            if f.optlinked?
-              "#{name} #{Keg.new(f.opt_prefix).version} -> #{f.pkg_version}"
+            current_version = if f.optlinked?
+              Keg.new(f.opt_prefix).version
+            else
+              f.installed_kegs.map(&:version).max
+            end
+            if current_version && current_version != f.pkg_version
+              "#{name} #{current_version} -> #{f.pkg_version}"
             else
               "#{name} #{f.pkg_version}"
             end
