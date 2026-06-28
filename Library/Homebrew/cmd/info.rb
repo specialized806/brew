@@ -735,7 +735,7 @@ module Homebrew
 
         installed_lines = installed_section_lines(shadowing_formula || formula, verbose: args.verbose?)
         unless installed_lines.empty?
-          ohai "Installed Kegs and Versions"
+          ohai(args.verbose? ? "Installed Kegs and Versions" : "Installed Versions")
           installed_lines.each { |line| puts line }
         end
 
