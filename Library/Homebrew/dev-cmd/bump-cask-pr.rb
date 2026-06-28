@@ -168,7 +168,10 @@ module Homebrew
               commit_message += " (intel only)"
             end
           end
+
+          before_contents = new_contents
           new_contents = replace_version_and_checksum(cask, new_hash, new_version, new_contents)
+          raise "Unable to update cask" if new_contents == before_contents
         end
 
         commit_message ||= "#{cask.token}: update checksum" if new_hash
