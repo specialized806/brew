@@ -155,38 +155,65 @@ RSpec.describe Patch do
   end
 
   describe ".ensure_targets_within!" do
-    let(:base) { Pathname("/tmp/brew-build") }
-
     it "allows targets that stay within the source tree" do
-      expect { described_class.ensure_targets_within!("--- a/src/foo.c\n+++ b/src/foo.c\n", strip: :p1, base:) }
-        .not_to raise_error
+      mktmpdir do |base|
+        (base/"src").mkpath
+        (base/"src/foo.c").write("old\n")
+        patch = <<~EOS
+          --- a/src/foo.c
+          +++ b/src/foo.c
+          @@ -1 +1 @@
+          -old
+          +new
+        EOS
+
+        expect { described_class.ensure_targets_within!(patch, strip: :p1, base:) }.not_to raise_error
+      end
     end
 
     it "allows /dev/null headers for added or deleted files" do
-      expect { described_class.ensure_targets_within!("--- /dev/null\n+++ b/new.c\n", strip: :p1, base:) }
-        .not_to raise_error
-    end
+      mktmpdir do |base|
+        patch = <<~EOS
+          --- /dev/null
+          +++ b/new.c
+          @@ -0,0 +1 @@
+          +new
+        EOS
 
-    it "rejects a target that escapes via `..`" do
-      expect { described_class.ensure_targets_within!("--- a/../evil\n+++ a/../evil\n", strip: :p1, base:) }
-        .to raise_error(/escapes the staged source tree/)
-    end
-
-    it "rejects an absolute target that survives the strip level" do
-      expect { described_class.ensure_targets_within!("--- /etc/passwd\n+++ /etc/passwd\n", strip: :p0, base:) }
-        .to raise_error(/escapes the staged source tree/)
-    end
-
-    it "allows /dev/null with a space-separated timestamp" do
-      expect do
-        described_class.ensure_targets_within!("--- /dev/null 2024-01-01 10:00:00\n+++ b/new.c\n", strip: :p0, base:)
+        expect { described_class.ensure_targets_within!(patch, strip: :p1, base:) }.not_to raise_error
       end
-        .not_to raise_error
     end
 
-    it "rejects a tab-delimited header that escapes via `..`" do
-      expect { described_class.ensure_targets_within!("---\ta/../evil\n+++\ta/../evil\n", strip: :p1, base:) }
-        .to raise_error(/escapes the staged source tree/)
+    it "allows a context diff whose selected target stays within the source tree" do
+      mktmpdir do |base|
+        (base/"lib/sh").mkpath
+        (base/"lib/sh/foo.c").write("old\n")
+        patch = <<~EOS
+          *** ../pkg-1.0-patched/lib/sh/foo.c	2024-01-01
+          --- lib/sh/foo.c	2024-01-01
+          ***************
+          *** 1 ****
+          ! old
+          --- 1 ----
+          ! new
+        EOS
+
+        expect { described_class.ensure_targets_within!(patch, strip: :p0, base:) }.not_to raise_error
+      end
+    end
+
+    it "rejects an Index header that escapes via `..`", :needs_macos do
+      mktmpdir do |base|
+        patch = <<~EOS
+          Index: a/../escape.txt
+          ===================================================================
+          @@ -0,0 +1 @@
+          +owned
+        EOS
+
+        expect { described_class.ensure_targets_within!(patch, strip: :p1, base:) }
+          .to raise_error(/escapes the staged source tree/)
+      end
     end
   end
 
@@ -284,12 +311,107 @@ RSpec.describe Patch do
   end
 
   describe StringPatch do
-    it "refuses to apply a patch whose target escapes the source tree" do
-      patch = described_class.new(:p1, "--- a/../evil\n+++ a/../evil\n@@ -1 +1 @@\n-x\n+y\n")
+    it "applies a patch whose target stays within the source tree" do
+      patch = described_class.new(:p1, <<~EOS)
+        --- a/foo
+        +++ b/foo
+        @@ -1 +1 @@
+        -old
+        +new
+      EOS
       mktmpdir do |dir|
-        Dir.chdir(dir) do
-          expect { patch.apply }.to raise_error(/escapes the staged source tree/)
+        (dir/"source").mkpath
+        (dir/"source/foo").write("old\n")
+        Dir.chdir(dir/"source") { patch.apply }
+
+        expect((dir/"source/foo").read).to eq("new\n")
+      end
+    end
+
+    it "refuses to apply a patch whose target escapes the source tree" do
+      patch = described_class.new(:p1, <<~EOS)
+        Index: a/../evil
+        ===================================================================
+        @@ -0,0 +1 @@
+        +owned
+      EOS
+      mktmpdir do |dir|
+        (dir/"source").mkpath
+        Dir.chdir(dir/"source") do
+          expect { patch.apply }.to raise_error(StandardError)
         end
+        expect(dir/"evil").not_to exist
+      end
+    end
+
+    it "does not let a Perforce target escape the source tree" do
+      patch = described_class.new(:p1, <<~EOS)
+        ==== a/../evil ====
+        @@ -0,0 +1 @@
+        +owned
+      EOS
+      mktmpdir do |dir|
+        (dir/"source").mkpath
+        Dir.chdir(dir/"source") do
+          expect { patch.apply }.to raise_error(StandardError)
+        end
+        expect(dir/"evil").not_to exist
+      end
+    end
+
+    it "does not let a standard target escape the source tree" do
+      patch = described_class.new(:p1, <<~EOS)
+        --- a/../evil
+        +++ b/../evil
+        @@ -0,0 +1 @@
+        +owned
+      EOS
+      mktmpdir do |dir|
+        (dir/"source").mkpath
+        Dir.chdir(dir/"source") do
+          expect { patch.apply }.to raise_error(StandardError)
+        end
+        expect(dir/"evil").not_to exist
+      end
+    end
+
+    it "does not let an absolute target escape the source tree" do
+      mktmpdir do |dir|
+        (dir/"source").mkpath
+        escape = dir/"evil"
+        patch = described_class.new(:p0, <<~EOS)
+          Index: #{escape}
+          ===================================================================
+          @@ -0,0 +1 @@
+          +owned
+        EOS
+
+        Dir.chdir(dir/"source") do
+          expect { patch.apply }.to raise_error(StandardError)
+        end
+        expect(escape).not_to exist
+      end
+    end
+
+    it "does not let one escaping target in a multi-file patch escape the source tree" do
+      patch = described_class.new(:p1, <<~EOS)
+        --- a/decoy.c
+        +++ b/decoy.c
+        @@ -1 +1 @@
+        -old
+        +new
+        Index: a/../evil
+        ===================================================================
+        @@ -0,0 +1 @@
+        +owned
+      EOS
+      mktmpdir do |dir|
+        (dir/"source").mkpath
+        (dir/"source/decoy.c").write("old\n")
+        Dir.chdir(dir/"source") do
+          expect { patch.apply }.to raise_error(StandardError)
+        end
+        expect(dir/"evil").not_to exist
       end
     end
   end
