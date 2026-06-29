@@ -12,6 +12,24 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
 
   it_behaves_like "reinstall_pkgconf_if_needed"
 
+  # Simulate update.sh after a redirected fetch has advanced HEAD and origin/<branch>.
+  def setup_redirected_tap(name)
+    tap = Tap.fetch("allowed", name)
+    tap.path.mkpath
+    system "git", "-C", tap.path.to_s, "init"
+    system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://allowed.example/homebrew-#{name}"
+    (tap.path/"before").write("before")
+    system "git", "-C", tap.path.to_s, "add", "--all"
+    system "git", "-C", tap.path.to_s, "commit", "-q", "-m", "before"
+    before_revision = Utils.popen_read("git", "-C", tap.path.to_s, "rev-parse", "HEAD").chomp
+    (tap.path/"after").write("after")
+    system "git", "-C", tap.path.to_s, "add", "--all"
+    system "git", "-C", tap.path.to_s, "commit", "-q", "-m", "after"
+    branch = Utils.popen_read("git", "-C", tap.path.to_s, "symbolic-ref", "--short", "HEAD").chomp
+    system "git", "-C", tap.path.to_s, "update-ref", "refs/remotes/origin/#{branch}", "HEAD"
+    [tap, before_revision, branch]
+  end
+
   it "copies update revisions for redirected tap names" do
     redirected_remotes_file = mktmpdir/"redirected-remotes"
     redirected_remotes_file.write("/tmp/homebrew-foo\thttps://github.com/new/homebrew-foo.git\n")
@@ -38,6 +56,94 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
       expect(ENV.fetch("HOMEBREW_UPDATE_BEFORE_NEW_HOMEBREW_FOO")).to eq("123")
       expect(ENV.fetch("HOMEBREW_UPDATE_AFTER_NEW_HOMEBREW_FOO")).to eq("456")
     end
+  end
+
+  it "refuses an off-allowlist redirect and rolls the tap back to its pre-update revision" do
+    tap, before_revision, branch = setup_redirected_tap("foo")
+    redirected_remotes_file = mktmpdir/"redirected-remotes"
+    redirected_remotes_file.write("#{tap.path}\thttps://attacker.example/homebrew-foo\n")
+    allow(Homebrew::EnvConfig).to receive_messages(allowed_taps: "https://allowed.example/homebrew-foo",
+                                                   disable_load_formula?: true, no_install_from_api?: true)
+    update_report = described_class.new(["--quiet"])
+
+    with_env(
+      "HOMEBREW_REDIRECTED_REMOTES_FILE"                   => redirected_remotes_file.to_s,
+      "HOMEBREW_UPDATE_BEFORE"                             => "abc",
+      "HOMEBREW_UPDATE_AFTER"                              => "abc",
+      "HOMEBREW_UPDATE_BEFORE#{tap.repository_var_suffix}" => before_revision,
+    ) do
+      expect { update_report.run }.to raise_error(SystemExit)
+    end
+
+    expect(Utils.popen_read("git", "-C", tap.path, "rev-parse", "HEAD").chomp).to eq(before_revision)
+    expect(Utils.popen_read("git", "-C", tap.path, "rev-parse", "refs/remotes/origin/#{branch}").chomp)
+      .to eq(before_revision)
+    expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+      .to eq("https://allowed.example/homebrew-foo")
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"allowed"
+  end
+
+  it "rolls back every denied tap when several off-allowlist redirects are in the file" do
+    foo_tap, foo_before, foo_branch = setup_redirected_tap("foo")
+    bar_tap, bar_before, bar_branch = setup_redirected_tap("bar")
+    redirected_remotes_file = mktmpdir/"redirected-remotes"
+    redirected_remotes_file.write(
+      "#{foo_tap.path}\thttps://attacker.example/homebrew-foo\n" \
+      "#{bar_tap.path}\thttps://attacker.example/homebrew-bar\n",
+    )
+    allow(Homebrew::EnvConfig).to receive_messages(
+      allowed_taps:          "https://allowed.example/homebrew-foo https://allowed.example/homebrew-bar",
+      disable_load_formula?: true,
+      no_install_from_api?:  true,
+    )
+    update_report = described_class.new(["--quiet"])
+
+    with_env(
+      "HOMEBREW_REDIRECTED_REMOTES_FILE"                       => redirected_remotes_file.to_s,
+      "HOMEBREW_UPDATE_BEFORE"                                 => "abc",
+      "HOMEBREW_UPDATE_AFTER"                                  => "abc",
+      "HOMEBREW_UPDATE_BEFORE#{foo_tap.repository_var_suffix}" => foo_before,
+      "HOMEBREW_UPDATE_BEFORE#{bar_tap.repository_var_suffix}" => bar_before,
+    ) do
+      expect { update_report.run }.to raise_error(SystemExit)
+    end
+
+    expect(Utils.popen_read("git", "-C", foo_tap.path, "rev-parse", "HEAD").chomp).to eq(foo_before)
+    expect(Utils.popen_read("git", "-C", foo_tap.path, "rev-parse", "refs/remotes/origin/#{foo_branch}").chomp)
+      .to eq(foo_before)
+    expect(Utils.popen_read("git", "-C", bar_tap.path, "rev-parse", "HEAD").chomp).to eq(bar_before)
+    expect(Utils.popen_read("git", "-C", bar_tap.path, "rev-parse", "refs/remotes/origin/#{bar_branch}").chomp)
+      .to eq(bar_before)
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"allowed"
+  end
+
+  it "rolls back the remote-tracking ref for a denied redirect when HEAD is detached" do
+    tap, before_revision, branch = setup_redirected_tap("foo")
+    # Detached HEAD makes `symbolic-ref HEAD` empty, so the rollback must fall back to origin/HEAD.
+    system "git", "-C", tap.path.to_s, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/#{branch}"
+    system "git", "-C", tap.path.to_s, "checkout", "-q", "--detach", "HEAD"
+    redirected_remotes_file = mktmpdir/"redirected-remotes"
+    redirected_remotes_file.write("#{tap.path}\thttps://attacker.example/homebrew-foo\n")
+    allow(Homebrew::EnvConfig).to receive_messages(allowed_taps: "https://allowed.example/homebrew-foo",
+                                                   disable_load_formula?: true, no_install_from_api?: true)
+    update_report = described_class.new(["--quiet"])
+
+    with_env(
+      "HOMEBREW_REDIRECTED_REMOTES_FILE"                   => redirected_remotes_file.to_s,
+      "HOMEBREW_UPDATE_BEFORE"                             => "abc",
+      "HOMEBREW_UPDATE_AFTER"                              => "abc",
+      "HOMEBREW_UPDATE_BEFORE#{tap.repository_var_suffix}" => before_revision,
+    ) do
+      expect { update_report.run }.to raise_error(SystemExit)
+    end
+
+    expect(Utils.popen_read("git", "-C", tap.path, "rev-parse", "HEAD").chomp).to eq(before_revision)
+    expect(Utils.popen_read("git", "-C", tap.path, "rev-parse", "refs/remotes/origin/#{branch}").chomp)
+      .to eq(before_revision)
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"allowed"
   end
 
   describe Reporter do

@@ -70,13 +70,30 @@ module Homebrew
           redirected_remotes_path = Pathname(redirected_remotes_file)
           if redirected_remotes_path.file?
             begin
+              denied_redirects = []
               redirected_remotes_path.each_line do |line|
                 tap_path, redirected_remote = line.chomp.split("\t", 2)
                 next if tap_path.blank? || redirected_remote.blank?
                 next unless (tap = Tap.from_path(tap_path))
 
                 old_repository_var_suffix = tap.repository_var_suffix
-                tap.apply_redirected_remote!(redirected_remote, quiet: args.quiet?)
+                begin
+                  tap.apply_redirected_remote!(redirected_remote, quiet: args.quiet?)
+                rescue TapRedirectNotAllowedError => e
+                  # update.sh may already have merged redirected content, so roll back every denied tap.
+                  before_revision = ENV.fetch("HOMEBREW_UPDATE_BEFORE#{old_repository_var_suffix}", nil)
+                  if before_revision.present? && tap.installed?
+                    git_args = ["-C", tap.path.to_s]
+                    safe_system "git", *git_args, "reset", "--hard", "-q", before_revision
+                    branch = Utils.popen_read("git", *git_args, "symbolic-ref", "--short", "-q", "HEAD").chomp
+                    branch = branch.presence || tap.git_repository.origin_branch_name
+                    if branch.present?
+                      safe_system "git", *git_args, "update-ref", "refs/remotes/origin/#{branch}", before_revision
+                    end
+                  end
+                  denied_redirects << e.message
+                  next
+                end
                 new_repository_var_suffix = tap.repository_var_suffix
                 next if old_repository_var_suffix == new_repository_var_suffix
 
@@ -88,6 +105,7 @@ module Homebrew
                   ENV["#{prefix}#{new_repository_var_suffix}"] ||= old_value
                 end
               end
+              odie denied_redirects.join("\n\n") if denied_redirects.any?
             ensure
               redirected_remotes_path.unlink if redirected_remotes_path.exist?
             end
