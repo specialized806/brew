@@ -552,26 +552,47 @@ class Tap
     return if old_remote.present? && self.class.same_remote?(old_remote, redirected_remote)
 
     redirected_reference = self.class.remote_to_reference(redirected_remote)
-    if redirected_reference.present? && !self.class.remote_reference?(redirected_reference)
-      redirected_tap = Tap.fetch(redirected_reference)
-      if redirected_tap.name != name && !redirected_tap.installed?
-        old_path = path
-        redirected_tap.path.dirname.mkpath
-        FileUtils.mv(old_path, redirected_tap.path)
-        old_path.parent.rmdir_if_possible
-
-        @user = redirected_tap.user
-        @repository = redirected_tap.repository
-        @name = redirected_tap.name
-        @full_repository = redirected_tap.full_repository
-        @full_name = redirected_tap.full_name
-        @path = redirected_tap.path
-        @git_repository = GitRepository.new(@path)
-        clear_cache
-      end
+    redirected_tap = if redirected_reference.present? && !self.class.remote_reference?(redirected_reference)
+      Tap.fetch(redirected_reference)
     end
 
-    safe_system "git", "-C", path, "remote", "set-url", "origin", redirected_remote
+    # Redirect targets must pass the same allow/forbid checks as requested remotes.
+    redirect_target = redirected_tap || self
+    redirect_allowed = redirect_target.allowed_by_env?(remote: redirected_remote)
+    redirect_forbidden = redirect_target.forbidden_by_env?(remote: redirected_remote)
+    if !redirect_allowed || redirect_forbidden
+      owner = Homebrew::EnvConfig.forbidden_owner
+      owner_contact = if (contact = Homebrew::EnvConfig.forbidden_owner_contact.presence)
+        "\n#{contact}"
+      end
+
+      error_message = "#{old_name} was redirected to #{redirected_remote} but #{owner}\n"
+      error_message << "has not allowed this tap in `$HOMEBREW_ALLOWED_TAPS`" unless redirect_allowed
+      error_message << " and\n" if !redirect_allowed && redirect_forbidden
+      error_message << "has forbidden this tap in `$HOMEBREW_FORBIDDEN_TAPS`" if redirect_forbidden
+      error_message << ".#{owner_contact}"
+
+      raise TapRedirectNotAllowedError, error_message
+    end
+
+    if redirected_tap && redirected_tap.name != name && !redirected_tap.installed?
+      old_path = path
+      redirected_tap.path.dirname.mkpath
+      FileUtils.mv(old_path, redirected_tap.path)
+      old_path.parent.rmdir_if_possible
+
+      @user = redirected_tap.user
+      @repository = redirected_tap.repository
+      @name = redirected_tap.name
+      @full_repository = redirected_tap.full_repository
+      @full_name = redirected_tap.full_name
+      @path = redirected_tap.path
+      @git_repository = GitRepository.new(@path)
+      clear_cache
+    end
+
+    # `--` guards against a redirect value that begins with `-` being treated as a `git` option.
+    safe_system "git", "-C", path, "remote", "set-url", "origin", "--", redirected_remote
     clear_cache
     Tap.clear_cache
 

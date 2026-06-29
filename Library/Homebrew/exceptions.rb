@@ -485,6 +485,9 @@ class TapNoCustomRemoteError < RuntimeError
   end
 end
 
+# Raised when a Git redirect targets a disallowed or forbidden tap remote.
+class TapRedirectNotAllowedError < RuntimeError; end
+
 # Raised when another Homebrew operation is already in progress.
 class OperationInProgressError < RuntimeError
   sig { params(locked_path: Pathname).void }

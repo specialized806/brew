@@ -622,6 +622,81 @@ RSpec.describe Tap do
       CoreCaskTap.instance.clear_cache
       FileUtils.rm_rf CoreCaskTap.instance.path
     end
+
+    it "refuses an off-allowlist redirect and preserves the original remote" do
+      allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("https://allowed.example/homebrew-foo")
+      tap = described_class.fetch("allowed", "foo")
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://allowed.example/homebrew-foo"
+
+      expect do
+        tap.update_remote_from_git_redirect!(
+          "warning: redirecting to https://attacker.example/homebrew-foo\n",
+          quiet: true,
+        )
+      end.to raise_error(TapRedirectNotAllowedError)
+      expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+        .to eq("https://allowed.example/homebrew-foo")
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"allowed"
+    end
+
+    it "refuses a redirect to a forbidden tap and preserves the original remote" do
+      allow(Homebrew::EnvConfig).to receive(:forbidden_taps).and_return("attacker/foo")
+      tap = described_class.fetch("oldowner", "foo")
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://github.com/oldowner/homebrew-foo"
+
+      expect do
+        tap.update_remote_from_git_redirect!(
+          "warning: redirecting to https://github.com/attacker/homebrew-foo\n",
+          quiet: true,
+        )
+      end.to raise_error(TapRedirectNotAllowedError)
+      expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+        .to eq("https://github.com/oldowner/homebrew-foo")
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"oldowner"
+    end
+
+    it "applies a redirect to a tap allowed by name", :trust_store do
+      allow(Homebrew::EnvConfig).to receive(:allowed_taps).and_return("newowner/foo")
+      tap = described_class.fetch("oldowner", "foo")
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://github.com/oldowner/homebrew-foo"
+
+      tap.update_remote_from_git_redirect!(
+        "warning: redirecting to https://github.com/newowner/homebrew-foo\n",
+        quiet: true,
+      )
+
+      expect(tap.name).to eq("newowner/foo")
+      expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+        .to eq("https://github.com/newowner/homebrew-foo")
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"oldowner"
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"newowner"
+    end
+
+    it "treats a redirect beginning with a dash as a URL, not a git option", :trust_store do
+      tap = described_class.fetch("dashy", "foo")
+      tap.path.mkpath
+      system "git", "-C", tap.path.to_s, "init"
+      system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://github.com/dashy/homebrew-foo"
+
+      tap.update_remote_from_git_redirect!(
+        "warning: redirecting to -u:evil\n",
+        quiet: true,
+      )
+
+      expect(Utils.popen_read("git", "-C", tap.path, "config", "remote.origin.url").chomp)
+        .to eq("-u:evil")
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"dashy"
+    end
   end
 
   specify "Git variant" do
