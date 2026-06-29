@@ -10,7 +10,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
       described_class.reset!
     end
 
-    it "returns started services" do
+    it "returns started services", :needs_daemon_manager do
       allow(Utils).to receive(:safe_popen_read).and_return <<~JSON
         [
           {
@@ -30,7 +30,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
       expect(described_class.started_services).to contain_exactly("nginx", "mysql")
     end
 
-    it "returns empty array when no services exist" do
+    it "returns empty array when no services exist", :needs_daemon_manager do
       allow(Utils).to receive(:safe_popen_read).and_return("[]\n")
       expect(described_class.started_services).to eq([])
     end

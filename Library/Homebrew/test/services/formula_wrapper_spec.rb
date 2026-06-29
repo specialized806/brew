@@ -5,7 +5,7 @@ require "services/system"
 require "services/formula_wrapper"
 require "tempfile"
 
-RSpec.describe Homebrew::Services::FormulaWrapper do
+RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   subject(:service) { described_class.new(formula) }
 
   let(:formula) do
