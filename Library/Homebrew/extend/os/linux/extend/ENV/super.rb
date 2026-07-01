@@ -5,6 +5,7 @@ module OS
   module Linux
     module Superenv
       extend T::Helpers
+      include CompilerConstants
 
       requires_ancestor { SharedEnvExtension }
       requires_ancestor { ::Superenv }
@@ -95,6 +96,15 @@ module OS
         return unless File.readable? path
 
         path
+      end
+
+      GNU_GCC_VERSIONS.each do |n|
+        define_method("gcc-#{n}") do
+          T.bind(self, OS::Linux::Superenv)
+          super()
+          self["CC"] = self["OBJC"] = "gcc"
+          self["CXX"] = self["OBJCXX"] = "g++"
+        end
       end
     end
   end
