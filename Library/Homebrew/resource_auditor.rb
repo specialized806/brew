@@ -183,7 +183,7 @@ module Homebrew
     def audit_urls
       urls = [url.to_s] + mirrors
 
-      curl_dep = self.class.curl_deps.include?(owner!.name)
+      curl_dep = curl_dep?
       # Ideally `ca-certificates` would not be excluded here, but sourcing a HTTP mirror was tricky.
       # Instead, we have logic elsewhere to pass `--insecure` to curl when downloading the certs.
       # TODO: try remove the OS/env conditional
@@ -232,6 +232,44 @@ module Homebrew
       end
     end
 
+    # `curl` dependencies must be fetchable before `ca-certificates`, so at least
+    # one mirror must serve the expected file over plain HTTP.
+    sig { void }
+    def audit_curl_dep_http_mirror
+      return unless @online
+      return if spec_name != :stable
+      # Only audit the formula's own source, not its `resource` blocks.
+      return if name != owner!.name
+      return unless curl_dep?
+
+      checksum = self.checksum
+      return if checksum.nil?
+
+      http_mirrors = mirrors.select { |mirror| mirror.start_with?("http://") }
+      return if http_mirrors.empty?
+
+      working_mirror = http_mirrors.find do |mirror|
+        details = curl_http_content_headers_and_checksum(
+          mirror,
+          hash_needed:       true,
+          use_homebrew_curl: @use_homebrew_curl,
+          # Fail rather than follow an HTTPS redirect, so a successful request
+          # with a matching checksum proves the bytes came over plain HTTP.
+          specs:             { proto_redir: "=http" },
+        )
+
+        # Reject an explicit HTTPS `final_url` as defence-in-depth; a relative or
+        # HTTP `Location` from an HTTP-to-HTTP redirect is fine.
+        http_status_ok?(details[:status_code]) &&
+          !details[:final_url].to_s.start_with?("https://") &&
+          details[:file_hash] == checksum.hexdigest
+      end
+      return if working_mirror
+
+      problem "`curl` dependencies must have a working HTTP mirror that serves " \
+              "the expected checksum over plain HTTP."
+    end
+
     sig { void }
     def audit_head_branch
       return unless @online
@@ -263,6 +301,11 @@ module Homebrew
     end
 
     private
+
+    sig { returns(T::Boolean) }
+    def curl_dep?
+      self.class.curl_deps.include?(owner!.name)
+    end
 
     sig { returns(Resource::Owner) }
     def owner!
