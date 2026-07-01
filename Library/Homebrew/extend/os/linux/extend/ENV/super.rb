@@ -13,7 +13,7 @@ module OS
       module ClassMethods
         sig { returns(::Pathname) }
         def shims_path
-          HOMEBREW_SHIMS_PATH/"linux/super"
+          HOMEBREW_SHIMS_PATH/"linux/super/bin"
         end
 
         sig { returns(T.nilable(::Pathname)) }
