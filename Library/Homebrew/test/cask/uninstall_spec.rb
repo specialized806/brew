@@ -12,7 +12,7 @@ RSpec.describe Cask::Uninstall, :cask do
 
       output = Regexp.new <<~EOS
         ==> Uninstalling Cask local-caffeine
-        ==> Backing Up App 'Caffeine.app' to '.*Caffeine.app'
+        ==> Backing up App 'Caffeine.app' to '.*Caffeine.app'
         ==> Removing App '.*Caffeine.app'
         ==> Purging files for version 1.2.3 of Cask local-caffeine
       EOS

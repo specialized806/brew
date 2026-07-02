@@ -210,7 +210,7 @@ module Cask
           raise CaskError, "It seems the #{self.class.english_name} source '#{target}' is not there."
         end
 
-        ohai "Backing Up #{self.class.english_name} '#{target.basename}' to '#{source}'"
+        ohai "Backing up #{self.class.english_name} '#{target.basename}' to '#{source}'"
         source.dirname.mkpath
 
         # We need to preserve extended attributes between copies.
