@@ -20,7 +20,7 @@ pathremove() {
 }
 
 SAVED_PATH="${PATH}"
-pathremove "${HOMEBREW_LIBRARY}/Homebrew/shims/linux/super"
+pathremove "${HOMEBREW_LIBRARY}/Homebrew/shims/linux/super/bin"
 MAKE="$(command -v make)"
 export MAKE
 export PATH="${SAVED_PATH}"

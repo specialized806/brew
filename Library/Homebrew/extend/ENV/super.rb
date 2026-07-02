@@ -271,6 +271,7 @@ module Superenv
   sig { returns(T.nilable(PATH)) }
   def determine_cmake_prefix_path
     PATH.new(
+      Superenv.bin&.parent,
       keg_only_deps.map(&:opt_prefix),
       HOMEBREW_PREFIX.to_s,
     ).existing
