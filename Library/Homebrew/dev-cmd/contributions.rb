@@ -213,7 +213,7 @@ module Homebrew
           person:       String,
           from:         String,
           to:           String,
-        ).returns(T::Hash[Symbol, T.untyped])
+        ).returns(T::Hash[String, T::Hash[Symbol, Integer]])
       }
       def scan_repositories(organisation, repositories, person, from:, to:)
         data = {}
@@ -266,7 +266,7 @@ module Homebrew
         data
       end
 
-      sig { params(results: T::Hash[Symbol, T.untyped]).returns(T::Hash[Symbol, Integer]) }
+      sig { params(results: T::Hash[String, T::Hash[Symbol, Integer]]).returns(T::Hash[Symbol, Integer]) }
       def total(results)
         totals = {}
 
