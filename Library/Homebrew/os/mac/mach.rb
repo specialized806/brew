@@ -10,8 +10,6 @@ module MachOShim
 
   requires_ancestor { Pathname }
 
-  delegate [:dylib_id] => :macho
-
   sig { params(args: T.untyped).void }
   def initialize(*args)
     @macho = T.let(nil, T.nilable(T.any(MachO::MachOFile, MachO::FatFile)))
@@ -19,6 +17,9 @@ module MachOShim
 
     super
   end
+
+  sig { returns(T.nilable(String)) }
+  def dylib_id = macho.dylib_id
 
   sig { returns(T.any(MachO::MachOFile, MachO::FatFile)) }
   def macho
