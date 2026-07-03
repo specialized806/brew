@@ -1278,6 +1278,69 @@ RSpec.describe Homebrew::FormulaAuditor do
         it(:problems) { expect(f_a.problems).to be_empty }
       end
     end
+
+    describe "when formula lacks OS requirement but has OS-specific dependency" do
+      subject(:f_a) { fa }
+
+      let(:fa) do
+        formula_auditor "foo", <<~RUBY, core_tap: true
+          class Foo < Formula
+            url "https://brew.sh/foo-1.0.tgz"
+            homepage "https://brew.sh"
+
+            depends_on "os-only"
+          end
+        RUBY
+      end
+
+      before do
+        allow(fa.formula.deps.first).to receive(:to_formula).and_return(f_os_only)
+      end
+
+      describe "for macOS when running on Linux" do
+        let(:f_os_only) do
+          formula do
+            T.bind(self, T.class_of(Formula))
+            url "https://brew.sh/os-only-1.0.tgz"
+            homepage "https://brew.sh"
+
+            depends_on :macos
+          end
+        end
+
+        around do |example|
+          Homebrew::SimulateSystem.with(os: :linux) do
+            example.run
+          end
+        end
+
+        it "reports missing requirement" do
+          fa.audit_deps
+          expect(f_a.problems).to include(a_hash_including(message: a_string_matching(/has a macOS requirement/)))
+        end
+      end
+
+      describe "for Linux when running on macOS" do
+        let(:f_os_only) do
+          formula do
+            T.bind(self, T.class_of(Formula))
+            url "https://brew.sh/os-only-1.0.tgz"
+            homepage "https://brew.sh"
+
+            depends_on :linux
+          end
+        end
+
+        before do
+          allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_linux?).and_return(false)
+        end
+
+        it "reports missing requirement" do
+          fa.audit_deps
+          expect(f_a.problems).to include(a_hash_including(message: a_string_matching(/has a Linux requirement/)))
+        end
+      end
+    end
   end
 
   describe "#audit_stable_version" do
