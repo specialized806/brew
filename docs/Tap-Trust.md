@@ -9,7 +9,7 @@ can run Ruby code from the tap, so Homebrew distinguishes between official taps
 and non-official taps that you have explicitly trusted.
 
 Official Homebrew taps and Homebrew's built-in commands are always trusted.
-Non-official require explicit trust [since Homebrew 6.0.0](
+Non-official taps require explicit trust [since Homebrew 6.0.0](
 https://brew.sh/2026/06/11/homebrew-6.0.0/).
 
 `brew doctor` warns about non-official taps that are not trusted, and install
