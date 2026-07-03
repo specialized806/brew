@@ -5,7 +5,4 @@
 # Please instead update this file by running `bin/tapioca dsl MachOShim`.
 
 
-module MachOShim
-  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
-  def dylib_id(*args, &block); end
-end
+module MachOShim; end

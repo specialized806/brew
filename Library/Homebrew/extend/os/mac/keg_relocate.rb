@@ -30,8 +30,8 @@ module OS
             modified = T.let(false, T::Boolean)
             needs_codesigning = T.let(false, T::Boolean)
 
-            if file.dylib?
-              id = relocated_name_for(file.dylib_id, relocation)
+            if file.dylib? && (dylib_id = file.dylib_id)
+              id = relocated_name_for(dylib_id, relocation)
               modified = change_dylib_id(id, file) if id
               needs_codesigning ||= modified
             end
@@ -150,15 +150,16 @@ module OS
 
       sig { params(file: MachOShim).returns(String) }
       def dylib_id_for(file)
+        dylib_id = T.must(file.dylib_id)
         # Swift dylib IDs should be /usr/lib/swift
-        return file.dylib_id if file.dylib_id.start_with?("/usr/lib/swift/libswift")
+        return dylib_id if dylib_id.start_with?("/usr/lib/swift/libswift")
 
         # Preserve @rpath install names if the formula has specified preserve_rpath
-        return file.dylib_id if file.dylib_id.start_with?("@rpath") && formula_preserve_rpath?
+        return dylib_id if dylib_id.start_with?("@rpath") && formula_preserve_rpath?
 
         # The new dylib ID should have the same basename as the old dylib ID, not
         # the basename of the file itself.
-        basename = File.basename(file.dylib_id)
+        basename = File.basename(dylib_id)
         relative_dirname = file.dirname.relative_path_from(path)
         (opt_record/relative_dirname/basename).to_s
       end

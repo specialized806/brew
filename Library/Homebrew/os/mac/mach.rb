@@ -5,12 +5,9 @@ require "macho"
 
 # {Pathname} extension for dealing with Mach-O files.
 module MachOShim
-  extend Forwardable
   extend T::Helpers
 
   requires_ancestor { Pathname }
-
-  delegate [:dylib_id] => :macho
 
   sig { params(args: T.untyped).void }
   def initialize(*args)
@@ -19,6 +16,9 @@ module MachOShim
 
     super
   end
+
+  sig { returns(T.nilable(String)) }
+  def dylib_id = macho.dylib_id
 
   sig { returns(T.any(MachO::MachOFile, MachO::FatFile)) }
   def macho
