@@ -1115,7 +1115,7 @@ bin.write_jar_script libexec/jar_file, "jarfile", java_version: "11"
 * For binaries that require setting one or more environment variables to function properly, use [`write_env_script`](/rubydoc/Pathname.html#write_env_script-instance_method) or [`env_script_all_files`](/rubydoc/Pathname.html#env_script_all_files-instance_method):
 
 ```ruby
-(bin/"package").write_env_script libexec/"package", PACKAGE_ROOT: libexec
+(bin/"binary").write_env_script libexec/"bin/binary", PACKAGE_ROOT: libexec
 bin.env_script_all_files(libexec/"bin", PERL5LIB: ENV.fetch("PERL5LIB", nil))
 ```
 
