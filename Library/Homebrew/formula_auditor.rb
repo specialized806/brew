@@ -425,10 +425,10 @@ module Homebrew
 
           # we can only verify the OS requirement of the currently running platform
           os_req = if Homebrew::SimulateSystem.simulating_or_running_on_linux? &&
-                      !dep_f.supports_linux? && formula.supports_linux?
+                      !dep_f.supports_linux? && !spec.depends_on_macos_set_top_level?
             "macOS"
           elsif Homebrew::SimulateSystem.simulating_or_running_on_macos? &&
-                !dep_f.supports_macos? && formula.supports_macos?
+                !dep_f.supports_macos? && !spec.depends_on_linux_set_top_level?
             "Linux"
           end
           problem <<~EOS if os_req
