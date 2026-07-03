@@ -774,7 +774,12 @@ on_request: installed_on_request?, options:)
   def expand_dependencies_for_formula(formula)
     # Cache for this expansion only. FormulaInstaller has a lot of inputs which can alter expansion.
     cache_key = "FormulaInstaller-#{formula.full_name}-#{Time.now.to_f}"
-    Dependency.expand(formula, cache_key:) do |dependent, dep|
+    formula_cache = T.let({}, T::Hash[Dependency, Formula])
+    satisfied_cache = T.let(
+      {},
+      T::Hash[T::Array[T.nilable(T.any(Dependency, String, Integer))], T::Boolean],
+    )
+    Dependency.expand(formula, cache_key:, formula_cache:) do |dependent, dep|
       dependent = T.cast(dependent, Formula)
       build = effective_build_options_for(dependent)
 
@@ -788,11 +793,19 @@ on_request: installed_on_request?, options:)
       minimum_revision = @bottle_tab_runtime_dependencies.dig(dep.name, "revision")&.to_i
       bottle_os_version = @bottle_built_os_version
 
-      if dep.prune_from_option?(build) || ((dep.build? || dep.test?) && !keep_build_test)
-        next Dependable::PRUNE
-      elsif dep.satisfied?(minimum_version:, minimum_revision:, bottle_os_version:)
-        next Dependable::SKIP
+      next Dependable::PRUNE if dep.prune_from_option?(build) || ((dep.build? || dep.test?) && !keep_build_test)
+
+      satisfied_cache_key = T.let([
+        dep,
+        minimum_version&.to_s,
+        minimum_revision,
+        bottle_os_version,
+      ], T::Array[T.nilable(T.any(Dependency, String, Integer))])
+      satisfied = satisfied_cache.fetch(satisfied_cache_key) do
+        satisfied_cache[satisfied_cache_key] = dep.satisfied?(minimum_version:, minimum_revision:, bottle_os_version:)
       end
+
+      next Dependable::SKIP if satisfied
     end
   end
 
