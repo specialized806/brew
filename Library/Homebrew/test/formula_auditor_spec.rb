@@ -1331,8 +1331,10 @@ RSpec.describe Homebrew::FormulaAuditor do
           end
         end
 
-        before do
-          allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_linux?).and_return(false)
+        around do |example|
+          Homebrew::SimulateSystem.with(os: :macos) do
+            example.run
+          end
         end
 
         it "reports missing requirement" do
