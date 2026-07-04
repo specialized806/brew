@@ -9,10 +9,12 @@ require "utils/output"
 
 require "api/cask_download"
 require "cask/config"
+require "cask/dsl"
 require "cask/download"
 require "cask/migrator"
 require "cask/quarantine"
 require "cask/tab"
+require "trust"
 
 module Cask
   # Installer for a {Cask}.
@@ -56,6 +58,7 @@ module Cask
       @download_queue = download_queue
       @defer_fetch = defer_fetch
       @source_download = T.let(nil, T.nilable(Homebrew::API::SourceDownload))
+      @default_uninstall_artifacts = T.let(nil, T.nilable(ArtifactSet))
       @ran_prelude_fetch = T.let(false, T::Boolean)
       @ran_prelude = T.let(false, T::Boolean)
       @cask_and_formula_dependencies = T.let(nil, T.nilable(T::Array[T.any(Formula, ::Cask::Cask)]))
@@ -272,7 +275,7 @@ on_request: true)
 
     sig { returns(ArtifactSet) }
     def artifacts
-      @cask.artifacts
+      @default_uninstall_artifacts || @cask.artifacts
     end
 
     sig { params(to: Pathname).void }
@@ -1000,6 +1003,44 @@ on_request: true)
       installed_caskfile = @cask.installed_caskfile
 
       if installed_caskfile&.exist?
+        tab = @cask.tab
+        tap = tab.tap
+        if installed_caskfile.extname == ".rb" &&
+           Homebrew::EnvConfig.require_tap_trust? &&
+           tap &&
+           !Homebrew::Trust.trusted?(:cask, "#{tap.name}/#{@cask.token}")
+          opoo "Skipping loading untrusted Cask #{tap.name}/#{@cask.token}; uninstalling recorded artifacts only."
+
+          dsl = DSL.new(@cask)
+          default_uninstall_artifact_keys = DSL::ACTIVATABLE_ARTIFACT_CLASSES.filter_map do |klass|
+            next if [Artifact::Uninstall, Artifact::Zap].include?(klass)
+            next if !klass.method_defined?(:uninstall_phase) && !klass.method_defined?(:post_uninstall_phase)
+
+            klass.dsl_key
+          end.to_set
+          Array(tab.uninstall_artifacts).each do |artifact_entry|
+            next unless artifact_entry.is_a?(Hash)
+
+            artifact_entry.each do |raw_key, raw_args|
+              dsl_key = raw_key.to_sym
+              next unless default_uninstall_artifact_keys.include?(dsl_key)
+
+              args = Array(raw_args)
+              if args.last.is_a?(Hash)
+                dsl.public_send(
+                  dsl_key,
+                  *args[...-1],
+                  **T.cast(args.last, T::Hash[T.any(Symbol, String), T.anything]).transform_keys(&:to_sym),
+                )
+              else
+                dsl.public_send(dsl_key, *args)
+              end
+            end
+          end
+          @default_uninstall_artifacts = dsl.artifacts
+          return
+        end
+
         begin
           @cask = CaskLoader.load_from_installed_caskfile(installed_caskfile)
           return
