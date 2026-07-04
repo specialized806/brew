@@ -341,6 +341,76 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#expand_dependencies_for_formula" do
+    it "checks equal dependency satisfaction once per expansion" do
+      shared_formula = instance_double(Formula, deps: [], name: "shared", full_name: "shared")
+      shared_dep = Dependency.new("shared")
+      repeated_shared_dep = Dependency.new("shared")
+      expect(shared_dep).to receive(:satisfied?).once.and_return(false)
+      expect(repeated_shared_dep).not_to receive(:satisfied?)
+      allow(shared_dep).to receive(:to_formula).and_return(shared_formula)
+      allow(repeated_shared_dep).to receive(:to_formula).and_return(shared_formula)
+
+      first_parent = Dependency.new("first-parent")
+      first_parent_formula = instance_double(Formula, deps: [shared_dep], name: "first-parent",
+                                                     full_name: "first-parent")
+      allow(first_parent).to receive_messages(satisfied?: false, to_formula: first_parent_formula)
+
+      second_parent = Dependency.new("second-parent")
+      second_parent_formula = instance_double(Formula, deps: [repeated_shared_dep], name: "second-parent",
+                                                      full_name: "second-parent")
+      allow(second_parent).to receive_messages(satisfied?: false, to_formula: second_parent_formula)
+
+      f = formula "homebrew-expand-dependencies-cache" do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      allow(f).to receive(:deps).and_return([first_parent, second_parent])
+
+      installer = described_class.new(f)
+      build_options = BuildOptions.new(Options.new, Options.new)
+      allow(installer).to receive_messages(effective_build_options_for: build_options, install_bottle_for?: false)
+
+      deps = installer.expand_dependencies_for_formula(f)
+
+      expect(deps.map(&:name)).to eq(%w[shared first-parent second-parent])
+    end
+
+    it "checks uses_from_macos dependencies with different bounds separately" do
+      shared_formula = instance_double(Formula, deps: [], name: "shared", full_name: "shared")
+      first_dep = UsesFromMacOSDependency.new("shared", [], bounds: { since: :ventura })
+      second_dep = UsesFromMacOSDependency.new("shared", [], bounds: { since: :sonoma })
+      expect(first_dep).to receive(:satisfied?).once.and_return(false)
+      expect(second_dep).to receive(:satisfied?).once.and_return(false)
+      allow(first_dep).to receive(:to_formula).and_return(shared_formula)
+      allow(second_dep).to receive(:to_formula).and_return(shared_formula)
+
+      first_parent = Dependency.new("first-parent")
+      first_parent_formula = instance_double(Formula, deps: [first_dep], name: "first-parent",
+                                                     full_name: "first-parent")
+      allow(first_parent).to receive_messages(satisfied?: false, to_formula: first_parent_formula)
+
+      second_parent = Dependency.new("second-parent")
+      second_parent_formula = instance_double(Formula, deps: [second_dep], name: "second-parent",
+                                                      full_name: "second-parent")
+      allow(second_parent).to receive_messages(satisfied?: false, to_formula: second_parent_formula)
+
+      f = formula "homebrew-expand-uses-from-macos-dependencies-cache" do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      allow(f).to receive(:deps).and_return([first_parent, second_parent])
+
+      installer = described_class.new(f)
+      build_options = BuildOptions.new(Options.new, Options.new)
+      allow(installer).to receive_messages(effective_build_options_for: build_options, install_bottle_for?: false)
+
+      deps = installer.expand_dependencies_for_formula(f)
+
+      expect(deps.map(&:name)).to eq(%w[shared first-parent second-parent])
+    end
+  end
+
   describe "versioned keg-only linking defaults" do
     let(:base_name) { "homebrew-versioned-formula" }
     let(:formula_name) { "#{base_name}@1.0" }
