@@ -227,7 +227,12 @@ be resolved before the download can be enqueued.
     is left verbatim. Dynamic interpolation (random cookies, `popen`-derived
     paths, `File.read` rewrites) is intentionally out of scope and stays as
     legacy Ruby.
-  - [ ] PR 5.2, add the `write` enforcing RuboCops in `Homebrew/brew`.
+  - [x] PR 5.2, add the `write` enforcing RuboCops in `Homebrew/brew`.
+    Commit: `Add install step write cops`.
+    Scope: formula and cask RuboCops conservatively autocorrect literal,
+    newline-terminated `.write`, `.atomic_write` and `File.write` legacy
+    blocks to `*_steps` `write` calls with `overwrite: true`. Writes without
+    trailing newlines stay as legacy Ruby because the step DSL appends one.
   - [x] PR 5.3, convert `homebrew/core` formulae to `write`.
     Branch `install-steps-config-write`, commits
     `tronbyt-server: use post_install_steps` and `node@18: use

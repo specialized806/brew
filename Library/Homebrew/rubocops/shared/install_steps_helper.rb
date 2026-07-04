@@ -161,6 +161,22 @@ module RuboCop
           return mkdir_step_line(:mkdir_p, path, default_base)
         end
 
+        if [:write, :atomic_write].include?(send_node.method_name)
+          if send_node.receiver&.const_type? && send_node.receiver&.const_name == "File"
+            return if send_node.method_name != :write || send_node.arguments.length != 2
+
+            return write_step_line(
+              install_step_path(send_node.arguments.fetch(0)),
+              send_node.arguments.fetch(1),
+              default_base,
+            )
+          end
+
+          return if send_node.receiver.nil? || send_node.arguments.length != 1
+
+          return write_step_line(install_step_path(send_node.receiver), send_node.arguments.fetch(0), default_base)
+        end
+
         return unless fileutils_or_no_receiver?(send_node)
 
         case send_node.method_name
@@ -258,6 +274,42 @@ module RuboCop
         ].compact
         "#{method_name} #{install_step_path_source(source)}, #{install_step_path_source(target)}" \
           "#{install_step_kwargs(kwargs)}"
+      end
+
+      sig {
+        params(
+          path:         T.nilable(InstallStepPath),
+          content_node: RuboCop::AST::Node,
+          default_base: Symbol,
+        ).returns(T.nilable(String))
+      }
+      def write_step_line(path, content_node, default_base)
+        return if path.nil? || relative_install_step_path?(path)
+
+        kwargs = [
+          install_step_path_keyword(path, base: default_base, keyword: :base),
+          "overwrite: true",
+        ].compact
+        return unless (content_source = write_content_source(content_node, kwargs))
+
+        "write #{install_step_path_source(path)}, #{content_source}"
+      end
+
+      sig { params(content_node: RuboCop::AST::Node, kwargs: T::Array[String]).returns(T.nilable(String)) }
+      def write_content_source(content_node, kwargs)
+        return unless content_node.str_type?
+        return unless T.cast(content_node, RuboCop::AST::StrNode).str_content.end_with?("\n")
+
+        unless content_node.loc.respond_to?(:heredoc_end)
+          return "#{content_node.source}#{install_step_kwargs(kwargs)}"
+        end
+
+        heredoc_end = content_node.loc.heredoc_end
+        return "#{content_node.source}#{install_step_kwargs(kwargs)}" if heredoc_end.nil?
+
+        "#{content_node.loc.expression.source}#{install_step_kwargs(kwargs)}" \
+          "#{::Parser::Source::Range.new(content_node.loc.expression.source_buffer,
+                                         content_node.loc.expression.end_pos, heredoc_end.end_pos).source}"
       end
 
       sig { params(send_node: RuboCop::AST::SendNode).returns(T::Boolean) }

@@ -102,6 +102,47 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
     RUBY
   end
 
+  it "autocorrects simple `post_install` config writes" do
+    expect_offense(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+        ^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Use `post_install_steps` for simple file preparation.
+          (etc/"foo/foo.conf").write "key = value\n"
+          (var/"foo/banner").atomic_write <<~TEXT
+            literal banner
+          TEXT
+        end
+      end
+    RUBY
+
+    expect_correction(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          write "foo/foo.conf", "key = value\n", base: :etc, overwrite: true
+          write "foo/banner", <<~TEXT, overwrite: true
+            literal banner
+          TEXT
+        end
+      end
+    RUBY
+  end
+
+  it "does not autocorrect config writes without trailing newlines" do
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          (var/"foo.conf").write "key = value"
+        end
+      end
+    RUBY
+  end
+
   it "autocorrects known `post_install` rebuild actions" do
     expect_offense(<<~RUBY)
       class Foo < Formula
