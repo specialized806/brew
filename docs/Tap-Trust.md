@@ -13,7 +13,7 @@ Non-official taps require explicit trust [since Homebrew 6.0.0](
 https://brew.sh/2026/06/11/homebrew-6.0.0/).
 
 `brew doctor` warns about non-official taps that are not trusted, and install
-commands will fail until either the formula being installed or its tap are trusted.
+commands will fail until the tap or the specific package is trusted.
 
 ## Why tap trust exists
 
