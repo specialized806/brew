@@ -423,6 +423,19 @@ module Homebrew
             EOS
           end
 
+          # we can only verify the OS requirement of the currently running platform
+          os_req = if Homebrew::SimulateSystem.simulating_or_running_on_linux? &&
+                      !dep_f.supports_linux? && !spec.depends_on_macos_set_top_level?
+            "macOS"
+          elsif Homebrew::SimulateSystem.simulating_or_running_on_macos? &&
+                !dep_f.supports_macos? && !spec.depends_on_linux_set_top_level?
+            "Linux"
+          end
+          problem <<~EOS if os_req
+            Dependency '#{dep.name}' has a #{os_req} requirement. Either move the
+            dependency inside an `on_#{os_req.downcase}` block or add `depends_on :#{os_req.downcase}`.
+          EOS
+
           # we want to allow uses_from_macos for aliases but not bare dependencies.
           # we also allow `pkg-config` for backwards compatibility in external taps.
           if self.class.aliases.include?(dep.name) && !dep.uses_from_macos? && (dep.name != "pkg-config" || @core_tap)
