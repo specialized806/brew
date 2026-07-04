@@ -30,7 +30,7 @@ module RuboCop
         ].freeze, T::Array[Symbol])
 
         CASK_STANZA_ORDER = T.let(RuboCop::Cask::Constants::STANZA_ORDER, T::Array[Symbol])
-        MACOS_DEPENDENCY_STANZAS = T.let([:macos, :maximum_macos].freeze, T::Array[Symbol])
+        MACOS_DEPENDENCY_STANZAS = [:macos, :maximum_macos].freeze
 
         RESTRICT_ON_SEND = [:depends_on].freeze
 

@@ -123,8 +123,8 @@ class GitHubRunnerMatrix
     )
   end
 
-  VALID_PLATFORMS = T.let([:macos, :linux].freeze, T::Array[Symbol])
-  VALID_ARCHES = T.let([:arm64, :x86_64].freeze, T::Array[Symbol])
+  VALID_PLATFORMS = [:macos, :linux].freeze
+  VALID_ARCHES = [:arm64, :x86_64].freeze
   private_constant :VALID_PLATFORMS, :VALID_ARCHES
 
   sig {

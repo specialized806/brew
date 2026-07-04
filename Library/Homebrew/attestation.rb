@@ -30,7 +30,7 @@ module Homebrew
     # malicious backfilled signatures.
     #
     # @api private
-    BACKFILL_CUTOFF = T.let(DateTime.new(2024, 3, 14).freeze, DateTime)
+    BACKFILL_CUTOFF = DateTime.new(2024, 3, 14).freeze
 
     # Raised when the attestation was not found.
     #

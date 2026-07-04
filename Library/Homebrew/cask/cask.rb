@@ -574,7 +574,7 @@ module Cask
       }
     end
 
-    HASH_KEYS_TO_SKIP = T.let(%w[outdated installed pinned pinned_version versions].freeze, T::Array[String])
+    HASH_KEYS_TO_SKIP = %w[outdated installed pinned pinned_version versions].freeze
     private_constant :HASH_KEYS_TO_SKIP
 
     AUTO_UPDATES_BAD_BUNDLE_VERSIONS = %w[0 0.0].freeze

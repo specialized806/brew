@@ -27,9 +27,9 @@ module GitHub
   PAGINATE_RETRY_COUNT = 3
   private_constant :PAGINATE_RETRY_COUNT
 
-  CREATE_GIST_SCOPES = T.let(["gist"].freeze, T::Array[String])
-  CREATE_ISSUE_FORK_OR_PR_SCOPES = T.let(["repo"].freeze, T::Array[String])
-  CREATE_WORKFLOW_SCOPES = T.let(["workflow"].freeze, T::Array[String])
+  CREATE_GIST_SCOPES = ["gist"].freeze
+  CREATE_ISSUE_FORK_OR_PR_SCOPES = ["repo"].freeze
+  CREATE_WORKFLOW_SCOPES = ["workflow"].freeze
   ALL_SCOPES = T.let((CREATE_GIST_SCOPES + CREATE_ISSUE_FORK_OR_PR_SCOPES + CREATE_WORKFLOW_SCOPES).freeze,
                      T::Array[String])
   private_constant :ALL_SCOPES
@@ -93,14 +93,11 @@ module GitHub
       end
     end
 
-    GITHUB_IP_ALLOWLIST_ERROR = T.let(
-      Regexp.new(
-        "Although you appear to have the correct authorization credentials, " \
-        "the `(.+)` organization has an IP allow list enabled, " \
-        "and your IP address is not permitted to access this resource",
-      ).freeze,
-      Regexp,
-    )
+    GITHUB_IP_ALLOWLIST_ERROR = Regexp.new(
+      "Although you appear to have the correct authorization credentials, " \
+      "the `(.+)` organization has an IP allow list enabled, " \
+      "and your IP address is not permitted to access this resource",
+    ).freeze
 
     NO_CREDENTIALS_MESSAGE = T.let(<<~MESSAGE.freeze, String)
       No GitHub credentials found in macOS Keychain, GitHub CLI or the environment.

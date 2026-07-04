@@ -4,19 +4,12 @@
 module RuboCop
   module Cop
     module InstallStepsHelper
-      FILE_PREPARATION_STEP_METHODS = T.let(
-        [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :symlink, :ln_s, :ln_sf].freeze,
-        T::Array[Symbol],
-      )
-      CONFIG_WRITE_STEP_METHODS = T.let(
-        [:write].freeze,
-        T::Array[Symbol],
-      )
-      REBUILD_ACTION_STEP_METHODS = T.let(
+      FILE_PREPARATION_STEP_METHODS =
+        [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :symlink, :ln_s, :ln_sf].freeze
+      CONFIG_WRITE_STEP_METHODS = [:write].freeze
+      REBUILD_ACTION_STEP_METHODS =
         [:compile_gsettings_schemas, :gio_querymodules, :gdk_pixbuf_query_loaders, :gtk_update_icon_cache,
-         :update_mime_database, :update_desktop_database].freeze,
-        T::Array[Symbol],
-      )
+         :update_mime_database, :update_desktop_database].freeze
       ALLOWED_STEP_METHODS = T.let(
         [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *REBUILD_ACTION_STEP_METHODS].freeze,
         T::Array[Symbol],
@@ -28,10 +21,7 @@ module RuboCop
 
       # `dstr` covers non-interpolated heredocs such as `write` content; any
       # interpolation adds `begin`/`send` descendants that remain disallowed.
-      ALLOWED_STEP_ARGUMENT_NODE_TYPES = T.let(
-        [:array, :dstr, :hash, :nil, :pair, :str, :sym].freeze,
-        T::Array[Symbol],
-      )
+      ALLOWED_STEP_ARGUMENT_NODE_TYPES = [:array, :dstr, :hash, :nil, :pair, :str, :sym].freeze
 
       STEP_BLOCK_MSG = T.let(
         "Steps blocks may only contain install step DSL calls: " \
