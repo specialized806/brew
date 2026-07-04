@@ -329,6 +329,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
       allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"])
                                                                      .and_return([])
+      allow(Tap).to receive(:with_cask_token).with("tmuxpack/tpack/tpack").and_return(nil)
       allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
         install_order << name
         true
@@ -423,6 +424,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
       allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"])
                                                                      .and_return(["alpha"])
+      allow(Tap).to receive(:with_cask_token).with("tmuxpack/tpack/tpack").and_return(nil)
       allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
         install_order << name
         true
@@ -440,6 +442,48 @@ RSpec.describe Homebrew::Bundle::Installer do
       expect(success).to eq(2)
       expect(failure).to eq(0)
       expect(install_order).to eq(["alpha", "tpack"])
+    end
+
+    it "taps fully qualified casks before resolving dependencies" do
+      tpack_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name:    "tpack",
+        options: { args: {}, full_name: "tmuxpack/tpack/tpack" },
+        verb:    "Installing",
+        cls:     Homebrew::Bundle::Cask,
+      )
+      install_order = []
+      event_order = []
+      tap = instance_double(Tap, name: "tmuxpack/tpack", ensure_installed!: nil)
+
+      allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return([])
+      allow(Tap).to receive(:with_formula_name).with("alpha").and_return(nil)
+      allow(Tap).to receive(:with_cask_token).with("tmuxpack/tpack/tpack").and_return([tap, "tpack"])
+      allow(tap).to receive(:ensure_installed!) { event_order << :tap_install }
+      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"]) do
+        event_order << :cask_deps
+        ["alpha"]
+      end
+      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
+        install_order << name
+        true
+      end
+
+      success, failure = Homebrew::Bundle::ParallelInstaller.new(
+        [alpha_entry, tpack_entry],
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).run!
+
+      expect(success).to eq(2)
+      expect(failure).to eq(0)
+      expect(install_order).to eq(["alpha", "tpack"])
+      expect(event_order).to eq([:tap_install, :cask_deps])
     end
 
     it "installs unqualified formulae after Brewfile taps" do
