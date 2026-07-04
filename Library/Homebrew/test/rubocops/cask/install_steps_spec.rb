@@ -62,6 +62,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
           mv "source", "target"
           move_children "source", "target"
           ln_sf "source", "target", source_base: :relative, uninstall: true
+          write "foo.conf", "key = value\n"
         end
       end
     CASK
@@ -93,6 +94,44 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
           touch "Prepared/touched"
           mv "source", "target"
           ln_s "target", "Linked", source_base: :relative
+        end
+      end
+    CASK
+  end
+
+  it "autocorrects simple flight block config writes" do
+    expect_offense <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+        ^^^^^^^^^^^^^ Use `postflight_steps` for simple file preparation.
+          File.write staged_path/"Prepared/foo.conf", "key = value\n"
+        end
+      end
+    CASK
+
+    expect_correction <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight_steps do
+          write "Prepared/foo.conf", "key = value\n", overwrite: true
+        end
+      end
+    CASK
+  end
+
+  it "does not autocorrect config writes without trailing newlines" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          File.write staged_path/"Prepared/foo.conf", "key = value"
         end
       end
     CASK
