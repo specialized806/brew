@@ -143,7 +143,7 @@ module Kernel
     end
   end
 
-  IGNORE_INTERRUPTS_MUTEX = T.let(Thread::Mutex.new.freeze, Thread::Mutex)
+  IGNORE_INTERRUPTS_MUTEX = Thread::Mutex.new.freeze
 
   sig { type_parameters(:U).params(_block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U)) }
   def ignore_interrupts(&_block)

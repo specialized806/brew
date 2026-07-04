@@ -799,7 +799,7 @@ module Homebrew
     # `false`. Use `boolean: :set` for toggles used by Bash or with inverse
     # `_NO_` variants, where any non-empty value must mean enabled. Use
     # `disabled_by:` when one boolean env var should override another.
-    FALSY_VALUES = T.let(%w[false no off nil 0].freeze, T::Array[String])
+    FALSY_VALUES = %w[false no off nil 0].freeze
 
     ENVS.each do |env, hash|
       # Needs a custom implementation.

@@ -262,10 +262,7 @@ module Homebrew
       # Path tokens reuse the step base resolution; `HOMEBREW_PREFIX`, `version`
       # and `version.major_minor` are resolved separately. Anything else is left
       # verbatim so literal braces in templates are never rewritten.
-      CONTENT_PATH_TOKENS = T.let(
-        %w[prefix opt_prefix bin var etc pkgetc staged_path appdir].freeze,
-        T::Array[String],
-      )
+      CONTENT_PATH_TOKENS = %w[prefix opt_prefix bin var etc pkgetc staged_path appdir].freeze
 
       sig { params(context: T.untyped).void }
       def initialize(context:)

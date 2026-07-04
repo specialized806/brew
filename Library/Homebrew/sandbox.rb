@@ -15,7 +15,7 @@ class Sandbox
   extend Utils::Output::Mixin
 
   # Privileged groups that are expected to be able to use a working sandbox.
-  PRIVILEGED_GROUPS = T.let(%w[admin staff root wheel].freeze, T::Array[String])
+  PRIVILEGED_GROUPS = %w[admin staff root wheel].freeze
 
   class SandboxPathFilter
     sig { returns(String) }
