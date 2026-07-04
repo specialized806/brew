@@ -162,7 +162,6 @@ RSpec.describe Homebrew::InstallSteps do
       compile_gsettings_schemas
       gio_querymodules
       gdk_pixbuf_query_loaders
-      gtk_update_icon_cache
       update_mime_database
       update_desktop_database
     end
@@ -170,7 +169,6 @@ RSpec.describe Homebrew::InstallSteps do
     formula = instance_double(Formula, opt_bin: root/"opt/bin")
     allow(Formula).to receive(:[]).with("glib").and_return(formula)
     allow(Formula).to receive(:[]).with("gdk-pixbuf").and_return(formula)
-    allow(Formula).to receive(:[]).with("gtk+3").and_return(formula)
     allow(Formula).to receive(:[]).with("shared-mime-info").and_return(formula)
     allow(Formula).to receive(:[]).with("desktop-file-utils").and_return(formula)
     expect(context).to receive(:safe_system).with(root/"opt/bin/glib-compile-schemas",
@@ -178,14 +176,37 @@ RSpec.describe Homebrew::InstallSteps do
     expect(context).to receive(:safe_system).with(root/"opt/bin/gio-querymodules",
                                                   HOMEBREW_PREFIX/"lib/gio/modules").ordered
     expect(context).to receive(:safe_system).with(root/"opt/bin/gdk-pixbuf-query-loaders", "--update-cache").ordered
-    expect(context).to receive(:safe_system).with(root/"opt/bin/gtk3-update-icon-cache", "-q", "-t", "-f",
-                                                  HOMEBREW_PREFIX/"share/icons/hicolor").ordered
     expect(context).to receive(:safe_system).with(root/"opt/bin/update-mime-database",
                                                   HOMEBREW_PREFIX/"share/mime").ordered
     expect(context).to receive(:safe_system).with(root/"opt/bin/update-desktop-database",
                                                   HOMEBREW_PREFIX/"share/applications").ordered
 
     Homebrew::InstallSteps::Runner.new(context:).run(steps)
+  end
+
+  describe "runs gtk_update_icon_cache rebuild action" do
+    let(:formula) { instance_double(Formula, opt_bin: root/"opt/bin") }
+    let(:steps) do
+      Homebrew::InstallSteps::DSL.build do
+        gtk_update_icon_cache
+      end
+    end
+
+    it "with gtk4" do
+      allow(Formula).to receive(:[]).with("gtk4").and_return(formula)
+      allow(Utils::Path).to receive(:formula_any_version_installed?).with("gtk4").and_return(true)
+      expect(context).to receive(:safe_system).with(root/"opt/bin/gtk4-update-icon-cache", "-q", "-t", "-f",
+                                                    HOMEBREW_PREFIX/"share/icons/hicolor").ordered
+      Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    end
+
+    it "with gtk+3" do
+      allow(Formula).to receive(:[]).with("gtk+3").and_return(formula)
+      allow(Utils::Path).to receive(:formula_any_version_installed?).with("gtk4").and_return(false)
+      expect(context).to receive(:safe_system).with(root/"opt/bin/gtk3-update-icon-cache", "-q", "-t", "-f",
+                                                    HOMEBREW_PREFIX/"share/icons/hicolor").ordered
+      Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    end
   end
 
   specify "does not add the default base to home paths" do
