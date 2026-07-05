@@ -372,16 +372,42 @@ is stripped during metadata serialisation.
     `{{appdir}}`-content flight writes all target a `shimscript` local that is
     also wired to a `binary` stanza, and the literal-path LibreOffice packs
     interpolate an unsupported language `token` and run `system_command`.
-- [ ] PR 6, database and service data directory initialisation.
+- [x] PR 6, database and service data directory initialisation.
+  Commit: `Add install step data directories`.
   Estimated existing formulae/casks affected: about `19` formulae initialise
   service data directories.
-  Notes for implementation: add a formula `init_data_dir` step only for
-  bootstrap commands with at least `3` current usages across `homebrew/core`
-  and `homebrew/cask`. Current candidates that meet the threshold are
+  Scope: formula `init_data_dir` step, runner execution, formula step block
+  allow-list entries, fixture coverage and formula cookbook docs. The step
+  creates service data directories and supports named bootstrap commands for
   PostgreSQL `initdb`, MySQL `mysqld --initialize-insecure` and MariaDB
-  `mysql_install_db`. Model marker files, CI skip semantics and service user
-  assumptions explicitly. Keep ownership and permission changes for future
-  permission/ownership action work.
+  `mysql_install_db`, including the marker-file and CI-skip guards used by
+  current `homebrew/core` formulae. Permission and ownership metadata were
+  skipped because current tap usages fit future permission/ownership action
+  work instead. PostgreSQL versioned link maintenance and MySQL conflicting
+  configuration warnings stay as legacy Ruby until separate named actions are
+  added.
+  Local tap work for this step was prepared with
+  `./bin/brew tap --force homebrew/core` and
+  `./bin/brew tap --force homebrew/cask`. In this checkout,
+  `./bin/brew --repository homebrew/core` resolves to
+  `Library/Taps/homebrew/homebrew-core` at `369b5855942`, and
+  `./bin/brew --repository homebrew/cask` resolves to
+  `Library/Taps/homebrew/homebrew-cask` at `16a3a6e4562`.
+  Success target for tap conversions: use the bridge to move database
+  bootstrap statements out of every current MySQL and PostgreSQL hook, including
+  `Formula/m/mysql.rb`, `Formula/m/mysql@8.0.rb`, `Formula/m/mysql@8.4.rb`,
+  `Formula/p/postgresql@17.rb` and `Formula/p/postgresql@18.rb`, while their
+  remaining warning or link maintenance work stays in `post_install` until
+  separate named actions cover it. Fully remove `post_install` from
+  bootstrap-only formulae such as `Formula/m/mariadb.rb`,
+  `Formula/m/mariadb@10.11.rb`, `Formula/m/mariadb@10.5.rb`,
+  `Formula/m/mariadb@10.6.rb`, `Formula/m/mariadb@11.4.rb`,
+  `Formula/m/mariadb@11.8.rb`, `Formula/p/postgresql@12.rb`,
+  `Formula/p/postgresql@13.rb`, `Formula/p/postgresql@15.rb` and
+  `Formula/p/postgresql@16.rb`. Verify the `homebrew/core` conversion with
+  `./bin/brew style homebrew/core`, targeted `./bin/brew audit --strict
+  --online --formula ...` for the changed formulae and `./bin/brew readall
+  homebrew/core`.
 - [ ] PR 7, certificate and trust store actions.
   Estimated existing formulae/casks affected: about `17` formulae update
   certificate/trust state and `8` cask flight blocks invoke

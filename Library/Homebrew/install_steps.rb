@@ -184,6 +184,21 @@ module Homebrew
                  "overwrite" => overwrite)
       end
 
+      sig {
+        params(
+          path:   ::T.any(::String, ::Pathname),
+          using:  ::T.any(::String, ::Symbol),
+          base:   ::T.nilable(::T.any(::String, ::Symbol)),
+          locale: ::T.nilable(::String),
+        ).void
+      }
+      def init_data_dir(path, using:, base: nil, locale: nil)
+        add_step("init_data_dir",
+                 "path"   => path_spec(path, base:, default_base: @default_base),
+                 "using"  => using.to_s,
+                 "locale" => locale)
+      end
+
       sig { void }
       def compile_gsettings_schemas
         add_rebuild_action("compile_gsettings_schemas", "share/glib-2.0/schemas")
@@ -289,6 +304,8 @@ module Homebrew
           resolve_path(step.fetch("path")).mkdir
         when "mkdir_p"
           resolve_path(step.fetch("path")).mkpath
+        when "init_data_dir"
+          run_init_data_dir(step)
         when "touch"
           path = resolve_path(step.fetch("path"))
           path.dirname.mkpath
@@ -349,6 +366,44 @@ module Homebrew
 
         target = resolve_path(step.fetch("target"))
         FileUtils.rm_f target if target.symlink?
+      end
+
+      sig { params(step: Step).void }
+      def run_init_data_dir(step)
+        using = step.fetch("using").to_s
+        marker = case using
+        when "postgresql_initdb"
+          "PG_VERSION"
+        when "mysql_initialize"
+          "mysql/general_log.CSM"
+        when "mariadb_install_db"
+          "mysql/user.frm"
+        else
+          raise ArgumentError, "unknown data directory initialiser: #{using}"
+        end
+
+        path = resolve_path(step.fetch("path"))
+        path.mkpath
+        return if ENV["HOMEBREW_GITHUB_ACTIONS"].present?
+        return if (path/marker).exist?
+
+        bin = context_path("bin")
+        prefix = context_path("prefix")
+        case using
+        when "postgresql_initdb"
+          @context.send(:safe_system, bin/"initdb", "--locale=#{step["locale"] || "en_US.UTF-8"}", "-E", "UTF-8",
+                        path)
+        when "mysql_initialize"
+          with_env(TMPDIR: nil) do
+            @context.send(:safe_system, bin/"mysqld", "--initialize-insecure", "--user=#{ENV.fetch("USER")}",
+                          "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp")
+          end
+        when "mariadb_install_db"
+          with_env(TMPDIR: nil) do
+            @context.send(:safe_system, bin/"mysql_install_db", "--verbose", "--user=#{ENV.fetch("USER")}",
+                          "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp")
+          end
+        end
       end
 
       sig { params(content: String).returns(String) }

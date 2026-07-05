@@ -42,7 +42,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
 
         post_install_steps do
           system "true"
-          ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`, `write`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`.
+          ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`, `write`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`.
         end
       end
     RUBY
@@ -63,6 +63,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
           write "foo/banner", <<~TEXT
             literal banner
           TEXT
+          init_data_dir "foo", using: :postgresql_initdb
           compile_gsettings_schemas
           gio_querymodules
           gdk_pixbuf_query_loaders
@@ -81,7 +82,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
 
         post_install_steps do
           write "foo.conf", "prefix = #{prefix}"
-                                      ^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`, `write`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`.
+                                      ^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `symlink`, `ln_s`, `ln_sf`, `write`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`.
         end
       end
     RUBY

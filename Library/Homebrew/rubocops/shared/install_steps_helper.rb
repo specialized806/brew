@@ -7,11 +7,13 @@ module RuboCop
       FILE_PREPARATION_STEP_METHODS =
         [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :symlink, :ln_s, :ln_sf].freeze
       CONFIG_WRITE_STEP_METHODS = [:write].freeze
+      SERVICE_DATA_STEP_METHODS = [:init_data_dir].freeze
       REBUILD_ACTION_STEP_METHODS =
         [:compile_gsettings_schemas, :gio_querymodules, :gdk_pixbuf_query_loaders, :gtk_update_icon_cache,
          :update_mime_database, :update_desktop_database].freeze
       ALLOWED_STEP_METHODS = T.let(
-        [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *REBUILD_ACTION_STEP_METHODS].freeze,
+        [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *SERVICE_DATA_STEP_METHODS,
+         *REBUILD_ACTION_STEP_METHODS].freeze,
         T::Array[Symbol],
       )
       CASK_ALLOWED_STEP_METHODS = T.let(
