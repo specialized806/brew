@@ -339,6 +339,29 @@ RSpec.describe FormulaInstaller do
       expect { installer.install_dependencies(deps) }
         .to output(/outdated-dependency.*\(upgradable\).*and.*uninstalled-dependency[^(]*$/m).to_stdout
     end
+
+    it "does not render the first dependency name bolder than the rest" do
+      ENV["HOMEBREW_COLOR"] = "1"
+      dep_a = formula("dep-a") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      dep_b = formula("dep-b") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      [dep_a, dep_b].each { |f| allow(f).to receive_messages(any_version_installed?: true, outdated?: true) }
+      deps = [
+        instance_double(Dependency, to_formula: dep_a, name: dep_a.name, to_s: dep_a.name),
+        instance_double(Dependency, to_formula: dep_b, name: dep_b.name, to_s: dep_b.name),
+      ]
+      installer = described_class.new(Testball.new)
+      allow(installer).to receive(:install_dependency)
+      allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+      expect { installer.install_dependencies(deps) }
+        .to output(/:\e\[0m /).to_stdout
+    end
   end
 
   describe "#expand_dependencies_for_formula" do
