@@ -3697,10 +3697,6 @@ and Linux workers.
 
 : Don't test livecheck.
 
-`--skip-recursive-dependents`
-
-: Only test the direct dependents.
-
 `--skip-checksum-only-audit`
 
 : Don't audit checksum-only changes.
