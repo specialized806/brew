@@ -288,9 +288,49 @@ RSpec.describe Homebrew::Cleanup do
         expect(download).not_to exist
       end
 
+      it "removes legacy URL-basename downloads if they are not for the latest version" do
+        download = Cask::Cache.path/"transmission-2.61.dmg--7.8.9.dmg"
+
+        FileUtils.touch download
+
+        cleanup.cleanup_cask(cask)
+
+        expect(download).not_to exist
+      end
+
       it "does not remove downloads for the latest version" do
         download = Cask::Cache.path/"#{cask.token}--#{cask.version}"
 
+        FileUtils.touch download
+
+        cleanup.cleanup_cask(cask)
+
+        expect(download).to exist
+      end
+
+      it "removes legacy URL-basename downloads when the token-named download exists" do
+        legacy_download = Cask::Cache.path/"transmission-2.61.dmg--#{cask.version}.dmg"
+        download = Cask::Cache.path/"#{cask.token}--#{cask.version}.dmg"
+
+        FileUtils.touch legacy_download
+        FileUtils.touch download
+
+        cleanup.cleanup_cask(cask)
+
+        expect([legacy_download.exist?, download.exist?]).to eq([false, true])
+      end
+
+      it "does not remove downloads when the latest version ends with a comma" do
+        version = Cask::DSL::Version.new("7.2,2023.3,")
+        cask = instance_double(Cask::Cask,
+                               token:             "trailing-comma",
+                               version:,
+                               installed_version: version,
+                               url:               nil,
+                               caskroom_path:     Cask::Caskroom.path/"trailing-comma")
+        download = Cask::Cache.path/"#{cask.token}--#{cask.version}.zip"
+
+        allow(Cask::CaskLoader).to receive(:load).with(cask.token, warn: false).and_return(cask)
         FileUtils.touch download
 
         cleanup.cleanup_cask(cask)
@@ -353,6 +393,19 @@ RSpec.describe Homebrew::Cleanup do
   end
 
   describe "::cleanup_cache" do
+    it "removes legacy cask downloads during full cache cleanup", :cask do
+      cask = Cask::CaskLoader.load("local-transmission")
+      download = Cask::Cache.path/"transmission-2.61.dmg--7.8.9.dmg"
+
+      Cask::Cache.path.mkpath
+      FileUtils.touch download
+      allow(Cask::Caskroom).to receive(:casks).and_return([cask])
+
+      cleanup.cleanup_cache
+
+      expect(download).not_to exist
+    end
+
     it "cleans up incomplete downloads" do
       incomplete = (HOMEBREW_CACHE/"something.incomplete")
       incomplete.mkpath
