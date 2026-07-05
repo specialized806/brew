@@ -95,6 +95,47 @@ RSpec.describe Utils::Output do
     end
   end
 
+  describe "#pretty_unmarked" do
+    context "when $stdout is a TTY" do
+      before { allow($stdout).to receive(:tty?).and_return(true) }
+
+      it "returns a bold string" do
+        expect(described_class.pretty_unmarked("foo")).to match(/\A#{esc 1}foo#{esc 0}\z/)
+      end
+    end
+
+    context "when $stdout is not a TTY" do
+      before { allow($stdout).to receive(:tty?).and_return(false) }
+
+      it "returns plain text" do
+        expect(described_class.pretty_unmarked("foo")).to eq("foo")
+      end
+    end
+  end
+
+  describe "#pretty_install_status" do
+    before { allow($stdout).to receive(:tty?).and_return(true) }
+
+    it "bolds an uninstalled string when bold is true" do
+      expect(described_class.pretty_install_status("foo", installed: false, mark_uninstalled: false, bold: true))
+        .to match(/\A#{esc 1}foo#{esc 0}\z/)
+    end
+
+    it "leaves an uninstalled string plain when bold is unset" do
+      expect(described_class.pretty_install_status("foo", installed: false, mark_uninstalled: false)).to eq("foo")
+    end
+
+    it "bolds an installed entry when bold is unset" do
+      expect(described_class.pretty_install_status("foo", installed: true, outdated: true))
+        .to match(/\A#{esc 1}foo #{esc 32}↑#{esc 0}/)
+    end
+
+    it "omits the bold escape on every entry when bold is false" do
+      expect(described_class.pretty_install_status("foo", installed: true, outdated: true, bold: false))
+        .to match(/\Afoo #{esc 32}↑#{esc 0}/)
+    end
+  end
+
   describe "#pretty_deprecated" do
     subject(:pretty_deprecated_output) { described_class.pretty_deprecated("foo") }
 
