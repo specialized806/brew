@@ -4918,11 +4918,6 @@ command execution (e.g. `$(cat file)`).
   
   *Default:* `true`.
 
-`HOMEBREW_SBOM`
-
-: If set, Homebrew will write SBOM files and run SBOM-related installation
-  logic.
-
 `HOMEBREW_SIMULATE_MACOS_ON_LINUX`
 
 : If set, running Homebrew on Linux will simulate certain macOS code paths. This
