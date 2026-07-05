@@ -87,6 +87,49 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#finish" do
+    it "runs post-install steps before the remaining `post_install` hook" do
+      formula = formula "finish-install-steps" do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      installer = described_class.new(formula)
+      tab = instance_double(Tab)
+      keg = instance_double(Keg, tab:)
+
+      allow(Keg).to receive(:new).with(formula.prefix).and_return(keg)
+      allow(installer).to receive_messages(
+        build_bottle?:               false,
+        caveats:                     nil,
+        debug_symbols?:              false,
+        fix_dynamic_linkage:         nil,
+        install_service:             nil,
+        link:                        nil,
+        link_manual_command_warning: nil,
+        only_deps?:                  false,
+        quiet?:                      true,
+        show_summary_heading?:       false,
+        skip_post_install?:          false,
+        summary:                     "summary",
+        verbose?:                    false,
+      )
+      allow(formula).to receive_messages(post_install_steps_defined?: true, post_install_defined?: true,
+                                         runtime_dependencies: [])
+      allow(CacheStoreDatabase).to receive(:use).with(:linkage)
+      allow(Homebrew::EnvConfig).to receive(:sbom?).and_return(false)
+      allow(Homebrew::Install).to receive(:global_post_install)
+      allow(Tab).to receive_messages(clear_cache: nil, runtime_deps_hash: [])
+      allow(tab).to receive(:runtime_dependencies=)
+      allow(tab).to receive(:write)
+
+      expect(formula).to receive(:install_etc_var).ordered
+      expect(formula).to receive(:run_post_install_steps).ordered
+      expect(installer).to receive(:post_install).ordered
+
+      installer.finish
+    end
+  end
+
   describe "#build_bottle_postinstall" do
     let(:f) do
       formula "bottle-config" do

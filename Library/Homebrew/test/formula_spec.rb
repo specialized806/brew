@@ -1194,12 +1194,12 @@ RSpec.describe Formula do
     expect(f.post_install_steps_defined?).to be(true)
   end
 
-  specify "#post_install_steps_conflict?" do
+  specify "#post_install_steps can coexist with #post_install" do
     f = formula do
       T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
-      # This intentionally declares no steps to test conflict tracking.
+      # This intentionally declares no steps to test definition tracking.
       # rubocop:disable Lint/EmptyBlock
       post_install_steps do
       end
@@ -1208,7 +1208,8 @@ RSpec.describe Formula do
       def post_install; end
     end
 
-    expect(f.post_install_steps_conflict?).to be(true)
+    expect(f.post_install_steps_defined?).to be(true)
+    expect(f.post_install_defined?).to be(true)
   end
 
   specify "#run_post_install_steps uses the versioned prefix" do

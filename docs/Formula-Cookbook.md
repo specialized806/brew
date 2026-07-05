@@ -1183,7 +1183,10 @@ class Foo < Formula
 end
 ```
 
-A formula may define either `post_install_steps` or `post_install`, not both.
+During incremental conversions a formula may define both `post_install_steps`
+and `post_install`. The structured steps run first and `post_install` runs last
+for the remaining Ruby work. Remove `post_install` once all of its behaviour is
+represented by structured steps.
 
 #### File preparation steps
 

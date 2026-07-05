@@ -6,17 +6,31 @@ require "rubocops/install_steps"
 RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
   subject(:cop) { described_class.new }
 
-  it "reports an offense when `post_install` and `post_install_steps` are both present" do
-    expect_offense(<<~RUBY)
+  it "allows `post_install` and `post_install_steps` during incremental conversion" do
+    expect_no_offenses(<<~RUBY)
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
 
         post_install_steps do
-        ^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: `post_install` and `post_install_steps` cannot both be used.
           touch "foo/state"
         end
 
         def post_install; end
+      end
+    RUBY
+  end
+
+  it "reports an offense when `post_install_steps` appears after `post_install`" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install; end
+
+        post_install_steps do
+        ^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: `post_install_steps` must appear before `post_install` to match run order.
+          touch "foo/state"
+        end
       end
     RUBY
   end
