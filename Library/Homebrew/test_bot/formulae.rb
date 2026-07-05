@@ -357,9 +357,13 @@ module Homebrew
         Utils.name_from_full_name(dependency.name) == Utils.name_from_full_name(dependency_name)
       end
 
-      sig { params(formula: Formula, dependencies: T::Array[Dependency]).returns(T::Array[String]) }
-      def recursive_runtime_dependency_names(formula, dependencies)
-        Dependency.expand(formula, dependencies).map { |dependency| dependency.to_formula.full_name }.uniq
+      sig { params(_formula: Formula, dependencies: T::Array[Dependency]).returns(T::Array[String]) }
+      def recursive_runtime_dependency_names(_formula, dependencies)
+        dependencies.each_with_object(Set.new) do |dep, set|
+          dep_f = dep.to_formula
+          set.add(dep_f.full_name)
+          set.merge(dep_f.runtime_dependencies(read_from_tab: false, undeclared: false).map(&:name))
+        end.to_a
       end
 
       sig { params(formula: Formula).void }
