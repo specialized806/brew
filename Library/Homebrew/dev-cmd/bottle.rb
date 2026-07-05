@@ -516,7 +516,7 @@ module Homebrew
             end
 
             sbom = SBOM.create(formula, tab)
-            sbom.write(bottling: true)
+            sbom.write
 
             keg.consistent_reproducible_symlink_permissions!
 
