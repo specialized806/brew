@@ -171,8 +171,9 @@ module Cask
         @config = config
 
         if !self.class.invalid_path?(path, valid_extnames: %w[.json]) &&
-           (from_json = JSON.parse(@content).presence) &&
-           from_json.is_a?(Hash)
+           (from_json = JSON.parse(@content)) &&
+           from_json.is_a?(Hash) &&
+           (@from_installed_caskfile || from_json.present?)
           begin
             from_internal_json = path.to_s.end_with?(".internal.json")
             return FromAPILoader.new(
@@ -456,6 +457,14 @@ module Cask
 
       sig { params(config: T.nilable(Config), api_source: T::Hash[String, T.untyped]).returns(Cask) }
       def load_from_json(config:, api_source:)
+        if @from_installed_caskfile
+          api_source = api_source.dup
+          installed_tab = Cask.new(token).tab
+          api_source["version"] = api_source["version"].presence || installed_tab.version.presence ||
+                                  @sourcefile_path.dirname.dirname.dirname.basename.to_s
+          api_source["artifacts"] ||= installed_tab.uninstall_artifacts || []
+        end
+
         tap_git_head = api_source["tap_git_head"]
         cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
           api_source, ignore_types: @from_installed_caskfile

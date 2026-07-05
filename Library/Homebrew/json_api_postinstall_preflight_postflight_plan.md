@@ -217,6 +217,40 @@ blocks need the source because the API stores available language codes, but not
 the selected block return value or stanza effects; language-specific URLs must
 be resolved before the download can be enqueued.
 
+## Installed Cask Metadata Format
+
+Store supported installed cask metadata as regular `<token>.json`, not Ruby
+caskfiles or internal JSON. Casks with `uninstall_preflight` or
+`uninstall_postflight` Ruby blocks should keep using Ruby caskfiles in the
+Caskroom until those blocks are ported to structured JSON data. The installed
+caskfile is a post-install snapshot, so it should only retain data that can be
+useful after installation has finished. This lets future uninstall, reinstall,
+upgrade and zap runs reload supported installed metadata without evaluating the
+original Ruby caskfile.
+
+The installed JSON is deliberately minimal. It relies on
+`INSTALL_RECEIPT.json` for receipt-owned data such as the installed cask
+`version` and uninstallable artifacts, and only keeps data not otherwise
+available after installation, such as `url_specs.only_path` when needed to
+reconstruct staged artifact sources. It omits the full API snapshot so future
+JSON API or DSL changes cannot affect post-install operations through fields
+that are not needed after installation.
+
+The installed JSON omits legacy `preflight` and `postflight` Ruby block
+placeholders because JSON cannot represent their block bodies and they are not
+needed after installation. Casks with `uninstall_preflight` or
+`uninstall_postflight` Ruby blocks must remain backed by Ruby metadata so those
+blocks continue to run on uninstall, zap, reinstall and upgrade. The goal is to
+replace those Ruby blocks with structured uninstall step DSLs so they can be
+migrated to JSON too.
+
+The `brew update` migration should convert existing supported Caskroom `.rb`
+and `.internal.json` caskfiles to regular `.json` caskfiles.
+
+As the cask step DSLs grow, keep migrating post-install behaviour from legacy
+Ruby flight blocks into structured JSON data so less installed cask behaviour
+is stripped during metadata serialisation.
+
 ## Install Step Examples
 
 - `Formula/l/languagetool.rb`: `post_install_steps` with

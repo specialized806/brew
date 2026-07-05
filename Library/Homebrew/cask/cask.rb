@@ -623,6 +623,14 @@ module Cask
       hash
     end
 
+    sig { returns(T::Hash[String, T.untyped]) }
+    def to_installed_json_hash
+      cask_url = url
+      return {} if cask_url.nil? || cask_url.only_path.blank?
+
+      { "url_specs" => { "only_path" => cask_url.only_path } }
+    end
+
     sig { params(uninstall_only: T::Boolean).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
     def artifacts_list(uninstall_only: false)
       artifacts.filter_map do |artifact|

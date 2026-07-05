@@ -537,22 +537,12 @@ on_request: true)
 
       return if @cask.source.blank?
 
-      extension = if @cask.loaded_from_internal_api?
-        "internal.json"
-      elsif @cask.loaded_from_api?
-        "json"
+      if @cask.uninstall_flight_blocks?
+        (metadata_subdir/"#{@cask.token}.rb").write @cask.source.to_s
       else
-        "rb"
+        (metadata_subdir/"#{@cask.token}.json").write JSON.pretty_generate(@cask.to_installed_json_hash)
       end
 
-      source = if @cask.loaded_from_internal_api? && (api_source = @cask.api_source)
-        api_source = api_source.merge({ "tap_git_head" => @cask.tap_git_head })
-        JSON.pretty_generate(api_source)
-      else
-        @cask.source
-      end
-
-      (metadata_subdir/"#{@cask.token}.#{extension}").write source
       FileUtils.rm_r(old_savedir) if old_savedir
     end
 

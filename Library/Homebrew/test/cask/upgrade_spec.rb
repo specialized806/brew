@@ -400,10 +400,11 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it "warns and skips when the installed caskfile raises CaskInvalidError" do
-      allow(Cask::CaskLoader).to receive(:load).and_call_original
-      allow(Cask::CaskLoader).to receive(:load).with(auto_updates.installed_caskfile)
-                                               .and_raise(Cask::CaskInvalidError.new(auto_updates.token,
-                                                                                     "broken DSL"))
+      allow(Cask::CaskLoader).to receive(:load_from_installed_caskfile).and_call_original
+      allow(Cask::CaskLoader)
+        .to receive(:load_from_installed_caskfile)
+        .with(auto_updates.installed_caskfile)
+        .and_raise(Cask::CaskInvalidError.new(auto_updates.token, "broken DSL"))
 
       expect do
         described_class.upgrade_casks!(dry_run: true, args:)
@@ -411,10 +412,11 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it "warns and skips when the installed caskfile raises CaskUnreadableError" do
-      allow(Cask::CaskLoader).to receive(:load).and_call_original
-      allow(Cask::CaskLoader).to receive(:load).with(auto_updates.installed_caskfile)
-                                               .and_raise(Cask::CaskUnreadableError.new(auto_updates.token,
-                                                                                        "syntax error"))
+      allow(Cask::CaskLoader).to receive(:load_from_installed_caskfile).and_call_original
+      allow(Cask::CaskLoader)
+        .to receive(:load_from_installed_caskfile)
+        .with(auto_updates.installed_caskfile)
+        .and_raise(Cask::CaskUnreadableError.new(auto_updates.token, "syntax error"))
 
       expect do
         described_class.upgrade_casks!(dry_run: true, args:)
@@ -422,9 +424,11 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it "warns and skips when the installed caskfile raises MethodDeprecatedError" do
-      allow(Cask::CaskLoader).to receive(:load).and_call_original
-      allow(Cask::CaskLoader).to receive(:load).with(auto_updates.installed_caskfile)
-                                               .and_raise(MethodDeprecatedError.new)
+      allow(Cask::CaskLoader).to receive(:load_from_installed_caskfile).and_call_original
+      allow(Cask::CaskLoader)
+        .to receive(:load_from_installed_caskfile)
+        .with(auto_updates.installed_caskfile)
+        .and_raise(MethodDeprecatedError.new)
 
       expect do
         described_class.upgrade_casks!(dry_run: true, args:)

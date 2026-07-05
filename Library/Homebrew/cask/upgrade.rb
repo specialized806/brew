@@ -189,16 +189,15 @@ module Cask
       end
 
       upgradable_casks = outdated_casks.filter_map do |c|
-        invalid_cask = !c.installed?
-
-        invalid_cask ||= begin
-          loaded_cask = CaskLoader.load(T.must(c.installed_caskfile))
-          false
-        rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError
-          true
+        loaded_cask = if c.installed? && (installed_caskfile = c.installed_caskfile)
+          begin
+            CaskLoader.load_from_installed_caskfile(installed_caskfile)
+          rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError
+            nil
+          end
         end
 
-        if invalid_cask
+        if loaded_cask.nil?
           opoo <<~EOS
             The cask '#{c.token}' cannot be upgraded as-is. To fix this, run:
             brew reinstall --cask --force #{c.token}

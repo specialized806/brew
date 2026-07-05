@@ -66,9 +66,11 @@ RSpec.describe Homebrew::Cmd::UninstallCmd do
     cask_file.write <<~RUBY
       raise "untrusted tap cask evaluated"
     RUBY
-    cask.installed_caskfile&.write <<~RUBY
+    installed_caskfile = cask.installed_caskfile
+    (installed_caskfile.dirname/"local-caffeine.rb").write <<~RUBY
       raise "untrusted installed cask evaluated"
     RUBY
+    installed_caskfile.unlink
     allow(Homebrew::Cleanup).to receive(:autoremove)
 
     original_argv = ARGV.dup
@@ -103,14 +105,7 @@ RSpec.describe Homebrew::Cmd::UninstallCmd do
     cask_file.write <<~RUBY
       raise "untrusted tap cask evaluated"
     RUBY
-    installed_caskfile = cask.installed_caskfile
-    json_caskfile = installed_caskfile.dirname/"local-caffeine.json"
-    json = JSON.parse((TEST_FIXTURE_DIR/"cask/caffeine.json").read)
-    json["token"] = "local-caffeine"
-    json["full_token"] = full_name
-    json["tap"] = tap.name
-    json_caskfile.write JSON.pretty_generate(json)
-    installed_caskfile.write <<~RUBY
+    (cask.installed_caskfile.dirname/"local-caffeine.rb").write <<~RUBY
       raise "untrusted installed cask evaluated"
     RUBY
     allow(Homebrew::Cleanup).to receive(:autoremove)
