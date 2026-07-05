@@ -875,13 +875,13 @@ class Formula
   # @api internal
   sig { returns(T::Array[String]) }
   def oldnames
-    @oldnames ||= T.let(
-      if (tap = self.tap)
-        Tap.tap_migration_oldnames(tap, name) + tap.formula_reverse_renames.fetch(name, [])
-      else
-        []
-      end, T.nilable(T::Array[String])
-    )
+    @oldnames ||= T.let(nil, T.nilable(T::Array[String]))
+    @oldnames ||= if (tap = self.tap)
+      oldnames = Tap.tap_migration_oldnames(tap, name) + tap.formula_reverse_renames.fetch(name, [])
+      oldnames.reject { |oldname| Utils.name_from_full_name(oldname) == name }
+    else
+      []
+    end
   end
 
   # All aliases for the formula.

@@ -658,6 +658,16 @@ RSpec.describe Formula do
     expect(f).not_to need_migration
   end
 
+  specify "#oldnames ignores same-name cask-to-formula migrations" do
+    tap = Tap.fetch("homebrew", "foo")
+    allow(Tap).to receive(:tap_migration_oldnames).with(tap, "same-name-cask")
+                                                  .and_return(["same-name-cask"])
+
+    expect(formula("same-name-cask", tap:) do
+      url "https://brew.sh/same-name-cask-1.0.tar.gz"
+    end.oldnames).to be_empty
+  end
+
   describe "#latest_version_installed?" do
     let(:f) { Testball.new }
 
