@@ -664,6 +664,7 @@ module Homebrew
           outdated:,
           deprecated: formula.deprecated?,
           disabled:   formula.disabled?,
+          bold:       true,
         )
 
         puts "#{oh1_title(name_with_status)}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
@@ -903,7 +904,7 @@ module Homebrew
           installed ||= formula.any_version_installed? if !installed && formula
           outdated = T.let(installed && formula&.outdated? == true, T::Boolean)
           warning = missing_library_deps.include?(Utils.name_from_full_name(dep.name))
-          pretty_install_status(display, warning:, installed:, outdated:, mark_uninstalled:)
+          pretty_install_status(display, warning:, installed:, outdated:, mark_uninstalled:, bold: true)
         end.join(", ")
       end
 
@@ -911,7 +912,7 @@ module Homebrew
       def decorate_requirements(requirements, mark_uninstalled: true)
         req_status = requirements.map do |req|
           req_s = req.display_s
-          pretty_install_status(req_s, installed: req.satisfied?, mark_uninstalled:)
+          pretty_install_status(req_s, installed: req.satisfied?, mark_uninstalled:, bold: true)
         end
         req_status.join(", ")
       end
