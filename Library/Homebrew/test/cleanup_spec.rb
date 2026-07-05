@@ -362,6 +362,22 @@ RSpec.describe Homebrew::Cleanup do
 
         expect(download).not_to exist
       end
+
+      it "removes broken legacy URL-basename downloads" do
+        version = Cask::DSL::Version.new(:latest)
+        cask = instance_double(Cask::Cask,
+                               token:         "latest-cask",
+                               version:,
+                               url:           "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip",
+                               caskroom_path: Cask::Caskroom.path/"latest-cask")
+        download = Cask::Cache.path/"caffeine.zip--#{version}.zip"
+
+        FileUtils.ln_s Cask::Cache.path/"missing.zip", download
+
+        cleanup.cleanup_cask(cask)
+
+        expect(download).not_to be_a_symlink
+      end
     end
   end
 

@@ -80,6 +80,7 @@ module Homebrew
 
       sig { params(pathname: Pathname, cask: Cask::Cask, name: String, scrub: T::Boolean).returns(T::Boolean) }
       def stale_cask_download?(pathname, cask, name, scrub:)
+        return true unless pathname.exist?
         return true unless cask_cache_file_current?(pathname, cask, name)
         return true if scrub && cask.installed_version != cask.version
 
@@ -504,14 +505,15 @@ module Homebrew
       cask_cache = cache/"Cask"
       return unless cask_cache.directory?
 
+      cask_cache_paths = cask_cache.children.select { |path| path.file? || path.symlink? }
+
       casks.each do |cask|
         next unless (url = cask.url)
 
         legacy_download_name = Utils.safe_filename(File.basename(url.to_s))
         next if legacy_download_name.blank? || legacy_download_name == cask.token
 
-        cask_cache.children.each do |path|
-          next if !path.file? && !path.symlink?
+        cask_cache_paths.each do |path|
           next unless path.basename.to_s.start_with?("#{legacy_download_name}--")
           next if !self.class.stale_cask_download?(path, cask, legacy_download_name, scrub: scrub?) &&
                   (!self.class.cask_cache_file_current?(path, cask, legacy_download_name) ||
@@ -647,7 +649,7 @@ module Homebrew
 
     sig { params(path: Pathname, _block: T.proc.void).void }
     def cleanup_path(path, &_block)
-      return unless path.exist?
+      return if !path.exist? && !path.symlink?
       return unless @cleaned_up_paths.add?(path)
 
       @disk_cleanup_size += path.disk_usage
