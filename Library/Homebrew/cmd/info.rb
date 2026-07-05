@@ -57,9 +57,9 @@ module Homebrew
                description: "Fetch GitHub Packages manifest for extra information when <formula> is not installed.",
                odeprecated: true
         flag   "--json",
-               description: "Print a JSON representation. Currently the default value for <version> is `v1` for " \
-                            "<formula>. For <formula> and <cask> use `v2`. See the docs for examples of using the " \
-                            "JSON output: <https://docs.brew.sh/Querying-Brew>"
+               description: "Print a JSON representation. Currently the default value for <version> is `v1`." \
+                            "`v1` is valid for <formula> only. `v2` is valid for both <formula> and <cask>." \
+                            "See the docs for examples of using the JSON output: <https://docs.brew.sh/Querying-Brew>"
         switch "--installed",
                description: "Output a human-readable inventory of installed formulae and casks. If `--json` is " \
                             "passed, print JSON for installed formulae and, with `--json=v2`, installed casks."
