@@ -1585,16 +1585,6 @@ class Formula
   sig { returns(T::Boolean) }
   def post_install_steps_defined? = self.class.post_install_steps_defined?
 
-  sig { returns(T::Boolean) }
-  def post_install_steps_conflict?
-    post_install_steps_defined? && post_install_defined?
-  end
-
-  sig { void }
-  def warn_on_post_install_steps_conflict
-    opoo "#{full_name}: `post_install` is ignored because `post_install_steps` are defined!"
-  end
-
   sig { void }
   def install_etc_var
     etc_var_dirs = [bottle_prefix/"etc", bottle_prefix/"var"]
