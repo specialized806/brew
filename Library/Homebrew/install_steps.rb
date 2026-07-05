@@ -327,7 +327,12 @@ module Homebrew
         when "gdk_pixbuf_query_loaders"
           run_formula_tool("gdk-pixbuf", "gdk-pixbuf-query-loaders", "--update-cache")
         when "gtk_update_icon_cache"
-          run_formula_tool("gtk+3", "gtk3-update-icon-cache", "-q", "-t", "-f", resolve_path(step.fetch("path")))
+          require "utils/path"
+          if Utils::Path.formula_any_version_installed?("gtk4")
+            run_formula_tool("gtk4", "gtk4-update-icon-cache", "-q", "-t", "-f", resolve_path(step.fetch("path")))
+          else
+            run_formula_tool("gtk+3", "gtk3-update-icon-cache", "-q", "-t", "-f", resolve_path(step.fetch("path")))
+          end
         when "update_mime_database"
           run_formula_tool("shared-mime-info", "update-mime-database", resolve_path(step.fetch("path")))
         when "update_desktop_database"
