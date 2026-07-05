@@ -42,16 +42,33 @@ RSpec.describe Homebrew::TestBot::Formulae do
       bar = formula("bar") do
         T.bind(self, T.class_of(Formula))
         url "bar-1.0"
+        depends_on "not-runtime" => :build
         depends_on "existing"
         depends_on "baz"
       end
       baz = formula("baz") do
         T.bind(self, T.class_of(Formula))
         url "baz-1.0"
+        depends_on "not-runtime" => :test
+        depends_on "recommended" => :recommended
+      end
+      recommended = formula("recommended") do
+        T.bind(self, T.class_of(Formula))
+        url "recommended-1.0"
+        depends_on "not-runtime" => :optional
+      end
+      not_runtime = formula("not-runtime") do
+        T.bind(self, T.class_of(Formula))
+        url "not-runtime-1.0"
+        depends_on "other"
+      end
+      other = formula("other") do
+        T.bind(self, T.class_of(Formula))
+        url "other-1.0"
       end
 
-      [existing, bar, baz].each { |f| stub_formula_loader f }
-      [[bar, 1_000_000], [baz, 500_000]].each do |f, size|
+      [existing, bar, baz, recommended, not_runtime, other].each { |f| stub_formula_loader f }
+      [[bar, 1_000_000], [baz, 500_000], [recommended, 400_000]].each do |f, size|
         allow(f).to receive(:bottle_for_tag)
           .and_return(instance_double(Bottle, fetch_tab: nil, installed_size: size))
       end
@@ -75,8 +92,8 @@ RSpec.describe Homebrew::TestBot::Formulae do
           expect { formulae.send(:annotate_added_dependencies, formula) }
             .to output(
               "::warning file=#{formula.path.relative_path_from(CoreTap.instance.path)},line=7," \
-              "title=foo: new dependency impact::Adding `bar` adds 2 new recursive dependencies " \
-              "on #{Utils::Bottles.tag} (1.5MB).\n",
+              "title=foo: new dependency impact::Adding `bar` adds 3 new recursive dependencies " \
+              "on #{Utils::Bottles.tag} (1.9MB).\n",
             ).to_stdout
         end
       end
