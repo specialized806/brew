@@ -1296,8 +1296,9 @@ Display brief statistics for your Homebrew installation. If a *`formula`* or
 `--json`
 
 : Print a JSON representation. Currently the default value for *`version`* is
-  `v1` for *`formula`*. For *`formula`* and *`cask`* use `v2`. See the docs for
-  examples of using the JSON output: <https://docs.brew.sh/Querying-Brew>
+  `v1`.`v1` is valid for *`formula`* only. `v2` is valid for both *`formula`*
+  and *`cask`*.See the docs for examples of using the JSON output:
+  <https://docs.brew.sh/Querying-Brew>
 
 `--installed`
 
