@@ -37,9 +37,7 @@ class SBOM
 
     new(
       name:                 formula.name,
-      homebrew_version:     HOMEBREW_VERSION,
       spdxfile:             SBOM.spdxfile(formula),
-      time:                 tab.time || Time.now,
       source_modified_time: tab.source_modified_time.to_i,
       compiler:             tab.compiler,
       stdlib:               tab.stdlib,
@@ -88,13 +86,30 @@ class SBOM
     spdxfile(formula).exist?
   end
 
+  sig { params(spdxfile: Pathname, homebrew_version: String, time: Integer).void }
+  def self.update_pour_metadata(spdxfile, homebrew_version:, time:)
+    return unless spdxfile.exist?
+
+    spdx = JSON.parse(spdxfile.read)
+    return unless spdx.is_a?(Hash)
+
+    creation_info = spdx["creationInfo"]
+    return unless creation_info.is_a?(Hash)
+
+    creation_info["created"] = Time.at(time).utc.iso8601
+    creation_info["creators"] = ["Tool: https://github.com/Homebrew/brew@#{homebrew_version}"]
+    spdxfile.atomic_write(JSON.pretty_generate(spdx))
+  rescue JSON::ParserError
+    nil
+  end
+
   sig { returns(T::Hash[String, T.anything]) }
   def self.schema
     @schema ||= T.let(JSON.parse(SCHEMA_FILE.read, freeze: true), T.nilable(T::Hash[String, T.untyped]))
   end
 
-  sig { params(bottling: T::Boolean).returns(T::Array[String]) }
-  def schema_validation_errors(bottling: false)
+  sig { params(data: T::Hash[Symbol, T.anything]).returns(T::Array[String]) }
+  def schema_validation_errors(data = to_spdx_sbom)
     unless Homebrew.require? "json_schemer"
       error_message = "Need json_schemer to validate SBOM, run `brew install-bundler-gems --add-groups=bottle`!"
       odie error_message if ENV["HOMEBREW_ENFORCE_SBOM"]
@@ -102,14 +117,13 @@ class SBOM
     end
 
     schemer = JSONSchemer.schema(SBOM.schema)
-    data = to_spdx_sbom(bottling:)
 
     schemer.validate(data).map { |error| error["error"] }
   end
 
-  sig { params(bottling: T::Boolean).returns(T::Boolean) }
-  def valid?(bottling: false)
-    validation_errors = schema_validation_errors(bottling:)
+  sig { params(data: T::Hash[Symbol, T.anything]).returns(T::Boolean) }
+  def valid?(data = to_spdx_sbom)
+    validation_errors = schema_validation_errors(data)
     return true if validation_errors.empty?
 
     opoo "SBOM validation errors:"
@@ -120,27 +134,79 @@ class SBOM
     false
   end
 
-  sig { params(validate: T::Boolean, bottling: T::Boolean).void }
-  def write(validate: true, bottling: false)
+  sig { params(validate: T::Boolean).void }
+  def write(validate: true)
     # If this is a new installation, the cache of installed formulae
     # will no longer be valid.
     Formula.clear_cache unless spdxfile.exist?
 
-    if validate && !valid?(bottling:)
+    spdx_sbom = to_spdx_sbom
+
+    if validate && !valid?(spdx_sbom)
       opoo "SBOM is not valid, not writing to disk!"
       return
     end
 
-    spdxfile.atomic_write(JSON.pretty_generate(to_spdx_sbom(bottling:)))
+    spdxfile.atomic_write(JSON.pretty_generate(spdx_sbom))
+  end
+
+  sig { returns(T::Hash[Symbol, T.anything]) }
+  def to_spdx_sbom
+    runtime_full = full_spdx_runtime_dependencies
+
+    compiler_info = {
+      "SPDXRef-Compiler" => {
+        SPDXID:           "SPDXRef-Compiler",
+        name:             compiler.to_s,
+        versionInfo:      assert_value(built_on["xcode"]),
+        filesAnalyzed:    false,
+        licenseDeclared:  assert_value(nil),
+        licenseConcluded: assert_value(nil),
+        copyrightText:    assert_value(nil),
+        downloadLocation: assert_value(nil),
+        checksums:        [],
+        externalRefs:     [],
+      },
+    }
+
+    if stdlib.present?
+      compiler_info["SPDXRef-Stdlib"] = {
+        SPDXID:           "SPDXRef-Stdlib",
+        name:             stdlib.to_s,
+        versionInfo:      stdlib.to_s,
+        filesAnalyzed:    false,
+        licenseDeclared:  assert_value(nil),
+        licenseConcluded: assert_value(nil),
+        copyrightText:    assert_value(nil),
+        downloadLocation: assert_value(nil),
+        checksums:        [],
+        externalRefs:     [],
+      }
+    end
+
+    packages = generate_packages_json(runtime_full, compiler_info)
+    files = generate_files_json
+    {
+      SPDXID:            "SPDXRef-DOCUMENT",
+      spdxVersion:       "SPDX-2.3",
+      name:              "SBOM-SPDX-#{name}-#{spec_version}",
+      creationInfo:      {
+        created:  source_modified_time.iso8601,
+        creators: ["Tool: https://github.com/Homebrew/brew"],
+      },
+      dataLicense:       "CC0-1.0",
+      documentNamespace: "https://formulae.brew.sh/spdx/#{name}-#{spec_version}.json",
+      documentDescribes: packages.map { |dependency| dependency[:SPDXID] },
+      files:,
+      packages:,
+      relationships:     generate_relations_json(runtime_full, compiler_info),
+    }
   end
 
   private
 
   sig { returns(String) }
-  attr_reader :name, :homebrew_version
-
-  sig { returns(T.any(Integer, Time)) }
-  attr_reader :time
+  attr_reader :name
 
   sig { returns(T.nilable(T.any(String, Symbol))) }
   attr_reader :stdlib
@@ -160,9 +226,7 @@ class SBOM
   sig {
     params(
       name:                 String,
-      homebrew_version:     String,
       spdxfile:             Pathname,
-      time:                 T.any(Integer, Time),
       source_modified_time: Integer,
       compiler:             T.any(String, Symbol),
       stdlib:               T.nilable(T.any(String, Symbol)),
@@ -172,12 +236,10 @@ class SBOM
       source:               Source,
     ).void
   }
-  def initialize(name:, homebrew_version:, spdxfile:, time:, source_modified_time:,
-                 compiler:, stdlib:, runtime_dependencies:, license:, built_on:, source:)
+  def initialize(name:, spdxfile:, source_modified_time:, compiler:, stdlib:, runtime_dependencies:,
+                 license:, built_on:, source:)
     @name = name
-    @homebrew_version = homebrew_version
     @spdxfile = spdxfile
-    @time = time
     @source_modified_time = source_modified_time
     @compiler = compiler
     @stdlib = stdlib
@@ -191,15 +253,14 @@ class SBOM
     params(
       runtime_dependency_declaration: T::Array[T::Hash[Symbol, T.untyped]],
       compiler_declaration:           T::Hash[String, T.untyped],
-      bottling:                       T::Boolean,
     ).returns(T::Array[T::Hash[Symbol, T.untyped]])
   }
-  def generate_relations_json(runtime_dependency_declaration, compiler_declaration, bottling:)
+  def generate_relations_json(runtime_dependency_declaration, compiler_declaration)
     runtime = runtime_dependency_declaration.map do |dependency|
       {
         spdxElementId:      dependency[:SPDXID],
         relationshipType:   "RUNTIME_DEPENDENCY_OF",
-        relatedSpdxElement: described_package_spdx_id(bottling:),
+        relatedSpdxElement: described_package_spdx_id,
       }
     end
 
@@ -223,20 +284,18 @@ class SBOM
       }
     end
 
-    unless bottling
-      base << {
-        spdxElementId:      "SPDXRef-Compiler",
-        relationshipType:   "BUILD_TOOL_OF",
-        relatedSpdxElement: "SPDXRef-Archive-#{name}-src",
-      }
+    base << {
+      spdxElementId:      "SPDXRef-Compiler",
+      relationshipType:   "BUILD_TOOL_OF",
+      relatedSpdxElement: "SPDXRef-Archive-#{name}-src",
+    }
 
-      if compiler_declaration["SPDXRef-Stdlib"].present?
-        base << {
-          spdxElementId:      "SPDXRef-Stdlib",
-          relationshipType:   "DEPENDENCY_OF",
-          relatedSpdxElement: described_package_spdx_id(bottling:),
-        }
-      end
+    if compiler_declaration["SPDXRef-Stdlib"].present?
+      base << {
+        spdxElementId:      "SPDXRef-Stdlib",
+        relationshipType:   "DEPENDENCY_OF",
+        relatedSpdxElement: described_package_spdx_id,
+      }
     end
 
     runtime + patches + base
@@ -246,12 +305,11 @@ class SBOM
     params(
       runtime_dependency_declaration: T::Array[T::Hash[Symbol, T.anything]],
       compiler_declaration:           T::Hash[String, T::Hash[Symbol, T.anything]],
-      bottling:                       T::Boolean,
     ).returns(T::Array[T::Hash[Symbol, T.untyped]])
   }
-  def generate_packages_json(runtime_dependency_declaration, compiler_declaration, bottling:)
+  def generate_packages_json(runtime_dependency_declaration, compiler_declaration)
     bottle = []
-    if bottle_package?(bottling:) &&
+    if bottle_package? &&
        (bottle_info = get_bottle_info(source.bottle)) &&
        (stable_version = source.version)
       bottle << {
@@ -305,12 +363,6 @@ class SBOM
       package
     end
 
-    compiler_declarations = if bottling
-      []
-    else
-      compiler_declaration.values
-    end
-
     [
       {
         SPDXID:           "SPDXRef-Archive-#{name}-src",
@@ -330,7 +382,7 @@ class SBOM
           },
         ],
       },
-    ] + patches + runtime_dependency_declaration + compiler_declarations + bottle
+    ] + patches + runtime_dependency_declaration + compiler_declaration.values + bottle
   end
 
   sig { returns(T::Array[T::Hash[Symbol, T.anything]]) }
@@ -352,12 +404,9 @@ class SBOM
     ]
   end
 
-  sig {
-    params(bottling: T::Boolean)
-      .returns(T::Array[T::Hash[Symbol, T.any(T::Boolean, String, T::Array[T::Hash[Symbol, String]])]])
-  }
-  def full_spdx_runtime_dependencies(bottling:)
-    return [] if bottling || @runtime_dependencies.blank?
+  sig { returns(T::Array[T::Hash[Symbol, T.any(T::Boolean, String, T::Array[T::Hash[Symbol, String]])]]) }
+  def full_spdx_runtime_dependencies
+    return [] if @runtime_dependencies.blank?
 
     @runtime_dependencies.compact.filter_map do |dependency|
       next unless dependency.present?
@@ -395,65 +444,6 @@ class SBOM
     end
   end
 
-  sig { params(bottling: T::Boolean).returns(T::Hash[Symbol, T.anything]) }
-  def to_spdx_sbom(bottling:)
-    runtime_full = full_spdx_runtime_dependencies(bottling:)
-
-    compiler_info = {
-      "SPDXRef-Compiler" => {
-        SPDXID:           "SPDXRef-Compiler",
-        name:             compiler.to_s,
-        versionInfo:      assert_value(built_on["xcode"]),
-        filesAnalyzed:    false,
-        licenseDeclared:  assert_value(nil),
-        licenseConcluded: assert_value(nil),
-        copyrightText:    assert_value(nil),
-        downloadLocation: assert_value(nil),
-        checksums:        [],
-        externalRefs:     [],
-      },
-    }
-
-    if stdlib.present?
-      compiler_info["SPDXRef-Stdlib"] = {
-        SPDXID:           "SPDXRef-Stdlib",
-        name:             stdlib.to_s,
-        versionInfo:      stdlib.to_s,
-        filesAnalyzed:    false,
-        licenseDeclared:  assert_value(nil),
-        licenseConcluded: assert_value(nil),
-        copyrightText:    assert_value(nil),
-        downloadLocation: assert_value(nil),
-        checksums:        [],
-        externalRefs:     [],
-      }
-    end
-
-    # Improve reproducibility when bottling.
-    if bottling
-      created = source_modified_time.iso8601
-      creators = ["Tool: https://github.com/Homebrew/brew"]
-    else
-      created = Time.at(time).utc.iso8601
-      creators = ["Tool: https://github.com/Homebrew/brew@#{homebrew_version}"]
-    end
-
-    packages = generate_packages_json(runtime_full, compiler_info, bottling:)
-    files = generate_files_json
-    {
-      SPDXID:            "SPDXRef-DOCUMENT",
-      spdxVersion:       "SPDX-2.3",
-      name:              "SBOM-SPDX-#{name}-#{spec_version}",
-      creationInfo:      { created:, creators: },
-      dataLicense:       "CC0-1.0",
-      documentNamespace: "https://formulae.brew.sh/spdx/#{name}-#{spec_version}.json",
-      documentDescribes: packages.map { |dependency| dependency[:SPDXID] },
-      files:,
-      packages:,
-      relationships:     generate_relations_json(runtime_full, compiler_info, bottling:),
-    }
-  end
-
   sig { params(base: T.nilable(T::Hash[String, T.untyped])).returns(T.nilable(T::Hash[String, String])) }
   def get_bottle_info(base)
     return unless base.present?
@@ -464,14 +454,14 @@ class SBOM
     files[Utils::Bottles.tag.to_sym] || files[:all]
   end
 
-  sig { params(bottling: T::Boolean).returns(T::Boolean) }
-  def bottle_package?(bottling:)
-    !bottling && get_bottle_info(source.bottle).present? && spec_symbol == :stable && source.version.present?
+  sig { returns(T::Boolean) }
+  def bottle_package?
+    get_bottle_info(source.bottle).present? && spec_symbol == :stable && source.version.present?
   end
 
-  sig { params(bottling: T::Boolean).returns(String) }
-  def described_package_spdx_id(bottling:)
-    if bottle_package?(bottling:)
+  sig { returns(String) }
+  def described_package_spdx_id
+    if bottle_package?
       "SPDXRef-Bottle-#{name}"
     else
       "SPDXRef-Archive-#{name}-src"

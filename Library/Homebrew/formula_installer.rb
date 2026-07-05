@@ -1042,8 +1042,13 @@ on_request: installed_on_request?, options:)
     tab.runtime_dependencies = Tab.runtime_deps_hash(formula, f_runtime_deps)
     tab.write
 
-    # write/update a SBOM file (if requested and we aren't bottling)
-    if Homebrew::EnvConfig.sbom? && !build_bottle?
+    # Update packaged SBOM metadata or write a source-install SBOM.
+    if @poured_bottle
+      if (install_time = tab.time)
+        require "sbom"
+        SBOM.update_pour_metadata(SBOM.spdxfile(formula), homebrew_version: HOMEBREW_VERSION, time: install_time)
+      end
+    elsif Homebrew::EnvConfig.sbom? && !build_bottle?
       require "sbom"
       sbom = SBOM.create(formula, tab)
       sbom.write(validate: Homebrew::EnvConfig.developer?)

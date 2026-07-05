@@ -651,8 +651,10 @@ module Homebrew
         odeprecated: true,
       },
       HOMEBREW_SBOM:                             {
-        description: "If set, Homebrew will write SBOM files and run SBOM-related installation logic.",
-        boolean:     true,
+        description: "Write SBOM files for source installs.",
+        boolean:     :set,
+        default:     true,
+        hidden:      true,
       },
       HOMEBREW_SIMULATE_MACOS_ON_LINUX:          {
         description: "If set, running Homebrew on Linux will simulate certain macOS code paths. This is useful " \
