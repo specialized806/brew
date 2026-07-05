@@ -9,6 +9,7 @@ RSpec.describe Homebrew::InstallSteps do
     root_path = root
     Class.new do
       define_method(:prefix) { root_path/"prefix" }
+      define_method(:bin) { root_path/"prefix/bin" }
       define_method(:var) { root_path/"var" }
       define_method(:staged_path) { root_path/"stage" }
     end.new
@@ -155,6 +156,71 @@ RSpec.describe Homebrew::InstallSteps do
     expect do
       Homebrew::InstallSteps::Runner.new(context:).run([{ "type" => "write", "path" => "config/new.conf" }])
     end.to raise_error(ArgumentError, /non-empty content/)
+  end
+
+  specify "runs service data directory initialisers", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      init_data_dir "postgresql@16", using: :postgresql_initdb
+      init_data_dir "postgresql@12", using: :postgresql_initdb, locale: "C"
+      init_data_dir "mysql", using: :mysql_initialize
+      init_data_dir "mysql", using: :mariadb_install_db
+    end
+
+    expect(context).to receive(:safe_system).with(root/"prefix/bin/initdb", "--locale=en_US.UTF-8", "-E", "UTF-8",
+                                                  root/"var/postgresql@16").ordered
+    expect(context).to receive(:safe_system).with(root/"prefix/bin/initdb", "--locale=C", "-E", "UTF-8",
+                                                  root/"var/postgresql@12").ordered
+    expect(context).to receive(:safe_system).with(root/"prefix/bin/mysqld", "--initialize-insecure",
+                                                  "--user=#{ENV.fetch("USER")}", "--basedir=#{root}/prefix",
+                                                  "--datadir=#{root}/var/mysql", "--tmpdir=/tmp").ordered
+    expect(context).to receive(:safe_system).with(root/"prefix/bin/mysql_install_db", "--verbose",
+                                                  "--user=#{ENV.fetch("USER")}", "--basedir=#{root}/prefix",
+                                                  "--datadir=#{root}/var/mysql", "--tmpdir=/tmp").ordered
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/postgresql@16").to be_a_directory
+    expect(root/"var/postgresql@12").to be_a_directory
+    expect(root/"var/mysql").to be_a_directory
+  end
+
+  specify "skips data directory initialisers in CI", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      init_data_dir "postgresql@16", using: :postgresql_initdb
+    end
+
+    ENV["HOMEBREW_GITHUB_ACTIONS"] = "1"
+    expect(context).not_to receive(:safe_system)
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/postgresql@16").to be_a_directory
+  end
+
+  specify "skips data directory initialisers when their marker exists", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      init_data_dir "mysql", using: :mysql_initialize
+    end
+
+    (root/"var/mysql/mysql").mkpath
+    (root/"var/mysql/mysql/general_log.CSM").write ""
+    expect(context).not_to receive(:safe_system)
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/mysql").to be_a_directory
+  end
+
+  specify "raises on unknown data directory initialisers" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      init_data_dir "unknown", using: :unknown_database
+    end
+
+    ENV["HOMEBREW_GITHUB_ACTIONS"] = "1"
+
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(steps) }
+      .to raise_error(ArgumentError, /unknown data directory initialiser/)
+    expect(root/"var/unknown").not_to exist
   end
 
   specify "runs named desktop and cache rebuild actions" do

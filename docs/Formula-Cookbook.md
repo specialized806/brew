@@ -1213,6 +1213,23 @@ A trailing newline is appended unless the content already ends with one, so writ
 
 Content may use a fixed set of `{{...}}` tokens that are expanded at install time so paths are not hardcoded into the JSON API: `{{HOMEBREW_PREFIX}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
 
+#### Service data directory steps
+
+`init_data_dir` creates a database service data directory and runs a supported
+bootstrap command unless the directory already contains the default marker
+file. It defaults to paths relative to `var` and skips the bootstrap command in
+Homebrew's GitHub Actions jobs. It does not change permissions or ownership.
+
+* `init_data_dir` with `using: :postgresql_initdb`: initialise PostgreSQL with
+  `initdb`; example: `init_data_dir "postgresql@16", using: :postgresql_initdb`.
+  PostgreSQL defaults to `locale: "en_US.UTF-8"` and can set another locale,
+  for example `init_data_dir "postgresql@12", using: :postgresql_initdb, locale: "C"`.
+* `init_data_dir` with `using: :mysql_initialize`: initialise MySQL with
+  `mysqld --initialize-insecure`; example:
+  `init_data_dir "mysql", using: :mysql_initialize`.
+* `init_data_dir` with `using: :mariadb_install_db`: initialise MariaDB with
+  `mysql_install_db`; example: `init_data_dir "mysql", using: :mariadb_install_db`.
+
 #### Desktop and cache rebuild steps
 
 These steps rebuild shared desktop and cache state using Homebrew-owned tools.
