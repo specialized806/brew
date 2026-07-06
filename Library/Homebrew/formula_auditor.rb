@@ -248,20 +248,20 @@ module Homebrew
     }.freeze, T::Hash[String, T::Array[String]])
 
     # The following licenses are non-free/open based on multiple sources (e.g. Debian, Fedora, FSF, OSI, ...)
-    INCOMPATIBLE_LICENSES = T.let([
+    INCOMPATIBLE_LICENSES = [
       "Aladdin",    # https://www.gnu.org/licenses/license-list.html#Aladdin
       "CPOL-1.02",  # https://www.gnu.org/licenses/license-list.html#cpol
       "gSOAP-1.3b", # https://salsa.debian.org/ellert/gsoap/-/blob/HEAD/debian/copyright
       "JSON",       # https://wiki.debian.org/DFSGLicenses#JSON_evil_license
       "MS-LPL",     # https://github.com/spdx/license-list-XML/issues/1432#issuecomment-1077680709
       "OPL-1.0",    # https://wiki.debian.org/DFSGLicenses#Open_Publication_License_.28OPL.29_v1.0
-    ].freeze, T::Array[String])
-    INCOMPATIBLE_LICENSE_PREFIXES = T.let([
+    ].freeze
+    INCOMPATIBLE_LICENSE_PREFIXES = [
       "BUSL",     # https://spdx.org/licenses/BUSL-1.1.html#notes
       "CC-BY-NC", # https://people.debian.org/~bap/dfsg-faq.html#no_commercial
       "Elastic",  # https://www.elastic.co/licensing/elastic-license#Limitations
       "SSPL",     # https://fedoraproject.org/wiki/Licensing/SSPL#License_Notes
-    ].freeze, T::Array[String])
+    ].freeze
 
     sig { void }
     def audit_license

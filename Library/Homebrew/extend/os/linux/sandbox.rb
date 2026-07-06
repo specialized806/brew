@@ -14,7 +14,7 @@ module OS
       requires_ancestor { ::Sandbox }
 
       BUBBLEWRAP = "bwrap"
-      BUBBLEWRAP_TEST_ARGS = T.let([
+      BUBBLEWRAP_TEST_ARGS = [
         "--unshare-user",
         "--unshare-ipc",
         "--unshare-pid",
@@ -24,11 +24,11 @@ module OS
         "--proc", "/proc",
         "--dev", "/dev",
         "true"
-      ].freeze, T::Array[String])
-      SYSTEM_BUBBLEWRAP_PATHS = T.let(%w[
+      ].freeze
+      SYSTEM_BUBBLEWRAP_PATHS = %w[
         /usr/bin
         /bin
-      ].freeze, T::Array[String])
+      ].freeze
       HOMEBREW_BUBBLEWRAP_PATHS = T.let([
         "#{HOMEBREW_PREFIX}/bin",
       ].freeze, T::Array[String])

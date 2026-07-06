@@ -10,7 +10,7 @@ module RuboCop
         extend AutoCorrector
         include RangeHelp
 
-        MACOS_ONLY_CASK_STANZAS = T.let([
+        MACOS_ONLY_CASK_STANZAS = [
           :app,
           :audio_unit_plugin,
           :colorpicker,
@@ -27,7 +27,7 @@ module RuboCop
           :suite,
           :vst_plugin,
           :vst3_plugin,
-        ].freeze, T::Array[Symbol])
+        ].freeze
 
         CASK_STANZA_ORDER = T.let(RuboCop::Cask::Constants::STANZA_ORDER, T::Array[Symbol])
         MACOS_DEPENDENCY_STANZAS = [:macos, :maximum_macos].freeze

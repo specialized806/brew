@@ -20,9 +20,9 @@ module Homebrew
         ).void
       }
       def initialize(default_base: nil, default_source_base: nil, default_target_base: nil)
-        @default_base = ::T.let(default_base, ::T.nilable(::T.any(::String, ::Symbol)))
-        @default_source_base = ::T.let(default_source_base, ::T.nilable(::T.any(::String, ::Symbol)))
-        @default_target_base = ::T.let(default_target_base, ::T.nilable(::T.any(::String, ::Symbol)))
+        @default_base = default_base
+        @default_source_base = default_source_base
+        @default_target_base = default_target_base
         @steps = ::T.let([], Steps)
       end
 
