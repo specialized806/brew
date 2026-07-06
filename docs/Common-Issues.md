@@ -193,7 +193,7 @@ The cask is outdated. Let’s fix it:
 1. Look around the app’s website and find out what the latest version is. It may be expressed in the URL used to download it.
 2. Take a look at the cask’s version (`brew info <cask_name>`) and verify it is indeed outdated. If the app’s version is `:latest`, it means the `url` itself is outdated. It will need to be changed to the new one.
 
-Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.md) explaining your steps so far and where you’re having trouble.
+Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.yml) explaining your steps so far and where you’re having trouble.
 
 #### If the download does not work
 
@@ -215,7 +215,7 @@ If the problem persists, the cask must be outdated. It’ll likely need a new ve
 2. Find out what the latest version is. It may be expressed in the URL used to download it.
 3. Take a look at the cask’s version (`brew info <cask_name>`) and verify it is indeed outdated. If so, it will need to be updated.
 
-Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.md) explaining your steps so far and where you’re having trouble.
+Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.yml) explaining your steps so far and where you’re having trouble.
 
 ### Cask - permission denied
 
@@ -225,7 +225,7 @@ If `--appdir` doesn’t fix the issue or you do have write permissions to `/Appl
 
 Some app bundles don’t have certain permissions that are necessary for us to move them to the appropriate location. You may check such permissions with `ls -ls '/path/to/application.app'`. If you see something like `dr-xr-xr-x` at the start of the output, that may be the cause. To fix it, we need to change the app bundle’s permission to allow us to move it, and then set it back to what it was (in case the developer set those permissions deliberately). See [litecoin.rb](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/l/litecoin.rb#L17-L27) for an example of such a cask.
 
-Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.md) explaining your steps so far and where you’re having trouble.
+Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.yml) explaining your steps so far and where you’re having trouble.
 
 ### Cask - source is not there
 
@@ -248,13 +248,13 @@ The cask expects `SomeApp.app` to be in the top directory of the archive (see ho
 
 Note that occasionally the app’s name changes completely (from `SomeApp.app` to `OtherApp.app`, let's say). In these instances, the filename of the cask itself, as well as its token, must also change. Consult the [`token reference`](Cask-Cookbook.md#token-reference) for complete instructions on the new name.
 
-Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.md) explaining your steps so far and where you’re having trouble.
+Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.yml) explaining your steps so far and where you’re having trouble.
 
 ### Cask - wrong number of arguments
 
 Make sure the issue really lies with your macOS version. To do so, try to install the software manually. If it is incompatible with your macOS version, it will tell you. In that case, there is nothing we can do to help you install the software, but we can add a [`depends_on macos:`](Cask-Cookbook.md#depends_on-macos) stanza to prevent the cask from being installed on incompatible macOS versions.
 
-Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.md) explaining your steps so far and where you’re having trouble.
+Help us by [submitting a fix](https://github.com/Homebrew/homebrew-cask/blob/HEAD/CONTRIBUTING.md#updating-a-cask). If you get stumped, [open an issue](https://github.com/Homebrew/homebrew-cask/issues/new?template=01_bug_report.yml) explaining your steps so far and where you’re having trouble.
 
 ## Other local issues
 
