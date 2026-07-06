@@ -221,6 +221,9 @@ RSpec.describe Homebrew::Bundle::Brew do
 
     describe "#dump" do
       it "returns a dump string with installed formulae" do
+        allow(Homebrew::Bundle::Brew::Services).to receive(:started_services).and_return([])
+        allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["bazzles/bizzles/baz"])
+
         expect(Formula).to receive(:installed).and_return([foo, bar, baz])
         expect(bar.linked_keg).to receive(:realpath).and_return(instance_double(Pathname, basename: "1.0"))
         expect(Tab).to receive(:for_keg).with(bar.linked_keg).and_return(
@@ -230,7 +233,6 @@ RSpec.describe Homebrew::Bundle::Brew do
                           runtime_dependencies: [],
                           used_options:         []),
         )
-        allow(Utils).to receive(:safe_popen_read).and_return("[]")
         expected = <<~RUBY
           # barfoo
           brew "bar"
@@ -238,7 +240,6 @@ RSpec.describe Homebrew::Bundle::Brew do
           # foobar
           brew "qux/quuz/foo"
         RUBY
-        allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["bazzles/bizzles/baz"])
         expect(dumper.dump(describe: true)).to eql(expected.chomp)
       end
     end
