@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 module Homebrew
   # Declarative install steps that can be serialised through the JSON APIs.
   module InstallSteps
@@ -348,6 +350,8 @@ module Homebrew
     end
 
     class Runner
+      include SystemCommand::Mixin
+
       # Path tokens reuse the step base resolution; formula metadata tokens are
       # resolved separately. Anything else is left verbatim so literal braces in
       # templates are never rewritten.
@@ -490,16 +494,16 @@ module Homebrew
         prefix = context_path("prefix")
         case using
         when "postgresql_initdb"
-          run_safe_system bin/"initdb", "--locale=#{step["locale"] || "en_US.UTF-8"}", "-E", "UTF-8", path
+          run_command bin/"initdb", "--locale=#{step["locale"] || "en_US.UTF-8"}", "-E", "UTF-8", path
         when "mysql_initialize"
           with_env(TMPDIR: nil) do
-            run_safe_system bin/"mysqld", "--initialize-insecure", "--user=#{ENV.fetch("USER")}",
-                            "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp"
+            run_command bin/"mysqld", "--initialize-insecure", "--user=#{ENV.fetch("USER")}",
+                        "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp"
           end
         when "mariadb_install_db"
           with_env(TMPDIR: nil) do
-            run_safe_system bin/"mysql_install_db", "--verbose", "--user=#{ENV.fetch("USER")}",
-                            "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp"
+            run_command bin/"mysql_install_db", "--verbose", "--user=#{ENV.fetch("USER")}",
+                        "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp"
           end
         end
       end
@@ -589,7 +593,7 @@ module Homebrew
       def run_formula_tool(formula, executable, *args)
         # Load the formula so missing helper formulae fail before running a guessed path.
         # rubocop:disable Homebrew/FormulaPathMethods
-        run_safe_system Formula[formula].opt_bin/executable, *args
+        run_command Formula[formula].opt_bin/executable, *args
         # rubocop:enable Homebrew/FormulaPathMethods
       end
 
@@ -644,9 +648,8 @@ module Homebrew
       end
 
       sig { params(command: SystemCommandArg, args: SystemCommandArg).void }
-      def run_safe_system(command, *args)
-        # `safe_system` is private on Formula contexts, so `public_send` cannot be used.
-        @context.send(:safe_system, command, *args)
+      def run_command(command, *args)
+        system_command!(command, args: args, print_stdout: true, print_stderr: true, reset_uid: true)
       end
     end
   end

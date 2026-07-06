@@ -166,18 +166,20 @@ RSpec.describe Homebrew::InstallSteps do
       init_data_dir "mysql", using: :mariadb_install_db
     end
 
-    expect(context).to receive(:safe_system).with(root/"prefix/bin/initdb", "--locale=en_US.UTF-8", "-E", "UTF-8",
-                                                  root/"var/postgresql@16").ordered
-    expect(context).to receive(:safe_system).with(root/"prefix/bin/initdb", "--locale=C", "-E", "UTF-8",
-                                                  root/"var/postgresql@12").ordered
-    expect(context).to receive(:safe_system).with(root/"prefix/bin/mysqld", "--initialize-insecure",
-                                                  "--user=#{ENV.fetch("USER")}", "--basedir=#{root}/prefix",
-                                                  "--datadir=#{root}/var/mysql", "--tmpdir=/tmp").ordered
-    expect(context).to receive(:safe_system).with(root/"prefix/bin/mysql_install_db", "--verbose",
-                                                  "--user=#{ENV.fetch("USER")}", "--basedir=#{root}/prefix",
-                                                  "--datadir=#{root}/var/mysql", "--tmpdir=/tmp").ordered
+    runner = Homebrew::InstallSteps::Runner.new(context:)
 
-    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    expect(runner).to receive(:run_command).with(root/"prefix/bin/initdb", "--locale=en_US.UTF-8", "-E", "UTF-8",
+                                                 root/"var/postgresql@16").ordered
+    expect(runner).to receive(:run_command).with(root/"prefix/bin/initdb", "--locale=C", "-E", "UTF-8",
+                                                 root/"var/postgresql@12").ordered
+    expect(runner).to receive(:run_command).with(root/"prefix/bin/mysqld", "--initialize-insecure",
+                                                 "--user=#{ENV.fetch("USER")}", "--basedir=#{root}/prefix",
+                                                 "--datadir=#{root}/var/mysql", "--tmpdir=/tmp").ordered
+    expect(runner).to receive(:run_command).with(root/"prefix/bin/mysql_install_db", "--verbose",
+                                                 "--user=#{ENV.fetch("USER")}", "--basedir=#{root}/prefix",
+                                                 "--datadir=#{root}/var/mysql", "--tmpdir=/tmp").ordered
+
+    runner.run(steps)
 
     expect(root/"var/postgresql@16").to be_a_directory
     expect(root/"var/postgresql@12").to be_a_directory
@@ -220,14 +222,16 @@ RSpec.describe Homebrew::InstallSteps do
       init_data_dir name, using: :postgresql_initdb
     end
 
-    expect(versioned_context).to receive(:safe_system) do |*args|
+    runner = Homebrew::InstallSteps::Runner.new(context: versioned_context)
+
+    expect(runner).to receive(:run_command) do |*args|
       expect(args).to eq([root/"prefix/bin/initdb", "--locale=en_US.UTF-8", "-E", "UTF-8",
                           root/"var/postgresql@17"])
       expect(homebrew_prefix/"share/postgresql@17").to be_a_directory
       expect(homebrew_prefix/"share/postgresql@17/postgres.bki").to be_a_symlink
     end
 
-    Homebrew::InstallSteps::Runner.new(context: versioned_context).run(steps)
+    runner.run(steps)
 
     %w[include lib share].each do |dir|
       expect(homebrew_prefix/dir/"postgresql@17/server").to be_a_directory
@@ -247,9 +251,11 @@ RSpec.describe Homebrew::InstallSteps do
     end
 
     ENV["HOMEBREW_GITHUB_ACTIONS"] = "1"
-    expect(context).not_to receive(:safe_system)
 
-    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).not_to receive(:run_command)
+
+    runner.run(steps)
 
     expect(root/"var/postgresql@16").to be_a_directory
   end
@@ -261,9 +267,11 @@ RSpec.describe Homebrew::InstallSteps do
 
     (root/"var/mysql/mysql").mkpath
     (root/"var/mysql/mysql/general_log.CSM").write ""
-    expect(context).not_to receive(:safe_system)
 
-    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).not_to receive(:run_command)
+
+    runner.run(steps)
 
     expect(root/"var/mysql").to be_a_directory
   end
@@ -294,17 +302,19 @@ RSpec.describe Homebrew::InstallSteps do
     allow(Formula).to receive(:[]).with("gdk-pixbuf").and_return(formula)
     allow(Formula).to receive(:[]).with("shared-mime-info").and_return(formula)
     allow(Formula).to receive(:[]).with("desktop-file-utils").and_return(formula)
-    expect(context).to receive(:safe_system).with(root/"opt/bin/glib-compile-schemas",
-                                                  HOMEBREW_PREFIX/"share/glib-2.0/schemas").ordered
-    expect(context).to receive(:safe_system).with(root/"opt/bin/gio-querymodules",
-                                                  HOMEBREW_PREFIX/"lib/gio/modules").ordered
-    expect(context).to receive(:safe_system).with(root/"opt/bin/gdk-pixbuf-query-loaders", "--update-cache").ordered
-    expect(context).to receive(:safe_system).with(root/"opt/bin/update-mime-database",
-                                                  HOMEBREW_PREFIX/"share/mime").ordered
-    expect(context).to receive(:safe_system).with(root/"opt/bin/update-desktop-database",
-                                                  HOMEBREW_PREFIX/"share/applications").ordered
 
-    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_command).with(root/"opt/bin/glib-compile-schemas",
+                                                 HOMEBREW_PREFIX/"share/glib-2.0/schemas").ordered
+    expect(runner).to receive(:run_command).with(root/"opt/bin/gio-querymodules",
+                                                 HOMEBREW_PREFIX/"lib/gio/modules").ordered
+    expect(runner).to receive(:run_command).with(root/"opt/bin/gdk-pixbuf-query-loaders", "--update-cache").ordered
+    expect(runner).to receive(:run_command).with(root/"opt/bin/update-mime-database",
+                                                 HOMEBREW_PREFIX/"share/mime").ordered
+    expect(runner).to receive(:run_command).with(root/"opt/bin/update-desktop-database",
+                                                 HOMEBREW_PREFIX/"share/applications").ordered
+
+    runner.run(steps)
   end
 
   describe "runs gtk_update_icon_cache rebuild action" do
@@ -318,17 +328,19 @@ RSpec.describe Homebrew::InstallSteps do
     it "with gtk4" do
       allow(Formula).to receive(:[]).with("gtk4").and_return(formula)
       allow(Utils::Path).to receive(:formula_any_version_installed?).with("gtk4").and_return(true)
-      expect(context).to receive(:safe_system).with(root/"opt/bin/gtk4-update-icon-cache", "-q", "-t", "-f",
-                                                    HOMEBREW_PREFIX/"share/icons/hicolor").ordered
-      Homebrew::InstallSteps::Runner.new(context:).run(steps)
+      runner = Homebrew::InstallSteps::Runner.new(context:)
+      expect(runner).to receive(:run_command).with(root/"opt/bin/gtk4-update-icon-cache", "-q", "-t", "-f",
+                                                   HOMEBREW_PREFIX/"share/icons/hicolor").ordered
+      runner.run(steps)
     end
 
     it "with gtk+3" do
       allow(Formula).to receive(:[]).with("gtk+3").and_return(formula)
       allow(Utils::Path).to receive(:formula_any_version_installed?).with("gtk4").and_return(false)
-      expect(context).to receive(:safe_system).with(root/"opt/bin/gtk3-update-icon-cache", "-q", "-t", "-f",
-                                                    HOMEBREW_PREFIX/"share/icons/hicolor").ordered
-      Homebrew::InstallSteps::Runner.new(context:).run(steps)
+      runner = Homebrew::InstallSteps::Runner.new(context:)
+      expect(runner).to receive(:run_command).with(root/"opt/bin/gtk3-update-icon-cache", "-q", "-t", "-f",
+                                                   HOMEBREW_PREFIX/"share/icons/hicolor").ordered
+      runner.run(steps)
     end
   end
 
