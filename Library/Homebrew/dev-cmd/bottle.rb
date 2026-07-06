@@ -516,7 +516,7 @@ module Homebrew
             end
 
             sbom = SBOM.create(formula, tab)
-            sbom.write
+            sbom.write(bottling: true)
 
             keg.consistent_reproducible_symlink_permissions!
 
@@ -659,6 +659,9 @@ module Homebrew
           installed_size = keg.disk_usage
         end
 
+        bottle_tab = tab
+        odie "Cannot generate bottle JSON without an installation receipt." if bottle_tab.nil?
+
         json = {
           formula.full_name => {
             "formula" => {
@@ -688,7 +691,8 @@ module Homebrew
                   "filename"        => filename.url_encode,
                   "local_filename"  => filename.to_s,
                   "sha256"          => sha256,
-                  "tab"             => T.must(tab).to_bottle_hash,
+                  "tab"             => bottle_tab.to_bottle_hash,
+                  "sbom"            => SBOM.create(formula, bottle_tab).to_spdx_supplement,
                   "path_exec_files" => path_exec_files,
                   "all_files"       => all_files,
                   "installed_size"  => installed_size,
@@ -804,6 +808,10 @@ module Homebrew
               all_bottle_tag_hash["filename"] = all_filename.url_encode
               all_bottle_tag_hash["local_filename"] = all_filename.to_s
               cellar = all_bottle_tag_hash.delete("cellar")
+              sbom_tags = bottle_hash["bottle"]["tags"].filter_map do |tag, tag_hash|
+                [tag, tag_hash["sbom"]] if tag_hash["sbom"].present?
+              end.to_h
+              all_bottle_tag_hash["sbom"] = { "tags" => sbom_tags } if sbom_tags.present?
 
               all_bottle_formula_hash = bottle_hash.dup
               all_bottle_formula_hash["bottle"]["cellar"] = cellar

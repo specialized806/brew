@@ -132,6 +132,66 @@ RSpec.describe SBOM do
         )
       end
 
+      it "omits host-specific packages when bottling" do
+        spdx = sbom.to_spdx_sbom(bottling: true)
+        package_ids = spdx[:packages].map { |package| package[:SPDXID] }
+
+        expect(package_ids).to contain_exactly(
+          "SPDXRef-Archive-formula_name-src",
+          "SPDXRef-Patch-formula_name-0",
+        )
+        expect(spdx[:relationships].flat_map do |relation|
+          [relation[:spdxElementId], relation[:relatedSpdxElement]]
+        end).to all(
+          satisfy do |spdx_id|
+            package_ids.include?(spdx_id) || spdx_id == "SPDXRef-File-formula_name"
+          end,
+        )
+      end
+
+      it "emits host-specific packages in a pour supplement" do
+        package_ids = sbom.to_spdx_supplement.fetch("packages").map { |package| package.fetch(:SPDXID) }
+
+        expect(package_ids).to include(
+          "SPDXRef-Compiler",
+          "SPDXRef-Stdlib",
+          "SPDXRef-Package-SPDXRef-beanstalkd-1.1",
+          "SPDXRef-Package-SPDXRef-zlib-1.1",
+        )
+        expect(package_ids).not_to include(
+          "SPDXRef-Archive-formula_name-src",
+          "SPDXRef-Patch-formula_name-0",
+        )
+      end
+
+      it "builds a GitHub Packages manifest annotation supplement" do
+        annotation = described_class.github_packages_sbom_supplement_annotation(
+          {
+            "documentDescribes" => ["SPDXRef-Compiler"],
+            "packages"          => [{ "SPDXID" => "SPDXRef-Compiler" }],
+            "relationships"     => [],
+          },
+          formula_full_name: "formula_name",
+          formula_name:      "formula_name",
+          version:           Version.new("0.1"),
+          tar_gz_sha256:     TEST_SHA256,
+          root_url:          "https://ghcr.io/v2/homebrew/core",
+          license:           "MIT",
+          created_date:      "2026-05-10T00:00:00Z",
+        )
+        raise "missing annotation" if annotation.nil?
+
+        supplement = JSON.parse(annotation)
+        bottle_package = supplement.fetch("packages").find do |package|
+          package.fetch("SPDXID") == "SPDXRef-Bottle-formula_name"
+        end
+
+        expect(bottle_package).to include(
+          "checksums"        => [{ "algorithm" => "SHA256", "checksumValue" => TEST_SHA256 }],
+          "downloadLocation" => "https://ghcr.io/v2/homebrew/core/formula_name/blobs/sha256:#{TEST_SHA256}",
+        )
+      end
+
       it "updates only pour-time creation metadata" do
         spdxfile = mktmpdir/SBOM::FILENAME
         spdxfile.write(JSON.pretty_generate(sbom.to_spdx_sbom))
@@ -145,6 +205,29 @@ RSpec.describe SBOM do
           "creators" => ["Tool: https://github.com/Homebrew/brew@1.2.3"],
         )
         expect(updated_spdx.except("creationInfo")).to eq(original_spdx.except("creationInfo"))
+      end
+
+      it "merges pour supplements without validating full SBOMs" do
+        spdxfile = mktmpdir/SBOM::FILENAME
+        spdxfile.write(JSON.pretty_generate(
+                         "creationInfo"      => {},
+                         "documentDescribes" => [],
+                         "packages"          => [],
+                         "relationships"     => [],
+                       ))
+        supplement = {
+          "documentDescribes" => ["SPDXRef-Compiler"],
+          "packages"          => [{ "SPDXID" => "SPDXRef-Compiler" }],
+          "relationships"     => [{ "spdxElementId" => "SPDXRef-Compiler" }],
+        }
+
+        described_class.update_pour_metadata(spdxfile, homebrew_version: "1.2.3", time: 1_720_189_863,
+                                                       supplement:)
+
+        updated_spdx = JSON.parse(spdxfile.read)
+        expect(updated_spdx.fetch("documentDescribes")).to eq(supplement.fetch("documentDescribes"))
+        expect(updated_spdx.fetch("packages")).to eq(supplement.fetch("packages"))
+        expect(updated_spdx.fetch("relationships")).to eq(supplement.fetch("relationships"))
       end
 
       it "skips malformed pour metadata SBOMs" do

@@ -23,6 +23,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
                     "filename":"#{parameters[:filename]}",
                     "local_filename":"#{parameters[:local_filename]}",
                     "sha256":"#{parameters[:sha256]}"
+                    #{",\"sbom\":#{parameters[:sbom].to_json}" if parameters[:sbom]}
                  }
               }
            }
@@ -330,6 +331,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
               filename:       "testball-1.0.#{tag}.bottle.tar.gz",
               local_filename: "testball--1.0.#{tag}.bottle.tar.gz",
               sha256:,
+              sbom:           { "packages" => [{ "SPDXID" => "SPDXRef-#{tag}" }] },
             )
           end
         end
@@ -353,6 +355,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
           "local_filename" => "testball--1.0.all.bottle.tar.gz",
           "sha256"         => sha256,
         )
+        expect(all_bottle_tag_hash.dig("sbom", "tags").keys).to contain_exactly("arm64_big_sur", "big_sur")
         expect(all_bottle_tag_hash).not_to have_key("cellar")
         expect(Pathname("testball--1.0.all.bottle.tar.gz")).to exist
       end
