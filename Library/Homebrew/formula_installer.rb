@@ -113,7 +113,7 @@ class FormulaInstaller
     @debug_symbols = debug_symbols
     @installed_on_request = installed_on_request
     link_keg ||= !formula.keg_only? || auto_link_versioned_keg_only?
-    @link_keg = T.let(link_keg, T::Boolean)
+    @link_keg = link_keg
     @show_header = show_header
     @ignore_deps = ignore_deps
     @only_deps = only_deps

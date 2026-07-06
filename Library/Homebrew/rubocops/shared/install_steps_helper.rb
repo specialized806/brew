@@ -30,7 +30,7 @@ module RuboCop
         "#{ALLOWED_STEP_METHODS.map { |method| "`#{method}`" }.join(", ")}.".freeze,
         String,
       )
-      SIMPLE_STEP_CONVERSION_MSG = T.let("Use `%<steps_block>s` for simple file preparation.", String)
+      SIMPLE_STEP_CONVERSION_MSG = "Use `%<steps_block>s` for simple file preparation."
       REBUILD_ACTION_STEP_LINES = T.let(
         T.let([
           [

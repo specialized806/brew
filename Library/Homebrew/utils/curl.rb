@@ -42,7 +42,7 @@ module Utils
     # the status code and any following descriptive text (e.g. `Not Found`).
     HTTP_STATUS_LINE_REGEX = %r{^HTTP/.* (?<code>\d+)(?: (?<text>[^\r\n]+))?}
 
-    HTTPS_REDIRECT_CURL_ARGS = T.let(["--proto-redir", "=https"].freeze, T::Array[String])
+    HTTPS_REDIRECT_CURL_ARGS = ["--proto-redir", "=https"].freeze
 
     private_constant :CURL_WEIRD_SERVER_REPLY_EXIT_CODE,
                      :CURL_HTTP_RETURNED_ERROR_EXIT_CODE,

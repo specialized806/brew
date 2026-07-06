@@ -49,7 +49,7 @@ class Resource
     super()
     # Generally ensure this is synced with `initialize_dup` and `freeze`
     # (excluding simple objects like integers & booleans, weak refs like `owner` or permafrozen objects)
-    @name = T.let(name, T.nilable(String))
+    @name = name
     @source_modified_time = T.let(nil, T.nilable(Time))
     @patches = T.let([], T::Array[T.any(EmbeddedPatch, ExternalPatch)])
     @owner = T.let(nil, T.nilable(Owner))

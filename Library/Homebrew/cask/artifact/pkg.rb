@@ -28,7 +28,7 @@ module Cask
       def initialize(cask, path, **stanza_options)
         super
         @path = T.let(cask.staged_path.join(path), Pathname)
-        @stanza_options = T.let(stanza_options, T::Hash[Symbol, T.untyped])
+        @stanza_options = stanza_options
       end
 
       sig { override.returns(String) }

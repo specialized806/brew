@@ -51,7 +51,7 @@ class Requirement
       @cask ||= tag[:cask]
       @download ||= tag[:download]
     end
-    @tags = T.let(tags, T::Array[T.untyped])
+    @tags = tags
     @tags << :build if self.class.build
     inferred_name = infer_name
     @name = T.let(inferred_name, String)
@@ -284,7 +284,7 @@ class Requirement
       else
         @satisfied = T.let(options, T.anything)
       end
-      @proc = T.let(block, T.nilable(T.proc.returns(T.anything)))
+      @proc = block
     end
 
     sig {
