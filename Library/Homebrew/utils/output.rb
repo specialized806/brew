@@ -358,13 +358,24 @@ module Utils
       sig { params(seconds: T.nilable(T.any(Integer, Float))).returns(String) }
       def pretty_duration(seconds)
         seconds = seconds.to_i
+        hide_seconds = seconds > 300
+
+        minutes, seconds = seconds.divmod(60)
+        hours, minutes = minutes.divmod(60)
+
         res = +""
 
-        if seconds > 59
-          minutes = seconds / 60
-          seconds %= 60
-          res = +Utils.pluralize("minute", minutes, include_count: true)
-          return res.freeze if seconds.zero?
+        if hours.positive?
+          res << Utils.pluralize("hour", hours, include_count: true)
+          return res.freeze if minutes.zero?
+
+          res << " " << Utils.pluralize("minute", minutes, include_count: true)
+          return res.freeze
+        end
+
+        if minutes.positive?
+          res << Utils.pluralize("minute", minutes, include_count: true)
+          return res.freeze if hide_seconds || seconds.zero?
 
           res << " "
         end

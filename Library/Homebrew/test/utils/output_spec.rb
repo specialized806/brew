@@ -185,6 +185,11 @@ RSpec.describe Utils::Output do
       expect(described_class.pretty_duration(42)).to eq("42 seconds")
       expect(described_class.pretty_duration(240)).to eq("4 minutes")
       expect(described_class.pretty_duration(252.45)).to eq("4 minutes 12 seconds")
+      expect(described_class.pretty_duration(300)).to eq("5 minutes")
+      expect(described_class.pretty_duration(365)).to eq("6 minutes")
+      expect(described_class.pretty_duration(3600)).to eq("1 hour")
+      expect(described_class.pretty_duration(3660)).to eq("1 hour 1 minute")
+      expect(described_class.pretty_duration(73_085)).to eq("20 hours 18 minutes")
     end
   end
 
