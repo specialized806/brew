@@ -184,6 +184,63 @@ RSpec.describe Homebrew::InstallSteps do
     expect(root/"var/mysql").to be_a_directory
   end
 
+  specify "links remapped directories and children before running initdb", :aggregate_failures do
+    homebrew_prefix = root/"homebrew-prefix"
+    stub_const("HOMEBREW_PREFIX", homebrew_prefix)
+    root_path = root
+    versioned_context = Class.new do
+      define_method(:name) { "postgresql@17" }
+      define_method(:version) { Version.new("17.5") }
+      define_method(:prefix) { root_path/"prefix" }
+      define_method(:bin) { root_path/"prefix/bin" }
+      define_method(:var) { root_path/"var" }
+    end.new
+    %w[include lib share].each do |dir|
+      (root/"prefix/#{dir}/postgresql/server").mkpath
+      (root/"prefix/#{dir}/postgresql/server/extension.h").write dir
+      (root/"prefix/#{dir}/postgresql/postgres.bki").write dir
+      (root/"prefix/#{dir}/postgresql/.DS_Store").write ""
+      (homebrew_prefix/dir/"postgresql@17/server").mkpath
+      (homebrew_prefix/dir/"postgresql@17/server/local.h").write dir
+    end
+    (root/"prefix/share/postgresql/conflicting-path").write "source file"
+    (homebrew_prefix/"share/postgresql@17/conflicting-path").mkpath
+    (homebrew_prefix/"share/postgresql@17/conflicting-path/local").write "kept"
+    (root/"prefix/bin").mkpath
+    (root/"prefix/bin/initdb").write ""
+    FileUtils.chmod "+x", root/"prefix/bin/initdb"
+    (root/"prefix/bin/pg_config").write ""
+    FileUtils.chmod "+x", root/"prefix/bin/pg_config"
+
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :prefix) do
+      link_dir "include/postgresql", "include/#{name}"
+      link_dir "lib/postgresql", "lib/#{name}"
+      link_dir "share/postgresql", "share/#{name}"
+      link_children "bin", suffix: "-#{version.major}"
+      init_data_dir name, using: :postgresql_initdb
+    end
+
+    expect(versioned_context).to receive(:safe_system) do |*args|
+      expect(args).to eq([root/"prefix/bin/initdb", "--locale=en_US.UTF-8", "-E", "UTF-8",
+                          root/"var/postgresql@17"])
+      expect(homebrew_prefix/"share/postgresql@17").to be_a_directory
+      expect(homebrew_prefix/"share/postgresql@17/postgres.bki").to be_a_symlink
+    end
+
+    Homebrew::InstallSteps::Runner.new(context: versioned_context).run(steps)
+
+    %w[include lib share].each do |dir|
+      expect(homebrew_prefix/dir/"postgresql@17/server").to be_a_directory
+      expect(homebrew_prefix/dir/"postgresql@17/server/local.h").to exist
+      expect(homebrew_prefix/dir/"postgresql@17/server/extension.h").to be_a_symlink
+      expect(homebrew_prefix/dir/"postgresql@17/postgres.bki").to be_a_symlink
+      expect(homebrew_prefix/dir/"postgresql@17/.DS_Store").not_to exist
+    end
+    expect(homebrew_prefix/"share/postgresql@17/conflicting-path/local").to exist
+    expect(homebrew_prefix/"bin/initdb-17").to be_a_symlink
+    expect(homebrew_prefix/"bin/pg_config-17").to be_a_symlink
+  end
+
   specify "skips data directory initialisers in CI", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       init_data_dir "postgresql@16", using: :postgresql_initdb

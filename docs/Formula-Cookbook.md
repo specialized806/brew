@@ -1230,6 +1230,17 @@ Homebrew's GitHub Actions jobs. It does not change permissions or ownership.
 * `init_data_dir` with `using: :mariadb_install_db`: initialise MariaDB with
   `mysql_install_db`; example: `init_data_dir "mysql", using: :mariadb_install_db`.
 
+`link_dir` recursively links a source directory's contents into a target
+directory, preserving existing real directories and skipping `.DS_Store` files.
+`link_children` links each direct child of a source directory into a target
+directory, defaulting the target to the same path as the source, and can add a
+`prefix` or `suffix` to each linked name. For example:
+
+```ruby
+link_dir "share/postgresql", "share/#{name}"
+link_children "bin", suffix: "-#{version.major}"
+```
+
 #### Desktop and cache rebuild steps
 
 These steps rebuild shared desktop and cache state using Homebrew-owned tools.
