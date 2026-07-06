@@ -366,6 +366,8 @@ class GitHubPackages
       processed_image_refs << manifest["annotations"]["org.opencontainers.image.ref.name"]
     end
 
+    require "sbom"
+
     manifests += bottle_hash["bottle"]["tags"].map do |bottle_tag, tag_hash|
       bottle_tag = Utils::Bottles::Tag.from_symbol(bottle_tag.to_sym)
       all_bottle = bottle_tag.to_sym == :all
@@ -431,6 +433,16 @@ class GitHubPackages
       path_exec_files_string = if (path_exec_files = tag_hash["path_exec_files"].presence)
         path_exec_files.join(",")
       end
+      sbom_supplement_annotation = SBOM.github_packages_sbom_supplement_annotation(
+        tag_hash["sbom"],
+        formula_full_name:,
+        formula_name:,
+        version:,
+        tar_gz_sha256:,
+        root_url:          bottle_hash["bottle"]["root_url"],
+        license:,
+        created_date:,
+      )
 
       descriptor_annotations_hash = {
         "org.opencontainers.image.ref.name" => tag,
@@ -441,6 +453,7 @@ class GitHubPackages
         "sh.brew.bottle.installed_size"     => tag_hash["installed_size"].to_s,
         "sh.brew.license"                   => license,
         "sh.brew.tab"                       => (all_bottle ? tab.except("arch", "built_on") : tab).to_json,
+        "sh.brew.sbom.supplement"           => sbom_supplement_annotation,
         "sh.brew.path_exec_files"           => path_exec_files_string,
       }.compact_blank
 

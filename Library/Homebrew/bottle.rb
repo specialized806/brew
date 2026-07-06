@@ -236,6 +236,14 @@ class Bottle
     resource.path_exec_files
   end
 
+  sig { returns(T.nilable(T::Hash[String, Object])) }
+  def sbom_supplement
+    resource = github_packages_manifest_resource
+    return unless resource&.downloaded_and_valid?
+
+    resource.sbom_supplement
+  end
+
   sig { returns(Filename) }
   def filename = Filename.new(@name, @pkg_version, @tag, @spec.rebuild)
 

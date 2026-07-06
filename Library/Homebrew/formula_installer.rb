@@ -1042,7 +1042,12 @@ on_request: installed_on_request?, options:)
     if @poured_bottle
       if (install_time = tab.time)
         require "sbom"
-        SBOM.update_pour_metadata(SBOM.spdxfile(formula), homebrew_version: HOMEBREW_VERSION, time: install_time)
+        SBOM.update_pour_metadata(
+          SBOM.spdxfile(formula),
+          homebrew_version: HOMEBREW_VERSION,
+          time:             install_time,
+          supplement:       (api_bottle || formula.bottle)&.sbom_supplement,
+        )
       end
     elsif Homebrew::EnvConfig.sbom? && !build_bottle?
       require "sbom"
