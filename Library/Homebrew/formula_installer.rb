@@ -851,7 +851,7 @@ on_request: installed_on_request?, options:)
       deps_with_formulae.each { |dep, dep_formula| install_dependency(dep, dep_formula) }
     end
 
-    @show_header = true if deps.length > 1
+    @show_header = true unless deps.empty?
   end
 
   sig { params(dep: Dependency).void }

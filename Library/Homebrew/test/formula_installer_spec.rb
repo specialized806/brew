@@ -405,6 +405,20 @@ RSpec.describe FormulaInstaller do
       expect { installer.install_dependencies(deps) }
         .to output(/:\e\[0m /).to_stdout
     end
+
+    it "shows the formula header after installing a single dependency" do
+      dep = formula("single-dep") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      deps = [instance_double(Dependency, to_formula: dep, name: dep.name, to_s: dep.name)]
+      installer = described_class.new(Testball.new)
+      allow(installer).to receive(:install_dependency)
+
+      installer.install_dependencies(deps)
+
+      expect(installer.show_header?).to be(true)
+    end
   end
 
   describe "#expand_dependencies_for_formula" do
