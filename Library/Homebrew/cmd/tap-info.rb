@@ -184,7 +184,13 @@ module Homebrew
 
       sig { params(taps: T::Array[Tap]).void }
       def print_tap_json(taps)
-        puts JSON.pretty_generate(taps.map(&:to_hash))
+        # Tap#to_hash shells out to Git and queries the GitHub API, so
+        # generate the hashes concurrently to avoid serial subprocess and
+        # network waits. `Thread#value` re-raises if one fails, but the other
+        # taps' read-only queries may still run to completion first.
+        hashes = taps.map { |tap| Thread.new { tap.to_hash } }.map(&:value)
+
+        puts JSON.pretty_generate(hashes)
       end
     end
   end
