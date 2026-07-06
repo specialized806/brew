@@ -460,8 +460,9 @@ module Cask
         if @from_installed_caskfile
           api_source = api_source.dup
           installed_tab = Cask.new(token).tab
-          api_source["version"] = api_source["version"].presence || installed_tab.version.presence ||
-                                  @sourcefile_path.dirname.dirname.dirname.basename.to_s
+          api_source["version"] = api_source["version"].presence ||
+                                  @sourcefile_path.dirname.dirname.dirname.basename.to_s.presence ||
+                                  installed_tab.version.presence
           api_source["artifacts"] ||= installed_tab.uninstall_artifacts || []
         end
 

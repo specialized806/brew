@@ -587,6 +587,31 @@ RSpec.describe Cask::Upgrade, :cask do
     expect(summary_disabled).to eq(["livecheck-disabled"])
   end
 
+  context "when upgrading the same cask twice" do
+    before do
+      Cask::Installer.new(Cask::CaskLoader.load(cask_path("outdated/local-caffeine"))).install
+    end
+
+    it "uses the installed metadata version for the second upgrade" do
+      described_class.upgrade_casks!(local_caffeine, args:)
+      newer_cask = Cask::CaskLoader::FromContentLoader.new(<<~RUBY).load(config: nil)
+        cask "local-caffeine" do
+          version "1.2.4"
+          sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+
+          url "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip"
+          homepage "https://brew.sh/"
+
+          app "Caffeine.app"
+        end
+      RUBY
+
+      expect do
+        described_class.upgrade_casks!(newer_cask, args:)
+      end.to change(newer_cask, :installed_version).from("1.2.3").to("1.2.4")
+    end
+  end
+
   context "when an upgrade failed" do
     # These tests perform actual upgrades and test rollback behavior,
     # so they need full real installations.
