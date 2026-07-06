@@ -499,7 +499,7 @@ class Formula
 
     return @unresolved_path if @unresolved_path.exist?
 
-    return local_bottle_path if local_bottle_path.presence&.exist?
+    return local_bottle_path if local_bottle_path&.exist?
 
     alias_path || @unresolved_path
   end
@@ -962,8 +962,6 @@ class Formula
   def linked_keg
     linked_keg = possible_names.map { |name| HOMEBREW_LINKED_KEGS/name }
                                .find(&:directory?)
-    # Truthiness, not `.present?`: `Pathname#present?` checks directory
-    # emptiness on disk, which is a wasted syscall here.
     linked_keg || (HOMEBREW_LINKED_KEGS/name)
   end
 

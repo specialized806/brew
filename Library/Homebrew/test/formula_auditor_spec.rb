@@ -1997,7 +1997,7 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     specify "it warns if new formula uses the same URL as already existing package" do
-      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: true, core_tap: true
+      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: true, core_tap: true, online: true
         class DuplicateFoo < Formula
           url "https://brew.sh/foo-1.0.tgz"
         end
@@ -2010,11 +2010,25 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     specify "it does not warn about duplicates if formula is not new" do
-      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: false, core_tap: true
+      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: false, core_tap: true, online: true
         class DuplicateFoo < Formula
           url "https://brew.sh/foo-1.0.tgz"
         end
       RUBY
+
+      fa.audit_duplicate_formula
+
+      expect(fa.new_formula_problems).to be_empty
+    end
+
+    specify "it skips the duplicate check offline when no packages data is cached" do
+      fa = formula_auditor "duplicate-foo", <<~RUBY, new_formula: true, core_tap: true, online: false
+        class DuplicateFoo < Formula
+          url "https://brew.sh/foo-1.0.tgz"
+        end
+      RUBY
+      allow(Homebrew::API::Internal).to receive(:cached_packages_json_file_path)
+        .and_return(Pathname("/nonexistent/packages.jws.json"))
 
       fa.audit_duplicate_formula
 

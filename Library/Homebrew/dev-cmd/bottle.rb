@@ -390,7 +390,7 @@ module Homebrew
 
       sig { params(formula: Formula).void }
       def bottle_formula(formula)
-        local_bottle_json = args.json? && formula.local_bottle_path.present?
+        local_bottle_json = args.json? && formula.local_bottle_path
 
         unless local_bottle_json
           unless formula.latest_version_installed?
@@ -458,7 +458,7 @@ module Homebrew
 
         if local_bottle_json
           bottle_path = formula.local_bottle_path
-          return if bottle_path.blank?
+          return unless bottle_path
 
           local_filename = bottle_path.basename.to_s
 

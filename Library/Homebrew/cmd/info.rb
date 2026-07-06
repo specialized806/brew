@@ -581,7 +581,7 @@ module Homebrew
           return cask.sourcefile_path.to_s if tap.blank? || tap.remote.blank?
 
           sourcefile_path = cask.sourcefile_path
-          if sourcefile_path.blank? || sourcefile_path.extname != ".rb"
+          if !sourcefile_path || sourcefile_path.extname != ".rb"
             return "#{tap.default_remote}/blob/HEAD/#{tap.relative_cask_path(cask.token)}"
           end
 
