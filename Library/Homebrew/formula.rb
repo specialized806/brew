@@ -962,9 +962,9 @@ class Formula
   def linked_keg
     linked_keg = possible_names.map { |name| HOMEBREW_LINKED_KEGS/name }
                                .find(&:directory?)
-    return linked_keg if linked_keg.present?
-
-    HOMEBREW_LINKED_KEGS/name
+    # Truthiness, not `.present?`: `Pathname#present?` checks directory
+    # emptiness on disk, which is a wasted syscall here.
+    linked_keg || (HOMEBREW_LINKED_KEGS/name)
   end
 
   sig { returns(T.nilable(PkgVersion)) }
