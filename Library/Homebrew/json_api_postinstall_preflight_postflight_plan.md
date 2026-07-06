@@ -383,9 +383,9 @@ is stripped during metadata serialisation.
   `mysql_install_db`, including the marker-file and CI-skip guards used by
   current `homebrew/core` formulae. Permission and ownership metadata were
   skipped because current tap usages fit future permission/ownership action
-  work instead. PostgreSQL versioned link maintenance and MySQL conflicting
-  configuration warnings stay as legacy Ruby until separate named actions are
-  added.
+  work instead. PostgreSQL versioned link maintenance is handled by generic
+  `link_dir` and `link_children` steps. MySQL conflicting configuration
+  warnings stay as legacy Ruby until a separate named action is added.
   Local tap work for this step was prepared with
   `./bin/brew tap --force homebrew/core` and
   `./bin/brew tap --force homebrew/cask`. In this checkout,

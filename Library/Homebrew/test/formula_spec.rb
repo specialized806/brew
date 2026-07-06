@@ -1227,7 +1227,7 @@ RSpec.describe Formula do
       url "foo-1.0"
 
       post_install_steps do
-        ln_s "source", "linked", source_base: :prefix, target_base: :prefix
+        ln_s "source", "linked"
       end
     end
 

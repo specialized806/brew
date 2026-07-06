@@ -4,13 +4,41 @@
 module Homebrew
   # Declarative install steps that can be serialised through the JSON APIs.
   module InstallSteps
-    Step = T.type_alias { T::Hash[String, T.untyped] }
+    PathSpec = T.type_alias { T::Hash[String, String] }
+    StepValue = T.type_alias { T.any(String, T::Boolean, PathSpec) }
+    Step = T.type_alias { T::Hash[String, StepValue] }
     Steps = T.type_alias { T::Array[Step] }
+    RawPathSpec = T.type_alias { T::Hash[T.any(String, Symbol), T.nilable(T.any(String, Symbol, Pathname))] }
+    RawStepValue = T.type_alias { T.nilable(T.any(String, Symbol, T::Boolean, Pathname, RawPathSpec)) }
+    RawStep = T.type_alias { T::Hash[T.any(String, Symbol), RawStepValue] }
+    SystemCommandArg = T.type_alias { T.any(String, Pathname) }
+    TemplateTokenValue = T.type_alias { T.any(String, Pathname) }
 
     class DSL
       ((instance_methods + private_instance_methods) -
         (BasicObject.instance_methods + BasicObject.private_instance_methods) -
         [:__callee__, :__method__, :class, :object_id]).each { |method| undef_method method }
+
+      class TemplateVersion
+        sig { returns(String) }
+        def to_s
+          "{{version}}"
+        end
+
+        sig { returns(String) }
+        def major
+          "{{version.major}}"
+        end
+
+        sig { returns(String) }
+        def major_minor
+          "{{version.major_minor}}"
+        end
+      end
+      private_constant :TemplateVersion
+
+      TEMPLATE_VERSION = T.let(TemplateVersion.new.freeze, TemplateVersion)
+      private_constant :TEMPLATE_VERSION
 
       sig {
         params(
@@ -29,6 +57,16 @@ module Homebrew
       sig { returns(Steps) }
       attr_reader :steps
 
+      sig { returns(String) }
+      def name
+        "{{name}}"
+      end
+
+      sig { returns(TemplateVersion) }
+      def version
+        TEMPLATE_VERSION
+      end
+
       sig {
         params(
           default_base:        ::T.nilable(::T.any(::String, ::Symbol)),
@@ -43,22 +81,26 @@ module Homebrew
         dsl.steps
       end
 
-      sig { params(steps: ::T::Array[::T.untyped]).returns(Steps) }
+      sig { params(steps: ::T::Array[RawStep]).returns(Steps) }
       def self.normalise_steps(steps)
         steps.map do |step|
-          ::T.cast(normalise_step_value(step), Step)
+          step = step.to_h do |key, value|
+            key = key.to_s
+            [key, normalise_step_value(key, value)]
+          end
+          ::T.cast(::Utils.deep_compact_blank(step), Step)
         end
       end
 
-      sig { params(obj: ::T.untyped).returns(::T.untyped) }
-      def self.normalise_step_value(obj)
+      sig { params(key: String, obj: RawStepValue).returns(::T.nilable(StepValue)) }
+      def self.normalise_step_value(key, obj)
         case obj
         when Symbol
           obj.to_s
         when Hash
-          obj.to_h { |key, value| [key.to_s, normalise_step_value(value)] }
-        when Array
-          obj.map { |value| normalise_step_value(value) }
+          ::T.cast(obj.to_h { |key, value| [key.to_s, value&.to_s] }.compact_blank, PathSpec)
+        when String, Pathname
+          %w[path source target].include?(key) ? { "path" => obj.to_s } : obj.to_s
         else
           obj
         end
@@ -170,6 +212,38 @@ module Homebrew
 
       sig {
         params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def link_dir(source, target, source_base: nil, target_base: :homebrew_prefix)
+        add_step("link_dir",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      sig {
+        params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.nilable(::T.any(::String, ::Pathname)),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          prefix:      ::String,
+          suffix:      ::String,
+        ).void
+      }
+      def link_children(source, target = nil, source_base: nil, target_base: :homebrew_prefix, prefix: "", suffix: "")
+        add_step("link_children",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target || source, base: target_base, default_base: @default_target_base),
+                 "prefix" => prefix,
+                 "suffix" => suffix)
+      end
+
+      sig {
+        params(
           path:      ::T.any(::String, ::Pathname),
           content:   ::String,
           base:      ::T.nilable(::T.any(::String, ::Symbol)),
@@ -231,7 +305,7 @@ module Homebrew
 
       private
 
-      sig { params(type: ::String, fields: ::T.untyped).void }
+      sig { params(type: ::String, fields: ::T.nilable(StepValue)).void }
       def add_step(type, **fields)
         step = fields.transform_keys(&:to_s)
         step["type"] = type
@@ -249,7 +323,7 @@ module Homebrew
           base:         ::T.nilable(::T.any(::String, ::Symbol)),
           formula:      ::T.nilable(::String),
           default_base: ::T.nilable(::T.any(::String, ::Symbol)),
-        ).returns(Step)
+        ).returns(PathSpec)
       }
       def path_spec(path, base:, formula: nil, default_base: nil)
         {
@@ -274,14 +348,14 @@ module Homebrew
     end
 
     class Runner
-      # Path tokens reuse the step base resolution; `HOMEBREW_PREFIX`, `version`
-      # and `version.major_minor` are resolved separately. Anything else is left
-      # verbatim so literal braces in templates are never rewritten.
+      # Path tokens reuse the step base resolution; formula metadata tokens are
+      # resolved separately. Anything else is left verbatim so literal braces in
+      # templates are never rewritten.
       CONTENT_PATH_TOKENS = %w[prefix opt_prefix bin var etc pkgetc staged_path appdir].freeze
 
-      sig { params(context: T.untyped).void }
+      sig { params(context: Object).void }
       def initialize(context:)
-        @context = context
+        @context = T.let(context, Object)
       end
 
       sig { params(steps: Steps, phase: Symbol).void }
@@ -301,59 +375,84 @@ module Homebrew
       def run_install_step(step)
         case step.fetch("type")
         when "mkdir"
-          resolve_path(step.fetch("path")).mkdir
+          resolve_path(step_path(step, "path")).mkdir
         when "mkdir_p"
-          resolve_path(step.fetch("path")).mkpath
+          resolve_path(step_path(step, "path")).mkpath
         when "init_data_dir"
           run_init_data_dir(step)
         when "touch"
-          path = resolve_path(step.fetch("path"))
+          path = resolve_path(step_path(step, "path"))
           path.dirname.mkpath
           FileUtils.touch path
         when "move"
-          source = resolve_path(step.fetch("source"))
-          target = resolve_path(step.fetch("target"))
+          source = resolve_path(step_path(step, "source"))
+          target = resolve_path(step_path(step, "target"))
           target.dirname.mkpath
           FileUtils.mv source, target, force: step["force"] == true
         when "move_children"
-          source = resolve_path(step.fetch("source"))
-          target = resolve_path(step.fetch("target"))
+          source = resolve_path(step_path(step, "source"))
+          target = resolve_path(step_path(step, "target"))
           target.mkpath
           children = source.children.reject { |child| child == target }
           return if children.empty?
 
           FileUtils.mv children, target
+        when "link_dir"
+          source_dir = resolve_path(step_path(step, "source"))
+          target_dir = resolve_path(step_path(step, "target"))
+          source_dir.find do |source|
+            link_target = target_dir/source.relative_path_from(source_dir)
+            next if source.basename.to_s == ".DS_Store"
+            next if link_target.directory? && !link_target.symlink?
+
+            FileUtils.rm_f(link_target) if link_target.exist? || link_target.symlink?
+            if source.symlink? || source.file?
+              link_target.parent.install_symlink source
+            elsif source.directory?
+              link_target.mkpath
+            end
+          end
+        when "link_children"
+          target_dir = resolve_path(step_path(step, "target"))
+          target_dir.mkpath
+          link_prefix = expand_template_tokens(step["prefix"].to_s)
+          link_suffix = expand_template_tokens(step["suffix"].to_s)
+          resolve_path(step_path(step, "source")).each_child do |source|
+            target_dir.install_symlink source => "#{link_prefix}#{source.basename}#{link_suffix}"
+          end
         when "symlink"
-          target = resolve_path(step.fetch("target"))
+          target = resolve_path(step_path(step, "target"))
           target.dirname.mkpath
           FileUtils.rm_f target if step["force"] == true
-          File.symlink link_source(step.fetch("source")), target
+          File.symlink link_source(step_path(step, "source")), target
         when "write"
-          content = step["content"]
+          content = T.cast(step["content"], T.nilable(String))
           raise ArgumentError, "install step write requires non-empty content" if content.blank?
 
-          path = resolve_path(step.fetch("path"))
+          path = resolve_path(step_path(step, "path"))
           if step["overwrite"] == true || !path.exist?
             path.dirname.mkpath
-            path.write(expand_content_tokens(content))
+            path.write(expand_template_tokens(content))
           end
         when "compile_gsettings_schemas"
-          run_formula_tool("glib", "glib-compile-schemas", resolve_path(step.fetch("path")))
+          run_formula_tool("glib", "glib-compile-schemas", resolve_path(step_path(step, "path")))
         when "gio_querymodules"
-          run_formula_tool("glib", "gio-querymodules", resolve_path(step.fetch("path")))
+          run_formula_tool("glib", "gio-querymodules", resolve_path(step_path(step, "path")))
         when "gdk_pixbuf_query_loaders"
           run_formula_tool("gdk-pixbuf", "gdk-pixbuf-query-loaders", "--update-cache")
         when "gtk_update_icon_cache"
           require "utils/path"
           if Utils::Path.formula_any_version_installed?("gtk4")
-            run_formula_tool("gtk4", "gtk4-update-icon-cache", "-q", "-t", "-f", resolve_path(step.fetch("path")))
+            run_formula_tool("gtk4", "gtk4-update-icon-cache", "-q", "-t", "-f",
+                             resolve_path(step_path(step, "path")))
           else
-            run_formula_tool("gtk+3", "gtk3-update-icon-cache", "-q", "-t", "-f", resolve_path(step.fetch("path")))
+            run_formula_tool("gtk+3", "gtk3-update-icon-cache", "-q", "-t", "-f",
+                             resolve_path(step_path(step, "path")))
           end
         when "update_mime_database"
-          run_formula_tool("shared-mime-info", "update-mime-database", resolve_path(step.fetch("path")))
+          run_formula_tool("shared-mime-info", "update-mime-database", resolve_path(step_path(step, "path")))
         when "update_desktop_database"
-          run_formula_tool("desktop-file-utils", "update-desktop-database", resolve_path(step.fetch("path")))
+          run_formula_tool("desktop-file-utils", "update-desktop-database", resolve_path(step_path(step, "path")))
         else
           raise ArgumentError, "unknown install step: #{step.fetch("type")}"
         end
@@ -364,13 +463,13 @@ module Homebrew
         return if step.fetch("type") != "symlink"
         return if step["uninstall"] != true
 
-        target = resolve_path(step.fetch("target"))
+        target = resolve_path(step_path(step, "target"))
         FileUtils.rm_f target if target.symlink?
       end
 
       sig { params(step: Step).void }
       def run_init_data_dir(step)
-        using = step.fetch("using").to_s
+        using = step_string(step, "using")
         marker = case using
         when "postgresql_initdb"
           "PG_VERSION"
@@ -382,7 +481,7 @@ module Homebrew
           raise ArgumentError, "unknown data directory initialiser: #{using}"
         end
 
-        path = resolve_path(step.fetch("path"))
+        path = resolve_path(step_path(step, "path"))
         path.mkpath
         return if ENV["HOMEBREW_GITHUB_ACTIONS"].present?
         return if (path/marker).exist?
@@ -391,84 +490,106 @@ module Homebrew
         prefix = context_path("prefix")
         case using
         when "postgresql_initdb"
-          @context.send(:safe_system, bin/"initdb", "--locale=#{step["locale"] || "en_US.UTF-8"}", "-E", "UTF-8",
-                        path)
+          run_safe_system bin/"initdb", "--locale=#{step["locale"] || "en_US.UTF-8"}", "-E", "UTF-8", path
         when "mysql_initialize"
           with_env(TMPDIR: nil) do
-            @context.send(:safe_system, bin/"mysqld", "--initialize-insecure", "--user=#{ENV.fetch("USER")}",
-                          "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp")
+            run_safe_system bin/"mysqld", "--initialize-insecure", "--user=#{ENV.fetch("USER")}",
+                            "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp"
           end
         when "mariadb_install_db"
           with_env(TMPDIR: nil) do
-            @context.send(:safe_system, bin/"mysql_install_db", "--verbose", "--user=#{ENV.fetch("USER")}",
-                          "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp")
+            run_safe_system bin/"mysql_install_db", "--verbose", "--user=#{ENV.fetch("USER")}",
+                            "--basedir=#{prefix}", "--datadir=#{path}", "--tmpdir=/tmp"
           end
         end
       end
 
       sig { params(content: String).returns(String) }
-      def expand_content_tokens(content)
+      def expand_template_tokens(content)
         content.gsub(/\{\{([A-Za-z_][\w.]*)\}\}/) do |match|
-          value = content_token_value(T.must(Regexp.last_match(1)))
+          value = template_token_value(T.must(Regexp.last_match(1)))
           value.nil? ? match : value.to_s
         end
       end
 
-      sig { params(token: String).returns(T.untyped) }
-      def content_token_value(token)
+      sig { params(token: String).returns(T.nilable(TemplateTokenValue)) }
+      def template_token_value(token)
         case token
         when "HOMEBREW_PREFIX"
           HOMEBREW_PREFIX
+        when "name"
+          context_name
         when "version"
           context_version
+        when "version.major"
+          context_version_major
         when "version.major_minor"
-          context_version&.major_minor
+          context_version_major_minor
         else
           root_path(token, nil) if CONTENT_PATH_TOKENS.include?(token)
         end
       end
 
-      sig { returns(T.untyped) }
-      def context_version
-        @context.version if @context.respond_to?(:version)
+      sig { params(step: Step, key: String).returns(PathSpec) }
+      def step_path(step, key)
+        T.cast(step.fetch(key), PathSpec)
       end
 
-      sig { params(spec: T.untyped).returns(Pathname) }
+      sig { params(step: Step, key: String).returns(String) }
+      def step_string(step, key)
+        T.cast(step.fetch(key), String)
+      end
+
+      sig { returns(T.nilable(String)) }
+      def context_name
+        value = context_value(:name) || context_value(:token)
+        value&.to_s
+      end
+
+      sig { returns(T.nilable(String)) }
+      def context_version
+        context_value(:version)&.to_s
+      end
+
+      sig { returns(T.nilable(String)) }
+      def context_version_major
+        context_version_value = context_version
+        return if context_version_value.blank?
+
+        Version.new(context_version_value).major&.to_s
+      end
+
+      sig { returns(T.nilable(String)) }
+      def context_version_major_minor
+        context_version_value = context_version
+        return if context_version_value.blank?
+
+        Version.new(context_version_value).major_minor.to_s
+      end
+
+      sig { params(spec: PathSpec).returns(Pathname) }
       def resolve_path(spec)
-        path_spec = normalise_path_spec(spec)
-        path = Pathname(path_spec.fetch("path"))
-        base = path_spec["base"]
+        path = Pathname(expand_template_tokens(spec.fetch("path")))
+        base = spec["base"]
 
         return path.expand_path if base.blank? || base == "absolute"
         return path if base == "relative"
 
-        root_path(base, path_spec["formula"])/path
+        root_path(base, spec["formula"])/path
       end
 
-      sig { params(spec: T.untyped).returns(String) }
+      sig { params(spec: PathSpec).returns(String) }
       def link_source(spec)
-        path_spec = normalise_path_spec(spec)
-        return path_spec.fetch("path") if path_spec["base"] == "relative"
+        return expand_template_tokens(spec.fetch("path")) if spec["base"] == "relative"
 
-        resolve_path(path_spec).to_s
+        resolve_path(spec).to_s
       end
 
-      sig { params(spec: T.untyped).returns(Step) }
-      def normalise_path_spec(spec)
-        case spec
-        when Hash
-          T.cast(Utils.deep_stringify_symbols(spec), Step)
-        else
-          { "path" => spec.to_s }
-        end
-      end
-
-      sig { params(formula: String, executable: String, args: T.untyped).void }
+      sig { params(formula: String, executable: String, args: SystemCommandArg).void }
       def run_formula_tool(formula, executable, *args)
         # Load the formula so missing helper formulae fail before running a guessed path.
-        # `safe_system` is private on Formula contexts, so `public_send` cannot be used.
         # rubocop:disable Homebrew/FormulaPathMethods
-        @context.send(:safe_system, Formula[formula].opt_bin/executable, *args)
+        run_safe_system Formula[formula].opt_bin/executable, *args
         # rubocop:enable Homebrew/FormulaPathMethods
       end
 
@@ -491,20 +612,41 @@ module Homebrew
       sig { params(base: String).returns(Pathname) }
       def context_path(base)
         method = base.to_sym
-        if @context.respond_to?(method)
-          Pathname(T.unsafe(@context).public_send(method))
-        elsif @context.respond_to?(:config) && T.unsafe(@context.config).respond_to?(method)
-          Pathname(T.unsafe(@context.config).public_send(method))
-        else
-          raise ArgumentError, "unknown install step base: #{base}"
-        end
+        value = context_value(method) || context_config_value(method)
+        raise ArgumentError, "unknown install step base: #{base}" if value.nil?
+
+        Pathname(value.to_s)
       end
 
       sig { params(formula: T.nilable(String), method: Symbol).returns(Pathname) }
       def formula_base(formula, method)
         raise ArgumentError, "missing formula for install step base" if formula.blank?
 
-        Pathname(T.unsafe(::Formula[formula]).public_send(method))
+        case method
+        when :pkgetc
+          ::Formula[formula].pkgetc
+        when :opt_prefix
+          Utils::Path.formula_opt_prefix(formula)
+        else
+          raise ArgumentError, "unknown formula install step base: #{method}"
+        end
+      end
+
+      sig { params(method: Symbol).returns(T.nilable(Object)) }
+      def context_value(method)
+        @context.public_send(method) if @context.respond_to?(method)
+      end
+
+      sig { params(method: Symbol).returns(T.nilable(Object)) }
+      def context_config_value(method)
+        config = context_value(:config)
+        config.public_send(method) if config.respond_to?(method)
+      end
+
+      sig { params(command: SystemCommandArg, args: SystemCommandArg).void }
+      def run_safe_system(command, *args)
+        # `safe_system` is private on Formula contexts, so `public_send` cannot be used.
+        @context.send(:safe_system, command, *args)
       end
     end
   end

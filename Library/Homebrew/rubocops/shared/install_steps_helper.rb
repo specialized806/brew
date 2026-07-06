@@ -6,13 +6,14 @@ module RuboCop
     module InstallStepsHelper
       FILE_PREPARATION_STEP_METHODS =
         [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :symlink, :ln_s, :ln_sf].freeze
+      LINK_STEP_METHODS = [:link_dir, :link_children].freeze
       CONFIG_WRITE_STEP_METHODS = [:write].freeze
       SERVICE_DATA_STEP_METHODS = [:init_data_dir].freeze
       REBUILD_ACTION_STEP_METHODS =
         [:compile_gsettings_schemas, :gio_querymodules, :gdk_pixbuf_query_loaders, :gtk_update_icon_cache,
          :update_mime_database, :update_desktop_database].freeze
       ALLOWED_STEP_METHODS = T.let(
-        [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *SERVICE_DATA_STEP_METHODS,
+        [*FILE_PREPARATION_STEP_METHODS, *LINK_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *SERVICE_DATA_STEP_METHODS,
          *REBUILD_ACTION_STEP_METHODS].freeze,
         T::Array[Symbol],
       )
@@ -21,8 +22,8 @@ module RuboCop
         T::Array[Symbol],
       )
 
-      # `dstr` covers non-interpolated heredocs such as `write` content; any
-      # interpolation adds `begin`/`send` descendants that remain disallowed.
+      # `dstr` covers heredocs such as `write` content; interpolation is limited
+      # to known template values below.
       ALLOWED_STEP_ARGUMENT_NODE_TYPES = [:array, :dstr, :hash, :nil, :pair, :str, :sym].freeze
 
       STEP_BLOCK_MSG = T.let(
@@ -96,9 +97,7 @@ module RuboCop
           return node if send_node.receiver.present? || !allowed_methods.include?(send_node.method_name)
 
           invalid_argument_node = send_node.each_descendant.find do |descendant|
-            next false if descendant.false_type? || descendant.true_type?
-
-            !ALLOWED_STEP_ARGUMENT_NODE_TYPES.include?(descendant.type)
+            !allowed_step_argument_node?(descendant)
           end
           return T.cast(invalid_argument_node, RuboCop::AST::Node) if invalid_argument_node
         end
@@ -140,6 +139,37 @@ module RuboCop
       end
 
       private
+
+      sig { params(node: RuboCop::AST::Node).returns(T::Boolean) }
+      def allowed_step_argument_node?(node)
+        return true if node.false_type? || node.true_type?
+        return true if ALLOWED_STEP_ARGUMENT_NODE_TYPES.include?(node.type)
+
+        allowed_step_template_node?(node)
+      end
+
+      sig { params(node: RuboCop::AST::Node).returns(T::Boolean) }
+      def allowed_step_template_node?(node)
+        if node.begin_type?
+          return false if node.child_nodes.length != 1
+
+          return allowed_step_template_node?(node.child_nodes.first)
+        end
+        return false unless node.send_type?
+
+        send_node = T.cast(node, RuboCop::AST::SendNode)
+        return false if send_node.arguments.present?
+        return [:name, :version].include?(send_node.method_name) if send_node.receiver.nil?
+
+        return false unless (receiver = send_node.receiver)&.send_type?
+
+        receiver_node = T.cast(receiver, RuboCop::AST::SendNode)
+        return false if receiver_node.receiver.present?
+        return false if receiver_node.arguments.present?
+        return false if receiver_node.method_name != :version
+
+        [:major, :major_minor].include?(send_node.method_name)
+      end
 
       sig {
         params(
