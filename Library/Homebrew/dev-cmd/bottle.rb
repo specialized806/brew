@@ -14,6 +14,7 @@ require "utils/gzip"
 require "api"
 require "extend/hash/deep_merge"
 require "metafiles"
+require "utils/github"
 
 module Homebrew
   module DevCmd
@@ -739,11 +740,25 @@ module Homebrew
                        tag_hashes.uniq { |tag_hash| "#{tag_hash["cellar"]}-#{tag_hash["sha256"]}" }.one?
 
           old_all_bottle = old_bottle_spec.tag?(Utils::Bottles.tag(:all))
-          if !all_bottle && old_all_bottle && !args.no_all_checks?
-            odie <<~ERROR
-              #{formula} should have an `:all` bottle but one cannot be created:
-              #{JSON.pretty_generate(tag_hashes)}
-            ERROR
+          github_event_path = ENV.fetch("GITHUB_EVENT_PATH", nil)
+          if !all_bottle && old_all_bottle && !args.no_all_checks? && github_event_path.present?
+            begin
+              github_event = JSON.parse(File.read(github_event_path))
+              repository = github_event.dig("repository", "full_name")
+              pull_request_number = github_event.dig("pull_request", "number")
+              if repository.present? && pull_request_number.present?
+                GitHub.create_issue_comment(repository, pull_request_number, <<~MARKDOWN)
+                  Warning: #{formula} should have had an `:all` bottle but one could not be created.
+                  #{Utils::Bottles.missing_all_bottle_publish_note.capitalize}.
+
+                  ```json
+                  #{JSON.pretty_generate(tag_hashes)}
+                  ```
+                MARKDOWN
+              end
+            rescue GitHub::API::Error, JSON::ParserError, Errno::ENOENT => e
+              opoo "Failed to post missing `:all` bottle warning to pull request: #{e.message}"
+            end
           end
 
           bottle_hash["bottle"]["tags"].each do |tag, tag_hash|

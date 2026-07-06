@@ -40,6 +40,20 @@ RSpec.describe GitHub do
     end
   end
 
+  describe "::create_issue_comment" do
+    it "posts a GitHub issue comment" do
+      response = { "html_url" => "https://github.com/Homebrew/homebrew-core/issues/123#issuecomment-1" }
+
+      expect(GitHub::API).to receive(:open_rest).with(
+        "https://api.github.com/repos/Homebrew/homebrew-core/issues/123/comments",
+        data:   { body: "Comment body" },
+        scopes: GitHub::CREATE_ISSUE_FORK_OR_PR_SCOPES,
+      ).and_return(response)
+
+      expect(described_class.create_issue_comment("Homebrew/homebrew-core", 123, "Comment body")).to eq(response)
+    end
+  end
+
   describe "::repository_approved_reviews", :needs_network do
     it "can get reviews for a pull request" do
       reviews = described_class.repository_approved_reviews("Homebrew", "homebrew-core", 1, commit: "deadbeef")

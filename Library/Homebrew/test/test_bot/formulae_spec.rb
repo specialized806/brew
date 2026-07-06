@@ -100,6 +100,70 @@ RSpec.describe Homebrew::TestBot::Formulae do
     end
   end
 
+  describe "#annotate_missing_all_bottle" do
+    it "writes a warning annotation for a platform-specific bottle replacing an all bottle" do
+      Dir.mktmpdir do |tmpdir|
+        tag = Utils::Bottles.tag
+        sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        tap_path = Pathname(tmpdir)
+        formula_path = tap_path/"Formula/foo.rb"
+        formula_path.dirname.mkpath
+        formula_path.write <<~RUBY
+          class Foo < Formula
+            desc "Foo"
+            homepage "https://example.com"
+            url "foo-1.0"
+            sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+            bottle do
+              sha256 cellar: :any_skip_relocation, #{tag.to_sym}: "#{sha256}"
+            end
+          end
+        RUBY
+        (tap_path/"foo--1.0.#{tag}.bottle.json").write JSON.generate(
+          "foo" => {
+            "bottle" => {
+              "tags" => {
+                tag.to_s => {
+                  "cellar" => "any_skip_relocation",
+                  "sha256" => sha256,
+                },
+              },
+            },
+          },
+        )
+
+        old_formula = formula("foo", path: formula_path) do
+          T.bind(self, T.class_of(Formula))
+          url "foo-1.0"
+          bottle do
+            sha256 cellar: :any_skip_relocation,
+                   all:    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          end
+        end
+        formulae = described_class.new(
+          tap: instance_double(Tap, path: tap_path), git: "git", dry_run: true, fail_fast: false, verbose: false,
+          output_paths: {
+            bottle:                     Pathname.new("#{tmpdir}/bottle.txt"),
+            linkage:                    Pathname.new("#{tmpdir}/linkage.txt"),
+            skipped_or_failed_formulae: Pathname.new("#{tmpdir}/skipped.txt"),
+          }
+        )
+
+        with_env(GITHUB_ACTIONS: "true", GITHUB_WORKSPACE: tap_path.to_s) do
+          expect { formulae.send(:annotate_missing_all_bottle, old_formula, bottle_dir: tap_path) }
+            .to output(
+              "::warning file=Formula/foo.rb,line=8,title=foo: missing :all bottle::" \
+              "This formula had an `:all` bottle but the #{tag} test-bot bottle is platform-specific " \
+              "(cellar `any_skip_relocation`, sha256 `#{sha256}`). " \
+              "If the final bottle merge cannot create a new `:all` bottle, expect publishing without one anyway; " \
+              "this is for information only and should not block merge.\n",
+            ).to_stdout
+        end
+      end
+    end
+  end
+
   describe "#testing_portable_ruby?" do
     it "returns false (not nil) when tap is nil" do
       # Regression test: without `!!`, tap&.core_tap? returns nil when tap is nil,
