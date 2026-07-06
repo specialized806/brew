@@ -181,7 +181,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
     untapped_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "bar")
 
-    allow(Homebrew::API).to receive_messages(formula_names: [], formula_aliases: {}, formula_renames: {})
+    allow(Homebrew::API).to receive_messages(formula_name?: false, formula_aliases: {}, formula_renames: {})
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
@@ -192,7 +192,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
     untapped_formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "bar")
 
-    allow(Homebrew::API).to receive(:formula_names).and_raise("API unavailable")
+    allow(Homebrew::API).to receive(:formula_name?).and_raise("API unavailable")
 
     expect(described_class).to receive(:opoo).with(/could not check API metadata: API unavailable/)
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
@@ -204,7 +204,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
     formula_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql")
 
-    allow(Homebrew::API).to receive_messages(formula_names: ["mysql"], formula_aliases: {}, formula_renames: {})
+    allow(Homebrew::API).to receive_messages(formula_name?: true, formula_aliases: {}, formula_renames: {})
     allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
       .with("mysql", no_upgrade: false).and_return(false)
 
@@ -228,7 +228,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     untapped_cask_entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "flux-markdown",
                                                            args: {}, full_name: "flux-markdown")
 
-    allow(Homebrew::API).to receive_messages(cask_tokens: [], cask_renames: {})
+    allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
 
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
@@ -239,7 +239,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "xykong/tap")
     cask_entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "google-chrome", args: {}, full_name: "google-chrome")
 
-    allow(Homebrew::API).to receive_messages(cask_tokens: ["google-chrome"], cask_renames: {})
+    allow(Homebrew::API).to receive_messages(cask_token?: true, cask_renames: {})
     allow(Homebrew::Bundle::Cask).to receive(:installable_or_upgradable?)
       .with("google-chrome", no_upgrade: false, args: {}, full_name: "google-chrome").and_return(true)
 
@@ -501,7 +501,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       )
       install_order = []
 
-      allow(Homebrew::API).to receive_messages(formula_names: [], formula_aliases: {}, formula_renames: {})
+      allow(Homebrew::API).to receive_messages(formula_name?: false, formula_aliases: {}, formula_renames: {})
       allow(Homebrew::Bundle::Brew).to receive_messages(formula_dep_names: [], recursive_dep_names: Set.new)
       allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
         install_order << name
@@ -585,7 +585,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       )
       install_order = []
 
-      allow(Homebrew::API).to receive_messages(cask_tokens: [], cask_renames: {})
+      allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
       allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
       allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["flux-markdown"]).and_return([])
       allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|

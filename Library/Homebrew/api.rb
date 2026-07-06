@@ -368,6 +368,11 @@ module Homebrew
       Homebrew::API::Internal.formula_hashes.keys
     end
 
+    sig { params(name: String).returns(T::Boolean) }
+    def self.formula_name?(name)
+      Homebrew::API::Internal.formula_hashes.key?(name)
+    end
+
     sig { returns(T::Hash[String, String]) }
     def self.formula_aliases
       Homebrew::API::Internal.formula_aliases
@@ -391,6 +396,11 @@ module Homebrew
     sig { returns(T::Array[String]) }
     def self.cask_tokens
       Homebrew::API::Internal.cask_hashes.keys
+    end
+
+    sig { params(token: String).returns(T::Boolean) }
+    def self.cask_token?(token)
+      Homebrew::API::Internal.cask_hashes.key?(token)
     end
 
     sig { returns(T::Hash[String, String]) }
