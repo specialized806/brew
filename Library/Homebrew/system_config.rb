@@ -217,15 +217,12 @@ module SystemConfig
     def dump_verbose_config(out = $stdout)
       # Most sections shell out for their values (Git, compilers, curl,
       # etc.), so render them concurrently and print them in order.
-      threads = config_sections.map do |section|
-        Thread.new do
-          Thread.current.report_on_exception = false
-          io = StringIO.new
-          public_send(section, io)
-          io.string
-        end
+      sections = Utils.parallel_map(config_sections) do |section|
+        io = StringIO.new
+        public_send(section, io)
+        io.string
       end
-      threads.each { |thread| out.print thread.value }
+      sections.each { |section| out.print section }
     end
   end
 end
