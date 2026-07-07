@@ -177,6 +177,13 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
           end
 
           it "splits active runners into shards" do
+            macos = GitHubRunnerMatrix::NEWEST_HOMEBREW_CORE_MACOS_RUNNER
+            macos_version = MacOSVersion.from_symbol(macos)
+            stub_const("GitHubRunnerMatrix::OLDEST_HOMEBREW_CORE_MACOS_RUNNER", macos)
+            stub_const("OS::LINUX_CI_ARM_RUNNER", "ubuntu-24.04-arm")
+
+            allow(ENV).to receive(:fetch).with("HOMEBREW_MACOS_LONG_TIMEOUT", "false").and_return("true")
+            allow(ENV).to receive(:key?).with("GITHUB_ACTIONS").and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
 
             runners = described_class.new([testball], [],
@@ -188,6 +195,14 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
             expect(runners).to all(include(:formulae_dependents_shard))
             expect(runners.map { |runner| runner.fetch(:formulae_dependents_shard) }.uniq).to eq(["1/2", "2/2"])
             expect(runners.map { |runner| runner.fetch(:name) }).to all(match(%r{ shard [12]/2\z}))
+            expect(runners.map { |runner| runner.fetch(:runner) }).to eq([
+              "ubuntu-latest",
+              "ubuntu-latest",
+              "ubuntu-24.04-arm",
+              "ubuntu-24.04-arm",
+              "#{macos_version}-arm64-12345-deps1-long",
+              "#{macos_version}-arm64-12345-deps2-long",
+            ])
           end
         end
 

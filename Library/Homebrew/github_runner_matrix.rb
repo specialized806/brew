@@ -84,6 +84,7 @@ class GitHubRunnerMatrix
       (1..@dependent_shards).map do |shard|
         spec.merge(
           name:                      "#{spec.fetch(:name)} shard #{shard}/#{@dependent_shards}",
+          runner:                    spec.fetch(:runner).sub("-deps", "-deps#{shard}").to_s,
           formulae_dependents_shard: "#{shard}/#{@dependent_shards}",
         )
       end
