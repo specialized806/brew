@@ -624,6 +624,15 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum.installed_version).to eq "1.2.2"
       expect(bad_checksum.staged_path).not_to exist
     end
+
+    it "raises the original upgrade error, not a failure that occurs while rolling back" do
+      will_fail_if_upgraded = Cask::CaskLoader.load("will-fail-if-upgraded")
+      allow_any_instance_of(Cask::Installer).to receive(:revert_upgrade).and_raise("rollback failed")
+
+      expect do
+        described_class.upgrade_casks!(will_fail_if_upgraded, args:)
+      end.to raise_error(Cask::CaskError)
+    end
   end
 
   context "when there were multiple failures" do
