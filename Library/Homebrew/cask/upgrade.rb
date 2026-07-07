@@ -436,9 +436,17 @@ module Cask
 
         reopen_apps_after_upgrade(old_cask, new_cask) if quit
       rescue => e
-        new_cask_installer.uninstall_artifacts(successor: old_cask, quit:) if new_artifacts_installed
-        new_cask_installer.purge_versioned_files
-        old_cask_installer.revert_upgrade(predecessor: new_cask) if started_upgrade
+        begin
+          new_cask_installer.uninstall_artifacts(successor: old_cask, quit:) if new_artifacts_installed
+          new_cask_installer.purge_versioned_files
+          old_cask_installer.revert_upgrade(predecessor: new_cask) if started_upgrade
+        rescue => rollback_error
+          opoo "Rolling back the failed upgrade of #{old_cask.token} also failed: " \
+               "#{rollback_error.class}: #{rollback_error.message}"
+          if (rollback_backtrace = rollback_error.backtrace)
+            odebug "Rollback backtrace:", rollback_backtrace
+          end
+        end
         raise e
       end
 
