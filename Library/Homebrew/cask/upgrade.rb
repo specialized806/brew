@@ -445,8 +445,7 @@ module Cask
               Quarantine.release!(download_path: artifact.target)
             end
           when :signer_changed
-            opoo "#{new_cask.token}'s signer changed since you approved it, so macOS will prompt at " \
-                 "next launch. Upgrades open silently while the signer is unchanged."
+            opoo "#{new_cask.token}'s signer changed so macOS will prompt at next launch."
           when :unapproved
             message = "Not releasing #{new_cask.token} from quarantine: the previous version wasn't " \
                       "approved, so macOS may prompt before it opens the first time."
