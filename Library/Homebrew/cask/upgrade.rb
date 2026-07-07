@@ -366,6 +366,7 @@ module Cask
 
       old_cask_installer =
         Installer.new(old_cask, **old_options)
+      old_tab = old_cask.tab
 
       new_cask.config = new_cask.default_config.merge(old_config)
 
@@ -441,6 +442,12 @@ module Cask
         old_cask_installer.revert_upgrade(predecessor: new_cask) if started_upgrade
         raise e
       end
+
+      # Wait until rollback is no longer possible so failures keep the old
+      # receipt, while successful upgrades can load artifacts next time.
+      tab = Tab.create(new_cask)
+      tab.installed_on_request = old_tab.tabfile.nil? || old_tab.installed_on_request
+      tab.write
 
       end_time = Time.now
       Homebrew.messages.package_installed(new_cask.token, end_time - start_time)
