@@ -592,7 +592,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(local_caffeine, verbose: true, args:)
-      end.to output(/Not releasing local-caffeine from quarantine/).to_stdout
+      end.to output(/local-caffeine wasn't quarantine approved/).to_stdout
     end
 
     it "reports a changed signer by default so the returning Gatekeeper prompt is explained" do
@@ -605,7 +605,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(local_caffeine, args:)
-      end.to output(/local-caffeine's signer changed since you approved it/).to_stderr
+      end.to output(/local-caffeine's signer changed so macOS will prompt/).to_stderr
     end
   end
 

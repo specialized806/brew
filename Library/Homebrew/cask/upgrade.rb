@@ -294,7 +294,12 @@ module Cask
       signer_changed = approved.any? do |artifact, index|
         old_identity = old_signing_identities[artifact.target.to_s]
         new_identity = Quarantine.signing_identity(new_app_artifacts.fetch(index).target)
-        signing_identity_changed?(old_identity, new_identity)
+        [
+          [old_identity&.identifier, new_identity&.identifier],
+          [old_identity&.team_identifier, new_identity&.team_identifier],
+        ].any? do |old_value, new_value|
+          !old_value.nil? && !new_value.nil? && old_value != new_value
+        end
       end
 
       return :signer_changed if signer_changed
@@ -304,22 +309,6 @@ module Cask
     rescue
       :skip
     end
-
-    sig {
-      params(
-        old_identity: T.nilable(Quarantine::SigningIdentity),
-        new_identity: T.nilable(Quarantine::SigningIdentity),
-      ).returns(T::Boolean)
-    }
-    def self.signing_identity_changed?(old_identity, new_identity)
-      [
-        [old_identity&.identifier, new_identity&.identifier],
-        [old_identity&.team_identifier, new_identity&.team_identifier],
-      ].any? do |old_value, new_value|
-        !old_value.nil? && !new_value.nil? && old_value != new_value
-      end
-    end
-    private_class_method :signing_identity_changed?
 
     sig { params(old_cask: Cask, new_cask: Cask).void }
     def self.reopen_apps_after_upgrade(old_cask, new_cask)
@@ -447,8 +436,8 @@ module Cask
           when :signer_changed
             opoo "#{new_cask.token}'s signer changed so macOS will prompt at next launch."
           when :unapproved
-            message = "Not releasing #{new_cask.token} from quarantine: the previous version wasn't " \
-                      "approved, so macOS may prompt before it opens the first time."
+            message = "#{new_cask.token} wasn't quarantine approved so not approving now. " \
+                      "macOS will prompt at next launch."
             if verbose
               ohai message
             else
