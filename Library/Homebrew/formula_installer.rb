@@ -268,7 +268,7 @@ class FormulaInstaller
       return false
     end
 
-    return true if formula.local_bottle_path.present?
+    return true if formula.local_bottle_path
 
     bottle = api_bottle || formula.bottle_for_tag(Utils::Bottles.tag)
     return false if bottle.nil?
@@ -1380,7 +1380,7 @@ on_request: installed_on_request?, options:)
 
     keg_formula_path = installed_prefix/".brew/#{formula.name}.rb"
     return keg_formula_path if formula.loaded_from_api?
-    return keg_formula_path if formula.local_bottle_path.present?
+    return keg_formula_path if formula.local_bottle_path
     return keg_formula_path if build_from_source?
 
     return keg_formula_path unless tap_formula_path.exist?
@@ -1470,7 +1470,7 @@ on_request: installed_on_request?, options:)
   sig { params(quiet: T::Boolean, enqueue: T::Boolean).void }
   def fetch_bottle_tab(quiet: false, enqueue: false)
     return if @fetch_bottle_tab
-    return if formula.local_bottle_path.present?
+    return if formula.local_bottle_path
 
     if (bottle = api_bottle || formula.bottle) &&
        (manifest_resource = bottle.github_packages_manifest_resource) &&
@@ -1500,7 +1500,7 @@ on_request: installed_on_request?, options:)
     fetch_dependencies
 
     return if only_deps?
-    return if formula.local_bottle_path.present?
+    return if formula.local_bottle_path
 
     downloadable_object = downloadable
     check_attestation = if pour_bottle?(output_warning: true)

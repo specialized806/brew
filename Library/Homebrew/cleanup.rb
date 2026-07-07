@@ -750,7 +750,7 @@ module Homebrew
 
         db.each_key do |keg|
           keg = T.cast(keg, String)
-          next if rack.present? && !keg.start_with?("#{rack}/")
+          next if rack && !keg.start_with?("#{rack}/")
           next if File.directory?(keg)
 
           LinkageCacheStore.new(

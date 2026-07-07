@@ -666,7 +666,7 @@ module Homebrew
       return unless @new_formula
 
       # Using internal API here as using `Formulary.factory` is too slow
-      return if !@online && Homebrew::API::Internal.cached_packages_json_file_path.blank?
+      return if !@online && !Homebrew::API::Internal.cached_packages_json_file_path.exist?
 
       formula_url = formula.stable&.url
       return unless formula_url

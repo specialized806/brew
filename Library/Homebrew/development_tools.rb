@@ -28,7 +28,7 @@ class DevelopmentTools
 
     sig { returns(T::Boolean) }
     def installed?
-      locate("clang").present? || locate("gcc").present?
+      !!(locate("clang") || locate("gcc"))
     end
 
     sig { returns(String) }
