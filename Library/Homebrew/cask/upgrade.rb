@@ -144,8 +144,6 @@ module Cask
       summary_deprecated: nil,
       summary_disabled: nil
     )
-      quarantine = true if quarantine.nil?
-
       outdated_casks =
         self.outdated_casks(casks, args:, greedy:, greedy_latest:, greedy_auto_updates:, force:, quiet:,
                                    summary_pinned:, summary_disabled:)
@@ -282,29 +280,46 @@ module Cask
         new_cask:               Cask,
         old_signing_identities: T::Hash[String, T.nilable(Quarantine::SigningIdentity)],
         old_user_approved:      T::Hash[String, T::Boolean],
-      ).returns(T::Boolean)
+      ).returns(Symbol)
     }
-    def self.release_app_upgrade_quarantine?(old_cask, new_cask, old_signing_identities, old_user_approved)
+    def self.quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
       old_app_artifacts = old_cask.artifacts.grep(Artifact::App)
       new_app_artifacts = new_cask.artifacts.grep(Artifact::App)
-      return false if old_app_artifacts.empty? || old_app_artifacts.length != new_app_artifacts.length
+      return :skip if old_app_artifacts.empty? || old_app_artifacts.length != new_app_artifacts.length
 
-      old_app_artifacts.each_with_index.all? do |artifact, index|
-        next false unless old_user_approved.fetch(artifact.target.to_s, false)
+      approved = old_app_artifacts.each_with_index.select do |artifact, _index|
+        old_user_approved.fetch(artifact.target.to_s, false)
+      end
 
+      signer_changed = approved.any? do |artifact, index|
         old_identity = old_signing_identities[artifact.target.to_s]
         new_identity = Quarantine.signing_identity(new_app_artifacts.fetch(index).target)
-
-        [
-          [old_identity&.identifier, new_identity&.identifier],
-          [old_identity&.team_identifier, new_identity&.team_identifier],
-        ].none? do |old_value, new_value|
-          !old_value.nil? && !new_value.nil? && old_value != new_value
-        end
+        signing_identity_changed?(old_identity, new_identity)
       end
+
+      return :signer_changed if signer_changed
+      return :unapproved if approved.length != old_app_artifacts.length
+
+      :release
     rescue
-      false
+      :skip
     end
+
+    sig {
+      params(
+        old_identity: T.nilable(Quarantine::SigningIdentity),
+        new_identity: T.nilable(Quarantine::SigningIdentity),
+      ).returns(T::Boolean)
+    }
+    def self.signing_identity_changed?(old_identity, new_identity)
+      [
+        [old_identity&.identifier, new_identity&.identifier],
+        [old_identity&.team_identifier, new_identity&.team_identifier],
+      ].any? do |old_value, new_value|
+        !old_value.nil? && !new_value.nil? && old_value != new_value
+      end
+    end
+    private_class_method :signing_identity_changed?
 
     sig { params(old_cask: Cask, new_cask: Cask).void }
     def self.reopen_apps_after_upgrade(old_cask, new_cask)
@@ -423,11 +438,23 @@ module Cask
         new_cask_installer.install_artifacts(predecessor: old_cask)
         new_artifacts_installed = true
 
-        if quarantine.nil? &&
-           Quarantine.available? &&
-           release_app_upgrade_quarantine?(old_cask, new_cask, old_signing_identities, old_user_approved)
-          new_cask.artifacts.grep(Artifact::App).each do |artifact|
-            Quarantine.release!(download_path: artifact.target)
+        if quarantine.nil? && Quarantine.available?
+          case quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
+          when :release
+            new_cask.artifacts.grep(Artifact::App).each do |artifact|
+              Quarantine.release!(download_path: artifact.target)
+            end
+          when :signer_changed
+            opoo "#{new_cask.token}'s signer changed since you approved it, so macOS will prompt at " \
+                 "next launch. Upgrades open silently while the signer is unchanged."
+          when :unapproved
+            message = "Not releasing #{new_cask.token} from quarantine: the previous version wasn't " \
+                      "approved, so macOS may prompt before it opens the first time."
+            if verbose
+              ohai message
+            else
+              odebug message
+            end
           end
         end
 
