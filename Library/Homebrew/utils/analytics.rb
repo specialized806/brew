@@ -68,7 +68,7 @@ module Utils
           puts "#{curl} #{args.join(" ")} \"#{url}\""
           puts Utils.popen_read(curl, *args, url)
         else
-          pid = spawn curl, *args, url
+          pid = spawn curl, *args, url, out: File::NULL, err: File::NULL
           Process.detach(pid)
         end
       end
