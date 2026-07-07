@@ -777,8 +777,12 @@ module Homebrew
           is_downgraded = Version.new(current_version) > Version.new(latest_version)
 
           begin
-            update_resource_block!(formula, resource, latest_version)
-            results[resource.name] = is_downgraded ? :downgraded : :success
+            result = update_resource_block!(formula, resource, latest_version)
+            results[resource.name] = if result == :success && is_downgraded
+              :downgraded
+            else
+              result
+            end
           rescue => e
             opoo "Failed to update resource \"#{resource.name}\": #{e}"
             results[resource.name] = :fetch_failed
