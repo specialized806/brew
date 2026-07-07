@@ -424,6 +424,21 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
+  describe "#backup" do
+    it "does not raise when the staged version directory is already missing" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      installer = described_class.new(caffeine)
+      installer.install
+
+      FileUtils.rm_rf(caffeine.staged_path)
+      FileUtils.rm_rf(caffeine.metadata_versioned_path)
+
+      expect { installer.backup }.not_to raise_error
+      expect(installer.backup_path).not_to exist
+      expect(installer.backup_metadata_path).not_to exist
+    end
+  end
+
   describe "uninstall" do
     it "fully uninstalls a Cask" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))

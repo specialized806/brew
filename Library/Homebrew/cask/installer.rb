@@ -605,8 +605,10 @@ on_request: true)
       bmp = backup_metadata_path
       raise "unexpected nil backup_metadata_path" unless bmp
 
-      @cask.staged_path.rename bp.to_s
-      @cask.metadata_versioned_path.rename bmp.to_s
+      # The staged files may already be gone (e.g. an out-of-band cask update);
+      # skip the rename rather than raising and aborting the upgrade.
+      @cask.staged_path.rename bp.to_s if @cask.staged_path.exist?
+      @cask.metadata_versioned_path.rename bmp.to_s if @cask.metadata_versioned_path.exist?
     end
 
     sig { void }
