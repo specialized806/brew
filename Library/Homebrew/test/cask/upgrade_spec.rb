@@ -648,6 +648,64 @@ RSpec.describe Cask::Upgrade, :cask do
     end
   end
 
+  context "when upgrading after a forced upgrade without a cask receipt" do
+    before do
+      InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("outdated/local-caffeine")))
+    end
+
+    it "uses the forced upgrade metadata for the next upgrade" do
+      receipt_path = local_caffeine.metadata_main_container_path/AbstractTab::FILENAME
+
+      expect(receipt_path).not_to exist
+      expect(Cask::CaskLoader.load_from_installed_caskfile(local_caffeine.installed_caskfile).artifacts)
+        .to be_empty
+
+      described_class.upgrade_casks!(local_caffeine, force: true, args:)
+
+      expect(receipt_path).to exist
+      expect(local_caffeine.tab.installed_on_request).to be(true)
+      expect(Cask::CaskLoader.load_from_installed_caskfile(local_caffeine.installed_caskfile).artifacts)
+        .to include(an_instance_of(Cask::Artifact::App))
+
+      newer_cask = Cask::CaskLoader::FromContentLoader.new(<<~RUBY).load(config: nil)
+        cask "local-caffeine" do
+          version "1.2.4"
+          sha256 "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94"
+
+          url "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip"
+          homepage "https://brew.sh/"
+
+          app "Caffeine.app"
+        end
+      RUBY
+
+      expect do
+        described_class.upgrade_casks!(newer_cask, args:)
+      end.to change(newer_cask, :installed_version).from("1.2.3").to("1.2.4")
+    end
+  end
+
+  context "when an upgrade fails after installing artifacts" do
+    before do
+      Cask::Installer.new(Cask::CaskLoader.load(cask_path("outdated/local-caffeine"))).install
+    end
+
+    it "keeps the old cask receipt" do
+      receipt_path = local_caffeine.metadata_main_container_path/AbstractTab::FILENAME
+
+      expect(JSON.parse(receipt_path.read).dig("source", "version")).to eq("1.2.2")
+
+      allow_any_instance_of(Cask::Installer).to receive(:finalize_upgrade)
+        .and_raise(Cask::CaskError, "finalize failed")
+
+      expect do
+        described_class.upgrade_casks!(local_caffeine, args:)
+      end.to raise_error(Cask::CaskError)
+
+      expect(JSON.parse(receipt_path.read).dig("source", "version")).to eq("1.2.2")
+    end
+  end
+
   context "when an upgrade failed" do
     # These tests perform actual upgrades and test rollback behavior,
     # so they need full real installations.
