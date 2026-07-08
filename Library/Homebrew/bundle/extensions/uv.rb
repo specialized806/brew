@@ -11,7 +11,7 @@ module Homebrew
       Checkable = T.type_alias { { name: String, options: WithOptions } }
       ToolEntry = T.type_alias { T.any(Tool, Checkable) }
 
-      SOURCE_REQUIREMENT_REGEX = T.let(%r{\A(?:git\+|https?://|file://|\.{0,2}/)|\.git\z}, Regexp)
+      SOURCE_REQUIREMENT_REGEX = %r{\A(?:git\+|https?://|file://|\.{0,2}/)|\.git\z}
 
       class << self
         sig { override.returns(Symbol) }

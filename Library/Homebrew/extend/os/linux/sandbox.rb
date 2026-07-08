@@ -29,9 +29,9 @@ module OS
         /usr/bin
         /bin
       ].freeze
-      HOMEBREW_BUBBLEWRAP_PATHS = T.let([
+      HOMEBREW_BUBBLEWRAP_PATHS = [
         "#{HOMEBREW_PREFIX}/bin",
-      ].freeze, T::Array[String])
+      ].freeze
       NESTED_BUBBLEWRAP_ERROR = "Creating new namespace failed: nesting depth or /proc/sys/user/max_*_namespaces " \
                                 "exceeded"
       class SysctlSetting < T::Struct

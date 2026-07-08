@@ -39,7 +39,7 @@ module Homebrew
       end
       private_constant :TemplateVersion
 
-      TEMPLATE_VERSION = T.let(TemplateVersion.new.freeze, TemplateVersion)
+      TEMPLATE_VERSION = TemplateVersion.new.freeze
       private_constant :TEMPLATE_VERSION
 
       sig {
@@ -359,7 +359,7 @@ module Homebrew
 
       sig { params(context: Object).void }
       def initialize(context:)
-        @context = T.let(context, Object)
+        @context = context
       end
 
       sig { params(steps: Steps, phase: Symbol).void }
