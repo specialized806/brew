@@ -181,6 +181,8 @@ module Homebrew
         prefetched_formulae_upgrades = T.let([], T::Array[String])
         prefetched_cask_names = T.let([], T::Array[String])
         prefetched_cask_upgrades = T.let([], T::Array[String])
+        prefetched_cask_upgrade_casks = T.let([], T::Array[Cask::Cask])
+        prefetched_cask_errors = T.let([], T::Array[StandardError])
         @final_upgrade_summary = T.let(FinalUpgradeSummary.new, T.nilable(FinalUpgradeSummary))
         @ask_prompt_required = false
         ask = !args.no_ask? && !args.dry_run?
@@ -273,6 +275,8 @@ module Homebrew
               download_queue:         shared_download_queue,
               prefetch_names:         prefetched_cask_names,
               prefetch_upgrades:      prefetched_cask_upgrades,
+              prefetch_casks:         prefetched_cask_upgrade_casks,
+              prefetch_errors:        prefetched_cask_errors,
               show_downloads_heading: false,
             )
             unless ask
@@ -303,12 +307,22 @@ module Homebrew
           )
         end
         if !only_upgrade_formulae && !skip_upgrades_after_failed_ask_preview
-          upgrade_outdated_casks!(
-            casks,
-            skip_prefetch:        prefetched_casks,
-            show_upgrade_summary: prefetched_cask_upgrades.blank? && !args.dry_run? && !ask,
-            download_queue:       nil,
-          )
+          if prefetched_casks
+            upgrade_outdated_casks!(
+              prefetched_cask_upgrade_casks,
+              skip_prefetch:          true,
+              show_upgrade_summary:   prefetched_cask_upgrades.blank? && !args.dry_run? && !ask,
+              download_queue:         nil,
+              prefetched_cask_errors: prefetched_cask_errors,
+            )
+          else
+            upgrade_outdated_casks!(
+              casks,
+              skip_prefetch:        false,
+              show_upgrade_summary: prefetched_cask_upgrades.blank? && !args.dry_run? && !ask,
+              download_queue:       nil,
+            )
+          end
         end
 
         unavailable_errors.each { |e| ofail e }
@@ -754,11 +768,13 @@ module Homebrew
         params(casks: T::Array[Cask::Cask], download_queue: Homebrew::DownloadQueue,
                prefetch_names: T.nilable(T::Array[String]),
                prefetch_upgrades: T.nilable(T::Array[String]),
+               prefetch_casks: T.nilable(T::Array[Cask::Cask]),
+               prefetch_errors: T.nilable(T::Array[StandardError]),
                show_downloads_heading: T::Boolean)
           .returns(T::Boolean)
       }
       def prefetch_outdated_casks!(casks, download_queue:, prefetch_names: nil,
-                                   prefetch_upgrades: nil,
+                                   prefetch_upgrades: nil, prefetch_casks: nil, prefetch_errors: nil,
                                    show_downloads_heading: true)
         return false if args.formula?
 
@@ -785,8 +801,9 @@ module Homebrew
         return false if outdated_casks.empty?
 
         require "cask/installer"
-        fetchable_cask_installers = outdated_casks.map do |cask|
-          Cask::Installer.new(
+        fetchable_cask_installers = []
+        outdated_casks.select! do |cask|
+          installer = Cask::Installer.new(
             cask,
             binaries:       args.binaries?,
             verbose:        args.verbose?,
@@ -797,7 +814,19 @@ module Homebrew
             download_queue:,
             defer_fetch:    true,
           )
+          begin
+            installer.check_requirements
+          rescue Cask::CaskError => e
+            prefetch_errors&.push(e)
+            next false
+          end
+
+          fetchable_cask_installers << installer
+          true
         end
+        prefetch_casks&.replace(outdated_casks)
+        return prefetch_errors.present? if outdated_casks.empty?
+
         cask_names = outdated_casks.map(&:full_name)
         Install.enqueue_cask_installers(fetchable_cask_installers, download_queue:)
         prefetch_names&.replace(cask_names)
@@ -815,17 +844,24 @@ module Homebrew
       sig {
         params(casks: T::Array[Cask::Cask], skip_prefetch: T::Boolean, show_upgrade_summary: T::Boolean,
                dry_run: T::Boolean,
-               download_queue: T.nilable(Homebrew::DownloadQueue))
+               download_queue: T.nilable(Homebrew::DownloadQueue),
+               prefetched_cask_errors: T.nilable(T::Array[StandardError]))
           .returns(T::Boolean)
       }
       def upgrade_outdated_casks!(casks, skip_prefetch: false, show_upgrade_summary: true,
                                   dry_run: args.dry_run?,
-                                  download_queue: nil)
+                                  download_queue: nil, prefetched_cask_errors: nil)
         return false if args.formula?
 
         quiet = args.quiet? || (dry_run && !args.dry_run?)
         casks = minimum_version_casks(casks, quiet:)
         return false if minimum_version.present? && casks.empty?
+
+        if skip_prefetch && casks.empty? && prefetched_cask_errors.present?
+          raise Cask::MultipleCaskErrors, prefetched_cask_errors if prefetched_cask_errors.count > 1
+
+          raise prefetched_cask_errors.fetch(0)
+        end
 
         Cask::Upgrade.upgrade_casks!(
           *casks,
@@ -847,6 +883,7 @@ module Homebrew
           summary_pinned:       final_upgrade_summary.pinned_casks,
           summary_deprecated:   final_upgrade_summary.deprecated,
           summary_disabled:     final_upgrade_summary.disabled,
+          prefetched_errors:    prefetched_cask_errors,
           args:,
         )
       rescue => e
