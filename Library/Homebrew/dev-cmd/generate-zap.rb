@@ -32,7 +32,7 @@ module Homebrew
         named_args :cask_or_name, number: 1
       end
 
-      USER_TRASH_PATHS = T.let([
+      USER_TRASH_PATHS = [
         "Desktop",
         "Documents",
         "Library",
@@ -58,7 +58,7 @@ module Homebrew
         "Library/Saved Application State",
         "Library/WebKit",
         "Music",
-      ].freeze, T::Array[String])
+      ].freeze
 
       SYSTEM_DELETE_PATHS = [
         "/Library/Application Support",
