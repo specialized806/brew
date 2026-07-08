@@ -160,6 +160,26 @@ RSpec.describe Homebrew::Bundle::Brew do
       }
     end
 
+    def formula_double_depending_on(name, dependency)
+      instance_double(Formula,
+                      name:,
+                      desc:                   name,
+                      oldnames:               [],
+                      full_name:              name,
+                      any_version_installed?: true,
+                      aliases:                [],
+                      runtime_dependencies:   [instance_double(Dependency, name: dependency)],
+                      deps:                   [],
+                      conflicts:              [],
+                      any_installed_prefix:   nil,
+                      linked?:                false,
+                      keg_only?:              true,
+                      pinned?:                false,
+                      outdated?:              false,
+                      stable:                 instance_double(SoftwareSpec, bottle_defined?: false, bottled?: false),
+                      tap:                    instance_double(Tap, official?: false))
+    end
+
     before do
       described_class.reset!
     end
@@ -180,13 +200,13 @@ RSpec.describe Homebrew::Bundle::Brew do
         expect(dumper.formulae_by_full_name("bar")).to eql({})
       end
 
-      it "exits on cyclic exceptions" do
-        expect(Formula).to receive(:installed).and_return([foo, bar, baz])
-        expect_any_instance_of(Homebrew::Bundle::Brew::Topo).to receive(:tsort).and_raise(
-          TSort::Cyclic,
-          'topological sort failed: ["foo", "bar"]',
-        )
-        expect { dumper.formulae_by_full_name }.to raise_error(SystemExit)
+      it "warns and continues on cyclic dependencies instead of exiting" do
+        cyclic_foo = formula_double_depending_on("foo", "bar")
+        cyclic_bar = formula_double_depending_on("bar", "foo")
+        expect(Formula).to receive(:installed).and_return([cyclic_foo, cyclic_bar])
+
+        expect { dumper.formulae_by_full_name }.to output(/dependency graph sorting failed/).to_stderr
+        expect(dumper.formulae.map { |f| f[:full_name] }).to contain_exactly("foo", "bar")
       end
 
       it "returns a hash for a formula" do
@@ -915,6 +935,14 @@ RSpec.describe Homebrew::Bundle::Brew do
       topo["b"] = ["libice"]
 
       expect(topo.tsort).to eq(["libice", "b", "a"])
+    end
+
+    it "flattens a cyclic graph via strongly connected components without raising" do
+      topo = described_class.new
+      topo["a"] = ["b"]
+      topo["b"] = ["a"]
+
+      expect(topo.each_strongly_connected_component.to_a.flatten).to contain_exactly("a", "b")
     end
   end
 end

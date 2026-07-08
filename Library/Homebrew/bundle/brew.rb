@@ -426,24 +426,32 @@ module Homebrew
           raise "formulae_by_full_name is nil" if @formulae_by_full_name.nil?
           raise "formulae_by_name is nil" if @formulae_by_name.nil?
 
-          @formulae = topo.tsort
-                          .map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
-                          .uniq { |f| f[:full_name] }
-        rescue TSort::Cyclic => e
-          e.message =~ /\["([^"]*)".*"([^"]*)"\]/
-          cycle_first = Regexp.last_match(1)
-          cycle_last = Regexp.last_match(2)
-          odie e.message if !cycle_first || !cycle_last
+          sorted_names = begin
+            topo.tsort
+          rescue TSort::Cyclic
+            # The graph is built from runtime dependencies recorded in installed
+            # keg tabs, which can disagree with the current formulae and form a
+            # cycle the live graph does not have (see Homebrew/homebrew-bundle#1513).
+            # Warn and keep the bundle running with a best-effort order rather than
+            # aborting. The reinstall remedy below does not reliably clear such cycles.
+            cyclic = (topo.strongly_connected_components.find { |c| c.size > 1 } || [])
+                     .filter_map { |n| @formulae_by_full_name[n] || @formulae_by_name[n] }
+                     .uniq { |f| f[:full_name] }
+                     .map { |f| f[:full_name] }
+            opoo <<~EOS
+              Formulae dependency graph sorting failed (likely due to a circular dependency):
+                #{cyclic.join(", ")}
+              If this persists, run the following commands and try again:
+                brew update
+                brew uninstall --ignore-dependencies --force #{cyclic.join(" ")}
+                brew install #{cyclic.join(" ")}
+            EOS
+            topo.each_strongly_connected_component.to_a.flatten
+          end
 
-          odie <<~EOS
-            Formulae dependency graph sorting failed (likely due to a circular dependency):
-            #{cycle_first}: #{topo[cycle_first] if topo}
-            #{cycle_last}: #{topo[cycle_last] if topo}
-            Please run the following commands and try again:
-              brew update
-              brew uninstall --ignore-dependencies --force #{cycle_first} #{cycle_last}
-              brew install #{cycle_first} #{cycle_last}
-          EOS
+          @formulae = sorted_names
+                      .map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
+                      .uniq { |f| f[:full_name] }
         end
       end
 
