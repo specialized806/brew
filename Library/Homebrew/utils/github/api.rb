@@ -34,8 +34,14 @@ module GitHub
   ALL_SCOPES = T.let((CREATE_GIST_SCOPES + CREATE_ISSUE_FORK_OR_PR_SCOPES + CREATE_WORKFLOW_SCOPES).freeze,
                      T::Array[String])
   private_constant :ALL_SCOPES
-  GITHUB_PERSONAL_ACCESS_TOKEN_REGEX = /^(?:[a-f0-9]{40}|(?:gh[pousr]|github_pat)_\w{36,251})$/
-  private_constant :GITHUB_PERSONAL_ACCESS_TOKEN_REGEX
+  GITHUB_ACCESS_TOKEN_REGEX = %r{
+    ^(?:
+      [a-f0-9]{40}                       | # legacy 40-char hex PAT
+      (?:gh[pour]|github_pat)_\w{36,251} | # PAT / OAuth / user / refresh tokens
+      ghs_[A-Za-z0-9.\-_]{36,}             # GitHub App installation token
+    )$
+  }x
+  private_constant :GITHUB_ACCESS_TOKEN_REGEX
 
   # Helper functions for accessing the GitHub API.
   #
@@ -180,7 +186,7 @@ module GitHub
     end
 
     # Gets the password field from `git-credential-osxkeychain` for github.com,
-    # but only if that password looks like a GitHub Personal Access Token.
+    # but only if that password looks like a GitHub access Token.
     sig { returns(T.nilable(String)) }
     def self.keychain_username_password
       require "utils/uid"
@@ -198,9 +204,9 @@ module GitHub
       return unless github_username
 
       # Don't use passwords from the keychain unless they look like
-      # GitHub Personal Access Tokens:
+      # GitHub access tokens:
       #   https://github.com/Homebrew/brew/issues/6862#issuecomment-572610344
-      return unless GITHUB_PERSONAL_ACCESS_TOKEN_REGEX.match?(github_password)
+      return unless GITHUB_ACCESS_TOKEN_REGEX.match?(github_password)
 
       github_password.presence
     end
