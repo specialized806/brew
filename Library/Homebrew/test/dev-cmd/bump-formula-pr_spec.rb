@@ -219,4 +219,39 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       expect(bump_formula_pr.send(:update_matching_version_resources!, f, version:, resource_versions:)).to eq({})
     end
   end
+
+  describe "::update_resources!" do
+    let(:f) do
+      formula("test") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/test-1.0.0.tgz"
+
+        resource "foo" do
+          url "https://brew.sh/foo-1.2.3.tar.gz"
+        end
+      end
+    end
+    let(:r) { f.resource("foo") }
+
+    it "updates to requested version" do
+      version = "2.1.0"
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: version } }
+      expect(bump_formula_pr).to receive(:update_resource_block!).with(f, r, version).and_return(:success)
+      expect(bump_formula_pr.send(:update_resources!, f, resource_versions:)).to eq({ "foo" => :success })
+    end
+
+    it "downgrades to requested version" do
+      version = "0.1.2"
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: version } }
+      expect(bump_formula_pr).to receive(:update_resource_block!).with(f, r, version).and_return(:success)
+      expect(bump_formula_pr.send(:update_resources!, f, resource_versions:)).to eq({ "foo" => :downgraded })
+    end
+
+    it "returns update failures" do
+      version = "0.1.2"
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: version } }
+      expect(bump_formula_pr).to receive(:update_resource_block!).with(f, r, version).and_return(:url_unchanged)
+      expect(bump_formula_pr.send(:update_resources!, f, resource_versions:)).to eq({ "foo" => :url_unchanged })
+    end
+  end
 end
