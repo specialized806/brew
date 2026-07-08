@@ -476,7 +476,8 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it 'prefetches "auto_updates true" casks with quarantine until signed identity is checked' do
-      installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
+      installer = instance_double(Cask::Installer, check_requirements: nil, enqueue_downloads: nil,
+                                                   source_download_requires_pre_fetch?: false)
 
       expect(Cask::Installer).to receive(:new) do |cask, **options|
         expect(cask).to eq(auto_updates)
@@ -834,6 +835,75 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum_2_path).to be_a_file
       expect(bad_checksum_2.installed_version).to eq "1.2.2"
       expect(bad_checksum_2.staged_path).not_to exist
+    end
+  end
+
+  context "when an outdated cask is incompatible" do
+    before do
+      [
+        "outdated/local-caffeine",
+        "outdated/local-transmission-zip",
+      ].each do |cask|
+        InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path(cask)))
+      end
+    end
+
+    it "continues upgrading compatible casks" do
+      summary_upgrades = []
+      upgraded_tokens = []
+      incompatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
+      compatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
+
+      allow(incompatible_installer).to receive(:check_requirements)
+        .and_raise(Cask::CaskError, "local-caffeine: This cask does not run on macOS versions older than Tahoe.")
+      allow(compatible_installer).to receive_messages(check_requirements: nil, enqueue_downloads: nil)
+      allow(Cask::Installer).to receive(:new) do |cask, **|
+        (cask.token == "local-caffeine") ? incompatible_installer : compatible_installer
+      end
+      allow(described_class).to receive(:upgrade_cask) do |_, new_cask, **|
+        upgraded_tokens << new_cask.token
+      end
+
+      expect do
+        described_class.upgrade_casks!(
+          local_caffeine, local_transmission,
+          show_upgrade_summary: false,
+          summary_upgrades:,
+          args:
+        )
+      end.to raise_error(
+        Cask::CaskError,
+        "local-caffeine: This cask does not run on macOS versions older than Tahoe.",
+      )
+
+      expect(upgraded_tokens).to eq(["local-transmission-zip"])
+      expect(summary_upgrades).to eq(["local-transmission-zip 2.60 -> 2.61"])
+    end
+
+    it "raises prefetched requirement errors after compatible casks" do
+      summary_upgrades = []
+      upgraded_tokens = []
+      cask_error = Cask::CaskError.new(
+        "local-caffeine: This cask does not run on macOS versions older than Tahoe.",
+      )
+
+      allow(described_class).to receive(:upgrade_cask) do |_, new_cask, **|
+        upgraded_tokens << new_cask.token
+      end
+
+      expect do
+        described_class.upgrade_casks!(
+          local_transmission,
+          skip_prefetch:        true,
+          show_upgrade_summary: false,
+          summary_upgrades:,
+          prefetched_errors:    [cask_error],
+          args:,
+        )
+      end.to raise_error(Cask::CaskError, cask_error.message)
+
+      expect(upgraded_tokens).to eq(["local-transmission-zip"])
+      expect(summary_upgrades).to eq(["local-transmission-zip 2.60 -> 2.61"])
     end
   end
 end

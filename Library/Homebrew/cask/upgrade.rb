@@ -119,6 +119,7 @@ module Cask
         summary_pinned:       T.nilable(T::Array[String]),
         summary_deprecated:   T.nilable(T::Array[String]),
         summary_disabled:     T.nilable(T::Array[String]),
+        prefetched_errors:    T.nilable(T::Array[StandardError]),
       ).returns(T::Boolean)
     }
     def self.upgrade_casks!(
@@ -142,7 +143,8 @@ module Cask
       summary_upgrades: nil,
       summary_pinned: nil,
       summary_deprecated: nil,
-      summary_disabled: nil
+      summary_disabled: nil,
+      prefetched_errors: nil
     )
       outdated_casks =
         self.outdated_casks(casks, args:, greedy:, greedy_latest:, greedy_auto_updates:, force:, quiet:,
@@ -208,13 +210,8 @@ module Cask
 
       return false if upgradable_casks.empty?
 
-      cask_upgrades = upgradable_casks.map do |(old_cask, new_cask)|
-        "#{new_cask.full_name} #{old_cask.version} -> #{new_cask.version}"
-      end
-      summary_upgrades&.concat(cask_upgrades) if dry_run
-      summary_deprecated&.concat(upgradable_casks.filter_map do |(_, new_cask)|
-        new_cask.full_name if new_cask.deprecated?
-      end)
+      caught_exceptions = []
+      caught_exceptions.concat(prefetched_errors) if prefetched_errors
 
       created_download_queue = T.let(false, T::Boolean)
       download_queue ||= if !dry_run && !skip_prefetch
@@ -225,31 +222,51 @@ module Cask
       if !dry_run && !skip_prefetch
         prefetch_download_queue = download_queue || Homebrew.default_download_queue
         begin
-          fetchable_casks = upgradable_casks.map(&:last)
-          fetchable_cask_installers = fetchable_casks.map do |cask|
+          fetchable_cask_installers = []
+          upgradable_casks.select! do |(_, cask)|
             # This is significantly easier given the weird difference in Sorbet signatures here.
             # rubocop:disable Style/DoubleNegation
-            Installer.new(cask, binaries: !!binaries, verbose: !!verbose, force: !!force,
-                                    skip_cask_deps: !!skip_cask_deps, require_sha: !!require_sha,
-                                    upgrade: true, quarantine: quarantine != false,
-                                    download_queue: prefetch_download_queue, defer_fetch: true)
+            installer = Installer.new(cask, binaries: !!binaries, verbose: !!verbose, force: !!force,
+                                             skip_cask_deps: !!skip_cask_deps, require_sha: !!require_sha,
+                                             upgrade: true, quarantine: quarantine != false,
+                                             download_queue: prefetch_download_queue, defer_fetch: true)
             # rubocop:enable Style/DoubleNegation
+            begin
+              installer.check_requirements
+            rescue CaskError => e
+              caught_exceptions << e
+              next false
+            end
+
+            fetchable_cask_installers << installer
+            true
           end
 
+          fetchable_casks = upgradable_casks.map(&:last)
           fetchable_casks_sentence = fetchable_casks.map { |cask| Formatter.identifier(cask.full_name) }.to_sentence
           Homebrew::Install.enqueue_cask_installers(fetchable_cask_installers,
                                                     download_queue: prefetch_download_queue)
-          oh1 "Fetching downloads for: #{fetchable_casks_sentence}", truncate: false
-          prefetch_download_queue.fetch
+          if fetchable_casks.any?
+            oh1 "Fetching downloads for: #{fetchable_casks_sentence}", truncate: false
+            prefetch_download_queue.fetch
+          end
         ensure
           prefetch_download_queue.shutdown if created_download_queue
         end
       end
 
+      return false if upgradable_casks.empty? && caught_exceptions.empty?
+
+      cask_upgrades = upgradable_casks.map do |(old_cask, new_cask)|
+        "#{new_cask.full_name} #{old_cask.version} -> #{new_cask.version}"
+      end
+      summary_upgrades&.concat(cask_upgrades) if dry_run
+      summary_deprecated&.concat(upgradable_casks.filter_map do |(_, new_cask)|
+        new_cask.full_name if new_cask.deprecated?
+      end)
+
       show_upgrade_summary(cask_upgrades, dry_run:) if show_upgrade_summary
       return true if dry_run
-
-      caught_exceptions = []
 
       download_queue ||= Homebrew.default_download_queue
 
@@ -268,6 +285,7 @@ module Cask
       end
 
       return true if caught_exceptions.empty?
+
       raise MultipleCaskErrors, caught_exceptions if caught_exceptions.count > 1
       raise caught_exceptions.fetch(0) if caught_exceptions.one?
 
