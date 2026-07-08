@@ -4,6 +4,30 @@
 require "utils/github"
 
 RSpec.describe GitHub do
+  describe "::API.commit" do
+    it "fetches the main branch commit by default" do
+      commit = { "sha" => "abc123" }
+
+      expect(GitHub::API).to receive(:open_rest).with(
+        "https://api.github.com/repos/Homebrew/brew/commits/main",
+        request_method: :GET,
+      ).and_return(commit)
+
+      expect(GitHub::API.commit("Homebrew", "brew")).to eq(commit)
+    end
+
+    it "fetches a commit for a branch ref with path separators" do
+      commit = { "sha" => "def456" }
+
+      expect(GitHub::API).to receive(:open_rest).with(
+        "https://api.github.com/repos/Homebrew/brew/commits/feature%2Ffoo",
+        request_method: :GET,
+      ).and_return(commit)
+
+      expect(GitHub::API.commit("Homebrew", "brew", branch: "feature/foo")).to eq(commit)
+    end
+  end
+
   describe "::search_query_string" do
     it "builds a query with the given hash parameters formatted as key:value" do
       query = described_class.search_query_string(user: "Homebrew", repo: "brew")

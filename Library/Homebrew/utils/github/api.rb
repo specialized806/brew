@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "system_command"
+require "uri"
 require "utils/output"
 require "utils/path"
 
@@ -343,6 +344,11 @@ module GitHub
       rescue JSON::ParserError => e
         raise Error, "Failed to parse JSON response\n#{e.message}", e.backtrace
       end
+    end
+
+    sig { params(user: String, repo: String, branch: String).returns(T::Hash[String, T.untyped]) }
+    def self.commit(user, repo, branch: "main")
+      open_rest("#{API_URL}/repos/#{user}/#{repo}/commits/#{URI.encode_uri_component(branch)}", request_method: :GET)
     end
 
     T::Sig::WithoutRuntime.sig {
