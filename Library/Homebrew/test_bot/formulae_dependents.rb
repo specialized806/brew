@@ -308,7 +308,7 @@ module Homebrew
 
         seen = T.let(Set.new, T::Set[String])
         groups = T.let([], T::Array[T::Array[DependentWithDependencies]])
-        max_group_size = (dependents.size / shard_count) + 1
+        max_group_size = (dependents.size + shard_count - 1) / shard_count
 
         dependents.map(&:first).each do |dependent|
           next if seen.include?(dependent.full_name)
