@@ -583,6 +583,8 @@ A steps block may only contain supported step calls with literal arguments; it c
 
 Relative paths default to `staged_path` for `base:`, `source_base:` and `target_base:`. Symlink steps can use `uninstall: true` to remove the symlink during uninstall.
 
+{% raw %}
+
 * `mkdir`: create one directory; example: `mkdir "Shared"`.
 * `mkdir_p`: create a directory and any missing parents; example: `mkdir_p "Shared"`.
 * `touch`: create or update a file timestamp; example: `touch "Shared/state"`.
@@ -593,6 +595,8 @@ Relative paths default to `staged_path` for `base:`, `source_base:` and `target_
 * `ln_s`: alias for `symlink`; example: `ln_s "Shared/payload", "Payload", source_base: :relative`.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "Shared/payload", "Payload", source_base: :relative, uninstall: true`.
 * `write`: write literal content to a file unless it already exists; example: `write "Shared/foo.conf", "key = value"`. Pass `overwrite: true` to always replace the file. A trailing newline is appended unless the content already ends with one. Content may use the `{{staged_path}}`, `{{appdir}}` and `{{version}}` tokens, which are expanded at install time; any other `{{...}}` is left verbatim.
+
+{% endraw %}
 
 Flight blocks are not currently run in the cask sandbox. They should be written as though they may be sandboxed in the future: prefer the mini-DSL helpers below and keep filesystem writes limited to paths owned by the cask.
 
