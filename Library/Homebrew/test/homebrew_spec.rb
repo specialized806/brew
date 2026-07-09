@@ -69,5 +69,15 @@ RSpec.describe Homebrew do
       expect($times).not_to have_key(:other_method)
     end
   end
+
+  describe ".quiet_system" do
+    it "returns true for a successful command" do
+      expect(described_class.quiet_system("true")).to be true
+    end
+
+    it "returns false for a failing command" do
+      expect(described_class.quiet_system("false")).to be false
+    end
+  end
 end
 # rubocop:enable Style/GlobalVars
