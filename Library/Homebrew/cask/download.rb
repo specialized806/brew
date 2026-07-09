@@ -3,6 +3,7 @@
 
 require "downloadable"
 require "fileutils"
+require "unpack_strategy"
 require "cask/cache"
 require "cask/quarantine"
 
@@ -85,6 +86,58 @@ module Cask
     sig { returns(Pathname) }
     def basename
       downloader.basename
+    end
+
+    sig { returns(UnpackStrategy) }
+    def primary_container
+      @primary_container ||= T.let(
+        begin
+          downloaded_path = cask.download || fetch(quiet: true)
+          UnpackStrategy.detect(downloaded_path, type: cask.container&.type, merge_xattrs: true)
+        end,
+        T.nilable(UnpackStrategy),
+      )
+    end
+
+    sig { params(to: Pathname, verbose: T::Boolean).void }
+    def extract_primary_container(to:, verbose:)
+      odebug "Extracting primary container"
+
+      container = primary_container
+      raise "unexpected nil primary_container" unless container
+
+      odebug "Using container class #{container.class} for #{container.path}"
+
+      if (nested_container = cask.container&.nested)
+        Dir.mktmpdir("cask-installer", HOMEBREW_TEMP) do |tmpdir|
+          tmpdir = Pathname(tmpdir)
+          container.extract(to: tmpdir, basename:, verbose:)
+
+          FileUtils.chmod_R "+rw", tmpdir/nested_container, force: true, verbose: verbose
+
+          UnpackStrategy.detect(tmpdir/nested_container, merge_xattrs: true)
+                        .extract_nestedly(to:, verbose:)
+        end
+      else
+        container.extract_nestedly(to:, basename:, verbose:)
+      end
+
+      return unless @quarantine
+      return unless Quarantine.available?
+
+      Quarantine.propagate(from: container.path, to:)
+    end
+
+    sig { params(target_dir: Pathname).void }
+    def process_rename_operations(target_dir:)
+      return if cask.rename.empty?
+
+      odebug "Processing rename operations in #{target_dir}"
+
+      cask.rename.each do |rename_operation|
+        odebug "Renaming #{rename_operation.from} to #{rename_operation.to}"
+        rename_operation.perform_rename(target_dir)
+      end
     end
 
     sig { override.returns(T::Boolean) }

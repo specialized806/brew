@@ -271,13 +271,9 @@ on_request: true)
 
     sig { returns(UnpackStrategy) }
     def primary_container
-      @primary_container ||= T.let(
-        begin
-          downloaded_path = download(quiet: true)
-          UnpackStrategy.detect(downloaded_path, type: @cask.container&.type, merge_xattrs: true)
-        end,
-        T.nilable(UnpackStrategy),
-      )
+      download(quiet: true) if @cask.download.nil?
+
+      downloader.primary_container
     end
 
     sig { returns(ArtifactSet) }
@@ -287,46 +283,12 @@ on_request: true)
 
     sig { params(to: Pathname).void }
     def extract_primary_container(to: @cask.staged_path)
-      odebug "Extracting primary container"
-
-      container = primary_container
-      raise "unexpected nil primary_container" unless container
-
-      odebug "Using container class #{container.class} for #{container.path}"
-
-      basename = downloader.basename
-
-      if (nested_container = @cask.container&.nested)
-        Dir.mktmpdir("cask-installer", HOMEBREW_TEMP) do |tmpdir|
-          tmpdir = Pathname(tmpdir)
-          container.extract(to: tmpdir, basename:, verbose: verbose?)
-
-          FileUtils.chmod_R "+rw", tmpdir/nested_container, force: true, verbose: verbose?
-
-          UnpackStrategy.detect(tmpdir/nested_container, merge_xattrs: true)
-                        .extract_nestedly(to:, verbose: verbose?)
-        end
-      else
-        container.extract_nestedly(to:, basename:, verbose: verbose?)
-      end
-
-      return unless quarantine?
-      return unless Quarantine.available?
-
-      Quarantine.propagate(from: container.path, to:)
+      downloader.extract_primary_container(to:, verbose: verbose?)
     end
 
     sig { params(target_dir: T.nilable(Pathname)).void }
     def process_rename_operations(target_dir: nil)
-      return if @cask.rename.empty?
-
-      working_dir = target_dir || @cask.staged_path
-      odebug "Processing rename operations in #{working_dir}"
-
-      @cask.rename.each do |rename_operation|
-        odebug "Renaming #{rename_operation.from} to #{rename_operation.to}"
-        rename_operation.perform_rename(working_dir)
-      end
+      downloader.process_rename_operations(target_dir: target_dir || @cask.staged_path)
     end
 
     sig { params(predecessor: T.nilable(Cask)).void }
