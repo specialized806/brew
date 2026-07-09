@@ -12,13 +12,14 @@ module RuboCop
       REBUILD_ACTION_STEP_METHODS =
         [:compile_gsettings_schemas, :gio_querymodules, :gdk_pixbuf_query_loaders, :gtk_update_icon_cache,
          :update_mime_database, :update_desktop_database].freeze
+      KEYCHAIN_STEP_METHODS = [:delete_keychain_certificate].freeze
       ALLOWED_STEP_METHODS = T.let(
         [*FILE_PREPARATION_STEP_METHODS, *LINK_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *SERVICE_DATA_STEP_METHODS,
          *REBUILD_ACTION_STEP_METHODS].freeze,
         T::Array[Symbol],
       )
       CASK_ALLOWED_STEP_METHODS = T.let(
-        [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS].freeze,
+        [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *KEYCHAIN_STEP_METHODS].freeze,
         T::Array[Symbol],
       )
 

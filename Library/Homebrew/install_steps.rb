@@ -102,7 +102,7 @@ module Homebrew
         when Hash
           ::T.cast(obj.to_h { |key, value| [key.to_s, value&.to_s] }.compact_blank, PathSpec)
         when String, Pathname
-          %w[path source target].include?(key) ? { "path" => obj.to_s } : obj.to_s
+          %w[path source target matching_certificate].include?(key) ? { "path" => obj.to_s } : obj.to_s
         else
           obj
         end
@@ -305,6 +305,20 @@ module Homebrew
         add_rebuild_action("update_desktop_database", "share/applications")
       end
 
+      sig {
+        params(
+          name:                 ::String,
+          matching_certificate: ::T.nilable(::T.any(::String, ::Pathname)),
+          base:                 ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def delete_keychain_certificate(name, matching_certificate: nil, base: nil)
+        add_step("delete_keychain_certificate",
+                 "name"                 => name,
+                 "matching_certificate" => (path_spec(matching_certificate, base:, default_base: nil) if
+                   matching_certificate))
+      end
+
       private
 
       sig { params(type: ::String, fields: ::T.nilable(StepValue)).void }
@@ -457,6 +471,38 @@ module Homebrew
           run_formula_tool("shared-mime-info", "update-mime-database", resolve_path(step_path(step, "path")))
         when "update_desktop_database"
           run_formula_tool("desktop-file-utils", "update-desktop-database", resolve_path(step_path(step, "path")))
+        when "delete_keychain_certificate"
+          certificate_hash = nil
+          if step.key?("matching_certificate")
+            certificate = resolve_path(step_path(step, "matching_certificate"))
+            return unless certificate.exist?
+
+            certificate_hash = run_command_output("/usr/bin/openssl", "x509", "-fingerprint", "-sha256", "-noout",
+                                                  "-in", certificate)
+                               .lines
+                               .first
+                               .to_s
+                               .split("=", 2)[1]
+                               .to_s
+                               .delete(":")
+                               .strip
+                               .upcase
+            return if certificate_hash.blank?
+          end
+
+          certificate_hashes = run_command_output(
+            "/usr/bin/security", "find-certificate", "-a", "-c", step_string(step, "name"), "-Z",
+            sudo: true
+          ).lines.filter_map { |line| line[/\ASHA-256 hash:\s*(\S+)/, 1]&.upcase }
+
+          if certificate_hash
+            run_command "/usr/bin/security", "delete-certificate", "-Z", certificate_hash, sudo: true if
+              certificate_hashes.include?(certificate_hash)
+          else
+            certificate_hashes.each do |matching_certificate_hash|
+              run_command "/usr/bin/security", "delete-certificate", "-Z", matching_certificate_hash, sudo: true
+            end
+          end
         else
           raise ArgumentError, "unknown install step: #{step.fetch("type")}"
         end
@@ -647,9 +693,14 @@ module Homebrew
         config.public_send(method) if config.respond_to?(method)
       end
 
-      sig { params(command: SystemCommandArg, args: SystemCommandArg).void }
-      def run_command(command, *args)
-        system_command!(command, args: args, print_stdout: true, print_stderr: true, reset_uid: true)
+      sig { params(command: SystemCommandArg, args: SystemCommandArg, sudo: T::Boolean).void }
+      def run_command(command, *args, sudo: false)
+        system_command!(command, args: args, sudo:, print_stdout: true, print_stderr: true, reset_uid: true)
+      end
+
+      sig { params(command: SystemCommandArg, args: SystemCommandArg, sudo: T::Boolean).returns(String) }
+      def run_command_output(command, *args, sudo: false)
+        system_command!(command, args: args, sudo:, print_stderr: true, reset_uid: true).stdout
       end
     end
   end

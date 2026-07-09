@@ -86,13 +86,27 @@ RSpec.describe Homebrew::InstallSteps do
           path: "nested/example",
         },
       },
+      {
+        type:                 :delete_keychain_certificate,
+        name:                 "NodeMITMProxyCA",
+        matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem",
+      },
     ]
 
     expect(Homebrew::InstallSteps::DSL.normalise_steps(steps)).to contain_exactly(
-      "type" => "mkdir_p",
-      "path" => {
-        "base" => "var",
-        "path" => "nested/example",
+      {
+        "type" => "mkdir_p",
+        "path" => {
+          "base" => "var",
+          "path" => "nested/example",
+        },
+      },
+      {
+        "type"                 => "delete_keychain_certificate",
+        "name"                 => "NodeMITMProxyCA",
+        "matching_certificate" => {
+          "path" => "~/Library/Application Support/betwixt/ssl/certs/ca.pem",
+        },
       },
     )
   end
@@ -342,6 +356,63 @@ RSpec.describe Homebrew::InstallSteps do
                                                    HOMEBREW_PREFIX/"share/icons/hicolor").ordered
       runner.run(steps)
     end
+  end
+
+  specify "deletes matching keychain certificates by SHA-256 hash" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      delete_keychain_certificate "Charles"
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_command_output)
+      .with("/usr/bin/security", "find-certificate", "-a", "-c", "Charles", "-Z", sudo: true)
+      .and_return(<<~EOS)
+        SHA-256 hash: ABC123
+        SHA-256 hash: DEF456
+      EOS
+    expect(runner).to receive(:run_command)
+      .with("/usr/bin/security", "delete-certificate", "-Z", "ABC123", sudo: true).ordered
+    expect(runner).to receive(:run_command)
+      .with("/usr/bin/security", "delete-certificate", "-Z", "DEF456", sudo: true).ordered
+
+    runner.run(steps)
+  end
+
+  specify "only deletes the keychain certificate matching a local certificate" do
+    certificate = root/"home/Library/Application Support/betwixt/ssl/certs/ca.pem"
+    certificate.dirname.mkpath
+    certificate.write "certificate"
+    steps = Homebrew::InstallSteps::DSL.build do
+      delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: certificate
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_command_output)
+      .with("/usr/bin/openssl", "x509", "-fingerprint", "-sha256", "-noout", "-in", certificate)
+      .and_return("sha256 Fingerprint=AB:CD:EF\n")
+    expect(runner).to receive(:run_command_output)
+      .with("/usr/bin/security", "find-certificate", "-a", "-c", "NodeMITMProxyCA", "-Z", sudo: true)
+      .and_return(<<~EOS)
+        SHA-256 hash: ABCDEF
+        SHA-256 hash: FEDCBA
+      EOS
+    expect(runner).to receive(:run_command)
+      .with("/usr/bin/security", "delete-certificate", "-Z", "ABCDEF", sudo: true)
+
+    runner.run(steps)
+  end
+
+  specify "skips keychain certificate deletion when a local certificate is missing" do
+    certificate = root/"missing.pem"
+    steps = Homebrew::InstallSteps::DSL.build do
+      delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: certificate
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).not_to receive(:run_command_output)
+    expect(runner).not_to receive(:run_command)
+
+    runner.run(steps)
   end
 
   specify "does not add the default base to home paths" do
