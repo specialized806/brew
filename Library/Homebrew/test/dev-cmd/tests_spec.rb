@@ -53,6 +53,23 @@ RSpec.describe Homebrew::DevCmd::Tests do
     end
   end
 
+  describe "#setup_environment!" do
+    subject(:tests) { described_class.new([]) }
+
+    before do
+      require "api"
+
+      allow(Homebrew::API).to receive(:fetch_api_files!)
+    end
+
+    it "keeps generic cache files out of the sandboxed test home" do
+      tests.send(:setup_environment!)
+
+      expect(ENV.fetch("XDG_CACHE_HOME")).to eq("#{HOMEBREW_CACHE}/tests")
+      expect(ENV.fetch("XDG_CACHE_HOME")).not_to start_with("#{Dir.home}/")
+    end
+  end
+
   describe "#changed_test_files" do
     subject(:changed_test_files) { tests.send(:changed_test_files) }
 
