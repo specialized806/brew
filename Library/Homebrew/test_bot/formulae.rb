@@ -481,7 +481,14 @@ module Homebrew
         end
         return if sha256_nodes.any? { |sha256_node| bottle_sha256_node_tag.call(sha256_node, :all) }
 
-        tag_hash = local_bottle_hash(formula.name, bottle_dir:)&.dig(formula.name, "bottle", "tags", bottle_tag.to_s)
+        # This predictor only has local JSONs, so mirror the merge-time tag count
+        # and cellar/checksum dedupe gates; final merge handles version/rebuild.
+        local_tag_hashes = local_bottle_tag_hashes(formula.name, bottle_dir:)
+        return if local_tag_hashes.key?("all")
+        return if local_tag_hashes.count < 2
+        return if local_tag_hashes.values.uniq { |tag_hash| [tag_hash["cellar"], tag_hash["sha256"]] }.one?
+
+        tag_hash = local_tag_hashes[bottle_tag.to_s]
         line = sha256_nodes.find do |sha256_node|
           bottle_sha256_node_tag.call(sha256_node, bottle_tag.to_sym)
         end&.source_range&.line
@@ -508,6 +515,29 @@ module Homebrew
         end
       rescue => e
         opoo "Failed to determine missing `:all` bottle impact for #{formula.full_name}: #{e}"
+      end
+
+      sig {
+        params(formula_name: String, bottle_dir: Pathname)
+          .returns(T::Hash[String, T::Hash[String, T.anything]])
+      }
+      def local_bottle_tag_hashes(formula_name, bottle_dir:)
+        tag_hashes = T.let({}, T::Hash[String, T::Hash[String, T.anything]])
+        bottle_glob(formula_name, bottle_dir, ".json", bottle_tag: "*").each do |local_bottle_json|
+          bottle_hash = JSON.parse(local_bottle_json.read).dig(formula_name, "bottle")
+          next unless bottle_hash.is_a?(Hash)
+
+          cellar = bottle_hash["cellar"]
+          tags = bottle_hash["tags"]
+          next unless tags.is_a?(Hash)
+
+          tags.each do |tag, tag_hash|
+            next if !tag.is_a?(String) || !tag_hash.is_a?(Hash)
+
+            tag_hashes[tag] = tag_hash.merge("cellar" => tag_hash["cellar"] || cellar)
+          end
+        end
+        tag_hashes
       end
 
       sig { params(formula: Formula).void }
