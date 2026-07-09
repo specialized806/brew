@@ -186,7 +186,7 @@ module GitHub
     end
 
     # Gets the password field from `git-credential-osxkeychain` for github.com,
-    # but only if that password looks like a GitHub access Token.
+    # but only if that password looks like a GitHub access token.
     sig { returns(T.nilable(String)) }
     def self.keychain_username_password
       require "utils/uid"
