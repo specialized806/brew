@@ -1211,7 +1211,9 @@ represented by structured steps.
 
 A trailing newline is appended unless the content already ends with one, so written files end in a newline as POSIX expects.
 
+{% raw %}
 Content may use a fixed set of `{{...}}` tokens that are expanded at install time so paths are not hardcoded into the JSON API: `{{HOMEBREW_PREFIX}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
+{% endraw %}
 
 #### Service data directory steps
 
