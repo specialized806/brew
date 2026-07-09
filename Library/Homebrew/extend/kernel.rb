@@ -72,15 +72,9 @@ module Kernel
     ).returns(T::Boolean)
   }
   def quiet_system(cmd, argv0 = nil, *args)
-    # TODO: migrate to utils.rb Homebrew.quiet_system
-    require "utils"
+    require "homebrew"
 
-    Homebrew._system(cmd, argv0, *args) do
-      # Redirect output streams to `/dev/null` instead of closing as some programs
-      # will fail to execute if they can't write to an open stream.
-      $stdout.reopen(File::NULL)
-      $stderr.reopen(File::NULL)
-    end
+    Homebrew.quiet_system(cmd, argv0, *args)
   end
 
   # Find a command.
