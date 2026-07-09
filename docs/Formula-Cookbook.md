@@ -1259,9 +1259,11 @@ class Foo < Formula
   # ...
   url "https://example.com/foo-1.0.tar.gz"
 
-  def post_install
-    rm pkgetc/"cert.pem" if File.exist?(pkgetc/"cert.pem")
-    pkgetc.install_symlink Formula["ca-certificates"].pkgetc/"cert.pem"
+  post_install_steps do
+    ln_sf "cert.pem", "cert.pem",
+          source_formula: "ca-certificates",
+          source_base:    :formula_pkgetc,
+          target_base:    :pkgetc
   end
   # ...
 end

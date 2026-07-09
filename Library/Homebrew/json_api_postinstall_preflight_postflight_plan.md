@@ -408,13 +408,19 @@ is stripped during metadata serialisation.
   `./bin/brew style homebrew/core`, targeted `./bin/brew audit --strict
   --online --formula ...` for the changed formulae and `./bin/brew readall
   homebrew/core`.
-- [ ] PR 7, certificate and trust store actions.
+- [x] PR 7, certificate and trust store actions.
+  Commit: `Add install step keychain cleanup`.
   Estimated existing formulae/casks affected: about `17` formulae update
   certificate/trust state and `8` cask flight blocks invoke
   `/usr/bin/security` for keychain certificate cleanup.
-  Notes for implementation: separate formula-owned symlinked certificate
-  actions from keychain mutations; keychain work likely counts as non-Homebrew
-  code and should be prepared for sandbox policy decisions.
+  Scope: cask `delete_keychain_certificate` step, runner execution through
+  fixed `/usr/bin/security find-certificate` and `delete-certificate` calls,
+  optional local certificate fingerprint matching for selective deletion,
+  cask step block allow-list entries and docs. Formula-owned `cert.pem`
+  symlinks use the existing `ln_sf` step with `source_formula` and
+  `source_base: :formula_pkgetc`; specialised trust store generation such as
+  `ca-certificates` bundle regeneration and Mono `cert-sync` stays legacy Ruby
+  because current repeated usage is below the named-variant threshold.
 - [ ] PR 8, cask permission and ownership actions.
   Estimated existing casks affected: about `21` casks change permissions and
   `36` change ownership.
