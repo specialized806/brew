@@ -3,6 +3,7 @@
 
 require "fileutils"
 require "env_config"
+require "system_command"
 require "utils/popen"
 require "utils/github/actions"
 
@@ -121,6 +122,7 @@ module OS
 
       module ClassMethods
         extend T::Helpers
+        include SystemCommand::Mixin
         include Utils::Output::Mixin
 
         requires_ancestor { T.class_of(::Sandbox) }
@@ -317,12 +319,16 @@ module OS
 
         sig { params(bubblewrap: ::Pathname).returns(T::Boolean) }
         def bubblewrap_sandbox_available?(bubblewrap)
-          system(
-            bubblewrap.to_s,
-            *BUBBLEWRAP_TEST_ARGS,
-            out: File::NULL,
-            err: File::NULL,
-          ) == true
+          result = system_command(
+            bubblewrap,
+            args:         BUBBLEWRAP_TEST_ARGS,
+            print_stderr: false,
+          )
+          return true if result.success?
+
+          opoo "bubblewrap test probe failed"
+          $stderr.print result.merged_output
+          false
         end
       end
 
