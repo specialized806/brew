@@ -343,11 +343,25 @@ module Homebrew
 
       sig { params(formula: Formula).returns(T::Boolean) }
       def formula_outdated?(formula)
-        version = minimum_version
-        return formula.outdated?(fetch_head: args.fetch_HEAD?) if version.blank?
+        outdated = formula.outdated?(fetch_head: args.fetch_HEAD?)
+        return false if outdated && fetched_head_formula_current?(formula)
 
-        formula.outdated?(fetch_head: args.fetch_HEAD?) &&
-          MinimumVersion.formula_outdated_kegs(formula, version, fetch_head: args.fetch_HEAD?).present?
+        version = minimum_version
+        return outdated if version.blank?
+
+        outdated && MinimumVersion.formula_outdated_kegs(formula, version, fetch_head: args.fetch_HEAD?).present?
+      end
+
+      sig { params(formula: Formula).returns(T::Boolean) }
+      def fetched_head_formula_current?(formula)
+        return false unless args.fetch_HEAD?
+        return false unless formula.head?
+        return false unless formula.optlinked?
+
+        old_version = Keg.new(formula.opt_prefix).version
+        return false unless old_version.head?
+
+        formula.latest_head_pkg_version(fetch_head: true).to_s == old_version.to_s
       end
 
       sig { params(casks: T::Array[Cask::Cask], quiet: T::Boolean).returns(T::Array[Cask::Cask]) }
@@ -625,11 +639,12 @@ module Homebrew
           if formula.optlinked?
             old_keg = Keg.new(formula.opt_prefix)
             old_version = old_keg.version
+            new_version = formula_upgrade_display_version(formula, old_version)
             if include_sizes
               "#{formula.full_specified_name} #{old_version} -> " \
-                "#{formula.pkg_version}#{formula_upgrade_size(formula)}"
+                "#{new_version}#{formula_upgrade_size(formula)}"
             else
-              "#{formula.full_specified_name} #{old_version} -> #{formula.pkg_version}"
+              "#{formula.full_specified_name} #{old_version} -> #{new_version}"
             end
           elsif include_sizes
             "#{formula.full_specified_name} #{formula.pkg_version}#{formula_upgrade_size(formula)}"
@@ -637,6 +652,18 @@ module Homebrew
             "#{formula.full_specified_name} #{formula.pkg_version}"
           end
         end
+      end
+
+      sig { params(formula: Formula, old_version: PkgVersion).returns(String) }
+      def formula_upgrade_display_version(formula, old_version)
+        return formula.pkg_version.to_s if !old_version.head? || !formula.head?
+        return formula.pkg_version.to_s if formula.pkg_version.to_s != old_version.to_s
+        return "latest HEAD" unless args.fetch_HEAD?
+
+        latest_head_version = formula.latest_head_pkg_version(fetch_head: true)
+        return "latest HEAD" if latest_head_version.to_s == old_version.to_s
+
+        latest_head_version.to_s
       end
 
       sig { params(formula: Formula).returns(String) }
