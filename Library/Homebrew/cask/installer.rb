@@ -216,10 +216,17 @@ on_request: true)
           next unless conflicting_cask_tap.installed?
         end
 
+        if (installed_caskfile = Caskroom.cask_installed_caskfile(conflicting_cask))
+          raise CaskConflictError.new(
+            @cask,
+            ::Cask::Cask.new(installed_caskfile.basename(installed_caskfile.extname).basename(".internal").to_s),
+          )
+        end
+
         conflicting_cask = CaskLoader.load(conflicting_cask)
         raise CaskConflictError.new(@cask, conflicting_cask) if conflicting_cask.installed?
-      rescue CaskUnavailableError
-        next # Ignore conflicting Casks that do not exist.
+      rescue CaskUnavailableError, Homebrew::UntrustedTapError
+        next # Ignore conflicting Casks that are unavailable or untrusted.
       end
     end
 
