@@ -205,7 +205,7 @@ RSpec.describe Homebrew::Bundle::Brew do
         cyclic_bar = formula_double_depending_on("bar", "foo")
         expect(Formula).to receive(:installed).and_return([cyclic_foo, cyclic_bar])
 
-        expect { dumper.formulae_by_full_name }.to output(/dependency graph sorting failed/).to_stderr
+        expect { dumper.formulae_by_full_name }.to output(/found a circular dependency/).to_stderr
         expect(dumper.formulae.map { |f| f[:full_name] }).to contain_exactly("foo", "bar")
       end
 

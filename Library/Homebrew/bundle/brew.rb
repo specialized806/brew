@@ -426,32 +426,33 @@ module Homebrew
           raise "formulae_by_full_name is nil" if @formulae_by_full_name.nil?
           raise "formulae_by_name is nil" if @formulae_by_name.nil?
 
-          sorted_names = begin
-            topo.tsort
-          rescue TSort::Cyclic
-            # The graph is built from runtime dependencies recorded in installed
-            # keg tabs, which can disagree with the current formulae and form a
-            # cycle the live graph does not have (see Homebrew/homebrew-bundle#1513).
-            # Warn and keep the bundle running with a best-effort order rather than
-            # aborting. The reinstall remedy below does not reliably clear such cycles.
-            cyclic = (topo.strongly_connected_components.find { |c| c.size > 1 } || [])
-                     .filter_map { |n| @formulae_by_full_name[n] || @formulae_by_name[n] }
-                     .uniq { |f| f[:full_name] }
-                     .map { |f| f[:full_name] }
+          # Topo includes TSort. each_strongly_connected_component orders nodes
+          # dependency-first like tsort but, unlike tsort, does not raise on a cycle.
+          # Stale keg-tab dependency data can form a cycle the live graph does not
+          # have (Homebrew/homebrew-bundle#1513), so warn and continue rather than
+          # aborting the whole bundle.
+          components = topo.each_strongly_connected_component.to_a
+
+          cyclic = components.select { |component| component.size > 1 }
+                             .flatten
+                             .filter_map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
+                             .uniq { |f| f[:full_name] }
+                             .map { |f| f[:full_name] }
+          if cyclic.any?
             opoo <<~EOS
-              Formulae dependency graph sorting failed (likely due to a circular dependency):
+              Formulae dependency graph sorting found a circular dependency:
                 #{cyclic.join(", ")}
-              If this persists, run the following commands and try again:
+              This is usually caused by stale dependency data in installed keg tabs.
+              If it persists, run the following commands and try again:
                 brew update
                 brew uninstall --ignore-dependencies --force #{cyclic.join(" ")}
                 brew install #{cyclic.join(" ")}
             EOS
-            topo.each_strongly_connected_component.to_a.flatten
           end
 
-          @formulae = sorted_names
-                      .map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
-                      .uniq { |f| f[:full_name] }
+          @formulae = components.flatten
+                                .map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
+                                .uniq { |f| f[:full_name] }
         end
       end
 
