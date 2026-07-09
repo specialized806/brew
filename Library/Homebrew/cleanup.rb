@@ -62,6 +62,8 @@ module Homebrew
         return false unless pathname.resolved_path.file?
 
         case entry[:type]
+        when :api_package
+          scrub
         when :api_source
           stale_api_source?(pathname, scrub)
         when :cask
@@ -565,11 +567,18 @@ module Homebrew
     def cache_files
       files = cache.directory? ? cache.children : []
       cask_files = (cache/"Cask").directory? ? (cache/"Cask").children : []
+      api_internal = cache/"api/internal"
+      api_package_files = if scrub? && api_internal.directory?
+        api_internal.glob("packages.*.jws.json")
+      else
+        []
+      end
       api_source_files = (cache/"api-source").glob("*/*/*/**/*").select { |path| path.file? || path.symlink? }
       gh_actions_artifacts = (cache/"gh-actions-artifact").directory? ? (cache/"gh-actions-artifact").children : []
 
       cache_entries(files, type: nil) +
         cache_entries(cask_files, type: :cask) +
+        cache_entries(api_package_files, type: :api_package) +
         cache_entries(api_source_files, type: :api_source) +
         cache_entries(gh_actions_artifacts, type: :gh_actions_artifact)
     end

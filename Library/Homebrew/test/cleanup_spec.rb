@@ -526,6 +526,45 @@ RSpec.describe Homebrew::Cleanup do
       expect(foo).to exist
     end
 
+    it "does not clean up internal package API files without scrub even when pruning" do
+      api_package_files = [
+        HOMEBREW_CACHE/"api/internal/packages.arm64_golden_gate.jws.json",
+        HOMEBREW_CACHE/"api/internal/packages.arm64_tahoe.jws.json",
+      ]
+      api_package_files.each do |api_package_file|
+        api_package_file.dirname.mkpath
+        FileUtils.touch api_package_file
+      end
+
+      described_class.new(days: 0).cleanup_cache
+
+      expect(api_package_files.map(&:exist?)).to eq([true, true])
+    end
+
+    it "cleans up internal package API files with scrub" do
+      api_package_files = [
+        HOMEBREW_CACHE/"api/internal/packages.arm64_golden_gate.jws.json",
+        HOMEBREW_CACHE/"api/internal/packages.arm64_tahoe.jws.json",
+      ]
+      api_jws_files = [
+        HOMEBREW_CACHE/"api/formula.jws.json",
+        HOMEBREW_CACHE/"api/cask.jws.json",
+      ]
+      api_package_files.each do |api_package_file|
+        api_package_file.dirname.mkpath
+        FileUtils.touch api_package_file
+      end
+      api_jws_files.each do |api_jws_file|
+        api_jws_file.dirname.mkpath
+        FileUtils.touch api_jws_file
+      end
+
+      described_class.new(scrub: true).cleanup_cache
+
+      expect(api_package_files.map(&:exist?)).to eq([false, false])
+      expect(api_jws_files.map(&:exist?)).to eq([true, true])
+    end
+
     it "cleans up API source files and symlinks at any depth without cleaning directories" do
       root_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/README.md"
       nested_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/Formula/a/testball.rb"
