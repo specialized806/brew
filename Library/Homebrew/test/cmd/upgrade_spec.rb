@@ -36,6 +36,30 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     FileUtils.ln_s(keg_path, HOMEBREW_PREFIX/"opt/#{name}")
   end
 
+  def install_head_formula_version(name, commit, installed_stable_version: "1.0", current_stable_version: "1.1")
+    write_formula name, <<~RUBY
+      url "https://brew.sh/#{name}-#{current_stable_version}"
+      head "https://brew.sh/#{name}.git", using: :git
+    RUBY
+
+    keg_path = HOMEBREW_CELLAR/name/"HEAD-#{commit}"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.source["spec"] = "head"
+    tab.source["versions"] = {
+      "stable"                => installed_stable_version,
+      "head"                  => "HEAD",
+      "version_scheme"        => 0,
+      "compatibility_version" => nil,
+    }
+    tab.write
+
+    (HOMEBREW_PREFIX/"opt").mkpath
+    FileUtils.ln_s(keg_path, HOMEBREW_PREFIX/"opt/#{name}")
+    Formula.clear_cache
+  end
+
   def write_formula(name, content)
     Formulary.find_formula_in_tap(name, CoreTap.instance).tap do |path|
       path.dirname.mkpath
@@ -172,6 +196,59 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect do
       described_class.new(["--yes", "--formula", "gh", "visual-studio-code"]).run
     end.to output(a_string_starting_with(expected_summary)).to_stdout
+  end
+
+  it "describes unresolved HEAD formula upgrades as latest HEAD", :no_api do
+    install_head_formula_version "head-formula", "1234567"
+    allow(Homebrew::Upgrade).to receive(:formula_installers).and_return([])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expected_summary = <<~EOS
+      ==> Upgrading 1 outdated package:
+      head-formula HEAD-1234567 -> latest HEAD
+    EOS
+
+    expect do
+      described_class.new(["--yes", "--formula", "head-formula"]).run
+    end.to output(a_string_starting_with(expected_summary)).to_stdout
+  end
+
+  it "describes fetched HEAD formula upgrades with the resolved commit", :no_api do
+    install_head_formula_version "head-formula", "1234567"
+    allow_any_instance_of(Formula).to receive(:latest_head_pkg_version)
+      .and_return(PkgVersion.parse("HEAD-7654321"))
+    allow(Homebrew::Upgrade).to receive(:formula_installers).and_return([])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expected_summary = <<~EOS
+      ==> Upgrading 1 outdated package:
+      head-formula HEAD-1234567 -> HEAD-7654321
+    EOS
+
+    expect do
+      described_class.new(["--yes", "--fetch-HEAD", "--formula", "head-formula"]).run
+    end.to output(a_string_starting_with(expected_summary)).to_stdout
+  end
+
+  it "skips fetched HEAD formula upgrades when the resolved commit is unchanged", :no_api do
+    install_head_formula_version "head-formula", "1234567"
+    allow_any_instance_of(Formula).to receive(:latest_head_pkg_version)
+      .and_return(PkgVersion.parse("HEAD-1234567"))
+    expect(Homebrew::Upgrade).not_to receive(:formula_installers)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    warning = "Warning: head-formula HEAD-1234567 already installed\n"
+
+    expect do
+      described_class.new(["--yes", "--fetch-HEAD", "--formula", "head-formula"]).run
+    end.to not_to_output(/Upgrading/).to_stdout
+                                     .and output(satisfy { |stderr| stderr.scan(warning).one? }).to_stderr
   end
 
   it "does not upgrade a named formula installed at --minimum-version" do
