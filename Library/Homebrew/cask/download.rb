@@ -5,7 +5,9 @@ require "downloadable"
 require "fileutils"
 require "unpack_strategy"
 require "cask/cache"
+require "cask/caskroom"
 require "cask/quarantine"
+require "cask/utils"
 
 module Cask
   # A download corresponding to a {Cask}.
@@ -99,11 +101,11 @@ module Cask
       )
     end
 
-    sig { params(to: Pathname, verbose: T::Boolean).void }
-    def extract_primary_container(to:, verbose:)
+    sig { params(to: Pathname, verbose: T::Boolean, container: T.nilable(UnpackStrategy)).void }
+    def extract_primary_container(to:, verbose:, container: nil)
       odebug "Extracting primary container"
 
-      container = primary_container
+      container ||= primary_container
       raise "unexpected nil primary_container" unless container
 
       odebug "Using container class #{container.class} for #{container.path}"
@@ -138,6 +140,69 @@ module Cask
         odebug "Renaming #{rename_operation.from} to #{rename_operation.to}"
         rename_operation.perform_rename(target_dir)
       end
+    end
+
+    sig { returns(Pathname) }
+    def staged_path_from_download_queue
+      HOMEBREW_PREFIX/"var/homebrew/tmp/.caskroom"/cask.staged_path.relative_path_from(Caskroom.path)
+    end
+
+    sig { returns(Pathname) }
+    def staged_path_from_download_queue_marker
+      Pathname("#{staged_path_from_download_queue}.staged")
+    end
+
+    sig { params(command: T.class_of(SystemCommand)).void }
+    def purge_staged_from_download_queue(command: SystemCommand)
+      staged_marker = staged_path_from_download_queue_marker
+      Utils.gain_permissions_remove(staged_marker, command:) if staged_marker.symlink? || staged_marker.exist?
+
+      staged_path = staged_path_from_download_queue
+      Utils.gain_permissions_remove(staged_path, command:) if staged_path.exist?
+
+      staged_path.parent.rmdir_if_possible
+      staged_path.parent.parent.rmdir_if_possible
+    end
+
+    sig { override.params(download: Pathname, pour: T::Boolean).returns(T::Boolean) }
+    def stage_from_download_queue?(download, pour:)
+      return false unless pour
+      return false if cask.staged_path.exist? || staged_path_from_download_queue_marker.exist?
+
+      UnpackStrategy.detect(download, type:         cask.container&.type,
+                                      merge_xattrs: true).dependencies.all? do |dependency|
+        case dependency
+        when Formula
+          dependency.any_version_installed? && dependency.optlinked?
+        when Cask
+          dependency.installed?
+        end
+      end
+    end
+
+    sig { override.params(download: Pathname, pour: T::Boolean).void }
+    def stage_from_download_queue(download, pour:)
+      return unless stage_from_download_queue?(download, pour:)
+
+      purge_staged_from_download_queue
+      cask.download ||= download
+      extract_primary_container(
+        to:        staged_path_from_download_queue,
+        verbose:   false,
+        container: UnpackStrategy.detect(
+          download,
+          type:         cask.container&.type,
+          merge_xattrs: true,
+        ),
+      )
+      process_rename_operations(target_dir: staged_path_from_download_queue)
+      FileUtils.ln_s(staged_path_from_download_queue, staged_path_from_download_queue_marker)
+    # Catch any exception type here to clean up partial queued extractions.
+    rescue Exception # rubocop:disable Lint/RescueException
+      ignore_interrupts do
+        purge_staged_from_download_queue
+      end
+      raise
     end
 
     sig { override.returns(T::Boolean) }

@@ -737,6 +737,56 @@ RSpec.describe Cask::Installer, :cask do
 
       installer.enqueue_downloads
     end
+
+    it "stages the main cask download outside Caskroom before install" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      download_queue = Homebrew::DownloadQueue.new(pour: true)
+      installer = described_class.new(cask, download_queue:, defer_fetch: true)
+      queued_staged_path = installer.downloader.staged_path_from_download_queue
+      queued_staged_marker = installer.downloader.staged_path_from_download_queue_marker
+
+      begin
+        installer.enqueue_downloads
+        download_queue.fetch
+      ensure
+        download_queue.shutdown
+      end
+
+      expect(cask.staged_path).not_to exist
+      expect(cask).not_to be_installed
+      expect(queued_staged_path/"Caffeine.app").to be_a_directory
+      expect(queued_staged_marker).to exist
+
+      expect(installer).not_to receive(:extract_primary_container)
+
+      installer.stage
+
+      expect(cask.staged_path/"Caffeine.app").to be_a_directory
+      expect(cask).to be_installed
+    end
+
+    it "does not stage queued downloads with missing unpack dependencies" do
+      cask = Cask::CaskLoader.load(cask_path("container-bzip2"))
+      download_queue = Homebrew::DownloadQueue.new(pour: true)
+      installer = described_class.new(cask, download_queue:, defer_fetch: true)
+      queued_staged_path = installer.downloader.staged_path_from_download_queue
+      queued_staged_marker = installer.downloader.staged_path_from_download_queue_marker
+
+      allow_any_instance_of(Formula).to receive(:any_version_installed?).and_return(false)
+      expect(installer).not_to receive(:extract_primary_container)
+
+      begin
+        installer.enqueue_downloads
+        download_queue.fetch
+      ensure
+        download_queue.shutdown
+      end
+
+      expect(cask.staged_path).not_to exist
+      expect(cask).not_to be_installed
+      expect(queued_staged_path).not_to exist
+      expect(queued_staged_marker).not_to exist
+    end
   end
 
   describe "rename operations" do

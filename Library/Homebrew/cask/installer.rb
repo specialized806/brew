@@ -132,10 +132,20 @@ module Cask
 
       Caskroom.ensure_caskroom_exists
 
-      extract_primary_container
-      process_rename_operations
+      queued_staged_path = downloader.staged_path_from_download_queue
+      queued_staged_marker = downloader.staged_path_from_download_queue_marker
+      if @defer_fetch && queued_staged_marker.exist? && !@cask.staged_path.exist?
+        @cask.staged_path.dirname.mkpath
+        FileUtils.mv(queued_staged_path, @cask.staged_path)
+        downloader.purge_staged_from_download_queue(command: @command)
+      else
+        downloader.purge_staged_from_download_queue(command: @command) if @defer_fetch
+        extract_primary_container
+        process_rename_operations
+      end
       save_caskfile
     rescue => e
+      downloader.purge_staged_from_download_queue(command: @command) if @defer_fetch
       purge_versioned_files
       raise e
     end
