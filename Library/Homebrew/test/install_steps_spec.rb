@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "install_steps"
+require "cask/quarantine"
 
 RSpec.describe Homebrew::InstallSteps do
   let(:root) { Pathname(TEST_TMPDIR)/"install-steps" }
@@ -91,6 +92,17 @@ RSpec.describe Homebrew::InstallSteps do
         name:                 "NodeMITMProxyCA",
         matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem",
       },
+      {
+        type:        :set_permissions,
+        paths:       ["Example.app"],
+        permissions: "0755",
+      },
+      {
+        type:  :set_ownership,
+        paths: [{ base: :staged_path, path: "Example.app" }],
+        user:  :root,
+        group: :wheel,
+      },
     ]
 
     expect(Homebrew::InstallSteps::DSL.normalise_steps(steps)).to contain_exactly(
@@ -107,6 +119,20 @@ RSpec.describe Homebrew::InstallSteps do
         "matching_certificate" => {
           "path" => "~/Library/Application Support/betwixt/ssl/certs/ca.pem",
         },
+      },
+      {
+        "type"        => "set_permissions",
+        "paths"       => [{ "path" => "Example.app" }],
+        "permissions" => "0755",
+      },
+      {
+        "type"  => "set_ownership",
+        "paths" => [{
+          "base" => "staged_path",
+          "path" => "Example.app",
+        }],
+        "user"  => "root",
+        "group" => "wheel",
       },
     )
   end
@@ -413,6 +439,44 @@ RSpec.describe Homebrew::InstallSteps do
     expect(runner).not_to receive(:run_command)
 
     runner.run(steps)
+  end
+
+  specify "sets permissions and ownership for existing cask step paths" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :staged_path) do
+      set_permissions ["Prepared.app", "Missing.app"], "0755"
+      set_ownership "Owned.app", user: "root", group: "wheel"
+    end
+
+    command = class_double(SystemCommand)
+    (root/"stage/Prepared.app").mkpath
+    (root/"stage/Owned.app").mkpath
+
+    allow(Cask::Quarantine).to receive(:app_management_permissions_granted?)
+      .with(app: root/"stage/Owned.app", command:)
+      .and_return(true)
+    expect(command).to receive(:run!)
+      .with("chmod", args: ["-R", "--", "0755", root/"stage/Prepared.app"], sudo: false).ordered
+    expect(command).to receive(:run!)
+      .with("chown", args: ["-R", "--", "root:wheel", root/"stage/Owned.app"], sudo: true).ordered
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+  end
+
+  specify "raises when App Management permissions are missing for ownership steps" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :staged_path) do
+      set_ownership "Owned.app"
+    end
+
+    command = class_double(SystemCommand)
+    (root/"stage/Owned.app").mkpath
+
+    allow(Cask::Quarantine).to receive(:app_management_permissions_granted?)
+      .with(app: root/"stage/Owned.app", command:)
+      .and_return(false)
+    expect(command).not_to receive(:run!)
+
+    expect { Homebrew::InstallSteps::Runner.new(context:, command:).run(steps) }
+      .to raise_error(Cask::CaskError, /App Management permissions/)
   end
 
   specify "does not add the default base to home paths" do
