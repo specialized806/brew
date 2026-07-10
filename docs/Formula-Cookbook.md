@@ -301,7 +301,7 @@ class Foo < Formula
   end
 
   def install
-    resource("pycrypto").stage { system "python", *Language::Python.setup_install_args(libexec/"vendor") }
+    resource("pycrypto").stage { system "python", "-m", "pip", "install", *std_pip_args, "." }
   end
 end
 ```

@@ -84,28 +84,6 @@ git clean -n # if this doesn't list anything that you want to keep, then
 git clean -f # this will remove untracked files
 ```
 
-### Python: `easy-install.pth` cannot be linked
-
-    Warning: Could not link <formula>. Unlinking...
-    Error: The `brew link` step did not complete successfully
-    The formula built, but is not symlinked into /usr/local
-    You can try again using `brew link <formula>'
-
-    Possible conflicting files are:
-    /usr/local/lib/python2.7/site-packages/site.py
-    /usr/local/lib/python2.7/site-packages/easy-install.pth
-    ==> Could not symlink file: /homebrew/Cellar/<formula>/<version>/lib/python2.7/site-packages/site.py
-    Target /usr/local/lib/python2.7/site-packages/site.py already exists. You may need to delete it.
-    To force the link and overwrite all other conflicting files, do:
-      brew link --overwrite formula_name
-
-    To list all files that would be deleted:
-      brew link --overwrite --dry-run formula_name
-
-Don't follow the advice here but fix by using
-`Language::Python.setup_install_args` in the formula as described in
-[Python for Formula Authors](Python-for-Formula-Authors.md).
-
 ## Installation fails with "unknown revision or path not in the working tree"
 
 When installing Homebrew, if the initial download fails with something like:
