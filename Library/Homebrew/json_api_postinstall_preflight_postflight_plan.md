@@ -99,9 +99,15 @@ verify the changed taps with `./bin/brew style`, `./bin/brew audit` and
 5. Run targeted `./bin/brew style` and `./bin/brew audit` for changed formulae
    or casks, then tap-wide `./bin/brew readall homebrew/core` and
    `./bin/brew readall homebrew/cask`.
+6. If either tapped checkout has no modifications after the scan and
+   conversion pass, run `./bin/brew untap homebrew/core` or
+   `./bin/brew untap homebrew/cask` for the unmodified tap before finishing
+   the `Homebrew/brew` PR.
 
-If one tap has no applicable changes for an operation, record that with
-filenames from the scan rather than leaving the tap unchecked.
+Do this local tap pass while implementing the `Homebrew/brew` DSL PR so tap
+conversions are not left for a separate reminder. If one tap has no applicable
+changes for an operation, record that with filenames from the scan rather than
+leaving the tap unchecked.
 
 Long-term success for each operation PR means a tap conversion can remove the
 whole legacy hook for the case it targets. For formulae, the temporary bridge
@@ -421,12 +427,24 @@ is stripped during metadata serialisation.
   `source_base: :formula_pkgetc`; specialised trust store generation such as
   `ca-certificates` bundle regeneration and Mono `cert-sync` stays legacy Ruby
   because current repeated usage is below the named-variant threshold.
-- [ ] PR 8, cask permission and ownership actions.
+- [x] PR 8, cask permission and ownership actions.
+  Commit: `Add cask permission steps`.
   Estimated existing casks affected: about `21` casks change permissions and
   `36` change ownership.
-  Notes for implementation: match the existing flight mini-DSL
-  `set_permissions` and `set_ownership` semantics first; define sudo/root
-  requirements and uninstall behaviour before adding API output.
+  Scope: cask `set_permissions` and `set_ownership` steps, path-array API
+  normalisation, runner execution through `chmod` and `sudo chown`, cask
+  installer command routing, App Management checks before ownership changes,
+  cask step block allow-list entries, fixture/API loader coverage and cask
+  cookbook docs. The steps skip missing paths like the existing flight
+  mini-DSL. `set_ownership` defaults to the current user and `staff` group
+  unless `user:` or `group:` are provided.
+  Local tap work converted pure `set_permissions` and `set_ownership` flight
+  blocks in `48` `homebrew/cask` casks. `homebrew/core` had no matching
+  formula conversions for the cask-only DSL and was untapped after the clean
+  scan. Remaining cask legacy blocks are `Casks/s/starnet++.rb`,
+  `Casks/h/hummingbird.rb`, `Casks/m/mplabx-ide.rb` and
+  `Casks/p/proxy-audio-device.rb`; they depend on unsupported local variables,
+  architecture data or additional `system_command` work.
 - [ ] PR 9, cask language variations in API data.
   Estimated existing casks affected: `27` casks use language blocks, with large
   examples including `Casks/f/firefox.rb`,
