@@ -48,6 +48,14 @@ module Cask
     end
     private_class_method :xattr
 
+    sig { returns(T::Boolean) }
+    def self.xattr_available?
+      xattr = self.xattr
+      return false if xattr.nil?
+
+      system_command(xattr, args: ["-h"], print_stderr: false).success?
+    end
+
     sig { returns(T::Array[String]) }
     def self.swift_target_args
       ["-target", "#{Hardware::CPU.arch}-apple-macosx#{MacOS.version}"]
@@ -59,17 +67,15 @@ module Cask
       odebug "Checking quarantine support"
 
       check_output = nil
-      status = if xattr.nil? || !system_command(T.must(xattr), args: ["-h"], print_stderr: false).success?
+      swift = self.swift
+      status = if !xattr_available?
         odebug "There's no working version of `xattr` on this system."
         :xattr_broken
       elsif swift.nil?
         odebug "Swift is not available on this system."
         :no_swift
       else
-        s = swift
-        raise "unexpected nil swift" unless s
-
-        api_check = system_command(s,
+        api_check = system_command(swift,
                                    args:         [*swift_target_args, QUARANTINE_SCRIPT],
                                    print_stderr: false)
 
@@ -205,9 +211,10 @@ module Cask
 
       odebug "Quarantining #{download_path}"
 
-      raise "unexpected nil swift" unless swift
+      swift = self.swift
+      raise "unexpected nil swift" if swift.nil?
 
-      quarantiner = system_command(T.must(swift),
+      quarantiner = system_command(swift,
                                    args:         [
                                      *swift_target_args,
                                      QUARANTINE_SCRIPT,
@@ -272,10 +279,11 @@ module Cask
     def self.copy_xattrs(from, to, command:)
       odebug "Copying xattrs from #{from} to #{to}"
 
-      raise "unexpected nil swift" unless swift
+      swift = self.swift
+      raise "unexpected nil swift" if swift.nil?
 
       command.run!(
-        T.must(swift),
+        swift,
         args: [
           *swift_target_args,
           COPY_XATTRS_SCRIPT,
