@@ -355,7 +355,6 @@ module Homebrew
 
       sig { void }
       def migrate_caskroom_caskfiles_to_json
-        return unless Homebrew::EnvConfig.developer?
         return unless Cask::Caskroom.path.directory?
 
         Cask::Caskroom.path.glob("*/.metadata/*/*/Casks/*.{internal.json,rb}").each do |caskfile|
