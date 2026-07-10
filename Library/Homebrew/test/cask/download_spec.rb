@@ -57,6 +57,35 @@ RSpec.describe Cask::Download, :cask do
     end
   end
 
+  describe "#stage_from_download_queue?" do
+    it "does not mutate download state" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      download = described_class.new(cask)
+
+      expect(download).not_to receive(:primary_container)
+
+      expect(download.stage_from_download_queue?(TEST_FIXTURE_DIR/"cask/caffeine.zip", pour: true)).to be(true)
+      expect(cask.download).to be_nil
+    end
+  end
+
+  describe "#purge_staged_from_download_queue" do
+    it "removes stale markers with permission-aware removal" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      download = described_class.new(cask)
+      staged_marker = download.staged_path_from_download_queue_marker
+      staged_marker.dirname.mkpath
+      FileUtils.ln_s(download.staged_path_from_download_queue, staged_marker)
+
+      expect(Cask::Utils).to receive(:gain_permissions_remove).with(staged_marker,
+                                                                    command: SystemCommand).and_call_original
+
+      download.purge_staged_from_download_queue
+
+      expect(staged_marker).not_to exist
+    end
+  end
+
   describe "#downloaded_and_valid?" do
     it "quarantines valid cached downloads" do
       cached_download = HOMEBREW_CACHE/"downloads/cask.zip"
