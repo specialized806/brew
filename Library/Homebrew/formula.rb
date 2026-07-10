@@ -2183,7 +2183,7 @@ class Formula
     args = ["--verbose", "--no-deps", "--no-binary=:all:", "--ignore-installed", "--no-compile"]
     # Delay packages published in the last day so builds are less likely to
     # install a freshly compromised PyPI release.
-    args << "--uploaded-prior-to=#{(Time.now.utc - Homebrew::RELEASE_COOLDOWN_SECONDS).iso8601(0)}"
+    args << "--uploaded-prior-to=P#{Homebrew::RELEASE_COOLDOWN_DAYS}D"
     args << "--prefix=#{prefix}" if prefix
     args << "--no-build-isolation" unless build_isolation
     args
