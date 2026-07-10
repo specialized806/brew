@@ -87,6 +87,22 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  specify "relocated bottle install requires developer tools on Apple Silicon", :needs_macos do
+    formula = TestballBottle.new
+    installer = described_class.new(formula)
+
+    allow(installer).to receive_messages(lock: nil, pour_bottle?: true)
+    allow(Hardware::CPU).to receive(:arm?).and_return(true)
+    allow(formula.bottle_specification).to receive(:skip_relocation?).and_return(false)
+    allow_any_instance_of(Homebrew::Diagnostic::Checks)
+      .to receive(:check_for_installed_developer_tools)
+      .and_return("No developer tools installed.")
+
+    expect do
+      installer.install
+    end.to raise_error(SystemExit)
+  end
+
   describe "#finish" do
     it "runs post-install steps before the remaining `post_install` hook" do
       formula = formula "finish-install-steps" do
