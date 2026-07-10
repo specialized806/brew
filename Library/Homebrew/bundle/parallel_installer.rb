@@ -291,7 +291,7 @@ module Homebrew
           # Interactive installers can leave ONLCR disabled, so use CRLF to
           # ensure terminal status output returns to column 0.
           if stream.tty?
-            stream.print(message, "\r\n")
+            stream.write(message, "\r\n")
           else
             stream.puts(message)
           end

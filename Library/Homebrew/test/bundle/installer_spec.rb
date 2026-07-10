@@ -277,23 +277,29 @@ RSpec.describe Homebrew::Bundle::Installer do
       end
 
       it "uses CRLF for terminal output" do
-        reader, writer = IO.pipe
-        allow(writer).to receive(:tty?).and_return(true)
+        output = IO.pipe do |reader, writer|
+          allow(writer).to receive(:tty?).and_return(true)
 
-        parallel_installer.send(:write_output, "Installing alpha", stream: writer)
-        writer.close
+          parallel_installer.send(:write_output, "Installing alpha", stream: writer)
+          writer.close
 
-        expect(reader.read).to eq("Installing alpha\r\n")
+          reader.read
+        end
+
+        expect(output).to eq("Installing alpha\r\n")
       end
 
       it "uses LF for redirected output" do
-        reader, writer = IO.pipe
-        allow(writer).to receive(:tty?).and_return(false)
+        output = IO.pipe do |reader, writer|
+          allow(writer).to receive(:tty?).and_return(false)
 
-        parallel_installer.send(:write_output, "Installing alpha", stream: writer)
-        writer.close
+          parallel_installer.send(:write_output, "Installing alpha", stream: writer)
+          writer.close
 
-        expect(reader.read).to eq("Installing alpha\n")
+          reader.read
+        end
+
+        expect(output).to eq("Installing alpha\n")
       end
     end
 
