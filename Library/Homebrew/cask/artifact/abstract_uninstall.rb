@@ -472,10 +472,13 @@ module Cask
             next
           end
 
+          # `each_filename` returns an `Enumerator`, not an `Array`, so `Array#intersect?` cannot be used here.
+          # rubocop:disable Style/ArrayIntersect
           if resolved_path.each_filename.any? { |part| [".", ".."].include?(part) }
             opoo "Skipping #{Formatter.identifier(action)} for path with relative segments '#{path}'."
             next
           end
+          # rubocop:enable Style/ArrayIntersect
 
           begin
             resolved_paths = Pathname.glob(resolved_path).reject do |target|

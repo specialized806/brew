@@ -95,10 +95,7 @@ class Formula
   extend T::Helpers
   extend Utils::Output::Mixin
 
-  # Sorbet type members are mutable by design and cannot be frozen.
-  # rubocop:disable Style/MutableConstant
   Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
-  # rubocop:enable Style/MutableConstant
 
   abstract!
 

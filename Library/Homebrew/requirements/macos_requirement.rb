@@ -8,10 +8,7 @@ require "utils/output"
 class MacOSRequirement < Requirement
   extend Utils::Output::Mixin
 
-  # Sorbet type members are mutable by design and cannot be frozen.
-  # rubocop:disable Style/MutableConstant
   Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
-  # rubocop:enable Style/MutableConstant
 
   fatal true
 

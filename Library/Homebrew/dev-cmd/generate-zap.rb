@@ -176,7 +176,10 @@ module Homebrew
 
           each_readable_child(full_dir) do |entry|
             downcased_entry = entry.downcase
+            # `downcased_entry` is a `String`, not an `Array`, so `Array#intersect?` cannot be used here.
+            # rubocop:disable Style/ArrayIntersect
             next unless downcased_patterns.any? { |pattern| downcased_entry.include?(pattern) }
+            # rubocop:enable Style/ArrayIntersect
 
             full_path = File.join(full_dir, entry)
             matches << normalize_path(full_path)
@@ -196,7 +199,10 @@ module Homebrew
           next unless entry.start_with?(".")
 
           downcased_entry = entry.downcase
+          # `downcased_entry` is a `String`, not an `Array`, so `Array#intersect?` cannot be used here.
+          # rubocop:disable Style/ArrayIntersect
           next unless downcased_patterns.any? { |pattern| downcased_entry.include?(pattern) }
+          # rubocop:enable Style/ArrayIntersect
 
           matches << normalize_path(File.join(home, entry))
         end

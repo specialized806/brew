@@ -438,7 +438,10 @@ module Homebrew
         if (tap = formula_or_cask.tap)
           names << "#{tap.name.downcase}/#{Utils.name_or_token(formula_or_cask).downcase}"
         end
+        # `qualified_inputs` is a `T::Set`, not an `Array`, so `Array#intersect?` cannot be used here.
+        # rubocop:disable Style/ArrayIntersect
         names.any? { |n| qualified_inputs.include?(n) }
+        # rubocop:enable Style/ArrayIntersect
       end
 
       sig { params(formula_or_cask: T.any(Formula, Cask::Cask), quiet: T::Boolean, shadowed_by: T.nilable(Tap)).void }

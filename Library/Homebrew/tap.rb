@@ -18,10 +18,7 @@ class Tap
   extend Utils::Output::Mixin
   include Utils::Output::Mixin
 
-  # Sorbet type members are mutable by design and cannot be frozen.
-  # rubocop:disable Style/MutableConstant
   Cache = type_template { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
-  # rubocop:enable Style/MutableConstant
 
   HOMEBREW_TAP_CASK_RENAMES_FILE = "cask_renames.json"
   private_constant :HOMEBREW_TAP_CASK_RENAMES_FILE

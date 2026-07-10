@@ -770,9 +770,12 @@ module Homebrew
           next true if version.blank?
           next false if livecheck_defined
 
+          # `version.to_s` is a `String`, not an `Array`, so `Array#intersect?` cannot be used here.
+          # rubocop:disable Style/ArrayIntersect
           UNSTABLE_VERSION_KEYWORDS.any? do |rejection|
             version.to_s.include?(rejection)
           end
+          # rubocop:enable Style/ArrayIntersect
         end
         next if match_version_map.blank?
 
@@ -1025,9 +1028,12 @@ module Homebrew
           next true if version.blank?
           next false if livecheck_defined
 
+          # `version.to_s` is a `String`, not an `Array`, so `Array#intersect?` cannot be used here.
+          # rubocop:disable Style/ArrayIntersect
           UNSTABLE_VERSION_KEYWORDS.any? do |rejection|
             version.to_s.include?(rejection)
           end
+          # rubocop:enable Style/ArrayIntersect
         end
         next if match_version_map.blank?
 
