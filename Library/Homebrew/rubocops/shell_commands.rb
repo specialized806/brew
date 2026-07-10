@@ -99,10 +99,7 @@ module RuboCop
             command = split_args.first
             next if SHELL_BUILTINS.any?(command)
             next if command&.include?("=")
-            # `stripped_first_arg_str` is a `String`, not an `Array`, so `Array#intersect?` cannot be used here.
-            # rubocop:disable Style/ArrayIntersect
             next if SHELL_METACHARACTERS.any? { |meta| stripped_first_arg_str.include?(meta) }
-            # rubocop:enable Style/ArrayIntersect
 
             good_args = split_args.map { |arg| "\"#{arg}\"" }.join(", ")
             method_string = if target_class
@@ -134,12 +131,9 @@ module RuboCop
           stripped_arg_str = string_content(node.arguments.first, strip_dynamic: true)
           command = string_content(node.arguments.first).shellsplit.first
 
-          # `stripped_arg_str` is a `String`, not an `Array`, so `Array#intersect?` cannot be used here.
-          # rubocop:disable Style/ArrayIntersect
           return if SHELL_BUILTINS.none?(command) &&
                     !command&.include?("=") &&
                     SHELL_METACHARACTERS.none? { |meta| stripped_arg_str.include?(meta) }
-          # rubocop:enable Style/ArrayIntersect
 
           add_offense(node.arguments.first, message: MSG)
         end
