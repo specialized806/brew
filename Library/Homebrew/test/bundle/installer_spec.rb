@@ -268,6 +268,35 @@ RSpec.describe Homebrew::Bundle::Installer do
       )
     end
 
+    describe "output" do
+      subject(:parallel_installer) do
+        Homebrew::Bundle::ParallelInstaller.new(
+          [],
+          jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: false,
+        )
+      end
+
+      it "uses CRLF for terminal output" do
+        reader, writer = IO.pipe
+        allow(writer).to receive(:tty?).and_return(true)
+
+        parallel_installer.send(:write_output, "Installing alpha", stream: writer)
+        writer.close
+
+        expect(reader.read).to eq("Installing alpha\r\n")
+      end
+
+      it "uses LF for redirected output" do
+        reader, writer = IO.pipe
+        allow(writer).to receive(:tty?).and_return(false)
+
+        parallel_installer.send(:write_output, "Installing alpha", stream: writer)
+        writer.close
+
+        expect(reader.read).to eq("Installing alpha\n")
+      end
+    end
+
     it "installs independent formulae in parallel with jobs > 1" do
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
       allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })

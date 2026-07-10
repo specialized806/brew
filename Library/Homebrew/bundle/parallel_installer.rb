@@ -287,7 +287,15 @@ module Homebrew
 
       sig { params(message: String, stream: IO).void }
       def write_output(message, stream: $stdout)
-        @output_mutex.synchronize { stream.puts(message) }
+        @output_mutex.synchronize do
+          # Interactive installers can leave ONLCR disabled, so use CRLF to
+          # ensure terminal status output returns to column 0.
+          if stream.tty?
+            stream.print(message, "\r\n")
+          else
+            stream.puts(message)
+          end
+        end
       end
 
       sig { void }
