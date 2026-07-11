@@ -10,10 +10,7 @@ module Homebrew
     extend T::Generic
     extend Cachable
 
-    # Sorbet type members are mutable by design and cannot be frozen.
-    # rubocop:disable Style/MutableConstant
     Cache = type_template { { fixed: T::Hash[Pathname, T::Hash[String, String]] } }
-    # rubocop:enable Style/MutableConstant
 
     sig {
       params(setting: T.any(String, Symbol), repo: Pathname)

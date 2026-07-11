@@ -20,10 +20,7 @@ module Utils
     extend T::Generic
     extend Cachable
 
-    # Sorbet type members are mutable by design and cannot be frozen.
-    # rubocop:disable Style/MutableConstant
     Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
-    # rubocop:enable Style/MutableConstant
 
     class << self
       include Context

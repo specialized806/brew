@@ -432,7 +432,7 @@ module Homebrew
       sig { params(context: Object, command: T.class_of(SystemCommand)).void }
       def initialize(context:, command: SystemCommand)
         @context = context
-        @command = T.let(command, T.class_of(SystemCommand))
+        @command = command
       end
 
       sig { params(steps: Steps, phase: Symbol).void }

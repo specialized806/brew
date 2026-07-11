@@ -2,10 +2,7 @@
 # frozen_string_literal: true
 
 class InstallSteps < Formula
-  # Sorbet type members are mutable by design and cannot be frozen.
-  # rubocop:disable Style/MutableConstant
   Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
-  # rubocop:enable Style/MutableConstant
 
   desc "Formula with structured install steps"
   homepage "https://brew.sh/install-steps"
