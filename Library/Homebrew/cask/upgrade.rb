@@ -304,24 +304,18 @@ module Cask
       old_app_artifacts = old_cask.artifacts.grep(Artifact::App)
       new_app_artifacts = new_cask.artifacts.grep(Artifact::App)
       return :skip if old_app_artifacts.empty? || old_app_artifacts.length != new_app_artifacts.length
-
-      approved = old_app_artifacts.each_with_index.select do |artifact, _index|
+      return :unapproved unless old_app_artifacts.all? do |artifact|
         old_user_approved.fetch(artifact.target.to_s, false)
       end
 
-      signer_changed = approved.any? do |artifact, index|
+      old_app_artifacts.each_with_index do |artifact, index|
         old_identity = old_signing_identities[artifact.target.to_s]
-        new_identity = Quarantine.signing_identity(new_app_artifacts.fetch(index).target)
-        [
-          [old_identity&.identifier, new_identity&.identifier],
-          [old_identity&.team_identifier, new_identity&.team_identifier],
-        ].any? do |old_value, new_value|
-          !old_value.nil? && !new_value.nil? && old_value != new_value
-        end
-      end
+        return :signer_unverified if old_identity.nil?
 
-      return :signer_changed if signer_changed
-      return :unapproved if approved.length != old_app_artifacts.length
+        identity_matches = Quarantine.signing_identity_match(new_app_artifacts.fetch(index).target, old_identity)
+        return :signer_unverified if identity_matches.nil?
+        return :signer_changed unless identity_matches
+      end
 
       :release
     rescue
@@ -450,10 +444,12 @@ module Cask
           case quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
           when :release
             new_cask.artifacts.grep(Artifact::App).each do |artifact|
-              Quarantine.release!(download_path: artifact.target)
+              Quarantine.inherit_user_approval!(download_path: artifact.target)
             end
           when :signer_changed
             opoo "#{new_cask.token}'s signer changed so macOS will prompt at next launch."
+          when :signer_unverified
+            opoo "Homebrew couldn't verify #{new_cask.token}'s signer so macOS will prompt at next launch."
           when :unapproved
             message = "#{new_cask.token} wasn't quarantine approved so not approving now. " \
                       "macOS will prompt at next launch."

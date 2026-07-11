@@ -13,7 +13,7 @@ module OS
         use_library "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
 
         sig { params(ptr: Fiddle::Pointer).returns(Fiddle::Pointer) }
-        private_class_method def self.autorelease(ptr)
+        def self.autorelease(ptr)
           return ptr if ptr.null?
 
           # CoreFoundation/CFBase.h:

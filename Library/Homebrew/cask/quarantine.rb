@@ -13,11 +13,11 @@ module Cask
     extend ::Utils::Output::Mixin
 
     class SigningIdentity < T::Struct
-      const :identifier, T.nilable(String)
-      const :team_identifier, T.nilable(String)
+      const :requirement, String
     end
 
     QUARANTINE_ATTRIBUTE = "com.apple.quarantine"
+    # https://github.com/apple-oss-distributions/WebKit/blob/WebKit-7618.2.12.11.6/Source/WebCore/PAL/pal/spi/mac/QuarantineSPI.h#L40-L45
     USER_APPROVED_FLAG = 0x0040
 
     QUARANTINE_SCRIPT = T.let((HOMEBREW_LIBRARY_PATH/"cask/utils/quarantine.swift").freeze, Pathname)
@@ -131,9 +131,10 @@ module Cask
 
     sig { params(file: T.any(String, Pathname)).returns(String) }
     def self.status(file)
-      raise "unexpected nil xattr" unless xattr
+      xattr = self.xattr
+      raise "unexpected nil xattr" if xattr.nil?
 
-      system_command(T.must(xattr),
+      system_command(xattr,
                      args:         ["-p", QUARANTINE_ATTRIBUTE, file],
                      print_stderr: false).stdout.rstrip
     end
@@ -148,26 +149,42 @@ module Cask
       quarantine_status.split(";").fetch(0).to_i(16).anybits?(USER_APPROVED_FLAG)
     end
 
-    sig { params(file: T.any(String, Pathname)).returns(T.nilable(SigningIdentity)) }
-    def self.signing_identity(file)
-      result = system_command("codesign", args: ["-dvvv", file], print_stderr: false)
-      return unless result.success?
+    sig { params(download_path: T.nilable(Pathname)).void }
+    def self.inherit_user_approval!(download_path: nil)
+      return if !download_path || !detect(download_path)
 
-      identifier = T.let(nil, T.nilable(String))
-      team_identifier = T.let(nil, T.nilable(String))
+      # Preserve quarantine provenance so Gatekeeper still checks the upgraded app while carrying forward
+      # the user's approval only after the upgrade path verifies that its signing identity is unchanged.
+      # https://developer.apple.com/forums/thread/706442
+      odebug "Inheriting user approval for #{download_path}"
 
-      result.merged_output.to_s.each_line do |line|
-        case line.chomp
-        when /\AIdentifier=(.+)\z/
-          identifier = Regexp.last_match(1)
-        when /\ATeamIdentifier=(.+)\z/
-          team_identifier = Regexp.last_match(1)
-          team_identifier = nil if team_identifier == "not set"
-        end
-      end
+      xattr = self.xattr
+      raise "unexpected nil xattr" if xattr.nil?
 
-      SigningIdentity.new(identifier:, team_identifier:)
+      quarantiner = system_command(xattr,
+                                   args:         [
+                                     "-w",
+                                     QUARANTINE_ATTRIBUTE,
+                                     status(download_path).sub(/\A[0-9a-f]+/i) do |flags|
+                                       (flags.to_i(16) | USER_APPROVED_FLAG).to_s(16).rjust(flags.length, "0")
+                                     end,
+                                     download_path,
+                                   ],
+                                   print_stderr: false)
+
+      return if quarantiner.success?
+
+      raise CaskQuarantineReleaseError.new(download_path, quarantiner.stderr)
     end
+
+    sig { params(_file: T.any(String, Pathname)).returns(T.nilable(SigningIdentity)) }
+    def self.signing_identity(_file); end
+
+    sig {
+      params(_file: T.any(String, Pathname), _identity: SigningIdentity)
+        .returns(T.nilable(T::Boolean))
+    }
+    def self.signing_identity_match(_file, _identity); end
 
     sig { params(attribute: String).returns(String) }
     def self.toggle_no_translocation_bit(attribute)
@@ -182,15 +199,17 @@ module Cask
       fields.join(";")
     end
 
+    # Fully remove quarantine only when explicitly requested; upgrades preserve it and inherit approval above.
     sig { params(download_path: T.nilable(Pathname)).void }
     def self.release!(download_path: nil)
       return if !download_path || !detect(download_path)
 
       odebug "Releasing #{download_path} from quarantine"
 
-      raise "unexpected nil xattr" unless xattr
+      xattr = self.xattr
+      raise "unexpected nil xattr" if xattr.nil?
 
-      quarantiner = system_command(T.must(xattr),
+      quarantiner = system_command(xattr,
                                    args:         [
                                      "-d",
                                      QUARANTINE_ATTRIBUTE,
@@ -256,13 +275,14 @@ module Cask
                       ],
                       input: resolved_paths.join("\0"))
 
-      raise "unexpected nil xattr" unless xattr
+      xattr = self.xattr
+      raise "unexpected nil xattr" if xattr.nil?
 
       quarantiner = system_command("/usr/bin/xargs",
                                    args:         [
                                      "-0",
                                      "--",
-                                     T.must(xattr),
+                                     xattr,
                                      "-w",
                                      QUARANTINE_ATTRIBUTE,
                                      quarantine_status,
