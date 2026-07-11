@@ -473,7 +473,7 @@ class FormulaInstaller
     end
 
     recursive_deps = if pour_bottle?
-      formula.runtime_dependencies
+      (formula.runtime_dependencies + (formula.stable&.deps&.required || [])).uniq(&:name)
     else
       formula.recursive_dependencies
     end
