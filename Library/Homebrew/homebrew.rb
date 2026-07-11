@@ -75,6 +75,20 @@ module Homebrew
 
   sig {
     params(
+      cmd:     T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
+      argv0:   T.nilable(T.any(Pathname, String, [String, String])),
+      args:    T.nilable(T.any(Pathname, String)),
+      options: T.untyped,
+    ).void
+  }
+  def self.safe_system(cmd, argv0 = nil, *args, **options)
+    return if system(cmd, argv0, *args, **options)
+
+    raise ErrorDuringExecution.new([cmd, argv0, *args], status: $CHILD_STATUS)
+  end
+
+  sig {
+    params(
       cmd:   T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
       argv0: T.nilable(T.any(String, [String, String])),
       args:  T.any(Pathname, String),

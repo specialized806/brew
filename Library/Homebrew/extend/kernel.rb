@@ -53,12 +53,10 @@ module Kernel
     ).void
   }
   def safe_system(cmd, argv0 = nil, *args, **options)
-    # TODO: migrate to utils.rb Homebrew.safe_system
-    require "utils"
+    # odeprecated: remove this method in a later release, use `Homebrew.safe_system` directly instead
+    require "homebrew"
 
-    return if Homebrew.system(cmd, argv0, *args, **options)
-
-    raise ErrorDuringExecution.new([cmd, argv0, *args], status: $CHILD_STATUS)
+    Homebrew.safe_system(cmd, argv0, *args, **options)
   end
 
   # Run a system command without any output.
@@ -72,6 +70,7 @@ module Kernel
     ).returns(T::Boolean)
   }
   def quiet_system(cmd, argv0 = nil, *args)
+    # odeprecated: remove this method in a later release, use `Homebrew.quiet_system` directly instead
     require "homebrew"
 
     Homebrew.quiet_system(cmd, argv0, *args)

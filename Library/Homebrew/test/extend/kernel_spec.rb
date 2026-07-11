@@ -94,4 +94,11 @@ RSpec.describe Kernel do
       expect(quiet_system("true")).to be true
     end
   end
+
+  describe "#safe_system" do
+    it "delegates to Homebrew.safe_system" do
+      expect(Homebrew).to receive(:safe_system).with("true", nil)
+      safe_system("true")
+    end
+  end
 end

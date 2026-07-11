@@ -79,5 +79,15 @@ RSpec.describe Homebrew do
       expect(described_class.quiet_system("false")).to be false
     end
   end
+
+  describe ".safe_system" do
+    it "does not raise for a successful command" do
+      expect { described_class.safe_system("true") }.not_to raise_error
+    end
+
+    it "raises for a failing command" do
+      expect { described_class.safe_system("false") }.to raise_error(ErrorDuringExecution)
+    end
+  end
 end
 # rubocop:enable Style/GlobalVars
