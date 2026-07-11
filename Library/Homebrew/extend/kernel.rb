@@ -53,6 +53,7 @@ module Kernel
     ).void
   }
   def safe_system(cmd, argv0 = nil, *args, **options)
+    # odeprecated: remove this method in a later release, use `Homebrew.safe_system` directly instead
     require "homebrew"
 
     Homebrew.safe_system(cmd, argv0, *args, **options)
@@ -69,6 +70,7 @@ module Kernel
     ).returns(T::Boolean)
   }
   def quiet_system(cmd, argv0 = nil, *args)
+    # odeprecated: remove this method in a later release, use `Homebrew.quiet_system` directly instead
     require "homebrew"
 
     Homebrew.quiet_system(cmd, argv0, *args)
