@@ -93,13 +93,12 @@ module Homebrew
         end
 
         dependency_graph = Utils::TopologicalHash.graph_package_dependencies(formulae_to_install)
-        begin
-          formulae_to_install = dependency_graph.tsort & formulae_to_install
-        rescue TSort::Cyclic
-          if Homebrew::EnvConfig.developer?
-            raise CyclicDependencyError, dependency_graph.strongly_connected_components
-          end
+        sorted = dependency_graph.tsort_with_cycles do |cycles|
+          raise CyclicDependencyError, cycles if Homebrew::EnvConfig.developer?
+
+          odebug "Ignoring cyclic dependencies: #{cycles.map(&:to_sentence).join(", ")}"
         end
+        formulae_to_install = sorted & formulae_to_install
 
         # We need to fetch the bottle tabs ahead of the `Install.fetch_formulae`
         # pipeline because we need to first filter out those formulae with all

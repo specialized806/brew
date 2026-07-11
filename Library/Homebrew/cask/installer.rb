@@ -411,13 +411,10 @@ on_request: true)
 
       ::Utils::TopologicalHash.graph_package_dependencies(pc.dependencies, graph)
 
-      begin
-        @cask_and_formula_dependencies = graph.tsort - [@cask]
-      rescue TSort::Cyclic
-        strongly_connected_components = graph.strongly_connected_components.sort_by(&:count)
-        cyclic_dependencies = strongly_connected_components.last - [@cask]
+      @cask_and_formula_dependencies = graph.tsort_with_cycles do |cycles|
+        cyclic_dependencies = cycles.sort_by(&:count).fetch(-1) - [@cask]
         raise CaskCyclicDependencyError.new(@cask.token, cyclic_dependencies.to_sentence)
-      end
+      end - [@cask]
     end
 
     sig { returns(T::Array[T.any(Formula, ::Cask::Cask)]) }
