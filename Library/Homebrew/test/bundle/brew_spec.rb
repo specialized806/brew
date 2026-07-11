@@ -942,7 +942,9 @@ RSpec.describe Homebrew::Bundle::Brew do
       topo["a"] = ["b"]
       topo["b"] = ["a"]
 
-      expect(topo.each_strongly_connected_component.to_a.flatten).to contain_exactly("a", "b")
+      cycles = []
+      expect(topo.tsort_with_cycles { |c| cycles.concat(c) }).to contain_exactly("a", "b")
+      expect(cycles).to eq([["a", "b"]])
     end
   end
 end

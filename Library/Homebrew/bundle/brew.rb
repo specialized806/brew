@@ -4,6 +4,7 @@
 require "json"
 require "tsort"
 require "utils"
+require "utils/topological_hash"
 require "utils/output"
 require "bundle/package_type"
 require "trust"
@@ -426,19 +427,14 @@ module Homebrew
           raise "formulae_by_full_name is nil" if @formulae_by_full_name.nil?
           raise "formulae_by_name is nil" if @formulae_by_name.nil?
 
-          # Topo includes TSort. each_strongly_connected_component orders nodes
-          # dependency-first like tsort but, unlike tsort, does not raise on a cycle.
           # Stale keg-tab dependency data can form a cycle the live graph does not
           # have (Homebrew/homebrew-bundle#1513), so warn and continue rather than
           # aborting the whole bundle.
-          components = topo.each_strongly_connected_component.to_a
-
-          cyclic = components.select { |component| component.size > 1 }
-                             .flatten
-                             .filter_map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
-                             .uniq { |f| f[:full_name] }
-                             .map { |f| f[:full_name] }
-          if cyclic.any?
+          sorted = topo.tsort_with_cycles do |cycles|
+            cyclic = cycles.flatten
+                           .filter_map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
+                           .uniq { |f| f[:full_name] }
+                           .map { |f| f[:full_name] }
             opoo <<~EOS
               Formulae dependency graph sorting found a circular dependency:
                 #{cyclic.join(", ")}
@@ -450,9 +446,8 @@ module Homebrew
             EOS
           end
 
-          @formulae = components.flatten
-                                .map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
-                                .uniq { |f| f[:full_name] }
+          @formulae = sorted.filter_map { |name| @formulae_by_full_name[name] || @formulae_by_name[name] }
+                            .uniq { |f| f[:full_name] }
         end
       end
 
@@ -782,6 +777,7 @@ module Homebrew
       class Topo < Hash
         extend T::Generic
         include TSort
+        include Utils::CycleTolerantTSort
 
         K = type_member { { fixed: String } }
         V = type_member { { fixed: T::Array[String] } }
