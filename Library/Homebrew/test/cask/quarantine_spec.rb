@@ -226,48 +226,60 @@ RSpec.describe Cask::Quarantine do
     end
   end
 
-  describe ".signing_identity" do
+  describe ".inherit_user_approval!" do
     let(:file) { Pathname("/tmp/Test.app") }
+    let(:xattr) { Pathname("/usr/bin/xattr") }
 
-    it "returns the signed identifier and Team ID" do
-      result = instance_double(
-        SystemCommand::Result,
-        success?:      true,
-        merged_output: <<~EOS,
-          Identifier=sh.brew.test-app
-          TeamIdentifier=ABCDE12345
-          Authority=Developer ID Application: Brew Test (ABCDE12345)
-        EOS
+    it "sets the user approval flag while preserving the quarantine metadata" do
+      allow(klass).to receive_messages(
+        detect: true,
+        status: "0381;6a51855d;;3C86362A-29CA-4D55-90E7-A6621B9CC78D",
+        xattr:,
       )
-      allow(klass).to receive(:system_command).with("codesign", args: ["-dvvv", file], print_stderr: false)
-                                              .and_return(result)
+      expect(klass).to receive(:system_command).with(
+        xattr,
+        args:         [
+          "-w",
+          Cask::Quarantine::QUARANTINE_ATTRIBUTE,
+          "03c1;6a51855d;;3C86362A-29CA-4D55-90E7-A6621B9CC78D",
+          file,
+        ],
+        print_stderr: false,
+      ).and_return(instance_double(SystemCommand::Result, success?: true))
 
-      identity = klass.signing_identity(file)
+      klass.inherit_user_approval!(download_path: file)
+    end
+  end
 
-      expect(identity).to have_attributes(identifier: "sh.brew.test-app", team_identifier: "ABCDE12345")
+  describe ".signing_identity", :needs_macos do
+    let(:file) { Pathname("/tmp/Test.app") }
+    let(:requirement) do
+      'identifier "sh.brew.test-app" and anchor apple generic and certificate leaf[subject.OU] = "ABCDE12345"'
     end
 
-    it "returns the signed identifier when the Team ID is missing" do
-      result = instance_double(SystemCommand::Result, success?: true, merged_output: "Identifier=sh.brew.test-app\n")
-      allow(klass).to receive(:system_command).with("codesign", args: ["-dvvv", file], print_stderr: false)
-                                              .and_return(result)
+    it "returns the validated designated requirement without invoking codesign" do
+      allow(MacOS::FFI::Security).to receive(:designated_requirement).with(file.to_s).and_return(requirement)
+      expect(klass).not_to receive(:system_command)
 
-      expect(klass.signing_identity(file)).to have_attributes(identifier:      "sh.brew.test-app",
-                                                              team_identifier: nil)
+      expect(klass.signing_identity(file)).to have_attributes(requirement:)
     end
 
-    it 'returns nil for the Team ID when it is "not set"' do
-      result = instance_double(
-        SystemCommand::Result,
-        success?:      true,
-        merged_output: "Identifier=com.apple.calculator\n" \
-                       "TeamIdentifier=not set\n",
-      )
-      allow(klass).to receive(:system_command).with("codesign", args: ["-dvvv", file], print_stderr: false)
-                                              .and_return(result)
+    it "returns nil when the signature cannot be verified" do
+      allow(MacOS::FFI::Security).to receive(:designated_requirement).with(file.to_s).and_return(nil)
 
-      expect(klass.signing_identity(file)).to have_attributes(identifier:      "com.apple.calculator",
-                                                              team_identifier: nil)
+      expect(klass.signing_identity(file)).to be_nil
+    end
+  end
+
+  describe ".signing_identity_match", :needs_macos do
+    let(:file) { Pathname("/tmp/Test.app") }
+    let(:requirement) { 'identifier "sh.brew.test-app" and anchor apple' }
+    let(:identity) { Cask::Quarantine::SigningIdentity.new(requirement:) }
+
+    it "checks the new app against the previous version's designated requirement" do
+      expect(MacOS::FFI::Security).to receive(:requirement_match).with(file.to_s, requirement).and_return(true)
+
+      expect(klass.signing_identity_match(file, identity)).to be(true)
     end
   end
 end

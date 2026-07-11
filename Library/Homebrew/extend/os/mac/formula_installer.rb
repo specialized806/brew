@@ -19,6 +19,8 @@ module OS
         return unless ::Hardware::CPU.arm?
         return if formula.bottle_specification.skip_relocation?
 
+        # TODO: Remove this check after pure-Ruby ad-hoc signing is released:
+        # https://github.com/Homebrew/ruby-macho/pull/997
         # We need the developer tools for `codesign` when relocating bottles.
         require "diagnostic"
         unless (developer_tools_warning = ::Homebrew::Diagnostic::Checks.new.check_for_installed_developer_tools)

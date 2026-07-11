@@ -32,6 +32,27 @@ module OS
             [status, nil]
           end
 
+          sig {
+            params(file: T.any(String, ::Pathname))
+              .returns(T.nilable(::Cask::Quarantine::SigningIdentity))
+          }
+          def signing_identity(file)
+            requirement = MacOS::FFI::Security.designated_requirement(file.to_s)
+            return if requirement.nil?
+
+            ::Cask::Quarantine::SigningIdentity.new(requirement:)
+          end
+
+          sig {
+            params(
+              file:     T.any(String, ::Pathname),
+              identity: ::Cask::Quarantine::SigningIdentity,
+            ).returns(T.nilable(T::Boolean))
+          }
+          def signing_identity_match(file, identity)
+            MacOS::FFI::Security.requirement_match(file.to_s, identity.requirement)
+          end
+
           sig { params(cask: T.nilable(::Cask::Cask), download_path: T.nilable(::Pathname), action: T::Boolean).void }
           def cask!(cask: nil, download_path: nil, action: true)
             return super unless ffi_quarantine?
