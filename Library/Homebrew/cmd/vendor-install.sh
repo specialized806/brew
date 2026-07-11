@@ -48,7 +48,18 @@ set_ruby_variables() {
     ruby_URLs=()
     if [[ -n "${HOMEBREW_ARTIFACT_DOMAIN}" ]]
     then
-      ruby_URLs+=("${HOMEBREW_ARTIFACT_DOMAIN}/v2/homebrew/core/portable-ruby/blobs/sha256:${ruby_SHA}")
+      # If the artifact domain already contains the Docker Registry API's
+      # /v2/ path (e.g. an OCI registry proxying ghcr.io under a repository
+      # prefix: https://mirror.example.com/v2/ghcr-io), skip adding v2
+      # rather than producing a duplicate /v2/.
+      # Keep this in sync with the HOMEBREW_ARTIFACT_DOMAIN handling in
+      # Library/Homebrew/download_strategy/curl_download_strategy.rb.
+      local artifact_domain="${HOMEBREW_ARTIFACT_DOMAIN%/}"
+      if [[ ! "${artifact_domain}" =~ ^https?://[^/]+/v2(/|$) ]]
+      then
+        artifact_domain="${artifact_domain}/v2"
+      fi
+      ruby_URLs+=("${artifact_domain}/homebrew/core/portable-ruby/blobs/sha256:${ruby_SHA}")
       if [[ -n "${HOMEBREW_ARTIFACT_DOMAIN_NO_FALLBACK}" ]]
       then
         ruby_URL="${ruby_URLs[0]}"

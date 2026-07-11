@@ -4327,7 +4327,11 @@ command execution (e.g. `$(cat file)`).
   have their domain replaced with this prefix. This results in e.g.
   `https://ghcr.io/v2/homebrew/core/gettext/manifests/0.21` to instead be
   downloaded from
-  `http://localhost:8080/v2/homebrew/core/gettext/manifests/0.21`
+  `http://localhost:8080/v2/homebrew/core/gettext/manifests/0.21`. If the value
+  already contains a `/v2` path (e.g. an OCI registry proxying GitHub Packages
+  under a repository prefix such as `https://mirror.example.com/v2/ghcr-io`),
+  the `v2` path is not duplicated, resulting in e.g.
+  `https://mirror.example.com/v2/ghcr-io/homebrew/core/gettext/manifests/0.21`.
 
 `HOMEBREW_ARTIFACT_DOMAIN_NO_FALLBACK`
 
