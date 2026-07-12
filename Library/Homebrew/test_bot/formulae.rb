@@ -926,7 +926,7 @@ module Homebrew
         test "brew", "update-test", "--commit=HEAD"
 
         require "mktemp"
-        Mktemp.new("homebrew-test-bot").run do |_tmpdir|
+        Mktemp.new("homebrew-test-bot").run do |_|
           test "brew", "test-bot", "--only-formulae", "--only-json-tab", "--test-default-formula",
                env: { "GITHUB_ACTIONS" => nil }
         end
