@@ -488,19 +488,32 @@ module PyPI
   sig {
     params(
       packages: T::Array[Package], python_name: String, print_stderr: T::Boolean,
+      ignore_cooldown_package: T.nilable(Package)
     ).returns(T::Array[Package])
   }
-  def self.pip_report(packages, python_name: "python", print_stderr: false)
+  def self.pip_report(packages, python_name: "python", print_stderr: false, ignore_cooldown_package: nil)
     return [] if packages.blank?
 
     # Delay packages published in the last day so resource resolution is less
-    # likely to pick a freshly compromised PyPI release.
+    # likely to pick a freshly compromised PyPI release. A cooldown-exempt main
+    # package (third-party taps only) is passed by its direct sdist URL so pip's
+    # index upload-time filter cannot hide a just-published release; its
+    # dependencies stay index-resolved and cooled.
+    requirements = packages.map do |package|
+      if ignore_cooldown_package && package == ignore_cooldown_package && package.valid_pypi_package?
+        _name, sdist_url = package.pypi_info
+        sdist_url.presence || package.to_s
+      else
+        package.to_s
+      end
+    end
+
     command = [
       Utils::Path.formula_opt_libexec(python_name)/"bin/python",
       "-m", "pip", "install", "-q", "--disable-pip-version-check",
       "--dry-run", "--ignore-installed",
       "--uploaded-prior-to=P#{Homebrew::RELEASE_COOLDOWN_DAYS}D",
-      "--report=/dev/stdout", *packages.map(&:to_s)
+      "--report=/dev/stdout", *requirements
     ]
     options = {}
     options[:err] = :err if print_stderr
