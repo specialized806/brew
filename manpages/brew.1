@@ -2518,6 +2518,9 @@ Record all discovered resources, even those that can\[u2019]t be resolved succes
 \fB\-\-ignore\-non\-pypi\-packages\fP
 Don\[u2019]t fail if \fIformula\fP is not a PyPI package\.
 .TP
+\fB\-\-ignore\-main\-package\-cooldown\fP
+Bypass the release cooldown for \fIformula\fP\[u2019]s own package when resolving resources\. Its dependencies still respect the cooldown\. This option is ignored for official taps\.
+.TP
 \fB\-\-install\-dependencies\fP
 Install missing dependencies required to update resources\.
 .TP
