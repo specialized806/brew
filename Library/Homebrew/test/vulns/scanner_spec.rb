@@ -112,4 +112,192 @@ RSpec.describe Homebrew::Vulns::Scanner do
       expect(described_class.resolved_ids([{ "url" => "https://example.com/x.diff" }])).to eq []
     end
   end
+
+  describe "#scan" do
+    let(:act) do
+      formula("act") do
+        url "https://github.com/nektos/act/archive/refs/tags/v0.2.84.tar.gz"
+      end
+    end
+
+    let(:openssl) do
+      formula("openssl@3") do
+        url "https://github.com/openssl/openssl/releases/download/openssl-3.0.0/openssl-3.0.0.tar.gz"
+      end
+    end
+
+    let(:unsupported) do
+      formula("aom") do
+        url "https://aomedia.googlesource.com/aom.git", tag: "v3.13.1"
+      end
+    end
+
+    let(:libquicktime) do
+      formula("libquicktime") do
+        url "https://github.com/owner/libquicktime/archive/refs/tags/v1.2.4.tar.gz"
+        patch do
+          url "https://deb.debian.org/debian/pool/main/libq/libquicktime/libquicktime_1.2.4-12.debian.tar.xz"
+          sha256 "abc"
+          resolves "CVE-2016-2399", "CVE-2017-9122"
+        end
+      end
+    end
+
+    def osv_record(id, severity: "HIGH", **extra)
+      { "id" => id, "database_specific" => { "severity" => severity } }.merge(extra)
+    end
+
+    before do
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability) { |id| osv_record(id) }
+    end
+
+    it "returns findings for formulae with open vulnerabilities" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return(
+        [[{ "id" => "CVE-2024-1111" }], []],
+      )
+
+      results = described_class.new([act, openssl]).scan
+
+      expect(results.checked).to eq 2
+      expect(results.skipped).to eq 0
+      expect(results.any_open?).to be true
+      expect(results.findings.size).to eq 1
+      f = results.findings.first
+      expect(f.name).to eq "act"
+      expect(f.version).to eq "0.2.84"
+      expect(f.tag).to eq "v0.2.84"
+      expect(f.repo_url).to eq "https://github.com/nektos/act"
+      expect(f.open.map(&:id)).to eq ["CVE-2024-1111"]
+      expect(f.patched).to eq []
+    end
+
+    it "reports empty results when nothing is found" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[], []])
+      results = described_class.new([act, openssl]).scan
+      expect(results.any_open?).to be false
+      expect(results.findings).to eq []
+    end
+
+    it "skips formulae without a queryable repo URL and tag" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).with(
+        [{ repo_url: "https://github.com/nektos/act", version: "v0.2.84" }],
+      ).and_return([[]])
+
+      results = described_class.new([act, unsupported]).scan
+
+      expect(results.checked).to eq 1
+      expect(results.skipped).to eq 1
+    end
+
+    it "queries nothing when no formula is queryable" do
+      expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+      results = described_class.new([unsupported]).scan
+      expect(results.checked).to eq 0
+      expect(results.skipped).to eq 1
+      expect(results.findings).to eq []
+    end
+
+    it "fetches full records for each returned vuln id" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch)
+        .and_return([[{ "id" => "CVE-2024-1111" }, { "id" => "CVE-2024-2222" }]])
+      expect(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1111").and_return(
+        osv_record("CVE-2024-1111", severity: "CRITICAL"),
+      )
+      expect(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-2222").and_return(
+        osv_record("CVE-2024-2222", severity: "LOW"),
+      )
+
+      results = described_class.new([act]).scan
+
+      expect(results.findings.first.open.map(&:id)).to contain_exactly("CVE-2024-1111", "CVE-2024-2222")
+    end
+
+    it "drops vulnerabilities that do not affect the queried tag" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2024-1111" }]])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1111").and_return(
+        osv_record("CVE-2024-1111",
+                   "affected" => [{ "ranges" => [{ "type"   => "SEMVER",
+                                                   "events" => [{ "introduced" => "0" },
+                                                                { "fixed" => "0.2.0" }] }] }]),
+      )
+
+      results = described_class.new([act]).scan
+
+      expect(results.findings).to eq []
+    end
+
+    it "filters below the minimum severity" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch)
+        .and_return([[{ "id" => "CVE-LOW" }, { "id" => "CVE-CRIT" }]])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-LOW")
+                                                            .and_return(osv_record("CVE-LOW", severity: "LOW"))
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-CRIT")
+                                                            .and_return(osv_record("CVE-CRIT", severity: "CRITICAL"))
+
+      results = described_class.new([act], min_severity: :high).scan
+
+      expect(results.findings.first.open.map(&:id)).to eq ["CVE-CRIT"]
+    end
+
+    it "moves vulnerabilities resolved by formula patches into patched" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch)
+        .and_return([[{ "id" => "CVE-2016-2399" }, { "id" => "CVE-2024-9999" }]])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2016-2399")
+                                                            .and_return(osv_record("CVE-2016-2399"))
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-9999")
+                                                            .and_return(osv_record("CVE-2024-9999"))
+
+      results = described_class.new([libquicktime]).scan
+
+      finding = results.findings.first
+      expect(finding.open.map(&:id)).to eq ["CVE-2024-9999"]
+      expect(finding.patched.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.any_open?).to be true
+    end
+
+    it "matches patch resolves against vulnerability aliases case-insensitively" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "GHSA-x" }]])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("GHSA-x")
+                                                            .and_return(osv_record("GHSA-x",
+                                                                                   "aliases" => ["cve-2017-9122"]))
+
+      results = described_class.new([libquicktime]).scan
+
+      expect(results.findings.first.open).to eq []
+      expect(results.findings.first.patched.map(&:id)).to eq ["GHSA-x"]
+      expect(results.any_open?).to be false
+    end
+
+    it "does not conflate formulae with the same short name from different taps" do
+      core_thing = formula("thing", tap: CoreTap.instance) do
+        url "https://github.com/owner-a/thing/archive/refs/tags/v1.0.0.tar.gz"
+      end
+      tap_thing = formula("thing", tap: Tap.fetch("someone", "tap")) do
+        url "https://github.com/owner-b/thing/archive/refs/tags/v2.0.0.tar.gz"
+      end
+      expect(core_thing.name).to eq tap_thing.name
+
+      queried = nil
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
+        queried = packages
+        Array.new(packages.size) { [] }
+      end
+
+      described_class.new([core_thing, tap_thing]).scan
+
+      expect(queried).to eq [
+        { repo_url: "https://github.com/owner-a/thing", version: "v1.0.0" },
+        { repo_url: "https://github.com/owner-b/thing", version: "v2.0.0" },
+      ]
+    end
+
+    it "keeps resolved vulnerabilities in open when ignore_patches is false" do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2016-2399" }]])
+
+      results = described_class.new([libquicktime], ignore_patches: false).scan
+
+      expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.first.patched).to eq []
+    end
+  end
 end
