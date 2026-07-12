@@ -184,6 +184,22 @@ RSpec.describe PyPI do
       expect(described_class.pip_report([main, dependency], ignore_cooldown_package: main)).to eq([])
     end
 
+    it "preserves extras on the ignored-cooldown package's direct URL" do
+      main = PyPI::Package.new("snakemake[foo]==5.29.0")
+      sdist_url = "https://files.pythonhosted.org/packages/snakemake-5.29.0.tar.gz"
+      allow(main).to receive(:pypi_info).and_return(["snakemake", sdist_url, "a" * 64, "5.29.0"])
+
+      expect(Utils).to receive(:popen_read).with(
+        { "PIP_REQUIRE_VIRTUALENV" => "false" },
+        Utils::Path.formula_opt_libexec("python")/"bin/python", "-m", "pip", "install", "-q",
+        "--disable-pip-version-check", "--dry-run", "--ignore-installed",
+        "--uploaded-prior-to=P1D", "--report=/dev/stdout",
+        "snakemake[foo] @ #{sdist_url}"
+      ).and_return('{"install":[]}')
+
+      expect(described_class.pip_report([main], ignore_cooldown_package: main)).to eq([])
+    end
+
     it "keeps the ignored-cooldown package cooled when its sdist URL is unavailable" do
       main = PyPI::Package.new("snakemake==5.29.0")
       allow(main).to receive(:pypi_info).and_return(nil)

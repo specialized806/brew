@@ -503,12 +503,16 @@ module PyPI
     # index upload-time filter cannot hide a just-published release; its
     # dependencies stay index-resolved and cooled.
     requirements = packages.map do |package|
-      if ignore_cooldown_package && package == ignore_cooldown_package && package.valid_pypi_package?
-        _name, sdist_url = package.pypi_info
-        sdist_url.presence || package.to_s
-      else
-        package.to_s
-      end
+      exempt = ignore_cooldown_package && package == ignore_cooldown_package && package.valid_pypi_package?
+      next package.to_s unless exempt
+
+      name, sdist_url = package.pypi_info
+      next package.to_s if sdist_url.blank?
+
+      # PEP 508 direct reference. Any extras are preserved so their dependencies
+      # still resolve, while the URL bypasses the index upload-time filter.
+      extras = package.extras.presence
+      extras ? "#{name}[#{extras.join(",")}] @ #{sdist_url}" : sdist_url
     end
 
     command = [
