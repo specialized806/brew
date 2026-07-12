@@ -43,9 +43,15 @@ module Homebrew
             end
 
             response = post("#{API_BASE}/querybatch", { queries: pending.map { |p| p.fetch(:query) } })
+            batch_results = response["results"]
+            if !batch_results.is_a?(Array) || batch_results.length != pending.length
+              got = batch_results.is_a?(Array) ? batch_results.length : batch_results.class
+              raise ApiError,
+                    "OSV API querybatch: expected #{pending.length} results, got #{got}"
+            end
 
             continued = []
-            Array(response["results"]).each_with_index do |result, index|
+            batch_results.each_with_index do |result, index|
               entry = pending.fetch(index)
               results.fetch(entry.fetch(:slot)).concat(Array(result["vulns"]))
               token = result["next_page_token"]

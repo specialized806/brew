@@ -73,9 +73,31 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       expect(results.map { |r| r.first["id"] }).to eq %w[A B C]
     end
 
-    it "treats a missing results key as empty per-package results" do
+    it "raises ApiError when the results key is missing" do
       stub_curl curl_result(stdout: "{}")
-      expect(described_class.query_batch(packages)).to eq [[], [], []]
+      expect { described_class.query_batch(packages) }
+        .to raise_error(described_class::ApiError, /expected 3 results/)
+    end
+
+    it "raises ApiError when fewer results than queries are returned" do
+      body = { results: [{ vulns: [] }, { vulns: [] }] }
+      stub_curl curl_result(stdout: body.to_json)
+      expect { described_class.query_batch(packages) }
+        .to raise_error(described_class::ApiError, /expected 3 results, got 2/)
+    end
+
+    it "raises ApiError when a continuation response is truncated" do
+      page1 = {
+        results: [
+          { vulns: [{ id: "A1" }], next_page_token: "tok-a" },
+          { vulns: [{ id: "B1" }], next_page_token: "tok-b" },
+          { vulns: [{ id: "C1" }] },
+        ],
+      }
+      page2 = { results: [{ vulns: [{ id: "A2" }] }] }
+      stub_curl(curl_result(stdout: page1.to_json), curl_result(stdout: page2.to_json))
+      expect { described_class.query_batch(packages) }
+        .to raise_error(described_class::ApiError, /expected 2 results, got 1/)
     end
 
     it "follows per-result next_page_token, resubmitting only paged queries" do
