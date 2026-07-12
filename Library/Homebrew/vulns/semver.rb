@@ -3,17 +3,9 @@
 
 module Homebrew
   module Vulns
-    # Semantic Versioning 2.0 comparison for evaluating OSV `SEMVER` ranges.
-    # Precedence follows https://semver.org/#spec-item-11.
-    #
-    # Parsing is slightly more tolerant than the spec: minor and patch may be
-    # omitted (treated as zero) because OSV uses `"0"` as an open lower bound
-    # and some upstream tags are two-segment. Leading zeroes in numeric
-    # identifiers and empty prerelease/build identifiers are still rejected.
-    #
-    # This is intentionally separate from `::Version` because Homebrew's
-    # version ordering is not SemVer-compliant for prerelease identifiers or
-    # build metadata.
+    # SemVer 2.0 comparison for OSV `SEMVER` ranges (https://semver.org/#spec-item-11).
+    # Kept separate from `::Version`, whose ordering differs for prerelease and
+    # build metadata. Minor/patch may be omitted; other spec violations return `nil`.
     module Semver
       CORE_SEGMENT = "(0|[1-9]\\d*)"
       private_constant :CORE_SEGMENT
@@ -38,9 +30,6 @@ module Homebrew
       NUMERIC_IDENTIFIER = /\A\d+\z/
       private_constant :NUMERIC_IDENTIFIER
 
-      # Compare two version strings according to SemVer 2.0 precedence rules.
-      # Returns -1, 0 or 1 in the usual `<=>` sense, or `nil` if either side
-      # cannot be parsed as a semantic version.
       sig { params(left: String, right: String).returns(T.nilable(Integer)) }
       def self.compare(left, right)
         a = parse(left)
@@ -66,14 +55,11 @@ module Homebrew
 
       sig { params(left: T::Array[String], right: T::Array[String]).returns(Integer) }
       private_class_method def self.compare_prerelease(left, right)
-        # A version without a prerelease has higher precedence than one with.
         return 0 if left.empty? && right.empty?
         return 1 if left.empty?
         return -1 if right.empty?
 
         left.zip(right) do |lhs, rhs|
-          # A larger set of fields has higher precedence if all preceding
-          # identifiers are equal (spec 11.4.4).
           return 1 if rhs.nil?
 
           cmp = compare_identifier(lhs, rhs)
@@ -87,8 +73,7 @@ module Homebrew
         lhs_numeric = lhs.match?(NUMERIC_IDENTIFIER)
         rhs_numeric = rhs.match?(NUMERIC_IDENTIFIER)
 
-        # Numeric identifiers always have lower precedence than alphanumeric
-        # identifiers (spec 11.4.3).
+        # spec 11.4.3: numeric identifiers sort below alphanumeric
         return -1 if lhs_numeric && !rhs_numeric
         return 1 if !lhs_numeric && rhs_numeric
 
