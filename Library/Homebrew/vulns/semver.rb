@@ -3,14 +3,36 @@
 
 module Homebrew
   module Vulns
-    # Strict Semantic Versioning 2.0 comparison, as required for evaluating
-    # OSV `SEMVER` ranges. See https://semver.org/#spec-item-11.
+    # Semantic Versioning 2.0 comparison for evaluating OSV `SEMVER` ranges.
+    # Precedence follows https://semver.org/#spec-item-11.
+    #
+    # Parsing is slightly more tolerant than the spec: minor and patch may be
+    # omitted (treated as zero) because OSV uses `"0"` as an open lower bound
+    # and some upstream tags are two-segment. Leading zeroes in numeric
+    # identifiers and empty prerelease/build identifiers are still rejected.
     #
     # This is intentionally separate from `::Version` because Homebrew's
     # version ordering is not SemVer-compliant for prerelease identifiers or
     # build metadata.
     module Semver
-      SEMVER_REGEX = /\A(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?\z/
+      CORE_SEGMENT = "(0|[1-9]\\d*)"
+      private_constant :CORE_SEGMENT
+
+      # A numeric identifier without a leading zero, or an alphanumeric
+      # identifier (which may start with any digit).
+      PRERELEASE_IDENTIFIER = "(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)"
+      private_constant :PRERELEASE_IDENTIFIER
+
+      BUILD_IDENTIFIER = "[0-9A-Za-z-]+"
+      private_constant :BUILD_IDENTIFIER
+
+      SEMVER_REGEX = /
+        \A
+        #{CORE_SEGMENT}(?:\.#{CORE_SEGMENT})?(?:\.#{CORE_SEGMENT})?
+        (?:-(#{PRERELEASE_IDENTIFIER}(?:\.#{PRERELEASE_IDENTIFIER})*))?
+        (?:\+#{BUILD_IDENTIFIER}(?:\.#{BUILD_IDENTIFIER})*)?
+        \z
+      /x
       private_constant :SEMVER_REGEX
 
       NUMERIC_IDENTIFIER = /\A\d+\z/

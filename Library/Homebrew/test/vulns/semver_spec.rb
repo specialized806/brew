@@ -103,5 +103,28 @@ RSpec.describe Homebrew::Vulns::Semver do
       expect(described_class.compare("not-a-version", "1.0.0")).to be_nil
       expect(described_class.compare("1.0.0", "")).to be_nil
     end
+
+    it "returns nil for leading zeroes in core segments" do
+      expect(described_class.compare("01.0.0", "1.0.0")).to be_nil
+      expect(described_class.compare("1.02.0", "1.0.0")).to be_nil
+      expect(described_class.compare("1.0.00", "1.0.0")).to be_nil
+    end
+
+    it "returns nil for leading zeroes in numeric prerelease identifiers" do
+      expect(described_class.compare("1.0.0-01", "1.0.0")).to be_nil
+      expect(described_class.compare("1.0.0-alpha.01", "1.0.0")).to be_nil
+    end
+
+    it "accepts leading zeroes in alphanumeric prerelease identifiers" do
+      expect(described_class.compare("1.0.0-0a", "1.0.0-0a")).to eq 0
+    end
+
+    it "returns nil for empty prerelease or build identifiers" do
+      expect(described_class.compare("1.0.0-", "1.0.0")).to be_nil
+      expect(described_class.compare("1.0.0-alpha..1", "1.0.0")).to be_nil
+      expect(described_class.compare("1.0.0-alpha.", "1.0.0")).to be_nil
+      expect(described_class.compare("1.0.0+", "1.0.0")).to be_nil
+      expect(described_class.compare("1.0.0+build..1", "1.0.0")).to be_nil
+    end
   end
 end
