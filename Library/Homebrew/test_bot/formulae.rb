@@ -924,8 +924,12 @@ module Homebrew
         test "brew", "update-test"
         test "brew", "update-test", "--to-tag"
         test "brew", "update-test", "--commit=HEAD"
-        test "brew", "test-bot", "--only-formulae", "--only-json-tab", "--test-default-formula",
-             env: { "GITHUB_ACTIONS" => nil }
+
+        require "mktemp"
+        Mktemp.new("homebrew-test-bot").run do |_tmpdir|
+          test "brew", "test-bot", "--only-formulae", "--only-json-tab", "--test-default-formula",
+               env: { "GITHUB_ACTIONS" => nil }
+        end
       end
 
       sig { params(formula_name: String).void }
