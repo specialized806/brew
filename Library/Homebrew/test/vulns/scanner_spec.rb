@@ -113,6 +113,36 @@ RSpec.describe Homebrew::Vulns::Scanner do
     end
   end
 
+  describe ".source_url_from_sbom" do
+    it "returns the -src package downloadLocation" do
+      prefix = TEST_FIXTURE_DIR/"vulns"
+      expect(described_class.source_url_from_sbom(prefix))
+        .to eq "https://github.com/nektos/act/archive/refs/tags/v0.2.80.tar.gz"
+    end
+
+    it "returns nil when no SBOM file exists" do
+      expect(described_class.source_url_from_sbom(Pathname("/nonexistent"))).to be_nil
+    end
+
+    it "returns nil for a NOASSERTION location" do
+      Dir.mktmpdir do |dir|
+        prefix = Pathname(dir)
+        (prefix/"sbom.spdx.json").write JSON.generate(
+          packages: [{ SPDXID: "SPDXRef-Archive-x-src", downloadLocation: "NOASSERTION" }],
+        )
+        expect(described_class.source_url_from_sbom(prefix)).to be_nil
+      end
+    end
+
+    it "returns nil when the SBOM is unparseable" do
+      Dir.mktmpdir do |dir|
+        prefix = Pathname(dir)
+        (prefix/"sbom.spdx.json").write "not json"
+        expect(described_class.source_url_from_sbom(prefix)).to be_nil
+      end
+    end
+  end
+
   describe "#scan" do
     let(:act) do
       formula("act") do
@@ -298,6 +328,120 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
       expect(results.findings.first.patched).to eq []
+    end
+
+    it "does not suppress via patches when the scanned keg predates the current recipe" do
+      allow(libquicktime).to receive_messages(
+        any_installed_prefix:  Pathname("/nonexistent"),
+        any_installed_version: PkgVersion.parse("1.2.3"),
+        installed_kegs:        [instance_double(Keg, version: PkgVersion.parse("1.2.3"))],
+      )
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2016-2399" }]])
+
+      results = described_class.new([libquicktime]).scan
+
+      expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.first.patched).to eq []
+    end
+
+    it "does not suppress when the opt-linked keg is old even if the current version is also installed" do
+      allow(libquicktime).to receive_messages(
+        any_installed_prefix:      Pathname("/nonexistent"),
+        any_installed_version:     PkgVersion.parse("1.2.3"),
+        installed_kegs:            [instance_double(Keg, version: PkgVersion.parse("1.2.3")),
+                                    instance_double(Keg, version: libquicktime.pkg_version)],
+        latest_version_installed?: true,
+      )
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2016-2399" }]])
+
+      results = described_class.new([libquicktime]).scan
+
+      expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.first.patched).to eq []
+      expect(results.outdated_without_sbom).to eq ["libquicktime"]
+    end
+
+    it "suppresses via patches when the scanned keg matches the current recipe" do
+      allow(libquicktime).to receive_messages(
+        any_installed_prefix:  Pathname("/nonexistent"),
+        any_installed_version: libquicktime.pkg_version,
+        installed_kegs:        [instance_double(Keg, version: libquicktime.pkg_version)],
+      )
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2016-2399" }]])
+
+      results = described_class.new([libquicktime]).scan
+
+      expect(results.findings.first.patched.map(&:id)).to eq ["CVE-2016-2399"]
+    end
+
+    it "suppresses via patches when the formula is not installed at all" do
+      allow(libquicktime).to receive(:installed_kegs).and_return([])
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2016-2399" }]])
+
+      results = described_class.new([libquicktime]).scan
+
+      expect(results.findings.first.patched.map(&:id)).to eq ["CVE-2016-2399"]
+    end
+
+    context "when an outdated keg is installed" do
+      let(:installed_prefix) { TEST_FIXTURE_DIR/"vulns" }
+
+      before do
+        allow(act).to receive_messages(
+          any_installed_prefix:  installed_prefix,
+          any_installed_version: PkgVersion.parse("0.2.80"),
+          installed_kegs:        [instance_double(Keg, version: PkgVersion.parse("0.2.80"))],
+        )
+      end
+
+      it "queries OSV using the installed keg's SBOM source URL, not the current formula" do
+        queried = nil
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
+          queried = packages
+          Array.new(packages.size) { [] }
+        end
+
+        described_class.new([act]).scan
+
+        expect(queried).to eq [{ repo_url: "https://github.com/nektos/act", version: "v0.2.80" }]
+      end
+
+      it "reports the installed version in findings" do
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2024-1111" }]])
+
+        results = described_class.new([act]).scan
+
+        expect(results.findings.first.version).to eq "0.2.80"
+        expect(results.findings.first.tag).to eq "v0.2.80"
+      end
+
+      it "filters affects_version? against the installed tag" do
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2024-1111" }]])
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1111").and_return(
+          osv_record("CVE-2024-1111",
+                     "affected" => [{ "ranges" => [{ "type"   => "SEMVER",
+                                                     "events" => [{ "introduced" => "0" },
+                                                                  { "fixed" => "0.2.81" }] }] }]),
+        )
+
+        results = described_class.new([act]).scan
+
+        expect(results.findings.first.open.map(&:id)).to eq ["CVE-2024-1111"]
+      end
+
+      it "falls back to the current formula URL when the keg has no SBOM" do
+        allow(act).to receive(:any_installed_prefix).and_return(Pathname("/nonexistent"))
+        queried = nil
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
+          queried = packages
+          Array.new(packages.size) { [] }
+        end
+
+        results = described_class.new([act]).scan
+
+        expect(queried).to eq [{ repo_url: "https://github.com/nektos/act", version: "v0.2.84" }]
+        expect(results.outdated_without_sbom).to eq ["act"]
+      end
     end
   end
 end

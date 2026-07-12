@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "sbom"
 require "vulns/osv"
 require "vulns/vulnerability"
 
@@ -51,6 +52,24 @@ module Homebrew
         nil
       end
 
+      SBOM_SRC_SPDXID = /\ASPDXRef-Archive-.*-src\z/
+      private_constant :SBOM_SRC_SPDXID
+
+      sig { params(prefix: Pathname).returns(T.nilable(String)) }
+      def self.source_url_from_sbom(prefix)
+        file = prefix/SBOM::FILENAME
+        return unless file.file?
+
+        data = JSON.parse(file.read)
+        src = Array(data["packages"]).find { |p| p["SPDXID"].to_s.match?(SBOM_SRC_SPDXID) }
+        url = src&.dig("downloadLocation")
+        return if url.nil? || url == "NOASSERTION"
+
+        url
+      rescue JSON::ParserError
+        nil
+      end
+
       sig { params(serialized_patches: T::Array[T::Hash[String, T.untyped]]).returns(T::Array[String]) }
       def self.resolved_ids(serialized_patches)
         serialized_patches
@@ -69,11 +88,18 @@ module Homebrew
         sig { returns(Integer) }
         attr_reader :checked, :skipped
 
-        sig { params(findings: T::Array[Finding], checked: Integer, skipped: Integer).void }
-        def initialize(findings:, checked:, skipped:)
+        sig { returns(T::Array[String]) }
+        attr_reader :outdated_without_sbom
+
+        sig {
+          params(findings: T::Array[Finding], checked: Integer, skipped: Integer,
+                 outdated_without_sbom: T::Array[String]).void
+        }
+        def initialize(findings:, checked:, skipped:, outdated_without_sbom: [])
           @findings = findings
           @checked = checked
           @skipped = skipped
+          @outdated_without_sbom = outdated_without_sbom
         end
 
         sig { returns(T::Boolean) }
@@ -100,13 +126,20 @@ module Homebrew
         @min_severity_level = T.let(min_severity ? SEVERITY_LEVELS.fetch(min_severity) : 0, Integer)
       end
 
+      Target = Struct.new(:repo_url, :tag, :version, :from_installed_sbom, :current_recipe_applies,
+                          keyword_init: true)
+      private_constant :Target
+
       sig { returns(Results) }
       def scan
         queryable, skipped = @formulae.partition { |f| target_for(f) }
-        return Results.new(findings: [], checked: 0, skipped: skipped.size) if queryable.empty?
+        outdated_without_sbom = queryable.select { |f| stale_target?(f) }.map(&:name)
+        if queryable.empty?
+          return Results.new(findings: [], checked: 0, skipped: skipped.size, outdated_without_sbom:)
+        end
 
         targets = queryable.map { |f| T.must(target_for(f)) }
-        batch = OSV.query_batch(targets.map { |t| { repo_url: t.fetch(:repo_url), version: t.fetch(:tag) } })
+        batch = OSV.query_batch(targets.map { |t| { repo_url: t.repo_url, version: t.tag } })
 
         findings = queryable.each_with_index.filter_map do |formula, index|
           target = targets.fetch(index)
@@ -114,35 +147,75 @@ module Homebrew
           next if ids.empty?
 
           vulns = fetch_vulnerabilities(ids)
-                  .select { |v| v.affects_version?(target.fetch(:tag)) }
+                  .select { |v| v.affects_version?(target.tag) }
                   .select { |v| v.severity_level >= @min_severity_level }
           next if vulns.empty?
 
-          open, patched = partition_patched(formula, vulns)
+          open, patched = partition_patched(formula, target, vulns)
           next if open.empty? && patched.empty?
 
           Finding.new(
             name:     formula.name,
-            version:  formula.version.to_s,
-            tag:      target.fetch(:tag),
-            repo_url: target.fetch(:repo_url),
+            version:  target.version,
+            tag:      target.tag,
+            repo_url: target.repo_url,
             open:,
             patched:,
           )
         end
 
-        Results.new(findings:, checked: queryable.size, skipped: skipped.size)
+        Results.new(findings:, checked: queryable.size, skipped: skipped.size, outdated_without_sbom:)
       end
 
-      sig { params(formula: Formula).returns(T.nilable({ repo_url: String, tag: String })) }
+      sig { params(formula: Formula).returns(T.nilable(Target)) }
       def target_for(formula)
-        @targets ||= T.let({}, T.nilable(T::Hash[String, T.nilable({ repo_url: String, tag: String })]))
+        @targets ||= T.let({}, T.nilable(T::Hash[String, T.nilable(Target)]))
         @targets.fetch(formula.full_name) do
-          stable_url = formula.stable&.url
-          repo_url = self.class.repo_url(stable_url, formula.head&.url)
-          tag = self.class.tag(stable_url)
-          @targets[formula.full_name] = (repo_url && tag) ? { repo_url:, tag: } : nil
+          @targets[formula.full_name] = build_target(formula)
         end
+      end
+
+      sig { params(formula: Formula).returns(T.nilable(Target)) }
+      def build_target(formula)
+        stable_url = formula.stable&.url
+        head_url = formula.head&.url
+
+        if (prefix = formula.any_installed_prefix)
+          installed_pkg_version = formula.any_installed_version
+          installed_version = installed_pkg_version&.version.to_s
+          current_recipe_applies = installed_pkg_version == formula.pkg_version
+
+          if (sbom_url = self.class.source_url_from_sbom(prefix))
+            repo_url = self.class.repo_url(sbom_url, head_url)
+            tag = self.class.tag(sbom_url)
+            if repo_url && tag
+              return Target.new(repo_url:, tag:, version: installed_version,
+                                from_installed_sbom: true, current_recipe_applies:)
+            end
+          end
+
+          repo_url = self.class.repo_url(stable_url, head_url)
+          tag = self.class.tag(stable_url)
+          return if repo_url.nil? || tag.nil?
+
+          return Target.new(repo_url:, tag:, version: installed_version,
+                            from_installed_sbom: false, current_recipe_applies:)
+        end
+
+        repo_url = self.class.repo_url(stable_url, head_url)
+        tag = self.class.tag(stable_url)
+        return if repo_url.nil? || tag.nil?
+
+        Target.new(repo_url:, tag:, version: formula.version.to_s,
+                   from_installed_sbom: false, current_recipe_applies: true)
+      end
+
+      sig { params(formula: Formula).returns(T::Boolean) }
+      def stale_target?(formula)
+        target = target_for(formula)
+        return false if target.nil? || target.from_installed_sbom
+
+        !target.current_recipe_applies
       end
 
       sig { params(ids: T::Array[T::Hash[String, T.untyped]]).returns(T::Array[Vulnerability]) }
@@ -156,11 +229,16 @@ module Homebrew
       end
 
       sig {
-        params(formula: Formula, vulns: T::Array[Vulnerability])
+        params(formula: Formula, target: Target, vulns: T::Array[Vulnerability])
           .returns([T::Array[Vulnerability], T::Array[Vulnerability]])
       }
-      def partition_patched(formula, vulns)
+      def partition_patched(formula, target, vulns)
         return [vulns, []] unless @ignore_patches
+        # The current formula's `serialized_patches` reflects the recipe on
+        # disk. If the scanned keg was built from an older recipe it may lack a
+        # patch the recipe has since gained, so its `resolves` must not
+        # suppress findings.
+        return [vulns, []] unless target.current_recipe_applies
 
         resolved = self.class.resolved_ids(formula.serialized_patches)
         return [vulns, []] if resolved.empty?
