@@ -227,24 +227,26 @@ module PyPI
   # Return true if resources were checked (even if no change).
   sig {
     params(
-      formula:                  Formula,
-      version:                  T.nilable(String),
-      package_name:             T.nilable(String),
-      extra_packages:           T.nilable(T::Array[String]),
-      exclude_packages:         T.nilable(T::Array[String]),
-      dependencies:             T.nilable(T::Array[String]),
-      install_dependencies:     T.nilable(T::Boolean),
-      print_only:               T.nilable(T::Boolean),
-      quiet:                    T.nilable(T::Boolean),
-      verbose:                  T.nilable(T::Boolean),
-      ignore_errors:            T.nilable(T::Boolean),
-      ignore_non_pypi_packages: T.nilable(T::Boolean),
+      formula:                      Formula,
+      version:                      T.nilable(String),
+      package_name:                 T.nilable(String),
+      extra_packages:               T.nilable(T::Array[String]),
+      exclude_packages:             T.nilable(T::Array[String]),
+      dependencies:                 T.nilable(T::Array[String]),
+      install_dependencies:         T.nilable(T::Boolean),
+      print_only:                   T.nilable(T::Boolean),
+      quiet:                        T.nilable(T::Boolean),
+      verbose:                      T.nilable(T::Boolean),
+      ignore_errors:                T.nilable(T::Boolean),
+      ignore_non_pypi_packages:     T.nilable(T::Boolean),
+      ignore_main_package_cooldown: T.nilable(T::Boolean),
     ).returns(T.nilable(T::Boolean))
   }
   def self.update_python_resources!(formula, version: nil, package_name: nil, extra_packages: nil,
                                     exclude_packages: nil, dependencies: nil, install_dependencies: false,
                                     print_only: false, quiet: false, verbose: false,
-                                    ignore_errors: false, ignore_non_pypi_packages: false)
+                                    ignore_errors: false, ignore_non_pypi_packages: false,
+                                    ignore_main_package_cooldown: false)
     if [package_name, extra_packages, exclude_packages, dependencies].all?(&:blank?)
       list_entry = formula.pypi_packages_info
 
@@ -353,7 +355,8 @@ module PyPI
     print_stderr = verbose && show_info
     print_stderr ||= false
 
-    found_packages = pip_report(input_packages, python_name:, print_stderr:)
+    found_packages = pip_report(input_packages, python_name:, print_stderr:,
+                                ignore_cooldown_package: (main_package if ignore_main_package_cooldown))
     # Resolve the dependency tree of excluded packages to prune the above
     exclude_packages.delete_if { |package| found_packages.exclude? package }
     if exclude_packages.present?

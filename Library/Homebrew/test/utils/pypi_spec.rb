@@ -249,6 +249,43 @@ RSpec.describe PyPI do
         end
       RUBY
     end
+
+    it "exempts the main package from the cooldown when requested" do
+      path = mktmpdir/"foo.rb"
+      contents = <<~RUBY
+        class Foo < Formula
+          url "https://files.pythonhosted.org/packages/foo-1.0.tar.gz"
+          sha256 "#{"a" * 64}"
+
+          resource "bar" do
+            url "https://files.pythonhosted.org/packages/bar-0.9.tar.gz"
+            sha256 "#{"b" * 64}"
+          end
+
+          def install
+            bin.install "foo"
+          end
+        end
+      RUBY
+      path.write(contents)
+      bar = PyPI::Package.new("bar==1.0")
+
+      allow(Formula).to receive(:[]).with("python").and_return(instance_double(Formula, ensure_installed!: true))
+      allow(bar).to receive(:pypi_info).and_return(
+        ["bar", "https://files.pythonhosted.org/packages/bar-1.0.tar.gz", "d" * 64, "1.0", nil],
+      )
+      exempted = T.let(nil, T.nilable(PyPI::Package))
+      allow(described_class).to receive(:pip_report) do |_packages, **kwargs|
+        exempted = kwargs[:ignore_cooldown_package] if kwargs.key?(:ignore_cooldown_package)
+        [PyPI::Package.new("foo==1.0"), bar]
+      end
+
+      described_class.update_python_resources!(Formulary.from_contents("foo", path, contents),
+                                               package_name: "foo", quiet: true,
+                                               ignore_main_package_cooldown: true)
+
+      expect(exempted&.name).to eq "foo"
+    end
   end
 
   describe "update_pypi_url", :needs_network do
