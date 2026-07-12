@@ -9,10 +9,10 @@ RSpec.shared_examples "UnpackStrategy::detect" do
   end
 end
 
-RSpec.shared_examples "#extract" do |children: []|
+RSpec.shared_examples "#extract" do |children: [], verbose: false|
   specify "#extract" do
     mktmpdir do |unpack_dir|
-      described_class.new(path).extract(to: unpack_dir)
+      described_class.new(path).extract(to: unpack_dir, verbose:)
       expect(unpack_dir.children(false).map(&:to_s)).to match_array children
     end
   end
