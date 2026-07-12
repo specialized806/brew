@@ -2527,6 +2527,40 @@ Extract a specific *`version`* of *`formula`* into a personal tap and install
 it. The default tap is *`user`*/versions. *`user`* uses the GitHub username if
 available and the local username otherwise.
 
+### `vulns` \[*`options`*\] \[*`formula`* ...\]
+
+Check *`formula`* for known security vulnerabilities using the OSV.dev database.
+
+With no arguments, all installed formulae are checked.
+
+`--eval-all`
+
+: Check every available formula, whether installed or not.
+
+`-d`, `--deps`
+
+: Also check the dependencies of named formulae.
+
+`--no-ignore-patches`
+
+: Report vulnerabilities even when a formula patch resolves them.
+
+`--brewfile`
+
+: Check formulae listed in the given Brewfile.
+
+`-s`, `--severity`
+
+: Only report findings at or above: `low`, `medium`, `high`, `critical`.
+
+`-m`, `--max-summary`
+
+: Truncate summaries to *`n`* characters (default 60, 0 for no limit).
+
+`-j`, `--json`
+
+: Output JSON.
+
 ### `which-formula` \[`--explain`\] *`command`* \[...\]
 
 Show which formula(e) provides the given command.
