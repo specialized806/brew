@@ -168,6 +168,8 @@ RSpec.describe PyPI do
     end
 
     it "passes the ignored-cooldown package to pip by its direct URL" do
+      `true`
+
       main = PyPI::Package.new("snakemake==5.29.0")
       dependency = PyPI::Package.new("pyyaml==6.0")
       sdist_url = "https://files.pythonhosted.org/packages/snakemake-5.29.0.tar.gz"
@@ -185,6 +187,8 @@ RSpec.describe PyPI do
     end
 
     it "preserves extras on the ignored-cooldown package's direct URL" do
+      `true`
+
       main = PyPI::Package.new("snakemake[foo]==5.29.0")
       sdist_url = "https://files.pythonhosted.org/packages/snakemake-5.29.0.tar.gz"
       allow(main).to receive(:pypi_info).and_return(["snakemake", sdist_url, "a" * 64, "5.29.0"])
@@ -201,6 +205,8 @@ RSpec.describe PyPI do
     end
 
     it "keeps the ignored-cooldown package cooled when its sdist URL is unavailable" do
+      `true`
+
       main = PyPI::Package.new("snakemake==5.29.0")
       allow(main).to receive(:pypi_info).and_return(nil)
 
