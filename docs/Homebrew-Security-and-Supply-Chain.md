@@ -209,6 +209,7 @@ Cooldowns have been added for:
 * [npm and PyPI in `bump`](https://github.com/Homebrew/brew/pull/21888)
 
 Homebrew applies these cooldowns narrowly, only to the language ecosystems that have actually suffered fast-moving supply-side attacks, rather than as a blanket delay on every package.
+Maintainers of third-party taps can pass `--ignore-main-package-cooldown` to `brew update-python-resources` to exempt a formula's own package (never its dependencies) from this cooldown when regenerating resources for a release they just published; the cooldown always applies on official taps.
 A blanket cooldown would trade a small, speculative reduction in supply-side risk for a real, across-the-board delay in shipping critical fixes: when a zero-day in something like OpenSSL is being exploited in the wild, Homebrew works to get the fix to users as fast as possible, and Homebrew's design means upgrading one package can require upgrading others.
 Across Homebrew's history far more users have been protected by shipping zero-day fixes quickly than have been exposed to npm-style token-theft or crypto-mining attacks, so a global cooldown would be a net negative for most users' security.
 The deeper reason Homebrew does not need a general cooldown is that, unlike language package managers, it already separates publishing from distribution: an upstream release does not reach users until it has passed human review, CI and checksum verification, which is the very review window that language-ecosystem cooldowns are trying to recreate.
