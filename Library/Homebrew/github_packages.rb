@@ -336,13 +336,8 @@ class GitHubPackages
       formula_annotations_hash = image_index["annotations"]
       manifests = image_index["manifests"]
     else
-      image_license = if license.length <= 256
-        license
-      else
-        # TODO: Consider generating a truncated license when over the limit
-        require "utils/spdx"
-        SPDX.license_expression_to_string(:cannot_represent)
-      end
+      require "utils/spdx"
+      image_license = SPDX.truncate_license(license)
 
       formula_annotations_hash = {
         "com.github.package.type"                => GITHUB_PACKAGE_TYPE,
