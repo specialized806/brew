@@ -10,12 +10,13 @@ module Homebrew
     module OSV
       API_BASE = "https://api.osv.dev/v1"
       BATCH_SIZE = 1000
+      MAX_PAGES = 100
 
       class Error < RuntimeError; end
       class ApiError < Error; end
 
       # POST /v1/querybatch. Returns one array of vuln hashes per input package,
-      # in the same order.
+      # in the same order. Follows per-result `next_page_token` continuations.
       sig {
         params(packages: T::Array[{ repo_url: String, version: String }])
           .returns(T::Array[T::Array[T::Hash[String, T.untyped]]])
@@ -26,16 +27,36 @@ module Homebrew
         results = Array.new(packages.size) { [] }
 
         packages.each_slice(BATCH_SIZE).with_index do |batch, batch_index|
-          queries = batch.map do |pkg|
+          offset = batch_index * BATCH_SIZE
+          pending = batch.map.with_index do |pkg, index|
             {
-              package: { name: pkg.fetch(:repo_url), ecosystem: "GIT" },
-              version: pkg.fetch(:version),
+              slot:  offset + index,
+              query: { package: { name: pkg.fetch(:repo_url), ecosystem: "GIT" }, version: pkg.fetch(:version) },
             }
           end
 
-          response = post("#{API_BASE}/querybatch", { queries: })
-          Array(response["results"]).each_with_index do |result, index|
-            results[(batch_index * BATCH_SIZE) + index] = Array(result["vulns"])
+          page = 0
+          while pending.any?
+            page += 1
+            if page > MAX_PAGES
+              raise ApiError, "OSV API returned more than #{MAX_PAGES} pages for a querybatch; aborting"
+            end
+
+            response = post("#{API_BASE}/querybatch", { queries: pending.map { |p| p.fetch(:query) } })
+
+            continued = []
+            Array(response["results"]).each_with_index do |result, index|
+              entry = pending.fetch(index)
+              results.fetch(entry.fetch(:slot)).concat(Array(result["vulns"]))
+              token = result["next_page_token"]
+              next if token.to_s.empty?
+
+              continued << {
+                slot:  entry.fetch(:slot),
+                query: entry.fetch(:query).merge(page_token: token),
+              }
+            end
+            pending = continued
           end
         end
 

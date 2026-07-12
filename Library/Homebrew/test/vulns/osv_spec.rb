@@ -78,6 +78,42 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       expect(described_class.query_batch(packages)).to eq [[], [], []]
     end
 
+    it "follows per-result next_page_token, resubmitting only paged queries" do
+      page1 = {
+        results: [
+          { vulns: [{ id: "A1" }] },
+          { vulns: [{ id: "B1" }], next_page_token: "tok-b" },
+          { vulns: [{ id: "C1" }] },
+        ],
+      }
+      page2 = { results: [{ vulns: [{ id: "B2" }, { id: "B3" }] }] }
+      posted = []
+      expect(Utils::Curl).to receive(:curl_output).twice do |*args|
+        posted << JSON.parse(args[args.index("--json") + 1])
+        curl_result(stdout: ((posted.size == 1) ? page1 : page2).to_json)
+      end
+
+      results = described_class.query_batch(packages)
+
+      expect(results[0].map { |v| v["id"] }).to eq %w[A1]
+      expect(results[1].map { |v| v["id"] }).to eq %w[B1 B2 B3]
+      expect(results[2].map { |v| v["id"] }).to eq %w[C1]
+      expect(posted[1]["queries"]).to eq [
+        { "package"    => { "name" => "https://github.com/b/b", "ecosystem" => "GIT" },
+          "version"    => "v2",
+          "page_token" => "tok-b" },
+      ]
+    end
+
+    it "raises after MAX_PAGES continuation requests" do
+      stub_const("#{described_class}::MAX_PAGES", 3)
+      body = { results: [{ vulns: [{ id: "LOOP" }], next_page_token: "again" }] }
+      stub_curl curl_result(stdout: body.to_json)
+
+      expect { described_class.query_batch([packages.first]) }
+        .to raise_error(described_class::ApiError, /more than 3 pages/)
+    end
+
     it "raises ApiError when curl reports failure" do
       stub_curl curl_result(stdout: "server on fire", success: false)
       expect { described_class.query_batch(packages) }
