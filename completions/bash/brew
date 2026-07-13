@@ -3367,6 +3367,7 @@ _brew_update_python_resources() {
       --extra-packages
       --help
       --ignore-errors
+      --ignore-main-package-cooldown
       --ignore-non-pypi-packages
       --install-dependencies
       --package-name

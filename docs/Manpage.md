@@ -3948,6 +3948,12 @@ Update versions for PyPI resource blocks in *`formula`*.
 
 : Don't fail if *`formula`* is not a PyPI package.
 
+`--ignore-main-package-cooldown`
+
+: Bypass the release cooldown for *`formula`*'s own package when resolving
+  resources. Its dependencies still respect the cooldown. This option is ignored
+  for official taps.
+
 `--install-dependencies`
 
 : Install missing dependencies required to update resources.
