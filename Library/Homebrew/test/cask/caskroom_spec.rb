@@ -177,7 +177,7 @@ RSpec.describe Cask::Caskroom do
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
     end
 
-    it "does not list a cask twice when it is also installed under an old token" do
+    it "does not list a cask twice when it is also installed under an old token", :trust_store do
       tap = Tap.fetch("thirdparty", "foo")
       cask_path = tap.cask_dir/"new-cask.rb"
       cask_path.dirname.mkpath
