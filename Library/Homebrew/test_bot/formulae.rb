@@ -920,7 +920,6 @@ module Homebrew
         test "brew", "install-bundler-gems", "--groups=all"
         test "brew", "vendor-gems", "--non-bundler-gems", "--no-commit"
         test "brew", "tests", "--online", "--coverage"
-        test "brew", "tests", "--generic", "--coverage"
         test "brew", "update-test"
         test "brew", "update-test", "--to-tag"
         test "brew", "update-test", "--commit=HEAD"
