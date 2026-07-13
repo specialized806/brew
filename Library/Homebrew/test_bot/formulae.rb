@@ -870,6 +870,7 @@ module Homebrew
         # We only do full testing on `portable-ruby` itself.
         return if formula_name != "portable-ruby"
         return if args.dry_run?
+        return unless integration_test_portable_ruby?
 
         bottle_file = bottle_glob(formula_name).first
         if bottle_file.nil?
@@ -948,6 +949,9 @@ module Homebrew
       def testing_portable_ruby?
         !!tap&.core_tap? && @testing_formulae.include?("portable-ruby")
       end
+
+      sig { returns(T::Boolean) }
+      def integration_test_portable_ruby? = true
     end
   end
 end
