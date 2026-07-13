@@ -6,7 +6,19 @@ require "vulns"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Vulns do
+  before do
+    allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(false)
+  end
+
   it_behaves_like "parseable arguments"
+
+  it "checks all formulae allowed by tap trust when no formula is named" do
+    formula = instance_double(Formula, full_name: "act")
+    allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(true)
+    expect(Formula).to receive(:all).and_return([formula])
+
+    expect(described_class.new([]).formulae).to eq [formula]
+  end
 
   it "rejects an unknown --severity value" do
     expect { described_class.new(["--severity=urgent"]).run }

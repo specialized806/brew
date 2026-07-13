@@ -2273,7 +2273,6 @@ __fish_brew_complete_cmd 'vulns' 'Check formula for known security vulnerabiliti
 __fish_brew_complete_arg 'vulns' -l brewfile -d 'Check formulae listed in the given Brewfile'
 __fish_brew_complete_arg 'vulns' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'vulns' -l deps -d 'Also check the dependencies of named formulae'
-__fish_brew_complete_arg 'vulns' -l eval-all -d 'Check every available formula, whether installed or not'
 __fish_brew_complete_arg 'vulns' -l help -d 'Show this message'
 __fish_brew_complete_arg 'vulns' -l json -d 'Output JSON'
 __fish_brew_complete_arg 'vulns' -l max-summary -d 'Truncate summaries to n characters (default 60, 0 for no limit)'

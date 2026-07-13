@@ -13,11 +13,9 @@ module Homebrew
         description <<~EOS
           Check <formula> for known security vulnerabilities using the OSV.dev database.
 
-          With no arguments, all installed formulae are checked.
+          With no arguments, installed formulae are checked unless tap trust is configured,
+          in which case all formulae permitted by the trust configuration are checked.
         EOS
-        switch "--eval-all",
-               description: "Check every available formula, whether installed or not.",
-               env:         :eval_all
         switch "-d", "--deps",
                description: "Also check the dependencies of named formulae."
         switch "--no-ignore-patches",
@@ -30,8 +28,6 @@ module Homebrew
                description: "Truncate summaries to <n> characters (default 60, 0 for no limit)."
         switch "-j", "--json",
                description: "Output JSON."
-
-        conflicts "--eval-all", "--brewfile"
 
         named_args :formula
       end
@@ -67,19 +63,18 @@ module Homebrew
 
       sig { returns(T::Array[Formula]) }
       def formulae
-        list =
-          if args.eval_all?
-            Formula.all(eval_all: true)
-          elsif (brewfile = args.brewfile)
-            require "bundle/brewfile"
-            Homebrew::Bundle::Brewfile.read(file: brewfile).entries
-                                      .select { |e| e.type == :brew }
-                                      .map { |e| Formulary.resolve(e.name) }
-          elsif args.named.any?
-            args.named.to_resolved_formulae
-          else
-            Formula.installed
-          end
+        list = if (brewfile = args.brewfile)
+          require "bundle/brewfile"
+          Homebrew::Bundle::Brewfile.read(file: brewfile).entries
+                                    .select { |e| e.type == :brew }
+                                    .map { |e| Formulary.resolve(e.name) }
+        elsif args.named.any?
+          args.named.to_resolved_formulae
+        elsif Homebrew::EnvConfig.tap_trust_configured?
+          Formula.all
+        else
+          Formula.installed
+        end
         list += list.flat_map { |f| f.recursive_dependencies.map(&:to_formula) } if args.deps?
         list.uniq(&:full_name)
       end

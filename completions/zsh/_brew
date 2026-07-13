@@ -2896,10 +2896,9 @@ _brew_version_install() {
 # brew vulns
 _brew_vulns() {
   _arguments \
-    '(--eval-all)--brewfile[Check formulae listed in the given Brewfile]' \
+    '--brewfile[Check formulae listed in the given Brewfile]' \
     '--debug[Display any debugging information]' \
     '--deps[Also check the dependencies of named formulae]' \
-    '(--brewfile)--eval-all[Check every available formula, whether installed or not]' \
     '--help[Show this message]' \
     '--json[Output JSON]' \
     '--max-summary[Truncate summaries to n characters (default 60, 0 for no limit)]' \

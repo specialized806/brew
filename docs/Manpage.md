@@ -2531,11 +2531,9 @@ available and the local username otherwise.
 
 Check *`formula`* for known security vulnerabilities using the OSV.dev database.
 
-With no arguments, all installed formulae are checked.
-
-`--eval-all`
-
-: Check every available formula, whether installed or not.
+With no arguments, installed formulae are checked unless tap trust is
+configured, in which case all formulae permitted by the trust configuration are
+checked.
 
 `-d`, `--deps`
 

@@ -3619,7 +3619,6 @@ _brew_vulns() {
       --brewfile
       --debug
       --deps
-      --eval-all
       --help
       --json
       --max-summary

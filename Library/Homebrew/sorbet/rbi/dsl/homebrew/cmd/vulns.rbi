@@ -18,9 +18,6 @@ class Homebrew::Cmd::Vulns::Args < Homebrew::CLI::Args
   def deps?; end
 
   sig { returns(T::Boolean) }
-  def eval_all?; end
-
-  sig { returns(T::Boolean) }
   def j?; end
 
   sig { returns(T::Boolean) }
