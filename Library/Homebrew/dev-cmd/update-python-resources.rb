@@ -47,9 +47,13 @@ module Homebrew
 
         args.named.to_formulae.each do |formula|
           # These options may only be used on third-party taps.
-          official = formula.tap&.official?
-          ignore_errors = official ? false : args.ignore_errors?
-          ignore_main_package_cooldown = official ? false : args.ignore_main_package_cooldown?
+          if formula.tap&.official?
+            ignore_errors = false
+            ignore_main_package_cooldown = false
+          else
+            ignore_errors = args.ignore_errors?
+            ignore_main_package_cooldown = args.ignore_main_package_cooldown?
+          end
           PyPI.update_python_resources! formula,
                                         version:                      args.version,
                                         package_name:                 args.package_name,

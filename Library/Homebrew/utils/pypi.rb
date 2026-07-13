@@ -355,8 +355,9 @@ module PyPI
     print_stderr = verbose && show_info
     print_stderr ||= false
 
+    ignore_cooldown_package = main_package if ignore_main_package_cooldown
     found_packages = pip_report(input_packages, python_name:, print_stderr:,
-                                ignore_cooldown_package: (main_package if ignore_main_package_cooldown))
+                                ignore_cooldown_package:)
     # Resolve the dependency tree of excluded packages to prune the above
     exclude_packages.delete_if { |package| found_packages.exclude? package }
     if exclude_packages.present?
@@ -512,7 +513,9 @@ module PyPI
       # PEP 508 direct reference. Any extras are preserved so their dependencies
       # still resolve, while the URL bypasses the index upload-time filter.
       extras = package.extras.presence
-      extras ? "#{name}[#{extras.join(",")}] @ #{sdist_url}" : sdist_url
+      next sdist_url unless extras
+
+      "#{name}[#{extras.join(",")}] @ #{sdist_url}"
     end
 
     command = [
