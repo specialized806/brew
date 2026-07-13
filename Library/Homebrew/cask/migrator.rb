@@ -22,8 +22,8 @@ module Cask
 
     # The old tokens of `new_cask` that are still installed in their own Caskroom directory.
     # A symlinked directory means the cask has already been migrated.
-    sig { params(new_cask: Cask).returns(T::Array[String]) }
-    def self.old_tokens_needing_migration(new_cask)
+    sig { params(new_cask: Cask, dry_run: T::Boolean).returns(T::Array[String]) }
+    def self.old_tokens_needing_migration(new_cask, dry_run: false)
       new_cask.old_tokens
               .map { |old_token| Caskroom.token_from_full_token(old_token) }
               .uniq
@@ -34,7 +34,7 @@ module Cask
         next false if old_caskroom_path.symlink? || !old_caskroom_path.directory?
 
         if Caskroom.cask_installed_caskfile(old_token).nil?
-          old_caskroom_path.rmdir_if_possible
+          old_caskroom_path.rmdir_if_possible unless dry_run
           next false
         end
 
