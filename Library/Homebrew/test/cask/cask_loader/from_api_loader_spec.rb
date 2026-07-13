@@ -180,6 +180,19 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
   end
 
   describe "#load" do
+    it "handles greedy outdated checks for installed metadata without a URL" do
+      token = "url-less-installed-cask"
+      caskroom = mktmpdir
+      allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      path = caskroom/token/".metadata/latest/20260713000000.000/Casks/#{token}.json"
+      cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
+      allow(cask).to receive(:installed_version).and_return("latest")
+      cask.download_sha_path.dirname.mkpath
+      cask.download_sha_path.write("old-download-sha")
+
+      expect(cask.outdated?(greedy: true)).to be(true)
+    end
+
     shared_examples "loads from API" do |cask_token, caskfile_only:|
       include_context "with API setup", cask_token
       include_context "with internal API setup", cask_token
