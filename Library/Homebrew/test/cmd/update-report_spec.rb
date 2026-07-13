@@ -146,7 +146,7 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"allowed"
   end
 
-  it "migrates supported Caskroom Ruby and internal JSON metadata to JSON for developers" do
+  it "migrates supported Caskroom Ruby and internal JSON metadata to JSON for all users" do
     caskroom = mktmpdir/"Caskroom"
     rb_caskfile = caskroom/"local-caffeine/.metadata/1.0/20250101000000.000/Casks/local-caffeine.rb"
     json_caskfile = rb_caskfile.sub_ext(".json")
@@ -199,7 +199,7 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
     })
 
     allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
-    allow(Homebrew::EnvConfig).to receive_messages(developer?: true, disable_load_formula?: true,
+    allow(Homebrew::EnvConfig).to receive_messages(developer?: false, disable_load_formula?: true,
                                                    no_install_from_api?: true)
 
     with_env(
