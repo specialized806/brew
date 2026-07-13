@@ -40,13 +40,12 @@ module Homebrew
       def run
         require "vulns"
 
-        severity = min_severity
         summary_width = max_summary
 
         results = Homebrew::Vulns::Scanner.new(
           formulae,
           ignore_patches: !args.no_ignore_patches?,
-          min_severity:   severity,
+          min_severity:,
         ).scan
 
         if args.json?
