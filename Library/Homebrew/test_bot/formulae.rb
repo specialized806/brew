@@ -915,7 +915,7 @@ module Homebrew
         test "brew", "typecheck", "--update"
 
         # Run the checks that gate a Homebrew/brew pull request.
-        test "brew", "style"
+        test "brew", "style" if %w[actionlint shellcheck shfmt].all? { |f| bottled?(Formulary.factory(f)) }
         test "brew", "typecheck"
         test "brew", "install-bundler-gems", "--groups=all"
         test "brew", "vendor-gems", "--non-bundler-gems", "--no-commit"
@@ -924,8 +924,12 @@ module Homebrew
         test "brew", "update-test"
         test "brew", "update-test", "--to-tag"
         test "brew", "update-test", "--commit=HEAD"
-        test "brew", "test-bot", "--only-formulae", "--only-json-tab", "--test-default-formula",
-             env: { "GITHUB_ACTIONS" => nil }
+
+        require "mktemp"
+        Mktemp.new("homebrew-test-bot").run do |_|
+          test "brew", "test-bot", "--only-formulae", "--only-json-tab", "--test-default-formula",
+               env: { "GITHUB_ACTIONS" => nil }
+        end
       end
 
       sig { params(formula_name: String).void }
