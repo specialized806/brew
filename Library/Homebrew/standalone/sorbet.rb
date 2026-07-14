@@ -83,43 +83,10 @@ else
     end
   end
 
-  # Redefine type constructors to return a shared untyped instance: their
-  # results are only consumed by runtime checking, which is disabled.
-  # @private
-  module TNoOpTypeConstructors
-    # A union with NilClass rather than plain untyped: `prop`/`const` infer
-    # optionality from their type argument, so nilable props must still look
-    # nilable or serialising them while nil raises.
-    # Not frozen: `Union` memoises internally on first use.
-    # rubocop:disable Style/MutableConstant
-    UNTYPED = T::Types::Union.new([T::Types::Untyped.new, T::Types::Simple.new(NilClass)])
-    # rubocop:enable Style/MutableConstant
-
-    def nilable(_type) = UNTYPED
-    def any(*_types) = UNTYPED
-    def all(*_types) = UNTYPED
-    def class_of(_klass) = UNTYPED
-    def untyped = UNTYPED
-    def anything = UNTYPED
-    def self_type = UNTYPED
-    def attached_class = UNTYPED
-    def type_parameter(_name) = UNTYPED
-  end
-
-  # @private
-  module TNoOpTypeIndex
-    def [](*_types) = TNoOpTypeConstructors::UNTYPED
-  end
-
-  [T::Array, T::Hash, T::Set, T::Range, T::Enumerable, T::Enumerator].each do |mod|
-    mod.singleton_class.prepend(TNoOpTypeIndex)
-  end
-
   # @private
   module T
     class << self
       prepend TNoChecks
-      prepend TNoOpTypeConstructors
     end
 
     # Redefine `T.sig` to be a no-op.
