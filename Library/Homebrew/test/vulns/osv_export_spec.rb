@@ -287,6 +287,21 @@ RSpec.describe Homebrew::Vulns::OsvExport do
         end
       end
 
+      it "backfills published from an existing modified when the record predates the published field" do
+        Dir.mktmpdir do |dir|
+          seed(dir, nvi)
+          path = "#{dir}/BREW-nvi-CVE-2015-2305.json"
+          legacy = JSON.parse(File.read(path)).tap { |h| h.delete("published") }
+          File.write(path, "#{JSON.pretty_generate(legacy)}\n")
+
+          described_class.run([[nvi, nvi.serialized_patches]], dir, now:)
+
+          record = JSON.parse(File.read(path))
+          expect(record["published"]).to eq "2026-06-01T00:00:00Z"
+          expect(record["modified"]).to eq "2026-06-28T12:00:00Z"
+        end
+      end
+
       it "does not rewrite when the existing file has a different key order" do
         Dir.mktmpdir do |dir|
           seed(dir, nvi)

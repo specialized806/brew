@@ -54,14 +54,10 @@ module Homebrew
             path = File.join(dir, "#{ID_PREFIX}-#{formula.name}-#{vuln_id}.json")
             # A transient OSV outage would otherwise strip summary/severity/etc.
             # from an existing enriched record; leave it untouched instead.
-            if upstream == :failed
-              next if File.file?(path)
-
-              upstream = nil
-            end
+            next if upstream == :failed && File.file?(path)
 
             record = record_for(formula, vuln_id, patches:,
-                                upstream: T.cast(upstream, T.nilable(T::Hash[String, T.untyped])), now:)
+                                upstream: upstream.is_a?(Hash) ? upstream : nil, now:)
             merged = merge_existing(path, record)
             next if merged.nil?
 
@@ -86,7 +82,12 @@ module Homebrew
         return record unless File.file?(path)
 
         existing = JSON.parse(File.read(path))
-        record[:published] = existing["published"] if existing["published"]
+        # Records written before `published` was introduced only have
+        # `modified`; use it as the migration value so `published` does not
+        # jump forward to today on first rewrite.
+        if (existing_published = existing["published"] || existing["modified"])
+          record[:published] = existing_published
+        end
         Array(record[:affected]).each_with_index do |affected, index|
           existing_ranges = existing.dig("affected", index, "ranges")
           affected[:ranges] = existing_ranges if existing_ranges
