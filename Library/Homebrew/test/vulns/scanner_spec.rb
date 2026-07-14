@@ -36,6 +36,12 @@ RSpec.describe Homebrew::Vulns::Scanner do
       expect(described_class.repo_url(stable, head)).to eq "https://github.com/AomediaOrg/aom"
     end
 
+    it "falls back to the homepage when neither stable nor head is a supported forge" do
+      stable = "https://libssh2.org/download/libssh2-1.11.0.tar.gz"
+      homepage = "https://github.com/libssh2/libssh2"
+      expect(described_class.repo_url(stable, nil, homepage)).to eq "https://github.com/libssh2/libssh2"
+    end
+
     it "returns nil for unsupported hosts" do
       expect(described_class.repo_url("https://example.com/source.tar.gz")).to be_nil
     end
@@ -113,24 +119,36 @@ RSpec.describe Homebrew::Vulns::Scanner do
     end
   end
 
-  describe ".source_url_from_sbom" do
-    it "returns the -src package downloadLocation" do
+  describe ".source_from_sbom" do
+    it "returns the -src package downloadLocation and versionInfo" do
       prefix = TEST_FIXTURE_DIR/"vulns"
-      expect(described_class.source_url_from_sbom(prefix))
-        .to eq "https://github.com/nektos/act/archive/refs/tags/v0.2.80.tar.gz"
+      expect(described_class.source_from_sbom(prefix))
+        .to eq ["https://github.com/nektos/act/archive/refs/tags/v0.2.80.tar.gz", "0.2.80"]
     end
 
     it "returns nil when no SBOM file exists" do
-      expect(described_class.source_url_from_sbom(Pathname("/nonexistent"))).to be_nil
+      expect(described_class.source_from_sbom(Pathname("/nonexistent"))).to be_nil
     end
 
-    it "returns nil for a NOASSERTION location" do
+    it "returns the versionInfo when downloadLocation is NOASSERTION" do
       Dir.mktmpdir do |dir|
         prefix = Pathname(dir)
         (prefix/"sbom.spdx.json").write JSON.generate(
-          packages: [{ SPDXID: "SPDXRef-Archive-x-src", downloadLocation: "NOASSERTION" }],
+          packages: [{ SPDXID: "SPDXRef-Archive-x-src", downloadLocation: "NOASSERTION", versionInfo: "1.2.3" }],
         )
-        expect(described_class.source_url_from_sbom(prefix)).to be_nil
+        expect(described_class.source_from_sbom(prefix)).to eq [nil, "1.2.3"]
+      end
+    end
+
+    it "returns nil when both downloadLocation and versionInfo are NOASSERTION" do
+      Dir.mktmpdir do |dir|
+        prefix = Pathname(dir)
+        (prefix/"sbom.spdx.json").write JSON.generate(
+          packages: [{ SPDXID:           "SPDXRef-Archive-x-src",
+                       downloadLocation: "NOASSERTION",
+                       versionInfo:      "NOASSERTION" }],
+        )
+        expect(described_class.source_from_sbom(prefix)).to be_nil
       end
     end
 
@@ -138,7 +156,59 @@ RSpec.describe Homebrew::Vulns::Scanner do
       Dir.mktmpdir do |dir|
         prefix = Pathname(dir)
         (prefix/"sbom.spdx.json").write "not json"
-        expect(described_class.source_url_from_sbom(prefix)).to be_nil
+        expect(described_class.source_from_sbom(prefix)).to be_nil
+      end
+    end
+  end
+
+  describe "#build_target" do
+    it "derives repo from head and tag from stable version for a non-forge tarball" do
+      curl = formula("curl") do
+        url "https://curl.se/download/curl-8.5.0.tar.bz2"
+        head "https://github.com/curl/curl.git"
+      end
+
+      target = described_class.new([curl]).build_target(curl)
+
+      expect(target.repo_url).to eq "https://github.com/curl/curl"
+      expect(target.tag).to eq "8.5.0"
+      expect(target.version).to eq "8.5.0"
+    end
+
+    it "prefers an explicit stable tag over the derived version" do
+      aom = formula("aom") do
+        homepage "https://github.com/AomediaOrg/aom"
+        url "https://aomedia.googlesource.com/aom.git", tag: "v3.13.1"
+      end
+
+      target = described_class.new([aom]).build_target(aom)
+
+      expect(target.repo_url).to eq "https://github.com/AomediaOrg/aom"
+      expect(target.tag).to eq "v3.13.1"
+    end
+
+    it "queries the SBOM versionInfo when the SBOM downloadLocation has no extractable tag" do
+      curl = formula("curl") do
+        url "https://curl.se/download/curl-8.5.0.tar.bz2"
+        head "https://github.com/curl/curl.git"
+      end
+      Dir.mktmpdir do |dir|
+        prefix = Pathname(dir)
+        (prefix/"sbom.spdx.json").write JSON.generate(
+          packages: [{ SPDXID:           "SPDXRef-Archive-curl-src",
+                       downloadLocation: "https://curl.se/download/curl-8.4.0.tar.bz2",
+                       versionInfo:      "8.4.0" }],
+        )
+        allow(curl).to receive_messages(
+          any_installed_prefix:  prefix,
+          any_installed_version: PkgVersion.parse("8.4.0"),
+        )
+
+        target = described_class.new([curl]).build_target(curl)
+
+        expect(target.repo_url).to eq "https://github.com/curl/curl"
+        expect(target.tag).to eq "8.4.0"
+        expect(target.from_installed_sbom).to be true
       end
     end
   end

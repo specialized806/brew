@@ -24,9 +24,9 @@ module Homebrew
       )
       private_constant :TAG_PATTERNS
 
-      sig { params(stable_url: T.nilable(String), head_url: T.nilable(String)).returns(T.nilable(String)) }
-      def self.repo_url(stable_url, head_url = nil)
-        [stable_url, head_url].each do |url|
+      sig { params(urls: T.nilable(String)).returns(T.nilable(String)) }
+      def self.repo_url(*urls)
+        urls.each do |url|
           next if url.nil?
 
           forge = FORGES.find { |f| url.include?(f) }
@@ -55,17 +55,22 @@ module Homebrew
       SBOM_SRC_SPDXID = /\ASPDXRef-Archive-.*-src\z/
       private_constant :SBOM_SRC_SPDXID
 
-      sig { params(prefix: Pathname).returns(T.nilable(String)) }
-      def self.source_url_from_sbom(prefix)
+      sig { params(prefix: Pathname).returns(T.nilable([T.nilable(String), T.nilable(String)])) }
+      def self.source_from_sbom(prefix)
         file = prefix/SBOM::FILENAME
         return unless file.file?
 
         data = JSON.parse(file.read)
         src = Array(data["packages"]).find { |p| p["SPDXID"].to_s.match?(SBOM_SRC_SPDXID) }
-        url = src&.dig("downloadLocation")
-        return if url.nil? || url == "NOASSERTION"
+        return if src.nil?
 
-        url
+        url = src["downloadLocation"]
+        url = nil if url == "NOASSERTION"
+        version = src["versionInfo"]
+        version = nil if version == "NOASSERTION"
+        return if url.nil? && version.nil?
+
+        [url, version]
       rescue JSON::ParserError
         nil
       end
@@ -177,33 +182,36 @@ module Homebrew
 
       sig { params(formula: Formula).returns(T.nilable(Target)) }
       def build_target(formula)
-        stable_url = formula.stable&.url
+        stable = formula.stable
+        stable_url = stable&.url
         head_url = formula.head&.url
+        homepage = formula.homepage
 
         if (prefix = formula.any_installed_prefix)
           installed_pkg_version = formula.any_installed_version
           installed_version = installed_pkg_version&.version.to_s
           current_recipe_applies = installed_pkg_version == formula.pkg_version
 
-          if (sbom_url = self.class.source_url_from_sbom(prefix))
-            repo_url = self.class.repo_url(sbom_url, head_url)
-            tag = self.class.tag(sbom_url)
+          if (sbom = self.class.source_from_sbom(prefix))
+            sbom_url, sbom_version = sbom
+            repo_url = self.class.repo_url(sbom_url, head_url, homepage)
+            tag = self.class.tag(sbom_url) || sbom_version || installed_version.presence
             if repo_url && tag
               return Target.new(repo_url:, tag:, version: installed_version,
                                 from_installed_sbom: true, current_recipe_applies:)
             end
           end
 
-          repo_url = self.class.repo_url(stable_url, head_url)
-          tag = self.class.tag(stable_url)
+          repo_url = self.class.repo_url(stable_url, head_url, homepage)
+          tag = self.class.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
           return if repo_url.nil? || tag.nil?
 
           return Target.new(repo_url:, tag:, version: installed_version,
                             from_installed_sbom: false, current_recipe_applies:)
         end
 
-        repo_url = self.class.repo_url(stable_url, head_url)
-        tag = self.class.tag(stable_url)
+        repo_url = self.class.repo_url(stable_url, head_url, homepage)
+        tag = self.class.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
         return if repo_url.nil? || tag.nil?
 
         Target.new(repo_url:, tag:, version: formula.version.to_s,
