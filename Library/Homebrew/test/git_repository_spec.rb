@@ -47,6 +47,20 @@ RSpec.describe GitRepository do
     end
   end
 
+  describe "#origin_url" do
+    it "reads the origin URL from .git/config without spawning Git" do
+      allow(git_repo).to receive(:popen_git).and_raise("Git should not be spawned")
+      expect(git_repo.origin_url).to eq(remote_path.to_s)
+    end
+
+    it "falls back to Git when the config has more than one origin URL" do
+      other_url = "https://brew.sh/other.git"
+      config = clone_path/".git/config"
+      config.write(%Q(#{config.read}[remote "origin"]\n\turl = #{other_url}\n))
+      expect(git_repo.origin_url).to eq(other_url)
+    end
+  end
+
   describe "#head_info" do
     it "returns the HEAD commit hash, relative commit time and branch name in one Git invocation" do
       expect(git_repo.head_info).to eq([git_repo.head_ref, git_repo.last_committed, branch_name])
