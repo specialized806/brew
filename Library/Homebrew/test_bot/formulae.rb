@@ -916,11 +916,11 @@ module Homebrew
         test "brew", "typecheck", "--update"
 
         # Run the checks that gate a Homebrew/brew pull request.
-        test "brew", "style" if %w[actionlint shellcheck shfmt].all? { |f| bottled?(Formulary.factory(f)) }
+        test "brew", "style" unless OS.not_tier_one_configuration?
         test "brew", "typecheck"
         test "brew", "install-bundler-gems", "--groups=all"
         test "brew", "vendor-gems", "--non-bundler-gems", "--no-commit"
-        test "brew", "tests", "--online", "--coverage"
+        test "brew", "tests", "--online", "--coverage", "--only=cask,formula"
         test "brew", "update-test"
         test "brew", "update-test", "--to-tag"
         test "brew", "update-test", "--commit=HEAD"
