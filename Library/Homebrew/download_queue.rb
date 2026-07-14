@@ -5,6 +5,7 @@ require "downloadable"
 require "concurrent/promises"
 require "concurrent/executors"
 require "concurrent/atomic/atomic_boolean"
+require "concurrent/atomic/event"
 require "retryable_download"
 require "concurrent/set"
 require "resource"
@@ -118,6 +119,9 @@ module Homebrew
         remaining_downloads = downloads.dup.to_a
         previous_pending_line_count = 0
 
+        resolution = Concurrent::Event.new
+        downloads.each_value { |future| future.on_resolution! { resolution.set } }
+
         begin
           stdout_print_and_flush_if_tty Tty.hide_cursor
 
@@ -200,7 +204,16 @@ module Homebrew
                 end
               end
 
-              sleep 0.05
+              next if remaining_downloads.empty?
+
+              resolution.reset
+              # A download may resolve between the partition above and this
+              # reset: re-check before waiting to avoid a lost wakeup.
+              next if remaining_downloads.any? { |_, future| finished_states.include?(future.state) }
+
+              # Wake as soon as any download resolves; the timeout only sets
+              # the redraw cadence for spinner and progress bars on TTYs.
+              resolution.wait(tty_with_cursor_move_support? ? 0.05 : 1)
             # We want to catch all exceptions to ensure we can cancel any
             # running downloads and flush the TTY.
             rescue Exception # rubocop:disable Lint/RescueException
