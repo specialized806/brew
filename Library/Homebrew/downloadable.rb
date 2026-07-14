@@ -14,6 +14,48 @@ module Downloadable
   abstract!
   requires_ancestor { Kernel }
 
+  class << self
+    sig { params(filename: Pathname, checksum: T.nilable(Checksum)).returns(T::Boolean) }
+    def already_verified?(filename, checksum)
+      key = verification_key(filename, checksum)
+      return false if key.nil?
+
+      verification_lock.synchronize { verified_downloads.include?(key) }
+    end
+
+    sig { params(filename: Pathname, checksum: T.nilable(Checksum)).void }
+    def record_verification(filename, checksum)
+      key = verification_key(filename, checksum)
+      return if key.nil?
+
+      verification_lock.synchronize { verified_downloads.add(key) }
+    end
+
+    private
+
+    # The size and modification time ensure a file downloaded again to the
+    # same path (e.g. after `--force` cleared the cache) is verified again.
+    sig { params(filename: Pathname, checksum: T.nilable(Checksum)).returns(T.nilable(String)) }
+    def verification_key(filename, checksum)
+      return if checksum.nil?
+
+      stat = filename.stat
+      "#{filename.expand_path}|#{checksum.hexdigest}|#{stat.size}|#{stat.mtime.to_f}"
+    rescue SystemCallError
+      nil
+    end
+
+    sig { returns(T::Set[String]) }
+    def verified_downloads
+      @verified_downloads ||= T.let(Set.new, T.nilable(T::Set[String]))
+    end
+
+    sig { returns(Mutex) }
+    def verification_lock
+      @verification_lock ||= T.let(Mutex.new, T.nilable(Mutex))
+    end
+  end
+
   sig { overridable.returns(T.nilable(T.any(String, URL))) }
   attr_reader :url
 
@@ -181,8 +223,13 @@ module Downloadable
     verifying!
 
     if filename.file?
-      ohai "Verifying checksum for '#{filename.basename}'" if verbose?
-      filename.verify_checksum(checksum)
+      if Downloadable.already_verified?(filename, checksum)
+        odebug "Skipping checksum verification for '#{filename.basename}' (already verified in this run)"
+      else
+        ohai "Verifying checksum for '#{filename.basename}'" if verbose?
+        filename.verify_checksum(checksum)
+        Downloadable.record_verification(filename, checksum)
+      end
       verified!
     end
   rescue ChecksumMissingError
