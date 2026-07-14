@@ -175,6 +175,30 @@ RSpec.describe Homebrew::Vulns::Scanner do
       expect(target.version).to eq "8.5.0"
     end
 
+    it "queries a non-forge head URL verbatim when no candidate is a supported forge" do
+      bash = formula("bash") do
+        homepage "https://www.gnu.org/software/bash/"
+        url "https://ftpmirror.gnu.org/gnu/bash/bash-5.3.tar.gz"
+        head "https://git.savannah.gnu.org/git/bash.git"
+      end
+
+      target = described_class.new([bash]).build_target(bash)
+
+      expect(target.repo_url).to eq "https://git.savannah.gnu.org/git/bash.git"
+      expect(target.tag).to eq "5.3"
+    end
+
+    it "queries a non-forge stable URL verbatim when its path yields a tag" do
+      thing = formula("thing") do
+        url "https://gitea.example.com/owner/thing/archive/v1.2.3.tar.gz"
+      end
+
+      target = described_class.new([thing]).build_target(thing)
+
+      expect(target.repo_url).to eq "https://gitea.example.com/owner/thing/archive/v1.2.3.tar.gz"
+      expect(target.tag).to eq "v1.2.3"
+    end
+
     it "prefers an explicit stable tag over the derived version" do
       aom = formula("aom") do
         homepage "https://github.com/AomediaOrg/aom"
