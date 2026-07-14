@@ -235,6 +235,32 @@ RSpec.describe Homebrew::Vulns::Scanner do
         expect(target.from_installed_sbom).to be true
       end
     end
+
+    it "queries a non-forge head URL verbatim when the SBOM downloadLocation host is unsupported" do
+      bash = formula("bash") do
+        homepage "https://www.gnu.org/software/bash/"
+        url "https://ftpmirror.gnu.org/gnu/bash/bash-5.3.tar.gz"
+        head "https://git.savannah.gnu.org/git/bash.git"
+      end
+      Dir.mktmpdir do |dir|
+        prefix = Pathname(dir)
+        (prefix/"sbom.spdx.json").write JSON.generate(
+          packages: [{ SPDXID:           "SPDXRef-Archive-bash-src",
+                       downloadLocation: "https://ftpmirror.gnu.org/gnu/bash/bash-5.2.tar.gz",
+                       versionInfo:      "5.2" }],
+        )
+        allow(bash).to receive_messages(
+          any_installed_prefix:  prefix,
+          any_installed_version: PkgVersion.parse("5.2"),
+        )
+
+        target = described_class.new([bash]).build_target(bash)
+
+        expect(target.repo_url).to eq "https://git.savannah.gnu.org/git/bash.git"
+        expect(target.tag).to eq "5.2"
+        expect(target.from_installed_sbom).to be true
+      end
+    end
   end
 
   describe "#scan" do
