@@ -172,6 +172,10 @@ RSpec.configure do |config|
     skip "Java is not installed." unless which("java")
   end
 
+  config.before(:each, :needs_jq) do
+    skip "jq is not installed." unless which("jq")
+  end
+
   config.before(:each, :needs_python) do
     skip "Python is not installed." if !which("python3") && !which("python")
   end

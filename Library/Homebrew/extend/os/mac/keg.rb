@@ -93,8 +93,7 @@ module OS
       sig { params(rpath: String, file: MachOShim).returns(T::Boolean) }
       def delete_rpath(rpath, file)
         odebug "Deleting rpath #{rpath} in #{file}"
-        file.delete_rpath(rpath, strict: false)
-        true
+        !file.delete_rpath(rpath, strict: false).nil?
       rescue MachO::MachOError
         onoe <<~EOS
           Failed deleting rpath #{rpath} in #{file}
