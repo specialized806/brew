@@ -232,18 +232,20 @@ module Homebrew
 
       sig { returns(T::Array[T.any(Formula, Keg, Cask::Cask)]) }
       def input_formulae_and_casks
+        named = args.named.to_formulae_and_casks
         brewfile = args.brewfile
-        return args.named.to_formulae_and_casks unless brewfile
+        return named unless brewfile
 
         require "bundle/brewfile"
         require "cask/cask_loader"
         only = args.only_formula_or_cask
-        Homebrew::Bundle::Brewfile.read(file: brewfile_path(brewfile)).entries.filter_map do |e|
+        from_brewfile = Homebrew::Bundle::Brewfile.read(file: brewfile_path(brewfile)).entries.filter_map do |e|
           case e.type
           when :brew then Formulary.resolve(e.name) if only != :cask
           when :cask then Cask::CaskLoader.load(e.name) if only != :formula
           end
         end
+        (named + from_brewfile).uniq
       end
 
       # A bare `--brewfile` (no `=path`) yields `true` from OptionParser at

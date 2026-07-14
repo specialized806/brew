@@ -87,11 +87,10 @@ RSpec.describe Homebrew::Cmd::Deps, :integration_test, :no_api do
         .and output(stdout).to_stdout
     end
 
-    it "reads inputs from a Brewfile with --brewfile=<path>" do
+    it "reads inputs from a Brewfile alongside named arguments" do
       setup_test_formula "installed"
       brewfile = HOMEBREW_TEMP/"deps.Brewfile"
       brewfile.write <<~BREWFILE
-        brew "bar"
         brew "baz"
         tap "ignored/tap"
       BREWFILE
@@ -106,7 +105,7 @@ RSpec.describe Homebrew::Cmd::Deps, :integration_test, :no_api do
         └── installed
 
       EOS
-      expect { brew "deps", "--tree", "--brewfile=#{brewfile}" }
+      expect { brew "deps", "--tree", "bar", "--brewfile=#{brewfile}" }
         .to be_a_success
         .and output(stdout).to_stdout
     end
