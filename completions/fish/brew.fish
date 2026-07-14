@@ -1161,6 +1161,14 @@ __fish_brew_complete_arg 'generate-man-completions' -l quiet -d 'Make some outpu
 __fish_brew_complete_arg 'generate-man-completions' -l verbose -d 'Make some output more verbose'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-vulns-advisories' -d 'Generate OSV-schema advisory records for the `Homebrew` ecosystem from `homebrew/core` formula patch `resolves` annotations, for https://github.com/Homebrew/homebrew-advisory-database'
+__fish_brew_complete_arg 'generate-vulns-advisories' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'generate-vulns-advisories' -l dry-run -d 'List the records that would be generated without writing files or querying OSV.dev'
+__fish_brew_complete_arg 'generate-vulns-advisories' -l help -d 'Show this message'
+__fish_brew_complete_arg 'generate-vulns-advisories' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'generate-vulns-advisories' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'generate-zap' 'Generate a `zap` stanza for a cask by scanning the system for associated files and directories'
 __fish_brew_complete_arg 'generate-zap' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-zap' -l help -d 'Show this message'
