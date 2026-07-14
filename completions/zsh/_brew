@@ -1182,6 +1182,7 @@ _brew_deps() {
     '--HEAD[Show dependencies for HEAD version instead of stable version]' \
     '--annotate[Mark any build, test, implicit, optional, or recommended dependencies as such in the output]' \
     '--arch[Show dependencies for the given CPU architecture]' \
+    '--brewfile[Use formulae and casks listed in a Brewfile as inputs. Defaults to `./Brewfile`; use `--brewfile=`path to specify another]' \
     '--debug[Display any debugging information]' \
     '--direct[Show only the direct dependencies declared in the formula]' \
     '--dot[Show text-based graph description in DOT format]' \
