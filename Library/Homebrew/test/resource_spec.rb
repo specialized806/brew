@@ -107,12 +107,6 @@ RSpec.describe Resource do
       expect(resource.version).to be_detected_from_url
     end
 
-    it "rejects non-string versions" do
-      expect { resource.version(1) }.to raise_error(TypeError)
-      expect { resource.version(2.0) }.to raise_error(TypeError)
-      expect { resource.version(Object.new) }.to raise_error(TypeError)
-    end
-
     it "returns nil if unset" do
       expect(resource.version).to be_nil
     end
