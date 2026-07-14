@@ -252,6 +252,44 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#enqueue_fetch" do
+    let(:formula) { TestballBottle.new }
+    let(:installer) { described_class.new(formula) }
+    let(:download_queue) { instance_double(Homebrew::DownloadQueue) }
+    let(:bottle) { instance_double(Bottle, cached_download: HOMEBREW_CACHE/"downloads/testball-bottle") }
+
+    before do
+      installer.download_queue = download_queue
+
+      allow(Homebrew::EnvConfig).to receive(:verify_attestations?).and_return(false)
+      allow(installer).to receive(:previously_fetched_formula)
+      allow(installer).to receive(:pour_bottle?).with(output_warning: true).and_return(true)
+      allow(installer).to receive(:downloadable).and_return(bottle)
+      allow(installer).to receive(:fetch_bottle_tab)
+    end
+
+    it "starts a bottle download before enqueueing dependencies after the prelude" do
+      installer.instance_variable_set(:@ran_prelude, true)
+
+      expect(download_queue).to receive(:enqueue)
+        .with(bottle, check_attestation: false, stage: false).ordered
+      expect(installer).to receive(:fetch_dependencies).ordered
+      expect(download_queue).to receive(:enqueue)
+        .with(bottle, check_attestation: false).ordered
+
+      installer.enqueue_fetch
+    end
+
+    it "resolves dependencies before enqueueing a bottle without the prelude" do
+      expect(installer).to receive(:fetch_dependencies).ordered
+      expect(installer).to receive(:fetch_bottle_tab).with(enqueue: true).ordered
+      expect(download_queue).to receive(:enqueue)
+        .with(bottle, check_attestation: false).ordered
+
+      installer.enqueue_fetch
+    end
+  end
+
   describe "linking defaults" do
     it "links non-keg-only formulae when link_keg is false" do
       ordinary_formula = formula "homebrew-link-default" do
