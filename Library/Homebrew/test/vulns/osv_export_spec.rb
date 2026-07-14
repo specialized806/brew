@@ -42,8 +42,10 @@ RSpec.describe Homebrew::Vulns::OsvExport do
 
       expect(record[:schema_version]).to eq "1.7.3"
       expect(record[:id]).to eq "BREW-nvi-CVE-2015-2305"
+      expect(record[:published]).to eq "2026-06-28T12:00:00Z"
       expect(record[:modified]).to eq "2026-06-28T12:00:00Z"
       expect(record[:upstream]).to eq ["CVE-2015-2305"]
+      expect(record[:database_specific]).to eq({ source: "generated" })
       expect(record).not_to have_key(:summary)
       expect(record).not_to have_key(:references)
     end
@@ -200,6 +202,119 @@ RSpec.describe Homebrew::Vulns::OsvExport do
         written = described_class.run([[a, shared], [b, shared]], dir, now:)
         expect(written.map { |p| File.basename(p) }.sort)
           .to eq ["BREW-a-CVE-2024-9999.json", "BREW-b-CVE-2024-9999.json"]
+      end
+    end
+
+    context "with an existing record on disk" do
+      let(:earlier) { Time.utc(2026, 6, 1, 0, 0, 0) }
+      let(:nvi_bumped) do
+        formula("nvi") do
+          url "https://deb.debian.org/debian/pool/main/n/nvi/nvi_1.81.6.orig.tar.gz"
+          version "1.81.6"
+          revision 7
+          patch do
+            url "https://deb.debian.org/debian/pool/main/n/nvi/nvi_1.81.6-17.debian.tar.xz"
+            sha256 "abc"
+            type :backport
+            apply "patches/31regex_heap_overflow.patch"
+            resolves "CVE-2015-2305"
+          end
+        end
+      end
+
+      before do
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
+      end
+
+      def seed(dir, formula)
+        described_class.run([[formula, formula.serialized_patches]], dir, now: earlier)
+      end
+
+      it "preserves the existing fixed boundary and published timestamp when core bumps the version" do
+        Dir.mktmpdir do |dir|
+          seed(dir, nvi)
+          expect(nvi_bumped.pkg_version.to_s).to eq "1.81.6_7"
+
+          described_class.run([[nvi_bumped, nvi_bumped.serialized_patches]], dir, now:)
+
+          record = JSON.parse(File.read("#{dir}/BREW-nvi-CVE-2015-2305.json"))
+          expect(record["published"]).to eq "2026-06-01T00:00:00Z"
+          expect(record["affected"][0]["ranges"][0]["events"][1]).to eq({ "fixed" => "1.81.6_6" })
+        end
+      end
+
+      it "does not rewrite when nothing has changed" do
+        Dir.mktmpdir do |dir|
+          seed(dir, nvi)
+
+          written = described_class.run([[nvi, nvi.serialized_patches]], dir, now:)
+
+          expect(written).to eq []
+          record = JSON.parse(File.read("#{dir}/BREW-nvi-CVE-2015-2305.json"))
+          expect(record["modified"]).to eq "2026-06-01T00:00:00Z"
+        end
+      end
+
+      it "updates modified when refreshed upstream data differs" do
+        Dir.mktmpdir do |dir|
+          seed(dir, nvi)
+          allow(Homebrew::Vulns::OSV).to receive(:vulnerability)
+            .and_return({ "summary" => "New summary" })
+
+          written = described_class.run([[nvi, nvi.serialized_patches]], dir, now:)
+
+          expect(written).to eq ["#{dir}/BREW-nvi-CVE-2015-2305.json"]
+          record = JSON.parse(File.read(written.first))
+          expect(record["summary"]).to eq "New summary"
+          expect(record["published"]).to eq "2026-06-01T00:00:00Z"
+          expect(record["modified"]).to eq "2026-06-28T12:00:00Z"
+        end
+      end
+
+      it "leaves an existing enriched record untouched when the upstream fetch fails" do
+        Dir.mktmpdir do |dir|
+          allow(Homebrew::Vulns::OSV).to receive(:vulnerability)
+            .and_return({ "summary" => "Cached summary", "aliases" => ["GHSA-aaaa-bbbb-cccc"] })
+          seed(dir, nvi)
+          before = File.read("#{dir}/BREW-nvi-CVE-2015-2305.json")
+          expect(JSON.parse(before)["summary"]).to eq "Cached summary"
+
+          allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_raise(Homebrew::Vulns::OSV::ApiError)
+          written = described_class.run([[nvi, nvi.serialized_patches]], dir, now:)
+
+          expect(written).to eq []
+          expect(File.read("#{dir}/BREW-nvi-CVE-2015-2305.json")).to eq before
+        end
+      end
+
+      it "does not rewrite when the existing file has a different key order" do
+        Dir.mktmpdir do |dir|
+          seed(dir, nvi)
+          path = "#{dir}/BREW-nvi-CVE-2015-2305.json"
+          reordered = JSON.parse(File.read(path)).sort.reverse.to_h
+          File.write(path, "#{JSON.pretty_generate(reordered)}\n")
+          expect(reordered.keys.first).to eq "upstream"
+
+          written = described_class.run([[nvi, nvi.serialized_patches]], dir, now:)
+
+          expect(written).to eq []
+          expect(JSON.parse(File.read(path))["modified"]).to eq "2026-06-01T00:00:00Z"
+        end
+      end
+
+      it "leaves other files in the directory untouched" do
+        Dir.mktmpdir do |dir|
+          curated = "#{dir}/BREW-2026-0001.json"
+          File.write(curated, JSON.generate(id: "BREW-2026-0001"))
+          orphan = "#{dir}/BREW-gone-CVE-2020-0001.json"
+          File.write(orphan, JSON.generate(id:                "BREW-gone-CVE-2020-0001",
+                                           database_specific: { source: "generated" }))
+
+          described_class.run([[nvi, nvi.serialized_patches]], dir, now:)
+
+          expect(File.read(curated)).to eq JSON.generate(id: "BREW-2026-0001")
+          expect(File.exist?(orphan)).to be true
+        end
       end
     end
 

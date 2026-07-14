@@ -46,19 +46,60 @@ module Homebrew
       def self.run(annotated, dir, now: Time.now.utc)
         FileUtils.mkdir_p(dir)
         written = []
-        upstream_cache = T.let({}, T::Hash[String, T.nilable(T::Hash[String, T.untyped])])
+        upstream_cache = T.let({}, T::Hash[String, T.any(T::Hash[String, T.untyped], Symbol)])
 
         annotated.each do |formula, patches|
           Scanner.resolved_ids(patches).each do |vuln_id|
             upstream = upstream_cache.fetch(vuln_id) { upstream_cache[vuln_id] = fetch_upstream(vuln_id) }
-            record = record_for(formula, vuln_id, patches:, upstream:, now:)
-            path = File.join(dir, "#{record.fetch(:id)}.json")
-            File.write(path, "#{JSON.pretty_generate(record)}\n")
+            path = File.join(dir, "#{ID_PREFIX}-#{formula.name}-#{vuln_id}.json")
+            # A transient OSV outage would otherwise strip summary/severity/etc.
+            # from an existing enriched record; leave it untouched instead.
+            if upstream == :failed
+              next if File.file?(path)
+
+              upstream = nil
+            end
+
+            record = record_for(formula, vuln_id, patches:,
+                                upstream: T.cast(upstream, T.nilable(T::Hash[String, T.untyped])), now:)
+            merged = merge_existing(path, record)
+            next if merged.nil?
+
+            File.write(path, "#{JSON.pretty_generate(merged)}\n")
             written << path
           end
         end
 
         written
+      end
+
+      # If a record already exists at `path`, carry forward its `published`
+      # timestamp and `affected[].ranges` (so the `fixed` boundary reflects when
+      # the annotation was first observed rather than drifting to today's
+      # `pkg_version`), and skip the write entirely when nothing else has
+      # changed. Records for annotations no longer in core are simply not
+      # visited, so they persist.
+      sig {
+        params(path: String, record: T::Hash[Symbol, T.untyped]).returns(T.nilable(T::Hash[Symbol, T.untyped]))
+      }
+      def self.merge_existing(path, record)
+        return record unless File.file?(path)
+
+        existing = JSON.parse(File.read(path))
+        record[:published] = existing["published"] if existing["published"]
+        Array(record[:affected]).each_with_index do |affected, index|
+          existing_ranges = existing.dig("affected", index, "ranges")
+          affected[:ranges] = existing_ranges if existing_ranges
+        end
+
+        # Compare as parsed structures so key ordering (which JSON does not
+        # define but Ruby serialisation preserves) does not cause spurious
+        # rewrites of a hand-formatted or differently-serialised existing file.
+        return if JSON.parse(JSON.generate(record)).except("modified") == existing.except("modified")
+
+        record
+      rescue JSON::ParserError
+        record
       end
 
       sig {
@@ -67,12 +108,15 @@ module Homebrew
           .returns(T::Hash[Symbol, T.untyped])
       }
       def self.record_for(formula, vuln_id, patches: formula.serialized_patches, upstream: nil, now: Time.now.utc)
+        timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         record = T.let({
-          schema_version: SCHEMA_VERSION,
-          id:             "#{ID_PREFIX}-#{formula.name}-#{vuln_id}",
-          modified:       now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-          upstream:       [vuln_id],
-          affected:       [affected_entry(formula, vuln_id, patches)],
+          schema_version:    SCHEMA_VERSION,
+          id:                "#{ID_PREFIX}-#{formula.name}-#{vuln_id}",
+          published:         timestamp,
+          modified:          timestamp,
+          upstream:          [vuln_id],
+          affected:          [affected_entry(formula, vuln_id, patches)],
+          database_specific: { source: "generated" },
         }, T::Hash[Symbol, T.untyped])
 
         if upstream
@@ -145,11 +189,13 @@ module Homebrew
         ref.presence
       end
 
-      sig { params(vuln_id: String).returns(T.nilable(T::Hash[String, T.untyped])) }
+      # Returns `:failed` (not `nil`) on error so callers can distinguish a
+      # transient outage from a successful fetch that returned no enrichment.
+      sig { params(vuln_id: String).returns(T.any(T::Hash[String, T.untyped], Symbol)) }
       def self.fetch_upstream(vuln_id)
         OSV.vulnerability(vuln_id)
       rescue OSV::Error
-        nil
+        :failed
       end
     end
   end
