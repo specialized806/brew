@@ -41,6 +41,17 @@ module Homebrew
         nil
       end
 
+      sig {
+        params(source_url: T.nilable(String), head_url: T.nilable(String),
+               homepage: T.nilable(String)).returns(T.nilable(String))
+      }
+      def self.target_repo_url(source_url, head_url, homepage)
+        url = repo_url(source_url, head_url, homepage)
+        url ||= source_url if tag(source_url)
+        url ||= head_url
+        url
+      end
+
       sig { params(url: T.nilable(String)).returns(T.nilable(String)) }
       def self.tag(url)
         return if url.nil?
@@ -187,6 +198,9 @@ module Homebrew
         head_url = formula.head&.url
         homepage = formula.homepage
 
+        stable_repo_url = self.class.target_repo_url(stable_url, head_url, homepage)
+        stable_tag = self.class.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
+
         if (prefix = formula.any_installed_prefix)
           installed_pkg_version = formula.any_installed_version
           installed_version = installed_pkg_version&.version.to_s
@@ -194,7 +208,7 @@ module Homebrew
 
           if (sbom = self.class.source_from_sbom(prefix))
             sbom_url, sbom_version = sbom
-            repo_url = self.class.repo_url(sbom_url, head_url, homepage)
+            repo_url = self.class.target_repo_url(sbom_url, head_url, homepage)
             tag = self.class.tag(sbom_url) || sbom_version || installed_version.presence
             if repo_url && tag
               return Target.new(repo_url:, tag:, version: installed_version,
@@ -202,19 +216,15 @@ module Homebrew
             end
           end
 
-          repo_url = self.class.repo_url(stable_url, head_url, homepage)
-          tag = self.class.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
-          return if repo_url.nil? || tag.nil?
+          return if stable_repo_url.nil? || stable_tag.nil?
 
-          return Target.new(repo_url:, tag:, version: installed_version,
+          return Target.new(repo_url: stable_repo_url, tag: stable_tag, version: installed_version,
                             from_installed_sbom: false, current_recipe_applies:)
         end
 
-        repo_url = self.class.repo_url(stable_url, head_url, homepage)
-        tag = self.class.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
-        return if repo_url.nil? || tag.nil?
+        return if stable_repo_url.nil? || stable_tag.nil?
 
-        Target.new(repo_url:, tag:, version: formula.version.to_s,
+        Target.new(repo_url: stable_repo_url, tag: stable_tag, version: formula.version.to_s,
                    from_installed_sbom: false, current_recipe_applies: true)
       end
 
