@@ -66,6 +66,18 @@ RSpec.describe Homebrew::DownloadQueue do
     download_queue.fetch
   end
 
+  it "promotes an in-flight download to queued staging" do
+    expect(retryable_download).to receive(:fetch).once.and_return(cached_download)
+    expect(downloadable).to receive(:stage_from_download_queue?).with(cached_download, pour: false).and_return(true)
+    expect(downloadable).to receive(:extracting!).ordered
+    expect(downloadable).to receive(:stage_from_download_queue).with(cached_download, pour: false).ordered
+    expect(downloadable).to receive(:downloaded!).ordered
+
+    download_queue.enqueue(downloadable)
+    download_queue.enqueue(downloadable, stage: true)
+    download_queue.fetch
+  end
+
   it "checks attestations for valid cached bottles" do
     bottle = Bottle.allocate
     allow(bottle).to receive_messages(
