@@ -188,6 +188,21 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       end
     end
 
+    it "fetches each upstream vuln id once, even when shared across formulae" do
+      shared = [{ "url"      => "https://example.com/fix.patch",
+                  "resolves" => [{ "type" => "security", "id" => "CVE-2024-9999" }] }]
+      a = formula("a") { url "https://example.com/a-1.0.tar.gz" }
+      b = formula("b") { url "https://example.com/b-1.0.tar.gz" }
+
+      expect(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-9999").once.and_return({})
+
+      Dir.mktmpdir do |dir|
+        written = described_class.run([[a, shared], [b, shared]], dir, now:)
+        expect(written.map { |p| File.basename(p) }.sort)
+          .to eq ["BREW-a-CVE-2024-9999.json", "BREW-b-CVE-2024-9999.json"]
+      end
+    end
+
     it "still writes a record when the upstream fetch fails" do
       allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_raise(Homebrew::Vulns::OSV::ApiError)
 

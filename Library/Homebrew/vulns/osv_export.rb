@@ -42,10 +42,12 @@ module Homebrew
       def self.run(annotated, dir, now: Time.now.utc)
         FileUtils.mkdir_p(dir)
         written = []
+        upstream_cache = T.let({}, T::Hash[String, T.nilable(T::Hash[String, T.untyped])])
 
         annotated.each do |formula, patches|
           Scanner.resolved_ids(patches).each do |vuln_id|
-            record = record_for(formula, vuln_id, patches:, upstream: fetch_upstream(vuln_id), now:)
+            upstream = upstream_cache.fetch(vuln_id) { upstream_cache[vuln_id] = fetch_upstream(vuln_id) }
+            record = record_for(formula, vuln_id, patches:, upstream:, now:)
             path = File.join(dir, "#{record.fetch(:id)}.json")
             File.write(path, "#{JSON.pretty_generate(record)}\n")
             written << path
