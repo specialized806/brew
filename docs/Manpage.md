@@ -1033,6 +1033,11 @@ passed, this command displays their actual runtime dependencies (similar to
 : List dependencies for formulae that are currently installed. If *`formula`* is
   specified, list only its dependencies that are currently installed.
 
+`--brewfile`
+
+: Use formulae and casks listed in a Brewfile as inputs. Defaults to
+  `./Brewfile`; use `--brewfile=`*`path`* to specify another.
+
 `--missing`
 
 : Show only missing dependencies.

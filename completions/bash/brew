@@ -1278,6 +1278,7 @@ _brew_deps() {
       --HEAD
       --annotate
       --arch
+      --brewfile
       --cask
       --debug
       --direct
