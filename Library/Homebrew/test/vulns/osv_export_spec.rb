@@ -154,6 +154,13 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       expect(affected[:package][:name]).to eq "libsigc++"
     end
 
+    it "uses an explicit fixed boundary over the current pkg_version" do
+      events = described_class.record_for(nvi, "CVE-2015-2305", fixed: "1.81.6_3", now:)
+                              .dig(:affected, 0, :ranges, 0, :events)
+
+      expect(events[1]).to eq({ fixed: "1.81.6_3" })
+    end
+
     it "omits the revision suffix when revision is zero" do
       f = formula("x") do
         url "https://example.com/x-1.0.tar.gz"
@@ -187,6 +194,37 @@ RSpec.describe Homebrew::Vulns::OsvExport do
           record = JSON.parse(File.read(p))
           expect(record["affected"][0]["package"]["ecosystem"]).to eq "Homebrew"
         end
+      end
+    end
+
+    it "calls first_fixed only for records with no existing file" do
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
+      calls = []
+      first_fixed = lambda { |f, id|
+        calls << [f.name, id]
+        "1.2.4_2"
+      }
+
+      Dir.mktmpdir do |dir|
+        File.write("#{dir}/BREW-libquicktime-CVE-2016-2399.json",
+                   JSON.generate(described_class.record_for(libquicktime, "CVE-2016-2399", now:)))
+
+        described_class.run([[libquicktime, libquicktime.serialized_patches]], dir, first_fixed:, now:)
+
+        expect(calls).to eq [["libquicktime", "CVE-2017-9122"]]
+        record = JSON.parse(File.read("#{dir}/BREW-libquicktime-CVE-2017-9122.json"))
+        expect(record["affected"][0]["ranges"][0]["events"][1]).to eq({ "fixed" => "1.2.4_2" })
+      end
+    end
+
+    it "falls back to pkg_version when first_fixed returns nil" do
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
+
+      Dir.mktmpdir do |dir|
+        described_class.run([[nvi, nvi.serialized_patches]], dir, first_fixed: ->(_f, _id) {}, now:)
+
+        record = JSON.parse(File.read("#{dir}/BREW-nvi-CVE-2015-2305.json"))
+        expect(record["affected"][0]["ranges"][0]["events"][1]).to eq({ "fixed" => "1.81.6_6" })
       end
     end
 

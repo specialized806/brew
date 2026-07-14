@@ -30,6 +30,7 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
     allow(Formulary).to receive(:factory).with("nvi").and_return(nvi)
     allow(Formulary).to receive(:factory).with("plain").and_return(plain)
     allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
+    allow(FormulaVersions).to receive(:new).and_return(instance_double(FormulaVersions, rev_list: nil))
 
     Dir.mktmpdir do |dir|
       out = "#{dir}/advisories"
@@ -95,6 +96,70 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
       )
 
       expect(cmd.all_variation_patches(f)).to eq [{ "url" => "a" }]
+    end
+  end
+
+  describe "#first_fixed_version" do
+    subject(:cmd) { described_class.new(["out"]) }
+
+    let(:current) { formula("x") { url "https://example.com/x-1.2.tar.gz" } }
+
+    def with_history(revisions)
+      fv = instance_double(FormulaVersions)
+      allow(FormulaVersions).to receive(:new).with(current).and_return(fv)
+      allow(fv).to receive(:rev_list).with("HEAD") do |&blk|
+        revisions.each_key { |rev| blk.call(rev, "Formula/x/x.rb") }
+      end
+      allow(fv).to receive(:formula_at_revision) do |rev, _entry, &blk|
+        old = revisions.fetch(rev)
+        old.nil? ? nil : blk.call(old)
+      end
+    end
+
+    def old_formula(pkg_version:, resolves_ids: [])
+      patches = resolves_ids.map { |id| { "resolves" => [{ "type" => "security", "id" => id }] } }
+      instance_double(Formula, pkg_version: PkgVersion.parse(pkg_version), serialized_patches: patches)
+    end
+
+    it "returns the pkg_version at the oldest revision where the CVE is resolved" do
+      with_history(
+        "r3" => old_formula(pkg_version: "1.2_1", resolves_ids: ["CVE-2024-1"]),
+        "r2" => old_formula(pkg_version: "1.2", resolves_ids: ["CVE-2024-1"]),
+        "r1" => old_formula(pkg_version: "1.1", resolves_ids: []),
+        # Trap: if the walk continued past r1 it would wrongly return 1.0.
+        "r0" => old_formula(pkg_version: "1.0", resolves_ids: ["CVE-2024-1"]),
+      )
+
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq "1.2"
+    end
+
+    it "returns the oldest resolved version when the CVE is resolved in every revision" do
+      with_history(
+        "r2" => old_formula(pkg_version: "1.1", resolves_ids: ["CVE-2024-1"]),
+        "r1" => old_formula(pkg_version: "1.0", resolves_ids: ["CVE-2024-1"]),
+      )
+
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq "1.0"
+    end
+
+    it "stops at an unloadable revision and returns the last known resolved version" do
+      with_history(
+        "r3" => old_formula(pkg_version: "1.2", resolves_ids: ["CVE-2024-1"]),
+        "r2" => nil,
+        "r1" => old_formula(pkg_version: "1.0", resolves_ids: ["CVE-2024-1"]),
+      )
+
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq "1.2"
+    end
+
+    it "returns nil when the CVE is not resolved at the newest revision" do
+      with_history(
+        "r2" => old_formula(pkg_version: "1.2", resolves_ids: []),
+        # Trap: if the walk continued past r2 it would wrongly return 1.0.
+        "r1" => old_formula(pkg_version: "1.0", resolves_ids: ["CVE-2024-1"]),
+      )
+
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to be_nil
     end
   end
 end
