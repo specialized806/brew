@@ -25,6 +25,10 @@ module Homebrew
     # https://github.com/Homebrew/homebrew-advisory-database for the published
     # feed.
     module OsvExport
+      # https://ossf.github.io/osv-schema/ — value of the emitted
+      # `schema_version` field, pinning the OSV schema release these records
+      # target. `Homebrew` and `BREW` were registered in that schema in
+      # ossf/osv-schema#576.
       SCHEMA_VERSION = "1.7.3"
       ECOSYSTEM = "Homebrew"
       ID_PREFIX = "BREW"
@@ -129,9 +133,11 @@ module Homebrew
         end
       end
 
-      sig { params(patch: T::Hash[String, T.untyped]).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
+      PatchRef = T.type_alias { T::Hash[Symbol, T.any(String, T::Array[String])] }
+
+      sig { params(patch: T::Hash[String, T.untyped]).returns(T.nilable(PatchRef)) }
       def self.patch_ref(patch)
-        ref = {}
+        ref = T.let({}, PatchRef)
         ref[:type] = patch["type"] if patch["type"]
         ref[:url] = patch["url"] if patch["url"]
         ref[:file] = patch["file"] if patch["file"]
