@@ -20,6 +20,20 @@ RSpec.describe Homebrew::Cmd::Vulns do
     expect(described_class.new([]).formulae).to eq [formula]
   end
 
+  it "reads the default Brewfile when --brewfile is passed without a path" do
+    require "bundle/brewfile"
+    entry = instance_double(Homebrew::Bundle::Dsl::Entry, type: :brew, name: "act")
+    dsl = instance_double(Homebrew::Bundle::Dsl, entries: [entry])
+    formula = instance_double(Formula, full_name: "act")
+    allow(Formulary).to receive(:resolve).with("act").and_return(formula)
+
+    expect(Homebrew::Bundle::Brewfile).to receive(:read).with(file: nil).and_return(dsl)
+    expect(described_class.new(["--brewfile"]).formulae).to eq [formula]
+
+    expect(Homebrew::Bundle::Brewfile).to receive(:read).with(file: "Brewfile.dev").and_return(dsl)
+    expect(described_class.new(["--brewfile=Brewfile.dev"]).formulae).to eq [formula]
+  end
+
   it "rejects an unknown --severity value" do
     expect { described_class.new(["--severity=urgent"]).run }
       .to raise_error(UsageError, /`--severity` must be one of/)

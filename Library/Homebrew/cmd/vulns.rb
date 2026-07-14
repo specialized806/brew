@@ -20,8 +20,9 @@ module Homebrew
                description: "Also check the dependencies of named formulae."
         switch "--no-ignore-patches",
                description: "Report vulnerabilities even when a formula patch resolves them."
-        flag   "--brewfile=",
-               description: "Check formulae listed in the given Brewfile."
+        flag   "--brewfile",
+               description: "Check formulae listed in a Brewfile. " \
+                            "Defaults to `./Brewfile`; use `--brewfile=`<path> to specify another."
         flag   "-s", "--severity=",
                description: "Only report findings at or above: `low`, `medium`, `high`, `critical`."
         flag   "-m", "--max-summary=",
@@ -65,7 +66,7 @@ module Homebrew
       def formulae
         list = if (brewfile = args.brewfile)
           require "bundle/brewfile"
-          Homebrew::Bundle::Brewfile.read(file: brewfile).entries
+          Homebrew::Bundle::Brewfile.read(file: brewfile_path(brewfile)).entries
                                     .select { |e| e.type == :brew }
                                     .map { |e| Formulary.resolve(e.name) }
         elsif args.named.any?
@@ -77,6 +78,14 @@ module Homebrew
         end
         list += list.flat_map { |f| f.recursive_dependencies.map(&:to_formula) } if args.deps?
         list.uniq(&:full_name)
+      end
+
+      # A bare `--brewfile` (no `=path`) yields `true` from OptionParser at
+      # runtime; the generated RBI types it as `T.nilable(String)`, so accept
+      # the wider type here and normalise `true`/`""` to the `nil` default.
+      sig { params(value: T.nilable(T.any(String, TrueClass))).returns(T.nilable(String)) }
+      def brewfile_path(value)
+        value.presence if value.is_a?(String)
       end
 
       sig { returns(T.nilable(Symbol)) }

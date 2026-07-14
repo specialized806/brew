@@ -2896,7 +2896,7 @@ _brew_version_install() {
 # brew vulns
 _brew_vulns() {
   _arguments \
-    '--brewfile[Check formulae listed in the given Brewfile]' \
+    '--brewfile[Check formulae listed in a Brewfile. Defaults to `./Brewfile`; use `--brewfile=`path to specify another]' \
     '--debug[Display any debugging information]' \
     '--deps[Also check the dependencies of named formulae]' \
     '--help[Show this message]' \

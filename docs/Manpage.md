@@ -2545,7 +2545,8 @@ checked.
 
 `--brewfile`
 
-: Check formulae listed in the given Brewfile.
+: Check formulae listed in a Brewfile. Defaults to `./Brewfile`; use
+  `--brewfile=`*`path`* to specify another.
 
 `-s`, `--severity`
 

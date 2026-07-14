@@ -2270,7 +2270,7 @@ __fish_brew_complete_arg 'version-install' -a '(__fish_brew_suggest_formulae_all
 
 
 __fish_brew_complete_cmd 'vulns' 'Check formula for known security vulnerabilities using the OSV.dev database'
-__fish_brew_complete_arg 'vulns' -l brewfile -d 'Check formulae listed in the given Brewfile'
+__fish_brew_complete_arg 'vulns' -l brewfile -d 'Check formulae listed in a Brewfile. Defaults to `./Brewfile`; use `--brewfile=`path to specify another'
 __fish_brew_complete_arg 'vulns' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'vulns' -l deps -d 'Also check the dependencies of named formulae'
 __fish_brew_complete_arg 'vulns' -l help -d 'Show this message'
