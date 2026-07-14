@@ -267,6 +267,7 @@ __brew_internal_commands() {
     'vendor-gems:Install and commit Homebrew'\''s vendored gems'
     'verify:Verify the build provenance of bottles using GitHub'\''s attestation tools'
     'version-install:Extract a specific version of formula into a personal tap and install it'
+    'vulns:Check formula for known security vulnerabilities using the OSV.dev database'
     'which-formula:Show which formula(e) provides the given command'
     'which-update:Database update for `brew which-formula`'
   )
@@ -2887,6 +2888,23 @@ _brew_version_install() {
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]' \
+    - formula \
+    '*:formula:__brew_formulae'
+}
+
+# brew vulns
+_brew_vulns() {
+  _arguments \
+    '--brewfile[Check formulae listed in a Brewfile. Defaults to `./Brewfile`; use `--brewfile=`path to specify another]' \
+    '--debug[Display any debugging information]' \
+    '--deps[Also check the dependencies of named formulae]' \
+    '--help[Show this message]' \
+    '--json[Output JSON]' \
+    '--max-summary[Truncate summaries to n characters (default 60, 0 for no limit)]' \
+    '--no-ignore-patches[Report vulnerabilities even when a formula patch resolves them]' \
+    '--quiet[Make some output more quiet]' \
+    '--severity[Only report findings at or above: `low`, `medium`, `high`, `critical`]' \
     '--verbose[Make some output more verbose]' \
     - formula \
     '*:formula:__brew_formulae'

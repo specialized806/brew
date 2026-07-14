@@ -2269,6 +2269,20 @@ __fish_brew_complete_arg 'version-install' -l verbose -d 'Make some output more 
 __fish_brew_complete_arg 'version-install' -a '(__fish_brew_suggest_formulae_all)'
 
 
+__fish_brew_complete_cmd 'vulns' 'Check formula for known security vulnerabilities using the OSV.dev database'
+__fish_brew_complete_arg 'vulns' -l brewfile -d 'Check formulae listed in a Brewfile. Defaults to `./Brewfile`; use `--brewfile=`path to specify another'
+__fish_brew_complete_arg 'vulns' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'vulns' -l deps -d 'Also check the dependencies of named formulae'
+__fish_brew_complete_arg 'vulns' -l help -d 'Show this message'
+__fish_brew_complete_arg 'vulns' -l json -d 'Output JSON'
+__fish_brew_complete_arg 'vulns' -l max-summary -d 'Truncate summaries to n characters (default 60, 0 for no limit)'
+__fish_brew_complete_arg 'vulns' -l no-ignore-patches -d 'Report vulnerabilities even when a formula patch resolves them'
+__fish_brew_complete_arg 'vulns' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'vulns' -l severity -d 'Only report findings at or above: `low`, `medium`, `high`, `critical`'
+__fish_brew_complete_arg 'vulns' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'vulns' -a '(__fish_brew_suggest_formulae_all)'
+
+
 __fish_brew_complete_cmd 'which-formula' 'Show which formula(e) provides the given command'
 __fish_brew_complete_arg 'which-formula' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'which-formula' -l explain -d 'Output explanation of how to get command by installing one of the providing formulae'
