@@ -12,6 +12,13 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
 
   it_behaves_like "reinstall_pkgconf_if_needed"
 
+  it "links to the donations section" do
+    allow(Homebrew::Settings).to receive(:read).with("donationmessage").and_return("false")
+
+    expect { described_class.new([]).send(:donation_message) }
+      .to output(include("https://github.com/Homebrew/brew#-donations")).to_stdout
+  end
+
   # Simulate update.sh after a redirected fetch has advanced HEAD and origin/<branch>.
   def setup_redirected_tap(name)
     tap = Tap.fetch("allowed", name)
