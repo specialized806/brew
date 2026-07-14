@@ -13,7 +13,7 @@ module Homebrew
         description <<~EOS
           Generate OSV-schema advisory records for the `Homebrew` ecosystem from
           `homebrew/core` formula patch `resolves` annotations, for
-          <https://github.com/Homebrew/homebrew-advisory-database>.
+          <https://github.com/Homebrew/advisory-database>.
 
           Records are written to <directory>.
         EOS

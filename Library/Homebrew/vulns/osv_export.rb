@@ -22,7 +22,7 @@ module Homebrew
     # `ECOSYSTEM`, `ecosystem_specific` carrying the resolving patch detail).
     #
     # See {Homebrew::DevCmd::GenerateVulnsAdvisories} for the entry point and
-    # https://github.com/Homebrew/homebrew-advisory-database for the published
+    # https://github.com/Homebrew/advisory-database for the published
     # feed.
     module OsvExport
       # https://ossf.github.io/osv-schema/ — value of the emitted
