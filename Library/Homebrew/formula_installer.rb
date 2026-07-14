@@ -473,7 +473,9 @@ class FormulaInstaller
     end
 
     recursive_deps = if pour_bottle?
-      (formula.runtime_dependencies + (formula.stable&.deps&.required || [])).uniq(&:name)
+      # Include implicit dependencies (except duplicates) in formulae to check
+      active_spec = T.must(formula.stable? ? formula.stable : formula.head)
+      (formula.runtime_dependencies + active_spec.deps.required).uniq(&:name)
     else
       formula.recursive_dependencies
     end
