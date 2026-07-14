@@ -18,8 +18,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     before do
       allow(Homebrew::API).to receive_messages(cask_tokens: casks_from_api_hash.keys, cask_renames: {})
       allow(Homebrew::API).to receive(:cask_token?) { |token| casks_from_api_hash.key?(token) }
-      allow(Homebrew::API::Cask)
-        .to receive_messages(all_casks: casks_from_api_hash, all_renames: {})
+      allow(Homebrew::API::Cask).to receive(:all_casks).and_return(casks_from_api_hash)
 
       # The call to `Cask::CaskLoader.load` above sets the Tap cache prematurely.
       Tap.clear_cache

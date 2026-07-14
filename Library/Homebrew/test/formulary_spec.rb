@@ -558,7 +558,7 @@ RSpec.describe Formulary do
           )
         end
         allow(Homebrew::API::Internal).to receive(:formula_tap_git_head).and_return("")
-        allow(Homebrew::API::Formula).to receive_messages(all_aliases: {}, all_renames: {})
+        allow(Homebrew::API::Formula).to receive(:all_aliases).and_return({})
         allow(CoreTap.instance).to receive(:tap_migrations).and_return({})
         allow(CoreCaskTap.instance).to receive(:tap_migrations).and_return({})
 

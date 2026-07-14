@@ -48,6 +48,7 @@ require_relative "../global"
 require "debug" if ENV["HOMEBREW_DEBUG"]
 
 require "test/support/quiet_progress_formatter"
+require "test/support/helper/api_hashable"
 require "test/support/helper/cask"
 require "test/support/helper/files"
 require "test/support/helper/fixtures"
