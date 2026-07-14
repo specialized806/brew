@@ -38,12 +38,19 @@ module Homebrew
       # supply the union across OS/architecture variations (a `patch` inside an
       # `on_linux`/`on_intel` block only appears in `Formula#serialized_patches`
       # under the matching {SimulateSystem}).
+      #
+      # `first_fixed`, when given, is called `(formula, vuln_id) -> String?` for
+      # records with no existing file to derive an accurate `fixed` boundary
+      # (e.g. via {FormulaVersions} git history); existing records preserve
+      # their on-disk `ranges` regardless.
       sig {
-        params(annotated: T::Array[[Formula, T::Array[T::Hash[String, T.untyped]]]],
-               dir:       T.any(String, Pathname), now: Time)
+        params(annotated:   T::Array[[Formula, T::Array[T::Hash[String, T.untyped]]]],
+               dir:         T.any(String, Pathname),
+               first_fixed: T.nilable(T.proc.params(formula: Formula, vuln_id: String).returns(T.nilable(String))),
+               now:         Time)
           .returns(T::Array[String])
       }
-      def self.run(annotated, dir, now: Time.now.utc)
+      def self.run(annotated, dir, first_fixed: nil, now: Time.now.utc)
         FileUtils.mkdir_p(dir)
         written = []
         upstream_cache = T.let({}, T::Hash[String, T.any(T::Hash[String, T.untyped], Symbol)])
@@ -52,11 +59,13 @@ module Homebrew
           Scanner.resolved_ids(patches).each do |vuln_id|
             upstream = upstream_cache.fetch(vuln_id) { upstream_cache[vuln_id] = fetch_upstream(vuln_id) }
             path = File.join(dir, "#{ID_PREFIX}-#{formula.name}-#{vuln_id}.json")
+            existing = File.file?(path)
             # A transient OSV outage would otherwise strip summary/severity/etc.
             # from an existing enriched record; leave it untouched instead.
-            next if upstream == :failed && File.file?(path)
+            next if upstream == :failed && existing
 
-            record = record_for(formula, vuln_id, patches:,
+            fixed = (first_fixed&.call(formula, vuln_id) unless existing) || formula.pkg_version.to_s
+            record = record_for(formula, vuln_id, patches:, fixed:,
                                 upstream: upstream.is_a?(Hash) ? upstream : nil, now:)
             merged = merge_existing(path, record)
             next if merged.nil?
@@ -105,10 +114,11 @@ module Homebrew
 
       sig {
         params(formula: Formula, vuln_id: String, patches: T::Array[T::Hash[String, T.untyped]],
-               upstream: T.nilable(T::Hash[String, T.untyped]), now: Time)
+               fixed: String, upstream: T.nilable(T::Hash[String, T.untyped]), now: Time)
           .returns(T::Hash[Symbol, T.untyped])
       }
-      def self.record_for(formula, vuln_id, patches: formula.serialized_patches, upstream: nil, now: Time.now.utc)
+      def self.record_for(formula, vuln_id, patches: formula.serialized_patches,
+                          fixed: formula.pkg_version.to_s, upstream: nil, now: Time.now.utc)
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         record = T.let({
           schema_version:    SCHEMA_VERSION,
@@ -116,7 +126,7 @@ module Homebrew
           published:         timestamp,
           modified:          timestamp,
           upstream:          [vuln_id],
-          affected:          [affected_entry(formula, vuln_id, patches)],
+          affected:          [affected_entry(formula, vuln_id, patches, fixed)],
           database_specific: { source: "generated" },
         }, T::Hash[Symbol, T.untyped])
 
@@ -132,10 +142,10 @@ module Homebrew
       end
 
       sig {
-        params(formula: Formula, vuln_id: String, patches: T::Array[T::Hash[String, T.untyped]])
+        params(formula: Formula, vuln_id: String, patches: T::Array[T::Hash[String, T.untyped]], fixed: String)
           .returns(T::Hash[Symbol, T.untyped])
       }
-      def self.affected_entry(formula, vuln_id, patches)
+      def self.affected_entry(formula, vuln_id, patches, fixed)
         {
           package:            {
             ecosystem: ECOSYSTEM,
@@ -145,7 +155,7 @@ module Homebrew
           ranges:             [
             {
               type:   "ECOSYSTEM",
-              events: [{ introduced: "0" }, { fixed: formula.pkg_version.to_s }],
+              events: [{ introduced: "0" }, { fixed: }],
             },
           ],
           ecosystem_specific: {
