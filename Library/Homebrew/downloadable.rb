@@ -14,21 +14,34 @@ module Downloadable
   abstract!
   requires_ancestor { Kernel }
 
-  class << self
-    sig { params(filename: Pathname, checksum: T.nilable(Checksum)).returns(T::Boolean) }
-    def already_verified?(filename, checksum)
-      key = verification_key(filename, checksum)
-      return false if key.nil?
+  # Remembers which files have already been checksum-verified in this process,
+  # so the same unchanged file is not hashed once per download object that
+  # references it.
+  class VerificationCache
+    include Context
+    include Utils::Output::Mixin
 
-      verification_lock.synchronize { verified_downloads.include?(key) }
+    sig { void }
+    def initialize
+      @verified = T.let(Set.new, T::Set[String])
+      @lock = T.let(Mutex.new, Mutex)
     end
 
+    # Verifies the file against the checksum unless this file, in this
+    # state, has already been verified against it in this process.
     sig { params(filename: Pathname, checksum: T.nilable(Checksum)).void }
-    def record_verification(filename, checksum)
-      key = verification_key(filename, checksum)
-      return if key.nil?
+    def verify(filename, checksum)
+      key = key_for(filename, checksum)
 
-      verification_lock.synchronize { verified_downloads.add(key) }
+      if key && @lock.synchronize { @verified.include?(key) }
+        odebug "Skipping checksum verification for '#{filename.basename}' (already verified in this run)"
+        return
+      end
+
+      ohai "Verifying checksum for '#{filename.basename}'" if verbose?
+      filename.verify_checksum(checksum)
+
+      @lock.synchronize { @verified.add(key) } if key
     end
 
     private
@@ -36,7 +49,7 @@ module Downloadable
     # The size and modification time ensure a file downloaded again to the
     # same path (e.g. after `--force` cleared the cache) is verified again.
     sig { params(filename: Pathname, checksum: T.nilable(Checksum)).returns(T.nilable(String)) }
-    def verification_key(filename, checksum)
+    def key_for(filename, checksum)
       return if checksum.nil?
 
       stat = filename.stat
@@ -44,15 +57,12 @@ module Downloadable
     rescue SystemCallError
       nil
     end
+  end
 
-    sig { returns(T::Set[String]) }
-    def verified_downloads
-      @verified_downloads ||= T.let(Set.new, T.nilable(T::Set[String]))
-    end
-
-    sig { returns(Mutex) }
-    def verification_lock
-      @verification_lock ||= T.let(Mutex.new, T.nilable(Mutex))
+  class << self
+    sig { returns(VerificationCache) }
+    def verification_cache
+      @verification_cache ||= T.let(VerificationCache.new, T.nilable(VerificationCache))
     end
   end
 
@@ -223,13 +233,7 @@ module Downloadable
     verifying!
 
     if filename.file?
-      if Downloadable.already_verified?(filename, checksum)
-        odebug "Skipping checksum verification for '#{filename.basename}' (already verified in this run)"
-      else
-        ohai "Verifying checksum for '#{filename.basename}'" if verbose?
-        filename.verify_checksum(checksum)
-        Downloadable.record_verification(filename, checksum)
-      end
+      Downloadable.verification_cache.verify(filename, checksum)
       verified!
     end
   rescue ChecksumMissingError
