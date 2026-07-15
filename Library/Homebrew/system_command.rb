@@ -456,7 +456,7 @@ class SystemCommand
       sources[0] => :stdout,
       sources[1] => :stderr,
     }
-    readers = {}
+    readers = T.let({}, T::Hash[IO, ReadlineNonblock])
 
     pending_interrupt = T.let(false, T::Boolean)
 
