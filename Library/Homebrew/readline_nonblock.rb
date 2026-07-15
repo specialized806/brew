@@ -3,7 +3,7 @@
 
 # An {IO} wrapper class that allows performing non-blocking line reads on the
 # provided instance. It is undefined behaviour to run this with other modifying
-# {IO} operations, e.g. {IO#read} or #{IO#seek}, on the same instance.
+# {IO} operations, e.g. {IO#read} or {IO#seek}, on the same instance.
 class ReadlineNonblock
   BUFFER_SIZE = 4096
   private_constant :BUFFER_SIZE
@@ -16,8 +16,8 @@ class ReadlineNonblock
   end
 
   # Reads and returns a line ending with `"\n"` or remaining text before EOF.
-  # Non-blocking reads should return similar output as `io.readline("\n")` while
-  # blocking reads raise {IO::WaitReadable}.
+  # Non-blocking reads should return similar output as {IO#readline} with `"\n"`,
+  # while reads that would block raise {IO::WaitReadable}.
   #
   # Note that this method does not support the global line separator `$/`.
   # Also it does not modify `$_`.
