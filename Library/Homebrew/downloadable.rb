@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "concurrent/set"
 require "url"
 require "checksum"
 require "download_strategy"
@@ -23,8 +24,7 @@ module Downloadable
 
     sig { void }
     def initialize
-      @verified = T.let(Set.new, T::Set[String])
-      @lock = T.let(Mutex.new, Mutex)
+      @verified = T.let(Concurrent::Set.new, Concurrent::Set)
     end
 
     # Verifies the file against the checksum unless this file, in this
@@ -33,7 +33,7 @@ module Downloadable
     def verify(filename, checksum)
       key = key_for(filename, checksum)
 
-      if key && @lock.synchronize { @verified.include?(key) }
+      if key && @verified.include?(key)
         odebug "Skipping checksum verification for '#{filename.basename}' (already verified in this run)"
         return
       end
@@ -41,7 +41,7 @@ module Downloadable
       ohai "Verifying checksum for '#{filename.basename}'" if verbose?
       filename.verify_checksum(checksum)
 
-      @lock.synchronize { @verified.add(key) } if key
+      @verified.add(key) if key
     end
 
     private
