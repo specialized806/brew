@@ -1,6 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
+# An {IO} wrapper class that allows performing non-blocking line reads on the
+# provided instance. It is undefined behaviour to run this with other modifying
+# {IO} operations, e.g. {IO#read} or #{IO#seek}, on the same instance.
 class ReadlineNonblock
   BUFFER_SIZE = 4096
   private_constant :BUFFER_SIZE
@@ -12,19 +15,29 @@ class ReadlineNonblock
     @line = T.let(+"", String)
   end
 
+  # Reads and returns a line ending with `"\n"` or remaining text before EOF.
+  # Non-blocking reads should return similar output as `io.readline("\n")` while
+  # blocking reads raise {IO::WaitReadable}.
+  #
+  # Note that this method does not support the global line separator `$/`.
+  # Also it does not modify `$_`.
+  #
+  # @return the next line
+  # @raise [IO::WaitReadable] if read would block
+  # @raise [EOFError] on EOF
   sig { returns(String) }
   def read
     begin
-      index = T.let(nil, T.nilable(Integer))
       loop do
-        index = @buffer.index($INPUT_RECORD_SEPARATOR)
-        break unless index.nil?
+        if (index = @buffer.index("\n"))
+          @line.concat(@buffer.slice!(0..index).to_s)
+          break
+        end
 
         @line.concat(@buffer)
         @buffer.clear
         @io.read_nonblock(BUFFER_SIZE, @buffer)
       end
-      @line.concat(@buffer.slice!(0..index).to_s)
     rescue EOFError
       raise if @line.empty?
     end

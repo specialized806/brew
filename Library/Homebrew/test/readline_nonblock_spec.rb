@@ -41,6 +41,7 @@ RSpec.describe ReadlineNonblock do
           end
         end
         expect(lines).to eq(File.readlines(tmpdir/"test.txt"))
+        expect(lines).to eq ["First line\n", "Second line\n", "\n", "Fourth line\n", "Fifth line"]
       end
     end
 
