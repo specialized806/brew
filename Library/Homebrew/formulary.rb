@@ -269,6 +269,10 @@ module Formulary
               elsif (patch_file = patch_hash.fetch("file", patch_hash[:file]))
                 file patch_file
               end
+
+              if (patch_resolves = patch_hash.fetch("resolves", patch_hash[:resolves]))
+                resolves(*patch_resolves.map { |resolved| resolved.fetch("id", resolved[:id]) })
+              end
             end
           end
 
