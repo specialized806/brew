@@ -128,6 +128,259 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
     CASK
   end
 
+  it "autocorrects fixed keychain certificate deletion flight blocks" do
+    expect_offense <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight do
+        ^^^^^^^^^^^^ Use `preflight_steps` for simple file preparation.
+          stdout, * = system_command "/usr/bin/security",
+                                     args: ["find-certificate", "-a", "-c", "Charles", "-Z"],
+                                     sudo: true
+          hashes = stdout.lines.grep(/^SHA-256 hash:/) { |l| l.split(":").second.strip }
+          hashes.each do |h|
+            system_command "/usr/bin/security",
+                           args: ["delete-certificate", "-Z", h],
+                           sudo: true
+          end
+        end
+
+        postflight do
+        ^^^^^^^^^^^^^ Use `postflight_steps` for simple file preparation.
+          ["AutoFirma ROOT", "127.0.0.1"].each do |cert_name|
+            stdout, * = system_command "/usr/bin/security",
+                                       args: ["find-certificate", "-a", "-c", cert_name, "-Z"],
+                                       sudo: true
+            hashes = stdout.lines.grep(/^SHA-256 hash:/) { |l| l.split(":").second.strip }
+            hashes.each do |h|
+              system_command "/usr/bin/security",
+                             args: ["delete-certificate", "-Z", h],
+                             sudo: true
+            end
+          end
+        end
+
+        uninstall_postflight do
+        ^^^^^^^^^^^^^^^^^^^^^^^ Use `uninstall_postflight_steps` for simple file preparation.
+          cert = Pathname("~/Library/Application Support/betwixt/ssl/certs/ca.pem").expand_path
+          next unless cert.exist?
+
+          stdout, * = system_command "/usr/bin/openssl",
+                                     args: ["x509", "-fingerprint", "-sha256", "-noout", "-in", cert]
+          hash = stdout.lines.first.split("=").second.delete(":").strip
+          stdout, * = system_command "/usr/bin/security",
+                                     args: ["find-certificate", "-a", "-c", "NodeMITMProxyCA", "-Z"],
+                                     sudo: true
+          hashes = stdout.lines.grep(/^SHA-256 hash:/) { |l| l.split(":").second.strip }
+          if hashes.include?(hash)
+            system_command "/usr/bin/security",
+                           args: ["delete-certificate", "-Z", hash],
+                           sudo: true
+          end
+        end
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          delete_keychain_certificate "Charles"
+        end
+
+        postflight_steps do
+          delete_keychain_certificate "AutoFirma ROOT"
+          delete_keychain_certificate "127.0.0.1"
+        end
+
+        uninstall_postflight_steps do
+          delete_keychain_certificate "NodeMITMProxyCA",
+                                      matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"
+        end
+      end
+    CASK
+  end
+
+  it "does not autocorrect altered or mixed keychain deletion blocks" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        uninstall_postflight do
+          stdout, * = system_command "/usr/local/bin/security",
+                                     args: ["find-certificate", "-a", "-c", "Charles", "-Z"],
+                                     sudo: true
+          hashes = stdout.lines.grep(/^SHA-256 hash:/) { |l| l.split(":").second.strip }
+          hashes.each do |h|
+            system_command "/usr/local/bin/security",
+                           args: ["delete-certificate", "-Z", h],
+                           sudo: true
+          end
+        end
+      end
+    CASK
+
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        uninstall_postflight do
+          stdout, * = system_command "/usr/bin/security",
+                                     args: ["find-certificate", "-a", "-c", "Charles", "-Z", "login.keychain"],
+                                     sudo: true
+          hashes = stdout.lines.grep(/^SHA-256 hash:/) { |l| l.split(":").second.strip }
+          hashes.each do |h|
+            system_command "/usr/bin/security",
+                           args: ["delete-certificate", "-Z", h],
+                           sudo: true
+          end
+        end
+      end
+    CASK
+
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        uninstall_postflight do
+          stdout, * = system_command "/usr/bin/security",
+                                     args: ["find-certificate", "-a", "-c", "Charles", "-Z"],
+                                     sudo: true
+          hashes = stdout.lines.grep(/^SHA-256 hash:/) { |l| l.split(":").second.strip }
+          hashes.each do |h|
+            system_command "/usr/bin/security",
+                           args: ["delete-certificate", "-Z", h],
+                           sudo: true
+          end
+          system_command "/usr/bin/true"
+        end
+      end
+    CASK
+  end
+
+  it "does not re-report declarative keychain, permission or ownership steps" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        uninstall_postflight_steps do
+          delete_keychain_certificate "Charles"
+          set_permissions "Foo.app", "0755"
+          set_ownership "Foo.app", user: "root", group: "wheel"
+        end
+      end
+    CASK
+  end
+
+  it "autocorrects pure permission and ownership flight blocks" do
+    expect_offense <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight do
+        ^^^^^^^^^^^^ Use `preflight_steps` for simple file preparation.
+          set_permissions "#{staged_path}/Foo.app", "0755"
+        end
+
+        postflight do
+        ^^^^^^^^^^^^^ Use `postflight_steps` for simple file preparation.
+          set_permissions "#{appdir}/Foo.app", "0555"
+          set_ownership "#{HOMEBREW_PREFIX}/foo"
+        end
+
+        uninstall_preflight do
+        ^^^^^^^^^^^^^^^^^^^^^^ Use `uninstall_preflight_steps` for simple file preparation.
+          set_ownership ["/usr/local/include", "/usr/local/lib"], user: "root", group: "wheel"
+        end
+
+        uninstall_postflight do
+        ^^^^^^^^^^^^^^^^^^^^^^^ Use `uninstall_postflight_steps` for simple file preparation.
+          set_ownership staged_path.to_s
+        end
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          set_permissions "Foo.app", "0755"
+        end
+
+        postflight_steps do
+          set_permissions "Foo.app", "0555", base: :appdir
+          set_ownership "foo", base: :homebrew_prefix
+        end
+
+        uninstall_preflight_steps do
+          set_ownership ["/usr/local/include", "/usr/local/lib"], user: "root", group: "wheel"
+        end
+
+        uninstall_postflight_steps do
+          set_ownership "."
+        end
+      end
+    CASK
+  end
+
+  it "does not autocorrect dynamic, unsupported or mixed permission work" do
+    expect_no_offenses <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          set_ownership "#{staged_path}/foo-#{arch}"
+        end
+      end
+    CASK
+
+    expect_no_offenses <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          set_permissions "#{staged_path}/Foo.app", "0755", recursive: false
+        end
+      end
+    CASK
+
+    expect_no_offenses <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          set_ownership ["#{staged_path}/Foo.app", "#{appdir}/Foo.app"]
+        end
+      end
+    CASK
+
+    expect_no_offenses <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight do
+          set_permissions "#{staged_path}/Foo.app", "0755"
+          system_command "/usr/bin/true"
+        end
+      end
+    CASK
+  end
+
   it "does not autocorrect config writes without trailing newlines" do
     expect_no_offenses <<~CASK
       cask "foo" do

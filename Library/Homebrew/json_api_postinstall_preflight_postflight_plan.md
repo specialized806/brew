@@ -378,7 +378,7 @@ is stripped during metadata serialisation.
     `{{appdir}}`-content flight writes all target a `shimscript` local that is
     also wired to a `binary` stanza, and the literal-path LibreOffice packs
     interpolate an unsupported language `token` and run `system_command`.
-- [x] PR 6, database and service data directory initialisation.
+- [x] PR 6.1, database and service data directory initialisation.
   Commit: `Add install step data directories`.
   Estimated existing formulae/casks affected: about `19` formulae initialise
   service data directories.
@@ -414,7 +414,16 @@ is stripped during metadata serialisation.
   `./bin/brew style homebrew/core`, targeted `./bin/brew audit --strict
   --online --formula ...` for the changed formulae and `./bin/brew readall
   homebrew/core`.
-- [x] PR 7, certificate and trust store actions.
+- [x] PR 6.2, database and link enforcement.
+  Commit: `Add install step enforcement cops`.
+  Scope: the formula install-step cop conservatively autocorrects recognised
+  PostgreSQL, MySQL and MariaDB bootstrap statements to `init_data_dir`, and
+  recognised PostgreSQL link maintenance to `link_dir` or `link_children`.
+  Partial conversions preserve existing `post_install_steps` ordering and
+  leave unsupported warning or maintenance work in `post_install`. Matching
+  Percona bootstrap hooks remain unchanged because they were not part of the
+  recorded MySQL formula conversion.
+- [x] PR 7.1, certificate and trust store actions.
   Commit: `Add install step keychain cleanup`.
   Estimated existing formulae/casks affected: about `17` formulae update
   certificate/trust state and `8` cask flight blocks invoke
@@ -427,7 +436,15 @@ is stripped during metadata serialisation.
   `source_base: :formula_pkgetc`; specialised trust store generation such as
   `ca-certificates` bundle regeneration and Mono `cert-sync` stays legacy Ruby
   because current repeated usage is below the named-variant threshold.
-- [x] PR 8, cask permission and ownership actions.
+- [x] PR 7.2, certificate and keychain enforcement.
+  Commit: `Add install step enforcement cops`.
+  Scope: the cask install-step cop converts fixed `/usr/bin/security`
+  certificate deletion flights to `delete_keychain_certificate`. The formula
+  cop converts the three direct `pkgetc` certificate bundle replacements to
+  forced `symlink` steps using `source_formula` and
+  `source_base: :formula_pkgetc`. Dynamic paths, altered commands and
+  specialised certificate generation remain unsupported.
+- [x] PR 8.1, cask permission and ownership actions.
   Commit: `Add cask permission steps`.
   Estimated existing casks affected: about `21` casks change permissions and
   `36` change ownership.
@@ -445,6 +462,11 @@ is stripped during metadata serialisation.
   `Casks/h/hummingbird.rb`, `Casks/m/mplabx-ide.rb` and
   `Casks/p/proxy-audio-device.rb`; they depend on unsupported local variables,
   architecture data or additional `system_command` work.
+- [x] PR 8.2, permission and ownership enforcement.
+  Commit: `Add install step enforcement cops`.
+  Scope: the cask install-step cop converts pure legacy flight blocks using
+  `set_permissions` and `set_ownership` to matching `*_steps` blocks. Mixed
+  flights, dynamic paths and unsupported arguments remain unchanged.
 - [ ] PR 9, cask language variations in API data.
   Estimated existing casks affected: `27` casks use language blocks, with large
   examples including `Casks/f/firefox.rb`,

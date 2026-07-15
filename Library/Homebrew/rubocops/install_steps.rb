@@ -17,6 +17,62 @@ module RuboCop
         # CONFLICT_MSG = "`post_install` and `post_install_steps` cannot both be used."
         POST_INSTALL_STEPS_ORDER_MSG = "`post_install_steps` must appear before `post_install` to match run order."
         REDUNDANT_SERVICE_PATH_DIRS_MSG = "`%<block>s` only creates directories created by `brew services`."
+        CERTIFICATE_REMOVE_SOURCE = 'rm(pkgetc/"cert.pem") if (pkgetc/"cert.pem").exist?'
+        CERTIFICATE_INSTALL_SYMLINK_SOURCE =
+          'pkgetc.install_symlink Formula["ca-certificates"].pkgetc/"cert.pem"'
+        GITHUB_ACTIONS_GUARD_SOURCE = "return if ENV[\"HOMEBREW_GITHUB_ACTIONS\"]"
+        MYSQL_FORMULA_CLASS_REGEX = /\AMysql(?:AT\d+)?\z/
+        MYSQL_DATADIR_METHOD_SOURCE = "def datadir var/\"mysql\" end"
+        MYSQL_INITIALISE_SOURCE = T.let(
+          <<~'RUBY'.gsub(/\s+/, " ").strip.freeze,
+            unless (datadir/"mysql/general_log.CSM").exist?
+              ENV["TMPDIR"] = nil
+              system bin/"mysqld", "--initialize-insecure", "--user=#{ENV["USER"]}",
+                                   "--basedir=#{prefix}", "--datadir=#{datadir}", "--tmpdir=/tmp"
+            end
+          RUBY
+          String,
+        )
+        MARIADB_INITIALISE_SOURCE = T.let(
+          <<~'RUBY'.gsub(/\s+/, " ").strip.freeze,
+            unless File.exist? "#{var}/mysql/mysql/user.frm"
+              ENV["TMPDIR"] = nil
+              system bin/"mysql_install_db", "--verbose", "--user=#{ENV["USER"]}",
+                "--basedir=#{prefix}", "--datadir=#{var}/mysql", "--tmpdir=/tmp"
+            end
+          RUBY
+          String,
+        )
+        POSTGRESQL_DATADIR_METHOD_SOURCE = "def postgresql_datadir var/name end"
+        POSTGRESQL_MARKER_METHOD_SOURCE = "def pg_version_exists? (postgresql_datadir/\"PG_VERSION\").exist? end"
+        POSTGRESQL_INIT_SOURCE_REGEX = Regexp.new(
+          '\Asystem bin/"initdb", "--locale=(C|en_US\\.UTF-8)", "-E", "UTF-8", ' \
+          'postgresql_datadir unless pg_version_exists\\?\\z',
+        ).freeze
+        POSTGRESQL_LINK_DIR_SOURCE = T.let(
+          <<~RUBY.gsub(/\s+/, " ").strip.freeze,
+            %w[include lib share].each do |dir|
+              dst_dir = HOMEBREW_PREFIX/dir/name
+              src_dir = prefix/dir/"postgresql"
+              src_dir.find do |src|
+                dst = dst_dir/src.relative_path_from(src_dir)
+                next if dst.directory? && !dst.symlink? && src.directory? && !src.symlink?
+
+                rm_r(dst) if dst.exist? || dst.symlink?
+                if src.symlink? || src.file?
+                  Find.prune if src.basename.to_s == ".DS_Store"
+                  dst.parent.install_symlink src
+                elsif src.directory?
+                  dst.mkpath
+                end
+              end
+            end
+          RUBY
+          String,
+        )
+        POSTGRESQL_LINK_CHILDREN_SOURCE =
+          "bin.each_child { |f| (HOMEBREW_PREFIX/\"bin\").install_symlink " \
+          "f => \"\#{f.basename}-\#{version.major}\" }"
 
         sig { override.params(formula_nodes: FormulaNodes).void }
         def audit_formula(formula_nodes)
@@ -41,7 +97,10 @@ module RuboCop
                                    redundant_service_path_dirs_block?(post_install_method, service_path_dirs,
                                                                       :post_install)
           add_redundant_service_path_dirs_offense(post_install_method, service_path_dirs, :post_install)
-          audit_post_install_method(post_install_method) if post_install_steps_block.nil? && !redundant_post_install
+          return if redundant_post_install
+
+          audit_post_install_method(post_install_method, post_install_steps_block,
+                                    body_node, formula_nodes.class_node.const_name)
         end
 
         private
@@ -68,12 +127,39 @@ module RuboCop
           problem STEP_BLOCK_MSG
         end
 
-        sig { params(post_install_method: T.nilable(RuboCop::AST::Node)).void }
-        def audit_post_install_method(post_install_method)
+        sig {
+          params(
+            post_install_method:      T.nilable(RuboCop::AST::Node),
+            post_install_steps_block: T.nilable(RuboCop::AST::BlockNode),
+            formula_body:             RuboCop::AST::Node,
+            formula_class:            String,
+          ).void
+        }
+        def audit_post_install_method(post_install_method, post_install_steps_block, formula_body, formula_class)
           return if post_install_method.nil?
           return unless post_install_method.def_type?
 
           post_install_def = T.cast(post_install_method, RuboCop::AST::DefNode)
+          return if post_install_steps_block && post_install_steps_block.loc.line > post_install_def.loc.line
+
+          step_nodes = T.let({}, T::Hash[RuboCop::AST::Node, T::Array[String]])
+          removable_methods = T.let([], T::Array[RuboCop::AST::Node])
+          direct_nodes = direct_install_step_nodes(post_install_def.body)
+          add_postgresql_step_nodes(direct_nodes, formula_body, step_nodes, removable_methods)
+          if formula_class.match?(MYSQL_FORMULA_CLASS_REGEX)
+            add_mysql_step_nodes(direct_nodes, formula_body, step_nodes)
+          end
+          add_mariadb_step_nodes(direct_nodes, step_nodes)
+          add_postgresql_link_step_nodes(direct_nodes, step_nodes)
+          add_certificate_symlink_step_nodes(direct_nodes, step_nodes)
+          unless step_nodes.empty?
+            add_formula_step_conversion_offense(post_install_def, post_install_steps_block, direct_nodes, step_nodes,
+                                                removable_methods)
+            return
+          end
+
+          return if post_install_steps_block
+
           step_lines = simple_install_step_lines(post_install_def.body,
                                                  default_base:        :var,
                                                  default_source_base: :prefix,
@@ -87,6 +173,219 @@ module RuboCop
               install_steps_block_source(:post_install_steps, step_lines, post_install_method.source_range.column),
             )
           end
+        end
+
+        sig {
+          params(
+            direct_nodes:      T::Array[RuboCop::AST::Node],
+            formula_body:      RuboCop::AST::Node,
+            step_nodes:        T::Hash[RuboCop::AST::Node, T::Array[String]],
+            removable_methods: T::Array[RuboCop::AST::Node],
+          ).void
+        }
+        def add_postgresql_step_nodes(direct_nodes, formula_body, step_nodes, removable_methods)
+          log_node = direct_nodes.find { |node| normalised_install_step_source(node) == '(var/"log").mkpath' }
+          datadir_node = direct_nodes.find do |node|
+            normalised_install_step_source(node) == "postgresql_datadir.mkpath"
+          end
+          guard_node = direct_nodes.find do |node|
+            normalised_install_step_source(node) == GITHUB_ACTIONS_GUARD_SOURCE
+          end
+          init_node = direct_nodes.find do |node|
+            normalised_install_step_source(node).match?(POSTGRESQL_INIT_SOURCE_REGEX)
+          end
+          return if log_node.nil? || datadir_node.nil? || guard_node.nil? || init_node.nil?
+          return unless nodes_in_source_order?([log_node, datadir_node, guard_node, init_node])
+
+          datadir_method = find_method_def(formula_body, :postgresql_datadir)
+          marker_method = find_method_def(formula_body, :pg_version_exists?)
+          return if datadir_method.nil? || marker_method.nil?
+          return if normalised_install_step_source(datadir_method) != POSTGRESQL_DATADIR_METHOD_SOURCE
+          return if normalised_install_step_source(marker_method) != POSTGRESQL_MARKER_METHOD_SOURCE
+
+          match = normalised_install_step_source(init_node).match(POSTGRESQL_INIT_SOURCE_REGEX)
+          return if match.nil?
+
+          locale = match[1]
+          step_nodes[log_node] = ["mkdir_p \"log\""]
+          step_nodes[datadir_node] = []
+          step_nodes[guard_node] = []
+          init_step_line = "init_data_dir name, using: :postgresql_initdb"
+          init_step_line += ', locale: "C"' if locale == "C"
+          step_nodes[init_node] = [init_step_line]
+          pg_version_calls = formula_body.each_descendant(:send).count do |node|
+            T.cast(node, RuboCop::AST::SendNode).method_name == :pg_version_exists?
+          end
+          removable_methods << marker_method if pg_version_calls == 1
+        end
+
+        sig {
+          params(
+            direct_nodes: T::Array[RuboCop::AST::Node],
+            formula_body: RuboCop::AST::Node,
+            step_nodes:   T::Hash[RuboCop::AST::Node, T::Array[String]],
+          ).void
+        }
+        def add_mysql_step_nodes(direct_nodes, formula_body, step_nodes)
+          datadir_method = find_method_def(formula_body, :datadir)
+          return if datadir_method.nil?
+          return if normalised_install_step_source(datadir_method) != MYSQL_DATADIR_METHOD_SOURCE
+
+          add_mysql_data_step_nodes(direct_nodes, step_nodes, MYSQL_INITIALISE_SOURCE, :mysql_initialize)
+        end
+
+        sig {
+          params(
+            direct_nodes: T::Array[RuboCop::AST::Node],
+            step_nodes:   T::Hash[RuboCop::AST::Node, T::Array[String]],
+          ).void
+        }
+        def add_mariadb_step_nodes(direct_nodes, step_nodes)
+          add_mysql_data_step_nodes(direct_nodes, step_nodes, MARIADB_INITIALISE_SOURCE, :mariadb_install_db)
+        end
+
+        sig {
+          params(
+            direct_nodes:      T::Array[RuboCop::AST::Node],
+            step_nodes:        T::Hash[RuboCop::AST::Node, T::Array[String]],
+            initialise_source: String,
+            using:             Symbol,
+          ).void
+        }
+        def add_mysql_data_step_nodes(direct_nodes, step_nodes, initialise_source, using)
+          datadir_node = direct_nodes.find { |node| normalised_install_step_source(node) == '(var/"mysql").mkpath' }
+          guard_node = direct_nodes.find do |node|
+            normalised_install_step_source(node) == GITHUB_ACTIONS_GUARD_SOURCE
+          end
+          init_node = direct_nodes.find do |node|
+            normalised_install_step_source(node) == initialise_source
+          end
+          return if datadir_node.nil? || guard_node.nil? || init_node.nil?
+          return unless nodes_in_source_order?([datadir_node, guard_node, init_node])
+
+          step_nodes[datadir_node] = []
+          step_nodes[guard_node] = []
+          step_nodes[init_node] = ["init_data_dir \"mysql\", using: :#{using}"]
+        end
+
+        sig {
+          params(
+            direct_nodes: T::Array[RuboCop::AST::Node],
+            step_nodes:   T::Hash[RuboCop::AST::Node, T::Array[String]],
+          ).void
+        }
+        def add_postgresql_link_step_nodes(direct_nodes, step_nodes)
+          direct_nodes.each do |node|
+            case normalised_install_step_source(node)
+            when POSTGRESQL_LINK_DIR_SOURCE
+              step_nodes[node] = [
+                "link_dir \"include/postgresql\", \"include/\#{name}\"",
+                "link_dir \"lib/postgresql\", \"lib/\#{name}\"",
+                "link_dir \"share/postgresql\", \"share/\#{name}\"",
+              ]
+            when POSTGRESQL_LINK_CHILDREN_SOURCE
+              step_nodes[node] = ["link_children \"bin\", suffix: \"-\#{version.major}\""]
+            end
+          end
+        end
+
+        sig {
+          params(
+            direct_nodes: T::Array[RuboCop::AST::Node],
+            step_nodes:   T::Hash[RuboCop::AST::Node, T::Array[String]],
+          ).void
+        }
+        def add_certificate_symlink_step_nodes(direct_nodes, step_nodes)
+          (0...(direct_nodes.length - 1)).each do |index|
+            remove_node = direct_nodes.fetch(index)
+            symlink_node = direct_nodes.fetch(index + 1)
+            next if normalised_install_step_source(remove_node) != CERTIFICATE_REMOVE_SOURCE
+            next if normalised_install_step_source(symlink_node) != CERTIFICATE_INSTALL_SYMLINK_SOURCE
+
+            step_nodes[remove_node] = []
+            step_nodes[symlink_node] = [<<~RUBY.chomp]
+              symlink "cert.pem", "cert.pem",
+                      source_formula: "ca-certificates",
+                      source_base: :formula_pkgetc,
+                      target_base: :pkgetc,
+                      force: true
+            RUBY
+          end
+        end
+
+        sig { params(nodes: T::Array[RuboCop::AST::Node]).returns(T::Boolean) }
+        def nodes_in_source_order?(nodes)
+          nodes.each_index.all? do |index|
+            index.zero? || nodes.fetch(index - 1).source_range.begin_pos < nodes.fetch(index).source_range.begin_pos
+          end
+        end
+
+        sig {
+          params(
+            post_install_def:         RuboCop::AST::DefNode,
+            post_install_steps_block: T.nilable(RuboCop::AST::BlockNode),
+            direct_nodes:             T::Array[RuboCop::AST::Node],
+            step_nodes:               T::Hash[RuboCop::AST::Node, T::Array[String]],
+            removable_methods:        T::Array[RuboCop::AST::Node],
+          ).void
+        }
+        def add_formula_step_conversion_offense(post_install_def, post_install_steps_block, direct_nodes, step_nodes,
+                                                removable_methods)
+          step_lines = step_nodes.sort_by { |node, _| node.source_range.begin_pos }.flat_map(&:last)
+          remaining_nodes = direct_nodes.reject { |node| step_nodes.key?(node) }
+          add_offense(post_install_def,
+                      message: format(SIMPLE_STEP_CONVERSION_MSG, steps_block: "post_install_steps")) do |corrector|
+            if post_install_steps_block
+              append_install_step_lines(corrector, post_install_steps_block, step_lines)
+            elsif remaining_nodes.empty?
+              corrector.replace(
+                post_install_def.source_range,
+                install_steps_block_source(:post_install_steps, step_lines, post_install_def.source_range.column),
+              )
+            else
+              corrector.insert_before(
+                post_install_def.source_range,
+                "#{install_steps_block_source(:post_install_steps, step_lines,
+                                              post_install_def.source_range.column)}\n\n" \
+                "#{" " * post_install_def.source_range.column}",
+              )
+            end
+
+            if post_install_steps_block || remaining_nodes.present?
+              matched_install_step_node_groups(direct_nodes, step_nodes).each do |nodes|
+                corrector.remove(range_for_install_step_node_group(nodes))
+              end
+              if remaining_nodes.empty?
+                corrector.remove(range_with_surrounding_space(range: post_install_def.source_range, side: :left))
+              end
+            end
+            removable_methods.each do |method|
+              corrector.remove(range_with_surrounding_space(range: method.source_range, side: :left))
+            end
+          end
+        end
+
+        sig {
+          params(
+            direct_nodes: T::Array[RuboCop::AST::Node],
+            step_nodes:   T::Hash[RuboCop::AST::Node, T::Array[String]],
+          ).returns(T::Array[T::Array[RuboCop::AST::Node]])
+        }
+        def matched_install_step_node_groups(direct_nodes, step_nodes)
+          direct_nodes.chunk_while { |left, right| step_nodes.key?(left) && step_nodes.key?(right) }
+                      .select { |nodes| step_nodes.key?(nodes.fetch(0)) }
+        end
+
+        sig { params(nodes: T::Array[RuboCop::AST::Node]).returns(::Parser::Source::Range) }
+        def range_for_install_step_node_group(nodes)
+          first_range = range_by_whole_lines(nodes.fetch(0).source_range)
+          last_range = range_by_whole_lines(nodes.fetch(-1).source_range, include_final_newline: true)
+          range = ::Parser::Source::Range.new(processed_source.buffer, first_range.begin_pos, last_range.end_pos)
+          prefix = processed_source.buffer.source[...range.begin_pos]
+          preceding_blank_lines = prefix[/\n(?:[ \t]*\n)+\z/].to_s.length
+          preceding_blank_lines -= 1 if preceding_blank_lines.positive?
+          blank_lines = processed_source.buffer.source[range.end_pos..].to_s[/\A(?:[ \t]*\n)*/].to_s
+          range.adjust(begin_pos: -preceding_blank_lines, end_pos: blank_lines.length)
         end
 
         sig {
