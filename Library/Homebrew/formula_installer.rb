@@ -556,9 +556,7 @@ class FormulaInstaller
     lock
 
     start_time = Time.now
-    if pour_bottle?
-      check_developer_tools_for_bottle_pour
-    else
+    unless pour_bottle?
       require "install"
       Homebrew::Install.perform_build_from_source_checks
     end
@@ -1648,9 +1646,6 @@ on_request: installed_on_request?, options:)
     opoo output
     @show_summary_heading = true
   end
-
-  sig { void }
-  def check_developer_tools_for_bottle_pour; end
 
   sig { void }
   def audit_installed
