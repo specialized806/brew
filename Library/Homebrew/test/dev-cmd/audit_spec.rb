@@ -51,9 +51,14 @@ RSpec.describe Homebrew::DevCmd::Audit do
       allow(Tap).to receive(:installed).and_return([])
     end
 
-    it "skips macOS-only casks when loading tap casks on Linux" do
+    it "audits Linux-supporting casks and skips macOS-only ones on Linux" do
+      problems = a_string_matching(
+        /\A(?=.*linux-example)(?=.*a sha256 stanza is required)(?!.*macos-only-example).*\z/m,
+      )
+
       Homebrew::SimulateSystem.with(os: :linux) do
-        expect { audit.run }.to raise_error(Cask::CaskInvalidError, /linux-example.*invalid 'sha256'/)
+        expect { audit.run }.to output(problems).to_stdout
+                                                .and output(/1 problem in 1 cask detected/).to_stderr
       end
     end
   end

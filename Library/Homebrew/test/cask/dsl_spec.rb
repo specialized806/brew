@@ -153,6 +153,58 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         end
       end
     end
+
+    context "with checksums for only one OS" do
+      it "has no checksum on macOS when only Linux checksums are set" do
+        Homebrew::SimulateSystem.with(os: :macos, arch: :arm) do
+          cask = Cask::Cask.new("checksum-cask") do
+            sha256 x86_64_linux: "imasha2intellinux", arm64_linux: "imasha2armlinux"
+          end
+
+          expect(cask.sha256).to be_nil
+        end
+      end
+
+      it "stores the matching checksum on Linux" do
+        Homebrew::SimulateSystem.with(os: :linux, arch: :intel) do
+          cask = Cask::Cask.new("checksum-cask") do
+            sha256 x86_64_linux: "imasha2intellinux", arm64_linux: "imasha2armlinux"
+          end
+
+          expect(cask.sha256).to eq("imasha2intellinux")
+        end
+      end
+
+      it "has no checksum on Linux when only macOS checksums are set" do
+        Homebrew::SimulateSystem.with(os: :linux, arch: :arm) do
+          cask = Cask::Cask.new("checksum-cask") do
+            sha256 arm: "imasha2arm", intel: "imasha2intel"
+          end
+
+          expect(cask.sha256).to be_nil
+        end
+      end
+
+      it "raises when the running-architecture macOS checksum is missing" do
+        Homebrew::SimulateSystem.with(os: :macos, arch: :intel) do
+          expect do
+            Cask::Cask.new("checksum-cask") do
+              sha256 arm: "imasha2arm", arm64_linux: "imasha2armlinux"
+            end
+          end.to raise_error(Cask::CaskInvalidError, /invalid 'sha256' value/)
+        end
+      end
+
+      it "raises when the running-architecture Linux checksum is missing" do
+        Homebrew::SimulateSystem.with(os: :linux, arch: :intel) do
+          expect do
+            Cask::Cask.new("checksum-cask") do
+              sha256 arm64_linux: "imasha2armlinux", intel: "imasha2intel"
+            end
+          end.to raise_error(Cask::CaskInvalidError, /invalid 'sha256' value/)
+        end
+      end
+    end
   end
 
   describe "no_autobump! stanze" do
