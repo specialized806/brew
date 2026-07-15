@@ -44,6 +44,11 @@ module OS
             ::Hardware::CPU.sysctl_bool!("sysctl.proc_translated")
           end
 
+          sig { returns(T::Boolean) }
+          def rosetta_installed?
+            File.exist?(::Hardware::CPU::ROSETTA_RUNTIME_PATH)
+          end
+
           sig { returns(T::Array[Symbol]) }
           def features
             @features ||= T.let(::Hardware::CPU.sysctl_n(
