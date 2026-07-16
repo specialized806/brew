@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "open3"
+
 RSpec.describe Cask::Quarantine do
   let(:klass) { described_class }
 
@@ -120,21 +122,21 @@ RSpec.describe Cask::Quarantine do
       end
     end
 
-    it "uses FFI through brew ruby when the destination needs sudo" do
+    it "uses FFI through vendored Ruby when the destination needs sudo" do
       require "os/mac/ffi"
 
       source = Pathname("/tmp/Source.app")
       destination = Pathname("/tmp/Destination.app")
       command = class_double(SystemCommand)
+      ruby, *args = HOMEBREW_RUBY_EXEC_ARGS
 
       allow(destination).to receive(:writable?).and_return(false)
       expect(command).to receive(:run!).with(
-        HOMEBREW_BREW_FILE,
-        args: [
-          "ruby",
-          "--",
-          "-e",
-          OS::Mac::Cask::Quarantine::COPY_XATTRS_RUBY,
+        ruby,
+        args: args + [
+          "-I",
+          $LOAD_PATH.join(File::PATH_SEPARATOR),
+          OS::Mac::Cask::Quarantine::COPY_XATTRS_SCRIPT,
           source,
           destination,
         ],
@@ -143,6 +145,29 @@ RSpec.describe Cask::Quarantine do
 
       with_env(HOMEBREW_DEVELOPER: nil) do
         klass.copy_xattrs(source, destination, command:)
+      end
+    end
+
+    it "copies extended attributes when run as a standalone script" do
+      require "os/mac/ffi"
+
+      mktmpdir do |tmpdir|
+        source = tmpdir/"source"
+        destination = tmpdir/"destination"
+        source.write("source")
+        destination.write("destination")
+        MacOS::FFI.set_xattr(source.to_s, "com.homebrew.test.source", "source")
+
+        _, stderr, status = Open3.capture3(
+          *HOMEBREW_RUBY_EXEC_ARGS,
+          "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
+          OS::Mac::Cask::Quarantine::COPY_XATTRS_SCRIPT.to_s,
+          source.to_s,
+          destination.to_s
+        )
+
+        expect(status).to be_success, stderr
+        expect(MacOS::FFI.get_xattr(destination.to_s, "com.homebrew.test.source")).to eq("source")
       end
     end
   end

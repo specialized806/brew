@@ -7,7 +7,7 @@ module OS
   module Mac
     module Cask
       module Quarantine
-        COPY_XATTRS_RUBY = "require \"os/mac/ffi\"; MacOS::FFI.copy_xattrs(ARGV.fetch(0), ARGV.fetch(1))"
+        COPY_XATTRS_SCRIPT = T.let((HOMEBREW_LIBRARY_PATH/"cask/utils/copy_xattrs.rb").freeze, ::Pathname)
 
         module ClassMethods
           extend T::Helpers
@@ -109,13 +109,13 @@ module OS
               return
             end
 
+            ruby, *args = HOMEBREW_RUBY_EXEC_ARGS
             command.run!(
-              HOMEBREW_BREW_FILE,
-              args: [
-                "ruby",
-                "--",
-                "-e",
-                COPY_XATTRS_RUBY,
+              ruby,
+              args: args + [
+                "-I",
+                $LOAD_PATH.join(File::PATH_SEPARATOR),
+                COPY_XATTRS_SCRIPT,
                 from,
                 to,
               ],
