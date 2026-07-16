@@ -8,7 +8,27 @@ module Homebrew
     # Derives OSV.dev query keys (forge repo URL, release tag) from formula
     # source URLs. Shared between {Scanner} and the advisory-matching pipeline.
     module Identify
-      FORGES = %w[github.com gitlab.com codeberg.org].freeze
+      TWO_SEGMENT_PATH = %r{/([^/]+/[^/]+)}
+      private_constant :TWO_SEGMENT_PATH
+
+      # GitLab supports nested subgroups (e.g. `xorg/lib/libx11`); the path is
+      # bounded by `.git`, the `/-/` route marker, the legacy `/uploads/` and
+      # `/wikis/` routes, or the end of the URL. Host-level `/-/` and `/api/`
+      # routes are rejected via the leading negative lookahead.
+      GITLAB_PATH = %r{/(?!-|api/)([^/]+(?:/[^/]+)+?)(?:\.git)?(?=/-/|/uploads/|/wikis/|/?\z)}
+      private_constant :GITLAB_PATH
+
+      FORGES = T.let(
+        {
+          "github.com"             => TWO_SEGMENT_PATH,
+          "codeberg.org"           => TWO_SEGMENT_PATH,
+          "gitlab.com"             => GITLAB_PATH,
+          "gitlab.gnome.org"       => GITLAB_PATH,
+          "gitlab.freedesktop.org" => GITLAB_PATH,
+          "invent.kde.org"         => GITLAB_PATH,
+        }.freeze,
+        T::Hash[String, Regexp],
+      )
       private_constant :FORGES
 
       TAG_PATTERNS = T.let(
@@ -24,19 +44,22 @@ module Homebrew
       )
       private_constant :TAG_PATTERNS
 
+      WAYBACK_PREFIX = %r{\Ahttps?://web\.archive\.org/web/\d+[a-z_*]*/}
+      private_constant :WAYBACK_PREFIX
+
       sig { params(urls: T.nilable(String)).returns(T.nilable(String)) }
       def self.repo_url(*urls)
         urls.each do |url|
           next if url.nil?
 
-          forge = FORGES.find { |f| url.include?(f) }
-          next if forge.nil?
+          url = url.sub(WAYBACK_PREFIX, "")
+          FORGES.each do |host, path_pattern|
+            match = url.match(%r{\Ahttps?://#{Regexp.escape(host)}#{path_pattern}})
+            next if match.nil?
 
-          match = url.match(%r{https?://#{Regexp.escape(forge)}/([^/]+/[^/]+)})
-          next if match.nil?
-
-          repo_path = T.must(match[1]).sub(/\.git$/, "").sub(%r{/-/.*}, "")
-          return "https://#{forge}/#{repo_path}"
+            repo_path = T.must(match[1]).sub(/\.git$/, "")
+            return "https://#{host}/#{repo_path}"
+          end
         end
         nil
       end

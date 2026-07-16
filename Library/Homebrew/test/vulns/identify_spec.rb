@@ -30,6 +30,63 @@ RSpec.describe Homebrew::Vulns::Identify do
       expect(described_class.repo_url(url)).to eq "https://codeberg.org/owner/repo"
     end
 
+    it "extracts a gitlab.gnome.org repo from an archive URL" do
+      url = "https://gitlab.gnome.org/Archive/pangox-compat/-/archive/0.0.2/pangox-compat-0.0.2.tar.gz"
+      expect(described_class.repo_url(url)).to eq "https://gitlab.gnome.org/Archive/pangox-compat"
+    end
+
+    it "extracts a gitlab.freedesktop.org repo with a nested subgroup path" do
+      url = "https://gitlab.freedesktop.org/xorg/lib/libx11/-/archive/libX11-1.8.7/" \
+            "libx11-libX11-1.8.7.tar.gz"
+      expect(described_class.repo_url(url)).to eq "https://gitlab.freedesktop.org/xorg/lib/libx11"
+    end
+
+    it "extracts a gitlab.freedesktop.org repo from a bare .git URL" do
+      expect(described_class.repo_url("https://gitlab.freedesktop.org/cairo/cairo.git"))
+        .to eq "https://gitlab.freedesktop.org/cairo/cairo"
+    end
+
+    it "extracts an invent.kde.org repo" do
+      expect(described_class.repo_url("https://invent.kde.org/frameworks/karchive.git"))
+        .to eq "https://invent.kde.org/frameworks/karchive"
+    end
+
+    it "extracts a gitlab.com repo with a nested subgroup path" do
+      url = "https://gitlab.com/gitlab-org/security/gitlab/-/archive/v16.0.0/gitlab-v16.0.0.tar.gz"
+      expect(described_class.repo_url(url)).to eq "https://gitlab.com/gitlab-org/security/gitlab"
+    end
+
+    it "extracts a GitLab repo from a legacy /uploads/ URL" do
+      url = "https://gitlab.com/akkuscm/akku/uploads/9a82f6a11e35c67f0e0086/akku-1.1.0.tar.gz"
+      expect(described_class.repo_url(url)).to eq "https://gitlab.com/akkuscm/akku"
+    end
+
+    it "extracts a GitLab repo from a /wikis/ URL" do
+      expect(described_class.repo_url("https://gitlab.gnome.org/GNOME/gjs/wikis/Home"))
+        .to eq "https://gitlab.gnome.org/GNOME/gjs"
+    end
+
+    it "extracts a GitLab repo from a URL with a trailing slash" do
+      expect(described_class.repo_url("https://gitlab.com/gsasl/libntlm/"))
+        .to eq "https://gitlab.com/gsasl/libntlm"
+    end
+
+    it "rejects a GitLab host-level /-/ route and falls back to a later URL" do
+      stable = "https://gitlab.freedesktop.org/-/project/62/uploads/54a0f9/spice-0.16.0.tar.bz2"
+      head = "https://gitlab.freedesktop.org/spice/spice.git"
+      expect(described_class.repo_url(stable, head)).to eq "https://gitlab.freedesktop.org/spice/spice"
+    end
+
+    it "returns nil for a GitLab /api/ route" do
+      expect(described_class.repo_url("https://gitlab.freedesktop.org/api/v4/projects/1205/releases"))
+        .to be_nil
+    end
+
+    it "unwraps a Wayback Machine snapshot URL" do
+      url = "https://web.archive.org/web/20180102081127/https://github.com/satori-com/tcpkali"
+      expect(described_class.repo_url(url)).to eq "https://github.com/satori-com/tcpkali"
+    end
+
     it "falls back to the head URL when the stable URL is not a supported forge" do
       stable = "https://aomedia.googlesource.com/aom.git"
       head = "https://github.com/AomediaOrg/aom.git"
