@@ -52,16 +52,11 @@ module Homebrew
         end
 
         if untrusted_skipped.any?
-          count = untrusted_skipped.size
-          header = if count == 1
-            "1 installed keg from an untrusted tap was not scanned:"
-          else
-            "#{count} installed kegs from untrusted taps were not scanned:"
-          end
+          kegs = Utils.pluralize("installed keg", untrusted_skipped.size, include_count: true)
           opoo <<~EOS
-            #{header}
+            #{kegs} from an untrusted tap not scanned:
               #{untrusted_skipped.join("\n  ")}
-            Run `brew trust` on the tap or formula to include it in future scans.
+            Run `brew trust` on the formula or tap to include it in future scans.
           EOS
           Homebrew.failed = true
         end
