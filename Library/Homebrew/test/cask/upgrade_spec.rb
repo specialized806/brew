@@ -397,18 +397,23 @@ RSpec.describe Cask::Upgrade, :cask do
       end
 
       write_info_plist(auto_updates_path, short_version: "2.57", bundle_version: "2057")
+      allow(Cask::CaskLoader).to receive(:recover_from_installed_caskfile).and_return(nil)
     end
 
-    it "warns and skips when the installed caskfile raises CaskInvalidError" do
+    it "recovers when the installed caskfile raises CaskInvalidError" do
       allow(Cask::CaskLoader).to receive(:load_from_installed_caskfile).and_call_original
       allow(Cask::CaskLoader)
         .to receive(:load_from_installed_caskfile)
         .with(auto_updates.installed_caskfile)
         .and_raise(Cask::CaskInvalidError.new(auto_updates.token, "broken DSL"))
+      expect(Cask::CaskLoader)
+        .to receive(:recover_from_installed_caskfile)
+        .with(auto_updates.installed_caskfile, fallback_cask: auto_updates)
+        .and_return(auto_updates)
 
       expect do
-        described_class.upgrade_casks!(dry_run: true, args:)
-      end.to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
+        described_class.upgrade_casks!(auto_updates, dry_run: true, args:)
+      end.not_to output(/The cask 'auto-updates' cannot be upgraded as-is/).to_stderr
     end
 
     it "warns and skips when the installed caskfile raises CaskUnreadableError" do
@@ -666,10 +671,14 @@ RSpec.describe Cask::Upgrade, :cask do
 
     it "uses the forced upgrade metadata for the next upgrade" do
       receipt_path = local_caffeine.metadata_main_container_path/AbstractTab::FILENAME
+      receipt_path.unlink
+      allow(Homebrew::API::Cask).to receive(:cask_json).with("local-caffeine").and_return({
+        "artifacts" => [{ "app" => ["Caffeine.app"] }],
+      })
 
       expect(receipt_path).not_to exist
       expect(Cask::CaskLoader.load_from_installed_caskfile(local_caffeine.installed_caskfile).artifacts)
-        .to be_empty
+        .to include(an_instance_of(Cask::Artifact::App))
 
       described_class.upgrade_casks!(local_caffeine, force: true, args:)
 

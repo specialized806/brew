@@ -193,7 +193,7 @@ module Cask
           begin
             CaskLoader.load_from_installed_caskfile(installed_caskfile)
           rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError
-            nil
+            CaskLoader.recover_from_installed_caskfile(installed_caskfile, fallback_cask: c)
           end
         end
 
