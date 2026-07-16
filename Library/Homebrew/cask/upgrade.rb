@@ -445,6 +445,10 @@ module Cask
           when :release
             new_cask.artifacts.grep(Artifact::App).each do |artifact|
               Quarantine.inherit_user_approval!(download_path: artifact.target)
+            rescue CaskQuarantineReleaseError => e
+              odebug e
+              opoo "Homebrew couldn't inherit #{new_cask.token}'s quarantine approval so macOS will prompt at " \
+                   "next launch."
             end
           when :signer_changed
             opoo "#{new_cask.token}'s signer changed so macOS will prompt at next launch."
