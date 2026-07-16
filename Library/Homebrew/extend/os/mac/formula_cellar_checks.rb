@@ -103,7 +103,6 @@ module OS
 
       sig { params(formula: ::Formula).returns(T.nilable(String)) }
       def check_flat_namespace(formula)
-        # See https://developer.apple.com/forums/thread/689991?answerId=687895022#687895022
         return unless formula.prefix.directory?
         return if formula.tap&.audit_exception(:flat_namespace_allowlist, formula.name)
 
@@ -125,6 +124,8 @@ module OS
           This can cause linker errors due to name collisions and
           is often due to a bug in detecting the macOS version.
             #{flat_namespace_files * "\n  "}
+           Learn more about this in:
+            #{Formatter.url("https://developer.apple.com/forums/thread/689991?answerId=687895022#687895022")}
         EOS
       end
 
