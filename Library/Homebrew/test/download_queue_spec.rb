@@ -41,6 +41,25 @@ RSpec.describe Homebrew::DownloadQueue do
     expect(Homebrew).to have_failed
   end
 
+  it "raises and clears queue state on a bottle manifest failure in parallel mode" do
+    allow(retryable_download).to receive(:fetch).and_raise(Resource::BottleManifest::Error.new("manifest missing"))
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch }.to raise_error(Resource::BottleManifest::Error, /manifest missing/)
+    expect(download_queue.send(:downloads)).to be_empty
+  end
+
+  it "cancels remaining downloads and raises on a bottle manifest failure in serial mode" do
+    allow(Homebrew::EnvConfig).to receive(:download_concurrency).and_return(1)
+    allow(retryable_download).to receive(:fetch).and_raise(Resource::BottleManifest::Error.new("manifest missing"))
+
+    download_queue.enqueue(downloadable)
+
+    expect(download_queue).to receive(:cancel)
+    expect { download_queue.fetch }.to raise_error(Resource::BottleManifest::Error, /manifest missing/)
+  end
+
   it "wakes when downloads complete instead of polling with sleep" do
     allow($stdout).to receive(:tty?).and_return(false)
     allow(retryable_download).to receive(:fetch) { sleep(0.1) }

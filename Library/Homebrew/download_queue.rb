@@ -99,9 +99,8 @@ module Homebrew
     sig { void }
     def fetch
       @fetch_failed = false
-      return if downloads.empty?
-
       context_before_fetch = Context.current
+      return if downloads.empty?
 
       if concurrency == 1
         downloads.each do |downloadable, promise|
@@ -111,8 +110,11 @@ module Homebrew
         rescue ChecksumMismatchError => e
           @fetch_failed = true
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
-        rescue => e
-          raise e unless bottle_manifest_error?(downloadable, e)
+        # Cancel downloads still running in the background before a fatal error
+        # (e.g. a missing bottle manifest) aborts the fetch.
+        rescue
+          cancel
+          raise
         end
       else
         message_length_max = downloads.keys.map { |download| download.download_queue_message.length }.max || 0
@@ -129,7 +131,6 @@ module Homebrew
             status = status_from_future(future)
             exception = future.reason if future.rejected?
             next 1 if exception.is_a?(CancelledDownloadError)
-            next 1 if bottle_manifest_error?(downloadable, exception)
 
             message = downloadable.download_queue_message
             if tty_with_cursor_move_support?
@@ -151,6 +152,11 @@ module Homebrew
               elsif exception.is_a?(CannotInstallFormulaError)
                 cached_download = downloadable.cached_download
                 cached_download.unlink if cached_download&.exist?
+                raise exception
+              elsif bottle_manifest_error?(downloadable, exception)
+                # Fatal: unlike a missing blob (which then fails to stage), a
+                # stale blob would still pour without the manifest tab that
+                # drives relocation, so abort rather than stage a broken keg.
                 raise exception
               else
                 message = if exception.is_a?(DownloadError) && exception.cause.is_a?(ErrorDuringExecution)
@@ -230,9 +236,11 @@ module Homebrew
           stdout_print_and_flush_if_tty Tty.show_cursor
         end
       end
-
-      # Restore the pre-parallel fetch context to avoid e.g. quiet state bleeding out from threads.
-      Context.current = context_before_fetch
+    ensure
+      # Restore the pre-parallel fetch context to avoid quiet state bleeding out
+      # from threads, and clear queue state even when a fatal download error
+      # aborts the fetch above.
+      Context.current = context_before_fetch if context_before_fetch
 
       downloads.clear
       @downloads_by_location.clear
