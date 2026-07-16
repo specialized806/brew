@@ -583,6 +583,21 @@ RSpec.describe Cask::Upgrade, :cask do
       described_class.upgrade_casks!(local_caffeine, args:)
     end
 
+    it "continues the upgrade when quarantine approval cannot be inherited" do
+      identity = Cask::Quarantine::SigningIdentity.new(requirement: 'identifier "sh.brew.local-caffeine"')
+      allow(Cask::Quarantine).to receive_messages(
+        user_approved?:         true,
+        signing_identity:       identity,
+        signing_identity_match: true,
+      )
+      allow(Cask::Quarantine).to receive(:inherit_user_approval!)
+        .and_raise(Cask::CaskQuarantineReleaseError.new(local_caffeine_path, "Operation not permitted"))
+
+      expect do
+        described_class.upgrade_casks!(local_caffeine, args:)
+      end.to output(/couldn't inherit local-caffeine's quarantine approval so macOS will prompt/).to_stderr
+    end
+
     it "reports the skipped quarantine release under --verbose when approval is missing" do
       allow(Cask::Quarantine).to receive_messages(user_approved?: false, inherit_user_approval!: nil)
 
