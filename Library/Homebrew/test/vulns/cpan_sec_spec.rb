@@ -13,7 +13,7 @@ RSpec.describe Homebrew::Vulns::CPANSec do
         bad = Pathname(dir)/"cpansa.json"
         bad.write "not json"
         expect { described_class.from_file(bad) }
-          .to raise_error(described_class::Error, /Failed to parse CPANSA data/)
+          .to raise_error(described_class::Error, /Failed to parse cpansa\.json/)
       end
     end
   end
@@ -133,7 +133,7 @@ RSpec.describe Homebrew::Vulns::CPANSec do
           .and_raise(ErrorDuringExecution.new(["curl"], status: 22))
         loaded = nil
         expect { loaded = described_class.load(cache:) }
-          .to output(/Failed to refresh CPANSA data/).to_stderr
+          .to output(/Failed to refresh cpansa\.json/).to_stderr
         expect(loaded.distributions).to include "DBI"
         expect(stale.read).to eq original
       end
@@ -149,7 +149,7 @@ RSpec.describe Homebrew::Vulns::CPANSec do
         expect(Utils::Curl).to receive(:curl_download) { |*_args, to:| to.write "not json" }
         loaded = nil
         expect { loaded = described_class.load(cache:) }
-          .to output(/Failed to refresh CPANSA data/).to_stderr
+          .to output(/Failed to refresh cpansa\.json/).to_stderr
         expect(loaded.distributions).to include "DBI"
         expect(stale.read).to eq original
         expect(cache.children).to eq [stale]
