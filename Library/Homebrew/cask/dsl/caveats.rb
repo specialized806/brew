@@ -160,6 +160,7 @@ module Cask
 
       caveat :requires_rosetta do
         next if Homebrew::SimulateSystem.current_arch != :arm
+        next if Hardware::CPU.rosetta_installed?
 
         <<~EOS
           #{cask} is built for Intel macOS and so requires Rosetta 2 to be installed.

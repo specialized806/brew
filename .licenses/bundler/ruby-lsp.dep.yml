@@ -1,6 +1,6 @@
 ---
 name: ruby-lsp
-version: 0.26.9
+version: 0.26.10
 type: bundler
 summary: An opinionated language server for Ruby
 homepage: https://github.com/Shopify/ruby-lsp
