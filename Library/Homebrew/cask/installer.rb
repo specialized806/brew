@@ -233,7 +233,7 @@ on_request: true)
         if (installed_caskfile = Caskroom.cask_installed_caskfile(conflicting_cask))
           raise CaskConflictError.new(
             @cask,
-            ::Cask::Cask.new(installed_caskfile.basename(installed_caskfile.extname).basename(".internal").to_s),
+            ::Cask::Cask.new(CaskLoader.token_from_path(installed_caskfile)),
           )
         end
 
@@ -520,7 +520,9 @@ on_request: true)
       if @cask.uninstall_flight_blocks?
         (metadata_subdir/"#{@cask.token}.rb").write @cask.source.to_s
       else
-        (metadata_subdir/"#{@cask.token}.json").write JSON.pretty_generate(@cask.to_installed_json_hash)
+        installed_json = @cask.to_installed_json_hash
+        installed_json["artifacts"] = [] if @cask.artifacts_list(uninstall_only: true).empty?
+        (metadata_subdir/"#{@cask.token}.json").write JSON.pretty_generate(installed_json)
       end
 
       FileUtils.rm_r(old_savedir) if old_savedir
@@ -949,24 +951,6 @@ on_request: true)
       download_queue.enqueue(downloader)
     end
 
-    private
-
-    sig { void }
-    def check_prelude_requirements
-      check_deprecate_disable
-      check_conflicts
-      check_requirements
-      # Run the cask-self forbidden checks before loading the caskfile from the
-      # Source API so a forbidden cask never triggers a network fetch.
-      forbidden_tap_check(cask_only: true)
-      forbidden_cask_and_formula_check(cask_only: true)
-    end
-
-    sig { returns(Homebrew::API::SourceDownload) }
-    def source_download
-      @source_download ||= Homebrew::API::Cask.source_download_for(@cask)
-    end
-
     # load the same cask file that was used for installation, if possible
     sig { void }
     def load_installed_caskfile!
@@ -975,8 +959,9 @@ on_request: true)
       installed_caskfile = @cask.installed_caskfile
 
       if installed_caskfile&.exist?
-        tab = @cask.tab
+        tab = CaskLoader.load_installed_tab(@cask)
         tap = tab.tap
+        tap ||= @cask.tap
         if installed_caskfile.extname == ".rb" &&
            Homebrew::EnvConfig.require_tap_trust? &&
            tap &&
@@ -1019,10 +1004,34 @@ on_request: true)
         rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError
           # could be caused by trying to load outdated or deleted caskfile
         end
+
+        recovered_cask = CaskLoader.recover_from_installed_caskfile(installed_caskfile, tab:, fallback_cask: @cask)
+        if recovered_cask
+          @cask = recovered_cask
+          return
+        end
       end
 
       load_cask_from_source_api! if cask_from_source_api?
       # otherwise we default to the current cask
+    end
+
+    private
+
+    sig { void }
+    def check_prelude_requirements
+      check_deprecate_disable
+      check_conflicts
+      check_requirements
+      # Run the cask-self forbidden checks before loading the caskfile from the
+      # Source API so a forbidden cask never triggers a network fetch.
+      forbidden_tap_check(cask_only: true)
+      forbidden_cask_and_formula_check(cask_only: true)
+    end
+
+    sig { returns(Homebrew::API::SourceDownload) }
+    def source_download
+      @source_download ||= Homebrew::API::Cask.source_download_for(@cask)
     end
 
     sig { void }

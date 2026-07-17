@@ -540,4 +540,71 @@ RSpec.describe Cask::CaskLoader, :cask do
       end
     end
   end
+
+  describe "::resolve_installed_artifacts" do
+    it "returns empty artifacts when the API cannot be loaded" do
+      allow(Homebrew::API::Cask).to receive(:cask_json).with("unavailable").and_raise(SystemExit.new(1))
+
+      expect(described_class.resolve_installed_artifacts("unavailable", nil)).to eq([])
+    end
+  end
+
+  describe "::recover_from_installed_caskfile" do
+    let(:caskroom) { mktmpdir/"Caskroom" }
+
+    before { allow(Cask::Caskroom).to receive(:path).and_return(caskroom) }
+
+    it "reconstructs the installed version and artifacts from its receipt" do
+      token = "recoverable"
+      caskfile = caskroom/token/".metadata/1.0/20250101000000.000/Casks/#{token}.rb"
+      caskfile.dirname.mkpath
+      caskfile.write("unreadable")
+      (caskroom/token/".metadata/INSTALL_RECEIPT.json").write JSON.generate({
+        "source"                  => { "version" => "1.0" },
+        "uninstall_flight_blocks" => false,
+        "uninstall_artifacts"     => [{ "app" => ["Recoverable.app"] }],
+      })
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      recovered_cask = described_class.recover_from_installed_caskfile(caskfile)
+
+      expect([
+        recovered_cask&.version&.to_s,
+        recovered_cask&.artifacts_list(uninstall_only: true),
+      ]).to eq([
+        "1.0",
+        [{ app: ["Recoverable.app"] }],
+      ])
+    end
+
+    it "does not reconstruct missing uninstall flight blocks" do
+      token = "flight-block"
+      caskfile = caskroom/token/".metadata/1.0/20250101000000.000/Casks/#{token}.rb"
+      caskfile.dirname.mkpath
+      caskfile.write("unreadable")
+      (caskroom/token/".metadata/INSTALL_RECEIPT.json").write JSON.generate({
+        "source"                  => { "version" => "1.0" },
+        "uninstall_flight_blocks" => true,
+        "uninstall_artifacts"     => [{ "uninstall_preflight" => nil }],
+      })
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      expect(described_class.recover_from_installed_caskfile(caskfile)).to be_nil
+    end
+
+    it "returns nil when the reconstructed metadata remains invalid" do
+      token = "still-invalid"
+      caskfile = caskroom/token/".metadata/1.0/20250101000000.000/Casks/#{token}.rb"
+      caskfile.dirname.mkpath
+      caskfile.write("unreadable")
+      (caskroom/token/".metadata/INSTALL_RECEIPT.json").write JSON.generate({
+        "source"              => { "version" => "1.0" },
+        "uninstall_artifacts" => [{ "app" => ["Still Invalid.app"] }],
+      })
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:new)
+        .and_raise(Cask::CaskInvalidError.new(token, "invalid recovered metadata"))
+
+      expect(described_class.recover_from_installed_caskfile(caskfile)).to be_nil
+    end
+  end
 end

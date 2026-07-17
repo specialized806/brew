@@ -68,6 +68,81 @@ module Cask
       caskfile.dirname.dirname.dirname.basename.to_s
     end
 
+    sig { params(caskfile: Pathname).void }
+    def self.migrate_caskfile_to_json(caskfile)
+      # Parse regular installed JSON so current files can be skipped and useful URL data can survive repairs.
+      token = CaskLoader.token_from_path(caskfile)
+      installed_json_caskfile = CaskLoader.installed_json_caskfile?(caskfile)
+      source_json = CaskLoader.load_installed_json(caskfile)
+
+      source_artifacts = nil
+      source_url_specs = nil
+      current_json = false
+      if source_json
+        raw_source_artifacts = source_json["artifacts"]
+        raw_source_version = source_json["version"]
+        raw_source_url_specs = source_json["url_specs"]
+        source_artifacts = raw_source_artifacts if raw_source_artifacts.is_a?(Array)
+        source_url_specs = raw_source_url_specs if raw_source_url_specs.is_a?(Hash)
+
+        # Installed JSON only supplements metadata available from the path or receipt: artifacts and version preserve
+        # otherwise-lost installed values, while url_specs preserves an artifact's staged source path.
+        current_json = (source_json.keys - %w[artifacts url_specs version]).empty? &&
+                       (raw_source_artifacts.nil? || !source_artifacts.nil?) &&
+                       (raw_source_version.nil? || raw_source_version.is_a?(String)) &&
+                       (raw_source_url_specs.nil? || !source_url_specs.nil?)
+      end
+
+      # Recover missing receipt and legacy caskfile data before deciding what must be stored in the JSON.
+      tab = CaskLoader.load_installed_tab(token)
+
+      cask = begin
+        if installed_json_caskfile
+          CaskLoader.load_from_installed_caskfile(caskfile)
+        else
+          CaskLoader.load(caskfile, warn: false)
+        end
+      rescue CaskInvalidError, CaskUnavailableError, MethodDeprecatedError, JSON::ParserError, NoMethodError,
+             TypeError
+        nil
+      end
+      return if current_json && cask && (!source_artifacts.nil? || tab.uninstall_artifacts.present?)
+      return if cask&.uninstall_flight_blocks? || tab.uninstall_flight_blocks
+
+      cask ||= CaskLoader.recover_from_installed_caskfile(caskfile, tab:)
+      return unless cask
+
+      # Preserve the original version and artifacts whenever the receipt cannot reproduce them.
+      version = cask.version.to_s
+      json_uninstall_artifacts = JSON.parse(JSON.generate(cask.artifacts_list(uninstall_only: true)))
+      installed_json = cask.to_installed_json_hash
+      installed_json["url_specs"] ||= source_url_specs if source_url_specs
+      if tab.uninstall_artifacts.presence != json_uninstall_artifacts
+        installed_json["artifacts"] = json_uninstall_artifacts
+      end
+      installed_json["version"] = version if caskfile.dirname.dirname.dirname.basename.to_s != version
+
+      # Replace the old metadata only after the new JSON reloads with the selected version and artifacts.
+      json_caskfile = caskfile.dirname/"#{token}.json"
+      original_contents = caskfile.read if caskfile == json_caskfile
+      json_caskfile.atomic_write(JSON.pretty_generate(installed_json))
+      begin
+        migrated_cask = CaskLoader.load_from_installed_caskfile(json_caskfile)
+        if migrated_cask.version.to_s != version ||
+           JSON.parse(JSON.generate(migrated_cask.artifacts_list(uninstall_only: true))) != json_uninstall_artifacts
+          raise "migrated Cask metadata differs from the original after preserving version and artifacts"
+        end
+      rescue
+        if original_contents
+          json_caskfile.atomic_write(original_contents)
+        elsif json_caskfile.exist?
+          json_caskfile.unlink
+        end
+        raise
+      end
+      caskfile.unlink if caskfile != json_caskfile
+    end
+
     # Return tokens for Caskroom directories missing expected installed metadata.
     sig { returns(T::Array[String]) }
     def self.corrupt_cask_dirs

@@ -183,6 +183,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       token = "url-less-installed-cask"
       caskroom = mktmpdir
       allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => [] })
       path = caskroom/token/".metadata/latest/20260713000000.000/Casks/#{token}.json"
       cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
       allow(cask).to receive(:installed_version).and_return("latest")
@@ -190,6 +191,50 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       cask.download_sha_path.write("old-download-sha")
 
       expect(cask.outdated?(greedy: true)).to be(true)
+    end
+
+    it "uses current API artifacts for installed metadata without receipt artifacts" do
+      token = "receipt-less-installed-cask"
+      caskroom = mktmpdir
+      allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
+        "artifacts" => [
+          { "app" => ["Receipt-less.app"] },
+          { "uninstall" => [{ "quit" => "com.example.receipt-less" }] },
+          { "zap" => [{ "trash" => "~/Library/Preferences/com.example.receipt-less.plist" }] },
+        ],
+      })
+      path = caskroom/token/".metadata/1.0/20260713000000.000/Casks/#{token}.json"
+
+      cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
+
+      expect(cask.artifacts_list(uninstall_only: true)).to eq([
+        { uninstall: [{ quit: "com.example.receipt-less" }] },
+        { app: ["Receipt-less.app"] },
+        { zap: [{ trash: "~/Library/Preferences/com.example.receipt-less.plist" }] },
+      ])
+    end
+
+    it "does not read a malformed receipt when installed metadata is self-contained" do
+      token = "self-contained-installed-cask"
+      caskroom = mktmpdir
+      allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      receipt = caskroom/token/".metadata/INSTALL_RECEIPT.json"
+      receipt.dirname.mkpath
+      receipt.write("{")
+      path = caskroom/token/".metadata/1.0/20260713000000.000/Casks/#{token}.json"
+
+      cask = described_class.new(
+        token,
+        from_json:               {
+          "version"   => "1.0",
+          "artifacts" => [{ "app" => ["Self-contained.app"] }],
+        },
+        path:,
+        from_installed_caskfile: true,
+      ).load(config: nil)
+
+      expect(cask.artifacts_list(uninstall_only: true)).to eq([{ app: ["Self-contained.app"] }])
     end
 
     shared_examples "loads from API" do |cask_token, caskfile_only:|
