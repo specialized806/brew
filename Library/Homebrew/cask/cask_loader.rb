@@ -157,6 +157,7 @@ module Cask
         @path = T.let(path, Pathname)
         @tap = T.let(Tap.from_path(path) || Homebrew::API.tap_from_source_download(path), T.nilable(Tap))
         @from_installed_caskfile = T.let(false, T::Boolean)
+        @api_fallback = T.let(true, T::Boolean)
       end
 
       sig { override.params(config: T.nilable(Config)).returns(Cask) }
@@ -182,6 +183,7 @@ module Cask
               path:,
               from_installed_caskfile: @from_installed_caskfile,
               from_internal_json:,
+              api_fallback:            @api_fallback,
             ).load(config:)
           rescue CaskInvalidError => e
             if @from_installed_caskfile
@@ -409,10 +411,11 @@ module Cask
           path:                    T.nilable(Pathname),
           from_installed_caskfile: T::Boolean,
           from_internal_json:      T::Boolean,
+          api_fallback:            T::Boolean,
         ).void
       }
       def initialize(token, from_json: T.unsafe(nil), path: nil, from_installed_caskfile: false,
-                     from_internal_json: false)
+                     from_internal_json: false, api_fallback: true)
         @token = T.let(token.sub(%r{^homebrew/(?:homebrew-)?cask/}i, ""), String)
         @sourcefile_path = T.let(
           if path
@@ -428,6 +431,7 @@ module Cask
         @from_json = from_json
         @from_installed_caskfile = from_installed_caskfile
         @from_internal_json = from_internal_json
+        @api_fallback = api_fallback
       end
 
       # This is a false positive incompatibililty warning, due to Kernel#load being overridden.
@@ -465,7 +469,7 @@ module Cask
             installed_tab = CaskLoader.load_installed_tab(token)
             api_source["version"] ||= installed_tab.version.presence
             api_source["artifacts"] ||= CaskLoader.resolve_installed_artifacts(
-              token, installed_tab.uninstall_artifacts
+              token, installed_tab.uninstall_artifacts, api_fallback: @api_fallback
             )
           end
         end
@@ -620,10 +624,10 @@ module Cask
     # Loader which loads a cask from the installed cask file.
     class FromInstalledPathLoader < FromPathLoader
       sig {
-        override.params(ref: T.any(String, Pathname, Cask, URI::Generic), warn: T::Boolean)
-                .returns(T.nilable(T.attached_class))
+        override.params(ref: T.any(String, Pathname, Cask, URI::Generic), warn: T::Boolean,
+                        api_fallback: T::Boolean).returns(T.nilable(T.attached_class))
       }
-      def self.try_new(ref, warn: false)
+      def self.try_new(ref, warn: false, api_fallback: true)
         token = if ref.is_a?(String)
           ref
         elsif ref.is_a?(Pathname)
@@ -634,16 +638,17 @@ module Cask
         possible_installed_cask = Cask.new(token)
         return unless (installed_caskfile = possible_installed_cask.installed_caskfile)
 
-        new(installed_caskfile)
+        new(installed_caskfile, api_fallback:)
       end
 
-      sig { params(path: T.any(Pathname, String), token: String).void }
-      def initialize(path, token: "")
-        super
+      sig { params(path: T.any(Pathname, String), token: String, api_fallback: T::Boolean).void }
+      def initialize(path, token: "", api_fallback: true)
+        super(path, token:)
 
         installed_tap = Cask.new(@token).tab.tap
         @tap = installed_tap if installed_tap
         @from_installed_caskfile = T.let(true, T::Boolean)
+        @api_fallback = api_fallback
       end
     end
 
@@ -781,9 +786,12 @@ module Cask
       end
     end
 
-    sig { params(path: Pathname, config: T.nilable(Config), warn: T::Boolean).returns(Cask) }
-    def self.load_from_installed_caskfile(path, config: nil, warn: true)
-      loader = FromInstalledPathLoader.try_new(path, warn:)
+    sig {
+      params(path: Pathname, config: T.nilable(Config), warn: T::Boolean, api_fallback: T::Boolean)
+        .returns(Cask)
+    }
+    def self.load_from_installed_caskfile(path, config: nil, warn: true, api_fallback: true)
+      loader = FromInstalledPathLoader.try_new(path, warn:, api_fallback:)
       loader ||= NullLoader.new(path)
 
       loader.load(config:)
@@ -822,14 +830,19 @@ module Cask
       Tab.empty
     end
 
-    sig { params(token: String, artifacts: T.nilable(T::Array[T.untyped])).returns(T::Array[T.untyped]) }
-    def self.resolve_installed_artifacts(token, artifacts)
+    sig {
+      params(token: String, artifacts: T.nilable(T::Array[T.untyped]), api_fallback: T::Boolean)
+        .returns(T::Array[T.untyped])
+    }
+    def self.resolve_installed_artifacts(token, artifacts, api_fallback: true)
       artifacts = artifacts.presence
-      # API fetch failures must not abort best-effort installed metadata recovery.
-      artifacts ||= begin
-        Homebrew::API::Cask.cask_json(token)["artifacts"]
-      rescue SystemExit
-        nil
+      if artifacts.nil? && api_fallback
+        # API fetch failures must not abort best-effort installed metadata recovery.
+        artifacts = begin
+          Homebrew::API::Cask.cask_json(token)["artifacts"]
+        rescue SystemExit
+          nil
+        end
       end
       artifacts ||= []
       artifacts

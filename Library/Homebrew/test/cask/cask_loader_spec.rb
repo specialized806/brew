@@ -217,6 +217,30 @@ RSpec.describe Cask::CaskLoader, :cask do
     end
   end
 
+  describe "::load_from_installed_caskfile" do
+    let(:caskfile) do
+      (Cask::Caskroom.path/"stubbed/.metadata/1.0/20250101000000.000/Casks").tap(&:mkpath)/"stubbed.json"
+    end
+
+    before { caskfile.write("{}") }
+
+    it "falls back to the API for missing artifacts by default" do
+      expect(Homebrew::API::Cask).to receive(:cask_json).with("stubbed").and_return(
+        "artifacts" => [{ "app" => ["Stubbed.app"] }],
+      )
+
+      expect(described_class.load_from_installed_caskfile(caskfile).artifacts_list(uninstall_only: true))
+        .to eq([{ app: ["Stubbed.app"] }])
+    end
+
+    it "does not consult the API when api_fallback is disabled" do
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      expect(described_class.load_from_installed_caskfile(caskfile, api_fallback: false).artifacts_list)
+        .to be_empty
+    end
+  end
+
   describe "::load_prefer_installed" do
     let(:foo_tap) { Tap.fetch("user", "foo") }
     let(:bar_tap) { Tap.fetch("user", "bar") }

@@ -127,7 +127,9 @@ module Cask
       original_contents = caskfile.read if caskfile == json_caskfile
       json_caskfile.atomic_write(JSON.pretty_generate(installed_json))
       begin
-        migrated_cask = CaskLoader.load_from_installed_caskfile(json_caskfile)
+        # Only durable on-disk data may satisfy this check: the API fallback would mask a
+        # migrated caskfile that lost its artifacts for as long as the API definition matches.
+        migrated_cask = CaskLoader.load_from_installed_caskfile(json_caskfile, api_fallback: false)
         if migrated_cask.version.to_s != version ||
            JSON.parse(JSON.generate(migrated_cask.artifacts_list(uninstall_only: true))) != json_uninstall_artifacts
           raise "migrated Cask metadata differs from the original after preserving version and artifacts"
