@@ -716,6 +716,29 @@ RSpec.describe Cask::Installer, :cask do
       installer.enqueue_downloads
     end
 
+    it "enqueues the selected language download from API data" do
+      source_cask = Cask::CaskLoader.load("with-languages")
+      cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
+        source_cask.to_hash_with_variations,
+      )
+      config = Cask::Config.new(explicit: { languages: ["zh"] })
+      cask = Cask::CaskLoader::FromAPILoader.new(
+        "language-api-cask",
+        from_json:          cask_struct.serialize,
+        from_internal_json: true,
+      ).load(config:)
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = described_class.new(cask, download_queue:)
+
+      allow(Homebrew::API::Internal).to receive(:cask_struct).with("language-api-cask").and_return(cask_struct)
+      expect(Homebrew::API::Cask).not_to receive(:source_download)
+      expect(download_queue).to receive(:enqueue) do |download|
+        expect(download.url.to_s).to eq("file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz")
+      end
+
+      installer.enqueue_downloads
+    end
+
     it "enqueues source API caskfiles before the main cask download" do
       cask = Cask::Cask.new("source-api-cask") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"

@@ -749,6 +749,9 @@ The return value of the matching `language` block can be accessed by simply call
 homepage "https://example.org/#{language}"
 ```
 
+The JSON API stores the return value and resulting stanza changes for every language block.
+API installs select the matching snapshot from the preferred locales, falling back to the declared default, without evaluating the cask's Ruby source.
+
 Examples: [firefox.rb](https://github.com/Homebrew/homebrew-cask/blob/939b4331dc2a6860350d66a1b2c7b3f22442cc08/Casks/f/firefox.rb#L4-L207), [battle-net.rb](https://github.com/Homebrew/homebrew-cask/blob/e039d079560cf2f77b671f7dda4752a053341180/Casks/b/battle-net.rb#L5-L10)
 
 #### Installation

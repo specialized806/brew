@@ -36,10 +36,10 @@ module Cask
     )
 
     # runtime recursive evaluation forces the LazyObject to be evaluated
-    T::Sig::WithoutRuntime.sig { returns(T::Hash[Symbol, T.any(LazyObject, String)]) }
+    T::Sig::WithoutRuntime.sig { returns(ConfigHash) }
     def self.defaults
       {
-        languages: LazyObject.new { ::OS::Mac.languages },
+        languages: T.let([], T::Array[String]),
       }.merge(DEFAULT_DIRS).freeze
     end
 

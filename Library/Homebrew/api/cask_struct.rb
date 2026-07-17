@@ -1,8 +1,11 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "locale"
+
 module Homebrew
   module API
+    # Typed representation of cask API data.
     class CaskStruct < T::Struct
       sig { params(cask_hash: T::Hash[String, T.untyped], ignore_types: T::Boolean).returns(CaskStruct) }
       def self.from_hash(cask_hash, ignore_types: false)
@@ -38,6 +41,8 @@ module Homebrew
           T.nilable(T.proc.void),
         ]
       end
+
+      LanguageVariation = T.type_alias { T::Hash[Symbol, T.anything] }
 
       PREDICATES.each do |predicate_name|
         present_method_name = :"#{predicate_name}_present"
@@ -78,6 +83,7 @@ module Homebrew
       const :disable_args, T::Hash[Symbol, T.nilable(T.any(String, Symbol))], default: {}
       const :homepage, T.nilable(String)
       const :languages, T::Array[String], default: []
+      const :language_variations, T::Array[LanguageVariation], default: []
       const :names, T::Array[String], default: []
       const :renames, T::Array[[String, String]], default: []
       const :ruby_source_checksum, T::Hash[Symbol, T.nilable(String)], default: { sha256: nil }
@@ -106,6 +112,23 @@ module Homebrew
       sig { params(appdir: T.any(Pathname, String)).returns(T.nilable(String)) }
       def caveats(appdir:)
         deep_remove_placeholders(raw_caveats, appdir.to_s)
+      end
+
+      sig { params(languages: T::Array[String]).returns(CaskStruct) }
+      def localise(languages)
+        variation = language_variation(languages)
+        return self if variation.nil?
+
+        overrides = T.cast(variation[:overrides], T.nilable(T::Hash[String, T.anything]))
+        return self if overrides.blank?
+
+        serialised_overrides = T.cast(::Utils.deep_stringify_symbols(overrides), T::Hash[String, T.untyped])
+        self.class.deserialize(serialize.merge(serialised_overrides))
+      end
+
+      sig { params(languages: T::Array[String]).returns(T.nilable(String)) }
+      def language(languages)
+        T.cast(language_variation(languages)&.[](:value), T.nilable(String))
       end
 
       sig { returns(T::Hash[String, T.untyped]) }
@@ -193,6 +216,28 @@ module Homebrew
       end
 
       private
+
+      sig { params(languages: T::Array[String]).returns(T.nilable(LanguageVariation)) }
+      def language_variation(languages)
+        locale_groups = language_variations.map do |variation|
+          T.cast(variation[:languages], T::Array[String])
+        end
+        languages.each do |language|
+          locale = Locale.parse(language)
+          group = T.cast(locale.detect(locale_groups), T.nilable(T::Array[String]))
+          if group
+            return language_variations.find do |variation|
+              T.cast(variation[:languages], T::Array[String]) == group
+            end
+          end
+        rescue Locale::ParserError
+          next
+        end
+
+        language_variations.find do |variation|
+          T.cast(variation[:default], T.nilable(T::Boolean)) == true
+        end
+      end
 
       const :raw_artifacts, T::Array[ArtifactArgs], default: []
       const :raw_caveats, T.nilable(String)

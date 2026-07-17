@@ -411,6 +411,19 @@ module Cask
       @language_blocks.keys.flatten
     end
 
+    sig { returns(T::Array[T::Array[String]]) }
+    def language_groups
+      @language_blocks.keys
+    end
+
+    sig { returns(T.nilable(T::Array[String])) }
+    def default_language_group
+      default_language_block = @language_blocks.default
+      return if default_language_block.nil?
+
+      @language_blocks.key(default_language_block)
+    end
+
     # Sets the cask's download URL.
     #
     # ### Example
