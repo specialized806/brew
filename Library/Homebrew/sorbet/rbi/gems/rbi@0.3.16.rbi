@@ -607,6 +607,9 @@ class RBI::Loc
   sig { params(other: ::RBI::Loc).returns(::RBI::Loc) }
   def join(other); end
 
+  sig { returns(T::Boolean) }
+  def multiline?; end
+
   sig { returns(T.nilable(::String)) }
   def source; end
 
@@ -1392,8 +1395,8 @@ RBI::Public::DEFAULT = T.let(T.unsafe(nil), RBI::Public)
 module RBI::RBS; end
 
 class RBI::RBS::MethodTypeTranslator
-  sig { params(method: ::RBI::Method).void }
-  def initialize(method); end
+  sig { params(method: ::RBI::Method, options: ::RBI::RBS::MethodTypeTranslator::Options).void }
+  def initialize(method, options: T.unsafe(nil)); end
 
   sig { returns(::RBI::Sig) }
   def result; end
@@ -1423,7 +1426,23 @@ end
 
 class RBI::RBS::MethodTypeTranslator::Error < ::RBI::Error; end
 
+class RBI::RBS::MethodTypeTranslator::Options
+  sig { params(erase_generic_types: T::Boolean).void }
+  def initialize(erase_generic_types: T.unsafe(nil)); end
+
+  sig { returns(T::Boolean) }
+  def erase_generic_types; end
+
+  class << self
+    sig { returns(::RBI::RBS::MethodTypeTranslator::Options) }
+    def default; end
+  end
+end
+
 class RBI::RBS::TypeTranslator
+  sig { params(options: ::RBI::RBS::MethodTypeTranslator::Options).void }
+  def initialize(options: T.unsafe(nil)); end
+
   sig do
     params(
       type: T.any(::RBS::Types::Alias, ::RBS::Types::Bases::Any, ::RBS::Types::Bases::Bool, ::RBS::Types::Bases::Bottom, ::RBS::Types::Bases::Class, ::RBS::Types::Bases::Instance, ::RBS::Types::Bases::Nil, ::RBS::Types::Bases::Self, ::RBS::Types::Bases::Top, ::RBS::Types::Bases::Void, ::RBS::Types::ClassInstance, ::RBS::Types::ClassSingleton, ::RBS::Types::Function, ::RBS::Types::Interface, ::RBS::Types::Intersection, ::RBS::Types::Literal, ::RBS::Types::Optional, ::RBS::Types::Proc, ::RBS::Types::Record, ::RBS::Types::Tuple, ::RBS::Types::Union, ::RBS::Types::UntypedFunction, ::RBS::Types::Variable)
@@ -1432,6 +1451,9 @@ class RBI::RBS::TypeTranslator
   def translate(type); end
 
   private
+
+  sig { params(type_name: ::String).returns(::String) }
+  def erase_t_generic_type(type_name); end
 
   sig { params(type: ::RBS::Types::ClassInstance).returns(::RBI::Type) }
   def translate_class_instance(type); end
@@ -1455,7 +1477,11 @@ class RBI::RBS::TypeTranslator
   end
 end
 
+RBI::RBS::TypeTranslator::GENERIC_TYPE_TO_SORBET_GENERIC_TYPE = T.let(T.unsafe(nil), Hash)
+RBI::RBS::TypeTranslator::Options = RBI::RBS::MethodTypeTranslator::Options
+RBI::RBS::TypeTranslator::RUNTIME_GENERIC_TYPES = T.let(T.unsafe(nil), Array)
 RBI::RBS::TypeTranslator::RbsType = T.type_alias { T.any(::RBS::Types::Alias, ::RBS::Types::Bases::Any, ::RBS::Types::Bases::Bool, ::RBS::Types::Bases::Bottom, ::RBS::Types::Bases::Class, ::RBS::Types::Bases::Instance, ::RBS::Types::Bases::Nil, ::RBS::Types::Bases::Self, ::RBS::Types::Bases::Top, ::RBS::Types::Bases::Void, ::RBS::Types::ClassInstance, ::RBS::Types::ClassSingleton, ::RBS::Types::Function, ::RBS::Types::Interface, ::RBS::Types::Intersection, ::RBS::Types::Literal, ::RBS::Types::Optional, ::RBS::Types::Proc, ::RBS::Types::Record, ::RBS::Types::Tuple, ::RBS::Types::Union, ::RBS::Types::UntypedFunction, ::RBS::Types::Variable) }
+RBI::RBS::TypeTranslator::SORBET_GENERIC_TYPE_TO_GENERIC_TYPE = T.let(T.unsafe(nil), Hash)
 
 class RBI::RBSComment < ::RBI::Comment
   sig { params(other: ::Object).returns(T::Boolean) }
@@ -1469,10 +1495,11 @@ class RBI::RBSPrinter < ::RBI::Visitor
       indent: ::Integer,
       print_locs: T::Boolean,
       positional_names: T::Boolean,
-      max_line_length: T.nilable(::Integer)
+      max_line_length: T.nilable(::Integer),
+      force_multiline_signatures: T::Boolean
     ).void
   end
-  def initialize(out: T.unsafe(nil), indent: T.unsafe(nil), print_locs: T.unsafe(nil), positional_names: T.unsafe(nil), max_line_length: T.unsafe(nil)); end
+  def initialize(out: T.unsafe(nil), indent: T.unsafe(nil), print_locs: T.unsafe(nil), positional_names: T.unsafe(nil), max_line_length: T.unsafe(nil), force_multiline_signatures: T.unsafe(nil)); end
 
   sig { returns(::Integer) }
   def current_indent; end
