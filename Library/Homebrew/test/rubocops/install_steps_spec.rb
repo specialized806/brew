@@ -193,6 +193,290 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
     RUBY
   end
 
+  it "autocorrects PostgreSQL bootstrap and link sequences into existing steps" do
+    expect_offense(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          touch "postgresql/state"
+        end
+
+        def post_install
+        ^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Use `post_install_steps` for simple file preparation.
+          (var/"log").mkpath
+          postgresql_datadir.mkpath
+
+          %w[include lib share].each do |dir|
+            dst_dir = HOMEBREW_PREFIX/dir/name
+            src_dir = prefix/dir/"postgresql"
+            src_dir.find do |src|
+              dst = dst_dir/src.relative_path_from(src_dir)
+              next if dst.directory? && !dst.symlink? && src.directory? && !src.symlink?
+
+              rm_r(dst) if dst.exist? || dst.symlink?
+              if src.symlink? || src.file?
+                Find.prune if src.basename.to_s == ".DS_Store"
+                dst.parent.install_symlink src
+              elsif src.directory?
+                dst.mkpath
+              end
+            end
+          end
+
+          bin.each_child { |f| (HOMEBREW_PREFIX/"bin").install_symlink f => "#{f.basename}-#{version.major}" }
+          return if ENV["HOMEBREW_GITHUB_ACTIONS"]
+
+          system bin/"initdb", "--locale=en_US.UTF-8", "-E", "UTF-8", postgresql_datadir unless pg_version_exists?
+          opoo "keep this legacy work"
+        end
+
+        def postgresql_datadir
+          var/name
+        end
+
+        def pg_version_exists?
+          (postgresql_datadir/"PG_VERSION").exist?
+        end
+      end
+    RUBY
+
+    expect_correction(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          touch "postgresql/state"
+          mkdir_p "log"
+          link_dir "include/postgresql", "include/#{name}"
+          link_dir "lib/postgresql", "lib/#{name}"
+          link_dir "share/postgresql", "share/#{name}"
+          link_children "bin", suffix: "-#{version.major}"
+          init_data_dir name, using: :postgresql_initdb
+        end
+
+        def post_install
+          opoo "keep this legacy work"
+        end
+
+        def postgresql_datadir
+          var/name
+        end
+      end
+    RUBY
+  end
+
+  it "autocorrects MySQL bootstrap while retaining its warning" do
+    expect_offense(<<~'RUBY')
+      class Mysql < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+        ^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Use `post_install_steps` for simple file preparation.
+          (var/"mysql").mkpath
+
+          if File.exist? "/etc/my.cnf"
+            opoo "existing configuration"
+          end
+
+          return if ENV["HOMEBREW_GITHUB_ACTIONS"]
+
+          unless (datadir/"mysql/general_log.CSM").exist?
+            ENV["TMPDIR"] = nil
+            system bin/"mysqld", "--initialize-insecure", "--user=#{ENV["USER"]}",
+                                 "--basedir=#{prefix}", "--datadir=#{datadir}", "--tmpdir=/tmp"
+          end
+        end
+
+        def datadir
+          var/"mysql"
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      class Mysql < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          init_data_dir "mysql", using: :mysql_initialize
+        end
+
+        def post_install
+          if File.exist? "/etc/my.cnf"
+            opoo "existing configuration"
+          end
+        end
+
+        def datadir
+          var/"mysql"
+        end
+      end
+    RUBY
+  end
+
+  it "autocorrects MariaDB bootstrap-only hooks" do
+    expect_offense(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+        ^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Use `post_install_steps` for simple file preparation.
+          (var/"mysql").mkpath
+          return if ENV["HOMEBREW_GITHUB_ACTIONS"]
+
+          unless File.exist? "#{var}/mysql/mysql/user.frm"
+            ENV["TMPDIR"] = nil
+            system bin/"mysql_install_db", "--verbose", "--user=#{ENV["USER"]}",
+              "--basedir=#{prefix}", "--datadir=#{var}/mysql", "--tmpdir=/tmp"
+          end
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          init_data_dir "mysql", using: :mariadb_install_db
+        end
+      end
+    RUBY
+  end
+
+  it "does not autocorrect dynamic or unsupported database and link work" do
+    expect_no_offenses(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          return if ENV["HOMEBREW_GITHUB_ACTIONS"]
+          system bin/"initdb", "--locale=#{ENV.fetch("LC_ALL")}", "-E", "UTF-8", postgresql_datadir
+        end
+      end
+    RUBY
+
+    expect_no_offenses(<<~'RUBY')
+      class PerconaServer < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          (var/"mysql").mkpath
+          return if ENV["HOMEBREW_GITHUB_ACTIONS"]
+
+          unless (datadir/"mysql/general_log.CSM").exist?
+            ENV["TMPDIR"] = nil
+            system bin/"mysqld", "--initialize-insecure", "--user=#{ENV["USER"]}",
+                                 "--basedir=#{prefix}", "--datadir=#{datadir}", "--tmpdir=/tmp"
+          end
+        end
+
+        def datadir
+          var/"mysql"
+        end
+      end
+    RUBY
+
+    expect_no_offenses(<<~RUBY)
+      class Mysql < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          (var/"mysql").mkpath
+          return if ENV["HOMEBREW_GITHUB_ACTIONS"]
+          system bin/"mysqld", "--initialize-insecure", "--skip-grant-tables"
+        end
+      end
+    RUBY
+
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          lib.each_child { |child| dynamic_target.install_symlink child }
+        end
+      end
+    RUBY
+  end
+
+  it "does not re-report declarative database and link steps" do
+    expect_no_offenses(<<~'RUBY')
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          link_dir "include/postgresql", "include/#{name}"
+          link_children "bin", suffix: "-#{version.major}"
+          init_data_dir name, using: :postgresql_initdb
+          symlink "cert.pem", "cert.pem",
+                  source_formula: "ca-certificates",
+                  source_base:    :formula_pkgetc,
+                  target_base:    :pkgetc,
+                  force:          true
+        end
+      end
+    RUBY
+  end
+
+  it "autocorrects direct certificate bundle symlinks while retaining legacy work" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+        ^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Use `post_install_steps` for simple file preparation.
+          rm(pkgetc/"cert.pem") if (pkgetc/"cert.pem").exist?
+          pkgetc.install_symlink Formula["ca-certificates"].pkgetc/"cert.pem"
+          opoo "keep this legacy work"
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          symlink "cert.pem", "cert.pem",
+                  source_formula: "ca-certificates",
+                  source_base: :formula_pkgetc,
+                  target_base: :pkgetc,
+                  force: true
+        end
+
+        def post_install
+          opoo "keep this legacy work"
+        end
+      end
+    RUBY
+  end
+
+  it "does not autocorrect dynamic or unsupported certificate symlinks" do
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          rm(openssldir/"cert.pem") if (openssldir/"cert.pem").exist?
+          openssldir.install_symlink Formula["ca-certificates"].pkgetc/"cert.pem"
+        end
+      end
+    RUBY
+
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        def post_install
+          rm(pkgetc/"cert.pem") if (pkgetc/"cert.pem").exist?
+          pkgetc.install_symlink Formula["custom-ca"].pkgetc/"cert.pem"
+        end
+      end
+    RUBY
+  end
+
   it "does not autocorrect non-file preparation in `post_install`" do
     expect_no_offenses(<<~RUBY)
       class Foo < Formula

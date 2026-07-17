@@ -80,6 +80,7 @@ module RuboCop
       class InstallStepPath < T::Struct
         const :path, String
         const :base, T.nilable(Symbol)
+        const :source, T.nilable(String), default: nil
       end
 
       sig {
@@ -115,15 +116,17 @@ module RuboCop
           default_source_base: Symbol,
           default_target_base: Symbol,
           rebuild_actions:     T::Boolean,
+          permission_actions:  T::Boolean,
         ).returns(T.nilable(T::Array[String]))
       }
       def simple_install_step_lines(body_node, default_base:, default_source_base:, default_target_base:,
-                                    rebuild_actions: true)
+                                    rebuild_actions: true, permission_actions: false)
         return if body_node.nil?
 
         direct_nodes = body_node.begin_type? ? body_node.child_nodes : [body_node]
         step_lines = direct_nodes.map do |node|
-          simple_install_step_line(node, default_base:, default_source_base:, default_target_base:, rebuild_actions:)
+          simple_install_step_line(node, default_base:, default_source_base:, default_target_base:, rebuild_actions:,
+                                   permission_actions:)
         end
         return if step_lines.any?(&:nil?)
 
@@ -133,15 +136,53 @@ module RuboCop
       sig { params(block_name: Symbol, step_lines: T::Array[String], indent: Integer).returns(String) }
       def install_steps_block_source(block_name, step_lines, indent)
         block_indent = " " * indent
-        step_indent = " " * (indent + 2)
         [
           "#{block_name} do",
-          *step_lines.map { |step_line| "#{step_indent}#{step_line}" },
+          *indented_install_step_lines(step_lines, indent + 2),
           "#{block_indent}end",
         ].join("\n")
       end
 
+      sig {
+        params(
+          corrector:  RuboCop::Cop::Corrector,
+          block_node: RuboCop::AST::BlockNode,
+          step_lines: T::Array[String],
+        ).void
+      }
+      def append_install_step_lines(corrector, block_node, step_lines)
+        block_indent = block_node.source_range.column
+        step_source = indented_install_step_lines(step_lines, block_indent + 2).join("\n")
+        corrector.insert_before(
+          block_node.loc.end,
+          "#{step_source.delete_prefix(" " * block_indent)}\n#{" " * block_indent}",
+        )
+      end
+
+      sig { params(body_node: T.nilable(RuboCop::AST::Node)).returns(T::Array[RuboCop::AST::Node]) }
+      def direct_install_step_nodes(body_node)
+        return [] if body_node.nil?
+
+        body_node.begin_type? ? body_node.child_nodes : [body_node]
+      end
+
+      sig { params(node: RuboCop::AST::Node).returns(String) }
+      def normalised_install_step_source(node)
+        node.source.lines.reject { |line| line.lstrip.start_with?("#") }.join.gsub(/\s+/, " ").strip
+      end
+
       private
+
+      sig { params(step_lines: T::Array[String], indent: Integer).returns(T::Array[String]) }
+      def indented_install_step_lines(step_lines, indent)
+        step_lines.flat_map do |step_line|
+          if step_line.include?("<<~")
+            ["#{" " * indent}#{step_line}"]
+          else
+            step_line.lines(chomp: true).map { |line| "#{" " * indent}#{line}" }
+          end
+        end
+      end
 
       sig { params(node: RuboCop::AST::Node).returns(T::Boolean) }
       def allowed_step_argument_node?(node)
@@ -181,9 +222,11 @@ module RuboCop
           default_source_base: Symbol,
           default_target_base: Symbol,
           rebuild_actions:     T::Boolean,
+          permission_actions:  T::Boolean,
         ).returns(T.nilable(String))
       }
-      def simple_install_step_line(node, default_base:, default_source_base:, default_target_base:, rebuild_actions:)
+      def simple_install_step_line(node, default_base:, default_source_base:, default_target_base:, rebuild_actions:,
+                                   permission_actions:)
         return unless node.send_type?
 
         send_node = T.cast(node, RuboCop::AST::SendNode)
@@ -210,6 +253,15 @@ module RuboCop
           return if send_node.receiver.nil? || send_node.arguments.length != 1
 
           return write_step_line(install_step_path(send_node.receiver), send_node.arguments.fetch(0), default_base)
+        end
+
+        if permission_actions && send_node.receiver.nil?
+          case send_node.method_name
+          when :set_permissions
+            return set_permissions_step_line(send_node, default_base)
+          when :set_ownership
+            return set_ownership_step_line(send_node, default_base)
+          end
         end
 
         return unless fileutils_or_no_receiver?(send_node)
@@ -347,6 +399,156 @@ module RuboCop
                                          content_node.loc.expression.end_pos, heredoc_end.end_pos).source}"
       end
 
+      sig {
+        params(
+          send_node:    RuboCop::AST::SendNode,
+          default_base: Symbol,
+        ).returns(T.nilable(String))
+      }
+      def set_permissions_step_line(send_node, default_base)
+        return if send_node.arguments.length != 2
+
+        permissions_node = send_node.arguments.fetch(1)
+        return unless permissions_node.str_type?
+        return unless (paths = permission_paths_source(send_node.arguments.fetch(0), default_base))
+
+        path_source, base = paths
+        "set_permissions #{path_source}, #{permissions_node.source}" \
+          "#{install_step_path_keywords_for_base(base, default_base)}"
+      end
+
+      sig {
+        params(
+          send_node:    RuboCop::AST::SendNode,
+          default_base: Symbol,
+        ).returns(T.nilable(String))
+      }
+      def set_ownership_step_line(send_node, default_base)
+        return unless [1, 2].include?(send_node.arguments.length)
+        return unless (paths = permission_paths_source(send_node.arguments.fetch(0), default_base))
+
+        kwargs = T.let([], T::Array[String])
+        if send_node.arguments.length == 2
+          options = send_node.arguments.fetch(1)
+          return unless options.hash_type?
+
+          pairs = T.cast(options, RuboCop::AST::HashNode).pairs
+          return if pairs.empty?
+          return unless pairs.all? do |pair|
+            pair.key.sym_type? && [:user, :group].include?(pair.key.value) && pair.value.str_type?
+          end
+          return if pairs.map { |pair| pair.key.value }.uniq.length != pairs.length
+
+          kwargs.concat(pairs.map(&:source))
+        end
+
+        path_source, base = paths
+        kwargs << "base: :#{base}" if base && base != default_base
+        "set_ownership #{path_source}#{install_step_kwargs(kwargs)}"
+      end
+
+      sig {
+        params(
+          node:         RuboCop::AST::Node,
+          default_base: Symbol,
+        ).returns(T.nilable([String, T.nilable(Symbol)]))
+      }
+      def permission_paths_source(node, default_base)
+        path_nodes = node.array_type? ? node.child_nodes : [node]
+        return if path_nodes.empty?
+
+        paths = path_nodes.filter_map { |path_node| cask_permission_path(path_node) }
+        return if paths.length != path_nodes.length
+
+        absolute_paths, relative_paths = paths.partition { |path| absolute_install_step_path?(path) }
+        return if absolute_paths.present? && relative_paths.present?
+
+        base = if relative_paths.present?
+          bases = relative_paths.map { |path| path.base || default_base }.uniq
+          return if bases.length != 1
+
+          bases.fetch(0)
+        end
+        source = if node.array_type?
+          "[#{paths.map { |path| install_step_path_source(path) }.join(", ")}]"
+        else
+          install_step_path_source(paths.fetch(0))
+        end
+        [source, base]
+      end
+
+      sig { params(node: RuboCop::AST::Node).returns(T.nilable(InstallStepPath)) }
+      def cask_permission_path(node)
+        path = install_step_path(node)
+        return path if path
+        if normalised_install_step_source(node) == "staged_path.to_s"
+          return InstallStepPath.new(path: ".", base: :staged_path)
+        end
+        return unless node.dstr_type?
+
+        dstr_permission_path(T.cast(node, RuboCop::AST::DstrNode))
+      end
+
+      sig { params(node: RuboCop::AST::DstrNode).returns(T.nilable(InstallStepPath)) }
+      def dstr_permission_path(node)
+        children = node.child_nodes
+        return if children.empty?
+
+        base = interpolated_path_base(children.first)
+        children = children.drop(1) if base
+        return if children.empty? || !children.first.str_type?
+
+        first_content = T.cast(children.first, RuboCop::AST::StrNode).str_content
+        if base
+          return unless first_content.start_with?("/")
+
+          first_content = first_content.delete_prefix("/")
+        elsif !first_content.start_with?("/", "~/")
+          return
+        end
+
+        path = +first_content
+        source = +first_content.dump.delete_prefix('"').delete_suffix('"')
+        valid_children = children.drop(1).all? do |child|
+          if child.str_type?
+            content = T.cast(child, RuboCop::AST::StrNode).str_content
+            path << content
+            source << content.dump.delete_prefix('"').delete_suffix('"')
+            true
+          elsif child.begin_type? && allowed_step_template_node?(child)
+            interpolation = "\#{#{child.source}}"
+            path << interpolation
+            source << interpolation
+            true
+          else
+            false
+          end
+        end
+        return unless valid_children
+
+        InstallStepPath.new(path:, base:, source: "\"#{source}\"")
+      end
+
+      sig { params(node: RuboCop::AST::Node).returns(T.nilable(Symbol)) }
+      def interpolated_path_base(node)
+        return unless node.begin_type?
+        return if node.child_nodes.length != 1
+
+        value = node.child_nodes.first
+        return :homebrew_prefix if value.const_type? && value.const_name == "HOMEBREW_PREFIX"
+        return unless value.send_type?
+
+        send_node = T.cast(value, RuboCop::AST::SendNode)
+        return if send_node.receiver || send_node.arguments.present?
+
+        send_node.method_name if [:appdir, :staged_path].include?(send_node.method_name)
+      end
+
+      sig { params(base: T.nilable(Symbol), default_base: Symbol).returns(String) }
+      def install_step_path_keywords_for_base(base, default_base)
+        (base && base != default_base) ? ", base: :#{base}" : ""
+      end
+
       sig { params(send_node: RuboCop::AST::SendNode).returns(T::Boolean) }
       def fileutils_or_no_receiver?(send_node)
         receiver = send_node.receiver
@@ -381,7 +583,7 @@ module RuboCop
         return if send_node.receiver
 
         base = send_node.method_name
-        base if [:etc, :home, :opt_prefix, :pkgetc, :prefix, :staged_path, :var].include?(base)
+        base if [:appdir, :etc, :home, :opt_prefix, :pkgetc, :prefix, :staged_path, :var].include?(base)
       end
 
       sig { params(path: InstallStepPath).returns(T::Boolean) }
@@ -396,7 +598,7 @@ module RuboCop
 
       sig { params(path: InstallStepPath).returns(String) }
       def install_step_path_source(path)
-        path.path.inspect
+        path.source || path.path.inspect
       end
 
       sig { params(path: InstallStepPath, base: Symbol, keyword: Symbol).returns(String) }
