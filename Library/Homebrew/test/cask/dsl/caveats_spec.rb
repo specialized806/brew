@@ -38,6 +38,7 @@ RSpec.describe Cask::DSL::Caveats, :cask do
       EOS
 
       allow(Homebrew::SimulateSystem).to receive(:current_arch).and_return(:arm)
+      allow(Hardware::CPU).to receive(:rosetta_installed?).and_return(false)
       caveats.eval_caveats do
         requires_rosetta
       end
@@ -281,8 +282,9 @@ RSpec.describe Cask::DSL::Caveats, :cask do
   end
 
   describe "#requires_rosetta" do
-    it "returns Rosetta caveat text if the current arch is :arm" do
+    it "returns Rosetta caveat text if the current arch is :arm and Rosetta 2 is not installed" do
       allow(Homebrew::SimulateSystem).to receive(:current_arch).and_return(:arm)
+      allow(Hardware::CPU).to receive(:rosetta_installed?).and_return(false)
       expected_caveats_str = <<~EOS
         #{cask} is built for Intel macOS and so requires Rosetta 2 to be installed.
         You can install Rosetta 2 with:
@@ -295,6 +297,16 @@ RSpec.describe Cask::DSL::Caveats, :cask do
       end
 
       expect(caveats.to_s).to eq(expected_caveats_str)
+    end
+
+    it "does not return a caveat string if the current arch is :arm but Rosetta 2 is already installed" do
+      allow(Homebrew::SimulateSystem).to receive(:current_arch).and_return(:arm)
+      allow(Hardware::CPU).to receive(:rosetta_installed?).and_return(true)
+      caveats.eval_caveats do
+        requires_rosetta
+      end
+
+      expect(caveats.to_s).to be_empty
     end
 
     it "does not return a caveat string if the current arch is not :arm" do
