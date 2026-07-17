@@ -13,8 +13,7 @@ module Homebrew
         description <<~EOS
           Check <formula> for known security vulnerabilities using the OSV.dev database.
 
-          With no arguments, installed formulae are checked unless tap trust is configured,
-          in which case all formulae permitted by the trust configuration are checked.
+          With no arguments, all installed formulae are checked.
         EOS
         switch "-d", "--deps",
                description: "Also check the dependencies of named formulae."
@@ -38,11 +37,12 @@ module Homebrew
         require "vulns"
 
         summary_width = max_summary
+        severity = min_severity
 
         results = Homebrew::Vulns::Scanner.new(
           formulae,
           ignore_patches: !args.no_ignore_patches?,
-          min_severity:,
+          min_severity:   severity,
         ).scan
 
         if args.json?
@@ -51,6 +51,15 @@ module Homebrew
           Homebrew::Vulns::Output.text(results, max_summary: summary_width)
         end
 
+        if untrusted_skipped.any?
+          kegs = Utils.pluralize("installed keg", untrusted_skipped.size, include_count: true)
+          opoo <<~EOS
+            #{kegs} from an untrusted tap not scanned:
+              #{untrusted_skipped.join("\n  ")}
+            Run `brew trust` on the formula or tap to include it in future scans.
+          EOS
+          Homebrew.failed = true
+        end
         if results.outdated_without_sbom.any?
           opoo <<~EOS
             The installed source of #{results.outdated_without_sbom.sort.join(", ")} could not be determined
@@ -64,20 +73,34 @@ module Homebrew
 
       sig { returns(T::Array[Formula]) }
       def formulae
-        list = if (brewfile = args.brewfile)
+        list = T.let([], T::Array[Formula])
+        if (brewfile = args.brewfile)
           require "bundle/brewfile"
-          Homebrew::Bundle::Brewfile.read(file: brewfile_path(brewfile)).entries
-                                    .select { |e| e.type == :brew }
-                                    .map { |e| Formulary.resolve(e.name) }
-        elsif args.named.any?
-          args.named.to_resolved_formulae
-        elsif Homebrew::EnvConfig.tap_trust_configured?
-          Formula.all
-        else
-          Formula.installed
+          list += Homebrew::Bundle::Brewfile.read(file: brewfile_path(brewfile)).entries
+                                            .select { |e| e.type == :brew }
+                                            .map { |e| Formulary.resolve(e.name) }
         end
+        list += args.named.to_resolved_formulae if args.named.any?
+        list = installed_formulae if !args.brewfile && args.no_named?
         list += list.flat_map { |f| f.recursive_dependencies.map(&:to_formula) } if args.deps?
         list.uniq(&:full_name)
+      end
+
+      sig { returns(T::Array[Formula]) }
+      def installed_formulae
+        Formula.racks.filter_map do |rack|
+          Formulary.from_rack(rack)
+        rescue Homebrew::UntrustedTapError => e
+          untrusted_skipped << e.message.lines.first.to_s.strip
+          nil
+        rescue
+          nil
+        end.uniq(&:name)
+      end
+
+      sig { returns(T::Array[String]) }
+      def untrusted_skipped
+        @untrusted_skipped ||= T.let([], T.nilable(T::Array[String]))
       end
 
       # A bare `--brewfile` (no `=path`) yields `true` from OptionParser at

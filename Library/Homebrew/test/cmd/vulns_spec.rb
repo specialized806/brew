@@ -6,18 +6,37 @@ require "vulns"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::Vulns do
-  before do
-    allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(false)
-  end
-
   it_behaves_like "parseable arguments"
 
-  it "checks all formulae allowed by tap trust when no formula is named" do
-    formula = instance_double(Formula, full_name: "act")
-    allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(true)
-    expect(Formula).to receive(:all).and_return([formula])
+  describe "#formulae" do
+    let(:installed) { instance_double(Formula, full_name: "curl", recursive_dependencies: []) }
 
-    expect(described_class.new([]).formulae).to eq [formula]
+    it "scans installed formulae when no arguments are given, never Formula.all" do
+      rack = HOMEBREW_CELLAR/"curl"
+      allow(Formula).to receive(:racks).and_return([rack])
+      allow(Formulary).to receive(:from_rack).with(rack).and_return(installed)
+      expect(Formula).not_to receive(:all)
+      expect(described_class.new([]).formulae).to eq [installed]
+    end
+
+    it "scans named formulae" do
+      named = instance_double(Formula, full_name: "act", recursive_dependencies: [])
+      allow_any_instance_of(Homebrew::CLI::NamedArgs).to receive(:to_resolved_formulae).and_return([named])
+      expect(described_class.new(["act"]).formulae).to eq [named]
+    end
+
+    it "scans the union of --brewfile entries and named arguments" do
+      require "bundle/brewfile"
+      entry = instance_double(Homebrew::Bundle::Dsl::Entry, type: :brew, name: "wget")
+      dsl = instance_double(Homebrew::Bundle::Dsl, entries: [entry])
+      from_brewfile = instance_double(Formula, full_name: "wget", recursive_dependencies: [])
+      named = instance_double(Formula, full_name: "act", recursive_dependencies: [])
+      allow(Homebrew::Bundle::Brewfile).to receive(:read).with(file: nil).and_return(dsl)
+      allow(Formulary).to receive(:resolve).with("wget").and_return(from_brewfile)
+      allow_any_instance_of(Homebrew::CLI::NamedArgs).to receive(:to_resolved_formulae).and_return([named])
+
+      expect(described_class.new(["act", "--brewfile"]).formulae).to contain_exactly(from_brewfile, named)
+    end
   end
 
   it "reads the default Brewfile when --brewfile is passed without a path" do
@@ -34,25 +53,10 @@ RSpec.describe Homebrew::Cmd::Vulns do
     expect(described_class.new(["--brewfile=Brewfile.dev"]).formulae).to eq [formula]
   end
 
-  it "rejects an unknown --severity value" do
-    expect { described_class.new(["--severity=urgent"]).run }
-      .to raise_error(UsageError, /`--severity` must be one of/)
-  end
-
-  it "rejects a non-numeric --max-summary value" do
-    expect { described_class.new(["--max-summary=lots"]).run }
-      .to raise_error(UsageError, /`--max-summary` must be a non-negative integer/)
-  end
-
-  it "rejects a negative --max-summary value" do
-    expect { described_class.new(["--max-summary=-5"]).run }
-      .to raise_error(UsageError, /`--max-summary` must be a non-negative integer/)
-  end
-
-  it "validates options before constructing the scanner" do
-    expect(Homebrew::Vulns::Scanner).not_to receive(:new)
-    expect { described_class.new(["--max-summary=bad", "--json"]).run }.to raise_error(UsageError)
-    expect { described_class.new(["--severity=urgent"]).run }.to raise_error(UsageError)
+  it "validates --severity before enumerating formulae" do
+    cmd = described_class.new(["--severity=urgent"])
+    expect(cmd).not_to receive(:formulae)
+    expect { cmd.run }.to raise_error(UsageError)
   end
 
   describe "#run" do
@@ -68,7 +72,28 @@ RSpec.describe Homebrew::Cmd::Vulns do
     end
 
     before do
-      allow(Formula).to receive(:installed).and_return([act])
+      allow_any_instance_of(described_class).to receive(:formulae).and_return([act])
+    end
+
+    it "rejects an unknown --severity value" do
+      expect { described_class.new(["--severity=urgent"]).run }
+        .to raise_error(UsageError, /`--severity` must be one of/)
+    end
+
+    it "rejects a non-numeric --max-summary value" do
+      expect { described_class.new(["--max-summary=lots"]).run }
+        .to raise_error(UsageError, /`--max-summary` must be a non-negative integer/)
+    end
+
+    it "rejects a negative --max-summary value" do
+      expect { described_class.new(["--max-summary=-5"]).run }
+        .to raise_error(UsageError, /`--max-summary` must be a non-negative integer/)
+    end
+
+    it "validates options before constructing the scanner" do
+      expect(Homebrew::Vulns::Scanner).not_to receive(:new)
+      expect { described_class.new(["--max-summary=bad", "--json"]).run }.to raise_error(UsageError)
+      expect { described_class.new(["--severity=urgent"]).run }.to raise_error(UsageError)
     end
 
     it "prints text output and does not set Homebrew.failed when nothing is found" do
@@ -130,6 +155,33 @@ RSpec.describe Homebrew::Cmd::Vulns do
                           scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0, skipped: 0)),
         )
       described_class.new(["--no-ignore-patches", "--json"]).run
+    end
+
+    context "with an installed keg from an untrusted tap" do
+      let(:trusted_rack) { HOMEBREW_CELLAR/"act" }
+      let(:untrusted_rack) { HOMEBREW_CELLAR/"foo" }
+
+      before do
+        allow_any_instance_of(described_class).to receive(:formulae).and_call_original
+        allow(Formula).to receive(:racks).and_return([trusted_rack, untrusted_rack])
+        allow(Formulary).to receive(:from_rack).with(trusted_rack).and_return(act)
+        allow(Formulary).to receive(:from_rack).with(untrusted_rack).and_raise(
+          Homebrew::UntrustedTapError,
+          "Refusing to load formula someone/tap/foo from untrusted tap someone/tap.",
+        )
+        stub_scan([])
+      end
+
+      it "does not pass the untrusted formula to the scanner" do
+        expect(Homebrew::Vulns::Scanner).to receive(:new).with([act], anything).and_call_original
+        described_class.new(["--json"]).run
+      end
+
+      it "reports the skipped keg and fails" do
+        expect { described_class.new(["--json"]).run }
+          .to output(%r{untrusted tap.*not scanned.*someone/tap/foo.*brew trust}m).to_stderr
+        expect(Homebrew.failed?).to be true
+      end
     end
   end
 end
