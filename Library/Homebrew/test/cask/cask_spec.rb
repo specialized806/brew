@@ -842,6 +842,40 @@ RSpec.describe Cask::Cask, :cask do
       MacOS.full_version = original_macos_version
     end
 
+    it "returns language variations with a deterministic default" do
+      hash = JSON.parse(JSON.generate(Cask::CaskLoader.load("with-languages").to_hash_with_variations))
+
+      expect(hash.slice("url", "sha256", "language_variations")).to eq({
+        "url"                 => "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip",
+        "sha256"              => "67cdb8a02803ef37fdbf7e0be205863172e41a561ca446cd84f0d7ab35a99d94",
+        "language_variations" => [
+          {
+            "languages" => ["zh"],
+            "default"   => false,
+            "value"     => "zh-CN",
+            "url"       => "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz",
+            "sha256"    => "fab685fabf73d5a9382581ce8698fce9408f5feaa49fa10d9bc6c510493300f5",
+            "artifacts" => [{
+              "app"    => ["Container.app"],
+              "target" => "#{TEST_TMPDIR}/cask-appdir/Container.app",
+            }],
+          },
+          { "languages" => ["en-US"], "default" => true, "value" => "en-US" },
+        ],
+      })
+    end
+
+    it "preserves the cask configuration while generating language variations" do
+      appdir = Pathname(TEST_TMPDIR)/"configured-appdir"
+      config = Cask::Config.from_json({ default: { appdir:, languages: ["en-US"] } }.to_json)
+      hash = Cask::CaskLoader.load("with-languages", config:).to_hash_with_variations
+
+      expect([
+        hash.dig("artifacts", 0, :target),
+        hash.dig("language_variations", 0, "artifacts", 0, :target),
+      ]).to eq([appdir/"Caffeine.app", appdir/"Container.app"].map(&:to_s))
+    end
+
     it "returns the correct variations hash for a cask with multiple versions" do
       c = Cask::CaskLoader.load("multiple-versions")
       h = c.to_hash_with_variations

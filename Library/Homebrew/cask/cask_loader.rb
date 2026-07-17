@@ -512,28 +512,34 @@ module Cask
         end
 
         api_cask = Cask.new(token, **cask_options) do
-          version cask_struct.version
-          sha256 cask_struct.sha256
+          localised_cask_struct = if cask_struct.language_variations.empty?
+            cask_struct
+          else
+            cask_struct.localise(cask.config.languages)
+          end
 
-          url(*cask_struct.url_args, **cask_struct.url_kwargs)
-          cask_struct.names.each do |cask_name|
+          version localised_cask_struct.version
+          sha256 localised_cask_struct.sha256
+
+          url(*localised_cask_struct.url_args, **localised_cask_struct.url_kwargs)
+          localised_cask_struct.names.each do |cask_name|
             name cask_name
           end
-          desc cask_struct.desc if cask_struct.desc?
-          homepage cask_struct.homepage if cask_struct.homepage?
+          desc localised_cask_struct.desc if localised_cask_struct.desc?
+          homepage localised_cask_struct.homepage if localised_cask_struct.homepage?
 
-          deprecate!(**cask_struct.deprecate_args) if cask_struct.deprecate?
-          disable!(**cask_struct.disable_args) if cask_struct.disable?
+          deprecate!(**localised_cask_struct.deprecate_args) if localised_cask_struct.deprecate?
+          disable!(**localised_cask_struct.disable_args) if localised_cask_struct.disable?
 
-          auto_updates cask_struct.auto_updates if cask_struct.auto_updates?
-          conflicts_with(**cask_struct.conflicts_with_args) if cask_struct.conflicts?
+          auto_updates localised_cask_struct.auto_updates if localised_cask_struct.auto_updates?
+          conflicts_with(**localised_cask_struct.conflicts_with_args) if localised_cask_struct.conflicts?
 
-          cask_struct.renames.each do |from, to|
+          localised_cask_struct.renames.each do |from, to|
             rename from, to
           end
 
-          if cask_struct.depends_on?
-            args = cask_struct.depends_on_args
+          if localised_cask_struct.depends_on?
+            args = localised_cask_struct.depends_on_args
             begin
               depends_on(**args)
             rescue MacOSVersion::Error => e
@@ -542,17 +548,18 @@ module Cask
             end
           end
 
-          if cask_struct.container?
-            container(nested: cask_struct.container_args[:nested], type: cask_struct.container_args[:type])
+          if localised_cask_struct.container?
+            container(nested: localised_cask_struct.container_args[:nested],
+                      type:   localised_cask_struct.container_args[:type])
           end
 
-          cask_struct.artifacts(appdir:).each do |key, args, kwargs, block|
+          localised_cask_struct.artifacts(appdir:).each do |key, args, kwargs, block|
             send(key, *args, **kwargs, &block)
           end
 
-          caveats T.must(cask_struct.caveats(appdir:)) if cask_struct.caveats?
+          caveats T.must(localised_cask_struct.caveats(appdir:)) if localised_cask_struct.caveats?
 
-          if cask_struct.caveats_rosetta
+          if localised_cask_struct.caveats_rosetta
             caveats do
               # Dynamically defined via `caveat :requires_rosetta` — Sorbet can't resolve it.
               T.unsafe(self).requires_rosetta

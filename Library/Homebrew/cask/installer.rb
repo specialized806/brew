@@ -268,6 +268,7 @@ on_request: true)
            Homebrew::API::CaskDownload.download(
              token:       @cask.token,
              cask_struct: Homebrew::API::Internal.cask_struct(@cask.token),
+             languages:   @cask.config.languages,
              quarantine:  quarantine?,
              require_sha: require_sha? && !force?,
            )
@@ -936,8 +937,6 @@ on_request: true)
       download_queue = @download_queue
       prelude_fetch(download_queue:) unless @ran_prelude_fetch
 
-      # FIXME: We need to load Cask source before enqueuing to support
-      # language-specific URLs, but this will block the main process.
       if source_download_requires_pre_fetch?
         load_cask_from_source_api!
       elsif cask_from_source_api?

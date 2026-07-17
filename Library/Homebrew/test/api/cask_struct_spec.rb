@@ -122,6 +122,39 @@ RSpec.describe Homebrew::API::CaskStruct do
     end
   end
 
+  describe "#localise" do
+    it "selects matching locale groups and falls back to the default" do
+      struct = described_class.new(
+        sha256:              "english",
+        version:             "1.0.0",
+        url_args:            ["https://example.com/en.dmg"],
+        language_variations: [
+          {
+            languages: ["zh", "CN"],
+            value:     "zh-CN",
+            overrides: {
+              "sha256"   => "chinese",
+              "url_args" => ["https://example.com/zh.dmg"],
+              "names"    => [":Chinese"],
+            },
+          },
+          { languages: ["en"], default: true, value: "en-US", overrides: {} },
+        ],
+      )
+
+      chinese = struct.localise(["zh-Hans-CN"])
+      default = struct.localise(["fr"])
+
+      expect([
+        [chinese.sha256, chinese.url_args, chinese.names, struct.language(["zh-Hans-CN"])],
+        [default.sha256, default.url_args, struct.language(["fr"])],
+      ]).to eq([
+        ["chinese", ["https://example.com/zh.dmg"], [":Chinese"], "zh-CN"],
+        ["english", ["https://example.com/en.dmg"], "en-US"],
+      ])
+    end
+  end
+
   specify "#serialize_artifact_args", :aggregate_failures do
     struct = described_class.new(
       sha256:               "abc123",

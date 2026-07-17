@@ -86,6 +86,13 @@ does not flag formulae or casks before the DSL is widely available. After PR `1`
 is merged and before PRs `3` and `4` are merged, cut a new `Homebrew/brew`
 stable release so `homebrew/core` and `homebrew/cask` CI have the new DSL.
 
+These four PRs are also a stage gate. Before starting the next numbered DSL
+operation, implement and test the current operation's enforcing/autocorrecting
+PR `2`, record its commit in this plan and run its cops across both taps. The
+cop can still merge last, but an operation is not complete while its PR `2` is
+missing. If no safe legacy pattern exists, record the tap scan, representative
+filenames and negative cop coverage instead of silently omitting the PR.
+
 Each operation PR should also clone, or create clean local worktrees for,
 `homebrew/core` and `homebrew/cask`, make the corresponding tap changes and
 verify the changed taps with `./bin/brew style`, `./bin/brew audit` and
@@ -171,10 +178,13 @@ Local all-file scan source: `homebrew/cask` at `4eee0394c96c`. The scan read
 all `7,741` files under `Casks/`. Pattern buckets overlap because one flight
 block can prepare files, change permissions and run commands.
 
-- `193` of `7,741` casks currently require the Ruby source at install time
-  through `Cask#caskfile_only?`: `170` because of legacy `*flight` blocks and
-  `23` because of language blocks only. `27` casks have language blocks in
-  total, so `4` have both language blocks and legacy `*flight` blocks.
+- Before language variations were serialised, `193` of `7,741` casks required
+  the Ruby source at install time through `Cask#caskfile_only?`: `170` because
+  of legacy `*flight` blocks and `23` because of language blocks only. `27`
+  casks had language blocks in total, so `4` had both language blocks and
+  legacy `*flight` blocks. Language variation API data removes language blocks
+  as a source download gate; the `4` overlapping casks still need source for
+  their legacy flight blocks.
 - I did not find other current cask install-time Ruby source download gates.
   Ordinary artifacts, uninstall/zap directives, caveats, dependencies and
   `on_*` variations are serialised through API data. `*_steps` artifacts are
@@ -215,13 +225,13 @@ handling use `Homebrew::API::Formula.source_download_formula` for build-time
 reasons outside this post-install DSL work.
 
 Cask JSON API installs use `Homebrew::API::Cask.source_download_cask` when
-`Cask#caskfile_only?` is true. Today that is true when a cask has any legacy
-`preflight`, `postflight`, `uninstall_preflight` or `uninstall_postflight`
-block, or when it has language blocks. Legacy flight blocks need the source
-because API data only records that a block exists, not the Ruby body. Language
-blocks need the source because the API stores available language codes, but not
-the selected block return value or stanza effects; language-specific URLs must
-be resolved before the download can be enqueued.
+`Cask#caskfile_only?` is true. Legacy `preflight`, `postflight`,
+`uninstall_preflight` and `uninstall_postflight` blocks need the source because
+API data only records that a block exists, not the Ruby body. Current API data
+stores each language block's locale group, default marker, return value and
+resulting stanza differences, so language-specific URLs can be resolved before
+the download is enqueued. Older API data with only the flat `languages` array
+continues to download source as a compatibility fallback.
 
 ## Installed Cask Metadata Format
 
@@ -467,10 +477,15 @@ is stripped during metadata serialisation.
   Scope: the cask install-step cop converts pure legacy flight blocks using
   `set_permissions` and `set_ownership` to matching `*_steps` blocks. Mixed
   flights, dynamic paths and unsupported arguments remain unchanged.
-- [ ] PR 9, cask language variations in API data.
+- [x] PR 9, cask language variations in API data.
+  Commit: `Serialise cask language variations`.
   Estimated existing casks affected: `27` casks use language blocks, with large
   examples including `Casks/f/firefox.rb`,
   `Casks/l/libreoffice-language-pack.rb` and `Casks/t/thunderbird.rb`.
-  Notes for implementation: represent language-specific URLs, checksums and
-  returned values without evaluating cask Ruby before fetch; keep the public API
-  shape friendly to clients that need to choose one language deterministically.
+  Scope: serialise a deterministic default plus ordered language variation
+  deltas containing locale groups, the default marker, return values and all
+  resulting API stanza changes. Public and internal API loaders select exact or
+  partial locale matches and fall back to the default. Cask downloads use the
+  selected URL and checksum directly, while older API data still falls back to
+  source. Artifact differences are included so all `27` current language casks,
+  including `cave-story` and `wondershare-edrawmax`, can use API data.

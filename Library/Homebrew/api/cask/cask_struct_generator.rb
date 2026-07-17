@@ -13,6 +13,14 @@ module Homebrew
         sig { params(hash: T::Hash[String, T.untyped], bottle_tag: Utils::Bottles::Tag, ignore_types: T::Boolean).returns(CaskStruct) }
         def generate_cask_struct_hash(hash, bottle_tag: Homebrew::SimulateSystem.current_tag, ignore_types: false)
           hash = Homebrew::API.merge_variations(hash, bottle_tag:).dup.deep_symbolize_keys.transform_keys(&:to_s)
+          language_variations = T.cast(
+            hash.delete("language_variations"),
+            T.nilable(T::Array[T::Hash[Symbol, T.untyped]]),
+          )
+          language_structs = language_variations&.map do |variation|
+            language_hash = hash.merge(variation.except(:languages, :default, :value).transform_keys(&:to_s))
+            [variation, generate_cask_struct_hash(language_hash, bottle_tag:, ignore_types:)]
+          end
 
           hash["conflicts_with_args"] = hash["conflicts_with"]&.to_h
 
@@ -79,7 +87,23 @@ module Homebrew
           hash["disable_present"] = hash["disable_args"].present?
           hash["homepage_present"] = hash["homepage"].present?
 
-          CaskStruct.from_hash(hash, ignore_types:)
+          cask_struct = CaskStruct.from_hash(hash, ignore_types:)
+          return cask_struct if language_structs.blank?
+
+          serialised_cask = cask_struct.serialize
+          processed_language_variations = language_structs.map do |variation, language_struct|
+            language_data = language_struct.serialize.reject do |key, value|
+              serialised_cask[key] == value
+            end
+            {
+              languages: T.cast(variation[:languages], T::Array[String]),
+              default:   variation[:default] == true,
+              value:     T.cast(variation[:value], T.nilable(String)),
+              overrides: language_data,
+            }
+          end
+
+          CaskStruct.deserialize(serialised_cask.merge("language_variations" => processed_language_variations))
         end
 
         sig { params(depends_on: T::Hash[Symbol, T.untyped]).returns(CaskStruct::DependsOnArgs) }

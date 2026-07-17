@@ -330,7 +330,27 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     end
 
     context "with a language stanza" do
-      include_examples "loads from API", "with-languages", caskfile_only: true
+      include_examples "loads from API", "with-languages", caskfile_only: false
+
+      it "loads the selected language variation from both APIs" do
+        config = Cask::Config.new(explicit: { languages: ["zh"] })
+        casks = [api_loader.load(config:), internal_api_loader.load(config:)]
+
+        expect(casks.map do |cask|
+          [cask.language, cask.url.to_s, cask.sha256.to_s, cask.artifacts.first.to_args]
+        end).to all(eq([
+          "zh-CN",
+          "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz",
+          "fab685fabf73d5a9382581ce8698fce9408f5feaa49fa10d9bc6c510493300f5",
+          ["Container.app"],
+        ]))
+      end
+
+      it "keeps the source fallback for old API data" do
+        cask = described_class.new(api_token, from_json: cask_json.except("language_variations")).load(config: nil)
+
+        expect(cask).to be_caskfile_only
+      end
     end
   end
 end

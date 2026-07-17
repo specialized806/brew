@@ -112,6 +112,8 @@ module Cask
       @loaded_from_api = loaded_from_api
       @loaded_from_internal_api = loaded_from_internal_api
       @api_source = api_source
+      @language_variations_available = T.let(false, T::Boolean)
+      @language_evaluator = T.let(nil, T.nilable(T.proc.params(languages: T::Array[String]).returns(T.nilable(String))))
       @loader = loader
       # Sorbet has trouble with bound procs assigned to instance variables:
       # https://github.com/sorbet/sorbet/issues/6843
@@ -193,7 +195,20 @@ module Cask
       nil
     end
 
-    def_delegators :@dsl, *::Cask::DSL::DSL_METHODS
+    def_delegators :@dsl, *(::Cask::DSL::DSL_METHODS - [:language])
+
+    sig {
+      params(
+        args:    String,
+        default: T::Boolean,
+        block:   T.nilable(T.proc.returns(String)),
+      ).returns(T.nilable(String))
+    }
+    def language(*args, default: false, &block)
+      return @language_evaluator.call(config.languages) if args.empty? && block.nil? && @language_evaluator
+
+      dsl!.language(*args, default:, &block)
+    end
 
     sig { returns(DSL::Caveats) }
     def caveats_object = dsl!.caveats_object
@@ -250,11 +265,11 @@ module Cask
       !depends_on.requires_linux?
     end
 
-    # The caskfile is needed during installation when there are
-    # `*flight` blocks or the cask has multiple languages
+    # The caskfile is needed during installation when there are legacy
+    # `*flight` blocks or language variations missing from API data.
     sig { returns(T::Boolean) }
     def caskfile_only?
-      languages.any? || artifacts.any?(Artifact::AbstractFlightBlock)
+      (languages.any? && !@language_variations_available) || artifacts.any?(Artifact::AbstractFlightBlock)
     end
 
     sig { returns(T::Boolean) }
@@ -496,6 +511,8 @@ module Cask
       raise ArgumentError, "Expected cask to be loaded from the API" unless loaded_from_api?
 
       @languages = cask_struct.languages
+      @language_variations_available = cask_struct.language_variations.any?
+      @language_evaluator = ->(languages) { cask_struct.language(languages) }
       @tap_git_head = tap_git_head
       @ruby_source_path = cask_struct.ruby_source_path
       @ruby_source_checksum = cask_struct.ruby_source_checksum
@@ -590,7 +607,7 @@ module Cask
         return api_to_local_hash(json_cask.dup)
       end
 
-      hash = to_h
+      hash = to_h_with_language_variations
       variations = {}
 
       if dsl!.on_system_blocks_exist?
@@ -605,7 +622,7 @@ module Cask
                     macos_requirements.any? { |requirement| !requirement.allows?(bottle_tag.to_macos_version) }
 
             refresh_for_tag(bottle_tag) do
-              to_h.each do |key, value|
+              to_h_with_language_variations.each do |key, value|
                 next if HASH_KEYS_TO_SKIP.include? key
                 next if value.to_s == hash[key].to_s
 
@@ -621,6 +638,42 @@ module Cask
 
       hash["variations"] = variations
       hash
+    end
+
+    sig { returns(T::Hash[String, T.untyped]) }
+    def to_h_with_language_variations
+      language_groups = dsl!.language_groups
+      return to_h if language_groups.empty?
+
+      default_language_group = dsl!.default_language_group
+      raise CaskInvalidError.new(self, "No default language specified.") if default_language_group.nil?
+
+      original_config = config
+      language_hashes = language_groups.to_h do |languages|
+        localised_config = original_config.dup
+        localised_config.explicit = original_config.explicit.dup
+        localised_config.languages = [languages.fetch(0)]
+        self.config = localised_config
+        [languages, [to_h, dsl!.language_eval]]
+      end
+      hash = language_hashes.fetch(default_language_group).first
+      hash["language_variations"] = language_hashes.map do |languages, (language_hash, value)|
+        variation = {
+          "languages" => languages,
+          "default"   => languages == default_language_group,
+          "value"     => value,
+        }
+        language_hash.each do |key, language_value|
+          next if HASH_KEYS_TO_SKIP.include? key
+          next if language_value.to_s == hash[key].to_s
+
+          variation[key] = language_value
+        end
+        variation
+      end
+      hash
+    ensure
+      self.config = original_config if original_config
     end
 
     sig { returns(T::Hash[String, T.untyped]) }
