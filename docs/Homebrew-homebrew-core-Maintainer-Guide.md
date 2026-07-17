@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-25"
+last_review_date: "2026-07-17"
 ---
 
 # Homebrew/homebrew-core Maintainer Guide
@@ -113,6 +113,17 @@ Verify the formula works if possible. If you can’t tell (e.g. if it’s a libr
 If the formula uses a repository, then the `url` parameter should have a tag or revision. `url`s have versions and are stable (not yet implemented!).
 
 Don't merge any formula updates with failing `brew test`s. If a `test do` block is failing it needs to be fixed. This may involve replacing more involved tests with those that are more reliable. This is fine: false positives are better than false negatives as we don't want to teach maintainers to merge red PRs. If the test failure is believed to be due to a bug in `Homebrew/brew` or the CI system, that bug must be fixed, or worked around in the formula to yield a passing test, before the PR can be merged.
+
+## Retagged formulae
+
+Upstream source archives and Git tags for released versions are expected to be immutable.
+If the checksum of a fixed-version source archive changes or a Git tag moves to a different commit, treat this as a potential upstream compromise or supply-side attack rather than a routine update.
+
+Where possible, contact upstream through an official channel, preferably a public issue tracker, and ask them to confirm why the source changed and that it was not the result of a compromise.
+Do not open or merge a PR updating the formula's checksum, revision or source until upstream has confirmed the change was intentional.
+The PR should link to upstream's confirmation.
+
+If the change cannot be verified, disable the formula with `:checksum_mismatch` rather than packaging the changed source.
 
 ## Duplicates
 

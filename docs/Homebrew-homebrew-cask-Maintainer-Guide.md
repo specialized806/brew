@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-25"
+last_review_date: "2026-07-17"
 ---
 
 # Homebrew/homebrew-cask Maintainer Guide
@@ -11,14 +11,32 @@ This guide is intended to help maintainers effectively maintain the cask reposit
 Here is a list of the most common situations that arise in cask PRs and how to handle them:
 
 - The `version` and `sha256` both change (keeping the same format): Merge.
-- Only the `sha256` changes: Merge unless the version needs to be updated as well. It’s not uncommon for upstream vendors to update versions in-place. However, be wary for times when e.g. upstream could have been hacked.
+- Only the `sha256` changes: Treat this as a retagged cask and follow the policy below.
 - `livecheck` is updated: Use your best judgement and try to make sure that the changes follow the [`livecheck` guidelines](Brew-Livecheck.md).
 - Only the `version` changes or the `version` format changes: Use your best judgement and merge if it seems correct (this is relatively rare).
 - Other changes (including adding new casks): Use the [Cask Cookbook](Cask-Cookbook.md) to determine what's correct.
 
 If in doubt, ask another cask maintainer on GitHub or Slack.
 
-Note that unlike formulae, casks do not consider the `sha256` stanza to be a meaningful security measure as maintainers cannot realistically check them for authenticity. Casks download from upstream; if a malicious actor compromised a URL, they could potentially compromise a version and make it look like an update.
+Unlike formulae, a cask's `sha256` stanza does not prove that an artefact is authentic because maintainers cannot realistically reproduce proprietary binaries.
+It does reveal when a pinned download has changed.
+Casks download from upstream; if a malicious actor compromised a URL, they could potentially compromise a version and make it look like an update.
+
+## Retagged Casks
+
+Some vendors replace an existing versioned download in place.
+If the checksum changes without a corresponding version change, treat this as a potential upstream compromise or supply-side attack rather than a routine update.
+
+Not all cask artefacts are code signed.
+When an artefact is signed, a valid signature whose developer identity matches previous releases or the vendor's documented identity is a strong indicator that the changed download is legitimate.
+Check and document the code-signing identity when available; an artefact is not suspicious merely because it is unsigned if previous releases were also unsigned.
+
+Where possible, contact the vendor through an official contact page, public bug tracker or similar channel and ask them to confirm why the artefact changed and that it was not the result of a compromise.
+Do not open or merge a PR updating the cask's checksum until the vendor has confirmed the change was intentional or it has been verified under the exception below.
+The PR should link to the vendor's confirmation.
+
+Use a lower verification bar for a proprietary cask whose vendor has no practical public contact channel.
+In this case, direct confirmation is not required if the PR documents the code-signing result, when available, and the strongest other evidence, such as official release information.
 
 ## Deprecating, Disabling and Removing Casks
 
