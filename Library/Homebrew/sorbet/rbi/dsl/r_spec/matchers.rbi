@@ -79,6 +79,9 @@ module RSpec::Matchers
   def be_cask_file(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def be_caskfile_only(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_custom_remote(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
