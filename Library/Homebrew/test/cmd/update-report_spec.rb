@@ -339,6 +339,61 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
     })
   end
 
+  it "migrates the aged Caskroom fixture eras and preserves their artifacts" do
+    # The fixture holds installed metadata byte-for-byte as older Homebrew versions wrote it.
+    caskroom = Cask::Caskroom.path
+    FileUtils.cp_r TEST_FIXTURE_DIR/"cask/aged_caskroom", caskroom
+    pre_receipt_rb_caskfile = caskroom/"pre-receipt-rb/.metadata/1.0/20250101000000.000/Casks/pre-receipt-rb.rb"
+    pre_receipt_rb_json_caskfile = pre_receipt_rb_caskfile.sub_ext(".json")
+    pre_receipt_stubbed_caskfile =
+      caskroom/"pre-receipt-stubbed/.metadata/1.0/20250101000000.000/Casks/pre-receipt-stubbed.json"
+    receipt_era_stub_caskfile =
+      caskroom/"receipt-era-stub/.metadata/1.0/20250101000000.000/Casks/receipt-era-stub.json"
+    internal_json_caskfile =
+      caskroom/"internal-json/.metadata/1.0/20250101000000.000/Casks/internal-json.internal.json"
+    migrated_internal_caskfile = internal_json_caskfile.dirname/"internal-json.json"
+    uninstall_flight_caskfile =
+      caskroom/"uninstall-flight-block/.metadata/1.0/20250101000000.000/Casks/uninstall-flight-block.rb"
+    expect(Homebrew::API::Cask).to receive(:cask_json).once.with("pre-receipt-stubbed").and_return({
+      "artifacts" => [{ "app" => ["Pre Receipt Stubbed.app"] }],
+    })
+
+    described_class.new(["--quiet"]).migrate_caskroom_caskfiles_to_json
+
+    migrated_rb_cask = Cask::CaskLoader.load_from_installed_caskfile(pre_receipt_rb_json_caskfile)
+    receipt_era_stub_cask = Cask::CaskLoader.load_from_installed_caskfile(receipt_era_stub_caskfile)
+    migrated_internal_cask = Cask::CaskLoader.load_from_installed_caskfile(migrated_internal_caskfile)
+    expect([
+      pre_receipt_rb_caskfile.exist?,
+      JSON.parse(pre_receipt_rb_json_caskfile.read),
+      migrated_rb_cask.version.to_s,
+      migrated_rb_cask.artifacts_list(uninstall_only: true),
+      JSON.parse(pre_receipt_stubbed_caskfile.read),
+      JSON.parse(receipt_era_stub_caskfile.read),
+      receipt_era_stub_cask.artifacts_list(uninstall_only: true),
+      internal_json_caskfile.exist?,
+      JSON.parse(migrated_internal_caskfile.read),
+      migrated_internal_cask.artifacts_list(uninstall_only: true),
+      uninstall_flight_caskfile.exist?,
+      uninstall_flight_caskfile.sub_ext(".json").exist?,
+      Cask::CaskLoader.load_from_installed_caskfile(uninstall_flight_caskfile).uninstall_flight_blocks?,
+    ]).to eq([
+      false,
+      { "artifacts" => [{ "app" => ["Pre Receipt Rb.app"] }] },
+      "1.0",
+      [{ app: ["Pre Receipt Rb.app"] }],
+      { "artifacts" => [{ "app" => ["Pre Receipt Stubbed.app"] }] },
+      {},
+      [{ app: ["Receipt Era Stub.app"] }],
+      false,
+      {},
+      [{ app: ["Internal JSON.app"] }],
+      true,
+      false,
+      true,
+    ])
+  end
+
   describe Reporter do
     let(:tap) { CoreTap.instance }
     let(:reporter_class) do
