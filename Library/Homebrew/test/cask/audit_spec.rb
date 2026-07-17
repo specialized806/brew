@@ -1104,6 +1104,44 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "Rosetta checks" do
+      let(:online) { true }
+      let(:only) { ["rosetta"] }
+      let(:cask) do
+        Cask::Cask.new("rosetta-audit") do
+          version "1.0"
+          sha256 :no_check
+          url "https://brew.sh/rosetta-audit.zip"
+          name "Rosetta Audit"
+          homepage "https://brew.sh/"
+          depends_on macos: :big_sur
+
+          binary "rosetta-audit"
+
+          caveats do
+            requires_rosetta
+          end
+        end
+      end
+
+      around do |example|
+        Homebrew::SimulateSystem.with(os: :sequoia, arch: :arm) do
+          example.run
+        end
+      end
+
+      before do
+        allow(Hardware::CPU).to receive(:rosetta_installed?).and_return(true)
+        allow(audit).to receive(:extract_artifacts).and_yield(cask.artifacts, cask.staged_path)
+        allow(audit).to receive(:system_command)
+          .and_return(instance_double(SystemCommand::Result, success?: true, merged_output: "x86_64"))
+      end
+
+      it "recognizes a suppressed requires_rosetta caveat" do
+        expect(run).to pass
+      end
+    end
+
     describe "minimum OS checks" do
       let(:online) { true }
       let(:only) { ["min_os"] }
