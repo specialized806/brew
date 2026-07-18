@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require "abstract_command"
-require "erb"
 require "fileutils"
 require "system_command"
 require "tap"
@@ -72,139 +71,29 @@ module Homebrew
         MARKDOWN
         write_path(tap, "README.md", readme)
 
-        tests_yml = <<~ERB
-          name: brew test-bot
+        dependabot_yml = <<~YAML
+          version: 2
+          updates:
+            - package-ecosystem: github-actions
+              directory: "/"
+              schedule:
+                interval: weekly
+              groups:
+                github-actions:
+                  patterns:
+                    - "*"
+        YAML
 
-          on:
-            push:
-              branches:
-                - <%= branch %>
-            pull_request:
-
-          jobs:
-            test-bot:
-              strategy:
-                matrix:
-                  os: [ macos-15-intel, macos-26 ]
-                  include:
-                    - os: ubuntu-latest
-                      container:
-                        image: ghcr.io/homebrew/brew:main
-                        options: --privileged
-              runs-on: ${{ matrix.os }}
-              container: ${{ matrix.container }}
-              permissions:
-                actions: read
-                checks: read
-                contents: read
-          <% if args.github_packages? -%>
-                packages: read
-          <% end -%>
-                pull-requests: read
-              steps:
-                - name: Set up Homebrew
-                  id: set-up-homebrew
-                  uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-                  with:
-                    token: ${{ secrets.GITHUB_TOKEN }}
-
-                - name: Cache Homebrew Bundler RubyGems
-                  uses: actions/cache@v5
-                  with:
-                    path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-                    key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-                    restore-keys: ${{ matrix.os }}-rubygems-
-
-                - run: brew test-bot --only-cleanup-before
-
-                - run: brew test-bot --only-setup
-
-                - run: brew test-bot --only-tap-syntax
-          <% if args.github_packages? -%>
-                - name: Base64-encode GITHUB_TOKEN for HOMEBREW_DOCKER_REGISTRY_TOKEN
-                  id: base64-encode
-                  if: github.event_name == 'pull_request'
-                  env:
-                    TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  run: |
-                    base64_token=$(echo -n "${TOKEN}" | base64 | tr -d "\\n")
-                    echo "::add-mask::${base64_token}"
-                    echo "token=${base64_token}" >> "${GITHUB_OUTPUT}"
-          <% end -%>
-                - run: brew test-bot --only-formulae#{" --root-url=#{root_url}" if root_url}
-                  if: github.event_name == 'pull_request'
-          <% if args.github_packages? -%>
-                  env:
-                    HOMEBREW_DOCKER_REGISTRY_TOKEN: ${{ steps.base64-encode.outputs.token }}
-          <% end -%>
-
-                - name: Upload bottles as artifact
-                  if: always() && github.event_name == 'pull_request'
-                  uses: actions/upload-artifact@v7
-                  with:
-                    name: bottles_${{ matrix.os }}
-                    path: '*.bottle.*'
-        ERB
-
-        publish_yml = <<~ERB
-          name: brew pr-pull
-
-          on:
-            workflow_dispatch:
-              inputs:
-                pull_request:
-                  description: Pull request number
-                  required: true
-                head_sha:
-                  description: Expected pull request head commit SHA (optional)
-
-          jobs:
-            pr-pull:
-              runs-on: ubuntu-latest
-              permissions:
-                actions: read
-                checks: read
-                contents: write
-                issues: read
-          <% if args.github_packages? -%>
-                packages: write
-          <% end -%>
-                pull-requests: write
-              steps:
-                - name: Set up Homebrew
-                  uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-                  with:
-                    token: ${{ secrets.GITHUB_TOKEN }}
-
-                - name: Set up git
-                  uses: Homebrew/actions/git-user-config@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-
-                - name: Pull bottles
-                  env:
-                    HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          <% if args.github_packages? -%>
-                    HOMEBREW_GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                    HOMEBREW_GITHUB_PACKAGES_USER: ${{ github.repository_owner }}
-          <% end -%>
-                    HEAD_SHA: ${{ inputs.head_sha }}
-                    PULL_REQUEST: ${{ inputs.pull_request }}
-                  run: |
-                    if [[ -n "$HEAD_SHA" ]]
-                    then
-                      brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA" "$PULL_REQUEST"
-                    else
-                      brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"
-                    fi
-
-                - name: Push commits
-                  uses: Homebrew/actions/git-try-push@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-                  with:
-                    branch: <%= branch %>
-        ERB
-
+        tests_yml = render_workflow_template(
+          "tap-new-tests.yml", branch:, github_packages: args.github_packages?, root_url:
+        )
+        publish_yml = render_workflow_template(
+          "tap-new-publish.yml", branch:, github_packages: args.github_packages?
+        )
         (tap.path/".github/workflows").mkpath
-        write_path(tap, ".github/workflows/tests.yml", ERB.new(tests_yml, trim_mode: "-").result(binding))
-        write_path(tap, ".github/workflows/publish.yml", ERB.new(publish_yml, trim_mode: "-").result(binding))
+        write_path(tap, ".github/dependabot.yml", dependabot_yml)
+        write_path(tap, ".github/workflows/tests.yml", tests_yml)
+        write_path(tap, ".github/workflows/publish.yml", publish_yml)
 
         unless args.no_git?
           cd tap.path do |path|
@@ -248,6 +137,40 @@ module Homebrew
       end
 
       private
+
+      sig {
+        params(
+          filename:        String,
+          branch:          String,
+          github_packages: T::Boolean,
+          root_url:        T.nilable(String),
+        ).returns(String)
+      }
+      def render_workflow_template(filename, branch:, github_packages:, root_url: nil)
+        workflow = (HOMEBREW_LIBRARY_PATH.parent.parent/".github/workflows"/filename).read
+        workflow.sub!("name: tap-new tests template", "name: brew test-bot")
+        workflow.sub!("name: tap-new publish template", "name: brew pr-pull")
+        if filename == "tap-new-tests.yml"
+          workflow.sub!("on:\n  workflow_dispatch:\n", <<~YAML)
+            on:
+              push:
+                branches:
+                  - #{branch}
+              pull_request:
+          YAML
+        end
+        workflow.sub!("    if: github.repository == ''\n", "")
+        workflow.gsub!("TAP_NEW_BRANCH") { branch }
+        workflow.gsub!("TAP_NEW_ROOT_URL_ARGUMENT") { root_url ? " --root-url=#{root_url}" : "" }
+        unless github_packages
+          workflow.gsub!(
+            /^[ \t]*# tap-new-github-packages-start\n.*?^[ \t]*# tap-new-github-packages-end\n/m,
+            "",
+          )
+        end
+        workflow.gsub!(/^[ \t]*# tap-new-github-packages-(?:start|end)\n/, "")
+        workflow
+      end
 
       sig { params(tap: Tap, filename: T.any(String, Pathname), content: String).void }
       def write_path(tap, filename, content)
