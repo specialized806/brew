@@ -123,7 +123,7 @@ Where possible, contact upstream through an official channel, preferably a publi
 Do not open or merge a PR updating the formula's checksum, revision or source until upstream has confirmed the change was intentional.
 The PR should link to upstream's confirmation.
 
-If the change cannot be verified, disable the formula with `:checksum_mismatch` rather than packaging the changed source.
+If the change cannot be verified, deprecate the formula with `:checksum_mismatch` rather than packaging the changed source.
 
 ## Duplicates
 
