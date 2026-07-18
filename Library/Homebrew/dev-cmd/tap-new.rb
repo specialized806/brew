@@ -88,10 +88,11 @@ module Homebrew
                   os: [ macos-15-intel, macos-26 ]
                   include:
                     - os: ubuntu-latest
-                      container: ghcr.io/homebrew/brew:main
+                      container:
+                        image: ghcr.io/homebrew/brew:main
+                        options: --privileged
               runs-on: ${{ matrix.os }}
               container: ${{ matrix.container }}
-              options: ${{ matrix.container != '' && '--privileged' }}
               permissions:
                 actions: read
                 checks: read
