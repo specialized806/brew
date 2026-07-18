@@ -1605,6 +1605,7 @@ _brew_formula_analytics() {
       --debug
       --help
       --homebrew-devcmdrun-developer
+      --homebrew-env-config
       --homebrew-os-arch-ci
       --homebrew-prefixes
       --homebrew-versions

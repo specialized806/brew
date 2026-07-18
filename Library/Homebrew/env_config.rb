@@ -770,6 +770,8 @@ module Homebrew
       },
     }.freeze, T::Hash[Symbol, T::Hash[Symbol, T.untyped]])
 
+    ANALYTICS_VARIABLES = T.let((ENVS.keys - [:HOMEBREW_NO_ANALYTICS]).freeze, T::Array[Symbol])
+
     sig { params(env: Symbol, hash: T::Hash[Symbol, T.untyped]).returns(String) }
     def env_method_name(env, hash)
       method_name = env.to_s
@@ -802,6 +804,32 @@ module Homebrew
     # `_NO_` variants, where any non-empty value must mean enabled. Use
     # `disabled_by:` when one boolean env var should override another.
     FALSY_VALUES = %w[false no off nil 0].freeze
+
+    sig { params(env: Symbol).returns(T::Boolean) }
+    def non_default_variable?(env)
+      value = ENV.fetch(env.to_s, nil)
+      return false unless value
+
+      config = ENVS.fetch(env)
+      if config[:boolean]
+        enabled = value.present? && (config[:boolean] == :set || FALSY_VALUES.exclude?(value.downcase))
+        enabled != config.fetch(:default, false)
+      else
+        return false if value.blank?
+
+        default = config[:default]
+        default = default.call if default.respond_to?(:call)
+        value != default.to_s
+      end
+    end
+
+    sig { returns(T::Array[String]) }
+    def non_default_variables
+      ENV.filter_map do |env, _value|
+        env_symbol = env.to_sym
+        env if ENVS.key?(env_symbol) && non_default_variable?(env_symbol)
+      end.sort
+    end
 
     ENVS.each do |env, hash|
       # Needs a custom implementation.

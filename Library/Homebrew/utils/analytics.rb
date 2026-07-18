@@ -15,6 +15,7 @@ module Utils
     INFLUX_HOST = "https://eu-central-1-1.aws.cloud2.influxdata.com"
     INFLUX_ORG = "d81a3e6d582d485f"
     WSL_SUFFIX = " [WSL]"
+    ENV_CONFIG_COMMANDS = %w[config fetch install reinstall update update-report upgrade].freeze
 
     extend Utils::Output::Mixin
     extend T::Generic
@@ -34,7 +35,7 @@ module Utils
         return if not_this_run? || disabled?
 
         # Tags are always implicitly strings and must have low cardinality.
-        tags_string = tags.map { |k, v| "#{k}=#{v}" }
+        tags_string = tags.map { |k, v| "#{k}=#{v.to_s.gsub(/[ ,=]/) { |char| "\\#{char}" }}" }
                           .join(",")
 
         # Fields need explicitly wrapped with quotes and can have high cardinality.
@@ -128,6 +129,12 @@ module Utils
           devcmdrun: Homebrew::EnvConfig.devcmdrun?,
           developer: Homebrew::EnvConfig.developer?,
         }
+        if ENV_CONFIG_COMMANDS.include?(command)
+          variables = Homebrew::EnvConfig::ANALYTICS_VARIABLES
+          env_config = variables.fetch(Random.rand(variables.length))
+          tags[:env_config] = env_config.to_s
+          tags[:env_config_non_default] = Homebrew::EnvConfig.non_default_variable?(env_config)
+        end
 
         # Fields can have high cardinality.
         fields = { options: }

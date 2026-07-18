@@ -33,6 +33,25 @@ RSpec.describe Homebrew::Cmd::Config do
     Homebrew.raise_deprecation_exceptions = true
   end
 
+  it "prints only environment variables with non-default values" do
+    Homebrew::EnvConfig::ENVS.each_key { |env| ENV.delete(env.to_s) }
+    ENV["HOMEBREW_API_AUTO_UPDATE_SECS"] = "450"
+    ENV["HOMEBREW_BUNDLE_DESCRIBE"] = "false"
+    ENV["HOMEBREW_CURL_RETRIES"] = "4"
+    ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = "1"
+    output = StringIO.new
+
+    SystemConfig.homebrew_env_config(output)
+
+    env_config = output.string.lines.select do |line|
+      Homebrew::EnvConfig::ENVS.key?(line.partition(":").first.to_sym)
+    end
+    expect(env_config).to eq([
+      "HOMEBREW_BUNDLE_DESCRIBE: false\n",
+      "HOMEBREW_CURL_RETRIES: 4\n",
+    ])
+  end
+
   it "reads the Windows version on WSL", :needs_linux do
     allow(OS).to receive(:wsl?).and_return(true)
     stub_const("ORIGINAL_PATHS", [windows_cmd.dirname])
