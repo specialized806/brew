@@ -376,6 +376,37 @@ RSpec.describe Sandbox do
       expect(denied).not_to include(teams_log.realpath.to_s, backslash_dir.realpath.to_s)
     end
 
+    it "does not deny sensitive symlinks that resolve outside home" do
+      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
+      HOMEBREW_CACHE.mkpath
+      FileUtils.ln_s File::NULL, home/".mysql_history"
+
+      sandbox.deny_read_home
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).not_to include(File::NULL)
+    end
+
+    it "passes resolved sensitive paths to deny_read_path" do
+      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
+      HOMEBREW_CACHE.mkpath
+      target = home/"history"
+      FileUtils.touch target
+      FileUtils.ln_s target, home/".mysql_history"
+
+      expect(sandbox).to receive(:deny_read_path).with(target.realpath)
+
+      sandbox.deny_read_home
+    end
+
+    it "ignores broken sensitive symlinks" do
+      stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
+      HOMEBREW_CACHE.mkpath
+      FileUtils.ln_s home/"missing", home/".mysql_history"
+
+      expect { sandbox.deny_read_home }.not_to raise_error
+    end
+
     it "keeps the trust store readable so sandboxed builds can re-check tap trust" do
       stub_const("HOMEBREW_CACHE", home/"Library/Caches/Homebrew")
       config_home = home/".homebrew"

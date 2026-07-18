@@ -360,7 +360,12 @@ class Sandbox
         "OneDrive",
       ].each do |path|
         path = home/path
-        deny_read_path path if path.exist?
+        next unless path.exist?
+
+        path = path.realpath
+        deny_read_path path if path.ascend.include?(home)
+      rescue Errno::ENOENT
+        nil
       end
       return
     end
