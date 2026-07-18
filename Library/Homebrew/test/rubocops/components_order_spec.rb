@@ -423,6 +423,48 @@ RSpec.describe RuboCop::Cop::FormulaAudit::ComponentsOrder do
       RUBY
     end
 
+    it "reports and corrects an offense when `patch` precedes `resource` in `on_macos`" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          homepage "https://brew.sh"
+
+          on_macos do
+            depends_on "readline"
+
+            patch do
+              url "https://brew.sh/patch.diff"
+              sha256 "2c39089f64d9d4c3e632f120894b36b68dcc8ae8c6f5130c0c2e6f5bb7aebf2f"
+            end
+
+            resource "foo" do
+            ^^^^^^^^^^^^^^^^^ FormulaAudit/ComponentsOrder: `resource` (line 12) should be put before `patch` (line 7)
+              url "https://brew.sh/foo.tar.gz"
+              sha256 "586372eb92059873e29eba4f9dec8381541b4d3834660707faf8ba59146dfc35"
+            end
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          homepage "https://brew.sh"
+
+          on_macos do
+            depends_on "readline"
+
+            resource "foo" do
+              url "https://brew.sh/foo.tar.gz"
+              sha256 "586372eb92059873e29eba4f9dec8381541b4d3834660707faf8ba59146dfc35"
+            end
+            patch do
+              url "https://brew.sh/patch.diff"
+              sha256 "2c39089f64d9d4c3e632f120894b36b68dcc8ae8c6f5130c0c2e6f5bb7aebf2f"
+            end
+          end
+        end
+      RUBY
+    end
+
     it "reports no offenses when `on_linux` is used correctly" do
       expect_no_offenses(<<~RUBY)
         class Foo < Formula
