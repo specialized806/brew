@@ -20,7 +20,7 @@ module ELFShim; end
 # @api private
 module BinaryPathname
   sig { params(path: T.any(Pathname, String, MachOShim, ELFShim)).returns(T.any(MachOShim, ELFShim)) }
-  def self.wrap(path) = raise NotImplementedError
+  def self.wrap(path) = raise(NotImplementedError)
 end
 
 # Homebrew extends Ruby's `Pathname` to make our code more readable.
