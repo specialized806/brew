@@ -469,7 +469,7 @@ module Cask
             installed_tab = CaskLoader.load_installed_tab(token)
             api_source["version"] ||= installed_tab.version.presence
             api_source["artifacts"] ||= CaskLoader.resolve_installed_artifacts(
-              token, installed_tab.uninstall_artifacts, api_fallback: @api_fallback
+              token, installed_tab.uninstall_artifacts, tap: installed_tab.tap, api_fallback: @api_fallback
             )
           end
         end
@@ -831,18 +831,35 @@ module Cask
     end
 
     sig {
-      params(token: String, artifacts: T.nilable(T::Array[T.untyped]), api_fallback: T::Boolean)
-        .returns(T::Array[T.untyped])
+      params(
+        token:        String,
+        artifacts:    T.nilable(T::Array[T::Hash[T.any(String, Symbol), T.anything]]),
+        tap:          T.nilable(Tap),
+        api_fallback: T::Boolean,
+      ).returns(T::Array[T::Hash[T.any(String, Symbol), T.anything]])
     }
-    def self.resolve_installed_artifacts(token, artifacts, api_fallback: true)
+    def self.resolve_installed_artifacts(token, artifacts, tap: nil, api_fallback: true)
       artifacts = artifacts.presence
-      if artifacts.nil? && api_fallback
-        # API fetch failures must not abort best-effort installed metadata recovery.
-        artifacts = begin
-          Homebrew::API::Cask.cask_json(token)["artifacts"]
-        rescue SystemExit
-          nil
+      return artifacts if artifacts
+      return [] unless api_fallback
+
+      artifacts ||= begin
+        tap_loader = (FromNameLoader.try_new(token, warn: false) if tap.nil? && FromAPILoader.try_new(token).nil?)
+
+        if tap && !tap.core_cask_tap?
+          load("#{tap}/#{token}", warn: false).artifacts_list(uninstall_only: true)
+        elsif tap_loader
+          tap_loader.load(config: nil).artifacts_list(uninstall_only: true)
         end
+      rescue CaskError, MethodDeprecatedError, JSON::ParserError
+        nil
+      end
+
+      # API fetch failures must not abort best-effort installed metadata recovery.
+      artifacts ||= begin
+        Homebrew::API::Cask.cask_json(token)["artifacts"]
+      rescue SystemExit
+        nil
       end
       artifacts ||= []
       artifacts
@@ -868,10 +885,10 @@ module Cask
       return if tab.uninstall_flight_blocks
       return if fallback_cask&.uninstall_flight_blocks?
 
-      # Prefer exact receipt artifacts, then the current cask and finally the current API definition.
+      # Prefer exact receipt artifacts, then the current cask and finally the current source definition.
       artifacts = tab.uninstall_artifacts.presence
       artifacts ||= fallback_cask.artifacts_list(uninstall_only: true) if fallback_cask
-      artifacts ||= resolve_installed_artifacts(token, nil)
+      artifacts ||= resolve_installed_artifacts(token, nil, tap: tab.tap)
 
       # Rebuild the installed version from its metadata directory and retain current source path information.
       api_source = {

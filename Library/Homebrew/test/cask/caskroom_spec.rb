@@ -316,6 +316,32 @@ RSpec.describe Cask::Caskroom do
       })
     end
 
+    it "uses tap metadata instead of the API for a receipt-less third-party cask", :trust_store do
+      token = "third-party"
+      tap = Tap.fetch("thirdparty", "foo")
+      caskfile = write_installed_caskfile(token, "{}", extension: "json")
+      cask_path = tap.cask_dir/"#{token}.rb"
+      cask_path.dirname.mkpath
+      cask_path.write <<~RUBY
+        cask "#{token}" do
+          version "2.0"
+          app "Third Party.app"
+        end
+      RUBY
+      Homebrew::Trust.trust!(:tap, tap.name)
+      allow(Homebrew::EnvConfig).to receive(:no_install_from_api?).and_return(false)
+      allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
+      allow(Homebrew::API::Cask).to receive(:cask_json).and_raise("unexpected official API lookup")
+
+      described_class.migrate_caskfile_to_json(caskfile)
+
+      expect(JSON.parse(caskfile.read)).to eq({
+        "artifacts" => [{ "app" => ["Third Party.app"] }],
+      })
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+    end
+
     it "preserves artifacts when the install receipt is empty" do
       token = "empty-receipt"
       caskfile = write_installed_caskfile(token, <<~RUBY)

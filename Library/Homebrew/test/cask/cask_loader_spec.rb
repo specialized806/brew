@@ -571,6 +571,28 @@ RSpec.describe Cask::CaskLoader, :cask do
 
       expect(described_class.resolve_installed_artifacts("unavailable", nil)).to eq([])
     end
+
+    it "falls back to API artifacts when tap lookup is ambiguous" do
+      token = "ambiguous"
+      api_artifacts = [{ "app" => ["API.app"] }]
+      allow(Cask::CaskLoader::FromNameLoader).to receive(:try_new)
+        .with(token, warn: false)
+        .and_raise(Cask::TapCaskAmbiguityError.new(token, []))
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => api_artifacts })
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq(api_artifacts)
+    end
+
+    it "returns empty artifacts when the installed tap and API are unavailable" do
+      token = "unavailable-tap"
+      tap = Tap.fetch("thirdparty", "missing")
+      allow(described_class).to receive(:load)
+        .with("#{tap}/#{token}", warn: false)
+        .and_raise(Cask::TapCaskUnavailableError.new(tap, token))
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(SystemExit.new(1))
+
+      expect(described_class.resolve_installed_artifacts(token, nil, tap:)).to eq([])
+    end
   end
 
   describe "::recover_from_installed_caskfile" do
