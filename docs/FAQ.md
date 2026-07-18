@@ -215,24 +215,26 @@ You can [modify a tool's build configuration](How-to-Build-Software-Outside-Home
 
 `brew edit <formula>` and edit the formula directly. Currently there is no other way to do this.
 
-## Why aren’t some apps included during `brew upgrade`?
+<a data-proofer-ignore name="why-arent-some-apps-included-during-brew-upgrade"></a>
 
-After running `brew upgrade`, you may notice some casks you think should be upgrading, aren’t.
+## How does `brew upgrade` handle apps that update themselves?
 
-As you’re likely aware, a lot of macOS software can upgrade itself:
+Many macOS apps can upgrade themselves:
 
 <img src="assets/img/docs/sparkle-test-app-software-update.png" width="600" alt="Sparkle update window">
 
 That could cause conflicts when used in tandem with Homebrew Cask’s `upgrade` mechanism.
 
-When software uses its built-in mechanisms to upgrade itself, it happens without Homebrew Cask’s knowledge, causing both versions get out of sync. If you were to then upgrade through Homebrew Cask while we have a lower version of the software on record, you’d get a downgrade.
+When software uses its built-in mechanisms to upgrade itself, it happens without Homebrew Cask’s knowledge, causing both versions to get out of sync. If you were to then upgrade through Homebrew Cask while we have a lower version of the software on record, you’d get a downgrade.
 
 There are a few ideas to fix this problem:
 
 * Try to prevent the software’s automated updates. `brew pin <cask>` can prevent Homebrew from upgrading a cask, but it does not disable an app’s own updater. Most software on Homebrew Cask is closed-source, so trying to control that for every app would be guesswork.
 * Try to extract the installed software’s version and compare it to the cask, deciding what to do at that time. It’d be a complicated solution that would break other parts of our methodology, such as using versions to interpolate `url` values (a definite win for maintainability). This solution also isn’t universal, as many software developers are inconsistent in their versioning schemes (and app bundles are meant to have two version strings) and it doesn’t work for all types of software we support.
 
-So we let software be. Anything installed with Homebrew Cask should behave the same as if it were installed manually. But since we also want to support software that doesn’t self-upgrade, we add [`auto_updates true`](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/a/alfred.rb#L18) to casks for software that does. When Homebrew can detect that the version currently installed in the user’s `appdir` is older than the latest version in the tap, `brew upgrade` will try to upgrade these casks automatically. To disable this default behaviour, set `HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1`.
+So we let software be. Anything installed with Homebrew Cask should behave the same as if it were installed manually. But since we also want to support software that doesn’t self-upgrade, we add [`auto_updates true`](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/a/alfred.rb#L18) to casks for software that does. When Homebrew can detect that the version currently installed in the user’s `appdir` is older than the latest version in the tap, `brew upgrade` will try to upgrade these casks automatically.
+
+To persistently opt out of this default behaviour, add `export HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1` to your shell configuration. This does not affect upgrades requested with `--greedy` or `--greedy-auto-updates`.
 
 Casks which use [`version :latest`](Cask-Cookbook.md#special-value-latest) are also excluded, because we have no way to track their installed version. It helps to ask the developers of such software to provide versioned releases (i.e. include the version in the path of the download `url`).
 
