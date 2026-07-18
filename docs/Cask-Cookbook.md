@@ -920,7 +920,7 @@ The easiest and most useful `uninstall` directive is [`pkgutil:`](#uninstall-pkg
 
 Each `uninstall` technique is applied according to the order above. The order in which `uninstall` keys appear in the cask file is ignored.
 
-For assistance filling in the right values for `uninstall` keys, there are several helper [commands found under `cmd`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/cmd) and [scripts found under `developer/bin`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/developer/bin) in the Homebrew Cask repository. Each of these commands/scripts responds to `--help` with additional documentation.
+For assistance filling in the right values for `uninstall` keys, there are several helper [commands found under `cmd`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/cmd) and [scripts found under `developer/bin`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/developer/bin) in the Homebrew Cask repository. Many support `--help` (or otherwise print usage) with additional documentation.
 
 Working out an `uninstall` stanza is easiest when done on a system where the package is currently installed and operational. To operate on an uninstalled `.pkg` file, see [Working with a `.pkg` file manually](#working-with-a-pkg-file-manually), below.
 
