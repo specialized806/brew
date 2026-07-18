@@ -1090,6 +1090,7 @@ __fish_brew_complete_arg 'formula-analytics' -l days-ago -d 'Query from the spec
 __fish_brew_complete_arg 'formula-analytics' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'formula-analytics' -l help -d 'Show this message'
 __fish_brew_complete_arg 'formula-analytics' -l homebrew-devcmdrun-developer -d 'Output the number of devcmdrun/HOMEBREW_DEVELOPER events'
+__fish_brew_complete_arg 'formula-analytics' -l homebrew-env-config -d 'Output rates of non-default Homebrew environment configuration variables'
 __fish_brew_complete_arg 'formula-analytics' -l homebrew-os-arch-ci -d 'Output the number of OS/Architecture/CI events'
 __fish_brew_complete_arg 'formula-analytics' -l homebrew-prefixes -d 'Output Homebrew prefixes'
 __fish_brew_complete_arg 'formula-analytics' -l homebrew-versions -d 'Output Homebrew versions'

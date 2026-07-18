@@ -70,6 +70,48 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".non_default_variable?" do
+    it "detects whether a variable has a non-default value" do
+      ENV["HOMEBREW_CURL_RETRIES"] = "4"
+      ENV["HOMEBREW_BAT"] = "false"
+
+      expect([
+        env_config.non_default_variable?(:HOMEBREW_CURL_RETRIES),
+        env_config.non_default_variable?(:HOMEBREW_BAT),
+      ]).to eq([true, false])
+    end
+
+    it "compares values with callable defaults" do
+      ENV["HOMEBREW_MAKE_JOBS"] = "8"
+      allow(Hardware::CPU).to receive(:cores).and_return(8)
+
+      expect(env_config.non_default_variable?(:HOMEBREW_MAKE_JOBS)).to be(false)
+    end
+  end
+
+  describe "ANALYTICS_VARIABLES" do
+    it "excludes variables that prevent analytics" do
+      expect(Homebrew::EnvConfig::ANALYTICS_VARIABLES).to eq(
+        Homebrew::EnvConfig::ENVS.keys - [:HOMEBREW_NO_ANALYTICS],
+      )
+    end
+  end
+
+  describe ".non_default_variables" do
+    it "returns names of variables with non-default values" do
+      Homebrew::EnvConfig::ENVS.each_key { |env| ENV.delete(env.to_s) }
+      ENV["HOMEBREW_CURL_RETRIES"] = "4"
+      ENV["HOMEBREW_GITHUB_API_TOKEN"] = "secret"
+      ENV["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+      ENV["HOMEBREW_BAT"] = "false"
+      ENV["HOMEBREW_REQUIRE_TAP_TRUST"] = "1"
+
+      expect(env_config.non_default_variables).to eq(
+        %w[HOMEBREW_CURL_RETRIES HOMEBREW_GITHUB_API_TOKEN HOMEBREW_NO_AUTO_UPDATE],
+      )
+    end
+  end
+
   describe ".artifact_domain" do
     it "returns value if set" do
       ENV["HOMEBREW_ARTIFACT_DOMAIN"] = "https://brew.sh"
