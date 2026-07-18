@@ -26,8 +26,6 @@ Casks download from upstream; if a malicious actor compromised a URL, they could
 
 Some vendors replace an existing versioned download in place.
 If the checksum changes without a corresponding version change, treat this as a potential upstream compromise or supply-side attack rather than a routine update.
-
-
 Where possible, contact the vendor through an official contact page, public bug tracker or similar channel and ask them to confirm why the artefact changed and that it was not the result of a compromise.
 Do not open or merge a PR updating the cask's checksum until the vendor has confirmed the change was intentional or it has been verified under the exception below.
 The PR should link to the vendor's confirmation.
