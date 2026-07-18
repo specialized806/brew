@@ -920,7 +920,7 @@ The easiest and most useful `uninstall` directive is [`pkgutil:`](#uninstall-pkg
 
 Each `uninstall` technique is applied according to the order above. The order in which `uninstall` keys appear in the cask file is ignored.
 
-For assistance filling in the right values for `uninstall` keys, there are several [helper scripts found under `developer/bin`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/developer/bin) in the Homebrew Cask repository. Each of these scripts responds to the `-help` option with additional documentation.
+For assistance filling in the right values for `uninstall` keys, there are several helper [commands found under `cmd`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/cmd) and [scripts found under `developer/bin`](https://github.com/Homebrew/homebrew-cask/tree/HEAD/developer/bin) in the Homebrew Cask repository. Each of these commands/scripts responds to `--help` with additional documentation.
 
 Working out an `uninstall` stanza is easiest when done on a system where the package is currently installed and operational. To operate on an uninstalled `.pkg` file, see [Working with a `.pkg` file manually](#working-with-a-pkg-file-manually), below.
 
@@ -928,16 +928,16 @@ Working out an `uninstall` stanza is easiest when done on a system where the pac
 
 This is the most useful uninstall key. `pkgutil:` is often sufficient to completely uninstall a `pkg`, and is strongly preferred over `delete:`.
 
-IDs for the most recently installed packages can be listed using [`list_recent_pkg_ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_recent_pkg_ids):
+IDs for the most recently installed packages can be listed using [`brew list-recent-pkg-ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-recent-pkg-ids.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_recent_pkg_ids"
+brew list-recent-pkg-ids
 ```
 
-`pkgutil:` also accepts a regular expression to match against multiple package IDs. The regular expressions are somewhat nonstandard. To test a `pkgutil:` regular expression against currently installed packages, use [`list_pkg_ids_by_regexp`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_pkg_ids_by_regexp):
+`pkgutil:` also accepts a regular expression to match against multiple package IDs. The regular expressions are somewhat nonstandard. To test a `pkgutil:` regular expression against currently installed packages, use [`brew list-pkg-ids-by-regexp`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-pkg-ids-by-regexp.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_pkg_ids_by_regexp" <regular-expression>
+brew list-pkg-ids-by-regexp <regular-expression>
 ```
 
 #### List files associated with a package ID
@@ -952,32 +952,32 @@ Listing the associated files can help you assess whether the package included an
 
 #### `uninstall` *launchctl*
 
-IDs for currently loaded `launchd` jobs can be listed using [`list_loaded_launchjob_ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_loaded_launchjob_ids):
+IDs for currently loaded `launchd` jobs can be listed using [`brew list-loaded-launchjob-ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-loaded-launchjob-ids.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_loaded_launchjob_ids"
+brew list-loaded-launchjob-ids
 ```
 
-IDs for all installed `launchd` jobs can be listed using [`list_installed_launchjob_ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_installed_launchjob_ids):
+IDs for all installed `launchd` jobs can be listed using [`brew list-installed-launchjob-ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-installed-launchjob-ids.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_installed_launchjob_ids"
+brew list-installed-launchjob-ids
 ```
 
 #### `uninstall` *quit*
 
 `quit:` sends the standard macOS quit Apple Event to the application (equivalent to Cmd+Q), which allows the app to present save dialogs before closing. It runs during both `brew uninstall` and `brew upgrade`/`brew reinstall`.
 
-Bundle IDs for currently running applications can be listed using [`list_running_app_ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_running_app_ids):
+Bundle IDs for currently running applications can be listed using [`brew list-running-app-ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-running-app-ids.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_running_app_ids"
+brew list-running-app-ids
 ```
 
-Bundle IDs inside an application bundle on disk can be listed using [`list_ids_in_app`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_ids_in_app):
+Bundle IDs inside an application bundle on disk can be listed using [`brew list-ids-in-app`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-ids-in-app.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_ids_in_app" '/path/to/application.app'
+brew list-ids-in-app '/path/to/application.app'
 ```
 
 #### `uninstall` *signal*
@@ -1025,10 +1025,10 @@ uninstall quit:       "com.example.app",
 
 #### `uninstall` *login_item*
 
-Login items associated with an application bundle on disk can be listed using [`list_login_items_for_app`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_login_items_for_app):
+Login items associated with an application bundle on disk can be listed using [`brew list-login-items-for-app`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-login-items-for-app.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_login_items_for_app" '/path/to/application.app'
+brew list-login-items-for-app '/path/to/application.app'
 ```
 
 Note that you will likely need to have opened the app at least once for any login items to be present.
@@ -1101,16 +1101,16 @@ A list of files which may be installed from a `.pkg` can be extracted using [`li
 "$(brew --repository homebrew/cask)/developer/bin/list_payload_in_pkg" '/path/to/my.pkg'
 ```
 
-Candidate application names helpful for determining the name of a cask may be extracted from a `.pkg` file using [`list_apps_in_pkg`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_apps_in_pkg):
+Candidate application names helpful for determining the name of a cask may be extracted from a `.pkg` file using [`brew list-apps-in-pkg`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-apps-in-pkg.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_apps_in_pkg" '/path/to/my.pkg'
+brew list-apps-in-pkg '/path/to/my.pkg'
 ```
 
-Candidate package IDs which may be useful in a `pkgutil:` key may be extracted from a `.pkg` file using [`list_ids_in_pkg`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_ids_in_pkg):
+Candidate package IDs which may be useful in a `pkgutil:` key may be extracted from a `.pkg` file using [`brew list-ids-in-pkg`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-ids-in-pkg.rb):
 
 ```bash
-"$(brew --repository homebrew/cask)/developer/bin/list_ids_in_pkg" '/path/to/my.pkg'
+brew list-ids-in-pkg '/path/to/my.pkg'
 ```
 
 A fully manual method for finding bundle IDs in a package file follows:
@@ -1151,10 +1151,10 @@ The parameter doesn’t mean you should trust the source blindly, but we only ap
 
 #### Difficulty finding a URL
 
-Web browsers may obscure the direct `url` of a download for a variety of reasons. Homebrew Cask supplies a [`list_url_attributes_on_file`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/developer/bin/list_url_attributes_on_file) script which can read extended file attributes to extract the actual source URL of most files downloaded by a browser on macOS. The script usually emits multiple candidate URLs; you may have to test each of them:
+Web browsers may obscure the direct `url` of a download for a variety of reasons. Homebrew Cask supplies a [`brew list-url-attributes-on-file`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-url-attributes-on-file.rb) command which can read extended file attributes to extract the actual source URL of most files downloaded by a browser on macOS. The command usually emits multiple candidate URLs; you may have to test each of them:
 
 ```bash
-$(brew --repository homebrew/cask)/developer/bin/list_url_attributes_on_file <file>
+brew list-url-attributes-on-file <file>
 ```
 
 #### Subversion URLs
