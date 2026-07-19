@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-06-10"
+last_review_date: "2026-07-18"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -90,7 +90,7 @@ Running a developer command (e.g. `brew edit`, `brew create`) enables Homebrew's
 * Homebrew may auto-run `brew update` before some commands every hour instead of every 24 hours.
 * Updates track the latest commit on `main` instead of the latest stable tag.
 
-To switch back to the default behavior, run `brew developer off`. If you only want to switch back to stable tags, set `HOMEBREW_UPDATE_TO_TAG=1` in your shell environment. To control auto-update frequency, use `HOMEBREW_AUTO_UPDATE_SECS`; to disable auto-updates entirely, set `HOMEBREW_NO_AUTO_UPDATE=1`.
+To switch back to the default behaviour, run `brew developer off`. If you only want to switch back to stable tags, set `HOMEBREW_UPDATE_TO_TAG=1` in your shell environment. To control auto-update frequency, use `HOMEBREW_AUTO_UPDATE_SECS`; to disable auto-updates entirely, set `HOMEBREW_NO_AUTO_UPDATE=1`.
 
 ## How do I contribute to Homebrew?
 
@@ -133,7 +133,10 @@ __tl;dr__ Sudo is dangerous, and you installed TextMate.app without sudo anyway.
 
 Homebrew refuses to work using sudo.
 
-You should only ever sudo a tool you trust. Of course, you can trust Homebrew 😉 — but do you trust the multi-megabyte Makefile that Homebrew runs? Developers often understand C++ far better than they understand `make` syntax. It’s too high a risk to sudo such stuff. It could modify (or upload) any files on your system. And indeed, we’ve seen some build scripts try to modify `/usr` even when the prefix was specified as something else entirely.
+Use `sudo` only with software that you trust.
+Even when you trust Homebrew itself, a source build can run large upstream build scripts that have not received a security review from Homebrew.
+Running those scripts as `root` would allow them to modify or upload files anywhere permitted by the operating system.
+Some build scripts have attempted to modify `/usr` even when configured with another installation prefix.
 
 We use the macOS sandbox to stop this but this doesn't work when run as the `root` user (which also has read and write access to almost everything on the system).
 The sandbox is part of Homebrew's wider [Software Supply Chain Security](Homebrew-Security-and-Supply-Chain.md) measures.
@@ -142,7 +145,7 @@ Did you `chown root /Applications/TextMate.app`? Probably not. So is it that imp
 
 Note: Homebrew is primarily designed for single-user use and does not work well in multi-user configurations.
 
-## What is the default ownership and permissions used by Homebrew?
+## What are the default ownership and permissions used by Homebrew?
 
 First, see previous question regarding sudo.
 
@@ -219,34 +222,29 @@ You can [modify a tool's build configuration](How-to-Build-Software-Outside-Home
 
 ## How does `brew upgrade` handle apps that update themselves?
 
-Many macOS apps can upgrade themselves:
+Many apps can update themselves without Homebrew:
 
 <img src="assets/img/docs/sparkle-test-app-software-update.png" width="600" alt="Sparkle update window">
 
-That could cause conflicts when used in tandem with Homebrew Cask’s `upgrade` mechanism.
+An app’s own updater can make Homebrew’s installation record older than the app that is actually installed.
+Blindly replacing the app based on that record could downgrade it.
 
-When software uses its built-in mechanisms to upgrade itself, it happens without Homebrew Cask’s knowledge, causing both versions to get out of sync. If you were to then upgrade through Homebrew Cask while we have a lower version of the software on record, you’d get a downgrade.
+Casks for self-updating apps declare `auto_updates true`.
+For a versioned cask that installs a single readable app bundle, Homebrew compares the bundle’s version metadata with the cask's current version.
+The default `brew upgrade` includes the cask when the installed app appears older and skips it when the installed app appears to be the same version or newer.
 
-There are a few ideas to fix this problem:
+This comparison is not available for every artifact or versioning scheme.
+When Homebrew cannot make a reliable comparison, it normally skips the self-updating cask instead of guessing.
+To persistently opt out of automatic upgrades for all `auto_updates true` casks, add `export HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1` to your shell configuration.
+This does not affect upgrades requested with `--greedy` or `--greedy-auto-updates`.
 
-* Try to prevent the software’s automated updates. `brew pin <cask>` can prevent Homebrew from upgrading a cask, but it does not disable an app’s own updater. Most software on Homebrew Cask is closed-source, so trying to control that for every app would be guesswork.
-* Try to extract the installed software’s version and compare it to the cask, deciding what to do at that time. It’d be a complicated solution that would break other parts of our methodology, such as using versions to interpolate `url` values (a definite win for maintainability). This solution also isn’t universal, as many software developers are inconsistent in their versioning schemes (and app bundles are meant to have two version strings) and it doesn’t work for all types of software we support.
+Casks that use [`version :latest`](Cask-Cookbook.md#special-value-latest) have no version number to compare and are excluded from an ordinary `brew upgrade`.
+When such a cask is named explicitly or included with `--greedy-latest`, Homebrew downloads the current artifact and, when possible, compares its SHA-256 checksum with the checksum recorded during installation.
+It skips reinstalling the cask when the artifact has not changed.
 
-So we let software be. Anything installed with Homebrew Cask should behave the same as if it were installed manually. But since we also want to support software that doesn’t self-upgrade, we add [`auto_updates true`](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/a/alfred.rb#L18) to casks for software that does. When Homebrew can detect that the version currently installed in the user’s `appdir` is older than the latest version in the tap, `brew upgrade` will try to upgrade these casks automatically.
-
-To persistently opt out of this default behaviour, add `export HOMEBREW_NO_UPGRADE_AUTO_UPDATES_CASKS=1` to your shell configuration. This does not affect upgrades requested with `--greedy` or `--greedy-auto-updates`.
-
-Casks which use [`version :latest`](Cask-Cookbook.md#special-value-latest) are also excluded, because we have no way to track their installed version. It helps to ask the developers of such software to provide versioned releases (i.e. include the version in the path of the download `url`).
-
-If you still want to force software to be upgraded via Homebrew Cask, you can reference it specifically in the `upgrade` command:
-
-    brew upgrade <cask>
-
-Or use the `--greedy` switch:
-
-    brew upgrade --greedy
-
-Refer to the `upgrade` section of the [`brew` manual page](Manpage.md) for more details.
+Naming a cask explicitly, using `--greedy-auto-updates` or using the broader `--greedy` option can include casks that the default checks skip.
+Set `HOMEBREW_UPGRADE_GREEDY=1` to apply `--greedy` persistently to all cask upgrades, or list selected casks in the space-separated `HOMEBREW_UPGRADE_GREEDY_CASKS` variable.
+Refer to the `upgrade` section of the [`brew` manual page](Manpage.md) for the full option details.
 
 ## Why don't you rewrite Homebrew in Rust to make it faster?
 
