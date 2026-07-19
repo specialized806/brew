@@ -112,7 +112,7 @@ Eligibility for hardware grant is also subject to the following:
 
 Homebrew does not fund top-of-the-range hardware when a lower-cost configuration meets the documented maintenance need.
 The request must compare current models and explain the selected balance of cost, performance and expected useful life.
-Homebrew's contribution must be less than US$4,000.
+Homebrew's contribution must be no more than US$4,000.
 A maintainer may pay the difference for a more expensive configuration after the Homebrew-funded configuration has been approved.
 
 You can contact a Lead Maintainer through the private maintainer communication channel before submitting a request.
