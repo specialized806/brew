@@ -1147,7 +1147,7 @@ When the domains of `url` and `homepage` differ, the discrepancy should be docum
 
 This must be added so a user auditing the cask knows the URL was verified by the Homebrew Cask team as the one provided by the vendor, even though it may look unofficial. It is our responsibility as Homebrew Cask maintainers to verify both the `url` and `homepage` information when first added (or subsequently modified, apart from versioning).
 
-The parameter doesn’t mean you should trust the source blindly, but we only approve casks in which users can easily verify its authenticity with basic means, such as checking the official homepage or public repository. Occasionally, slightly more elaborate techniques may be used, such as inspecting a [`livecheck`](#stanza-livecheck) URL we established as official. Cases where such quick verifications aren’t possible (e.g. when the download URL is behind a registration wall) are [treated in a stricter manner](Acceptable-Casks.md#unofficial-vendorless-and-walled-builds).
+The parameter doesn’t mean you should trust the source blindly, but we only approve casks in which users can easily verify its authenticity with basic means, such as checking the official homepage or public repository. Occasionally, slightly more elaborate techniques may be used, such as inspecting a [`livecheck`](#stanza-livecheck) URL we established as official. Cases where such quick verifications aren’t possible (e.g. when the download URL is behind a registration wall) are [treated in a stricter manner](Acceptable-Casks.md#verifiable-upstream-distribution).
 
 #### Difficulty finding a URL
 

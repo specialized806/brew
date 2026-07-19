@@ -4,12 +4,12 @@ last_review_date: "2026-04-05"
 
 # Formulae Versions
 
-[homebrew/core](https://github.com/homebrew/homebrew-core) supports multiple versions of formulae by using a special naming format. For example, the formula for GCC 9 is named `gcc@9.rb` and begins with `class GccAT9 < Formula`.
+[homebrew/core](https://github.com/homebrew/homebrew-core) supports multiple versions of formulae by using a special naming format such as `foo@1.2.rb` and a corresponding class name such as `FooAT12`.
 
 This page is about versioned formulae such as `foo@1.2`. Formula variants such
 as `foo-full` are not versioned formulae: they are separate formulae used to
 provide a different dependency or feature trade-off and follow the
-[`Homebrew/homebrew-core` dependency policy]({% link Homebrew-homebrew-core-Maintainer-Guide.md %}#dependencies-and-full-variants)
+[`homebrew/core` dependency policy](Acceptable-Formulae.md#dependencies-and-full-variants)
 instead.
 
 ## Acceptable versioned formulae
@@ -28,7 +28,7 @@ Versioned formulae we include in [homebrew/core](https://github.com/homebrew/hom
 * Versioned formulae should not have `resource`s that require security updates. For example, a `node@6` formula should not have an `npm` resource but instead rely on the `npm` provided by the upstream tarball.
 * Versioned formulae should be as similar as possible and sensible compared to the main formulae. Creating or updating a versioned formula should be a chance to ask questions of the main formula and vice versa, e.g. can some unused or useless options be removed or made default?
 * No more than five versions of a formula (including the main one) will be supported at any given time, unless they are popular (e.g. have over 1000 [analytics 90 days installs](https://formulae.brew.sh/analytics/install/90d/) of usage). When removing formulae that violate this, we will aim to do so based on usage and support status rather than age.
-* Versioned formulae must be ABI-stable for the lifetime of the version branch. Updates to the versioned formula must not introduce ABI incompatibilities or otherwise require dependents to be revision bumped. In practice, this means that their dependents should never need `revision` bumps to be rebuilt against newer versions. Version updates which violate this should be rejected and the formula be deprecated from that point onwards.
+* Versioned formulae must be ABI-stable for the lifetime of the version branch. Updates to the versioned formula must not introduce ABI incompatibilities or otherwise require dependents to be revision bumped. In practice, this means that their dependents should never need `revision` bumps to be rebuilt against newer versions. Homebrew rejects version updates that violate this requirement and deprecates the formula from that point onwards.
 
 ## Locking installed formulae at specific versions
 
