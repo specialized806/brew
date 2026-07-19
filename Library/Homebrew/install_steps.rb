@@ -295,6 +295,26 @@ module Homebrew
 
       sig {
         params(
+          paths:                   Paths,
+          base:                    ::T.nilable(::T.any(::String, ::Symbol)),
+          recursive:               ::T::Boolean,
+          sudo:                    ::T.any(::T::Boolean, ::Symbol),
+          symlink_target_contains: ::T.nilable(::String),
+          content_contains:        ::T.nilable(::String),
+        ).void
+      }
+      def remove(paths, base: nil, recursive: false, sudo: false, symlink_target_contains: nil,
+                 content_contains: nil)
+        add_step("remove",
+                 "paths"                   => path_specs(paths, base:, default_base: @default_base),
+                 "recursive"               => recursive,
+                 "sudo"                    => sudo.is_a?(::Symbol) ? sudo.to_s : sudo,
+                 "symlink_target_contains" => symlink_target_contains,
+                 "content_contains"        => content_contains)
+      end
+
+      sig {
+        params(
           source:         ::T.any(::String, ::Pathname),
           target:         ::T.any(::String, ::Pathname),
           source_base:    ::T.nilable(::T.any(::String, ::Symbol)),
@@ -646,6 +666,28 @@ module Homebrew
           else
             FileUtils.rm_f destination if overwrite && destination.symlink?
             FileUtils.cp source, target
+          end
+        when "remove"
+          paths = step_paths(step, "paths").flat_map { |path| expand_path_glob(path) }
+          if step.key?("symlink_target_contains")
+            paths.select! do |path|
+              path.symlink? && path.readlink.to_s.include?(step_string(step, "symlink_target_contains"))
+            end
+          end
+          if step.key?("content_contains")
+            paths.select! do |path|
+              path.file? && path.readable? && path.read.include?(step_string(step, "content_contains"))
+            end
+          end
+          paths.each do |path|
+            if step["sudo"] == true || (step["sudo"] == "if_needed" && !path.dirname.writable?)
+              require "cask/utils"
+              ::Cask::Utils.gain_permissions_remove(path, command: @command)
+            elsif step["recursive"] == true
+              FileUtils.rm_rf path
+            else
+              FileUtils.rm_f path
+            end
           end
         when "link_dir"
           source_dir = resolve_path(step_path(step, "source"))
