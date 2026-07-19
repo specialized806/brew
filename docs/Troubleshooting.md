@@ -27,7 +27,7 @@ Search the tracker responsible for the failing component:
 - The tap's own tracker for a formula, cask or command from a non-Homebrew tap
 
 Also search [Homebrew Discussions](https://github.com/orgs/Homebrew/discussions) for support and related reports.
-The [Discourse archive](https://discourse.brew.sh/) is read-only historical material and may contain outdated instructions.
+The [Discourse archive](https://discourse.brew.sh/) is read-only historical material and will contain outdated instructions.
 
 ## Collect diagnostic information
 

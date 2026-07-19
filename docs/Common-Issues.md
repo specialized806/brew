@@ -15,23 +15,19 @@ Start with the [Troubleshooting checklist](Troubleshooting.md) and read the full
 ### Missing Command Line Tools
 
 A supported Homebrew development environment on macOS requires the Xcode Command Line Tools to build formulae from source.
+Counterintuitively, installing Xcode alone is not enough: the Command Line Tools are a separate package.
 Install them with:
 
 ```sh
 xcode-select --install
 ```
 
-Casks and bottles can be installed without developer tools, but `brew doctor` may still report the unsupported configuration.
+Casks and bottles can be installed without developer tools, but `brew doctor` will still report the unsupported configuration.
 
 ### `bad interpreter: /usr/bin/ruby^M`
 
 The Homebrew checkout has Windows line endings, usually because of a Git configuration setting.
 Review GitHub's guide to [configuring Git line endings](https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings), then restore the Homebrew repository with `brew update-reset` as described below.
-
-### Missing or inaccessible `/usr/bin/ruby`
-
-Files under `/usr/bin` are provided by macOS and should not be modified manually.
-Install current macOS updates or use Apple's supported recovery process to restore missing system files.
 
 ### Local changes prevent `brew update`
 
@@ -44,6 +40,7 @@ git -C "$(brew --repository USER/REPOSITORY)" status --short
 
 Repeat the second command for each tap named in the error, replacing `USER/REPOSITORY` with its tap name.
 
+Unless you are a Homebrew or tap maintainer, any local changes are almost certainly unintentional and resetting is the right fix.
 Preserve any work you intentionally made in Homebrew or a tap before continuing.
 Do not run arbitrary `git clean` or `git reset --hard` commands copied from old issue reports.
 
