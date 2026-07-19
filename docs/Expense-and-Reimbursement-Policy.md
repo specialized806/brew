@@ -53,7 +53,7 @@ Use a reimbursement for a project purchase that you have already paid.
 Use an invoice for completed work or services.
 If an expense contains multiple receipts, enter them as separate line items.
 
-Open Source Collective may request payment, identity or tax information before it can pay an expense.
+Open Source Collective will request payment, identity or tax information before it can pay an expense.
 
 ## Receipts policy
 
@@ -66,8 +66,8 @@ Attach a legible vendor receipt showing:
 * The purchaser or project when the receipt provides that information.
 
 Add a short explanation when the connection to Homebrew is not obvious.
-A card statement is not normally a substitute for a receipt.
-Ask the Lead Maintainers before relying on alternative proof for a purchase where the vendor does not issue receipts.
+A card statement is not a substitute for a receipt.
+Open Source Collective decides whether alternative proof is acceptable and may decline an expense when a vendor does not issue receipts.
 
 ## Travel policy
 
@@ -87,14 +87,14 @@ An approved travel budget may include:
 * Necessary baggage, parking or visa costs.
 * A taxi, rideshare or rental vehicle when it is the practical option.
 
-Upgrades, luxury accommodation, companion travel and personal entertainment are not reimbursable unless an explicit accessibility or medical exception was approved.
+Upgrades, luxury accommodation, companion travel and personal entertainment are not reimbursable.
 
 ### Meals and entertainment
 
 Homebrew normally covers pre-approved group meals attended primarily by Homebrew maintainers as part of an event or project gathering.
 The reimbursement should identify the attendees and the Homebrew purpose.
 
-Individual meals and entertainment are not normally reimbursable unless they were explicitly included in the approved event budget.
+Individual meals and entertainment are not reimbursable unless they were explicitly included in the approved event budget.
 
 ### Personal travel
 
@@ -105,12 +105,13 @@ The maintainer is responsible for every personal portion of the trip.
 ### Accessibility and medical needs
 
 Reasonable accessibility or medical needs may justify an exception or a more expensive option.
-Request approval in advance when possible and disclose only the information needed to evaluate the expense.
+Request approval in advance and disclose as much useful information as possible to evaluate the expense.
+It will be kept private.
 
 ## Services and project property
 
 The Lead Maintainers must approve a new or recurring paid service.
-Where practical, the service should use a Homebrew-controlled account and payment method instead of depending on an individual maintainer.
+The service must use a Homebrew-controlled account and payment method instead of depending on an individual maintainer.
 
 An item purchased for Homebrew should have a named custodian and a recorded location while Homebrew owns it.
 
@@ -118,4 +119,4 @@ An item purchased for Homebrew should have a named custodian and a recorded loca
 
 Ask for new approval before materially exceeding an approved amount or changing the purpose of an expense.
 If an emergency makes advance approval impossible, contact the Lead Maintainers as soon as practical.
-Reimbursement is not guaranteed when approval was not obtained first.
+Reimbursement is much less likely when approval was not obtained first.
