@@ -14,7 +14,7 @@ module Homebrew
       BUNDLE_SOURCES_DESCRIPTION = T.let(
         [
           "Homebrew formulae",
-          "casks",
+          "Homebrew casks",
           *BUNDLE_EXTENSIONS.map(&:banner_name),
         ].to_sentence.freeze,
         String,
