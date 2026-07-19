@@ -24,12 +24,16 @@ petere/postgresql
 Homebrew updates the repository during `brew update`.
 
 Tapping a repository does not grant whole-tap trust.
-Install a fully qualified item to trust only that item, or use `brew trust` before accessing an item by its short name:
+Install a fully qualified item to trust only that item:
 
 ```sh
 brew tap user/repository
 brew install user/repository/formula
+```
 
+Alternatively, use `brew trust` first to access an item by its short name:
+
+```sh
 brew trust --formula user/repository/formula
 brew install formula
 ```
