@@ -100,7 +100,7 @@ For a standard `pyproject.toml` or `setup.py` package, install through the decla
 system "python3.y", "-m", "pip", "install", *std_pip_args(build_isolation: true), "./source/python"
 ```
 
-`std_pip_args` delays packages published within Homebrew's release-cooldown period and disables automatic dependency resolution, binary wheels and writes outside the requested prefix.
+`std_pip_args` delays packages published within Homebrew's release-cooldown period, disables automatic dependency resolution and binary wheels and installs only under the requested prefix.
 Match the executable to the declared dependency whenever the Python minor version changes.
 Use upstream build-system options to direct bindings into the formula prefix rather than patching global Python paths.
 
