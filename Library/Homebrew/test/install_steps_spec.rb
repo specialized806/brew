@@ -186,6 +186,58 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"var/config/replaced.conf").read).to eq("default\n")
   end
 
+  specify "snapshots conditions shared by a scope" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      unless_path_exists "initialised" do
+        mkdir_p "initialised"
+        touch "initialised/marker"
+      end
+    end
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/initialised/marker").to exist
+  end
+
+  specify "keeps guard snapshots separate between concatenated step lists" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      if_path_exists "missing" do
+        touch "unexpected"
+      end
+    end
+    steps.concat(
+      Homebrew::InstallSteps::DSL.build(default_base: :var) do
+        if_path_exists "existing" do
+          touch "matched"
+        end
+      end,
+    )
+    (root/"var/existing").mkpath
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/matched").to exist
+  end
+
+  specify "runs only steps matching the simulated platform" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      on_macos do
+        touch "macos"
+      end
+      on_linux do
+        touch "linux"
+      end
+    end
+
+    expect([:macos, :linux].to_h do |os|
+      FileUtils.rm_rf root/"var"
+      Homebrew::SimulateSystem.with(os:) do
+        Homebrew::InstallSteps::Runner.new(context:).run(steps)
+      end
+      [os, [(root/"var/macos").exist?, (root/"var/linux").exist?]]
+    end).to eq(macos: [true, false], linux: [false, true])
+  end
+
   specify "appends a trailing newline unless already present", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       write "missing-newline", "value"

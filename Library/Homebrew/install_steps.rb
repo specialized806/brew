@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "simulate_system"
 require "system_command"
 require "utils/output"
 
@@ -58,6 +59,8 @@ module Homebrew
         @default_source_base = default_source_base
         @default_target_base = default_target_base
         @steps = ::T.let([], Steps)
+        @guards = ::T.let([], PathSpecs)
+        @next_guard_id = ::T.let(0, ::Integer)
       end
 
       sig { returns(Steps) }
@@ -87,6 +90,38 @@ module Homebrew
         dsl.steps
       end
 
+      sig {
+        params(
+          path:  ::T.any(::String, ::Pathname),
+          base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          block: ::T.proc.void,
+        ).void
+      }
+      def if_path_exists(path, base: nil, &block)
+        with_guard(path_spec(path, base:, default_base: @default_base).merge("condition" => "if_exists"), &block)
+      end
+
+      sig {
+        params(
+          path:  ::T.any(::String, ::Pathname),
+          base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          block: ::T.proc.void,
+        ).void
+      }
+      def unless_path_exists(path, base: nil, &block)
+        with_guard(path_spec(path, base:, default_base: @default_base).merge("condition" => "unless_exists"), &block)
+      end
+
+      sig { params(block: ::T.proc.void).void }
+      def on_macos(&block)
+        with_guard({ "condition" => "on", "value" => "macos" }, &block)
+      end
+
+      sig { params(block: ::T.proc.void).void }
+      def on_linux(&block)
+        with_guard({ "condition" => "on", "value" => "linux" }, &block)
+      end
+
       sig { params(steps: ::T::Array[RawStep]).returns(Steps) }
       def self.normalise_steps(steps)
         steps.map do |step|
@@ -104,7 +139,7 @@ module Homebrew
         when Symbol
           obj.to_s
         when Array
-          obj.map { |value| normalise_path_value(value) } if key == "paths"
+          obj.map { |value| normalise_path_value(value) } if %w[guards paths].include?(key)
         when Hash
           normalise_path_value(obj)
         when String, Pathname
@@ -366,9 +401,21 @@ module Homebrew
 
       private
 
+      sig { params(guard: PathSpec, block: ::T.proc.void).void }
+      def with_guard(guard, &block)
+        previous_guards = ::T.let(nil, ::T.nilable(PathSpecs))
+        previous_guards = @guards
+        @next_guard_id += 1
+        @guards = [*@guards, guard.merge("id" => @next_guard_id.to_s)]
+        instance_eval(&block)
+      ensure
+        @guards = previous_guards if previous_guards
+      end
+
       sig { params(type: ::String, fields: ::T.nilable(StepValue)).void }
       def add_step(type, **fields)
         step = fields.transform_keys(&:to_s)
+        step["guards"] = @guards unless @guards.empty?
         step["type"] = type
         @steps << ::T.cast(::Utils.deep_compact_blank(step), Step)
       end
@@ -433,10 +480,12 @@ module Homebrew
       def initialize(context:, command: SystemCommand)
         @context = context
         @command = command
+        @guard_results = T.let({}, T::Hash[PathSpec, T::Boolean])
       end
 
       sig { params(steps: Steps, phase: Symbol).void }
       def run(steps, phase: :install)
+        @guard_results.clear
         DSL.normalise_steps(steps).each do |step|
           if phase == :uninstall
             run_uninstall_step(step)
@@ -450,6 +499,8 @@ module Homebrew
 
       sig { params(step: Step).void }
       def run_install_step(step)
+        return unless step_guards_match?(step)
+
         case step.fetch("type")
         when "mkdir"
           resolve_path(step_path(step, "path")).mkdir
@@ -571,6 +622,45 @@ module Homebrew
         end
       end
 
+      sig { params(step: Step).returns(T::Boolean) }
+      def step_guards_match?(step)
+        guards = T.cast(step["guards"], T.nilable(PathSpecs))
+        guards.nil? || guards.all? { |guard| guard_matches?(guard) }
+      end
+
+      sig { params(guard: PathSpec).returns(T::Boolean) }
+      def guard_matches?(guard)
+        return @guard_results.fetch(guard) if @guard_results.key?(guard)
+
+        matches = case guard.fetch("condition")
+        when "if_exists"
+          path_spec_exists?(guard)
+        when "unless_exists"
+          !path_spec_exists?(guard)
+        when "on"
+          case guard.fetch("value")
+          when "macos" then Homebrew::SimulateSystem.simulating_or_running_on_macos?
+          when "linux" then Homebrew::SimulateSystem.simulating_or_running_on_linux?
+          else false
+          end
+        else
+          false
+        end
+        @guard_results[guard] = matches
+      end
+      sig { params(source: SystemCommandArg, target: Pathname, step: Step).void }
+      def create_symlink(source, target, step)
+        target.dirname.mkpath
+        if step["sudo"] == true || (step["sudo_if_needed"] == true && !target.dirname.writable?)
+          args = ["-s"]
+          args << "-f" if step["force"] == true
+          @command.run!("/bin/ln", args: [*args, source, target], sudo: true)
+        else
+          FileUtils.rm_f target if step["force"] == true
+          File.symlink source, target
+        end
+      end
+
       sig { params(step: Step).void }
       def run_set_permissions(step)
         paths = existing_step_paths(step)
@@ -689,10 +779,36 @@ module Homebrew
 
       sig { params(step: Step).returns(T::Array[Pathname]) }
       def existing_step_paths(step)
-        step_paths(step, "paths").filter_map do |spec|
-          path = resolve_path(spec).expand_path
-          path if path.exist?
+        step_paths(step, "paths").flat_map { |spec| expand_path_glob(spec) }.select(&:exist?)
+      end
+
+      sig { params(step: Step).returns(T.nilable(Pathname)) }
+      def resolve_step_source(step)
+        source = resolve_path(step_path(step, "source"))
+        return source if step["source_glob"] != true
+
+        Pathname.glob(source.to_s).first
+      end
+
+      sig { params(spec: PathSpec).returns(T::Array[Pathname]) }
+      def expand_path_glob(spec)
+        if spec["base"] == "path"
+          path = expand_template_tokens(spec.fetch("path"))
+          return ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).flat_map do |directory|
+            candidate = Pathname(directory)/path
+            candidate.to_s.match?(/[?*\[{]/) ? Pathname.glob(candidate.to_s) : [candidate]
+          end
         end
+
+        path = resolve_path(spec).expand_path
+        return [path] unless path.to_s.match?(/[?*\[{]/)
+
+        Pathname.glob(path.to_s)
+      end
+
+      sig { params(spec: PathSpec).returns(T::Boolean) }
+      def path_spec_exists?(spec)
+        expand_path_glob(spec).any?(&:exist?)
       end
 
       sig { params(step: Step, key: String).returns(String) }
