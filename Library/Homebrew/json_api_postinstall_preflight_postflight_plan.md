@@ -25,12 +25,12 @@ conversions can peel supported repeated statements out of larger hooks. Runtime
 handling runs formula steps first and then runs `post_install` last for the
 remaining Ruby work. Cask `*flight_steps` still replace the matching legacy
 flight block because cask artifacts already carry replacement semantics and
-warn when both forms are present. Post-install or postflight steps are not
-sandboxed for this iteration because they run only Homebrew-owned structured
-operations. The runner shape leaves room to sandbox future step types that
-invoke non-Homebrew code. Future cask work should sandbox all `*flight` run
-scripts from non-Homebrew and non-system sources, for example scripts shipped
-by upstream artifacts.
+warn when both forms are present. Formula post-install steps run in the same
+sandboxed subprocess as the remaining `post_install` hook, preserving its
+filesystem and network restrictions for structured Ruby operations and any
+commands they invoke. Future cask work should sandbox all `*flight` run scripts
+from non-Homebrew and non-system sources, for example scripts shipped by
+upstream artifacts.
 
 The final target is not to keep legacy hooks and structured steps side by side.
 Once `homebrew/core` and `homebrew/cask` have been converted, all
@@ -345,6 +345,12 @@ is stripped during metadata serialisation.
   non-Homebrew code and should be ready for future sandboxing. Land RuboCop
   autocorrection and tap-wide conversions in a separate follow-up after the
   new DSL methods are available in a stable Homebrew release.
+- [x] PR 4.1, formula install-step sandboxing.
+  Commit: `Sandbox formula install steps`.
+  Scope: run structured formula steps inside the existing post-install child
+  process so macOS Seatbelt and Linux Bubblewrap apply the same filesystem and
+  network policy as legacy `post_install` hooks. This must land before any tap
+  migrations use filesystem-mutating steps.
 - PR 5, default config and template writes (four-PR workflow above).
   Estimated existing formulae/casks affected: about `112` formulae write or
   patch default configuration/data files, and a subset of the `68` file-prep

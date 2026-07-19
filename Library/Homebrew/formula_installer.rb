@@ -1020,8 +1020,7 @@ on_request: installed_on_request?, options:)
       end
     else
       formula.install_etc_var
-      formula.run_post_install_steps if formula.post_install_steps_defined?
-      post_install if formula.post_install_defined?
+      post_install if formula.post_install_steps_defined? || formula.post_install_defined?
     end
 
     keg.prepare_debug_symbols if debug_symbols?

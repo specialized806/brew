@@ -1598,6 +1598,7 @@ class Formula
   def run_post_install_steps
     return if post_install_steps.empty?
 
+    prefix_returns_versioned_prefix = @prefix_returns_versioned_prefix
     @prefix_returns_versioned_prefix = T.let(true, T.nilable(T::Boolean))
 
     begin
@@ -1605,7 +1606,7 @@ class Formula
         Homebrew::InstallSteps::Runner.new(context: self).run(post_install_steps)
       end
     ensure
-      @prefix_returns_versioned_prefix = T.let(false, T.nilable(T::Boolean))
+      @prefix_returns_versioned_prefix = prefix_returns_versioned_prefix
     end
   end
 
@@ -1639,7 +1640,8 @@ class Formula
           ENV.activate_extensions!
 
           with_logging("post_install") do
-            post_install
+            run_post_install_steps if post_install_steps_defined?
+            post_install if post_install_defined?
           end
         end
       end
