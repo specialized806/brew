@@ -39,7 +39,7 @@ fi
 
 The `bash-completion` formula supports the system Bash shipped by macOS.
 Use `bash-completion@2` with Homebrew's Bash 4 or newer.
-Install only one of these formulae.
+The two formulae conflict with each other, so install only one.
 The snippet above loads the installed version, so do not also source it elsewhere in the same shell configuration.
 
 ## zsh
