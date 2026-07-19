@@ -1153,6 +1153,20 @@ RSpec.describe Formula do
     )
   end
 
+  specify "#run_post_install runs install steps before the remaining hook" do
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+    end
+
+    allow(Tab).to receive(:for_formula).with(f).and_return(f.build)
+    allow(f).to receive_messages(post_install_steps_defined?: true, post_install_defined?: true)
+    expect(f).to receive(:run_post_install_steps).ordered
+    expect(f).to receive(:post_install).ordered
+
+    f.run_post_install
+  end
+
   specify "#post_install_steps" do
     f = formula do
       T.bind(self, T.class_of(Formula))

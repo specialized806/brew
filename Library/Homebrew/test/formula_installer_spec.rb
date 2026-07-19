@@ -103,7 +103,7 @@ RSpec.describe FormulaInstaller do
   end
 
   describe "#finish" do
-    it "runs post-install steps before the remaining `post_install` hook" do
+    it "runs structured post-install work through the post-install subprocess" do
       formula = formula "finish-install-steps" do
         T.bind(self, T.class_of(Formula))
         url "foo-1.0"
@@ -128,7 +128,7 @@ RSpec.describe FormulaInstaller do
         summary:                     "summary",
         verbose?:                    false,
       )
-      allow(formula).to receive_messages(post_install_steps_defined?: true, post_install_defined?: true,
+      allow(formula).to receive_messages(post_install_steps_defined?: true, post_install_defined?: false,
                                          runtime_dependencies: [])
       allow(CacheStoreDatabase).to receive(:use).with(:linkage)
       allow(Homebrew::EnvConfig).to receive(:sbom?).and_return(false)
@@ -138,7 +138,7 @@ RSpec.describe FormulaInstaller do
       allow(tab).to receive(:write)
 
       expect(formula).to receive(:install_etc_var).ordered
-      expect(formula).to receive(:run_post_install_steps).ordered
+      expect(formula).not_to receive(:run_post_install_steps)
       expect(installer).to receive(:post_install).ordered
 
       installer.finish

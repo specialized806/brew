@@ -1166,7 +1166,7 @@ end
 
 Any initialization steps that aren't necessarily part of the install process can be located in a `post_install` block, such as setup commands or data directory creation. This block can be re-run separately with `brew postinstall <formula>`.
 
-For simple file preparation, prefer [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method). These steps are stored in the JSON API and do not require evaluating formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code.
+For simple file preparation, prefer [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method). These steps are stored in the JSON API and do not require evaluating formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code. Homebrew executes the steps with the same sandbox policy as `post_install`.
 
 ```ruby
 class Foo < Formula
