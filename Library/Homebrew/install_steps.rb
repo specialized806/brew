@@ -260,6 +260,41 @@ module Homebrew
 
       sig {
         params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def move_contents(source, target, source_base: nil, target_base: nil)
+        add_step("move_contents",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      sig {
+        params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          recursive:   ::T::Boolean,
+          overwrite:   ::T::Boolean,
+          source_glob: ::T::Boolean,
+        ).void
+      }
+      def copy(source, target, source_base: nil, target_base: nil, recursive: false, overwrite: true,
+               source_glob: false)
+        add_step("copy",
+                 "source"      => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target"      => path_spec(target, base: target_base, default_base: @default_target_base),
+                 "recursive"   => recursive,
+                 "overwrite"   => overwrite,
+                 "source_glob" => source_glob)
+      end
+
+      sig {
+        params(
           source:         ::T.any(::String, ::Pathname),
           target:         ::T.any(::String, ::Pathname),
           source_base:    ::T.nilable(::T.any(::String, ::Symbol)),
@@ -587,12 +622,10 @@ module Homebrew
           FileUtils.touch path
         when "move"
           source = resolve_step_source(step)
-          return unless source
-
           target = resolve_path(step_path(step, "target"))
           target.dirname.mkpath
           FileUtils.mv source, target, force: step["force"] == true
-        when "move_children"
+        when "move_children", "move_contents"
           source = resolve_path(step_path(step, "source"))
           target = resolve_path(step_path(step, "target"))
           target.mkpath
@@ -600,6 +633,20 @@ module Homebrew
           return if children.empty?
 
           FileUtils.mv children, target
+        when "copy"
+          source = resolve_step_source(step)
+          target = resolve_path(step_path(step, "target"))
+          target.dirname.mkpath
+          destination = step_destination(source, target)
+          overwrite = step["overwrite"] != false
+          raise Errno::EEXIST, destination.to_s if destination.exist? && !overwrite
+
+          if step["recursive"] == true
+            FileUtils.cp_r source, target, remove_destination: overwrite
+          else
+            FileUtils.rm_f destination if overwrite && destination.symlink?
+            FileUtils.cp source, target
+          end
         when "link_dir"
           source_dir = resolve_path(step_path(step, "source"))
           target_dir = resolve_path(step_path(step, "target"))
@@ -890,12 +937,20 @@ module Homebrew
         step_paths(step, "paths").flat_map { |spec| expand_path_glob(spec) }.select(&:exist?)
       end
 
-      sig { params(step: Step).returns(T.nilable(Pathname)) }
+      sig { params(step: Step).returns(Pathname) }
       def resolve_step_source(step)
         source = resolve_path(step_path(step, "source"))
         return source if step["source_glob"] != true
 
-        Pathname.glob(source.to_s).first
+        sources = Pathname.glob(source.to_s)
+        raise ArgumentError, "install step source glob must match exactly one path: #{source}" if sources.length != 1
+
+        sources.fetch(0)
+      end
+
+      sig { params(source: Pathname, target: Pathname).returns(Pathname) }
+      def step_destination(source, target)
+        target.directory? ? target/source.basename : target
       end
 
       sig { params(spec: PathSpec).returns(T::Array[Pathname]) }

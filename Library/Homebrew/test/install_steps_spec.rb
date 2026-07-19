@@ -266,6 +266,81 @@ RSpec.describe Homebrew::InstallSteps do
     end).to eq(macos: [true, false], linux: [false, true])
   end
 
+  specify "copies paths" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :staged_path,
+                                              default_target_base: :var) do
+      copy "source.txt", "copied.txt"
+    end
+
+    (root/"stage").mkpath
+    (root/"stage/source.txt").write "copied"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect((root/"var/copied.txt").read).to eq("copied")
+  end
+
+  specify "replaces copied paths by default and can reject replacement" do
+    rejecting_steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path,
+                                                        default_target_base: :var) do
+      copy "source.txt", "copied.txt", overwrite: false
+    end
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "source.txt", "copied.txt"
+    end
+    (root/"stage").mkpath
+    (root/"var").mkpath
+    (root/"stage/source.txt").write "replacement"
+    (root/"var/copied.txt").write "existing"
+
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(rejecting_steps) }.to raise_error(Errno::EEXIST)
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    expect((root/"var/copied.txt").read).to eq("replacement")
+  end
+
+  specify "replaces symlink destinations when copying files" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "source.txt", "copied.txt"
+    end
+    (root/"stage").mkpath
+    (root/"var").mkpath
+    (root/"stage/source.txt").write "replacement"
+    (root/"var/linked.txt").write "original"
+    File.symlink "linked.txt", root/"var/copied.txt"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect([(root/"var/copied.txt").symlink?, (root/"var/copied.txt").read, (root/"var/linked.txt").read])
+      .to eq([false, "replacement", "original"])
+  end
+
+  specify "keeps the shipped move replacement default" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      move "source.txt", "target.txt"
+    end
+    (root/"stage").mkpath
+    (root/"var").mkpath
+    (root/"stage/source.txt").write "replacement"
+    (root/"var/target.txt").write "existing"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect((root/"var/target.txt").read).to eq("replacement")
+  end
+
+  specify "requires one match for single-source globs" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "*.txt", "copied.txt", source_glob: true
+    end
+    (root/"stage").mkpath
+    (root/"stage/first.txt").write "first"
+    (root/"stage/second.txt").write "second"
+
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(steps) }
+      .to raise_error(ArgumentError, /exactly one path/)
+  end
+
   specify "appends a trailing newline unless already present", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       write "missing-newline", "value"
@@ -594,6 +669,18 @@ RSpec.describe Homebrew::InstallSteps do
       move_children ".", "Nested"
     end
 
+    (root/"stage").mkpath
+    (root/"stage/source-file").write "source"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"stage/Nested/source-file").to exist
+  end
+
+  specify "moves a directory's contents" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :staged_path) do
+      move_contents ".", "Nested"
+    end
     (root/"stage").mkpath
     (root/"stage/source-file").write "source"
 
