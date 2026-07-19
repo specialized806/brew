@@ -103,7 +103,7 @@ No single person holds special authority beyond the Project Leader role.
 
 - Serves as the primary point for formal communications and external coordination, and may delegate public representation to other Lead Maintainers as needed.
 - Coordinates day-to-day operations, executes addition and removal of Maintainers under the eligibility criteria and inactivity policies defined in this document, and ensures project-level decisions are followed through.
-- Organizes Lead Maintainer discussions.
+- Organises Lead Maintainer discussions.
 - Executes and ensures decision-making processes as required by this governance document.
 - Facilitates AGM planning and/or appoints designees to do so.
 
@@ -127,11 +127,11 @@ No single person holds special authority beyond the Project Leader role.
 
 ---
 
-## 3. Decision-Making
+## 3. Decision-making
 
 Formal governance decisions are made by vote of all Maintainers.
 Major financial decisions (i.e. changes to existing documented financial processes or new one-time expenditures) are made by vote of the Lead Maintainers.
-Minor financial approvals (i.e. approving expected OpenCollective expenses) can be made by any Lead Maintainer.
+Minor financial approvals (i.e. approving expected Open Collective expenses) can be made by any Lead Maintainer.
 
 - Informal decisions may proceed by discussion unless a vote is requested by any Lead Maintainer.
 - Formal votes require a simple majority.
@@ -144,29 +144,29 @@ Minor financial approvals (i.e. approving expected OpenCollective expenses) can 
 - When voting is conducted using pull request review:
   - Voting will begin when the pull request is opened.
   - Voting is conducted as follows:
-    - To vote in favor: Submit a ✅ review approval, or if lacking write permissions, a comment review with a ✅ emoji in the comment.
+    - To vote in favour: Submit a ✅ review approval, or if lacking write permissions, a comment review with a ✅ emoji in the comment.
     - To vote against: Submit a ❌ "request changes" review, or if lacking write permissions, a comment review with a ❌ emoji in the comment.
     - To abstain: Submit a comment review containing the word "abstain".
 
 ---
 
-## 4. Security & Emergency Actions
+## 4. Security & emergency actions
 
 - The Security Team is comprised of any number of Maintainers appointed by the Project Leader, serving until resignation or removal from the team by the Project Leader.
 - The Project Leader and 2 other Lead Maintainers are granted the necessary technical permissions (e.g. Owner or Admin roles) on all primary Homebrew repositories and infrastructure to immediately revoke access in emergencies.
   When possible, these 2 Lead Maintainers should be members of the Security Team.
-  If there are not enough eligible Lead Maintainers on the Security Team, the Project Leader will appoint other Lead Maintainers to fulfill this role, with the appointments subject to confirmation by a simple majority vote of all Lead Maintainers.
+  If there are not enough eligible Lead Maintainers on the Security Team, the Project Leader will appoint other Lead Maintainers to fulfil this role, with the appointments subject to confirmation by a simple majority vote of all Lead Maintainers.
 - In emergencies (e.g. malicious commits, compromised credentials, abuse of access), any Lead Maintainer may immediately revoke access and must notify all other Lead Maintainers.
 - A formal review must occur within 7 days and be published to all Maintainers within 21 days.
 - Restoration or permanent removal is determined by a simple majority vote of Lead Maintainers.
 
 ---
 
-## 5. Transparency & Updates
+## 5. Transparency & updates
 
 - This document will be reviewed annually.
 
-### Amendment Process
+### Amendment process
 
 - **Who can propose changes:** Any Maintainer or Lead Maintainer may propose amendments to this document.
 - **How to propose:** Proposed changes must be submitted as a pull request with a clear rationale and summary.
@@ -176,7 +176,7 @@ Minor financial approvals (i.e. approving expected OpenCollective expenses) can 
 
 ---
 
-## 6. Code of Conduct
+## 6. Code of conduct
 
 All contributors, Maintainers and Lead Maintainers must follow the Homebrew [Code of Conduct](https://github.com/Homebrew/.github/blob/HEAD/CODE_OF_CONDUCT.md).
 
