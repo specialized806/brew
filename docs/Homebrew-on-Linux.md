@@ -5,20 +5,20 @@ redirect_from:
   - /linux
   - /Linux
   - /Linuxbrew
-last_review_date: "2026-07-02"
+last_review_date: "2026-07-18"
 ---
 
 # Homebrew on Linux
 
 The Homebrew package manager may be used on Linux and [Windows Subsystem for Linux (WSL)](https://docs.microsoft.com/en-us/windows/wsl/about) 2. Homebrew was formerly referred to as Linuxbrew when running on Linux or WSL. Homebrew does not use any libraries provided by your host system, except *glibc* and *gcc* if they are new enough. Homebrew can install its own current versions of *glibc* and *gcc* for older distributions of Linux.
 
-[Features](#features), [installation instructions](#install) and [requirements](#requirements) are described below. Terminology (e.g. the difference between a Cellar, Tap, Cask and so forth) is [explained in the documentation](Formula-Cookbook.md#homebrew-terminology).
+[Features](#features), [installation instructions](#install) and [requirements](#requirements) are described below. Terminology (e.g. the difference between the Cellar, a tap and a cask) is [explained in the documentation](Formula-Cookbook.md#homebrew-terminology).
 
 ## Features
 
 - Install software not packaged by your host distribution
 - Install up-to-date versions of software when your host distribution is old
-- Use the same package manager to manage your macOS, Linux, and Windows systems
+- Use the same package manager to manage your macOS, Linux and Windows systems
 
 ## Install
 
@@ -28,13 +28,15 @@ The installation script installs Homebrew to `/home/linuxbrew/.linuxbrew` using 
 
 The prefix `/home/linuxbrew/.linuxbrew` was chosen to avoid writing to system-owned directories after installation while still allowing most precompiled binaries (bottles) to be used. Homebrew is designed for single-user installations rather than shared role accounts.
 
-Follow the *Next steps* instructions to add Homebrew to your `PATH` and to your bash shell rcfile, either `~/.bashrc` for `bash` or `~/.zshrc` for `zsh`.
+Follow the installer's *Next steps* instructions to add Homebrew to your `PATH` and shell configuration.
+For a supported installation using Bash, run:
 
 ```sh
-test -d ~/.linuxbrew && eval "$(~/.linuxbrew/bin/brew shellenv)"
-test -d /home/linuxbrew/.linuxbrew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-echo "eval \"\$($(brew --prefix)/bin/brew shellenv)\"" >> ~/.bashrc
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
 ```
+
+Use `~/.zshrc` instead of `~/.bashrc` when zsh is your login shell.
 
 You're done! Try installing a package:
 
@@ -80,11 +82,11 @@ To install build tools, paste at a terminal prompt:
 
 ### ARM32 (Tier 3 Support)
 
-Homebrew can run on 32-bit ARM systems (e.g. Raspberry Pi and others), but as they lack bottles (binary packages) they are a [Tier 3 supported platform](Support-Tiers.md#tier-3).
+Homebrew can run on 32-bit ARM systems such as Raspberry Pi devices, but because they lack bottles they are a [Tier 3 platform](Support-Tiers.md#tier-3).
 
-You may need to install your own Ruby using your system package manager, a PPA, or `rbenv/ruby-build` as we don't distribute a Homebrew Portable Ruby for ARM32.
+You may need to install your own Ruby using your system package manager, a PPA or `rbenv/ruby-build` because Homebrew does not distribute Portable Ruby for ARM32.
 
-### 32-bit x86 (Unsupported)
+### 32-bit x86 (unsupported)
 
 Homebrew does not run at all on 32-bit x86 platforms.
 
@@ -92,7 +94,7 @@ Homebrew does not run at all on 32-bit x86 platforms.
 
 Due to [known issues](https://github.com/microsoft/WSL/issues/8219) with WSL 1, you may experience issues running various executables installed by Homebrew. We recommend you switch to WSL 2 instead.
 
-## Homebrew on Linux Community
+## Homebrew on Linux community
 
 - [@HomebrewOnLinux on Twitter](https://twitter.com/HomebrewOnLinux)
 - [Homebrew/discussions (forum)](https://github.com/orgs/Homebrew/discussions/categories/linux)

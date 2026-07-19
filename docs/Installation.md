@@ -8,9 +8,22 @@ Instructions for a supported install of Homebrew are on the [homepage](https://b
 
 The script installs Homebrew to its default, supported, best prefix (`/opt/homebrew` for Apple Silicon, `/usr/local` for macOS Intel and `/home/linuxbrew/.linuxbrew` for Linux) so that [you don’t need *sudo* after Homebrew's initial installation](FAQ.md#why-does-homebrew-say-sudo-is-bad) when you `brew install`. This prefix is required for most bottles (binary packages) to be used. It is a careful script; it can be run even if you have stuff installed in the preferred prefix already. It tells you exactly what it will do before it does it too. You have to confirm everything it will do before it starts.
 
-The macOS `.pkg` installer also installs Homebrew to its default prefix (`/opt/homebrew` for Apple Silicon and `/usr/local` for macOS Intel) for the same reasons as above. It's available on [Homebrew/brew's latest GitHub release](https://github.com/Homebrew/brew/releases/latest). To specify an alternate install user, like in situations where the package is installed at the login window before a user has logged in, write a property list file to `/var/tmp/.homebrew_pkg_user.plist` with the value `HOMEBREW_PKG_USER`. For example, `defaults write /var/tmp/.homebrew_pkg_user HOMEBREW_PKG_USER penny`. The file and user must exist prior to install.
+The macOS `.pkg` installer also installs Homebrew to its default prefix (`/opt/homebrew` for Apple Silicon and `/usr/local` for macOS Intel) for the same reasons as above.
+It is available on [Homebrew/brew's latest GitHub release](https://github.com/Homebrew/brew/releases/latest).
+To specify an alternate install user, such as when the package is installed at the login window before a user has logged in, create `/var/tmp/.homebrew_pkg_user.plist` with a `HOMEBREW_PKG_USER` value before installation:
 
-## macOS Requirements
+```sh
+sudo defaults write /var/tmp/.homebrew_pkg_user HOMEBREW_PKG_USER penny
+sudo chown root:wheel /var/tmp/.homebrew_pkg_user.plist
+sudo chmod 600 /var/tmp/.homebrew_pkg_user.plist
+sudo chmod -N /var/tmp/.homebrew_pkg_user.plist
+```
+
+The file must be a regular non-symlink file owned by `root`, have mode `0600` and have no access control list.
+The named user must also exist before installation.
+The installer ignores an override that does not meet these requirements and falls back to the active console user.
+
+## macOS requirements
 
 * An Apple Silicon CPU or 64-bit Intel CPU <sup>[1](#1)</sup>
 * macOS Sonoma (14) (or higher) installed on officially supported hardware<sup>[2](#2)</sup>
@@ -19,11 +32,11 @@ The macOS `.pkg` installer also installs Homebrew to its default prefix (`/opt/h
   [Xcode](https://itunes.apple.com/us/app/xcode/id497799835) <sup>[3](#3)</sup>
 * The Bourne-again shell for installation (i.e. `bash`) <sup>[4](#4)</sup>
 
-## Advanced Configuration
+## Advanced configuration
 
 The Homebrew installer offers various advanced configuration settings. **Most users can skip this section and instead follow the instructions on the [homepage](https://brew.sh/)!**
 
-### Git Remote Mirroring
+### Git remote mirroring
 
 If you have issues connecting to GitHub.com, you can use Git mirrors for Homebrew's installation and `brew update` by setting `HOMEBREW_BREW_GIT_REMOTE` and/or `HOMEBREW_CORE_GIT_REMOTE` in your shell environment with this script:
 
@@ -37,7 +50,7 @@ The default Git remote will be used if the corresponding environment variable is
 
 **Note:** if you set these variables you are granting these repositories the same level of trust you currently grant to Homebrew itself. You should be extremely confident that these repositories will not be compromised.
 
-### Default Tap Cloning
+### Default tap cloning
 
 You can instruct Homebrew to return to pre-4.0.0 behaviour by cloning the Homebrew/homebrew-core tap during installation by setting the `HOMEBREW_NO_INSTALL_FROM_API` environment variable with the following:
 
@@ -52,7 +65,7 @@ This will make Homebrew install formulae and casks from the `homebrew/core` and 
 
 If you want a non-interactive run of the Homebrew installer that doesn't prompt for passwords (e.g. in automation scripts), prepend [`NONINTERACTIVE=1`](https://github.com/Homebrew/install/#install-homebrew-on-macos-or-linux) to the installation command.
 
-## Alternative Installs
+## Alternative installs
 
 ### Linux or Windows 10 Subsystem for Linux
 
