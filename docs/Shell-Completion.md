@@ -83,7 +83,7 @@ Homebrew does not currently provide a PowerShell completion definition for `brew
 Add the following to your PowerShell profile, such as `~/.config/powershell/Microsoft.PowerShell_profile.ps1`:
 
 ```pwsh
-if ((Get-Command brew) -and (Test-Path ($completions = "$(brew --prefix)/share/pwsh/completions"))) {
+if ((Get-Command brew -ErrorAction SilentlyContinue) -and (Test-Path ($completions = "$(brew --prefix)/share/pwsh/completions"))) {
   foreach ($f in Get-ChildItem -Path $completions -File) {
     . $f
   }
