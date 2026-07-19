@@ -48,6 +48,7 @@ These files are the authoritative source when this page and the implementation d
 ## Inspecting analytics
 
 Set `HOMEBREW_ANALYTICS_DEBUG=1` for one command to print the analytics request and send it synchronously.
+The server response is discarded, so no response output is shown.
 Debug mode is not an opt-out mechanism; use one of the settings below when the request must not be sent.
 
 Aggregate reports and their JSON representations are available from the [Homebrew analytics site](https://formulae.brew.sh/analytics/).
