@@ -19,12 +19,12 @@ module Homebrew
           Generate the template files for a new tap.
         EOS
         switch "--no-git",
-               description: "Don't initialize a Git repository for the tap."
+               description: "Don't initialise a Git repository for the tap."
         flag   "--pull-label=",
                description: "Ignored; publishing pull requests is now manually dispatched.",
                odeprecated: true
         flag   "--branch=",
-               description: "Initialize Git repository and setup GitHub Actions workflows with the " \
+               description: "Initialise a Git repository and set up GitHub Actions workflows with the " \
                             "specified branch name (default: `main`)."
         switch "--github-packages",
                description: "Upload bottles to GitHub Packages."

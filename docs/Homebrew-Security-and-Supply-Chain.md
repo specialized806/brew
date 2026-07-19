@@ -10,14 +10,14 @@ last_review_date: "2026-06-15"
 
 Homebrew installs software from across the open source ecosystem.
 That makes the security of the software supply chain, the humans involved, repositories, build systems and download servers that turn source code into something you run, a core concern for us.
-This Homebrew security guide explains the recent supply-side security incidents affecting other package managers, how Homebrew's trust model differs and the steps we have taken to protect our users.
+This Homebrew security guide explains the recent supply-chain security incidents affecting other package managers, how Homebrew's trust model differs and the steps we have taken to protect our users.
 
 * Table of Contents
 {:toc}
 
 ## Recent incidents in other ecosystems
 
-The npm and PyPI ecosystems have been repeatedly targeted by supply-side attacks.
+The npm and PyPI ecosystems have been repeatedly targeted by supply-chain attacks.
 Recurring patterns include:
 
 * **Maintainer account takeover.**
@@ -38,9 +38,9 @@ A single compromised credential turns into immediate, automated, worldwide code 
 
 ## How Homebrew is different
 
-The Homebrew team is aware of the supply-side security issues with other package managers.
+The Homebrew team is aware of the supply-chain security issues with other package managers.
 Homebrew's design differs in several structural ways that limit the blast radius of an upstream compromise.
-Most of these protections long predate the recent wave of supply-side attacks and the current focus on them; they are core to how Homebrew has always packaged software rather than a reaction to any single incident.
+Most of these protections long predate the recent wave of supply-chain attacks and the current focus on them; they are core to how Homebrew has always packaged software rather than a reaction to any single incident.
 
 ### Human review on all changes
 
@@ -72,8 +72,8 @@ This makes the official Homebrew namespace structurally resistant to the typosqu
 Homebrew does not trust, recommend or automatically install from any third-party non-Homebrew repositories.
 Only official Homebrew taps and built-in commands are trusted by default.
 A non-official tap is executable code, not plain metadata, so loading it can run Ruby with your user's privileges.
-Homebrew is moving to require explicit trust for non-official taps, and `brew trust` lets you trust a single formula, cask or command rather than a whole tap.
-See [Tap Trust](Tap-Trust.md) for how to trust only what you need and the recently added `brew trust`, `brew untrust` and `Brewfile` `trusted: true` controls.
+Non-official taps require explicit trust by default, and `brew trust` lets you trust a single formula, cask or command rather than a whole tap.
+See [Tap Trust](Tap-Trust.md) for how to trust only what you need with `brew trust`, `brew untrust` and the `Brewfile` `trusted: true` option.
 
 Homebrew's [tap migrations](Migrating-A-Formula-To-A-Tap.md) stay within the Homebrew organisation: a formula or cask is only ever migrated into or within official Homebrew taps, never out to a third-party tap.
 A rename or move therefore cannot silently redirect users to a non-Homebrew repository.
@@ -199,7 +199,7 @@ At best, when a cask pins a `sha256`, Homebrew additionally guarantees the downl
 
 ### Cooldowns on riskier ecosystems
 
-For ecosystems with a track record of fast-moving supply-side attacks, Homebrew applies a download cooldown: a freshly-published upstream version is not adopted immediately, giving the wider community time to detect and report a malicious release before Homebrew users are exposed.
+For ecosystems with a track record of fast-moving supply-chain attacks, Homebrew applies a download cooldown: a freshly-published upstream version is not adopted immediately, giving the wider community time to detect and report a malicious release before Homebrew users are exposed.
 Cooldowns have been added for:
 
 * [Bundler](https://github.com/Homebrew/brew/pull/22555)
@@ -208,8 +208,8 @@ Cooldowns have been added for:
 * [PyPI resource resolution](https://github.com/Homebrew/brew/pull/21920)
 * [npm and PyPI in `bump`](https://github.com/Homebrew/brew/pull/21888)
 
-Homebrew applies these cooldowns narrowly, only to the language ecosystems that have actually suffered fast-moving supply-side attacks, rather than as a blanket delay on every package.
-A blanket cooldown would trade a small, speculative reduction in supply-side risk for a real, across-the-board delay in shipping critical fixes: when a zero-day in something like OpenSSL is being exploited in the wild, Homebrew works to get the fix to users as fast as possible, and Homebrew's design means upgrading one package can require upgrading others.
+Homebrew applies these cooldowns narrowly, only to the language ecosystems that have actually suffered fast-moving supply-chain attacks, rather than as a blanket delay on every package.
+A blanket cooldown would trade a small, speculative reduction in supply-chain risk for a real, across-the-board delay in shipping critical fixes: when a zero-day in something like OpenSSL is being exploited in the wild, Homebrew works to get the fix to users as fast as possible, and Homebrew's design means upgrading one package can require upgrading others.
 Across Homebrew's history far more users have been protected by shipping zero-day fixes quickly than have been exposed to npm-style token-theft or crypto-mining attacks, so a global cooldown would be a net negative for most users' security.
 The deeper reason Homebrew does not need a general cooldown is that, unlike language package managers, it already separates publishing from distribution: an upstream release does not reach users until it has passed human review, CI and checksum verification, which is the very review window that language-ecosystem cooldowns are trying to recreate.
 
@@ -220,7 +220,7 @@ Given our trust model, risk profile and the breadth of ecosystems we support, we
 
 When the two conflict, Homebrew prioritises security over backwards compatibility.
 Homebrew's [deprecation](Deprecating-Disabling-and-Removing.md) policy and regular major and minor releases let us deprecate, then disable, then entirely remove a risky behaviour or default across successive releases, often within roughly six to nine months.
-Being willing to break compatibility on that timescale is a large part of why Homebrew has been able to respond to new supply-side threats faster than ecosystems that must preserve old behaviour indefinitely.
+Being willing to break compatibility on that timescale is a large part of why Homebrew has been able to respond to new supply-chain threats faster than ecosystems that must preserve old behaviour indefinitely.
 
 ## Trust model comparison
 
@@ -239,4 +239,4 @@ Being willing to break compatibility on that timescale is a large part of why Ho
 
 This is not a solved problem and we do not claim Homebrew is immune.
 We have taken steps to mitigate these risks for our users, some long-standing (macOS sandboxing, human review on all changes, environment filtering, all package maintainers being Homebrew maintainers) and some newer (Linux sandboxing, sandboxing reads of sensitive locations, cooldowns on riskier ecosystems).
-We will continue to monitor the supply-side security landscape and take further steps as needed.
+We will continue to monitor the supply-chain security landscape and take further steps as needed.

@@ -2208,10 +2208,9 @@ provided, display brief statistics for all installed taps.
 
 ### `trust` \[*`options`*\] \[*`target`* ...\]
 
-Trust non-official tap formulae, casks or commands so Homebrew may load them
-when `$HOMEBREW_REQUIRE_TAP_TRUST` is set. Trusted entries are stored in
-`${XDG_CONFIG_HOME}/homebrew/trust.json` if `$XDG_CONFIG_HOME` is set or
-`~/.homebrew/trust.json` otherwise.
+Trust non-official tap formulae, casks or commands so Homebrew may load them.
+Trusted entries are stored in `${XDG_CONFIG_HOME}/homebrew/trust.json` if
+`$XDG_CONFIG_HOME` is set or `~/.homebrew/trust.json` otherwise.
 
 `--tap`
 
@@ -3586,11 +3585,11 @@ Generate the template files for a new tap.
 
 `--no-git`
 
-: Don't initialize a Git repository for the tap.
+: Don't initialise a Git repository for the tap.
 
 `--branch`
 
-: Initialize Git repository and setup GitHub Actions workflows with the
+: Initialise a Git repository and set up GitHub Actions workflows with the
   specified branch name (default: `main`).
 
 `--github-packages`

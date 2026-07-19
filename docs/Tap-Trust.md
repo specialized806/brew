@@ -1,52 +1,43 @@
 ---
-last_review_date: "2026-06-10"
+last_review_date: "2026-07-18"
 ---
 
 # Tap Trust
 
-Homebrew taps can contain formulae, casks and external commands. Loading them
-can run Ruby code from the tap, so Homebrew distinguishes between official taps
-and non-official taps that you have explicitly trusted.
+Homebrew taps can contain formulae, casks and external commands.
+Loading them can run Ruby code from the tap, so Homebrew distinguishes between official taps and non-official taps that you have explicitly trusted.
 
 Official Homebrew taps and Homebrew's built-in commands are always trusted.
-Non-official taps require explicit trust [since Homebrew 6.0.0](
-https://brew.sh/2026/06/11/homebrew-6.0.0/).
+Non-official taps require explicit trust by default [since Homebrew 6.0.0](https://brew.sh/2026/06/11/homebrew-6.0.0/).
 
-`brew doctor` warns about non-official taps that are not trusted, and install
-commands will fail until the tap or the specific package is trusted.
+`brew doctor` warns about non-official taps for which neither the tap nor any individual item is trusted.
+Commands that need to load an untrusted tap or item will fail until the relevant trust is granted.
 
 ## Why tap trust exists
 
-Formulae, casks and external commands are executable package definitions, not
-plain metadata. Homebrew sometimes needs to evaluate Ruby code from a tap to
-resolve dependencies, discover available packages or run commands. Trusting a
-tap means you accept that code running with your user's privileges whenever
-Homebrew needs to load it.
+Formulae, casks and external commands are executable package definitions, not plain metadata.
+Homebrew sometimes needs to evaluate Ruby code from a tap to resolve dependencies, discover packages or run commands.
+Trusting a tap means accepting that its code may run with your user's privileges whenever Homebrew loads it.
 
-Tap trust reduces the amount of non-official code Homebrew evaluates by
-default. This limits the impact of compromised tap repositories, unexpected
-repository ownership changes, name collisions with packages from other taps and
-commands that are loaded just because their tap is present. It also makes
-automation clearer: scripts can trust exactly the tap, formula, cask or command
-they intend to use instead of relying on every tapped repository being loaded.
+Tap trust reduces the amount of non-official code Homebrew evaluates by default.
+This limits the impact of compromised tap repositories, unexpected repository ownership changes, package name collisions and commands loaded merely because their tap is present.
+It also makes automation explicit by allowing scripts to trust only the tap, formula, cask or command they intend to use.
 
-Tap trust is one part of Homebrew's wider approach to [Software Supply Chain Security](Homebrew-Security-and-Supply-Chain.md).
+Tap trust is one part of Homebrew's wider approach to [software supply chain security](Homebrew-Security-and-Supply-Chain.md).
 
-Prefer trusting the specific formula, cask or command you need. Trust a whole
-tap only when you are comfortable with all current and future formulae, casks
-and external commands from that tap being loaded by Homebrew.
+Prefer trusting the specific formula, cask or command you need.
+Trust a whole tap only when you accept all current and future formulae, casks and external commands from that tap.
 
 ## Installing from a tap
 
-Installing a fully-qualified formula or cask name trusts only that item:
+Installing a fully qualified formula or cask name trusts only that item:
 
 ```sh
 brew install user/repository/formula
 brew install --cask user/repository/cask
 ```
 
-To install by short name from a tapped repository, trust the specific item
-first:
+To install by short name from a tapped repository, trust the specific item first:
 
 ```sh
 brew tap user/repository
@@ -54,8 +45,7 @@ brew trust --formula user/repository/formula
 brew install formula
 ```
 
-Use `brew trust --cask user/repository/cask` for casks and
-`brew trust --command user/repository/command` for external commands.
+Use `brew trust --cask user/repository/cask` for casks and `brew trust --command user/repository/command` for external commands.
 
 You can also trust the whole tap:
 
@@ -65,16 +55,13 @@ brew trust user/repository
 brew install formula
 ```
 
-Whole-tap trust is broader. It allows Homebrew to load every current and future
-formula, cask and external command from that tap. This may be appropriate for a
-tap you administer or rely on heavily, but for one-off installs, automation or
-software from a vendor you do not fully control, prefer trusting only the item
-you need.
+Whole-tap trust allows Homebrew to load every current and future formula, cask and external command from that tap.
+This may be appropriate for a tap you administer or use frequently.
+For one-off installs, automation or software from a vendor you do not fully control, prefer trusting only the required item.
 
 ## Trusting in a `Brewfile`
 
-For `Brewfile` trust syntax and `brew bundle` dump and cleanup behaviour, see
-the [`trusted` section of the Homebrew Bundle documentation](Brew-Bundle-and-Brewfile.md#trusted).
+For `Brewfile` trust syntax and `brew bundle` dump and cleanup behaviour, see the [`trusted` section of the Homebrew Bundle documentation](Brew-Bundle-and-Brewfile.md#trusted).
 
 ## Managing trust
 
@@ -97,16 +84,16 @@ brew untrust user/repository
 brew untrust --formula user/repository/formula
 ```
 
-A trusted tap behaves as it did before tap trust checks were introduced. An
-untrusted tap is not loaded when tap trust is required, unless you explicitly
-install a fully-qualified formula or cask from that tap. If you trust only a
-specific formula, cask or command, Homebrew may load that item without trusting
-the rest of the tap.
+An untrusted tap is not loaded when tap trust is required unless you explicitly install a fully qualified formula or cask from that tap.
+If you trust only a specific formula, cask or command, Homebrew may load that item without trusting the rest of its tap.
 
 ## Environment variables
 
-Set `HOMEBREW_REQUIRE_TAP_TRUST=1` to require explicit trust now.
+Tap trust is required by default.
+The default trust configuration also enables commands that evaluate all formulae or casks.
+`HOMEBREW_REQUIRE_TAP_TRUST=1` explicitly retains that behaviour.
 
-`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` keeps allowing non-official taps by default
-during the transition. This is not recommended and will be removed in a later
-release.
+`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` disables the default trust requirement.
+Disabling tap trust allows Homebrew to load code from every tapped repository and is not recommended.
+Commands that evaluate all formulae or casks remain enabled when this opt-out is set.
+This temporary opt-out will be removed in a later release.
