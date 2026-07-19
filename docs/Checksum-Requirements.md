@@ -19,7 +19,7 @@ Do not copy a checksum from an untrusted download mirror or disable verification
 A mismatch can indicate a corrupted download, an upstream file replaced without a version change or a compromised source.
 Investigate which file changed and update the version, URL and checksum together when appropriate.
 
-Formulae in custom taps and local formula files must follow the same requirement.
+Formulae and casks in custom taps and local formula or cask files must follow the same requirement.
 See the [`Formula#sha256` API](/rubydoc/Formula.html#sha256-class_method) and [Cask Cookbook](Cask-Cookbook.md#stanza-sha256) for syntax and exceptions.
 
 ## History
