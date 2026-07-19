@@ -1190,7 +1190,7 @@ represented by structured steps.
 
 #### File preparation steps
 
-`mkdir`, `mkdir_p` and `touch` default to paths relative to `var`. `move`, `mv`, `move_children`, `symlink`, `ln_s` and `ln_sf` default their source and target paths to `prefix`. Use `base:`, `source_base:` or `target_base:` when a step needs another formula path such as `pkgetc`; use `source_base: :relative` for relative symlink sources.
+`mkdir`, `mkdir_p` and `touch` default to paths relative to `var`. Other file steps default their source and target paths to `prefix`. Use `base:`, `source_base:` or `target_base:` when a step needs another formula path such as `pkgetc`; use `source_base: :relative` for relative symlink sources.
 
 * `mkdir`: create one directory; example: `mkdir "log/foo"`.
 * `mkdir_p`: create a directory and any missing parents; example: `mkdir_p "log/foo"`.
@@ -1198,9 +1198,13 @@ represented by structured steps.
 * `move`: move one file or directory; example: `move "default.conf", "foo/default.conf"`.
 * `mv`: alias for `move`; example: `mv "default.conf", "foo/default.conf"`.
 * `move_children`: move the contents of one directory into another; example: `move_children "defaults", "foo/defaults"`.
+* `copy`: copy a file or, with `recursive: true`, a directory; example: `copy "default.conf", "foo/default.conf"`.
+* `remove`: remove one or more paths; example: `remove ["old.conf", "foo/*.bak"]`. Use `recursive: true` for directories.
 * `symlink`: create a symlink; example: `symlink "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `ln_s`: alias for `symlink`; example: `ln_s "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
+
+Path collections passed to `remove` expand globs automatically. Removals may be restricted with `symlink_target_contains:` or `content_contains:`.
 
 #### Default config and template steps
 

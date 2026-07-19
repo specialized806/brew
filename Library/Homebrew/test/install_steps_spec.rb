@@ -51,6 +51,22 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"stage/linked-target").readlink).to eq(Pathname("move-target"))
   end
 
+  specify "links every source matched by a glob into a directory", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :prefix,
+                                              default_target_base: :prefix) do
+      symlink "share/man/*.1", "share/man/man1", force: true, source_glob: true
+    end
+
+    (root/"prefix/share/man/man1").mkpath
+    (root/"prefix/share/man/tool.1").write "tool"
+    (root/"prefix/share/man/other.1").write "other"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"prefix/share/man/man1/tool.1").to be_a_symlink
+    expect(root/"prefix/share/man/man1/other.1").to be_a_symlink
+  end
+
   specify "runs mkdir without creating parent directories" do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       mkdir "missing-parent/example"
@@ -168,6 +184,18 @@ RSpec.describe Homebrew::InstallSteps do
     expect(written).to include("literal = {{unknown}} {single}")
   end
 
+  specify "expands formula and cask identity tokens" do
+    context.define_singleton_method(:name) { "example-formula" }
+    context.define_singleton_method(:token) { "example-cask" }
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      write "identity", "#{formula_name}:#{token}"
+    end
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect((root/"var/identity").read).to eq("example-formula:example-cask\n")
+  end
+
   specify "writes a default config file and preserves existing ones", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       write "config/new.conf", "fresh"
@@ -236,6 +264,129 @@ RSpec.describe Homebrew::InstallSteps do
       end
       [os, [(root/"var/macos").exist?, (root/"var/linux").exist?]]
     end).to eq(macos: [true, false], linux: [false, true])
+  end
+
+  specify "copies paths" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :staged_path,
+                                              default_target_base: :var) do
+      copy "source.txt", "copied.txt"
+    end
+
+    (root/"stage").mkpath
+    (root/"stage/source.txt").write "copied"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect((root/"var/copied.txt").read).to eq("copied")
+  end
+
+  specify "replaces copied paths by default and can reject replacement" do
+    rejecting_steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path,
+                                                        default_target_base: :var) do
+      copy "source.txt", "copied.txt", overwrite: false
+    end
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "source.txt", "copied.txt"
+    end
+    (root/"stage").mkpath
+    (root/"var").mkpath
+    (root/"stage/source.txt").write "replacement"
+    (root/"var/copied.txt").write "existing"
+
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(rejecting_steps) }.to raise_error(Errno::EEXIST)
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+    expect((root/"var/copied.txt").read).to eq("replacement")
+  end
+
+  specify "replaces symlink destinations when copying files" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "source.txt", "copied.txt"
+    end
+    (root/"stage").mkpath
+    (root/"var").mkpath
+    (root/"stage/source.txt").write "replacement"
+    (root/"var/linked.txt").write "original"
+    File.symlink "linked.txt", root/"var/copied.txt"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect([(root/"var/copied.txt").symlink?, (root/"var/copied.txt").read, (root/"var/linked.txt").read])
+      .to eq([false, "replacement", "original"])
+  end
+
+  specify "keeps the shipped move replacement default" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      move "source.txt", "target.txt"
+    end
+    (root/"stage").mkpath
+    (root/"var").mkpath
+    (root/"stage/source.txt").write "replacement"
+    (root/"var/target.txt").write "existing"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect((root/"var/target.txt").read).to eq("replacement")
+  end
+
+  specify "requires one match for single-source globs" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "*.txt", "copied.txt", source_glob: true
+    end
+    (root/"stage").mkpath
+    (root/"stage/first.txt").write "first"
+    (root/"stage/second.txt").write "second"
+
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(steps) }
+      .to raise_error(ArgumentError, /exactly one path/)
+  end
+
+  specify "removes paths and expands globs", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      remove ["obsolete.txt", "obsolete-*"], recursive: true
+    end
+
+    (root/"var/obsolete-dir").mkpath
+    (root/"var/obsolete.txt").write "obsolete"
+    (root/"var/obsolete-dir/child").write "obsolete"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/obsolete.txt").not_to exist
+    expect(root/"var/obsolete-dir").not_to exist
+  end
+
+  specify "filters removals by symlink target and file content", :aggregate_failures do
+    ENV["PATH"] = (root/"path-bin").to_s
+    steps = Homebrew::InstallSteps::DSL.build do
+      remove "links/*", base: :staged_path, symlink_target_contains: "wanted"
+      remove "launcher", base: :path, content_contains: "owned marker"
+    end
+
+    (root/"stage/links").mkpath
+    (root/"stage/links/wanted").make_symlink("/tmp/wanted-target")
+    (root/"stage/links/kept").make_symlink("/tmp/other-target")
+    (root/"path-bin").mkpath
+    (root/"path-bin/launcher").write "owned marker"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"stage/links/wanted").not_to exist
+    expect(root/"stage/links/kept").to be_a_symlink
+    expect(root/"path-bin/launcher").not_to exist
+  end
+
+  specify "uses elevated cask removal when requested" do
+    require "cask/utils"
+
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      remove "protected", sudo: true
+    end
+    (root/"var/protected").mkpath
+    command = class_double(SystemCommand)
+    expect(Cask::Utils).to receive(:gain_permissions_remove).with(root/"var/protected", command:)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
   end
 
   specify "appends a trailing newline unless already present", :aggregate_failures do
@@ -502,20 +653,31 @@ RSpec.describe Homebrew::InstallSteps do
   specify "sets permissions and ownership for existing cask step paths" do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :staged_path) do
       set_permissions ["Prepared.app", "Missing.app"], "0755"
+      set_permissions "Prepared.file", "0644", recursive: false
       set_ownership "Owned.app", user: "root", group: "wheel"
+      set_ownership "Owned.file", user: "root", group: "wheel", recursive: false
     end
 
     command = class_double(SystemCommand)
     (root/"stage/Prepared.app").mkpath
+    (root/"stage/Prepared.file").write ""
     (root/"stage/Owned.app").mkpath
+    (root/"stage/Owned.file").write ""
 
     allow(Cask::Quarantine).to receive(:app_management_permissions_granted?)
       .with(app: root/"stage/Owned.app", command:)
       .and_return(true)
+    allow(Cask::Quarantine).to receive(:app_management_permissions_granted?)
+      .with(app: root/"stage/Owned.file", command:)
+      .and_return(true)
     expect(command).to receive(:run!)
       .with("chmod", args: ["-R", "--", "0755", root/"stage/Prepared.app"], sudo: false).ordered
     expect(command).to receive(:run!)
+      .with("chmod", args: ["--", "0644", root/"stage/Prepared.file"], sudo: false).ordered
+    expect(command).to receive(:run!)
       .with("chown", args: ["-R", "--", "root:wheel", root/"stage/Owned.app"], sudo: true).ordered
+    expect(command).to receive(:run!)
+      .with("chown", args: ["--", "root:wheel", root/"stage/Owned.file"], sudo: true).ordered
 
     Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
   end
@@ -563,6 +725,40 @@ RSpec.describe Homebrew::InstallSteps do
     expect(root/"stage/Nested/source-file").to exist
   end
 
+  specify "moves a directory's contents" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :staged_path) do
+      move_contents ".", "Nested"
+    end
+    (root/"stage").mkpath
+    (root/"stage/source-file").write "source"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"stage/Nested/source-file").to exist
+  end
+
+  specify "uses sudo only when an if-needed symlink target is not writable" do
+    steps = Homebrew::InstallSteps::DSL.build(default_target_base: :staged_path) do
+      symlink "target", "writable/linked-target", source_base: :relative, sudo: :if_needed
+      symlink "target", "protected/linked-target", source_base: :relative, sudo: :if_needed
+    end
+    protected_dir = root/"stage/protected"
+    (root/"stage/writable").mkpath
+    protected_dir.mkpath
+    FileUtils.chmod "-w", protected_dir
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with("/bin/ln", args: ["-s", "target", protected_dir/"linked-target"], sudo: true)
+
+    begin
+      Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+    ensure
+      FileUtils.chmod "+w", protected_dir
+    end
+
+    expect(root/"stage/writable/linked-target").to be_a_symlink
+  end
+
   specify "removes symlinks marked for uninstall" do
     steps = Homebrew::InstallSteps::DSL.build(default_target_base: :staged_path) do
       ln_sf "target", "linked-target", source_base: :relative, uninstall: true
@@ -574,6 +770,37 @@ RSpec.describe Homebrew::InstallSteps do
     Homebrew::InstallSteps::Runner.new(context:).run(steps, phase: :uninstall)
 
     expect(root/"stage/linked-target").not_to be_a_symlink
+  end
+
+  specify "preserves symlinks with unexpected targets on uninstall" do
+    steps = Homebrew::InstallSteps::DSL.build(default_target_base: :staged_path) do
+      symlink "target", "linked-target", source_base: :relative, uninstall: true
+    end
+    (root/"stage").mkpath
+    File.symlink "different-target", root/"stage/linked-target"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps, phase: :uninstall)
+
+    expect(root/"stage/linked-target").to be_a_symlink
+  end
+
+  specify "uses elevated removal for matching symlinks when needed" do
+    steps = Homebrew::InstallSteps::DSL.build(default_target_base: :staged_path) do
+      symlink "target", "protected/linked-target", source_base: :relative, uninstall: true, sudo: :if_needed
+    end
+    protected_dir = root/"stage/protected"
+    protected_dir.mkpath
+    target = protected_dir/"linked-target"
+    File.symlink "target", target
+    FileUtils.chmod "-w", protected_dir
+    command = class_double(SystemCommand)
+    expect(Cask::Utils).to receive(:gain_permissions_remove).with(target, command:)
+
+    begin
+      Homebrew::InstallSteps::Runner.new(context:, command:).run(steps, phase: :uninstall)
+    ensure
+      FileUtils.chmod "+w", protected_dir
+    end
   end
 
   specify "does not expose the surrounding formula or cask DSL" do
