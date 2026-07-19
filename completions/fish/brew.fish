@@ -538,13 +538,13 @@ __fish_brew_complete_arg 'bump-unversioned-casks' -a '(__fish_brew_suggest_casks
 __fish_brew_complete_arg 'bump-unversioned-casks' -a '(__fish_brew_suggest_taps_installed)'
 
 
-__fish_brew_complete_cmd 'bundle' 'Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm packages'
+__fish_brew_complete_cmd 'bundle' 'Bundler for non-Ruby dependencies from Homebrew formulae, Homebrew casks, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm packages'
 __fish_brew_complete_sub_cmd 'bundle' 'sh' 'Run your shell in a `brew bundle exec` environment'
 __fish_brew_complete_sub_cmd 'bundle' 'remove' 'Remove entries that match `name` from your `Brewfile`. Use `--formula`, `--cask`, `--tap`, `--mas`, `--vscode`, `--go`, `--cargo`, `--uv`, `--flatpak`, `--winget`, `--krew` and `--npm` to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names'
 __fish_brew_complete_sub_cmd 'bundle' 'list' 'By default, only Homebrew formula dependencies are listed'
 __fish_brew_complete_sub_cmd 'bundle' 'install' 'Use this to restore a recorded installed state from a `Brewfile`'
 __fish_brew_complete_sub_cmd 'bundle' 'upgrade' 'Use this to restore a recorded installed state from a `Brewfile`'
-__fish_brew_complete_sub_cmd 'bundle' 'exec' 'This sanitized build environment ignores unrequested dependencies, which makes sure that things you didn\'t specify in your `Brewfile` won\'t get picked up by commands like `bundle install`, `npm install`, etc. It will also add compiler flags which will help with finding keg-only dependencies like `openssl`, `icu4c`, etc'
+__fish_brew_complete_sub_cmd 'bundle' 'exec' 'This sanitised build environment ignores unrequested dependencies, which makes sure that things you didn\'t specify in your `Brewfile` won\'t get picked up by commands like `bundle install`, `npm install`, etc. It will also add compiler flags which will help with finding keg-only dependencies like `openssl`, `icu4c`, etc'
 __fish_brew_complete_sub_cmd 'bundle' 'env' 'Print the environment variables that would be set in a `brew bundle exec` environment'
 __fish_brew_complete_sub_cmd 'bundle' 'edit' 'Edit the `Brewfile` in your editor'
 __fish_brew_complete_sub_cmd 'bundle' 'dump' 'Write all installed casks/formulae/images/taps into a `Brewfile` in the current directory or to a custom file specified with the `--file` option. This is useful as an installed-state snapshot and can be kept in version control and diffed'

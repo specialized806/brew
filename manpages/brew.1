@@ -77,7 +77,7 @@ Uninstall formulae that were only installed as a dependency of another formula a
 \fB\-n\fP, \fB\-\-dry\-run\fP
 List what would be uninstalled, but do not actually uninstall anything\.
 .SS "\fBbundle\fP \fR[\fIsubcommand\fP]"
-Bundler for non\-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm packages\.
+Bundler for non\-Ruby dependencies from Homebrew formulae, Homebrew casks, Mac App Store dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm packages\.
 .P
 Note: Flatpak support is only available on Linux\.
 .TP
@@ -229,7 +229,7 @@ Use \fBzap\fP instead of \fBuninstall\fP when cleaning up casks after installing
 \fBbrew bundle exec\fP [\fB\-\-check\fP] [\fB\-\-no\-secrets\fP] [\fB\-\-sandbox=\fP\fIpath\fP] [\fB\-\-deny\-network\fP] \fIcommand\fP
 Run an external command in an isolated build environment based on the \fBBrewfile\fP dependencies\.
 .P
-This sanitized build environment ignores unrequested dependencies, which makes sure that things you didn\[u2019]t specify in your \fBBrewfile\fP won\[u2019]t get picked up by commands like \fBbundle install\fP, \fBnpm install\fP, etc\. It will also add compiler flags which will help with finding keg\-only dependencies like \fBopenssl\fP, \fBicu4c\fP, etc\.
+This sanitised build environment ignores unrequested dependencies, which makes sure that things you didn\[u2019]t specify in your \fBBrewfile\fP won\[u2019]t get picked up by commands like \fBbundle install\fP, \fBnpm install\fP, etc\. It will also add compiler flags which will help with finding keg\-only dependencies like \fBopenssl\fP, \fBicu4c\fP, etc\.
 .TP
 \fB\-\-install\fP
 Run \fBinstall\fP before executing the command\.

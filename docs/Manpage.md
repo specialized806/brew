@@ -131,10 +131,10 @@ and are now no longer needed.
 
 ### `bundle` \[*`subcommand`*\]
 
-Bundler for non-Ruby dependencies from Homebrew, Homebrew Cask, Mac App Store
-dependencies, VSCode (and forks/variants) extensions, Go packages, Cargo
-packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and npm
-packages.
+Bundler for non-Ruby dependencies from Homebrew formulae, Homebrew casks, Mac
+App Store dependencies, VSCode (and forks/variants) extensions, Go packages,
+Cargo packages, uv tools, Flatpak packages, WinGet packages, Krew plugins and
+npm packages.
 
 Note: Flatpak support is only available on Linux.
 
@@ -355,7 +355,7 @@ to one or more of the following environment variables:
 : Run an external command in an isolated build environment based on the
   `Brewfile` dependencies.
 
-This sanitized build environment ignores unrequested dependencies, which makes
+This sanitised build environment ignores unrequested dependencies, which makes
 sure that things you didn't specify in your `Brewfile` won't get picked up by
 commands like `bundle install`, `npm install`, etc. It will also add compiler
 flags which will help with finding keg-only dependencies like `openssl`,
