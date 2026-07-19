@@ -55,6 +55,7 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Cask Cookbook](Cask-Cookbook.md)
 - [Acceptable Formulae](Acceptable-Formulae.md)
 - [Acceptable Casks](Acceptable-Casks.md)
+- [Package Acceptance Policy](Package-Acceptance-Policy.md)
 - [Licence Guidelines](Licence-Guidelines.md)
 - [Checksum Requirements](Checksum-Requirements.md)
 - [Formulae Versions](Versions.md)

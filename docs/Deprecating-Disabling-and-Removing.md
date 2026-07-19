@@ -16,6 +16,12 @@ Items that are no longer acceptable or have been disabled for over a year should
 
 Formulae and casks use the `deprecate!` and `disable!` DSL to move through the lifecycle.
 
+### Upstream removal requests
+
+An upstream request or claim that Homebrew's packaging is broken is not by itself a reason to deprecate, disable or remove a formula or cask.
+Evaluate whether the package still meets Homebrew's acceptance, security and maintenance requirements and whether users are reporting actual breakage.
+When the package remains acceptable, point upstream developers to [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md) and keep the discussion public on GitHub.
+
 ### `deprecate!`
 
 Add a `deprecate!` call with a date in ISO 8601 format and a reason:
@@ -68,7 +74,7 @@ Deprecated casks should continue to be maintained if they continue to be install
 
 ### When to disable formulae
 
-Formulae should be disabled when they cannot be built from source on any supported OS version, have been deprecated for a long time, or have no license. Popular formulae (more than 1000 [installs in the last 90 days](https://formulae.brew.sh/analytics/install/90d/)) should not be disabled without a deprecation period of at least six months. Unpopular formulae can be disabled immediately and manually removed three months after their disable date.
+Formulae should be disabled when they cannot be built from source on any supported OS version, have been deprecated for a long time, or have no licence. Popular formulae (more than 1000 [installs in the last 90 days](https://formulae.brew.sh/analytics/install/90d/)) should not be disabled without a deprecation period of at least six months. Unpopular formulae can be disabled immediately and manually removed three months after their disable date.
 
 ### When to disable casks
 
@@ -76,13 +82,13 @@ Casks should be disabled when they cannot be installed on any supported OS versi
 
 ### When to remove formulae
 
-A formula should be removed if it does not meet the criteria for [acceptable formulae](Acceptable-Formulae.md) or [versioned formulae](Versions.md), has a non-open-source license, or has been disabled for over a year.
+A formula should be removed if it does not meet the criteria for [acceptable formulae](Acceptable-Formulae.md) or [versioned formulae](Versions.md), has a non-open-source licence, or has been disabled for over a year.
 
 ### When to remove casks
 
 A cask should be removed if it has been disabled for over a year, or immediately in exceptional circumstances.
 
-### Deprecate and Disable Reasons
+### Deprecate and disable reasons
 
 A reason must be provided when deprecating or disabling. The preferred way is to use a preset symbol from the [`DeprecateDisable` module](/rubydoc/DeprecateDisable.html). Custom strings are also accepted and should fit the sentence `<name> has been deprecated/disabled because it <reason>!`.
 
@@ -90,17 +96,17 @@ A reason must be provided when deprecating or disabling. The preferred way is to
 # Good: "fetches unversioned dependencies at runtime" fits the sentence
 deprecate! date: "2020-01-01", because: "fetches unversioned dependencies at runtime"
 
-# Bad: "invalid license" does not fit the sentence
-disable! date: "2020-01-01", because: "invalid license"
+# Bad: "invalid licence" does not fit the sentence
+disable! date: "2020-01-01", because: "invalid licence"
 ```
 
 **Formula reasons:**
 
 - `:does_not_build`: cannot be built from source on any supported macOS version or Linux
-- `:no_license`: no identifiable license
+- `:no_license`: no identifiable licence
 - `:repo_archived`: upstream repository archived with no usable replacement
 - `:repo_removed`: upstream repository removed with no usable replacement
-- `:unmaintained`: project abandoned (no commits for a year and unresolved critical bugs or CVEs; note: some software is "done" — inactivity alone does not imply removal)
+- `:unmaintained`: project abandoned (no commits for a year and unresolved critical bugs or CVEs; note that some software is "done", so inactivity alone does not imply removal)
 - `:unsupported`: compilation not supported by upstream (e.g. only supports macOS older than 10.15)
 - `:deprecated_upstream`: deprecated upstream with no usable replacement
 - `:versioned_formula`: versioned formula that no longer [meets the requirements](Versions.md)
@@ -113,6 +119,7 @@ disable! date: "2020-01-01", because: "invalid license"
 - `:no_longer_available`: no longer available upstream
 - `:no_longer_meets_criteria`: no longer meets the criteria for acceptable casks
 - `:unmaintained`: not maintained upstream
+- `:unreachable`: no longer reliably reachable upstream
 - `:fails_gatekeeper_check`: fails macOS Gatekeeper checks
 
 ## Code
@@ -159,26 +166,26 @@ Disabled code (`odisabled`) should be deleted at the next minor or major release
 
 Public APIs go through four stages. Each transition happens at a **minor or major release** (e.g. 5.0.0 or 5.1.0), never a patch release. See [Releases](Releases.md) for the full release process.
 
-**1. `# odeprecated` (commented placeholder)** — A comment is added as a reminder. No user-visible effect.
+**1. `# odeprecated` (commented placeholder):** A comment is added as a reminder. No user-visible effect.
 
 ```ruby
 # odeprecated "ENV.no_weak_imports"
 append "LDFLAGS", "-Wl,-no_weak_imports" if no_weak_imports_support?
 ```
 
-**2. `odeprecated` (active deprecation)** — The comment is uncommented. Users see a warning; developers (`HOMEBREW_DEVELOPER=1`) see an error. A replacement can be suggested.
+**2. `odeprecated` (active deprecation):** The comment is uncommented. Users see a warning; developers (`HOMEBREW_DEVELOPER=1`) see an error. A replacement can be suggested.
 
 ```ruby
 odeprecated "ENV.no_weak_imports"
 ```
 
-**3. `odisabled` (disabled)** — All users see an error.
+**3. `odisabled` (disabled):** All users see an error.
 
 ```ruby
 odisabled "ENV.no_weak_imports"
 ```
 
-**4. Removal** — The `odisabled` call and all supporting code are deleted.
+**4. Removal:** The `odisabled` call and all supporting code are deleted.
 
 | Release | State | User experience |
 | ------- | ----- | --------------- |

@@ -46,7 +46,7 @@ If you've made it this far, congratulations on submitting a Homebrew formula! We
 
 **Note:** Before taking the time to craft a new cask:
 
-* make sure it can be accepted by checking the [Rejected Casks FAQ](Acceptable-Casks.md#rejected-casks), and
+* make sure it can be accepted by checking [Acceptable Casks](Acceptable-Casks.md), and
 * check that the cask was not [already refused](https://github.com/Homebrew/homebrew-cask/search?q=is%3Aclosed&type=Issues).
 
 ### Writing the cask
@@ -264,7 +264,7 @@ If your application and Homebrew Cask do not work well together, feel free to [f
 
 #### Finding a home for your cask
 
-See the [Acceptable Casks](Acceptable-Casks.md#finding-a-home-for-your-cask) documentation.
+See the [Acceptable Casks](Acceptable-Casks.md) documentation.
 
 Hop into your tap and check to make sure your new cask is there:
 
