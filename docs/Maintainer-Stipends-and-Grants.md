@@ -19,7 +19,7 @@ Maintainers will not receive the stipend for months where they are doing paid pr
 
 ### Amount and frequency
 
-The stipend is $300/month.
+The stipend is US$300/month.
 Maintainers are paid through invoices submitted to [Homebrew on Open Collective](https://opencollective.com/homebrew).
 
 ### Invoicing and getting paid
