@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-04"
+last_review_date: "2026-07-18"
 ---
 
 # Homebrew Bundle, `brew bundle` and `Brewfile`
@@ -12,7 +12,7 @@ Rather than specifying the `brew` commands you wish to run, you can specify the 
 
 See also the [`brew bundle` section of `man brew`](Manpage.md#bundle-subcommand) or `brew bundle --help`.
 
-## Basic Usage
+## Basic usage
 
 ### `brew bundle`
 
@@ -58,7 +58,7 @@ If this fails without `--verbose`, run `brew bundle check --verbose` to list unm
 
 ### Types
 
-As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, WinGet packages on WSL, VSCode extensions, Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins and to start background services with `brew services`.
+As well as supporting formulae (`brew "..."`), you can also use `brew bundle` with casks, taps, Mac App Store apps, WinGet packages on WSL, VS Code extensions, Go packages, Cargo packages, npm packages, uv tools, Flatpak packages and krew kubectl plugins and to start background services with `brew services`.
 
 ```ruby
 tap "apple/apple"
@@ -103,7 +103,8 @@ Adding a `Brewfile` to a project's repository (like you might a `package.json`, 
 
 It allows you to tell users to run a single command to install all dependencies for a project and start any services.
 
-As Homebrew supports both macOS, Linux and WSL: you can have this single command setup project dependencies on three operating systems and in continuous integration services like GitHub Actions (where it's installed by default on macOS and easily on Linux with [`Homebrew/actions/setup-homebrew`](https://github.com/Homebrew/actions/tree/HEAD/setup-homebrew)).
+Homebrew supports macOS, Linux and WSL, so one command can set up project dependencies across these environments and in continuous-integration services such as GitHub Actions.
+Homebrew is installed by default on GitHub-hosted macOS runners and can be installed on Linux with [`Homebrew/actions/setup-homebrew`](https://github.com/Homebrew/actions/tree/HEAD/setup-homebrew).
 
 See [GitHub's "Scripts To Rule Them All" `script/bootstrap` example](https://github.com/github/scripts-to-rule-them-all/blob/HEAD/script/bootstrap)
 for how you might use a `Brewfile` and `brew bundle` to install project dependencies with Homebrew.
@@ -135,11 +136,11 @@ You can then restore (and, by default, upgrade) all of these with:
 
 ```console
 brew bundle --global
-````
+```
 
 You can keep multiple snapshots by writing to different `Brewfile`s with `--file`, commit them to version control and compare them with standard diff tools. To make the active installed state match a snapshot more closely, run `brew bundle cleanup --force --file=/path/to/Brewfile` after installing it to remove supported dependencies not listed in that `Brewfile`.
 
-## Advanced Usage
+## Advanced usage
 
 ### `brew bundle cleanup`
 
@@ -404,9 +405,9 @@ If you want `brew bundle` to stop upgrading installed dependencies, pass `--no-u
 
 For the tradeoffs and alternatives, see [Locking installed formulae at specific versions](Versions.md#locking-installed-formulae-at-specific-versions).
 
-## Adding New Packages Support
+## Adding new packages support
 
-`brew bundle` currently supports Homebrew, Homebrew Cask, Mac App Store, WinGet packages on WSL, Visual Studio Code (and forks/variants), Go packages, Cargo packages, uv tools, Flatpak packages and krew kubectl plugins.
+`brew bundle` currently supports Homebrew formulae and casks, Mac App Store apps, WinGet packages on WSL, Visual Studio Code extensions and variants, Go packages, Cargo packages, npm packages, uv tools, Flatpak packages and krew kubectl plugins.
 
 We are interested in contributions for other packages' installers/checkers/dumpers but they must:
 

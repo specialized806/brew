@@ -59,7 +59,6 @@ task test: :build do
       "https://docs.fedoraproject.org/en-US/packaging-guidelines/#bundling",
       "https://legacy.python.org/dev/peps/pep-0453/#recommendations-for-downstream-distributors",
       "https://metacpan.org/pod/local::lib",
-      "https://www.gnu.org/software/bash/",
       %r{https://www\.virustotal\.com/?},
       %r{https://pypi.org/?},
       "https://itunes.apple.com/us/app/xcode/id497799835",

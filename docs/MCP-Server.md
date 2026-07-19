@@ -34,7 +34,7 @@ Press Ctrl-D or Ctrl-C to terminate it.
 }
 ```
 
-### Example configuration for [VSCode](https://code.visualstudio.com/)
+### Example configuration for [VS Code](https://code.visualstudio.com/)
 
 ```json
 {
@@ -55,12 +55,12 @@ Press Ctrl-D or Ctrl-C to terminate it.
 ```json
 {
   "context_servers": {
-  "Homebrew": {
-    "source": "custom",
-    "command": "brew",
-    "args": ["mcp-server"],
-    "env": {}
-  }
+    "Homebrew": {
+      "source": "custom",
+      "command": "brew",
+      "args": ["mcp-server"],
+      "env": {}
+    }
   }
 }
 ```
@@ -71,7 +71,8 @@ Press Ctrl-D or Ctrl-C to terminate it.
 {
   "mcpServers": {
     "Homebrew": {
-      "command": "brew mcp-server"
+      "command": "brew",
+      "args": ["mcp-server"]
     }
   }
 }
