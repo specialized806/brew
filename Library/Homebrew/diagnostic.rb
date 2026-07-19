@@ -1174,7 +1174,7 @@ module Homebrew
 
         path = Cask::Caskroom.path
 
-        add_info "Homebrew Cask Staging Location", user_tilde(path.to_s)
+        add_info "Cask Staging Location", user_tilde(path.to_s)
 
         return if !path.exist? || path.writable?
 
@@ -1216,7 +1216,7 @@ module Homebrew
 
           "#{tap.path} (#{Utils.pluralize("cask", cask_count, include_count: true)})"
         end
-        add_info "Homebrew Cask Taps:", taps_info
+        add_info "Cask Taps:", taps_info
 
         taps_string = Utils.pluralize("tap", error_tap_paths.count)
         "Unable to read from cask #{taps_string}: #{error_tap_paths.to_sentence}" if error_tap_paths.present?

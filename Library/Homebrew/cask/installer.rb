@@ -720,7 +720,7 @@ on_request: true)
       # versioned staged distribution
       gain_permissions_remove(T.must(backup_path)) if backup_path&.exist?
 
-      # Homebrew Cask metadata
+      # Cask metadata
       bmp = backup_metadata_path
       return unless bmp&.directory?
 
@@ -737,7 +737,7 @@ on_request: true)
       # versioned staged distribution
       gain_permissions_remove(@cask.staged_path) if @cask.staged_path&.exist?
 
-      # Homebrew Cask metadata
+      # Cask metadata
       if @cask.metadata_versioned_path.directory?
         @cask.metadata_versioned_path.children.each do |subdir|
           gain_permissions_remove(subdir)
