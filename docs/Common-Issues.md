@@ -107,10 +107,10 @@ An Apple Silicon shell should normally report `arm64` and use `/opt/homebrew`.
 Before removing an old Intel installation, run its own executable to record its packages:
 
 ```sh
-arch -x86_64 /usr/local/bin/brew bundle dump
+arch -x86_64 /usr/local/bin/brew bundle dump --file=~/intel-Brewfile
 ```
 
-Review the resulting `Brewfile` and reproduce the installation under the correct prefix.
+Review the resulting `~/intel-Brewfile` and reproduce the installation under the correct prefix.
 Follow the [official uninstallation instructions](FAQ.md#how-do-i-uninstall-homebrew) only after confirming the replacement works.
 
 ## Casks
