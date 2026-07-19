@@ -83,13 +83,13 @@ Try to summarise from the [`homepage`](/rubydoc/Formula.html#homepage-class_meth
 
 **We don’t accept new formulae into Homebrew/homebrew-core without a [`license`](/rubydoc/Formula.html#license-class_method)!**
 
-We only accept formulae that use a [Debian Free Software Guidelines license](https://wiki.debian.org/DFSGLicenses) or are released into the public domain following [DFSG Guidelines on Public Domain software](https://wiki.debian.org/DFSGLicenses#Public_Domain).
+We only accept formulae that use a licence compatible with the [Debian Free Software Guidelines](https://wiki.debian.org/DFSGLicenses) or are released into the public domain following [DFSG Guidelines on Public Domain software](https://wiki.debian.org/DFSGLicenses#Public_Domain).
 
-Use the license identifier from the [SPDX License List](https://spdx.org/licenses/) e.g. `license "BSD-2-Clause"`, or use `license :public_domain` for public domain software.
+Use the licence identifier from the [SPDX License List](https://spdx.org/licenses/) e.g. `license "BSD-2-Clause"`, or use `license :public_domain` for public domain software.
 
-Use `:any_of`, `:all_of` or `:with` to describe complex license expressions. `:any_of` should be used when the user can choose which license to use. `:all_of` should be used when the user must use all licenses. `:with` should be used to specify a valid SPDX exception. Add `+` to an identifier to indicate that the formulae can be licensed under later versions of the same license.
+Use `:any_of`, `:all_of` or `:with` to describe complex licence expressions. `:any_of` should be used when the user can choose which licence to use. `:all_of` should be used when the user must use all licences. `:with` should be used to specify a valid SPDX exception. Add `+` to an identifier to indicate that the formulae can be licensed under later versions of the same licence.
 
-Check out the [License Guidelines](License-Guidelines.md) for examples of complex license expressions in Homebrew formulae.
+Check out the [Licence Guidelines](Licence-Guidelines.md) for examples of complex licence expressions in Homebrew formulae.
 
 ### Check the build system
 

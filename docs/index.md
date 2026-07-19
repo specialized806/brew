@@ -34,7 +34,6 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 
 - [Querying `brew`](Querying-Brew.md)
 - [C++ Standard Libraries](C%2B%2B-Standard-Libraries.md)
-- [MD5 and SHA-1 Deprecation](Checksum_Deprecation.md)
 - [Custom GCC and Cross Compilers](Custom-GCC-and-cross-compilers.md)
 - [External Commands](External-Commands.md)
 - [Ruby Gems, Python Eggs and Perl Modules](Gems,-Eggs-and-Perl-Modules.md)
@@ -58,7 +57,8 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Cask Cookbook](Cask-Cookbook.md)
 - [Acceptable Formulae](Acceptable-Formulae.md)
 - [Acceptable Casks](Acceptable-Casks.md)
-- [License Guidelines](License-Guidelines.md)
+- [Licence Guidelines](Licence-Guidelines.md)
+- [Checksum Requirements](Checksum-Requirements.md)
 - [Formulae Versions](Versions.md)
 - [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md)
 - [Node for Formula Authors](Node-for-Formula-Authors.md)

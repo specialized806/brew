@@ -3897,7 +3897,7 @@ class Formula
     # ]
     # ```
     #
-    # @see https://docs.brew.sh/License-Guidelines Homebrew License Guidelines
+    # @see https://docs.brew.sh/Licence-Guidelines Homebrew Licence Guidelines
     # @see https://spdx.github.io/spdx-spec/latest/annexes/spdx-license-expressions/ SPDX license expression guide
     # @api public
     sig {
