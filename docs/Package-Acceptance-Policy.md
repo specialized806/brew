@@ -65,5 +65,5 @@ Homebrew may reject or remove a package when carrying it creates a material lega
 ## Maintainer discretion
 
 Meeting the documented criteria does not guarantee acceptance and missing one criterion does not require rejection in every case.
-A documented exception may be made when it improves the overall reliability, security or usefulness of Homebrew.
+A documented exception will be made when it improves the overall reliability, security or usefulness of Homebrew.
 New submissions may be held to a higher standard than existing packages because accepting a package creates an ongoing maintenance commitment.

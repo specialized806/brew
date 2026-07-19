@@ -85,7 +85,7 @@ These circumstances permit further review but do not guarantee inclusion.
 ## Security and malware
 
 Homebrew does not certify that every application distributed by a cask is safe.
-Malware allegations are evaluated case by case because security products can produce false positives and potentially unwanted behaviour is not always unambiguous.
+Malware allegations are evaluated case by case because security products do produce false positives and potentially unwanted behaviour is not always unambiguous.
 A rejection or removal decision requires evidence that identifies the exact downloaded file and version, provides its checksum and includes more than one source where possible.
 A [VirusTotal](https://www.virustotal.com/) result can support a decision but is not sufficient without context.
 

@@ -70,7 +70,7 @@ A supported application bundle published by upstream belongs in [`homebrew/cask`
 
 When upstream can build both a command-line or library component and an optional graphical interface, the command-line or library component should remain the formula's primary purpose.
 A widely used native graphical interface may be included when it does not impose a disproportionate dependency cost.
-An X11 or XQuartz interface should not be enabled by default when it provides a poor macOS experience.
+An X11 or XQuartz interface should not be enabled by default as it provides a poor macOS experience.
 
 ### Dependencies and full variants
 
