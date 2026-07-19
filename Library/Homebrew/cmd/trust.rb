@@ -12,8 +12,7 @@ module Homebrew
 
       cmd_args do
         description <<~EOS
-          Trust non-official tap formulae, casks or commands so Homebrew may load them when
-          `$HOMEBREW_REQUIRE_TAP_TRUST` is set.
+          Trust non-official tap formulae, casks or commands so Homebrew may load them.
           Trusted entries are stored in `${XDG_CONFIG_HOME}/homebrew/trust.json` if
           `$XDG_CONFIG_HOME` is set or `~/.homebrew/trust.json` otherwise.
         EOS

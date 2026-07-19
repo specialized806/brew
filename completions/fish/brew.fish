@@ -1875,11 +1875,11 @@ __fish_brew_complete_arg 'tap-info' -a '(__fish_brew_suggest_taps_installed)'
 
 
 __fish_brew_complete_cmd 'tap-new' 'Generate the template files for a new tap'
-__fish_brew_complete_arg 'tap-new' -l branch -d 'Initialize Git repository and setup GitHub Actions workflows with the specified branch name (default: `main`)'
+__fish_brew_complete_arg 'tap-new' -l branch -d 'Initialise a Git repository and set up GitHub Actions workflows with the specified branch name (default: `main`)'
 __fish_brew_complete_arg 'tap-new' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'tap-new' -l github-packages -d 'Upload bottles to GitHub Packages'
 __fish_brew_complete_arg 'tap-new' -l help -d 'Show this message'
-__fish_brew_complete_arg 'tap-new' -l no-git -d 'Don\'t initialize a Git repository for the tap'
+__fish_brew_complete_arg 'tap-new' -l no-git -d 'Don\'t initialise a Git repository for the tap'
 __fish_brew_complete_arg 'tap-new' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'tap-new' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'tap-new' -a '(__fish_brew_suggest_taps_installed)'
@@ -1962,7 +1962,7 @@ __fish_brew_complete_arg 'tests' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'tests' -l vernier -d 'Use `vernier` to profile tests'
 
 
-__fish_brew_complete_cmd 'trust' 'Trust non-official tap formulae, casks or commands so Homebrew may load them when `$HOMEBREW_REQUIRE_TAP_TRUST` is set'
+__fish_brew_complete_cmd 'trust' 'Trust non-official tap formulae, casks or commands so Homebrew may load them'
 __fish_brew_complete_arg 'trust' -l cask -d 'Trust the named cask'
 __fish_brew_complete_arg 'trust' -l command -d 'Trust the named external command'
 __fish_brew_complete_arg 'trust' -l debug -d 'Display any debugging information'

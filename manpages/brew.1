@@ -1398,7 +1398,7 @@ Print a JSON representation of \fItap\fP\&\. Currently the default and only acce
 .UR https://docs\.brew\.sh/Querying\-Brew
 .UE
 .SS "\fBtrust\fP \fR[\fIoptions\fP] \fR[\fItarget\fP \.\.\.]"
-Trust non\-official tap formulae, casks or commands so Homebrew may load them when \fB$HOMEBREW_REQUIRE_TAP_TRUST\fP is set\. Trusted entries are stored in \fB${XDG_CONFIG_HOME}/homebrew/trust\.json\fP if \fB$XDG_CONFIG_HOME\fP is set or \fB~/\.homebrew/trust\.json\fP otherwise\.
+Trust non\-official tap formulae, casks or commands so Homebrew may load them\. Trusted entries are stored in \fB${XDG_CONFIG_HOME}/homebrew/trust\.json\fP if \fB$XDG_CONFIG_HOME\fP is set or \fB~/\.homebrew/trust\.json\fP otherwise\.
 .TP
 \fB\-\-tap\fP
 Trust the named tap\.
@@ -2272,10 +2272,10 @@ Specify a comma\-separated \fIcops\fP list to skip checking for violations of th
 Generate the template files for a new tap\.
 .TP
 \fB\-\-no\-git\fP
-Don\[u2019]t initialize a Git repository for the tap\.
+Don\[u2019]t initialise a Git repository for the tap\.
 .TP
 \fB\-\-branch\fP
-Initialize Git repository and setup GitHub Actions workflows with the specified branch name (default: \fBmain\fP)\.
+Initialise a Git repository and set up GitHub Actions workflows with the specified branch name (default: \fBmain\fP)\.
 .TP
 \fB\-\-github\-packages\fP
 Upload bottles to GitHub Packages\.

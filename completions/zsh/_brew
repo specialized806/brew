@@ -246,7 +246,7 @@ __brew_internal_commands() {
     'test:Run the test method provided by an installed formula'
     'test-bot:Tests the full lifecycle of a Homebrew change to a tap (Git repository)'
     'tests:Run Homebrew'\''s unit and integration tests'
-    'trust:Trust non-official tap formulae, casks or commands so Homebrew may load them when `$HOMEBREW_REQUIRE_TAP_TRUST` is set'
+    'trust:Trust non-official tap formulae, casks or commands so Homebrew may load them'
     'typecheck:Check for typechecking errors using Sorbet'
     'unalias:Remove aliases'
     'unbottled:Show the unbottled dependents of formulae'
@@ -2422,11 +2422,11 @@ _brew_tap_info() {
 # brew tap-new
 _brew_tap_new() {
   _arguments \
-    '--branch[Initialize Git repository and setup GitHub Actions workflows with the specified branch name (default: `main`)]' \
+    '--branch[Initialise a Git repository and set up GitHub Actions workflows with the specified branch name (default: `main`)]' \
     '--debug[Display any debugging information]' \
     '--github-packages[Upload bottles to GitHub Packages]' \
     '--help[Show this message]' \
-    '--no-git[Don'\''t initialize a Git repository for the tap]' \
+    '--no-git[Don'\''t initialise a Git repository for the tap]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]' \
     - tap \
