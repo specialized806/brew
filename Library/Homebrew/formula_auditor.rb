@@ -275,7 +275,7 @@ module Homebrew
           problem <<~EOS
             Formula #{formula.name} contains incompatible licenses: #{incompatible_licenses}.
             Formulae in homebrew/core must either use a Debian Free Software Guidelines license
-            or be released into the public domain: #{Formatter.url("https://docs.brew.sh/License-Guidelines")}
+            or be released into the public domain: #{Formatter.url("https://docs.brew.sh/Licence-Guidelines")}
           EOS
         end
 
@@ -531,7 +531,7 @@ module Homebrew
 
         problem <<~EOS
           Formula #{formula.name} uses #{package} which has an incompatible license.
-          All installed npm dependencies must satisfy #{Formatter.url("https://docs.brew.sh/License-Guidelines")}
+          All installed npm dependencies must satisfy #{Formatter.url("https://docs.brew.sh/Licence-Guidelines")}
         EOS
       end
     end
