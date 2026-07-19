@@ -598,6 +598,8 @@ Relative paths default to `staged_path` for `base:`, `source_base:` and `target_
 * `move`: move one file or directory; example: `move "payload", "Shared/payload"`.
 * `mv`: alias for `move`; example: `mv "payload", "Shared/payload"`.
 * `move_children`: move the contents of one directory into another; example: `move_children "payload", "Shared/payload"`.
+* `copy`: copy a file or, with `recursive: true`, a directory; example: `copy "payload", "Shared/payload"`.
+* `remove`: remove one or more paths; example: `remove ["Shared/old", "Shared/*.bak"], recursive: true`.
 * `symlink`: create a symlink; example: `symlink "Shared/payload", "Payload", source_base: :relative`.
 * `ln_s`: alias for `symlink`; example: `ln_s "Shared/payload", "Payload", source_base: :relative`.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "Shared/payload", "Payload", source_base: :relative, uninstall: true`.
@@ -606,6 +608,8 @@ Relative paths default to `staged_path` for `base:`, `source_base:` and `target_
   `delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"`.
 * `set_permissions`: recursively change existing path permissions with `chmod`; example: `set_permissions "Shared/payload", "0755"`.
 * `set_ownership`: recursively change existing path ownership with `sudo chown`; example: `set_ownership "Shared/payload", user: "root", group: "wheel"`. Missing paths are ignored. When `user:` is omitted, the current user is used. When `group:` is omitted, `staff` is used.
+
+Path collections passed to `remove` expand globs automatically. Removals may be restricted with `symlink_target_contains:` or `content_contains:`.
 
 {% endraw %}
 
