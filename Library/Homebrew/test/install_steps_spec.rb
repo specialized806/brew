@@ -341,6 +341,54 @@ RSpec.describe Homebrew::InstallSteps do
       .to raise_error(ArgumentError, /exactly one path/)
   end
 
+  specify "removes paths and expands globs", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      remove ["obsolete.txt", "obsolete-*"], recursive: true
+    end
+
+    (root/"var/obsolete-dir").mkpath
+    (root/"var/obsolete.txt").write "obsolete"
+    (root/"var/obsolete-dir/child").write "obsolete"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"var/obsolete.txt").not_to exist
+    expect(root/"var/obsolete-dir").not_to exist
+  end
+
+  specify "filters removals by symlink target and file content", :aggregate_failures do
+    ENV["PATH"] = (root/"path-bin").to_s
+    steps = Homebrew::InstallSteps::DSL.build do
+      remove "links/*", base: :staged_path, symlink_target_contains: "wanted"
+      remove "launcher", base: :path, content_contains: "owned marker"
+    end
+
+    (root/"stage/links").mkpath
+    (root/"stage/links/wanted").make_symlink("/tmp/wanted-target")
+    (root/"stage/links/kept").make_symlink("/tmp/other-target")
+    (root/"path-bin").mkpath
+    (root/"path-bin/launcher").write "owned marker"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"stage/links/wanted").not_to exist
+    expect(root/"stage/links/kept").to be_a_symlink
+    expect(root/"path-bin/launcher").not_to exist
+  end
+
+  specify "uses elevated cask removal when requested" do
+    require "cask/utils"
+
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      remove "protected", sudo: true
+    end
+    (root/"var/protected").mkpath
+    command = class_double(SystemCommand)
+    expect(Cask::Utils).to receive(:gain_permissions_remove).with(root/"var/protected", command:)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+  end
+
   specify "appends a trailing newline unless already present", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       write "missing-newline", "value"

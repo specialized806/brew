@@ -1199,9 +1199,12 @@ represented by structured steps.
 * `mv`: alias for `move`; example: `mv "default.conf", "foo/default.conf"`.
 * `move_children`: move the contents of one directory into another; example: `move_children "defaults", "foo/defaults"`.
 * `copy`: copy a file or, with `recursive: true`, a directory; example: `copy "default.conf", "foo/default.conf"`.
+* `remove`: remove one or more paths; example: `remove ["old.conf", "foo/*.bak"]`. Use `recursive: true` for directories.
 * `symlink`: create a symlink; example: `symlink "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `ln_s`: alias for `symlink`; example: `ln_s "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
+
+Path collections passed to `remove` expand globs automatically. Removals may be restricted with `symlink_target_contains:` or `content_contains:`.
 
 #### Default config and template steps
 
