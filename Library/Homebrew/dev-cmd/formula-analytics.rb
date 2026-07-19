@@ -428,6 +428,8 @@ module Homebrew
         when /Fedora Linux (\d+)[.\d]*/ then "Fedora Linux #{Regexp.last_match(1)}"
         when /KDE neon .*?([\d.]+)/ then "KDE neon #{Regexp.last_match(1)}"
         when /Amazon Linux (\d+)\.[.\d]*/ then "Amazon Linux #{Regexp.last_match(1)}"
+        when /^Armbian\S*(?: OS)? (\d+)\.0?(\d+)\S*(?: (\w+))?/
+          "Armbian #{Regexp.last_match(1)}.#{Regexp.last_match(2)} #{Regexp.last_match(3)&.downcase}".strip
         when /Fedora Linux Rawhide[.\dn]*/ then "Fedora Linux Rawhide"
         when /Red Hat Enterprise Linux CoreOS (\d+\.\d+)[-.\d]*/
           "Red Hat Enterprise Linux CoreOS #{Regexp.last_match(1)}"
