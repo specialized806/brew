@@ -25,7 +25,7 @@ end
 
 ## The cask language is declarative
 
-Each cask contains a series of stanzas (or “fields”) which *declare* how the software is to be obtained and installed. In a declarative language, the author does not need to worry about **order**. As long as all the needed fields are present, Homebrew determines what needs to be done at install time.
+Each cask contains a series of stanzas (or “fields”) which *declare* how the software is to be obtained and installed. In a declarative language, the author does not need to worry about **order**. As long as all the needed fields are present, Homebrew determines what to do at install time.
 
 To make maintenance easier, the most-frequently-updated stanzas are usually placed at the top. But that’s a convention, not a rule.
 
@@ -84,7 +84,6 @@ Having a common order for stanzas makes casks easier to update and parse. Below 
     internet_plugin
     keyboard_layout
     prefpane
-    qlplugin
     mdimporter
     screen_saver
     service
@@ -156,7 +155,6 @@ The `appimage` stanza is Linux-only, macOS integration stanzas such as `app` and
 | `internet_plugin`                | yes                           | Relative path to an Internet Plugin that should be moved into the `~/Library/Internet Plug-Ins` folder on installation. |
 | `keyboard_layout`                | yes                           | Relative path to a Keyboard Layout that should be moved into the `/Library/Keyboard Layouts` folder on installation. |
 | `prefpane`                       | yes                           | Relative path to a Preference Pane that should be moved into the `~/Library/PreferencePanes` folder on installation. |
-| `qlplugin`                       | yes                           | Relative path to a Quick Look plugin that should be moved into the `~/Library/QuickLook` folder on installation. |
 | `mdimporter`                     | yes                           | Relative path to a Spotlight Metadata Importer that should be moved into the `~/Library/Spotlight` folder on installation. |
 | `screen_saver`                   | yes                           | Relative path to a Screen Saver that should be moved into the `~/Library/Screen Savers` folder on installation. |
 | `service`                        | yes                           | Relative path to a Service that should be moved into the `~/Library/Services` folder on installation. |
@@ -1549,9 +1547,9 @@ To convert the App’s simplified name (above) to a token:
 
 #### Casks pinned to specific versions
 
-Only create a versioned cask for a release line that meets the [acceptance requirements for versioned releases](Acceptable-Casks.md#default-and-alternative-release-channels).
-Casks pinned to a specific version of the application (e.g. [`carbon-copy-cloner@5`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/carbon-copy-cloner%405.rb)) should use the same token as the standard cask with a suffix of `@<version-number>`.
-For Carbon Copy Cloner (`carbon-copy-cloner`), pinned to version 6, the token is `carbon-copy-cloner@6`.
+A versioned cask may only be created for a release line that meets the [acceptance requirements for versioned releases](Acceptable-Casks.md#default-and-alternative-release-channels).
+Casks pinned to a specific version of the application (e.g. [`corretto@11`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/corretto%4011.rb)) should use the same token as the standard cask with a suffix of `@<version-number>`.
+For Corretto (`corretto`), pinned to version 11, the token is `corretto@11`, while the most recent version does not have a suffix.
 
 #### Casks for alternative release channels
 
@@ -1587,7 +1585,7 @@ For versioned/development channel casks:
 | -------------------- | ------------------- | ---------------------- | -------- |
 | `google-chrome`      | Beta channel        | `google-chrome@beta`   | `google-chrome@beta.rb` |
 | `vlc`                | Nightly channel     | `vlc@nightly`          | `vlc@nightly.rb` |
-| `carbon-copy-cloner` | Pinned to version 5 | `carbon-copy-cloner@5` | `carbon-copy-cloner@5.rb` |
+| `corretto`           | Pinned to version 11 | `corretto@11`         | `corretto@11.rb` |
 
 ### Special affixes
 
