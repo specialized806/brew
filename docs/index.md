@@ -47,8 +47,6 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Updating Software in Homebrew](Updating-Software-in-Homebrew.md)
 - [Adding Software to Homebrew](Adding-Software-to-Homebrew.md)
 
-- [Kickstarter Supporters](Kickstarter-Supporters.md)
-
 ## Contributors
 
 - [How to Open a Pull Request (and get it merged)](How-To-Open-a-Homebrew-Pull-Request.md)
@@ -100,3 +98,7 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Homebrew's Expense and Reimbursement Policy](Expense-and-Reimbursement-Policy.md)
 - [How To Organise the Homebrew AGM](How-To-Organise-the-AGM.md)
 - [Homebrew's Maintainer Stipends and Grants](Maintainer-Stipends-and-Grants.md)
+
+## Project history
+
+- [Kickstarter Supporters](Kickstarter-Supporters.md)
