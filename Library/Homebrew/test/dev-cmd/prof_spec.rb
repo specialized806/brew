@@ -47,6 +47,23 @@ RSpec.describe Homebrew::DevCmd::Prof do
 
       prof.run
     end
+
+    it "records phase timings without loading a sampling profiler" do
+      prof = described_class.new(["--timings", "help"])
+
+      expect(Homebrew).not_to receive(:install_bundler_gems!)
+      expect(Homebrew).not_to receive(:setup_gem_environment!)
+      expect(prof).to receive(:safe_system)
+        .with(
+          { "HOMEBREW_PHASE_TIMINGS" => "prof/timings.json" },
+          *HOMEBREW_RUBY_EXEC_ARGS,
+          (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path,
+          "help",
+        )
+      allow(prof).to receive(:ohai)
+
+      prof.run
+    end
   end
 
   describe "integration tests", :integration_test, :needs_network do
@@ -55,6 +72,7 @@ RSpec.describe Homebrew::DevCmd::Prof do
         HOMEBREW_LIBRARY_PATH/"prof/call_stack.html",
         HOMEBREW_LIBRARY_PATH/"prof/d3-flamegraph.html",
         HOMEBREW_LIBRARY_PATH/"prof/stackprof.dump",
+        HOMEBREW_LIBRARY_PATH/"prof/timings.json",
         HOMEBREW_LIBRARY_PATH/"prof/vernier.json",
       ]
     end
@@ -77,6 +95,21 @@ RSpec.describe Homebrew::DevCmd::Prof do
       expect { brew "prof", "--vernier", "config" }
         .to output(/^HOMEBREW_VERSION:/).to_stdout
         .and be_a_success
+    end
+
+    it "records fetch phases" do
+      setup_test_formula "testball"
+
+      expect do
+        brew "prof", "--timings", "--", "fetch", "--force", "testball",
+             "HOMEBREW_NO_INSTALL_FROM_API" => "1"
+      end.to be_a_success
+
+      timings = JSON.parse((HOMEBREW_LIBRARY_PATH/"prof/timings.json").read)
+      phases = timings.fetch("events").map { |event| event.fetch("phase") }
+      expect(phases).to include(
+        "startup", "formula_resolution", "formula_inflation", "download_enqueue", "curl_body", "checksum", "symlink"
+      )
     end
   end
 end
