@@ -95,6 +95,11 @@ RSpec.describe Homebrew::Cmd::FetchCmd do
                                            "caffeine-arm-linux.zip", "caffeine-intel-linux.zip")
     end
 
+    it "skips arches the cask's depends_on arch excludes" do
+      cmd = described_class.new(["--cask", "--os=macos", "--arch=intel", "depends-on-arch-arm64"])
+      expect(cmd.send(:cask_downloads, Cask::CaskLoader.load("depends-on-arch-arm64"))).to be_empty
+    end
+
     it "collapses to a single download for a cask without on_system blocks" do
       cmd = described_class.new(["--cask", "--all-platforms", "local-caffeine"])
       expect(cmd.send(:cask_downloads, Cask::CaskLoader.load("local-caffeine")).length).to eq(1)
