@@ -281,7 +281,7 @@ module Homebrew
       return unless url.to_s.end_with?(".git")
       return unless Utils::Git.remote_exists?(url.to_s)
 
-      detected_branch = Utils.popen_read("git", "ls-remote", "--symref", url.to_s, "HEAD")
+      detected_branch = Utils.popen_read("git", "ls-remote", "--symref", "--end-of-options", url.to_s, "HEAD")
                              .match(%r{ref: refs/heads/(.*?)\s+HEAD})&.to_a&.second
 
       if specs[:branch].blank?

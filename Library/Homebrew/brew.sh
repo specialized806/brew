@@ -637,6 +637,9 @@ HOMEBREW_MACOS_NEWEST_SUPPORTED="26"
 HOMEBREW_MACOS_OLDEST_SUPPORTED="14"
 HOMEBREW_MACOS_OLDEST_ALLOWED="10.15"
 
+# Some Git versions are too old for some Homebrew functionality we rely on.
+HOMEBREW_MINIMUM_GIT_VERSION="2.30.0"
+
 if [[ -n "${HOMEBREW_MACOS}" ]]
 then
   HOMEBREW_PRODUCT="Homebrew"
@@ -685,9 +688,6 @@ then
     HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD="1"
     HOMEBREW_FORCE_BREWED_CA_CERTIFICATES="1"
   fi
-
-  # Some Git versions are too old for some Homebrew functionality we rely on.
-  HOMEBREW_MINIMUM_GIT_VERSION="2.14.3"
 else
   if [[ -r "/proc/cpuinfo" ]] &&
      [[ "${HOMEBREW_PROCESSOR}" == "x86_64" ]]
@@ -732,8 +732,6 @@ Minimum required version: ${HOMEBREW_MINIMUM_CURL_VERSION}
   fi
 
   # Ensure the system Git is at or newer than the minimum required version.
-  # Git 2.7.4 is the version of git on Ubuntu 16.04 LTS (Xenial Xerus).
-  HOMEBREW_MINIMUM_GIT_VERSION="2.7.0"
   git_version_output="$(${HOMEBREW_GIT} --version 2>/dev/null)"
   # $extra is intentionally discarded.
   # shellcheck disable=SC2034

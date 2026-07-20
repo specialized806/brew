@@ -891,13 +891,19 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     it "requires `branch:` to be specified for Git head URLs" do
+      head_url = "https://github.com/Homebrew/homebrew-test-bot.git"
       fa = formula_auditor "foo", <<~RUBY, online: true
         class Foo < Formula
           url "https://brew.sh/foo-1.0.tgz"
           sha256 "31cccfc6630528db1c8e3a06f6decf2a370060b982841cfab2b8677400a5092e"
-          head "https://github.com/Homebrew/homebrew-test-bot.git"
+          head "#{head_url}"
         end
       RUBY
+      allow(Utils::Git).to receive(:remote_exists?).and_return(true)
+      allow(Utils).to receive(:popen_read).and_call_original
+      expect(Utils).to receive(:popen_read)
+        .with("git", "ls-remote", "--symref", "--end-of-options", head_url, "HEAD")
+        .and_return("ref: refs/heads/main\tHEAD\n")
 
       fa.audit_specs
       # This is `.last` because the first problem is the unreachable stable URL.

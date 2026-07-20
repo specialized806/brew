@@ -124,7 +124,7 @@ module Homebrew
         def self.ls_remote_tags(url)
           stdout, stderr, _status = system_command(
             "git",
-            args:         ["ls-remote", "--tags", url],
+            args:         ["ls-remote", "--tags", "--end-of-options", url],
             env:          { "GIT_TERMINAL_PROMPT" => "0" },
             print_stdout: false,
             print_stderr: false,

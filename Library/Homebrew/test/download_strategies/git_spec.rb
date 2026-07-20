@@ -16,6 +16,26 @@ RSpec.describe GitDownloadStrategy do
     FileUtils.mkpath cached_location
   end
 
+  describe "#clone_args" do
+    it "terminates options before the URL" do
+      expect(strategy.send(:clone_args)).to end_with("--end-of-options", url, cached_location.to_s)
+    end
+  end
+
+  describe "#ref?" do
+    it "terminates options before the ref" do
+      expect(strategy).to receive(:silent_command)
+        .with(
+          "git",
+          args: ["--git-dir", cached_location/".git", "rev-parse", "-q", "--verify", "--end-of-options",
+                 "master^{commit}"],
+        )
+        .and_return(instance_double(SystemCommand::Result, success?: true))
+
+      strategy.send(:ref?)
+    end
+  end
+
   def git_commit_all
     system "git", "add", "--all"
     # Allow instance variables here to have nice commit messages.
