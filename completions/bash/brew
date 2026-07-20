@@ -2379,6 +2379,7 @@ _brew_prof() {
       --help
       --quiet
       --stackprof
+      --timings
       --verbose
       --vernier
       "
