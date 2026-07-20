@@ -68,7 +68,7 @@ The normal validation is:
 HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source FORMULA
 brew test FORMULA
 brew audit --strict --new --online FORMULA
-brew style --fix FORMULA
+brew style --fix --formula FORMULA
 ```
 
 For a cask:
@@ -79,7 +79,7 @@ For a cask:
 HOMEBREW_NO_INSTALL_FROM_API=1 brew install --cask CASK
 brew uninstall --cask CASK
 brew audit --new --cask CASK
-brew style --fix CASK
+brew style --fix --cask CASK
 ```
 
 Inspect the installed files and user-facing output, not only the exit status.
