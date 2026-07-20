@@ -41,7 +41,7 @@ Software whose supported distribution model requires self-updating may be more a
 An install step must not fetch code from a moving default branch or an unversioned, unchecksummed archive.
 Sources must use an immutable release archive, tag or revision and downloaded archives must be verified with SHA-256.
 
-Use the dependency mechanism documented for the ecosystem in [Python for Formula Authors](Python-for-Formula-Authors.md) or [Node for Formula Authors](Node-for-Formula-Authors.md).
+Use the dependency mechanism documented for the ecosystem in [Language-Specific Formulae](Language-Specific-Formulae.md).
 Some language package managers may install a versioned, locked dependency set during the build, while Python formulae declare checksummed `resource` blocks and install them with dependency resolution disabled.
 An install step must not resolve a moving or otherwise unreproducible dependency set.
 
