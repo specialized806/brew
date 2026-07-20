@@ -91,6 +91,9 @@ module Readall
     end
     return true unless validating_linux
 
+    os_and_arch = "Linux"
+    os_and_arch += " on #{(arch == :intel) ? "Intel x86_64" : "ARM64"}" if arch
+
     success = T.let(true, T::Boolean)
     tap.cask_files.each do |file|
       next if file.read.match?(/^\s*depends_on(?:\s*\(\s*|\s+)(?::macos\b|macos:)/)
@@ -108,22 +111,30 @@ module Readall
       end
       next unless cask
 
-      if arch
-        Homebrew::SimulateSystem.with(os: :linux, arch:) { cask.refresh }
+      linux_sha256 = if arch
+        Homebrew::SimulateSystem.with(os: :linux, arch:) do
+          cask.refresh
+          cask.sha256
+        end
       else
-        Homebrew::SimulateSystem.with(os: :linux) { cask.refresh }
+        Homebrew::SimulateSystem.with(os: :linux) do
+          cask.refresh
+          cask.sha256
+        end
       end
+      # No `sha256` matched Linux, so the cask cannot be downloaded there
+      # despite not being marked macOS-only.
+      next unless linux_sha256.nil?
+
+      onoe "Invalid cask (#{os_and_arch}): #{file}"
+      $stderr.puts "Missing Linux stanzas can leave Linux `sha256` as nil. " \
+                   "Add `depends_on :macos` if this cask is macOS-only."
+      success = false
     rescue Interrupt
       raise
     # Handle all possible exceptions reading casks.
     rescue Exception => e # rubocop:disable Lint/RescueException
-      os_and_arch = "Linux"
-      os_and_arch += " on #{(arch == :intel) ? "Intel x86_64" : "ARM64"}" if arch
       onoe "Invalid cask (#{os_and_arch}): #{file}"
-      if e.message.include?("invalid 'sha256' value: nil")
-        $stderr.puts "Missing Linux stanzas can leave Linux `sha256` as nil. " \
-                     "Add `depends_on :macos` if this cask is macOS-only."
-      end
       $stderr.puts e
       success = false
     end
