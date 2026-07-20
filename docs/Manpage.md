@@ -613,8 +613,8 @@ flags which will help with finding keg-only dependencies like `openssl`,
 This workflow is useful for maintainers or testers who regularly install lots of
 formulae.
 
-Unless `--force` is passed, this returns a 1 exit code if anything would be
-removed.
+Unless `--force` is passed, this prompts before removing anything and returns a
+1 exit code if the prompt is declined or cannot be shown.
 
 `--install`
 
