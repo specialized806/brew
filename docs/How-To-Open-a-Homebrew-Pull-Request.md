@@ -7,7 +7,7 @@ last_review_date: "2026-07-18"
 The following commands are used by Homebrew contributors to set up a fork of Homebrew's Git repository on GitHub, create a new branch and create a GitHub pull request ("PR") for the changes in that branch.
 
 The type of change you want to make determines which of Homebrew's main repositories should receive the pull request.
-Submit changes to Homebrew's core code, including the `brew` implementation, to [Homebrew/brew](https://github.com/Homebrew/brew).
+Submit changes to Homebrew's `brew` implementation to [Homebrew/brew](https://github.com/Homebrew/brew).
 Submit formula changes to the [homebrew/core](https://github.com/Homebrew/homebrew-core) tap and cask changes to the [homebrew/cask](https://github.com/Homebrew/homebrew-cask) tap.
 
 ## Submit a new version of an existing formula
