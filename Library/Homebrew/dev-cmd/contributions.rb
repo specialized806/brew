@@ -191,7 +191,7 @@ module Homebrew
             next if type_count.nil? || type_count.zero?
 
             count_prefix = ""
-            if (type == :merged_pr_author && grand_total.fetch(:merged_pr_author_hit_cap, 0).positive?) ||
+            if ((type == :merged_pr_author || type == :merged_pr) && grand_total.fetch(:merged_pr_author_hit_cap, 0).positive?) ||
                (type == :approved_pr_review && type_count >= MAX_PR_SEARCH) || type_count >= MAX_CONTRIBUTIONS
               greater_than_total ||= true
               count_prefix = ">="
