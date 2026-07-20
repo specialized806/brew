@@ -1,12 +1,14 @@
 ---
-last_review_date: "2026-01-06"
+last_review_date: "2026-07-18"
 ---
 
 # How to Open a Homebrew Pull Request
 
 The following commands are used by Homebrew contributors to set up a fork of Homebrew's Git repository on GitHub, create a new branch and create a GitHub pull request ("PR") for the changes in that branch.
 
-The type of change you want to make influences which of Homebrew's main repositories you'll need to send your pull request to. If you want to submit a change to Homebrew's core code (the `brew` implementation), you should open a pull request on [Homebrew/brew](https://github.com/Homebrew/brew). If you want to submit a change for a formula, you should open a pull request on the [homebrew/core](https://github.com/Homebrew/homebrew-core) tap, while for casks you should open the pull request on the [homebrew/cask](https://github.com/Homebrew/homebrew-cask) tap or another [official tap](https://github.com/Homebrew), depending on the formula type.
+The type of change you want to make determines which of Homebrew's main repositories should receive the pull request.
+Submit changes to Homebrew's `brew` implementation to [Homebrew/brew](https://github.com/Homebrew/brew).
+Submit formula changes to the [homebrew/core](https://github.com/Homebrew/homebrew-core) tap and cask changes to the [homebrew/cask](https://github.com/Homebrew/homebrew-cask) tap.
 
 ## Submit a new version of an existing formula
 
@@ -68,13 +70,13 @@ Before creating a new cask, please read [Acceptable Casks](Acceptable-Casks.md).
 
 1. [Fork the Homebrew/homebrew-cask repository on GitHub](https://github.com/Homebrew/homebrew-cask/fork).
    * This creates a personal remote repository that you can push to. This is needed because only Homebrew maintainers have push access to the main repositories.
-2. Tap (download a local clone of) the repository of core Homebrew casks:
+2. Tap (download a local clone of) the `homebrew/cask` repository:
 
    ```sh
    brew tap --force homebrew/cask
    ```
 
-3. Change to the directory containing Homebrew casks:
+3. Change to the directory containing `homebrew/cask`:
 
    ```sh
    cd "$(brew --repository homebrew/cask)"
@@ -129,8 +131,9 @@ To make changes on a new branch and submit it for review, create a GitHub pull r
    brew lgtm --online
    ```
 
-6. [Make a separate commit](Formula-Cookbook.md#commit) for each changed formula with `git add` and `git commit`. Each formula's commits must be squashed.
-   * Please note that our required commit message format for simple version updates is "`<FORMULA_NAME> <NEW_VERSION>`", e.g. "`source-highlight 3.1.8`".
+6. [Make a separate commit](Formula-Cookbook.md#commit) for each changed formula or cask with `git add` and `git commit`. Each package's commits must be squashed.
+   * Use "`<NAME> <VERSION>`" for a simple version update, such as "`source-highlight 3.1.8`".
+   * Use "`<NAME> <VERSION> (new formula)`" or "`<NAME> <VERSION> (new cask)`" for a new package.
 7. Upload your branch of new commits to your fork:
 
    ```sh
@@ -142,7 +145,7 @@ To make changes on a new branch and submit it for review, create a GitHub pull r
 
 Thank you!
 
-### "Artificial Intelligence"/Large Language Model (AI/LLM) usage
+### "Artificial intelligence"/large language model (AI/LLM) usage
 
 We allow you to create issues and pull requests with AI/LLM with the following requirements (see [Responsible AI Usage](Responsible-AI-Usage.md) for the principles behind them):
 
