@@ -17,8 +17,13 @@ Homebrew’s governance is grounded in the principle that only active contributo
 - **Security Team**: A security-focused subteam of Maintainers and the Project Leader, some of whom may have increased access rights than otherwise needed.
 - **Project Leader (PL)**: A Lead Maintainer elected to serve as Homebrew’s primary public representative and project-wide coordinator.
 - **Quarterly activity criteria**: Around 50 meaningful maintainer contributions or other work considered essential by the Project Leader per quarter to Primary Homebrew repositories to remain in good standing.
-- **Quarter**: A calendar quarter, defined as one of the following periods: December–February, March–May, June–August, or September–November.
-- **Meaningful maintainer contributions**: Merged pull requests, reviewed pull requests created by others, or merged co-authored commits in Primary Homebrew repositories.
+- **Quarter**: A Homebrew reporting quarter, defined as one of the following periods: December–February, March–May, June–August, or September–November.
+  Quarterly reporting covers the Maintainers listed in Homebrew/brew's README at the end of the quarter.
+  The report's `new role` value must indicate a downgrade for two consecutive quarters before the downgrade is applied.
+- **Meaningful maintainer contributions**: Merged pull requests opened or merged by the Maintainer, pull requests created by others that GitHub reports as both reviewed by the Maintainer and approved, or merged co-authored commits in Primary Homebrew repositories.
+  A pull request opened and merged by the same Maintainer counts only once for that Maintainer.
+  Review attribution uses GitHub's `review:approved reviewed-by:USERNAME` search as an intentionally ambiguous, 100-result-capped activity proxy, not a precise approval audit.
+  Repository-scoped follow-up searches ensure that capped counts do not affect role activity checks.
 - **Primary Homebrew repositories**: The three highest-traffic, security-critical repositories in the Homebrew project:
   - [Homebrew/brew](https://github.com/Homebrew/brew) ([contributions](https://github.com/Homebrew/brew/graphs/contributors)),
   - [Homebrew/homebrew-core](https://github.com/Homebrew/homebrew-core) ([contributions](https://github.com/Homebrew/homebrew-core/graphs/contributors)),
@@ -67,14 +72,14 @@ No single person holds special authority beyond the Project Leader role.
 
 **Expectations:**
 
-- A higher level of consistent quarterly contribution activity than standard maintainers.
+- Meets the quarterly activity criteria and makes at least 25 meaningful maintainer contributions in each of any two Primary Homebrew repositories per quarter.
+  The two repositories may differ between quarters.
 - A higher level of responsibility and responsiveness than standard maintainers e.g. timely pull request review, timely responses in Slack, pulling weight on shared project tasks and not just whatever is personally most interesting.
 
 **Eligibility Criteria:**
 
 - 3 years tenure of continuous Maintainer status.
-- Has met the quarterly activity criteria (as defined above) in all four quarters of the preceding year.
-  - In addition, must have made at least 25 meaningful maintainer contributions per quarter in each of at least two primary Homebrew repositories, reflecting the broader scope of Lead Maintainer responsibilities.
+- Has met the Lead Maintainer quarterly activity expectation defined above in all four quarters of the preceding year.
 - Must have attended at least one in-person AGM (or another official Homebrew event) to verify identity and participation within the community.
   Where this is impossible due to e.g. medical reasons, an in-person verification of government ID from another Lead Maintainer will suffice.
 - Demonstrates initiative beyond personal contributions, including leadership in review, policy, tooling, or infrastructure.
