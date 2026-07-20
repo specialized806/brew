@@ -232,6 +232,49 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
 
   it_behaves_like "parseable arguments"
 
+  it "generates current and stable tap syntax jobs" do
+    ENV["GITHUB_REPOSITORY"] = "Homebrew/homebrew-cask"
+    ENV.delete("GITHUB_OUTPUT")
+    command = described_class.new(["--syntax-only"])
+    allow(command).to receive(:random_runner).and_return({ name: "macos-26" })
+    stdout = StringIO.new
+    allow(command).to receive(:puts) { |output| stdout.puts(output) }
+
+    command.run
+
+    expect(JSON.parse(stdout.string)).to eq(
+      [
+        {
+          "name"   => "tap_syntax (macos-26)",
+          "tap"    => "homebrew/cask",
+          "runner" => "macos-26",
+          "stable" => false,
+        },
+        {
+          "name"       => "tap_syntax (stable) (macos-26)",
+          "tap"        => "homebrew/cask",
+          "runner"     => "macos-26",
+          "stable"     => true,
+          "skip_audit" => true,
+        },
+      ],
+    )
+  end
+
+  it "rejects a matrix exceeding GitHub's job limit" do
+    ENV["GITHUB_REPOSITORY"] = "Homebrew/homebrew-cask"
+    ENV.delete("GITHUB_OUTPUT")
+    command = described_class.new(["--cask", "test"])
+    allow(command).to receive_messages(random_runner:   { name: "macos-26" },
+                                       generate_matrix: Array.new(
+                                         described_class::MAX_JOBS - 1, {}
+                                       ))
+
+    expect { command.run }
+      .to output("Error: Maximum job matrix size exceeded: 257/256\n").to_stderr
+      .and raise_error(SystemExit)
+  end
+
   describe "::filter_runners" do
     let(:arm_linux_runner) { OS::LINUX_CI_ARM_RUNNER }
     # We simulate a macOS version older than the newest, as the method will use

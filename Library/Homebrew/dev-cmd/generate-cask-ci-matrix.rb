@@ -87,12 +87,14 @@ module Homebrew
 
         runner = random_runner[:name]
         syntax_job = {
-          name:   "syntax",
+          name:   "tap_syntax",
           tap:    tap.name,
           runner:,
+          stable: false,
         }
+        stable_syntax_job = syntax_job.merge(name: "tap_syntax (stable)", stable: true, skip_audit: true)
 
-        matrix = [syntax_job]
+        matrix = [syntax_job, stable_syntax_job]
 
         if !syntax_only && !labels&.include?("ci-syntax-only")
           cask_jobs = if casks&.any?
@@ -114,7 +116,12 @@ module Homebrew
           matrix += cask_jobs
         end
 
-        syntax_job[:name] += " (#{syntax_job[:runner]})"
+        jobs = matrix.count
+        odie "Maximum job matrix size exceeded: #{jobs}/#{MAX_JOBS}" if jobs > MAX_JOBS
+
+        [syntax_job, stable_syntax_job].each do |job|
+          job[:name] += " (#{job[:runner]})"
+        end
 
         puts JSON.pretty_generate(matrix)
         github_output = ENV.fetch("GITHUB_OUTPUT", nil)
