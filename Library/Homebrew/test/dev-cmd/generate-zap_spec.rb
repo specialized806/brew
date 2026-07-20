@@ -302,6 +302,28 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
     end
   end
 
+  describe "#glob_shared_filelists" do
+    it "replaces the Shared File List version with a glob" do
+      shared_file_list =
+        "~/Library/Application Support/com.apple.sharedfilelist/" \
+        "com.apple.LSSharedFileList.ApplicationRecentDocuments"
+      paths = [
+        "#{shared_file_list}/org.example.foo.sfl2",
+        "#{shared_file_list}/org.example.foo.sfl3",
+      ]
+      result = generate_zap.send(:glob_shared_filelists, paths)
+
+      expect(result).to eq(["#{shared_file_list}/org.example.foo.sfl*"])
+    end
+
+    it "leaves paths without a Shared File List version unchanged" do
+      paths = ["~/Library/Preferences/com.example.foo.plist"]
+      result = generate_zap.send(:glob_shared_filelists, paths)
+
+      expect(result).to eq(paths)
+    end
+  end
+
   describe "#derive_rmdir_candidates" do
     it "suggests Application Support parent directories" do
       paths = ["~/Library/Application Support/Foo/config.json"]
