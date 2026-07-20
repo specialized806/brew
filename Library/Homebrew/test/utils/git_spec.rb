@@ -228,6 +228,14 @@ RSpec.describe Utils::Git do
     end
 
     context "when git is available" do
+      it "terminates options before the URL" do
+        expect(described_class).to receive(:quiet_system)
+          .with("git", "ls-remote", "--end-of-options", "-u:evil")
+          .and_return(false)
+
+        described_class.remote_exists?("-u:evil")
+      end
+
       it "returns true when git remote exists", :needs_network do
         git = HOMEBREW_SHIMS_PATH/"shared/git"
         url = "https://github.com/Homebrew/homebrew.github.io"

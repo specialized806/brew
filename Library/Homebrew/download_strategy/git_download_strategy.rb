@@ -104,7 +104,8 @@ class GitDownloadStrategy < VCSDownloadStrategy
   sig { returns(T::Boolean) }
   def ref?
     silent_command("git",
-                   args: ["--git-dir", git_dir, "rev-parse", "-q", "--verify", "#{@ref}^{commit}"])
+                   args: ["--git-dir", git_dir, "rev-parse", "-q", "--verify", "--end-of-options",
+                          "#{@ref}^{commit}"])
       .success?
   end
 
@@ -145,7 +146,7 @@ class GitDownloadStrategy < VCSDownloadStrategy
 
     args << "--config" << "advice.detachedHead=false" # Silences “detached head” warning.
     args << "--config" << "core.fsmonitor=false" # Prevent `fsmonitor` from watching this repository.
-    args << @url << cached_location.to_s
+    args << "--end-of-options" << @url << cached_location.to_s
   end
 
   sig { returns(String) }

@@ -699,6 +699,21 @@ RSpec.describe Tap do
     end
   end
 
+  describe "#fix_remote_configuration" do
+    it "terminates options before the requested remote" do
+      tap = described_class.fetch("dashy", "foo")
+      tap.path.mkpath
+      allow(tap).to receive(:remote)
+      allow(tap).to receive(:safe_system)
+      expect(tap).to receive(:safe_system)
+        .with("git", "remote", "set-url", "origin", "--end-of-options", "-u:evil")
+
+      tap.fix_remote_configuration(requested_remote: "-u:evil")
+    ensure
+      FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"dashy"
+    end
+  end
+
   specify "Git variant" do
     touch path/"README"
     setup_git_repo
@@ -867,8 +882,8 @@ RSpec.describe Tap do
       allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
                                      formula_names: [], cask_tokens: [], link_completions_and_manpages: nil)
       expect(tap).to receive(:git_command!)
-        .with(["clone", requested_remote, tap.path.to_s, "--origin=origin", "--template=",
-               "--config", "core.fsmonitor=false"])
+        .with(["clone", "--origin=origin", "--template=", "--config", "core.fsmonitor=false",
+               "--end-of-options", requested_remote, tap.path.to_s])
         .and_wrap_original do
           tap.path.mkpath
           (tap.path/".git").mkpath

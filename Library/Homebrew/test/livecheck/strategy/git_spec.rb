@@ -183,6 +183,22 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
   end
 
   describe "::ls_remote_tags" do
+    it "terminates options before the URL" do
+      expect(git).to receive(:system_command)
+        .with(
+          "git",
+          args:         ["ls-remote", "--tags", "--end-of-options", "-u:evil"],
+          env:          { "GIT_TERMINAL_PROMPT" => "0" },
+          print_stdout: false,
+          print_stderr: false,
+          debug:        false,
+          verbose:      false,
+        )
+        .and_return([nil, nil, nil])
+
+      git.ls_remote_tags("-u:evil")
+    end
+
     it "returns the Git tags for the provided remote URL", :needs_network do
       expect(git.ls_remote_tags(git_url)).not_to be_empty
     end
