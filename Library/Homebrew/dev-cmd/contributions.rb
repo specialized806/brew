@@ -423,6 +423,9 @@ module Homebrew
           end
           [user, user_results]
         end
+
+        require "utils/github"
+        github_users = users.keys.to_h { |user| [user, github_username_for(user, to:)] }
         repository_refs.each do |repository, (repository_path, ref)|
           require "utils/git"
           output = Utils.safe_popen_read(
@@ -434,25 +437,22 @@ module Homebrew
           end
         end
 
-        require "utils/github"
         merged_range = "#{from}..#{Date.iso8601(to).prev_day.iso8601}"
         users.each_key do |user|
-          cache_key = ["merged-at", organisation, user, merged_range].join("\0")
-          merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
-            GitHub.search_issues("", is: "merged", user: organisation, author: user, merged: merged_range)
-          rescue GitHub::API::ValidationFailedError
-            opoo "Couldn't search GitHub for PRs authored by #{user}. Their profile might be private. " \
-                 "Defaulting to 0."
-            []
-          end
-          pull_requests_by_repository = merged_pull_requests.group_by do |pull_request|
-            pull_request.fetch("repository_url").delete_prefix("#{GitHub::API_URL}/repos/")
-          end
-          pull_requests_by_repository.each do |repository, pull_requests|
-            next unless repositories.include?(repository)
+          github_user = github_users.fetch(user)
+          next if github_user.nil?
 
+          repositories.each do |repository|
+            cache_key = ["merged-at", repository, github_user, merged_range].join("\0")
+            merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
+              GitHub.search_issues("", is: "merged", repo: repository, author: github_user, merged: merged_range)
+            rescue GitHub::API::ValidationFailedError
+              opoo "Couldn't search GitHub for PRs authored by #{github_user}. Their profile might be private. " \
+                   "Defaulting to 0."
+              []
+            end
             counts = results.fetch(user).fetch(repository)
-            additional_authored_prs = [pull_requests.length - counts.fetch(:merged_pr_author), 0].max
+            additional_authored_prs = [merged_pull_requests.length - counts.fetch(:merged_pr_author), 0].max
             additional_authored_prs.times do
               increment_contribution_count(counts, :merged_pr_author)
               increment_contribution_count(counts, :merged_pr)
@@ -460,15 +460,15 @@ module Homebrew
           end
         end
 
-        review_users = users.keys
-        review_users.reject! { |user| lead_activity_met?(results.fetch(user)) } if skip_reviews_if_lead_met
-        review_users.each_with_index do |user, index|
+        review_users = github_users.filter_map { |user, github_user| [user, github_user] if github_user }
+        review_users.reject! { |user, _| lead_activity_met?(results.fetch(user)) } if skip_reviews_if_lead_met
+        review_users.each_with_index do |(user, github_user), index|
           if progress
             $stderr.puts "Querying approved-review search for #{user} (#{index + 1}/#{review_users.length})..."
           end
-          cache_key = ["approved", organisation, user, from, to].join("\0")
+          cache_key = ["approved", organisation, github_user, from, to].join("\0")
           approved_reviews = github_search_with_rate_limit(cache_key, to:) do
-            GitHub.search_approved_pull_requests_in_user_or_organisation(organisation, user, from:, to:)
+            GitHub.search_approved_pull_requests_in_user_or_organisation(organisation, github_user, from:, to:)
           end
           capped_reviews = approved_reviews.length >= MAX_PR_SEARCH
           results.fetch(user).fetch(repositories.fetch(0))[:approved_pr_review_hit_cap] = 1 if capped_reviews
@@ -492,15 +492,36 @@ module Homebrew
                     qualifying_total >= MAINTAINER_ACTIVITY_THRESHOLD
 
             $stderr.puts "Querying approved-review search for #{user} in #{repository}..." if progress
-            cache_key = ["approved", repository, user, from, to].join("\0")
+            cache_key = ["approved", repository, github_user, from, to].join("\0")
             repository_reviews = github_search_with_rate_limit(cache_key, to:) do
-              GitHub.search_issues("", is: "pr", review: "approved", repo: repository, reviewed_by: user, from:, to:)
+              GitHub.search_issues("", is: "pr", review: "approved", repo: repository, reviewed_by: github_user,
+                                   from:, to:)
             end
             repository_counts[:approved_pr_review] = repository_reviews.length
           end
         end
 
         results
+      end
+
+      sig { params(user: String, to: String).returns(T.nilable(String)) }
+      def github_username_for(user, to:)
+        return user unless user.include?("@")
+
+        cache_key = ["public-email", user].join("\0")
+        matches = github_search_with_rate_limit(cache_key, to:) do
+          GitHub.search("users", "\"#{user}\" in:email").fetch("items", [])
+        end
+        if matches.one?
+          login = matches.fetch(0)["login"]
+          return login if login.is_a?(String)
+        end
+
+        opoo "Could not find a unique public GitHub account for #{user}; skipping GitHub PR searches."
+        nil
+      rescue GitHub::API::ValidationFailedError
+        opoo "Could not search for a public GitHub account for #{user}; skipping GitHub PR searches."
+        nil
       end
 
       sig {
