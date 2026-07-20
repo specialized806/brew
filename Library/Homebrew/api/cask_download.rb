@@ -36,6 +36,11 @@ module Homebrew
           if cask_struct.container?
             container(nested: cask_struct.container_args[:nested], type: cask_struct.container_args[:type])
           end
+          # Staging (and the download queue's pre-staging) performs rename
+          # operations through this cask, so they must be preserved here.
+          cask_struct.renames.each do |from, to|
+            rename from, to
+          end
         end
 
         ::Cask::Download.new(cask, quarantine:, require_sha:)
