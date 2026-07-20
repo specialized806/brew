@@ -88,6 +88,9 @@ module Homebrew
 
       UUID_PATTERN = /[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}/i
 
+      # Keep in sync with `RuboCop::Cop::Cask::SharedFilelistGlob`.
+      SHARED_FILELIST_PATTERN = /\.sfl\d\z/
+
       sig { override.void }
       def run
         patterns = if args.name?
@@ -112,8 +115,8 @@ module Homebrew
           odie message
         end
 
-        trash_paths  = replace_uuids(collapse_to_wildcards(trash_paths))
-        delete_paths = replace_uuids(collapse_to_wildcards(delete_paths))
+        trash_paths  = glob_shared_filelists(replace_uuids(collapse_to_wildcards(trash_paths)))
+        delete_paths = glob_shared_filelists(replace_uuids(collapse_to_wildcards(delete_paths)))
 
         rmdir_paths = derive_rmdir_candidates(trash_paths + delete_paths)
 
@@ -267,6 +270,11 @@ module Homebrew
       sig { params(paths: T::Array[String]).returns(T::Array[String]) }
       def replace_uuids(paths)
         paths.map { |p| p.gsub(UUID_PATTERN, "*") }.uniq.sort
+      end
+
+      sig { params(paths: T::Array[String]).returns(T::Array[String]) }
+      def glob_shared_filelists(paths)
+        paths.map { |p| p.sub(SHARED_FILELIST_PATTERN, ".sfl*") }.uniq.sort
       end
 
       sig { params(paths: T::Array[String]).returns(T::Array[String]) }
