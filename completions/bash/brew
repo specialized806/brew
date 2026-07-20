@@ -1201,6 +1201,7 @@ _brew_contributions() {
       --debug
       --from
       --help
+      --maintainer-report-csv
       --organisation
       --quarter
       --quiet

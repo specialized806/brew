@@ -1992,7 +1992,7 @@ Treat all named arguments as formulae\.
 .TP
 \fB\-\-cask\fP
 Treat all named arguments as casks\.
-.SS "\fBcontributions\fP \fR[\fB\-\-user=\fP] \fR[\fB\-\-repositories=\fP] \fR[\fB\-\-quarter=\fP] \fR[\fB\-\-from=\fP] \fR[\fB\-\-to=\fP] \fR[\fB\-\-csv\fP]"
+.SS "\fBcontributions\fP \fR[\fB\-\-user=\fP] \fR[\fB\-\-repositories=\fP] \fR[\fB\-\-quarter=\fP] \fR[\fB\-\-from=\fP] \fR[\fB\-\-to=\fP] \fR[\fB\-\-csv\fP] \fR[\fB\-\-maintainer\-report\-csv=\fP]"
 Summarise contributions to Homebrew repositories\.
 .TP
 \fB\-\-user\fP
@@ -2018,6 +2018,9 @@ Date (ISO 8601 format) to stop searching contributions\.
 .TP
 \fB\-\-csv\fP
 Print a CSV of contributions across repositories over the time period\.
+.TP
+\fB\-\-maintainer\-report\-csv\fP
+Print a CSV of Maintainer and Lead Maintainer activity criteria using fetched Git histories and GitHub\[u2019]s existing approved\-review search for the Homebrew governance quarter, for example \fB\-\-maintainer\-report\-csv=2026\-2\fP\&\. Also write it to \fBbrew\-contributions\-FROM\-to\-TO\.csv\fP in the current directory\. Only Maintainers listed at the end of that quarter are included\. The \fBnew role\fP value must show a downgrade for two consecutive quarters before a downgrade is applied\. Review searches return at most 100 results and other counts are capped at 500 per repository and contribution type\. Repository\-scoped follow\-up searches ensure role activity checks remain accurate when a count is capped\. Completed\-period GitHub searches are cached in Homebrew\[u2019]s cache and removed by normal cache pruning\. \fBYEAR\-1\fP is December of the previous year through February, \fBYEAR\-2\fP is March through May, \fBYEAR\-3\fP is June through August and \fBYEAR\-4\fP is September through November\.
 .SS "\fBcreate\fP \fR[\fIoptions\fP] \fIURL\fP"
 Generate a formula or, with \fB\-\-cask\fP, a cask for the downloadable file at \fIURL\fP and open it in the editor\. Homebrew will attempt to automatically derive the formula name and version, but if it fails, you\[u2019]ll have to make your own template\. The \fBwget\fP formula serves as a simple example\. For the complete API, see: 
 .UR https://docs\.brew\.sh/rubydoc/Formula
