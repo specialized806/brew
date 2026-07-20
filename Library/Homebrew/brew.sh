@@ -688,6 +688,11 @@ then
     HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD="1"
     HOMEBREW_FORCE_BREWED_CA_CERTIFICATES="1"
   fi
+
+  if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "110000" ]]
+  then
+    HOMEBREW_FORCE_BREWED_GIT="1"
+  fi
 else
   if [[ -r "/proc/cpuinfo" ]] &&
      [[ "${HOMEBREW_PROCESSOR}" == "x86_64" ]]
