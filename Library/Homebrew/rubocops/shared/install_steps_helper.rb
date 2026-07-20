@@ -5,7 +5,8 @@ module RuboCop
   module Cop
     module InstallStepsHelper
       FILE_PREPARATION_STEP_METHODS =
-        [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :copy, :remove, :symlink, :ln_s, :ln_sf].freeze
+        [:mkdir, :mkdir_p, :touch, :move, :mv, :move_children, :copy, :remove, :inreplace, :symlink,
+         :ln_s, :ln_sf].freeze
       LINK_STEP_METHODS = [:link_dir, :link_children].freeze
       CONFIG_WRITE_STEP_METHODS = [:write].freeze
       SERVICE_DATA_STEP_METHODS = [:init_data_dir].freeze
@@ -27,7 +28,7 @@ module RuboCop
 
       # `dstr` covers heredocs such as `write` content; interpolation is limited
       # to known template values below.
-      ALLOWED_STEP_ARGUMENT_NODE_TYPES = [:array, :dstr, :hash, :nil, :pair, :str, :sym].freeze
+      ALLOWED_STEP_ARGUMENT_NODE_TYPES = [:array, :dstr, :hash, :nil, :pair, :regexp, :regopt, :str, :sym].freeze
 
       STEP_BLOCK_MSG = T.let(
         "Steps blocks may only contain install step DSL calls: " \
