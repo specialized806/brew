@@ -39,7 +39,7 @@ module Homebrew
                                        "--no-pager",
                                        "--no-legend")
         end.chomp.split("\n").filter_map do |svc|
-          Regexp.last_match(0) if svc =~ /homebrew(?>\.mxcl)?\.([\w+-.@]+)/
+          svc[/homebrew(?>\.mxcl)?\.([\w+-.@]+)/]&.delete_suffix(".service")
         end
       end
 

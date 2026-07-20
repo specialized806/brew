@@ -39,7 +39,7 @@ RSpec.describe Homebrew::Services::Cli do
         udisks2.service          loaded active running Disk Manager
         user@1000.service        loaded active running User Manager for UID 1000
       EOS
-      expect(services_cli.running).to eq(["homebrew.php.service"])
+      expect(services_cli.running).to eq(["homebrew.php"])
     end
   end
 
