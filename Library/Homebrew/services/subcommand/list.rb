@@ -39,8 +39,6 @@ module Homebrew
 
         extend Utils::Output::Mixin
 
-        TRIGGERS = [nil, "list", "ls"].freeze
-
         JSON_FIELDS = [:name, :status, :user, :file, :exit_code].freeze
 
         # Print the JSON representation in the CLI
