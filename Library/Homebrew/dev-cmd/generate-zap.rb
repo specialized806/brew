@@ -89,7 +89,7 @@ module Homebrew
       UUID_PATTERN = /[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}/i
 
       # Keep in sync with `RuboCop::Cop::Cask::SharedFilelistGlob`.
-      SHARED_FILELIST_PATTERN = /\.sfl\d+\z/
+      SHARED_FILELIST_PATTERN = /\.sfl\d\z/
 
       sig { override.void }
       def run
