@@ -283,6 +283,7 @@ RSpec.describe Cask::Caskroom do
           app "Old.app"
         end
       RUBY
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
         "artifacts" => [{ "app" => ["Current.app"] }],
       })
@@ -305,6 +306,7 @@ RSpec.describe Cask::Caskroom do
       allow(Cask::CaskLoader).to receive(:load)
         .with(caskfile, warn: false)
         .and_raise(MethodDeprecatedError.new)
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
         "artifacts" => [{ "app" => ["Current.app"] }],
       })
@@ -362,6 +364,7 @@ RSpec.describe Cask::Caskroom do
     it "replaces malformed installed JSON using API metadata" do
       token = "malformed-json"
       caskfile = write_installed_caskfile(token, "{", extension: "json")
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
         "artifacts" => [{ "app" => ["Current.app"] }],
       })
@@ -376,6 +379,7 @@ RSpec.describe Cask::Caskroom do
     it "replaces invalid artifact data in installed JSON using API metadata" do
       token = "invalid-artifacts"
       caskfile = write_installed_caskfile(token, JSON.generate({ "artifacts" => ["invalid"] }), extension: "json")
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
         "artifacts" => [{ "app" => ["Current.app"] }],
       })
@@ -394,6 +398,19 @@ RSpec.describe Cask::Caskroom do
       described_class.migrate_caskfile_to_json(caskfile)
 
       expect(JSON.parse(caskfile.read)).to eq({ "artifacts" => [] })
+    end
+
+    it "does not mark unavailable artifacts as intentionally empty" do
+      token = "removed-cask"
+      caskfile = write_installed_caskfile(token, "{}", extension: "json")
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(false)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(
+        ErrorDuringExecution.new(["curl"], status: 22),
+      )
+
+      described_class.migrate_caskfile_to_json(caskfile)
+
+      expect(JSON.parse(caskfile.read)).to eq({})
     end
   end
 

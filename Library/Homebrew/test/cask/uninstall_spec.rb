@@ -188,6 +188,37 @@ RSpec.describe Cask::Uninstall, :cask do
         expect(caskroom_path).not_to exist
       end
     end
+
+    context "when a removed Cask has incomplete installed metadata" do
+      let(:token) { "removed-cask" }
+      let(:caskroom_path) { Cask::Caskroom.path.join(token) }
+      let(:saved_caskfile) do
+        caskroom_path.join(".metadata", "1.0", "20250101000000.000", "Casks", "#{token}.json")
+      end
+
+      before do
+        saved_caskfile.dirname.mkpath
+        saved_caskfile.write("{}")
+        allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(false)
+        allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(
+          ErrorDuringExecution.new(["curl"], status: 22),
+        )
+      end
+
+      it "removes Homebrew's records and warns that installed files may remain" do
+        expect do
+          described_class.uninstall_casks(Cask::Cask.new(token))
+        end.to output(/files installed by the Cask may remain/).to_stderr
+
+        expect(caskroom_path).not_to exist
+      end
+
+      it "does not warn when uninstalling as part of an upgrade" do
+        expect do
+          Cask::Installer.new(Cask::Cask.new(token), upgrade: true).uninstall(successor: Cask::Cask.new(token))
+        end.not_to output(/files installed by the Cask may remain/).to_stderr
+      end
+    end
   end
 
   describe ".check_dependent_casks" do

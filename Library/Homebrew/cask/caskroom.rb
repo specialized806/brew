@@ -115,6 +115,9 @@ module Cask
       # Preserve the original version and artifacts whenever the receipt cannot reproduce them.
       version = cask.version.to_s
       json_uninstall_artifacts = JSON.parse(JSON.generate(cask.artifacts_list(uninstall_only: true)))
+      # Keep missing artifacts distinguishable from an intentional empty artifact list.
+      return if source_artifacts.nil? && tab.uninstall_artifacts.blank? && json_uninstall_artifacts.empty?
+
       installed_json = cask.to_installed_json_hash
       installed_json["url_specs"] ||= source_url_specs if source_url_specs
       if tab.uninstall_artifacts.presence != json_uninstall_artifacts

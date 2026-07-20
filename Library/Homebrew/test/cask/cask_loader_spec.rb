@@ -225,6 +225,7 @@ RSpec.describe Cask::CaskLoader, :cask do
     before { caskfile.write("{}") }
 
     it "falls back to the API for missing artifacts by default" do
+      allow(Homebrew::API).to receive(:cask_token?).with("stubbed").and_return(true)
       expect(Homebrew::API::Cask).to receive(:cask_json).with("stubbed").and_return(
         "artifacts" => [{ "app" => ["Stubbed.app"] }],
       )
@@ -566,7 +567,39 @@ RSpec.describe Cask::CaskLoader, :cask do
   end
 
   describe "::resolve_installed_artifacts" do
+    before { allow(Homebrew::API).to receive(:cask_token?).and_return(true) }
+
+    it "does not request API metadata for a removed cask" do
+      token = "removed-cask"
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(false)
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
+    end
+
+    it "falls back to API artifacts when the membership check fails" do
+      token = "unavailable-membership"
+      api_artifacts = [{ "app" => ["API.app"] }]
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_raise(
+        ErrorDuringExecution.new(["curl"], status: 22),
+      )
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => api_artifacts })
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq(api_artifacts)
+    end
+
+    it "returns empty artifacts when the API download fails" do
+      token = "unavailable"
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(
+        ErrorDuringExecution.new(["curl"], status: 22),
+      )
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
+    end
+
     it "returns empty artifacts when the API cannot be loaded" do
+      allow(Homebrew::API).to receive(:cask_token?).with("unavailable").and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with("unavailable").and_raise(SystemExit.new(1))
 
       expect(described_class.resolve_installed_artifacts("unavailable", nil)).to eq([])
@@ -575,6 +608,8 @@ RSpec.describe Cask::CaskLoader, :cask do
     it "falls back to API artifacts when tap lookup is ambiguous" do
       token = "ambiguous"
       api_artifacts = [{ "app" => ["API.app"] }]
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(nil)
       allow(Cask::CaskLoader::FromNameLoader).to receive(:try_new)
         .with(token, warn: false)
         .and_raise(Cask::TapCaskAmbiguityError.new(token, []))

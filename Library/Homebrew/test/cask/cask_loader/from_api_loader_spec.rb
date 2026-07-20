@@ -183,6 +183,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       token = "url-less-installed-cask"
       caskroom = mktmpdir
       allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => [] })
       path = caskroom/token/".metadata/latest/20260713000000.000/Casks/#{token}.json"
       cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
@@ -197,6 +198,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       token = "receipt-less-installed-cask"
       caskroom = mktmpdir
       allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
         "artifacts" => [
           { "app" => ["Receipt-less.app"] },
