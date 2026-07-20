@@ -2202,7 +2202,7 @@ Enable checking multiple casks with ExtractPlist strategy\.
 .TP
 \fB\-\-autobump\fP
 Include packages that are autobumped by BrewTestBot\. By default these are skipped\.
-.SS "\fBprof\fP \fR[\fB\-\-stackprof\fP] \fR[\fB\-\-vernier\fP] \fIcommand\fP \fR[\.\.\.]"
+.SS "\fBprof\fP \fR[\fIoptions\fP] \fIcommand\fP \fR[\.\.\.]"
 Run Homebrew with a Ruby profiler\. For example, \fBbrew prof readall\fP\&\.
 .TP
 \fB\-\-stackprof\fP
@@ -2210,6 +2210,9 @@ Use \fBstackprof\fP instead of \fBruby\-prof\fP (the default)\.
 .TP
 \fB\-\-vernier\fP
 Use \fBvernier\fP instead of \fBruby\-prof\fP (the default)\.
+.TP
+\fB\-\-timings\fP
+Record machine\-readable timings for Homebrew command phases\.
 .SS "\fBrubocop\fP"
 Installs, configures and runs Homebrew\[u2019]s \fBrubocop\fP\&\.
 .SS "\fBruby\fP \fR[\fIoptions\fP] (\fB\-e\fP \fItext\fP|\fIfile\fP)"

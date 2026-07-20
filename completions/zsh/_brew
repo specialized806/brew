@@ -1986,9 +1986,10 @@ _brew_prof() {
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
-    '--stackprof[Use `stackprof` instead of `ruby-prof` (the default)]' \
+    '(--timings)--stackprof[Use `stackprof` instead of `ruby-prof` (the default)]' \
+    '(--stackprof --vernier)--timings[Record machine-readable timings for Homebrew command phases]' \
     '--verbose[Make some output more verbose]' \
-    '--vernier[Use `vernier` instead of `ruby-prof` (the default)]' \
+    '(--timings)--vernier[Use `vernier` instead of `ruby-prof` (the default)]' \
     - command \
     '*:command:__brew_commands'
 }

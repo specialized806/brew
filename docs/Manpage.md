@@ -3484,7 +3484,7 @@ set or `~/.homebrew/livecheck_watchlist.txt` otherwise.
 : Include packages that are autobumped by BrewTestBot. By default these are
   skipped.
 
-### `prof` \[`--stackprof`\] \[`--vernier`\] *`command`* \[...\]
+### `prof` \[*`options`*\] *`command`* \[...\]
 
 Run Homebrew with a Ruby profiler. For example, `brew prof readall`.
 
@@ -3495,6 +3495,10 @@ Run Homebrew with a Ruby profiler. For example, `brew prof readall`.
 `--vernier`
 
 : Use `vernier` instead of `ruby-prof` (the default).
+
+`--timings`
+
+: Record machine-readable timings for Homebrew command phases.
 
 ### `rubocop`
 
