@@ -851,14 +851,21 @@ module Cask
         elsif tap_loader
           tap_loader.load(config: nil).artifacts_list(uninstall_only: true)
         end
-      rescue CaskError, MethodDeprecatedError, JSON::ParserError
+      rescue CaskError, MethodDeprecatedError, JSON::ParserError, ErrorDuringExecution, SystemExit
         nil
       end
 
-      # API fetch failures must not abort best-effort installed metadata recovery.
+      # API fetch failures must not abort best-effort installed metadata recovery. Skip the
+      # per-cask endpoint only when the token is definitively absent from the current API;
+      # a membership-check failure is treated as unknown so recovery still tries the endpoint.
       artifacts ||= begin
-        Homebrew::API::Cask.cask_json(token)["artifacts"]
-      rescue SystemExit
+        definitely_absent = begin
+          !Homebrew::API.cask_token?(token)
+        rescue ErrorDuringExecution, SystemExit
+          false
+        end
+        Homebrew::API::Cask.cask_json(token)["artifacts"] unless definitely_absent
+      rescue ErrorDuringExecution, SystemExit
         nil
       end
       artifacts ||= []

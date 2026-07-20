@@ -66,6 +66,7 @@ module Cask
       @ran_prelude_fetch = T.let(false, T::Boolean)
       @ran_prelude = T.let(false, T::Boolean)
       @cask_and_formula_dependencies = T.let(nil, T.nilable(T::Array[T.any(Formula, ::Cask::Cask)]))
+      @installed_uninstall_artifacts_missing = T.let(false, T::Boolean)
     end
 
     sig { returns(T::Boolean) }
@@ -545,6 +546,12 @@ on_request: true)
     def uninstall(successor: nil)
       load_installed_caskfile!
       oh1 "Uninstalling Cask #{Formatter.identifier(@cask)}"
+      if !reinstall? && !upgrade? && @installed_uninstall_artifacts_missing && artifacts.empty?
+        opoo <<~EOS
+          No uninstall artifact metadata is available for Cask '#{@cask}'.
+          Homebrew will remove its records, but files installed by the Cask may remain.
+        EOS
+      end
       uninstall_artifacts(clear: true, successor:)
       if !reinstall? && !upgrade?
         remove_tabfile
@@ -956,6 +963,8 @@ on_request: true)
       Migrator.migrate_if_needed(@cask)
 
       installed_caskfile = @cask.installed_caskfile
+      @installed_uninstall_artifacts_missing = installed_caskfile.is_a?(Pathname) &&
+                                               installed_uninstall_artifacts_missing?(installed_caskfile)
 
       if installed_caskfile&.exist?
         tab = CaskLoader.load_installed_tab(@cask)
@@ -1016,6 +1025,16 @@ on_request: true)
     end
 
     private
+
+    sig { params(installed_caskfile: Pathname).returns(T::Boolean) }
+    def installed_uninstall_artifacts_missing?(installed_caskfile)
+      return false unless CaskLoader.installed_json_caskfile?(installed_caskfile)
+
+      installed_json = CaskLoader.load_installed_json(installed_caskfile)
+      return false if installed_json.nil? || installed_json.key?("artifacts")
+
+      CaskLoader.load_installed_tab(@cask).uninstall_artifacts.blank?
+    end
 
     sig { void }
     def check_prelude_requirements

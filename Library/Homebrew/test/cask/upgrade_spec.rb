@@ -687,6 +687,7 @@ RSpec.describe Cask::Upgrade, :cask do
     it "uses the forced upgrade metadata for the next upgrade" do
       receipt_path = local_caffeine.metadata_main_container_path/AbstractTab::FILENAME
       receipt_path.unlink
+      allow(Homebrew::API).to receive(:cask_token?).with("local-caffeine").and_return(true)
       allow(Homebrew::API::Cask).to receive(:cask_json).with("local-caffeine").and_return({
         "artifacts" => [{ "app" => ["Caffeine.app"] }],
       })
