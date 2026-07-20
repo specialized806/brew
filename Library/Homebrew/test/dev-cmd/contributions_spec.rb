@@ -164,7 +164,6 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     command = described_class.new(["--user=alice", "--repositories=Homebrew/untapped"])
     repository = "Homebrew/untapped"
     allow(GitHub).to receive(:search_approved_pull_requests_in_user_or_organisation).and_return([])
-    expect(GitHub).not_to receive(:search_merged_pull_requests_in_user_or_organisation)
     expect(GitHub).to receive(:search_issues)
       .with("", is: "merged", user: "Homebrew", author: "alice", merged: "2026-01-01..2026-01-31")
       .and_return([{ "repository_url" => "#{GitHub::API_URL}/repos/#{repository}" }])
@@ -183,6 +182,35 @@ RSpec.describe Homebrew::DevCmd::Contributions do
 
     expect(results.fetch("alice").fetch(repository)).to eq(
       merged_pr_author: 1, merged_pr_merger: 0, merged_pr: 1, approved_pr_review: 0, coauthor: 0,
+    )
+  end
+
+  it "counts authored squash-merged PRs in repositories with local Git history" do
+    command = described_class.new(["--user=alice", "--repositories=Homebrew/homebrew-core"])
+    repository = "Homebrew/homebrew-core"
+    repository_refs = { repository => [Pathname("/Homebrew/homebrew-core"), "origin/HEAD"] }
+    git_counts = { merged_pr_author: 1, merged_pr_merger: 0, merged_pr: 1, approved_pr_review: 0, coauthor: 0 }
+    allow(Utils).to receive(:safe_popen_read).and_return("git log")
+    allow(command).to receive(:parse_git_log).and_return("alice" => git_counts)
+    allow(GitHub).to receive(:search_approved_pull_requests_in_user_or_organisation).and_return([])
+    expect(GitHub).to receive(:search_issues)
+      .with("", is: "merged", user: "Homebrew", author: "alice", merged: "2026-01-01..2026-01-31")
+      .and_return(Array.new(2) { { "repository_url" => "#{GitHub::API_URL}/repos/#{repository}" } })
+
+    results = command.send(
+      :scan_contributions,
+      "Homebrew",
+      [repository],
+      repository_refs,
+      { "alice" => "alice" },
+      from:                     "2026-01-01",
+      to:                       "2026-02-01",
+      skip_reviews_if_lead_met: false,
+      progress:                 false,
+    )
+
+    expect(results.fetch("alice").fetch(repository)).to eq(
+      merged_pr_author: 2, merged_pr_merger: 0, merged_pr: 2, approved_pr_review: 0, coauthor: 0,
     )
   end
 
@@ -230,6 +258,9 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     }
     allow(Utils).to receive(:safe_popen_read).and_return("")
     allow(command).to receive(:parse_git_log).and_return("alice" => counts)
+    allow(GitHub).to receive(:search_issues)
+      .with("", is: "merged", user: "Homebrew", author: "alice", merged: "2025-12-01..2026-02-28")
+      .and_return([])
     expect(GitHub).not_to receive(:search_approved_pull_requests_in_user_or_organisation)
 
     expect(command.send(
@@ -257,6 +288,9 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     allow(command).to receive(:parse_git_log) do |output, _|
       { "alice" => (output == "cask") ? no_contributions.merge(coauthor: 500) : no_contributions.dup }
     end
+    allow(GitHub).to receive(:search_issues)
+      .with("", is: "merged", user: "Homebrew", author: "alice", merged: "2025-12-01..2026-02-28")
+      .and_return([])
     allow(GitHub).to receive(:search_approved_pull_requests_in_user_or_organisation)
       .with("Homebrew", "alice", from: "2025-12-01", to: "2026-03-01")
       .and_return(Array.new(100) do
@@ -296,6 +330,9 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     allow(command).to receive(:parse_git_log) do
       { "alice" => counts.dup }
     end
+    allow(GitHub).to receive(:search_issues)
+      .with("", is: "merged", user: "Homebrew", author: "alice", merged: "2025-12-01..2026-02-28")
+      .and_return([])
     allow(GitHub).to receive(:search_approved_pull_requests_in_user_or_organisation)
       .with("Homebrew", "alice", from: "2025-12-01", to: "2026-03-01")
       .and_return([

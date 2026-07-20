@@ -435,25 +435,27 @@ module Homebrew
         end
 
         require "utils/github"
-        repositories.difference(repository_refs.keys).then do |remote_repositories|
-          unless remote_repositories.empty?
-            merged_range = "#{from}..#{Date.iso8601(to).prev_day.iso8601}"
-            users.each_key do |user|
-              cache_key = ["merged-at", organisation, user, merged_range].join("\0")
-              merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
-                GitHub.search_issues("", is: "merged", user: organisation, author: user, merged: merged_range)
-              rescue GitHub::API::ValidationFailedError
-                opoo "Couldn't search GitHub for PRs authored by #{user}. Their profile might be private. " \
-                     "Defaulting to 0."
-                []
-              end
-              merged_pull_requests.each do |pull_request|
-                repository = pull_request.fetch("repository_url").delete_prefix("#{GitHub::API_URL}/repos/")
-                next unless remote_repositories.include?(repository)
+        merged_range = "#{from}..#{Date.iso8601(to).prev_day.iso8601}"
+        users.each_key do |user|
+          cache_key = ["merged-at", organisation, user, merged_range].join("\0")
+          merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
+            GitHub.search_issues("", is: "merged", user: organisation, author: user, merged: merged_range)
+          rescue GitHub::API::ValidationFailedError
+            opoo "Couldn't search GitHub for PRs authored by #{user}. Their profile might be private. " \
+                 "Defaulting to 0."
+            []
+          end
+          pull_requests_by_repository = merged_pull_requests.group_by do |pull_request|
+            pull_request.fetch("repository_url").delete_prefix("#{GitHub::API_URL}/repos/")
+          end
+          pull_requests_by_repository.each do |repository, pull_requests|
+            next unless repositories.include?(repository)
 
-                increment_contribution_count(results.fetch(user).fetch(repository), :merged_pr_author)
-                increment_contribution_count(results.fetch(user).fetch(repository), :merged_pr)
-              end
+            counts = results.fetch(user).fetch(repository)
+            additional_authored_prs = [pull_requests.length - counts.fetch(:merged_pr_author), 0].max
+            additional_authored_prs.times do
+              increment_contribution_count(counts, :merged_pr_author)
+              increment_contribution_count(counts, :merged_pr)
             end
           end
         end
