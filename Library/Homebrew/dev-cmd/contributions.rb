@@ -426,14 +426,20 @@ module Homebrew
 
         require "utils/github"
         github_users = users.keys.to_h { |user| [user, github_username_for(user, to:)] }
+        git_authored_pull_requests = users.keys.to_h { |user| [user, {}] }
+        git_merged_pull_requests = users.keys.to_h { |user| [user, {}] }
         repository_refs.each do |repository, (repository_path, ref)|
           require "utils/git"
           output = Utils.safe_popen_read(
             Utils::Git.git, "-C", repository_path, "log", ref, "--since=#{from}", "--before=#{to}",
             "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%B%x1e"
           )
-          parse_git_log(output, users).each do |user, counts|
+          authored_pull_requests = users.keys.to_h { |user| [user, Set.new] }
+          merged_pull_requests = users.keys.to_h { |user| [user, Set.new] }
+          parse_git_log(output, users, authored_pull_requests:, merged_pull_requests:).each do |user, counts|
             results.fetch(user)[repository] = counts
+            git_authored_pull_requests.fetch(user)[repository] = authored_pull_requests.fetch(user)
+            git_merged_pull_requests.fetch(user)[repository] = merged_pull_requests.fetch(user)
           end
         end
 
@@ -452,10 +458,21 @@ module Homebrew
               []
             end
             counts = results.fetch(user).fetch(repository)
-            additional_authored_prs = [merged_pull_requests.length - counts.fetch(:merged_pr_author), 0].max
-            additional_authored_prs.times do
-              increment_contribution_count(counts, :merged_pr_author)
-              increment_contribution_count(counts, :merged_pr)
+            authored_pull_requests = git_authored_pull_requests.fetch(user).fetch(repository, Set.new)
+            merged_pull_request_ids = git_merged_pull_requests.fetch(user).fetch(repository, Set.new)
+            merged_pull_requests.each do |pull_request|
+              number = pull_request["number"]
+              next unless number.is_a?(Integer)
+
+              pull_request_id = number.to_s
+              authored_pull_requests << pull_request_id
+              merged_pull_request_ids << pull_request_id
+            end
+            unless authored_pull_requests.empty?
+              counts[:merged_pr_author] = [authored_pull_requests.length, MAX_CONTRIBUTIONS].min
+            end
+            unless merged_pull_request_ids.empty?
+              counts[:merged_pr] = [merged_pull_request_ids.length, MAX_CONTRIBUTIONS].min
             end
           end
         end
@@ -556,10 +573,15 @@ module Homebrew
       end
 
       sig {
-        params(output: String, users: T::Hash[String, String])
+        params(
+          output:                 String,
+          users:                  T::Hash[String, String],
+          authored_pull_requests: T.nilable(T::Hash[String, T::Set[String]]),
+          merged_pull_requests:   T.nilable(T::Hash[String, T::Set[String]]),
+        )
           .returns(T::Hash[String, T::Hash[Symbol, Integer]])
       }
-      def parse_git_log(output, users)
+      def parse_git_log(output, users, authored_pull_requests: nil, merged_pull_requests: nil)
         counts = users.to_h do |user, _|
           [user, CONTRIBUTION_TYPES.keys.to_h { |type| [type, 0] }]
         end
@@ -612,15 +634,23 @@ module Homebrew
           end
 
           parents = parents_string.split
-          source_owner = body[%r{\AMerge pull request #\d+ from ([^/\s]+)/}, 1]
-          next if parents.length < 2 || source_owner.nil?
+          pull_request = body.match(%r{\AMerge pull request #(\d+) from ([^/\s]+)/})
+          next if parents.length < 2 || pull_request.nil?
 
           merger = user_for_git_identity(author_name, author_email, identity_users)
+          pull_request_id = pull_request[1]
+          source_owner = pull_request[2]
+          next if pull_request_id.nil? || source_owner.nil?
+
           author = identity_users[source_owner.downcase] || commit_authors[parents.fetch(1)]
-          increment_contribution_count(counts.fetch(author), :merged_pr_author) if author
+          if author
+            increment_contribution_count(counts.fetch(author), :merged_pr_author)
+            authored_pull_requests&.fetch(author)&.add(pull_request_id)
+          end
           increment_contribution_count(counts.fetch(merger), :merged_pr_merger) if merger
           [author, merger].compact.uniq.each do |user|
             increment_contribution_count(counts.fetch(user), :merged_pr)
+            merged_pull_requests&.fetch(user)&.add(pull_request_id)
           end
         end
 
