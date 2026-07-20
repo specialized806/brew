@@ -274,6 +274,64 @@ RSpec.describe Cask::Caskroom do
       ])
     end
 
+    it "treats reordered receipt artifacts as equivalent" do
+      token = "reordered-artifacts"
+      caskfile = write_installed_caskfile(token, <<~RUBY)
+        cask "#{token}" do
+          version "1.0"
+          font "Font0.ttf"
+          font "Font1.ttf"
+          font "Font2.ttf"
+          font "Font3.ttf"
+          font "Font4.ttf"
+          font "Font5.ttf"
+          font "Font6.ttf"
+          font "Font7.ttf"
+        end
+      RUBY
+      artifacts = Array.new(8) { |i| { "font" => ["Font#{i}.ttf"] } }
+      write_receipt(token, artifacts)
+
+      described_class.migrate_caskfile_to_json(caskfile)
+
+      json_caskfile = caskfile.sub_ext(".json")
+      expect([caskfile.exist?, JSON.parse(json_caskfile.read)]).to eq([false, {}])
+    end
+
+    it "restores original metadata when migrated artifact multiplicity differs" do
+      token = "changed-artifacts"
+      caskfile = write_installed_caskfile(token, <<~RUBY)
+        cask "#{token}" do
+          version "1.0"
+          font "Duplicate.ttf"
+          font "Duplicate.ttf"
+        end
+      RUBY
+      original_contents = caskfile.read
+      json_caskfile = caskfile.sub_ext(".json")
+      migrated_cask = instance_double(
+        Cask::Cask,
+        version:        "1.0",
+        artifacts_list: [{ font: ["Duplicate.ttf"] }],
+      )
+      allow(Cask::CaskLoader).to receive(:load_from_installed_caskfile)
+        .with(json_caskfile, api_fallback: false)
+        .and_return(migrated_cask)
+
+      error = T.let(nil, T.nilable(RuntimeError))
+      begin
+        described_class.migrate_caskfile_to_json(caskfile)
+      rescue RuntimeError => e
+        error = e
+      end
+
+      expect([error&.message, caskfile.read, json_caskfile.exist?]).to eq([
+        "migrated Cask metadata differs from the original after preserving version and artifacts",
+        original_contents,
+        false,
+      ])
+    end
+
     it "uses API metadata when a Ruby caskfile contains a removed method" do
       token = "removed-method"
       caskfile = write_installed_caskfile(token, <<~RUBY)

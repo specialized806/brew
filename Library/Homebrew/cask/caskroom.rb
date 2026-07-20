@@ -120,7 +120,8 @@ module Cask
 
       installed_json = cask.to_installed_json_hash
       installed_json["url_specs"] ||= source_url_specs if source_url_specs
-      if tab.uninstall_artifacts.presence != json_uninstall_artifacts
+      receipt_artifacts = tab.uninstall_artifacts.presence
+      if receipt_artifacts.nil? || !artifacts_equivalent?(receipt_artifacts, json_uninstall_artifacts)
         installed_json["artifacts"] = json_uninstall_artifacts
       end
       installed_json["version"] = version if caskfile.dirname.dirname.dirname.basename.to_s != version
@@ -133,8 +134,9 @@ module Cask
         # Only durable on-disk data may satisfy this check: the API fallback would mask a
         # migrated caskfile that lost its artifacts for as long as the API definition matches.
         migrated_cask = CaskLoader.load_from_installed_caskfile(json_caskfile, api_fallback: false)
+        migrated_artifacts = JSON.parse(JSON.generate(migrated_cask.artifacts_list(uninstall_only: true)))
         if migrated_cask.version.to_s != version ||
-           JSON.parse(JSON.generate(migrated_cask.artifacts_list(uninstall_only: true))) != json_uninstall_artifacts
+           !artifacts_equivalent?(migrated_artifacts, json_uninstall_artifacts)
           raise "migrated Cask metadata differs from the original after preserving version and artifacts"
         end
       rescue
@@ -147,6 +149,12 @@ module Cask
       end
       caskfile.unlink if caskfile != json_caskfile
     end
+
+    sig { params(first: T::Array[T.anything], second: T::Array[T.anything]).returns(T::Boolean) }
+    def self.artifacts_equivalent?(first, second)
+      first.tally == second.tally
+    end
+    private_class_method :artifacts_equivalent?
 
     # Return tokens for Caskroom directories missing expected installed metadata.
     sig { returns(T::Array[String]) }
