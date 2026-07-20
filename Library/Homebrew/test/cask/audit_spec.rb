@@ -520,6 +520,32 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "artifact extraction" do
+      let(:online) { true }
+      let(:cask) do
+        Cask::Cask.new("artifact-extraction") do
+          version "1.0"
+          sha256 :no_check
+          url "https://brew.sh/artifact-extraction.tar.gz"
+          binary "artifact-extraction"
+        end
+      end
+
+      it "skips quarantine detection when quarantine support is unavailable" do
+        downloaded_path = Pathname("/tmp/artifact-extraction.tar.gz")
+        container = instance_double(UnpackStrategy, dependencies: [], extract_nestedly: nil)
+        allow(audit.download).to receive(:fetch).and_return(downloaded_path)
+        allow(UnpackStrategy).to receive(:detect).and_return(container)
+        allow(ObjectSpace).to receive(:define_finalizer)
+        allow(Cask::Installer).to receive(:new)
+          .and_return(instance_double(Cask::Installer, process_rename_operations: nil))
+        allow(Cask::Quarantine).to receive(:available?).and_return(false)
+        expect(Cask::Quarantine).not_to receive(:detect)
+
+        audit.send(:extract_artifacts)
+      end
+    end
+
     describe "livecheck version validation", :no_api do
       let(:only) { ["livecheck_version"] }
       let(:online) { true }

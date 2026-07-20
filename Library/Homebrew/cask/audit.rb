@@ -686,7 +686,9 @@ module Cask
 
       # Propagate quarantine attributes from the downloaded file to extracted contents.
       # This is necessary because some extraction tools (like 7zr) don't preserve xattrs.
-      Quarantine.propagate(from: downloaded_path, to: @tmpdir) if Quarantine.detect(downloaded_path)
+      if Quarantine.available? && Quarantine.detect(downloaded_path)
+        Quarantine.propagate(from: downloaded_path, to: @tmpdir)
+      end
 
       # Process rename operations after extraction
       # Create a temporary installer to process renames in the audit directory
