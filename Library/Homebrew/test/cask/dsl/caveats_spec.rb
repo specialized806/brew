@@ -207,7 +207,7 @@ RSpec.describe Cask::DSL::Caveats, :cask do
       expected_caveats_str = <<~EOS
         Cask #{cask} installs files under /usr/local. The presence of such
         files can cause warnings when running `brew doctor`, which is considered
-        to be a bug in Homebrew Cask.
+        to be a bug in Homebrew's cask handling.
       EOS
 
       caveats.eval_caveats do

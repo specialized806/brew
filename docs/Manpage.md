@@ -4223,9 +4223,9 @@ can take several different forms:
 
 ## SPECIFYING CASKS
 
-Many Homebrew Cask commands accept one or more *`cask`* arguments. These can be
-specified the same way as the *`formula`* arguments described in `SPECIFYING
-FORMULAE` above.
+Many commands that work with casks accept one or more *`cask`* arguments. These
+can be specified the same way as the *`formula`* arguments described in
+`SPECIFYING FORMULAE` above.
 
 ## ENVIRONMENT
 

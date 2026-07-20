@@ -428,7 +428,7 @@ RSpec.describe Cask::Audit, :cask do
 
     describe "pkg allow_untrusted checks" do
       let(:only) { ["untrusted_pkg"] }
-      let(:message) { "allow_untrusted is not permitted in official Homebrew Cask taps" }
+      let(:message) { "allow_untrusted is not permitted in the official homebrew/cask tap" }
 
       context "when the Cask has no pkg stanza" do
         let(:cask_token) { "basic-cask" }

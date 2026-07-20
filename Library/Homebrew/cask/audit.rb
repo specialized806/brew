@@ -162,7 +162,7 @@ module Cask
 
       return if cask.artifacts.none? { |k| k.is_a?(Artifact::Pkg) && k.stanza_options.key?(:allow_untrusted) }
 
-      add_error "allow_untrusted is not permitted in official Homebrew Cask taps"
+      add_error "allow_untrusted is not permitted in the official homebrew/cask tap"
     end
 
     sig { void }
