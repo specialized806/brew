@@ -42,6 +42,24 @@ RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
     CASK
   end
 
+  it "orders `appimage` after `app`" do
+    expect_offense <<~CASK
+      cask 'foo' do
+        appimage 'Foo.AppImage'
+        ^^^^^^^^^^^^^^^^^^^^^^^ `appimage` stanza out of order
+        app 'Foo.app'
+        ^^^^^^^^^^^^^ `app` stanza out of order
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask 'foo' do
+        app 'Foo.app'
+        appimage 'Foo.AppImage'
+      end
+    CASK
+  end
+
   it "orders legacy flight blocks after matching install step blocks" do
     expect_offense <<~CASK
       cask 'foo' do
