@@ -56,7 +56,7 @@ Casks distribute applications and other pre-built files published by the upstrea
 Open-source command-line-only software normally belongs in [`homebrew/core`](https://github.com/Homebrew/homebrew-core) as a formula built from source.
 Open-source graphical software without a current compiled distribution also normally belongs in `homebrew/core`.
 A rejection from `homebrew/core` does not by itself make the software eligible for `homebrew/cask`.
-The [Adding Software to Homebrew](Adding-Software-to-Homebrew.md) guide describes the distinction between formulae and casks.
+The [Adding Software to Homebrew](Adding-Software-to-Homebrew.md#choose-a-package-type) guide describes the distinction between formulae and casks.
 
 ### Verifiable upstream distribution
 
