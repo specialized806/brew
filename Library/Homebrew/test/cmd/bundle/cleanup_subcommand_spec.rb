@@ -527,19 +527,18 @@ RSpec.describe Homebrew::Cmd::Bundle::CleanupSubcommand do
         .and output(output_pattern).to_stdout
     end
 
-    it "prompts and cleans up when asking" do
-      allow($stdin).to receive_messages(getch: "y", tty?: true)
-      allow($stdout).to receive(:tty?).and_return(true)
+    it "cleans up without suggesting --force when it prompts" do
+      allow(Homebrew::Ask).to receive(:confirm?).with(action: "cleanup").and_return(true)
       allow(Homebrew::Bundle).to receive(:mark_as_installed_on_request!)
       allow(Kernel).to receive(:system)
       allow(described_class).to receive(:system_output_no_stderr).and_return("")
-      expect(Formatter).to receive(:columns).with(%w[a b]).exactly(5).times.and_return("a b")
+      allow(Formatter).to receive(:columns).with(%w[a b]).and_return("a b")
       expect(Kernel).to receive(:system).with(HOMEBREW_BREW_FILE, "uninstall", "--cask", "--force", "a", "b")
       expect(Kernel).to receive(:system).with(HOMEBREW_BREW_FILE, "uninstall", "--formula", "--force", "a", "b")
       expect(Kernel).to receive(:system).with(HOMEBREW_BREW_FILE, "untap", "a", "b")
       expect(Homebrew::Cleanup).to receive(:dry_run_output).and_return("")
 
-      expect { described_class.cleanup(ask: true) }.not_to raise_error
+      expect { described_class.cleanup(ask: true) }.not_to output(/Run .brew bundle cleanup --force/).to_stdout
     end
   end
 

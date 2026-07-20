@@ -23,7 +23,7 @@ module Homebrew
 
             This workflow is useful for maintainers or testers who regularly install lots of formulae.
 
-            Unless `--force` is passed, this returns a 1 exit code if anything would be removed.
+            Unless `--force` is passed, this prompts before removing anything and returns a 1 exit code if the prompt is declined or cannot be shown.
           EOS
           named_args :none
           switch "--install",
@@ -211,13 +211,17 @@ module Homebrew
             end
 
             would_cleanup = Cleanup.printed_dry_run_output?(Cleanup.dry_run_output)
+            would_change = would_uninstall || would_cleanup
 
-            puts "Run `brew bundle cleanup --force` to make these changes." if would_uninstall || would_cleanup
-            if ask && (would_uninstall || would_cleanup) && Homebrew::Ask.confirm?(action: "cleanup")
+            # `Ask.confirm?` only prints a prompt on a TTY; when it does, don't
+            # also tell the user to rerun with `--force`.
+            if ask && would_change && Homebrew::Ask.confirm?(action: "cleanup")
               cleanup(global:, file:, force: true, zap:, dsl: @dsl, formulae: cleanup_formulae, casks: cleanup_casks,
                       taps: cleanup_taps, extension_types:)
               return
             end
+
+            puts "Run `brew bundle cleanup --force` to make these changes." if would_change
             exit 1 if would_uninstall
           end
         end
