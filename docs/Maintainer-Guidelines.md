@@ -17,7 +17,7 @@ All Homebrew maintainers are encouraged to contribute to all parts of the projec
 - Linux maintainers: this team maintains the [`Homebrew/homebrew-core`](https://github.com/Homebrew/homebrew-core) repository on Linux.
 - Cask maintainers: this team maintains the [`Homebrew/homebrew-cask`](https://github.com/Homebrew/homebrew-cask) repository. See the [Homebrew/homebrew-cask Maintainer Guide](Homebrew-homebrew-cask-Maintainer-Guide.md) for more details about being a cask maintainer.
 
-These documents are meant to serve as guiding principles. As a maintainer, you can make a call to either request changes from a contributor or help them out based on their comfort and previous contributions. Remember, as a team we [Prioritise Maintainers Over Users](Maintainers-Avoiding-Burnout.md) to avoid burnout. If you wish to change or discuss any of the guidelines: open a PR to suggest a change.
+These documents are meant to serve as guiding principles. As a maintainer, you can make a call to either request changes from a contributor or help them out based on their comfort and previous contributions. Remember, as a team we [prioritise maintainers over users](Maintainers-Avoiding-Burnout.md#3-prioritise-maintainers-over-users) to avoid burnout. If you wish to change or discuss any of the guidelines, open a PR to suggest a change.
 
 ## Reviewing PRs
 
@@ -32,7 +32,7 @@ When reviewing a PR, use "approve", "approve with comments", "comment" or "reque
 - 🚫 Request changes: a last resort.
   - When reviewing non-maintainers' PRs: this means "these changes must be made before this PR should be merged by anyone".
     Other maintainers can dismiss this review when these changes have been made.
-  - When reviewing others maintainers' PRs: this is to be avoided whenever possible.
+  - When reviewing other maintainers' PRs: this is to be avoided whenever possible.
     - Save it for "if this PR is merged before I personally have had a chance to ✅ approve it: it seems very likely to cause user-visible problems".
     - It may be used by the Project Leader for "this functionality is not acceptable in Homebrew".
       In that case: additional code changes should be held off until there's agreement that the functionality is acceptable.
@@ -62,12 +62,12 @@ Homebrew aims to be the missing package manager for macOS (and Linux). Its prima
 ## Common “gotchas”
 
 1. [Ensure you have set your username and email address properly](https://help.github.com/articles/setting-your-email-in-git/)
-2. Sign off cherry-picks if you amended them (use `git -s`)
+2. Sign off cherry-picks if you amended them (use `git commit --amend --signoff`)
 3. If your commit fixes a bug, use [issue linking syntax](https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue) (e.g. “Fixes \#104”) to close the bug report and link back to the commit
 
 ### Add comments
 
-It may be enough to refer to an issue ticket, but make sure changes and context are clear enough so that anyone reading them for the first time can make sense of them. You don't want code you wrote to be removed because the someone new doesn’t understand why it’s there. Regressions suck.
+It may be enough to refer to an issue ticket, but make sure changes and context are clear enough so that anyone reading them for the first time can make sense of them. You don't want code you wrote to be removed because someone new doesn’t understand why it’s there. Regressions are frustrating.
 
 This also applies to issue and PR bodies. Be as explicit as possible. If a pull request is part of a larger initiative: link to a relevant tracking issue. If there isn't a tracking issue yet: create one to improve communication and get consensus.
 
@@ -75,7 +75,8 @@ This also applies to issue and PR bodies. Be as explicit as possible. If a pull 
 
 Amend a cherry-pick to remove commits that are only changes in whitespace. They are not acceptable because our history is important and `git blame` should be useful.
 
-Whitespace corrections (to Ruby standard etc.) are allowed (in fact this is a good opportunity to do it) provided the line itself has some kind of modification that is more than just whitespace changes. But be careful about making changes to inline patches—make sure they still apply.
+Whitespace corrections to match Ruby style are allowed when the line already has a substantive modification.
+Be careful when changing inline patches; make sure they still apply.
 
 ### Closing issues/PRs
 
