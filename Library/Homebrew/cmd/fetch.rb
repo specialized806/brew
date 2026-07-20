@@ -312,7 +312,7 @@ module Homebrew
             rescue Cask::CaskInvalidError, Cask::CaskUnreadableError
               raise unless cask.on_system_blocks_exist?
             end
-            if loaded_cask.nil?
+            if loaded_cask.nil? || loaded_cask.depends_on.arch&.none? { |dep_arch| dep_arch[:type] == arch }
               opoo "Cask #{cask} is not supported on os #{os} and arch #{arch}"
               next
             end
