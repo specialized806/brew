@@ -265,7 +265,7 @@ class Sandbox
     require "trust"
 
     home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
-    if [
+    readable_paths = [
       HOMEBREW_PREFIX,
       HOMEBREW_REPOSITORY,
       HOMEBREW_CACHE,
@@ -276,10 +276,11 @@ class Sandbox
       ENV.fetch("RUNNER_TEMP", nil),
       Homebrew::Trust.trust_file,
       *home_write_paths.select { |path| File.exist?(path) },
-    ].compact.any? do |path|
+    ].compact.flat_map do |path|
       path = Pathname(path)
-      [path.expand_path, (path.realpath if path.exist?)].compact.any? { |pathname| pathname.ascend.include?(home) }
+      [path.expand_path, (path.realpath if path.exist?)].compact
     end
+    if readable_paths.any? { |path| path.ascend.include?(home) }
       # When Homebrew or CI needs some `$HOME` paths to stay readable, deny only
       # well-known credential and personal-data paths instead of enumerating all
       # of `$HOME`.
@@ -363,7 +364,20 @@ class Sandbox
         next unless path.exist?
 
         path = path.realpath
-        deny_read_path path if path.ascend.include?(home)
+        next unless path.ascend.include?(home)
+
+        if (readable_path = readable_paths.find { |required_path| required_path.ascend.include?(path) })
+          opoo <<~EOS
+            The sandbox cannot prevent formulae from reading:
+              #{path}
+            because this required path is inside it:
+              #{readable_path}
+            Formulae may access personal data in this directory.
+          EOS
+          next
+        end
+
+        deny_read_path path
       rescue Errno::ENOENT
         nil
       end

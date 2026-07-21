@@ -363,6 +363,31 @@ RSpec.describe Sandbox do
       expect(denied).not_to include(*allowed_dirs.map { |path| path.realpath.to_s })
     end
 
+    it "keeps Homebrew readable inside a sensitive home path" do
+      stub_const("HOMEBREW_PREFIX", home/"Documents/homebrew")
+      [HOMEBREW_PREFIX, home/".ssh"].each(&:mkpath)
+
+      sandbox.deny_read_home
+
+      denied = sandbox.send(:profile).rules.map { |rule| rule.filter&.path }
+      expect(denied).to contain_exactly((home/".ssh").realpath.to_s)
+    end
+
+    it "warns when Homebrew is inside a sensitive home path" do
+      stub_const("HOMEBREW_PREFIX", home/"Documents/homebrew")
+      HOMEBREW_PREFIX.mkpath
+
+      expect(sandbox).to receive(:opoo).with(<<~EOS)
+        The sandbox cannot prevent formulae from reading:
+          #{(home/"Documents").realpath}
+        because this required path is inside it:
+          #{HOMEBREW_PREFIX.realpath}
+        Formulae may access personal data in this directory.
+      EOS
+
+      sandbox.deny_read_home
+    end
+
     it "does not deny arbitrary home entries whose names contain parentheses or backslashes" do
       stub_const("HOMEBREW_LOGS", home/"Library/Logs/Homebrew")
       teams_log = home/"Library/Logs/Microsoft Teams Helper (Renderer)"
