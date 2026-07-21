@@ -122,6 +122,40 @@ RSpec.describe Homebrew::Cmd::List do
       .and not_to_output.to_stderr
   end
 
+  it "prints full names for formulae installed from untrusted taps", :trust_store do
+    tap = Tap.fetch("thirdparty", "foo")
+    formula_path = tap.formula_dir/"untrusted.rb"
+    formula_path.dirname.mkpath
+    formula_path.write <<~RUBY
+      raise "untrusted tap formula evaluated"
+    RUBY
+    keg = HOMEBREW_CELLAR/"untrusted/1.0"
+    (keg/".brew").mkpath
+    (keg/".brew/untrusted.rb").write <<~RUBY
+      raise "installed untrusted formula evaluated"
+    RUBY
+    (keg/AbstractTab::FILENAME).write JSON.generate(source: { tap: tap.name })
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { described_class.new(["--formula", "--full-name", "-1"]).run }
+        .to output("thirdparty/foo/untrusted\n").to_stdout
+        .and not_to_output.to_stderr
+    end
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "continues when an installation receipt is invalid" do
+    install_formula_version "working", "1.0"
+    keg = HOMEBREW_CELLAR/"broken/1.0"
+    keg.mkpath
+    (keg/AbstractTab::FILENAME).write "{"
+
+    expect { described_class.new(["--formula", "--full-name", "-1"]).run }
+      .to output("broken\nworking\n").to_stdout
+      .and output(/Could not identify the tap for broken from its installation receipt/).to_stderr
+  end
+
   describe "filtering by install-on-request status" do
     let(:on_request) do
       formula("on-request") do
