@@ -185,7 +185,7 @@ module Homebrew
 
         user_names.each_key do |username|
           grand_total = grand_totals.fetch(username)
-          greater_than_total = T.let(false, T::Boolean)
+          greater_than_total = T.let(grand_total.fetch(:merged_pr_author_hit_cap, 0).positive?, T::Boolean)
           contributions = CONTRIBUTION_TYPES.keys.filter_map do |type|
             type_count = grand_total[type]
             next if type_count.nil? || type_count.zero?

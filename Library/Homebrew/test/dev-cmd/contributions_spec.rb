@@ -160,6 +160,27 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     CSV
   end
 
+  it "marks capped merged-PR searches with no matching requested repositories as lower bounds" do
+    command = described_class.new([
+      "--user=alice", "--repositories=Homebrew/brew", "--from=2026-01-01", "--to=2026-02-01"
+    ])
+    repository_refs = { "Homebrew/brew" => [Pathname("/Homebrew/brew"), "origin/HEAD"] }
+    results = { "alice" => { "Homebrew/brew" => {
+      merged_pr_author: 0, merged_pr_merger: 0, merged_pr: 0, approved_pr_review: 0, coauthor: 0,
+      merged_pr_author_hit_cap: 1
+    } } }
+
+    allow(command).to receive(:prepare_contribution_repositories)
+      .with(["Homebrew/brew"], required: false)
+      .and_return(repository_refs)
+    allow(command).to receive(:scan_contributions)
+      .with("Homebrew", ["Homebrew/brew"], repository_refs, { "alice" => "alice" },
+            from: "2026-01-01", to: "2026-02-01", skip_reviews_if_lead_met: false, progress: false)
+      .and_return(results)
+
+    expect { command.run }.to output(/alice contributed >=0 times \(total\)/).to_stdout
+  end
+
   it "uses merge dates for repositories without local Git history" do
     command = described_class.new(["--user=alice", "--repositories=Homebrew/untapped"])
     repository = "Homebrew/untapped"
