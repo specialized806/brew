@@ -26,6 +26,15 @@ RSpec.describe Pathname do
         BASH
       end
     end
+
+    it "makes scripts read-only executable" do
+      mktmpdir do |tmpdir|
+        script = tmpdir/"wrapper_script"
+        script.write_env_script "test", TEST: "bar"
+
+        expect(script.stat.mode & 0777).to eq(0555)
+      end
+    end
   end
 
   describe ".env_script_all_files" do

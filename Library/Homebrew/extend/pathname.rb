@@ -350,6 +350,7 @@ class Pathname
       #!/bin/bash
       #{env_export}exec "#{target}" #{args} "$@"
     SH
+    chmod 0555
   end
 
   # Writes a wrapper env script and moves all files to the dst.
