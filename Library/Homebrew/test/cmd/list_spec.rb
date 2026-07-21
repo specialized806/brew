@@ -33,14 +33,18 @@ RSpec.describe Homebrew::Cmd::List do
     Cask::CaskLoader.load(token).tap { |cask| InstallHelper.stub_cask_installation(cask) }
   end
 
+  def bash_list_env
+    {
+      "HOMEBREW_CASKROOM" => Cask::Caskroom.path.to_s,
+      "HOMEBREW_CELLAR"   => HOMEBREW_CELLAR.to_s,
+      "HOMEBREW_LIBRARY"  => HOMEBREW_LIBRARY_PATH.parent.to_s,
+      "HOMEBREW_PREFIX"   => HOMEBREW_PREFIX.to_s,
+    }
+  end
+
   def run_list_bash(env = {})
     stdout, stderr, status = Open3.capture3(
-      {
-        "HOMEBREW_CASKROOM" => Cask::Caskroom.path.to_s,
-        "HOMEBREW_CELLAR"   => HOMEBREW_CELLAR.to_s,
-        "HOMEBREW_LIBRARY"  => HOMEBREW_LIBRARY_PATH.parent.to_s,
-        "HOMEBREW_PREFIX"   => HOMEBREW_PREFIX.to_s,
-      }.merge(env),
+      bash_list_env.merge(env),
       "/bin/bash", "-c", <<~SH,
         source "$1"
 
@@ -110,7 +114,48 @@ RSpec.describe Homebrew::Cmd::List do
     status
   end
 
+  def bash_list_output(argv)
+    Open3.capture3(
+      bash_list_env,
+      "/bin/bash", "-c", 'source "$1" && shift && homebrew-list list "$@"',
+      "bash", (HOMEBREW_LIBRARY_PATH/"list.sh").to_s, *argv
+    )
+  end
+
+  def ruby_list_output(argv)
+    old_stdout = $stdout
+    old_stderr = $stderr
+    $stdout = StringIO.new
+    $stderr = StringIO.new
+    described_class.new(argv).run
+    [$stdout.string, $stderr.string]
+  ensure
+    $stdout = old_stdout
+    $stderr = old_stderr
+  end
+
   it_behaves_like "parseable arguments"
+
+  # The Bash fast path serves bare listings in production while tests usually enter
+  # at the Ruby command, so drift between the two ships silently unless they are
+  # tested against each other.
+  it "matches the Bash fast path against the Ruby command", :cask do
+    install_formula_version "testball", "0.1"
+    install_cask "local-caffeine"
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
+
+    variants = [[], ["-1"], ["--formula"], ["--cask"]]
+    bash_results = variants.map do |argv|
+      stdout, stderr, status = bash_list_output(argv)
+      [argv, status.success?, stdout, stderr]
+    end
+    ruby_results = variants.map do |argv|
+      stdout, stderr = ruby_list_output(argv)
+      [argv, true, stdout, stderr]
+    end
+
+    expect(bash_results).to eq(ruby_results)
+  end
 
   it "prints all installed formulae" do
     formulae.each do |f|
