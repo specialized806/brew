@@ -5125,8 +5125,8 @@ Michka Popoff, Mike McQuaid, Nanda H Krishna, Patrick Linnane, Rui Chen, Ruoyu
 Zhong, Sam Ford, Sean Molenaar and Thierry Moisan.
 
 Homebrew's other Maintainers are Andrew Nesbitt, Anton Melnikov, Caleb Xu, Daeho
-Ro, Douglas Eichelberger, Eric Knibbe, Klaus Hipp, Markus Reiter, Rylan Polster,
-Stefan Baebler and William Woodruff.
+Ro, Douglas Eichelberger, Klaus Hipp, Markus Reiter, Rylan Polster, Stefan
+Baebler and William Woodruff.
 
 ## BUGS
 
