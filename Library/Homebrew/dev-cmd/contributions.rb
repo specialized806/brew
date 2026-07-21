@@ -593,6 +593,10 @@ module Homebrew
       sig { params(user: String, to: String).returns(T.nilable(String)) }
       def github_username_for(user, to:)
         return user unless user.include?("@")
+        if user.end_with?("@users.noreply.github.com")
+          return user.delete_suffix("@users.noreply.github.com").sub(/\A\d+\+/,
+                                                                     "")
+        end
 
         cache_key = ["public-email", user].join("\0")
         matches = github_search_with_rate_limit(cache_key, to:) do

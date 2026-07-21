@@ -298,6 +298,14 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     )
   end
 
+  it "uses the username embedded in a GitHub no-reply email address" do
+    command = described_class.new(["--user=39449589+krehel@users.noreply.github.com"])
+
+    expect(GitHub).not_to receive(:search)
+    expect(command.send(:github_username_for, "39449589+krehel@users.noreply.github.com", to: "2026-02-01"))
+      .to eq("krehel")
+  end
+
   it "counts authored squash-merged PRs in repositories with local Git history" do
     command = described_class.new(["--user=alice", "--repositories=Homebrew/homebrew-core"])
     repository = "Homebrew/homebrew-core"
