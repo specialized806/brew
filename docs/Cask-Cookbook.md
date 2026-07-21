@@ -70,6 +70,7 @@ Having a common order for stanzas makes casks easier to update and parse. Below 
 
     suite
     app
+    appimage
     pkg
     installer
     binary

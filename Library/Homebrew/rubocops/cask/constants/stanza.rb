@@ -40,6 +40,7 @@ module RuboCop
           [
             :suite,
             :app,
+            :appimage,
             :pkg,
             :installer,
             :binary,
