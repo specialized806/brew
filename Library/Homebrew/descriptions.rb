@@ -63,8 +63,8 @@ class Descriptions
 
   # Take search results -- a hash mapping formula names to descriptions -- and
   # print them.
-  sig { void }
-  def print
+  sig { params(show_missing: T::Boolean).void }
+  def print(show_missing: false)
     @descriptions.keys.sort.each do |full_name|
       description = @descriptions[full_name]
       next if description.nil?
@@ -78,9 +78,10 @@ class Descriptions
       display_name = decorate_name(full_name, display_name, description)
       if description.is_a?(Array)
         names = description[0]
-        next if description[1].nil?
+        description = description.fetch(1, nil)
+        next if description.nil? && !show_missing
 
-        description = description.fetch(1)
+        description ||= Formatter.warning("[no description]")
         puts names.present? ? "#{display_name}: (#{names}) #{description}" : "#{display_name}: #{description}"
       else
         puts "#{display_name}: #{description}"
