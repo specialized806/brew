@@ -229,9 +229,12 @@ module Homebrew
             system_command! "ls", args: [*ls_args, HOMEBREW_CELLAR], print_stdout: true
             puts if $stdout.tty? && !args.formula?
           end
-          if !args.formula? && Cask::Caskroom.any_casks_installed?
-            ohai "Casks" if $stdout.tty? && !args.cask?
-            system_command! "ls", args: [*ls_args, Cask::Caskroom.path], print_stdout: true
+          unless args.formula?
+            if Cask::Caskroom.any_casks_installed?
+              ohai "Casks" if $stdout.tty? && !args.cask?
+              system_command! "ls", args: [*ls_args, Cask::Caskroom.path], print_stdout: true
+            end
+            warn_about_broken_caskroom_symlinks
           end
         else
           kegs, casks = args.named.to_kegs_to_casks
@@ -248,6 +251,17 @@ module Homebrew
       end
 
       private
+
+      # A broken symlink in the Caskroom (e.g. a dangling cask rename alias) lists
+      # like an installed cask but cannot load or uninstall, so flag it.
+      sig { void }
+      def warn_about_broken_caskroom_symlinks
+        broken_symlinks = Cask::Caskroom.path.glob("*").select { |child| child.symlink? && !child.exist? }
+        return if broken_symlinks.empty?
+
+        opoo "Broken Caskroom symlinks (`brew cleanup` removes them): " \
+             "#{broken_symlinks.map(&:basename).sort.join(", ")}"
+      end
 
       sig { params(name: String).returns(T.nilable(String)) }
       def pinned_formula_entry(name)
