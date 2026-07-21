@@ -463,5 +463,25 @@ RSpec.describe Sandbox, :needs_linux do
     it "returns the command exit status" do
       expect { sandbox.run "false" }.to raise_error(ErrorDuringExecution)
     end
+
+    it "prevents listing a denied read hierarchy" do
+      denied_dir = mktmpdir
+      FileUtils.touch denied_dir/"secret"
+      sandbox.deny_read_path denied_dir
+
+      expect { sandbox.run "/bin/sh", "-c", 'ls "$1" | grep -q secret', "brew-test", denied_dir }
+        .to raise_error(ErrorDuringExecution)
+    end
+
+    it "prevents executing from a denied read hierarchy" do
+      denied_dir = mktmpdir
+      executable = denied_dir/"secret"
+      executable.write "#!/bin/sh\nexit 0\n"
+      executable.chmod 0755
+      sandbox.deny_read_path denied_dir
+
+      expect { sandbox.run "/bin/sh", "-c", 'exec "$1"', "brew-test", executable }
+        .to raise_error(ErrorDuringExecution)
+    end
   end
 end
