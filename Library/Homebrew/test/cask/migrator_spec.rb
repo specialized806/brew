@@ -78,6 +78,22 @@ RSpec.describe Cask::Migrator do
       end
     end
 
+    context "when the new token is an alias symlink pointing at the old directory" do
+      it "moves the old cask to the new token without copying it into itself" do
+        InstallHelper.stub_cask_installation(old_cask)
+        FileUtils.ln_s "local-caffeine", Cask::Caskroom.path/"local-transmission"
+        rename_old_cask_to_new_cask
+
+        described_class.migrate_if_needed(new_cask)
+
+        expect([
+          old_caskroom_path.symlink?,
+          new_cask.installed_version,
+          (Cask::Caskroom.path/"local-transmission/local-caffeine").exist?,
+        ]).to eq([true, old_cask.version.to_s, false])
+      end
+    end
+
     context "when the new cask is already installed" do
       before do
         Cask::Installer.new(new_cask).install
