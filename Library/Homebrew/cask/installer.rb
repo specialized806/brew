@@ -757,17 +757,14 @@ on_request: true)
       # toplevel staged distribution
       @cask.caskroom_path.rmdir_if_possible unless upgrade?
 
-      # Remove symlinks for renamed casks if they are now broken.
-      @cask.old_tokens.each do |old_token|
-        old_caskroom_path = Caskroom.path/old_token
-        FileUtils.rm old_caskroom_path if old_caskroom_path.symlink? && !old_caskroom_path.exist?
-      end
+      remove_broken_caskroom_symlinks
     end
 
     sig { void }
     def purge_caskroom_path
       odebug "Purging all staged versions of Cask #{@cask}"
       gain_permissions_remove(@cask.caskroom_path)
+      remove_broken_caskroom_symlinks
     end
 
     sig { params(cask_only: T::Boolean).void }
@@ -1025,6 +1022,20 @@ on_request: true)
     end
 
     private
+
+    # Remove Caskroom symlinks (e.g. from cask renames) that removing this cask's
+    # directory has broken, whatever the symlink is named.
+    sig { void }
+    def remove_broken_caskroom_symlinks
+      return unless Caskroom.path.directory?
+
+      Caskroom.path.children.each do |link|
+        next if !link.symlink? || link.exist?
+        next if link.readlink.basename != @cask.caskroom_path.basename
+
+        FileUtils.rm link
+      end
+    end
 
     sig { params(installed_caskfile: Pathname).returns(T::Boolean) }
     def installed_uninstall_artifacts_missing?(installed_caskfile)

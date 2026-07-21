@@ -462,6 +462,21 @@ RSpec.describe Cask::Installer, :cask do
       expect(Cask::Caskroom.path.join("local-caffeine")).not_to be_a_directory
     end
 
+    it "removes Caskroom symlinks the uninstall broke, whatever name they carry" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      alias_link = Cask::Caskroom.path.join("local-caffeine-renamed")
+      unrelated_link = Cask::Caskroom.path.join("alias-of-another-cask")
+      installer = described_class.new(caffeine)
+      installer.install
+      FileUtils.ln_s "local-caffeine", alias_link
+      FileUtils.ln_s "another-cask", unrelated_link
+
+      installer.uninstall
+
+      expect([alias_link.symlink?, unrelated_link.symlink?, Cask::Caskroom.path.join("local-caffeine").exist?])
+        .to eq([false, true, false])
+    end
+
     it "uninstalls all versions if force is set" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
       mutated_version = "#{caffeine.version}.1"
