@@ -4353,12 +4353,12 @@ command execution (e.g. `$(cat file)`).
 
 `HOMEBREW_BOTTLE_DOMAIN`
 
-: Use this URL as the download mirror for bottles. If bottles at that URL are
-  temporarily unavailable, the default bottle domain will be used as a fallback
-  mirror. For example, `export HOMEBREW_BOTTLE_DOMAIN=http://localhost:8080`
-  will cause all bottles to download from the prefix `http://localhost:8080/`.
-  If bottles are not available at `$HOMEBREW_BOTTLE_DOMAIN` they will be
-  downloaded from the default bottle domain.
+: Use this URL as the download mirror for bottles and their manifests. If a
+  bottle or manifest is unavailable at the mirror, the default bottle domain
+  will be used as a fallback. Prefer `$HOMEBREW_ARTIFACT_DOMAIN` for a mirror
+  that transparently proxies all Homebrew downloads. For example, `export
+  HOMEBREW_BOTTLE_DOMAIN=http://localhost:8080` will cause all bottles to
+  download from the prefix `http://localhost:8080/`.
   
   *Default:* `https://ghcr.io/v2/homebrew/core`.
 
@@ -4600,7 +4600,7 @@ command execution (e.g. `$(cat file)`).
 
 : Use this base64 encoded username and password for authenticating with a Docker
   registry proxying GitHub Packages. If set to `none`, no authentication header
-  will be sent. This can be used, if remote `$HOMEBREW_BOTTLE_DOMAIN` does not
+  will be sent. This can be used, if remote `$HOMEBREW_ARTIFACT_DOMAIN` does not
   support any authentication. If `$HOMEBREW_DOCKER_REGISTRY_TOKEN` is set, it
   will be used instead.
 

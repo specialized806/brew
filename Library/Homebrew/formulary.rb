@@ -304,10 +304,10 @@ module Formulary
 
       if formula_struct.bottle?
         bottle do
-          if Homebrew::EnvConfig.bottle_domain == HOMEBREW_BOTTLE_DEFAULT_DOMAIN
-            root_url HOMEBREW_BOTTLE_DEFAULT_DOMAIN
-          else
+          if Homebrew::EnvConfig.bottle_domain_custom?
             root_url Homebrew::EnvConfig.bottle_domain
+          else
+            root_url HOMEBREW_BOTTLE_DEFAULT_DOMAIN
           end
           rebuild formula_struct.bottle_rebuild
           formula_struct.bottle_checksums.each do |args|

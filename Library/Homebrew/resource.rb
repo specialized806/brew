@@ -315,7 +315,7 @@ class Resource
         extra_urls << artifact_url
       end
 
-      if Homebrew::EnvConfig.bottle_domain != HOMEBREW_BOTTLE_DEFAULT_DOMAIN
+      if Homebrew::EnvConfig.bottle_domain_custom?
         tag, filename = url.split("/").last(2)
         extra_urls << "#{Homebrew::EnvConfig.bottle_domain}/glibc-bootstrap/#{tag}/#{filename}"
       end

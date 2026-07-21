@@ -124,6 +124,20 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
+  describe ".bottle_domain_custom?" do
+    it "returns true for a custom bottle domain" do
+      ENV["HOMEBREW_BOTTLE_DOMAIN"] = "https://mirror.example.com"
+
+      expect(env_config.bottle_domain_custom?).to be(true)
+    end
+
+    it "returns false for the default bottle domain" do
+      ENV["HOMEBREW_BOTTLE_DOMAIN"] = HOMEBREW_BOTTLE_DEFAULT_DOMAIN
+
+      expect(env_config.bottle_domain_custom?).to be(false)
+    end
+  end
+
   describe ".cleanup_periodic_full_days" do
     it "returns value if set" do
       ENV["HOMEBREW_CLEANUP_PERIODIC_FULL_DAYS"] = "360"

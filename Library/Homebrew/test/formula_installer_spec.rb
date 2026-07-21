@@ -145,6 +145,60 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#pour" do
+    let(:f) do
+      formula("missing-bottle-tab") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/missing-bottle-tab-1.0.tar.gz"
+
+        bottle do
+          sha256 cellar: :any_skip_relocation,
+                 Utils::Bottles.tag.to_sym => "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
+        end
+      end
+    end
+    let(:installer) { Class.new(described_class).new(f) }
+    let(:downloader) { instance_double(AbstractDownloadStrategy, basename: "missing-bottle-tab", stage: nil) }
+    let(:downloadable) { instance_double(Resource, downloader:) }
+    let(:tab) do
+      instance_double(Tab, changed_files: nil, source: { "versions" => {} }, write: nil).as_null_object
+    end
+    let(:keg) { instance_double(Keg) }
+
+    before do
+      allow(installer).to receive(:downloadable).and_return(downloadable)
+      allow(Utils::Bottles).to receive(:load_tab).with(f).and_return(tab)
+      allow(Tab).to receive(:clear_cache)
+      allow(Keg).to receive(:new).with(f.prefix).and_return(keg)
+      allow(keg).to receive(:replace_placeholders_with_locations)
+      allow(f.bottle_specification).to receive(:skip_relocation?).with(tab:).and_return(true)
+    end
+
+    it "preserves the skip-linkage decision for the default bottle domain" do
+      expect(keg).to receive(:replace_placeholders_with_locations).with(nil, skip_linkage: true)
+
+      installer.pour
+    end
+
+    it "relocates dynamic linkage without metadata from a bottle mirror" do
+      ENV["HOMEBREW_BOTTLE_DOMAIN"] = "https://mirror.example.com"
+
+      expect(keg).to receive(:replace_placeholders_with_locations).with(nil, skip_linkage: false)
+
+      installer.pour
+    end
+
+    it "explains how a bottle mirror can provide metadata once per invocation" do
+      ENV["HOMEBREW_BOTTLE_DOMAIN"] = "https://mirror.example.com"
+
+      expect { 2.times { installer.pour } }
+        .to output(satisfy do |stderr|
+          stderr.scan("OCI registry proxy").one? &&
+            stderr.include?("sh.brew.tab") && stderr.include?("HOMEBREW_ARTIFACT_DOMAIN")
+        end).to_stderr
+    end
+  end
+
   describe "#build_bottle_postinstall" do
     let(:f) do
       formula "bottle-config" do
