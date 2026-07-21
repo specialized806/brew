@@ -229,6 +229,14 @@ RSpec.describe Homebrew::Cmd::List do
     cask.unpin
   end
 
+  it "warns about broken Caskroom symlinks" do
+    Cask::Caskroom.path.mkpath
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
+
+    expect { described_class.new(["--cask"]).run }
+      .to output(/Broken Caskroom symlinks \(`brew cleanup` removes them\): dangling-alias/).to_stderr
+  end
+
   it "fails only for explicitly named missing pinned packages", :cask do
     install_formula_version "testball", "0.1"
     (HOMEBREW_PREFIX/"var/homebrew/pinned").mkpath
