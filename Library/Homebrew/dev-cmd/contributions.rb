@@ -5,6 +5,7 @@ require "abstract_command"
 require "digest"
 require "json"
 require "system_command"
+require "tap"
 
 module Homebrew
   module DevCmd
