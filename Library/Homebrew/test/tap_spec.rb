@@ -460,10 +460,10 @@ RSpec.describe Tap do
       expect(homebrew_foo_tap.remote).to be_nil
     end
 
-    it "returns nil if Git is not available" do
+    it "reads the remote from .git/config even when Git is unavailable" do
       setup_git_repo
       allow(Utils::Git).to receive(:available?).and_return(false)
-      expect(homebrew_foo_tap.remote).to be_nil
+      expect(homebrew_foo_tap.remote).to eq("https://github.com/Homebrew/homebrew-foo")
     end
   end
 
@@ -500,10 +500,10 @@ RSpec.describe Tap do
       expect(homebrew_foo_tap.remote_repository).to be_nil
     end
 
-    it "returns nil if Git is not available" do
+    it "reads the remote repository from .git/config even when Git is unavailable" do
       setup_git_repo
       allow(Utils::Git).to receive(:available?).and_return(false)
-      expect(homebrew_foo_tap.remote_repository).to be_nil
+      expect(homebrew_foo_tap.remote_repository).to eq("Homebrew/homebrew-foo")
     end
   end
 
