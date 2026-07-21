@@ -49,6 +49,13 @@ module OS
       def valid_platform?
         supports_linux?
       end
+
+      sig { returns(T::Array[String]) }
+      def std_cabal_v2_args
+        args = super
+        args << "--ghc-option=-pie" if ::Hardware::CPU.arm?
+        args
+      end
     end
   end
 end
