@@ -33,7 +33,7 @@ module Homebrew
       @symlink_targets = T.let({}, T::Hash[Pathname, T::Set[Downloadable]])
       @downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
       @cancelled = T.let(Concurrent::AtomicBoolean.new(false), Concurrent::AtomicBoolean)
-      @download_threads = T.let(Concurrent::Set.new, Concurrent::Set)
+      @active_threads = T.let(Concurrent::Set.new, Concurrent::Set)
       @fetch_failed = T.let(false, T::Boolean)
     end
 
@@ -56,10 +56,9 @@ module Homebrew
         pool, RetryableDownload.new(downloadable, tries:),
         @cancelled, force, quiet, check_attestation
       ) do |download, cancelled, force, quiet, check_attestation|
-        raise CancelledDownloadError if cancelled.true?
+        with_active_thread do
+          raise CancelledDownloadError if cancelled.true?
 
-        @download_threads.add(Thread.current)
-        begin
           download.clear_cache if force
           if !force && downloadable.downloaded_and_valid?
             check_bottle_attestation(downloadable, check_attestation:)
@@ -73,23 +72,23 @@ module Homebrew
           check_bottle_attestation(downloadable, check_attestation:)
           create_symlinks_for_shared_download(cached_location)
           cached_location
-        rescue Interrupt
-          raise CancelledDownloadError
-        ensure
-          @download_threads.delete(Thread.current)
         end
       end
 
       downloads[downloadable] = if stage
         download.then_on(
-          pool, downloadable, pour
-        ) do |downloaded_path, queued_downloadable, queue_pour|
-          if queued_downloadable.stage_from_download_queue?(downloaded_path, pour: queue_pour)
-            queued_downloadable.extracting!
-            queued_downloadable.stage_from_download_queue(downloaded_path, pour: queue_pour)
-            queued_downloadable.downloaded!
+          pool, downloadable, pour, @cancelled
+        ) do |downloaded_path, queued_downloadable, queue_pour, cancelled|
+          with_active_thread do
+            raise CancelledDownloadError if cancelled.true?
+
+            if queued_downloadable.stage_from_download_queue?(downloaded_path, pour: queue_pour)
+              queued_downloadable.extracting!
+              queued_downloadable.stage_from_download_queue(downloaded_path, pour: queue_pour)
+              queued_downloadable.downloaded!
+            end
+            downloaded_path
           end
-          downloaded_path
         end
       else
         download
@@ -298,13 +297,23 @@ module Homebrew
       downloadable.is_a?(Resource::BottleManifest) || exception.is_a?(Resource::BottleManifest::Error)
     end
 
+    sig { type_parameters(:U).params(_block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U)) }
+    def with_active_thread(&_block)
+      @active_threads.add(Thread.current)
+      yield
+    rescue Interrupt
+      raise CancelledDownloadError
+    ensure
+      @active_threads.delete(Thread.current)
+    end
+
     sig { void }
     def cancel
-      # Signal cooperative cancellation and interrupt any active download threads.
+      # Signal cooperative cancellation and interrupt any active worker threads.
       # Raising Interrupt on the thread triggers the existing rescue Interrupt in
       # system_command.rb which sends SIGINT to the curl subprocess directly.
       @cancelled.make_true
-      @download_threads.each { |thread| thread.raise(Interrupt) }
+      @active_threads.each { |thread| thread.raise(Interrupt) }
     end
 
     sig { returns(Concurrent::FixedThreadPool) }
