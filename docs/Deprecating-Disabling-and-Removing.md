@@ -107,6 +107,7 @@ disable! date: "2020-01-01", because: "invalid licence"
 - `:repo_archived`: upstream repository archived with no usable replacement
 - `:repo_removed`: upstream repository removed with no usable replacement
 - `:unmaintained`: project abandoned (no commits for a year and unresolved critical bugs or CVEs; note that some software is "done", so inactivity alone does not imply removal)
+- `:unreachable`: no longer reliably reachable upstream
 - `:unsupported`: compilation not supported by upstream (e.g. only supports macOS older than 10.15)
 - `:deprecated_upstream`: deprecated upstream with no usable replacement
 - `:versioned_formula`: versioned formula that no longer [meets the requirements](Versions.md)
