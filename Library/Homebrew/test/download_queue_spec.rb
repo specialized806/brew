@@ -97,6 +97,36 @@ RSpec.describe Homebrew::DownloadQueue do
     download_queue.fetch
   end
 
+  it "interrupts queued staging when the fetch is interrupted", timeout: 5 do
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+    allow(downloadable).to receive(:stage_from_download_queue?).and_return(true)
+    allow(downloadable).to receive_messages(extracting!: nil, downloaded!: nil)
+    staging_started = Queue.new
+    staging_interrupted = Queue.new
+    release_staging = Queue.new
+    allow(downloadable).to receive(:stage_from_download_queue) do
+      staging_started << true
+      release_staging.pop
+    rescue Interrupt
+      staging_interrupted << true
+      raise
+    end
+
+    download_queue.enqueue(downloadable, stage: true)
+    fetch_thread = Thread.current
+    interrupter = Thread.new do
+      next unless staging_started.pop(timeout: 1)
+
+      fetch_thread.raise(Interrupt)
+    end
+
+    expect { download_queue.fetch }.to raise_error(Interrupt)
+    expect(staging_interrupted.pop(timeout: 1)).to be(true)
+  ensure
+    release_staging&.push(true)
+    interrupter.kill if interrupter && !interrupter.join(1)
+  end
+
   it "promotes an in-flight download to queued staging" do
     expect(retryable_download).to receive(:fetch).once.and_return(cached_download)
     expect(downloadable).to receive(:stage_from_download_queue?).with(cached_download, pour: false).and_return(true)

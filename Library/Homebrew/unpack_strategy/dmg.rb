@@ -216,6 +216,8 @@ module UnpackStrategy
         plist = if without_eula.success?
           without_eula.plist
         else
+          without_eula.assert_success! if without_eula.stdout.empty?
+
           cdr_path = mount_dir/path.basename.sub_ext(".cdr")
 
           quiet_flag = "-quiet" unless verbose
