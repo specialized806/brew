@@ -185,13 +185,15 @@ module Homebrew
 
         user_names.each_key do |username|
           grand_total = grand_totals.fetch(username)
-          greater_than_total = T.let(false, T::Boolean)
+          greater_than_total = T.let(grand_total.fetch(:merged_pr_author_hit_cap, 0).positive?, T::Boolean)
           contributions = CONTRIBUTION_TYPES.keys.filter_map do |type|
             type_count = grand_total[type]
             next if type_count.nil? || type_count.zero?
 
             count_prefix = ""
-            if (type == :approved_pr_review && type_count >= MAX_PR_SEARCH) || type_count >= MAX_CONTRIBUTIONS
+            if ([:merged_pr_author, :merged_pr].include?(type) && grand_total.fetch(:merged_pr_author_hit_cap,
+                                                                                    0).positive?) ||
+               (type == :approved_pr_review && type_count >= MAX_PR_SEARCH) || type_count >= MAX_CONTRIBUTIONS
               greater_than_total ||= true
               count_prefix = ">="
             end
@@ -305,6 +307,15 @@ module Homebrew
             "None"
           end
 
+          capped = grand_total.fetch(:merged_pr_author_hit_cap, 0).positive? ||
+                   grand_total.fetch(:approved_pr_review_hit_cap, 0).positive?
+          capped ||= user_repositories.any? do |_, counts|
+            counts.fetch(:approved_pr_review) >= MAX_PR_SEARCH ||
+              counts.except(:approved_pr_review).values.any? do |count|
+                count >= MAX_CONTRIBUTIONS
+              end
+          end
+
           [
             user,
             user_names.fetch(user),
@@ -317,10 +328,7 @@ module Homebrew
             qualifying_total,
             maintainer_activity_met,
             lead_activity_met,
-            grand_total.fetch(:approved_pr_review_hit_cap, 0).positive? || user_repositories.any? do |_, counts|
-              counts.fetch(:approved_pr_review) >= MAX_PR_SEARCH ||
-                counts.except(:approved_pr_review).values.any? { |count| count >= MAX_CONTRIBUTIONS }
-            end,
+            capped,
             lead_maintainer ? "Lead Maintainer" : "Maintainer",
             new_role,
           ]
@@ -423,50 +431,98 @@ module Homebrew
           end
           [user, user_results]
         end
+
+        require "utils/github"
+        github_users = users.keys.to_h { |user| [user, github_username_for(user, to:)] }
+        git_authored_pull_requests = users.keys.to_h do |user|
+          [user, repositories.to_h { |repository| [repository, Set.new] }]
+        end
+        git_merged_pull_requests = users.keys.to_h do |user|
+          [user, repositories.to_h { |repository| [repository, Set.new] }]
+        end
         repository_refs.each do |repository, (repository_path, ref)|
           require "utils/git"
           output = Utils.safe_popen_read(
             Utils::Git.git, "-C", repository_path, "log", ref, "--since=#{from}", "--before=#{to}",
             "--format=%H%x1f%P%x1f%an%x1f%ae%x1f%B%x1e"
           )
-          parse_git_log(output, users).each do |user, counts|
+          authored_pull_requests = users.keys.to_h { |user| [user, Set.new] }
+          merged_pull_requests = users.keys.to_h { |user| [user, Set.new] }
+          parse_git_log(output, users, authored_pull_requests:, merged_pull_requests:).each do |user, counts|
             results.fetch(user)[repository] = counts
+            git_authored_pull_requests.fetch(user)[repository] = authored_pull_requests.fetch(user)
+            git_merged_pull_requests.fetch(user)[repository] = merged_pull_requests.fetch(user)
           end
         end
 
-        require "utils/github"
-        repositories.difference(repository_refs.keys).then do |remote_repositories|
-          unless remote_repositories.empty?
-            merged_range = "#{from}..#{Date.iso8601(to).prev_day.iso8601}"
-            users.each_key do |user|
-              cache_key = ["merged-at", organisation, user, merged_range].join("\0")
-              merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
-                GitHub.search_issues("", is: "merged", user: organisation, author: user, merged: merged_range)
-              rescue GitHub::API::ValidationFailedError
-                opoo "Couldn't search GitHub for PRs authored by #{user}. Their profile might be private. " \
-                     "Defaulting to 0."
-                []
-              end
-              merged_pull_requests.each do |pull_request|
-                repository = pull_request.fetch("repository_url").delete_prefix("#{GitHub::API_URL}/repos/")
-                next unless remote_repositories.include?(repository)
+        merged_range = "#{from}..#{Date.iso8601(to).prev_day.iso8601}"
+        users.each_key do |user|
+          github_user = github_users.fetch(user)
+          next if github_user.nil?
 
-                increment_contribution_count(results.fetch(user).fetch(repository), :merged_pr_author)
-                increment_contribution_count(results.fetch(user).fetch(repository), :merged_pr)
-              end
+          cache_key = ["merged-at", organisation, github_user, merged_range].join("\0")
+          merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
+            GitHub.search_issues("", is: "merged", user: organisation, author: github_user, merged: merged_range)
+          rescue GitHub::API::ValidationFailedError
+            opoo "Couldn't search GitHub for PRs authored by #{github_user}. Their profile might be private. " \
+                 "Defaulting to 0."
+            []
+          end
+          capped_merged_pull_requests = merged_pull_requests.length >= MAX_PR_SEARCH
+          if capped_merged_pull_requests
+            results.fetch(user).fetch(repositories.fetch(0))[:merged_pr_author_hit_cap] =
+              1
+          end
+          merged_pull_requests.each do |pull_request|
+            repository = pull_request.fetch("repository_url").delete_prefix("#{GitHub::API_URL}/repos/")
+            next unless repositories.include?(repository)
+
+            authored_pull_requests = git_authored_pull_requests.fetch(user).fetch(repository)
+            merged_pull_request_ids = git_merged_pull_requests.fetch(user).fetch(repository)
+            add_merged_pull_request_id(pull_request, authored_pull_requests, merged_pull_request_ids)
+          end
+          repositories.each do |repository|
+            counts = results.fetch(user).fetch(repository)
+            authored_pull_requests = git_authored_pull_requests.fetch(user).fetch(repository)
+            merged_pull_request_ids = git_merged_pull_requests.fetch(user).fetch(repository)
+            update_merged_pull_request_counts(counts, authored_pull_requests, merged_pull_request_ids)
+          end
+          next unless skip_reviews_if_lead_met
+          next unless capped_merged_pull_requests
+          next if lead_activity_met?(results.fetch(user))
+
+          repositories.each do |repository|
+            break if lead_activity_met?(results.fetch(user))
+
+            repository_counts = results.fetch(user).fetch(repository)
+            repository_total = contribution_count(repository_counts.slice(*QUALIFYING_CONTRIBUTION_TYPES))
+            qualifying_total = contribution_count(total(results.fetch(user)).slice(*QUALIFYING_CONTRIBUTION_TYPES))
+            next if repository_total >= LEAD_REPOSITORY_ACTIVITY_THRESHOLD &&
+                    qualifying_total >= MAINTAINER_ACTIVITY_THRESHOLD
+
+            $stderr.puts "Querying merged-PR search for #{user} in #{repository}..." if progress
+            cache_key = ["merged-at", repository, github_user, merged_range].join("\0")
+            repository_pull_requests = github_search_with_rate_limit(cache_key, to:) do
+              GitHub.search_issues("", is: "merged", repo: repository, author: github_user, merged: merged_range)
             end
+            authored_pull_requests = git_authored_pull_requests.fetch(user).fetch(repository)
+            merged_pull_request_ids = git_merged_pull_requests.fetch(user).fetch(repository)
+            repository_pull_requests.each do |pull_request|
+              add_merged_pull_request_id(pull_request, authored_pull_requests, merged_pull_request_ids)
+            end
+            update_merged_pull_request_counts(repository_counts, authored_pull_requests, merged_pull_request_ids)
           end
         end
 
-        review_users = users.keys
-        review_users.reject! { |user| lead_activity_met?(results.fetch(user)) } if skip_reviews_if_lead_met
-        review_users.each_with_index do |user, index|
+        review_users = github_users.filter_map { |user, github_user| [user, github_user] if github_user }
+        review_users.reject! { |user, _| lead_activity_met?(results.fetch(user)) } if skip_reviews_if_lead_met
+        review_users.each_with_index do |(user, github_user), index|
           if progress
             $stderr.puts "Querying approved-review search for #{user} (#{index + 1}/#{review_users.length})..."
           end
-          cache_key = ["approved", organisation, user, from, to].join("\0")
+          cache_key = ["approved", organisation, github_user, from, to].join("\0")
           approved_reviews = github_search_with_rate_limit(cache_key, to:) do
-            GitHub.search_approved_pull_requests_in_user_or_organisation(organisation, user, from:, to:)
+            GitHub.search_approved_pull_requests_in_user_or_organisation(organisation, github_user, from:, to:)
           end
           capped_reviews = approved_reviews.length >= MAX_PR_SEARCH
           results.fetch(user).fetch(repositories.fetch(0))[:approved_pr_review_hit_cap] = 1 if capped_reviews
@@ -490,15 +546,72 @@ module Homebrew
                     qualifying_total >= MAINTAINER_ACTIVITY_THRESHOLD
 
             $stderr.puts "Querying approved-review search for #{user} in #{repository}..." if progress
-            cache_key = ["approved", repository, user, from, to].join("\0")
+            cache_key = ["approved", repository, github_user, from, to].join("\0")
             repository_reviews = github_search_with_rate_limit(cache_key, to:) do
-              GitHub.search_issues("", is: "pr", review: "approved", repo: repository, reviewed_by: user, from:, to:)
+              GitHub.search_issues("", is: "pr", review: "approved", repo: repository, reviewed_by: github_user,
+                                   from:, to:)
             end
             repository_counts[:approved_pr_review] = repository_reviews.length
           end
         end
 
         results
+      end
+
+      sig {
+        params(
+          pull_request:           T::Hash[String, T.untyped],
+          authored_pull_requests: T::Set[String],
+          merged_pull_requests:   T::Set[String],
+        ).void
+      }
+      def add_merged_pull_request_id(pull_request, authored_pull_requests, merged_pull_requests)
+        number = pull_request["number"]
+        return unless number.is_a?(Integer)
+
+        pull_request_id = number.to_s
+        authored_pull_requests << pull_request_id
+        merged_pull_requests << pull_request_id
+      end
+
+      sig {
+        params(
+          counts:                 T::Hash[Symbol, Integer],
+          authored_pull_requests: T::Set[String],
+          merged_pull_requests:   T::Set[String],
+        ).void
+      }
+      def update_merged_pull_request_counts(counts, authored_pull_requests, merged_pull_requests)
+        unless authored_pull_requests.empty?
+          counts[:merged_pr_author] = [authored_pull_requests.length, MAX_CONTRIBUTIONS].min
+        end
+        return if merged_pull_requests.empty?
+
+        counts[:merged_pr] = [merged_pull_requests.length, MAX_CONTRIBUTIONS].min
+      end
+
+      sig { params(user: String, to: String).returns(T.nilable(String)) }
+      def github_username_for(user, to:)
+        return user unless user.include?("@")
+        if user.end_with?("@users.noreply.github.com")
+          return user.delete_suffix("@users.noreply.github.com").sub(/\A\d+\+/,
+                                                                     "")
+        end
+
+        cache_key = ["public-email", user].join("\0")
+        matches = github_search_with_rate_limit(cache_key, to:) do
+          GitHub.search("users", "\"#{user}\" in:email").fetch("items", [])
+        end
+        if matches.one?
+          login = matches.fetch(0)["login"]
+          return login if login.is_a?(String)
+        end
+
+        opoo "Could not find a unique public GitHub account for #{user}; skipping GitHub PR searches."
+        nil
+      rescue GitHub::API::ValidationFailedError
+        opoo "Could not search for a public GitHub account for #{user}; skipping GitHub PR searches."
+        nil
       end
 
       sig {
@@ -533,10 +646,15 @@ module Homebrew
       end
 
       sig {
-        params(output: String, users: T::Hash[String, String])
+        params(
+          output:                 String,
+          users:                  T::Hash[String, String],
+          authored_pull_requests: T.nilable(T::Hash[String, T::Set[String]]),
+          merged_pull_requests:   T.nilable(T::Hash[String, T::Set[String]]),
+        )
           .returns(T::Hash[String, T::Hash[Symbol, Integer]])
       }
-      def parse_git_log(output, users)
+      def parse_git_log(output, users, authored_pull_requests: nil, merged_pull_requests: nil)
         counts = users.to_h do |user, _|
           [user, CONTRIBUTION_TYPES.keys.to_h { |type| [type, 0] }]
         end
@@ -589,15 +707,23 @@ module Homebrew
           end
 
           parents = parents_string.split
-          source_owner = body[%r{\AMerge pull request #\d+ from ([^/\s]+)/}, 1]
-          next if parents.length < 2 || source_owner.nil?
+          pull_request = body.match(%r{\AMerge pull request #(\d+) from ([^/\s]+)/})
+          next if parents.length < 2 || pull_request.nil?
 
           merger = user_for_git_identity(author_name, author_email, identity_users)
+          pull_request_id = pull_request[1]
+          source_owner = pull_request[2]
+          next if pull_request_id.nil? || source_owner.nil?
+
           author = identity_users[source_owner.downcase] || commit_authors[parents.fetch(1)]
-          increment_contribution_count(counts.fetch(author), :merged_pr_author) if author
+          if author
+            increment_contribution_count(counts.fetch(author), :merged_pr_author)
+            authored_pull_requests&.fetch(author)&.add(pull_request_id)
+          end
           increment_contribution_count(counts.fetch(merger), :merged_pr_merger) if merger
           [author, merger].compact.uniq.each do |user|
             increment_contribution_count(counts.fetch(user), :merged_pr)
+            merged_pull_requests&.fetch(user)&.add(pull_request_id)
           end
         end
 
