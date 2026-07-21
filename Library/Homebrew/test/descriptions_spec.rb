@@ -61,6 +61,18 @@ RSpec.describe Descriptions do
     expect { descriptions.print }.not_to output.to_stdout
   end
 
+  it "prints casks without a description when requested" do
+    descriptions_hash["homebrew/cask/foo"] = ["Foo", nil]
+
+    expect { descriptions.print(show_missing: true) }.to output("foo: (Foo) [no description]\n").to_stdout
+  end
+
+  it "prints casks with an incomplete description" do
+    descriptions_hash["homebrew/cask/foo"] = ["Foo"]
+
+    expect { descriptions.print(show_missing: true) }.to output("foo: (Foo) [no description]\n").to_stdout
+  end
+
   it "prints trailing status for interactive formula descriptions" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     descriptions_hash["homebrew/core/foo"] = "Core foo"

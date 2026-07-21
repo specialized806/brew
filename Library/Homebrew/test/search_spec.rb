@@ -208,6 +208,15 @@ RSpec.describe Homebrew::Search do
           .to output(/testball: \(Test Ball\) Some test/).to_stdout
           .and not_to_output(/testball: Some test/).to_stdout
       end
+
+      it "searches cask names without descriptions", :needs_macos do
+        api_casks["testball"]["desc"] = nil
+
+        expect do
+          described_class.search_descriptions(described_class.query_regexp("ball"), args, show_missing: true)
+        end
+          .to output(/testball: \(Test Ball\) \[no description\]/).to_stdout
+      end
     end
   end
 end

@@ -77,7 +77,7 @@ module Homebrew
                   "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
           end
 
-          Search.search_descriptions(string_or_regex, args)
+          Search.search_descriptions(string_or_regex, args, show_missing: true)
         elsif args.pull_request?
           search_pull_requests(query)
         else

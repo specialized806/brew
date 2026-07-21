@@ -15,6 +15,13 @@ RSpec.describe Homebrew::Cmd::SearchCmd do
       .and be_a_success
   end
 
+  it "shows missing cask descriptions in description searches" do
+    expect(Homebrew::Search).to receive(:search_descriptions)
+      .with("testball", anything, show_missing: true)
+
+    described_class.new(["--desc", "testball"]).run
+  end
+
   describe "::print_missing_formula_help" do
     let(:search_cmd) { described_class.new([""]) }
 
