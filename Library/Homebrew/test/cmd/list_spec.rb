@@ -38,7 +38,7 @@ RSpec.describe Homebrew::Cmd::List do
       {
         "HOMEBREW_CASKROOM" => Cask::Caskroom.path.to_s,
         "HOMEBREW_CELLAR"   => HOMEBREW_CELLAR.to_s,
-        "HOMEBREW_LIBRARY"  => HOMEBREW_LIBRARY_PATH.to_s,
+        "HOMEBREW_LIBRARY"  => HOMEBREW_LIBRARY_PATH.parent.to_s,
         "HOMEBREW_PREFIX"   => HOMEBREW_PREFIX.to_s,
       }.merge(env),
       "/bin/bash", "-c", <<~SH,
@@ -85,7 +85,7 @@ RSpec.describe Homebrew::Cmd::List do
             homebrew-list list --versions --json
         }
 
-        check "formulae and casks" 0 "${EXPECTED_PLAIN}" "" homebrew-list list
+        check "formulae and casks" 0 "${EXPECTED_PLAIN}" "${EXPECTED_PLAIN_STDERR}" homebrew-list list
         check "formula and cask versions JSON" 0 "${EXPECTED_JSON}" "" homebrew-list list --versions --json
         check "formula versions JSON" 0 "${EXPECTED_FORMULA_JSON}" "" \\
           homebrew-list list --versions --json --formula
@@ -172,6 +172,7 @@ RSpec.describe Homebrew::Cmd::List do
     (HOMEBREW_PREFIX/"var/homebrew/pinned_casks").mkpath
     FileUtils.ln_s Cask::Caskroom.path/"local-caffeine/1.2.3",
                    HOMEBREW_PREFIX/"var/homebrew/pinned_casks/local-caffeine"
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
 
     empty_cellar = mktmpdir
     empty_caskroom = mktmpdir
@@ -194,7 +195,9 @@ RSpec.describe Homebrew::Cmd::List do
                "EXPECTED_EMPTY_JSON"   => list_versions_json,
                "EXPECTED_FORMULA_JSON" => list_versions_json(formulae: formulae_json),
                "EXPECTED_JSON"         => list_versions_json(formulae: formulae_json, casks: casks_json),
-               "EXPECTED_PLAIN"        => "testball\nlocal-caffeine\n",
+               "EXPECTED_PLAIN"        => "testball\ndangling-alias\nlocal-caffeine\n",
+               "EXPECTED_PLAIN_STDERR" => "Warning: Broken Caskroom symlinks " \
+                                          "(`brew cleanup` removes them): dangling-alias\n",
                "NO_JQ_CASKROOM"        => no_jq_caskroom.to_s,
                "NO_JQ_CELLAR"          => no_jq_cellar.to_s,
                "NO_JQ_PATH"            => no_jq_root.to_s,

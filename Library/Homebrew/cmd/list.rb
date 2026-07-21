@@ -254,6 +254,8 @@ module Homebrew
 
       # A broken symlink in the Caskroom (e.g. a dangling cask rename alias) lists
       # like an installed cask but cannot load or uninstall, so flag it.
+      # Keep in sync with the broken-symlink warning in `homebrew-list` in
+      # Library/Homebrew/list.sh.
       sig { void }
       def warn_about_broken_caskroom_symlinks
         broken_symlinks = Cask::Caskroom.path.glob("*").select { |child| child.symlink? && !child.exist? }
