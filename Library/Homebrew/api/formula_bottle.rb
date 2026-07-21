@@ -22,10 +22,10 @@ module Homebrew
 
         bottle_specification = BottleSpecification.new
         bottle_specification.root_url(
-          if Homebrew::EnvConfig.bottle_domain == HOMEBREW_BOTTLE_DEFAULT_DOMAIN
-            HOMEBREW_BOTTLE_DEFAULT_DOMAIN
-          else
+          if Homebrew::EnvConfig.bottle_domain_custom?
             Homebrew::EnvConfig.bottle_domain
+          else
+            HOMEBREW_BOTTLE_DEFAULT_DOMAIN
           end,
         )
         bottle_specification.rebuild(formula_struct.bottle_rebuild)

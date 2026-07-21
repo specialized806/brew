@@ -223,9 +223,7 @@ module Homebrew
         # This was originally unintentional, but has a virtuous side effect of further
         # limiting domain separation on the backfilled signatures (by committing them to
         # their original bottle URLs).
-        url_sha256 = if EnvConfig.bottle_domain == HOMEBREW_BOTTLE_DEFAULT_DOMAIN
-          Digest::SHA256.hexdigest(bottle.url)
-        else
+        url_sha256 = if EnvConfig.bottle_domain_custom?
           # If our bottle is coming from a mirror, we need to recompute the expected
           # non-mirror URL to make the hash match.
           checksum = bottle.resource.checksum
@@ -235,6 +233,8 @@ module Homebrew
           url = "#{HOMEBREW_BOTTLE_DEFAULT_DOMAIN}/#{path}"
 
           Digest::SHA256.hexdigest(url)
+        else
+          Digest::SHA256.hexdigest(bottle.url)
         end
         subject = "#{url_sha256}--#{bottle.filename}"
 

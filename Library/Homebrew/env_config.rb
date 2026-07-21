@@ -124,13 +124,13 @@ module Homebrew
         default_text: "`$BAT_THEME`.",
       },
       HOMEBREW_BOTTLE_DOMAIN:                    {
-        description:  "Use this URL as the download mirror for bottles. " \
-                      "If bottles at that URL are temporarily unavailable, " \
-                      "the default bottle domain will be used as a fallback mirror. " \
+        description:  "Use this URL as the download mirror for bottles and their manifests. " \
+                      "If a bottle or manifest is unavailable at the mirror, " \
+                      "the default bottle domain will be used as a fallback. " \
+                      "Prefer `$HOMEBREW_ARTIFACT_DOMAIN` for a mirror that transparently proxies all " \
+                      "Homebrew downloads. " \
                       "For example, `export HOMEBREW_BOTTLE_DOMAIN=http://localhost:8080` will cause all bottles " \
-                      "to download from the prefix `http://localhost:8080/`. " \
-                      "If bottles are not available at `$HOMEBREW_BOTTLE_DOMAIN` " \
-                      "they will be downloaded from the default bottle domain.",
+                      "to download from the prefix `http://localhost:8080/`.",
         default_text: "`https://ghcr.io/v2/homebrew/core`.",
         default:      HOMEBREW_BOTTLE_DEFAULT_DOMAIN,
       },
@@ -294,7 +294,7 @@ module Homebrew
       HOMEBREW_DOCKER_REGISTRY_BASIC_AUTH_TOKEN: {
         description: "Use this base64 encoded username and password for authenticating with a Docker registry " \
                      "proxying GitHub Packages. If set to `none`, no authentication header will be sent. " \
-                     "This can be used, if remote `$HOMEBREW_BOTTLE_DOMAIN` does not support any authentication. " \
+                     "This can be used, if remote `$HOMEBREW_ARTIFACT_DOMAIN` does not support any authentication. " \
                      "If `$HOMEBREW_DOCKER_REGISTRY_TOKEN` is set, it will be used instead.",
       },
       HOMEBREW_DOCKER_REGISTRY_TOKEN:            {
@@ -899,6 +899,11 @@ module Homebrew
       return false if subcommands.present? && subcommand.present? && subcommands.exclude?(subcommand)
 
       true
+    end
+
+    sig { returns(T::Boolean) }
+    def bottle_domain_custom?
+      Homebrew::EnvConfig.bottle_domain != HOMEBREW_BOTTLE_DEFAULT_DOMAIN
     end
 
     sig { returns(String) }

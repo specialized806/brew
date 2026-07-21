@@ -2781,7 +2781,7 @@ Use this as the \fBbat\fP theme for syntax highlighting\.
 .RE
 .TP
 \fBHOMEBREW_BOTTLE_DOMAIN\fP
-Use this URL as the download mirror for bottles\. If bottles at that URL are temporarily unavailable, the default bottle domain will be used as a fallback mirror\. For example, \fBexport HOMEBREW_BOTTLE_DOMAIN=http://localhost:8080\fP will cause all bottles to download from the prefix \fBhttp://localhost:8080/\fP\&\. If bottles are not available at \fB$HOMEBREW_BOTTLE_DOMAIN\fP they will be downloaded from the default bottle domain\.
+Use this URL as the download mirror for bottles and their manifests\. If a bottle or manifest is unavailable at the mirror, the default bottle domain will be used as a fallback\. Prefer \fB$HOMEBREW_ARTIFACT_DOMAIN\fP for a mirror that transparently proxies all Homebrew downloads\. For example, \fBexport HOMEBREW_BOTTLE_DOMAIN=http://localhost:8080\fP will cause all bottles to download from the prefix \fBhttp://localhost:8080/\fP\&\.
 .RS
 .P
 \fIDefault:\fP \fBhttps://ghcr\.io/v2/homebrew/core\fP\&\.
@@ -2976,7 +2976,7 @@ Use this X11 display when opening a page in a browser, for example with \fBbrew 
 If set, print install times for each formula at the end of the run\.
 .TP
 \fBHOMEBREW_DOCKER_REGISTRY_BASIC_AUTH_TOKEN\fP
-Use this base64 encoded username and password for authenticating with a Docker registry proxying GitHub Packages\. If set to \fBnone\fP, no authentication header will be sent\. This can be used, if remote \fB$HOMEBREW_BOTTLE_DOMAIN\fP does not support any authentication\. If \fB$HOMEBREW_DOCKER_REGISTRY_TOKEN\fP is set, it will be used instead\.
+Use this base64 encoded username and password for authenticating with a Docker registry proxying GitHub Packages\. If set to \fBnone\fP, no authentication header will be sent\. This can be used, if remote \fB$HOMEBREW_ARTIFACT_DOMAIN\fP does not support any authentication\. If \fB$HOMEBREW_DOCKER_REGISTRY_TOKEN\fP is set, it will be used instead\.
 .TP
 \fBHOMEBREW_DOCKER_REGISTRY_TOKEN\fP
 Use this bearer token for authenticating with a Docker registry proxying GitHub Packages\. Preferred over \fB$HOMEBREW_DOCKER_REGISTRY_BASIC_AUTH_TOKEN\fP\&\.

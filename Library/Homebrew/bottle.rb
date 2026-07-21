@@ -191,11 +191,8 @@ class Bottle
     return unless (resource = github_packages_manifest_resource)
 
     begin
+      # `$HOMEBREW_BOTTLE_DOMAIN` fallback is configured on the resource below.
       resource.fetch(timeout:, quiet:)
-    rescue DownloadError
-      raise unless fallback_on_error?
-
-      retry
     rescue Resource::BottleManifest::Error
       raise if @fetch_tab_retried
 
@@ -300,7 +297,11 @@ class Bottle
 
   sig { returns(T.nilable(Resource::BottleManifest)) }
   def github_packages_manifest_resource
-    return if @resource.download_strategy != CurlGitHubPackagesDownloadStrategy
+    # `$HOMEBREW_BOTTLE_DOMAIN` may be a legacy flat-file mirror, so its
+    # bottle resource does not necessarily use the GitHub Packages strategy.
+    custom_bottle_domain = Homebrew::EnvConfig.bottle_domain_custom? &&
+                           root_url == Homebrew::EnvConfig.bottle_domain
+    return if @resource.download_strategy != CurlGitHubPackagesDownloadStrategy && !custom_bottle_domain
 
     @github_packages_manifest_resource ||= T.let(
       begin
@@ -314,11 +315,18 @@ class Bottle
 
         image_name = GitHubPackages.image_formula_name(@name)
         image_tag = GitHubPackages.image_version_rebuild(version_rebuild)
+        manifest_path = "#{image_name}/manifests/#{image_tag}"
         resource.url(
-          "#{root_url}/#{image_name}/manifests/#{image_tag}",
+          "#{root_url}/#{manifest_path}",
           using:   CurlGitHubPackagesDownloadStrategy,
           headers: ["Accept: application/vnd.oci.image.index.v1+json"],
         )
+        # Give a legacy mirror the first chance to serve the manifest. Many
+        # contain only bottle archives, so retain GHCR as a fallback. By
+        # contrast, `$HOMEBREW_ARTIFACT_DOMAIN` must provide an OCI registry
+        # proxy for bottle blobs and manifests; the strategy rewrites the GHCR
+        # URL for it.
+        resource.mirror("#{HOMEBREW_BOTTLE_DEFAULT_DOMAIN}/#{manifest_path}") if custom_bottle_domain
         T.cast(resource.downloader, CurlGitHubPackagesDownloadStrategy).resolved_basename =
           "#{name}-#{version_rebuild}.bottle_manifest.json"
         resource
@@ -347,7 +355,7 @@ class Bottle
   def fallback_on_error?
     # Use the default bottle domain as a fallback mirror
     if @resource.url&.start_with?(Homebrew::EnvConfig.bottle_domain) &&
-       Homebrew::EnvConfig.bottle_domain != HOMEBREW_BOTTLE_DEFAULT_DOMAIN
+       Homebrew::EnvConfig.bottle_domain_custom?
       opoo "Bottle missing, falling back to the default domain..."
       root_url(HOMEBREW_BOTTLE_DEFAULT_DOMAIN)
       @github_packages_manifest_resource = T.let(nil, T.nilable(Resource::BottleManifest))

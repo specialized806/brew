@@ -196,6 +196,14 @@ class FormulaInstaller
   sig { returns(T::Boolean) }
   def verbose? = @verbose
 
+  sig { returns(T::Boolean) }
+  def self.show_missing_bottle_metadata_warning?
+    return false if @missing_bottle_metadata_warning_shown
+
+    @missing_bottle_metadata_warning_shown = T.let(true, T.nilable(TrueClass))
+    true
+  end
+
   sig { returns(T::Set[Formula]) }
   def self.attempted
     @attempted ||= T.let(Set.new, T.nilable(T::Set[Formula]))
@@ -1626,6 +1634,17 @@ on_request: installed_on_request?, options:)
 
     keg = Keg.new(formula.prefix)
     skip_linkage = formula.bottle_specification.skip_relocation?(tab:)
+    if Homebrew::EnvConfig.bottle_domain_custom? && tab.changed_files.nil?
+      if self.class.show_missing_bottle_metadata_warning?
+        opoo <<~EOS
+          No bottle relocation metadata was found for this `HOMEBREW_BOTTLE_DOMAIN`.
+          Homebrew will perform full relocation. Ask the mirror operator to provide
+          an OCI registry proxy of `ghcr.io` that includes manifests and their
+          `sh.brew.tab` annotations, then use `HOMEBREW_ARTIFACT_DOMAIN` instead.
+        EOS
+      end
+      skip_linkage = false
+    end
     keg.replace_placeholders_with_locations(tab.changed_files, skip_linkage:)
 
     cellar = formula.bottle_specification.tag_to_cellar(Utils::Bottles.tag)
