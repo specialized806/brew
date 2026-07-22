@@ -120,6 +120,7 @@ module Homebrew
         message_length_max = downloads.keys.map { |download| download.download_queue_message.length }.max || 0
         remaining_downloads = downloads.dup.to_a
         previous_pending_line_count = 0
+        max_lines = [concurrency, Tty.height].min
 
         resolution = Concurrent::Event.new
         downloads.each_value { |future| future.on_resolution! { resolution.set } }
@@ -180,6 +181,8 @@ module Homebrew
 
           until remaining_downloads.empty?
             begin
+              stdout_print_and_flush_if_tty Tty.begin_synchronized_update
+
               finished_states = [:fulfilled, :rejected]
 
               finished_downloads, remaining_downloads = remaining_downloads.partition do |_, future|
@@ -193,7 +196,6 @@ module Homebrew
               end
 
               previous_pending_line_count = 0
-              max_lines = [concurrency, Tty.height].min
               remaining_downloads.each_with_index do |(downloadable, future), i|
                 break if previous_pending_line_count >= max_lines
 
@@ -209,6 +211,8 @@ module Homebrew
                   stdout_print_and_flush_if_tty Tty.move_cursor_up_beginning(previous_pending_line_count - 1)
                 end
               end
+
+              stdout_print_and_flush_if_tty Tty.end_synchronized_update
 
               next if remaining_downloads.empty?
 
@@ -233,6 +237,7 @@ module Homebrew
             end
           end
         ensure
+          stdout_print_and_flush_if_tty Tty.end_synchronized_update
           stdout_print_and_flush_if_tty Tty.show_cursor
         end
       end

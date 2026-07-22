@@ -5,6 +5,7 @@ require "concurrent/executors"
 require "concurrent/promises"
 require "monitor"
 require "utils"
+require "utils/tty"
 require "bundle/package_types"
 
 module Homebrew
@@ -300,7 +301,9 @@ module Homebrew
 
       sig { void }
       def clear_tty_line
-        File.open("/dev/tty", "w") { |f| f.print("\r\e[K") }
+        File.open("/dev/tty", "w") do |f|
+          f.print("#{Tty.begin_synchronized_update}\r\e[K#{Tty.end_synchronized_update}")
+        end
       rescue Errno::ENXIO, Errno::ENOENT, Errno::EACCES, Errno::EPERM
         # No TTY available (CI, piped output) - nothing to clean up.
         nil

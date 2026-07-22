@@ -418,7 +418,8 @@ module Homebrew
       if progress
         progress.finish
         Tty.with($stderr) do |stderr|
-          stderr.print "#{Tty.up}#{Tty.erase_line}" * 2
+          erase = "#{Tty.up}#{Tty.erase_line}" * 2
+          stderr.print "#{Tty.begin_synchronized_update}#{erase}#{Tty.end_synchronized_update}" unless erase.empty?
         end
       end
 
