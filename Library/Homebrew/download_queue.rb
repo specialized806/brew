@@ -109,11 +109,6 @@ module Homebrew
         rescue ChecksumMismatchError => e
           @fetch_failed = true
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
-        # Cancel downloads still running in the background before a fatal error
-        # (e.g. a missing bottle manifest) aborts the fetch.
-        rescue
-          cancel
-          raise
         end
       else
         message_length_max = downloads.keys.map { |download| download.download_queue_message.length }.max || 0
@@ -223,11 +218,8 @@ module Homebrew
               # Wake as soon as any download resolves; the timeout only sets
               # the redraw cadence for spinner and progress bars on TTYs.
               resolution.wait(tty_with_cursor_move_support? ? 0.05 : 1)
-            # We want to catch all exceptions to ensure we can cancel any
-            # running downloads and flush the TTY.
+            # `Interrupt` inherits from `Exception`, so rescue it to restore the TTY.
             rescue Exception # rubocop:disable Lint/RescueException
-              cancel
-
               if previous_pending_line_count.positive?
                 stdout_print_and_flush_if_tty Tty.move_cursor_down(previous_pending_line_count - 1)
               end
@@ -240,6 +232,11 @@ module Homebrew
           stdout_print_and_flush_if_tty Tty.show_cursor
         end
       end
+    # `Interrupt` inherits from `Exception`, so rescue it to cancel active workers
+    # even when it arrives before fetch setup completes.
+    rescue Exception # rubocop:disable Lint/RescueException
+      cancel
+      raise
     ensure
       # Restore the pre-parallel fetch context to avoid quiet state bleeding out
       # from threads, and clear queue state even when a fatal download error
