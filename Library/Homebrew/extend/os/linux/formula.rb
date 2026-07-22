@@ -50,8 +50,8 @@ module OS
         supports_linux?
       end
 
-      sig { returns(T::Array[String]) }
-      def std_cabal_v2_args
+      sig { params(installdir: T.any(String, ::Pathname, FalseClass)).returns(T::Array[String]) }
+      def std_cabal_v2_args(installdir: bin)
         args = super
         args << "--ghc-option=-pie" if ::Hardware::CPU.arm?
         args
