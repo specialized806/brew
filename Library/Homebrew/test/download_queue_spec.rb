@@ -123,7 +123,10 @@ RSpec.describe Homebrew::DownloadQueue do
 
   it "wakes when downloads complete instead of polling with sleep" do
     allow($stdout).to receive(:tty?).and_return(false)
-    allow(retryable_download).to receive(:fetch) { sleep(0.1) }
+    allow(retryable_download).to receive(:fetch) do
+      sleep 0.1
+      cached_download
+    end
 
     expect(download_queue).not_to receive(:sleep)
 
@@ -152,6 +155,19 @@ RSpec.describe Homebrew::DownloadQueue do
     expect(downloadable).to receive(:stage_from_download_queue?).with(cached_download, pour: false).and_return(true)
     expect(downloadable).to receive(:extracting!).ordered
     expect(downloadable).to receive(:stage_from_download_queue).with(cached_download, pour: false).ordered
+    expect(downloadable).to receive(:downloaded!).ordered
+
+    download_queue.enqueue(downloadable, stage: true)
+    download_queue.fetch
+  end
+
+  it "uses the fetched path for queued staging when it changes during fetch" do
+    fetched_download = HOMEBREW_CACHE/"downloads/fetched-testball--0.1.tar.gz"
+    allow(retryable_download).to receive(:fetch).and_return(fetched_download)
+
+    expect(downloadable).to receive(:stage_from_download_queue?).with(fetched_download, pour: false).and_return(true)
+    expect(downloadable).to receive(:extracting!).ordered
+    expect(downloadable).to receive(:stage_from_download_queue).with(fetched_download, pour: false).ordered
     expect(downloadable).to receive(:downloaded!).ordered
 
     download_queue.enqueue(downloadable, stage: true)
