@@ -60,6 +60,37 @@ RSpec.describe Homebrew::DownloadQueue do
     expect { download_queue.fetch }.to raise_error(Resource::BottleManifest::Error, /manifest missing/)
   end
 
+  it "brackets TTY redraw frames in a DEC 2026 synchronized update" do
+    allow($stdout).to receive(:tty?).and_return(true)
+    ENV["TERM"] = "xterm-256color"
+    allow(downloadable).to receive(:fetched_size).and_return(nil)
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+
+    # Build the queue while stdout is a TTY so it captures the TTY render path,
+    # before the output matcher swaps $stdout to capture the redraw frames.
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch }.to output(
+      include("\e[?2026h").and(
+        satisfy("closes every synchronized update it opens") do |out|
+          last_open = out.rindex("\e[?2026h")
+          last_close = out.rindex("\e[?2026l")
+          out.scan("\e[?2026h").length <= out.scan("\e[?2026l").length &&
+            !last_open.nil? && !last_close.nil? && last_close > last_open
+        end,
+      ),
+    ).to_stdout
+  end
+
+  it "emits no synchronized update sequences when stdout is not a TTY" do
+    allow($stdout).to receive(:tty?).and_return(false)
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch }.not_to output(/\e\[\?2026/).to_stdout
+  end
+
   it "wakes when downloads complete instead of polling with sleep" do
     allow($stdout).to receive(:tty?).and_return(false)
     allow(retryable_download).to receive(:fetch) { sleep(0.1) }
