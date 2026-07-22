@@ -2160,8 +2160,8 @@ class Formula
 
   # Standard parameters for npm builds.
   #
-  # @param prefix [String, Pathname, false] installation prefix (default: libexec)
-  # @param ignore_scripts [Boolean] whether to add --ignore-scripts flag (default: true)
+  # @param prefix installation prefix
+  # @param ignore_scripts whether to add --ignore-scripts flag
   # @api public
   sig { params(prefix: T.any(String, Pathname, FalseClass), ignore_scripts: T::Boolean).returns(T::Array[String]) }
   def std_npm_args(prefix: libexec, ignore_scripts: true)
