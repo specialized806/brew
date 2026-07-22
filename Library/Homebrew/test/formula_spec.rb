@@ -3222,6 +3222,14 @@ RSpec.describe Formula do
       end
     end
 
+    it "allows changing the installation directory" do
+      expect(f.std_cabal_v2_args(installdir: "/tmp/foo")).to include("--installdir=/tmp/foo")
+    end
+
+    it "excludes installation arguments when `installdir: false`" do
+      expect(f.std_cabal_v2_args(installdir: false)).not_to include(a_string_starting_with("--install"))
+    end
+
     context "when running on Linux", :needs_linux do
       it "includes flag for PIE on arm" do
         allow(Hardware::CPU).to receive(:arm?).and_return(true)

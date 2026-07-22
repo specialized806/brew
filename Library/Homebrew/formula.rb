@@ -2062,15 +2062,18 @@ class Formula
   # Standard parameters for Cabal-v2 builds.
   #
   # @api public
-  sig { returns(T::Array[String]) }
-  def std_cabal_v2_args
+  # @param installdir directory for `--installdir`. Set to false if using v2-configure or v2-build
+  sig { params(installdir: T.any(String, Pathname, FalseClass)).returns(T::Array[String]) }
+  def std_cabal_v2_args(installdir: bin)
     # cabal-install's dependency-resolution backtracking strategy can
     # easily need more than the default 2,000 maximum number of
     # "backjumps," since Hackage is a fast-moving, rolling-release
     # target. The highest known needed value by a formula was 43,478
     # for git-annex, so 100,000 should be enough to avoid most
     # gratuitous backjumps build failures.
-    ["--jobs=#{ENV.make_jobs}", "--max-backjumps=100000", "--install-method=copy", "--installdir=#{bin}"]
+    args = ["--jobs=#{ENV.make_jobs}", "--max-backjumps=100000"]
+    args += ["--install-method=copy", "--installdir=#{installdir}"] if installdir
+    args
   end
 
   # Standard parameters for Cargo builds.
