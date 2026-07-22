@@ -132,9 +132,16 @@ RSpec.describe Homebrew::DownloadQueue do
     allow(retryable_download).to receive(:fetch).and_return(cached_download)
     allow(downloadable).to receive(:stage_from_download_queue?).and_return(true)
     allow(downloadable).to receive_messages(extracting!: nil, downloaded!: nil)
+    fetch_started = Queue.new
     staging_started = Queue.new
     staging_interrupted = Queue.new
+    release_fetch = Queue.new
     release_staging = Queue.new
+    allow(downloadable).to receive(:download_queue_message) do
+      fetch_started << true
+      release_fetch.pop
+      "Bottle testball"
+    end
     allow(downloadable).to receive(:stage_from_download_queue) do
       staging_started << true
       release_staging.pop
@@ -147,6 +154,7 @@ RSpec.describe Homebrew::DownloadQueue do
     fetch_thread = Thread.current
     interrupter = Thread.new do
       next unless staging_started.pop(timeout: 1)
+      next unless fetch_started.pop(timeout: 1)
 
       fetch_thread.raise(Interrupt)
     end
@@ -154,6 +162,7 @@ RSpec.describe Homebrew::DownloadQueue do
     expect { download_queue.fetch }.to raise_error(Interrupt)
     expect(staging_interrupted.pop(timeout: 1)).to be(true)
   ensure
+    release_fetch&.push(true)
     release_staging&.push(true)
     interrupter.kill if interrupter && !interrupter.join(1)
   end
