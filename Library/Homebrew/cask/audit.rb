@@ -849,11 +849,11 @@ module Cask
       cask_min_os = [on_system_block_min_os, depends_on_min_os].compact.max
       debug_messages = []
       debug_messages << "from on_system block: #{on_system_block_min_os.to_sym}" if on_system_block_min_os
-      if depends_on_min_os > HOMEBREW_MACOS_OLDEST_ALLOWED
+      if depends_on_min_os && depends_on_min_os > HOMEBREW_MACOS_OLDEST_ALLOWED
         debug_messages << "from depends_on stanza: #{depends_on_min_os.to_sym}"
       end
-      odebug "Declared minimum macOS: #{cask_min_os.to_sym} (#{debug_messages.join(" | ").presence || "default"})"
-      return if cask_min_os.to_sym == app_min_os.to_sym
+      odebug "Declared minimum macOS: #{cask_min_os&.to_sym} (#{debug_messages.join(" | ").presence || "default"})"
+      return if cask_min_os&.to_sym == app_min_os.to_sym
       # ignore declared minimum OS < 11.x when auditing as ARM a cask with arch-specific artifacts
       return if OnSystem.arch_condition_met?(:arm) &&
                 cask.on_system_blocks_exist? &&
@@ -861,7 +861,7 @@ module Cask
                 app_min_os < MacOSVersion.new("11") &&
                 app_min_os < cask_min_os
 
-      min_os_definition = if cask_min_os > HOMEBREW_MACOS_OLDEST_ALLOWED
+      min_os_definition = if cask_min_os && cask_min_os > HOMEBREW_MACOS_OLDEST_ALLOWED
         definition = if T.must(on_system_block_min_os.to_s <=> depends_on_min_os.to_s).positive?
           "an on_system block"
         else
