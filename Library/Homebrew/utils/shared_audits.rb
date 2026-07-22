@@ -143,7 +143,7 @@ module SharedAudits
   def self.forgejo_repo_data(user, repo)
     @forgejo_repo_data ||= T.let({}, T.nilable(T::Hash[String, T.untyped]))
     @forgejo_repo_data["#{user}/#{repo}"] ||= begin
-      result = Utils::Curl.curl_output("https://codeberg.org/api/v1/repos/#{user}/#{repo}")
+      result = Utils::Curl.curl_output("https://codeberg.org/api/v1/repos/#{user}/#{repo}", "--fail")
 
       JSON.parse(result.stdout) if result.status.success?
     end
