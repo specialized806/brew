@@ -1214,6 +1214,28 @@ RSpec.describe Cask::Audit, :cask do
         it { is_expected.to error_with(/cask declared no minimum macOS version/) }
       end
 
+      context "when the app requires a newer macOS but the cask declares no macOS dependency" do
+        let(:cask) do
+          tmp_cask "no-min-os", <<~RUBY
+            cask 'no-min-os' do
+              version '1.0'
+              sha256 :no_check
+              url 'https://brew.sh/no-min-os.zip'
+              name 'No Min OS'
+              homepage 'https://brew.sh/'
+
+              on_macos do
+                depends_on arch: :arm64
+
+                app 'No Min OS.app'
+              end
+            end
+          RUBY
+        end
+
+        it { is_expected.to error_with(/cask declared no minimum macOS version/) }
+      end
+
       it "normalizes 10.16.0 minimum macOS to Big Sur" do
         expect(audit.send(:normalize_min_os, "10.16.0")).to eq(MacOSVersion.from_symbol(:big_sur))
       end
