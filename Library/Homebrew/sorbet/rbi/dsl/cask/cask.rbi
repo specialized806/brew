@@ -46,6 +46,9 @@ class Cask::Cask
   def colorpicker(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def command_wrapper(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def conflicts_with(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }

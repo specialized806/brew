@@ -13,6 +13,9 @@ class RuboCop::Cask::AST::Stanza
   def appcast?; end
 
   sig { returns(T::Boolean) }
+  def appimage?; end
+
+  sig { returns(T::Boolean) }
   def arch?; end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T::Boolean) }
