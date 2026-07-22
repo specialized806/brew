@@ -3214,6 +3214,27 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_cabal_v2_args" do
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    context "when running on Linux", :needs_linux do
+      it "includes flag for PIE on arm" do
+        allow(Hardware::CPU).to receive(:arm?).and_return(true)
+        expect(f.std_cabal_v2_args).to include("--ghc-option=-pie")
+      end
+
+      it "excludes flag for PIE on non-arm" do
+        allow(Hardware::CPU).to receive(:arm?).and_return(false)
+        expect(f.std_cabal_v2_args).not_to include("--ghc-option=-pie")
+      end
+    end
+  end
+
   describe "#std_pip_args" do
     let(:f) do
       formula do
