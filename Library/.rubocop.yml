@@ -160,7 +160,6 @@ Layout/LineLength:
       '"~/Library/Caches/',
       '"~/Library/Containers',
       '"~/Application Support',
-      " was verified as official when first introduced to the cask",
     ]
 
 # conflicts with DSL-style path concatenation with `/`
