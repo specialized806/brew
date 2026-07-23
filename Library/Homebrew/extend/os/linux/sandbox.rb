@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "extend/os/linux/sandbox/bubblewrap"
+require "extend/os/linux/sandbox/landlock"
 
 module OS
   module Linux
@@ -27,6 +28,16 @@ module OS
       sig { returns(::Pathname) }
       def self.bubblewrap_executable!
         ::Sandbox::Bubblewrap.executable!
+      end
+
+      sig { returns(T::Boolean) }
+      def self.landlock?
+        ENV.fetch("HOMEBREW_SANDBOX_LINUX_LANDLOCK", nil) == "1"
+      end
+
+      sig { returns(T.any(T.class_of(::Sandbox::Bubblewrap), T.class_of(::Sandbox::Landlock))) }
+      def self.sandbox_implementation
+        landlock? ? ::Sandbox::Landlock : ::Sandbox::Bubblewrap
       end
 
       sig { void }
@@ -93,12 +104,17 @@ module OS
 
         sig { params(install_from_tests: T::Boolean).void }
         def ensure_sandbox_installed!(install_from_tests: false)
-          ::Sandbox::Bubblewrap.ensure_installed!(install_from_tests:)
+          OS::Linux::Sandbox.sandbox_implementation.ensure_installed!(install_from_tests:)
         end
 
         sig { returns(T::Boolean) }
         def available?
-          ::Sandbox::Bubblewrap.available?
+          OS::Linux::Sandbox.sandbox_implementation.available?
+        end
+
+        sig { returns(T::Boolean) }
+        def full_write_isolation?
+          OS::Linux::Sandbox.sandbox_implementation.full_write_isolation?
         end
 
         # Bubblewrap reports this specific namespace error when an outer
@@ -107,42 +123,45 @@ module OS
         # `$HOMEBREW_AVOID_NESTED_SANDBOXING` opt-in is set.
         sig { returns(T::Boolean) }
         def nested_sandbox?
-          ::Sandbox::Bubblewrap.nested_sandbox?
+          OS::Linux::Sandbox.sandbox_implementation.nested_sandbox?
         end
 
         sig { returns(Symbol) }
         def state
-          ::Sandbox::Bubblewrap.state
+          OS::Linux::Sandbox.sandbox_implementation.state
         end
 
         sig { void }
         def reset_state!
           ::Sandbox::Bubblewrap.reset_state!
+          ::Sandbox::Landlock.reset_state!
         end
 
         sig { returns(T::Array[String]) }
         def configuration_commands
-          ::Sandbox::Bubblewrap.configuration_commands
+          OS::Linux::Sandbox.sandbox_implementation.configuration_commands
         end
 
         sig { returns(T::Array[String]) }
         def configuration_command_messages
-          ::Sandbox::Bubblewrap.configuration_command_messages
+          OS::Linux::Sandbox.sandbox_implementation.configuration_command_messages
         end
 
         sig { void }
         def configure!
-          ::Sandbox::Bubblewrap.configure!
+          OS::Linux::Sandbox.sandbox_implementation.configure!
         end
 
         sig { returns(T.nilable(String)) }
         def failure_reason
-          ::Sandbox::Bubblewrap.failure_reason
+          return super if self != ::Sandbox
+
+          OS::Linux::Sandbox.sandbox_implementation.failure_reason
         end
 
         sig { returns(T.nilable(String)) }
         def sandbox_install_command
-          ::Sandbox::Bubblewrap.install_command
+          OS::Linux::Sandbox.sandbox_implementation.install_command
         end
 
         # `ioctl` request used to attach the sandboxed child to a controlling TTY.
@@ -154,14 +173,14 @@ module OS
 
       sig { params(args: T.any(String, ::Pathname)).void }
       def run(*args)
-        bubblewrap.run { super }
+        implementation.run { super }
       end
 
       private
 
       sig { params(args: T::Array[T.any(String, ::Pathname)], tmpdir: String).returns(T::Array[T.any(String, ::Pathname)]) }
       def sandbox_command(args, tmpdir)
-        bubblewrap.command(args, tmpdir)
+        implementation.command(args, tmpdir)
       end
 
       sig { params(tmpdir: String).returns(T::Array[String]) }
@@ -172,6 +191,20 @@ module OS
       sig { returns(T::Hash[String, Symbol]) }
       def writable_paths
         bubblewrap.writable_paths
+      end
+
+      sig { void }
+      def apply_sandbox
+        sandbox = implementation
+        sandbox.apply! if sandbox.is_a?(::Sandbox::Landlock)
+      end
+
+      sig { returns(T.any(::Sandbox::Bubblewrap, ::Sandbox::Landlock)) }
+      def implementation
+        @implementation ||= T.let(
+          OS::Linux::Sandbox.sandbox_implementation.new(profile),
+          T.nilable(T.any(::Sandbox::Bubblewrap, ::Sandbox::Landlock)),
+        )
       end
 
       sig { returns(::Sandbox::Bubblewrap) }

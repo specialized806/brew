@@ -439,6 +439,13 @@ then
   export HOMEBREW_COLOR="1"
 fi
 
+# This is set by Homebrew's self-hosted runner environment.
+# shellcheck disable=SC2154
+if [[ -n "${HOMEBREW_LINUX}" && -n "${GITHUB_ACTIONS_HOMEBREW_SELF_HOSTED}" ]]
+then
+  export HOMEBREW_SANDBOX_LINUX_LANDLOCK="1"
+fi
+
 # Force UTF-8 to avoid encoding issues for users with broken locale settings.
 if [[ -n "${HOMEBREW_MACOS}" ]]
 then

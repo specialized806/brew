@@ -145,6 +145,42 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#post_install" do
+    it "restores bin/brew after a Landlock-sandboxed post-install replaces it" do
+      prefix = mktmpdir
+      stub_const("HOMEBREW_PREFIX", prefix)
+      brew_file = prefix/"bin/brew"
+      original_brew_file = prefix/"Homebrew/bin/brew"
+      original_brew_file.dirname.mkpath
+      original_brew_file.write "#!/bin/sh\n"
+      brew_file.dirname.mkpath
+      brew_file.make_relative_symlink original_brew_file
+      original_target = brew_file.readlink
+      original_directory_mode = brew_file.dirname.stat.mode & 07777
+      formula = formula("replace-brew-postinstall") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      installer = described_class.new(formula)
+      sandbox = instance_double(Sandbox).as_null_object
+
+      allow(installer).to receive_messages(post_install_formula_path: formula.path, use_sandbox?: true)
+      allow(formula).to receive_messages(logs: mktmpdir, network_access_allowed?: true)
+      allow(Sandbox).to receive_messages(full_write_isolation?: false, new: sandbox)
+      allow(sandbox).to receive(:run) do
+        FileUtils.rm_f brew_file
+        brew_file.write "malicious\n"
+        brew_file.dirname.chmod 0500
+      end
+
+      installer.post_install
+
+      expect(brew_file).to be_a_symlink
+      expect(brew_file.readlink).to eq(original_target)
+      expect(brew_file.dirname.stat.mode & 07777).to eq(original_directory_mode)
+    end
+  end
+
   describe "#pour" do
     let(:f) do
       formula("missing-bottle-tab") do

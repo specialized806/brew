@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "env_config"
 require "utils/output"
 require "extend/os/linux/sandbox/backend"
 
@@ -111,6 +112,8 @@ class Sandbox
         case state
         when :available
           nil
+        when :config_disabled
+          "Landlock cannot be used because Linux sandboxing is disabled."
         when :missing_fiddle
           "Landlock requires Ruby's bundled Fiddle library."
         when :unsupported
@@ -249,6 +252,8 @@ class Sandbox
 
       sig { returns(Symbol) }
       def compute_state
+        return :config_disabled unless Homebrew::EnvConfig.sandbox_linux?
+
         begin
           require "fiddle"
         rescue LoadError

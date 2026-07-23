@@ -173,9 +173,10 @@ module OS
           return if inside_docker && !GitHub::Actions.env_set?
 
           state = ::Sandbox.state
-          return if [:disabled, :available].include?(state)
+          return if state == :available
 
           reason = ::Sandbox.failure_reason || "The Linux sandbox is not available."
+          state = :landlock if OS::Linux::Sandbox.landlock?
           lines = case state
           when :missing
             missing_lines = [

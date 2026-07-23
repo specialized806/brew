@@ -7,6 +7,20 @@ require "extend/os/linux/sandbox" if OS.linux?
 RSpec.describe Sandbox, :needs_linux do
   subject(:sandbox) { described_class.new }
 
+  describe "::sandbox_implementation" do
+    it "uses Bubblewrap by default" do
+      with_env(HOMEBREW_SANDBOX_LINUX_LANDLOCK: nil) do
+        expect(OS::Linux::Sandbox.sandbox_implementation).to eq(Sandbox::Bubblewrap)
+      end
+    end
+
+    it "uses Landlock when requested" do
+      with_env(HOMEBREW_SANDBOX_LINUX_LANDLOCK: "1") do
+        expect(OS::Linux::Sandbox.sandbox_implementation).to eq(Sandbox::Landlock)
+      end
+    end
+  end
+
   describe "::bubblewrap_executable" do
     let(:sandbox_class) do
       Class.new(Sandbox::Bubblewrap) do

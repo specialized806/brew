@@ -334,7 +334,6 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     container:
       image: ${{ matrix.container }}
-      options: ${{ matrix.container != '' && '--privileged' }}
     strategy:
       fail-fast: false
       matrix:
@@ -359,6 +358,7 @@ jobs:
           - name: test-bot (macOS arm64)
             runs-on: macos-26
     env:
+      HOMEBREW_SANDBOX_LINUX_LANDLOCK: 1
       HOMEBREW_TEST_BOT_ANALYTICS: 1
     steps:
       - name: Install Homebrew and Homebrew's dependencies

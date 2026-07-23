@@ -75,6 +75,15 @@ RSpec.describe Sandbox do
     end
   end
 
+  describe "#copy_pty_output" do
+    it "treats a PTY EIO as EOF" do
+      controller = instance_double(IO)
+      allow(controller).to receive(:each_char).and_raise(Errno::EIO)
+
+      expect { sandbox.send(:copy_pty_output, controller) }.not_to raise_error
+    end
+  end
+
   describe "::failure_reason" do
     let(:sandbox_class) { Class.new(described_class) }
 

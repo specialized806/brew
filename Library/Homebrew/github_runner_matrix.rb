@@ -125,11 +125,9 @@ class GitHubRunnerMatrix
     end
 
     unless self_hosted
-      options = %w[--user linuxbrew]
-      options << "--privileged" if Homebrew::EnvConfig.sandbox_linux?
       container = {
         image:   "ghcr.io/homebrew/brew:main",
-        options: options.join(" "),
+        options: "--user linuxbrew --env HOMEBREW_SANDBOX_LINUX_LANDLOCK=1",
       }
       workdir = "/github/home"
     end

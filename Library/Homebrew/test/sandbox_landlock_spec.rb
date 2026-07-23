@@ -48,6 +48,13 @@ RSpec.describe Sandbox::Landlock do
       expect(described_class.failure_reason).to include("disabled by this Linux kernel")
     end
 
+    it "returns false when Linux sandboxing is disabled" do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
+
+      expect(described_class).not_to be_available
+      expect(described_class.state).to eq(:config_disabled)
+    end
+
     it "returns false when Fiddle is unavailable" do
       allow(described_class).to receive(:require).with("fiddle").and_raise(LoadError)
 
