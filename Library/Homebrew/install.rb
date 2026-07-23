@@ -481,6 +481,8 @@ module Homebrew
           puts formulae_names_to_install.join(" ")
 
           formula_installers.each do |fi|
+            next if fi.ignore_deps?
+
             print_dry_run_dependencies(fi.formula, fi.compute_dependencies, &:name)
           end
           return
@@ -672,7 +674,9 @@ module Homebrew
         ).returns(T::Boolean)
       }
       def formulae_ask_prompt_needed?(formulae_installer, dependants)
-        formulae_installer.any? { |formula_installer| formula_installer.compute_dependencies.present? } ||
+        formulae_installer.any? do |formula_installer|
+          !formula_installer.ignore_deps? && formula_installer.compute_dependencies.present?
+        end ||
           dependants.upgradeable.present?
       end
 
