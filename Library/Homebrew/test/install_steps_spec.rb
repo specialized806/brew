@@ -341,6 +341,27 @@ RSpec.describe Homebrew::InstallSteps do
       .to raise_error(ArgumentError, /exactly one path/)
   end
 
+  specify "requires a match for literal glob sources" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      copy "missing.txt", "copied.txt", source_glob: true
+    end
+
+    expect { Homebrew::InstallSteps::Runner.new(context:).run(steps) }
+      .to raise_error(ArgumentError, /exactly one path/)
+  end
+
+  specify "deduplicates overlapping move source globs" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path,
+                                              default_target_base: :staged_path) do
+      move "{WezTerm-*,WezTerm-*}/WezTerm.app", ".", source_glob: true
+    end
+    (root/"stage/WezTerm-nightly/WezTerm.app").mkpath
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect(root/"stage/WezTerm.app").to be_a_directory
+  end
+
   specify "removes paths and expands globs", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       remove ["obsolete.txt", "obsolete-*"], recursive: true
