@@ -134,9 +134,9 @@ No single person holds special authority beyond the Project Leader role.
 
 ## 3. Decision-making
 
-Formal governance decisions are made by vote of all Maintainers.
-Major financial decisions (i.e. changes to existing documented financial processes or new one-time expenditures) are made by vote of the Lead Maintainers.
-Minor financial approvals (i.e. approving expected Open Collective expenses) can be made by any Lead Maintainer.
+- Formal governance decisions are made by vote of all Maintainers.
+- Major financial decisions (i.e. changes to existing documented financial processes or new one-time expenditures) are made by vote of the Lead Maintainers.
+- Minor financial approvals (i.e. approving expected Open Collective expenses) can be made by any Lead Maintainer.
 
 - Informal decisions may proceed by discussion unless a vote is requested by any Lead Maintainer.
 - Formal votes require a simple majority.

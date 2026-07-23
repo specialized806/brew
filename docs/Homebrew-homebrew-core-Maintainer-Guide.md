@@ -79,18 +79,18 @@ We now accept versioned formulae as long as they [meet the requirements](Version
 Every formula change must at least build successfully in the required BrewTestBot jobs.
 Use [BrewTestBot](BrewTestBot.md) for this validation.
 
-Verify installed functionality rather than relying solely on the contributor's local result.
-Require a meaningful `test do` block that exercises the installed software without network access.
-For a library, compile and run a small program against the installed headers and library when practical.
-If the reviewer cannot evaluate specialised behaviour, request reproducible validation from upstream documentation, an existing test suite or another reviewer with relevant knowledge.
+- Verify installed functionality rather than relying solely on the contributor's local result.
+- Require a meaningful `test do` block that exercises the installed software without network access.
+- For a library, compile and run a small program against the installed headers and library when practical.
+- If the reviewer cannot evaluate specialised behaviour, request reproducible validation from upstream documentation, an existing test suite or another reviewer with relevant knowledge.
 
 If a formula uses a source-code repository, its `url` must identify an immutable tag or revision.
 Do not package a moving branch as a stable release.
 
-Do not merge a formula update with a failing `brew test`.
-Fix the failure or replace a flaky test with a reliable test that still detects whether the installed software works.
-If the failure comes from Homebrew or CI, fix that problem or add a narrowly scoped formula workaround before merging.
-Do not normalise merging a red pull request.
+- Do not merge a formula update with a failing `brew test`.
+- Fix the failure or replace a flaky test with a reliable test that still detects whether the installed software works.
+- If the failure comes from Homebrew or CI, fix that problem or add a narrowly scoped formula workaround before merging.
+- Do not normalise merging a red pull request.
 
 ## Retagged formulae
 

@@ -8,9 +8,9 @@ A keg-only formula is installed in its own prefix but is not linked into Homebre
 This prevents a Homebrew package from shadowing software provided by macOS or conflicting with another formula.
 See the [FAQ explanation of keg-only formulae](FAQ.md#what-does-keg-only-mean).
 
-Do not replace macOS tools or libraries with manual symlinks.
-Avoid `brew link --force` because it makes unrelated builds and system commands resolve a different dependency globally.
-Pass the required location only to the build that needs it.
+- Do not replace macOS tools or libraries with manual symlinks.
+- Avoid `brew link --force` because it makes unrelated builds and system commands resolve a different dependency globally.
+- Pass the required location only to the build that needs it.
 
 ## Discover the prefix
 

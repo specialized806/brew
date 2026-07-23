@@ -107,10 +107,11 @@ Use upstream build-system options to direct bindings into the formula prefix rat
 ### Build-system integration for Python bindings
 
 When more than one Python is available in the dependency graph, pass the declared interpreter to the build system explicitly.
-For CMake, use the variable recognised by upstream's discovery module, commonly `Python3_EXECUTABLE`, `Python_EXECUTABLE` or the older `PYTHON_EXECUTABLE`.
-For Meson, check how upstream calls `find_installation()` and use its supported options to select the interpreter.
-If Meson cannot infer Homebrew's installation directories, set `python.purelibdir` or `python.platlibdir` to a path inside the formula prefix.
-For Autotools projects, use an upstream `--with-python` option when available or disable the build-system installation and install the bindings with the declared interpreter and `std_pip_args`.
+
+- For CMake, use the variable recognised by upstream's discovery module, commonly `Python3_EXECUTABLE`, `Python_EXECUTABLE` or the older `PYTHON_EXECUTABLE`.
+- For Meson, check how upstream calls `find_installation()` and use its supported options to select the interpreter.
+  - If Meson cannot infer Homebrew's installation directories, set `python.purelibdir` or `python.platlibdir` to a path inside the formula prefix.
+- For Autotools projects, use an upstream `--with-python` option when available or disable the build-system installation and install the bindings with the declared interpreter and `std_pip_args`.
 
 ## Node.js
 
