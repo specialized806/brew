@@ -478,6 +478,14 @@ RSpec.describe Sandbox, :needs_linux do
       expect { sandbox.run "false" }.to raise_error(ErrorDuringExecution)
     end
 
+    it "allows spawning a pseudo-terminal" do
+      sandbox.deny_read_path mktmpdir
+
+      expect do
+        sandbox.run RUBY_PATH, "-rpty", "-e", 'PTY.spawn("true") { |_, _, pid| Process.wait(pid) }'
+      end.not_to raise_error
+    end
+
     it "prevents listing a denied read hierarchy" do
       denied_dir = mktmpdir
       FileUtils.touch denied_dir/"secret"
