@@ -49,9 +49,9 @@ Maintainers are not expected to advance significant personal funds.
 Submit an approved expense through [Homebrew on Open Collective](https://opencollective.com/homebrew/expenses/new) promptly after paying it.
 Follow Open Source Collective's current [invoice and reimbursement guidance](https://docs.oscollective.org/for-hosted-member-projects/spending-money-and-getting-paid/invoice-and-reimbursement-examples).
 
-Use a reimbursement for a project purchase that you have already paid.
-Use an invoice for completed work or services.
-If an expense contains multiple receipts, enter them as separate line items.
+* Use a reimbursement for a project purchase that you have already paid.
+* Use an invoice for completed work or services.
+* If an expense contains multiple receipts, enter them as separate line items.
 
 Open Source Collective will request payment, identity or tax information before it can pay an expense.
 

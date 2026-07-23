@@ -28,11 +28,11 @@ The [Cask Cookbook](Cask-Cookbook.md#casks-pinned-to-specific-versions) document
 
 ### Platform compatibility and macOS security protections
 
-A cask may support macOS, Linux or both when Homebrew supports its artifact types on those operating systems.
-A cask is not required to support both operating systems.
-A cask must work on every operating system and architecture it declares.
-A cask that supports macOS must work on the latest major version of macOS.
-On macOS, it must not require System Integrity Protection or Gatekeeper to be disabled or bypassed.
+* A cask may support macOS, Linux or both when Homebrew supports its artifact types on those operating systems.
+* A cask is not required to support both operating systems.
+* A cask must work on every operating system and architecture it declares.
+* A cask that supports macOS must work on the latest major version of macOS.
+* On macOS, it must not require System Integrity Protection or Gatekeeper to be disabled or bypassed.
 
 Apple's [Rosetta 2 transition documentation](https://developer.apple.com/documentation/apple-silicon/about-the-rosetta-translation-environment/) says general application support will remain available through macOS 27, with only a narrower legacy-games-focused subset beyond that.
 Casks that require [`requires_rosetta`](Cask-Cookbook.md#caveats-mini-dsl) remain eligible while the latest major macOS release provides that general support.
@@ -45,10 +45,10 @@ Language and regional editions of the same application should normally be repres
 
 ### Trials and optional paid features
 
-A time-limited trial is eligible only when the same download can be activated as the full version without being downloaded again.
-The trial cask is not eligible when the full version is available only through the Mac App Store.
-A free version that works indefinitely with optional paid features is eligible.
-An obsolete direct-download build is not eligible when the developer distributes the current version exclusively through the Mac App Store.
+* A time-limited trial is eligible only when the same download can be activated as the full version without being downloaded again.
+* The trial cask is not eligible when the full version is available only through the Mac App Store.
+* A free version that works indefinitely with optional paid features is eligible.
+* An obsolete direct-download build is not eligible when the developer distributes the current version exclusively through the Mac App Store.
 
 ### Appropriate package type
 
@@ -60,9 +60,9 @@ The [Adding Software to Homebrew](Adding-Software-to-Homebrew.md#choose-a-packag
 
 ### Verifiable upstream distribution
 
-A cask must use a download published by the developer or by a distribution source the developer publicly endorses.
-An unendorsed third-party build, a binary available only through a forum or similar posting or a download hidden behind account registration on a host unrelated to the homepage is not eligible.
-An installer package that requires certificate verification to be disabled is not eligible.
+* A cask must use a download published by the developer or by a distribution source the developer publicly endorses.
+* An unendorsed third-party build, a binary available only through a forum or similar posting or a download hidden behind account registration on a host unrelated to the homepage is not eligible.
+* An installer package that requires certificate verification to be disabled is not eligible.
 
 ### Forks and apps with conflicting names
 
@@ -77,9 +77,10 @@ A duplicate cask for the same software, release and channel is not eligible.
 
 ### Notability exceptions
 
-The [shared notability metrics](Package-Acceptance-Policy.md#notability) may not represent the notability of an established application when the repository is used only to host its binaries.
-A cask backed by an established maintainer or prolific contributor may also receive further consideration because it has a clearer maintenance path.
-A recently released application may receive further consideration when there is substantial, independently verifiable public interest and multiple requests for inclusion.
+* The [shared notability metrics](Package-Acceptance-Policy.md#notability) may not represent the notability of an established application when the repository is used only to host its binaries.
+* A cask backed by an established maintainer or prolific contributor may also receive further consideration because it has a clearer maintenance path.
+* A recently released application may receive further consideration when there is substantial, independently verifiable public interest and multiple requests for inclusion.
+
 These circumstances permit further review but do not guarantee inclusion.
 
 ## Security and malware

@@ -47,17 +47,16 @@ An install step must not resolve a moving or otherwise unreproducible dependency
 
 ### Source availability and licences
 
-A formula in `homebrew/core` must be open source under a licence compatible with the [Debian Free Software Guidelines](https://wiki.debian.org/DFSGLicenses).
-It must either build from source or install portable, platform-independent output such as Java bytecode.
-
-Proprietary or platform-specific binary-only software belongs in a cask.
-A core formula must not depend on a cask, proprietary software or a runtime step that automatically installs either one.
+* A formula in `homebrew/core` must be open source under a licence compatible with the [Debian Free Software Guidelines](https://wiki.debian.org/DFSGLicenses).
+* It must either build from source or install portable, platform-independent output such as Java bytecode.
+* Proprietary or platform-specific binary-only software belongs in a cask.
+* A core formula must not depend on a cask, proprietary software or a runtime step that automatically installs either one.
 
 ### Stable releases
 
-Upstream must identify the packaged version as stable and provide an immutable tag or release.
-Release archives are preferred to Git checkouts and should include the version in the filename when upstream provides that form.
-A new formula must build without downstream-only patches on its supported platforms.
+* Upstream must identify the packaged version as stable and provide an immutable tag or release.
+* Release archives are preferred to Git checkouts and should include the version in the filename when upstream provides that form.
+* A new formula must build without downstream-only patches on its supported platforms.
 
 Software without a stable release is difficult to reproduce, bottle and support and is not eligible for `homebrew/core`.
 
@@ -68,9 +67,9 @@ A supported application bundle published by upstream belongs in [`homebrew/cask`
 
 ### Optional graphical interfaces
 
-When upstream can build both a command-line or library component and an optional graphical interface, the command-line or library component should remain the formula's primary purpose.
-A widely used native graphical interface may be included when it does not impose a disproportionate dependency cost.
-An X11 or XQuartz interface should not be enabled by default as it provides a poor macOS experience.
+* When upstream can build both a command-line or library component and an optional graphical interface, the command-line or library component should remain the formula's primary purpose.
+* A widely used native graphical interface may be included when it does not impose a disproportionate dependency cost.
+* An X11 or XQuartz interface should not be enabled by default as it provides a poor macOS experience.
 
 ### Dependencies and full variants
 
@@ -94,9 +93,9 @@ Software that requires extensive manual pre-installation or post-installation st
 
 ### Shared and static libraries
 
-Shared libraries are preferred when upstream can provide either shared or static libraries.
-A formula may install both when static libraries have a demonstrated use.
-Static-only libraries are not appropriate when other formulae depend on them because every dependent must be rebuilt after an update.
+* Shared libraries are preferred when upstream can provide either shared or static libraries.
+* A formula may install both when static libraries have a demonstrated use.
+* Static-only libraries are not appropriate when other formulae depend on them because every dependent must be rebuilt after an update.
 
 ### Vendored dependencies
 

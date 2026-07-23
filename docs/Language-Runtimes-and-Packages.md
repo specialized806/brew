@@ -11,9 +11,9 @@ redirect_from:
 Homebrew provides language runtimes and applications but does not manage packages installed directly by tools such as `gem`, `npm`, `pip` or `cpan`.
 Those packages are outside Homebrew's installation records and are not upgraded or removed by `brew`.
 
-Use `brew install` when Homebrew provides the runtime or application you need.
-Use each language's project environment and lock file for project dependencies.
-Avoid running language package managers with `sudo` or changing ownership of system-managed directories to make an installation succeed.
+- Use `brew install` when Homebrew provides the runtime or application you need.
+- Use each language's project environment and lock file for project dependencies.
+- Avoid running language package managers with `sudo` or changing ownership of system-managed directories to make an installation succeed.
 
 ## Python
 
