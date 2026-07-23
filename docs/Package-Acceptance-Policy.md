@@ -28,7 +28,7 @@ Discontinued software and software that relies on Homebrew-specific patches to c
 A new package must demonstrate public interest beyond its author.
 A GitHub project normally satisfies this requirement by meeting one of these thresholds:
 
-* at least 30 forks, 30 watchers or 75 stars, or
+* at least 30 forks, 30 watchers or 75 stars.
 * at least 90 forks, 90 watchers or 225 stars for a self-submission by the repository owner.
 
 Equivalent public evidence may be considered for software hosted elsewhere.
