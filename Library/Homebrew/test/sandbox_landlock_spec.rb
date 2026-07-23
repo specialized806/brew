@@ -84,6 +84,12 @@ RSpec.describe Sandbox::Landlock do
     let(:writable_dir) { mktmpdir }
     let(:tmpdir) { mktmpdir }
 
+    before do
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with("/dev/ptmx").and_return(true)
+      allow(File).to receive(:exist?).with("/dev/pts").and_return(true)
+    end
+
     it "rejects an ABI without complete write restrictions" do
       allow(described_class).to receive_messages(abi_version:    2,
                                                  failure_reason: "Landlock ABI 3 or later is required; found ABI 2.")
@@ -109,8 +115,10 @@ RSpec.describe Sandbox::Landlock do
       expect(landlock).to receive(:open_path).with(File::NULL).and_return(19)
       allow(landlock).to receive(:open_path).with(tmpdir.to_s).and_return(20)
       expect(landlock).to receive(:open_path).with("#{tmpdir}/socket").and_return(21)
+      expect(landlock).to receive(:open_path).with("/dev/ptmx").and_return(22)
+      expect(landlock).to receive(:open_path).with("/dev/pts").and_return(23)
       path_rules = []
-      expect(described_class).to receive(:landlock_add_rule).exactly(4).times do |ruleset_fd, type, attributes, flags|
+      expect(described_class).to receive(:landlock_add_rule).exactly(6).times do |ruleset_fd, type, attributes, flags|
         expect(ruleset_fd).to eq(17)
         expect(type).to eq(1)
         expect(attributes.bytesize).to eq(12)
@@ -120,6 +128,8 @@ RSpec.describe Sandbox::Landlock do
       end
       expect(described_class).to receive(:set_no_new_privileges).and_return(0)
       expect(described_class).to receive(:landlock_restrict_self).with(17, 0).and_return(0)
+      expect(landlock).to receive(:close_file_descriptor).with(22).ordered
+      expect(landlock).to receive(:close_file_descriptor).with(23).ordered
       expect(landlock).to receive(:close_file_descriptor).with(21).ordered
       expect(landlock).to receive(:close_file_descriptor).with(18).ordered
       expect(landlock).to receive(:close_file_descriptor).with(19).ordered
@@ -128,7 +138,9 @@ RSpec.describe Sandbox::Landlock do
 
       landlock.apply!
 
-      expect(path_rules).to eq([[65_536, 21], [32_754, 18], [16_386, 19], [32_754, 20]])
+      expect(path_rules).to eq([
+        [32_770, 22], [32_770, 23], [65_536, 21], [32_754, 18], [16_386, 19], [32_754, 20]
+      ])
     end
 
     it "handles reads, directory listings, and execution outside denied hierarchies" do
@@ -152,8 +164,10 @@ RSpec.describe Sandbox::Landlock do
       expect(landlock).to receive(:open_path).with(readable_file.to_s).and_return(19)
       expect(landlock).to receive(:open_path).with(File::NULL).and_return(20)
       expect(landlock).to receive(:open_path).with(tmpdir.to_s).and_return(21)
+      expect(landlock).to receive(:open_path).with("/dev/ptmx").and_return(22)
+      expect(landlock).to receive(:open_path).with("/dev/pts").and_return(23)
       path_rules = []
-      expect(described_class).to receive(:landlock_add_rule).exactly(4).times do |ruleset_fd, type, attributes, flags|
+      expect(described_class).to receive(:landlock_add_rule).exactly(6).times do |ruleset_fd, type, attributes, flags|
         expect(ruleset_fd).to eq(17)
         expect(type).to eq(1)
         path_rules << attributes.unpack("Ql")
@@ -166,7 +180,43 @@ RSpec.describe Sandbox::Landlock do
 
       landlock.apply!
 
-      expect(path_rules).to eq([[13, 18], [5, 19], [16_386, 20], [32_754, 21]])
+      expect(path_rules).to eq([
+        [32_774, 22], [32_774, 23], [13, 18], [5, 19], [16_386, 20], [32_754, 21]
+      ])
+    end
+
+    it "allows pseudo-terminal device access" do
+      landlock.command(["true"], tmpdir.to_s)
+
+      allow(described_class).to receive_messages(abi_version: 10, landlock_create_ruleset: 17,
+                                                 landlock_add_rule: 0, set_no_new_privileges: 0,
+                                                 landlock_restrict_self: 0)
+      allow(landlock).to receive(:open_path).and_return(18)
+      allow(landlock).to receive(:close_file_descriptor)
+      expect(landlock).to receive(:open_path).with("/dev/ptmx").and_return(19)
+      expect(landlock).to receive(:open_path).with("/dev/pts").and_return(20)
+      expect(described_class).to receive(:landlock_add_rule)
+        .with(17, 1, [32_770, 19].pack("Ql"), 0).and_return(0)
+      expect(described_class).to receive(:landlock_add_rule)
+        .with(17, 1, [32_770, 20].pack("Ql"), 0).and_return(0)
+
+      landlock.apply!
+    end
+
+    it "skips unavailable pseudo-terminal device paths" do
+      landlock.command(["true"], tmpdir.to_s)
+
+      allow(File).to receive(:exist?).with("/dev/ptmx").and_return(false)
+      allow(File).to receive(:exist?).with("/dev/pts").and_return(false)
+      allow(described_class).to receive_messages(abi_version: 10, landlock_create_ruleset: 17,
+                                                 landlock_add_rule: 0, set_no_new_privileges: 0,
+                                                 landlock_restrict_self: 0)
+      allow(landlock).to receive(:open_path).and_return(18)
+      allow(landlock).to receive(:close_file_descriptor)
+      expect(landlock).not_to receive(:open_path).with("/dev/ptmx")
+      expect(landlock).not_to receive(:open_path).with("/dev/pts")
+
+      landlock.apply!
     end
 
     context "with an older ABI" do

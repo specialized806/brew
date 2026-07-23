@@ -318,6 +318,19 @@ class Sandbox
       raise_system_call_error("landlock_create_ruleset") if ruleset_fd.negative?
 
       begin
+        # PTY allocation opens `/dev/ptmx` read-write, then configures its
+        # dynamically allocated `/dev/pts/*` slave with device ioctls:
+        # https://github.com/torvalds/linux/blob/master/drivers/tty/pty.c
+        # https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#ioctl-support
+        pty_access = ACCESS_FS_WRITE_FILE
+        pty_access |= ACCESS_FS_IOCTL_DEV if abi >= 5
+        pty_access |= ACCESS_FS_READ_FILE if @deny_read
+        ["/dev/ptmx", "/dev/pts"].each do |path|
+          next unless File.exist?(path)
+
+          add_path_rule(ruleset_fd, path, pty_access)
+        end
+
         error_pipe_path = @error_pipe_path
         if @deny_all_network && abi >= 9 && error_pipe_path
           add_path_rule(ruleset_fd, error_pipe_path, ACCESS_FS_RESOLVE_UNIX)
