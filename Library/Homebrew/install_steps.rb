@@ -1014,10 +1014,11 @@ module Homebrew
 
       sig { params(step: Step).returns(Pathname) }
       def resolve_step_source(step)
-        source = resolve_path(step_path(step, "source"))
+        source_spec = step_path(step, "source")
+        source = resolve_path(source_spec)
         return source if step["source_glob"] != true
 
-        sources = Pathname.glob(source.to_s)
+        sources = expand_path_glob(source_spec).select { |path| path.exist? || path.symlink? }.uniq
         raise ArgumentError, "install step source glob must match exactly one path: #{source}" if sources.length != 1
 
         sources.fetch(0)
