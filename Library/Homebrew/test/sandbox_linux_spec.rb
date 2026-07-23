@@ -7,9 +7,23 @@ require "extend/os/linux/sandbox" if OS.linux?
 RSpec.describe Sandbox, :needs_linux do
   subject(:sandbox) { described_class.new }
 
+  describe "::sandbox_implementation" do
+    it "uses Bubblewrap by default" do
+      with_env(HOMEBREW_SANDBOX_LINUX_LANDLOCK: nil) do
+        expect(OS::Linux::Sandbox.sandbox_implementation).to eq(Sandbox::Bubblewrap)
+      end
+    end
+
+    it "uses Landlock when requested" do
+      with_env(HOMEBREW_SANDBOX_LINUX_LANDLOCK: "1") do
+        expect(OS::Linux::Sandbox.sandbox_implementation).to eq(Sandbox::Landlock)
+      end
+    end
+  end
+
   describe "::bubblewrap_executable" do
     let(:sandbox_class) do
-      Class.new(Sandbox) do
+      Class.new(Sandbox::Bubblewrap) do
         class << self
           attr_accessor :test_executable_candidate_paths
 
@@ -33,22 +47,22 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "searches Homebrew Bubblewrap before system Bubblewrap and skips setuid candidates" do
-      expect(described_class.executable_candidate_paths.to_a).to start_with("#{HOMEBREW_PREFIX}/bin", "/usr/bin",
-                                                                            "/bin")
-      expect(sandbox_class.bubblewrap_executable).to eq(usable_bubblewrap)
+      expect(Sandbox::Bubblewrap.executable_candidate_paths.to_a).to start_with("#{HOMEBREW_PREFIX}/bin", "/usr/bin",
+                                                                                "/bin")
+      expect(sandbox_class.executable).to eq(usable_bubblewrap)
     end
 
     it "raises when no suitable bubblewrap candidate exists" do
       sandbox_class.test_executable_candidate_paths = PATH.new(mktmpdir)
 
-      expect { sandbox_class.bubblewrap_executable! }
+      expect { sandbox_class.executable! }
         .to raise_error(RuntimeError, "Bubblewrap is required to use the Linux sandbox.")
     end
   end
 
   describe "::available?" do
     let(:sandbox_class) do
-      Class.new(Sandbox) do
+      Class.new(Sandbox::Bubblewrap) do
         class << self
           attr_accessor :test_executable_candidate_paths
 
@@ -94,6 +108,7 @@ RSpec.describe Sandbox, :needs_linux do
       allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
 
       expect(sandbox_class.available?).to be(false)
+      expect(sandbox_class.state).to eq(:config_disabled)
     end
 
     it "returns false when bubblewrap is unavailable" do
@@ -184,7 +199,7 @@ RSpec.describe Sandbox, :needs_linux do
   end
 
   describe "::configuration_commands" do
-    let(:sandbox_class) { Class.new(described_class) }
+    let(:sandbox_class) { Class.new(Sandbox::Bubblewrap) }
 
     around do |example|
       with_env(GITHUB_ACTIONS: nil, HOMEBREW_GITHUB_HOSTED_RUNNER: nil) { example.run }
@@ -199,9 +214,9 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "uses system Bubblewrap when configuring Linux sandbox sysctls" do
-      allow(sandbox_class).to receive(:bubblewrap_executable).and_return(Pathname("/usr/bin/bwrap"))
+      allow(sandbox_class).to receive(:executable).and_return(Pathname("/usr/bin/bwrap"))
       allow(Process).to receive(:euid).and_return(1000)
-      expect(sandbox_class).not_to receive(:ensure_sandbox_installed!)
+      expect(sandbox_class).not_to receive(:ensure_installed!)
       expect(sandbox_class).to receive(:ohai).with("Configuring Bubblewrap...").ordered
       expect(sandbox_class).to receive(:system)
         .with("sudo", HOMEBREW_BREW_FILE.to_s, "setup-sandbox").and_return(true).ordered
@@ -210,8 +225,8 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "does not configure Linux sandbox sysctls when Bubblewrap remains unavailable" do
-      expect(sandbox_class).to receive(:bubblewrap_executable).twice.and_return(nil)
-      expect(sandbox_class).to receive(:ensure_sandbox_installed!)
+      expect(sandbox_class).to receive(:executable).twice.and_return(nil)
+      expect(sandbox_class).to receive(:ensure_installed!)
         .with(install_from_tests: true)
       expect(sandbox_class).not_to receive(:system)
 
@@ -219,11 +234,11 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "installs Bubblewrap and configures Linux sandbox sysctls as root" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .twice
         .and_return(nil, Pathname(HOMEBREW_PREFIX/"bin/bwrap"))
       allow(Process).to receive(:euid).and_return(0)
-      expect(sandbox_class).to receive(:ensure_sandbox_installed!)
+      expect(sandbox_class).to receive(:ensure_installed!)
         .with(install_from_tests: true)
       expect(sandbox_class).to receive(:ohai).with("Configuring Bubblewrap...").ordered
       expect(sandbox_class).to receive(:system)
@@ -233,7 +248,7 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "raises when configuring Linux sandbox sysctls fails" do
-      allow(sandbox_class).to receive(:bubblewrap_executable).and_return(Pathname("/usr/bin/bwrap"))
+      allow(sandbox_class).to receive(:executable).and_return(Pathname("/usr/bin/bwrap"))
       allow(Process).to receive(:euid).and_return(0)
       allow(sandbox_class).to receive(:ohai)
       expect(sandbox_class).to receive(:system)
@@ -244,22 +259,22 @@ RSpec.describe Sandbox, :needs_linux do
   end
 
   describe "::sandbox_install_command" do
-    let(:sandbox_class) { Class.new(described_class) }
+    let(:sandbox_class) { Class.new(Sandbox::Bubblewrap) }
 
     it "returns the distro-specific install command for the detected package manager" do
       allow(sandbox_class).to receive(:which).with("apt-get").and_return(nil)
       allow(sandbox_class).to receive(:which).with("dnf").and_return(Pathname("/usr/bin/dnf"))
-      expect(sandbox_class.sandbox_install_command).to eq("sudo dnf install bubblewrap")
+      expect(sandbox_class.install_command).to eq("sudo dnf install bubblewrap")
     end
 
     it "returns nil when no known package manager is found" do
       allow(sandbox_class).to receive(:which).and_return(nil)
-      expect(sandbox_class.sandbox_install_command).to be_nil
+      expect(sandbox_class.install_command).to be_nil
     end
   end
 
   describe "::ensure_sandbox_installed!" do
-    let(:sandbox_class) { Class.new(described_class) }
+    let(:sandbox_class) { Class.new(Sandbox::Bubblewrap) }
 
     around do |example|
       with_env(GITHUB_ACTIONS: nil, HOMEBREW_GITHUB_HOSTED_RUNNER: nil,
@@ -271,29 +286,29 @@ RSpec.describe Sandbox, :needs_linux do
     end
 
     it "does nothing when Homebrew Bubblewrap is already available" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .once
         .and_return(Pathname(HOMEBREW_PREFIX/"bin/bwrap"))
       expect(Formula).not_to receive(:[])
       expect(sandbox_class).not_to receive(:which)
       expect(sandbox_class).not_to receive(:system)
 
-      sandbox_class.ensure_sandbox_installed!
+      sandbox_class.ensure_installed!
     end
 
     it "does nothing when system Bubblewrap is already available" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .once
         .and_return(Pathname("/usr/bin/bwrap"))
       expect(Formula).not_to receive(:[])
       expect(sandbox_class).not_to receive(:which)
       expect(sandbox_class).not_to receive(:system)
 
-      sandbox_class.ensure_sandbox_installed!
+      sandbox_class.ensure_installed!
     end
 
     it "installs Bubblewrap with Homebrew before trying apt-get on GitHub Actions" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .twice
         .and_return(nil, Pathname(HOMEBREW_PREFIX/"bin/bwrap"))
       expect(Formula).to receive(:[]).with("bubblewrap")
@@ -302,12 +317,12 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class).not_to receive(:system)
 
       with_env(GITHUB_ACTIONS: "true", HOMEBREW_GITHUB_HOSTED_RUNNER: "1") do
-        sandbox_class.ensure_sandbox_installed!
+        sandbox_class.ensure_installed!
       end
     end
 
     it "falls back to sudo apt-get on GitHub Actions Ubuntu when Homebrew Bubblewrap is unavailable" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .twice
         .and_return(nil)
       expect(Formula).to receive(:[]).with("bubblewrap")
@@ -320,12 +335,12 @@ RSpec.describe Sandbox, :needs_linux do
         .and_return(true)
 
       with_env(GITHUB_ACTIONS: "true", HOMEBREW_GITHUB_HOSTED_RUNNER: "1") do
-        sandbox_class.ensure_sandbox_installed!
+        sandbox_class.ensure_installed!
       end
     end
 
     it "falls back to apt-get as root on GitHub Actions Ubuntu when Homebrew Bubblewrap is unavailable" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .twice
         .and_return(nil)
       expect(Formula).to receive(:[]).with("bubblewrap")
@@ -338,12 +353,12 @@ RSpec.describe Sandbox, :needs_linux do
         .and_return(true)
 
       with_env(GITHUB_ACTIONS: "true", HOMEBREW_GITHUB_HOSTED_RUNNER: "1") do
-        sandbox_class.ensure_sandbox_installed!
+        sandbox_class.ensure_installed!
       end
     end
 
     it "does not fall back to apt-get outside GitHub Actions Ubuntu" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .twice
         .and_return(nil, nil)
       expect(Formula).to receive(:[]).with("bubblewrap")
@@ -352,12 +367,12 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class).not_to receive(:system)
 
       with_env(GITHUB_ACTIONS: "true") do
-        sandbox_class.ensure_sandbox_installed!
+        sandbox_class.ensure_installed!
       end
     end
 
     it "does not fall back to apt-get outside GitHub Actions" do
-      expect(sandbox_class).to receive(:bubblewrap_executable)
+      expect(sandbox_class).to receive(:executable)
         .twice
         .and_return(nil, nil)
       expect(Formula).to receive(:[]).with("bubblewrap")
@@ -365,7 +380,7 @@ RSpec.describe Sandbox, :needs_linux do
       expect(sandbox_class).not_to receive(:which)
       expect(sandbox_class).not_to receive(:system)
 
-      sandbox_class.ensure_sandbox_installed!
+      sandbox_class.ensure_installed!
     end
   end
 
@@ -461,6 +476,26 @@ RSpec.describe Sandbox, :needs_linux do
 
     it "returns the command exit status" do
       expect { sandbox.run "false" }.to raise_error(ErrorDuringExecution)
+    end
+
+    it "prevents listing a denied read hierarchy" do
+      denied_dir = mktmpdir
+      FileUtils.touch denied_dir/"secret"
+      sandbox.deny_read_path denied_dir
+
+      expect { sandbox.run "/bin/sh", "-c", 'ls "$1" | grep -q secret', "brew-test", denied_dir }
+        .to raise_error(ErrorDuringExecution)
+    end
+
+    it "prevents executing from a denied read hierarchy" do
+      denied_dir = mktmpdir
+      executable = denied_dir/"secret"
+      executable.write "#!/bin/sh\nexit 0\n"
+      executable.chmod 0755
+      sandbox.deny_read_path denied_dir
+
+      expect { sandbox.run "/bin/sh", "-c", 'exec "$1"', "brew-test", executable }
+        .to raise_error(ErrorDuringExecution)
     end
   end
 end

@@ -80,6 +80,9 @@ class Sandbox
     false
   end
 
+  sig { returns(T::Boolean) }
+  def self.full_write_isolation? = true
+
   # Whether Homebrew is itself running inside another sandbox, which would make
   # its own nested sandbox hang (macOS) or fail to start (Linux). Overridden
   # per-OS.
@@ -516,7 +519,7 @@ class Sandbox
             end
 
             stdout_thread = Thread.new do
-              controller.each_char { |c| print(c) }
+              copy_pty_output(controller)
             end
 
             Utils.safe_fork(directory: tmpdir, yield_parent: true) do |error_pipe|
@@ -534,6 +537,7 @@ class Sandbox
                 Dir.chdir(tmpdir)
 
                 worker.close_on_exec = true
+                apply_sandbox
                 exec(*command, in: worker, out: worker, err: worker) # And map everything to the PTY.
               else
                 # Parent side
@@ -622,6 +626,17 @@ class Sandbox
 
   sig { void }
   def ensure_child_tty_available; end
+
+  sig { void }
+  def apply_sandbox; end
+
+  sig { params(controller: IO).void }
+  def copy_pty_output(controller)
+    controller.each_char { |c| print(c) }
+  rescue Errno::EIO
+    # Linux marks a PTY as an I/O error when its peer closes, so treat this as EOF:
+    # https://github.com/torvalds/linux/blob/master/drivers/tty/pty.c
+  end
 
   sig { void }
   def record_sandbox_log; end

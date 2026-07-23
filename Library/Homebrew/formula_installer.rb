@@ -1418,24 +1418,26 @@ on_request: installed_on_request?, options:)
 
     args << post_install_formula_path
 
-    if use_sandbox?("running post-install")
-      sandbox = Sandbox.new
-      formula.logs.mkpath
-      sandbox.record_log(formula.logs/"postinstall.sandbox.log")
-      sandbox.allow_write_temp_and_cache
-      sandbox.allow_write_log(formula)
-      sandbox.allow_write_xcode
-      sandbox.deny_write_homebrew_repository
-      sandbox.deny_read_home
-      sandbox.allow_write_cellar(formula)
-      sandbox.deny_all_network unless formula.network_access_allowed?(:postinstall)
-      Keg.keg_link_directories.each do |dir|
-        sandbox.allow_write_path "#{HOMEBREW_PREFIX}/#{dir}"
-      end
-      sandbox.run(*args)
-    else
-      Utils.safe_fork do
-        exec(*args)
+    with_preserved_brew_file do
+      if use_sandbox?("running post-install")
+        sandbox = Sandbox.new
+        formula.logs.mkpath
+        sandbox.record_log(formula.logs/"postinstall.sandbox.log")
+        sandbox.allow_write_temp_and_cache
+        sandbox.allow_write_log(formula)
+        sandbox.allow_write_xcode
+        sandbox.deny_write_homebrew_repository
+        sandbox.deny_read_home
+        sandbox.allow_write_cellar(formula)
+        sandbox.deny_all_network unless formula.network_access_allowed?(:postinstall)
+        Keg.keg_link_directories.each do |dir|
+          sandbox.allow_write_path "#{HOMEBREW_PREFIX}/#{dir}"
+        end
+        sandbox.run(*args)
+      else
+        Utils.safe_fork do
+          exec(*args)
+        end
       end
     end
   # Handle all possible exceptions when postinstall does not complete.
@@ -1835,6 +1837,42 @@ on_request: installed_on_request?, options:)
   end
 
   private
+
+  # Landlock cannot protect `bin/brew` while allowing post-install writes to
+  # `bin`, so a malicious post-install could replace `brew` to persist into
+  # later invocations. Snapshot and restore the entry, using a pre-opened `bin`
+  # descriptor to restore its mode before repairing the entry if needed.
+  sig { params(block: T.proc.void).void }
+  def with_preserved_brew_file(&block)
+    return yield if Sandbox.full_write_isolation?
+
+    brew_file = HOMEBREW_PREFIX/"bin/brew"
+    File.open(brew_file.dirname) do |brew_directory|
+      brew_directory_mode = brew_directory.stat.mode & 07777
+      symlink = brew_file.symlink?
+      contents = if symlink
+        brew_file.readlink.to_s
+      else
+        brew_file.binread
+      end
+      brew_file_mode = brew_file.lstat.mode & 07777
+
+      begin
+        yield
+      ensure
+        brew_directory.chmod brew_directory_mode
+        if symlink && (!brew_file.symlink? || brew_file.readlink.to_s != contents)
+          FileUtils.rm_rf brew_file
+          brew_file.make_symlink contents
+        elsif !symlink && (brew_file.symlink? || !brew_file.file? || brew_file.binread != contents ||
+                           (brew_file.lstat.mode & 07777) != brew_file_mode)
+          FileUtils.rm_rf brew_file
+          brew_file.atomic_write contents
+          brew_file.chmod brew_file_mode
+        end
+      end
+    end
+  end
 
   # Whether to run the given install `step` (e.g. `"building"`) inside
   # Homebrew's sandbox. Warns when it will not: noting reliance on the outer

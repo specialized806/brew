@@ -85,6 +85,7 @@ module OS
       def bubblewrap_dependency_needed?
         return false unless ::Homebrew::EnvConfig.sandbox_linux?
         return false if ENV["HOMEBREW_TESTS"]
+        return false if OS::Linux::Sandbox.landlock?
 
         ::Sandbox.executable.blank?
       end

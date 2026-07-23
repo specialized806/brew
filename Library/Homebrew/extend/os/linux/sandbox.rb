@@ -1,11 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "fileutils"
-require "env_config"
-require "system_command"
-require "utils/popen"
-require "utils/github/actions"
+require "extend/os/linux/sandbox/bubblewrap"
+require "extend/os/linux/sandbox/landlock"
 
 module OS
   module Linux
@@ -14,88 +11,33 @@ module OS
 
       requires_ancestor { ::Sandbox }
 
-      BUBBLEWRAP = "bwrap"
-      BUBBLEWRAP_TEST_ARGS = [
-        "--unshare-user",
-        "--unshare-ipc",
-        "--unshare-pid",
-        "--unshare-uts",
-        "--unshare-cgroup-try",
-        "--ro-bind", "/", "/",
-        "--proc", "/proc",
-        "--dev", "/dev",
-        "true"
-      ].freeze
-      SYSTEM_BUBBLEWRAP_PATHS = %w[
-        /usr/bin
-        /bin
-      ].freeze
-      HOMEBREW_BUBBLEWRAP_PATHS = [
-        "#{HOMEBREW_PREFIX}/bin",
-      ].freeze
-      NESTED_BUBBLEWRAP_ERROR = "Creating new namespace failed: nesting depth or /proc/sys/user/max_*_namespaces " \
-                                "exceeded"
-      class SysctlSetting < T::Struct
-        const :assignment, String
-        const :description, T::Array[String]
-        const :optional, T::Boolean, default: false
-      end
-      # These settings mirror the `sysctl` assignments in
-      # Library/Homebrew/cmd/setup-sandbox.sh; keep both in sync.
-      SANDBOX_SYSCTL_SETTINGS = T.let([
-        SysctlSetting.new(
-          assignment:  "kernel.unprivileged_userns_clone=1",
-          description: [
-            "Allows unprivileged processes to create user namespaces. Rootless",
-            "Bubblewrap needs this to isolate builds without elevated privileges.",
-          ],
-        ),
-        SysctlSetting.new(
-          assignment:  "user.max_user_namespaces=28633",
-          description: [
-            "Allows each user to allocate enough user namespaces. A zero or low",
-            "limit can prevent Bubblewrap from creating its sandbox.",
-          ],
-        ),
-        SysctlSetting.new(
-          assignment:  "kernel.apparmor_restrict_unprivileged_userns=0",
-          description: [
-            "Allows unprivileged user namespaces on AppArmor-enabled systems",
-            "that restrict them by default. Older kernels may not provide this",
-            "setting.",
-          ],
-          optional:    true,
-        ),
-      ].freeze, T::Array[SysctlSetting])
       # `TIOCSCTTY` from `<asm-generic/ioctls.h>`; Ruby does not expose it.
       TIOCSCTTY = 0x540E
-      # Per-distro Bubblewrap install commands, detected by package manager and
-      # checked in priority order. Mirrors the build tools instructions in
-      # `Homebrew/install`'s `install.sh`.
-      BUBBLEWRAP_INSTALL_COMMANDS = T.let({
-        "apt-get" => "sudo apt-get install bubblewrap",
-        "dnf"     => "sudo dnf install bubblewrap",
-        "yum"     => "sudo yum install bubblewrap",
-        "pacman"  => "sudo pacman -S bubblewrap",
-        "apk"     => "sudo apk add bubblewrap",
-      }.freeze, T::Hash[String, String])
-      private_constant :BUBBLEWRAP, :BUBBLEWRAP_TEST_ARGS, :SYSTEM_BUBBLEWRAP_PATHS, :HOMEBREW_BUBBLEWRAP_PATHS,
-                       :NESTED_BUBBLEWRAP_ERROR, :SysctlSetting, :SANDBOX_SYSCTL_SETTINGS, :TIOCSCTTY,
-                       :BUBBLEWRAP_INSTALL_COMMANDS
+      private_constant :TIOCSCTTY
 
       sig { returns(::PATH) }
       def self.bubblewrap_candidate_paths
-        ::Sandbox.executable_candidate_paths
+        ::Sandbox::Bubblewrap.executable_candidate_paths
       end
 
       sig { returns(T.nilable(::Pathname)) }
       def self.bubblewrap_executable
-        ::Sandbox.executable
+        ::Sandbox::Bubblewrap.executable
       end
 
       sig { returns(::Pathname) }
       def self.bubblewrap_executable!
-        bubblewrap_executable || raise("Bubblewrap is required to use the Linux sandbox.")
+        ::Sandbox::Bubblewrap.executable!
+      end
+
+      sig { returns(T::Boolean) }
+      def self.landlock?
+        ENV.fetch("HOMEBREW_SANDBOX_LINUX_LANDLOCK", nil) == "1"
+      end
+
+      sig { returns(T.any(T.class_of(::Sandbox::Bubblewrap), T.class_of(::Sandbox::Landlock))) }
+      def self.sandbox_implementation
+        landlock? ? ::Sandbox::Landlock : ::Sandbox::Bubblewrap
       end
 
       sig { void }
@@ -122,29 +64,27 @@ module OS
 
       module ClassMethods
         extend T::Helpers
-        include SystemCommand::Mixin
-        include Utils::Output::Mixin
 
         requires_ancestor { T.class_of(::Sandbox) }
 
         sig { returns(String) }
         def executable_name
-          BUBBLEWRAP
+          ::Sandbox::Bubblewrap.executable_name
         end
 
         sig { params(candidate: ::Pathname).returns(T::Boolean) }
         def executable_usable?(candidate)
-          !File.stat(candidate).setuid?
+          ::Sandbox::Bubblewrap.executable_usable?(candidate)
         end
 
         sig { returns(T::Array[String]) }
         def system_bubblewrap_paths
-          SYSTEM_BUBBLEWRAP_PATHS
+          ::Sandbox::Bubblewrap.system_paths
         end
 
         sig { returns(::PATH) }
         def executable_candidate_paths
-          PATH.new(HOMEBREW_BUBBLEWRAP_PATHS, system_bubblewrap_paths, super)
+          ::Sandbox::Bubblewrap.executable_candidate_paths
         end
 
         sig { returns(::PATH) }
@@ -154,47 +94,27 @@ module OS
 
         sig { returns(T.nilable(::Pathname)) }
         def bubblewrap_executable
-          executable
+          ::Sandbox::Bubblewrap.executable
         end
 
         sig { returns(::Pathname) }
         def bubblewrap_executable!
-          bubblewrap_executable || raise("Bubblewrap is required to use the Linux sandbox.")
+          ::Sandbox::Bubblewrap.executable!
         end
 
         sig { params(install_from_tests: T::Boolean).void }
         def ensure_sandbox_installed!(install_from_tests: false)
-          return unless Homebrew::EnvConfig.sandbox_linux?
-          return if ENV["HOMEBREW_TESTS"] && !install_from_tests
-          return if ENV["HOMEBREW_INSTALLING_BUBBLEWRAP"]
-          return if bubblewrap_executable
-
-          begin
-            require "exceptions"
-            require "formula"
-            with_env(HOMEBREW_INSTALLING_BUBBLEWRAP: "1") do
-              ::Formula["bubblewrap"].ensure_installed!(reason: "Linux sandboxing")
-            end
-            reset_state!
-            return if bubblewrap_executable
-          rescue ::FormulaUnavailableError
-            nil
-          end
-
-          return unless GitHub::Actions.env_set?
-          return unless ENV.fetch("HOMEBREW_GITHUB_HOSTED_RUNNER", nil)
-          return unless which("apt-get")
-
-          ohai "Installing Bubblewrap..."
-          command = ["apt-get", "install", "--yes", "bubblewrap"]
-          command.unshift("sudo") unless Process.euid.zero?
-          system(*command)
-          reset_state!
+          OS::Linux::Sandbox.sandbox_implementation.ensure_installed!(install_from_tests:)
         end
 
         sig { returns(T::Boolean) }
         def available?
-          state == :available
+          OS::Linux::Sandbox.sandbox_implementation.available?
+        end
+
+        sig { returns(T::Boolean) }
+        def full_write_isolation?
+          OS::Linux::Sandbox.sandbox_implementation.full_write_isolation?
         end
 
         # Bubblewrap reports this specific namespace error when an outer
@@ -203,84 +123,45 @@ module OS
         # `$HOMEBREW_AVOID_NESTED_SANDBOXING` opt-in is set.
         sig { returns(T::Boolean) }
         def nested_sandbox?
-          return false unless Homebrew::EnvConfig.sandbox_linux?
-
-          bubblewrap = bubblewrap_executable
-          return false unless bubblewrap
-
-          Utils.popen_read(bubblewrap.to_s, *BUBBLEWRAP_TEST_ARGS, err: :out).include?(NESTED_BUBBLEWRAP_ERROR)
+          OS::Linux::Sandbox.sandbox_implementation.nested_sandbox?
         end
 
         sig { returns(Symbol) }
         def state
-          return :disabled unless Homebrew::EnvConfig.sandbox_linux?
-
-          @state ||= T.let(compute_state, T.nilable(Symbol))
+          OS::Linux::Sandbox.sandbox_implementation.state
         end
 
         sig { void }
         def reset_state!
-          @state = T.let(nil, T.nilable(Symbol))
+          ::Sandbox::Bubblewrap.reset_state!
+          ::Sandbox::Landlock.reset_state!
         end
 
         sig { returns(T::Array[String]) }
         def configuration_commands
-          SANDBOX_SYSCTL_SETTINGS.map do |setting|
-            command = "sudo sysctl -w #{setting.assignment}"
-            command += " || true" if setting.optional
-            command
-          end
+          OS::Linux::Sandbox.sandbox_implementation.configuration_commands
         end
 
         sig { returns(T::Array[String]) }
         def configuration_command_messages
-          commands = configuration_commands
-          SANDBOX_SYSCTL_SETTINGS.each_with_index.flat_map do |setting, index|
-            [
-              "  #{commands.fetch(index)}",
-              *setting.description.map { |line| "    #{line}" },
-            ]
-          end
+          OS::Linux::Sandbox.sandbox_implementation.configuration_command_messages
         end
 
         sig { void }
         def configure!
-          unless bubblewrap_executable
-            ensure_sandbox_installed!(install_from_tests: true)
-            unless bubblewrap_executable
-              reset_state!
-              return
-            end
-          end
-
-          ohai "Configuring Bubblewrap..."
-          command = [HOMEBREW_BREW_FILE.to_s, "setup-sandbox"]
-          command.unshift("sudo") unless Process.euid.zero?
-          raise ErrorDuringExecution.new(command, status: $CHILD_STATUS || 1) unless system(*command)
-
-          reset_state!
+          OS::Linux::Sandbox.sandbox_implementation.configure!
         end
 
         sig { returns(T.nilable(String)) }
         def failure_reason
-          case state
-          when :disabled, :available
-            nil
-          when :missing
-            "Bubblewrap is required to use the Linux sandbox but was not found."
-          when :setuid
-            "A rootless Bubblewrap executable is required to use the Linux sandbox, " \
-            "but all found `bwrap` executables are setuid."
-          when :unavailable
-            "Bubblewrap is installed but cannot create a rootless sandbox."
-          else
-            "The Linux sandbox is not available."
-          end
+          return super if self != ::Sandbox
+
+          OS::Linux::Sandbox.sandbox_implementation.failure_reason
         end
 
         sig { returns(T.nilable(String)) }
         def sandbox_install_command
-          BUBBLEWRAP_INSTALL_COMMANDS.find { |package_manager, _| which(package_manager) }&.last
+          OS::Linux::Sandbox.sandbox_implementation.install_command
         end
 
         # `ioctl` request used to attach the sandboxed child to a controlling TTY.
@@ -288,181 +169,47 @@ module OS
         def terminal_ioctl_request
           TIOCSCTTY
         end
-
-        private
-
-        sig { returns(Symbol) }
-        def compute_state
-          bubblewraps = bubblewrap_executables
-          return :missing if bubblewraps.empty?
-
-          bubblewraps = bubblewraps.select { |candidate| executable_usable?(candidate) }
-          return :setuid if bubblewraps.empty?
-
-          return :available if bubblewraps.any? { |candidate| bubblewrap_sandbox_available?(candidate) }
-
-          :unavailable
-        end
-
-        sig { returns(T::Array[::Pathname]) }
-        def bubblewrap_executables
-          executable_candidate_paths.filter_map do |path|
-            begin
-              candidate = ::Pathname.new(File.expand_path(executable_name, path))
-            rescue ArgumentError
-              next
-            end
-
-            candidate if candidate.file? && candidate.executable?
-          end
-        end
-
-        sig { params(bubblewrap: ::Pathname).returns(T::Boolean) }
-        def bubblewrap_sandbox_available?(bubblewrap)
-          result = system_command(
-            bubblewrap,
-            args:         BUBBLEWRAP_TEST_ARGS,
-            print_stderr: false,
-          )
-          return true if result.success?
-
-          opoo "bubblewrap test probe failed"
-          $stderr.print result.merged_output
-          false
-        end
       end
 
       sig { params(args: T.any(String, ::Pathname)).void }
       def run(*args)
-        @prepared_writable_paths = T.let([], T.nilable(T::Array[::Pathname]))
-        @masked_read_paths = T.let([], T.nilable(T::Array[::Pathname]))
-        old_report_on_exception = T.let(Thread.report_on_exception, T.nilable(T::Boolean))
-        Thread.report_on_exception = false
-        super
-      ensure
-        Thread.report_on_exception = old_report_on_exception unless old_report_on_exception.nil?
-        @prepared_writable_paths&.reverse_each do |path|
-          path.rmdir if path.directory?
-        rescue Errno::ENOENT, Errno::ENOTEMPTY
-          nil
-        end
-        @prepared_writable_paths = nil
-        @masked_read_paths&.reverse_each { |path| FileUtils.rm_rf(path) }
-        @masked_read_paths = nil
+        implementation.run { super }
       end
 
       private
 
       sig { params(args: T::Array[T.any(String, ::Pathname)], tmpdir: String).returns(T::Array[T.any(String, ::Pathname)]) }
       def sandbox_command(args, tmpdir)
-        [::Sandbox.executable!, *bubblewrap_args(tmpdir), "--", *args]
+        implementation.command(args, tmpdir)
       end
 
       sig { params(tmpdir: String).returns(T::Array[String]) }
       def bubblewrap_args(tmpdir)
-        args = T.let([
-          "--unshare-user",
-          "--unshare-ipc",
-          "--unshare-pid",
-          "--unshare-uts",
-          "--unshare-cgroup-try",
-          "--die-with-parent",
-          "--new-session",
-          "--ro-bind", "/", "/",
-          "--dev", "/dev",
-          "--proc", "/proc"
-        ], T::Array[String])
-        args << "--unshare-net" if deny_all_network?
-
-        writable_paths.each do |path, type|
-          prepare_writable_path(path, type)
-          args += ["--bind", path, path]
-        end
-
-        denied_write_paths.each do |path|
-          next unless File.exist?(path)
-
-          args += ["--ro-bind", path, path]
-        end
-
-        denied_read_paths.each do |path|
-          next unless File.exist?(path)
-
-          args += if File.directory?(path)
-            ["--bind", masked_read_path, path]
-          else
-            ["--ro-bind", File::NULL, path]
-          end
-        end
-
-        args += ["--bind", tmpdir, tmpdir, "--chdir", tmpdir]
-
-        args
-      end
-
-      sig { returns(T::Boolean) }
-      def deny_all_network?
-        profile.rules.any? do |rule|
-          !rule.allow && rule.operation == "network*" && rule.filter.nil?
-        end
+        bubblewrap.arguments(tmpdir)
       end
 
       sig { returns(T::Hash[String, Symbol]) }
       def writable_paths
-        profile.rules.each_with_object({}) do |rule, paths|
-          next if !rule.allow || !rule.operation.start_with?("file-write")
-          next unless (filter = rule.filter)
-
-          case filter.type
-          when :literal, :subpath
-            paths[filter.path] ||= filter.type
-          when :regex
-            raise ArgumentError, "Linux sandbox does not support regex path filters: #{filter.path}"
-          else
-            raise ArgumentError, "Invalid path filter type: #{filter.type}"
-          end
-        end
+        bubblewrap.writable_paths
       end
 
-      sig { returns(T::Array[String]) }
-      def denied_write_paths
-        profile.rules.filter_map do |rule|
-          next if rule.allow || !rule.operation.start_with?("file-write")
-
-          filter = rule.filter
-          filter.path if filter && [:literal, :subpath].include?(filter.type)
-        end.uniq
+      sig { void }
+      def apply_sandbox
+        sandbox = implementation
+        sandbox.apply! if sandbox.is_a?(::Sandbox::Landlock)
       end
 
-      sig { returns(T::Array[String]) }
-      def denied_read_paths
-        profile.rules.filter_map do |rule|
-          next if rule.allow || !rule.operation.start_with?("file-read")
-
-          filter = rule.filter
-          filter.path if filter && [:literal, :subpath].include?(filter.type)
-        end.uniq
+      sig { returns(T.any(::Sandbox::Bubblewrap, ::Sandbox::Landlock)) }
+      def implementation
+        @implementation ||= T.let(
+          OS::Linux::Sandbox.sandbox_implementation.new(profile),
+          T.nilable(T.any(::Sandbox::Bubblewrap, ::Sandbox::Landlock)),
+        )
       end
 
-      sig { returns(String) }
-      def masked_read_path
-        path = ::Pathname.new(Dir.mktmpdir("homebrew-sandbox-deny-read", HOMEBREW_TEMP))
-        @masked_read_paths&.<< path
-        path.to_s
-      end
-
-      sig { params(path: String, type: Symbol).void }
-      def prepare_writable_path(path, type)
-        pathname = ::Pathname.new(path)
-        return if pathname.exist?
-
-        if type == :literal
-          FileUtils.mkdir_p(pathname.dirname)
-          FileUtils.touch(pathname)
-        else
-          FileUtils.mkdir_p(pathname)
-          @prepared_writable_paths&.<< pathname
-        end
+      sig { returns(::Sandbox::Bubblewrap) }
+      def bubblewrap
+        @bubblewrap ||= T.let(::Sandbox::Bubblewrap.new(profile), T.nilable(::Sandbox::Bubblewrap))
       end
     end
   end
