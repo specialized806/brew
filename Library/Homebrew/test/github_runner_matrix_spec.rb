@@ -196,6 +196,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
             stub_const("OS::LINUX_CI_ARM_RUNNER", "ubuntu-24.04-arm")
 
             allow(ENV).to receive(:fetch).with("HOMEBREW_MACOS_LONG_TIMEOUT", "false").and_return("true")
+            allow(ENV).to receive(:key?).and_call_original
             allow(ENV).to receive(:key?).with("GITHUB_ACTIONS").and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
 
