@@ -410,6 +410,14 @@ RSpec.describe Cask::DSL, :cask, :no_api do
     it "prevents defining multiple urls" do
       expect { cask }.to raise_error(Cask::CaskInvalidError, /'url' stanza may only appear once/)
     end
+
+    it "allows the `verified` parameter as a no-op" do
+      cask = Cask::Cask.new("cask-with-verified-url") do
+        url "https://brew.sh/test.zip", verified: "brew.sh"
+      end
+
+      expect(cask.url.specs).not_to have_key(:verified)
+    end
   end
 
   describe "homepage stanza" do

@@ -440,6 +440,9 @@ module Cask
       caller_location = caller_locations.fetch(0)
       return @url unless uri
 
+      # Keep accepting `verified` as a no-op for compatibility with existing casks.
+      # odeprecated "the `verified` parameter in the `url` stanza" if options[:verified]
+
       set_unique_stanza(:url, false) do
         URL.new(uri, **options, caller_location:)
       end

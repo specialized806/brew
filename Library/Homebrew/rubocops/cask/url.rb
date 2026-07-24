@@ -8,17 +8,6 @@ module RuboCop
     module Cask
       # This cop checks that a cask's `url` stanza is formatted correctly.
       #
-      # ### Example
-      #
-      # ```ruby
-      # # bad
-      # url "https://example.com/download/foo.dmg",
-      #     verified: "https://example.com/download"
-      #
-      # # good
-      # url "https://example.com/download/foo.dmg",
-      #     verified: "example.com/download/"
-      # ```
       class Url < Base
         extend AutoCorrector
         include OnUrlStanza
@@ -64,46 +53,17 @@ module RuboCop
           return unless hash_node.hash_type?
 
           # TODO: also enforce that each keyword parameter after the first
-          #       starts on its own line (e.g. `verified:` and `header:`
-          #       should not share a line).
-          if hash_node.first_line <= url_stanza.last_line || hash_node.loc.column <= stanza_node.loc.column
-            add_offense(
-              stanza_node.source_range,
-              message: "Keyword URL parameter should be on a new indented line.",
-            ) do |corrector|
-              corrector.replace(
-                range_between(url_stanza.source_range.end_pos, hash_node.source_range.begin_pos),
-                ",\n#{" " * url_stanza.loc.column}",
-              )
-            end
-          end
+          #       starts on its own line.
+          return if hash_node.first_line > url_stanza.last_line && hash_node.loc.column > stanza_node.loc.column
 
-          hash_node.each_pair do |key_node, value_node|
-            next if key_node.source != "verified"
-            next unless value_node.str_type?
-
-            if value_node.source.start_with?(%r{^"https?://})
-              add_offense(
-                value_node.source_range,
-                message: "Verified URL parameter value should not contain a URL scheme.",
-              ) do |corrector|
-                corrector.replace(value_node.source_range, value_node.source.gsub(%r{^"https?://}, "\""))
-              end
-            end
-
-            # Skip if the URL and the verified value are the same.
-            next if value_node.source == url_stanza.source.gsub(%r{^"https?://}, "\"")
-            # Skip if the URL has two path components, e.g. `https://github.com/google/fonts.git`.
-            next if url_stanza.source.gsub(%r{^"https?://}, "\"").count("/") == 2
-            # Skip if the verified value ends with a slash.
-            next if value_node.str_content.end_with?("/")
-
-            add_offense(
-              value_node.source_range,
-              message: "Verified URL parameter value should end with a /.",
-            ) do |corrector|
-              corrector.replace(value_node.source_range, value_node.source.gsub(/"$/, "/\""))
-            end
+          add_offense(
+            stanza_node.source_range,
+            message: "Keyword URL parameter should be on a new indented line.",
+          ) do |corrector|
+            corrector.replace(
+              range_between(url_stanza.source_range.end_pos, hash_node.source_range.begin_pos),
+              ",\n#{" " * url_stanza.loc.column}",
+            )
           end
         end
       end

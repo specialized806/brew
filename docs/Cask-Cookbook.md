@@ -125,7 +125,7 @@ Submissions to `homebrew/cask` may require additional stanzas such as `livecheck
 | ---------------------------------- | :---------------------------: | ----- |
 | [`version`](#stanza-version)       | no                            | Application version, or the special value `:latest`. |
 | [`sha256`](#stanza-sha256)         | no                            | SHA-256 checksum of the file downloaded from `url` as calculated by the command `shasum -a 256 <file>`, or the special value `:no_check`. |
-| [`url`](#stanza-url)               | no                            | URL to the `.dmg`/`.zip`/`.tgz` file (or other common archive formats) that contains the application. A [comment](#when-url-and-homepage-domains-differ-add-verified) should be added if the domains in the `url` and `homepage` stanzas differ. |
+| [`url`](#stanza-url)               | no                            | URL to the `.dmg`/`.zip`/`.tgz` file (or other common archive formats) that contains the application. |
 | [`name`](#stanza-name)             | yes                           | String providing the full and proper name defined by the vendor. |
 | [`desc`](#stanza-desc)             | no                            | One-line description of the cask. Shown when running `brew info`. |
 | `homepage`                         | no                            | Application homepage; used for the `brew home` command. |
@@ -1177,24 +1177,12 @@ When a plain URL string is insufficient to fetch a file, additional information 
 
 | key                | value |
 | ------------------ | ----- |
-| `verified:`        | string repeating the beginning of `url`, for [verification purposes](#when-url-and-homepage-domains-differ-add-verified) |
 | `using:`           | the symbols `:post` and `:homebrew_curl` are the only legal values |
 | `cookies:`         | hash of cookies to be set for the download request (Example: [oracle-jdk-javadoc.rb](https://github.com/Homebrew/homebrew-cask/blob/326c44e93aeb8d4dd73acea14a99ae215c75fdd6/Casks/o/oracle-jdk-javadoc.rb#L5-L8)) |
 | `referer:`         | string holding the URL to set as referer for the download request (Example: [firealpaca.rb](https://github.com/Homebrew/homebrew-cask/blob/c4b3f0742e044ae2a6e114eb6b90068763d0d12b/Casks/f/firealpaca.rb#L5-L6)) |
 | `header:`          | string or array of strings holding the header(s) to set for the download request (Example: [pull-6545](https://github.com/Homebrew/brew/pull/6545#issue-503302353), [issue-15590](https://github.com/Homebrew/brew/issues/15590#issue-1774825542)) |
 | `user_agent:`      | string holding the user agent to set for the download request. Can also be set to the symbol `:fake`, which will use a generic browser-like user agent string. We prefer `:fake` when the server does not require a specific user agent. |
 | `data:`            | hash of parameters to be set for a POST request (Example: [segger-jlink.rb](https://github.com/Homebrew/homebrew-cask/blob/38ac55614f146d68ae317594f0c119e9acbd7c9e/Casks/s/segger-jlink.rb#L6-L11)) |
-
-#### When URL and homepage domains differ, add `verified:`
-
-When the domains of `url` and `homepage` differ, the discrepancy should be documented with the `verified:` parameter, repeating the smallest possible portion of the URL that uniquely identifies the app or vendor, excluding the protocol. (Example: [1password-cli.rb](https://github.com/Homebrew/homebrew-cask/blob/ec2476459ead02e80391f44d42a2b48a18bf373d/Casks/1/1password-cli.rb#L8-L9))
-
-This must be added so a user auditing the cask knows the URL was verified by cask maintainers as the one provided by the vendor, even though it may look unofficial. Cask maintainers are responsible for verifying both the `url` and `homepage` information when first added (or subsequently modified, apart from versioning).
-
-The parameter doesn’t mean you should trust the source blindly.
-We approve only casks whose authenticity users can verify through an official homepage, public repository or similarly authoritative source.
-Occasionally, verification may require inspecting a [`livecheck`](#stanza-livecheck) URL already established as official.
-Cases where such verification is not possible, such as a download hidden behind a registration wall, are [treated in a stricter manner](Acceptable-Casks.md#verifiable-upstream-distribution).
 
 #### Difficulty finding a URL
 
@@ -1375,8 +1363,7 @@ cask "libreoffice" do
   sha256 arm:   "81eab945a33622fc156951e804024d23aa9a745c06743b4947215ed9303ad1c4",
          intel: "ede541af151487f60eb518e310d20dad1a973f3dbe9ff78d782dd29b14ba2946"
 
-  url "https://download.documentfoundation.org/libreoffice/stable/#{version}/mac/#{folder}/LibreOffice_#{version}_MacOS_#{arch}.dmg",
-      verified: "download.documentfoundation.org/libreoffice/stable/"
+  url "https://download.documentfoundation.org/libreoffice/stable/#{version}/mac/#{folder}/LibreOffice_#{version}_MacOS_#{arch}.dmg"
 end
 ```
 

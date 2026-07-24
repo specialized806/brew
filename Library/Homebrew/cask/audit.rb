@@ -367,45 +367,6 @@ module Cask
       add_error "OSDN download urls are disabled.", location: url.location, strict_only: true
     end
 
-    VERIFIED_URL_REFERENCE_URL = "https://docs.brew.sh/Cask-Cookbook#when-url-and-homepage-domains-differ-add-verified"
-    private_constant :VERIFIED_URL_REFERENCE_URL
-
-    sig { void }
-    def audit_unnecessary_verified
-      return unless cask.url
-      return unless verified_present?
-      return unless url_match_homepage?
-      return unless verified_matches_url?
-
-      add_error "The URL's domain #{Formatter.url(domain)} matches the homepage domain " \
-                "#{Formatter.url(homepage)}, the 'verified' parameter of the 'url' stanza is unnecessary. " \
-                "See #{Formatter.url(VERIFIED_URL_REFERENCE_URL)}"
-    end
-
-    sig { void }
-    def audit_missing_verified
-      return unless cask.url
-      return if file_url?
-      return if url_match_homepage?
-      return if verified_present?
-
-      add_error "The URL's domain #{Formatter.url(domain)} does not match the homepage domain " \
-                "#{Formatter.url(homepage)}, a 'verified' parameter has to be added to the 'url' stanza. " \
-                "See #{Formatter.url(VERIFIED_URL_REFERENCE_URL)}"
-    end
-
-    sig { void }
-    def audit_no_match
-      return if (url = cask.url).nil?
-      return unless verified_present?
-      return if verified_matches_url?
-
-      add_error "Verified URL #{Formatter.url(url_from_verified)} does not match URL " \
-                "#{Formatter.url(strip_url_scheme(url.to_s))}. " \
-                "See #{Formatter.url(VERIFIED_URL_REFERENCE_URL)}",
-                location: url.location
-    end
-
     sig { void }
     def audit_generic_artifacts
       cask.artifacts.grep(Artifact::Artifact).each do |artifact|
@@ -1350,69 +1311,8 @@ module Cask
     end
 
     sig { returns(T.nilable(String)) }
-    def homepage
-      URI(cask.homepage.to_s).host
-    end
-
-    sig { returns(T.nilable(String)) }
     def domain
       URI(cask.url.to_s).host
-    end
-
-    sig { returns(T::Boolean) }
-    def url_match_homepage?
-      host = cask.url.to_s
-      host_uri = URI(host)
-      host = if host.match?(/:\d/) && host_uri.port != 80
-        "#{host_uri.host}:#{host_uri.port}"
-      else
-        host_uri.host
-      end
-
-      home = homepage
-      return false if home.blank?
-
-      home.downcase!
-      if (split_host = T.must(host).split(".")).length >= 3
-        host = T.must(split_host[-2..]).join(".")
-      end
-      if (split_home = home.split(".")).length >= 3
-        home = T.must(split_home[-2..]).join(".")
-      end
-      host == home
-    end
-
-    sig { params(url: String).returns(String) }
-    def strip_url_scheme(url)
-      url.sub(%r{^[^:/]+://(www\.)?}, "")
-    end
-
-    sig { returns(T.nilable(String)) }
-    def url_from_verified
-      return unless (verified_url = T.must(cask.url).verified)
-
-      strip_url_scheme(verified_url)
-    end
-
-    sig { returns(T::Boolean) }
-    def verified_matches_url?
-      url_domain, url_path = strip_url_scheme(cask.url.to_s).split("/", 2)
-      verified_domain, verified_path = url_from_verified&.split("/", 2)
-
-      domains_match = (url_domain == verified_domain) ||
-                      (verified_domain && url_domain&.end_with?(".#{verified_domain}"))
-      paths_match = !verified_path || url_path&.start_with?(verified_path)
-      (domains_match && paths_match) || false
-    end
-
-    sig { returns(T::Boolean) }
-    def verified_present?
-      cask.url&.verified.present?
-    end
-
-    sig { returns(T::Boolean) }
-    def file_url?
-      URI(cask.url.to_s).scheme == "file"
     end
 
     sig { returns(Tap) }

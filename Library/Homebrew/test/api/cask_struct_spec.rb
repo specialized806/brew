@@ -16,7 +16,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         "auto_updates"         => true,
         "languages"            => ["en"],
         "url_args"             => ["https://example.com/file.dmg"],
-        "url_kwargs"           => { verified: "example.com/" },
+        "url_kwargs"           => { user_agent: ":fake" },
         "conflicts_with_args"  => { cask: ["other-cask"] },
         "depends_on_args"      => { macos: ">= :catalina" },
         "container_args"       => { type: :zip },
@@ -281,7 +281,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         sha256:               "abc123",
         tap_string:           "homebrew/cask",
         url_args:             ["https://example.com/file.dmg"],
-        url_kwargs:           { verified: "example.com/" },
+        url_kwargs:           { user_agent: ":fake" },
         version:              "1.0.0",
       )
 
