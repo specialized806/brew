@@ -2062,7 +2062,7 @@ __fish_brew_complete_arg 'unpin; and not __fish_seen_argument -l formula -l form
 
 __fish_brew_complete_cmd 'untap' 'Remove a tapped formula repository'
 __fish_brew_complete_arg 'untap' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'untap' -l force -d 'Untap even if formulae or casks from this tap are currently installed'
+__fish_brew_complete_arg 'untap' -l force -d 'Uninstall all formulae and casks from this tap with `--force` before untapping'
 __fish_brew_complete_arg 'untap' -l help -d 'Show this message'
 __fish_brew_complete_arg 'untap' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'untap' -l verbose -d 'Make some output more verbose'

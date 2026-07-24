@@ -2644,7 +2644,7 @@ _brew_unpin() {
 _brew_untap() {
   _arguments \
     '--debug[Display any debugging information]' \
-    '--force[Untap even if formulae or casks from this tap are currently installed]' \
+    '--force[Uninstall all formulae and casks from this tap with `--force` before untapping]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]' \
