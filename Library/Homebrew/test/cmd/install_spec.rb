@@ -59,6 +59,30 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     EOS
   end
 
+  it "does not list ignored formula dependencies when asking" do
+    dependency = formula("dependency") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/dependency-1.0.tar.gz"
+    end
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+      depends_on dependency.name.to_s
+    end
+    formula_installer = FormulaInstaller.new(formula, ignore_deps: true)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    expect(formula_installer).not_to receive(:compute_dependencies)
+    expect(Homebrew::Install).not_to receive(:ask_input)
+
+    expect do
+      Homebrew::Install.ask_formulae([formula_installer], dependants)
+    end.to output(<<~EOS).to_stdout
+      ==> Would install 1 formula:
+      testball
+    EOS
+  end
+
   it "uses the requested action when asking for formulae with dependencies" do
     formula = formula("changed") do
       T.bind(self, T.class_of(Formula))
