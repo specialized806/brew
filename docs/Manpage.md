@@ -2294,7 +2294,8 @@ Remove a tapped formula repository.
 
 `-f`, `--force`
 
-: Untap even if formulae or casks from this tap are currently installed.
+: Uninstall all formulae and casks from this tap with `--force` before
+  untapping.
 
 ### `untrust` \[*`options`*\] \[*`target`* ...\]
 
