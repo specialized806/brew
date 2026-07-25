@@ -9,15 +9,14 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
       url "file://#{TEST_FIXTURE_DIR}/cask/container.zip"
 
       command_wrapper "example.wrapper.sh",
-                      target:  "example",
-                      content: <<~SH
-                        #!/bin/sh
-                        exec '/Applications/Example.app/Contents/MacOS/example' "$@"
-                      SH
+                      executable: "/Applications/Example.app/Contents/MacOS/example",
+                      args:       ["--cli", "batch mode"],
+                      env:        { "EXAMPLE_MODE" => "batch" }
     end
   end
   let(:artifact) { cask.artifacts.find { |candidate| candidate.is_a?(described_class) } }
   let(:target) { cask.config.binarydir/"example" }
+  let(:custom_target) { cask.config.binarydir/"custom" }
 
   around do |example|
     cask.staged_path.mkpath
@@ -25,35 +24,89 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
     example.run
   ensure
     FileUtils.rm_f target
+    FileUtils.rm_f custom_target
     FileUtils.rm_rf cask.staged_path
   end
 
   it "writes and links an executable command wrapper" do
     artifact.install_phase(command: NeverSudoSystemCommand, force: false)
 
-    expect(target).to be_a_symlink.and have_attributes(read:        include("Contents/MacOS/example"),
-                                                       executable?: true)
+    expect(target).to be_a_symlink.and have_attributes(
+      read:        <<~BASH,
+        #!/bin/bash
+        EXAMPLE_MODE="batch" exec "/Applications/Example.app/Contents/MacOS/example" --cli batch\\ mode "$@"
+      BASH
+      executable?: true,
+    )
   end
 
   it "serialises the wrapper definition" do
     expect(artifact.to_args).to eq([
       "example.wrapper.sh",
       {
-        target:  "example",
-        content: "#!/bin/sh\nexec '/Applications/Example.app/Contents/MacOS/example' \"$@\"\n",
+        target:     "example",
+        executable: "/Applications/Example.app/Contents/MacOS/example",
+        args:       ["--cli", "batch mode"],
+        env:        { "EXAMPLE_MODE" => "batch" },
       },
     ])
   end
 
-  it "rejects a missing target" do
-    expect do
-      described_class.from_args(cask, "other.wrapper.sh", content: "#!/bin/sh\n")
-    end.to raise_error(Cask::CaskInvalidError, /'command_wrapper' requires target/)
+  it "shell-escapes a single non-array argument" do
+    wrapper = described_class.from_args(cask, "custom.wrapper.sh",
+                                        executable: "/usr/bin/example",
+                                        args:       "two words; true")
+    wrapper.install_phase(command: NeverSudoSystemCommand, force: false)
+
+    expect(custom_target.read).to eq(<<~BASH)
+      #!/bin/bash
+      exec "/usr/bin/example" two\\ words\\;\\ true "$@"
+    BASH
   end
 
-  it "rejects missing content" do
+  it "serialises Pathname arguments and symbol environment keys as plain strings" do
+    wrapper = described_class.from_args(cask, "custom.wrapper.sh",
+                                        executable: Pathname("/usr/bin/example"),
+                                        args:       Pathname("/etc/example.conf"),
+                                        env:        { EXAMPLE_MODE: Pathname("/var/example") })
+
+    expect(wrapper.to_args).to eq([
+      "custom.wrapper.sh",
+      {
+        target:     "custom",
+        executable: "/usr/bin/example",
+        args:       ["/etc/example.conf"],
+        env:        { "EXAMPLE_MODE" => "/var/example" },
+      },
+    ])
+  end
+
+  it "accepts custom wrapper content" do
+    content = "#!/bin/sh\nexit 1\n"
+    custom_artifact = described_class.from_args(cask, "custom.wrapper.sh", content:)
+    custom_artifact.install_phase(command: NeverSudoSystemCommand, force: false)
+
+    expect(custom_target).to be_a_symlink.and have_attributes(read: content, executable?: true)
+  end
+
+  it "serialises custom wrapper content" do
+    custom_artifact = described_class.from_args(cask, "custom.wrapper.sh", content: "#!/bin/sh\nexit 1\n")
+
+    expect(custom_artifact.to_args).to eq([
+      "custom.wrapper.sh",
+      { target: "custom", content: "#!/bin/sh\nexit 1\n" },
+    ])
+  end
+
+  it "rejects missing content and executable" do
     expect do
-      described_class.from_args(cask, "other.wrapper.sh", target: "other")
-    end.to raise_error(Cask::CaskInvalidError, /'command_wrapper' requires content/)
+      described_class.from_args(cask, "other.wrapper.sh")
+    end.to raise_error(Cask::CaskInvalidError, /requires content or executable/)
+  end
+
+  it "rejects content with an executable" do
+    expect do
+      described_class.from_args(cask, "other.wrapper.sh", content: "#!/bin/sh\n", executable: "example")
+    end.to raise_error(Cask::CaskInvalidError, /content or executable, not both/)
   end
 end
