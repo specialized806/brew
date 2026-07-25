@@ -1257,6 +1257,14 @@ module Formulary
       "#{name}.rb"
     end
 
+    # For API-known formulae the sharded path can be computed directly,
+    # avoiding building a map of ~8500 `Pathname`s for a single lookup.
+    # Only use already-loaded API data to avoid triggering downloads here.
+    if tap.is_a?(CoreTap) && !Homebrew::EnvConfig.no_install_from_api? &&
+       Homebrew::API::Internal.formula_hashes_cached? && Homebrew::API.formula_name?(name)
+      return tap.formula_dir/tap.new_formula_subdirectory(name)/"#{name.downcase}.rb"
+    end
+
     tap.formula_files_by_name.fetch(name, tap.formula_dir/filename)
   end
 end

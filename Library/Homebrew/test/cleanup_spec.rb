@@ -565,6 +565,28 @@ RSpec.describe Homebrew::Cleanup do
       expect([*api_package_files, *api_jws_files].map(&:exist?)).to eq([true, false, true, true])
     end
 
+    it "cleans up non-current internal package API payload sidecars with scrub" do
+      cache = mktmpdir/"cache"
+      api_internal = cache/"api/internal"
+      current_basename = Homebrew::API::Internal.cached_packages_json_file_path.basename
+      kept_files = [
+        api_internal/current_basename,
+        api_internal/"#{current_basename}.payload",
+      ]
+      scrubbed_files = [
+        api_internal/"packages.stale.jws.json.payload",
+        api_internal/"#{current_basename}.payload.tmp",
+      ]
+      (kept_files + scrubbed_files).each do |file|
+        file.dirname.mkpath
+        FileUtils.touch file
+      end
+
+      described_class.new(scrub: true, cache:).cleanup_cache
+
+      expect((kept_files + scrubbed_files).map(&:exist?)).to eq([true, true, false, false])
+    end
+
     it "cleans up API source files and symlinks at any depth without cleaning directories" do
       root_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/README.md"
       nested_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-core/abc123/Formula/a/testball.rb"
