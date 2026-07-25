@@ -246,7 +246,7 @@ RSpec.describe Sandbox::Landlock do
       allow(landlock).to receive(:close_file_descriptor)
       {
         "/dev/full"   => [16_386, 19],
-        "/dev/mqueue" => [32_754, 20],
+        "/dev/mqueue" => [32_758, 20],
         "/dev/shm"    => [32_754, 21],
         "/dev/tty"    => [32_774, 22],
       }.each do |path, (access, file_descriptor)|
