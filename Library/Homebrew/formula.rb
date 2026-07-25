@@ -2146,10 +2146,12 @@ class Formula
     ).returns(T::Array[String])
   }
   def std_go_args(output: bin/name, ldflags: nil, gcflags: nil, tags: nil)
+    ldflags = ["-s", "-w"].concat(Array(ldflags)) unless ENV.debug_symbols?
+
     args = ["-trimpath", "-o=#{output}"]
-    args += ["-tags=#{Array(tags).join(" ")}"] if tags
-    args += ["-ldflags=#{Array(ldflags).join(" ")}"] if ldflags
-    args += ["-gcflags=#{Array(gcflags).join(" ")}"] if gcflags
+    args << "-tags=#{Array(tags).join(" ")}" if tags
+    args << "-ldflags=#{Array(ldflags).join(" ")}" if ldflags
+    args << "-gcflags=#{Array(gcflags).join(" ")}" if gcflags
     args
   end
 
