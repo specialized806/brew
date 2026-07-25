@@ -239,7 +239,7 @@ module Homebrew
             system "shards", "build", "--release"
             bin.install "bin/#{name}"
         <% elsif @mode == :go %>
-            system "go", "build", *std_go_args(ldflags: "-s -w")
+            system "go", "build", *std_go_args
         <% elsif @mode == :meson %>
             system "meson", "setup", "build", *std_meson_args
             system "meson", "compile", "-C", "build", "--verbose"

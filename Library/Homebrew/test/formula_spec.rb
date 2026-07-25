@@ -3243,6 +3243,30 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_go_args" do
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "defaults to stripping binaries" do
+      expect(f.std_go_args).to include("-ldflags=-s -w")
+
+      ldflags = "-X main.version=1.0.0"
+      expect(f.std_go_args(ldflags:)).to include("-ldflags=-s -w #{ldflags}")
+    end
+
+    it "does not strip binaries when building with debug symbols" do
+      allow(ENV).to receive(:debug_symbols?).and_return(true)
+      expect(f.std_go_args).not_to include(a_string_starting_with("-ldflags"))
+
+      ldflags = "-X main.version=1.0.0"
+      expect(f.std_go_args(ldflags:)).to include("-ldflags=#{ldflags}")
+    end
+  end
+
   describe "#std_pip_args" do
     let(:f) do
       formula do
