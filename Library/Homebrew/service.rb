@@ -59,6 +59,7 @@ module Homebrew
       @run_type = T.let(RUN_TYPE_IMMEDIATE, Symbol)
       @service_name = T.let(default_service_name, String)
       @sockets = T.let({}, Sockets)
+      @stop_timeout = T.let(nil, T.nilable(Integer))
       @working_dir = T.let(nil, T.nilable(String))
       instance_eval(&block) if block
 
@@ -266,6 +267,13 @@ module Homebrew
       @throttle_interval = value
     end
 
+    sig { params(value: Integer).returns(T.nilable(Integer)) }
+    def stop_timeout(value = T.unsafe(nil))
+      return @stop_timeout if value.nil?
+
+      @stop_timeout = value
+    end
+
     sig { params(value: Symbol).returns(T.nilable(Symbol)) }
     def process_type(value = T.unsafe(nil))
       case value
@@ -438,6 +446,7 @@ module Homebrew
 
       base[:LaunchOnlyOnce] = @launch_only_once if @launch_only_once == true
       base[:LegacyTimers] = @macos_legacy_timers if @macos_legacy_timers == true
+      base[:ExitTimeOut] = @stop_timeout if @stop_timeout.present?
       base[:TimeOut] = @restart_delay if @restart_delay.present?
       base[:ThrottleInterval] = @throttle_interval if @throttle_interval.present?
       base[:ProcessType] = @process_type.to_s.capitalize if @process_type.present?
@@ -508,6 +517,7 @@ module Homebrew
         end
       end
       options << "RestartSec=#{restart_delay}" if @restart_delay.present?
+      options << "TimeoutStopSec=#{@stop_timeout}" if @stop_timeout.present?
       options << "Nice=#{@nice}" if @nice.present?
       options << "WorkingDirectory=#{File.expand_path(@working_dir)}" if @working_dir.present?
       options << "RootDirectory=#{File.expand_path(@root_dir)}" if @root_dir.present?
@@ -614,6 +624,7 @@ module Homebrew
         error_log_path:        @error_log_path,
         restart_delay:         @restart_delay,
         throttle_interval:     @throttle_interval,
+        stop_timeout:          @stop_timeout,
         nice:                  @nice,
         process_type:          @process_type,
         macos_legacy_timers:   @macos_legacy_timers,
@@ -669,7 +680,7 @@ module Homebrew
         hash[key.to_sym] = replace_placeholders(value)
       end
 
-      %w[interval cron launch_only_once require_root restart_delay throttle_interval nice
+      %w[interval cron launch_only_once require_root restart_delay throttle_interval stop_timeout nice
          macos_legacy_timers].each do |key|
         next if (value = api_hash[key]).nil?
 

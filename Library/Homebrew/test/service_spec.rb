@@ -123,6 +123,66 @@ RSpec.describe Homebrew::Service do
     end
   end
 
+  describe "#stop_timeout" do
+    it "accepts a valid stop_timeout value" do
+      f = stub_formula do
+        service do
+          run opt_bin/"beanstalkd"
+          stop_timeout 10
+        end
+      end
+
+      expect(f.service.stop_timeout).to be(10)
+    end
+
+    it "includes ExitTimeOut in plist output" do
+      f = stub_formula do
+        service do
+          run opt_bin/"beanstalkd"
+          stop_timeout 15
+        end
+      end
+
+      plist = f.service.to_plist
+      expect(plist).to include("<key>ExitTimeOut</key>")
+      expect(plist).to include("<integer>15</integer>")
+    end
+
+    it "does not include ExitTimeOut in plist when not set" do
+      f = stub_formula do
+        service do
+          run opt_bin/"beanstalkd"
+        end
+      end
+
+      plist = f.service.to_plist
+      expect(plist).not_to include("<key>ExitTimeOut</key>")
+    end
+
+    it "includes TimeoutStopSec in systemd unit output" do
+      f = stub_formula do
+        service do
+          run opt_bin/"beanstalkd"
+          stop_timeout 20
+        end
+      end
+
+      unit = f.service.to_systemd_unit
+      expect(unit).to include("TimeoutStopSec=20")
+    end
+
+    it "does not include TimeoutStopSec in systemd unit when not set" do
+      f = stub_formula do
+        service do
+          run opt_bin/"beanstalkd"
+        end
+      end
+
+      unit = f.service.to_systemd_unit
+      expect(unit).not_to include("TimeoutStopSec=")
+    end
+  end
+
   describe "#nice" do
     it "accepts a valid nice level" do
       f = stub_formula do
@@ -425,6 +485,7 @@ RSpec.describe Homebrew::Service do
           process_type :interactive
           restart_delay 30
           throttle_interval 5
+          stop_timeout 60
           nice 5
           interval 5
           macos_legacy_timers true
@@ -446,6 +507,8 @@ RSpec.describe Homebrew::Service do
         \t\t<key>PATH</key>
         \t\t<string>#{HOMEBREW_PREFIX}/bin:#{HOMEBREW_PREFIX}/sbin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         \t</dict>
+        \t<key>ExitTimeOut</key>
+        \t<integer>60</integer>
         \t<key>KeepAlive</key>
         \t<true/>
         \t<key>Label</key>
@@ -937,6 +1000,7 @@ RSpec.describe Homebrew::Service do
           keep_alive true
           process_type :interactive
           restart_delay 30
+          stop_timeout 45
           nice(-15)
           macos_legacy_timers true
         end
@@ -956,6 +1020,7 @@ RSpec.describe Homebrew::Service do
         ExecStart="#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd" "test"
         Restart=on-failure
         RestartSec=30
+        TimeoutStopSec=45
         Nice=-15
         WorkingDirectory=#{HOMEBREW_PREFIX}/var
         RootDirectory=#{HOMEBREW_PREFIX}/var
@@ -1060,6 +1125,30 @@ RSpec.describe Homebrew::Service do
         Type=simple
         ExecStart="#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd"
         Restart=on-success
+      SYSTEMD
+      expect(unit).to eq(unit_expect)
+    end
+
+    it "returns valid unit with stop_timeout" do
+      f = stub_formula do
+        service do
+          run opt_bin/"beanstalkd"
+          stop_timeout 25
+        end
+      end
+
+      unit = f.service.to_systemd_unit
+      unit_expect = <<~SYSTEMD
+        [Unit]
+        Description=Homebrew generated unit for formula_name
+
+        [Install]
+        WantedBy=default.target
+
+        [Service]
+        Type=simple
+        ExecStart="#{HOMEBREW_PREFIX}/opt/#{name}/bin/beanstalkd"
+        TimeoutStopSec=25
       SYSTEMD
       expect(unit).to eq(unit_expect)
     end
@@ -1369,6 +1458,7 @@ RSpec.describe Homebrew::Service do
         run_type:              :immediate,
         working_dir:           "/$HOME",
         cron:                  "0 0 * * 0",
+        stop_timeout:          15,
         sockets:               "tcp://0.0.0.0:80",
       }
     end
@@ -1382,6 +1472,7 @@ RSpec.describe Homebrew::Service do
           environment_variables PATH: std_service_path_env
           working_dir Dir.home
           cron "@weekly"
+          stop_timeout 15
           sockets "tcp://0.0.0.0:80"
         end
       end
@@ -1457,6 +1548,16 @@ RSpec.describe Homebrew::Service do
             linux: "#{HOMEBREW_PREFIX}/opt/formula_name/bin/beanstalkd",
             macos: ["#{HOMEBREW_PREFIX}/opt/formula_name/bin/beanstalkd", "--option"],
           },
+        })
+      end
+
+      it "handles stop_timeout argument correctly" do
+        expect(described_class.from_hash({
+          "run"          => "$HOMEBREW_PREFIX/opt/formula_name/bin/beanstalkd",
+          "stop_timeout" => 30,
+        })).to eq({
+          run:          "#{HOMEBREW_PREFIX}/opt/formula_name/bin/beanstalkd",
+          stop_timeout: 30,
         })
       end
     end
