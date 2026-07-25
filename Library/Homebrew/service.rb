@@ -271,6 +271,8 @@ module Homebrew
     def stop_timeout(value = T.unsafe(nil))
       return @stop_timeout if value.nil?
 
+      raise TypeError, "Service#stop_timeout must be a non-negative integer" if value.negative?
+
       @stop_timeout = value
     end
 

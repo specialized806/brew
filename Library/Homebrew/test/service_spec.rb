@@ -135,6 +135,17 @@ RSpec.describe Homebrew::Service do
       expect(f.service.stop_timeout).to be(10)
     end
 
+    it "throws for negative stop_timeout" do
+      expect do
+        stub_formula do
+          service do
+            run opt_bin/"beanstalkd"
+            stop_timeout(-5)
+          end
+        end.service
+      end.to raise_error TypeError, "Service#stop_timeout must be a non-negative integer"
+    end
+
     it "includes ExitTimeOut in plist output" do
       f = stub_formula do
         service do
@@ -144,8 +155,7 @@ RSpec.describe Homebrew::Service do
       end
 
       plist = f.service.to_plist
-      expect(plist).to include("<key>ExitTimeOut</key>")
-      expect(plist).to include("<integer>15</integer>")
+      expect(plist).to include("<key>ExitTimeOut</key>\n\t<integer>15</integer>")
     end
 
     it "does not include ExitTimeOut in plist when not set" do
