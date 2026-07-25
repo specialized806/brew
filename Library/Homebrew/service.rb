@@ -34,7 +34,7 @@ module Homebrew
     sig { returns(String) }
     attr_reader :plist_name, :service_name
 
-    sig { params(formula: Formula, block: T.nilable(T.proc.void)).void }
+    sig { params(formula: Formula, block: T.nilable(T.proc.bind(Homebrew::Service).void)).void }
     def initialize(formula, &block)
       @cron = T.let({}, T::Hash[Symbol, T.any(Integer, String)])
       @environment_variables = T.let({}, T::Hash[Symbol, String])

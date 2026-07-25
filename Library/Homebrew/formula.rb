@@ -4008,7 +4008,14 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(steps: T.untyped, block: T.nilable(T.proc.void)).returns(Homebrew::InstallSteps::Steps) }
+    sig {
+      params(
+        steps: Homebrew::InstallSteps::RawStep,
+        block: T.nilable(T.proc.bind(Homebrew::InstallSteps::DSL).void),
+      ).returns(
+        Homebrew::InstallSteps::Steps,
+      )
+    }
     def post_install_steps(*steps, &block)
       current_steps = @post_install_steps || []
       return current_steps if steps.empty? && block.nil?
@@ -4281,7 +4288,7 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(block: T.nilable(T.proc.void)).returns(T.untyped) }
+    sig { params(block: T.nilable(T.proc.bind(SoftwareSpec).void)).returns(T.untyped) }
     def stable(&block)
       return T.must(@stable) unless block
 
@@ -4314,8 +4321,13 @@ class Formula
     #
     # @api public
     sig {
-      params(val: T.nilable(String), specs: T::Hash[Symbol, T.untyped], block: T.nilable(T.proc.void))
-        .returns(T.untyped)
+      params(
+        val:   T.nilable(String),
+        specs: T::Hash[Symbol, T.untyped],
+        block: T.nilable(T.proc.bind(SoftwareSpec).void),
+      ).returns(
+        T.untyped,
+      )
     }
     def head(val = nil, specs = {}, &block)
       if block
@@ -4570,7 +4582,11 @@ class Formula
     # @see https://docs.brew.sh/Formula-Cookbook#patches Patches
     # @api public
     sig {
-      params(strip: T.any(String, Symbol), src: T.nilable(T.any(String, Symbol)), block: T.nilable(T.proc.void)).void
+      params(
+        strip: T.any(String, Symbol),
+        src:   T.nilable(T.any(String, Symbol)),
+        block: T.nilable(T.proc.bind(Resource::Patch).void),
+      ).void
     }
     def patch(strip = :p1, src = nil, &block)
       specs.each { |spec| spec.patch(strip, src, &block) }
@@ -4825,11 +4841,17 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(block: T.nilable(T.proc.returns(T.untyped))).returns(T.nilable(T.proc.returns(T.untyped))) }
+    sig {
+      params(
+        block: T.nilable(T.proc.bind(Homebrew::Service).void),
+      ).returns(
+        T.nilable(T.proc.void),
+      )
+    }
     def service(&block)
       return @service_block unless block
 
-      @service_block = T.let(block, T.nilable(T.proc.returns(T.untyped)))
+      @service_block = T.let(block, T.nilable(T.proc.void))
     end
 
     # Defines whether the {Formula}'s bottle can be used on the given Homebrew
@@ -4860,7 +4882,7 @@ class Formula
     sig {
       params(
         only_if: T.nilable(Symbol),
-        block:   T.nilable(T.proc.params(arg0: T.untyped).returns(T.any(T::Boolean, Symbol))),
+        block:   T.nilable(T.proc.bind(PourBottleCheck).params(arg0: T.untyped).void),
       ).void
     }
     def pour_bottle?(only_if: nil, &block)
@@ -4871,7 +4893,7 @@ class Formula
         raise ArgumentError, "Do not pass both a preset condition and a block to `pour_bottle?`"
       end
 
-      block ||= case only_if
+      bottle_check_block = block || case only_if
       when :clt_installed
         lambda do |_|
           on_macos do
@@ -4898,7 +4920,7 @@ class Formula
         raise ArgumentError, "Invalid preset `pour_bottle?` condition" if only_if.present?
       end
 
-      @pour_bottle_check.instance_eval(&T.unsafe(block))
+      @pour_bottle_check.instance_eval(&T.unsafe(bottle_check_block))
     end
 
     # Deprecates a {Formula} (on the given date) so a warning is
