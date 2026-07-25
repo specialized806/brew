@@ -32,7 +32,7 @@ class Cmd
   CXX_REGEX = /(?:c|g|clang)\+\+/.freeze
 
   attr_reader :config, :prefix, :cellar, :opt, :cachedir, :tmpdir, :sysroot, :deps
-  attr_reader :archflags, :optflags, :keg_regex, :formula_prefix, :formula_buildpath
+  attr_reader :optflags, :keg_regex, :formula_prefix, :formula_buildpath
 
   def initialize(arg0, args)
     @arg0 = arg0
@@ -46,7 +46,6 @@ class Cmd
     @opt = ENV["HOMEBREW_OPT"]
     @tmpdir = ENV["HOMEBREW_TEMP"]
     @sysroot = ENV["HOMEBREW_SDKROOT"]
-    @archflags = ENV.fetch("HOMEBREW_ARCHFLAGS", "").split
     @optflags = ENV.fetch("HOMEBREW_OPTFLAGS", "").split
     @deps = Set.new(ENV.fetch("HOMEBREW_DEPENDENCIES", "").split(","))
     @formula_prefix = ENV["HOMEBREW_FORMULA_PREFIX"]
@@ -309,7 +308,6 @@ class Cmd
       # For runtime CPU detection builds, pass our optimisation flag whenever the build hasn't provided its own.
       args << optflag if !runtime_cpu_detection? || @args.none? { |arg| arg.start_with?(flag) }
     end
-    args.concat(archflags)
     args << "-std=#{@arg0}" if /c[89]9/.match?(@arg0)
     args << "-g" if debug_symbols?
     args
