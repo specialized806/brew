@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/vulns"
@@ -67,6 +67,7 @@ RSpec.describe Homebrew::Cmd::Vulns do
 
     let(:act) do
       formula("act") do
+        T.bind(self, T.class_of(Formula))
         url "https://github.com/nektos/act/archive/refs/tags/v0.2.84.tar.gz"
       end
     end
