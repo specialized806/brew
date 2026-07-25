@@ -37,7 +37,6 @@ module RuboCop
         @body = T.let(body, T.nilable(RuboCop::AST::Node))
 
         @formula_name = T.let(Pathname.new(@file_path).basename(".rb").to_s, T.nilable(String))
-        @tap_style_exceptions = T.let(nil, T.nilable(T::Hash[Symbol, T::Array[String]]))
         audit_formula(FormulaNodes.new(node:, class_node:, parent_class_node:, body_node: T.must(@body)))
       end
 
@@ -219,10 +218,16 @@ module RuboCop
       # Defaults to the current formula being checked.
       sig { params(list: Symbol, formula: T.nilable(String)).returns(T::Boolean) }
       def tap_style_exception?(list, formula = nil)
-        if @tap_style_exceptions.nil? && !formula_tap.nil?
-          @tap_style_exceptions = {}
+        return false if formula_tap.nil? || (exceptions_dir = style_exceptions_dir).nil?
 
-          Pathname.glob("#{style_exceptions_dir}/*.json").each do |exception_file|
+        @tap_style_exceptions = T.let(
+          @tap_style_exceptions,
+          T.nilable(T::Hash[String, T::Hash[Symbol, T::Array[String]]]),
+        )
+        @tap_style_exceptions ||= {}
+        unless @tap_style_exceptions.key?(exceptions_dir)
+          tap_style_exceptions = T.let({}, T::Hash[Symbol, T::Array[String]])
+          Pathname.glob("#{exceptions_dir}/*.json").each do |exception_file|
             list_name = exception_file.basename.to_s.chomp(".json").to_sym
             list_contents = begin
               JSON.parse exception_file.read
@@ -231,14 +236,15 @@ module RuboCop
             end
             next if list_contents.nil? || list_contents.none?
 
-            @tap_style_exceptions[list_name] = list_contents
+            tap_style_exceptions[list_name] = list_contents
           end
+          @tap_style_exceptions[exceptions_dir] = tap_style_exceptions
         end
 
-        return false if @tap_style_exceptions.nil? || @tap_style_exceptions.none?
-        return false unless @tap_style_exceptions.key? list
+        tap_style_exceptions = @tap_style_exceptions.fetch(exceptions_dir)
+        return false unless tap_style_exceptions.key? list
 
-        @tap_style_exceptions.fetch(list).include?(formula || @formula_name)
+        tap_style_exceptions.fetch(list).include?(formula || @formula_name)
       end
 
       private
