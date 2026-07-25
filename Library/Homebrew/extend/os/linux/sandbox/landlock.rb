@@ -348,7 +348,7 @@ class Sandbox
         # https://www.kernel.org/doc/html/latest/filesystems/mqueue.html
         device_path_rules = T.let({
           "/dev/full"   => FILE_WRITE_ACCESS_FS,
-          "/dev/mqueue" => allowed_write_access_fs,
+          "/dev/mqueue" => allowed_write_access_fs | (@deny_read ? ACCESS_FS_READ_FILE : 0),
           "/dev/ptmx"   => pty_access,
           "/dev/pts"    => pty_access,
           "/dev/shm"    => allowed_write_access_fs,
