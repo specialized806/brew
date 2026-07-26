@@ -109,7 +109,8 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
           begin
             _fetch(url:, resolved_url: T.must(resolved_url), timeout: Utils::Timer.remaining!(end_time))
           rescue ErrorDuringExecution => e
-            raise CurlDownloadStrategyError.new(url, e.stderr.strip)
+            clean_stderr = strip_progress_bar(Tty.collapse_carriage_returns(e.stderr)).strip
+            raise CurlDownloadStrategyError.new(url, clean_stderr)
           end
           cached_location.dirname.mkpath
           temporary_path.rename(cached_location.to_s)

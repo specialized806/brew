@@ -20,6 +20,7 @@ RSpec.describe Homebrew::DownloadQueue do
     )
   end
   let(:download_error) { DownloadError.new(downloadable, RuntimeError.new("network blew up")) }
+  let(:multi_line_download_error) { DownloadError.new(downloadable, RuntimeError.new("line one\nline two")) }
   let(:retryable_download) { instance_double(Homebrew::RetryableDownload) }
 
   before do
@@ -39,6 +40,35 @@ RSpec.describe Homebrew::DownloadQueue do
 
     expect(download_queue.fetch_failed).to be(true)
     expect(Homebrew).to have_failed
+  end
+
+  it "defers multi-line failure details on a TTY until the in-place redraw has finished" do
+    allow($stdout).to receive(:tty?).and_return(true)
+    ENV["TERM"] = "xterm-256color"
+    allow(downloadable).to receive(:fetched_size).and_return(nil)
+    allow(retryable_download).to receive(:fetch).and_raise(multi_line_download_error)
+
+    download_queue.enqueue(downloadable)
+
+    # Stub the write methods (rather than reassigning $stdout/$stderr) so both
+    # streams append to one buffer in call order, the same way they'd interleave
+    # on a real terminal.
+    combined_output = +""
+    allow($stdout).to receive(:print) { |message| combined_output << message }
+    allow($stdout).to receive(:flush)
+    allow($stderr).to receive(:puts) { |message| combined_output << "#{message}\n" }
+
+    download_queue.fetch
+
+    show_cursor_index = combined_output.index(Tty.show_cursor)
+    failure_index = combined_output.index("line one\nline two")
+
+    expect(show_cursor_index).not_to be_nil
+    expect(failure_index).not_to be_nil
+    # The redraw loop assumes every line it prints in-place occupies exactly one
+    # terminal row, so a multi-line failure must be held back until the cursor is
+    # restored to normal scrolling, not printed while the redraw is still live.
+    expect(failure_index).to be > show_cursor_index
   end
 
   it "raises and clears queue state on a bottle manifest failure in parallel mode" do
