@@ -1113,6 +1113,12 @@ end
 `terminate_process` terminates a process by name or, with `match: :full`, by its full command line. `attempts:` sets the total number of attempts and defaults to one. It also supports `notices:` shown before the first attempt and a `failure_message:` warning.
 `warn` emits a literal warning. Wrap it in `if_path_exists` when the warning only applies while a path exists.
 
+#### Repeated formula actions
+
+Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action.
+
+* `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
+
 #### Service data directory steps
 
 `init_data_dir` creates a database service data directory and runs a supported
