@@ -295,16 +295,16 @@ Behaviour and usage of `target:` is [the same as with `app`](#renaming-the-targe
 
 ### Stanza: `command_wrapper`
 
-`command_wrapper` writes an executable wrapper into the staged cask and links it like a [`binary`](#stanza-binary). The linked name is inferred by removing `.wrapper.sh` from the wrapper name. Use `target:` when it should differ. Fixed arguments and environment variables can be passed with `args:` and `env:`.
+`command_wrapper` writes an executable shim script into the staged cask and links it like a [`binary`](#stanza-binary) using the declared command name. Use it when an application does not provide a suitable command-line entry point. When using `executable:`, fixed arguments and environment variables can be passed with `args:` and `env:`.
 
 ```ruby
-command_wrapper "example.wrapper.sh",
+command_wrapper "example",
                 executable: "#{appdir}/Example.app/Contents/MacOS/example",
                 args:       ["--cli"],
                 env:        { "EXAMPLE_MODE" => "batch" }
 ```
 
-Use `content:` instead of `executable:` for wrappers which need custom shell logic.
+Use `content:` instead of `executable:` for wrappers which need custom shell logic. It contains the complete wrapper and cannot be combined with `args:` or `env:`.
 
 ### Stanza: `generated_script`
 

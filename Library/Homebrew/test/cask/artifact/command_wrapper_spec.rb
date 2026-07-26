@@ -8,7 +8,7 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
       sha256 :no_check
       url "file://#{TEST_FIXTURE_DIR}/cask/container.zip"
 
-      command_wrapper "example.wrapper.sh",
+      command_wrapper "example",
                       executable: "/Applications/Example.app/Contents/MacOS/example",
                       args:       ["--cli", "batch mode"],
                       env:        { "EXAMPLE_MODE" => "batch" }
@@ -37,14 +37,14 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
         EXAMPLE_MODE="batch" exec "/Applications/Example.app/Contents/MacOS/example" --cli batch\\ mode "$@"
       BASH
       executable?: true,
+      readlink:    cask.staged_path/".homebrew-command-wrappers/example",
     )
   end
 
   it "serialises the wrapper definition" do
     expect(artifact.to_args).to eq([
-      "example.wrapper.sh",
+      "example",
       {
-        target:     "example",
         executable: "/Applications/Example.app/Contents/MacOS/example",
         args:       ["--cli", "batch mode"],
         env:        { "EXAMPLE_MODE" => "batch" },
@@ -53,7 +53,7 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
   end
 
   it "shell-escapes a single non-array argument" do
-    wrapper = described_class.from_args(cask, "custom.wrapper.sh",
+    wrapper = described_class.from_args(cask, "custom",
                                         executable: "/usr/bin/example",
                                         args:       "two words; true")
     wrapper.install_phase(command: NeverSudoSystemCommand, force: false)
@@ -65,15 +65,14 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
   end
 
   it "serialises Pathname arguments and symbol environment keys as plain strings" do
-    wrapper = described_class.from_args(cask, "custom.wrapper.sh",
+    wrapper = described_class.from_args(cask, "custom",
                                         executable: Pathname("/usr/bin/example"),
                                         args:       Pathname("/etc/example.conf"),
                                         env:        { EXAMPLE_MODE: Pathname("/var/example") })
 
     expect(wrapper.to_args).to eq([
-      "custom.wrapper.sh",
+      "custom",
       {
-        target:     "custom",
         executable: "/usr/bin/example",
         args:       ["/etc/example.conf"],
         env:        { "EXAMPLE_MODE" => "/var/example" },
@@ -83,30 +82,36 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
 
   it "accepts custom wrapper content" do
     content = "#!/bin/sh\nexit 1\n"
-    custom_artifact = described_class.from_args(cask, "custom.wrapper.sh", content:)
+    custom_artifact = described_class.from_args(cask, "custom", content:)
     custom_artifact.install_phase(command: NeverSudoSystemCommand, force: false)
 
     expect(custom_target).to be_a_symlink.and have_attributes(read: content, executable?: true)
   end
 
   it "serialises custom wrapper content" do
-    custom_artifact = described_class.from_args(cask, "custom.wrapper.sh", content: "#!/bin/sh\nexit 1\n")
+    custom_artifact = described_class.from_args(cask, "custom", content: "#!/bin/sh\nexit 1\n")
 
     expect(custom_artifact.to_args).to eq([
-      "custom.wrapper.sh",
-      { target: "custom", content: "#!/bin/sh\nexit 1\n" },
+      "custom",
+      { content: "#!/bin/sh\nexit 1\n" },
     ])
   end
 
   it "rejects missing content and executable" do
     expect do
-      described_class.from_args(cask, "other.wrapper.sh")
+      described_class.from_args(cask, "other")
     end.to raise_error(Cask::CaskInvalidError, /requires content or executable/)
+  end
+
+  it "rejects command names containing path components" do
+    expect do
+      described_class.from_args(cask, "../other", executable: "example")
+    end.to raise_error(Cask::CaskInvalidError, /requires a command name without path components/)
   end
 
   it "rejects content with an executable" do
     expect do
-      described_class.from_args(cask, "other.wrapper.sh", content: "#!/bin/sh\n", executable: "example")
+      described_class.from_args(cask, "other", content: "#!/bin/sh\n", executable: "example")
     end.to raise_error(Cask::CaskInvalidError, /content or executable, not both/)
   end
 end
