@@ -2143,8 +2143,8 @@ class Formula
   #
   # ### Example
   #
-  # A special ldflags of `:goreleaser` will output ldflags similar to GoReleaser's
-  # defaults (https://goreleaser.com/customization/builds/builders/go/#options).
+  # A special `ldflags` value of `:goreleaser` will output ldflags similar to GoReleaser's
+  # defaults listed at https://goreleaser.com/customization/builds/builders/go/#options.
   # This uses formula metadata so it should not be used inside staged resources.
   #
   # ```ruby
