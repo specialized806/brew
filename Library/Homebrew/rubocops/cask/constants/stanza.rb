@@ -6,7 +6,7 @@ module RuboCop
     # Constants available globally for use in all cask cops.
     module Constants
       ON_SYSTEM_METHODS = T.let(
-        [:arm, :intel, *MacOSVersion::SYMBOLS.keys].map { |option| :"on_#{option}" }.freeze,
+        [:arm, :intel, *MacOSVersion::SYMBOLS.keys, :macos, :linux].map { |option| :"on_#{option}" }.freeze,
         T::Array[Symbol],
       )
       ON_SYSTEM_METHODS_STANZA_ORDER = T.let(
@@ -14,6 +14,8 @@ module RuboCop
           :arm,
           :intel,
           *MacOSVersion::SYMBOLS.reverse_each.to_h.keys, # Oldest OS blocks first since that's more common in Casks.
+          :macos,
+          :linux,
         ].map { |option, _| :"on_#{option}" }.freeze,
         T::Array[Symbol],
       )
