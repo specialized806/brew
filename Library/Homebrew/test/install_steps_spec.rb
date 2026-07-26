@@ -11,6 +11,7 @@ RSpec.describe Homebrew::InstallSteps do
     Class.new do
       define_method(:prefix) { root_path/"prefix" }
       define_method(:bin) { root_path/"prefix/bin" }
+      define_method(:libexec) { root_path/"prefix/libexec" }
       define_method(:var) { root_path/"var" }
       define_method(:staged_path) { root_path/"stage" }
     end.new
@@ -426,6 +427,117 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"var/pattern.txt").read).to eq("replaced")
   end
 
+  specify "warns inside a matching path scope" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      if_path_exists "{{var}}/{missing,conflict}" do
+        warn "{{token}} conflict"
+      end
+    end
+    named_context = context
+    named_context.define_singleton_method(:name) { ["Example"] }
+    named_context.define_singleton_method(:token) { "example" }
+    (root/"var/conflict").mkpath
+    runner = Homebrew::InstallSteps::Runner.new(context: named_context)
+    expect(runner).to receive(:opoo).with("example conflict")
+
+    runner.run(steps)
+  end
+
+  specify "runs serialised commands" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      run "helper", args: ["--path={{var}}"], base: :libexec, env: { "EXAMPLE" => "{{var}}/value" }
+    end
+
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with(root/"prefix/libexec/helper", args: ["--path=#{root}/var"], sudo: false,
+                                           env: { "EXAMPLE" => "#{root}/var/value" }, input: [], print_stdout: false,
+                                           print_stderr: true, reset_uid: true, chdir: nil)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+  end
+
+  specify "serialises command environments as JSON objects" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      run "helper", env: { "EXAMPLE" => "{{formula_name}}" }
+    end
+
+    expect(steps).to include(a_hash_including(
+                               "type" => "run", "env" => { "EXAMPLE" => "{{formula_name}}" },
+                             ))
+  end
+
+  specify "runs commands with serialised input and output paths" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      run "filter", base: :bin, stdin_path: "input.txt", stdout_path: "output.txt", chdir: "work"
+    end
+
+    (root/"var/work").mkpath
+    (root/"var/input.txt").write "input"
+    result = instance_double(SystemCommand::Result, stdout: "output")
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with(root/"prefix/bin/filter", args: [], sudo: false, env: {}, input: "input", print_stdout: false,
+                                      print_stderr: true, reset_uid: true, chdir: root/"var/work")
+      .and_return(result)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+
+    expect((root/"var/output.txt").read).to eq("output")
+  end
+
+  specify "can ignore process termination failure after retries" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      terminate_process "/Applications/Example.app", match: :full, attempts: 3,
+                                                       notices: ["Closing {{name}}"],
+                                                       failure_message: "Unable to close {{name}}"
+    end
+
+    named_context = context
+    named_context.define_singleton_method(:name) { "Example" }
+    command = class_double(SystemCommand)
+    runner = Homebrew::InstallSteps::Runner.new(context: named_context, command:)
+    allow(runner).to receive(:sleep)
+    expect(runner).to receive(:ohai).with("Closing Example")
+    expect(runner).to receive(:opoo).with("Unable to close Example")
+    expect(command).to receive(:run!)
+      .with("/usr/bin/pkill", args: ["-f", "/Applications/Example.app"], sudo: false,
+                              print_stdout: true, print_stderr: true, reset_uid: true)
+      .exactly(3).times
+      .and_raise(ErrorDuringExecution.new([], status: 1))
+
+    expect { runner.run(steps) }.not_to raise_error
+  end
+
+  specify "rejects unknown process match modes" do
+    expect do
+      Homebrew::InstallSteps::DSL.build do
+        terminate_process "Example", match: :prefix
+      end
+    end.to raise_error(ArgumentError, "terminate_process match must be :name or :full")
+  end
+
+  specify "rejects non-positive process termination attempts" do
+    expect do
+      Homebrew::InstallSteps::DSL.build do
+        terminate_process "Example", attempts: 0
+      end
+    end.to raise_error(ArgumentError, "terminate_process attempts must be positive")
+  end
+
+  specify "uses killall for exact process names" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      terminate_process "Example", must_succeed: true
+    end
+
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with("/usr/bin/killall", args: ["Example"], sudo: false,
+                                print_stdout: true, print_stderr: true, reset_uid: true)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+  end
+
   specify "appends a trailing newline unless already present", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
       write "missing-newline", "value"
@@ -601,6 +713,61 @@ RSpec.describe Homebrew::InstallSteps do
                                                  HOMEBREW_PREFIX/"share/applications").ordered
 
     runner.run(steps)
+  end
+
+  specify "dispatches GCC runtime configuration" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_gcc_runtime
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_configure_gcc_runtime)
+
+    runner.run(steps)
+  end
+
+  specify "configures GCC runtime files on Linux", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_gcc_runtime
+    end
+    gcc_context = context
+    gcc_context.define_singleton_method(:name) { "gcc" }
+    libgcc = root/"gcc/lib/gcc/15"
+    crtdir = root/"system/lib"
+    libgcc.mkpath
+    crtdir.mkpath
+    crti = crtdir/"crti.o"
+    crti.write "crt"
+    specs = libgcc/"specs"
+    specs.write "old specs"
+    Pathname("#{specs}.orig").write "old original specs"
+    gcc = root/"prefix/bin/gcc-15"
+    original_specs = "*link:\n+ %o \n"
+
+    allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_linux?).and_return(true)
+    allow(Utils::Path).to receive(:formula_any_version_installed?).with("glibc").and_return(false)
+    allow(Utils::Path).to receive(:formula_opt_lib).with("glibc").and_return(root/"glibc/lib")
+    runner = Homebrew::InstallSteps::Runner.new(context: gcc_context)
+    expect(runner).to receive(:context_version_major).and_return("15")
+    expect(runner).to receive(:run_command_output)
+      .with(gcc, "-print-libgcc-file-name").ordered
+      .and_return("#{libgcc}/libgcc_s.so\n")
+    expect(runner).to receive(:run_command_output)
+      .with("/usr/bin/cc", "-print-file-name=crti.o").ordered
+      .and_return("#{crti}\n")
+    expect(runner).to receive(:run_command_output)
+      .with(gcc, "-print-multiarch").ordered
+      .and_return("x86_64-linux-gnu\n")
+    expect(runner).to receive(:run_command_output).with(gcc, "-dumpspecs").ordered.and_return(original_specs)
+    expect(FileUtils).to receive(:ln_sf).with([crti.to_s], libgcc).and_call_original
+    expect(FileUtils).to receive(:rm_f).with(["#{specs}.orig", specs]).and_call_original
+
+    runner.run(steps)
+
+    expect(libgcc/"crti.o").to be_a_symlink
+    expect((libgcc/"crti.o").readlink).to eq(crti)
+    expect(Pathname("#{specs}.orig").read).to eq(original_specs)
+    expect(specs.read).to include("%(homebrew_rpath)", "-idirafter /usr/include/x86_64-linux-gnu")
   end
 
   describe "runs gtk_update_icon_cache rebuild action" do

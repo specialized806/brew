@@ -1051,7 +1051,7 @@ end
 
 Any initialisation steps that aren't necessarily part of the install process can be located in a `post_install` block, such as setup commands or data directory creation. This block can be re-run separately with `brew postinstall <formula>`.
 
-For simple file preparation, prefer [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method). These steps are stored in the JSON API and do not require evaluating formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code. Homebrew executes the steps with the same sandbox policy as `post_install`.
+For declarative post-install work, prefer [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method). These steps are stored in the JSON API and do not require evaluating formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code. Homebrew executes the steps with the same sandbox policy as `post_install`.
 
 ```ruby
 class Foo < Formula
@@ -1091,7 +1091,7 @@ represented by structured steps.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `set_permissions`: change existing path permissions; example: `set_permissions "foo", "0755"`.
 
-Path collections passed to `remove` expand globs automatically. Removals may be restricted with `symlink_target_contains:` or `content_contains:`.
+Use `if_path_exists` and `unless_path_exists` blocks to guard one or more steps by a path, and `on_macos` and `on_linux` blocks for platform-specific steps. Each guard is evaluated once for its whole block. `copy`, `move` and symlink steps accept `source_glob: true`; path collections used by `remove` and `set_permissions` expand globs automatically. Removals may additionally be restricted with `symlink_target_contains:` or `content_contains:`.
 
 #### Default config and template steps
 
@@ -1103,8 +1103,29 @@ Path collections passed to `remove` expand globs automatically. Removals may be 
 A trailing newline is appended unless the content already ends with one, so written files end in a newline as POSIX expects.
 
 {% raw %}
-Content may use a fixed set of `{{...}}` tokens that are expanded at install time so paths are not hardcoded into the JSON API: `{{HOMEBREW_PREFIX}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
+Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens that are expanded at install time so values are not hardcoded into the JSON API: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
 {% endraw %}
+
+#### Command and lifecycle steps
+
+`run` executes one command with a literal argument array; it does not evaluate a shell command string. Select the executable with `base:`, such as `:bin`, `:libexec` or `:homebrew_prefix`, or pass an absolute system executable. The step also supports a literal `env:`, `stdin_path:`, `stdout_path:`, `chdir:`, `sudo:`, `print_stdout:` and `print_stderr:`. Wrap it in one of the guard blocks described above when it should be conditional.
+
+```ruby
+run "foo-helper", args: ["--prefix", "{{HOMEBREW_PREFIX}}"], base: :libexec
+terminate_process "foo", must_succeed: false
+if_path_exists "foo.conf", base: :etc do
+  warn "Remove the old foo.conf before continuing"
+end
+```
+
+`terminate_process` terminates a process by name or, with `match: :full`, by its full command line. `attempts:` sets the total number of attempts and defaults to one. It also supports `notices:` shown before the first attempt and a `failure_message:` warning.
+`warn` emits a literal warning. Wrap it in `if_path_exists` when the warning only applies while a path exists.
+
+#### Repeated formula actions
+
+Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action.
+
+* `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
 
 #### Service data directory steps
 
@@ -1139,7 +1160,6 @@ link_children "bin", suffix: "-#{version.major}"
 These steps rebuild shared desktop and cache state using Homebrew-owned tools.
 
 * `compile_gsettings_schemas`: compile GSettings schemas in `share/glib-2.0/schemas`.
-* `gio_querymodules`: rebuild the GIO module cache in `lib/gio/modules`.
 * `gdk_pixbuf_query_loaders`: update the GDK Pixbuf loader cache.
 * `gtk_update_icon_cache`: refresh the `hicolor` GTK icon cache.
 * `update_mime_database`: rebuild the shared MIME database in `share/mime`.

@@ -10,14 +10,15 @@ module Homebrew
   module InstallSteps
     PathSpec = T.type_alias { T::Hash[String, String] }
     PathSpecs = T.type_alias { T::Array[PathSpec] }
-    StepValue = T.type_alias { T.any(String, Integer, T::Boolean, PathSpec, PathSpecs) }
+    StepValue = T.type_alias { T.any(String, Integer, T::Boolean, T::Array[String], PathSpec, PathSpecs) }
     Step = T.type_alias { T::Hash[String, StepValue] }
     Steps = T.type_alias { T::Array[Step] }
     Paths = T.type_alias { T.any(String, Pathname, T::Array[T.any(String, Pathname)]) }
     RawPathSpec = T.type_alias { T::Hash[T.any(String, Symbol), T.nilable(T.any(String, Symbol, Pathname))] }
     RawPathSpecs = T.type_alias { T::Array[T.any(String, Symbol, Pathname, RawPathSpec)] }
-    RawStepValue =
-      T.type_alias { T.nilable(T.any(String, Symbol, Integer, T::Boolean, Pathname, RawPathSpec, RawPathSpecs)) }
+    RawStepValue = T.type_alias do
+      T.nilable(T.any(String, Symbol, Integer, T::Boolean, Pathname, RawPathSpec, RawPathSpecs))
+    end
     RawStep = T.type_alias { T::Hash[T.any(String, Symbol), RawStepValue] }
     SystemCommandArg = T.type_alias { T.any(String, Pathname) }
     TemplateTokenValue = T.type_alias { T.any(String, Pathname) }
@@ -177,7 +178,11 @@ module Homebrew
         when Symbol
           obj.to_s
         when Array
-          obj.map { |value| normalise_path_value(value) } if %w[guards paths].include?(key)
+          if %w[guards paths].include?(key)
+            obj.map { |value| normalise_path_value(value) }
+          else
+            obj.map(&:to_s)
+          end
         when Hash
           if key == "env"
             ::T.cast(obj.to_h { |env_key, value| [env_key.to_s, value&.to_s] }.compact, PathSpec)
@@ -463,6 +468,7 @@ module Homebrew
         add_rebuild_action("compile_gsettings_schemas", "share/glib-2.0/schemas")
       end
 
+      # odeprecated
       sig { void }
       def gio_querymodules
         add_rebuild_action("gio_querymodules", "lib/gio/modules")
@@ -532,6 +538,74 @@ module Homebrew
                  "user"          => user,
                  "group"         => group,
                  "non_recursive" => !recursive)
+      end
+
+      sig {
+        params(
+          command:      ::T.any(::String, ::Pathname),
+          args:         ::T::Array[::T.any(::String, ::Pathname)],
+          base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          env:          ::T::Hash[::String, ::String],
+          sudo:         ::T::Boolean,
+          print_stdout: ::T::Boolean,
+          print_stderr: ::T::Boolean,
+          stdin_path:   ::T.nilable(::T.any(::String, ::Pathname)),
+          stdout_path:  ::T.nilable(::T.any(::String, ::Pathname)),
+          chdir:        ::T.nilable(::T.any(::String, ::Pathname)),
+        ).void
+      }
+      def run(command, args: [], base: nil, env: {}, sudo: false, print_stdout: false, print_stderr: true,
+              stdin_path: nil, stdout_path: nil, chdir: nil)
+        add_step("run",
+                 "command"         => path_spec(command, base:, default_base: nil),
+                 "args"            => args.map(&:to_s),
+                 "env"             => env,
+                 "sudo"            => sudo,
+                 "print_stdout"    => print_stdout,
+                 "suppress_stderr" => !print_stderr,
+                 "stdin_path"      => optional_path_spec(stdin_path, default_base: @default_base),
+                 "stdout_path"     => optional_path_spec(stdout_path, default_base: @default_base),
+                 "chdir"           => optional_path_spec(chdir, default_base: @default_base))
+      end
+
+      sig {
+        params(
+          name:            ::String,
+          match:           ::T.any(::String, ::Symbol),
+          sudo:            ::T::Boolean,
+          attempts:        ::Integer,
+          must_succeed:    ::T::Boolean,
+          notices:         ::T::Array[::String],
+          failure_message: ::T.nilable(::String),
+        ).void
+      }
+      def terminate_process(name, match: :name, sudo: false, attempts: 1, must_succeed: false,
+                            notices: [], failure_message: nil)
+        ::Kernel.raise ::ArgumentError, "terminate_process attempts must be positive" if attempts < 1
+
+        match = match.to_s
+        unless %w[name full].include?(match)
+          ::Kernel.raise ::ArgumentError, "terminate_process match must be :name or :full"
+        end
+
+        add_step("terminate_process",
+                 "name"            => name,
+                 "match"           => match,
+                 "sudo"            => sudo,
+                 "attempts"        => attempts,
+                 "must_succeed"    => must_succeed,
+                 "notices"         => notices,
+                 "failure_message" => failure_message)
+      end
+
+      sig { params(message: ::String).void }
+      def warn(message)
+        add_step("warn", "message" => message)
+      end
+
+      sig { void }
+      def configure_gcc_runtime
+        add_step("configure_gcc_runtime")
       end
 
       private
@@ -770,6 +844,14 @@ module Homebrew
             path.dirname.mkpath
             path.write(expand_template_tokens(content))
           end
+        when "run"
+          run_serialised_command(step)
+        when "terminate_process"
+          run_terminate_process(step)
+        when "warn"
+          opoo expand_template_tokens(step_string(step, "message"))
+        when "configure_gcc_runtime"
+          run_configure_gcc_runtime
         when "set_permissions"
           run_set_permissions(step)
         when "set_ownership"
@@ -856,6 +938,59 @@ module Homebrew
         end
         @guard_results[guard] = matches
       end
+
+      sig { params(step: Step).void }
+      def run_serialised_command(step)
+        command = resolve_command(step_path(step, "command"))
+        args = T.cast(step["args"], T.nilable(T::Array[String]))&.map { |arg| expand_template_tokens(arg) } || []
+        environment = T.cast(step["env"] || {}, PathSpec)
+                       .transform_values { |value| expand_template_tokens(value.to_s) }
+        input = step.key?("stdin_path") ? resolve_path(step_path(step, "stdin_path")).read : []
+        working_directory = resolve_path(step_path(step, "chdir")) if step.key?("chdir")
+        result = @command.run!(command, args:, sudo: step["sudo"] == true, env: environment, input:,
+                                      print_stdout: step["print_stdout"] == true,
+                                      print_stderr: step["suppress_stderr"] != true, reset_uid: true,
+                                      chdir: working_directory)
+
+        return unless step.key?("stdout_path")
+
+        output_path = resolve_path(step_path(step, "stdout_path"))
+        output_path.dirname.mkpath
+        output_path.write(result.stdout)
+      end
+
+      sig { params(step: Step).void }
+      def run_terminate_process(step)
+        T.cast(step["notices"], T.nilable(T::Array[String]))&.each do |notice|
+          ohai expand_template_tokens(notice)
+        end
+        name = expand_template_tokens(step_string(step, "name"))
+        if step_string(step, "match") == "full"
+          command = "/usr/bin/pkill"
+          args = ["-f", name]
+        else
+          command = "/usr/bin/killall"
+          args = [name]
+        end
+        attempts = T.cast(step["attempts"] || 1, Integer)
+
+        begin
+          run_command command, *args, sudo: step["sudo"] == true
+        rescue ErrorDuringExecution
+          attempts -= 1
+          if attempts <= 0
+            failure_message = T.cast(step["failure_message"], T.nilable(String))
+            opoo expand_template_tokens(failure_message) if failure_message
+            raise if step["must_succeed"] == true
+
+            return
+          end
+
+          sleep 1
+          retry
+        end
+      end
+
       sig { params(source: SystemCommandArg, target: Pathname, step: Step).void }
       def create_symlink(source, target, step)
         target.dirname.mkpath
@@ -1093,6 +1228,13 @@ module Homebrew
         root_path(base, spec["formula"])/path
       end
 
+      sig { params(spec: PathSpec).returns(SystemCommandArg) }
+      def resolve_command(spec)
+        return expand_template_tokens(spec.fetch("path")) if spec["base"].blank? || spec["base"] == "relative"
+
+        resolve_path(spec)
+      end
+
       sig { params(spec: PathSpec).returns(String) }
       def link_source(spec)
         return expand_template_tokens(spec.fetch("path")) if spec["base"] == "relative"
@@ -1172,3 +1314,5 @@ module Homebrew
     end
   end
 end
+
+require "install_steps/formula_actions"
