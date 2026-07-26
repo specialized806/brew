@@ -253,6 +253,7 @@ module Homebrew
         if args.coverage?
           ENV["HOMEBREW_TESTS_COVERAGE"] = "1"
           FileUtils.rm_f "test/coverage/.resultset.json"
+          FileUtils.rm_f Dir["test/coverage/.simulated_files*"]
         end
 
         # Override author/committer as global settings might be invalid and thus
