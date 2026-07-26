@@ -120,6 +120,35 @@ module RuboCop
         "zap"                  => "cask/dsl.rb",
       }.freeze, T::Hash[String, String])
 
+      # Methods listed in the "Service block methods" table of
+      # docs/Formula-Cookbook.md. All live in `service.rb`.
+      # Validated by `Homebrew/PublicApiCookbook` against that table and against
+      # the `@api public` annotations in `service.rb` (a 1:1 correspondence).
+      SERVICE_COOKBOOK_METHODS = T.let(%w[
+        cron
+        environment_variables
+        error_log_path
+        input_path
+        interval
+        keep_alive
+        launch_only_once
+        log_path
+        macos_legacy_timers
+        name
+        nice
+        process_type
+        require_root
+        restart_delay
+        root_dir
+        run
+        run_at_load
+        run_type
+        sockets
+        stop_timeout
+        throttle_interval
+        working_dir
+      ].to_set.freeze, T::Set[String])
+
       # Returns the set of method names annotated with a given `@api` level
       # (e.g. `"internal"`, `"private"`, `"public"`) in the given Ruby source file.
       sig { params(source_path: String, level: String).returns(T::Set[String]) }
