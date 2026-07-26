@@ -122,6 +122,25 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       expect(record[:references]).to eq upstream["references"]
     end
 
+    it "deduplicates references that differ only by percent-encoding, preserving distinct types" do
+      upstream = {
+        "references" => [
+          { "type" => "WEB", "url" => "https://lists.example.org/announce%40lists/msg" },
+          { "type" => "WEB", "url" => "https://lists.example.org/announce@lists/msg" },
+          { "type" => "REPORT", "url" => "https://bugs.example.org/+bug/1" },
+          { "type" => "ADVISORY", "url" => "https://bugs.example.org/+bug/1" },
+        ],
+      }
+
+      record = described_class.record_for(nvi, "CVE-2015-2305", upstream:, now:)
+
+      expect(record[:references]).to eq [
+        { "type" => "WEB", "url" => "https://lists.example.org/announce%40lists/msg" },
+        { "type" => "REPORT", "url" => "https://bugs.example.org/+bug/1" },
+        { "type" => "ADVISORY", "url" => "https://bugs.example.org/+bug/1" },
+      ]
+    end
+
     it "percent-encodes @ in the purl but not the package name" do
       glibc = formula("glibc@2.13") do
         url "https://ftp.gnu.org/gnu/glibc/glibc-2.13.tar.gz"
