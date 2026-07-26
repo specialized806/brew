@@ -11,6 +11,7 @@ RSpec.describe Homebrew::InstallSteps do
     Class.new do
       define_method(:prefix) { root_path/"prefix" }
       define_method(:bin) { root_path/"prefix/bin" }
+      define_method(:libexec) { root_path/"prefix/libexec" }
       define_method(:var) { root_path/"var" }
       define_method(:staged_path) { root_path/"stage" }
     end.new
@@ -424,6 +425,49 @@ RSpec.describe Homebrew::InstallSteps do
 
     expect((root/"var/literal.txt").read).to eq("after")
     expect((root/"var/pattern.txt").read).to eq("replaced")
+  end
+
+  specify "runs serialised commands" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      run "helper", args: ["--path={{var}}"], base: :libexec, env: { "EXAMPLE" => "{{var}}/value" }
+    end
+
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with(root/"prefix/libexec/helper", args: ["--path=#{root}/var"], sudo: false,
+                                           env: { "EXAMPLE" => "#{root}/var/value" }, input: [], print_stdout: false,
+                                           print_stderr: true, reset_uid: true, chdir: nil)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+  end
+
+  specify "serialises command environments as JSON objects" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      run "helper", env: { "EXAMPLE" => "{{formula_name}}" }
+    end
+
+    expect(steps).to include(a_hash_including(
+                               "type" => "run", "env" => { "EXAMPLE" => "{{formula_name}}" },
+                             ))
+  end
+
+  specify "runs commands with serialised input and output paths" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      run "filter", base: :bin, stdin_path: "input.txt", stdout_path: "output.txt", chdir: "work"
+    end
+
+    (root/"var/work").mkpath
+    (root/"var/input.txt").write "input"
+    result = instance_double(SystemCommand::Result, stdout: "output")
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with(root/"prefix/bin/filter", args: [], sudo: false, env: {}, input: "input", print_stdout: false,
+                                      print_stderr: true, reset_uid: true, chdir: root/"var/work")
+      .and_return(result)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+
+    expect((root/"var/output.txt").read).to eq("output")
   end
 
   specify "appends a trailing newline unless already present", :aggregate_failures do

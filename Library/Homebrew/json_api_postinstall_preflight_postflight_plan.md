@@ -56,6 +56,14 @@ being added to the structured DSL.
 When adding install step DSL methods, update the matching RuboCop allow-list so
 formula or cask tap syntax checks accept the new method in the same context.
 
+Once an install step DSL method has shipped in a stable `Homebrew/brew`
+release, keep accepting and executing it throughout this migration. A better
+replacement may stop being documented and become the target of tap migrations,
+but the old method must remain marked with `# odeprecated` until it can be
+deprecated in a later release. Each `Homebrew/brew` PR must continue to pass
+tap-wide syntax checks against the default branches of `homebrew/core` and
+`homebrew/cask`; paired tap branches cannot provide atomic compatibility.
+
 RuboCop autocorrection converts the simplest existing `post_install` and
 `*flight` Ruby blocks to steps blocks when every statement is a supported file
 preparation operation with literal paths and known bases. Future post-install
