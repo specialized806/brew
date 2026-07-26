@@ -97,6 +97,49 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
   end
 
+  describe "#audit_homepage" do
+    before do
+      allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26))
+      allow(DevelopmentTools).to receive(:curl_handles_most_https_certificates?).and_return(true)
+    end
+
+    it "skips homepages browsed by a human less than a year ago" do
+      fa = formula_auditor "foo", <<~RUBY, online: true
+        class Foo < Formula
+          homepage "https://brew.sh", browsed: "2025-07-27"
+          url "https://brew.sh/foo-1.0.tar.gz"
+        end
+      RUBY
+
+      expect(fa).not_to receive(:curl_check_http_content)
+      fa.audit_homepage
+    end
+
+    it "audits homepages browsed by a human a year ago" do
+      fa = formula_auditor "foo", <<~RUBY, online: true
+        class Foo < Formula
+          homepage "https://brew.sh", browsed: "2025-07-26"
+          url "https://brew.sh/foo-1.0.tar.gz"
+        end
+      RUBY
+
+      expect(fa).to receive(:curl_check_http_content)
+      fa.audit_homepage
+    end
+
+    it "audits homepages with a future browser check date" do
+      fa = formula_auditor "foo", <<~RUBY, online: true
+        class Foo < Formula
+          homepage "https://brew.sh", browsed: "2026-07-27"
+          url "https://brew.sh/foo-1.0.tar.gz"
+        end
+      RUBY
+
+      expect(fa).to receive(:curl_check_http_content)
+      fa.audit_homepage
+    end
+  end
+
   describe "#audit_license" do
     let(:spdx_license_data) { SPDX.license_data }
     let(:spdx_exception_data) { SPDX.exception_data }

@@ -111,6 +111,7 @@ module Cask
       :desc,
       :depends_on,
       :homepage,
+      :homepage_browsed,
       :language,
       :name,
       :os,
@@ -190,6 +191,9 @@ module Cask
     sig { returns(T.nilable(String)) }
     attr_reader :disable_replacement_formula
 
+    sig { returns(T.nilable(Date)) }
+    attr_reader :homepage_browsed
+
     sig { returns(T.nilable(T::Hash[Symbol, T.nilable(T.any(String, Symbol))])) }
     attr_reader :disable_args
 
@@ -230,6 +234,7 @@ module Cask
       @disable_args = T.let(nil, T.nilable(T::Hash[Symbol, T.nilable(T.any(String, Symbol))]))
       @disabled = T.let(false, T::Boolean)
       @homepage = T.let(nil, T.nilable(String))
+      @homepage_browsed = T.let(nil, T.nilable(Date))
       @homepage_set_in_block = T.let(false, T::Boolean)
       @language_blocks = T.let({}, T::Hash[T::Array[String], Proc])
       @language_eval = T.let(nil, T.nilable(String))
@@ -343,13 +348,21 @@ module Cask
     # ### Example
     #
     # ```ruby
-    # homepage "https://code.visualstudio.com/"
+    # homepage "https://code.visualstudio.com/", browsed: "2026-07-26"
     # ```
     #
+    # `browsed` is the date when a human last checked the homepage in a browser.
+    # Automated homepage availability audits are skipped for one year.
+    #
     # @api public
-    sig { params(homepage: T.nilable(String)).returns(T.nilable(String)) }
-    def homepage(homepage = nil)
-      set_unique_stanza(:homepage, homepage.nil?) { homepage }
+    sig { params(homepage: T.nilable(String), browsed: T.nilable(String)).returns(T.nilable(String)) }
+    def homepage(homepage = nil, browsed: nil)
+      raise CaskInvalidError.new(cask, "`browsed` requires a homepage URL") if homepage.nil? && browsed
+
+      set_unique_stanza(:homepage, homepage.nil?) do
+        @homepage_browsed = Date.parse(browsed) if browsed
+        homepage
+      end
     end
 
     # Specifies language-specific values for the cask.

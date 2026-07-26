@@ -124,6 +124,9 @@ class Cask::Cask
   def homepage(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def homepage_browsed(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def input_method(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }

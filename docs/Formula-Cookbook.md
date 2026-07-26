@@ -78,6 +78,14 @@ Homebrew will try to guess the formula’s name from its URL. If it fails to do 
 
 An SSL/TLS (https) [`homepage`](/rubydoc/Formula.html#homepage-class_method) is preferred, if one is available.
 
+If a homepage blocks automated requests but works in a browser, record the date it was last checked by a human:
+
+```ruby
+homepage "https://www.example.com", browsed: "2026-07-26"
+```
+
+This skips automated homepage availability audits for one year. Do not use a future date.
+
 Try to summarise from the [`homepage`](/rubydoc/Formula.html#homepage-class_method) what the formula does in the [`desc`](/rubydoc/Formula.html#desc-class_method)ription. Note that the [`desc`](/rubydoc/Formula.html#desc-class_method)ription is automatically prepended with the formula name when printed.
 
 ### Fill in the `license`

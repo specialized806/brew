@@ -577,6 +577,11 @@ class Formula
   # @see .homepage
   delegate homepage: :"self.class"
 
+  # The date when a human last browsed the homepage.
+  # @!method homepage_browsed
+  # @see .homepage_browsed
+  delegate homepage_browsed: :"self.class"
+
   # The `livecheck` specification for the software.
   # @!method livecheck
   # @see .livecheck
@@ -3795,6 +3800,7 @@ class Formula
         @loaded_from_internal_api = T.let(false, T.nilable(T::Boolean))
         @api_source = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
         @on_system_blocks_exist = T.let(false, T.nilable(T::Boolean))
+        @homepage_browsed = T.let(nil, T.nilable(Date))
         @network_access_allowed = T.let(SUPPORTED_NETWORK_ACCESS_PHASES.to_h do |phase|
           [phase, DEFAULT_NETWORK_ACCESS_ALLOWED]
         end, T.nilable(T::Hash[Symbol, T::Boolean]))
@@ -4038,14 +4044,27 @@ class Formula
     # ### Example
     #
     # ```ruby
-    # homepage "https://www.example.com"
+    # homepage "https://www.example.com", browsed: "2026-07-26"
     # ```
     #
+    # `browsed` is the date when a human last checked the homepage in a browser.
+    # Automated homepage availability audits are skipped for one year.
+    #
     # @api public
-    sig { params(val: String).returns(T.nilable(String)) }
-    def homepage(val = T.unsafe(nil))
-      val.nil? ? @homepage : @homepage = T.let(val, T.nilable(String))
+    sig { params(val: String, browsed: T.nilable(String)).returns(T.nilable(String)) }
+    def homepage(val = T.unsafe(nil), browsed: nil)
+      if val.nil?
+        raise ArgumentError, "`browsed` requires a homepage URL" if browsed
+
+        return @homepage
+      end
+
+      @homepage_browsed = Date.parse(browsed) if browsed
+      @homepage = T.let(val, T.nilable(String))
     end
+
+    sig { returns(T.nilable(Date)) }
+    attr_reader :homepage_browsed
 
     # Checks whether a `livecheck` specification is defined or not.
     #
