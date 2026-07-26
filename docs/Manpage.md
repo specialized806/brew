@@ -1,4 +1,4 @@
-# brew(1) -- The Missing Package Manager for macOS (or Linux)
+# brew(1) -- The Package Manager for Everywhere
 
 ## SYNOPSIS
 
