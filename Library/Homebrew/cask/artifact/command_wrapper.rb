@@ -18,30 +18,32 @@ module Cask
       sig {
         override.params(
           cask:    Cask,
-          source:  T.any(String, Pathname),
+          name:    T.any(String, Pathname),
           options: T.untyped,
         ).returns(T.attached_class)
       }
-      def self.from_args(cask, source, options = nil)
+      def self.from_args(cask, name, options = nil)
         options ||= {}
-        options.assert_valid_keys(:target, :content, :executable, :args, :env)
-        options[:target] = Pathname(source).basename.to_s.delete_suffix(".wrapper.sh") if options[:target].blank?
+        options.assert_valid_keys(:content, :executable, :args, :env)
 
-        new(cask, source, **options)
+        new(cask, name, **options)
       end
 
       sig {
         params(
           cask:       Cask,
-          source:     T.any(String, Pathname),
-          target:     T.any(String, Pathname),
+          name:       T.any(String, Pathname),
           content:    T.nilable(String),
           executable: T.nilable(T.any(String, Pathname)),
           args:       Arguments,
           env:        Environment,
         ).void
       }
-      def initialize(cask, source, target:, content: nil, executable: nil, args: [], env: {})
+      def initialize(cask, name, content: nil, executable: nil, args: [], env: {})
+        name = Pathname(name)
+        if name.basename != name || [".", ".."].include?(name.to_s)
+          raise CaskInvalidError.new(cask, "'command_wrapper' requires a command name without path components")
+        end
         if content.blank? && executable.to_s.blank?
           raise CaskInvalidError.new(cask, "'command_wrapper' requires content or executable")
         end
@@ -52,7 +54,7 @@ module Cask
           raise CaskInvalidError.new(cask, "'command_wrapper' args and env require executable")
         end
 
-        super(cask, source, target:)
+        super(cask, ".homebrew-command-wrappers/#{name}", target: name)
         @content = T.let(content.presence, T.nilable(String))
         @executable = T.let(executable&.to_s.presence, T.nilable(String))
         @args = T.let(Array(args).map(&:to_s), T::Array[String])
@@ -80,7 +82,7 @@ module Cask
 
       sig { override.returns(T::Array[T.anything]) }
       def to_args
-        options = { target: @target_string }
+        options = {}
         if (content = @content)
           options[:content] = content
         else
@@ -88,7 +90,7 @@ module Cask
           options[:args] = @args if @args.present?
           options[:env] = @env if @env.present?
         end
-        [@source_string, options]
+        [@target_string, options]
       end
     end
   end
