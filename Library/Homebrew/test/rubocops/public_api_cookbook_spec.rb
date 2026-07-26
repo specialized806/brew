@@ -10,6 +10,8 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiCookbook do
   let(:cask_dsl_path) { "cask/dsl.rb" }
   let(:helper_path) { "rubocops/shared/api_annotation_helper.rb" }
 
+  let(:service_path) { "service.rb" }
+
   context "when a cookbook-referenced method lacks `@api public`" do
     it "reports an offense for a formula method" do
       expect_offense(<<~RUBY, formula_path)
@@ -96,6 +98,7 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiCookbook do
       end
 
       stub_const("RuboCop::Cop::ApiAnnotationHelper::FORMULA_COOKBOOK_METHODS", {})
+      stub_const("RuboCop::Cop::ApiAnnotationHelper::SERVICE_COOKBOOK_METHODS", Set.new)
     end
 
     it "reports an offense" do
@@ -123,6 +126,75 @@ RSpec.describe RuboCop::Cop::Homebrew::PublicApiCookbook do
             ^^^^^^^^^^^^^ Homebrew/PublicApiCookbook: Method `new_stanza` is annotated with `@api public` in `cask/dsl.rb` but is missing from `CASK_COOKBOOK_METHODS`.
             def new_stanza; end
           end
+        end
+      RUBY
+    end
+  end
+
+  context "when a documented service block method lacks `@api public`" do
+    it "reports an offense" do
+      expect_offense(<<~RUBY, service_path)
+        class Service
+          def require_root(value = nil); end
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Homebrew/PublicApiCookbook: Method `require_root` is referenced in the Formula Cookbook but is not annotated with `@api public`.
+        end
+      RUBY
+    end
+  end
+
+  context "when a documented service block method has `@api public`" do
+    it "does not report an offense" do
+      expect_no_offenses(<<~RUBY, service_path)
+        class Service
+          # Whether the service requires root access.
+          #
+          # @api public
+          def require_root(value = nil); end
+        end
+      RUBY
+    end
+  end
+
+  context "when a service method has `@api public` but is not documented" do
+    it "reports an offense" do
+      expect_offense(<<~RUBY, service_path)
+        class Service
+          # An undocumented method.
+          #
+          # @api public
+          def undocumented; end
+          ^^^^^^^^^^^^^^^^^^^^^ Homebrew/PublicApiCookbook: Method `undocumented` is annotated with `@api public` in `service.rb` but is missing from the Formula Cookbook's "Service block methods" table.
+        end
+      RUBY
+    end
+  end
+
+  context "when `SERVICE_COOKBOOK_METHODS` does not match the cookbook table" do
+    before do
+      (mktmpdir/"docs").tap do |docs|
+        docs.mkpath
+        (docs/"Formula-Cookbook.md").write <<~MARKDOWN
+          #### Service block methods
+
+          | method  | description |
+          | ------- | ----------- |
+          | `run`   | command     |
+
+          #### Next section
+        MARKDOWN
+
+        stub_const("HOMEBREW_LIBRARY_PATH", docs.parent/"Library/Homebrew")
+      end
+
+      stub_const("RuboCop::Cop::ApiAnnotationHelper::FORMULA_COOKBOOK_METHODS", {})
+      stub_const("RuboCop::Cop::ApiAnnotationHelper::SERVICE_COOKBOOK_METHODS", Set["run", "extra"])
+    end
+
+    it "reports an offense" do
+      expect_offense(<<~RUBY, helper_path)
+        module ApiAnnotationHelper
+          SERVICE_COOKBOOK_METHODS = [].to_set.freeze
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Homebrew/PublicApiCookbook: `SERVICE_COOKBOOK_METHODS` is out of sync with the Formula Cookbook's "Service block methods" table: not in the cookbook table: `extra`.
         end
       RUBY
     end

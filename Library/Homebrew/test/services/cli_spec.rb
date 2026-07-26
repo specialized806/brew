@@ -4,8 +4,11 @@
 require "services/cli"
 require "services/system"
 require "services/formula_wrapper"
+require "test/support/helper/services"
 
 RSpec.describe Homebrew::Services::Cli do
+  include Test::Helper::Services
+
   subject(:services_cli) { described_class }
 
   let(:service_string) { "service" }
@@ -407,7 +410,7 @@ RSpec.describe Homebrew::Services::Cli do
         printf '%s\\n' "$*" >> "#{log}"
       SH
       (bindir/"systemctl").chmod 0755
-      Homebrew::Services::System::Systemctl.reset_executable!
+      reset_services_memoization!
     end
 
     it "checks non-enabling run" do
@@ -466,7 +469,7 @@ RSpec.describe Homebrew::Services::Cli do
         printf '%s\\n' "$*" >> "#{log}"
       SH
       (bindir/"launchctl").chmod 0755
-      Homebrew::Services::System.reset_launchctl!
+      reset_services_memoization!
     end
 
     it "checks non-enabling run" do

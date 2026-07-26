@@ -1248,10 +1248,11 @@ This table lists the options you can set within a `service` block. The `run` or 
 | `log_path`              | -            |  yes  |  yes  | path to write `stdout` to |
 | `error_log_path`        | -            |  yes  |  yes  | path to write `stderr` to |
 | `restart_delay`         | -            |  yes  |  yes  | number of seconds to delay before restarting a process |
+| `stop_timeout`          | -            |  yes  |  yes  | number of seconds to wait before forcibly stopping a process |
 | `throttle_interval`     | -            |  yes  | no-op | minimum seconds to wait before invocations (macOS default is `10`) |
 | `process_type`          | -            |  yes  | no-op | type of process to manage: `:background`, `:standard`, `:interactive` or `:adaptive` |
 | `macos_legacy_timers`   | -            |  yes  | no-op | timers created by `launchd` jobs are coalesced unless this is set |
-| `sockets`               | -            |  yes  | no-op | socket that is created as an accesspoint to the service |
+| `sockets`               | -            |  yes  | no-op | socket that is created as an access point to the service |
 | `nice`                  | -            |  yes  |  yes  | default scheduling priority (nice level), from `-20` highest to `19` lowest. **Note:** Negative nice values (higher priority) require `require_root: true` to be set. |
 | `name`                  | -            |  yes  |  yes  | a hash with the `launchd` service name on macOS and/or the `systemd` service name on Linux. Homebrew generates a default name for the service file if this is not present |
 
