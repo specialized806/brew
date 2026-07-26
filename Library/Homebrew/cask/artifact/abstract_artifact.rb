@@ -86,6 +86,7 @@ module Cask
             Pkg,
             [
               App,
+              AppImage,
               Suite,
               Artifact,
               Colorpicker,
@@ -113,6 +114,7 @@ module Cask
               FishCompletion,
               ZshCompletion,
             ],
+            GeneratedCompletion,
             PostflightSteps,
             UninstallPostflightSteps,
             PostflightBlock,
