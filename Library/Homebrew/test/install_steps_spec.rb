@@ -805,6 +805,56 @@ RSpec.describe Homebrew::InstallSteps do
     expect(stored_name.read).to eq("preserve")
   end
 
+  specify "dispatches glibc runtime configuration" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_glibc_runtime
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_configure_glibc_runtime)
+
+    runner.run(steps)
+  end
+
+  specify "configures glibc locales and timezone links", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_glibc_runtime
+    end
+    glibc_context = context
+    root_path = root
+    glibc_context.define_singleton_method(:name) { "glibc" }
+    glibc_context.define_singleton_method(:lib) { root_path/"prefix/lib" }
+    glibc_context.define_singleton_method(:etc) { root_path/"prefix/etc" }
+    glibc_context.define_singleton_method(:share) { root_path/"prefix/share" }
+    (root/"prefix/etc").mkpath
+    (root/"prefix/share").mkpath
+    ENV.delete_if { |key,| key == "HOMEBREW_LANG" || key == "LANG" || key.start_with?("LC_") }
+    ENV["HOMEBREW_LANG"] = "de_DE.utf8"
+    ENV["LANG"] = "C"
+    ENV["LC_TIME"] = "en_GB"
+    timezone_sources = [Pathname("/etc/localtime"), Pathname("/usr/share/zoneinfo")]
+    allow_any_instance_of(Pathname).to receive(:exist?).and_wrap_original do |method, *args|
+      timezone_sources.include?(method.receiver) || method.call(*args)
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context: glibc_context)
+    localedef = root/"prefix/bin/localedef"
+    expect(runner).to receive(:ohai).with("Installing locale data for de_DE.utf8 en_GB en_US.UTF-8")
+    expect(runner).to receive(:run_command)
+      .with(localedef, "-i", "de_DE", "-f", "UTF-8", "de_DE.utf8").ordered
+    expect(runner).to receive(:run_command).with(localedef, "-i", "en_GB", "en_GB").ordered
+    expect(runner).to receive(:run_command)
+      .with(localedef, "-i", "en_US", "-f", "UTF-8", "en_US.UTF-8").ordered
+
+    runner.run(steps)
+
+    expect(root/"prefix/lib/locale").to be_a_directory
+    expect(root/"prefix/etc/localtime").to be_a_symlink
+    expect((root/"prefix/etc/localtime").readlink).to eq(Pathname("/etc/localtime"))
+    expect(root/"prefix/share/zoneinfo").to be_a_symlink
+    expect((root/"prefix/share/zoneinfo").readlink).to eq(Pathname("/usr/share/zoneinfo"))
+  end
+
   describe "runs gtk_update_icon_cache rebuild action" do
     let(:formula) { instance_double(Formula, opt_bin: root/"opt/bin") }
     let(:steps) do
