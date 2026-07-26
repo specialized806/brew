@@ -924,6 +924,25 @@ RSpec.describe Formula do
     expect(f.class.url).to eq("foo-1.0")
   end
 
+  specify ".homepage with a human browser check" do
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      homepage "https://brew.sh", browsed: "2026-07-26"
+      url "https://brew.sh/test-1.0.tar.gz"
+    end
+
+    expect(f.homepage_browsed).to eq(Date.new(2026, 7, 26))
+  end
+
+  specify ".homepage requires a URL with a human browser check" do
+    expect do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        homepage browsed: "2026-07-26"
+      end
+    end.to raise_error(ArgumentError, "`browsed` requires a homepage URL")
+  end
+
   specify "spec integration" do
     f = formula do
       T.bind(self, T.class_of(Formula))

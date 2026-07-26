@@ -426,6 +426,22 @@ RSpec.describe Cask::DSL, :cask, :no_api do
     it "prevents defining multiple homepages" do
       expect { cask }.to raise_error(Cask::CaskInvalidError, /'homepage' stanza may only appear once/)
     end
+
+    it "records when a human browsed the homepage" do
+      cask = Cask::Cask.new("cask-with-browsed-homepage") do
+        homepage "https://brew.sh/", browsed: "2026-07-26"
+      end
+
+      expect(cask.homepage_browsed).to eq(Date.new(2026, 7, 26))
+    end
+
+    it "requires a homepage URL when a human browser check is specified" do
+      expect do
+        Cask::Cask.new("cask-without-homepage") do
+          homepage browsed: "2026-07-26"
+        end
+      end.to raise_error(Cask::CaskInvalidError, /`browsed` requires a homepage URL/)
+    end
   end
 
   describe "version stanza" do

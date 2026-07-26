@@ -1176,6 +1176,7 @@ module Cask
     def audit_homepage_https_availability
       return unless online?
       return unless (homepage = cask.homepage)
+      return if SharedAudits.homepage_browsed_recently?(cask.homepage_browsed)
 
       user_agents = if cask.tap&.audit_exception(:simple_user_agent_for_homepage, cask.token)
         ["curl"]

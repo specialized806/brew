@@ -172,6 +172,43 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "checking homepage availability" do
+      let(:online) { true }
+      let(:only) { ["homepage_https_availability"] }
+      let(:browsed) { "2025-07-27" }
+      let(:cask) do
+        browsed_ = browsed
+        Cask::Cask.new("browsed-homepage") do
+          homepage "https://brew.sh/", browsed: browsed_
+        end
+      end
+
+      before { allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26)) }
+
+      it "skips homepages browsed by a human less than a year ago" do
+        expect(audit).not_to receive(:validate_url_for_https_availability)
+        run
+      end
+
+      context "when the homepage was browsed a year ago" do
+        let(:browsed) { "2025-07-26" }
+
+        it "audits the homepage" do
+          expect(audit).to receive(:validate_url_for_https_availability)
+          run
+        end
+      end
+
+      context "when the homepage browser check date is in the future" do
+        let(:browsed) { "2026-07-27" }
+
+        it "audits the homepage" do
+          expect(audit).to receive(:validate_url_for_https_availability)
+          run
+        end
+      end
+    end
+
     describe "token validation" do
       let(:strict) { true }
       let(:only) { ["token"] }
