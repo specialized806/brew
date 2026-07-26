@@ -35,6 +35,7 @@ module Homebrew
       @cancelled = T.let(Concurrent::AtomicBoolean.new(false), Concurrent::AtomicBoolean)
       @active_threads = T.let(Concurrent::Set.new, Concurrent::Set)
       @fetch_failed = T.let(false, T::Boolean)
+      @deferred_failure_messages = T.let([], T::Array[T.proc.void])
     end
 
     sig {
@@ -98,6 +99,7 @@ module Homebrew
     sig { void }
     def fetch
       @fetch_failed = false
+      @deferred_failure_messages = []
       context_before_fetch = Context.current
       return if downloads.empty?
 
@@ -141,9 +143,10 @@ module Homebrew
                 actual = Digest::SHA256.file(downloadable.cached_download).hexdigest
                 actual_message, expected_message = align_checksum_mismatch_message(downloadable.download_queue_type)
 
-                ofail "#{actual_message} #{exception.expected}"
-                puts "#{expected_message} #{actual}"
-                next 2
+                report_or_defer_failure do
+                  ofail "#{actual_message} #{exception.expected}"
+                  puts "#{expected_message} #{actual}"
+                end
               elsif exception.is_a?(CannotInstallFormulaError)
                 cached_download = downloadable.cached_download
                 cached_download.unlink if cached_download&.exist?
@@ -154,7 +157,7 @@ module Homebrew
                 # drives relocation, so abort rather than stage a broken keg.
                 raise exception
               else
-                message = if exception.is_a?(DownloadError) && exception.cause.is_a?(ErrorDuringExecution)
+                failure_message = if exception.is_a?(DownloadError) && exception.cause.is_a?(ErrorDuringExecution)
                   cause = T.cast(exception.cause, ErrorDuringExecution)
                   if (stderr_output = cause.stderr.presence)
                     "#{stderr_output}#{cause.message}"
@@ -165,8 +168,7 @@ module Homebrew
                   future.reason.to_s
                 end
                 @fetch_failed = true
-                ofail message
-                next message.count("\n")
+                report_or_defer_failure { ofail failure_message }
               end
             end
 
@@ -230,6 +232,7 @@ module Homebrew
         ensure
           stdout_print_and_flush_if_tty Tty.end_synchronized_update
           stdout_print_and_flush_if_tty Tty.show_cursor
+          @deferred_failure_messages.each(&:call)
         end
       end
     # `Interrupt` inherits from `Exception`, so rescue it to cancel active workers
@@ -297,6 +300,16 @@ module Homebrew
       return false if exception.nil?
 
       downloadable.is_a?(Resource::BottleManifest) || exception.is_a?(Resource::BottleManifest::Error)
+    end
+
+    # Deferred so a multi-row failure can't desync the redraw's one-row-per-line cursor maths.
+    sig { params(block: T.proc.void).void }
+    def report_or_defer_failure(&block)
+      if tty_with_cursor_move_support?
+        @deferred_failure_messages << block
+      else
+        yield
+      end
     end
 
     sig { type_parameters(:U).params(_block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U)) }

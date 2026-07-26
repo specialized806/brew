@@ -44,12 +44,16 @@ module Utils
 
     HTTPS_REDIRECT_CURL_ARGS = ["--proto-redir", "=https"].freeze
 
+    # A `--progress-bar` percentage (e.g. "50.0%"); may belong to an earlier,
+    # unrelated request, so it's stripped rather than kept.
+    PROGRESS_BAR_REGEX = /\A#*\s*\d{1,3}\.\d%\s*/
+
     private_constant :CURL_WEIRD_SERVER_REPLY_EXIT_CODE,
                      :CURL_HTTP_RETURNED_ERROR_EXIT_CODE,
                      :CURL_RECV_ERROR_EXIT_CODE,
                      :ETAG_VALUE_REGEX, :HTTP_RESPONSE_BODY_SEPARATOR,
                      :HTTP_STATUS_LINE_REGEX,
-                     :HTTPS_REDIRECT_CURL_ARGS
+                     :HTTPS_REDIRECT_CURL_ARGS, :PROGRESS_BAR_REGEX
 
     module_function
 
@@ -319,6 +323,12 @@ module Utils
       args = ["--remote-time", "--output", destination.to_s, *args]
 
       curl(*args, **options)
+    end
+
+    # Run after `Tty.collapse_carriage_returns`; a bar-only line becomes empty.
+    sig { params(string: String).returns(String) }
+    def strip_progress_bar(string)
+      string.split("\n", -1).map { |line| line.sub(PROGRESS_BAR_REGEX, "") }.join("\n")
     end
 
     sig { overridable.params(args: String, options: T.untyped).returns(SystemCommand::Result) }

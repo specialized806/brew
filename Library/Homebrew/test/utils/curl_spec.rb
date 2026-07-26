@@ -667,6 +667,28 @@ RSpec.describe "Utils::Curl" do
     end
   end
 
+  describe "::strip_progress_bar" do
+    it "removes the percentage when other text is glued directly onto it" do
+      glued = "############# 100.0%curl: (7) Failed to connect to example.com port 443: Couldn't connect to server"
+      expected = "curl: (7) Failed to connect to example.com port 443: Couldn't connect to server"
+      expect(strip_progress_bar(glued)).to eq(expected)
+    end
+
+    it "reduces a completed progress bar with nothing else on the line to an empty string" do
+      expect(strip_progress_bar("############# 100.0%")).to eq("")
+    end
+
+    it "leaves plain curl diagnostics without a progress bar unchanged" do
+      message = "curl: (6) Could not resolve host: example.com"
+      expect(strip_progress_bar(message)).to eq(message)
+    end
+
+    it "only strips the line that actually has a progress bar" do
+      glued = "Warning: retrying\n### 50.0%curl: (7) timeout"
+      expect(strip_progress_bar(glued)).to eq("Warning: retrying\ncurl: (7) timeout")
+    end
+  end
+
   describe "::parse_curl_output" do
     it "returns a correct hash when curl output contains response(s) and body" do
       expect(parse_curl_output("#{response_text[:ok]}#{body[:default]}"))
