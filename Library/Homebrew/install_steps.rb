@@ -598,6 +598,16 @@ module Homebrew
                  "failure_message" => failure_message)
       end
 
+      sig { params(message: ::String).void }
+      def warn(message)
+        add_step("warn", "message" => message)
+      end
+
+      sig { void }
+      def configure_gcc_runtime
+        add_step("configure_gcc_runtime")
+      end
+
       private
 
       sig { params(guard: PathSpec, block: ::T.proc.void).void }
@@ -838,6 +848,10 @@ module Homebrew
           run_serialised_command(step)
         when "terminate_process"
           run_terminate_process(step)
+        when "warn"
+          opoo expand_template_tokens(step_string(step, "message"))
+        when "configure_gcc_runtime"
+          run_configure_gcc_runtime
         when "set_permissions"
           run_set_permissions(step)
         when "set_ownership"
@@ -1300,3 +1314,5 @@ module Homebrew
     end
   end
 end
+
+require "install_steps/formula_actions"
