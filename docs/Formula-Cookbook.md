@@ -1098,13 +1098,26 @@ A trailing newline is appended unless the content already ends with one, so writ
 Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens that are expanded at install time so values are not hardcoded into the JSON API: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
 {% endraw %}
 
-#### Command steps
+#### Command and lifecycle steps
 
 `run` executes one command with a literal argument array; it does not evaluate a shell command string. Select the executable with `base:`, such as `:bin`, `:libexec` or `:homebrew_prefix`, or pass an absolute system executable. The step also supports a literal `env:`, `stdin_path:`, `stdout_path:`, `chdir:`, `sudo:`, `print_stdout:` and `print_stderr:`. Wrap it in one of the guard blocks described above when it should be conditional.
 
 ```ruby
 run "foo-helper", args: ["--prefix", "{{HOMEBREW_PREFIX}}"], base: :libexec
+terminate_process "foo", must_succeed: false
+if_path_exists "foo.conf", base: :etc do
+  warn "Remove the old foo.conf before continuing"
+end
 ```
+
+`terminate_process` terminates a process by name or, with `match: :full`, by its full command line. `attempts:` sets the total number of attempts and defaults to one. It also supports `notices:` shown before the first attempt and a `failure_message:` warning.
+`warn` emits a literal warning. Wrap it in `if_path_exists` when the warning only applies while a path exists.
+
+#### Repeated formula actions
+
+Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action.
+
+* `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
 
 #### Service data directory steps
 
