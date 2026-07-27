@@ -3284,6 +3284,70 @@ RSpec.describe Formula do
       ldflags = "-X main.version=1.0.0"
       expect(f.std_go_args(ldflags:)).to include("-ldflags=#{ldflags}")
     end
+
+    it "raises an error when provided an invalid ldflags symbol" do
+      expect { f.std_go_args(ldflags: :foo) }.to raise_error(ArgumentError, "Invalid ldflags: :foo")
+    end
+
+    context "with `ldflags: :goreleaser`" do
+      subject(:std_go_args) { f.std_go_args(ldflags: :goreleaser) }
+
+      let(:built_by) { "Homebrew" }
+      let(:commit) { built_by }
+      let(:date) { "2026-01-01T12:00:00Z" }
+      let(:expected_ldflags) do
+        "-s -w " \
+          "-X 'main.version=1.0' " \
+          "-X 'main.commit=#{commit}' " \
+          "-X 'main.date=#{date}' " \
+          "-X 'main.builtBy=#{built_by}'"
+      end
+
+      before { allow(f).to receive(:time).and_return(Time.parse(date)) }
+
+      context "when in a git repository" do
+        let(:buildpath) { mktmpdir }
+        let(:commit) { Utils.popen_read("git", "-C", buildpath, "rev-parse", "HEAD").chomp }
+
+        before { allow(f).to receive(:buildpath).and_return(buildpath) }
+
+        around do |example|
+          buildpath.cd do
+            FileUtils.touch "LICENSE"
+            system "git", "init"
+            system "git", "add", "--all"
+            system "git", "commit", "-m", "Initial commit"
+            example.run
+          end
+        end
+
+        it "uses git commit for main.commit" do
+          expect(std_go_args).to include("-ldflags=#{expected_ldflags}")
+        end
+      end
+
+      context "when not in a git repository and tap is available" do
+        let(:built_by) { "someone" }
+
+        before { allow(f).to receive(:tap).and_return(Tap.fetch(built_by, "repo")) }
+
+        it "uses tap user for main.commit" do
+          expect(std_go_args).to include("-ldflags=#{expected_ldflags}")
+        end
+      end
+
+      context "when not in a git repository and tap is not available" do
+        before { allow(f).to receive(:tap).and_return(nil) }
+
+        it "uses Homebrew for main.commit" do
+          expect(std_go_args).to include("-ldflags=#{expected_ldflags}")
+        end
+      end
+    end
+
+    it "includes a comma-separated list of input tags" do
+      expect(f.std_go_args(tags: %w[foo bar baz])).to include("-tags=foo,bar,baz")
+    end
   end
 
   describe "#std_pip_args" do

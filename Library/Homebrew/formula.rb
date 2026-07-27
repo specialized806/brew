@@ -2140,20 +2140,48 @@ class Formula
 
   # Standard parameters for Go builds.
   #
+  # ### Example
+  #
+  # A special `ldflags` value of `:goreleaser` will output ldflags similar to GoReleaser's
+  # defaults listed at https://goreleaser.com/customization/builds/builders/go/#options.
+  # This uses formula metadata so it should not be used inside staged resources.
+  #
+  # ```ruby
+  # std_go_args(ldflags: :goreleaser)
+  # ```
+  #
   # @api public
   sig {
     params(
       output:  T.any(String, Pathname),
-      ldflags: T.nilable(T.any(String, T::Array[String])),
+      ldflags: T.nilable(T.any(String, T::Array[String], Symbol)),
       gcflags: T.nilable(T.any(String, T::Array[String])),
       tags:    T.nilable(T.any(String, T::Array[String])),
     ).returns(T::Array[String])
   }
   def std_go_args(output: bin/name, ldflags: nil, gcflags: nil, tags: nil)
+    case ldflags
+    when :goreleaser
+      # If building from a git archive, we use the tap owner as a placeholder.
+      # This can help upstream identify the exact code that was used in binary.
+      built_by = tap&.user || "Homebrew"
+      repo = buildpath
+      commit = Utils.git_head(repo, safe: false) if repo
+      commit ||= built_by
+      ldflags = %W[
+        -X 'main.version=#{version}'
+        -X 'main.commit=#{commit}'
+        -X 'main.date=#{time.iso8601}'
+        -X 'main.builtBy=#{built_by}'
+      ]
+    when Symbol
+      raise ArgumentError, "Invalid ldflags: #{ldflags.inspect}"
+    end
+
     ldflags = ["-s", "-w"].concat(Array(ldflags)) unless ENV.debug_symbols?
 
     args = ["-trimpath", "-o=#{output}"]
-    args << "-tags=#{Array(tags).join(" ")}" if tags
+    args << "-tags=#{Array(tags).join(",")}" if tags
     args << "-ldflags=#{Array(ldflags).join(" ")}" if ldflags
     args << "-gcflags=#{Array(gcflags).join(" ")}" if gcflags
     args
