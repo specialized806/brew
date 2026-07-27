@@ -42,12 +42,14 @@ The [token reference](#token-reference) describes the current naming rules and e
 Having a common order for stanzas makes casks easier to update and parse. Below is the complete stanza sequence (no cask will have all stanzas). The empty lines shown here are also important, as they help to visually delimit information.
 
     arch
+    on_arch_conditional # additional custom-defined substitutions
     os
+    on_system_conditional # additional custom-defined substitutions
 
     version
     sha256
 
-    on_system_conditional # additional custom-defined substitutions
+    on_<system> # <system> blocks may be any supported macOS release (descending from oldest), `macos`, or `linux`
 
     language
 
@@ -1369,9 +1371,9 @@ If no additional files are discovered, instead of a zap stanza, include the foll
 
 ### Handling different system configurations
 
-Casks can deliver specific versions of artifacts depending on the current macOS release or CPU architecture by either tailoring the `url` / `sha256` / `version` stanzas, using the [`on_<system>` syntax](Formula-Cookbook.md#handling-different-system-configurations) (which replaces conditional statements using `MacOS.version` or `Hardware::CPU`), or both.
+Casks can deliver specific versions of artifacts depending on the current macOS release, CPU architecture, or system OS by either tailoring the `url` / `sha256` / `version` stanzas, using the [`on_<system>` syntax](Formula-Cookbook.md#handling-different-system-configurations) (which replaces conditional statements using `MacOS.version` or `Hardware::CPU`), or both.
 
-If your cask's artifact is offered as separate downloads for Apple Silicon and Intel architectures, they'll presumably be downloadable at distinct URLs that differ only slightly. To adjust the URL depending on the current CPU architecture, supply a hash for each to the `arm:` and `intel:` parameters of `sha256`, and use the special `arch` stanza to define the unique components of the respective URLs for substitution in the `url`. Additional substitutions can be defined by calling `on_arch_conditional` directly. Example (from [libreoffice.rb](https://github.com/Homebrew/homebrew-cask/blob/a4164b8f5084fdaefb6e2e2f4f699270690b7845/Casks/l/libreoffice.rb#L1-L10)):
+If your cask's artifact is offered as separate downloads for Apple Silicon and Intel architectures, or offers downloads for Linux, they'll presumably be downloadable at distinct URLs that differ only slightly. To adjust the URL depending on the current CPU architecture and system OS, supply a hash for each to the `arm:`, `intel:`, `arm64_linux:`, and `x86_64_linux:` parameters of `sha256`; use the special `arch` and `os` stanzas to define the unique components of the respective URLs for substitution in the `url`. Additional substitutions can be defined by calling `on_arch_conditional` and `on_system_conditional` directly. Example (from [libreoffice.rb](https://github.com/Homebrew/homebrew-cask/blob/a4164b8f5084fdaefb6e2e2f4f699270690b7845/Casks/l/libreoffice.rb#L1-L10)):
 
 ```ruby
 cask "libreoffice" do
@@ -1432,7 +1434,7 @@ cask "calibre" do
 end
 ```
 
-Such `on_<system>` blocks can be nested and contain other stanzas not listed here. However, version-specific macOS requirements should be placed in `on_macos` blocks rather than individual macOS release blocks. Examples: [calhash.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/calhash.rb), [r-app.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/r/r-app.rb), [wireshark-app.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/wireshark-app.rb)
+Such `on_<system>` blocks can be nested and contain other stanzas not listed here. However, version-specific macOS requirements should be placed in `on_macos` blocks rather than individual macOS release blocks. Examples: [calhash.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/calhash.rb), [r-app.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/r/r-app.rb), [wireshark-app.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/wireshark-app.rb).
 
 ### Switch between languages or regions
 
