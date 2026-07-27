@@ -275,6 +275,11 @@ module Homebrew
       pool.wait_for_termination
     end
 
+    sig { returns(T::Hash[Downloadable, Concurrent::Promises::Future]) }
+    def downloads
+      @downloads ||= T.let({}, T.nilable(T::Hash[Downloadable, Concurrent::Promises::Future]))
+    end
+
     private
 
     sig { params(downloadable: Downloadable, check_attestation: T::Boolean).void }
@@ -359,11 +364,6 @@ module Homebrew
     sig { returns(T::Boolean) }
     def tty_with_cursor_move_support?
       tty && !@dumb_tty
-    end
-
-    sig { returns(T::Hash[Downloadable, Concurrent::Promises::Future]) }
-    def downloads
-      @downloads ||= T.let({}, T.nilable(T::Hash[Downloadable, Concurrent::Promises::Future]))
     end
 
     sig { params(future: Concurrent::Promises::Future).returns(T.nilable(String)) }

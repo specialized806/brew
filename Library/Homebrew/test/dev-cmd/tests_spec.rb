@@ -25,7 +25,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
       expect(Sandbox).not_to receive(:configure!)
 
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to raise_error
     end
 
     it "does not fail on GitHub Actions when requested Landlock is unavailable" do
@@ -35,7 +35,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
       expect(Sandbox).not_to receive(:configure!)
 
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to raise_error
     end
 
     it "fails outside GitHub Actions when requested Landlock is unavailable" do
@@ -44,7 +44,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
       expect(Sandbox).not_to receive(:configure!)
 
-      expect { tests.send(:check_test_environment!) }
+      expect { tests.check_test_environment! }
         .to raise_error(RuntimeError, "Landlock is not available.")
     end
 
@@ -54,7 +54,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
       expect(Sandbox).to receive(:configure!)
 
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to raise_error
     end
 
     it "installs and checks Bubblewrap outside GitHub Actions" do
@@ -62,7 +62,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(Sandbox).to receive(:ensure_sandbox_installed!).with(install_from_tests: true)
       expect(Sandbox).not_to receive(:configure!)
 
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to raise_error
     end
 
     it "configures and checks Bubblewrap on GitHub Actions" do
@@ -71,7 +71,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
       expect(Sandbox).to receive(:configure!)
 
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to raise_error
     end
   end
 
@@ -104,7 +104,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
   end
 
   describe "#changed_test_files" do
-    subject(:changed_test_files) { tests.send(:changed_test_files) }
+    subject(:changed_test_files) { tests.changed_test_files }
 
     let(:tests) { described_class.new([]) }
 

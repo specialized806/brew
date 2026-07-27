@@ -229,8 +229,6 @@ module Homebrew
         exec_browser release_url
       end
 
-      private
-
       sig { params(name: String).returns(T::Array[T::Hash[String, T.untyped]]) }
       def matching_releases(name)
         releases_url = "#{GitHub::API_URL}/repos/Homebrew/brew/releases?per_page=#{GitHub::MAX_PER_PAGE}"
@@ -253,6 +251,8 @@ module Homebrew
           Time.at(0)
         end
       end
+
+      private
 
       sig { params(releases: T::Array[T::Hash[String, T.untyped]]).returns(T::Array[String]) }
       def release_urls(releases)

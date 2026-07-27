@@ -96,8 +96,6 @@ Homebrew/NegateInclude:
 
 Homebrew/NoInstanceVariableAccessInTests:
   Description: "Use public `attr_*` accessors instead of `instance_variable_get`/`instance_variable_set` in tests."
-  # Disabled until the existing test suite offences are migrated.
-  Enabled: false
   Include:
     - "Homebrew/test/**/*.rb"
   Exclude:
@@ -105,8 +103,6 @@ Homebrew/NoInstanceVariableAccessInTests:
 
 Homebrew/NoSendInTests:
   Description: "Make the target method public and call it directly instead of using `send` in tests."
-  # Disabled until the existing test suite offences are migrated.
-  Enabled: false
   Include:
     - "Homebrew/test/**/*.rb"
   Exclude:
