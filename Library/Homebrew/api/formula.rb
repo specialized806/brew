@@ -194,7 +194,7 @@ module Homebrew
 
         Homebrew::API.write_names_file!(all_formulae.keys, "formula", regenerate:)
         Homebrew::API.write_aliases_file!(all_aliases, "formula", regenerate:)
-        Homebrew::API.write_executables_file!(all_formulae, regenerate:)
+        Homebrew::API.write_executables_file!(all_formulae, regenerate:, source: cached_json_file_path)
       end
     end
   end

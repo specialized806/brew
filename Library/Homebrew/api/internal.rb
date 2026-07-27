@@ -112,7 +112,7 @@ module Homebrew
 
         Homebrew::API.write_names_file!(formula_hashes.keys, "formula", regenerate:)
         Homebrew::API.write_aliases_file!(formula_aliases, "formula", regenerate:)
-        Homebrew::API.write_executables_file!(formula_hashes, regenerate:)
+        Homebrew::API.write_executables_file!(formula_hashes, regenerate:, source: cached_packages_json_file_path)
       end
 
       sig { params(regenerate: T::Boolean).void }
@@ -120,6 +120,13 @@ module Homebrew
         download_and_cache_data! unless cache.key?("cask_hashes")
 
         Homebrew::API.write_names_file!(cask_hashes.keys, "cask", regenerate:)
+      end
+
+      # Whether formula hashes are already loaded, so callers can use them
+      # opportunistically without triggering a download and full JSON parse.
+      sig { returns(T::Boolean) }
+      def self.formula_hashes_cached?
+        cache.key?("formula_hashes")
       end
 
       sig { returns(T::Hash[String, T::Hash[String, T.untyped]]) }

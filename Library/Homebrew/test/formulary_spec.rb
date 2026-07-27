@@ -870,6 +870,15 @@ RSpec.describe Formulary do
       expect(described_class.core_path(name))
         .to eq(Pathname.new("#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/Formula/#{name}.rb"))
     end
+
+    it "returns the sharded path directly for API-known formulae" do
+      ENV.delete("HOMEBREW_NO_INSTALL_FROM_API")
+      name = "foo-bar"
+      allow(Homebrew::API::Internal).to receive(:formula_hashes_cached?).and_return(true)
+      allow(Homebrew::API).to receive(:formula_name?).with(name).and_return(true)
+      expect(described_class.core_path(name))
+        .to eq(Pathname.new("#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/Formula/f/#{name}.rb"))
+    end
   end
 
   describe "::loader_for" do
