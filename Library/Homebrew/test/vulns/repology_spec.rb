@@ -246,50 +246,26 @@ RSpec.describe Homebrew::Vulns::Repology do
   end
 
   describe ".fetch_project" do
-    it "returns the parsed array on success" do
-      body = '[{"repo":"debian_12","srcname":"curl"}]'
-      allow(Utils::Curl).to receive(:curl_output).and_return(
-        instance_double(SystemCommand::Result, success?: true, stdout: body),
-      )
-      expect(described_class.fetch_project("curl")).to eq [{ "repo" => "debian_12", "srcname" => "curl" }]
-    end
-
-    it "sends a User-Agent header (Repology rejects requests without one)" do
-      expect(Utils::Curl).to receive(:curl_output) do |*args|
-        expect(args).to include("--user-agent", described_class::USER_AGENT)
-        instance_double(SystemCommand::Result, success?: true, stdout: "[]")
-      end
-      described_class.fetch_project("curl")
+    it "returns the entries array from ::Repology.single_package_query" do
+      entries = [{ "repo" => "debian_12", "srcname" => "curl" }]
+      allow(Repology).to receive(:single_package_query)
+        .with("curl", repository: Repology::HOMEBREW_CORE).and_return({ "curl" => entries })
+      expect(described_class.fetch_project("curl")).to eq entries
     end
 
     it "returns [] for a nonexistent project (HTTP 200 with empty array)" do
-      allow(Utils::Curl).to receive(:curl_output).and_return(
-        instance_double(SystemCommand::Result, success?: true, stdout: "[]"),
-      )
+      allow(Repology).to receive(:single_package_query).and_return({ "no-such" => [] })
       expect(described_class.fetch_project("no-such")).to eq []
     end
 
-    it "raises Error on curl failure" do
-      allow(Utils::Curl).to receive(:curl_output).and_return(
-        instance_double(SystemCommand::Result, success?: false, exit_status: 22,
-                        stderr: "The requested URL returned error: 503"),
-      )
+    it "raises Error when the underlying query fails (returns nil)" do
+      allow(Repology).to receive(:single_package_query).and_return(nil)
       expect { described_class.fetch_project("curl") }
-        .to raise_error(described_class::Error, /curl exit 22.*503/)
-    end
-
-    it "raises Error on invalid JSON" do
-      allow(Utils::Curl).to receive(:curl_output).and_return(
-        instance_double(SystemCommand::Result, success?: true, stdout: "not json"),
-      )
-      expect { described_class.fetch_project("curl") }
-        .to raise_error(described_class::Error, /invalid JSON/)
+        .to raise_error(described_class::Error, /request for "curl" failed/)
     end
 
     it "raises Error on an unexpected response shape" do
-      allow(Utils::Curl).to receive(:curl_output).and_return(
-        instance_double(SystemCommand::Result, success?: true, stdout: '{"oops":true}'),
-      )
+      allow(Repology).to receive(:single_package_query).and_return({ "curl" => { "oops" => true } })
       expect { described_class.fetch_project("curl") }
         .to raise_error(described_class::Error, /unexpected shape/)
     end

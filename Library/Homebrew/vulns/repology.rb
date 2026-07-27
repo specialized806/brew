@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/repology"
 require "vulns/cached_feed"
 
 module Homebrew
@@ -65,9 +66,6 @@ module Homebrew
           [eco, list.freeze] if list.any?
         end.to_h.freeze
       end
-
-      API_BASE = "https://repology.org/api/v1"
-      USER_AGENT = "Homebrew/brew (dev-cmd/advisory-match; +https://github.com/Homebrew/brew)"
 
       # Repology repo-name prefix => `{ecosystem:, name_field:}`. Kept in step
       # with `RepologyIndex::OSV_DISTROS` in Homebrew/advisory-database; only
@@ -174,24 +172,15 @@ module Homebrew
       # all raise so callers don't mistake an outage for "no packages".
       sig { params(project: String).returns(T::Array[T::Hash[String, T.untyped]]) }
       def self.fetch_project(project)
-        result = Utils::Curl.curl_output(
-          "--fail", "--silent", "--location",
-          "--user-agent", USER_AGENT,
-          "#{API_BASE}/project/#{ERB::Util.url_encode(project)}"
-        )
-        unless result.success?
-          raise Error, "Repology API request for #{project.inspect} failed " \
-                       "(curl exit #{result.exit_status}): #{result.stderr.strip}"
-        end
+        result = ::Repology.single_package_query(project, repository: ::Repology::HOMEBREW_CORE)
+        raise Error, "Repology API request for #{project.inspect} failed" if result.nil?
 
-        parsed = JSON.parse(result.stdout)
-        if !parsed.is_a?(Array) || !parsed.all?(Hash)
+        entries = result.fetch(project)
+        if !entries.is_a?(Array) || !entries.all?(Hash)
           raise Error, "Repology API returned unexpected shape for #{project.inspect}"
         end
 
-        parsed
-      rescue JSON::ParserError => e
-        raise Error, "Repology API returned invalid JSON for #{project.inspect}: #{e.message}"
+        entries
       end
 
       sig { params(entries: T::Array[T::Hash[String, T.untyped]]).returns(DistroMap) }
