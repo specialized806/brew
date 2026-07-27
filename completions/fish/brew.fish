@@ -1288,7 +1288,6 @@ __fish_brew_complete_cmd 'irb' 'Enter the interactive Homebrew Ruby shell'
 __fish_brew_complete_arg 'irb' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'irb' -l examples -d 'Show several examples'
 __fish_brew_complete_arg 'irb' -l help -d 'Show this message'
-__fish_brew_complete_arg 'irb' -l pry -d 'Use Pry instead of IRB. Enabled by default if `$HOMEBREW_PRY` is set'
 __fish_brew_complete_arg 'irb' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'irb' -l verbose -d 'Make some output more verbose'
 

@@ -7,6 +7,7 @@ module MachOPathname
   module ClassMethods
     sig { params(path: T.any(Pathname, String, MachOShim)).returns(MachOShim) }
     def wrap(path)
+      Kernel.require "macho"
       return path if path.is_a?(MachOShim)
 
       path = ::Pathname.new(path)

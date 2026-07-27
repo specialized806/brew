@@ -2,18 +2,22 @@
 # frozen_string_literal: true
 
 require "api/analytics"
-require "api/cask"
-require "api/formula"
-require "api/internal"
-require "api/formula_struct"
-require "api/cask_struct"
-require "base64"
-require "download_queue"
 require "utils/output"
+
+# Runtime signature checks happen before lazy method-body requires run.
+require "download_queue" if ENV["HOMEBREW_SORBET_RUNTIME"]
 
 module Homebrew
   # Helper functions for using Homebrew's formulae.brew.sh API.
   module API
+    DownloadQueueType = T.type_alias { T.nilable(Homebrew::DownloadQueue) }
+
+    require "api/cask"
+    require "api/formula"
+    require "api/internal"
+    require "api/formula_struct"
+    require "api/cask_struct"
+
     extend Utils::Output::Mixin
 
     extend T::Generic
@@ -57,12 +61,12 @@ module Homebrew
         endpoint:       String,
         target:         Pathname,
         stale_seconds:  T.nilable(Integer),
-        download_queue: DownloadQueue,
+        download_queue: DownloadQueueType,
         enqueue:        T::Boolean,
       ).returns([T.any(T::Array[T.untyped], T::Hash[String, T.untyped]), T::Boolean])
     }
     def self.fetch_json_api_file(endpoint, target: HOMEBREW_CACHE_API/endpoint,
-                                 stale_seconds: nil, download_queue: Homebrew.default_download_queue,
+                                 stale_seconds: nil, download_queue: nil,
                                  enqueue: false)
       # Lazy-load dependency.
       require "development_tools"
@@ -92,7 +96,9 @@ module Homebrew
 
       if enqueue
         unless skip_download
+          require "download_queue"
           require "api/json_download"
+          download_queue ||= Homebrew.default_download_queue
           download = Homebrew::API::JSONDownload.new(endpoint, target:, stale_seconds:)
           download_queue.enqueue(download)
         end
@@ -196,8 +202,6 @@ module Homebrew
 
     sig { void }
     def self.fetch_api_files!
-      download_queue = Homebrew::DownloadQueue.new
-
       stale_seconds = if ENV["HOMEBREW_API_UPDATED"].present? ||
                          (Homebrew::EnvConfig.no_auto_update? && !Homebrew::EnvConfig.force_api_auto_update?)
         nil
@@ -209,6 +213,14 @@ module Homebrew
 
       # The internal API is now always used; read this only to surface its deprecation.
       Homebrew::EnvConfig.use_internal_api?
+      target = Internal.cached_packages_json_file_path
+      if target.exist? && !target.empty? && skip_download?(target:, stale_seconds:)
+        ENV["HOMEBREW_API_UPDATED"] = "1"
+        return
+      end
+
+      require "download_queue"
+      download_queue = Homebrew::DownloadQueue.new
       Homebrew::API::Internal.fetch_packages_api!(download_queue:, stale_seconds:, enqueue: true)
 
       ENV["HOMEBREW_API_UPDATED"] = "1"
@@ -356,7 +368,7 @@ module Homebrew
     # Returns a short error description or `nil` if the signature verifies.
     sig { params(protected_b64: String, signature_b64: String, payload: String).returns(T.nilable(String)) }
     private_class_method def self.verify_jws_signature(protected_b64, signature_b64, payload)
-      header = JSON.parse(Base64.urlsafe_decode64(protected_b64))
+      header = JSON.parse(urlsafe_decode64(protected_b64))
       if !header.is_a?(Hash) || header["alg"] != "PS512" || header["b64"] != false # NOTE: nil has a meaning of true
         return "invalid algorithm"
       end
@@ -365,7 +377,7 @@ module Homebrew
 
       pubkey = OpenSSL::PKey::RSA.new(jws_public_key_pem)
       return "signature mismatch" unless pubkey.verify_pss("SHA512",
-                                                           Base64.urlsafe_decode64(signature_b64),
+                                                           urlsafe_decode64(signature_b64),
                                                            "#{protected_b64}.#{payload}",
                                                            salt_length: :digest,
                                                            mgf1_hash:   "SHA512")
@@ -471,6 +483,11 @@ module Homebrew
       end
     rescue SystemCallError
       nil
+    end
+
+    sig { params(value: String).returns(String) }
+    private_class_method def self.urlsafe_decode64(value)
+      value.tr("-_", "+/").ljust((value.length + 3) & ~3, "=").unpack1("m0")
     end
 
     sig { params(path: Pathname).returns(T.nilable(Tap)) }

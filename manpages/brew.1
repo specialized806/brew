@@ -2140,14 +2140,11 @@ Installs the specified comma\-separated list of gem groups (default: last used)\
 .TP
 \fB\-\-add\-groups\fP
 Installs the specified comma\-separated list of gem groups, in addition to those already installed\.
-.SS "\fBirb\fP \fR[\fB\-\-examples\fP] \fR[\fB\-\-pry\fP]"
+.SS "\fBirb\fP \fR[\fB\-\-examples\fP]"
 Enter the interactive Homebrew Ruby shell\.
 .TP
 \fB\-\-examples\fP
 Show several examples\.
-.TP
-\fB\-\-pry\fP
-Use Pry instead of IRB\. Enabled by default if \fB$HOMEBREW_PRY\fP is set\.
 .SS "\fBlgtm\fP \fR[\fB\-\-online\fP]"
 Run \fBbrew typecheck\fP, \fBbrew style \-\-changed\fP and the relevant \fBbrew tests\fP, \fBbrew audit\fP and \fBbrew test\fP checks in one go\.
 .TP
@@ -3227,9 +3224,6 @@ If set, \fBbrew install\fP \fIformula\fP will use this URL to download PyPI pack
 .P
 \fIDefault:\fP \fBhttps://pypi\.org/simple\fP\&\.
 .RE
-.TP
-\fBHOMEBREW_PRY\fP
-If set, use Pry for the \fBbrew irb\fP command\.
 .TP
 \fBHOMEBREW_REQUIRE_TAP_TRUST\fP
 If set, require non\-official tap formulae, casks and commands to be trusted with \fBbrew trust\fP before Homebrew loads them\. This is the default unless \fB$HOMEBREW_NO_REQUIRE_TAP_TRUST\fP is set\. Also enables commands that evaluate all formulae and casks\.

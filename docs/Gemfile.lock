@@ -189,7 +189,6 @@ GEM
       prism (>= 1.6.0)
       rbs (>= 4.0.0)
       tsort
-    redcarpet (3.6.1)
     reline (0.6.3)
       io-console (~> 0.5)
     rexml (3.4.4)
@@ -255,7 +254,6 @@ DEPENDENCIES
   jekyll-titles-from-headings
   mdl
   rake
-  redcarpet
   webrick
   yard
   yard-sorbet

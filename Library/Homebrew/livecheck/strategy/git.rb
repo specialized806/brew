@@ -1,9 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "addressable"
 require "livecheck/strategic"
 require "system_command"
+require "uri"
 
 module Homebrew
   module Livecheck
@@ -68,8 +68,8 @@ module Homebrew
           return processed_url if processed_url
 
           begin
-            uri = Addressable::URI.parse(url)
-          rescue Addressable::URI::InvalidURIError
+            uri = URI.parse(url)
+          rescue URI::InvalidURIError
             return url
           end
 

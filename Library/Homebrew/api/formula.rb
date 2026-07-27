@@ -4,8 +4,6 @@
 require "cachable"
 require "api"
 require "api/source_download"
-require "local_patch"
-require "download_queue"
 require "api/formula/formula_struct_generator"
 
 module Homebrew
@@ -44,12 +42,13 @@ module Homebrew
           formula:        ::Formula,
           path:           String,
           checksum:       T.nilable(Checksum),
-          download_queue: Homebrew::DownloadQueue,
+          download_queue: DownloadQueueType,
           enqueue:        T::Boolean,
         ).returns(Homebrew::API::SourceDownload)
       }
-      def self.source_download_path(formula, path, checksum: nil, download_queue: Homebrew.default_download_queue,
-                                    enqueue: false)
+      def self.source_download_path(formula, path, checksum: nil, download_queue: nil, enqueue: false)
+        require "local_patch"
+
         unless LocalPatch.valid_path?(path)
           raise ArgumentError, "API source path must be a relative path within the repository."
         end
@@ -66,6 +65,8 @@ module Homebrew
         )
 
         if enqueue
+          require "download_queue"
+          download_queue ||= Homebrew.default_download_queue
           download_queue.enqueue(download)
         elsif !download.symlink_location.exist? || !download.symlink_location.symlink?
           download.fetch
@@ -77,11 +78,11 @@ module Homebrew
       sig {
         params(
           formula:        ::Formula,
-          download_queue: Homebrew::DownloadQueue,
+          download_queue: DownloadQueueType,
           enqueue:        T::Boolean,
         ).returns(Homebrew::API::SourceDownload)
       }
-      def self.source_download(formula, download_queue: Homebrew.default_download_queue, enqueue: false)
+      def self.source_download(formula, download_queue: nil, enqueue: false)
         path = formula.ruby_source_path || "Formula/#{formula.name}.rb"
         source_download_path(formula, path, checksum: formula.ruby_source_checksum, download_queue:, enqueue:)
       end
@@ -121,19 +122,18 @@ module Homebrew
       end
 
       sig {
-        params(download_queue: Homebrew::DownloadQueue, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
+        params(download_queue: DownloadQueueType, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
           .returns([T.any(T::Array[T.untyped], T::Hash[String, T.untyped]), T::Boolean])
       }
-      def self.fetch_api!(download_queue: Homebrew.default_download_queue, stale_seconds: nil, enqueue: false)
+      def self.fetch_api!(download_queue: nil, stale_seconds: nil, enqueue: false)
         Homebrew::API.fetch_json_api_file DEFAULT_API_FILENAME, stale_seconds:, download_queue:, enqueue:
       end
 
       sig {
-        params(download_queue: Homebrew::DownloadQueue, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
+        params(download_queue: DownloadQueueType, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
           .returns([T.any(T::Array[T.untyped], T::Hash[String, T.untyped]), T::Boolean])
       }
-      def self.fetch_tap_migrations!(download_queue: Homebrew.default_download_queue, stale_seconds: nil,
-                                     enqueue: false)
+      def self.fetch_tap_migrations!(download_queue: nil, stale_seconds: nil, enqueue: false)
         Homebrew::API.fetch_json_api_file "formula_tap_migrations.jws.json", stale_seconds:, download_queue:, enqueue:
       end
 

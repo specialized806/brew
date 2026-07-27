@@ -256,6 +256,7 @@ module FormulaCellarChecks
   def check_plist(prefix, plist)
     return unless prefix.directory?
 
+    require "plist"
     plist = begin
       Plist.parse_xml(plist, marshal: false)
     rescue

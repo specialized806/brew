@@ -1,7 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "concurrent/set"
 require "url"
 require "checksum"
 require "download_strategy"
@@ -24,6 +23,8 @@ module Downloadable
 
     sig { void }
     def initialize
+      require "concurrent/set"
+
       @verified = T.let(Concurrent::Set.new, Concurrent::Set)
     end
 

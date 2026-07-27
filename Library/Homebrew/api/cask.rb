@@ -4,7 +4,6 @@
 require "cachable"
 require "api"
 require "api/source_download"
-require "download_queue"
 require "api/cask/cask_struct_generator"
 
 module Homebrew
@@ -41,14 +40,16 @@ module Homebrew
       sig {
         params(
           cask:           ::Cask::Cask,
-          download_queue: Homebrew::DownloadQueue,
+          download_queue: DownloadQueueType,
           enqueue:        T::Boolean,
         ).returns(Homebrew::API::SourceDownload)
       }
-      def self.source_download(cask, download_queue: Homebrew.default_download_queue, enqueue: false)
+      def self.source_download(cask, download_queue: nil, enqueue: false)
         download = source_download_for(cask)
 
         if enqueue
+          require "download_queue"
+          download_queue ||= Homebrew.default_download_queue
           download_queue.enqueue(download)
         elsif !download.symlink_location.exist?
           download.fetch
@@ -89,19 +90,18 @@ module Homebrew
       end
 
       sig {
-        params(download_queue: ::Homebrew::DownloadQueue, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
+        params(download_queue: DownloadQueueType, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
           .returns([T.any(T::Array[T.untyped], T::Hash[String, T.untyped]), T::Boolean])
       }
-      def self.fetch_api!(download_queue: Homebrew.default_download_queue, stale_seconds: nil, enqueue: false)
+      def self.fetch_api!(download_queue: nil, stale_seconds: nil, enqueue: false)
         Homebrew::API.fetch_json_api_file DEFAULT_API_FILENAME, stale_seconds:, download_queue:, enqueue:
       end
 
       sig {
-        params(download_queue: ::Homebrew::DownloadQueue, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
+        params(download_queue: DownloadQueueType, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
           .returns([T.any(T::Array[T.untyped], T::Hash[String, T.untyped]), T::Boolean])
       }
-      def self.fetch_tap_migrations!(download_queue: Homebrew.default_download_queue, stale_seconds: nil,
-                                     enqueue: false)
+      def self.fetch_tap_migrations!(download_queue: nil, stale_seconds: nil, enqueue: false)
         Homebrew::API.fetch_json_api_file "cask_tap_migrations.jws.json", stale_seconds:, download_queue:, enqueue:
       end
 

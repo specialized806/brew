@@ -13,14 +13,11 @@ gem:
     - racc
     - rexml
     # These aren't needed:
-    - coderay
     - diff-lcs
     - hana
     - language_server-protocol
     - netrc
     - parallel
-    - public_suffix
-    - redcarpet
     - rspec-github
     - rspec-retry
     - rspec_junit_formatter

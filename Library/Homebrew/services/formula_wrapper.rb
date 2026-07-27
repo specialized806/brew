@@ -178,6 +178,7 @@ module Homebrew
       def owner
         if System.launchctl? && dest.exist?
           # read the username from the plist file
+          require "plist"
           plist = begin
             Plist.parse_xml(dest.read, marshal: false)
           rescue

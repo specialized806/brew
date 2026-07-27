@@ -2,6 +2,27 @@
 # frozen_string_literal: true
 
 RSpec.describe MachOShim do
+  specify "Sorbet runtime loads MachO before Pathname initialisation", :integration_test do
+    ruby = <<~RUBY
+      ENV.delete("HOMEBREW_SORBET_RUNTIME")
+
+      require "os/mac/mach"
+      Pathname.prepend(MachOShim)
+      Pathname.new("test")
+
+      abort "MachO is not defined" unless Object.const_defined?(:MachO)
+    RUBY
+
+    _, stderr, status = Open3.capture3(
+      { "HOMEBREW_SORBET_RUNTIME" => "1" },
+      *HOMEBREW_RUBY_EXEC_ARGS,
+      "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
+      "-rpathname", "-rstandalone/sorbet", "-e", ruby
+    )
+
+    expect(status).to be_success, stderr
+  end
+
   describe "Pathname tests" do
     specify "fat dylib" do
       pn = dylib_path("fat")

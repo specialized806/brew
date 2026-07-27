@@ -1668,7 +1668,6 @@ _brew_irb() {
     '--debug[Display any debugging information]' \
     '--examples[Show several examples]' \
     '--help[Show this message]' \
-    '--pry[Use Pry instead of IRB. Enabled by default if `$HOMEBREW_PRY` is set]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
 }

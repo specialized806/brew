@@ -277,7 +277,7 @@ RSpec.describe Homebrew::Livecheck do
         desc "Test formula"
         homepage "https://brew.sh"
         url "https://brew.sh/test-0.0.1.tgz", using: :homebrew_curl
-        # head is deliberably omitted to exercise more of the method
+        # head is deliberately omitted to exercise more of the method
 
         livecheck do
           url "https://formulae.brew.sh/api/formula/ruby.json"
@@ -304,7 +304,7 @@ RSpec.describe Homebrew::Livecheck do
       RUBY
     end
 
-    it "returns `true` when URL matches a `using: :homebrew_curl` URL" do
+    it "returns `true` when the host matches a `using: :homebrew_curl` URL" do
       expect(livecheck.use_homebrew_curl?(f_homebrew_curl, livecheck_url)).to be(true)
       expect(livecheck.use_homebrew_curl?(f_homebrew_curl, homepage_url)).to be(true)
       expect(livecheck.use_homebrew_curl?(f_homebrew_curl, stable_url)).to be(true)
@@ -313,7 +313,16 @@ RSpec.describe Homebrew::Livecheck do
       expect(livecheck.use_homebrew_curl?(c_homebrew_curl, cask_url)).to be(true)
     end
 
-    it "returns `false` if URL root domain differs from `using: :homebrew_curl` URLs" do
+    it "automatically uses brewed curl for matching pages" do
+      allow(Homebrew::Livecheck::Strategy).to receive(:page_content).and_return({
+        content: '{"stable":"0.0.2"}',
+      })
+
+      expect { livecheck.latest_version(f_homebrew_curl, debug: true) }
+        .to output(a_string_matching(/Homebrew curl\?: +Yes/)).to_stdout
+    end
+
+    it "returns `false` if the host differs from `using: :homebrew_curl` URLs" do
       expect(livecheck.use_homebrew_curl?(f_homebrew_curl, example_url)).to be(false)
       expect(livecheck.use_homebrew_curl?(c_homebrew_curl, example_url)).to be(false)
     end
@@ -329,8 +338,9 @@ RSpec.describe Homebrew::Livecheck do
       expect(livecheck.use_homebrew_curl?(c, example_url)).to be(false)
     end
 
-    it "returns `false` if URL string does not contain a domain" do
+    it "returns `false` if the URL string does not contain a valid host" do
       expect(livecheck.use_homebrew_curl?(f_homebrew_curl, "test")).to be(false)
+      expect(livecheck.use_homebrew_curl?(f_homebrew_curl, "https://[")).to be(false)
     end
   end
 

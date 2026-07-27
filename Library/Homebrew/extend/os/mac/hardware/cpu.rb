@@ -1,8 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "macho"
-
 module OS
   module Mac
     module Hardware
@@ -10,14 +8,20 @@ module OS
         module ClassMethods
           extend T::Helpers
 
+          # Darwin's Mach-O CPU type for 32-bit Intel.
+          CPU_TYPE_I386 = 7
+          # Darwin's Mach-O CPU type for 64-bit ARM.
+          CPU_TYPE_ARM64 = 0x100000C
+          private_constant :CPU_TYPE_I386, :CPU_TYPE_ARM64
+
           # These methods use info spewed out by sysctl.
           # Look in <mach/machine.h> for decoding info.
           sig { returns(Symbol) }
           def type
             case ::Hardware::CPU.sysctl_int("hw.cputype")
-            when MachO::Headers::CPU_TYPE_I386
+            when CPU_TYPE_I386
               :intel
-            when MachO::Headers::CPU_TYPE_ARM64
+            when CPU_TYPE_ARM64
               :arm
             else
               super

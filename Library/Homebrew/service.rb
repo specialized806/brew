@@ -569,6 +569,7 @@ module Homebrew
       # general sense.
       base[:LimitLoadToSessionType] = %w[Aqua Background LoginWindow StandardIO System]
 
+      require "plist"
       base.to_plist
     end
 

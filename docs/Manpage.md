@@ -3384,17 +3384,13 @@ Install Homebrew's Bundler gems.
 : Installs the specified comma-separated list of gem groups, in addition to
   those already installed.
 
-### `irb` \[`--examples`\] \[`--pry`\]
+### `irb` \[`--examples`\]
 
 Enter the interactive Homebrew Ruby shell.
 
 `--examples`
 
 : Show several examples.
-
-`--pry`
-
-: Use Pry instead of IRB. Enabled by default if `$HOMEBREW_PRY` is set.
 
 ### `lgtm` \[`--online`\]
 
@@ -4966,10 +4962,6 @@ command execution (e.g. `$(cat file)`).
   resources.
   
   *Default:* `https://pypi.org/simple`.
-
-`HOMEBREW_PRY`
-
-: If set, use Pry for the `brew irb` command.
 
 `HOMEBREW_REQUIRE_TAP_TRUST`
 

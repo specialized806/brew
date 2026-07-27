@@ -3,8 +3,6 @@
 
 require "cachable"
 require "api"
-require "api/source_download"
-require "download_queue"
 
 module Homebrew
   module API
@@ -68,11 +66,10 @@ module Homebrew
       end
 
       sig {
-        params(download_queue: Homebrew::DownloadQueue, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
+        params(download_queue: DownloadQueueType, stale_seconds: T.nilable(Integer), enqueue: T::Boolean)
           .returns([T::Hash[String, T.untyped], T::Boolean])
       }
-      def self.fetch_packages_api!(download_queue: Homebrew.default_download_queue, stale_seconds: nil,
-                                   enqueue: false)
+      def self.fetch_packages_api!(download_queue: nil, stale_seconds: nil, enqueue: false)
         old_failed = Homebrew.failed?
         json_contents, updated = begin
           Homebrew::API.fetch_json_api_file(packages_endpoint, stale_seconds:, download_queue:, enqueue:)

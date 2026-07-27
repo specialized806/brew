@@ -7,7 +7,7 @@ require "livecheck/livecheck_version"
 require "livecheck/skip_conditions"
 require "livecheck/strategy"
 require "formula_versions"
-require "addressable"
+require "uri"
 require "utils/git"
 require "utils/output"
 
@@ -574,31 +574,40 @@ module Homebrew
 
     # livecheck should fetch a URL using brewed curl if the formula/cask
     # contains a `stable`/`url` or `head` URL `using: :homebrew_curl` that
-    # shares the same root domain.
+    # shares the same host or uses it as a parent domain.
     sig { params(formula_or_cask: T.any(Formula, Cask::Cask), url: String).returns(T::Boolean) }
     def self.use_homebrew_curl?(formula_or_cask, url)
-      url_root_domain = Addressable::URI.parse(url)&.domain
-      return false if url_root_domain.blank?
+      host = url_host(url)
+      return false unless host
 
-      # Collect root domains of URLs with `using: :homebrew_curl`
-      homebrew_curl_root_domains = []
-      case formula_or_cask
+      homebrew_curl_hosts = case formula_or_cask
       when Formula
-        [:stable, :head].each do |spec_name|
-          next unless (spec = formula_or_cask.send(spec_name))
+        [formula_or_cask.stable, formula_or_cask.head].filter_map do |spec|
+          next unless spec
           next if spec.using != :homebrew_curl
+          next unless (spec_url = spec.url)
 
-          domain = Addressable::URI.parse(spec.url)&.domain
-          homebrew_curl_root_domains << domain if domain.present?
+          url_host(spec_url)
         end
       when Cask::Cask
-        return false if formula_or_cask.url&.using != :homebrew_curl
+        cask_url = formula_or_cask.url
+        return false if cask_url&.using != :homebrew_curl
 
-        domain = Addressable::URI.parse(formula_or_cask.url.to_s)&.domain
-        homebrew_curl_root_domains << domain if domain.present?
+        [url_host(cask_url.to_s)].compact
       end
 
-      homebrew_curl_root_domains.include?(url_root_domain)
+      homebrew_curl_hosts.any? do |homebrew_curl_host|
+        host == homebrew_curl_host ||
+          host.end_with?(".#{homebrew_curl_host}") ||
+          homebrew_curl_host.end_with?(".#{host}")
+      end
+    end
+
+    sig { params(url: String).returns(T.nilable(String)) }
+    private_class_method def self.url_host(url)
+      URI.parse(url).host&.downcase
+    rescue URI::InvalidURIError
+      nil
     end
 
     # Identifies the latest version of the formula/cask and returns a Hash containing
