@@ -15,9 +15,9 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
   describe ".query_batch" do
     let(:packages) do
       [
-        { repo_url: "https://github.com/a/a", version: "v1" },
-        { repo_url: "https://github.com/b/b", version: "v2" },
-        { repo_url: "https://github.com/c/c", version: "v3" },
+        { ecosystem: "GIT", name: "https://github.com/a/a", version: "v1" },
+        { ecosystem: "GIT", name: "https://github.com/b/b", version: "v2" },
+        { ecosystem: "GIT", name: "https://github.com/c/c", version: "v3" },
       ]
     end
 
@@ -39,7 +39,12 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       expect(results[2].map { |v| v["id"] }).to eq ["CVE-2024-2222", "CVE-2024-3333"]
     end
 
-    it "posts each package as a GIT-ecosystem query" do
+    it "posts each package under its given ecosystem, omitting version when nil" do
+      mixed = [
+        { ecosystem: "GIT", name: "https://github.com/a/a", version: "v1" },
+        { ecosystem: "PyPI", name: "requests", version: "2.31.0" },
+        { ecosystem: "Debian", name: "curl", version: nil },
+      ]
       posted = nil
       expect(Utils::Curl).to receive(:curl_output) do |*args|
         expect(args.last).to eq "https://api.osv.dev/v1/querybatch"
@@ -47,12 +52,12 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
         curl_result(stdout: { results: [{}, {}, {}] }.to_json)
       end
 
-      described_class.query_batch(packages)
+      described_class.query_batch(mixed)
 
       expect(posted["queries"]).to eq [
         { "package" => { "name" => "https://github.com/a/a", "ecosystem" => "GIT" }, "version" => "v1" },
-        { "package" => { "name" => "https://github.com/b/b", "ecosystem" => "GIT" }, "version" => "v2" },
-        { "package" => { "name" => "https://github.com/c/c", "ecosystem" => "GIT" }, "version" => "v3" },
+        { "package" => { "name" => "requests", "ecosystem" => "PyPI" }, "version" => "2.31.0" },
+        { "package" => { "name" => "curl", "ecosystem" => "Debian" } },
       ]
     end
 

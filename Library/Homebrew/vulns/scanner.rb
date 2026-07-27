@@ -112,7 +112,7 @@ module Homebrew
         end
 
         targets = queryable.map { |f| T.must(target_for(f)) }
-        batch = OSV.query_batch(targets.map { |t| { repo_url: t.repo_url, version: t.tag } })
+        batch = OSV.query_batch(targets.map { |t| { ecosystem: "GIT", name: t.repo_url, version: t.tag } })
 
         findings = queryable.each_with_index.filter_map do |formula, index|
           target = targets.fetch(index)

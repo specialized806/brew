@@ -256,7 +256,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "skips formulae without a queryable repo URL and tag" do
       allow(Homebrew::Vulns::OSV).to receive(:query_batch).with(
-        [{ repo_url: "https://github.com/nektos/act", version: "v0.2.84" }],
+        [{ ecosystem: "GIT", name: "https://github.com/nektos/act", version: "v0.2.84" }],
       ).and_return([[]])
 
       results = described_class.new([act, unsupported]).scan
@@ -364,8 +364,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
       described_class.new([core_thing, tap_thing]).scan
 
       expect(queried).to eq [
-        { repo_url: "https://github.com/owner-a/thing", version: "v1.0.0" },
-        { repo_url: "https://github.com/owner-b/thing", version: "v2.0.0" },
+        { ecosystem: "GIT", name: "https://github.com/owner-a/thing", version: "v1.0.0" },
+        { ecosystem: "GIT", name: "https://github.com/owner-b/thing", version: "v2.0.0" },
       ]
     end
 
@@ -451,7 +451,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         described_class.new([act]).scan
 
-        expect(queried).to eq [{ repo_url: "https://github.com/nektos/act", version: "v0.2.80" }]
+        expect(queried).to eq [{ ecosystem: "GIT", name: "https://github.com/nektos/act", version: "v0.2.80" }]
       end
 
       it "reports the installed version in findings" do
@@ -487,7 +487,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         results = described_class.new([act]).scan
 
-        expect(queried).to eq [{ repo_url: "https://github.com/nektos/act", version: "v0.2.84" }]
+        expect(queried).to eq [{ ecosystem: "GIT", name: "https://github.com/nektos/act", version: "v0.2.84" }]
         expect(results.outdated_without_sbom).to eq ["act"]
       end
     end
