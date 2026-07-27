@@ -855,6 +855,47 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"prefix/share/zoneinfo").readlink).to eq(Pathname("/usr/share/zoneinfo"))
   end
 
+  specify "dispatches Clang system configuration" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_clang_system
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_configure_clang_system)
+
+    runner.run(steps)
+  end
+
+  specify "repairs incomplete Clang system configuration" do
+    require "utils/clang"
+
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_clang_system
+    end
+    clang_context = context
+    root_path = root
+    clang_context.define_singleton_method(:etc) { root_path/"prefix/etc" }
+    config_dir = root/"prefix/etc/clang"
+    config_dir.mkpath
+    (config_dir/"arm64-apple-darwin23.cfg").write ""
+    (config_dir/"arm64-apple-macosx14.cfg").write ""
+    macos_version = MacOSVersion.new("14")
+    stub_const("MacOS", Module.new do
+      define_singleton_method(:version) { macos_version }
+    end)
+    allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_macos?).and_return(true)
+    allow(OS).to receive(:kernel_version).and_return(Version.new("23"))
+    allow(Hardware::CPU).to receive(:arch).and_return(:arm64)
+    expect(Utils::Clang).to receive(:write_system_config_files).with(
+      config_dir:,
+      macos_version:,
+      kernel_version: "23",
+      arch:           :arm64,
+    )
+
+    Homebrew::InstallSteps::Runner.new(context: clang_context).run(steps)
+  end
+
   describe "runs gtk_update_icon_cache rebuild action" do
     let(:formula) { instance_double(Formula, opt_bin: root/"opt/bin") }
     let(:steps) do
