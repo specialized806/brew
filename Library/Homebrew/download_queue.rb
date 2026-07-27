@@ -67,12 +67,16 @@ module Homebrew
             next cached_location
           end
 
-          download.fetch(quiet:)
+          downloaded_path = download.fetch(quiet:)
           raise CancelledDownloadError if cancelled.true?
 
           check_bottle_attestation(downloadable, check_attestation:)
-          create_symlinks_for_shared_download(cached_location)
-          cached_location
+          if downloaded_path != cached_location
+            @symlink_targets[downloaded_path] ||= Set.new
+            @symlink_targets.fetch(downloaded_path).merge(@symlink_targets.fetch(cached_location, Set.new))
+          end
+          create_symlinks_for_shared_download(downloaded_path)
+          downloaded_path
         end
       end
 
