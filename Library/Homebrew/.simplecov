@@ -44,12 +44,29 @@ SimpleCov.configure do
     SimpleCov.at_exit do
       # Just save result, but don't write formatted output.
       coverage_result = Coverage.result.dup
+      simulated_files_path = File.join(
+        SimpleCov.coverage_path,
+        ".simulated_files#{ENV.fetch("TEST_ENV_NUMBER", "")}",
+      )
+      simulated_files = if File.exist?(simulated_files_path)
+        Set.new(File.readlines(simulated_files_path, chomp: true))
+      else
+        Set.new
+      end
+      simulated_files_count = simulated_files.size
       Dir.glob(files, base: SimpleCov.root).each do |file|
         absolute_path = File.expand_path(file, SimpleCov.root)
-        coverage_result[absolute_path] ||= SimpleCov::SimulateCoverage.call(absolute_path)
+        next if coverage_result.key?(absolute_path) || simulated_files.include?(absolute_path)
+
+        coverage_result[absolute_path] = SimpleCov::SimulateCoverage.call(absolute_path)
+        simulated_files << absolute_path
       end
       simplecov_result = SimpleCov::Result.new(coverage_result)
       SimpleCov::ResultMerger.store_result(simplecov_result)
+      if simulated_files.size > simulated_files_count
+        FileUtils.mkdir_p(SimpleCov.coverage_path)
+        File.write(simulated_files_path, simulated_files.to_a.join("\n"))
+      end
 
       # If an integration test raises a `SystemExit` exception on exit,
       # exit immediately using the same status code to avoid reporting
