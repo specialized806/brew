@@ -1427,7 +1427,7 @@ cask "calibre" do
 end
 ```
 
-Such `on_<system>` blocks can be nested and contain other stanzas not listed here. However, version-specific macOS requirements should be placed in `on_macos` blocks rather than individual macOS release blocks. Examples: [calhash.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/calhash.rb), [r.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/r/r.rb), [wireshark.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/wireshark.rb)
+Such `on_<system>` blocks can be nested and contain other stanzas not listed here. However, version-specific macOS requirements should be placed in `on_macos` blocks rather than individual macOS release blocks. Examples: [calhash.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/calhash.rb), [r-app.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/r/r-app.rb), [wireshark-app.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/w/wireshark-app.rb)
 
 ### Switch between languages or regions
 
