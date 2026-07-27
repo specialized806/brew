@@ -19,6 +19,11 @@ module Homebrew
         @launchctl ||= T.let(which("launchctl"), T.nilable(Pathname))
       end
 
+      class << self
+        sig { params(launchctl: T.nilable(Pathname)).returns(T.nilable(Pathname)) }
+        attr_writer :launchctl
+      end
+
       # Is this a launchctl system
       sig { returns(T::Boolean) }
       def self.launchctl?

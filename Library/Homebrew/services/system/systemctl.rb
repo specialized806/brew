@@ -10,6 +10,11 @@ module Homebrew
           @executable ||= T.let(which("systemctl"), T.nilable(Pathname))
         end
 
+        class << self
+          sig { params(executable: T.nilable(Pathname)).returns(T.nilable(Pathname)) }
+          attr_writer :executable
+        end
+
         sig { returns(String) }
         def self.scope
           System.root? ? "--system" : "--user"

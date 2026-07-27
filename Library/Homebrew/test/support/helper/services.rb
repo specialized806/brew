@@ -14,8 +14,8 @@ module Test
       # discovery must clear those caches so they don't leak across examples.
       sig { void }
       def reset_services_memoization!
-        Homebrew::Services::System.instance_variable_set(:@launchctl, nil)
-        Homebrew::Services::System::Systemctl.instance_variable_set(:@executable, nil)
+        Homebrew::Services::System.launchctl = nil
+        Homebrew::Services::System::Systemctl.executable = nil
       end
     end
   end
