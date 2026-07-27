@@ -32,6 +32,7 @@ module RuboCop
 
         def_delegator :stanza_node, :parent, :parent_node
         def_delegator :stanza_node, :arch_variable?
+        def_delegator :stanza_node, :system_variable?
         def_delegator :stanza_node, :on_system_block?
 
         sig { returns(Parser::Source::Range) }
@@ -53,6 +54,7 @@ module RuboCop
         sig { returns(Symbol) }
         def stanza_name
           return :on_arch_conditional if arch_variable?
+          return :on_system_conditional if system_variable?
           return stanza_node.method_node&.method_name if stanza_node.block_type?
 
           T.cast(stanza_node, RuboCop::AST::SendNode).method_name

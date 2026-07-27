@@ -17,6 +17,9 @@ class RuboCop::AST::Node
   def arch_variable?; end
 
   sig { returns(T::Boolean) }
+  def system_variable?; end
+
+  sig { returns(T::Boolean) }
   def begin_block?; end
 end
 
