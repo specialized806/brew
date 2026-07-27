@@ -9,15 +9,15 @@ class ReporterHub
 
   sig { void }
   def initialize
-    @hash = T.let({}, T::Hash[Symbol, T::Array[T.any(String, [String, String])]])
+    @hash = T.let({}, T::Hash[Symbol, T.any(T::Array[String], T::Array[[String, String]])])
     @reporters = T.let([], T::Array[Reporter])
   end
 
-  sig { params(key: Symbol).returns(T::Array[String]) }
+  sig { params(key: Symbol).returns(T.any(T::Array[String], T::Array[[String, String]])) }
   def select_formula_or_cask(key)
     raise "Unsupported key #{key}" unless [:A, :AC, :D, :DC, :M, :MC, :R, :RC, :T].include?(key)
 
-    T.cast(@hash.fetch(key, []), T::Array[String])
+    @hash.fetch(key, [])
   end
 
   sig { returns(T::Array[[String, String]]) }
@@ -99,7 +99,7 @@ class ReporterHub
 
   sig { void }
   def dump_new_formula_report
-    formulae = select_formula_or_cask(:A).sort.reject { |name| installed?(name) }
+    formulae = T.cast(select_formula_or_cask(:A), T::Array[String]).sort.reject { |name| installed?(name) }
     return if formulae.blank?
 
     ohai "New Formulae"
@@ -121,7 +121,7 @@ class ReporterHub
   def dump_new_cask_report
     return unless Cask::Caskroom.any_casks_installed?
 
-    casks = select_formula_or_cask(:AC).sort.reject { |name| cask_installed?(name) }
+    casks = T.cast(select_formula_or_cask(:AC), T::Array[String]).sort.reject { |name| cask_installed?(name) }
     return if casks.blank?
 
     ohai "New Casks"
@@ -142,7 +142,7 @@ class ReporterHub
 
   sig { void }
   def dump_deleted_formula_report
-    formulae = select_formula_or_cask(:D).sort.filter_map do |name|
+    formulae = T.cast(select_formula_or_cask(:D), T::Array[String]).sort.filter_map do |name|
       pretty_uninstalled(name) if installed?(name)
     end
 
@@ -153,7 +153,7 @@ class ReporterHub
   def dump_deleted_cask_report
     return if Homebrew::SimulateSystem.simulating_or_running_on_linux?
 
-    casks = select_formula_or_cask(:DC).sort.filter_map do |name|
+    casks = T.cast(select_formula_or_cask(:DC), T::Array[String]).sort.filter_map do |name|
       name = Utils.name_from_full_name(name)
       pretty_uninstalled(name) if cask_installed?(name)
     end
