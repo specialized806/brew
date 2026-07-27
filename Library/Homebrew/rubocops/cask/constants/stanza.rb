@@ -20,9 +20,8 @@ module RuboCop
 
       STANZA_GROUPS = T.let(
         [
-          [:arch, :on_arch_conditional, :os],
+          [:arch, :on_arch_conditional, :os, :on_system_conditional],
           [:version, :sha256],
-          [:on_system_conditional],
           ON_SYSTEM_METHODS_STANZA_ORDER,
           [:language],
           [:url, :appcast, :name, :desc, :homepage],

@@ -45,6 +45,10 @@ module RuboCop
             next if !stanza || !next_stanza
 
             if missing_line_after?(stanza, next_stanza)
+              next if [stanza, next_stanza].any? do |candidate|
+                candidate.stanza_name == :os
+              end
+
               add_offense_missing_line(stanza)
             elsif extra_line_after?(stanza, next_stanza)
               next if [stanza, next_stanza].any? do |candidate|
