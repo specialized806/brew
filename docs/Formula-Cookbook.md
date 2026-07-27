@@ -1126,6 +1126,7 @@ end
 Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action.
 
 * `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
+* `install_gzipped_executable`: unpack and install a gzipped executable.
 
 #### Service data directory steps
 
