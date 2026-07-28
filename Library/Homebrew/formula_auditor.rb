@@ -997,10 +997,11 @@ module Homebrew
       current_version_scheme = formula.version_scheme
 
       previous_version_info, base_ref_version_info = committed_version_info
+      return unless (base_ref_version = base_ref_version_info[:version])
 
-      if (base_ref_version = base_ref_version_info[:version]) &&
-         current_version < base_ref_version &&
-         current_version_scheme == previous_version_info[:version_scheme]
+      if current_version == base_ref_version && current_version.to_s != base_ref_version.to_s
+        problem "Stable: version should not change from #{base_ref_version} to #{current_version}"
+      elsif current_version < base_ref_version && current_version_scheme == previous_version_info[:version_scheme]
         problem "Stable: version should not decrease (from #{base_ref_version} to #{current_version})"
       end
     end

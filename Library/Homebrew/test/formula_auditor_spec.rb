@@ -1427,6 +1427,12 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
 
     describe "versions" do
+      context "when uncommitted should not change formatting" do
+        before { formula_gsub "foo-1.0.tar.gz", "foo-1.0.0.tar.gz" }
+
+        it { is_expected.to match("Stable: version should not change from 1.0 to 1.0.0") }
+      end
+
       context "when uncommitted should not decrease" do
         before { formula_gsub "foo-1.0.tar.gz", "foo-0.9.tar.gz" }
 
