@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "vulns/repology"
@@ -10,12 +10,12 @@ RSpec.describe Homebrew::Vulns::Repology do
   describe "#initialize" do
     it "raises Error when the top-level value is not a JSON object" do
       expect { described_class.new([]) }
-        .to raise_error(described_class::Error, /not a JSON object/)
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /not a JSON object/)
     end
 
     it "raises Error when the formulae key is missing" do
       expect { described_class.new({ "meta" => {} }) }
-        .to raise_error(described_class::Error, /missing 'formulae' key/)
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /missing 'formulae' key/)
     end
   end
 
@@ -240,8 +240,8 @@ RSpec.describe Homebrew::Vulns::Repology do
 
     it "propagates fetch errors rather than treating them as a miss" do
       allow(described_class).to receive(:fetch_project)
-        .and_raise(described_class::Error, "Repology API request failed")
-      expect { described_class.lookup("curl") }.to raise_error(described_class::Error)
+        .and_raise(Homebrew::Vulns::CachedFeed::Error, "Repology API request failed")
+      expect { described_class.lookup("curl") }.to raise_error(Homebrew::Vulns::CachedFeed::Error)
     end
   end
 
@@ -261,13 +261,13 @@ RSpec.describe Homebrew::Vulns::Repology do
     it "raises Error when the underlying query fails (returns nil)" do
       allow(Repology).to receive(:single_package_query).and_return(nil)
       expect { described_class.fetch_project("curl") }
-        .to raise_error(described_class::Error, /request for "curl" failed/)
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /request for "curl" failed/)
     end
 
     it "raises Error on an unexpected response shape" do
       allow(Repology).to receive(:single_package_query).and_return({ "curl" => { "oops" => true } })
       expect { described_class.fetch_project("curl") }
-        .to raise_error(described_class::Error, /unexpected shape/)
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /unexpected shape/)
     end
   end
 
@@ -289,10 +289,10 @@ RSpec.describe Homebrew::Vulns::Repology do
         FileUtils.touch stale, mtime: Time.now - (described_class.default_max_age + 1)
         expect(Utils::Curl).to receive(:curl_download)
           .and_raise(ErrorDuringExecution.new(["curl"], status: 22))
-        loaded = nil
+        loaded = T.let(nil, T.nilable(Homebrew::Vulns::Repology))
         expect { loaded = described_class.load(cache:) }
           .to output(/Failed to refresh repology\.json/).to_stderr
-        expect(loaded.formulae).to include "curl"
+        expect(loaded&.formulae).to include "curl"
       end
     end
   end

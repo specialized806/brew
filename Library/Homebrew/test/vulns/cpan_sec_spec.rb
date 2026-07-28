@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "vulns/cpan_sec"
@@ -13,7 +13,7 @@ RSpec.describe Homebrew::Vulns::CPANSec do
         bad = Pathname(dir)/"cpansa.json"
         bad.write "not json"
         expect { described_class.from_file(bad) }
-          .to raise_error(described_class::Error, /Failed to parse cpansa\.json/)
+          .to raise_error(Homebrew::Vulns::CachedFeed::Error, /Failed to parse cpansa\.json/)
       end
     end
   end
@@ -21,12 +21,12 @@ RSpec.describe Homebrew::Vulns::CPANSec do
   describe "#initialize" do
     it "raises Error when the dists key is missing" do
       expect { described_class.new({ "meta" => {} }) }
-        .to raise_error(described_class::Error, /missing 'dists' key/)
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /missing 'dists' key/)
     end
 
     it "raises Error when the top-level value is not a JSON object" do
-      expect { described_class.new([]) }.to raise_error(described_class::Error, /not a JSON object/)
-      expect { described_class.new(nil) }.to raise_error(described_class::Error, /not a JSON object/)
+      expect { described_class.new([]) }.to raise_error(Homebrew::Vulns::CachedFeed::Error, /not a JSON object/)
+      expect { described_class.new(nil) }.to raise_error(Homebrew::Vulns::CachedFeed::Error, /not a JSON object/)
     end
 
     it "treats a null or absent meta as an empty hash" do
@@ -131,10 +131,10 @@ RSpec.describe Homebrew::Vulns::CPANSec do
         original = stale.read
         expect(Utils::Curl).to receive(:curl_download)
           .and_raise(ErrorDuringExecution.new(["curl"], status: 22))
-        loaded = nil
+        loaded = T.let(nil, T.nilable(Homebrew::Vulns::CPANSec))
         expect { loaded = described_class.load(cache:) }
           .to output(/Failed to refresh cpansa\.json/).to_stderr
-        expect(loaded.distributions).to include "DBI"
+        expect(loaded&.distributions).to include "DBI"
         expect(stale.read).to eq original
       end
     end
@@ -147,10 +147,10 @@ RSpec.describe Homebrew::Vulns::CPANSec do
         FileUtils.touch stale, mtime: Time.now - 100_000
         original = stale.read
         expect(Utils::Curl).to receive(:curl_download) { |*_args, to:| to.write "not json" }
-        loaded = nil
+        loaded = T.let(nil, T.nilable(Homebrew::Vulns::CPANSec))
         expect { loaded = described_class.load(cache:) }
           .to output(/Failed to refresh cpansa\.json/).to_stderr
-        expect(loaded.distributions).to include "DBI"
+        expect(loaded&.distributions).to include "DBI"
         expect(stale.read).to eq original
         expect(cache.children).to eq [stale]
       end
