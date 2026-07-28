@@ -127,7 +127,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       target = described_class.new([aom]).build_target(aom)
 
-      expect(target.repo_url).to eq "https://github.com/AomediaOrg/aom"
+      expect(target.repo_url).to eq "https://github.com/aomediaorg/aom"
       expect(target.tag).to eq "v3.13.1"
     end
 

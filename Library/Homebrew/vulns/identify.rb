@@ -47,6 +47,13 @@ module Homebrew
       WAYBACK_PREFIX = %r{\Ahttps?://web\.archive\.org/web/\d+[a-z_*]*/}
       private_constant :WAYBACK_PREFIX
 
+      # OSV.dev's GIT ecosystem indexes repository URLs case-sensitively but
+      # normalises `github.com` paths to lowercase (GitHub itself is
+      # case-insensitive). GitLab and Codeberg are case-sensitive so their
+      # paths are preserved.
+      LOWERCASE_PATH_HOSTS = ["github.com"].freeze
+      private_constant :LOWERCASE_PATH_HOSTS
+
       sig { params(urls: T.nilable(String)).returns(T.nilable(String)) }
       def self.repo_url(*urls)
         urls.each do |url|
@@ -58,6 +65,7 @@ module Homebrew
             next if match.nil?
 
             repo_path = T.must(match[1]).sub(/\.git$/, "")
+            repo_path = repo_path.downcase if LOWERCASE_PATH_HOSTS.include?(host)
             return "https://#{host}/#{repo_path}"
           end
         end

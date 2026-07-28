@@ -146,17 +146,20 @@ RSpec.describe Homebrew::Vulns::Repology do
       expect(described_class.lookup("node@20")).to eq("Debian" => ["nodejs"])
     end
 
-    it "rejects an ambiguous project (multiple unrelated Homebrew formulae)" do
-      allow(described_class).to receive(:fetch_project).with("antlr").and_return(
-        project(homebrew: ["antlr", "antlr4-cpp-runtime"],
-                distros:  [["debian_12", "antlr4"], ["debian_12", "antlr4-cpp-runtime"]]),
+    it "accepts a project that also lists sibling formulae with a different base name" do
+      # Repology groups wget + wget2 under one project; the sibling's distro
+      # srcnames come through as extra low-confidence distro queries whose
+      # upstream-CVE range check will not match this formula's identity.
+      allow(described_class).to receive(:fetch_project).with("wget").and_return(
+        project(homebrew: ["wget", "wget2"],
+                distros:  [["debian_12", "wget"], ["debian_12", "wget2"]]),
       )
-      expect(described_class.lookup("antlr")).to eq({})
+      expect(described_class.lookup("wget")).to eq("Debian" => ["wget", "wget2"])
     end
 
-    it "continues past an ambiguous candidate to a later valid one" do
+    it "still rejects a candidate whose Homebrew entries do not include the requested formula at all" do
       allow(described_class).to receive(:fetch_project).with("libfoo").and_return(
-        project(homebrew: ["libfoo", "libfoo-utils"], distros: [["debian_12", "wrong"]]),
+        project(homebrew: ["libfoo-utils"], distros: [["debian_12", "wrong"]]),
       )
       allow(described_class).to receive(:fetch_project).with("foo").and_return(
         project(homebrew: ["libfoo"], distros: [["debian_12", "foo"]]),

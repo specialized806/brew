@@ -93,16 +93,21 @@ module Homebrew
       private_constant :PREFERRED_STATUSES
 
       # Live single-project fallback for a formula the published index does
-      # not (yet) cover — typically a new formula in a homebrew-core PR before
-      # the next nightly index build.
+      # not cover: a new formula in a homebrew-core PR before the next nightly
+      # index build, or one the index put in `meta.ambiguous_projects`.
       #
       # Fetches each project in {.name_candidates}, keeps those whose Homebrew
-      # entries include `formula_name` (or its `@`-stripped base) and don't
-      # group unrelated formulae, then applies the same preferred-status
-      # resolution as `RepologyIndex#resolve` across the survivors. This makes
-      # the fallback consistent with the published index for the projects it
-      # can reach; it cannot detect collisions with projects outside
-      # {.name_candidates} (e.g. `allegro4`), which only the full crawl sees.
+      # entries include `formula_name` (or its `@`-stripped base), then applies
+      # the same preferred-status resolution as `RepologyIndex#resolve` across
+      # the survivors. Unlike the index builder, a project that also lists
+      # sibling formulae with a different base (`wget` + `wget2`, `sqlite` +
+      # `sqlite-analyzer`, `ffmpeg` + a third-party `ffmpeg-full`) is *not*
+      # rejected: the distro srcnames for the sibling flow through as extra
+      # low-confidence distro queries whose upstream-CVE range check will not
+      # match this formula's identity, so the cost is uncomparable noise rather
+      # than a wrong `:affected`/`:fixed` claim. This cannot detect collisions
+      # with projects outside {.name_candidates} (e.g. `allegro4`), which only
+      # the full crawl sees.
       sig { params(formula_name: String).returns(DistroMap) }
       def self.lookup(formula_name)
         base = base_name(formula_name)
@@ -113,8 +118,6 @@ module Homebrew
           next if entries.empty?
 
           brew = homebrew_entries(entries)
-          next if brew.keys.map { |n| base_name(n) }.uniq.size > 1
-
           distros = distil(entries)
           next if distros.empty?
 

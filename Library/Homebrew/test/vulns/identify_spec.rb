@@ -15,9 +15,16 @@ RSpec.describe Homebrew::Vulns::Identify do
       expect(described_class.repo_url(url)).to eq "https://github.com/owner/repo"
     end
 
-    it "extracts a GitHub repo from a .git URL" do
+    it "extracts a GitHub repo from a .git URL, lowercasing the path (OSV normalises github.com)" do
       expect(described_class.repo_url("https://github.com/AomediaOrg/aom.git"))
-        .to eq "https://github.com/AomediaOrg/aom"
+        .to eq "https://github.com/aomediaorg/aom"
+      expect(described_class.repo_url("https://github.com/FFmpeg/FFmpeg.git"))
+        .to eq "https://github.com/ffmpeg/ffmpeg"
+    end
+
+    it "preserves path case for GitLab (case-sensitive host)" do
+      expect(described_class.repo_url("https://gitlab.gnome.org/GNOME/glib.git"))
+        .to eq "https://gitlab.gnome.org/GNOME/glib"
     end
 
     it "extracts a GitLab repo, stripping the /-/ path segment" do
@@ -90,7 +97,7 @@ RSpec.describe Homebrew::Vulns::Identify do
     it "falls back to the head URL when the stable URL is not a supported forge" do
       stable = "https://aomedia.googlesource.com/aom.git"
       head = "https://github.com/AomediaOrg/aom.git"
-      expect(described_class.repo_url(stable, head)).to eq "https://github.com/AomediaOrg/aom"
+      expect(described_class.repo_url(stable, head)).to eq "https://github.com/aomediaorg/aom"
     end
 
     it "falls back to the homepage when neither stable nor head is a supported forge" do
