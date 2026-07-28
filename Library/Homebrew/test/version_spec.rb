@@ -691,6 +691,12 @@ RSpec.describe Version do
         .to be_detected_from("https://wwwlehre.dhbw-stuttgart.de/~sschulz/WORK/E_DOWNLOAD/V_1.9/E.tgz")
     end
 
+    specify "GitHub release tag takes precedence over asset filename" do
+      url = "https://github.com/dvorka-oss/hstr/releases/download/v3.2/hstr-3.2.0-tarball.tgz"
+
+      expect(described_class.detect(url).to_s).to eq("3.2")
+    end
+
     specify "w.x.y.z url-only version style" do
       expect(described_class.new("2.3.2.0"))
         .to be_detected_from("https://github.com/JustArchi/ArchiSteamFarm/releases/download/2.3.2.0/ASF.zip")

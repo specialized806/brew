@@ -388,6 +388,10 @@ class Version
     # e.g. `https://github.com/petdance/ack/tarball/1.93_02`
     UrlParser.new(%r{github\.com/.+/(?:zip|tar)ball/(?:v|\w+-)?((?:\d+[._-])+\d*)$}),
 
+    # GitHub releases
+    # e.g. `https://github.com/foo/bar/releases/download/v1.2/foo-1.2.0.tar.gz`
+    UrlParser.new(%r{github\.com/.+/releases/download/(?:[rvV]_?)?(#{NUMERIC_WITH_DOTS})/}),
+
     # e.g. `https://github.com/erlang/otp/tarball/OTP_R15B01 (erlang style)`
     UrlParser.new(/[_-]([Rr]\d+[AaBb]\d*(?:-\d+)?)/),
 
