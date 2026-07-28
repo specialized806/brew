@@ -942,6 +942,7 @@ module Cask
             next unless (main_binary = get_plist_main_binary(app_bundle_path))
             next if !File.exist?(main_binary) || File.open(main_binary, "rb") { |f| f.read(2) == "#!" }
 
+            require "macho"
             macho = MachO.open(main_binary)
             min_os = case macho
             when MachO::MachOFile
