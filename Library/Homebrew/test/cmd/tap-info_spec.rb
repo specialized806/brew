@@ -7,10 +7,18 @@ require "cmd/tap-info"
 RSpec.describe Homebrew::Cmd::TapInfo do
   it_behaves_like "parseable arguments"
 
-  it "gets information for a given Tap", :integration_test, :needs_network do
+  it "gets information for a given Tap", :integration_test do
     setup_test_tap
 
-    expect { brew "tap-info", "--json=v1", "--installed" }
+    # Run without the Sorbet runtime so this exercises the same `require` graph as
+    # a real `brew tap-info`, which loads fewer files.
+    brew_env = {
+      "HOMEBREW_SORBET_RUNTIME"   => nil,
+      "HOMEBREW_SORBET_RECURSIVE" => nil,
+      "HOMEBREW_NO_GITHUB_API"    => "1",
+    }
+
+    expect { brew "tap-info", "--json=v1", "--installed", brew_env }
       .to output(%r{https://github\.com/Homebrew/homebrew-foo}).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
