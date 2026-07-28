@@ -642,8 +642,10 @@ module Homebrew
         default:      "https://pypi.org/simple",
       },
       HOMEBREW_PRY:                              {
-        description: "If set, use Pry for the `brew irb` command.",
+        description: "This variable no longer has any effect because Pry is largely unmaintained upstream.",
         boolean:     true,
+        odeprecated: true,
+        replacement: "the default IRB backend (Pry is largely unmaintained upstream)",
       },
       HOMEBREW_REQUIRE_TAP_TRUST:                {
         # odeprecated: make tap trust checks default in a later release.

@@ -151,10 +151,14 @@ RSpec.describe Homebrew::API do
     let(:target) { cache_dir/"internal/packages.test.jws.json" }
     let(:payload_cache) { cache_dir/"internal/packages.test.jws.json.payload" }
     let(:private_key) { self.class.jws_test_key }
-    let(:protected_b64) { Base64.urlsafe_encode64('{"alg":"PS512","b64":false}') }
+    let(:protected_b64) { urlsafe_encode64('{"alg":"PS512","b64":false}') }
+
+    def urlsafe_encode64(value)
+      [value].pack("m0").tr("+/", "-_")
+    end
 
     def sign_payload(payload)
-      Base64.urlsafe_encode64(
+      urlsafe_encode64(
         private_key.sign_pss("SHA512", "#{protected_b64}.#{payload}", salt_length: :digest, mgf1_hash: "SHA512"),
       )
     end
@@ -237,6 +241,38 @@ RSpec.describe Homebrew::API do
       target.write envelope_json('{"foo":"bar"}', signature: sign_payload('{"foo":"evil"}'))
       expect { fetch_target }.to raise_error(SystemExit)
         .and output(/Failed to verify integrity \(signature mismatch\)/).to_stderr
+    end
+  end
+
+  describe "::fetch_api_files!" do
+    it "does not initialise downloads when the API cache is current" do
+      target = mktmpdir/"packages.json"
+      target.write json
+      allow(Homebrew::API::Internal).to receive(:cached_packages_json_file_path).and_return(target)
+      allow(Homebrew::EnvConfig).to receive(:no_auto_update?).and_return(true)
+
+      expect(Homebrew::API::Internal).not_to receive(:fetch_packages_api!)
+      described_class.fetch_api_files!
+    end
+
+    it "handles a missing API cache before refusing root downloads" do
+      queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+      allow(Homebrew::DownloadQueue).to receive(:new).and_return(queue)
+      allow(Homebrew::API::Internal).to receive(:cached_packages_json_file_path).and_return(mktmpdir/"packages.json")
+      allow(Homebrew).to receive(:running_as_root_but_not_owned_by_root?).and_return(true)
+
+      expect(Homebrew::API::Internal).to receive(:fetch_packages_api!).and_return([{}, false])
+      described_class.fetch_api_files!
+    end
+  end
+
+  describe "::urlsafe_decode64" do
+    it "decodes unpadded URL-safe base64" do
+      expect(described_class.instance_eval { urlsafe_decode64("SGVsbG8") }).to eq("Hello")
+    end
+
+    it "rejects invalid base64" do
+      expect { described_class.instance_eval { urlsafe_decode64("a") } }.to raise_error(ArgumentError)
     end
   end
 

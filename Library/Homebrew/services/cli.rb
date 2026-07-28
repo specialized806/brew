@@ -296,6 +296,7 @@ module Homebrew
         elsif System.launchctl?
           group = "admin"
           chown "root", group, service.dest
+          require "plist"
           plist_data = service.dest.read
           plist = begin
             Plist.parse_xml(plist_data, marshal: false)
@@ -418,6 +419,7 @@ module Homebrew
           if sudo_service_user && System.launchctl?
             # set the username in the new plist file
             ohai "Setting username in #{service.service_name} to: #{sudo_service_user}"
+            require "plist"
             plist_data = Plist.parse_xml(contents, marshal: false)
             plist_data["UserName"] = sudo_service_user
             plist_data.to_plist

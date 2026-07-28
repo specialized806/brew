@@ -1,8 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "plist"
-
 require "utils/user"
 require "cask/artifact/abstract_artifact"
 require "extend/hash/keys"
@@ -99,6 +97,7 @@ module Cask
         choices = stanza_options.fetch(:choices, {})
         return yield nil if choices.empty?
 
+        require "plist"
         Tempfile.open(["choices", ".xml"]) do |file|
           file.write Plist::Emit.dump(choices)
           file.close

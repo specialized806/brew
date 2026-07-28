@@ -1,9 +1,12 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "warnings"
-Warnings.ignore(/warning: callcc is obsolete; use Fiber instead/) do
+deprecated_warnings = Warning[:deprecated]
+begin
+  Warning[:deprecated] = false
   require "continuation"
+ensure
+  Warning[:deprecated] = deprecated_warnings
 end
 
 # Provides the ability to optionally ignore errors raised and continue execution.

@@ -108,6 +108,8 @@ module OS
       def codesign_patched_binary(file)
         return if MacOS.version < :big_sur
 
+        require "macho"
+
         odebug "Codesigning #{file}"
         MachO.codesign! file
       rescue MachO::CodeSigningError => e

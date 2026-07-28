@@ -14,7 +14,9 @@ module Homebrew
                description: "Show several examples."
         switch "--pry",
                description: "Use Pry instead of IRB.",
-               env:         :pry
+               env:         :pry,
+               replacement: "the default IRB backend (Pry is largely unmaintained upstream)",
+               odeprecated: true
       end
 
       # work around IRB modifying ARGV.
@@ -36,30 +38,15 @@ module Homebrew
           return
         end
 
-        if args.pry?
-          Homebrew.install_bundler_gems!(groups: ["pry"])
-          require "pry"
-        end
-
         require "keg"
         require "cask"
 
         ohai "Interactive Homebrew Shell", "Example commands available with: `brew irb --examples`"
-        if args.pry?
-          Pry.config.should_load_rc = false # skip loading .pryrc
-          Pry.config.history_file = "#{Dir.home}/.brew_pry_history"
-          Pry.config.prompt_name = "brew"
+        ENV["IRBRC"] = (HOMEBREW_LIBRARY_PATH/"brew_irbrc").to_s
 
-          require "brew_irb_helpers"
-
-          Pry.start
-        else
-          ENV["IRBRC"] = (HOMEBREW_LIBRARY_PATH/"brew_irbrc").to_s
-
-          $stdout.flush
-          $stderr.flush
-          exec File.join(RbConfig::CONFIG["bindir"], "irb"), "-I", $LOAD_PATH.join(File::PATH_SEPARATOR), *args.named
-        end
+        $stdout.flush
+        $stderr.flush
+        exec File.join(RbConfig::CONFIG["bindir"], "irb"), "-I", $LOAD_PATH.join(File::PATH_SEPARATOR), *args.named
       end
     end
   end

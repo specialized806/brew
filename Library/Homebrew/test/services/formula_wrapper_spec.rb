@@ -171,6 +171,23 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   end
 
   describe "#owner" do
+    it "reads the user from a launchd plist" do
+      plist = mktmpdir/"homebrew.test.plist"
+      plist.write <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+          <dict>
+            <key>UserName</key>
+            <string>_serviced</string>
+          </dict>
+        </plist>
+      XML
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      allow(service).to receive(:dest).and_return(plist)
+
+      expect(service.owner).to eq("_serviced")
+    end
+
     it "root if file present" do
       allow(service).to receive(:boot_path_service_file_present?).and_return(true)
       expect(service.owner).to eq("root")
