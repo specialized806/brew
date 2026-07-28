@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "vulns/cached_feed"
+require "vulns/vulnerability"
 
 module Homebrew
   module Vulns
@@ -52,6 +53,55 @@ module Homebrew
         return [] unless entry.is_a?(Hash)
 
         Array(entry["advisories"]).filter_map { |a| build_advisory(a) if a.is_a?(Hash) }
+      end
+
+      # CPANSA constraints: each `affected_versions` array entry is a
+      # comma-joined AND of `<`/`<=`/`>`/`>=`/`==`/`=`/bare-version terms; the
+      # array is an OR of those. `fixed_versions` uses the same grammar.
+      # Compared with {Version}; Perl's decimal-vs-dotted equivalence
+      # (`1.002003` == `v1.2.3`) is not modelled since homebrew-core CPAN
+      # formulae uniformly use the decimal form.
+      sig { params(advisory: Advisory, version: String).returns(Vulnerability::RangeStatus) }
+      def self.range_status(advisory, version)
+        target = Version.new(version.sub(/\Av/i, ""))
+        affected = advisory.affected_versions.empty? ||
+                   advisory.affected_versions.any? { |c| satisfies?(target, c) }
+        fixed_in = advisory.fixed_versions.flat_map { |c| lower_bounds(c) }
+                                          .select { |v| target < v || (!affected && target == v) }
+                                          .min&.to_s
+        fixed_in ||= advisory.fixed_versions.flat_map { |c| lower_bounds(c) }.max&.to_s unless affected
+        Vulnerability::RangeStatus.new(affected:, fixed_in:).freeze
+      end
+
+      CONSTRAINT = /\A\s*(<=|>=|==|<|>|=)?\s*v?(\d[\w.]*)\s*\z/
+      private_constant :CONSTRAINT
+
+      LOWER_BOUND_OPS = [">=", ">", "==", "=", nil].freeze
+      private_constant :LOWER_BOUND_OPS
+
+      sig { params(target: Version, conjunction: String).returns(T::Boolean) }
+      def self.satisfies?(target, conjunction)
+        conjunction.split(",").all? do |term|
+          match = term.match(CONSTRAINT)
+          next false unless match
+
+          bound = Version.new(T.must(match[2]))
+          case match[1]
+          when "<"  then target < bound
+          when "<=" then target <= bound
+          when ">"  then target > bound
+          when ">=" then target >= bound
+          else target == bound
+          end
+        end
+      end
+
+      sig { params(conjunction: String).returns(T::Array[Version]) }
+      def self.lower_bounds(conjunction)
+        conjunction.split(",").filter_map do |term|
+          match = term.match(CONSTRAINT)
+          Version.new(T.must(match[2])) if match && LOWER_BOUND_OPS.include?(match[1])
+        end
       end
 
       sig { params(raw: T::Hash[String, T.untyped]).returns(T.nilable(Advisory)) }

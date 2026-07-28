@@ -85,6 +85,48 @@ RSpec.describe Homebrew::Vulns::CPANSec do
     end
   end
 
+  describe ".range_status" do
+    def adv(affected:, fixed:)
+      Homebrew::Vulns::CPANSec::Advisory.new(id: "CPANSA-X", cves: [], affected_versions: affected,
+                                             fixed_versions: fixed)
+    end
+
+    it "reports affected with fixed_in when the version is inside a single-bound constraint" do
+      status = described_class.range_status(adv(affected: ["<12.24"], fixed: [">=12.24"]), "12.00")
+      expect(status).to have_attributes(affected?: true, fixed_in: "12.24")
+    end
+
+    it "reports not-affected with fixed_in when the version is at or past the fix" do
+      status = described_class.range_status(adv(affected: ["<12.24"], fixed: [">=12.24"]), "13.55")
+      expect(status).to have_attributes(affected?: false, fixed_in: "12.24")
+    end
+
+    it "evaluates comma-joined AND terms" do
+      status = described_class.range_status(adv(affected: [">=0.64,<1.632"], fixed: [">=1.632"]), "1.5")
+      expect(status.affected?).to be true
+      expect(described_class.range_status(adv(affected: [">=0.64,<1.632"], fixed: []), "0.5").affected?)
+        .to be false
+    end
+
+    it "treats multiple array entries as OR" do
+      a = adv(affected: ["<1.0", ">=2.0,<2.5"], fixed: [">=1.0,<2.0", ">=2.5"])
+      expect(described_class.range_status(a, "0.9").affected?).to be true
+      expect(described_class.range_status(a, "2.1")).to have_attributes(affected?: true, fixed_in: "2.5")
+      expect(described_class.range_status(a, "1.5").affected?).to be false
+    end
+
+    it "treats a bare version term as equality and an empty affected_versions as always affected" do
+      expect(described_class.range_status(adv(affected: ["1.0"], fixed: []), "1.0").affected?).to be true
+      expect(described_class.range_status(adv(affected: ["1.0"], fixed: []), "1.1").affected?).to be false
+      expect(described_class.range_status(adv(affected: [], fixed: []), "1.0").affected?).to be true
+    end
+
+    it "reports affected with no fixed_in when there is no fixed_versions" do
+      expect(described_class.range_status(adv(affected: ["<12.24"], fixed: []), "12.00"))
+        .to have_attributes(affected?: true, fixed_in: nil)
+    end
+  end
+
   describe ".load" do
     it "reads a fresh cache file without downloading" do
       Dir.mktmpdir do |dir|
