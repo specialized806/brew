@@ -45,7 +45,7 @@ module Homebrew
         Homebrew.with_no_api_env do
           latest_macos = MacOSVersion.new((HOMEBREW_MACOS_NEWEST_UNSUPPORTED.to_i - 1).to_s).to_sym
           Homebrew::SimulateSystem.with(os: latest_macos, arch: :arm) do
-            matcher = Homebrew::Vulns::Match.new
+            matcher = Homebrew::Vulns::Match.new(bulk: args.all? || args.index?)
             next emit_index(matcher) if args.index?
 
             records = each_formula.flat_map { |f| records_for(matcher, f) }
@@ -75,7 +75,7 @@ module Homebrew
       sig { params(matcher: Homebrew::Vulns::Match, formula: Formula).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
       def records_for(matcher, formula)
         hits = matcher.advisories_for(formula)
-        report(formula, hits) if text_mode?
+        report(matcher, formula, hits) if text_mode?
         hits.map do |hit|
           first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
           matcher.to_brew_record(formula, hit, first_fixed:)
@@ -91,8 +91,11 @@ module Homebrew
         !args.json? && args.output.nil?
       end
 
-      sig { params(formula: Formula, hits: T::Array[Homebrew::Vulns::Match::Hit]).void }
-      def report(formula, hits)
+      sig {
+        params(matcher: Homebrew::Vulns::Match, formula: Formula,
+               hits: T::Array[Homebrew::Vulns::Match::Hit]).void
+      }
+      def report(matcher, formula, hits)
         ohai "#{formula.name} #{formula.pkg_version}"
         if hits.empty?
           puts "  No advisories matched."
@@ -100,12 +103,19 @@ module Homebrew
         end
         hits.sort_by { |h| [-h.vulnerability.severity_level, h.canonical_id] }.each do |hit|
           v = hit.vulnerability
-          fixed = v.fixed_versions.first
-          puts "  #{hit.canonical_id} [#{hit.strategy}, " \
-               "#{Homebrew::Vulns::Match::CONFIDENCE.fetch(hit.strategy)}] " \
-               "#{v.severity_display} #{v.summary&.slice(0, 60)}" \
-               "#{" (upstream fixed #{fixed})" if fixed}" \
-               "#{" (resource: #{hit.resource})" if hit.resource}"
+          status = matcher.range_status(hit)
+          state = if status.nil?
+            "uncomparable"
+          elsif status.affected?
+            status.fixed_in ? "AFFECTED, upstream fix #{status.fixed_in}" : "AFFECTED, no upstream fix"
+          else
+            "fixed (upstream #{status.fixed_in || "?"})"
+          end
+          summary = v.summary&.slice(0, 60)
+          puts "  #{hit.canonical_id} [#{hit.strategy}, #{matcher.confidence_for(hit, status)}] " \
+               "#{v.severity_display} #{state}" \
+               "#{" (resource: #{hit.resource})" if hit.resource}" \
+               "#{" — #{summary}" if summary}"
         end
       end
 

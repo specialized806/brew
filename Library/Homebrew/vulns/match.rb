@@ -14,13 +14,14 @@ module Homebrew
     # Authoring-time advisory matcher. For a given {Formula} it derives every
     # OSV.dev query key it can (forge repository, language-registry package for
     # the primary URL and each `resource`, distro source packages via
-    # {Repology}, CPAN distribution via {CPANSec}) and returns the deduplicated
-    # set of vulnerabilities any of them hit, tagged with the strategy that
-    # reached each one.
+    # {Repology}, CPAN distribution via {CPANSec}), issues *versionless* queries
+    # against each, resolves distro advisories to their upstream CVEs, and
+    # evaluates each hit's affected range against the version we ship.
     #
     # Runs in `Homebrew/advisory-database` CI and the homebrew-core PR bot to
     # produce candidate `BREW-*` records for human review; never on a user's
-    # machine, so request volume and false-positive rate are traded for recall.
+    # machine, so request volume is traded for recall and every candidate
+    # carries a strategy/confidence label for the reviewer.
     class Match
       include Utils::Output::Mixin
 
@@ -48,7 +49,16 @@ module Homebrew
         end
       end
 
-      Evidence = Struct.new(:strategy, :key, :resource, keyword_init: true)
+      # `ecosystem`/`name` are the OSV `package` fields queried, so a hit's
+      # `affected[]` entry can be matched back to this evidence.
+      # `subject_version` is the version to evaluate that entry's ranges
+      # against: the formula version for the primary source, the pinned
+      # resource version for a resource, `nil` for distro (whose versions are
+      # not comparable to ours). `advisory` carries the CPANSA record for
+      # `:cpansa` evidence so its constraint strings survive to
+      # {#range_status}.
+      Evidence = Struct.new(:strategy, :ecosystem, :name, :subject_version, :key, :resource,
+                            :advisory, keyword_init: true)
 
       class Hit
         sig { returns(Vulnerability) }
@@ -68,14 +78,19 @@ module Homebrew
           )
         end
 
+        sig { returns(Evidence) }
+        def primary_evidence
+          evidence.fetch(0)
+        end
+
         sig { returns(Symbol) }
         def strategy
-          evidence.fetch(0).strategy
+          primary_evidence.strategy
         end
 
         sig { returns(T.nilable(String)) }
         def resource
-          evidence.fetch(0).resource
+          primary_evidence.resource
         end
 
         sig { returns(String) }
@@ -84,11 +99,12 @@ module Homebrew
         end
       end
 
-      sig { params(repology: T.nilable(Repology), cpan_sec: T.nilable(CPANSec)).void }
-      def initialize(repology: nil, cpan_sec: nil)
+      sig { params(repology: T.nilable(Repology), cpan_sec: T.nilable(CPANSec), bulk: T::Boolean).void }
+      def initialize(repology: nil, cpan_sec: nil, bulk: false)
         @repology = repology
         @cpan_sec = cpan_sec
-        @vuln_cache = T.let({}, T::Hash[String, T.nilable(T::Hash[String, T.untyped])])
+        @bulk = bulk
+        @vuln_cache = T.let({}, T::Hash[String, T.nilable(Vulnerability)])
         @formula_versions = T.let({}, T::Hash[String, FormulaVersions])
         @formula_rev_lists = T.let({}, T::Hash[String, T::Array[[String, String]]])
       end
@@ -120,14 +136,17 @@ module Homebrew
       end
 
       # Returns one {Hit} per distinct vulnerability (grouped by CVE alias)
-      # reached by any strategy. Each hit's `evidence` lists every path that
-      # reached it, highest-precision first.
+      # reached by any strategy. Distro-ecosystem records are resolved to their
+      # `upstream` CVE(s) so multi-CVE advisories split into per-CVE hits and
+      # collapse onto the same CVE reached via GIT/registry. All queries are
+      # versionless so historic bump-fixed advisories are returned;
+      # {#range_status} evaluates each hit against the shipped version.
       sig { params(formula: Formula).returns(T::Array[Hit]) }
       def advisories_for(formula)
         identity = identify(formula)
         return [] unless identity.identifiable?
 
-        labelled = build_osv_queries(identity)
+        labelled = build_osv_queries(identity, formula.version.to_s)
         id_evidence = T.let({}, T::Hash[String, T::Array[Evidence]])
 
         if labelled.any?
@@ -137,77 +156,139 @@ module Homebrew
           end
         end
 
-        cpan_advisory_ids(identity).each { |id, evidence| (id_evidence[id] ||= []) << evidence }
-
-        hits = id_evidence.filter_map do |id, evidence|
-          record = fetch_vulnerability(id)
-          Hit.new(vulnerability: Vulnerability.new(record), evidence:) if record
+        cpan_evidence(identity).each do |ev|
+          cpan_sec.advisories_for(ev.name).each do |adv|
+            annotated = Evidence.new(**ev.to_h, advisory: adv).freeze
+            (adv.cves.presence || [adv.id.to_s]).each { |id| (id_evidence[id] ||= []) << annotated }
+          end
         end
 
+        hits = resolve_upstream(id_evidence, identity)
         dedup_by_cve(hits)
       end
 
-      sig { params(identity: Identity).returns(T::Array[[OSV::Package, Evidence]]) }
-      def build_osv_queries(identity)
+      sig {
+        params(identity: Identity, formula_version: String).returns(T::Array[[OSV::Package, Evidence]])
+      }
+      def build_osv_queries(identity, formula_version)
         queries = T.let([], T::Array[[OSV::Package, Evidence]])
 
-        if (repo = identity.git_repo) && (tag = identity.git_tag)
-          queries << [{ ecosystem: "GIT", name: repo, version: tag },
-                      Evidence.new(strategy: :git, key: repo).freeze]
+        if (repo = identity.git_repo)
+          queries << [{ ecosystem: "GIT", name: repo, version: nil },
+                      Evidence.new(strategy: :git, ecosystem: "GIT", name: repo,
+                                   subject_version: identity.git_tag || formula_version,
+                                   key: repo).freeze]
         end
 
         if (pkg = identity.primary_package) && pkg.ecosystem != "CPAN"
-          queries << [{ ecosystem: pkg.ecosystem, name: pkg.name, version: pkg.version },
-                      Evidence.new(strategy: :registry, key: pkg.purl).freeze]
+          queries << [{ ecosystem: pkg.ecosystem, name: pkg.name, version: nil },
+                      Evidence.new(strategy: :registry, ecosystem: pkg.ecosystem, name: pkg.name,
+                                   subject_version: pkg.version, key: pkg.purl).freeze]
         end
 
         identity.resource_packages.each do |resource, pkg|
           next if pkg.ecosystem == "CPAN"
 
-          queries << [{ ecosystem: pkg.ecosystem, name: pkg.name, version: pkg.version },
-                      Evidence.new(strategy: :registry, key: pkg.purl, resource:).freeze]
+          queries << [{ ecosystem: pkg.ecosystem, name: pkg.name, version: nil },
+                      Evidence.new(strategy: :registry, ecosystem: pkg.ecosystem, name: pkg.name,
+                                   subject_version: pkg.version, key: pkg.purl, resource:).freeze]
         end
 
         identity.distro_packages.each do |ecosystem, srcnames|
           srcnames.each do |srcname|
             queries << [{ ecosystem:, name: srcname, version: nil },
-                        Evidence.new(strategy: :distro, key: "#{ecosystem}/#{srcname}").freeze]
+                        Evidence.new(strategy: :distro, ecosystem:, name: srcname,
+                                     key: "#{ecosystem}/#{srcname}").freeze]
           end
         end
 
         queries
       end
 
-      sig { params(identity: Identity).returns(T::Array[[String, Evidence]]) }
-      def cpan_advisory_ids(identity)
-        result = T.let([], T::Array[[String, Evidence]])
-        cpan_packages(identity).each do |pkg, resource|
-          evidence = Evidence.new(strategy: :cpansa, key: pkg.purl, resource:).freeze
-          cpan_sec.advisories_for(pkg.name).each do |adv|
-            ids = adv.cves.presence || [adv.id.to_s]
-            ids.each { |id| result << [id, evidence] }
+      sig { params(identity: Identity).returns(T::Array[Evidence]) }
+      def cpan_evidence(identity)
+        result = T.let([], T::Array[Evidence])
+        primary = identity.primary_package
+        if primary&.ecosystem == "CPAN"
+          result << Evidence.new(strategy: :cpansa, ecosystem: "CPAN", name: primary.name,
+                                 subject_version: primary.version, key: primary.purl)
+        end
+        identity.resource_packages.each do |resource, pkg|
+          next if pkg.ecosystem != "CPAN"
+
+          result << Evidence.new(strategy: :cpansa, ecosystem: "CPAN", name: pkg.name,
+                                 subject_version: pkg.version, key: pkg.purl, resource:)
+        end
+        result
+      end
+
+      CVE_ID = /\ACVE-\d{4}-\d+\z/
+      private_constant :CVE_ID
+
+      # Turn `id => [Evidence, ...]` into `[Hit, ...]`, resolving each record to
+      # the canonical CVE(s) it references. Distro advisories name their CVEs in
+      # `upstream` (Debian/Ubuntu/RH/openSUSE/...) or `related` (AlmaLinux),
+      # often mixed with distro-prefixed ids (`DEBIAN-CVE-*`) that would need
+      # another hop; only bare `CVE-YYYY-N` ids are followed. A record that is
+      # already a CVE (by id or alias) is kept as-is; one that names no CVE at
+      # all is kept as a low-confidence hit rather than dropped. Each resolved
+      # hit gains synthesised evidence pointing at our own identity so
+      # {#range_status} can check the CVE record's `affected[]` against our
+      # version.
+      sig {
+        params(id_evidence: T::Hash[String, T::Array[Evidence]], identity: Identity)
+          .returns(T::Array[Hit])
+      }
+      def resolve_upstream(id_evidence, identity)
+        own = own_evidence(identity)
+        hits = T.let([], T::Array[Hit])
+
+        id_evidence.each do |id, evidence|
+          record = fetch_vulnerability(id)
+          next if record.nil?
+
+          upstream_cves = (record.upstream + record.related).grep(CVE_ID).uniq
+          if record.cve_ids.any? || upstream_cves.empty?
+            hits << Hit.new(vulnerability: record, evidence:)
+            next
+          end
+
+          upstream_cves.each do |cve|
+            upstream_record = fetch_vulnerability(cve)
+            next if upstream_record.nil?
+
+            hits << Hit.new(vulnerability: upstream_record, evidence: evidence + own)
           end
         end
-        result
+
+        hits
       end
 
-      sig {
-        params(identity: Identity).returns(T::Array[[Identify::RegistryPackage, T.nilable(String)]])
-      }
-      def cpan_packages(identity)
-        result = T.let([], T::Array[[Identify::RegistryPackage, T.nilable(String)]])
-        primary = identity.primary_package
-        result << [primary, nil] if primary&.ecosystem == "CPAN"
-        identity.resource_packages.each do |resource, pkg|
-          result << [pkg, resource] if pkg.ecosystem == "CPAN"
+      # Evidence rows pointing at our own identity keys (git repo, primary
+      # registry package) with the formula/package version as subject. Attached
+      # to distro-resolved upstream hits so {#range_status} can evaluate the
+      # upstream CVE record's `affected[]` against something comparable.
+      sig { params(identity: Identity).returns(T::Array[Evidence]) }
+      def own_evidence(identity)
+        result = T.let([], T::Array[Evidence])
+        if (repo = identity.git_repo)
+          result << Evidence.new(strategy: :distro, ecosystem: "GIT", name: repo,
+                                 subject_version: identity.git_tag, key: "upstream:#{repo}").freeze
+        end
+        if (pkg = identity.primary_package)
+          result << Evidence.new(strategy: :distro, ecosystem: pkg.ecosystem, name: pkg.name,
+                                 subject_version: pkg.version, key: "upstream:#{pkg.purl}").freeze
         end
         result
       end
 
+      # Bulk mode (the `--all` sweep) trusts the published index; only a
+      # single-formula run (the PR bot, or an explicit named check) may hit the
+      # live Repology API for a formula the index doesn't yet cover.
       sig { params(name: String).returns(Repology::DistroMap) }
       def distro_packages_for(name)
         indexed = repology.distro_packages_for(name)
-        return indexed if indexed.any?
+        return indexed if indexed.any? || @bulk
 
         Repology.lookup(name)
       rescue CachedFeed::Error => e
@@ -217,11 +298,11 @@ module Homebrew
 
       # OSV `querybatch` returns id/modified stubs; the full record is fetched
       # once per id and cached across formulae.
-      sig { params(id: String).returns(T.nilable(T::Hash[String, T.untyped])) }
+      sig { params(id: String).returns(T.nilable(Vulnerability)) }
       def fetch_vulnerability(id)
         @vuln_cache.fetch(id) do
           @vuln_cache[id] = begin
-            OSV.vulnerability(id)
+            Vulnerability.new(OSV.vulnerability(id))
           rescue OSV::Error => e
             odebug "OSV.vulnerability(#{id}) failed: #{e.message}"
             nil
@@ -229,26 +310,60 @@ module Homebrew
         end
       end
 
+      sig { params(hits: T::Array[Hit]).returns(T::Array[Hit]) }
+      def dedup_by_cve(hits)
+        hits.group_by(&:canonical_id).map do |_, group|
+          next group.fetch(0) if group.one?
+
+          primary = T.must(group.max_by { |h| STRATEGY_PRECISION.fetch(h.strategy) })
+          Hit.new(vulnerability: primary.vulnerability,
+                  evidence:      group.flat_map(&:evidence).uniq)
+        end
+      end
+
+      # Evaluate `hit` against the version we ship, trying each evidence in
+      # precision order. Returns the first {Vulnerability::RangeStatus} that a
+      # comparable range yields, or `nil` if no evidence produced a checkable
+      # answer (e.g. a GIT-only record with commit-SHA ranges, or a distro-only
+      # hit whose upstream CVE has no `affected[]` matching our identity).
+      sig { params(hit: Hit).returns(T.nilable(Vulnerability::RangeStatus)) }
+      def range_status(hit)
+        hit.evidence.each do |ev|
+          status = case ev.strategy
+          when :cpansa
+            adv = ev.advisory
+            CPANSec.range_status(adv, ev.subject_version) if adv && ev.subject_version
+          else
+            next unless ev.subject_version
+
+            hit.vulnerability.range_status(ev.ecosystem, ev.name, ev.subject_version)
+          end
+          return status if status
+        end
+        nil
+      end
+
       # Emit a candidate `BREW-*` OSV record for `hit` against `formula`.
       #
       # `first_fixed` is the {PkgVersion} at which Homebrew first shipped a fix
-      # (from {#first_fixed_version} or a hand-set value); when absent, the
-      # record marks the current `pkg_version` as fixed if
-      # {#upstream_fix_shipped?} says so, otherwise it carries no `fixed` event
-      # and `ecosystem_specific.fix` is null. As with {OsvExport.record_for},
-      # {OsvExport.merge_existing} preserves the on-disk `ranges` on rewrite so
-      # a hand-corrected boundary sticks.
+      # (from {#first_fixed_version} or a hand-set value). Otherwise
+      # {#range_status} is consulted: `affected? == false` sets
+      # `fixed: pkg_version` and `ecosystem_specific.fix: "bump"`;
+      # `affected? == true` (or no comparable range) emits no `fixed` event and
+      # `fix: null`. As with {OsvExport.record_for}, {OsvExport.merge_existing}
+      # preserves on-disk `ranges` on rewrite so a hand-corrected boundary
+      # sticks.
       sig {
         params(formula: Formula, hit: Hit, first_fixed: T.nilable(String), now: Time)
           .returns(T::Hash[Symbol, T.untyped])
       }
       def to_brew_record(formula, hit, first_fixed: nil, now: Time.now.utc)
         vuln = hit.vulnerability
-        raw = fetch_vulnerability(vuln.id) || {}
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        status = range_status(hit)
 
         fixed = first_fixed
-        fixed ||= formula.pkg_version.to_s if upstream_fix_shipped?(subject_version(formula, hit), hit)
+        fixed ||= formula.pkg_version.to_s if status && !status.affected?
         events = T.let([{ introduced: "0" }], T::Array[T::Hash[Symbol, String]])
         events << { fixed: } if fixed
 
@@ -257,20 +372,20 @@ module Homebrew
           id:                "#{OsvExport::ID_PREFIX}-#{formula.name}-#{hit.canonical_id}",
           published:         timestamp,
           modified:          timestamp,
-          upstream:          vuln.identifiers.uniq,
-          affected:          [affected_entry(formula, hit, events, fixed)],
+          upstream:          vuln.identifiers,
+          affected:          [affected_entry(formula, hit, events, fixed, status)],
           database_specific: {
             source:            "matched",
             strategy:          hit.strategy.to_s,
-            confidence:        CONFIDENCE.fetch(hit.strategy),
-            upstream_evidence: hit.evidence.map { |e| e.to_h.compact },
+            confidence:        confidence_for(hit, status),
+            upstream_evidence: hit.evidence.map { |e| e.to_h.except(:advisory).compact },
           },
         }, T::Hash[Symbol, T.untyped])
 
         record[:summary] = vuln.summary if vuln.summary
         record[:details] = vuln.details if vuln.details
-        record[:severity] = raw["severity"] if raw["severity"]
-        if (refs = raw["references"])
+        record[:severity] = vuln.severity_entries if vuln.severity_entries.any?
+        if (refs = vuln.references).any?
           record[:references] = refs.uniq { |r| [r["type"], URI::RFC2396_PARSER.unescape(r["url"].to_s)] }
         end
 
@@ -278,11 +393,24 @@ module Homebrew
       end
 
       sig {
-        params(formula: Formula, hit: Hit, events: T::Array[T::Hash[Symbol, String]],
-               fixed: T.nilable(String)).returns(T::Hash[Symbol, T.untyped])
+        params(hit: Hit, status: T.nilable(Vulnerability::RangeStatus)).returns(String)
       }
-      def affected_entry(formula, hit, events, fixed)
+      def confidence_for(hit, status)
+        base = CONFIDENCE.fetch(hit.strategy)
+        return base if status
+
+        # No comparable range: the reviewer must set the boundary by hand.
+        (base == "high") ? "medium" : "low"
+      end
+
+      sig {
+        params(formula: Formula, hit: Hit, events: T::Array[T::Hash[Symbol, String]],
+               fixed: T.nilable(String), status: T.nilable(Vulnerability::RangeStatus))
+          .returns(T::Hash[Symbol, T.untyped])
+      }
+      def affected_entry(formula, hit, events, fixed, status)
         eco = T.let({ fix: fixed ? "bump" : nil }, T::Hash[Symbol, T.nilable(String)])
+        eco[:upstream_fixed_in] = status.fixed_in if status&.fixed_in
         if (resource = hit.resource)
           eco[:resource] = resource
           eco[:resource_purl] = hit.evidence.find { |e| e.resource == resource }&.key
@@ -298,58 +426,19 @@ module Homebrew
         }
       end
 
-      # For a resource hit, the fix-shipped test compares the resource's pinned
-      # version (not the formula's) against the upstream threshold; the emitted
-      # `fixed:` boundary is still the formula's `pkg_version` since that is
-      # what {ecosystem: Homebrew} range checks match on.
-      sig { params(formula: Formula, hit: Hit).returns(T.nilable(Version)) }
-      def subject_version(formula, hit)
-        if (r = hit.resource)
-          begin
-            formula.resource(r)&.version
-          rescue ResourceMissingError
-            nil
-          end
-        else
-          formula.version
-        end
-      end
-
-      # True when `version` is at or past any upstream fixed version.
-      # Distro-strategy fixed versions are distro-specific strings
-      # (`1:8.5.0-2`, `+dfsg-1`) and are not compared. Uses {Version}, not
-      # {Semver}, since formula versions are not required to be strict semver.
-      sig { params(version: T.nilable(Version), hit: Hit).returns(T::Boolean) }
-      def upstream_fix_shipped?(version, hit)
-        return false if version.nil?
-
-        threshold = comparable_fix_threshold(hit)
-        return false if threshold.nil?
-
-        version >= threshold
-      end
-
-      sig { params(hit: Hit).returns(T.nilable(Version)) }
-      def comparable_fix_threshold(hit)
-        return if hit.strategy == :distro
-
-        hit.vulnerability.fixed_versions
-           .filter_map { |v| Version.new(v.sub(/\Av/i, "")) if v.present? }
-           .min
-      end
-
       # Walk homebrew-core git history (newest first) via {FormulaVersions} and
-      # return the `pkg_version` at the oldest revision where the formula
-      # version was still at or past the upstream fix threshold. Returns nil
-      # when there is no comparable threshold or the current version is not yet
-      # fixed. The rev-list and per-revision loads are cached per formula so
-      # subsequent hits for the same formula reuse both.
+      # return the `pkg_version` at the oldest revision where the subject was
+      # still at or past `upstream_fixed_in`. Returns nil when the current
+      # version is not yet fixed. The rev-list and per-revision loads are
+      # cached per formula so subsequent hits reuse both.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(String)) }
       def first_fixed_version(formula, hit)
-        threshold = comparable_fix_threshold(hit)
-        return if threshold.nil?
-        return unless upstream_fix_shipped?(subject_version(formula, hit), hit)
+        status = range_status(hit)
+        return if status.nil? || status.affected?
+        return unless (upstream_fixed = status.fixed_in)
 
+        threshold = Version.new(upstream_fixed)
+        resource = hit.resource
         fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
         revs = @formula_rev_lists[formula.name] ||=
           [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
@@ -357,10 +446,9 @@ module Homebrew
         last_fixed = T.let(formula.pkg_version.to_s, T.nilable(String))
         revs.each do |rev, entry|
           old_fixed = fv.formula_at_revision(rev, entry) do |old|
-            old.pkg_version.to_s if upstream_fix_shipped?(subject_version(old, hit), hit)
+            subject = subject_version(old, resource)
+            old.pkg_version.to_s if subject && subject >= threshold
           end
-          # `nil` from formula_at_revision means the revision failed to load;
-          # a `nil` block result means the version dropped below the threshold.
           return last_fixed if old_fixed.nil?
 
           last_fixed = old_fixed
@@ -368,14 +456,16 @@ module Homebrew
         last_fixed
       end
 
-      sig { params(hits: T::Array[Hit]).returns(T::Array[Hit]) }
-      def dedup_by_cve(hits)
-        hits.group_by(&:canonical_id).map do |_, group|
-          next group.fetch(0) if group.one?
-
-          primary = T.must(group.max_by { |h| STRATEGY_PRECISION.fetch(h.strategy) })
-          Hit.new(vulnerability: primary.vulnerability,
-                  evidence:      group.flat_map(&:evidence).uniq)
+      sig { params(formula: Formula, resource: T.nilable(String)).returns(T.nilable(Version)) }
+      def subject_version(formula, resource)
+        if resource
+          begin
+            formula.resource(resource)&.version
+          rescue ResourceMissingError
+            nil
+          end
+        else
+          formula.version
         end
       end
     end

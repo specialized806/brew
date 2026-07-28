@@ -36,7 +36,11 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => cve }], []])
     allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with(cve).and_return(
       { "id" => cve, "summary" => "s",
-        "affected" => [{ "ranges" => [{ "events" => [{ "fixed" => fixed }] }] }] },
+        "affected" => [{
+          "package" => { "ecosystem" => "GIT", "name" => "https://github.com/psf/requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => fixed }] }],
+        }] },
     )
   end
 
@@ -74,7 +78,8 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
 
     expect { cmd_for("requests", "--no-history").run }
-      .to output(/requests 2\.31\.0.*CVE-2024-1234 \[git, high\].*1 candidate records/m).to_stdout
+      .to output(/requests 2\.31\.0.*CVE-2024-1234 \[git, high\].*fixed \(upstream 2\.28\.1\).*1 candidate/m)
+      .to_stdout
   end
 
   it "reports and continues past an OSV outage without raising" do

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "vulns/match"
@@ -13,7 +13,7 @@ RSpec.describe Homebrew::Vulns::Match do
     Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {
       "Image-ExifTool" => { "advisories" => [
         { "id" => "CPANSA-Image-ExifTool-2021-22204", "cves" => ["CVE-2021-22204"],
-          "affected_versions" => ["<12.24"], "fixed_versions" => ["12.24"] },
+          "affected_versions" => ["<12.24"], "fixed_versions" => [">=12.24"] },
       ] },
     } })
   end
@@ -21,6 +21,19 @@ RSpec.describe Homebrew::Vulns::Match do
 
   def stub_repology_lookup(result = {})
     allow(Homebrew::Vulns::Repology).to receive(:lookup).and_return(result)
+  end
+
+  def vuln(data)
+    Homebrew::Vulns::Vulnerability.new(data)
+  end
+
+  def ev(strategy, ecosystem: nil, name: nil, subject_version: nil, key: "k", resource: nil, advisory: nil)
+    Homebrew::Vulns::Match::Evidence.new(strategy:, ecosystem:, name:, subject_version:, key:,
+                                         resource:, advisory:)
+  end
+
+  def make_hit(vulnerability, *evidence)
+    Homebrew::Vulns::Match::Hit.new(vulnerability:, evidence:)
   end
 
   describe "#identify" do
@@ -44,7 +57,6 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(identity.git_tag).to eq "2.31.0"
       expect(identity.primary_package.ecosystem).to eq "PyPI"
       expect(identity.primary_package.name).to eq "requests"
-      expect(identity.primary_package.version).to eq "2.31.0"
       expect(identity.resource_packages.keys).to eq ["certifi"]
       expect(identity.resource_packages["certifi"].purl).to eq "pkg:pypi/certifi@2024.2.2"
       expect(identity.distro_packages)
@@ -52,7 +64,7 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(identity.identifiable?).to be true
     end
 
-    it "falls back to Repology.lookup when the index has no entry" do
+    it "falls back to Repology.lookup when the index has no entry (single-formula mode)" do
       f = formula("newthing") do
         T.bind(self, T.class_of(Formula))
         url "https://example.com/newthing-1.0.tar.gz"
@@ -60,6 +72,17 @@ RSpec.describe Homebrew::Vulns::Match do
       stub_repology_lookup({ "Debian" => ["newthing"] })
 
       expect(matcher.identify(f).distro_packages).to eq("Debian" => ["newthing"])
+    end
+
+    it "does not fall back to Repology.lookup in bulk mode" do
+      f = formula("newthing") do
+        T.bind(self, T.class_of(Formula))
+        url "https://example.com/newthing-1.0.tar.gz"
+      end
+      expect(Homebrew::Vulns::Repology).not_to receive(:lookup)
+
+      bulk = described_class.new(repology:, cpan_sec:, bulk: true)
+      expect(bulk.identify(f).distro_packages).to eq({})
     end
 
     it "swallows a Repology lookup error to an empty distro map" do
@@ -89,65 +112,171 @@ RSpec.describe Homebrew::Vulns::Match do
       Homebrew::Vulns::Identify::RegistryPackage.new(ecosystem:, name:, version:, purl:)
     end
 
-    it "emits GIT, registry (primary + resource) and distro queries with matching evidence" do
-      identity = described_class::Identity.new(
+    it "emits versionless GIT/registry/distro queries with subject_version carried on the evidence" do
+      identity = Homebrew::Vulns::Match::Identity.new(
         git_repo:          "https://github.com/psf/requests",
         git_tag:           "v2.31.0",
         primary_package:   pkg(ecosystem: "PyPI", name: "requests", version: "2.31.0",
                                purl: "pkg:pypi/requests@2.31.0"),
         resource_packages: { "certifi" => pkg(ecosystem: "PyPI", name: "certifi", version: "2024.2.2",
                                               purl: "pkg:pypi/certifi@2024.2.2") },
-        distro_packages:   { "Debian" => ["requests"], "Alpine" => ["py3-requests"] },
+        distro_packages:   { "Debian" => ["requests"] },
       )
 
-      queries = matcher.build_osv_queries(identity)
+      queries = matcher.build_osv_queries(identity, "2.31.0")
 
       expect(queries.map(&:first)).to eq [
-        { ecosystem: "GIT", name: "https://github.com/psf/requests", version: "v2.31.0" },
-        { ecosystem: "PyPI", name: "requests", version: "2.31.0" },
-        { ecosystem: "PyPI", name: "certifi", version: "2024.2.2" },
+        { ecosystem: "GIT", name: "https://github.com/psf/requests", version: nil },
+        { ecosystem: "PyPI", name: "requests", version: nil },
+        { ecosystem: "PyPI", name: "certifi", version: nil },
         { ecosystem: "Debian", name: "requests", version: nil },
-        { ecosystem: "Alpine", name: "py3-requests", version: nil },
       ]
-      expect(queries.map { |_, e| [e.strategy, e.key, e.resource] }).to eq [
-        [:git, "https://github.com/psf/requests", nil],
-        [:registry, "pkg:pypi/requests@2.31.0", nil],
-        [:registry, "pkg:pypi/certifi@2024.2.2", "certifi"],
-        [:distro, "Debian/requests", nil],
-        [:distro, "Alpine/py3-requests", nil],
+      expect(queries.map { |_, e| [e.strategy, e.ecosystem, e.name, e.subject_version, e.resource] }).to eq [
+        [:git, "GIT", "https://github.com/psf/requests", "v2.31.0", nil],
+        [:registry, "PyPI", "requests", "2.31.0", nil],
+        [:registry, "PyPI", "certifi", "2024.2.2", "certifi"],
+        [:distro, "Debian", "requests", nil, nil],
       ]
     end
 
     it "excludes CPAN packages from OSV queries and omits GIT when no repo derived" do
-      identity = described_class::Identity.new(
+      identity = Homebrew::Vulns::Match::Identity.new(
         git_repo:          nil,
         git_tag:           "13.55",
         primary_package:   pkg(ecosystem: "CPAN", name: "Image-ExifTool", version: "13.55",
                                purl: "pkg:cpan/EXIFTOOL/Image-ExifTool@13.55"),
-        resource_packages: { "extra" => pkg(ecosystem: "CPAN", name: "Try-Tiny", version: "0.31",
-                                            purl: "pkg:cpan/ETHER/Try-Tiny@0.31") },
-        distro_packages:   {},
-      )
-
-      expect(matcher.build_osv_queries(identity)).to eq []
-    end
-  end
-
-  describe "#cpan_advisory_ids" do
-    it "returns CVE ids for CPAN primary and resource packages via CPANSec" do
-      identity = described_class::Identity.new(
-        git_repo:          nil, git_tag: nil,
-        primary_package:   Homebrew::Vulns::Identify::RegistryPackage.new(
-          ecosystem: "CPAN", name: "Image-ExifTool", version: "12.00",
-          purl: "pkg:cpan/EXIFTOOL/Image-ExifTool@12.00"
-        ),
         resource_packages: {}, distro_packages: {}
       )
 
-      ids = matcher.cpan_advisory_ids(identity)
+      expect(matcher.build_osv_queries(identity, "13.55")).to eq []
+    end
+  end
 
-      expect(ids.map(&:first)).to eq ["CVE-2021-22204"]
-      expect(ids.first.last.strategy).to eq :cpansa
+  describe "#range_status" do
+    it "returns the registry-entry status when GIT ranges are uncomparable" do
+      v = vuln("id" => "CVE-1", "affected" => [
+        { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/jqlang/jq" },
+          "ranges"  => [{ "type" => "GIT", "events" => [{ "fixed" => "e47e56d" }] }] },
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "2.28.1" }] }] },
+      ])
+      hit = make_hit(v,
+                     ev(:git, ecosystem: "GIT", name: "https://github.com/jqlang/jq",
+                              subject_version: "1.8.1"),
+                     ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"))
+
+      expect(matcher.range_status(hit)).to have_attributes(affected?: false, fixed_in: "2.28.1")
+    end
+
+    it "returns nil when the only matching entry has GIT-type ranges" do
+      v = vuln("id" => "CVE-2026-32316", "affected" => [
+        { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/jqlang/jq" },
+          "ranges"  => [{ "type" => "GIT", "events" => [{ "fixed" => "e47e56d" }] }] },
+      ])
+      hit = make_hit(v, ev(:git, ecosystem: "GIT", name: "https://github.com/jqlang/jq",
+                                 subject_version: "1.8.1"))
+
+      expect(matcher.range_status(hit)).to be_nil
+    end
+
+    it "evaluates CPANSA constraint strings for :cpansa evidence" do
+      adv = Homebrew::Vulns::CPANSec::Advisory.new(id: "CPANSA-X", cves: ["CVE-1"],
+                                                   affected_versions: ["<12.24"],
+                                                   fixed_versions: [">=12.24"])
+      hit = make_hit(vuln("id" => "CVE-1"),
+                     ev(:cpansa, ecosystem: "CPAN", name: "Image-ExifTool",
+                                 subject_version: "13.55", advisory: adv))
+
+      expect(matcher.range_status(hit)).to have_attributes(affected?: false, fixed_in: "12.24")
+    end
+
+    it "checks a distro-resolved upstream CVE against attached own-identity evidence" do
+      v = vuln("id" => "CVE-2015-8863", "affected" => [
+        { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/jqlang/jq" },
+          "ranges"  => [{ "type"   => "SEMVER",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "1.6" }] }] },
+      ])
+      hit = make_hit(v,
+                     ev(:distro, ecosystem: "Debian", name: "jq"),
+                     ev(:distro, ecosystem: "GIT", name: "https://github.com/jqlang/jq",
+                                 subject_version: "1.8.1", key: "upstream:..."))
+
+      expect(matcher.range_status(hit)).to have_attributes(affected?: false, fixed_in: "1.6")
+    end
+
+    it "skips evidence with no subject_version" do
+      hit = make_hit(vuln("id" => "CVE-1"), ev(:distro, ecosystem: "Debian", name: "jq"))
+      expect(matcher.range_status(hit)).to be_nil
+    end
+  end
+
+  describe "#resolve_upstream" do
+    let(:identity) do
+      Homebrew::Vulns::Match::Identity.new(
+        git_repo: "https://github.com/jqlang/jq", git_tag: "1.8.1",
+        primary_package: nil, resource_packages: {}, distro_packages: {}
+      )
+    end
+
+    it "splits a multi-CVE distro advisory into one hit per upstream CVE with own-identity evidence" do
+      allow(matcher).to receive(:fetch_vulnerability).with("RHSA-2026:1").and_return(
+        vuln("id" => "RHSA-2026:1", "upstream" => ["CVE-2026-0001", "CVE-2026-0002"]),
+      )
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2026-0001")
+                                                     .and_return(vuln("id" => "CVE-2026-0001"))
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2026-0002")
+                                                     .and_return(vuln("id" => "CVE-2026-0002"))
+
+      hits = matcher.resolve_upstream(
+        { "RHSA-2026:1" => [ev(:distro, ecosystem: "Red Hat", name: "jq")] }, identity
+      )
+
+      expect(hits.map { |h| h.vulnerability.id }.sort).to eq ["CVE-2026-0001", "CVE-2026-0002"]
+      expect(hits.first.evidence.map(&:ecosystem)).to include("Red Hat", "GIT")
+    end
+
+    it "follows only bare CVE ids from upstream/related, ignoring distro-prefixed intermediate ids" do
+      allow(matcher).to receive(:fetch_vulnerability).with("USN-4787-1").and_return(
+        vuln("id" => "USN-4787-1", "upstream" => ["CVE-2016-4074", "UBUNTU-CVE-2016-4074"]),
+      )
+      allow(matcher).to receive(:fetch_vulnerability).with("ALSA-1").and_return(
+        vuln("id" => "ALSA-1", "related" => ["CVE-2024-0001"]),
+      )
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2016-4074")
+                                                     .and_return(vuln("id" => "CVE-2016-4074"))
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0001")
+                                                     .and_return(vuln("id" => "CVE-2024-0001"))
+
+      hits = matcher.resolve_upstream(
+        { "USN-4787-1" => [ev(:distro)], "ALSA-1" => [ev(:distro)] }, identity
+      )
+
+      expect(hits.map { |h| h.vulnerability.id }.sort).to eq ["CVE-2016-4074", "CVE-2024-0001"]
+    end
+
+    it "keeps a record whose id/aliases already include a CVE as-is" do
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0001").and_return(
+        vuln("id" => "CVE-2024-0001", "upstream" => ["CVE-2024-0099"]),
+      )
+      hits = matcher.resolve_upstream({ "CVE-2024-0001" => [ev(:git)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["CVE-2024-0001"]
+    end
+
+    it "keeps a record with no CVE anywhere as a low-confidence hit rather than dropping it" do
+      allow(matcher).to receive(:fetch_vulnerability).with("ALBA-2022:1788").and_return(
+        vuln("id" => "ALBA-2022:1788", "upstream" => [], "related" => ["RHBA-2022:1788"]),
+      )
+      hits = matcher.resolve_upstream({ "ALBA-2022:1788" => [ev(:distro)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["ALBA-2022:1788"]
+    end
+
+    it "drops a record whose upstream CVE cannot be fetched" do
+      allow(matcher).to receive(:fetch_vulnerability).with("DSA-1").and_return(
+        vuln("id" => "DSA-1", "upstream" => ["CVE-2024-0404"]),
+      )
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0404").and_return(nil)
+      expect(matcher.resolve_upstream({ "DSA-1" => [ev(:distro)] }, identity)).to eq []
     end
   end
 
@@ -155,53 +284,45 @@ RSpec.describe Homebrew::Vulns::Match do
     let(:exiftool) do
       formula("exiftool") do
         T.bind(self, T.class_of(Formula))
-        url "https://cpan.metacpan.org/authors/id/E/EX/EXIFTOOL/Image-ExifTool-12.00.tar.gz"
+        url "https://cpan.metacpan.org/authors/id/E/EX/EXIFTOOL/Image-ExifTool-13.55.tar.gz"
         head "https://github.com/exiftool/exiftool.git"
       end
     end
 
     before { stub_repology_lookup({ "Debian" => ["libimage-exiftool-perl"] }) }
 
-    it "queries every strategy in one batch, fetches full records, and dedups by CVE alias" do
+    it "queries versionlessly, resolves distro upstream to CVEs, and dedups by CVE alias" do
       expect(Homebrew::Vulns::OSV).to receive(:query_batch).with(
         [
-          { ecosystem: "GIT", name: "https://github.com/exiftool/exiftool", version: "12.00" },
+          { ecosystem: "GIT", name: "https://github.com/exiftool/exiftool", version: nil },
           { ecosystem: "Debian", name: "libimage-exiftool-perl", version: nil },
         ],
       ).and_return(
         [
           [{ "id" => "CVE-2021-22204" }],
-          [{ "id" => "DSA-4910-1" }, { "id" => "DSA-0000-0" }],
+          [{ "id" => "DEBIAN-CVE-2021-22204" }, { "id" => "DSA-4910-1" }],
         ],
       )
       allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2021-22204").and_return(
-        { "id" => "CVE-2021-22204", "aliases" => ["GHSA-xxxx-yyyy-zzzz"] },
+        { "id" => "CVE-2021-22204", "aliases" => ["GHSA-xxxx"] },
+      )
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("DEBIAN-CVE-2021-22204").and_return(
+        { "id" => "DEBIAN-CVE-2021-22204", "upstream" => ["CVE-2021-22204"] },
       )
       allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("DSA-4910-1").and_return(
-        { "id" => "DSA-4910-1", "aliases" => ["CVE-2021-22204"] },
+        { "id" => "DSA-4910-1", "upstream" => ["CVE-2021-22204", "CVE-2021-99999"] },
       )
-      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("DSA-0000-0").and_return(
-        { "id" => "DSA-0000-0", "aliases" => [] },
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2021-99999").and_return(
+        { "id" => "CVE-2021-99999" },
       )
 
       hits = matcher.advisories_for(exiftool)
 
-      expect(hits.map(&:canonical_id).sort).to eq ["CVE-2021-22204", "DSA-0000-0"]
+      expect(hits.map(&:canonical_id).sort).to eq ["CVE-2021-22204", "CVE-2021-99999"]
       merged = hits.find { |h| h.canonical_id == "CVE-2021-22204" }
-      expect(merged.strategy).to eq :git
-      expect(merged.evidence.map(&:strategy)).to eq [:git, :cpansa, :distro]
-      expect(merged.vulnerability.id).to eq "CVE-2021-22204"
-      expect(hits.find { |h| h.canonical_id == "DSA-0000-0" }.strategy).to eq :distro
-    end
-
-    it "drops ids whose full record cannot be fetched" do
-      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return(
-        [[{ "id" => "CVE-9999-0000" }], []],
-      )
-      allow(Homebrew::Vulns::OSV).to receive(:vulnerability)
-        .and_raise(Homebrew::Vulns::OSV::ApiError, "404")
-
-      expect(matcher.advisories_for(exiftool)).to eq []
+      expect(T.must(merged).strategy).to eq :git
+      expect(T.must(merged).evidence.map(&:strategy).uniq.sort).to eq [:cpansa, :distro, :git]
+      expect(T.must(merged).evidence.find { |e| e.strategy == :cpansa }&.advisory).not_to be_nil
     end
 
     it "returns [] without hitting OSV when nothing is identifiable" do
@@ -226,7 +347,7 @@ RSpec.describe Homebrew::Vulns::Match do
     end
   end
 
-  describe "#to_brew_record and helpers" do
+  describe "#to_brew_record" do
     let(:requests) do
       formula("requests") do
         T.bind(self, T.class_of(Formula))
@@ -238,221 +359,157 @@ RSpec.describe Homebrew::Vulns::Match do
     end
     let(:now) { Time.utc(2026, 7, 27, 12, 0, 0) }
 
-    def make_hit(id:, aliases: [], fixed: [], strategy: :registry, key: "pkg:pypi/requests@2.31.0",
-                 resource: nil, extra_evidence: [])
-      affected = fixed.any? ? [{ "ranges" => [{ "events" => fixed.map { |f| { "fixed" => f } } }] }] : []
-      vuln = Homebrew::Vulns::Vulnerability.new({ "id" => id, "aliases" => aliases, "affected" => affected,
-                                                  "summary" => "s", "details" => "d" })
-      described_class::Hit.new(
-        vulnerability: vuln,
-        evidence:      [described_class::Evidence.new(strategy:, key:, resource:), *extra_evidence],
+    def registry_hit(affected_events:, subject_version: "2.31.0", resource: nil, name: "requests")
+      make_hit(
+        vuln("id" => "CVE-2024-1234", "aliases" => ["GHSA-abcd"], "summary" => "s",
+             "severity" => [{ "type" => "CVSS_V3", "score" => "..." }],
+             "references" => [{ "type" => "ADVISORY", "url" => "https://x" }],
+             "affected" => [{ "package" => { "ecosystem" => "PyPI", "name" => name },
+                              "ranges"  => [{ "type" => "ECOSYSTEM", "events" => affected_events }] }]),
+        ev(:registry, ecosystem: "PyPI", name:, subject_version:,
+                      key: "pkg:pypi/#{name}@#{subject_version}", resource:),
       )
     end
 
-    describe "#upstream_fix_shipped?" do
-      it "is true when the subject version is at or past the lowest upstream fixed version" do
-        hit = make_hit(id: "CVE-1", fixed: ["2.28.1", "2.30.0"])
-        expect(matcher.upstream_fix_shipped?(requests.version, hit)).to be true
-      end
+    it "emits fixed=pkg_version and fix: bump when the range says the shipped version is not affected" do
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2.28.1" }])
 
-      it "is false when the subject version is below every upstream fixed version" do
-        hit = make_hit(id: "CVE-1", fixed: ["2.32.0"])
-        expect(matcher.upstream_fix_shipped?(requests.version, hit)).to be false
-      end
+      record = matcher.to_brew_record(requests, hit, now:)
 
-      it "is false when there are no fixed versions or no subject version" do
-        expect(matcher.upstream_fix_shipped?(requests.version, make_hit(id: "CVE-1", fixed: []))).to be false
-        expect(matcher.upstream_fix_shipped?(nil, make_hit(id: "CVE-1", fixed: ["1.0"]))).to be false
-      end
-
-      it "ignores distro-strategy fixed versions" do
-        hit = make_hit(id: "CVE-1", fixed: ["1:2.28.1-1+deb12u1"], strategy: :distro, key: "Debian/requests")
-        expect(matcher.comparable_fix_threshold(hit)).to be_nil
-        expect(matcher.upstream_fix_shipped?(requests.version, hit)).to be false
-      end
-
-      it "strips a leading v from upstream fixed versions before comparing" do
-        hit = make_hit(id: "CVE-1", fixed: ["v2.28.1"])
-        expect(matcher.comparable_fix_threshold(hit)).to eq Version.new("2.28.1")
-      end
+      expect(record[:id]).to eq "BREW-requests-CVE-2024-1234"
+      expect(record[:upstream]).to eq ["CVE-2024-1234", "GHSA-abcd"]
+      expect(record[:severity]).to eq [{ "type" => "CVSS_V3", "score" => "..." }]
+      expect(record[:references]).to eq [{ "type" => "ADVISORY", "url" => "https://x" }]
+      aff = record[:affected].first
+      expect(aff[:package]).to eq(ecosystem: "Homebrew", name: "requests", purl: "pkg:brew/requests")
+      expect(aff[:ranges]).to eq [{ type:   "ECOSYSTEM",
+                                    events: [{ introduced: "0" }, { fixed: requests.pkg_version.to_s }] }]
+      expect(aff[:ecosystem_specific]).to eq(fix: "bump", upstream_fixed_in: "2.28.1")
+      expect(record.dig(:database_specific, :source)).to eq "matched"
+      expect(record.dig(:database_specific, :strategy)).to eq "registry"
+      expect(record.dig(:database_specific, :confidence)).to eq "high"
     end
 
-    describe "#subject_version" do
-      it "returns the resource's pinned version for a resource hit" do
-        hit = make_hit(id: "CVE-1", key: "pkg:pypi/certifi@2024.2.2", resource: "certifi")
-        expect(matcher.subject_version(requests, hit)).to eq Version.new("2024.2.2")
-      end
+    it "emits no fixed event and fix: nil when the range says the shipped version is still affected" do
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2.32.0" }])
 
-      it "returns the formula version for a primary hit" do
-        expect(matcher.subject_version(requests, make_hit(id: "CVE-1"))).to eq Version.new("2.31.0")
-      end
+      record = matcher.to_brew_record(requests, hit, now:)
 
-      it "returns nil when the resource no longer exists in the formula" do
-        hit = make_hit(id: "CVE-1", resource: "gone")
-        expect(matcher.subject_version(requests, hit)).to be_nil
-      end
+      aff = record[:affected].first
+      expect(aff[:ranges]).to eq [{ type: "ECOSYSTEM", events: [{ introduced: "0" }] }]
+      expect(aff[:ecosystem_specific]).to eq(fix: nil, upstream_fixed_in: "2.32.0")
     end
 
-    describe "#first_fixed_version" do
-      def stub_history(versions_newest_first)
-        fv = instance_double(FormulaVersions)
-        revs = versions_newest_first.each_with_index.map { |_, i| ["r#{i}", "Formula/r/requests.rb"] }
-        allow(fv).to receive(:rev_list) { |_, &b| revs.each { |rev, entry| b.call(rev, entry) } }
-        versions_newest_first.each_with_index do |v, i|
-          old = if v
-            formula("requests") do
-              T.bind(self, T.class_of(Formula))
-              url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-#{v}.tar.gz"
-            end
-          end
-          allow(fv).to receive(:formula_at_revision).with("r#{i}", anything) do |&b|
-            old && b.call(old)
-          end
-        end
-        allow(FormulaVersions).to receive(:new).and_return(fv)
-      end
+    it "emits fix: nil and demotes confidence when no comparable range exists (GIT-only)" do
+      hit = make_hit(
+        vuln("id" => "CVE-2026-32316", "affected" => [
+          { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/jqlang/jq" },
+            "ranges"  => [{ "type" => "GIT", "events" => [{ "fixed" => "e47e56d" }] }] },
+        ]),
+        ev(:git, ecosystem: "GIT", name: "https://github.com/jqlang/jq", subject_version: "1.8.1"),
+      )
 
-      it "returns the pkg_version at the oldest revision still at or past the threshold" do
-        stub_history(["2.31.0", "2.30.0", "2.28.1", "2.28.0", "2.27.0"])
-        hit = make_hit(id: "CVE-1", fixed: ["2.28.1"])
+      record = matcher.to_brew_record(requests, hit, now:)
 
-        expect(matcher.first_fixed_version(requests, hit)).to eq "2.28.1"
-      end
-
-      it "stops at an unloadable revision and returns the last known fixed pkg_version" do
-        stub_history(["2.31.0", "2.30.0", nil, "2.28.0"])
-        hit = make_hit(id: "CVE-1", fixed: ["2.28.1"])
-
-        expect(matcher.first_fixed_version(requests, hit)).to eq "2.30.0"
-      end
-
-      it "returns nil when the current version is not yet fixed" do
-        hit = make_hit(id: "CVE-1", fixed: ["2.32.0"])
-        expect(FormulaVersions).not_to receive(:new)
-
-        expect(matcher.first_fixed_version(requests, hit)).to be_nil
-      end
-
-      it "returns nil for a distro-strategy hit (no comparable threshold)" do
-        hit = make_hit(id: "CVE-1", fixed: ["1:2.28.1-1"], strategy: :distro, key: "Debian/requests")
-        expect(matcher.first_fixed_version(requests, hit)).to be_nil
-      end
-
-      it "caches the rev-list per formula across hits" do
-        fv = instance_double(FormulaVersions)
-        expect(fv).to receive(:rev_list).once { |_, &b| b.call("r0", "p") }
-        allow(fv).to receive(:formula_at_revision).and_return(nil)
-        allow(FormulaVersions).to receive(:new).once.and_return(fv)
-
-        matcher.first_fixed_version(requests, make_hit(id: "CVE-1", fixed: ["1.0"]))
-        matcher.first_fixed_version(requests, make_hit(id: "CVE-2", fixed: ["1.0"]))
-      end
+      expect(record.dig(:affected, 0, :ranges, 0, :events)).to eq [{ introduced: "0" }]
+      expect(record.dig(:affected, 0, :ecosystem_specific)).to eq(fix: nil)
+      expect(record.dig(:database_specific, :confidence)).to eq "medium"
     end
 
-    describe "#to_brew_record" do
-      before do
-        allow(matcher).to receive(:fetch_vulnerability).and_return(
-          { "id" => "CVE-2024-1234", "severity" => [{ "type" => "CVSS_V3", "score" => "..." }],
-            "references" => [{ "type" => "ADVISORY", "url" => "https://x" }] },
-        )
-      end
+    it "prefers an explicit first_fixed over the derived value" do
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2.28.1" }])
 
-      it "emits a matched OSV record with fixed=pkg_version when the upstream fix is shipped" do
-        hit = make_hit(id: "CVE-2024-1234", aliases: ["GHSA-abcd-efgh-ijkl"], fixed: ["2.28.1"])
+      record = matcher.to_brew_record(requests, hit, first_fixed: "2.28.1_1", now:)
 
-        record = matcher.to_brew_record(requests, hit, now:)
+      expect(record.dig(:affected, 0, :ranges, 0, :events)).to eq [{ introduced: "0" }, { fixed: "2.28.1_1" }]
+    end
 
-        expect(record[:schema_version]).to eq Homebrew::Vulns::OsvExport::SCHEMA_VERSION
-        expect(record[:id]).to eq "BREW-requests-CVE-2024-1234"
-        expect(record[:published]).to eq "2026-07-27T12:00:00Z"
-        expect(record[:upstream]).to eq ["CVE-2024-1234", "GHSA-abcd-efgh-ijkl"]
-        expect(record[:summary]).to eq "s"
-        expect(record[:severity]).to eq [{ "type" => "CVSS_V3", "score" => "..." }]
-        expect(record[:references]).to eq [{ "type" => "ADVISORY", "url" => "https://x" }]
+    it "records resource name and purl and evaluates against the resource's pinned version" do
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2024.2.2" }],
+                         subject_version: "2024.2.2", resource: "certifi", name: "certifi")
 
-        aff = record[:affected].first
-        expect(aff[:package]).to eq(ecosystem: "Homebrew", name: "requests", purl: "pkg:brew/requests")
-        expect(aff[:ranges]).to eq [{ type: "ECOSYSTEM", events: [{ introduced: "0" },
-                                                                  { fixed: requests.pkg_version.to_s }] }]
-        expect(aff[:ecosystem_specific]).to eq(fix: "bump")
+      record = matcher.to_brew_record(requests, hit, now:)
 
-        db = record[:database_specific]
-        expect(db[:source]).to eq "matched"
-        expect(db[:strategy]).to eq "registry"
-        expect(db[:confidence]).to eq "high"
-        expect(db[:upstream_evidence]).to eq [{ strategy: :registry, key: "pkg:pypi/requests@2.31.0" }]
-      end
-
-      it "prefers an explicit first_fixed over the current pkg_version" do
-        hit = make_hit(id: "CVE-2024-1234", fixed: ["2.28.1"])
-
-        record = matcher.to_brew_record(requests, hit, first_fixed: "2.28.1_1", now:)
-
-        expect(record.dig(:affected, 0, :ranges, 0, :events)).to eq [{ introduced: "0" }, { fixed: "2.28.1_1" }]
-      end
-
-      it "omits the fixed event and sets fix: nil when no upstream fix is shipped" do
-        hit = make_hit(id: "CVE-2024-1234", fixed: ["2.32.0"])
-
-        record = matcher.to_brew_record(requests, hit, now:)
-
-        aff = record[:affected].first
-        expect(aff[:ranges]).to eq [{ type: "ECOSYSTEM", events: [{ introduced: "0" }] }]
-        expect(aff[:ecosystem_specific]).to eq(fix: nil)
-      end
-
-      it "records resource name and purl and compares against the resource's pinned version" do
-        hit = make_hit(id: "CVE-2024-1234", fixed: ["2024.2.2"], key: "pkg:pypi/certifi@2024.2.2",
-                       resource: "certifi")
-
-        record = matcher.to_brew_record(requests, hit, now:)
-
-        expect(record.dig(:affected, 0, :ecosystem_specific))
-          .to eq(fix: "bump", resource: "certifi", resource_purl: "pkg:pypi/certifi@2024.2.2")
-        expect(record.dig(:affected, 0, :ranges, 0, :events).last).to eq(fixed: requests.pkg_version.to_s)
-      end
-
-      it "reports distro strategy at low confidence with all evidence listed" do
-        hit = make_hit(id: "CVE-2024-1234", fixed: ["1:2.28.1-1"], strategy: :distro, key: "Debian/requests",
-                       extra_evidence: [described_class::Evidence.new(strategy: :distro, key: "Alpine/py3-requests")])
-
-        record = matcher.to_brew_record(requests, hit, now:)
-
-        expect(record.dig(:database_specific, :strategy)).to eq "distro"
-        expect(record.dig(:database_specific, :confidence)).to eq "low"
-        expect(record.dig(:database_specific, :upstream_evidence))
-          .to eq [{ strategy: :distro, key: "Debian/requests" },
-                  { strategy: :distro, key: "Alpine/py3-requests" }]
-        expect(record.dig(:affected, 0, :ecosystem_specific, :fix)).to be_nil
-      end
+      expect(record.dig(:affected, 0, :ecosystem_specific))
+        .to eq(fix: "bump", upstream_fixed_in: "2024.2.2", resource: "certifi",
+               resource_purl: "pkg:pypi/certifi@2024.2.2")
+      expect(record.dig(:affected, 0, :ranges, 0, :events).last).to eq(fixed: requests.pkg_version.to_s)
     end
   end
 
-  describe described_class::Hit do
-    def vuln(id, aliases: [])
-      Homebrew::Vulns::Vulnerability.new({ "id" => id, "aliases" => aliases })
+  describe "#first_fixed_version" do
+    let(:requests) do
+      formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.31.0.tar.gz"
+      end
     end
 
-    def ev(strategy, key: "k")
-      Homebrew::Vulns::Match::Evidence.new(strategy:, key:)
+    def stub_history(versions_newest_first)
+      fv = instance_double(FormulaVersions)
+      revs = versions_newest_first.each_with_index.map { |_, i| ["r#{i}", "Formula/r/requests.rb"] }
+      allow(fv).to receive(:rev_list) { |_, &b| revs.each { |rev, entry| b.call(rev, entry) } }
+      versions_newest_first.each_with_index do |v, i|
+        old = if v
+          formula("requests") do
+            T.bind(self, T.class_of(Formula))
+            url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-#{v}.tar.gz"
+          end
+        end
+        allow(fv).to receive(:formula_at_revision).with("r#{i}", anything) do |&b|
+          old && b.call(old)
+        end
+      end
+      allow(FormulaVersions).to receive(:new).and_return(fv)
     end
 
+    def hit_fixed_at(fixed)
+      make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => fixed }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"),
+      )
+    end
+
+    it "returns the pkg_version at the oldest revision still at or past upstream fixed_in" do
+      stub_history(["2.31.0", "2.30.0", "2.28.1", "2.28.0", "2.27.0"])
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq "2.28.1"
+    end
+
+    it "stops at an unloadable revision and returns the last known fixed pkg_version" do
+      stub_history(["2.31.0", "2.30.0", nil, "2.28.0"])
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq "2.30.0"
+    end
+
+    it "returns nil when the current version is still affected" do
+      expect(FormulaVersions).not_to receive(:new)
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.32.0"))).to be_nil
+    end
+
+    it "returns nil when there is no comparable range" do
+      hit = make_hit(vuln("id" => "CVE-1"), ev(:distro, ecosystem: "Debian", name: "requests"))
+      expect(matcher.first_fixed_version(requests, hit)).to be_nil
+    end
+  end
+
+  describe Homebrew::Vulns::Match::Hit do
     it "sorts evidence by descending strategy precision and reports the highest as #strategy" do
-      hit = described_class.new(vulnerability: vuln("CVE-1"),
-                                evidence:      [ev(:distro), ev(:git), ev(:registry)])
+      hit = make_hit(vuln("id" => "CVE-1"), ev(:distro), ev(:git), ev(:registry))
       expect(hit.evidence.map(&:strategy)).to eq [:git, :registry, :distro]
       expect(hit.strategy).to eq :git
     end
 
     it "uses the lowest CVE alias as canonical_id, or the record id when there is none" do
-      expect(described_class.new(vulnerability: vuln("GHSA-x", aliases: ["CVE-2024-2", "CVE-2024-1"]),
-                                 evidence:      [ev(:git)]).canonical_id).to eq "CVE-2024-1"
-      expect(described_class.new(vulnerability: vuln("GHSA-y"),
-                                 evidence:      [ev(:git)]).canonical_id).to eq "GHSA-y"
+      expect(make_hit(vuln("id" => "GHSA-x", "aliases" => ["CVE-2024-2", "CVE-2024-1"]),
+                      ev(:git)).canonical_id).to eq "CVE-2024-1"
+      expect(make_hit(vuln("id" => "GHSA-y"), ev(:git)).canonical_id).to eq "GHSA-y"
     end
 
     it "rejects empty evidence" do
-      expect { described_class.new(vulnerability: vuln("CVE-1"), evidence: []) }
+      expect { described_class.new(vulnerability: vuln("id" => "CVE-1"), evidence: []) }
         .to raise_error(ArgumentError)
     end
   end
