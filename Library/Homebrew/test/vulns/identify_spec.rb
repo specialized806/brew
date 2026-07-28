@@ -214,6 +214,11 @@ RSpec.describe Homebrew::Vulns::Identify do
                                   purl: "pkg:npm/%40angular/cli@22.0.3")
       end
 
+      it "decodes multi-byte percent escapes without an encoding error" do
+        expect(described_class.decode("caf%C3%A9")).to eq "café"
+        expect(described_class.decode("%80").bytes).to eq [0x80]
+      end
+
       it "returns nil when the tarball filename does not match the path name" do
         expect(result("https://registry.npmjs.org/foo/-/bar-1.0.0.tgz")).to be_nil
       end

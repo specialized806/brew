@@ -5,8 +5,6 @@ require "cmd/shared_examples/args_parse"
 require "dev-cmd/advisory-match"
 
 RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
-  it_behaves_like "parseable arguments"
-
   let(:requests) do
     formula("requests") do
       T.bind(self, T.class_of(Formula))
@@ -17,14 +15,16 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
   before do
     allow(Formulary).to receive(:enable_factory_cache!)
-    allow(Homebrew::Vulns::Repology).to receive(:load).and_return(
-      Homebrew::Vulns::Repology.new({ "meta" => {}, "formulae" => {} }),
+    allow(Homebrew::Vulns::Repology).to receive_messages(
+      load:   Homebrew::Vulns::Repology.new({ "meta" => {}, "formulae" => {} }),
+      lookup: {},
     )
-    allow(Homebrew::Vulns::Repology).to receive(:lookup).and_return({})
     allow(Homebrew::Vulns::CPANSec).to receive(:load).and_return(
       Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {} }),
     )
   end
+
+  it_behaves_like "parseable arguments"
 
   def cmd_for(*argv, formulae: [requests])
     cmd = described_class.new(argv)
@@ -74,7 +74,7 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
 
     expect { cmd_for("requests", "--no-history").run }
-      .to output(%r{requests 2\.31\.0.*CVE-2024-1234 \[git, high\].*1 candidate records}m).to_stdout
+      .to output(/requests 2\.31\.0.*CVE-2024-1234 \[git, high\].*1 candidate records/m).to_stdout
   end
 
   it "reports and continues past an OSV outage without raising" do

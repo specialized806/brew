@@ -75,7 +75,7 @@ module Homebrew
       sig { params(matcher: Homebrew::Vulns::Match, formula: Formula).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
       def records_for(matcher, formula)
         hits = matcher.advisories_for(formula)
-        report(formula, hits) unless args.json? || args.output
+        report(formula, hits) if text_mode?
         hits.map do |hit|
           first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
           matcher.to_brew_record(formula, hit, first_fixed:)
@@ -84,6 +84,11 @@ module Homebrew
         onoe "OSV query for #{formula.name} failed: #{e.message}"
         Homebrew.failed = true
         []
+      end
+
+      sig { returns(T::Boolean) }
+      def text_mode?
+        !args.json? && args.output.nil?
       end
 
       sig { params(formula: Formula, hits: T::Array[Homebrew::Vulns::Match::Hit]).void }

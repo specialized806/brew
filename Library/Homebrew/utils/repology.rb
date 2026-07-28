@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "erb"
 require "utils/curl"
 require "utils/output"
 
