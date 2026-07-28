@@ -2,65 +2,22 @@
 # frozen_string_literal: true
 
 require "sbom"
+require "vulns/identify"
 require "vulns/osv"
 require "vulns/vulnerability"
 
 module Homebrew
   module Vulns
     class Scanner
-      FORGES = %w[github.com gitlab.com codeberg.org].freeze
-      private_constant :FORGES
-
-      TAG_PATTERNS = T.let(
-        [
-          %r{/archive/refs/tags/([^/]+)\.tar\.gz$},
-          %r{/archive/refs/tags/([^/]+)\.zip$},
-          %r{/archive/([^/]+)\.tar\.gz$},
-          %r{/archive/([^/]+)\.zip$},
-          %r{/releases/download/([^/]+)/},
-          %r{/tarball/([^/]+)$},
-        ].freeze,
-        T::Array[Regexp],
-      )
-      private_constant :TAG_PATTERNS
-
-      sig { params(urls: T.nilable(String)).returns(T.nilable(String)) }
-      def self.repo_url(*urls)
-        urls.each do |url|
-          next if url.nil?
-
-          forge = FORGES.find { |f| url.include?(f) }
-          next if forge.nil?
-
-          match = url.match(%r{https?://#{Regexp.escape(forge)}/([^/]+/[^/]+)})
-          next if match.nil?
-
-          repo_path = T.must(match[1]).sub(/\.git$/, "").sub(%r{/-/.*}, "")
-          return "https://#{forge}/#{repo_path}"
-        end
-        nil
-      end
-
       sig {
         params(source_url: T.nilable(String), head_url: T.nilable(String),
                homepage: T.nilable(String)).returns(T.nilable(String))
       }
       def self.target_repo_url(source_url, head_url, homepage)
-        url = repo_url(source_url, head_url, homepage)
-        url ||= source_url if tag(source_url)
+        url = Identify.repo_url(source_url, head_url, homepage)
+        url ||= source_url if Identify.tag(source_url)
         url ||= head_url
         url
-      end
-
-      sig { params(url: T.nilable(String)).returns(T.nilable(String)) }
-      def self.tag(url)
-        return if url.nil?
-
-        TAG_PATTERNS.each do |pattern|
-          match = url.match(pattern)
-          return match[1] if match
-        end
-        nil
       end
 
       SBOM_SRC_SPDXID = /\ASPDXRef-Archive-.*-src\z/
@@ -155,7 +112,7 @@ module Homebrew
         end
 
         targets = queryable.map { |f| T.must(target_for(f)) }
-        batch = OSV.query_batch(targets.map { |t| { repo_url: t.repo_url, version: t.tag } })
+        batch = OSV.query_batch(targets.map { |t| { ecosystem: "GIT", name: t.repo_url, version: t.tag } })
 
         findings = queryable.each_with_index.filter_map do |formula, index|
           target = targets.fetch(index)
@@ -199,7 +156,7 @@ module Homebrew
         homepage = formula.homepage
 
         stable_repo_url = self.class.target_repo_url(stable_url, head_url, homepage)
-        stable_tag = self.class.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
+        stable_tag = Identify.tag(stable_url) || stable&.specs&.[](:tag) || stable&.version&.to_s
 
         if (prefix = formula.any_installed_prefix)
           installed_pkg_version = formula.any_installed_version
@@ -209,7 +166,7 @@ module Homebrew
           if (sbom = self.class.source_from_sbom(prefix))
             sbom_url, sbom_version = sbom
             repo_url = self.class.target_repo_url(sbom_url, head_url, homepage)
-            tag = self.class.tag(sbom_url) || sbom_version || installed_version.presence
+            tag = Identify.tag(sbom_url) || sbom_version || installed_version.presence
             if repo_url && tag
               return Target.new(repo_url:, tag:, version: installed_version,
                                 from_installed_sbom: true, current_recipe_applies:)

@@ -15,12 +15,12 @@ module Homebrew
       class Error < RuntimeError; end
       class ApiError < Error; end
 
+      Package = T.type_alias { { ecosystem: String, name: String, version: T.nilable(String) } }
+
       # POST /v1/querybatch. Returns one array of vuln hashes per input package,
       # in the same order. Follows per-result `next_page_token` continuations.
-      sig {
-        params(packages: T::Array[{ repo_url: String, version: String }])
-          .returns(T::Array[T::Array[T::Hash[String, T.untyped]]])
-      }
+      # A `nil` version queries all known vulnerabilities for the package.
+      sig { params(packages: T::Array[Package]).returns(T::Array[T::Array[T::Hash[String, T.untyped]]]) }
       def self.query_batch(packages)
         return [] if packages.empty?
 
@@ -29,10 +29,10 @@ module Homebrew
         packages.each_slice(BATCH_SIZE).with_index do |batch, batch_index|
           offset = batch_index * BATCH_SIZE
           pending = batch.map.with_index do |pkg, index|
-            {
-              slot:  offset + index,
-              query: { package: { name: pkg.fetch(:repo_url), ecosystem: "GIT" }, version: pkg.fetch(:version) },
-            }
+            query = T.let({ package: { name: pkg.fetch(:name), ecosystem: pkg.fetch(:ecosystem) } },
+                          T::Hash[Symbol, T.untyped])
+            query[:version] = pkg.fetch(:version) if pkg.fetch(:version)
+            { slot: offset + index, query: }
           end
 
           page = 0
