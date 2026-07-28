@@ -63,13 +63,19 @@ RSpec.describe Sandbox::Landlock do
       expect(described_class.failure_reason).to include("Fiddle")
     end
 
-    it "returns false for an ABI without truncate restrictions" do
+    it "is available for an ABI without truncate restrictions" do
       allow(described_class).to receive(:landlock_create_ruleset).with(nil, 0, 1).and_return(2)
+
+      expect(described_class).to be_available
+    end
+
+    it "returns false for an ABI that always denies cross-directory renames" do
+      allow(described_class).to receive(:landlock_create_ruleset).with(nil, 0, 1).and_return(1)
 
       expect(described_class).not_to be_available
       expect(described_class.state).to eq(:unsupported_abi)
-      expect(described_class.abi_version).to eq(2)
-      expect(described_class.failure_reason).to eq("Landlock ABI 3 or later is required; found ABI 2.")
+      expect(described_class.abi_version).to eq(1)
+      expect(described_class.failure_reason).to eq("Landlock ABI 2 or later is required; found ABI 1.")
     end
 
     it "only raises when explicitly configuring unavailable Landlock" do
@@ -116,13 +122,13 @@ RSpec.describe Sandbox::Landlock do
       allow(File).to receive(:exist?).with("/dev/tty").and_return(false)
     end
 
-    it "rejects an ABI without complete write restrictions" do
-      allow(described_class).to receive_messages(abi_version:    2,
-                                                 failure_reason: "Landlock ABI 3 or later is required; found ABI 2.")
+    it "rejects an ABI without cross-directory rename restrictions" do
+      allow(described_class).to receive_messages(abi_version:    1,
+                                                 failure_reason: "Landlock ABI 2 or later is required; found ABI 1.")
       expect(described_class).not_to receive(:landlock_create_ruleset)
 
       expect { landlock.apply! }
-        .to raise_error(RuntimeError, "Landlock ABI 3 or later is required; found ABI 2.")
+        .to raise_error(RuntimeError, "Landlock ABI 2 or later is required; found ABI 1.")
     end
 
     it "restricts writes and network access using the supported ABI" do
@@ -317,6 +323,49 @@ RSpec.describe Sandbox::Landlock do
         attributes, = landlock.ruleset_attributes(7)
 
         expect(attributes.unpack("Q3")).to eq([65_522, 3, 1])
+      end
+    end
+
+    context "with the oldest supported ABI" do
+      before do
+        allow(landlock).to receive(:open_path).and_return(18)
+        allow(described_class).to receive_messages(abi_version: 2, landlock_create_ruleset: 17, landlock_add_rule: 0,
+                                                   set_no_new_privileges: 0, landlock_restrict_self: 0)
+        allow(landlock).to receive(:close_file_descriptor)
+      end
+
+      it "does not warn without network denial" do
+        landlock.command(["true"], tmpdir.to_s)
+
+        expect { landlock.apply! }.not_to output.to_stderr
+      end
+
+      it "warns that network access cannot be restricted" do
+        sandbox.deny_all_network
+        landlock.command(["true"], tmpdir.to_s)
+
+        expect { landlock.apply! }
+          .to output(/found ABI 2\. This kernel cannot restrict network access/).to_stderr
+      end
+
+      it "omits unsupported access rights from device path rules" do
+        allow(File).to receive(:exist?).with("/dev/full").and_return(true)
+        landlock.command(["true"], tmpdir.to_s)
+
+        expect(landlock).to receive(:open_path).with("/dev/full").and_return(19)
+        expect(described_class).to receive(:landlock_add_rule)
+          .with(17, 1, [2, 19].pack("Ql"), 0).and_return(0)
+
+        landlock.apply!
+      end
+
+      it "handles only the supported filesystem access rights" do
+        sandbox.deny_all_network
+        landlock.command(["true"], tmpdir.to_s)
+
+        attributes, = landlock.ruleset_attributes(2)
+
+        expect(attributes.unpack("Q*")).to eq([16_370])
       end
     end
   end

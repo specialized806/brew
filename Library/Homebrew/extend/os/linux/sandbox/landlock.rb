@@ -54,10 +54,19 @@ class Sandbox
     ACCESS_NET_BIND_UDP = 0x04
     ACCESS_NET_CONNECT_SEND_UDP = 0x08
     SCOPE_ABSTRACT_UNIX_SOCKET = 0x01
-    # ABI 3 is the first version that can restrict both cross-directory
-    # renames and truncation:
+    # ABI 2 is the first version that can permit cross-directory renames and
+    # links, which earlier ABIs always deny for sandboxed processes:
     # https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#previous-limitations
-    MINIMUM_ABI = 3
+    MINIMUM_ABI = 2
+    # File truncation cannot be restricted before ABI 3, letting sandboxed
+    # processes truncate files outside allowed write paths. Every profile
+    # needs write isolation, so unlike `@deny_all_network` there is no
+    # profile-specific check that could gate a warning:
+    # https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#previous-limitations
+    MINIMUM_TRUNCATE_ABI = 3
+    # TCP bind and connect restrictions were added in ABI 4:
+    # https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#network-flags
+    MINIMUM_NETWORK_ABI = 4
     # UDP controls required to block all network access were added in ABI 10:
     # https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#network-flags
     MINIMUM_FULL_NETWORK_ABI = 10
@@ -80,8 +89,8 @@ class Sandbox
                      :ACCESS_FS_IOCTL_DEV,
                      :ACCESS_NET_BIND_TCP, :ACCESS_NET_CONNECT_TCP, :ACCESS_NET_BIND_UDP,
                      :ACCESS_NET_CONNECT_SEND_UDP, :SCOPE_ABSTRACT_UNIX_SOCKET, :MINIMUM_ABI,
-                     :MINIMUM_FULL_NETWORK_ABI, :WRITE_ACCESS_FS, :FILE_WRITE_ACCESS_FS, :FILE_READ_ACCESS_FS,
-                     :READ_ACCESS_FS
+                     :MINIMUM_TRUNCATE_ABI, :MINIMUM_NETWORK_ABI, :MINIMUM_FULL_NETWORK_ABI,
+                     :WRITE_ACCESS_FS, :FILE_WRITE_ACCESS_FS, :FILE_READ_ACCESS_FS, :READ_ACCESS_FS
 
     class << self
       # Landlock cannot restrict chmod, chown, extended attributes or timestamp
@@ -321,8 +330,13 @@ class Sandbox
       end
 
       if @deny_all_network && abi < MINIMUM_FULL_NETWORK_ABI
+        network_restrictions = if abi >= MINIMUM_NETWORK_ABI
+          "Applying the network restrictions supported by this kernel."
+        else
+          "This kernel cannot restrict network access."
+        end
         opoo "Landlock ABI #{MINIMUM_FULL_NETWORK_ABI} or later is required to deny all network access; " \
-             "found ABI #{abi}. Applying the network restrictions supported by this kernel."
+             "found ABI #{abi}. #{network_restrictions}"
       end
 
       attributes, handled_access_fs, allowed_write_access_fs = ruleset_attributes(abi)
@@ -357,7 +371,7 @@ class Sandbox
         device_path_rules.each do |path, allowed_access|
           next unless File.exist?(path)
 
-          add_path_rule(ruleset_fd, path, allowed_access)
+          add_path_rule(ruleset_fd, path, allowed_access & handled_access_fs)
         end
 
         error_pipe_path = @error_pipe_path
@@ -389,8 +403,8 @@ class Sandbox
     sig { params(abi: Integer).returns([String, Integer, Integer]) }
     def ruleset_attributes(abi)
       allowed_access_fs = WRITE_ACCESS_FS
-      allowed_access_fs |= ACCESS_FS_REFER if abi >= 2
-      allowed_access_fs |= ACCESS_FS_TRUNCATE if abi >= 3
+      allowed_access_fs |= ACCESS_FS_REFER if abi >= MINIMUM_ABI
+      allowed_access_fs |= ACCESS_FS_TRUNCATE if abi >= MINIMUM_TRUNCATE_ABI
       handled_access_fs = allowed_access_fs
       # IOCTL_DEV is available from ABI 5 and deliberately remains absent from
       # allowed path rules, denying device ioctls opened inside the sandbox:
@@ -402,7 +416,7 @@ class Sandbox
       # Optional ruleset fields are appended as `__u64` members, so only pass
       # the prefix needed for features supported by the running kernel.
       attributes = [handled_access_fs]
-      if @deny_all_network && abi >= 4
+      if @deny_all_network && abi >= MINIMUM_NETWORK_ABI
         handled_access_net = ACCESS_NET_BIND_TCP | ACCESS_NET_CONNECT_TCP
         handled_access_net |= ACCESS_NET_BIND_UDP | ACCESS_NET_CONNECT_SEND_UDP if abi >= MINIMUM_FULL_NETWORK_ABI
         attributes << handled_access_net
