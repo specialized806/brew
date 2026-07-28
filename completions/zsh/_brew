@@ -273,6 +273,7 @@ __brew_internal_commands() {
   )
   if [[ -n ${HOMEBREW_DEVELOPER:-} ]]; then
     commands+=(
+      'advisory-match:Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
       'analytics:Control Homebrew'\''s anonymous aggregate user behaviour analytics'
       'determine-test-runners:Determines the runners used to test formulae or their dependents'
       'dispatch-build-bottle:Build bottles for these formulae with GitHub Actions'
@@ -430,6 +431,22 @@ _brew___version() {
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
+}
+
+# brew advisory-match
+_brew_advisory_match() {
+  _arguments \
+    '(--index --json)--all[Match every formula in `homebrew/core`]' \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '(--all --json --output)--index[Emit the formula-identity index as JSON and exit]' \
+    '(--all --index)--json[Output candidate records as a JSON array]' \
+    '--no-history[Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead]' \
+    '(--index)--output[Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]' \
+    - formula \
+    '*:formula:__brew_formulae'
 }
 
 # brew alias

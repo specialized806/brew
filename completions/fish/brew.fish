@@ -333,6 +333,19 @@ __fish_brew_complete_arg '--version' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg '--version' -l verbose -d 'Make some output more verbose'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'advisory-match' -d 'Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
+__fish_brew_complete_arg 'advisory-match' -l all -d 'Match every formula in `homebrew/core`'
+__fish_brew_complete_arg 'advisory-match' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'advisory-match' -l help -d 'Show this message'
+__fish_brew_complete_arg 'advisory-match' -l index -d 'Emit the formula-identity index as JSON and exit'
+__fish_brew_complete_arg 'advisory-match' -l json -d 'Output candidate records as a JSON array'
+__fish_brew_complete_arg 'advisory-match' -l no-history -d 'Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead'
+__fish_brew_complete_arg 'advisory-match' -l output -d 'Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields'
+__fish_brew_complete_arg 'advisory-match' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'advisory-match' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'advisory-match' -a '(__fish_brew_suggest_formulae_all)'
+
+
 __fish_brew_complete_cmd 'alias' 'Show an alias\'s command'
 __fish_brew_complete_arg 'alias' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'alias' -l edit -d 'Edit aliases in a text editor. Either one or all aliases may be opened at once. If the given alias doesn\'t exist it\'ll be pre-populated with a template'
