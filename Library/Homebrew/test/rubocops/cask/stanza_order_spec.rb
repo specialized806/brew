@@ -4,6 +4,14 @@
 require "rubocops/rubocop-cask"
 
 RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
+  it "registers system conditionals after version stanzas" do
+    expect(RuboCop::Cask::Constants::STANZA_GROUPS.take(3)).to eq([
+      [:arch, :on_arch_conditional, :os],
+      [:version, :sha256],
+      [:on_system_conditional],
+    ])
+  end
+
   it "accepts a sole stanza" do
     expect_no_offenses <<~CASK
       cask 'foo' do
@@ -56,6 +64,42 @@ RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
       cask 'foo' do
         app 'Foo.app'
         appimage 'Foo.AppImage'
+      end
+    CASK
+  end
+
+  it "orders `generated_script` before `installer`" do
+    expect_offense <<~CASK
+      cask 'foo' do
+        installer script: 'installer.sh'
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `installer` stanza out of order
+        generated_script 'installer.sh', content: '#!/bin/sh'
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `generated_script` stanza out of order
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask 'foo' do
+        generated_script 'installer.sh', content: '#!/bin/sh'
+        installer script: 'installer.sh'
+      end
+    CASK
+  end
+
+  it "orders `command_wrapper` after `binary`" do
+    expect_offense <<~CASK
+      cask 'foo' do
+        command_wrapper 'foo', executable: 'Foo.app/Contents/MacOS/foo'
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `command_wrapper` stanza out of order
+        binary 'foo'
+        ^^^^^^^^^^^^ `binary` stanza out of order
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask 'foo' do
+        binary 'foo'
+        command_wrapper 'foo', executable: 'Foo.app/Contents/MacOS/foo'
       end
     CASK
   end
