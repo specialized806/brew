@@ -27,7 +27,10 @@ module Homebrew
       def initialize(data)
         super
         raise Error, "advisory index is not a JSON object" unless (top = as_hash(data))
-        raise Error, "advisory index missing 'advisories' key" unless (advisories = as_hash(top["advisories"]))
+        raise Error, "advisory index has no 'advisories' key" unless top.key?("advisories")
+        unless (advisories = as_hash(top["advisories"]))
+          raise Error, "advisory index 'advisories' is not a JSON object"
+        end
 
         @advisories = T.let(advisories, T::Hash[String, T.untyped])
         @meta = T.let(as_hash(top["meta"]) || {}, T::Hash[String, T.untyped])
@@ -89,12 +92,15 @@ module Homebrew
             fix:      eco["fix"],
             fixed_in: status&.fixed_in,
           ).freeze
-          if status.nil? || status.affected?
-            open << entry
-          elsif eco["fix"] == "patch"
-            patched << entry
-          else
-            fixed_count += 1
+          case status&.state
+          when nil, :affected then open << entry
+          when :fixed
+            if eco["fix"] == "patch"
+              patched << entry
+            else
+              fixed_count += 1
+            end
+          when :not_applicable then next
           end
         end
 

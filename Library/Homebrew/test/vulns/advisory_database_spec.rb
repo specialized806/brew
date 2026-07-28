@@ -31,7 +31,12 @@ RSpec.describe Homebrew::Vulns::AdvisoryDatabase do
 
     it "raises Error when the advisories key is missing" do
       expect { described_class.new({ "meta" => {} }) }
-        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /missing 'advisories' key/)
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /no 'advisories' key/)
+    end
+
+    it "distinguishes a wrong-type advisories value from a missing key" do
+      expect { described_class.new({ "advisories" => [] }) }
+        .to raise_error(Homebrew::Vulns::CachedFeed::Error, /'advisories' is not a JSON object/)
     end
   end
 
@@ -87,6 +92,19 @@ RSpec.describe Homebrew::Vulns::AdvisoryDatabase do
 
     it "returns nil when the corpus has no records for the formula" do
       expect(corpus.status_for("nope", "1.0")).to be_nil
+    end
+
+    it "ignores :not_applicable records rather than counting them as fixed or patched" do
+      d = db({ "foo" => [
+        record("BREW-foo-CVE-1", "foo",
+               events: [{ "introduced" => "2.0" }, { "fixed" => "3.0" }], fix: "bump"),
+        record("BREW-foo-CVE-2", "foo",
+               events: [{ "introduced" => "2.0" }, { "fixed" => "3.0" }], fix: "patch"),
+      ] })
+      status = d.status_for("foo", "1.0")
+      expect(status["open"]).to eq []
+      expect(status["patched"]).to eq []
+      expect(status["fixed_count"]).to eq 0
     end
 
     it "compacts nil fields out of each entry hash" do
