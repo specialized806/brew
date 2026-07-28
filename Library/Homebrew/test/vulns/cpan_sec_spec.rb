@@ -121,6 +121,12 @@ RSpec.describe Homebrew::Vulns::CPANSec do
       expect(described_class.range_status(adv(affected: [], fixed: []), "1.0").affected?).to be true
     end
 
+    it "does not report a version in the gap between affected and a strict >fix as :fixed" do
+      status = described_class.range_status(adv(affected: ["<1.0"], fixed: [">1.0"]), "1.0")
+      expect(status.state).to eq :not_applicable
+      expect(described_class.range_status(adv(affected: ["<1.0"], fixed: [">1.0"]), "1.1").state).to eq :fixed
+    end
+
     it "reports affected with no fixed_in when there is no fixed_versions" do
       expect(described_class.range_status(adv(affected: ["<12.24"], fixed: []), "12.00"))
         .to have_attributes(affected?: true, fixed_in: nil)

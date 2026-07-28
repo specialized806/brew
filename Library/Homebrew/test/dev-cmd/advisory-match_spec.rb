@@ -66,6 +66,19 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
+  it "drops :not_applicable hits instead of emitting them as open ranges" do
+    allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2024-1234" }], []])
+    allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1234").and_return(
+      { "id" => "CVE-2024-1234", "affected" => [{
+        "package" => { "ecosystem" => "GIT", "name" => "https://github.com/psf/requests" },
+        "ranges"  => [{ "type"   => "ECOSYSTEM",
+                        "events" => [{ "introduced" => "3.0.0" }, { "fixed" => "3.0.4" }] }],
+      }] },
+    )
+
+    expect(JSON.parse(capture_stdout { cmd_for("requests", "--json", "--no-history").run })).to eq []
+  end
+
   it "does not overwrite an existing source: generated record" do
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
 

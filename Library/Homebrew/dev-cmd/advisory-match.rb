@@ -54,6 +54,12 @@ module Homebrew
               matcher.each_advisory_batch(each_formula) do |formula, hits|
                 report(matcher, formula, hits) if text_mode?
                 hits.each do |hit|
+                  # A `:not_applicable` hit (below every `introduced`) emitted
+                  # as `{introduced: 0}` with no `fixed` reads to OSV consumers
+                  # as currently affected; drop it instead.
+                  status, = matcher.range_status(hit)
+                  next if status&.state == :not_applicable
+
                   first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
                   emitter << matcher.to_brew_record(formula, hit, first_fixed:)
                 end

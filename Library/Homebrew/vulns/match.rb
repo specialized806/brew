@@ -202,23 +202,27 @@ module Homebrew
             annotated = Evidence.new(**ev.to_h, advisory: adv).freeze
             if adv.cves.any?
               adv.cves.each do |cve|
-                record = fetch_vulnerability(cve) || cpansa_vulnerability(adv)
+                record = fetch_vulnerability(cve) || cpansa_vulnerability(adv, id: cve)
                 hits << Hit.new(vulnerability: record, evidence: [annotated])
               end
             else
-              hits << Hit.new(vulnerability: cpansa_vulnerability(adv), evidence: [annotated])
+              hits << Hit.new(vulnerability: cpansa_vulnerability(adv, id: adv.id.to_s),
+                              evidence:      [annotated])
             end
           end
         end
         dedup_by_cve(hits)
       end
 
-      sig { params(adv: CPANSec::Advisory).returns(Vulnerability) }
-      def cpansa_vulnerability(adv)
+      # Synthesise a {Vulnerability} for a CPANSA advisory when OSV has no
+      # record. `id` is scoped to the single CVE (or CPANSA id) being handled
+      # so a multi-CVE advisory whose CVEs are absent from OSV yields distinct
+      # records instead of collapsing under the lowest CVE in dedup.
+      sig { params(adv: CPANSec::Advisory, id: String).returns(Vulnerability) }
+      def cpansa_vulnerability(adv, id:)
         summary = adv.description.to_s.lines.first&.strip
         Vulnerability.new({
-          "id"         => adv.id.to_s,
-          "aliases"    => adv.cves,
+          "id"         => id,
           "summary"    => summary,
           "details"    => adv.description,
           "references" => adv.references.map { |u| { "type" => "WEB", "url" => u } },
@@ -323,6 +327,12 @@ module Homebrew
         hits
       end
 
+      # AlmaLinux ALSA-* records list their source CVEs in `related` rather than
+      # `upstream`. That is a data-source quirk; per the OSV schema `related`
+      # otherwise names *different* vulnerabilities and must not be traversed.
+      RELATED_AS_UPSTREAM_PREFIX = "ALSA-"
+      private_constant :RELATED_AS_UPSTREAM_PREFIX
+
       # Returns the set of CVE records `record` derives from. `[record]` if it
       # is one already; `[]` if the walk exhausts without reaching a CVE (the
       # caller then keeps `record` itself as a low-confidence hit).
@@ -334,8 +344,9 @@ module Homebrew
         return [record] if record.cve_ids.any?
         return [] if budget.zero?
 
-        follow = record.upstream.presence || record.related.grep(CVE_ID)
-        follow.uniq.flat_map do |ref|
+        follow = record.upstream.presence
+        follow ||= record.related.grep(CVE_ID) if record.id.start_with?(RELATED_AS_UPSTREAM_PREFIX)
+        Array(follow).uniq.flat_map do |ref|
           next [] unless seen.add?(ref)
 
           upstream = fetch_vulnerability(ref)

@@ -70,7 +70,8 @@ module Homebrew
         if affected
           fixed_in = bounds.select { |v| target < v }.min&.to_s
           Vulnerability::RangeStatus.new(state: :affected, fixed_in:).freeze
-        elsif (fixed_in = bounds.select { |v| target >= v }.max&.to_s)
+        elsif advisory.fixed_versions.any? { |c| satisfies?(target, c) }
+          fixed_in = bounds.select { |v| target >= v }.max&.to_s
           Vulnerability::RangeStatus.new(state: :fixed, fixed_in:).freeze
         else
           Vulnerability::RangeStatus.new(state: :not_applicable, fixed_in: nil).freeze

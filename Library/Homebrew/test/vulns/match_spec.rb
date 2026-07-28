@@ -224,6 +224,31 @@ RSpec.describe Homebrew::Vulns::Match do
       } })
     end
 
+    it "scopes a synthesised fallback to the CVE being handled when OSV lacks it" do
+      cpan_sec = Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {
+        "Multi" => { "advisories" => [
+          { "id" => "CPANSA-Multi-1", "cves" => ["CVE-2022-4988", "CVE-2022-4989"],
+            "affected_versions" => ["<1.0"], "fixed_versions" => [">=1.0"] },
+        ] },
+      } })
+      m = described_class.new(repology:, cpan_sec:)
+      identity = Homebrew::Vulns::Match::Identity.new(
+        git_repo: nil, git_tag: nil,
+        primary_package: Homebrew::Vulns::Identify::RegistryPackage.new(
+          ecosystem: "CPAN", name: "Multi", version: "0.9", purl: "pkg:cpan/X/Multi@0.9",
+        ),
+        resource_packages: {}, distro_packages: {}
+      )
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2022-4988")
+                                                            .and_raise(Homebrew::Vulns::OSV::ApiError, "404")
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2022-4989")
+                                                            .and_return({ "id" => "CVE-2022-4989" })
+
+      hits = m.hits_from({}, identity)
+
+      expect(hits.map(&:canonical_id).sort).to eq ["CVE-2022-4988", "CVE-2022-4989"]
+    end
+
     it "builds a hit directly from a CPANSA advisory that has no CVE alias" do
       identity = Homebrew::Vulns::Match::Identity.new(
         git_repo: nil, git_tag: nil,
@@ -283,7 +308,7 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(hits.map { |h| h.vulnerability.id }).to eq ["CVE-2024-0001"]
     end
 
-    it "consults related for bare CVE ids only when upstream is empty (AlmaLinux)" do
+    it "consults related for bare CVE ids only for ALSA-* records with no upstream" do
       allow(matcher).to receive(:fetch_vulnerability).with("ALSA-1").and_return(
         vuln("id" => "ALSA-1", "related" => ["CVE-2024-0001", "RHSA-2024:1"]),
       )
@@ -292,6 +317,14 @@ RSpec.describe Homebrew::Vulns::Match do
 
       hits = matcher.resolve_upstream({ "ALSA-1" => [ev(:distro)] }, identity)
       expect(hits.map { |h| h.vulnerability.id }).to eq ["CVE-2024-0001"]
+    end
+
+    it "does not consult related for a non-ALSA record with no upstream" do
+      allow(matcher).to receive(:fetch_vulnerability).with("MGASA-1").and_return(
+        vuln("id" => "MGASA-1", "related" => ["CVE-2024-9999"]),
+      )
+      hits = matcher.resolve_upstream({ "MGASA-1" => [ev(:distro)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["MGASA-1"]
     end
 
     it "ignores related when upstream is present" do
