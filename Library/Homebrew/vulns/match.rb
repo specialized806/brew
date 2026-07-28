@@ -560,22 +560,18 @@ module Homebrew
       end
 
       # Walk homebrew-core git history (newest first) via {FormulaVersions} and
-      # return the `pkg_version` at the oldest revision whose subject version
-      # still evaluates as `:fixed` against the same evidence used for the
-      # current version. Re-running the full range check per revision keeps
-      # `last_affected` and exclusive-bound semantics intact instead of
-      # collapsing them to a `>= threshold` test. Returns nil when the current
-      # version is not `:fixed`. The rev-list and per-revision loads are cached
-      # per formula.
+      # return the `pkg_version` at the oldest revision where the aggregate of
+      # every checkable subject is still `:fixed`. Re-running the full
+      # per-evidence range check with each revision's subject versions keeps
+      # `last_affected` and exclusive-bound semantics intact and stops as soon
+      # as any subject (primary or a resource) drops back into `:affected`, so
+      # a primary fixed at 2.0 with a resource fixed at 3.0 yields 3.0. Returns
+      # nil when the current aggregate is not `:fixed`. The rev-list and
+      # per-revision loads are cached per formula.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(String)) }
       def first_fixed_version(formula, hit)
-        result = range_status(hit)
-        return if result.nil?
+        return unless range_status(hit)&.first&.fixed?
 
-        status, evidence = result
-        return unless status.fixed?
-
-        resource = evidence.resource
         fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
         revs = @formula_rev_lists[formula.name] ||=
           [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
@@ -583,14 +579,26 @@ module Homebrew
         last_fixed = T.let(formula.pkg_version.to_s, T.nilable(String))
         revs.each do |rev, entry|
           old_fixed = fv.formula_at_revision(rev, entry) do |old|
-            subject = subject_version(old, resource)&.to_s
-            old.pkg_version.to_s if evidence_range_status(evidence, subject)&.fixed?
+            old.pkg_version.to_s if aggregate_state_at(old, hit) == :fixed
           end
           return last_fixed if old_fixed.nil?
 
           last_fixed = old_fixed
         end
         last_fixed
+      end
+
+      sig { params(formula: Formula, hit: Hit).returns(T.nilable(Symbol)) }
+      def aggregate_state_at(formula, hit)
+        results = hit.evidence.filter_map do |ev|
+          subject = subject_version(formula, ev.resource)&.to_s
+          evidence_range_status(ev, subject)
+        end
+        return if results.empty?
+        return :affected if results.any?(&:affected?)
+        return :fixed if results.any?(&:fixed?)
+
+        :not_applicable
       end
 
       sig { params(formula: Formula, resource: T.nilable(String)).returns(T.nilable(Version)) }

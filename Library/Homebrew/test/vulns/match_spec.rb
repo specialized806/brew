@@ -643,11 +643,17 @@ RSpec.describe Homebrew::Vulns::Match do
       fv = instance_double(FormulaVersions)
       revs = versions_newest_first.each_with_index.map { |_, i| ["r#{i}", "Formula/r/requests.rb"] }
       allow(fv).to receive(:rev_list) { |_, &b| revs.each { |rev, entry| b.call(rev, entry) } }
-      versions_newest_first.each_with_index do |v, i|
-        old = if v
+      versions_newest_first.each_with_index do |entry, i|
+        primary, res = Array(entry)
+        old = if primary
           formula("requests") do
             T.bind(self, T.class_of(Formula))
-            url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-#{v}.tar.gz"
+            url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-#{primary}.tar.gz"
+            if res
+              resource "certifi" do
+                url "https://files.pythonhosted.org/packages/11/22/33/certifi-#{res}.tar.gz"
+              end
+            end
           end
         end
         allow(fv).to receive(:formula_at_revision).with("r#{i}", anything) do |&b|
@@ -681,6 +687,31 @@ RSpec.describe Homebrew::Vulns::Match do
       hit = hit_with_range({ "introduced" => "0" }, { "last_affected" => "2.0" })
       # 2.0 is the last *affected* version so 2.1 is the first fixed pkg_version.
       expect(matcher.first_fixed_version(requests, hit)).to eq "2.1"
+    end
+
+    it "aggregates every subject per revision so a fixed primary does not mask a later-fixed resource" do
+      # Primary requests fixed upstream in 2.0; resource certifi fixed upstream in 100.0.
+      # History (formula pkg_version => [primary, certifi]): the resource crossed its
+      # threshold at formula 3.0; the primary crossed at 2.0. Aggregate is only :fixed
+      # from 3.0 onward.
+      stub_history([["4.0", "101.0"], ["3.0", "100.0"], ["2.5", "99.0"], ["2.0", "98.0"], ["1.0", "97.0"]])
+      v = vuln("id" => "CVE-1", "affected" => [
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [{ "introduced" => "0" }, { "fixed" => "2.0" }] }] },
+        { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+          "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [{ "introduced" => "0" }, { "fixed" => "100.0" }] }] },
+      ])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-4.0.tar.gz"
+        resource("certifi") { url "https://files.pythonhosted.org/packages/11/22/33/certifi-101.0.tar.gz" }
+      end
+      hit = make_hit(v,
+                     ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "4.0"),
+                     ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "101.0",
+                                   resource: "certifi"))
+
+      expect(matcher.first_fixed_version(current, hit)).to eq "3.0"
     end
 
     it "stops at an unloadable revision and returns the last known fixed pkg_version" do
