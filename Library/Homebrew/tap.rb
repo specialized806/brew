@@ -1162,6 +1162,8 @@ class Tap
 
   sig { returns(T::Hash[String, T.untyped]) }
   def to_hash
+    require "trust"
+
     hash = {
       "name"          => name,
       "user"          => user,
