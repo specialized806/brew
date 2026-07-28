@@ -82,12 +82,12 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       .to_stdout
   end
 
-  it "reports and continues past an OSV outage without raising" do
+  it "reports an OSV outage and finishes the emitter without raising" do
     allow(Homebrew::Vulns::OSV).to receive(:query_batch)
       .and_raise(Homebrew::Vulns::OSV::ApiError, "503")
 
     expect { cmd_for("requests", "--json").run }
-      .to output("[]\n").to_stdout.and output(/OSV query for requests failed/).to_stderr
+      .to output("[]\n").to_stdout.and output(/OSV query failed: 503/).to_stderr
     expect(Homebrew.failed?).to be true
   end
 

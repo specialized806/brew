@@ -48,8 +48,20 @@ module Homebrew
             matcher = Homebrew::Vulns::Match.new(bulk: args.all? || args.index?)
             next emit_index(matcher) if args.index?
 
-            records = each_formula.flat_map { |f| records_for(matcher, f) }
-            emit(records)
+            emitter = build_emitter
+            begin
+              matcher.each_advisory_batch(each_formula) do |formula, hits|
+                report(matcher, formula, hits) if text_mode?
+                hits.each do |hit|
+                  first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
+                  emitter << matcher.to_brew_record(formula, hit, first_fixed:)
+                end
+              end
+            rescue Homebrew::Vulns::OSV::Error => e
+              onoe "OSV query failed: #{e.message}"
+              Homebrew.failed = true
+            end
+            emitter.finish
           end
         end
       end
@@ -70,20 +82,6 @@ module Homebrew
             onoe "Error loading formula '#{name}': #{e}"
           end
         end
-      end
-
-      sig { params(matcher: Homebrew::Vulns::Match, formula: Formula).returns(T::Array[T::Hash[Symbol, T.untyped]]) }
-      def records_for(matcher, formula)
-        hits = matcher.advisories_for(formula)
-        report(matcher, formula, hits) if text_mode?
-        hits.map do |hit|
-          first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
-          matcher.to_brew_record(formula, hit, first_fixed:)
-        end
-      rescue Homebrew::Vulns::OSV::Error => e
-        onoe "OSV query for #{formula.name} failed: #{e.message}"
-        Homebrew.failed = true
-        []
       end
 
       sig { returns(T::Boolean) }
@@ -119,25 +117,90 @@ module Homebrew
         end
       end
 
-      sig { params(records: T::Array[T::Hash[Symbol, T.untyped]]).void }
-      def emit(records)
-        if (dir = args.output)
-          FileUtils.mkdir_p(dir)
-          written = 0
-          records.each do |record|
-            path = File.join(dir, "#{record.fetch(:id)}.json")
-            merged = Homebrew::Vulns::OsvExport.merge_existing(path, record)
-            next if merged.nil?
+      # `--output` and text mode write per-record and only accumulate counts;
+      # `--json` accumulates the array (single-formula / PR-bot use, so bounded).
+      class Emitter
+        sig { params(record: T::Hash[Symbol, T.untyped]).void }
+        def <<(record); end
 
-            File.write(path, "#{JSON.pretty_generate(merged)}\n")
-            puts "  wrote #{path}" if args.verbose?
-            written += 1
+        sig { void }
+        def finish; end
+      end
+
+      class DirEmitter < Emitter
+        sig { params(dir: String, verbose: T::Boolean).void }
+        def initialize(dir, verbose:)
+          super()
+          FileUtils.mkdir_p(dir)
+          @dir = dir
+          @verbose = verbose
+          @written = T.let(0, Integer)
+          @unchanged = T.let(0, Integer)
+        end
+
+        sig { override.params(record: T::Hash[Symbol, T.untyped]).void }
+        def <<(record)
+          path = File.join(@dir, "#{record.fetch(:id)}.json")
+          merged = Homebrew::Vulns::OsvExport.merge_existing(path, record)
+          if merged.nil?
+            @unchanged += 1
+            return
           end
-          ohai "#{written} records written to #{dir} (#{records.size - written} unchanged)"
+          File.write(path, "#{JSON.pretty_generate(merged)}\n")
+          puts "  wrote #{path}" if @verbose
+          @written += 1
+        end
+
+        sig { override.void }
+        def finish
+          Utils::Output.ohai "#{@written} records written to #{@dir} (#{@unchanged} unchanged)"
+        end
+      end
+
+      class JsonEmitter < Emitter
+        sig { void }
+        def initialize
+          super
+          @records = T.let([], T::Array[T::Hash[Symbol, T.untyped]])
+        end
+
+        sig { override.params(record: T::Hash[Symbol, T.untyped]).void }
+        def <<(record)
+          @records << record
+        end
+
+        sig { override.void }
+        def finish
+          puts JSON.pretty_generate(@records)
+        end
+      end
+
+      class CountEmitter < Emitter
+        sig { void }
+        def initialize
+          super
+          @count = T.let(0, Integer)
+        end
+
+        sig { override.params(_record: T::Hash[Symbol, T.untyped]).void }
+        def <<(_record)
+          @count += 1
+        end
+
+        sig { override.void }
+        def finish
+          Utils::Output.ohai "#{@count} candidate records"
+        end
+      end
+
+      sig { returns(Emitter) }
+      def build_emitter
+        if (dir = args.output)
+          DirEmitter.new(dir, verbose: args.verbose?)
         elsif args.json?
-          puts JSON.pretty_generate(records)
+          JsonEmitter.new
         else
-          ohai "#{records.size} candidate records"
+          CountEmitter.new
         end
       end
 

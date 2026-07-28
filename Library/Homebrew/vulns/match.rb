@@ -143,28 +143,64 @@ module Homebrew
       # {#range_status} evaluates each hit against the shipped version.
       sig { params(formula: Formula).returns(T::Array[Hit]) }
       def advisories_for(formula)
-        identity = identify(formula)
-        return [] unless identity.identifiable?
+        result = T.let([], T::Array[Hit])
+        each_advisory_batch([formula]) { |_, hits| result = hits }
+        result
+      end
 
-        labelled = build_osv_queries(identity, formula.version.to_s)
-        id_evidence = T.let({}, T::Hash[String, T::Array[Evidence]])
+      BULK_CHUNK = 200
+      private_constant :BULK_CHUNK
 
-        if labelled.any?
-          OSV.query_batch(labelled.map(&:first)).each_with_index do |stubs, i|
-            evidence = labelled.fetch(i).last
-            stubs.each { |stub| (id_evidence[stub.fetch("id")] ||= []) << evidence }
+      # Bulk form of {#advisories_for}: builds the labelled queries for a chunk
+      # of formulae at once, sends them through a single {OSV.query_batch}
+      # (which itself slices at `BATCH_SIZE`), then yields `(formula, hits)` in
+      # input order. Per-formula query counts vary widely (one distro entry per
+      # ecosystem×srcname), so chunking bounds memory without accumulating the
+      # whole tap's queries or records; the `@vuln_cache` still spans chunks.
+      sig {
+        params(formulae: T::Enumerable[Formula],
+               _blk:     T.proc.params(formula: Formula, hits: T::Array[Hit]).void).void
+      }
+      def each_advisory_batch(formulae, &_blk)
+        formulae.each_slice(BULK_CHUNK) do |chunk|
+          identities = chunk.map { |f| [f, identify(f)] }
+          labelled = T.let([], T::Array[[OSV::Package, [Formula, Evidence]]])
+          identities.each do |f, identity|
+            next unless identity.identifiable?
+
+            build_osv_queries(identity, f.version.to_s).each do |query, evidence|
+              labelled << [query, [f, evidence]]
+            end
+          end
+
+          by_formula = T.let({}, T::Hash[Formula, T::Hash[String, T::Array[Evidence]]])
+          if labelled.any?
+            OSV.query_batch(labelled.map(&:first)).each_with_index do |stubs, i|
+              formula, evidence = labelled.fetch(i).last
+              id_evidence = by_formula[formula] ||= {}
+              stubs.each { |stub| (id_evidence[stub.fetch("id")] ||= []) << evidence }
+            end
+          end
+
+          identities.each do |f, identity|
+            next yield f, [] unless identity.identifiable?
+
+            yield f, hits_from(by_formula[f] || {}, identity)
           end
         end
+      end
 
+      sig {
+        params(id_evidence: T::Hash[String, T::Array[Evidence]], identity: Identity).returns(T::Array[Hit])
+      }
+      def hits_from(id_evidence, identity)
         cpan_evidence(identity).each do |ev|
           cpan_sec.advisories_for(ev.name).each do |adv|
             annotated = Evidence.new(**ev.to_h, advisory: adv).freeze
             (adv.cves.presence || [adv.id.to_s]).each { |id| (id_evidence[id] ||= []) << annotated }
           end
         end
-
-        hits = resolve_upstream(id_evidence, identity)
-        dedup_by_cve(hits)
+        dedup_by_cve(resolve_upstream(id_evidence, identity))
       end
 
       sig {

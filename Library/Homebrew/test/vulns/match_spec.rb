@@ -280,6 +280,34 @@ RSpec.describe Homebrew::Vulns::Match do
     end
   end
 
+  describe "#each_advisory_batch" do
+    it "sends every formula's queries through one OSV.query_batch and yields per-formula hits" do
+      a = formula("aa") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/owner/aa/archive/refs/tags/v1.0.tar.gz"
+      end
+      b = formula("bb") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/owner/bb/archive/refs/tags/v2.0.tar.gz"
+      end
+      bulk = described_class.new(repology:, cpan_sec:, bulk: true)
+
+      expect(Homebrew::Vulns::OSV).to receive(:query_batch).once.with(
+        [
+          { ecosystem: "GIT", name: "https://github.com/owner/aa", version: nil },
+          { ecosystem: "GIT", name: "https://github.com/owner/bb", version: nil },
+        ],
+      ).and_return([[{ "id" => "CVE-2024-0001" }], []])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-0001")
+                                                            .and_return({ "id" => "CVE-2024-0001" })
+
+      yielded = T.let([], T::Array[[String, T::Array[String]]])
+      bulk.each_advisory_batch([a, b]) { |f, hits| yielded << [f.name, hits.map(&:canonical_id)] }
+
+      expect(yielded).to eq [["aa", ["CVE-2024-0001"]], ["bb", []]]
+    end
+  end
+
   describe "#advisories_for" do
     let(:exiftool) do
       formula("exiftool") do
