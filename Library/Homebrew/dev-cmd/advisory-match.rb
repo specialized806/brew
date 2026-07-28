@@ -61,7 +61,10 @@ module Homebrew
                   next if status&.state == :not_applicable
 
                   first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
-                  emitter << matcher.to_brew_record(formula, hit, first_fixed:)
+                  next if first_fixed == :never_affected
+
+                  boundary = first_fixed if first_fixed.is_a?(String)
+                  emitter << matcher.to_brew_record(formula, hit, first_fixed: boundary)
                 end
               end
             rescue Homebrew::Vulns::OSV::Error => e

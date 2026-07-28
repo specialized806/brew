@@ -565,10 +565,21 @@ module Homebrew
       # per-evidence range check with each revision's subject versions keeps
       # `last_affected` and exclusive-bound semantics intact and stops as soon
       # as any subject (primary or a resource) drops back into `:affected`, so
-      # a primary fixed at 2.0 with a resource fixed at 3.0 yields 3.0. Returns
-      # nil when the current aggregate is not `:fixed`. The rev-list and
-      # per-revision loads are cached per formula.
-      sig { params(formula: Formula, hit: Hit).returns(T.nilable(String)) }
+      # a primary fixed at 2.0 with a resource fixed at 3.0 yields 3.0.
+      #
+      # Returns:
+      # - `nil` when the current aggregate is not `:fixed`.
+      # - `:never_affected` when the walk reaches `:not_applicable` (or the
+      #   start of the formula's history) without ever seeing `:affected`,
+      #   i.e. Homebrew jumped from a version below `introduced` straight past
+      #   `fixed` and never shipped an affected build. The caller drops the
+      #   candidate rather than emitting `{introduced: "0", fixed: <first>}`.
+      # - a `pkg_version` String when the walk hits `:affected`, or when it
+      #   stops at an unloadable revision (best-effort boundary; the reviewer
+      #   can tighten).
+      #
+      # The rev-list and per-revision loads are cached per formula.
+      sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
       def first_fixed_version(formula, hit)
         return unless range_status(hit)&.first&.fixed?
 
@@ -576,16 +587,21 @@ module Homebrew
         revs = @formula_rev_lists[formula.name] ||=
           [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
 
-        last_fixed = T.let(formula.pkg_version.to_s, T.nilable(String))
+        last_fixed = T.let(formula.pkg_version.to_s, String)
         revs.each do |rev, entry|
-          old_fixed = fv.formula_at_revision(rev, entry) do |old|
-            old.pkg_version.to_s if aggregate_state_at(old, hit) == :fixed
+          state = fv.formula_at_revision(rev, entry) do |old|
+            [aggregate_state_at(old, hit), old.pkg_version.to_s]
           end
-          return last_fixed if old_fixed.nil?
+          # `nil` means the revision failed to load; can't verify further.
+          return last_fixed if state.nil?
 
-          last_fixed = old_fixed
+          aggregate, pkg_version = state
+          return :never_affected if aggregate == :not_applicable
+          return last_fixed if aggregate != :fixed
+
+          last_fixed = pkg_version
         end
-        last_fixed
+        :never_affected
       end
 
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(Symbol)) }

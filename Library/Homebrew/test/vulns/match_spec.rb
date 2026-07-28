@@ -689,6 +689,31 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(matcher.first_fixed_version(requests, hit)).to eq "2.1"
     end
 
+    it "returns :never_affected when Homebrew jumped from below introduced straight past fixed" do
+      # Advisory {introduced: 2.0, fixed: 3.0}; Homebrew went 1.0 -> 4.0 and
+      # never shipped a 2.x, so no BREW record should be emitted.
+      stub_history(["4.0", "1.0"])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-4.0.tar.gz"
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "2.0" }, { "fixed" => "3.0" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "4.0"),
+      )
+
+      expect(matcher.first_fixed_version(current, hit)).to eq :never_affected
+    end
+
+    it "returns :never_affected when the formula was already past fixed at its first revision" do
+      stub_history(["2.31.0"])
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :never_affected
+    end
+
     it "keeps versionless (distro) evidence uncheckable at historical revisions too" do
       stub_history(["2.31.0", "2.30.0", "2.28.1", "2.28.0"])
       # A distro record whose Debian range would spuriously match our formula
