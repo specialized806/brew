@@ -47,6 +47,8 @@ Having a common order for stanzas makes casks easier to update and parse. Below 
     version
     sha256
 
+    on_system_conditional # additional custom-defined substitutions
+
     language
 
     url
@@ -72,12 +74,15 @@ Having a common order for stanzas makes casks easier to update and parse. Below 
     app
     appimage
     pkg
+    generated_script
     installer
     binary
+    command_wrapper
     manpage
     bash_completion
     fish_completion
     zsh_completion
+    generate_completions_from_executable
     colorpicker
     dictionary
     font
@@ -146,14 +151,14 @@ The `appimage` stanza is Linux-only, macOS integration stanzas such as `app` and
 
 | name                             | multiple occurrences allowed? | value |
 | -------------------------------- | :---------------------------: | ----- |
+| [`suite`](#stanza-suite)         | yes                           | Relative path to a containing directory that should be moved into the `/Applications` folder on installation. |
 | [`app`](#stanza-app)             | yes                           | Relative path to an `.app` that should be moved into the `/Applications` folder on installation. |
 | `appimage`                       | yes                           | Relative path to an AppImage that should be linked into the configured AppImage directory on installation. |
-| [`suite`](#stanza-suite)         | yes                           | Relative path to a containing directory that should be moved into the `/Applications` folder on installation. |
 | [`pkg`](#stanza-pkg)             | yes                           | Relative path to a `.pkg` file containing the distribution. |
+| [`generated_script`](#stanza-generated_script) | yes          | Generates an executable for another artifact or install step to use. |
 | [`installer`](#stanza-installer) | yes                           | Describes an executable which must be run to complete the installation. |
 | [`binary`](#stanza-binary)       | yes                           | Relative path to a Binary that should be linked into the `$(brew --prefix)/bin` folder on installation. |
 | [`command_wrapper`](#stanza-command_wrapper) | yes                  | Generates a command wrapper and links it into the `$(brew --prefix)/bin` folder. |
-| [`generated_script`](#stanza-generated_script) | yes          | Generates an executable for another artifact or install step to use. |
 | `manpage`                        | yes                           | Relative path to a Man Page that should be linked into the respective man page folder on installation, e.g. `/opt/homebrew/share/man/man3` for `my_app.3`. |
 | `bash_completion`                | yes                           | Relative path to a Bash completion file that should be linked into the `$(brew --prefix)/etc/bash_completion.d` folder on installation. |
 | `fish_completion`                | yes                           | Relative path to a fish completion file that should be linked into the `$(brew --prefix)/share/fish/vendor_completions.d` folder on installation. |
@@ -197,14 +202,14 @@ Generated completion artifacts are different: `generate_completions_from_executa
 | [`zap`](#stanza-zap)                       | no                            | Additional procedures for a more complete uninstall, including user files and shared resources. |
 | [`deprecate!`](#stanza-deprecate--disable) | no                            | Date as a string in `YYYY-MM-DD` format and a string or symbol providing a reason. |
 | [`disable!`](#stanza-deprecate--disable)   | no                            | Date as a string in `YYYY-MM-DD` format and a string or symbol providing a reason. |
-| `preflight`                                | no                            | Ruby block containing preflight install operations (needed only in very rare cases). |
 | `preflight_steps`                          | yes                           | Declarative file preparation steps run before artifact installation. |
-| [`postflight`](#stanza-flight)             | no                            | Ruby block containing postflight install operations. |
+| `preflight`                                | no                            | Ruby block containing preflight install operations (needed only in very rare cases). |
 | `postflight_steps`                         | yes                           | Declarative file preparation steps run after artifact installation. |
-| `uninstall_preflight`                      | no                            | Ruby block containing preflight uninstall operations (needed only in very rare cases). |
+| [`postflight`](#stanza-flight)             | no                            | Ruby block containing postflight install operations. |
 | `uninstall_preflight_steps`                | yes                           | Declarative file preparation steps run before artifact uninstallation. |
-| `uninstall_postflight`                     | no                            | Ruby block containing postflight uninstall operations. |
+| `uninstall_preflight`                      | no                            | Ruby block containing preflight uninstall operations (needed only in very rare cases). |
 | `uninstall_postflight_steps`               | yes                           | Declarative file preparation steps run after artifact uninstallation. |
+| `uninstall_postflight`                     | no                            | Ruby block containing postflight uninstall operations. |
 | [`language`](#stanza-language)             | yes                           | Ruby block, called with language code parameters, containing other stanzas and/or a return value. |
 | `container nested:`                        | no                            | Relative path to an inner container that must be extracted before moving on with the installation. This allows for support of `.dmg` inside `.tar`, `.zip` inside `.dmg`, etc. (Example: [blocs.rb](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/b/blocs.rb#L17-L19)) |
 | `container type:`                          | no                            | Symbol to override container-type autodetect. May be one of: `:air`, `:bzip2`, `:cab`, `:dmg`, `:generic_unar`, `:gzip`, `:otf`, `:pkg`, `:rar`, `:seven_zip`, `:sit`, `:tar`, `:ttf`, `:xar`, `:zip`, `:naked`. (Example: [parse.rb](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/p/parse.rb#L10)) |
