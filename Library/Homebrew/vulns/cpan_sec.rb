@@ -66,11 +66,15 @@ module Homebrew
         target = Version.new(version.sub(/\Av/i, ""))
         affected = advisory.affected_versions.empty? ||
                    advisory.affected_versions.any? { |c| satisfies?(target, c) }
-        fixed_in = advisory.fixed_versions.flat_map { |c| lower_bounds(c) }
-                                          .select { |v| target < v || (!affected && target == v) }
-                                          .min&.to_s
-        fixed_in ||= advisory.fixed_versions.flat_map { |c| lower_bounds(c) }.max&.to_s unless affected
-        Vulnerability::RangeStatus.new(affected:, fixed_in:).freeze
+        bounds = advisory.fixed_versions.flat_map { |c| lower_bounds(c) }
+        if affected
+          fixed_in = bounds.select { |v| target < v }.min&.to_s
+          Vulnerability::RangeStatus.new(state: :affected, fixed_in:).freeze
+        elsif (fixed_in = bounds.select { |v| target >= v }.max&.to_s)
+          Vulnerability::RangeStatus.new(state: :fixed, fixed_in:).freeze
+        else
+          Vulnerability::RangeStatus.new(state: :not_applicable, fixed_in: nil).freeze
+        end
       end
 
       CONSTRAINT = /\A\s*(<=|>=|==|<|>|=)?\s*v?(\d[\w.]*)\s*\z/
