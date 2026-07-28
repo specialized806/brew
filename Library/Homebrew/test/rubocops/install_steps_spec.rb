@@ -20,15 +20,14 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
     RUBY
   end
 
-  it "reports an offense when `post_install_steps` appears after `post_install`" do
-    expect_offense(<<~RUBY)
+  it "leaves `post_install_steps` ordering to `ComponentsOrder`" do
+    expect_no_offenses(<<~RUBY)
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
 
         def post_install; end
 
         post_install_steps do
-        ^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: `post_install_steps` must appear before `post_install` to match run order.
           touch "foo/state"
         end
       end

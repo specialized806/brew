@@ -181,6 +181,31 @@ RSpec.describe RuboCop::Cop::FormulaAudit::ComponentsOrder do
       RUBY
     end
 
+    it "orders `post_install_steps` before `post_install`" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          def post_install
+          end
+
+          post_install_steps do
+          ^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/ComponentsOrder: `post_install_steps` (line 5) should be put before `post_install` (line 2)
+            touch "foo"
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          post_install_steps do
+            touch "foo"
+          end
+
+          def post_install
+          end
+        end
+      RUBY
+    end
+
     it "reports and corrects an offense when `test` precedes `depends_on`" do
       expect_offense(<<~RUBY)
         class Foo < Formula
