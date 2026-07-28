@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "utils/repology"
@@ -10,6 +10,10 @@ RSpec.describe Repology do
   end
 
   describe ".single_package_query" do
+    sig {
+      params(success: T::Boolean, stdout: String, stderr: String, exit_status: Integer)
+        .returns(T.untyped)
+    }
     def stub_curl(success:, stdout: "", stderr: "", exit_status: 0)
       instance_double(SystemCommand::Result, success?: success, stdout:, stderr:, exit_status:)
     end

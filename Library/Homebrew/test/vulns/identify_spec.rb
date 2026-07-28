@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "vulns/identify"
@@ -146,6 +146,7 @@ RSpec.describe Homebrew::Vulns::Identify do
   end
 
   describe ".registry_package" do
+    sig { params(url: T.nilable(String)).returns(T.nilable(T::Hash[Symbol, T.untyped])) }
     def result(url)
       described_class.registry_package(url)&.to_h
     end
