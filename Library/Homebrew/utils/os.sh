@@ -99,24 +99,30 @@ then
 fi
 
 # Force UTF-8 to avoid encoding issues for users with broken locale settings.
-# The locale is checked by name to avoid forking `locale charmap`. When
-# bin/brew has filtered the environment no locale variables survive so a UTF-8
-# one must be set.
+# Validate the active locale's charmap rather than trusting its name before
+# selecting a usable fallback.
 setup-locale() {
-  local utf8_locale_regex='\.([Uu][Tt][Ff]-?8)(@|$)'
   local locales c_utf_regex en_us_regex utf_regex
-  if [[ "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" =~ ${utf8_locale_regex} ]]
+  if [[ -z "${HOMEBREW_MACOS}" ]]
   then
-    # The locale is already UTF-8.
-    :
-  elif [[ -n "${HOMEBREW_MACOS}" ]]
+    [[ -z "${HOMEBREW_LANG:-}" ]] || export LANG="${HOMEBREW_LANG}"
+    [[ -z "${HOMEBREW_LC_CTYPE:-}" ]] || export LC_CTYPE="${HOMEBREW_LC_CTYPE}"
+    [[ -z "${HOMEBREW_LC_ALL:-}" ]] || export LC_ALL="${HOMEBREW_LC_ALL}"
+  fi
+  unset HOMEBREW_LANG HOMEBREW_LC_CTYPE HOMEBREW_LC_ALL
+
+  if [[ -n "${HOMEBREW_MACOS}" ]]
   then
-    export LC_ALL="en_US.UTF-8"
+    if [[ -z "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" ]] || [[ "$(locale charmap)" != "UTF-8" ]]
+    then
+      export LC_ALL="en_US.UTF-8"
+    fi
   else
     if ! command -v locale >/dev/null
     then
       export LC_ALL=C
-    else
+    elif [[ "$(locale charmap)" != "UTF-8" ]]
+    then
       locales="$(locale -a)"
       c_utf_regex='\bC\.(utf8|UTF-8)\b'
       en_us_regex='\ben_US\.(utf8|UTF-8)\b'
