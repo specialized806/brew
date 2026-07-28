@@ -136,11 +136,20 @@ module Homebrew
           @verbose = verbose
           @written = T.let(0, Integer)
           @unchanged = T.let(0, Integer)
+          @skipped_generated = T.let(0, Integer)
         end
 
         sig { override.params(record: T::Hash[Symbol, T.untyped]).void }
         def <<(record)
           path = File.join(@dir, "#{record.fetch(:id)}.json")
+          # A record already emitted by `generate-vulns-advisories` (a formula
+          # `resolves` patch annotation) is more authoritative than a matched
+          # candidate; overwriting it would drop `fix: "patch"` for a derived
+          # `fix: null`/`"bump"`.
+          if File.file?(path) && existing_source(path) == "generated"
+            @skipped_generated += 1
+            return
+          end
           merged = Homebrew::Vulns::OsvExport.merge_existing(path, record)
           if merged.nil?
             @unchanged += 1
@@ -151,9 +160,17 @@ module Homebrew
           @written += 1
         end
 
+        sig { params(path: String).returns(T.nilable(String)) }
+        def existing_source(path)
+          JSON.parse(File.read(path)).dig("database_specific", "source")
+        rescue JSON::ParserError
+          nil
+        end
+
         sig { override.void }
         def finish
-          Utils::Output.ohai "#{@written} records written to #{@dir} (#{@unchanged} unchanged)"
+          Utils::Output.ohai "#{@written} records written to #{@dir} " \
+                             "(#{@unchanged} unchanged, #{@skipped_generated} generated left as-is)"
         end
       end
 

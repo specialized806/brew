@@ -62,7 +62,22 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
       # A second run with the same output should report 0 written / 1 unchanged.
       expect { cmd_for("requests", "--output", dir, "--no-history").run }
-        .to output(/0 records written to #{Regexp.escape(dir)} \(1 unchanged\)/).to_stdout
+        .to output(/0 records written to #{Regexp.escape(dir)} \(1 unchanged, 0 generated/).to_stdout
+    end
+  end
+
+  it "does not overwrite an existing source: generated record" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(path, JSON.generate({ "id"                => "BREW-requests-CVE-2024-1234",
+                                       "database_specific" => { "source" => "generated" },
+                                       "affected"          => [{ "ecosystem_specific" => { "fix" => "patch" } }] }))
+
+      expect { cmd_for("requests", "--output", dir, "--no-history").run }
+        .to output(/0 records written.*1 generated left as-is/).to_stdout
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ecosystem_specific", "fix")).to eq "patch"
     end
   end
 
