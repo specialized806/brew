@@ -591,6 +591,13 @@ module Homebrew
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(Symbol)) }
       def aggregate_state_at(formula, hit)
         results = hit.evidence.filter_map do |ev|
+          # Evidence built without a subject_version (distro queries, own-
+          # identity rows for a formula with no derivable tag) is deliberately
+          # uncheckable and must stay that way at historical revisions too;
+          # substituting the historical formula version would compare it
+          # against the distro record's distro-versioned range.
+          next if ev.subject_version.nil?
+
           subject = subject_version(formula, ev.resource)&.to_s
           evidence_range_status(ev, subject)
         end

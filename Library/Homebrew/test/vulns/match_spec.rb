@@ -689,6 +689,30 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(matcher.first_fixed_version(requests, hit)).to eq "2.1"
     end
 
+    it "keeps versionless (distro) evidence uncheckable at historical revisions too" do
+      stub_history(["2.31.0", "2.30.0", "2.28.1", "2.28.0"])
+      # A distro record whose Debian range would spuriously match our formula
+      # version if it were compared: ensure it stays skipped in the walk.
+      distro_record = vuln("id" => "DEBIAN-CVE-1", "affected" => [
+        { "package" => { "ecosystem" => "Debian", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "999+deb12u1" }] }] },
+      ])
+      registry_record = vuln("id" => "GHSA-x", "aliases" => ["CVE-1"], "affected" => [
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "2.28.1" }] }] },
+      ])
+      hit = matcher.dedup_by_cve([
+        make_hit(registry_record,
+                 ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0")),
+        make_hit(distro_record,
+                 ev(:distro, ecosystem: "Debian", name: "requests", subject_version: nil)),
+      ]).first
+
+      expect(matcher.first_fixed_version(requests, hit)).to eq "2.28.1"
+    end
+
     it "aggregates every subject per revision so a fixed primary does not mask a later-fixed resource" do
       # Primary requests fixed upstream in 2.0; resource certifi fixed upstream in 100.0.
       # History (formula pkg_version => [primary, certifi]): the resource crossed its
