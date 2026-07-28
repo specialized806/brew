@@ -166,7 +166,9 @@ RSpec.describe Homebrew::Vulns::Match do
                               subject_version: "1.8.1"),
                      ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"))
 
-      expect(matcher.range_status(hit)).to have_attributes(affected?: false, fixed_in: "2.28.1")
+      status, evidence = matcher.range_status(hit)
+      expect(status).to have_attributes(state: :fixed, fixed_in: "2.28.1")
+      expect(evidence.strategy).to eq :registry
     end
 
     it "returns nil when the only matching entry has GIT-type ranges" do
@@ -188,7 +190,7 @@ RSpec.describe Homebrew::Vulns::Match do
                      ev(:cpansa, ecosystem: "CPAN", name: "Image-ExifTool",
                                  subject_version: "13.55", advisory: adv))
 
-      expect(matcher.range_status(hit)).to have_attributes(affected?: false, fixed_in: "12.24")
+      expect(matcher.range_status(hit)&.first).to have_attributes(state: :fixed, fixed_in: "12.24")
     end
 
     it "checks a distro-resolved upstream CVE against attached own-identity evidence" do
@@ -202,12 +204,43 @@ RSpec.describe Homebrew::Vulns::Match do
                      ev(:distro, ecosystem: "GIT", name: "https://github.com/jqlang/jq",
                                  subject_version: "1.8.1", key: "upstream:..."))
 
-      expect(matcher.range_status(hit)).to have_attributes(affected?: false, fixed_in: "1.6")
+      expect(matcher.range_status(hit)&.first).to have_attributes(state: :fixed, fixed_in: "1.6")
     end
 
     it "skips evidence with no subject_version" do
       hit = make_hit(vuln("id" => "CVE-1"), ev(:distro, ecosystem: "Debian", name: "jq"))
       expect(matcher.range_status(hit)).to be_nil
+    end
+  end
+
+  describe "#hits_from" do
+    let(:cpan_sec) do
+      Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {
+        "No-CVE-Dist" => { "advisories" => [
+          { "id"                => "CPANSA-No-CVE-Dist-2020-01", "cves" => [],
+            "affected_versions" => ["<1.0"], "fixed_versions" => [">=1.0"],
+            "description" => "d", "references" => ["https://x"] },
+        ] },
+      } })
+    end
+
+    it "builds a hit directly from a CPANSA advisory that has no CVE alias" do
+      identity = Homebrew::Vulns::Match::Identity.new(
+        git_repo: nil, git_tag: nil,
+        primary_package: Homebrew::Vulns::Identify::RegistryPackage.new(
+          ecosystem: "CPAN", name: "No-CVE-Dist", version: "0.9", purl: "pkg:cpan/X/No-CVE-Dist@0.9",
+        ),
+        resource_packages: {}, distro_packages: {}
+      )
+      expect(Homebrew::Vulns::OSV).not_to receive(:vulnerability)
+
+      hits = matcher.hits_from({}, identity)
+
+      expect(hits.length).to eq 1
+      expect(hits.first.vulnerability.id).to eq "CPANSA-No-CVE-Dist-2020-01"
+      expect(hits.first.vulnerability.references).to eq [{ "type" => "WEB", "url" => "https://x" }]
+      expect(matcher.range_status(hits.first)&.first)
+        .to have_attributes(state: :affected, fixed_in: "1.0")
     end
   end
 
@@ -236,23 +269,40 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(hits.first.evidence.map(&:ecosystem)).to include("Red Hat", "GIT")
     end
 
-    it "follows only bare CVE ids from upstream/related, ignoring distro-prefixed intermediate ids" do
-      allow(matcher).to receive(:fetch_vulnerability).with("USN-4787-1").and_return(
-        vuln("id" => "USN-4787-1", "upstream" => ["CVE-2016-4074", "UBUNTU-CVE-2016-4074"]),
+    it "follows upstream transitively (USN -> UBUNTU-CVE-* -> CVE-*) with cycle protection" do
+      allow(matcher).to receive(:fetch_vulnerability).with("USN-8202-1").and_return(
+        vuln("id" => "USN-8202-1", "upstream" => ["UBUNTU-CVE-2024-0001"]),
       )
-      allow(matcher).to receive(:fetch_vulnerability).with("ALSA-1").and_return(
-        vuln("id" => "ALSA-1", "related" => ["CVE-2024-0001"]),
+      allow(matcher).to receive(:fetch_vulnerability).with("UBUNTU-CVE-2024-0001").and_return(
+        vuln("id" => "UBUNTU-CVE-2024-0001", "upstream" => ["CVE-2024-0001", "USN-8202-1"]),
       )
-      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2016-4074")
-                                                     .and_return(vuln("id" => "CVE-2016-4074"))
       allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0001")
                                                      .and_return(vuln("id" => "CVE-2024-0001"))
 
-      hits = matcher.resolve_upstream(
-        { "USN-4787-1" => [ev(:distro)], "ALSA-1" => [ev(:distro)] }, identity
-      )
+      hits = matcher.resolve_upstream({ "USN-8202-1" => [ev(:distro)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["CVE-2024-0001"]
+    end
 
-      expect(hits.map { |h| h.vulnerability.id }.sort).to eq ["CVE-2016-4074", "CVE-2024-0001"]
+    it "consults related for bare CVE ids only when upstream is empty (AlmaLinux)" do
+      allow(matcher).to receive(:fetch_vulnerability).with("ALSA-1").and_return(
+        vuln("id" => "ALSA-1", "related" => ["CVE-2024-0001", "RHSA-2024:1"]),
+      )
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0001")
+                                                     .and_return(vuln("id" => "CVE-2024-0001"))
+
+      hits = matcher.resolve_upstream({ "ALSA-1" => [ev(:distro)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["CVE-2024-0001"]
+    end
+
+    it "ignores related when upstream is present" do
+      allow(matcher).to receive(:fetch_vulnerability).with("DSA-1").and_return(
+        vuln("id" => "DSA-1", "upstream" => ["CVE-2024-0001"], "related" => ["CVE-9999-9999"]),
+      )
+      allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0001")
+                                                     .and_return(vuln("id" => "CVE-2024-0001"))
+
+      hits = matcher.resolve_upstream({ "DSA-1" => [ev(:distro)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["CVE-2024-0001"]
     end
 
     it "keeps a record whose id/aliases already include a CVE as-is" do
@@ -271,12 +321,13 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(hits.map { |h| h.vulnerability.id }).to eq ["ALBA-2022:1788"]
     end
 
-    it "drops a record whose upstream CVE cannot be fetched" do
+    it "keeps a record as-is when its upstream CVE cannot be fetched" do
       allow(matcher).to receive(:fetch_vulnerability).with("DSA-1").and_return(
         vuln("id" => "DSA-1", "upstream" => ["CVE-2024-0404"]),
       )
       allow(matcher).to receive(:fetch_vulnerability).with("CVE-2024-0404").and_return(nil)
-      expect(matcher.resolve_upstream({ "DSA-1" => [ev(:distro)] }, identity)).to eq []
+      hits = matcher.resolve_upstream({ "DSA-1" => [ev(:distro)] }, identity)
+      expect(hits.map { |h| h.vulnerability.id }).to eq ["DSA-1"]
     end
   end
 
@@ -412,7 +463,7 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(aff[:package]).to eq(ecosystem: "Homebrew", name: "requests", purl: "pkg:brew/requests")
       expect(aff[:ranges]).to eq [{ type:   "ECOSYSTEM",
                                     events: [{ introduced: "0" }, { fixed: requests.pkg_version.to_s }] }]
-      expect(aff[:ecosystem_specific]).to eq(fix: "bump", upstream_fixed_in: "2.28.1")
+      expect(aff[:ecosystem_specific]).to eq(fix: "bump", range_state: "fixed", upstream_fixed_in: "2.28.1")
       expect(record.dig(:database_specific, :source)).to eq "matched"
       expect(record.dig(:database_specific, :strategy)).to eq "registry"
       expect(record.dig(:database_specific, :confidence)).to eq "high"
@@ -425,7 +476,7 @@ RSpec.describe Homebrew::Vulns::Match do
 
       aff = record[:affected].first
       expect(aff[:ranges]).to eq [{ type: "ECOSYSTEM", events: [{ introduced: "0" }] }]
-      expect(aff[:ecosystem_specific]).to eq(fix: nil, upstream_fixed_in: "2.32.0")
+      expect(aff[:ecosystem_specific]).to eq(fix: nil, range_state: "affected", upstream_fixed_in: "2.32.0")
     end
 
     it "emits fix: nil and demotes confidence when no comparable range exists (GIT-only)" do
@@ -444,6 +495,15 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(record.dig(:database_specific, :confidence)).to eq "medium"
     end
 
+    it "records not_applicable and does not emit fixed for a version below every introduced" do
+      hit = registry_hit(affected_events: [{ "introduced" => "3.0.0" }, { "fixed" => "3.0.4" }])
+
+      record = matcher.to_brew_record(requests, hit, now:)
+
+      expect(record.dig(:affected, 0, :ranges, 0, :events)).to eq [{ introduced: "0" }]
+      expect(record.dig(:affected, 0, :ecosystem_specific)).to eq(fix: nil, range_state: "not_applicable")
+    end
+
     it "prefers an explicit first_fixed over the derived value" do
       hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2.28.1" }])
 
@@ -459,8 +519,8 @@ RSpec.describe Homebrew::Vulns::Match do
       record = matcher.to_brew_record(requests, hit, now:)
 
       expect(record.dig(:affected, 0, :ecosystem_specific))
-        .to eq(fix: "bump", upstream_fixed_in: "2024.2.2", resource: "certifi",
-               resource_purl: "pkg:pypi/certifi@2024.2.2")
+        .to eq(fix: "bump", range_state: "fixed", upstream_fixed_in: "2024.2.2",
+               resource: "certifi", resource_purl: "pkg:pypi/certifi@2024.2.2")
       expect(record.dig(:affected, 0, :ranges, 0, :events).last).to eq(fixed: requests.pkg_version.to_s)
     end
   end
@@ -491,20 +551,30 @@ RSpec.describe Homebrew::Vulns::Match do
       allow(FormulaVersions).to receive(:new).and_return(fv)
     end
 
-    def hit_fixed_at(fixed)
+    def hit_with_range(*events)
       make_hit(
         vuln("id" => "CVE-1", "affected" => [
           { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
-            "ranges"  => [{ "type"   => "ECOSYSTEM",
-                            "events" => [{ "introduced" => "0" }, { "fixed" => fixed }] }] },
+            "ranges"  => [{ "type" => "ECOSYSTEM", "events" => events }] },
         ]),
         ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"),
       )
     end
 
+    def hit_fixed_at(fixed)
+      hit_with_range({ "introduced" => "0" }, { "fixed" => fixed })
+    end
+
     it "returns the pkg_version at the oldest revision still at or past upstream fixed_in" do
       stub_history(["2.31.0", "2.30.0", "2.28.1", "2.28.0", "2.27.0"])
       expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq "2.28.1"
+    end
+
+    it "honours last_affected inclusivity by re-running the range per revision" do
+      stub_history(["2.31.0", "2.1", "2.0", "1.9"])
+      hit = hit_with_range({ "introduced" => "0" }, { "last_affected" => "2.0" })
+      # 2.0 is the last *affected* version so 2.1 is the first fixed pkg_version.
+      expect(matcher.first_fixed_version(requests, hit)).to eq "2.1"
     end
 
     it "stops at an unloadable revision and returns the last known fixed pkg_version" do

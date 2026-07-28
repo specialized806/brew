@@ -31,6 +31,7 @@ module Homebrew
                description: "Skip the `FormulaVersions` walk for the `fixed` " \
                             "boundary; use the current `pkg_version` instead."
         conflicts "--all", "--index"
+        conflicts "--all", "--json"
         conflicts "--index", "--json"
         conflicts "--index", "--output"
 
@@ -101,13 +102,12 @@ module Homebrew
         end
         hits.sort_by { |h| [-h.vulnerability.severity_level, h.canonical_id] }.each do |hit|
           v = hit.vulnerability
-          status = matcher.range_status(hit)
-          state = if status.nil?
-            "uncomparable"
-          elsif status.affected?
-            status.fixed_in ? "AFFECTED, upstream fix #{status.fixed_in}" : "AFFECTED, no upstream fix"
-          else
-            "fixed (upstream #{status.fixed_in || "?"})"
+          status, = matcher.range_status(hit)
+          state = case status&.state
+          when nil       then "uncomparable"
+          when :affected then "AFFECTED#{", upstream fix #{status&.fixed_in}" if status&.fixed_in}"
+          when :fixed    then "fixed (upstream #{status&.fixed_in || "?"})"
+          else "not applicable"
           end
           summary = v.summary&.slice(0, 60)
           puts "  #{hit.canonical_id} [#{hit.strategy}, #{matcher.confidence_for(hit, status)}] " \

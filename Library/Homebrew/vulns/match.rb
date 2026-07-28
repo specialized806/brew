@@ -182,6 +182,8 @@ module Homebrew
             end
           end
 
+          prefetch_vulnerabilities(by_formula.each_value.flat_map(&:keys))
+
           identities.each do |f, identity|
             next yield f, [] unless identity.identifiable?
 
@@ -194,13 +196,33 @@ module Homebrew
         params(id_evidence: T::Hash[String, T::Array[Evidence]], identity: Identity).returns(T::Array[Hit])
       }
       def hits_from(id_evidence, identity)
+        hits = resolve_upstream(id_evidence, identity)
         cpan_evidence(identity).each do |ev|
           cpan_sec.advisories_for(ev.name).each do |adv|
             annotated = Evidence.new(**ev.to_h, advisory: adv).freeze
-            (adv.cves.presence || [adv.id.to_s]).each { |id| (id_evidence[id] ||= []) << annotated }
+            if adv.cves.any?
+              adv.cves.each do |cve|
+                record = fetch_vulnerability(cve) || cpansa_vulnerability(adv)
+                hits << Hit.new(vulnerability: record, evidence: [annotated])
+              end
+            else
+              hits << Hit.new(vulnerability: cpansa_vulnerability(adv), evidence: [annotated])
+            end
           end
         end
-        dedup_by_cve(resolve_upstream(id_evidence, identity))
+        dedup_by_cve(hits)
+      end
+
+      sig { params(adv: CPANSec::Advisory).returns(Vulnerability) }
+      def cpansa_vulnerability(adv)
+        summary = adv.description.to_s.lines.first&.strip
+        Vulnerability.new({
+          "id"         => adv.id.to_s,
+          "aliases"    => adv.cves,
+          "summary"    => summary,
+          "details"    => adv.description,
+          "references" => adv.references.map { |u| { "type" => "WEB", "url" => u } },
+        }.compact)
       end
 
       sig {
@@ -261,16 +283,19 @@ module Homebrew
       CVE_ID = /\ACVE-\d{4}-\d+\z/
       private_constant :CVE_ID
 
+      MAX_UPSTREAM_HOPS = 5
+      private_constant :MAX_UPSTREAM_HOPS
+
       # Turn `id => [Evidence, ...]` into `[Hit, ...]`, resolving each record to
-      # the canonical CVE(s) it references. Distro advisories name their CVEs in
-      # `upstream` (Debian/Ubuntu/RH/openSUSE/...) or `related` (AlmaLinux),
-      # often mixed with distro-prefixed ids (`DEBIAN-CVE-*`) that would need
-      # another hop; only bare `CVE-YYYY-N` ids are followed. A record that is
-      # already a CVE (by id or alias) is kept as-is; one that names no CVE at
-      # all is kept as a low-confidence hit rather than dropped. Each resolved
-      # hit gains synthesised evidence pointing at our own identity so
-      # {#range_status} can check the CVE record's `affected[]` against our
-      # version.
+      # the CVE(s) it derives from. `upstream` is walked transitively with a
+      # per-walk visited set (chains like `USN -> UBUNTU-CVE-* -> CVE-*` occur
+      # in practice). `related` links to different vulnerabilities per the OSV
+      # schema and is only consulted for its bare CVE ids when `upstream` is
+      # empty (AlmaLinux ALSA records use it that way). A record that is
+      # already a CVE by id or alias, or that reaches no CVE within the hop
+      # budget, is kept as-is. Each resolved hit gains synthesised evidence
+      # pointing at our own identity so {#range_status} can check the CVE
+      # record's `affected[]` against our version.
       sig {
         params(id_evidence: T::Hash[String, T::Array[Evidence]], identity: Identity)
           .returns(T::Array[Hit])
@@ -283,21 +308,39 @@ module Homebrew
           record = fetch_vulnerability(id)
           next if record.nil?
 
-          upstream_cves = (record.upstream + record.related).grep(CVE_ID).uniq
-          if record.cve_ids.any? || upstream_cves.empty?
+          resolved = resolve_to_cves(record, Set[id], MAX_UPSTREAM_HOPS)
+          if resolved.empty?
             hits << Hit.new(vulnerability: record, evidence:)
             next
           end
 
-          upstream_cves.each do |cve|
-            upstream_record = fetch_vulnerability(cve)
-            next if upstream_record.nil?
-
-            hits << Hit.new(vulnerability: upstream_record, evidence: evidence + own)
+          resolved.each do |cve_record|
+            ev = cve_record.equal?(record) ? evidence : evidence + own
+            hits << Hit.new(vulnerability: cve_record, evidence: ev)
           end
         end
 
         hits
+      end
+
+      # Returns the set of CVE records `record` derives from. `[record]` if it
+      # is one already; `[]` if the walk exhausts without reaching a CVE (the
+      # caller then keeps `record` itself as a low-confidence hit).
+      sig {
+        params(record: Vulnerability, seen: T::Set[String], budget: Integer)
+          .returns(T::Array[Vulnerability])
+      }
+      def resolve_to_cves(record, seen, budget)
+        return [record] if record.cve_ids.any?
+        return [] if budget.zero?
+
+        follow = record.upstream.presence || record.related.grep(CVE_ID)
+        follow.uniq.flat_map do |ref|
+          next [] unless seen.add?(ref)
+
+          upstream = fetch_vulnerability(ref)
+          upstream ? resolve_to_cves(upstream, seen, budget - 1) : []
+        end.uniq(&:id)
       end
 
       # Evidence rows pointing at our own identity keys (git repo, primary
@@ -332,18 +375,32 @@ module Homebrew
         {}
       end
 
-      # OSV `querybatch` returns id/modified stubs; the full record is fetched
-      # once per id and cached across formulae.
+      MAX_VULN_FETCH_THREADS = 15
+      private_constant :MAX_VULN_FETCH_THREADS
+
+      # OSV `querybatch` returns id/modified stubs. Warm `@vuln_cache` with the
+      # full records for a chunk's stub ids before per-formula processing so
+      # {#resolve_upstream} reads mostly from cache.
+      sig { params(ids: T::Array[String]).void }
+      def prefetch_vulnerabilities(ids)
+        missing = ids.uniq.reject { |id| @vuln_cache.key?(id) }
+        missing.each_slice(MAX_VULN_FETCH_THREADS) do |slice|
+          slice.map { |id| [id, Thread.new { load_vulnerability(id) }] }
+               .each { |id, t| @vuln_cache[id] = t.value }
+        end
+      end
+
       sig { params(id: String).returns(T.nilable(Vulnerability)) }
       def fetch_vulnerability(id)
-        @vuln_cache.fetch(id) do
-          @vuln_cache[id] = begin
-            Vulnerability.new(OSV.vulnerability(id))
-          rescue OSV::Error => e
-            odebug "OSV.vulnerability(#{id}) failed: #{e.message}"
-            nil
-          end
-        end
+        @vuln_cache.fetch(id) { @vuln_cache[id] = load_vulnerability(id) }
+      end
+
+      sig { params(id: String).returns(T.nilable(Vulnerability)) }
+      def load_vulnerability(id)
+        Vulnerability.new(OSV.vulnerability(id))
+      rescue OSV::Error => e
+        odebug "OSV.vulnerability(#{id}) failed: #{e.message}"
+        nil
       end
 
       sig { params(hits: T::Array[Hit]).returns(T::Array[Hit]) }
@@ -358,25 +415,32 @@ module Homebrew
       end
 
       # Evaluate `hit` against the version we ship, trying each evidence in
-      # precision order. Returns the first {Vulnerability::RangeStatus} that a
-      # comparable range yields, or `nil` if no evidence produced a checkable
-      # answer (e.g. a GIT-only record with commit-SHA ranges, or a distro-only
-      # hit whose upstream CVE has no `affected[]` matching our identity).
-      sig { params(hit: Hit).returns(T.nilable(Vulnerability::RangeStatus)) }
+      # precision order. Returns `[status, evidence]` for the first evidence
+      # whose range is comparable, or `nil` if none produced a checkable answer
+      # (e.g. a GIT-only record with commit-SHA ranges, or a distro-only hit
+      # whose upstream CVE has no `affected[]` matching our identity).
+      sig { params(hit: Hit).returns(T.nilable([Vulnerability::RangeStatus, Evidence])) }
       def range_status(hit)
         hit.evidence.each do |ev|
-          status = case ev.strategy
-          when :cpansa
-            adv = ev.advisory
-            CPANSec.range_status(adv, ev.subject_version) if adv && ev.subject_version
-          else
-            next unless ev.subject_version
-
-            hit.vulnerability.range_status(ev.ecosystem, ev.name, ev.subject_version)
-          end
-          return status if status
+          status = evidence_range_status(hit.vulnerability, ev, ev.subject_version)
+          return [status, ev] if status
         end
         nil
+      end
+
+      sig {
+        params(vulnerability: Vulnerability, evidence: Evidence, subject_version: T.nilable(String))
+          .returns(T.nilable(Vulnerability::RangeStatus))
+      }
+      def evidence_range_status(vulnerability, evidence, subject_version)
+        return if subject_version.nil?
+
+        if evidence.strategy == :cpansa
+          adv = evidence.advisory
+          CPANSec.range_status(adv, subject_version) if adv
+        else
+          vulnerability.range_status(evidence.ecosystem, evidence.name, subject_version)
+        end
       end
 
       # Emit a candidate `BREW-*` OSV record for `hit` against `formula`.
@@ -396,10 +460,10 @@ module Homebrew
       def to_brew_record(formula, hit, first_fixed: nil, now: Time.now.utc)
         vuln = hit.vulnerability
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        status = range_status(hit)
+        status, = range_status(hit)
 
         fixed = first_fixed
-        fixed ||= formula.pkg_version.to_s if status && !status.affected?
+        fixed ||= formula.pkg_version.to_s if status&.fixed?
         events = T.let([{ introduced: "0" }], T::Array[T::Hash[Symbol, String]])
         events << { fixed: } if fixed
 
@@ -446,6 +510,7 @@ module Homebrew
       }
       def affected_entry(formula, hit, events, fixed, status)
         eco = T.let({ fix: fixed ? "bump" : nil }, T::Hash[Symbol, T.nilable(String)])
+        eco[:range_state] = status.state.to_s if status
         eco[:upstream_fixed_in] = status.fixed_in if status&.fixed_in
         if (resource = hit.resource)
           eco[:resource] = resource
@@ -463,18 +528,22 @@ module Homebrew
       end
 
       # Walk homebrew-core git history (newest first) via {FormulaVersions} and
-      # return the `pkg_version` at the oldest revision where the subject was
-      # still at or past `upstream_fixed_in`. Returns nil when the current
-      # version is not yet fixed. The rev-list and per-revision loads are
-      # cached per formula so subsequent hits reuse both.
+      # return the `pkg_version` at the oldest revision whose subject version
+      # still evaluates as `:fixed` against the same evidence used for the
+      # current version. Re-running the full range check per revision keeps
+      # `last_affected` and exclusive-bound semantics intact instead of
+      # collapsing them to a `>= threshold` test. Returns nil when the current
+      # version is not `:fixed`. The rev-list and per-revision loads are cached
+      # per formula.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(String)) }
       def first_fixed_version(formula, hit)
-        status = range_status(hit)
-        return if status.nil? || status.affected?
-        return unless (upstream_fixed = status.fixed_in)
+        result = range_status(hit)
+        return if result.nil?
 
-        threshold = Version.new(upstream_fixed)
-        resource = hit.resource
+        status, evidence = result
+        return unless status.fixed?
+
+        resource = evidence.resource
         fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
         revs = @formula_rev_lists[formula.name] ||=
           [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
@@ -482,8 +551,8 @@ module Homebrew
         last_fixed = T.let(formula.pkg_version.to_s, T.nilable(String))
         revs.each do |rev, entry|
           old_fixed = fv.formula_at_revision(rev, entry) do |old|
-            subject = subject_version(old, resource)
-            old.pkg_version.to_s if subject && subject >= threshold
+            subject = subject_version(old, resource)&.to_s
+            old.pkg_version.to_s if evidence_range_status(hit.vulnerability, evidence, subject)&.fixed?
           end
           return last_fixed if old_fixed.nil?
 

@@ -91,7 +91,7 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     expect(Homebrew.failed?).to be true
   end
 
-  it "iterates every core formula with --all" do
+  it "iterates every core formula with --all and streams to --output" do
     requests
     core_tap = instance_double(CoreTap, installed?: true, name: "homebrew/core",
                                formula_names: ["requests", "broken"])
@@ -100,9 +100,16 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     allow(Formulary).to receive(:factory).with("broken").and_raise(RuntimeError, "boom")
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
 
-    expect { described_class.new(["--all", "--json", "--no-history"]).run }
-      .to output(/BREW-requests-CVE-2024-1234/).to_stdout
-      .and output(/Error loading formula 'broken': boom/).to_stderr
+    Dir.mktmpdir do |dir|
+      expect { described_class.new(["--all", "--output", dir, "--no-history"]).run }
+        .to output(/1 records written/).to_stdout
+        .and output(/Error loading formula 'broken': boom/).to_stderr
+      expect(File).to exist(File.join(dir, "BREW-requests-CVE-2024-1234.json"))
+    end
+  end
+
+  it "rejects --all with --json" do
+    expect { described_class.new(["--all", "--json"]) }.to raise_error(UsageError, /mutually exclusive/)
   end
 
   it "emits the formula-identity index with --index" do
