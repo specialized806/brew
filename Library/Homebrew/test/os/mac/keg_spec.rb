@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "keg"
+require "macho"
 
 RSpec.describe Keg do
   subject(:keg) { described_class.new(keg_path) }
