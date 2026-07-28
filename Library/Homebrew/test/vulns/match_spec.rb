@@ -211,6 +211,79 @@ RSpec.describe Homebrew::Vulns::Match do
       hit = make_hit(vuln("id" => "CVE-1"), ev(:distro, ecosystem: "Debian", name: "jq"))
       expect(matcher.range_status(hit)).to be_nil
     end
+
+    it "checks each evidence against its own source record after dedup merges hits" do
+      # CVE record from GIT query: no PyPI affected entry.
+      cve = vuln("id" => "CVE-2024-47081", "affected" => [
+        { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/psf/requests" },
+          "ranges"  => [{ "type" => "GIT", "events" => [{ "fixed" => "abc123" }] }] },
+      ])
+      # GHSA record from PyPI query: carries the PyPI range.
+      ghsa = vuln("id" => "GHSA-9hjg-9r4m-mvj7", "aliases" => ["CVE-2024-47081"], "affected" => [
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "2.32.4" }] }] },
+      ])
+      merged = matcher.dedup_by_cve([
+        make_hit(cve, ev(:git, ecosystem: "GIT", name: "https://github.com/psf/requests",
+                               subject_version: "2.31.0")),
+        make_hit(ghsa, ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0")),
+      ])
+
+      expect(merged.length).to eq 1
+      status, evidence = matcher.range_status(merged.first)
+      expect(status).to have_attributes(state: :affected, fixed_in: "2.32.4")
+      expect(evidence.source_record.id).to eq "GHSA-9hjg-9r4m-mvj7"
+    end
+
+    it "reports :affected when a resource subject is affected even if the primary is :not_applicable" do
+      v = vuln("id" => "CVE-1", "affected" => [
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "3.0.0" }, { "fixed" => "3.0.4" }] }] },
+        { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "2025.1.1" }] }] },
+      ])
+      hit = make_hit(v,
+                     ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"),
+                     ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "2024.2.2",
+                                   resource: "certifi"))
+
+      status, evidence = matcher.range_status(hit)
+      expect(status).to have_attributes(state: :affected, fixed_in: "2025.1.1")
+      expect(evidence.resource).to eq "certifi"
+    end
+
+    it "reports :affected when a resource is affected even if the primary is :fixed" do
+      v = vuln("id" => "CVE-1", "affected" => [
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "2.28.1" }] }] },
+        { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "0" }, { "fixed" => "2025.1.1" }] }] },
+      ])
+      hit = make_hit(v,
+                     ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"),
+                     ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "2024.2.2",
+                                   resource: "certifi"))
+
+      expect(matcher.range_status(hit)&.first).to have_attributes(state: :affected)
+    end
+
+    it "reports :not_applicable only when every comparable subject is not_applicable" do
+      v = vuln("id" => "CVE-1", "affected" => [
+        { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+          "ranges"  => [{ "type"   => "ECOSYSTEM",
+                          "events" => [{ "introduced" => "3.0.0" }, { "fixed" => "3.0.4" }] }] },
+      ])
+      hit = make_hit(v,
+                     ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"),
+                     ev(:distro, ecosystem: "Debian", name: "requests"))
+
+      expect(matcher.range_status(hit)&.first&.state).to eq :not_applicable
+    end
   end
 
   describe "#hits_from" do

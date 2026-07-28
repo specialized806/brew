@@ -56,9 +56,17 @@ module Homebrew
       # resource version for a resource, `nil` for distro (whose versions are
       # not comparable to ours). `advisory` carries the CPANSA record for
       # `:cpansa` evidence so its constraint strings survive to
-      # {#range_status}.
+      # {#range_status}. `source_record` is the {Vulnerability} this evidence
+      # was matched against (attached at hit-construction time), so after
+      # {#dedup_by_cve} merges hits each evidence still points at the record
+      # whose `affected[]` it should be checked against.
       Evidence = Struct.new(:strategy, :ecosystem, :name, :subject_version, :key, :resource,
-                            :advisory, keyword_init: true)
+                            :advisory, :source_record, keyword_init: true) do
+        sig { params(record: Vulnerability).returns(T.untyped) }
+        def with_source(record)
+          source_record ? self : self.class.new(**to_h, source_record: record).freeze
+        end
+      end
 
       class Hit
         sig { returns(Vulnerability) }
@@ -73,7 +81,8 @@ module Homebrew
 
           @vulnerability = vulnerability
           @evidence = T.let(
-            evidence.sort_by { |e| -STRATEGY_PRECISION.fetch(e.strategy) }.freeze,
+            evidence.map { |e| e.with_source(vulnerability) }
+                    .sort_by { |e| -STRATEGY_PRECISION.fetch(e.strategy) }.freeze,
             T::Array[Evidence],
           )
         end
@@ -425,32 +434,40 @@ module Homebrew
         end
       end
 
-      # Evaluate `hit` against the version we ship, trying each evidence in
-      # precision order. Returns `[status, evidence]` for the first evidence
-      # whose range is comparable, or `nil` if none produced a checkable answer
-      # (e.g. a GIT-only record with commit-SHA ranges, or a distro-only hit
-      # whose upstream CVE has no `affected[]` matching our identity).
+      # Evaluate `hit` against every evidence's subject, each against the
+      # record that evidence was matched against, and aggregate: `:affected` if
+      # any subject is affected (a fixed primary must not hide an affected
+      # resource, or vice versa), else `:fixed` if any is fixed, else
+      # `:not_applicable` only when every comparable subject says so. Returns
+      # `[status, evidence]` where `evidence` is the one whose result was
+      # chosen (used by {#first_fixed_version} and for the emitted record's
+      # resource attribution), or `nil` if no evidence produced a checkable
+      # answer.
       sig { params(hit: Hit).returns(T.nilable([Vulnerability::RangeStatus, Evidence])) }
       def range_status(hit)
-        hit.evidence.each do |ev|
-          status = evidence_range_status(hit.vulnerability, ev, ev.subject_version)
-          return [status, ev] if status
+        results = hit.evidence.filter_map do |ev|
+          status = evidence_range_status(ev, ev.subject_version)
+          [status, ev] if status
         end
-        nil
+        return if results.empty?
+
+        results.find { |s, _| s.affected? } ||
+          results.find { |s, _| s.fixed? } ||
+          results.first
       end
 
       sig {
-        params(vulnerability: Vulnerability, evidence: Evidence, subject_version: T.nilable(String))
+        params(evidence: Evidence, subject_version: T.nilable(String))
           .returns(T.nilable(Vulnerability::RangeStatus))
       }
-      def evidence_range_status(vulnerability, evidence, subject_version)
+      def evidence_range_status(evidence, subject_version)
         return if subject_version.nil?
 
         if evidence.strategy == :cpansa
           adv = evidence.advisory
           CPANSec.range_status(adv, subject_version) if adv
         else
-          vulnerability.range_status(evidence.ecosystem, evidence.name, subject_version)
+          evidence.source_record&.range_status(evidence.ecosystem, evidence.name, subject_version)
         end
       end
 
@@ -471,7 +488,7 @@ module Homebrew
       def to_brew_record(formula, hit, first_fixed: nil, now: Time.now.utc)
         vuln = hit.vulnerability
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        status, = range_status(hit)
+        status, status_evidence = range_status(hit)
 
         fixed = first_fixed
         fixed ||= formula.pkg_version.to_s if status&.fixed?
@@ -484,12 +501,12 @@ module Homebrew
           published:         timestamp,
           modified:          timestamp,
           upstream:          vuln.identifiers,
-          affected:          [affected_entry(formula, hit, events, fixed, status)],
+          affected:          [affected_entry(formula, hit, events, fixed, status, status_evidence)],
           database_specific: {
             source:            "matched",
             strategy:          hit.strategy.to_s,
             confidence:        confidence_for(hit, status),
-            upstream_evidence: hit.evidence.map { |e| e.to_h.except(:advisory).compact },
+            upstream_evidence: hit.evidence.map { |e| e.to_h.except(:advisory, :source_record).compact },
           },
         }, T::Hash[Symbol, T.untyped])
 
@@ -516,16 +533,20 @@ module Homebrew
 
       sig {
         params(formula: Formula, hit: Hit, events: T::Array[T::Hash[Symbol, String]],
-               fixed: T.nilable(String), status: T.nilable(Vulnerability::RangeStatus))
+               fixed: T.nilable(String), status: T.nilable(Vulnerability::RangeStatus),
+               status_evidence: T.nilable(Evidence))
           .returns(T::Hash[Symbol, T.untyped])
       }
-      def affected_entry(formula, hit, events, fixed, status)
+      def affected_entry(formula, hit, events, fixed, status, status_evidence)
         eco = T.let({ fix: fixed ? "bump" : nil }, T::Hash[Symbol, T.nilable(String)])
         eco[:range_state] = status.state.to_s if status
         eco[:upstream_fixed_in] = status.fixed_in if status&.fixed_in
-        if (resource = hit.resource)
+        # Attribute the resource whose subject decided the state, falling back
+        # to the highest-precision evidence when nothing was comparable.
+        if (resource = status_evidence&.resource || hit.resource)
           eco[:resource] = resource
-          eco[:resource_purl] = hit.evidence.find { |e| e.resource == resource }&.key
+          eco[:resource_purl] = (status_evidence if status_evidence&.resource)&.key ||
+                                hit.evidence.find { |e| e.resource == resource }&.key
         end
         {
           package:            {
@@ -563,7 +584,7 @@ module Homebrew
         revs.each do |rev, entry|
           old_fixed = fv.formula_at_revision(rev, entry) do |old|
             subject = subject_version(old, resource)&.to_s
-            old.pkg_version.to_s if evidence_range_status(hit.vulnerability, evidence, subject)&.fixed?
+            old.pkg_version.to_s if evidence_range_status(evidence, subject)&.fixed?
           end
           return last_fixed if old_fixed.nil?
 
