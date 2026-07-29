@@ -87,6 +87,20 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
     CASK
   end
 
+  it "reports an offense when a step string uses unsupported interpolation" do
+    expect_offense <<~'CASK'
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        preflight_steps do
+          touch "#{appdir}/state"
+                 ^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `delete_keychain_certificate`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+        end
+      end
+    CASK
+  end
+
   it "reports an offense when a scope contains Ruby code" do
     expect_offense <<~CASK
       cask "foo" do
