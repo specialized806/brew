@@ -1128,6 +1128,7 @@ Use the named actions below for formula families that share post-install algorit
 * `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
 * `install_gzipped_executable`: unpack and install a gzipped executable.
 * `configure_glibc_runtime`: generate requested glibc locales and timezone links.
+* `configure_clang_system`: generate macOS Clang system configuration files.
 
 #### Service data directory steps
 
