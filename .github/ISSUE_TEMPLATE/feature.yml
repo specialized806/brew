@@ -12,6 +12,8 @@ body:
       options:
         - label: This issue's title and/or description do not reference a single formula e.g. `brew install wget`. If they do, open an issue at https://github.com/Homebrew/homebrew-core/issues/new/choose instead.
           required: true
+        - label: I did not use AI/LLM to create this issue, or I disclosed the tool and model used; I will answer maintainer questions myself without AI/LLM.
+          required: true
   - type: textarea
     attributes:
       label: Provide a detailed description of the proposed feature
