@@ -46,7 +46,7 @@ module Homebrew
         end
         link_libgcc = glibc_installed ? "-nostdlib -L#{libgcc} -L#{glibc_lib}" : "+"
         homebrew_rpath = version_major.to_i >= 11
-        specs.write specs_string + <<~EOS
+        specs_string += <<~EOS
           *cpp_unique_options:
           + -isysroot #{HOMEBREW_PREFIX}/nonexistent #{system_header_dirs.map { |p| "-idirafter #{p}" }.join(" ")}
 
@@ -58,7 +58,8 @@ module Homebrew
 
           #{"*homebrew_rpath:\n-rpath #{HOMEBREW_PREFIX}/lib\n" if homebrew_rpath}
         EOS
-        specs.write(specs.read.gsub(" %o ", "\\0%(homebrew_rpath) ")) if homebrew_rpath
+        specs_string.gsub!(" %o ", "\\0%(homebrew_rpath) ") if homebrew_rpath
+        specs.write specs_string
       end
 
       sig { params(step: Step).void }
