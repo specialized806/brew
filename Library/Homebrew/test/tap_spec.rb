@@ -731,9 +731,28 @@ RSpec.describe Tap do
       require "system_command"
 
       expect(SystemCommand).to receive(:run!)
-        .with("git", args: %w[fetch], chdir: path, env: { "GIT_TERMINAL_PROMPT" => "0" }, print_stderr: true)
+        .with("git", args: ["-c", "core.hooksPath=#{File::NULL}", "fetch"], chdir: path,
+              env: { "GIT_TERMINAL_PROMPT" => "0" }, print_stderr: true)
 
       homebrew_foo_tap.git_command!(%w[fetch], chdir: path)
+    end
+
+    it "does not run Git hooks" do
+      setup_tap_files
+      setup_git_repo
+
+      hook_ran_path = HOMEBREW_CACHE/"hook-ran"
+      hooks_path = HOMEBREW_CACHE/"hooks"
+      hooks_path.mkpath
+      (hooks_path/"post-checkout").write("#!/bin/sh\ntouch #{hook_ran_path}\n")
+      (hooks_path/"post-checkout").chmod(0755)
+      gitconfig_path = HOMEBREW_CACHE/"gitconfig"
+      gitconfig_path.write("[core]\n\thooksPath = #{hooks_path}\n")
+      ENV["GIT_CONFIG_GLOBAL"] = gitconfig_path.to_s
+
+      clone_path = HOMEBREW_CACHE/"hooks-test-clone"
+      homebrew_foo_tap.git_command!(["clone", path.to_s, clone_path.to_s])
+      expect(hook_ran_path).not_to exist
     end
 
     it "raises an error when the Tap is already tapped" do
@@ -803,7 +822,8 @@ RSpec.describe Tap do
         allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
                                        formula_names: [], cask_tokens: [], link_completions_and_manpages: nil)
         expect(tap).to receive(:safe_system)
-          .with("git", "-C", source_tap, "worktree", "add", "--detach", tap.path, "HEAD")
+          .with("git", "-c", "core.hooksPath=#{File::NULL}", "-C", source_tap,
+                "worktree", "add", "--detach", tap.path, "HEAD")
           .and_wrap_original do
             tap.path.mkpath
             (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
@@ -848,7 +868,8 @@ RSpec.describe Tap do
       allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
                                      formula_names: [], cask_tokens: [], link_completions_and_manpages: nil)
       expect(tap).to receive(:safe_system)
-        .with("git", "-C", source_tap, "worktree", "add", "--detach", tap.path, "HEAD")
+        .with("git", "-c", "core.hooksPath=#{File::NULL}", "-C", source_tap,
+              "worktree", "add", "--detach", tap.path, "HEAD")
         .and_wrap_original do
           tap.path.mkpath
           (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
