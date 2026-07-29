@@ -160,6 +160,12 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
       "col"         => 2,
       "formula_tap" => "homebrew-core",
     }, {
+      "url"         => "https://github.com/foo/bar/archive/refs/tags/darwin.tar.gz",
+      "msg"         => "https://github.com/foo/bar/archive/refs/tags/darwin.tar.gz looks like a binary package, " \
+                       "not a source archive; homebrew/core is source-only.",
+      "col"         => 2,
+      "formula_tap" => "homebrew-core",
+    }, {
       "url" => "cvs://brew.sh/foo/bar",
       "msg" => "Use of the \"cvs://\" scheme is deprecated, pass `using: :cvs` instead",
       "col" => 2,
@@ -297,6 +303,17 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
               url
             end
           end
+        end
+      RUBY
+
+      expect(inspect_source(source)).to eq([])
+    end
+
+    it "does not report an offense based on the username or repo name of a GitHub URL" do
+      source = <<~RUBY
+        class Foo < Formula
+          desc "foo"
+          url "https://github.com/scriptingosx/cool-darwin-app/archive/refs/tags/v0.1.1.tar.gz"
         end
       RUBY
 
