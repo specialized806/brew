@@ -611,7 +611,7 @@ class Tap
   def git_command!(args, chdir: nil)
     require "system_command"
 
-    # Ignore hooks from a user-configured `core.hooksPath` (e.g. set by `git lfs install`),
+    # Disable Git hooks (e.g. a `core.hooksPath` set by `git lfs install`),
     # which can break tap Git operations.
     # Keep in sync with the `git` wrappers in cmd/update.sh and cmd/update-reset.sh.
     args = ["-c", "core.hooksPath=#{File::NULL}", *args]
@@ -721,7 +721,7 @@ class Tap
     begin
       if worktree_source_tap_path
         # Keep core and cask taps connected to the same local source checkout as brew.
-        # Ignore user-configured hooks as in `git_command!`.
+        # Disable Git hooks as in `git_command!`.
         worktree_args = ["-c", "core.hooksPath=#{File::NULL}", "-C", worktree_source_tap_path, "worktree", "add"]
         worktree_args << "--quiet" if quiet
         worktree_args += ["--detach", path, "HEAD"]

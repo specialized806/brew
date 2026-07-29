@@ -737,13 +737,14 @@ RSpec.describe Tap do
       homebrew_foo_tap.git_command!(%w[fetch], chdir: path)
     end
 
-    it "ignores user-configured Git hooks" do
+    it "does not run Git hooks" do
       setup_tap_files
       setup_git_repo
 
+      hook_ran_path = HOMEBREW_CACHE/"hook-ran"
       hooks_path = HOMEBREW_CACHE/"hooks"
       hooks_path.mkpath
-      (hooks_path/"post-checkout").write("#!/bin/sh\nexit 2\n")
+      (hooks_path/"post-checkout").write("#!/bin/sh\ntouch #{hook_ran_path}\n")
       (hooks_path/"post-checkout").chmod(0755)
       gitconfig_path = HOMEBREW_CACHE/"gitconfig"
       gitconfig_path.write("[core]\n\thooksPath = #{hooks_path}\n")
@@ -751,7 +752,7 @@ RSpec.describe Tap do
 
       clone_path = HOMEBREW_CACHE/"hooks-test-clone"
       homebrew_foo_tap.git_command!(["clone", path.to_s, clone_path.to_s])
-      expect(clone_path/".git").to be_a_directory
+      expect(hook_ran_path).not_to exist
     end
 
     it "raises an error when the Tap is already tapped" do
