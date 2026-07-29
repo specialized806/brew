@@ -160,8 +160,8 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
       "col"         => 2,
       "formula_tap" => "homebrew-core",
     }, {
-      "url"         => "https://github.com/username/repo/archive/refs/tags/example-darwin.amd64.tar.gz",
-      "msg"         => "https://github.com/username/repo/archive/refs/tags/example-darwin.amd64.tar.gz looks like a binary package, " \
+      "url"         => "https://github.com/foo/bar/archive/refs/tags/darwin.tar.gz",
+      "msg"         => "https://github.com/foo/bar/archive/refs/tags/darwin.tar.gz looks like a binary package, " \
                        "not a source archive; homebrew/core is source-only.",
       "col"         => 2,
       "formula_tap" => "homebrew-core",
