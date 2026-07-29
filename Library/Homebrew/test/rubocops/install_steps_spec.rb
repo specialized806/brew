@@ -62,6 +62,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
           inreplace "foo.conf", /@PREFIX@/, "{{HOMEBREW_PREFIX}}"
           ln_sf "source", "target", source_base: :relative, uninstall: true
           write "foo.conf", "key = value\n", base: :etc
+          write "foo/adjacent", "first" "second"
           set_permissions "foo", "0755"
           run "foo", args: ["--repair"]
           terminate_process "foo", attempts: 3
@@ -274,17 +275,17 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
       end
     RUBY
 
-    expect_correction(<<~'RUBY')
+    expect_correction(<<~RUBY)
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
 
         post_install_steps do
           touch "postgresql/state"
           mkdir_p "log"
-          link_dir "include/postgresql", "include/#{name}"
-          link_dir "lib/postgresql", "lib/#{name}"
-          link_dir "share/postgresql", "share/#{name}"
-          link_children "bin", suffix: "-#{version.major}"
+          link_dir "include/postgresql", "include/{{name}}"
+          link_dir "lib/postgresql", "lib/{{name}}"
+          link_dir "share/postgresql", "share/{{name}}"
+          link_children "bin", suffix: "-{{version.major}}"
           init_data_dir name, using: :postgresql_initdb
         end
 
@@ -435,13 +436,13 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
   end
 
   it "does not re-report declarative database and link steps" do
-    expect_no_offenses(<<~'RUBY')
+    expect_no_offenses(<<~RUBY)
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
 
         post_install_steps do
-          link_dir "include/postgresql", "include/#{name}"
-          link_children "bin", suffix: "-#{version.major}"
+          link_dir "include/postgresql", "include/{{name}}"
+          link_children "bin", suffix: "-{{version.major}}"
           init_data_dir name, using: :postgresql_initdb
           symlink "cert.pem", "cert.pem",
                   source_formula: "ca-certificates",

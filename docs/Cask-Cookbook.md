@@ -670,7 +670,15 @@ Use `if_path_exists` and `unless_path_exists` blocks to guard one or more steps 
 
 `run` does not evaluate a shell command string. It supports a literal `env:`, `stdin_path:`, `stdout_path:`, `chdir:`, `sudo:`, `print_stdout:` and `print_stderr:`. Wrap it in one of the guard blocks described above when it should be conditional.
 
-Content, replacements, command arguments and command environments may use fixed install-time tokens. These include `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{staged_path}}`, `{{appdir}}`, `{{caskroom_path}}`, `{{temp}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim.
+#### Interpolation in steps blocks
+
+Ruby `#{...}` interpolation is normally evaluated before structured steps are serialised. The Ruby expression does not pass through the JSON API; only the string it produced does. A concrete result is safe only when it is identical for every installation represented by the JSON. RuboCop cannot generally establish that from arbitrary Ruby, so use interpolation in ordinary cask stanzas, for example `command_wrapper "example", executable: "#{appdir}/Example.app/Contents/MacOS/example"`.
+
+`{{...}}` is not Ruby interpolation. It remains literal in the JSON API and the install-step runner expands supported tokens at install time. Use this form for install-time values inside `preflight_steps`, `postflight_steps`, `uninstall_preflight_steps` and `uninstall_postflight_steps`. When a path argument supports `base:`, `source_base:` or `target_base:`, prefer those options to embedding a path token.
+
+The runtime steps DSL retains compatibility helpers for `token`, `name`, `version`, `version.major` and `version.major_minor`. Interpolating these helpers is safe and permitted by RuboCop because they return the corresponding `{{...}}` token text rather than a concrete value. Other Ruby interpolation is rejected. Prefer explicit `{{...}}` tokens in new steps so it is clear that expansion is deferred until installation.
+
+Content, replacements, command arguments and command environments may use fixed install-time tokens. These include `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{staged_path}}`, `{{appdir}}`, `{{caskroom_path}}`, `{{temp}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim. For example: `write "settings.conf", "application = {{appdir}}/Example.app"`.
 
 {% endraw %}
 

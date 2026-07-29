@@ -1103,7 +1103,16 @@ Use `if_path_exists` and `unless_path_exists` blocks to guard one or more steps 
 A trailing newline is appended unless the content already ends with one, so written files end in a newline as POSIX expects.
 
 {% raw %}
-Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens that are expanded at install time so values are not hardcoded into the JSON API: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
+
+#### Interpolation in steps blocks
+
+Ruby `#{...}` interpolation is normally evaluated before structured steps are serialised. The Ruby expression does not pass through the JSON API; only the string it produced does. A concrete result is safe only when it is identical for every installation represented by the JSON. RuboCop cannot generally establish that from arbitrary Ruby, so use interpolation in ordinary formula methods such as `install`, where Ruby code is evaluated locally.
+
+`{{...}}` is not Ruby interpolation. It remains literal in the JSON API and the install-step runner expands supported tokens at install time. Use this form for install-time values in `post_install_steps`, especially values that depend on the current Homebrew installation. When a path argument supports `base:`, `source_base:` or `target_base:`, prefer those options to embedding a path token.
+
+The runtime steps DSL retains compatibility helpers for `formula_name`, `name`, `version`, `version.major` and `version.major_minor`. Interpolating these helpers is safe and permitted by RuboCop because they return the corresponding `{{...}}` token text rather than a concrete value. Other Ruby interpolation is rejected. Prefer explicit `{{...}}` tokens in new steps so it is clear that expansion is deferred until installation.
+
+Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. For example: `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
 {% endraw %}
 
 #### Command and lifecycle steps
@@ -1154,8 +1163,8 @@ directory, defaulting the target to the same path as the source, and can add a
 `prefix` or `suffix` to each linked name. For example:
 
 ```ruby
-link_dir "share/postgresql", "share/#{name}"
-link_children "bin", suffix: "-#{version.major}"
+link_dir "share/postgresql", "share/{{name}}"
+link_children "bin", suffix: "-{{version.major}}"
 ```
 
 #### Desktop and cache rebuild steps
