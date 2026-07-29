@@ -9,7 +9,6 @@ module APIHashable
 
     # Apply monkeypatches for API generation
     @old_homebrew_prefix = T.let(HOMEBREW_PREFIX, T.nilable(Pathname))
-    @old_homebrew_cellar = T.let(HOMEBREW_CELLAR, T.nilable(Pathname))
     @old_home = T.let(Dir.home, T.nilable(String))
     @old_git_config_global = T.let(ENV.fetch("GIT_CONFIG_GLOBAL", nil), T.nilable(String))
     Object.send(:remove_const, :HOMEBREW_PREFIX)
