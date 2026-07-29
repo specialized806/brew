@@ -121,6 +121,12 @@ class RuboCop::Cask::AST::Stanza
   def on_intel?; end
 
   sig { returns(T::Boolean) }
+  def on_linux?; end
+
+  sig { returns(T::Boolean) }
+  def on_macos?; end
+
+  sig { returns(T::Boolean) }
   def on_monterey?; end
 
   sig { returns(T::Boolean) }
@@ -191,6 +197,9 @@ class RuboCop::Cask::AST::Stanza
 
   sig { returns(T::Boolean) }
   def suite?; end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T::Boolean) }
+  def system_variable?(*args, &block); end
 
   sig { returns(T::Boolean) }
   def uninstall?; end
