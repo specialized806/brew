@@ -614,7 +614,7 @@ class Tap
     # Ignore hooks from a user-configured `core.hooksPath` (e.g. set by `git lfs install`),
     # which can break tap Git operations.
     # Keep in sync with the `git` wrappers in cmd/update.sh and cmd/update-reset.sh.
-    args = ["-c", "core.hooksPath=#{File::NULL}"] + args
+    args = ["-c", "core.hooksPath=#{File::NULL}", *args]
     SystemCommand.run!("git", args:, chdir:, env: { "GIT_TERMINAL_PROMPT" => "0" }, print_stderr: true)
   end
 
