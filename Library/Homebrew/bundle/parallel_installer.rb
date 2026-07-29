@@ -7,6 +7,7 @@ require "monitor"
 require "utils"
 require "utils/tty"
 require "bundle/package_types"
+require "dependency_collector"
 
 module Homebrew
   module Bundle
@@ -154,6 +155,13 @@ module Homebrew
           end
         end
 
+        # Phase 3.5: formulae racing for an undeclared implicit dependency (e.g. a
+        # Linux sandbox executable) wait on just the first one, not on each other.
+        implicit_pioneer = T.let(nil, T.nilable(String))
+        unless DependencyCollector.new.implicit_dependency_names.empty?
+          implicit_pioneer = entries.find { |entry| entry.cls == Homebrew::Bundle::Brew }&.name
+        end
+
         # Phase 4: Merge explicit ordering and implicit lock conflicts.
         entries.each_with_object({}) do |entry, map|
           depends_on = brewfile_deps.fetch(entry.name).each_with_object(Set.new) do |dep, set|
@@ -169,6 +177,10 @@ module Homebrew
 
             earlier_rdeps = recursive_deps.fetch(earlier.name)
             depends_on << earlier.name if entry_rdeps.intersect?(earlier_rdeps)
+          end
+
+          if implicit_pioneer && entry.name != implicit_pioneer && entry.cls == Homebrew::Bundle::Brew
+            depends_on << implicit_pioneer
           end
 
           map[entry.name] = depends_on
