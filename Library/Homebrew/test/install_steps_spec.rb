@@ -3,6 +3,7 @@
 
 require "install_steps"
 require "cask/quarantine"
+require "macho"
 
 RSpec.describe Homebrew::InstallSteps do
   let(:root) { Pathname(TEST_TMPDIR)/"install-steps" }
@@ -31,6 +32,22 @@ RSpec.describe Homebrew::InstallSteps do
     end
   end
 
+  specify "changes the resolved dylib ID and restores its mode" do
+    dylib = root/"lib/libfoo.1.dylib"
+    source = root/"lib/libfoo.dylib"
+    dylib.dirname.mkpath
+    dylib.write "Mach-O"
+    dylib.chmod 0444
+    FileUtils.ln_s dylib, source
+    allow(Hardware::CPU).to receive(:arm?).and_return(true)
+    expect(MachO::Tools).to receive(:change_dylib_id).with(dylib, "@rpath/libfoo.1.dylib")
+    expect(MachO).to receive(:codesign!).with(dylib)
+
+    described_class.change_dylib_id source, "@rpath/libfoo.1.dylib", resolve_source: true
+
+    expect(dylib.stat.mode & 0777).to eq(0444)
+  end
+
   specify "runs mkdir, touch, move and symlink steps", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :staged_path,
                                               default_target_base: :staged_path) do
@@ -50,6 +67,20 @@ RSpec.describe Homebrew::InstallSteps do
     expect(root/"stage/move-target").to exist
     expect(root/"stage/linked-target").to be_a_symlink
     expect((root/"stage/linked-target").readlink).to eq(Pathname("move-target"))
+  end
+
+  specify "changes an explicit Mach-O dylib ID" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :prefix) do
+      on_macos do
+        change_dylib_id "lib/libfoo.dylib", "{{HOMEBREW_PREFIX}}/opt/foo/lib/libfoo.1.dylib",
+                        resolve_source: true
+      end
+    end
+    allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_macos?).and_return(true)
+    expect(described_class).to receive(:change_dylib_id)
+      .with(root/"prefix/lib/libfoo.dylib", "#{HOMEBREW_PREFIX}/opt/foo/lib/libfoo.1.dylib", resolve_source: true)
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
   end
 
   specify "links every source matched by a glob into a directory", :aggregate_failures do

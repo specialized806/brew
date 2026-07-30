@@ -5,6 +5,41 @@ require "test/support/fixtures/testball"
 require "formula"
 
 RSpec.describe Formula do
+  describe "#change_dylib_id" do
+    subject(:f) do
+      formula "dylib-id-test" do
+        url "foo-1.0"
+      end
+    end
+
+    let(:dylib) { f.lib/"libfoo.1.dylib" }
+
+    before do
+      dylib.dirname.mkpath
+      FileUtils.touch dylib
+    end
+
+    after { f.prefix.rmtree }
+
+    it "uses the explicit source and dylib ID" do
+      unversioned_dylib = f.lib/"libfoo.dylib"
+      FileUtils.ln_s dylib, unversioned_dylib
+      expect(Homebrew::InstallSteps).to receive(:change_dylib_id)
+        .with(unversioned_dylib, f.opt_lib/"libfoo.dylib", resolve_source: false)
+
+      f.change_dylib_id unversioned_dylib, f.opt_lib/"libfoo.dylib"
+    end
+
+    it "can resolve the source symlink and codesigns on ARM" do
+      unversioned_dylib = f.lib/"libfoo.dylib"
+      FileUtils.ln_s dylib, unversioned_dylib
+      expect(Homebrew::InstallSteps).to receive(:change_dylib_id)
+        .with(unversioned_dylib, "@rpath/libfoo.dylib", resolve_source: true)
+
+      f.change_dylib_id unversioned_dylib, "@rpath/libfoo.dylib", resolve_source: true
+    end
+  end
+
   describe "#uses_from_macos" do
     before do
       allow(OS).to receive(:mac?).and_return(true)
