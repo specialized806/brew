@@ -297,8 +297,6 @@ module OS
 
       sig { returns(String) }
       def self.update_instructions
-        return installation_instructions if OS::Mac.version.prerelease?
-
         software_update_location = if MacOS.version >= "13"
           "System Settings"
         else

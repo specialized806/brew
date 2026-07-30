@@ -23,4 +23,14 @@ RSpec.describe OS::Mac::Xcode, :needs_macos do
       expect(described_class.detect_version).to eq("26.3")
     end
   end
+
+  describe OS::Mac::CLT do
+    describe ".update_instructions" do
+      it "recommends Software Update on prerelease macOS" do
+        allow(OS::Mac).to receive(:version).and_return(MacOSVersion.new(HOMEBREW_MACOS_NEWEST_UNSUPPORTED))
+
+        expect(described_class.update_instructions).to include("Update them from Software Update in System Settings.")
+      end
+    end
+  end
 end
