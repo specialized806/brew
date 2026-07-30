@@ -38,13 +38,15 @@ RSpec.describe Pathname do
   end
 
   describe ".env_script_all_files" do
-    it "create scipts for files" do
+    it "creates scripts for files with mixed environment key types" do
       mktmpdir do |input_dir|
         FileUtils.touch input_dir/"foo"
         FileUtils.touch input_dir/"bar"
 
         mktmpdir do |output_dir|
-          input_dir.env_script_all_files(output_dir, FOO: "foo", BAR: input_dir/"test")
+          env = { FOO: "foo" }
+          env["BAR"] = input_dir/"test"
+          input_dir.env_script_all_files(output_dir, env)
 
           expect((input_dir/"foo").read).to eq(<<~BASH)
             #!/bin/bash
