@@ -1031,6 +1031,9 @@ class Spoom::Deadcode::ERB < ::Erubi::Engine
   sig { params(input: T.untyped, properties: T.untyped).void }
   def initialize(input, properties = T.unsafe(nil)); end
 
+  sig { returns(::String) }
+  def wrapped_src; end
+
   private
 
   sig { override.params(code: T.untyped).void }
@@ -1504,6 +1507,9 @@ class Spoom::Deadcode::Remover::NodeRemover
 
   private
 
+  sig { params(node: ::Prism::Node, name: ::Symbol).returns(T::Boolean) }
+  def constant_visibility_call?(node, name); end
+
   sig { params(context: ::Spoom::Deadcode::Remover::NodeContext).void }
   def delete_attr_accessor(context); end
 
@@ -1519,6 +1525,9 @@ class Spoom::Deadcode::Remover::NodeRemover
   sig { params(context: ::Spoom::Deadcode::Remover::NodeContext).void }
   def delete_node_and_comments_and_sigs(context); end
 
+  sig { params(context: ::Spoom::Deadcode::Remover::NodeContext, name: ::Symbol).void }
+  def delete_symbol_argument(context, name); end
+
   sig do
     params(
       node: ::Prism::Node,
@@ -1530,6 +1539,9 @@ class Spoom::Deadcode::Remover::NodeRemover
 
   sig { params(def_node: ::Prism::DefNode).returns(T.nilable(::Spoom::Deadcode::Remover::NodeContext)) }
   def modifier_call_context(def_node); end
+
+  sig { params(context: ::Spoom::Deadcode::Remover::NodeContext).void }
+  def remove_constant_visibility_call(context); end
 
   sig { params(start_char: ::Integer, end_char: ::Integer, replacement: ::String).void }
   def replace_chars(start_char, end_char, replacement); end
@@ -2933,10 +2945,11 @@ module Spoom::Sorbet::Translate
         ruby_contents: ::String,
         file: ::String,
         max_line_length: T.nilable(::Integer),
-        overloads_strategy: ::Symbol
+        overloads_strategy: ::Symbol,
+        erase_generic_types: T::Boolean
       ).returns(::String)
     end
-    def rbs_comments_to_sorbet_sigs(ruby_contents, file:, max_line_length: T.unsafe(nil), overloads_strategy: T.unsafe(nil)); end
+    def rbs_comments_to_sorbet_sigs(ruby_contents, file:, max_line_length: T.unsafe(nil), overloads_strategy: T.unsafe(nil), erase_generic_types: T.unsafe(nil)); end
 
     sig do
       params(
@@ -3015,10 +3028,11 @@ module Spoom::Sorbet::Translate::RBSCommentsToSorbetSigs
         ruby_contents: ::String,
         file: ::String,
         max_line_length: T.nilable(::Integer),
-        overloads_strategy: ::Symbol
+        overloads_strategy: ::Symbol,
+        erase_generic_types: T::Boolean
       ).returns(::String)
     end
-    def rewrite_if_needed(ruby_contents, file:, max_line_length: T.unsafe(nil), overloads_strategy: T.unsafe(nil)); end
+    def rewrite_if_needed(ruby_contents, file:, max_line_length: T.unsafe(nil), overloads_strategy: T.unsafe(nil), erase_generic_types: T.unsafe(nil)); end
   end
 end
 
@@ -3245,17 +3259,24 @@ class Spoom::Sorbet::Translate::RBSCommentsToSorbetSigs::Options
   sig do
     params(
       overloads_strategy: ::Symbol,
+      erase_generic_types: T::Boolean,
       output_format: ::Spoom::Sorbet::Translate::RBSCommentsToSorbetSigs::BaseRBIFormat,
       translate_abstract_methods: T::Boolean
     ).void
   end
-  def initialize(overloads_strategy: T.unsafe(nil), output_format: T.unsafe(nil), translate_abstract_methods: T.unsafe(nil)); end
+  def initialize(overloads_strategy: T.unsafe(nil), erase_generic_types: T.unsafe(nil), output_format: T.unsafe(nil), translate_abstract_methods: T.unsafe(nil)); end
+
+  sig { returns(T::Boolean) }
+  def erase_generic_types; end
 
   sig { returns(::Spoom::Sorbet::Translate::RBSCommentsToSorbetSigs::BaseRBIFormat) }
   def output_format; end
 
   sig { returns(::Symbol) }
   def overloads_strategy; end
+
+  sig { returns(::RBI::RBS::MethodTypeTranslator::Options) }
+  def rbi_options; end
 
   sig { returns(T::Boolean) }
   def translate_abstract_methods; end
