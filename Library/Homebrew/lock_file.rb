@@ -14,6 +14,9 @@ class LockFile
   sig { returns(Pathname) }
   attr_reader :path
 
+  sig { returns(Pathname) }
+  attr_reader :locked_path
+
   sig { params(type: Symbol, locked_path: Pathname).void }
   def initialize(type, locked_path)
     @locked_path = locked_path
