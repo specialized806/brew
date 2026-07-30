@@ -1,4 +1,4 @@
-# typed: false
+# typed: strict
 # frozen_string_literal: true
 
 require "vulns/cvss"
@@ -7,7 +7,7 @@ RSpec.describe Homebrew::Vulns::CVSS do
   describe ".base_score" do
     # Vectors and expected scores from FIRST CVSS v3.1 examples and NVD entries
     # used in the brew-vulns gem's test suite.
-    {
+    test_each_hash({
       "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" => 9.8,
       "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" => 9.8,
       "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:H" => 9.6,
@@ -23,7 +23,7 @@ RSpec.describe Homebrew::Vulns::CVSS do
       "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:L/I:N/A:N" => 1.8,
       "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N" => 0.0,
       "CVSS:3.1/AV:P/AC:H/PR:H/UI:R/S:U/C:N/I:N/A:N" => 0.0,
-    }.each do |vector, score|
+    }) do |vector, score|
       it "scores #{vector} as #{score}" do
         expect(described_class.base_score(vector)).to eq score
       end

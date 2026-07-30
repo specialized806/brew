@@ -357,7 +357,7 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
     end
   end
 
-  [:script, :early_script].each do |script_type|
+  test_each([:script, :early_script]) do |script_type|
     context "when using #{script_type.inspect}" do
       let(:fake_system_command) { NeverSudoSystemCommand }
       let(:token) { "with-#{artifact_dsl_key}-#{script_type}".tr("_", "-") }

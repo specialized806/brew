@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "sandbox"
@@ -186,7 +186,7 @@ RSpec.describe Sandbox do
 
   describe "#path_filter" do
     # The OS-specific renderer quotes paths safely, so no character is rejected.
-    ["'", '"', "(", ")", "\\", " ", ";", "#", "\n"].each do |char|
+    test_each(["'", '"', "(", ")", "\\", " ", ";", "#", "\n"]) do |char|
       it "allows paths containing #{char.inspect}" do
         expect { sandbox.path_filter(mktmpdir/"foo#{char}bar", :subpath) }.not_to raise_error
       end
@@ -257,13 +257,13 @@ RSpec.describe Sandbox do
       expect(rule.filter).to have_attributes(path: home.realpath.to_s, type: :subpath)
     end
 
-    [
+    test_each([
       [:HOMEBREW_PREFIX, "prefix"],
       [:HOMEBREW_REPOSITORY, "repository"],
       [:HOMEBREW_CACHE, "cache"],
       [:HOMEBREW_TEMP, "tmp"],
       [:HOMEBREW_LOGS, "Library/Logs/Homebrew"],
-    ].each do |constant, directory|
+    ]) do |(constant, directory)|
       it "skips the deny when #{constant} is inside the real home" do
         stub_const(constant.to_s, home/directory)
         # The constant under test is chosen dynamically per example.
@@ -277,11 +277,11 @@ RSpec.describe Sandbox do
       end
     end
 
-    [
+    test_each([
       ["GITHUB_WORKSPACE", "workspace"],
       ["RUNNER_WORKSPACE", "runner-workspace"],
       ["RUNNER_TEMP", "runner-temp"],
-    ].each do |env, directory|
+    ]) do |(env, directory)|
       it "skips the deny when #{env} is inside the real home" do
         (home/directory).mkpath
 

@@ -56,6 +56,7 @@ require "test/support/helper/fixtures"
 require "test/support/helper/formula"
 require "test/support/helper/mktmpdir"
 require "test/support/helper/subcommand"
+require "test/support/helper/test_each"
 
 require "test/support/helper/spec/shared_context/homebrew_cask" if OS.mac?
 require "test/support/helper/spec/shared_context/integration_test"
@@ -152,6 +153,8 @@ RSpec.configure do |config|
   config.include(Test::Helper::Formula)
   config.include(Test::Helper::MkTmpDir)
   config.include(Test::Helper::Subcommand)
+
+  config.extend(Test::Helper::TestEach)
 
   # Enable aggregate failures by default
   config.define_derived_metadata do |metadata|

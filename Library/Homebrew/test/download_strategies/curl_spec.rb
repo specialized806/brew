@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "download_strategy"
@@ -397,7 +397,7 @@ RSpec.describe CurlDownloadStrategy do
     end
 
     context "when content-range has invalid format" do
-      ["invalid-format", "bytes 0-1023", "bytes 0-1023/abc", "bytes 0-1023/", ""].each do |invalid_value|
+      test_each(["invalid-format", "bytes 0-1023", "bytes 0-1023/abc", "bytes 0-1023/", ""]) do |invalid_value|
         context "with value #{invalid_value.inspect}" do
           let(:headers) do
             {
