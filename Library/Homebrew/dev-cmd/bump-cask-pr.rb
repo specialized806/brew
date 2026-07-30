@@ -350,7 +350,7 @@ module Homebrew
                 else
                   tmp_cask.config.merge(Cask::Config.new(explicit: { languages: [language] }))
                 end
-                download = Cask::Download.new(new_cask, quarantine: true).fetch(verify_download_integrity: false)
+                download = Cask::Download.new(new_cask).fetch(verify_download_integrity: false)
                 Utils::Tar.validate_file(download)
 
                 if new_cask.sha256.to_s != download.sha256

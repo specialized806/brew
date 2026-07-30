@@ -224,7 +224,6 @@ module Homebrew
 
               downloads << Cask::Download.new(
                 localized_cask,
-                quarantine:  true,
                 require_sha: Homebrew::EnvConfig.cask_opts_require_sha?,
               )
             end
@@ -298,7 +297,6 @@ module Homebrew
           download = Homebrew::API::CaskDownload.download(
             token:,
             cask_struct: Homebrew::API::Internal.cask_struct(token),
-            quarantine:  true,
             require_sha: Homebrew::EnvConfig.cask_opts_require_sha?,
           )
           return false if download.nil?

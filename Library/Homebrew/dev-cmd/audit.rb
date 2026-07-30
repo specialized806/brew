@@ -278,7 +278,6 @@ module Homebrew
                 # because boolean switches are already `nil` if not passed
                 audit_signing:  args.signing?,
                 audit_new_cask: args.new? || nil,
-                quarantine:     true,
                 any_named_args: !no_named_args,
                 only:           args.only || [],
                 except:         args.except || [],
