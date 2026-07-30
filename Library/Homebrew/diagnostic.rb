@@ -261,6 +261,7 @@ module Homebrew
           "libsymsea*.dylib", # Symantec Endpoint Protection
           "sentinel.dylib", # SentinelOne
           "sentinel-*.dylib", # SentinelOne
+          "libASAF.dylib", # Apple Immersive Audio SDK
         ]
 
         msg = __check_stray_files "/usr/local/lib", "*.dylib", allow_list, <<~EOS
