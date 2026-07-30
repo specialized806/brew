@@ -240,10 +240,10 @@ RSpec.describe Livecheck do
       end
     end
 
-    {
+    test_each_hash({
       needs_arm:   "arm",
       needs_intel: "intel",
-    }.each do |metadata, expected_arch|
+    }) do |metadata, expected_arch|
       it "delegates `arch` in `livecheck` block to `package_or_resource`", metadata do
         expect(c_arch.livecheck.url).to eq("https://brew.sh/#{expected_arch}")
       end
@@ -268,10 +268,10 @@ RSpec.describe Livecheck do
       end
     end
 
-    {
+    test_each_hash({
       needs_macos: "macos",
       needs_linux: "linux",
-    }.each do |metadata, expected_os|
+    }) do |metadata, expected_os|
       it "delegates `os` in `livecheck` block to `package_or_resource`", metadata do
         expect(c_os.livecheck.url).to eq("https://brew.sh/#{expected_os}")
       end

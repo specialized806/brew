@@ -2,10 +2,10 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::AbstractUninstall, :cask do
-  [
+  test_each([
     [Cask::Artifact::Uninstall, :uninstall],
     [Cask::Artifact::Zap, :zap],
-  ].each do |artifact_class, artifact_dsl_key|
+  ]) do |(artifact_class, artifact_dsl_key)|
     describe "#each_resolved_path for #{artifact_dsl_key.inspect}" do
       subject(:artifact) { cask.artifacts.find { |candidate| candidate.is_a?(artifact_class) } }
 

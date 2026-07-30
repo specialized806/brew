@@ -2997,7 +2997,7 @@ RSpec.describe Formula do
       end
     end
 
-    actions.each do |action|
+    test_each(actions) do |action|
       it "can #{action} network access for all phases" do
         f = Class.new(Testball) do
           public_send(:"#{action}_network_access!")

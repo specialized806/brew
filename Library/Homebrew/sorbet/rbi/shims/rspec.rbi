@@ -2,6 +2,7 @@
 
 class RSpec::Core::ExampleGroup
   extend RSpec::Matchers::DSL
+  extend Test::Helper::TestEach
 
   include CopHelper
   include RSpec::SharedContext

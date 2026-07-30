@@ -5,7 +5,7 @@ RSpec.shared_examples "formulae exist" do |array|
   T.bind(self, T.class_of(RSpec::Core::ExampleGroup))
   formulae = T.cast(array, T::Array[Formula])
 
-  formulae.each do |f|
+  test_each(formulae) do |f|
     it "#{f} formula exists", :needs_homebrew_core do
       T.bind(self, RSpec::Core::ExampleGroup)
 
