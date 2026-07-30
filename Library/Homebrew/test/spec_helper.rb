@@ -16,6 +16,8 @@ end
 require_relative "../standalone"
 require_relative "../warnings"
 
+Warnings.ignore(/CGI library is removed from Ruby 4\.0\./) { require "cgi" }
+
 require "test-prof"
 
 Warnings.ignore :parser_syntax do
