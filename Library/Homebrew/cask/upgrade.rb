@@ -109,7 +109,6 @@ module Cask
         verbose:              T.nilable(T::Boolean),
         quiet:                T.nilable(T::Boolean),
         binaries:             T.nilable(T::Boolean),
-        quarantine:           T.nilable(T::Boolean),
         require_sha:          T.nilable(T::Boolean),
         quit:                 T::Boolean,
         skip_prefetch:        T::Boolean,
@@ -134,7 +133,6 @@ module Cask
       verbose: false,
       quiet: false,
       binaries: nil,
-      quarantine: nil,
       require_sha: nil,
       quit: true,
       skip_prefetch: false,
@@ -228,7 +226,7 @@ module Cask
             # rubocop:disable Style/DoubleNegation
             installer = Installer.new(cask, binaries: !!binaries, verbose: !!verbose, force: !!force,
                                              skip_cask_deps: !!skip_cask_deps, require_sha: !!require_sha,
-                                             upgrade: true, quarantine: quarantine != false,
+                                             upgrade: true,
                                              download_queue: prefetch_download_queue, defer_fetch: true)
             # rubocop:enable Style/DoubleNegation
             begin
@@ -274,7 +272,7 @@ module Cask
         upgrade_cask(
           old_cask, new_cask,
           binaries:, force:, skip_cask_deps:, verbose:,
-          quarantine:, require_sha:, quit:, download_queue:
+          require_sha:, quit:, download_queue:
         )
         summary_upgrades&.push(cask_upgrades.fetch(index))
       rescue => e
@@ -355,7 +353,6 @@ module Cask
         new_cask:       Cask,
         binaries:       T.nilable(T::Boolean),
         force:          T.nilable(T::Boolean),
-        quarantine:     T.nilable(T::Boolean),
         require_sha:    T.nilable(T::Boolean),
         quit:           T::Boolean,
         skip_cask_deps: T.nilable(T::Boolean),
@@ -365,7 +362,7 @@ module Cask
     }
     def self.upgrade_cask(
       old_cask, new_cask,
-      binaries:, force:, quarantine:, require_sha:, quit:, skip_cask_deps:, verbose:, download_queue:
+      binaries:, force:, require_sha:, quit:, skip_cask_deps:, verbose:, download_queue:
     )
       require "cask/installer"
 
@@ -397,7 +394,7 @@ module Cask
       }.compact
 
       new_cask_installer =
-        Installer.new(new_cask, **new_options, quarantine: quarantine != false, defer_fetch: true)
+        Installer.new(new_cask, **new_options, defer_fetch: true)
 
       started_upgrade = false
       new_artifacts_installed = false
@@ -417,16 +414,14 @@ module Cask
 
         new_cask_installer.fetch
 
-        if quarantine.nil?
-          old_cask.artifacts.grep(Artifact::App).each do |artifact|
-            old_user_approved[artifact.target.to_s] =
-              if artifact.target.exist?
-                Quarantine.user_approved?(artifact.target)
-              else
-                false
-              end
-            old_signing_identities[artifact.target.to_s] = Quarantine.signing_identity(artifact.target)
-          end
+        old_cask.artifacts.grep(Artifact::App).each do |artifact|
+          old_user_approved[artifact.target.to_s] =
+            if artifact.target.exist?
+              Quarantine.user_approved?(artifact.target)
+            else
+              false
+            end
+          old_signing_identities[artifact.target.to_s] = Quarantine.signing_identity(artifact.target)
         end
 
         # Move the old cask's artifacts back to staging
@@ -440,7 +435,7 @@ module Cask
         new_cask_installer.install_artifacts(predecessor: old_cask)
         new_artifacts_installed = true
 
-        if quarantine.nil? && Quarantine.available?
+        if Quarantine.available?
           case quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
           when :release
             new_cask.artifacts.grep(Artifact::App).each do |artifact|

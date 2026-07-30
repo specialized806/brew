@@ -13,11 +13,10 @@ module Homebrew
           token:       String,
           cask_struct: Homebrew::API::CaskStruct,
           languages:   T.nilable(T::Array[String]),
-          quarantine:  T.nilable(T::Boolean),
           require_sha: T::Boolean,
         ).returns(T.nilable(::Cask::Download))
       }
-      def self.download(token:, cask_struct:, languages: nil, quarantine: nil, require_sha: false)
+      def self.download(token:, cask_struct:, languages: nil, require_sha: false)
         languages ||= cask_struct.languages.empty? ? [] : ::Cask::Config.new.languages
         cask_struct = cask_struct.localise(languages)
         return if cask_struct.languages.any? && cask_struct.language_variations.empty?
@@ -43,7 +42,7 @@ module Homebrew
           end
         end
 
-        ::Cask::Download.new(cask, quarantine:, require_sha:)
+        ::Cask::Download.new(cask, require_sha:)
       end
     end
   end
