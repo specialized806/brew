@@ -165,8 +165,10 @@ module Homebrew
         # Pick a random 5 minute block in which to execute the autobump action to avoid peak GitHub loads
         hour = Random.rand(23)
         minute = Random.rand(11) * 5
-        workflow.gsub!("at 01:45 UTC") { "at #{hour}:#{minute} UTC" }
-        workflow.gsub!("\"45 1 * * *\"") { "#{minute} #{hour} * * *" }
+        workflow.gsub!("this will be changed later and randomised by brew tap-new") do
+          "Every day at #{hour}:#{minute} UTC"
+        end
+        workflow.gsub!("\"1 1 1 1 1\"") { "#{minute} #{hour} * * *" }
 
         workflow.sub!("    if: github.repository == ''\n", "")
         workflow.gsub!("TAP_NEW_BRANCH") { branch }

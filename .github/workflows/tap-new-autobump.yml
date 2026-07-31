@@ -8,8 +8,8 @@ on:
     paths:
       - .github/workflows/autobump.yml
   schedule:
-    # Every day at 01:45 UTC, randomised by brew tap-new
-    - cron: "45 1 * * *"
+    # this will be changed later and randomised by brew tap-new
+    - cron: "1 1 1 1 1"
 
 permissions: {}
 
