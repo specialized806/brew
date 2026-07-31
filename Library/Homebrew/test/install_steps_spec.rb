@@ -1014,6 +1014,130 @@ RSpec.describe Homebrew::InstallSteps do
     end
   end
 
+  specify "dispatches CPython and PyPy bootstrap" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      bootstrap_cpython
+      bootstrap_pypy abi_version: "3.10"
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_bootstrap_cpython).ordered
+    expect(runner).to receive(:run_bootstrap_pypy).with("3.10").ordered
+
+    runner.run(steps)
+  end
+
+  specify "bootstraps CPython 3.9 configuration", :aggregate_failures do
+    python = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-3.9.1"
+    end
+    allow(python).to receive(:prefix).and_return(root/"prefix")
+    stub_const("HOMEBREW_PREFIX", root/"homebrew")
+    allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_macos?).and_return(false)
+    site_packages = root/"homebrew/lib/python3.9/site-packages"
+    resources = %w[setuptools pip wheel].to_h do |name|
+      [name, instance_double(Resource, version: Version.new("1.0"))]
+    end
+    allow(python).to receive(:resource) { |name| resources[name] }
+    site_packages_cellar = root/"prefix/lib/python3.9/site-packages"
+    (site_packages_cellar/"old.pth").tap do |path|
+      path.dirname.mkpath
+      path.write "old"
+    end
+    (site_packages/"bin").mkpath
+    (site_packages/"bin/pip3.9").write "pip"
+    (site_packages/"bin/wheel").write "wheel"
+    (root/"prefix/bin").mkpath
+    (root/"prefix/lib/python3.9/distutils").mkpath
+    (root/"homebrew/bin").mkpath
+    runner = Homebrew::InstallSteps::Runner.new(context: python)
+    allow(runner).to receive(:run_command) do |*args|
+      next unless args.include?("--target=#{site_packages}")
+
+      framework_compat = site_packages/"setuptools/_distutils/command/_framework_compat.py"
+      framework_compat.dirname.mkpath
+      framework_compat.write "    homebrew_prefix = None\n"
+    end
+    steps = Homebrew::InstallSteps::DSL.build do
+      bootstrap_cpython
+    end
+
+    runner.run(steps)
+
+    expect(site_packages_cellar).to be_a_symlink
+    expect(site_packages_cellar.realpath).to eq(site_packages.realpath)
+    expect(site_packages_cellar/"old.pth").not_to exist
+    expect((root/"prefix/lib/python3.9/distutils/distutils.cfg").read).to eq <<~INI
+      [install]
+      prefix=#{root}/homebrew
+      [build_ext]
+      include_dirs=#{root}/homebrew/include:#{root}/homebrew/opt/openssl@3/include:#{root}/homebrew/opt/sqlite/include
+      library_dirs=#{root}/homebrew/lib:#{root}/homebrew/opt/openssl@3/lib:#{root}/homebrew/opt/sqlite/lib
+    INI
+    expect((site_packages/"setuptools/_distutils/command/_framework_compat.py").read)
+      .to eq("    homebrew_prefix = '#{root}/homebrew'\n")
+  end
+
+  specify "bootstraps PyPy 3.10 configuration", :aggregate_failures do
+    pypy = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-7.3.20"
+    end
+    allow(pypy).to receive_messages(
+      prefix:   root/"prefix",
+      libexec:  root/"prefix/libexec",
+      pkgshare: root/"prefix/share/pypy3",
+    )
+    stub_const("HOMEBREW_PREFIX", root/"homebrew")
+    resources = %w[setuptools pip].to_h do |name|
+      resource = instance_double(Resource)
+      allow(resource).to receive(:stage).and_yield
+      [name, resource]
+    end
+    allow(pypy).to receive(:resource) { |name| resources[name] }
+    allow(Formula).to receive(:[]).with("pypy3").and_return(instance_double(Formula))
+    scripts_folder = root/"homebrew/share/pypy3.10"
+    scripts_folder.mkpath
+    (scripts_folder/"pip3.10").write "pip"
+    (root/"prefix/libexec/lib/pypy3.10/distutils").mkpath
+    command = class_double(SystemCommand, run: nil)
+    runner = Homebrew::InstallSteps::Runner.new(context: pypy, command:)
+    allow(runner).to receive(:run_command)
+    steps = Homebrew::InstallSteps::DSL.build do
+      bootstrap_pypy abi_version: "3.10"
+    end
+
+    runner.run(steps)
+
+    site_packages = root/"homebrew/lib/pypy3.10/site-packages"
+    libexec_site_packages = root/"prefix/libexec/lib/pypy3.10/site-packages"
+    expect(site_packages/".keepme").to exist
+    expect(libexec_site_packages).to be_a_symlink
+    expect(libexec_site_packages.realpath).to eq(site_packages.realpath)
+    expect((root/"prefix/libexec/lib/pypy3.10/distutils/distutils.cfg").read).to eq <<~INI
+      [install]
+      install-scripts=#{scripts_folder}
+    INI
+    expect(root/"prefix/bin/pip_pypy3.10").to be_a_symlink
+    expect(root/"homebrew/bin/pip_pypy3.10").to be_a_symlink
+  end
+
+  specify "makes CPython venv activation script templates writable", :aggregate_failures do
+    script = root/"lib/venv/scripts/common/activate"
+    directory = root/"lib/venv/scripts/directory"
+    script.dirname.mkpath
+    directory.mkpath
+    script.write "activate"
+    FileUtils.chmod 0444, script
+    FileUtils.chmod 0555, directory
+
+    Homebrew::InstallSteps::Runner.new(context:).make_cpython_venv_activation_scripts_writable(root/"lib")
+
+    expect(script.stat.mode & 0200).to eq(0200)
+    expect(directory.stat.mode & 0200).to be_zero
+  end
+
   describe "runs gtk_update_icon_cache rebuild action" do
     let(:formula) { instance_double(Formula, opt_bin: root/"opt/bin") }
     let(:steps) do

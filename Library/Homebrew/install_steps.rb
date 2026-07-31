@@ -663,6 +663,16 @@ module Homebrew
         add_step("configure_php")
       end
 
+      sig { void }
+      def bootstrap_cpython
+        add_step("bootstrap_cpython")
+      end
+
+      sig { params(abi_version: ::String).void }
+      def bootstrap_pypy(abi_version:)
+        add_step("bootstrap_pypy", "abi_version" => abi_version)
+      end
+
       private
 
       sig { params(guard: PathSpec, block: ::T.proc.bind(DSL).void).void }
@@ -921,6 +931,10 @@ module Homebrew
           run_configure_clang_system
         when "configure_php"
           run_configure_php
+        when "bootstrap_cpython"
+          run_bootstrap_cpython
+        when "bootstrap_pypy"
+          run_bootstrap_pypy(step_string(step, "abi_version"))
         when "set_permissions"
           run_set_permissions(step)
         when "set_ownership"
