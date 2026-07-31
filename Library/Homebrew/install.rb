@@ -359,16 +359,7 @@ module Homebrew
           download_queue.fetch
 
           [:prelude, :enqueue_fetch].each do |step|
-            valid_formula_installers.select! do |fi|
-              fi.public_send(step)
-              true
-            rescue CannotInstallFormulaError => e
-              ofail e.message
-              false
-            rescue UnsatisfiedRequirements, DownloadError, ChecksumMismatchError => e
-              ofail "#{fi.formula}: #{e}"
-              false
-            end
+            valid_formula_installers = select_formula_installers(valid_formula_installers, step:)
             next if step == :enqueue_fetch && !fetch_after_enqueue
 
             download_queue.fetch
@@ -391,13 +382,20 @@ module Homebrew
           fi.download_queue = download_queue
         end
 
+        select_formula_installers(formula_installers, step: :prelude_fetch)
+      end
+
+      sig {
+        params(formula_installers: T::Array[FormulaInstaller], step: Symbol).returns(T::Array[FormulaInstaller])
+      }
+      def select_formula_installers(formula_installers, step:)
         formula_installers.select do |fi|
-          fi.prelude_fetch
+          fi.public_send(step)
           true
         rescue CannotInstallFormulaError => e
           ofail e.message
           false
-        rescue UnsatisfiedRequirements, DownloadError, ChecksumMismatchError => e
+        rescue => e
           ofail "#{fi.formula}: #{e}"
           false
         end
@@ -425,16 +423,29 @@ module Homebrew
 
       sig { params(cask_installers: T::Array[T.untyped], download_queue: Homebrew::DownloadQueue).void }
       def enqueue_cask_installers(cask_installers, download_queue:)
-        if cask_installers.any?(&:source_download_requires_pre_fetch?)
-          source_downloads = cask_installers.filter_map(&:prelude_fetch_download)
-          if source_downloads.any?
-            oh1 "Downloading Cask files"
-            source_downloads.each { |source_download| download_queue.enqueue(source_download) }
-            download_queue.fetch
+        source_downloads = []
+        valid_cask_installers = cask_installers.select do |cask_installer|
+          if cask_installer.source_download_requires_pre_fetch? &&
+             (source_download = cask_installer.prelude_fetch_download)
+            source_downloads << source_download
           end
+          true
+        rescue => e
+          ofail "#{cask_installer.cask}: #{e}"
+          false
         end
 
-        cask_installers.each(&:enqueue_downloads)
+        if source_downloads.any?
+          oh1 "Downloading Cask files"
+          source_downloads.each { |source_download| download_queue.enqueue(source_download) }
+          download_queue.fetch
+        end
+
+        valid_cask_installers.each do |cask_installer|
+          cask_installer.enqueue_downloads
+        rescue => e
+          ofail "#{cask_installer.cask}: #{e}"
+        end
       end
 
       sig {
