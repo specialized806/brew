@@ -62,6 +62,7 @@ UNDEFINED_CONSTANTS = %w[
 UNDEFINED_CONSTANTS_AFTER_REQUIRE = T.let({
   "api"                           => %w[Base64 Concurrent Homebrew::DownloadQueue Plist],
   "cask/artifact/pkg"             => %w[Plist],
+  "dev-cmd/formula-analytics"     => %w[InfluxDBClient3 PyCall],
   "downloadable"                  => %w[Concurrent],
   "extend/os/mac/extend/pathname" => %w[MachO],
   "formula_cellar_checks"         => %w[Plist],

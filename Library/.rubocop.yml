@@ -324,7 +324,6 @@ Sorbet/StrictSigil:
     - "/**/{Formula,Casks}/**/*.rb"
     - "**/{Formula,Casks}/**/*.rb"
     - "Homebrew/bundle/{formula_dumper,checker,commands/exec}.rb" # These aren't typed: true yet.
-    - "Homebrew/formula-analytics/pycall-setup.rbi" # Type stubs for external PyCall/InfluxDB dependencies.
     - "Homebrew/ignorable.rbi" # Workaround for Sorbet to allow aliasing `raise`.
     - "Homebrew/{standalone,startup}/*.rb" # These are loaded before sorbet-runtime
     - "Homebrew/test/**/*.rb"

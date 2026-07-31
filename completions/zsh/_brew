@@ -1459,7 +1459,7 @@ _brew_formula_analytics() {
     '(--all-core-formulae-json --setup)--json[Output JSON. This is required: plain text support has been removed]' \
     '(--install --cask-install --install-on-request --build-error --homebrew-devcmdrun-developer --homebrew-env-config --homebrew-os-arch-ci --homebrew-prefixes --homebrew-versions --brew-command-run --brew-command-run-options --brew-test-bot-test)--os-version[Output the number of events by OS name and version]' \
     '--quiet[Make some output more quiet]' \
-    '(--json --all-core-formulae-json)--setup[Install the necessary gems, require them and exit without running a query]' \
+    '(--json --all-core-formulae-json)--setup[Install the necessary Python dependencies and exit without running a query]' \
     '--verbose[Make some output more verbose]'
 }
 

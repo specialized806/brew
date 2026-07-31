@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require "abstract_command"
-require "fileutils"
 
 module Homebrew
   module DevCmd
@@ -48,7 +47,7 @@ module Homebrew
                description: "Output a different JSON format containing the JSON data for all " \
                             "Homebrew/homebrew-core formulae."
         switch "--setup",
-               description: "Install the necessary gems, require them and exit without running a query."
+               description: "Install the necessary Python dependencies and exit without running a query."
 
         conflicts "--install", "--cask-install", "--install-on-request", "--build-error", "--os-version",
                   "--homebrew-devcmdrun-developer", "--homebrew-env-config", "--homebrew-os-arch-ci",
@@ -65,46 +64,76 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["formula_analytics"])
-
         setup_python
         influx_analytics(args)
       end
 
       sig { void }
       def setup_python
-        formula_analytics_root = HOMEBREW_LIBRARY/"Homebrew/formula-analytics"
-        vendor_python =  Pathname.new("~/.brew-formula-analytics/vendor/python").expand_path
-        python_version = (formula_analytics_root/".python-version").read.chomp
-
-        which_python = which("python#{python_version}", ORIGINAL_PATHS)
-        odie <<~EOS if which_python.nil?
-          Python #{python_version} is required. Try:
-            brew install python@#{python_version}
+        uv = which("uv", ORIGINAL_PATHS)
+        odie <<~EOS if uv.nil?
+          `uv` is required. Try:
+            brew install uv
         EOS
 
-        venv_root = vendor_python/python_version
+        vendor_python = venv_root.dirname
         vendor_python.children.reject { |path| path == venv_root }.each(&:rmtree) if vendor_python.exist?
-        venv_python = venv_root/"bin/python"
 
-        repo_requirements = HOMEBREW_LIBRARY/"Homebrew/formula-analytics/requirements.txt"
-        venv_requirements = venv_root/"requirements.txt"
-        if !venv_requirements.exist? || !FileUtils.identical?(repo_requirements, venv_requirements)
-          safe_system which_python, "-I", "-m", "venv", "--clear", venv_root, out: :err
-          safe_system venv_python, "-m", "pip", "install",
-                      "--disable-pip-version-check",
-                      "--require-hashes",
-                      "--requirement", repo_requirements,
-                      out: :err
-          FileUtils.cp repo_requirements, venv_requirements
+        with_env(UV_PROJECT_ENVIRONMENT: venv_root.to_s) do
+          safe_system uv, "sync", "--frozen", "--project", formula_analytics_root, out: :err
         end
+      end
 
-        ENV["PATH"] = "#{venv_root}/bin:#{ENV.fetch("PATH")}"
-        ENV["__PYVENV_LAUNCHER__"] = venv_python.to_s # support macOS framework Pythons
+      sig { returns(Pathname) }
+      def formula_analytics_root
+        HOMEBREW_LIBRARY/"Homebrew/formula-analytics"
+      end
 
-        require "pycall"
-        PyCall.init(venv_python)
-        require formula_analytics_root/"pycall-setup"
+      sig { returns(Pathname) }
+      def influxdb_query_script
+        formula_analytics_root/"influxdb-query.py"
+      end
+
+      sig { returns(Pathname) }
+      def venv_root
+        python_version = (formula_analytics_root/".python-version").read.chomp
+        Pathname.new("~/.brew-formula-analytics/vendor/python").expand_path/python_version
+      end
+
+      sig { returns(Pathname) }
+      def venv_python
+        venv_root/"bin/python"
+      end
+
+      sig { params(query: String, _block: T.proc.params(record: T::Hash[String, T.untyped]).void).void }
+      def each_influx_record(query, &_block)
+        require "json"
+        require "tempfile"
+        require "utils/analytics"
+        require "utils/popen"
+
+        request = {
+          host:     URI.parse(Utils::Analytics::INFLUX_HOST).host,
+          org:      Utils::Analytics::INFLUX_ORG,
+          database: Utils::Analytics::INFLUX_BUCKET,
+          query:,
+        }.to_json
+
+        Tempfile.create("influxdb-query-stderr") do |stderr_file|
+          Utils.popen([venv_python.to_s, influxdb_query_script.to_s], "r+b", { err: stderr_file.path }) do |pipe|
+            pipe.write request
+            pipe.close_write
+            pipe.each_line { |line| yield JSON.parse(line) }
+          end
+
+          next if $CHILD_STATUS.success?
+
+          stderr = stderr_file.read
+          if stderr.include?("unauthenticated")
+            odie "Could not authenticate with InfluxDB! Please check your `$HOMEBREW_INFLUXDB_TOKEN`!"
+          end
+          odie "InfluxDB query failed:\n#{stderr}"
+        end
       end
 
       sig { params(args: Homebrew::DevCmd::FormulaAnalytics::Args).void }
@@ -112,19 +141,14 @@ module Homebrew
         require "utils/analytics"
         require "json"
 
-        return if args.setup?
+        if args.setup?
+          safe_system venv_python, influxdb_query_script, "--check"
+          return
+        end
 
         odie "`$HOMEBREW_NO_ANALYTICS` is set!" if ENV["HOMEBREW_NO_ANALYTICS"]
 
-        token = ENV.fetch("HOMEBREW_INFLUXDB_TOKEN", nil)
-        odie "No InfluxDB credentials found in `$HOMEBREW_INFLUXDB_TOKEN`!" unless token
-
-        client = InfluxDBClient3.new(
-          token:,
-          host:     URI.parse(Utils::Analytics::INFLUX_HOST).host,
-          org:      Utils::Analytics::INFLUX_ORG,
-          database: Utils::Analytics::INFLUX_BUCKET,
-        )
+        odie "No InfluxDB credentials found in `$HOMEBREW_INFLUXDB_TOKEN`!" unless ENV["HOMEBREW_INFLUXDB_TOKEN"]
 
         max_days_ago = (Date.today - FIRST_INFLUXDB_ANALYTICS_DATE).to_s.to_i
         days_ago = (args.days_ago || 30).to_i
@@ -211,14 +235,6 @@ module Homebrew
           query = <<~EOS
             SELECT #{sql_groups}, COUNT(*) AS "count" FROM "#{bucket}" WHERE time >= now() - INTERVAL '#{days_ago} day'#{additional_where} GROUP BY #{sql_groups}
           EOS
-          batches = begin
-            client.query(query:, language: "sql").to_batches
-          rescue PyCall::PyError => e
-            if e.message.include?("message: unauthenticated")
-              odie "Could not authenticate with InfluxDB! Please check your `$HOMEBREW_INFLUXDB_TOKEN`!"
-            end
-            raise
-          end
 
           json = T.let({
             category:,
@@ -229,98 +245,96 @@ module Homebrew
             items:       [],
           }, T::Hash[Symbol, T.untyped])
 
-          batches.each do |batch|
-            batch.to_pylist.each do |record|
-              if category == :homebrew_env_config
-                state = record["env_config_state"]
-                env_config_name = record["env_config"].to_s
-                # Drop malformed events from non-standard clients and events
-                # for variables Homebrew no longer supports.
-                next if %w[unset default non_default].exclude?(state)
-                next unless Homebrew::EnvConfig::ENVS.key?(env_config_name.to_sym)
-
-                count = record["count"]
-                json[:total_count] += count
-                json[:items] << {
-                  number: nil,
-                  dimension_key => env_config_name,
-                  count:,
-                  non_default_count: (state == "non_default") ? count : 0,
-                  set_default_count: (state == "default") ? count : 0,
-                  unset_count:       (state == "unset") ? count : 0,
-                }
-                next
-              end
-
-              dimension = case category
-              when :homebrew_devcmdrun_developer
-                "devcmdrun=#{record["devcmdrun"]} HOMEBREW_DEVELOPER=#{record["developer"]}"
-              when :homebrew_os_arch_ci
-                if record["ci"] == "true"
-                  "#{record["os"]} #{record["arch"]} (CI)"
-                else
-                  "#{record["os"]} #{record["arch"]}"
-                end
-              when :homebrew_prefixes
-                prefix = record["prefix"].to_s
-                if T.must(standard_prefixes).none? { |std| std.casecmp?(prefix) }
-                  "custom-prefix (#{record["os"]} #{record["arch"]})"
-                else
-                  prefix
-                end
-              when :os_versions
-                format_os_version_dimension(record["os_name_and_version"])
-              when :command_run_options
-                "#{record["command"]} #{record["options"].to_s.split.sort.join(" ")}"
-              when :test_bot_test
-                command_and_package, options = record["command"].split.partition { |arg| !arg.start_with?("-") }
-
-                # Cleanup bad data before https://github.com/Homebrew/homebrew-test-bot/pull/1043
-                # Can delete this code after 27th April 2025.
-                next if %w[audit install linkage style test].exclude?(command_and_package.first)
-                next if command_and_package.last.include?("/")
-                next if options.include?("--tap=")
-                next if options.include?("--only-dependencies")
-                next if options.include?("--cached")
-
-                command_and_options = (command_and_package + options.sort).join(" ")
-                passed = (record["passed"] == "true") ? "PASSED" : "FAILED"
-
-                "#{command_and_options} (#{record["os"]} #{record["arch"]}) (#{passed})"
-              else
-                record[groups.first.to_s]
-              end
-              next if dimension.blank?
-
-              if (tap_name = record["tap_name"].presence) &&
-                 ((tap_name != "homebrew/cask" && dimension_key == :cask) ||
-                  (tap_name != "homebrew/core" && dimension_key == :formula))
-                dimension = "#{tap_name}/#{dimension}"
-              end
-
-              if (all_core_formulae_json || category == :build_error) &&
-                 (options = record["options"].presence)
-                # homebrew/core formulae don't have non-HEAD options but they ended up in our analytics anyway.
-                if all_core_formulae_json
-                  options = options.split.include?("--HEAD") ? "--HEAD" : ""
-                end
-                dimension = "#{dimension} #{options}"
-              end
-
-              dimension = dimension.strip
-              next if dimension.match?(/[<>]/)
+          each_influx_record(query) do |record|
+            if category == :homebrew_env_config
+              state = record["env_config_state"]
+              env_config_name = record["env_config"].to_s
+              # Drop malformed events from non-standard clients and events
+              # for variables Homebrew no longer supports.
+              next if %w[unset default non_default].exclude?(state)
+              next unless Homebrew::EnvConfig::ENVS.key?(env_config_name.to_sym)
 
               count = record["count"]
-
-              json[:total_items] += 1
               json[:total_count] += count
-
               json[:items] << {
                 number: nil,
-                dimension_key => dimension,
+                dimension_key => env_config_name,
                 count:,
+                non_default_count: (state == "non_default") ? count : 0,
+                set_default_count: (state == "default") ? count : 0,
+                unset_count:       (state == "unset") ? count : 0,
               }
+              next
             end
+
+            dimension = case category
+            when :homebrew_devcmdrun_developer
+              "devcmdrun=#{record["devcmdrun"]} HOMEBREW_DEVELOPER=#{record["developer"]}"
+            when :homebrew_os_arch_ci
+              if record["ci"] == "true"
+                "#{record["os"]} #{record["arch"]} (CI)"
+              else
+                "#{record["os"]} #{record["arch"]}"
+              end
+            when :homebrew_prefixes
+              prefix = record["prefix"].to_s
+              if T.must(standard_prefixes).none? { |std| std.casecmp?(prefix) }
+                "custom-prefix (#{record["os"]} #{record["arch"]})"
+              else
+                prefix
+              end
+            when :os_versions
+              format_os_version_dimension(record["os_name_and_version"])
+            when :command_run_options
+              "#{record["command"]} #{record["options"].to_s.split.sort.join(" ")}"
+            when :test_bot_test
+              command_and_package, options = record["command"].split.partition { |arg| !arg.start_with?("-") }
+
+              # Cleanup bad data before https://github.com/Homebrew/homebrew-test-bot/pull/1043
+              # Can delete this code after 27th April 2025.
+              next if %w[audit install linkage style test].exclude?(command_and_package.first)
+              next if command_and_package.last.include?("/")
+              next if options.include?("--tap=")
+              next if options.include?("--only-dependencies")
+              next if options.include?("--cached")
+
+              command_and_options = (command_and_package + options.sort).join(" ")
+              passed = (record["passed"] == "true") ? "PASSED" : "FAILED"
+
+              "#{command_and_options} (#{record["os"]} #{record["arch"]}) (#{passed})"
+            else
+              record[groups.first.to_s]
+            end
+            next if dimension.blank?
+
+            if (tap_name = record["tap_name"].presence) &&
+               ((tap_name != "homebrew/cask" && dimension_key == :cask) ||
+                (tap_name != "homebrew/core" && dimension_key == :formula))
+              dimension = "#{tap_name}/#{dimension}"
+            end
+
+            if (all_core_formulae_json || category == :build_error) &&
+               (options = record["options"].presence)
+              # homebrew/core formulae don't have non-HEAD options but they ended up in our analytics anyway.
+              if all_core_formulae_json
+                options = options.split.include?("--HEAD") ? "--HEAD" : ""
+              end
+              dimension = "#{dimension} #{options}"
+            end
+
+            dimension = dimension.strip
+            next if dimension.match?(/[<>]/)
+
+            count = record["count"]
+
+            json[:total_items] += 1
+            json[:total_count] += count
+
+            json[:items] << {
+              number: nil,
+              dimension_key => dimension,
+              count:,
+            }
           end
 
           odie "No data returned" if json[:total_count].zero?

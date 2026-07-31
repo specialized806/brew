@@ -21,7 +21,7 @@ RSpec.describe Homebrew::DevCmd::FormulaAnalytics do
     it "ranks sampled environment configurations by non-default use" do
       ENV.delete("HOMEBREW_NO_ANALYTICS")
       ENV["HOMEBREW_INFLUXDB_TOKEN"] = "token"
-      batch = double(to_pylist: [
+      records = [
         { "env_config" => "HOMEBREW_BAT", "env_config_state" => "non_default", "count" => 2 },
         { "env_config" => "HOMEBREW_BAT", "env_config_state" => "default", "count" => 3 },
         { "env_config" => "HOMEBREW_BAT", "env_config_state" => "unset", "count" => 5 },
@@ -30,18 +30,13 @@ RSpec.describe Homebrew::DevCmd::FormulaAnalytics do
         { "env_config" => "HOMEBREW_MAKE_JOBS", "env_config_state" => "default", "count" => 4 },
         { "env_config" => "HOMEBREW_TOTALLY_MADE_UP", "env_config_state" => "non_default", "count" => 100 },
         { "env_config" => "HOMEBREW_BAT", "env_config_state" => "borked", "count" => 50 },
-      ])
-      query_result = double(to_batches: [batch])
+      ]
       queries = []
-      influxdb_client = Class.new do
-        define_method(:initialize) { |**| nil }
-        define_method(:query) do |query:, language:|
-          queries << { query:, language: }
-          query_result
-        end
-      end
-      stub_const("InfluxDBClient3", influxdb_client)
       command = described_class.new(["--homebrew-env-config", "--json"])
+      allow(command).to receive(:each_influx_record) do |query, &block|
+        queries << query
+        records.each(&block)
+      end
       expected = {
         category:    :homebrew_env_config,
         total_items: 3,
@@ -68,11 +63,64 @@ RSpec.describe Homebrew::DevCmd::FormulaAnalytics do
       expect { command.influx_analytics(command.args) }
         .to output("#{JSON.pretty_generate(expected)}\n").to_stdout
       expect(queries).to contain_exactly(
-        query:    match(/FROM "command_run".*env_config_state IS NOT NULL GROUP BY/).and(
+        match(/FROM "command_run".*env_config_state IS NOT NULL GROUP BY/).and(
           include('GROUP BY "env_config","env_config_state"'),
         ),
-        language: "sql",
       )
+    end
+  end
+
+  describe "#each_influx_record" do
+    it "streams the JSON request to the bridge script and parses JSON lines" do
+      command = described_class.new([])
+      bridge = mktmpdir/"fake-python"
+      bridge.write "#!/bin/sh\ncat\n"
+      bridge.chmod 0755
+      allow(command).to receive(:venv_python).and_return(bridge)
+      records = []
+
+      command.each_influx_record("SELECT 1") { |record| records << record }
+
+      expect(records).to eq [{
+        "host"     => "eu-central-1-1.aws.cloud2.influxdata.com",
+        "org"      => Utils::Analytics::INFLUX_ORG,
+        "database" => Utils::Analytics::INFLUX_BUCKET,
+        "query"    => "SELECT 1",
+      }]
+    end
+
+    it "reports unauthenticated bridge errors as a token problem" do
+      command = described_class.new([])
+      bridge = mktmpdir/"fake-python"
+      bridge.write <<~SH
+        #!/bin/sh
+        cat >/dev/null
+        echo "pyarrow.flight.FlightUnauthenticatedError: message: unauthenticated" >&2
+        exit 1
+      SH
+      bridge.chmod 0755
+      allow(command).to receive(:venv_python).and_return(bridge)
+
+      expect { command.each_influx_record("SELECT 1") { nil } }
+        .to raise_error(SystemExit)
+        .and output(/Could not authenticate with InfluxDB/).to_stderr
+    end
+
+    it "reports other bridge failures with their standard error output" do
+      command = described_class.new([])
+      bridge = mktmpdir/"fake-python"
+      bridge.write <<~SH
+        #!/bin/sh
+        cat >/dev/null
+        echo "Traceback: boom" >&2
+        exit 1
+      SH
+      bridge.chmod 0755
+      allow(command).to receive(:venv_python).and_return(bridge)
+
+      expect { command.each_influx_record("SELECT 1") { nil } }
+        .to raise_error(SystemExit)
+        .and output(/InfluxDB query failed:\nTraceback: boom/).to_stderr
     end
   end
 end
