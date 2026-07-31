@@ -144,7 +144,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # odeprecated: remove 22.04 image in Homebrew >=5.4
+        # odeprecated: remove 22.04 image in Homebrew >=6.1
         version: ["22.04", "24.04", "26.04"]
         arch: ["x86_64", "arm64"]
 
@@ -171,7 +171,7 @@ jobs:
         run: |
           # odeprecated: remove 22.04 image in Homebrew >=6.1
           if [[ "${VERSION}" == "22.04" ]]; then
-            echo "The homebrew/ubuntu22.04 image is deprecated and will soon be retired. Use homebrew/brew." > .docker-deprecate
+            echo "The homebrew/ubuntu22.04 image is deprecated and will be retired in Homebrew 6.1. Use homebrew/brew." > .docker-deprecate
           fi
 
           filter="$(printf '.["%s"]' "${VERSION}")"
