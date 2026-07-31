@@ -17,6 +17,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     expect(help_text).to include(
       "--maintainer-report-csv=2026-2",
       "current directory",
+      "brew-contributions-FROM-to-TO-USER.csv",
       "Only Maintainers listed at the end of that quarter are included",
       "two consecutive quarters before a downgrade is applied",
       "Completed-period GitHub searches are cached in Homebrew's cache",
@@ -67,6 +68,103 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     expect(command.maintainer_report_users(repository_refs, "2025-09-01")).to eq([
       { "alice" => "Alice", "bob" => "Bob" }, {}, { "alice" => "2020-01-02", "bob" => "2020-01-02" }
     ])
+  end
+
+  it "filters historical Maintainers for a requested maintainer report user" do
+    command = described_class.new(["--maintainer-report-csv=2025-3", "--user=ALICE"])
+    repository_path = Pathname("/Homebrew/brew")
+    repository_refs = { "Homebrew/brew" => [repository_path, "origin/HEAD"] }
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "rev-list", "-1", "--before=2025-09-01",
+            "origin/HEAD", "--", "README.md")
+      .and_return("quarter-end-ref\n")
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "show", "quarter-end-ref:README.md")
+      .and_return(<<~MARKDOWN)
+        Homebrew's [Lead Maintainers](url) are [Alice](https://github.com/Alice).
+        Homebrew's other Maintainers are [Bob](https://github.com/bob).
+      MARKDOWN
+    allow(command).to receive(:maintainer_since)
+      .with(repository_path, "quarter-end-ref", "Alice", "Alice")
+      .and_return("2020-01-02")
+
+    expect do
+      expect(command.maintainer_report_users(repository_refs, "2025-09-01")).to eq([
+        { "Alice" => "Alice" }, { "alice" => true }, { "Alice" => "2020-01-02" }
+      ])
+    end.to output("Scanning contributions for 1 maintainer...\n").to_stderr
+  end
+
+  it "reports an unresolved maintainer report email as an identity error" do
+    command = described_class.new(["--maintainer-report-csv=2025-3", "--user=alice@example.com"])
+    repository_path = Pathname("/Homebrew/brew")
+    repository_refs = { "Homebrew/brew" => [repository_path, "origin/HEAD"] }
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "rev-list", "-1", "--before=2025-09-01",
+            "origin/HEAD", "--", "README.md")
+      .and_return("quarter-end-ref\n")
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "show", "quarter-end-ref:README.md")
+      .and_return("Homebrew's maintainers are [Alice](https://github.com/alice).\n")
+    allow(command).to receive(:github_username_for).with("alice@example.com", to: "2025-09-01")
+
+    expect { command.maintainer_report_users(repository_refs, "2025-09-01") }
+      .to raise_error(SystemExit)
+      .and output(/Could not resolve GitHub usernames for: alice@example\.com/).to_stderr
+  end
+
+  it "filters maintainer reports using a username resolved from an email" do
+    command = described_class.new([
+      "--maintainer-report-csv=2025-3",
+      "--user=39449589+alice@users.noreply.github.com",
+    ])
+    repository_path = Pathname("/Homebrew/brew")
+    repository_refs = { "Homebrew/brew" => [repository_path, "origin/HEAD"] }
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "rev-list", "-1", "--before=2025-09-01",
+            "origin/HEAD", "--", "README.md")
+      .and_return("quarter-end-ref\n")
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "show", "quarter-end-ref:README.md")
+      .and_return("Homebrew's maintainers are [Alice](https://github.com/alice).\n")
+    allow(command).to receive(:maintainer_since)
+      .with(repository_path, "quarter-end-ref", "alice", "Alice")
+      .and_return("2020-01-02")
+
+    expect(command.maintainer_report_users(repository_refs, "2025-09-01")).to eq([
+      { "alice" => "Alice" }, {}, { "alice" => "2020-01-02" }
+    ])
+  end
+
+  it "reports only requested users not listed as quarter-end Maintainers" do
+    command = described_class.new([
+      "--maintainer-report-csv=2025-3",
+      "--user=bob,carol,dave",
+    ])
+    repository_path = Pathname("/Homebrew/brew")
+    repository_refs = { "Homebrew/brew" => [repository_path, "origin/HEAD"] }
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "rev-list", "-1", "--before=2025-09-01",
+            "origin/HEAD", "--", "README.md")
+      .and_return("quarter-end-ref\n")
+    allow(Utils).to receive(:safe_popen_read)
+      .with(Utils::Git.git, "-C", repository_path, "show", "quarter-end-ref:README.md")
+      .and_return("Homebrew's maintainers are [Bob](https://github.com/bob).\n")
+
+    expect { command.maintainer_report_users(repository_refs, "2025-09-01") }
+      .to raise_error(SystemExit)
+      .and output(<<~EOS).to_stderr
+        Error: Not listed as Maintainers at the end of the reporting quarter: carol and dave.
+      EOS
+  end
+
+  it "rejects empty maintainer report user values" do
+    command = described_class.new(["--maintainer-report-csv=2025-3", "--user=alice,,bob"])
+
+    expect(Homebrew).not_to receive(:install_bundler_gems!)
+    expect { command.run }
+      .to raise_error(SystemExit)
+      .and output(/`--user` must not contain empty values/).to_stderr
   end
 
   it "reports activity criteria from fetched Git histories" do
@@ -132,6 +230,52 @@ RSpec.describe Homebrew::DevCmd::Contributions do
       Maintainer report dates: 2025-12-01-to-2026-03-01
       Scanning contributions for 2 maintainers...
     EOS
+  end
+
+  it "writes filtered maintainer reports without overwriting the full report" do
+    command = described_class.new([
+      "--maintainer-report-csv=2026-1",
+      "--user=BOB,39449589+alice@users.noreply.github.com",
+    ])
+    repository_refs = Homebrew::DevCmd::Contributions::PRIMARY_REPOS.to_h do |repository|
+      [repository, [Pathname("/#{repository}"), "origin/HEAD"]]
+    end
+    no_contributions = {
+      merged_pr_author: 0, merged_pr_merger: 0, merged_pr: 0, approved_pr_review: 0, coauthor: 0
+    }
+    results = {
+      "bob"   => Homebrew::DevCmd::Contributions::PRIMARY_REPOS.to_h do |repository|
+        [repository, no_contributions]
+      end,
+      "Alice" => Homebrew::DevCmd::Contributions::PRIMARY_REPOS.to_h do |repository|
+        [repository, no_contributions]
+      end,
+    }
+    csv = "filtered maintainer report\n"
+
+    allow(Homebrew).to receive(:install_bundler_gems!).with(groups: ["contributions"])
+    allow(command).to receive(:prepare_contribution_repositories)
+      .with(Homebrew::DevCmd::Contributions::PRIMARY_REPOS, required: true)
+      .and_return(repository_refs)
+    allow(command).to receive(:maintainer_report_users)
+      .with(repository_refs, "2026-03-01")
+      .and_return([
+        { "bob" => "Bob", "Alice" => "Alice" },
+        {},
+        { "bob" => "2020-01-02", "Alice" => "2020-01-02" },
+      ])
+    allow(command).to receive(:scan_contributions)
+      .with("Homebrew", Homebrew::DevCmd::Contributions::PRIMARY_REPOS, repository_refs,
+            { "bob" => "Bob", "Alice" => "Alice" }, from: "2025-12-01", to: "2026-03-01",
+            skip_reviews_if_lead_met: true, progress: true)
+      .and_return(results)
+    allow(command).to receive(:generate_maintainer_report_csv).and_return(csv)
+    expect(File).to receive(:write)
+      .with("brew-contributions-2025-12-01-to-2026-03-01-alice-bob.csv", csv)
+
+    expect { command.run }
+      .to output(csv).to_stdout
+      .and output("Maintainer report dates: 2025-12-01-to-2026-03-01\n").to_stderr
   end
 
   it "uses the shared Git scanner for non-Maintainers" do
