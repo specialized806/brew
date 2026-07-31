@@ -292,7 +292,7 @@ module RuboCop
                       source_formula: "ca-certificates",
                       source_base: :formula_pkgetc,
                       target_base: :pkgetc,
-                      force: true
+                      overwrite: true
             RUBY
           end
         end

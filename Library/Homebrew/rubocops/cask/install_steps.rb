@@ -60,13 +60,7 @@ module RuboCop
             next unless (flight_stanza = stanzas.find { |stanza| stanza.stanza_name == flight_block })
 
             steps_stanza = stanzas.find { |stanza| stanza.stanza_name == steps_block }
-
-            if steps_stanza
-              add_offense(steps_stanza.source_range,
-                          message: "`#{flight_stanza.stanza_name}` and `#{steps_block}` cannot both be used.")
-            else
-              audit_flight_block(flight_stanza, steps_block)
-            end
+            audit_flight_block(flight_stanza, steps_block) if steps_stanza.nil?
           end
 
           stanzas.each do |stanza|
