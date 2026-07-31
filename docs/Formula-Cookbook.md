@@ -1155,6 +1155,7 @@ Use the named actions below for formula families that share post-install algorit
 * `install_gzipped_executable`: unpack and install a gzipped executable.
 * `configure_glibc_runtime`: generate requested glibc locales and timezone links.
 * `configure_clang_system`: generate macOS Clang system configuration files.
+* `configure_php`: configure shared PEAR and PECL state.
 
 #### Service data directory steps
 

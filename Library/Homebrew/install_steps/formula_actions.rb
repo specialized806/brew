@@ -136,6 +136,65 @@ module Homebrew
         require "utils/clang"
         Utils::Clang.write_system_config_files(config_dir:, macos_version:, kernel_version:, arch:)
       end
+
+      sig { void }
+      def run_configure_php
+        pear_prefix = context_path("pkgshare")/"pear"
+        channels = [pear_prefix/".channels", pear_prefix/".channels/.alias"]
+        channels.select(&:directory?).each { |directory| FileUtils.chmod 0755, directory }
+        pear_files = %w[.depdblock .filemap .depdb .lock].map { |file| pear_prefix/file }.select(&:file?)
+        pear_files.concat(channels.flat_map do |directory|
+          directory.directory? ? directory.children.select(&:file?) : []
+        end)
+        FileUtils.chmod 0644, pear_files
+
+        pecl_path = HOMEBREW_PREFIX/"lib/php/pecl"
+        pecl_path.mkpath
+        prefix_pecl = context_path("prefix")/"pecl"
+        prefix_pecl.unlink if prefix_pecl.symlink?
+        File.symlink pecl_path, prefix_pecl unless prefix_pecl.exist?
+        php_basename = File.basename(run_command_output(context_path("bin")/"php-config", "--extension-dir").strip)
+        (pecl_path/php_basename).mkpath
+
+        version_major_minor = context_version_major_minor
+        raise ArgumentError, "PHP configuration requires a version" if version_major_minor.nil?
+
+        pear_dir = (context_name == "php") ? "pear" : "pear@#{version_major_minor}"
+        pear_path = HOMEBREW_PREFIX/"share"/pear_dir
+        FileUtils.cp_r "#{pear_prefix}/.", pear_path
+        php_ext_dir = context_path("opt_prefix")/"lib/php"/php_basename
+        {
+          "php_ini"  => context_path("etc")/"php/#{version_major_minor}/php.ini",
+          "php_dir"  => pear_path,
+          "doc_dir"  => pear_path/"doc",
+          "ext_dir"  => pecl_path/php_basename,
+          "bin_dir"  => context_path("opt_prefix")/"bin",
+          "data_dir" => pear_path/"data",
+          "cfg_dir"  => pear_path/"cfg",
+          "www_dir"  => pear_path/"htdocs",
+          "man_dir"  => HOMEBREW_PREFIX/"share/man",
+          "test_dir" => pear_path/"test",
+          "php_bin"  => context_path("opt_prefix")/"bin/php",
+        }.each do |key, value|
+          value.mkpath if /(?<!bin|man)_dir$/.match?(key)
+          run_command context_path("bin")/"pear", "config-set", key, value, "system"
+        end
+        run_command context_path("bin")/"pear", "update-channels"
+        return if context_name == "php"
+
+        ext_config_path = context_path("etc")/"php/#{version_major_minor}/conf.d/ext-opcache.ini"
+        ext_config_path.dirname.mkpath
+        zend_extension_line = %Q(zend_extension="#{php_ext_dir}/opcache.so")
+        if ext_config_path.exist?
+          require "utils/inreplace"
+          Utils::Inreplace.inreplace(ext_config_path, /^\s*zend_extension\s*=.*$/, zend_extension_line)
+        else
+          ext_config_path.atomic_write <<~INI
+            [opcache]
+            #{zend_extension_line}
+          INI
+        end
+      end
     end
   end
 end
