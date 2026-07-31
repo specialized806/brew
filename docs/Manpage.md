@@ -3144,7 +3144,8 @@ Summarise contributions to Homebrew repositories.
 `--user`
 
 : Specify a comma-separated list of GitHub usernames or email addresses to find
-  contributions from. Omitting this flag searches Homebrew maintainers.
+  contributions from. Omitting this flag searches Homebrew maintainers. With
+  `--maintainer-report-csv`, only matching quarter-end Maintainers are included.
 
 `--repositories`
 
@@ -3186,7 +3187,8 @@ Summarise contributions to Homebrew repositories.
 : Print a CSV of Maintainer and Lead Maintainer activity criteria using fetched
   Git histories and GitHub's existing approved-review search for the Homebrew
   governance quarter, for example `--maintainer-report-csv=2026-2`. Also write
-  it to `brew-contributions-FROM-to-TO.csv` in the current directory. Only
+  it in the current directory as `brew-contributions-FROM-to-TO.csv`, or
+  `brew-contributions-FROM-to-TO-USER.csv` when filtered with `--user`. Only
   Maintainers listed at the end of that quarter are included. The `new role`
   value must show a downgrade for two consecutive quarters before a downgrade is
   applied. Review searches return at most 100 results and other counts are
