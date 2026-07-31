@@ -6,6 +6,7 @@ require "api"
 require "executables_db"
 require "fileutils"
 require "formula"
+require "vulns/advisory_database"
 
 module Homebrew
   module DevCmd
@@ -49,6 +50,7 @@ module Homebrew
           odie "Failed to download #{executables_path}"
         end
         executables = ExecutablesDB.new(executables_path.to_s).to_hash
+        advisories = load_advisory_database
 
         Homebrew.with_no_api_env do
           tap_migrations_json = JSON.dump(tap.tap_migrations)
@@ -65,6 +67,9 @@ module Homebrew
               name = formula.name
               all_formulae[name] = formula.to_hash_with_variations
               all_formulae[name]["executables"] = executables[name] if executables.key?(name)
+              if (vulns = advisories&.status_for(name, formula.pkg_version))
+                all_formulae[name]["vulnerabilities"] = vulns
+              end
               json = JSON.pretty_generate(all_formulae[name])
               html_template_name = html_template(name)
 
@@ -103,6 +108,16 @@ module Homebrew
       end
 
       private
+
+      # An advisory-database or network failure must not break the API build;
+      # the `vulnerabilities` field is omitted and the build proceeds.
+      sig { returns(T.nilable(Homebrew::Vulns::AdvisoryDatabase)) }
+      def load_advisory_database
+        Homebrew::Vulns::AdvisoryDatabase.load
+      rescue Homebrew::Vulns::CachedFeed::Error, ErrorDuringExecution => e
+        opoo "Skipping vulnerabilities field: #{e.message.lines.first&.strip}"
+        nil
+      end
 
       sig { params(title: String).returns(String) }
       def html_template(title)
