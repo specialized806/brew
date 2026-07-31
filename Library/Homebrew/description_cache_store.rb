@@ -56,14 +56,20 @@ class DescriptionCacheStore < CacheStore
     return populate_if_empty! if database.empty?
     return if report.empty?
 
-    renamings   = T.cast(report.select_formula_or_cask(:R), T::Array[T::Array[String]])
-    alterations = report.select_formula_or_cask(:A) +
-                  report.select_formula_or_cask(:M) +
-                  renamings.filter_map(&:last)
+    renamings = T.cast(report.select_formula_or_cask(:R), T::Array[[String, String]])
+    alterations = T.cast(
+      report.select_formula_or_cask(:A) +
+      report.select_formula_or_cask(:M) +
+      renamings.filter_map(&:last),
+      T::Array[String],
+    )
+    deletions = T.cast(
+      report.select_formula_or_cask(:D) + renamings.filter_map(&:first),
+      T::Array[String],
+    )
 
     update_from_formula_names!(alterations)
-    delete_from_formula_names!(report.select_formula_or_cask(:D) +
-                               renamings.filter_map(&:first))
+    delete_from_formula_names!(deletions)
   end
 
   # Use an array of formula names to update the {DescriptionCacheStore}.
