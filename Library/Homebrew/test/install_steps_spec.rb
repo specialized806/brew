@@ -48,13 +48,13 @@ RSpec.describe Homebrew::InstallSteps do
     expect(dylib.stat.mode & 0777).to eq(0444)
   end
 
-  specify "runs mkdir, touch, move and symlink steps", :aggregate_failures do
+  specify "runs directory, touch, move and symlink steps", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :staged_path,
                                               default_target_base: :staged_path) do
       mkdir_p "log/example"
       touch "state/marker", base: :prefix
-      mv "move-source", "move-target"
-      ln_s "move-target", "linked-target", source_base: :relative
+      move "move-source", "move-target"
+      symlink "move-target", "linked-target", source_base: :relative
     end
 
     (root/"stage").mkpath
@@ -86,7 +86,7 @@ RSpec.describe Homebrew::InstallSteps do
   specify "links every source matched by a glob into a directory", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_source_base: :prefix,
                                               default_target_base: :prefix) do
-      symlink "share/man/*.1", "share/man/man1", force: true, source_glob: true
+      symlink "share/man/*.1", "share/man/man1", source_glob: true, overwrite: true
     end
 
     (root/"prefix/share/man/man1").mkpath
@@ -191,17 +191,44 @@ RSpec.describe Homebrew::InstallSteps do
     )
   end
 
+  specify "keeps canonical DSL calls compatible with shipped API values", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build do
+      symlink_tree "source", "target"
+      symlink_children "source", "target"
+      write_file "config", "content"
+      update_gdk_pixbuf_loaders_cache
+      update_gtk_icon_cache
+      delete_keychain_certificates "Example", fingerprint_of: "certificate"
+      symlink "source", "target", overwrite: true, remove_on_uninstall: true
+      init_data_dir "data", using: :postgresql
+    end
+
+    expect(steps.map { |step| step.fetch("type") }).to eq(
+      %w[link_dir link_children write gdk_pixbuf_query_loaders gtk_update_icon_cache
+         delete_keychain_certificate symlink init_data_dir],
+    )
+    expect(steps.fetch(2)).to include("content" => "content", "overwrite" => true)
+    expect(steps.fetch(5)).to include("matching_certificate" => { "path" => "certificate" })
+    expect(steps.fetch(6)).to include("force" => true, "uninstall" => true)
+    expect(steps.fetch(7)).to include("using" => "postgresql_initdb")
+  end
+
   specify "expands a scoped set of content tokens and leaves others verbatim", :aggregate_failures do
     root_path = root
     versioned_context = Class.new do
       define_method(:prefix) { root_path/"prefix" }
+      define_method(:name) { "example" }
+      define_method(:token) { "example-cask" }
       define_method(:version) { Version.new("1.2.3") }
     end.new
 
     steps = Homebrew::InstallSteps::DSL.build(default_base: :prefix) do
-      write "config.ini", <<~EOS
+      write_file "config.ini", <<~EOS
         prefix = {{prefix}}
         cellar = {{HOMEBREW_PREFIX}}
+        legacy = {{name}}
+        formula = {{formula_name}}
+        cask = {{token}}
         series = {{version.major_minor}} ({{version}})
         literal = {{unknown}} {single}
       EOS
@@ -212,6 +239,9 @@ RSpec.describe Homebrew::InstallSteps do
     written = (root/"prefix/config.ini").read
     expect(written).to include("prefix = #{root}/prefix")
     expect(written).to include("cellar = #{HOMEBREW_PREFIX}")
+    expect(written).to include("legacy = example")
+    expect(written).to include("formula = example")
+    expect(written).to include("cask = example-cask")
     expect(written).to include("series = 1.2 (1.2.3)")
     expect(written).to include("literal = {{unknown}} {single}")
   end
@@ -226,6 +256,38 @@ RSpec.describe Homebrew::InstallSteps do
     Homebrew::InstallSteps::Runner.new(context:).run(steps)
 
     expect((root/"var/identity").read).to eq("example-formula:example-cask\n")
+  end
+
+  specify "writes exact content and replaces existing files" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      write_file "config/example.conf", "replacement"
+      write_file "empty", ""
+    end
+
+    (root/"var/config").mkpath
+    (root/"var/config/example.conf").write "old\n"
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
+
+    expect([(root/"var/config/example.conf").read, (root/"var/empty").read]).to eq(["replacement", ""])
+  end
+
+  specify "preserves meaningful blank values" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      inreplace "remove.txt", "remove", ""
+      run "helper", args: [""], env: { "EMPTY" => "" }
+    end
+
+    (root/"var").mkpath
+    (root/"var/remove.txt").write "remove"
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run!)
+      .with("helper", args: [""], sudo: false, env: { "EMPTY" => "" }, input: [], print_stdout: false,
+                      print_stderr: true, reset_uid: true, chdir: nil)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+
+    expect((root/"var/remove.txt").read).to be_empty
   end
 
   specify "writes a default config file and preserves existing ones", :aggregate_failures do
@@ -347,7 +409,7 @@ RSpec.describe Homebrew::InstallSteps do
       .to eq([false, "replacement", "original"])
   end
 
-  specify "keeps the shipped move replacement default" do
+  specify "preserves the legacy move replacement behaviour" do
     steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
       move "source.txt", "target.txt"
     end
@@ -356,9 +418,23 @@ RSpec.describe Homebrew::InstallSteps do
     (root/"stage/source.txt").write "replacement"
     (root/"var/target.txt").write "existing"
 
+    steps.fetch(0).delete("overwrite")
     Homebrew::InstallSteps::Runner.new(context:).run(steps)
 
     expect((root/"var/target.txt").read).to eq("replacement")
+  end
+
+  specify "preserves a default move destination when repeated", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :staged_path, default_target_base: :var) do
+      move "source", "target"
+    end
+    (root/"stage/source").mkpath
+    (root/"stage/source/file").write "content"
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+
+    runner.run(steps)
+    expect { runner.run(steps) }.to raise_error(Errno::ENOENT)
+    expect((root/"var/target/file").read).to eq("content")
   end
 
   specify "requires one match for single-source globs" do
@@ -409,7 +485,7 @@ RSpec.describe Homebrew::InstallSteps do
     expect(root/"var/obsolete-dir").not_to exist
   end
 
-  specify "filters removals by symlink target and file content", :aggregate_failures do
+  specify "filters removals and accepts the legacy path base", :aggregate_failures do
     ENV["PATH"] = (root/"path-bin").to_s
     steps = Homebrew::InstallSteps::DSL.build do
       remove "links/*", base: :staged_path, symlink_target_contains: "wanted"
@@ -581,18 +657,18 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"var/has-newline").read).to eq("value\n")
   end
 
-  specify "raises when a write step has missing or blank content" do
+  specify "raises when a write step has missing content" do
     expect do
       Homebrew::InstallSteps::Runner.new(context:).run([{ "type" => "write", "path" => "config/new.conf" }])
-    end.to raise_error(ArgumentError, /non-empty content/)
+    end.to raise_error(ArgumentError, /requires content/)
   end
 
   specify "runs service data directory initialisers", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
-      init_data_dir "postgresql@16", using: :postgresql_initdb
-      init_data_dir "postgresql@12", using: :postgresql_initdb, locale: "C"
-      init_data_dir "mysql", using: :mysql_initialize
-      init_data_dir "mysql", using: :mariadb_install_db
+      init_data_dir "postgresql@16", using: :postgresql
+      init_data_dir "postgresql@12", using: :postgresql, locale: "C"
+      init_data_dir "mysql", using: :mysql
+      init_data_dir "mysql", using: :mariadb
     end
 
     runner = Homebrew::InstallSteps::Runner.new(context:)
@@ -644,11 +720,11 @@ RSpec.describe Homebrew::InstallSteps do
     FileUtils.chmod "+x", root/"prefix/bin/pg_config"
 
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :prefix) do
-      link_dir "include/postgresql", "include/#{name}"
-      link_dir "lib/postgresql", "lib/#{name}"
-      link_dir "share/postgresql", "share/#{name}"
-      link_children "bin", suffix: "-#{version.major}"
-      init_data_dir name, using: :postgresql_initdb
+      symlink_tree "include/postgresql", "include/#{formula_name}"
+      symlink_tree "lib/postgresql", "lib/#{formula_name}"
+      symlink_tree "share/postgresql", "share/#{formula_name}"
+      symlink_children "bin", suffix: "-#{version.major}"
+      init_data_dir formula_name, using: :postgresql
     end
 
     runner = Homebrew::InstallSteps::Runner.new(context: versioned_context)
@@ -676,7 +752,7 @@ RSpec.describe Homebrew::InstallSteps do
 
   specify "skips data directory initialisers in CI", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
-      init_data_dir "postgresql@16", using: :postgresql_initdb
+      init_data_dir "postgresql@16", using: :postgresql
     end
 
     ENV["HOMEBREW_GITHUB_ACTIONS"] = "1"
@@ -691,7 +767,7 @@ RSpec.describe Homebrew::InstallSteps do
 
   specify "skips data directory initialisers when their marker exists", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
-      init_data_dir "mysql", using: :mysql_initialize
+      init_data_dir "mysql", using: :mysql
     end
 
     (root/"var/mysql/mysql").mkpath
@@ -721,7 +797,7 @@ RSpec.describe Homebrew::InstallSteps do
     steps = Homebrew::InstallSteps::DSL.build do
       compile_gsettings_schemas
       gio_querymodules
-      gdk_pixbuf_query_loaders
+      update_gdk_pixbuf_loaders_cache
       update_mime_database
       update_desktop_database
     end
@@ -1138,11 +1214,11 @@ RSpec.describe Homebrew::InstallSteps do
     expect(directory.stat.mode & 0200).to be_zero
   end
 
-  describe "runs gtk_update_icon_cache rebuild action" do
+  describe "runs update_gtk_icon_cache rebuild action" do
     let(:formula) { instance_double(Formula, opt_bin: root/"opt/bin") }
     let(:steps) do
       Homebrew::InstallSteps::DSL.build do
-        gtk_update_icon_cache
+        update_gtk_icon_cache
       end
     end
 
@@ -1167,7 +1243,7 @@ RSpec.describe Homebrew::InstallSteps do
 
   specify "deletes matching keychain certificates by SHA-256 hash" do
     steps = Homebrew::InstallSteps::DSL.build do
-      delete_keychain_certificate "Charles"
+      delete_keychain_certificates "Charles"
     end
 
     runner = Homebrew::InstallSteps::Runner.new(context:)
@@ -1190,7 +1266,7 @@ RSpec.describe Homebrew::InstallSteps do
     certificate.dirname.mkpath
     certificate.write "certificate"
     steps = Homebrew::InstallSteps::DSL.build do
-      delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: certificate
+      delete_keychain_certificates "NodeMITMProxyCA", fingerprint_of: certificate
     end
 
     runner = Homebrew::InstallSteps::Runner.new(context:)
@@ -1212,7 +1288,7 @@ RSpec.describe Homebrew::InstallSteps do
   specify "skips keychain certificate deletion when a local certificate is missing" do
     certificate = root/"missing.pem"
     steps = Homebrew::InstallSteps::DSL.build do
-      delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: certificate
+      delete_keychain_certificates "NodeMITMProxyCA", fingerprint_of: certificate
     end
 
     runner = Homebrew::InstallSteps::Runner.new(context:)
@@ -1333,7 +1409,7 @@ RSpec.describe Homebrew::InstallSteps do
 
   specify "removes symlinks marked for uninstall" do
     steps = Homebrew::InstallSteps::DSL.build(default_target_base: :staged_path) do
-      ln_sf "target", "linked-target", source_base: :relative, uninstall: true
+      symlink "target", "linked-target", source_base: :relative, overwrite: true, remove_on_uninstall: true
     end
 
     (root/"stage").mkpath

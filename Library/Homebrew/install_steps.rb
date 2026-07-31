@@ -202,7 +202,7 @@ module Homebrew
           end
         when String, Pathname
           if %w[
-            path source target command matching_certificate fingerprint_of stdin_path stdout_path chdir
+            path source target command matching_certificate stdin_path stdout_path chdir
           ].include?(key)
             normalise_path_value(obj)
           else
@@ -247,20 +247,25 @@ module Homebrew
           target:      ::T.any(::String, ::Pathname),
           source_base: ::T.nilable(::T.any(::String, ::Symbol)),
           target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          # odeprecated
           force:       ::T::Boolean,
+          overwrite:   ::T::Boolean,
           source_glob: ::T::Boolean,
         ).void
       }
-      def move(source, target, source_base: nil, target_base: nil, force: false, source_glob: false)
+      def move(source, target, source_base: nil, target_base: nil, force: false, overwrite: true, source_glob: false)
         add_step("move",
                  "source"      => path_spec(source, base: source_base, default_base: @default_source_base),
                  "target"      => path_spec(target, base: target_base, default_base: @default_target_base),
                  "force"       => force,
+                 "overwrite"   => overwrite,
                  "source_glob" => source_glob)
       end
 
+      # odeprecated
       alias mv move
 
+      # odeprecated
       sig {
         params(
           source:      ::T.any(::String, ::Pathname),
@@ -353,31 +358,37 @@ module Homebrew
 
       sig {
         params(
-          source:         ::T.any(::String, ::Pathname),
-          target:         ::T.any(::String, ::Pathname),
-          source_base:    ::T.nilable(::T.any(::String, ::Symbol)),
-          target_base:    ::T.nilable(::T.any(::String, ::Symbol)),
-          source_formula: ::T.nilable(::String),
-          target_formula: ::T.nilable(::String),
-          force:          ::T::Boolean,
-          uninstall:      ::T::Boolean,
-          source_glob:    ::T::Boolean,
-          sudo:           ::T.any(::T::Boolean, ::Symbol),
+          source:              ::T.any(::String, ::Pathname),
+          target:              ::T.any(::String, ::Pathname),
+          source_base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          source_formula:      ::T.nilable(::String),
+          target_formula:      ::T.nilable(::String),
+          # odeprecated
+          force:               ::T::Boolean,
+          # odeprecated
+          uninstall:           ::T::Boolean,
+          overwrite:           ::T::Boolean,
+          remove_on_uninstall: ::T::Boolean,
+          source_glob:         ::T::Boolean,
+          sudo:                ::T.any(::T::Boolean, ::Symbol),
         ).void
       }
       def symlink(source, target, source_base: nil, target_base: nil, source_formula: nil, target_formula: nil,
-                  force: false, uninstall: false, source_glob: false, sudo: false)
+                  force: false, uninstall: false, overwrite: false, remove_on_uninstall: false,
+                  source_glob: false, sudo: false)
         add_step("symlink",
                  "source"      => path_spec(source, base: source_base, formula: source_formula,
-                                           default_base: @default_source_base),
+                                    default_base: @default_source_base),
                  "target"      => path_spec(target, base: target_base, formula: target_formula,
-                                           default_base: @default_target_base),
-                 "force"       => force,
-                 "uninstall"   => uninstall,
+                                    default_base: @default_target_base),
+                 "force"       => force || overwrite,
+                 "uninstall"   => uninstall || remove_on_uninstall,
                  "source_glob" => source_glob,
                  "sudo"        => sudo.is_a?(::Symbol) ? sudo.to_s : sudo)
       end
 
+      # odeprecated
       sig {
         params(
           source:         ::T.any(::String, ::Pathname),
@@ -395,6 +406,7 @@ module Homebrew
         symlink(source, target, source_base:, target_base:, source_formula:, target_formula:, force:, uninstall:)
       end
 
+      # odeprecated
       sig {
         params(
           source:         ::T.any(::String, ::Pathname),
@@ -411,6 +423,7 @@ module Homebrew
         symlink(source, target, source_base:, target_base:, source_formula:, target_formula:, force: true, uninstall:)
       end
 
+      # odeprecated
       sig {
         params(
           source:      ::T.any(::String, ::Pathname),
@@ -425,6 +438,21 @@ module Homebrew
                  "target" => path_spec(target, base: target_base, default_base: @default_target_base))
       end
 
+      sig {
+        params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def symlink_tree(source, target, source_base: nil, target_base: :homebrew_prefix)
+        add_step("link_dir",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      # odeprecated
       sig {
         params(
           source:      ::T.any(::String, ::Pathname),
@@ -445,6 +473,26 @@ module Homebrew
 
       sig {
         params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.nilable(::T.any(::String, ::Pathname)),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          prefix:      ::String,
+          suffix:      ::String,
+        ).void
+      }
+      def symlink_children(source, target = nil, source_base: nil, target_base: :homebrew_prefix, prefix: "",
+                           suffix: "")
+        add_step("link_children",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target || source, base: target_base, default_base: @default_target_base),
+                 "prefix" => prefix,
+                 "suffix" => suffix)
+      end
+
+      # odeprecated
+      sig {
+        params(
           path:      ::T.any(::String, ::Pathname),
           content:   ::String,
           base:      ::T.nilable(::T.any(::String, ::Symbol)),
@@ -461,6 +509,20 @@ module Homebrew
 
       sig {
         params(
+          path:    ::T.any(::String, ::Pathname),
+          content: ::String,
+          base:    ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def write_file(path, content, base: nil)
+        add_step("write",
+                 "path"      => path_spec(path, base:, default_base: @default_base),
+                 "content"   => content,
+                 "overwrite" => true)
+      end
+
+      sig {
+        params(
           path:   ::T.any(::String, ::Pathname),
           using:  ::T.any(::String, ::Symbol),
           base:   ::T.nilable(::T.any(::String, ::Symbol)),
@@ -468,9 +530,15 @@ module Homebrew
         ).void
       }
       def init_data_dir(path, using:, base: nil, locale: nil)
+        using = case using.to_s
+        when "postgresql" then "postgresql_initdb"
+        when "mysql" then "mysql_initialize"
+        when "mariadb" then "mariadb_install_db"
+        else using.to_s
+        end
         add_step("init_data_dir",
                  "path"   => path_spec(path, base:, default_base: @default_base),
-                 "using"  => using.to_s,
+                 "using"  => using,
                  "locale" => locale)
       end
 
@@ -485,13 +553,25 @@ module Homebrew
         add_rebuild_action("gio_querymodules", "lib/gio/modules")
       end
 
+      # odeprecated
       sig { void }
       def gdk_pixbuf_query_loaders
         add_step("gdk_pixbuf_query_loaders")
       end
 
       sig { void }
+      def update_gdk_pixbuf_loaders_cache
+        add_step("gdk_pixbuf_query_loaders")
+      end
+
+      # odeprecated
+      sig { void }
       def gtk_update_icon_cache
+        add_rebuild_action("gtk_update_icon_cache", "share/icons/hicolor")
+      end
+
+      sig { void }
+      def update_gtk_icon_cache
         add_rebuild_action("gtk_update_icon_cache", "share/icons/hicolor")
       end
 
@@ -505,6 +585,7 @@ module Homebrew
         add_rebuild_action("update_desktop_database", "share/applications")
       end
 
+      # odeprecated
       sig {
         params(
           name:                 ::String,
@@ -517,6 +598,19 @@ module Homebrew
                  "name"                 => name,
                  "matching_certificate" => (path_spec(matching_certificate, base:, default_base: nil) if
                    matching_certificate))
+      end
+
+      sig {
+        params(
+          name:           ::String,
+          fingerprint_of: ::T.nilable(::T.any(::String, ::Pathname)),
+          base:           ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def delete_keychain_certificates(name, fingerprint_of: nil, base: nil)
+        add_step("delete_keychain_certificate",
+                 "name"                 => name,
+                 "matching_certificate" => (path_spec(fingerprint_of, base:, default_base: nil) if fingerprint_of))
       end
 
       sig {
@@ -805,7 +899,16 @@ module Homebrew
           source = resolve_step_source(step)
           target = resolve_path(step_path(step, "target"))
           target.dirname.mkpath
-          FileUtils.mv source, target, force: step["force"] == true
+          destination = step_destination(source, target)
+          if step.key?("overwrite")
+            overwrite = step["overwrite"] == true || step["force"] == true
+            raise Errno::EEXIST, destination.to_s if destination.exist? && !overwrite
+
+            FileUtils.rm_rf destination if overwrite && destination != source && (source.exist? || source.symlink?)
+            FileUtils.mv source, target
+          else
+            FileUtils.mv source, target, force: step["force"] == true
+          end
         when "move_children", "move_contents"
           source = resolve_path(step_path(step, "source"))
           target = resolve_path(step_path(step, "target"))
@@ -861,7 +964,7 @@ module Homebrew
           Utils::Inreplace.inreplace(path, before, after,
                                      audit_result: step["skip_audit"] != true,
                                      global:       step["first_only"] != true)
-        when "link_dir", "symlink_tree"
+        when "link_dir"
           source_dir = resolve_path(step_path(step, "source"))
           target_dir = resolve_path(step_path(step, "target"))
           source_dir.find do |source|
@@ -902,12 +1005,12 @@ module Homebrew
           end
         when "write"
           content = T.cast(step["content"], T.nilable(String))
-          raise ArgumentError, "install step write requires non-empty content" if content.blank?
+          raise ArgumentError, "install step write requires content" if content.nil?
 
           path = resolve_path(step_path(step, "path"))
           if step["overwrite"] == true || !path.exist?
             path.dirname.mkpath
-            path.write(expand_template_tokens(content))
+            path.atomic_write(expand_template_tokens(content))
           end
         when "run"
           run_serialised_command(step)
@@ -1249,7 +1352,10 @@ module Homebrew
 
       sig { params(spec: PathSpec).returns(T::Array[Pathname]) }
       def expand_path_glob(spec)
-        if spec["base"] == "path"
+        base = spec["base"]
+        # odeprecated
+        base = "search_path" if base == "path"
+        if base == "search_path"
           path = expand_template_tokens(spec.fetch("path"))
           return ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).flat_map do |directory|
             candidate = Pathname(directory)/path

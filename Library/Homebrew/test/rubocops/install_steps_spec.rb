@@ -41,7 +41,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
 
         post_install_steps do
           system "true"
-          ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `link_dir`, `link_children`, `write`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+          ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `link_dir`, `link_children`, `symlink_tree`, `symlink_children`, `write`, `write_file`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `update_gdk_pixbuf_loaders_cache`, `gtk_update_icon_cache`, `update_gtk_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     RUBY
@@ -81,10 +81,14 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
           init_data_dir name, using: :postgresql_initdb
           link_dir "source", "#{name}"
           link_children "source", suffix: "-#{version.major}"
+          symlink_tree "source", "#{name}"
+          symlink_children "source", suffix: "-#{version.major}"
           compile_gsettings_schemas
           gio_querymodules
           gdk_pixbuf_query_loaders
+          update_gdk_pixbuf_loaders_cache
           gtk_update_icon_cache
+          update_gtk_icon_cache
           update_mime_database
           update_desktop_database
           on_macos do
@@ -110,7 +114,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         post_install_steps do
           on_macos do
             system "true"
-            ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `link_dir`, `link_children`, `write`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+            ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `link_dir`, `link_children`, `symlink_tree`, `symlink_children`, `write`, `write_file`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `update_gdk_pixbuf_loaders_cache`, `gtk_update_icon_cache`, `update_gtk_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
           end
         end
       end
@@ -124,7 +128,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
 
         post_install_steps do
           write "foo.conf", "prefix = #{prefix}"
-                                      ^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `link_dir`, `link_children`, `write`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `gtk_update_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+                                      ^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `link_dir`, `link_children`, `symlink_tree`, `symlink_children`, `write`, `write_file`, `init_data_dir`, `compile_gsettings_schemas`, `gio_querymodules`, `gdk_pixbuf_query_loaders`, `update_gdk_pixbuf_loaders_cache`, `gtk_update_icon_cache`, `update_gtk_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     RUBY
@@ -152,8 +156,8 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         post_install_steps do
           mkdir_p "log/foo"
           touch "foo/state"
-          mv "move-source", "move-target"
-          ln_sf "move-target", "linked-target", source_base: :relative
+          move "move-source", "move-target"
+          symlink "move-target", "linked-target", source_base: :relative, overwrite: true
         end
       end
     RUBY
@@ -179,8 +183,8 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         url "https://brew.sh/foo-1.0.tgz"
 
         post_install_steps do
-          write "foo/foo.conf", "key = value\n", base: :etc, overwrite: true
-          write "foo/banner", <<~TEXT, overwrite: true
+          write_file "foo/foo.conf", "key = value\n", base: :etc
+          write_file "foo/banner", <<~TEXT
             literal banner
           TEXT
         end
@@ -222,8 +226,8 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
 
         post_install_steps do
           compile_gsettings_schemas
-          gdk_pixbuf_query_loaders
-          gtk_update_icon_cache
+          update_gdk_pixbuf_loaders_cache
+          update_gtk_icon_cache
           update_mime_database
           update_desktop_database
         end
@@ -286,11 +290,11 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         post_install_steps do
           touch "postgresql/state"
           mkdir_p "log"
-          link_dir "include/postgresql", "include/{{name}}"
-          link_dir "lib/postgresql", "lib/{{name}}"
-          link_dir "share/postgresql", "share/{{name}}"
-          link_children "bin", suffix: "-{{version.major}}"
-          init_data_dir name, using: :postgresql_initdb
+          symlink_tree "include/postgresql", "include/{{formula_name}}"
+          symlink_tree "lib/postgresql", "lib/{{formula_name}}"
+          symlink_tree "share/postgresql", "share/{{formula_name}}"
+          symlink_children "bin", suffix: "-{{version.major}}"
+          init_data_dir formula_name, using: :postgresql
         end
 
         def post_install
@@ -337,7 +341,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         url "https://brew.sh/foo-1.0.tgz"
 
         post_install_steps do
-          init_data_dir "mysql", using: :mysql_initialize
+          init_data_dir "mysql", using: :mysql
         end
 
         def post_install
@@ -377,7 +381,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         url "https://brew.sh/foo-1.0.tgz"
 
         post_install_steps do
-          init_data_dir "mysql", using: :mariadb_install_db
+          init_data_dir "mysql", using: :mariadb
         end
       end
     RUBY
