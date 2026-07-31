@@ -263,12 +263,12 @@ module RuboCop
             case normalised_install_step_source(node)
             when POSTGRESQL_LINK_DIR_SOURCE
               step_nodes[node] = [
-                "link_dir \"include/postgresql\", \"include/\#{name}\"",
-                "link_dir \"lib/postgresql\", \"lib/\#{name}\"",
-                "link_dir \"share/postgresql\", \"share/\#{name}\"",
+                "link_dir \"include/postgresql\", \"include/{{name}}\"",
+                "link_dir \"lib/postgresql\", \"lib/{{name}}\"",
+                "link_dir \"share/postgresql\", \"share/{{name}}\"",
               ]
             when POSTGRESQL_LINK_CHILDREN_SOURCE
-              step_nodes[node] = ["link_children \"bin\", suffix: \"-\#{version.major}\""]
+              step_nodes[node] = ["link_children \"bin\", suffix: \"-{{version.major}}\""]
             end
           end
         end

@@ -3,6 +3,7 @@
 
 require "install_steps"
 require "cask/quarantine"
+require "macho"
 
 RSpec.describe Homebrew::InstallSteps do
   let(:root) { Pathname(TEST_TMPDIR)/"install-steps" }
@@ -31,6 +32,22 @@ RSpec.describe Homebrew::InstallSteps do
     end
   end
 
+  specify "changes the resolved dylib ID and restores its mode" do
+    dylib = root/"lib/libfoo.1.dylib"
+    source = root/"lib/libfoo.dylib"
+    dylib.dirname.mkpath
+    dylib.write "Mach-O"
+    dylib.chmod 0444
+    FileUtils.ln_s dylib, source
+    allow(Hardware::CPU).to receive(:arm?).and_return(true)
+    expect(MachO::Tools).to receive(:change_dylib_id).with(dylib, "@rpath/libfoo.1.dylib")
+    expect(MachO).to receive(:codesign!).with(dylib)
+
+    described_class.change_dylib_id source, "@rpath/libfoo.1.dylib", resolve_source: true
+
+    expect(dylib.stat.mode & 0777).to eq(0444)
+  end
+
   specify "runs mkdir, touch, move and symlink steps", :aggregate_failures do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :var, default_source_base: :staged_path,
                                               default_target_base: :staged_path) do
@@ -50,6 +67,20 @@ RSpec.describe Homebrew::InstallSteps do
     expect(root/"stage/move-target").to exist
     expect(root/"stage/linked-target").to be_a_symlink
     expect((root/"stage/linked-target").readlink).to eq(Pathname("move-target"))
+  end
+
+  specify "changes an explicit Mach-O dylib ID" do
+    steps = Homebrew::InstallSteps::DSL.build(default_source_base: :prefix) do
+      on_macos do
+        change_dylib_id "lib/libfoo.dylib", "{{HOMEBREW_PREFIX}}/opt/foo/lib/libfoo.1.dylib",
+                        resolve_source: true
+      end
+    end
+    allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_macos?).and_return(true)
+    expect(described_class).to receive(:change_dylib_id)
+      .with(root/"prefix/lib/libfoo.dylib", "#{HOMEBREW_PREFIX}/opt/foo/lib/libfoo.1.dylib", resolve_source: true)
+
+    Homebrew::InstallSteps::Runner.new(context:).run(steps)
   end
 
   specify "links every source matched by a glob into a directory", :aggregate_failures do
@@ -803,6 +834,97 @@ RSpec.describe Homebrew::InstallSteps do
     expect(target.stat.mode & 0777).to eq(0755)
     expect(source).not_to exist
     expect(stored_name.read).to eq("preserve")
+  end
+
+  specify "dispatches glibc runtime configuration" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_glibc_runtime
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_configure_glibc_runtime)
+
+    runner.run(steps)
+  end
+
+  specify "configures glibc locales and timezone links", :aggregate_failures do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_glibc_runtime
+    end
+    glibc_context = context
+    root_path = root
+    glibc_context.define_singleton_method(:name) { "glibc" }
+    glibc_context.define_singleton_method(:lib) { root_path/"prefix/lib" }
+    glibc_context.define_singleton_method(:etc) { root_path/"prefix/etc" }
+    glibc_context.define_singleton_method(:share) { root_path/"prefix/share" }
+    (root/"prefix/etc").mkpath
+    (root/"prefix/share").mkpath
+    ENV.delete_if { |key,| key == "HOMEBREW_LANG" || key == "LANG" || key.start_with?("LC_") }
+    ENV["HOMEBREW_LANG"] = "de_DE.utf8"
+    ENV["LANG"] = "C"
+    ENV["LC_TIME"] = "en_GB"
+    timezone_sources = [Pathname("/etc/localtime"), Pathname("/usr/share/zoneinfo")]
+    allow_any_instance_of(Pathname).to receive(:exist?).and_wrap_original do |method, *args|
+      timezone_sources.include?(method.receiver) || method.call(*args)
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context: glibc_context)
+    localedef = root/"prefix/bin/localedef"
+    expect(runner).to receive(:ohai).with("Installing locale data for de_DE.utf8 en_GB en_US.UTF-8")
+    expect(runner).to receive(:run_command)
+      .with(localedef, "-i", "de_DE", "-f", "UTF-8", "de_DE.utf8").ordered
+    expect(runner).to receive(:run_command).with(localedef, "-i", "en_GB", "en_GB").ordered
+    expect(runner).to receive(:run_command)
+      .with(localedef, "-i", "en_US", "-f", "UTF-8", "en_US.UTF-8").ordered
+
+    runner.run(steps)
+
+    expect(root/"prefix/lib/locale").to be_a_directory
+    expect(root/"prefix/etc/localtime").to be_a_symlink
+    expect((root/"prefix/etc/localtime").readlink).to eq(Pathname("/etc/localtime"))
+    expect(root/"prefix/share/zoneinfo").to be_a_symlink
+    expect((root/"prefix/share/zoneinfo").readlink).to eq(Pathname("/usr/share/zoneinfo"))
+  end
+
+  specify "dispatches Clang system configuration" do
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_clang_system
+    end
+
+    runner = Homebrew::InstallSteps::Runner.new(context:)
+    expect(runner).to receive(:run_configure_clang_system)
+
+    runner.run(steps)
+  end
+
+  specify "repairs incomplete Clang system configuration" do
+    require "utils/clang"
+
+    steps = Homebrew::InstallSteps::DSL.build do
+      configure_clang_system
+    end
+    clang_context = context
+    root_path = root
+    clang_context.define_singleton_method(:etc) { root_path/"prefix/etc" }
+    config_dir = root/"prefix/etc/clang"
+    config_dir.mkpath
+    (config_dir/"arm64-apple-darwin23.cfg").write ""
+    (config_dir/"arm64-apple-macosx14.cfg").write ""
+    macos_version = MacOSVersion.new("14")
+    stub_const("MacOS", Module.new do
+      define_singleton_method(:version) { macos_version }
+    end)
+    allow(Homebrew::SimulateSystem).to receive(:simulating_or_running_on_macos?).and_return(true)
+    allow(OS).to receive(:kernel_version).and_return(Version.new("23"))
+    allow(Hardware::CPU).to receive(:arch).and_return(:arm64)
+    expect(Utils::Clang).to receive(:write_system_config_files).with(
+      config_dir:,
+      macos_version:,
+      kernel_version: "23",
+      arch:           :arm64,
+    )
+
+    Homebrew::InstallSteps::Runner.new(context: clang_context).run(steps)
   end
 
   describe "runs gtk_update_icon_cache rebuild action" do

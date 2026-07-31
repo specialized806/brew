@@ -17,7 +17,10 @@ git() {
       odie "Can't find a working Git!"
     fi
   fi
-  "${GIT_EXECUTABLE}" "$@"
+  # Disable Git hooks (e.g. a core.hooksPath set by `git lfs install`),
+  # which can break Homebrew's Git operations.
+  # Keep in sync with `Tap#git_command!` in Library/Homebrew/tap.rb.
+  "${GIT_EXECUTABLE}" -c core.hooksPath=/dev/null "$@"
 }
 
 homebrew-update-reset() {

@@ -58,7 +58,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
       expect(linux_containers).to eq(Array.new(2) do
         {
           image:   "ghcr.io/homebrew/brew:main",
-          options: "--user linuxbrew --env HOMEBREW_SANDBOX_LINUX_LANDLOCK=1",
+          options: "--init --user linuxbrew --env HOMEBREW_SANDBOX_LINUX_LANDLOCK=1",
         }
       end)
     end

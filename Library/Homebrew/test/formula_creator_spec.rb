@@ -1,4 +1,4 @@
-# typed: false
+# typed: strict
 # frozen_string_literal: true
 
 require "formula_creator"
@@ -52,7 +52,7 @@ RSpec.describe Homebrew::FormulaCreator do
       },
     }
 
-    tests.each do |description, test|
+    test_each(tests) do |(description, test)|
       it "parses #{description}" do
         fetch = test.fetch(:fetch, false)
         if fetch

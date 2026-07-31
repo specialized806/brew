@@ -132,4 +132,53 @@ RSpec.describe DependencyCollector do
       expect(collector.bubblewrap_dep_if_needed(Set["pkgconf"])).to be_nil
     end
   end
+
+  describe "#implicit_dependency_names" do
+    let(:formulae) do
+      Hash.new { |hash, name| hash[name] = instance_double(Formula, deps: []) }
+    end
+
+    around do |example|
+      with_env(HOMEBREW_SANDBOX_LINUX_LANDLOCK: nil, HOMEBREW_TESTS: nil) { example.run }
+    end
+
+    before do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(true)
+      allow(DevelopmentTools).to receive_messages(needs_build_formulae?: false, needs_libc_formula?: false)
+      allow(Sandbox).to receive(:executable).and_return(nil)
+      allow(OS).to receive(:not_tier_one_configuration?).and_return(false)
+      allow(Formula).to receive(:[]) { |name| formulae[name] }
+      global_dep_tree.clear
+    end
+
+    after do
+      global_dep_tree.clear
+    end
+
+    def global_dep_tree
+      OS::Linux::DependencyCollector.module_eval { class_variable_get(:@@global_dep_tree) }
+    end
+
+    it "includes bubblewrap when the sandbox needs it" do
+      expect(collector.implicit_dependency_names).to eq(Set["bubblewrap"])
+    end
+
+    it "is empty when bubblewrap is already available and build formulae aren't needed" do
+      allow(Sandbox).to receive(:executable).and_return(Pathname("/usr/bin/bwrap"))
+
+      expect(collector.implicit_dependency_names).to eq(Set.new)
+    end
+
+    it "includes gcc when build formulae are needed" do
+      allow(DevelopmentTools).to receive(:needs_build_formulae?).and_return(true)
+
+      expect(collector.implicit_dependency_names).to include(OS::LINUX_PREFERRED_GCC_RUNTIME_FORMULA)
+    end
+
+    it "includes glibc when a libc formula is needed" do
+      allow(DevelopmentTools).to receive(:needs_libc_formula?).and_return(true)
+
+      expect(collector.implicit_dependency_names).to include("glibc")
+    end
+  end
 end

@@ -46,7 +46,7 @@ module Homebrew
         end
         link_libgcc = glibc_installed ? "-nostdlib -L#{libgcc} -L#{glibc_lib}" : "+"
         homebrew_rpath = version_major.to_i >= 11
-        specs.write specs_string + <<~EOS
+        specs_string += <<~EOS
           *cpp_unique_options:
           + -isysroot #{HOMEBREW_PREFIX}/nonexistent #{system_header_dirs.map { |p| "-idirafter #{p}" }.join(" ")}
 
@@ -58,7 +58,8 @@ module Homebrew
 
           #{"*homebrew_rpath:\n-rpath #{HOMEBREW_PREFIX}/lib\n" if homebrew_rpath}
         EOS
-        specs.write(specs.read.gsub(" %o ", "\\0%(homebrew_rpath) ")) if homebrew_rpath
+        specs_string.gsub!(" %o ", "\\0%(homebrew_rpath) ") if homebrew_rpath
+        specs.write specs_string
       end
 
       sig { params(step: Step).void }
@@ -83,6 +84,57 @@ module Homebrew
           FileUtils.rm_f temporary_target
         end
         target.chmod 0755
+      end
+
+      sig { void }
+      def run_configure_glibc_runtime
+        (context_path("lib")/"locale").mkpath
+        legacy_formula = context_name != "glibc"
+        locales = ENV.filter_map do |key, value|
+          next unless key.match?(legacy_formula ? /^LANG$|^LC_/ : /^HOMEBREW_LANG$|^LANG$|^LC_/)
+          next if value == "C" || (legacy_formula && value.start_with?("C."))
+
+          value
+        end
+        locales = (locales + ["en_US.UTF-8"]).sort.uniq
+        ohai "Installing locale data for #{locales.join(" ")}"
+        locales.each do |locale|
+          lang, charmap = locale.split(".", 2)
+          next if lang.nil?
+
+          if charmap.present?
+            charmap = "UTF-8" if charmap == "utf8"
+            run_command context_path("bin")/"localedef", "-i", lang, "-f", charmap, locale
+          else
+            run_command context_path("bin")/"localedef", "-i", lang, locale
+          end
+        end
+
+        [[Pathname("/etc/localtime"), context_path("etc")/"localtime"],
+         [Pathname("/usr/share/zoneinfo"), context_path("share")/"zoneinfo"]].each do |source, target|
+          File.symlink source, target if source.exist? && !target.exist?
+        end
+      end
+
+      sig { void }
+      def run_configure_clang_system
+        return unless Homebrew::SimulateSystem.simulating_or_running_on_macos?
+
+        macos_version = MacOS.version
+        kernel_version = OS.kernel_version.major
+        raise ArgumentError, "Clang system configuration requires a kernel version" if kernel_version.nil?
+
+        kernel_version = kernel_version.to_s
+        arch = Hardware::CPU.arch
+        config_dir = context_path("etc")/"clang"
+        return if [:arm64, :x86_64, :aarch64, arch].uniq.product(
+          ["darwin#{kernel_version}", "macosx#{macos_version}"],
+        ).all? do |target_arch, system|
+          (config_dir/"#{target_arch}-apple-#{system}.cfg").exist?
+        end
+
+        require "utils/clang"
+        Utils::Clang.write_system_config_files(config_dir:, macos_version:, kernel_version:, arch:)
       end
     end
   end

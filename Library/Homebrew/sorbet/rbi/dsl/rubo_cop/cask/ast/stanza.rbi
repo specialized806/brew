@@ -43,6 +43,9 @@ class RuboCop::Cask::AST::Stanza
   def colorpicker?; end
 
   sig { returns(T::Boolean) }
+  def command_wrapper?; end
+
+  sig { returns(T::Boolean) }
   def conflicts_with?; end
 
   sig { returns(T::Boolean) }
@@ -62,6 +65,12 @@ class RuboCop::Cask::AST::Stanza
 
   sig { returns(T::Boolean) }
   def font?; end
+
+  sig { returns(T::Boolean) }
+  def generate_completions_from_executable?; end
+
+  sig { returns(T::Boolean) }
+  def generated_script?; end
 
   sig { returns(T::Boolean) }
   def homepage?; end
@@ -112,6 +121,12 @@ class RuboCop::Cask::AST::Stanza
   def on_intel?; end
 
   sig { returns(T::Boolean) }
+  def on_linux?; end
+
+  sig { returns(T::Boolean) }
+  def on_macos?; end
+
+  sig { returns(T::Boolean) }
   def on_monterey?; end
 
   sig { returns(T::Boolean) }
@@ -122,6 +137,9 @@ class RuboCop::Cask::AST::Stanza
 
   sig { params(args: T.untyped, block: T.untyped).returns(T::Boolean) }
   def on_system_block?(*args, &block); end
+
+  sig { returns(T::Boolean) }
+  def on_system_conditional?; end
 
   sig { returns(T::Boolean) }
   def on_tahoe?; end
@@ -179,6 +197,9 @@ class RuboCop::Cask::AST::Stanza
 
   sig { returns(T::Boolean) }
   def suite?; end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T::Boolean) }
+  def system_variable?(*args, &block); end
 
   sig { returns(T::Boolean) }
   def uninstall?; end

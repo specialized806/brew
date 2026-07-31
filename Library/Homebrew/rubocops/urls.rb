@@ -37,9 +37,18 @@ module RuboCop
           return if formula_tap != "homebrew-core"
 
           # Check for binary URLs
-          audit_urls(urls, /(darwin|macos|osx)/i) do |match, url|
+          binary_package_pattern = /(darwin|macos|osx)/i
+          github_pattern = %r{^https://github\.com/[\w-]+/[\w.-]+/(.*)$}i
+          audit_urls(urls, binary_package_pattern) do |match, url|
             next if T.must(@formula_name).include?(match.to_s.downcase)
             next if url.match?(/.(patch|diff)(\?full_index=1)?$/)
+            next if url.match(github_pattern)&.then do |match_data|
+              # For GitHub URLs, the username and repository name have no
+              # bearing on whether a file is a binary package. We'll extract the
+              # remainder of the URL and match against the binary pattern.
+              # See: https://github.com/Homebrew/brew/pull/23236
+              !match_data[1].match?(binary_package_pattern)
+            end
             next if tap_style_exception? :not_a_binary_url_prefix_allowlist
             next if tap_style_exception? :binary_bootstrap_formula_urls_allowlist
 

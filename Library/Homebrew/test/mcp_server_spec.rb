@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "mcp_server"
@@ -129,7 +129,7 @@ RSpec.describe Homebrew::McpServer do
       expect(result[:result][:tools]).to match_array(Homebrew::McpServer::TOOLS.values)
     end
 
-    Homebrew::McpServer::TOOLS.each do |tool_name, tool_definition|
+    test_each(Homebrew::McpServer::TOOLS) do |(tool_name, tool_definition)|
       it "responds to tools/call for #{tool_name}" do
         allow(Open3).to receive(:popen2e).and_return("output for #{tool_name}")
         arguments = {}

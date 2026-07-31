@@ -320,7 +320,6 @@ module Homebrew
               force:          args.force?,
               require_sha:    args.require_sha?,
               skip_cask_deps: args.skip_cask_deps?,
-              quarantine:     true,
               zap:            args.zap?,
               skip_prefetch:  casks_prefetched,
               download_queue: nil,

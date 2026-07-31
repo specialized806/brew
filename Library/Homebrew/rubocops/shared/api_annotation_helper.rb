@@ -33,6 +33,7 @@ module RuboCop
         "depends_on"            => "formula.rb",
         "deprecated_option"     => "formula.rb",
         "desc"                  => "formula.rb",
+        "change_dylib_id"       => "formula.rb",
         "env_script_all_files"  => "extend/pathname.rb",
         "fails_with"            => "formula.rb",
         "post_install_steps"    => "formula.rb",

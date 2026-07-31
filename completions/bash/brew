@@ -113,7 +113,7 @@ __brew_complete_commands() {
   fi
   if [[ -n ${HOMEBREW_DEVELOPER:-} ]]
   then
-    maintainer_cmds="analytics determine-test-runners dispatch-build-bottle formula-analytics generate-analytics-api generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api generate-vulns-advisories pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
+    maintainer_cmds="advisory-match analytics determine-test-runners dispatch-build-bottle formula-analytics generate-analytics-api generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api generate-vulns-advisories pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
   fi
   user_aliases="$(__brew_list_aliases)"
   while read -r line
@@ -332,6 +332,28 @@ _brew___version() {
       ;;
     *) ;;
   esac
+}
+
+_brew_advisory_match() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --all
+      --debug
+      --help
+      --index
+      --json
+      --no-history
+      --output
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+  __brew_complete_formulae
 }
 
 _brew_alias() {
@@ -3733,6 +3755,7 @@ _brew() {
     --repository) _brew___repository ;;
     --taps) _brew___taps ;;
     --version) _brew___version ;;
+    advisory-match) _brew_advisory_match ;;
     alias) _brew_alias ;;
     analytics) _brew_analytics ;;
     as-console-user) _brew_as_console_user ;;

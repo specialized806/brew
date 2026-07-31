@@ -100,14 +100,6 @@ module Homebrew
             end
           end
 
-          # We use `ParallelTests.last_process?` in `test/spec_helper.rb` to
-          # handle SimpleCov output but, due to how the method is implemented,
-          # it doesn't work as expected if the number of processes is greater
-          # than one but lower than the number of CPU cores in the execution
-          # environment. Coverage information isn't saved in that scenario,
-          # so we disable parallel testing as a workaround in this case.
-          parallel = false if args.coverage? && files.length < Hardware::CPU.cores
-
           parallel_rspec_log_name = "parallel_runtime_rspec"
           parallel_rspec_log_name = "#{parallel_rspec_log_name}.generic" if args.generic?
           parallel_rspec_log_name = "#{parallel_rspec_log_name}.online" if args.online?

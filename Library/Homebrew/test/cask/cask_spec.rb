@@ -266,7 +266,7 @@ RSpec.describe Cask::Cask, :cask do
       let(:cask) { described_class.new("basic-cask") }
 
       shared_examples "versioned casks" do |tap_version, expectations|
-        expectations.each do |installed_version, expected_output|
+        test_each(expectations) do |(installed_version, expected_output)|
           context "when version #{installed_version.inspect} is installed and the tap version is #{tap_version}" do
             it {
               allow(cask).to receive_messages(installed_version:,
@@ -458,7 +458,7 @@ RSpec.describe Cask::Cask, :cask do
       let(:cask) { described_class.new("basic-cask") }
 
       shared_examples ":latest cask" do |greedy, outdated_sha, tap_version, expectations|
-        expectations.each do |installed_version, expected_output|
+        test_each(expectations) do |(installed_version, expected_output)|
           context "when versions #{installed_version} are installed and the " \
                   "tap version is #{tap_version}, #{"not " unless greedy}greedy " \
                   "and sha is #{"not " unless outdated_sha}outdated" do

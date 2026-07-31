@@ -5,7 +5,7 @@ require "English"
 
 SimpleCov.configure do
   merge_subprocesses true
-  finalize_merge false
+  finalize_merge SimpleCov.final_result_process?
   coverage_dir File.expand_path("../test/coverage", File.realpath(__FILE__))
   root File.expand_path("..", File.realpath(__FILE__))
   command_name "brew"

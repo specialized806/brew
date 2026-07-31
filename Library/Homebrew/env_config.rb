@@ -982,16 +982,6 @@ module Homebrew
     end
 
     sig { returns(T::Boolean) }
-    def cask_opts_quarantine?
-      cask_opts.reverse_each do |opt|
-        return true if opt == "--quarantine"
-        return false if opt == "--no-quarantine"
-      end
-
-      true
-    end
-
-    sig { returns(T::Boolean) }
     def cask_opts_require_sha?
       return true if cask_opts.include?("--require-sha")
 

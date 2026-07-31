@@ -4,11 +4,10 @@
 require "rubocops/rubocop-cask"
 
 RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
-  it "registers system conditionals after version stanzas" do
-    expect(RuboCop::Cask::Constants::STANZA_GROUPS.take(3)).to eq([
-      [:arch, :on_arch_conditional, :os],
+  it "registers system conditionals after os stanzas" do
+    expect(RuboCop::Cask::Constants::STANZA_GROUPS.take(2)).to eq([
+      [:arch, :on_arch_conditional, :os, :on_system_conditional],
       [:version, :sha256],
-      [:on_system_conditional],
     ])
   end
 

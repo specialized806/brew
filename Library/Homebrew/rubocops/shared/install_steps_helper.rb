@@ -16,18 +16,21 @@ module RuboCop
       KEYCHAIN_STEP_METHODS = [:delete_keychain_certificate].freeze
       PERMISSION_STEP_METHODS = [:set_permissions, :set_ownership].freeze
       COMMAND_STEP_METHODS = [:run, :terminate_process].freeze
+      MACHO_STEP_METHODS = [:change_dylib_id].freeze
       NOTICE_STEP_METHODS = [:warn].freeze
-      FORMULA_ACTION_STEP_METHODS = [:configure_gcc_runtime, :install_gzipped_executable].freeze
+      FORMULA_ACTION_STEP_METHODS =
+        [:configure_gcc_runtime, :install_gzipped_executable, :configure_glibc_runtime,
+         :configure_clang_system].freeze
       STEP_SCOPE_METHODS = [:if_path_exists, :unless_path_exists, :on_macos, :on_linux].freeze
       ALLOWED_STEP_METHODS = T.let(
         [*FILE_PREPARATION_STEP_METHODS, *LINK_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *SERVICE_DATA_STEP_METHODS,
          *REBUILD_ACTION_STEP_METHODS, :set_permissions, *COMMAND_STEP_METHODS, *NOTICE_STEP_METHODS,
-         *FORMULA_ACTION_STEP_METHODS, *STEP_SCOPE_METHODS].freeze,
+         *MACHO_STEP_METHODS, *FORMULA_ACTION_STEP_METHODS, *STEP_SCOPE_METHODS].freeze,
         T::Array[Symbol],
       )
       CASK_ALLOWED_STEP_METHODS = T.let(
         [*FILE_PREPARATION_STEP_METHODS, *CONFIG_WRITE_STEP_METHODS, *KEYCHAIN_STEP_METHODS,
-         *PERMISSION_STEP_METHODS, *COMMAND_STEP_METHODS, *STEP_SCOPE_METHODS].freeze,
+         *PERMISSION_STEP_METHODS, *COMMAND_STEP_METHODS, *MACHO_STEP_METHODS, *STEP_SCOPE_METHODS].freeze,
         T::Array[Symbol],
       )
 

@@ -250,6 +250,22 @@ $ otool -L /opt/homebrew/bin/ldapvi
     /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1213.0.0)
 ```
 
+### Changing a dynamic library ID
+
+Use [`change_dylib_id`](/rubydoc/Formula.html#change_dylib_id-instance_method)
+inside `install` or `post_install` when one Mach-O dynamic library needs a
+non-standard ID. Both the source and its complete new ID are explicit. Set
+`resolve_source: true` when the source is a symlink and its target should be
+edited. For example:
+
+```ruby
+change_dylib_id lib/"libfoo.dylib", opt_lib/"libfoo.dylib"
+change_dylib_id lib/"libfoo.dylib", "@rpath/libfoo.1.dylib", resolve_source: true
+```
+
+The helper preserves the file's permissions and codesigns the modified library
+on Apple Silicon.
+
 ### Specifying macOS components as dependencies
 
 If a formula dependency is required on all platforms but can be handled by a component that ships with macOS, specify it with [`uses_from_macos`](/rubydoc/Formula.html#uses_from_macos-class_method). On Linux it acts like [`depends_on`](/rubydoc/Formula.html#depends_on-class_method), while on macOS it's ignored unless the host system is older than the optional `since:` parameter.
@@ -1090,6 +1106,7 @@ represented by structured steps.
 * `ln_s`: alias for `symlink`; example: `ln_s "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
 * `set_permissions`: change existing path permissions; example: `set_permissions "foo", "0755"`.
+* `change_dylib_id`: change one Mach-O dynamic library ID; pass the complete source and new ID, use `resolve_source: true` for a source symlink and wrap the step in `on_macos`.
 
 Use `if_path_exists` and `unless_path_exists` blocks to guard one or more steps by a path, and `on_macos` and `on_linux` blocks for platform-specific steps. Each guard is evaluated once for its whole block. `copy`, `move` and symlink steps accept `source_glob: true`; path collections used by `remove` and `set_permissions` expand globs automatically. Removals may additionally be restricted with `symlink_target_contains:` or `content_contains:`.
 
@@ -1103,7 +1120,16 @@ Use `if_path_exists` and `unless_path_exists` blocks to guard one or more steps 
 A trailing newline is appended unless the content already ends with one, so written files end in a newline as POSIX expects.
 
 {% raw %}
-Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens that are expanded at install time so values are not hardcoded into the JSON API: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
+
+#### Interpolation in steps blocks
+
+Ruby `#{...}` interpolation is normally evaluated before structured steps are serialised. The Ruby expression does not pass through the JSON API; only the string it produced does. A concrete result is safe only when it is identical for every installation represented by the JSON. RuboCop cannot generally establish that from arbitrary Ruby, so use interpolation in ordinary formula methods such as `install`, where Ruby code is evaluated locally.
+
+`{{...}}` is not Ruby interpolation. It remains literal in the JSON API and the install-step runner expands supported tokens at install time. Use this form for install-time values in `post_install_steps`, especially values that depend on the current Homebrew installation. When a path argument supports `base:`, `source_base:` or `target_base:`, prefer those options to embedding a path token.
+
+The runtime steps DSL retains compatibility helpers for `formula_name`, `name`, `version`, `version.major` and `version.major_minor`. Interpolating these helpers is safe and permitted by RuboCop because they return the corresponding `{{...}}` token text rather than a concrete value. Other Ruby interpolation is rejected. Prefer explicit `{{...}}` tokens in new steps so it is clear that expansion is deferred until installation.
+
+Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. For example: `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
 {% endraw %}
 
 #### Command and lifecycle steps
@@ -1127,6 +1153,8 @@ Use the named actions below for formula families that share post-install algorit
 
 * `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
 * `install_gzipped_executable`: unpack and install a gzipped executable.
+* `configure_glibc_runtime`: generate requested glibc locales and timezone links.
+* `configure_clang_system`: generate macOS Clang system configuration files.
 
 #### Service data directory steps
 
@@ -1152,8 +1180,8 @@ directory, defaulting the target to the same path as the source, and can add a
 `prefix` or `suffix` to each linked name. For example:
 
 ```ruby
-link_dir "share/postgresql", "share/#{name}"
-link_children "bin", suffix: "-#{version.major}"
+link_dir "share/postgresql", "share/{{name}}"
+link_children "bin", suffix: "-{{version.major}}"
 ```
 
 #### Desktop and cache rebuild steps

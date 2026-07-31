@@ -482,9 +482,8 @@ RSpec.describe Cask::Upgrade, :cask do
       installer = instance_double(Cask::Installer, check_requirements: nil, enqueue_downloads: nil,
                                                    source_download_requires_pre_fetch?: false)
 
-      expect(Cask::Installer).to receive(:new) do |cask, **options|
+      expect(Cask::Installer).to receive(:new) do |cask, **|
         expect(cask).to eq(auto_updates)
-        expect(options[:quarantine]).to be(true)
         installer
       end
       expect(described_class).to receive(:upgrade_cask)

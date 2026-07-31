@@ -333,6 +333,19 @@ __fish_brew_complete_arg '--version' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg '--version' -l verbose -d 'Make some output more verbose'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'advisory-match' -d 'Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
+__fish_brew_complete_arg 'advisory-match' -l all -d 'Match every formula in `homebrew/core`'
+__fish_brew_complete_arg 'advisory-match' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'advisory-match' -l help -d 'Show this message'
+__fish_brew_complete_arg 'advisory-match' -l index -d 'Emit the formula-identity index as JSON and exit'
+__fish_brew_complete_arg 'advisory-match' -l json -d 'Output candidate records as a JSON array'
+__fish_brew_complete_arg 'advisory-match' -l no-history -d 'Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead'
+__fish_brew_complete_arg 'advisory-match' -l output -d 'Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields'
+__fish_brew_complete_arg 'advisory-match' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'advisory-match' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'advisory-match' -a '(__fish_brew_suggest_formulae_all)'
+
+
 __fish_brew_complete_cmd 'alias' 'Show an alias\'s command'
 __fish_brew_complete_arg 'alias' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'alias' -l edit -d 'Edit aliases in a text editor. Either one or all aliases may be opened at once. If the given alias doesn\'t exist it\'ll be pre-populated with a template'
@@ -856,14 +869,14 @@ __fish_brew_complete_arg 'contributions' -l csv -d 'Print a CSV of contributions
 __fish_brew_complete_arg 'contributions' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'contributions' -l from -d 'Date (ISO 8601 format) to start searching contributions. Omitting this flag searches the past year'
 __fish_brew_complete_arg 'contributions' -l help -d 'Show this message'
-__fish_brew_complete_arg 'contributions' -l maintainer-report-csv -d 'Print a CSV of Maintainer and Lead Maintainer activity criteria using fetched Git histories and GitHub\'s existing approved-review search for the Homebrew governance quarter, for example `--maintainer-report-csv=2026-2`. Also write it to `brew-contributions-FROM-to-TO.csv` in the current directory. Only Maintainers listed at the end of that quarter are included. The `new role` value must show a downgrade for two consecutive quarters before a downgrade is applied. Review searches return at most 100 results and other counts are capped at 500 per repository and contribution type. Repository-scoped follow-up searches ensure role activity checks remain accurate when a count is capped. Completed-period GitHub searches are cached in Homebrew\'s cache and removed by normal cache pruning. `YEAR-1` is December of the previous year through February, `YEAR-2` is March through May, `YEAR-3` is June through August and `YEAR-4` is September through November'
+__fish_brew_complete_arg 'contributions' -l maintainer-report-csv -d 'Print a CSV of Maintainer and Lead Maintainer activity criteria using fetched Git histories and GitHub\'s existing approved-review search for the Homebrew governance quarter, for example `--maintainer-report-csv=2026-2`. Also write it in the current directory as `brew-contributions-FROM-to-TO.csv`, or `brew-contributions-FROM-to-TO-USER.csv` when filtered with `--user`. Only Maintainers listed at the end of that quarter are included. The `new role` value must show a downgrade for two consecutive quarters before a downgrade is applied. Review searches return at most 100 results and other counts are capped at 500 per repository and contribution type. Repository-scoped follow-up searches ensure role activity checks remain accurate when a count is capped. Completed-period GitHub searches are cached in Homebrew\'s cache and removed by normal cache pruning. `YEAR-1` is December of the previous year through February, `YEAR-2` is March through May, `YEAR-3` is June through August and `YEAR-4` is September through November'
 __fish_brew_complete_arg 'contributions' -l organisation -d 'Specify the organisation to populate sources repositories from. Omitting this flag searches the Homebrew primary repositories'
 __fish_brew_complete_arg 'contributions' -l quarter -d 'Homebrew contributions quarter to search (1-4). Omitting this flag searches the past year. If `--from` or `--to` are set, they take precedence'
 __fish_brew_complete_arg 'contributions' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'contributions' -l repositories -d 'Specify a comma-separated list of repositories to search. All repositories must be under the same user or organisation. Omitting this flag, or specifying `--repositories=primary`, searches only the main repositories: `Homebrew/brew`, `Homebrew/homebrew-core`, `Homebrew/homebrew-cask`'
 __fish_brew_complete_arg 'contributions' -l team -d 'Specify the team to populate users from. The first part of the team name will be used as the organisation'
 __fish_brew_complete_arg 'contributions' -l to -d 'Date (ISO 8601 format) to stop searching contributions'
-__fish_brew_complete_arg 'contributions' -l user -d 'Specify a comma-separated list of GitHub usernames or email addresses to find contributions from. Omitting this flag searches Homebrew maintainers'
+__fish_brew_complete_arg 'contributions' -l user -d 'Specify a comma-separated list of GitHub usernames or email addresses to find contributions from. Omitting this flag searches Homebrew maintainers. With `--maintainer-report-csv`, only matching quarter-end Maintainers are included'
 __fish_brew_complete_arg 'contributions' -l verbose -d 'Make some output more verbose'
 
 

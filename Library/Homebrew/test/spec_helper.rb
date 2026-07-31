@@ -11,21 +11,12 @@ if ENV["HOMEBREW_TESTS_COVERAGE"]
     SimpleCov::Formatter::CoberturaFormatter,
   ]
   SimpleCov.formatters = SimpleCov::Formatter::MultiFormatter.new(formatters)
-
-  # Needed for outputting coverage reporting only once for parallel_tests.
-  # Otherwise, "Coverage report generated" will get spammed for each process.
-  if ENV["TEST_ENV_NUMBER"]
-    SimpleCov.at_exit do
-      result = SimpleCov.result
-      # `SimpleCov.result` calls `ParallelTests.wait_for_other_processes_to_finish`
-      # internally for you on the last process.
-      result.format! if ParallelTests.last_process?
-    end
-  end
 end
 
 require_relative "../standalone"
 require_relative "../warnings"
+
+Warnings.ignore(/CGI library is removed from Ruby 4\.0\./) { require "cgi" }
 
 require "test-prof"
 
@@ -56,6 +47,7 @@ require "test/support/helper/fixtures"
 require "test/support/helper/formula"
 require "test/support/helper/mktmpdir"
 require "test/support/helper/subcommand"
+require "test/support/helper/test_each"
 
 require "test/support/helper/spec/shared_context/homebrew_cask" if OS.mac?
 require "test/support/helper/spec/shared_context/integration_test"
@@ -152,6 +144,8 @@ RSpec.configure do |config|
   config.include(Test::Helper::Formula)
   config.include(Test::Helper::MkTmpDir)
   config.include(Test::Helper::Subcommand)
+
+  config.extend(Test::Helper::TestEach)
 
   # Enable aggregate failures by default
   config.define_derived_metadata do |metadata|

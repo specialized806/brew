@@ -23,6 +23,17 @@ module Homebrew
     SystemCommandArg = T.type_alias { T.any(String, Pathname) }
     TemplateTokenValue = T.type_alias { T.any(String, Pathname) }
 
+    sig { params(file: Pathname, id: T.any(String, Pathname), resolve_source: T::Boolean).void }
+    def self.change_dylib_id(file, id, resolve_source: false)
+      file = file.realpath if resolve_source
+
+      require "macho"
+      file.ensure_writable do
+        MachO::Tools.change_dylib_id file, id.to_s
+        MachO.codesign! file if Hardware::CPU.arm?
+      end
+    end
+
     class DSL
       ((instance_methods + private_instance_methods) -
         (BasicObject.instance_methods + BasicObject.private_instance_methods) -
@@ -542,6 +553,21 @@ module Homebrew
 
       sig {
         params(
+          source:         ::T.any(::String, ::Pathname),
+          id:             ::T.any(::String, ::Pathname),
+          base:           ::T.nilable(::T.any(::String, ::Symbol)),
+          resolve_source: ::T::Boolean,
+        ).void
+      }
+      def change_dylib_id(source, id, base: nil, resolve_source: false)
+        add_step("change_dylib_id",
+                 "source"         => path_spec(source, base:, default_base: @default_source_base),
+                 "id"             => id.to_s,
+                 "resolve_source" => resolve_source)
+      end
+
+      sig {
+        params(
           command:      ::T.any(::String, ::Pathname),
           args:         ::T::Array[::T.any(::String, ::Pathname)],
           base:         ::T.nilable(::T.any(::String, ::Symbol)),
@@ -620,6 +646,16 @@ module Homebrew
         add_step("install_gzipped_executable",
                  "source" => path_spec(source, base: source_base, default_base: @default_source_base),
                  "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      sig { void }
+      def configure_glibc_runtime
+        add_step("configure_glibc_runtime")
+      end
+
+      sig { void }
+      def configure_clang_system
+        add_step("configure_clang_system")
       end
 
       private
@@ -862,12 +898,22 @@ module Homebrew
           run_serialised_command(step)
         when "terminate_process"
           run_terminate_process(step)
+        when "change_dylib_id"
+          Homebrew::InstallSteps.change_dylib_id(
+            resolve_path(step_path(step, "source")),
+            expand_template_tokens(step_string(step, "id")),
+            resolve_source: step["resolve_source"] == true,
+          )
         when "warn"
           opoo expand_template_tokens(step_string(step, "message"))
         when "configure_gcc_runtime"
           run_configure_gcc_runtime
         when "install_gzipped_executable"
           run_install_gzipped_executable(step)
+        when "configure_glibc_runtime"
+          run_configure_glibc_runtime
+        when "configure_clang_system"
+          run_configure_clang_system
         when "set_permissions"
           run_set_permissions(step)
         when "set_ownership"

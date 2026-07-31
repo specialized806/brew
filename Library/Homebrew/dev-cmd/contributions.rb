@@ -40,7 +40,8 @@ module Homebrew
         EOS
         comma_array "--user=",
                     description: "Specify a comma-separated list of GitHub usernames or email addresses to find " \
-                                 "contributions from. Omitting this flag searches Homebrew maintainers."
+                                 "contributions from. Omitting this flag searches Homebrew maintainers. " \
+                                 "With `--maintainer-report-csv`, only matching quarter-end Maintainers are included."
         comma_array "--repositories",
                     description: "Specify a comma-separated list of repositories to search. " \
                                  "All repositories must be under the same user or organisation. " \
@@ -69,7 +70,8 @@ module Homebrew
                             "histories and GitHub's existing approved-review search for the Homebrew " \
                             "governance quarter, for example " \
                             "`--maintainer-report-csv=2026-2`. " \
-                            "Also write it to `brew-contributions-FROM-to-TO.csv` in the current directory. " \
+                            "Also write it in the current directory as `brew-contributions-FROM-to-TO.csv`, or " \
+                            "`brew-contributions-FROM-to-TO-USER.csv` when filtered with `--user`. " \
                             "Only Maintainers listed at the end of that quarter are included. " \
                             "The `new role` value must show a downgrade for two consecutive " \
                             "quarters before a downgrade is applied. " \
@@ -83,7 +85,6 @@ module Homebrew
         conflicts "--organisation", "--repositories"
         conflicts "--organisation", "--team"
         conflicts "--user", "--team"
-        conflicts "--maintainer-report-csv", "--user"
         conflicts "--maintainer-report-csv", "--repositories"
         conflicts "--maintainer-report-csv", "--organisation"
         conflicts "--maintainer-report-csv", "--team"
@@ -95,6 +96,9 @@ module Homebrew
       sig { override.void }
       def run
         maintainer_report_csv = args.maintainer_report_csv
+        requested_users = args.user || []
+        odie "`--user` must not contain empty values." if requested_users.compact.length != requested_users.length
+
         odie "Cannot get contributions as `$HOMEBREW_NO_GITHUB_API` is set!" if Homebrew::EnvConfig.no_github_api?
         Homebrew.install_bundler_gems!(groups: ["contributions"]) if args.csv? || maintainer_report_csv
 
@@ -129,8 +133,8 @@ module Homebrew
 
           puts "Getting members for #{organisation}/#{team_name}..." if args.verbose?
           GitHub.members_by_team(organisation, team_name).keys
-        elsif (users = args.user.presence)
-          users
+        elsif requested_users.present?
+          requested_users
         else
           puts "Getting members for Homebrew/maintainers..." if args.verbose?
           GitHub.members_by_team("Homebrew", "maintainers").keys
@@ -179,7 +183,9 @@ module Homebrew
           csv = generate_maintainer_report_csv(
             results, grand_totals, user_names, lead_maintainers, maintainer_since_dates, to
           )
-          File.write("brew-contributions-#{from}-to-#{to}.csv", csv)
+          filename = "brew-contributions-#{from}-to-#{to}"
+          filename += "-#{user_names.keys.map(&:downcase).sort.join("-")}" if requested_users.present?
+          File.write("#{filename}.csv", csv)
           puts csv
           return
         end
@@ -259,7 +265,28 @@ module Homebrew
         end
         odie "Could not read the maintainers from Homebrew/brew's README." if user_names.empty?
 
-        $stderr.puts "Scanning contributions for #{user_names.length} maintainers..."
+        if (users = args.user.presence)
+          requested_usernames = users.to_h do |user|
+            [user, github_username_for(user, to:)&.downcase]
+          end
+          unresolved_users = requested_usernames.filter_map { |user, username| user if username.nil? }
+          odie "Could not resolve GitHub usernames for: #{unresolved_users.to_sentence}." if unresolved_users.present?
+
+          maintainer_usernames = user_names.keys.map(&:downcase)
+          non_maintainers = requested_usernames.filter_map do |user, username|
+            user if username && maintainer_usernames.exclude?(username)
+          end
+          unless non_maintainers.empty?
+            odie "Not listed as #{Utils.pluralize("Maintainer", non_maintainers.length)} at the end of the " \
+                 "reporting quarter: #{non_maintainers.to_sentence}."
+          end
+
+          selected_usernames = requested_usernames.values.compact
+          user_names.select! { |user| selected_usernames.include?(user.downcase) }
+        end
+
+        maintainer_count = Utils.pluralize("maintainer", user_names.length, include_count: true)
+        $stderr.puts "Scanning contributions for #{maintainer_count}..."
         maintainer_since_dates = user_names.to_h do |user, name|
           [user, maintainer_since(brew_path, quarter_end_ref, user, name)]
         end
