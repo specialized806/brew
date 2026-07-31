@@ -4,18 +4,17 @@
 require "rubocops/rubocop-cask"
 
 RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
-  it "reports an offense when a flight block and matching steps are both present" do
-    expect_offense <<~CASK
+  it "allows a flight block after matching steps during migration" do
+    expect_no_offenses <<~CASK
       cask "foo" do
         version :latest
         sha256 :no_check
 
-        postflight do
+        postflight_steps do
           touch "foo"
         end
 
-        postflight_steps do
-        ^^^^^^^^^^^^^^^^^^^ `postflight` and `postflight_steps` cannot both be used.
+        postflight do
           touch "foo"
         end
       end
@@ -30,7 +29,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         preflight_steps do
           system "true"
-          ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+          ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls. Prefer canonical calls: `mkdir_p`, `touch`, `move`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `write_file`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     CASK
@@ -44,7 +43,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         preflight_steps do
           update_desktop_database
-          ^^^^^^^^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+          ^^^^^^^^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls. Prefer canonical calls: `mkdir_p`, `touch`, `move`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `write_file`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     CASK
@@ -60,29 +59,28 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
           mkdir_p "foo"
           touch "foo/state"
           touch "#{token}/state"
+          move "source", "target"
           mv "source", "target"
           move_children "source", "target"
           move_contents "source", "target"
-          inreplace "foo.conf", /@PREFIX@/, "{{HOMEBREW_PREFIX}}"
-          ln_sf "source", "target", source_base: :relative, uninstall: true
-          write "foo.conf", "key = value\n"
-          write_file "foo.json", "{}\n"
+          inreplace "foo.conf", "@PREFIX@", "{{HOMEBREW_PREFIX}}"
+          symlink "source", "target", source_base: :relative, overwrite: true, remove_on_uninstall: true
+          write_file "foo.conf", "key = value\n"
           set_permissions "Foo.app", "0755"
           set_ownership "Foo.app", user: "root", group: "wheel"
           run "foo", args: ["--repair"]
           terminate_process "foo", attempts: 3
           change_dylib_id "Foo.app/Contents/Frameworks/libfoo.dylib", "@rpath/libfoo.dylib"
-          delete_keychain_certificate "Charles"
-          delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"
           delete_keychain_certificates "Charles"
+          delete_keychain_certificates "NodeMITMProxyCA", fingerprint_of: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"
           on_macos do
             if_path_exists "Foo.app" do
-              touch "Foo.app/scoped-state"
+              touch "Foo.app/marker"
             end
           end
           on_linux do
             unless_path_exists "foo.conf" do
-              write "foo.conf", "key = value\n"
+              write_file "foo.conf", "key = value\n"
             end
           end
         end
@@ -98,7 +96,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         preflight_steps do
           touch "#{appdir}/state"
-                 ^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+                 ^^^^^^^^^ Steps blocks may only contain install step DSL calls. Prefer canonical calls: `mkdir_p`, `touch`, `move`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `write_file`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     CASK
@@ -113,7 +111,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
         preflight_steps do
           on_macos do
             system "true"
-            ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+            ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls. Prefer canonical calls: `mkdir_p`, `touch`, `move`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `write_file`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
           end
         end
       end
@@ -320,7 +318,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
         sha256 :no_check
 
         uninstall_postflight_steps do
-          delete_keychain_certificate "Charles"
+          delete_keychain_certificates "Charles"
           set_permissions "Foo.app", "0755"
           set_ownership "Foo.app", user: "root", group: "wheel"
         end
@@ -429,14 +427,26 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
     CASK
   end
 
-  it "does not autocorrect config writes without trailing newlines" do
-    expect_no_offenses <<~CASK
+  it "autocorrects config writes without trailing newlines" do
+    expect_offense <<~CASK
       cask "foo" do
         version :latest
         sha256 :no_check
 
         postflight do
+        ^^^^^^^^^^^^^ Use `postflight_steps` for simple file preparation.
           File.write staged_path/"Prepared/foo.conf", "key = value"
+        end
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        version :latest
+        sha256 :no_check
+
+        postflight_steps do
+          write_file "Prepared/foo.conf", "key = value"
         end
       end
     CASK
