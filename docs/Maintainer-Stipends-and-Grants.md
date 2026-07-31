@@ -125,7 +125,7 @@ Maintainers giving a Homebrew-related presentation should acknowledge Homebrew's
 
 To apply for reimbursement of conference expenses, a maintainer must submit to the Lead Maintainers:
 
-* The name, location, and dates of the conference
+* The name, location and dates of the conference
 * The workshops, panels, or other events where maintainer attendance can benefit Homebrew
 * The title of the Homebrew-related presentation (if applicable)
 * An itemised estimate of conference expenses
