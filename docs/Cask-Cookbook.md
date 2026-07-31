@@ -665,6 +665,7 @@ Relative paths default to `staged_path` for `base:`, `source_base:` and `target_
 * `set_ownership`: recursively change existing path ownership with `sudo chown`; example: `set_ownership "Shared/payload", user: "root", group: "wheel"`. Missing paths are ignored. When `user:` is omitted, the current user is used. When `group:` is omitted, `staff` is used.
 * `run`: run one executable with literal arguments; example: `run "Example.app/Contents/MacOS/helper", args: ["--repair"], base: :appdir`.
 * `terminate_process`: terminate a process by name; example: `terminate_process "Example", attempts: 3, must_succeed: false`. `attempts:` sets the total number of attempts and defaults to one. The step also supports `match: :full`, `notices:` shown before the first attempt and a `failure_message:` warning.
+* `change_dylib_id`: change one Mach-O dynamic library ID; pass the complete source and new ID, use `resolve_source: true` for a source symlink and wrap the step in `on_macos`.
 
 Use `if_path_exists` and `unless_path_exists` blocks to guard one or more steps by a path, and `on_macos` and `on_linux` blocks for platform-specific steps. Each guard is evaluated once for its whole block. `copy`, `move` and symlink steps accept `source_glob: true`; path collections used by `remove`, `set_permissions` and `set_ownership` expand globs automatically. Symlink removal can additionally match the serialised source during uninstall, while `remove` can restrict removal with `symlink_target_contains:` or `content_contains:`.
 

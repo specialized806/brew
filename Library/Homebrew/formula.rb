@@ -2325,6 +2325,29 @@ class Formula
     end
   end
 
+  # Changes the dynamic library ID of one Mach-O file and codesigns it on
+  # Apple Silicon. The source and new ID are both explicit. Set
+  # `resolve_source: true` to edit the target of a source symlink.
+  #
+  # ### Examples
+  #
+  # ```ruby
+  # change_dylib_id lib/"libfoo.dylib", opt_lib/"libfoo.dylib"
+  # change_dylib_id lib/"libfoo.dylib", "@rpath/libfoo.1.dylib", resolve_source: true
+  # ```
+  #
+  # @api public
+  sig {
+    params(
+      file:           Pathname,
+      id:             T.any(String, Pathname),
+      resolve_source: T::Boolean,
+    ).void
+  }
+  def change_dylib_id(file, id, resolve_source: false)
+    Homebrew::InstallSteps.change_dylib_id(file, id, resolve_source:)
+  end
+
   # Replaces a universal binary with its native slice.
   #
   # If called with no parameters, does this with all compatible
