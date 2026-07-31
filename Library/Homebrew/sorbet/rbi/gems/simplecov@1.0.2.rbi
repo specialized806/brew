@@ -140,11 +140,18 @@ module SimpleCov::Combine::FilesCombiner
   private
 
   def combine(coverage_a, coverage_b); end
+  def executed?(coverage); end
+  def reconcile_synthesized(coverage_a, coverage_b); end
 
   class << self
     def combine(coverage_a, coverage_b); end
+    def executed?(coverage); end
+    def reconcile_synthesized(coverage_a, coverage_b); end
   end
 end
+
+SimpleCov::Combine::FilesCombiner::EMPTY_TABLE = T.let(T.unsafe(nil), Hash)
+SimpleCov::Combine::FilesCombiner::NO_SYNTHESIZED = T.let(T.unsafe(nil), Hash)
 
 module SimpleCov::Combine::LinesCombiner
   private
@@ -162,9 +169,11 @@ module SimpleCov::Combine::MethodsCombiner
   private
 
   def combine(coverage_a, coverage_b); end
+  def source_identity(key); end
 
   class << self
     def combine(coverage_a, coverage_b); end
+    def source_identity(key); end
   end
 end
 
@@ -875,7 +884,9 @@ class SimpleCov::ResultAdapter
 
   def adapt_one(file_name, cover_statistic); end
   def adapt_oneshot_lines_if_needed(file_name, cover_statistic); end
+  def aggregate_duplicated_branches(cover_statistic); end
   def build_line_stub(file_name, oneshot_lines); end
+  def normalize_method_key(key); end
   def normalize_method_keys(cover_statistic); end
 
   class << self
@@ -1191,22 +1202,39 @@ module SimpleCov::StaticCoverageExtractor
   end
 end
 
+module SimpleCov::StaticCoverageExtractor::ConditionFolding
+  private
+
+  def static_condition?(node); end
+  def unwrap_parentheses(node); end
+end
+
+SimpleCov::StaticCoverageExtractor::ConditionFolding::STATIC_CONDITION_TYPES = T.let(T.unsafe(nil), Array)
+SimpleCov::StaticCoverageExtractor::ELSE_CLAUSE_METHOD = T.let(T.unsafe(nil), Symbol)
 SimpleCov::StaticCoverageExtractor::IF_NODE_SUBSEQUENT_METHOD = T.let(T.unsafe(nil), Symbol)
 
 module SimpleCov::StaticCoverageExtractor::LocationConventions
   private
 
+  def begin_modifier_loop?(node); end
   def case_arm_location(case_node, when_node, when_type); end
   def else_arm_location(node); end
   def elsif_node?(node); end
+  def empty_arm_collapses?(node, type); end
+  def empty_else_location(node, sub, type); end
   def following_case_content(case_node, when_node); end
   def if_like_else_location(node, type); end
   def if_like_location(node, type); end
+  def if_like_subsequent(node); end
   def if_like_then_location(node, type); end
   def legacy_case_tail_end(case_node, when_node); end
   def legacy_content_end(node); end
+  def legacy_do_while_body_location(node); end
+  def legacy_when_value_location(case_node, when_node); end
   def loop_body_location(node); end
   def point_at_end(location); end
+  def safe_navigation_location(node); end
+  def value_position?(node); end
 end
 
 SimpleCov::StaticCoverageExtractor::LocationConventions::LEGACY_COVERAGE_LOCATIONS = T.let(T.unsafe(nil), FalseClass)
@@ -1236,9 +1264,28 @@ module SimpleCov::StaticCoverageExtractor::MethodCollector
   def with_class(name); end
 end
 
+module SimpleCov::StaticCoverageExtractor::ValuePositions
+  private
+
+  def call(root); end
+  def else_clause(node); end
+  def mark(node, in_value, positions); end
+  def subsequent(node); end
+  def tail_children(node, in_value); end
+
+  class << self
+    def call(root); end
+    def else_clause(node); end
+    def mark(node, in_value, positions); end
+    def subsequent(node); end
+    def tail_children(node, in_value); end
+  end
+end
+
 class SimpleCov::StaticCoverageExtractor::Visitor < ::Prism::Visitor
   include ::SimpleCov::StaticCoverageExtractor::MethodCollector
   include ::SimpleCov::StaticCoverageExtractor::LocationConventions
+  include ::SimpleCov::StaticCoverageExtractor::ConditionFolding
 
   def initialize; end
 
@@ -1248,6 +1295,9 @@ class SimpleCov::StaticCoverageExtractor::Visitor < ::Prism::Visitor
   def visit_case_match_node(node); end
   def visit_case_node(node); end
   def visit_if_node(node); end
+  def visit_match_predicate_node(node); end
+  def visit_match_required_node(node); end
+  def visit_program_node(node); end
   def visit_unless_node(node); end
   def visit_until_node(node); end
   def visit_while_node(node); end
@@ -1258,6 +1308,7 @@ class SimpleCov::StaticCoverageExtractor::Visitor < ::Prism::Visitor
   def emit_case_like(node, when_type); end
   def emit_if_like(node, type); end
   def emit_loop(node, type); end
+  def emit_oneline_pattern(node, else_location); end
   def emit_safe_navigation(node); end
 end
 

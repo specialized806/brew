@@ -77,6 +77,9 @@ class Rubydex::ConstantReference < ::Rubydex::Reference
 
   def initialize(_arg0, _arg1); end
 
+  sig { returns(Rubydex::Document) }
+  def document; end
+
   sig { returns(Rubydex::Location) }
   def location; end
 
@@ -110,7 +113,7 @@ class Rubydex::Declaration
   class << self
     private
 
-    def new(*args); end
+    def new(*_arg0); end
   end
 end
 
@@ -127,6 +130,9 @@ class Rubydex::Definition
 
   sig { returns(T::Boolean) }
   def deprecated?; end
+
+  sig { returns(Rubydex::Document) }
+  def document; end
 
   sig { returns(T::Array[Rubydex::Definition]) }
   def lexical_nesting; end
@@ -146,7 +152,7 @@ class Rubydex::Definition
   class << self
     private
 
-    def new(*args); end
+    def new(*_arg0); end
   end
 end
 
@@ -195,7 +201,7 @@ class Rubydex::Document
   class << self
     private
 
-    def new(*args); end
+    def new(*_arg0); end
   end
 end
 
@@ -274,7 +280,13 @@ class Rubydex::Graph
   def index_workspace; end
 
   def keyword(_arg0); end
-  def load_config(*_arg0); end
+
+  # Loads configuration, merging its exclusion patterns into the graph's configuration (the workspace path is never
+  # overridden). With `config_path` (resolved relative to the workspace path), an explicitly named file that does not
+  # exist raises `Rubydex::ConfigError`. With no argument, the default `.rubydex` is loaded if present and ignored if
+  # missing. Raises `Rubydex::ConfigError` if a file cannot be read or is malformed.
+  sig { params(config_path: T.nilable(String)).void }
+  def load_config(config_path = nil); end
 
   sig { returns(T::Enumerable[Rubydex::MethodReference]) }
   def method_references; end
@@ -310,6 +322,9 @@ class Rubydex::Graph
 
   sig { params(paths: T::Array[String]).void }
   def add_workspace_dependency_paths(paths); end
+
+  def initialize_clone(_arg0); end
+  def initialize_copy(_arg0); end
 end
 
 Rubydex::Graph::INDEXABLE_EXTENSIONS = T.let(T.unsafe(nil), Array)
@@ -409,6 +424,9 @@ end
 class Rubydex::MethodReference < ::Rubydex::Reference
   def initialize(_arg0, _arg1); end
 
+  sig { returns(Rubydex::Document) }
+  def document; end
+
   sig { returns(Rubydex::Location) }
   def location; end
 
@@ -470,6 +488,18 @@ end
 
 class Rubydex::Prepend < ::Rubydex::Mixin; end
 
+class Rubydex::Query
+  def render(*_arg0); end
+
+  class << self
+    sig { params(query: String).returns(Rubydex::Query) }
+    def parse(query); end
+
+    sig { params(format: T.any(String, Symbol)).returns(String) }
+    def schema(format = :table); end
+  end
+end
+
 class Rubydex::Reference
   abstract!
 
@@ -480,7 +510,7 @@ class Rubydex::Reference
   class << self
     private
 
-    def new(*args); end
+    def new(*_arg0); end
   end
 end
 
