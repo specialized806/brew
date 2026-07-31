@@ -30,7 +30,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         preflight_steps do
           system "true"
-          ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `delete_keychain_certificate`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+          ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     CASK
@@ -44,7 +44,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         preflight_steps do
           update_desktop_database
-          ^^^^^^^^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `delete_keychain_certificate`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+          ^^^^^^^^^^^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     CASK
@@ -66,6 +66,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
           inreplace "foo.conf", /@PREFIX@/, "{{HOMEBREW_PREFIX}}"
           ln_sf "source", "target", source_base: :relative, uninstall: true
           write "foo.conf", "key = value\n"
+          write_file "foo.json", "{}\n"
           set_permissions "Foo.app", "0755"
           set_ownership "Foo.app", user: "root", group: "wheel"
           run "foo", args: ["--repair"]
@@ -73,6 +74,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
           change_dylib_id "Foo.app/Contents/Frameworks/libfoo.dylib", "@rpath/libfoo.dylib"
           delete_keychain_certificate "Charles"
           delete_keychain_certificate "NodeMITMProxyCA", matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"
+          delete_keychain_certificates "Charles"
           on_macos do
             if_path_exists "Foo.app" do
               touch "Foo.app/scoped-state"
@@ -96,7 +98,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
 
         preflight_steps do
           touch "#{appdir}/state"
-                 ^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `delete_keychain_certificate`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+                 ^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
         end
       end
     CASK
@@ -111,7 +113,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
         preflight_steps do
           on_macos do
             system "true"
-            ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `delete_keychain_certificate`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+            ^^^^^^^^^^^^^ Steps blocks may only contain install step DSL calls: `mkdir`, `mkdir_p`, `touch`, `move`, `mv`, `move_children`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `ln_s`, `ln_sf`, `write`, `write_file`, `delete_keychain_certificate`, `delete_keychain_certificates`, `set_permissions`, `set_ownership`, `run`, `terminate_process`, `change_dylib_id`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
           end
         end
       end
@@ -142,8 +144,8 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
         postflight_steps do
           mkdir_p "Prepared"
           touch "Prepared/touched"
-          mv "source", "target"
-          ln_s "target", "Linked", source_base: :relative
+          move "source", "target"
+          symlink "target", "Linked", source_base: :relative
         end
       end
     CASK
@@ -168,7 +170,7 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
         sha256 :no_check
 
         postflight_steps do
-          write "Prepared/foo.conf", "key = value\n", overwrite: true
+          write_file "Prepared/foo.conf", "key = value\n"
         end
       end
     CASK
@@ -235,17 +237,17 @@ RSpec.describe RuboCop::Cop::Cask::InstallSteps, :config do
         sha256 :no_check
 
         preflight_steps do
-          delete_keychain_certificate "Charles"
+          delete_keychain_certificates "Charles"
         end
 
         postflight_steps do
-          delete_keychain_certificate "AutoFirma ROOT"
-          delete_keychain_certificate "127.0.0.1"
+          delete_keychain_certificates "AutoFirma ROOT"
+          delete_keychain_certificates "127.0.0.1"
         end
 
         uninstall_postflight_steps do
-          delete_keychain_certificate "NodeMITMProxyCA",
-                                      matching_certificate: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"
+          delete_keychain_certificates "NodeMITMProxyCA",
+                                       fingerprint_of: "~/Library/Application Support/betwixt/ssl/certs/ca.pem"
         end
       end
     CASK

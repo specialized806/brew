@@ -4062,7 +4062,7 @@ class Formula
     #
     # ```ruby
     # post_install_steps do
-    #   mkdir "log/foo", base: :var
+    #   mkdir_p "log/foo", base: :var
     # end
     # ```
     #
