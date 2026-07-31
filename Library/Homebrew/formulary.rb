@@ -942,7 +942,7 @@ module Formulary
     sig { overridable.params(flags: T::Array[String]).void }
     def load_from_api(flags:)
       formula_struct = Homebrew::API::Internal.formula_struct(name)
-      api_source = Homebrew::API::Internal.formula_hashes[name]
+      api_source = Homebrew::API::Internal.formula_hash(name)
       tap_git_head = Homebrew::API::Internal.formula_tap_git_head
 
       raise FormulaUnavailableError, name if api_source.nil?

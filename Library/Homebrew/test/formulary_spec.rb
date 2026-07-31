@@ -549,6 +549,10 @@ RSpec.describe Formulary do
         allow(Homebrew::API).to receive_messages(formula_names: [formula_name], formula_aliases: {},
                                                  formula_renames: {})
         allow(Homebrew::API::Internal).to receive(:formula_hashes) { Homebrew::API::Formula.all_formulae }
+        allow(Homebrew::API::Internal).to receive(:formula_hash) { |name| Homebrew::API::Formula.all_formulae[name] }
+        allow(Homebrew::API::Internal).to receive(:formula_name?) do |name|
+          Homebrew::API::Formula.all_formulae.key?(name)
+        end
         allow(Homebrew::API::Internal).to receive(:formula_struct) do |name|
           Homebrew::API::Formula::FormulaStructGenerator.generate_formula_struct_hash(
             Homebrew::API::Formula.all_formulae.fetch(name),
