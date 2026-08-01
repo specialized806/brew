@@ -69,9 +69,6 @@ end
 group :vscode, optional: true do
   gem "ruby-lsp", require: false
 end
-group :formula_analytics, optional: true do
-  gem "pycall", require: false
-end
 group :contributions, optional: true do
   gem "csv", require: false
 end

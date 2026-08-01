@@ -1113,7 +1113,7 @@ __fish_brew_complete_arg 'formula-analytics' -l install-on-request -d 'Output th
 __fish_brew_complete_arg 'formula-analytics' -l json -d 'Output JSON. This is required: plain text support has been removed'
 __fish_brew_complete_arg 'formula-analytics' -l os-version -d 'Output the number of events by OS name and version'
 __fish_brew_complete_arg 'formula-analytics' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'formula-analytics' -l setup -d 'Install the necessary gems, require them and exit without running a query'
+__fish_brew_complete_arg 'formula-analytics' -l setup -d 'Install the necessary Python dependencies and exit without running a query'
 __fish_brew_complete_arg 'formula-analytics' -l verbose -d 'Make some output more verbose'
 
 
