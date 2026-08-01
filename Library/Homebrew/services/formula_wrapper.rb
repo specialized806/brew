@@ -262,6 +262,17 @@ module Homebrew
         hash
       end
 
+      # Generate the service file content (plist or systemd unit),
+      # including any per-service user environment variable overrides.
+      sig { returns(String) }
+      def service_contents
+        if System.launchctl?
+          formula.service.to_plist
+        else
+          formula.service.to_systemd_unit
+        end
+      end
+
       private
 
       # The purpose of this function is to lazy load the Homebrew::Service class
