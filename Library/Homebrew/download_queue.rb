@@ -410,7 +410,7 @@ module Homebrew
       tty_width = Tty.width
       return message unless tty_width.positive?
 
-      available_width = tty_width - 2
+      available_width = tty_width - 3
       fetched_size = downloadable.fetched_size
       return message[0, available_width].to_s if fetched_size.blank?
 

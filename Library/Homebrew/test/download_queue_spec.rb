@@ -112,6 +112,24 @@ RSpec.describe Homebrew::DownloadQueue do
     ).to_stdout
   end
 
+  it "leaves the final terminal column empty when rendering progress" do
+    allow($stdout).to receive(:tty?).and_return(true)
+    ENV["TERM"] = "xterm-256color"
+    allow(Tty).to receive(:width).and_return(80)
+    allow(downloadable).to receive_messages(fetched_size: 559_300_000, total_size: 559_300_000, phase: :downloading)
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+
+    download_queue.enqueue(downloadable)
+
+    rendered_lines = []
+    allow(download_queue).to receive(:stdout_print_and_flush) do |message|
+      rendered_lines << message if message.include?("559.3MB")
+    end
+    download_queue.fetch
+
+    expect(Tty.strip_ansi(rendered_lines.fetch(0)).chomp.each_grapheme_cluster.count).to eq(Tty.width - 1)
+  end
+
   it "emits no synchronized update sequences when stdout is not a TTY" do
     allow($stdout).to receive(:tty?).and_return(false)
     allow(retryable_download).to receive(:fetch).and_return(cached_download)
