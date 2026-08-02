@@ -56,6 +56,42 @@ RSpec.describe Formulary do
   end
 
   describe "::load_formula" do
+    it "continues evaluation after ignorable errors with ignore_errors" do
+      formula_class = described_class.load_formula(
+        "ignorable-error",
+        mktmpdir/"ignorable-error.rb",
+        <<~RUBY,
+          class IgnorableError < Formula
+            raise ArgumentError, "should be ignored"
+            url "https://brew.sh/ignorable-error-1.0.tar.gz"
+          end
+        RUBY
+        "IgnorableErrorNamespace",
+        flags:         [],
+        ignore_errors: true,
+      )
+
+      expect(formula_class.stable.url).to eq("https://brew.sh/ignorable-error-1.0.tar.gz")
+    end
+
+    it "raises FormulaUnreadableError for errors it cannot resume despite ignore_errors" do
+      expect do
+        described_class.load_formula(
+          "unreadable-error",
+          mktmpdir/"unreadable-error.rb",
+          <<~RUBY,
+            class UnreadableError < Formula
+              nonexistent_dsl_method "foo"
+              url "https://brew.sh/unreadable-error-1.0.tar.gz"
+            end
+          RUBY
+          "UnreadableErrorNamespace",
+          flags:         [],
+          ignore_errors: true,
+        )
+      end.to raise_error(FormulaUnreadableError)
+    end
+
     it "masks sensitive environment variables while evaluating formulae" do
       with_env(HOMEBREW_SECRET_TOKEN: "password") do
         formula_class = described_class.load_formula(
