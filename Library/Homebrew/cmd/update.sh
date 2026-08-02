@@ -1051,13 +1051,16 @@ EOS
     rm -f "${HOMEBREW_CACHE}"/api/internal/formula.*.jws.json
     rm -f "${HOMEBREW_CACHE}"/api/internal/cask.*.jws.json
 
-    # Remove API files (and their `.payload` sidecars) from previous OS
-    # versions. Keep in sync with `cache_files` in Library/Homebrew/cleanup.rb.
+    # Remove API files (and their `.payload` and `.payload.index` sidecars)
+    # from previous OS versions, keeping the current OS's so `brew
+    # update-report`'s API data load stays or becomes prewarmed. Keep in
+    # sync with `cache_files` in Library/Homebrew/cleanup.rb.
     for f in "${HOMEBREW_CACHE}"/api/internal/packages.*.jws.json*
     do
       case "${f}" in
         "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json") ;;
         "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json.payload") ;;
+        "${HOMEBREW_CACHE}/api/internal/packages.$(bottle_tag).jws.json.payload.index") ;;
         *) rm -f "${f}" ;;
       esac
     done
