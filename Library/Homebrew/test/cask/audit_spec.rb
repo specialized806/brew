@@ -1205,6 +1205,93 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "artifact case checks" do
+      let(:online) { true }
+      let(:only) { ["artifact_case"] }
+      let(:tmpdir) { mktmpdir }
+      let(:cask) do
+        Cask::Cask.new("artifact-case") do
+          version "1.0"
+          sha256 :no_check
+          url "https://brew.sh/artifact-case.zip"
+          name "Artifact Case"
+          homepage "https://brew.sh/"
+
+          app "artifact case.app"
+        end
+      end
+
+      before do
+        allow(audit).to receive(:extract_artifacts).and_yield(cask.artifacts, tmpdir)
+      end
+
+      context "when the case matches" do
+        before { (tmpdir/"artifact case.app").mkpath }
+
+        it { is_expected.to pass }
+      end
+
+      context "when the case does not match" do
+        before { (tmpdir/"Artifact Case.app").mkpath }
+
+        it { is_expected.to error_with(/does not match the case of the extracted/) }
+      end
+
+      context "when both cases are present on disk" do
+        # Both spellings cannot be created on a case-insensitive filesystem.
+        before do
+          allow(tmpdir).to receive(:children)
+            .and_return([tmpdir/"Artifact Case.app", tmpdir/"artifact case.app"])
+        end
+
+        it { is_expected.to pass }
+      end
+
+      context "when the artifact is missing" do
+        it { is_expected.to pass }
+      end
+
+      context "when a binary in the appdir has the wrong case" do
+        let(:cask) do
+          Cask::Cask.new("artifact-case") do
+            version "1.0"
+            sha256 :no_check
+            url "https://brew.sh/artifact-case.zip"
+            name "Artifact Case"
+            homepage "https://brew.sh/"
+
+            app "Artifact Case.app"
+            binary "#{appdir}/Artifact Case.app/Contents/MacOS/artifact"
+          end
+        end
+
+        before do
+          (tmpdir/"Artifact Case.app/Contents/MacOS").mkpath
+          FileUtils.touch tmpdir/"Artifact Case.app/Contents/MacOS/Artifact"
+        end
+
+        it { is_expected.to error_with(/does not match the case of the extracted/) }
+      end
+
+      context "when a manual installer has the wrong case" do
+        let(:cask) do
+          Cask::Cask.new("artifact-case") do
+            version "1.0"
+            sha256 :no_check
+            url "https://brew.sh/artifact-case.zip"
+            name "Artifact Case"
+            homepage "https://brew.sh/"
+
+            installer manual: "Artifact Case.app"
+          end
+        end
+
+        before { (tmpdir/"Artifact Case.APP").mkpath }
+
+        it { is_expected.to error_with(/does not match the case of the extracted/) }
+      end
+    end
+
     describe "minimum OS checks" do
       let(:online) { true }
       let(:only) { ["min_os"] }
