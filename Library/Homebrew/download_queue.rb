@@ -106,9 +106,17 @@ module Homebrew
     # on bottle manifests without reporting in-flight bottles before their
     # downloads heading has been printed. A `heading:` is printed only when
     # there is something to report, so every report gets a heading and empty
-    # fetches stay silent.
-    sig { params(only: T.nilable(T::Class[Downloadable]), heading: T.nilable(String)).void }
-    def fetch(only: nil, heading: nil)
+    # fetches stay silent. With `allow_failures:`, failures are still
+    # reported with a ✘ line but neither raise nor mark the fetch or run
+    # as failed, for metadata prefetches such as the bottle manifest of a
+    # version whose bottle has not been published yet, where dependency
+    # resolution just falls back to a full install; known-bad cached files
+    # from checksum mismatches are still removed.
+    sig {
+      params(only: T.nilable(T::Class[Downloadable]), heading: T.nilable(String),
+             allow_failures: T::Boolean).void
+    }
+    def fetch(only: nil, heading: nil, allow_failures: false)
       @fetch_failed = false
       @deferred_failure_messages = []
       context_before_fetch = Context.current
@@ -132,8 +140,19 @@ module Homebrew
         rescue CancelledDownloadError
           next
         rescue ChecksumMismatchError => e
+          if allow_failures
+            report_tolerated_failure(downloadable)
+            # Remove the known-bad download so it cannot be reused.
+            unlink_cached_download(downloadable)
+            next
+          end
+
           @fetch_failed = true
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
+        rescue
+          raise unless allow_failures
+
+          report_tolerated_failure(downloadable)
         end
       else
         message_length_max = fetchable_downloads.keys.map do |download|
@@ -162,7 +181,11 @@ module Homebrew
               $stderr.puts "#{status} #{message}"
             end
 
-            if future.rejected?
+            if future.rejected? && allow_failures
+              # Remove known-bad downloads so they cannot be reused, while
+              # staying non-fatal for tolerated metadata prefetches.
+              unlink_cached_download(downloadable) if exception.is_a?(ChecksumMismatchError)
+            elsif future.rejected?
               if exception.is_a?(ChecksumMismatchError)
                 @fetch_failed = true
                 actual = Digest::SHA256.file(downloadable.cached_download).hexdigest
@@ -173,8 +196,7 @@ module Homebrew
                   puts "#{expected_message} #{actual}"
                 end
               elsif exception.is_a?(CannotInstallFormulaError)
-                cached_download = downloadable.cached_download
-                cached_download.unlink if cached_download&.exist?
+                unlink_cached_download(downloadable)
                 raise exception
               elsif bottle_manifest_error?(downloadable, exception)
                 # Fatal: unlike a missing blob (which then fails to stage), a
@@ -391,6 +413,24 @@ module Homebrew
     sig { returns(T::Boolean) }
     def tty_with_cursor_move_support?
       tty && !@dumb_tty
+    end
+
+    sig { params(downloadable: Downloadable).void }
+    def unlink_cached_download(downloadable)
+      cached_download = downloadable.cached_download
+      cached_download.unlink if cached_download.exist?
+    end
+
+    # Matches the parallel-mode ✘ report for failures the serial path
+    # tolerates instead of raising.
+    sig { params(downloadable: Downloadable).void }
+    def report_tolerated_failure(downloadable)
+      status = if tty
+        "#{Tty.red}✘#{Tty.reset}"
+      else
+        "✘"
+      end
+      $stderr.puts "#{status} #{downloadable.download_queue_message}"
     end
 
     sig { params(future: Concurrent::Promises::Future).returns(T.nilable(String)) }

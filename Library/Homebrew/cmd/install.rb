@@ -334,7 +334,8 @@ module Homebrew
 
           # Main block: if asking the user is enabled, show dry-run information.
           if ask
-            shared_download_queue&.fetch(heading: "Downloading bottle manifests")
+            shared_download_queue&.fetch(only: Resource::BottleManifest,
+                                         heading: "Downloading bottle manifests", allow_failures: true)
             Install.ask_formulae(
               formulae_installer,
               dependants,

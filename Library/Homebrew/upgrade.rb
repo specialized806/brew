@@ -134,7 +134,8 @@ module Homebrew
             end
           end
 
-          download_queue.fetch(heading: "Downloading bottle manifests")
+          download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests",
+                               allow_failures: true)
         ensure
           download_queue.shutdown
         end

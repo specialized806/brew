@@ -352,14 +352,16 @@ module Homebrew
           valid_formula_installers = prelude_fetch_formulae(formula_installers, download_queue:)
           # Wait on just the bottle manifests dependency resolution needs so
           # in-flight bottles are only reported under the downloads heading.
-          download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests")
+          download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests",
+                               allow_failures: true)
 
           [:prelude, :enqueue_fetch].each do |step|
             valid_formula_installers = select_formula_installers(valid_formula_installers, step:)
             next if step == :enqueue_fetch && !fetch_after_enqueue
 
             if step == :prelude
-              download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests")
+              download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests",
+                                   allow_failures: true)
             else
               heading = if show_downloads_heading
                 combined_fetch_downloads_heading(formula_names: valid_formula_installers.map { |fi| fi.formula.name })
