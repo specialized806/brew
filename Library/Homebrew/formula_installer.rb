@@ -146,10 +146,12 @@ class FormulaInstaller
     @download_queue = T.let(Homebrew.default_download_queue, Homebrew::DownloadQueue)
     @api_bottle = T.let(nil, T.nilable(Bottle))
     @api_bottle_loaded = T.let(false, T::Boolean)
+    @enqueued_bottle_download = T.let(nil, T.nilable(Downloadable))
 
     # Take the original formula instance, which might have been swapped from an API instance to a source instance
     @formula = T.let(T.must(previously_fetched_formula), Formula) if previously_fetched_formula
 
+    @ran_prelude_fetch_metadata = T.let(false, T::Boolean)
     @ran_prelude_fetch = T.let(false, T::Boolean)
     @ran_prelude = T.let(false, T::Boolean)
   end
@@ -298,40 +300,46 @@ class FormulaInstaller
     ) || false
   end
 
-  sig { void }
-  def prelude_fetch
-    return if @ran_prelude_fetch
+  sig { params(metadata_only: T::Boolean).void }
+  def prelude_fetch(metadata_only: false)
+    unless @ran_prelude_fetch_metadata
+      deprecate_disable_type = DeprecateDisable.type(formula)
+      if deprecate_disable_type.present?
+        message = "#{formula.full_name} has been #{DeprecateDisable.message(formula)}"
 
-    deprecate_disable_type = DeprecateDisable.type(formula)
-    if deprecate_disable_type.present?
-      message = "#{formula.full_name} has been #{DeprecateDisable.message(formula)}"
-
-      case deprecate_disable_type
-      when :deprecated
-        opoo message
-      when :disabled
-        if force?
+        case deprecate_disable_type
+        when :deprecated
           opoo message
-        else
-          GitHub::Actions.puts_annotation_if_env_set!(:error, message)
-          raise CannotInstallFormulaError, message
+        when :disabled
+          if force?
+            opoo message
+          else
+            GitHub::Actions.puts_annotation_if_env_set!(:error, message)
+            raise CannotInstallFormulaError, message
+          end
         end
       end
+
+      # Run the formula-self forbidden checks before any source or bottle
+      # download is enqueued so a forbidden formula never triggers a fetch.
+      forbidden_tap_check(formula_only: true)
+      forbidden_formula_check(formula_only: true)
+
+      # Needs to be done before expand_dependencies for compute_dependencies
+      fetch_bottle_tab(enqueue: true) if pour_bottle?
+
+      fetch_fetch_deps unless ignore_deps?
+
+      @ran_prelude_fetch_metadata = true
     end
 
-    # Run the formula-self forbidden checks before any source or bottle
-    # download is enqueued so a forbidden formula never triggers a fetch.
-    forbidden_tap_check(formula_only: true)
-    forbidden_formula_check(formula_only: true)
+    return if metadata_only || @ran_prelude_fetch
 
     if pour_bottle?
-      # Needs to be done before expand_dependencies for compute_dependencies
-      fetch_bottle_tab(enqueue: true)
+      @enqueued_bottle_download = enqueue_bottle_download(stage: true)
     elsif formula.loaded_from_api?
       Homebrew::API::Formula.source_download(formula, download_queue:, enqueue: true)
     end
-
-    fetch_fetch_deps unless ignore_deps?
 
     @ran_prelude_fetch = true
   end
@@ -1490,7 +1498,7 @@ on_request: installed_on_request?, options:)
   sig { void }
   def fetch
     enqueue_fetch
-    download_queue.fetch
+    download_queue.fetch(heading: "Fetching downloads for: #{Formatter.identifier(formula.full_name)}")
   end
 
   sig { void }
@@ -1498,23 +1506,14 @@ on_request: installed_on_request?, options:)
     return if previously_fetched_formula
 
     downloadable_object = T.let(nil, T.nilable(Downloadable))
-    bottle_download = T.let(nil, T.nilable(Downloadable))
     check_attestation = T.let(false, T::Boolean)
     local_bottle_path = formula.local_bottle_path
     bottle_install = !only_deps? && local_bottle_path.nil? && pour_bottle?(output_warning: true)
-    # We skip `gh` to avoid a bootstrapping cycle, in the off-chance a user attempts
-    # to explicitly `brew install gh` without already having a version for bootstrapping.
-    # We also skip bottle installs from local bottle paths, as these are done in CI
+    # We skip bottle installs from local bottle paths, as these are done in CI
     # as part of the build lifecycle before attestations are produced.
-    verify_attestation = bottle_install &&
-                         Homebrew::EnvConfig.verify_attestations? &&
-                         (formula.tap&.core_tap? || false) &&
-                         formula.name != "gh"
-    if bottle_install && @ran_prelude
-      bottle_download = downloadable
-      check_attestation = verify_attestation && !bottle_download.cached_download.exist?
-      download_queue.enqueue(bottle_download, check_attestation:, stage: false)
-    end
+    verify_attestation = bottle_install && verify_bottle_attestation?
+    bottle_download = @enqueued_bottle_download
+    bottle_download = enqueue_bottle_download(stage: false) if bottle_download.nil? && bottle_install && @ran_prelude
 
     fetch_dependencies
 
@@ -1535,8 +1534,10 @@ on_request: installed_on_request?, options:)
       downloadable_object = downloadable
     end
 
-    # Check attestation after download completes.
-    download_queue.enqueue(downloadable_object, check_attestation:)
+    # Check attestation after download completes. Skip downloads already
+    # enqueued (with staging) by `prelude_fetch` so a completed early fetch is
+    # not requeued and reported a second time.
+    download_queue.enqueue(downloadable_object, check_attestation:) if @enqueued_bottle_download.nil?
 
     self.class.fetched << formula
   rescue CannotInstallFormulaError
@@ -1545,6 +1546,28 @@ on_request: installed_on_request?, options:)
     end
 
     raise
+  end
+
+  # Start the formula's own bottle download without waiting for its bottle
+  # manifest or dependency resolution; both call sites have already checked
+  # `pour_bottle?`.
+  sig { params(stage: T::Boolean).returns(T.nilable(Downloadable)) }
+  def enqueue_bottle_download(stage:)
+    return if only_deps? || formula.local_bottle_path
+
+    bottle_download = downloadable
+    check_attestation = verify_bottle_attestation? && !bottle_download.cached_download.exist?
+    download_queue.enqueue(bottle_download, check_attestation:, stage:)
+    bottle_download
+  end
+
+  sig { returns(T::Boolean) }
+  def verify_bottle_attestation?
+    # We skip `gh` to avoid a bootstrapping cycle, in the off-chance a user attempts
+    # to explicitly `brew install gh` without already having a version for bootstrapping.
+    Homebrew::EnvConfig.verify_attestations? &&
+      (formula.tap&.core_tap? || false) &&
+      formula.name != "gh"
   end
 
   sig { returns(Downloadable) }

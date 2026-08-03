@@ -100,15 +100,34 @@ module Homebrew
       end
     end
 
-    sig { void }
-    def fetch
+    # Waits for and reports queued downloads. With `only:`, limits that to
+    # downloadables of the given class, leaving the rest enqueued and
+    # unreported for a later fetch, e.g. so dependency resolution can wait
+    # on bottle manifests without reporting in-flight bottles before their
+    # downloads heading has been printed. A `heading:` is printed only when
+    # there is something to report, so every report gets a heading and empty
+    # fetches stay silent.
+    sig { params(only: T.nilable(T::Class[Downloadable]), heading: T.nilable(String)).void }
+    def fetch(only: nil, heading: nil)
       @fetch_failed = false
       @deferred_failure_messages = []
       context_before_fetch = Context.current
-      return if downloads.empty?
+      fetchable_downloads = if only
+        downloads.select { |downloadable, _| downloadable.is_a?(only) }
+      else
+        downloads
+      end
+      return if fetchable_downloads.empty?
+
+      if heading
+        oh1 heading, truncate: false
+        # Reach the pipe before any unbuffered stderr report lines when
+        # stdout is block-buffered.
+        $stdout.flush
+      end
 
       if concurrency == 1
-        downloads.each do |downloadable, promise|
+        fetchable_downloads.each do |downloadable, promise|
           promise.wait!
         rescue CancelledDownloadError
           next
@@ -117,13 +136,15 @@ module Homebrew
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
         end
       else
-        message_length_max = downloads.keys.map { |download| download.download_queue_message.length }.max || 0
-        remaining_downloads = downloads.dup.to_a
+        message_length_max = fetchable_downloads.keys.map do |download|
+          download.download_queue_message.length
+        end.max || 0
+        remaining_downloads = fetchable_downloads.dup.to_a
         previous_pending_line_count = 0
         max_lines = [concurrency, Tty.height].min
 
         resolution = Concurrent::Event.new
-        downloads.each_value { |future| future.on_resolution! { resolution.set } }
+        fetchable_downloads.each_value { |future| future.on_resolution! { resolution.set } }
 
         begin
           stdout_print_and_flush_if_tty Tty.hide_cursor
@@ -250,9 +271,15 @@ module Homebrew
       # aborts the fetch above.
       Context.current = context_before_fetch if context_before_fetch
 
-      downloads.clear
-      @downloads_by_location.clear
-      @symlink_targets.clear
+      if only
+        # Keep unfetched downloads (and their location dedup entries) queued
+        # for the next fetch.
+        fetchable_downloads.each_key { |downloadable| downloads.delete(downloadable) }
+      else
+        downloads.clear
+        @downloads_by_location.clear
+        @symlink_targets.clear
+      end
     end
 
     sig { returns(T::Boolean) }

@@ -344,25 +344,28 @@ module Homebrew
         shutdown_download_queue: true,
         show_downloads_heading: true
       )
-        formulae_names_to_install = formula_installers.map { |fi| fi.formula.name }
-        return formula_installers if formulae_names_to_install.empty?
+        return formula_installers if formula_installers.empty?
 
         download_queue = T.let(download_queue || Homebrew::DownloadQueue.new(pour: true), Homebrew::DownloadQueue)
 
-        if show_downloads_heading
-          formula_sentence = formulae_names_to_install.map { |name| Formatter.identifier(name) }.to_sentence
-          oh1 "Fetching downloads for: #{formula_sentence}", truncate: false
-        end
-
         begin
           valid_formula_installers = prelude_fetch_formulae(formula_installers, download_queue:)
-          download_queue.fetch
+          # Wait on just the bottle manifests dependency resolution needs so
+          # in-flight bottles are only reported under the downloads heading.
+          download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests")
 
           [:prelude, :enqueue_fetch].each do |step|
             valid_formula_installers = select_formula_installers(valid_formula_installers, step:)
             next if step == :enqueue_fetch && !fetch_after_enqueue
 
-            download_queue.fetch
+            if step == :prelude
+              download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests")
+            else
+              heading = if show_downloads_heading
+                combined_fetch_downloads_heading(formula_names: valid_formula_installers.map { |fi| fi.formula.name })
+              end
+              download_queue.fetch(heading:)
+            end
           end
         ensure
           download_queue.shutdown if shutdown_download_queue
@@ -375,22 +378,34 @@ module Homebrew
         params(
           formula_installers: T::Array[FormulaInstaller],
           download_queue:     Homebrew::DownloadQueue,
+          metadata_only:      T::Boolean,
         ).returns(T::Array[FormulaInstaller])
       }
-      def prelude_fetch_formulae(formula_installers, download_queue:)
+      def prelude_fetch_formulae(formula_installers, download_queue:, metadata_only: false)
         formula_installers.each do |fi|
           fi.download_queue = download_queue
         end
 
-        select_formula_installers(formula_installers, step: :prelude_fetch)
+        # Only pass the keyword when limiting the fetch so mocks and
+        # overrides expecting the historical no-argument call keep working.
+        action = ->(fi) { metadata_only ? fi.prelude_fetch(metadata_only: true) : fi.prelude_fetch }
+        select_formula_installers(formula_installers, action:)
       end
 
       sig {
-        params(formula_installers: T::Array[FormulaInstaller], step: Symbol).returns(T::Array[FormulaInstaller])
+        params(
+          formula_installers: T::Array[FormulaInstaller],
+          step:               T.nilable(Symbol),
+          action:             T.nilable(T.proc.params(formula_installer: FormulaInstaller).void),
+        ).returns(T::Array[FormulaInstaller])
       }
-      def select_formula_installers(formula_installers, step:)
+      def select_formula_installers(formula_installers, step: nil, action: nil)
         formula_installers.select do |fi|
-          fi.public_send(step)
+          if action
+            action.call(fi)
+          elsif step
+            fi.public_send(step)
+          end
           true
         rescue CannotInstallFormulaError => e
           ofail e.message
@@ -412,13 +427,13 @@ module Homebrew
         )
       end
 
-      sig { params(formula_names: T::Array[String], cask_names: T::Array[String]).void }
-      def show_combined_fetch_downloads_heading(formula_names: [], cask_names: [])
+      sig { params(formula_names: T::Array[String], cask_names: T::Array[String]).returns(T.nilable(String)) }
+      def combined_fetch_downloads_heading(formula_names: [], cask_names: [])
         combined_fetch_targets = formula_names.map { |name| Formatter.identifier(name) } +
                                  cask_names.map { |name| Formatter.identifier(name) }
         return if combined_fetch_targets.empty?
 
-        oh1 "Fetching downloads for: #{combined_fetch_targets.to_sentence}", truncate: false
+        "Fetching downloads for: #{combined_fetch_targets.to_sentence}"
       end
 
       sig { params(cask_installers: T::Array[T.untyped], download_queue: Homebrew::DownloadQueue).void }
@@ -436,9 +451,8 @@ module Homebrew
         end
 
         if source_downloads.any?
-          oh1 "Downloading Cask files"
           source_downloads.each { |source_download| download_queue.enqueue(source_download) }
-          download_queue.fetch
+          download_queue.fetch(only: Cask::Download, heading: "Downloading Cask files")
         end
 
         valid_cask_installers.each do |cask_installer|
