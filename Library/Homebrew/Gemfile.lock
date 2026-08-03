@@ -170,7 +170,6 @@ PLATFORMS
   x86_64-linux-gnu
 
 DEPENDENCIES
-  base64
   concurrent-ruby
   csv
   json_schemer
