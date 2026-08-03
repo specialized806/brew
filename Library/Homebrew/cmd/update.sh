@@ -427,7 +427,8 @@ fetch_api_file() {
     echo "Checking if we need to fetch ${filename}..."
   fi
 
-  local arg json_url last_json_url
+  local arg curl_exit_code json_url last_json_url
+  local -a time_cond
   while read -r json_url
   do
     time_cond=()
@@ -435,15 +436,23 @@ fetch_api_file() {
     do
       time_cond+=("${arg}")
     done < <(api_time_cond_args "${cache_path}")
-    curl \
-      "${CURL_DISABLE_CURLRC_ARGS[@]}" \
-      --fail --compressed --silent \
-      --speed-limit "${HOMEBREW_CURL_SPEED_LIMIT}" --speed-time "${HOMEBREW_CURL_SPEED_TIME}" \
-      --location --remote-time --output "${cache_path}" \
-      "${time_cond[@]}" \
-      --user-agent "${HOMEBREW_USER_AGENT_CURL}" \
-      "${json_url}"
-    curl_exit_code=$?
+    while true
+    do
+      curl \
+        "${CURL_DISABLE_CURLRC_ARGS[@]}" \
+        --fail --compressed --silent \
+        --speed-limit "${HOMEBREW_CURL_SPEED_LIMIT}" --speed-time "${HOMEBREW_CURL_SPEED_TIME}" \
+        --location --remote-time --output "${cache_path}" \
+        "${time_cond[@]}" \
+        --user-agent "${HOMEBREW_USER_AGENT_CURL}" \
+        "${json_url}"
+      curl_exit_code=$?
+      if [[ ${curl_exit_code} -ne 56 ]] || [[ ${#time_cond[@]} -eq 0 ]]
+      then
+        break
+      fi
+      time_cond=()
+    done
     last_json_url="${json_url}"
     [[ ${curl_exit_code} -eq 0 ]] && break
   done < <(api_urls "${filename}")
