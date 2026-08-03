@@ -876,7 +876,7 @@ __fish_brew_complete_arg 'contributions' -l quiet -d 'Make some output more quie
 __fish_brew_complete_arg 'contributions' -l repositories -d 'Specify a comma-separated list of repositories to search. All repositories must be under the same user or organisation. Omitting this flag, or specifying `--repositories=primary`, searches only the main repositories: `Homebrew/brew`, `Homebrew/homebrew-core`, `Homebrew/homebrew-cask`'
 __fish_brew_complete_arg 'contributions' -l team -d 'Specify the team to populate users from. The first part of the team name will be used as the organisation'
 __fish_brew_complete_arg 'contributions' -l to -d 'Date (ISO 8601 format) to stop searching contributions'
-__fish_brew_complete_arg 'contributions' -l user -d 'Specify a comma-separated list of GitHub usernames or email addresses to find contributions from. Omitting this flag searches Homebrew maintainers. With `--maintainer-report-csv`, only matching quarter-end Maintainers are included'
+__fish_brew_complete_arg 'contributions' -l user -d 'Specify a comma-separated list of GitHub usernames or email addresses to find contributions from. Omitting this flag searches Homebrew maintainers and requires access to the `Homebrew/maintainers` team. With `--maintainer-report-csv`, only matching quarter-end Maintainers are included'
 __fish_brew_complete_arg 'contributions' -l verbose -d 'Make some output more verbose'
 
 

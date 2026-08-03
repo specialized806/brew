@@ -3150,7 +3150,8 @@ Summarise contributions to Homebrew repositories.
 `--user`
 
 : Specify a comma-separated list of GitHub usernames or email addresses to find
-  contributions from. Omitting this flag searches Homebrew maintainers. With
+  contributions from. Omitting this flag searches Homebrew maintainers and
+  requires access to the `Homebrew/maintainers` team. With
   `--maintainer-report-csv`, only matching quarter-end Maintainers are included.
 
 `--repositories`
