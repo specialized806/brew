@@ -120,10 +120,14 @@ module Homebrew
       return if fetchable_downloads.empty?
 
       if heading
-        oh1 heading, truncate: false
-        # Reach the pipe before any unbuffered stderr report lines when
-        # stdout is block-buffered.
-        $stdout.flush
+        if tty
+          oh1 heading, truncate: false
+          $stdout.flush
+        else
+          # Keep the heading off parsed stdout (e.g. `brew info --json | jq`)
+          # and on the same stream as the non-TTY report lines below.
+          $stderr.puts oh1_title(heading, truncate: false)
+        end
       end
 
       if concurrency == 1

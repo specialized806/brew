@@ -161,6 +161,36 @@ RSpec.describe Homebrew::DownloadQueue do
     expect { download_queue.fetch }.not_to output(/\e\[\?2026/).to_stdout
   end
 
+  it "prints the heading to stderr when stdout is not a TTY" do
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(heading: "Downloading Homebrew API data") }
+      .to output(/^==> Downloading Homebrew API data$/).to_stderr
+  end
+
+  it "keeps the heading off stdout when stdout is not a TTY" do
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(heading: "Downloading Homebrew API data") }
+      .not_to output(/Downloading Homebrew API data/).to_stdout
+  end
+
+  it "prints the heading to stdout on a TTY" do
+    allow($stdout).to receive(:tty?).and_return(true)
+    ENV["TERM"] = "xterm-256color"
+    allow(downloadable).to receive(:fetched_size).and_return(nil)
+    allow(retryable_download).to receive(:fetch).and_return(cached_download)
+
+    # Build the queue while stdout is a TTY so it captures the TTY render path,
+    # before the output matcher swaps $stdout to capture the heading.
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(heading: "Downloading Homebrew API data") }
+      .to output(/==>.*Downloading Homebrew API data/).to_stdout
+  end
+
   it "wakes when downloads complete instead of polling with sleep" do
     allow($stdout).to receive(:tty?).and_return(false)
     allow(retryable_download).to receive(:fetch) do
