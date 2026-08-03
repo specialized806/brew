@@ -55,6 +55,7 @@ class FormulaInstaller
   sig {
     params(
       formula:                    Formula,
+      download_queue:             Homebrew::DownloadQueue,
       link_keg:                   T::Boolean,
       installed_on_request:       T::Boolean,
       show_header:                T::Boolean,
@@ -83,6 +84,7 @@ class FormulaInstaller
   }
   def initialize(
     formula,
+    download_queue: Homebrew.default_download_queue,
     link_keg: false,
     installed_on_request: false,
     show_header: false,
@@ -143,7 +145,7 @@ class FormulaInstaller
     @hold_locks = T.let(false, T::Boolean)
     @show_summary_heading = T.let(false, T::Boolean)
     @etc_var_preinstall = T.let([], T::Array[Pathname])
-    @download_queue = T.let(Homebrew.default_download_queue, Homebrew::DownloadQueue)
+    @download_queue = download_queue
     @api_bottle = T.let(nil, T.nilable(Bottle))
     @api_bottle_loaded = T.let(false, T::Boolean)
     @enqueued_bottle_download = T.let(nil, T.nilable(Downloadable))
