@@ -102,6 +102,53 @@ RSpec.describe Homebrew::DownloadQueue do
     expect(download_queue.downloads).to be_empty
   end
 
+  it "reports but tolerates failed downloads when failures are allowed" do
+    allow(retryable_download).to receive(:fetch).and_raise(Resource::BottleManifest::Error.new("manifest missing"))
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(allow_failures: true) }.to output(/✘/).to_stderr
+    expect(download_queue.fetch_failed).to be false
+    expect(Homebrew).not_to have_failed
+  end
+
+  it "tolerates failed downloads in serial mode when failures are allowed" do
+    allow(Homebrew::EnvConfig).to receive(:download_concurrency).and_return(1)
+    allow(retryable_download).to receive(:fetch).and_raise(Resource::BottleManifest::Error.new("manifest missing"))
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(allow_failures: true) }.to output(/✘/).to_stderr
+    expect(Homebrew).not_to have_failed
+  end
+
+  it "removes known-bad cached files for tolerated checksum mismatches" do
+    cached_download.dirname.mkpath
+    cached_download.write("corrupt")
+    allow(retryable_download).to receive(:fetch)
+      .and_raise(ChecksumMismatchError.new(cached_download, Checksum.new("aa" * 32), Checksum.new("bb" * 32)))
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(allow_failures: true) }.to output(/✘/).to_stderr
+    expect(cached_download).not_to exist
+    expect(Homebrew).not_to have_failed
+  end
+
+  it "removes known-bad cached files for tolerated checksum mismatches in serial mode" do
+    allow(Homebrew::EnvConfig).to receive(:download_concurrency).and_return(1)
+    cached_download.dirname.mkpath
+    cached_download.write("corrupt")
+    allow(retryable_download).to receive(:fetch)
+      .and_raise(ChecksumMismatchError.new(cached_download, Checksum.new("aa" * 32), Checksum.new("bb" * 32)))
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch(allow_failures: true) }.to output(/✘/).to_stderr
+    expect(cached_download).not_to exist
+    expect(Homebrew).not_to have_failed
+  end
+
   it "cancels remaining downloads and raises on a bottle manifest failure in serial mode" do
     allow(Homebrew::EnvConfig).to receive(:download_concurrency).and_return(1)
     allow(retryable_download).to receive(:fetch).and_raise(Resource::BottleManifest::Error.new("manifest missing"))
