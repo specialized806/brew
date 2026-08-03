@@ -162,6 +162,7 @@ RSpec.describe Homebrew::DownloadQueue do
   end
 
   it "prints the heading to stderr when stdout is not a TTY" do
+    allow($stdout).to receive(:tty?).and_return(false)
     allow(retryable_download).to receive(:fetch).and_return(cached_download)
     download_queue.enqueue(downloadable)
 
@@ -170,6 +171,7 @@ RSpec.describe Homebrew::DownloadQueue do
   end
 
   it "keeps the heading off stdout when stdout is not a TTY" do
+    allow($stdout).to receive(:tty?).and_return(false)
     allow(retryable_download).to receive(:fetch).and_return(cached_download)
     download_queue.enqueue(downloadable)
 
