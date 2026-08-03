@@ -177,10 +177,25 @@ module UnpackStrategy
       [".dmg"]
     end
 
+    sig { returns(T::Boolean) }
+    def self.diskutil_image? = false
+
     sig { override.params(path: Pathname).returns(T::Boolean) }
     def self.can_extract?(path)
-      stdout, _, status = system_command("hdiutil", args: ["imageinfo", "-format", path], print_stderr: false).to_a
-      (status.success? && !stdout.empty?) || false
+      result = if diskutil_image?
+        system_command("diskutil", args: ["image", "info", "--plist", "--", path], print_stderr: false)
+      else
+        system_command("hdiutil", args: ["imageinfo", "-format", path], print_stderr: false)
+      end
+
+      stdout, _, status = result.to_a
+      return !stdout.empty? if status.success?
+      return false unless diskutil_image?
+      return false if stdout.empty?
+      return false if path.size < 512
+
+      # `diskutil` exits unsuccessfully after printing an SLA. Confirm its UDIF trailer directly.
+      path.binread(4, path.size - 512) == "koly"
     end
 
     sig { params(verbose: T::Boolean, _block: T.proc.params(arg0: T::Array[Mount]).void).void }
@@ -188,12 +203,9 @@ module UnpackStrategy
       Dir.mktmpdir("homebrew-dmg", HOMEBREW_TEMP) do |mount_dir|
         mount_dir = Pathname(mount_dir)
 
-        without_eula = system_command(
-          "hdiutil",
-          args:         [
-            "attach", "-plist", "-nobrowse", "-readonly",
-            "-mountrandom", mount_dir, path
-          ],
+        without_eula = attach_image(
+          path,
+          mount_dir:,
           input:        "qn\n",
           print_stderr: false,
           verbose:,
@@ -205,26 +217,15 @@ module UnpackStrategy
         else
           without_eula.assert_success! if without_eula.stdout.empty?
 
-          cdr_path = mount_dir/path.basename.sub_ext(".cdr")
+          converted_path = convert_image(path, mount_dir:, verbose:)
 
-          quiet_flag = "-quiet" unless verbose
-
-          system_command!(
-            "hdiutil",
-            args:    [
-              "convert", *quiet_flag, "-format", "UDTO", "-o", cdr_path, path
-            ],
+          with_eula = attach_image(
+            converted_path,
+            mount_dir:,
+            print_stderr: true,
             verbose:,
           )
-
-          with_eula = system_command!(
-            "hdiutil",
-            args:    [
-              "attach", "-plist", "-nobrowse", "-readonly",
-              "-mountrandom", mount_dir, cdr_path
-            ],
-            verbose:,
-          )
+          with_eula.assert_success!
 
           if verbose && !(eula_text = without_eula.stdout).empty?
             ohai "Software License Agreement for '#{path}':", eula_text
@@ -253,6 +254,75 @@ module UnpackStrategy
 
     private
 
+    sig {
+      params(
+        image_path:   Pathname,
+        mount_dir:    Pathname,
+        input:        T.any(String, T::Array[String]),
+        print_stderr: T::Boolean,
+        verbose:      T::Boolean,
+      ).returns(SystemCommand::Result)
+    }
+    def attach_image(image_path, mount_dir:, input: [], print_stderr: true, verbose: false)
+      unless self.class.diskutil_image?
+        return system_command(
+          "hdiutil",
+          args:         [
+            "attach", "-plist", "-nobrowse", "-readonly",
+            "-mountrandom", mount_dir, image_path
+          ],
+          input:,
+          print_stderr:,
+          verbose:,
+        )
+      end
+
+      args = ["image", "attach", "--plist", "--readOnly", "--mountOptions", "nobrowse"]
+      mount_point = mount_dir/"mount"
+      mount_point.mkpath
+
+      result = system_command(
+        "diskutil",
+        args:         [*args, "--mountPoint", mount_point, image_path],
+        input:,
+        print_stderr: false,
+        verbose:,
+      )
+      return result if result.success?
+      return result unless result.stdout.empty?
+
+      system_command(
+        "diskutil",
+        args:         [*args, image_path],
+        input:,
+        print_stderr:,
+        verbose:,
+      )
+    end
+
+    sig { params(image_path: Pathname, mount_dir: Pathname, verbose: T::Boolean).returns(Pathname) }
+    def convert_image(image_path, mount_dir:, verbose:)
+      if self.class.diskutil_image?
+        converted_path = mount_dir/image_path.basename.sub_ext(".dmg")
+        system_command!(
+          "diskutil",
+          args:         ["image", "create", "from", "--format", "RAW", image_path, converted_path],
+          print_stderr: verbose,
+          verbose:,
+        )
+      else
+        converted_path = mount_dir/image_path.basename.sub_ext(".cdr")
+        quiet_flag = "-quiet" unless verbose
+        system_command!(
+          "hdiutil",
+          args:    ["convert", *quiet_flag, "-format", "UDTO", "-o", converted_path, image_path],
+          verbose:,
+        )
+      end
+
+      converted_path
+    end
+
     sig { override.params(unpack_dir: Pathname, basename: Pathname, verbose: T::Boolean).void }
     def extract_to_dir(unpack_dir, basename:, verbose:)
       mount(verbose:) do |mounts|
@@ -265,3 +335,5 @@ module UnpackStrategy
     end
   end
 end
+
+require "extend/os/unpack_strategy/dmg"
