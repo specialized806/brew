@@ -380,6 +380,17 @@ RSpec.describe FormulaInstaller do
 
       installer.enqueue_fetch
     end
+
+    it "does not requeue a bottle already enqueued by the prelude fetch" do
+      allow(installer).to receive(:pour_bottle?).and_return(true)
+      expect(download_queue).to receive(:enqueue)
+        .with(bottle, check_attestation: false, stage: true).once
+      installer.prelude_fetch
+
+      expect(installer).to receive(:fetch_dependencies)
+
+      installer.enqueue_fetch
+    end
   end
 
   describe "linking defaults" do
@@ -1254,41 +1265,72 @@ RSpec.describe FormulaInstaller do
   end
 
   describe "#prelude_fetch" do
-    it "uses API bottle metadata for API-loaded formula manifests" do
-      formula = formula("deno") do
-        T.bind(self, T.class_of(Formula))
-        url "https://brew.sh/deno-2.7.11.tar.gz"
+    context "with an API-loaded bottled formula" do
+      let(:deno_formula) do
+        formula("deno") do
+          T.bind(self, T.class_of(Formula))
+          url "https://brew.sh/deno-2.7.11.tar.gz"
+        end
       end
-      formula_struct = Homebrew::API::FormulaStruct.new(
-        bottle_checksums:     [
-          {
-            cellar:                  :any_skip_relocation,
-            Utils::Bottles.tag.to_sym => "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97",
-          },
-        ],
-        bottle_present:       true,
-        desc:                 "deno",
-        homepage:             "https://brew.sh",
-        license:              "MIT",
-        ruby_source_checksum: "abc123",
-        stable_present:       true,
-        stable_version:       "2.7.11",
-      )
-      installer = described_class.new(formula, ignore_deps: true)
-      installer.download_queue = instance_double(Homebrew::DownloadQueue)
+      let(:formula_struct) do
+        Homebrew::API::FormulaStruct.new(
+          bottle_checksums:     [
+            {
+              cellar:                  :any_skip_relocation,
+              Utils::Bottles.tag.to_sym => "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97",
+            },
+          ],
+          bottle_present:       true,
+          desc:                 "deno",
+          homepage:             "https://brew.sh",
+          license:              "MIT",
+          ruby_source_checksum: "abc123",
+          stable_present:       true,
+          stable_version:       "2.7.11",
+        )
+      end
+      let(:installer) do
+        installer = described_class.new(deno_formula, ignore_deps: true)
+        installer.download_queue = instance_double(Homebrew::DownloadQueue)
+        installer
+      end
 
-      allow(formula).to receive_messages(
-        bottle_tag?:               true,
-        core_formula?:             true,
-        loaded_from_internal_api?: true,
-        pour_bottle?:              true,
-      )
-      allow(Homebrew::API::Internal).to receive(:formula_struct).with("deno").and_return(formula_struct)
-      expect(formula).not_to receive(:bottle_for_tag)
-      expect(formula).not_to receive(:bottle)
-      expect(installer.download_queue).to receive(:enqueue).with(an_instance_of(Resource::BottleManifest))
+      before do
+        allow(deno_formula).to receive_messages(
+          bottle_tag?:               true,
+          core_formula?:             true,
+          loaded_from_internal_api?: true,
+          pour_bottle?:              true,
+        )
+        allow(Homebrew::API::Internal).to receive(:formula_struct).with("deno").and_return(formula_struct)
+      end
 
-      installer.prelude_fetch
+      it "uses API bottle metadata to enqueue the manifest and bottle" do
+        expect(deno_formula).not_to receive(:bottle_for_tag)
+        expect(deno_formula).not_to receive(:bottle)
+        expect(installer.download_queue).to receive(:enqueue).with(an_instance_of(Resource::BottleManifest))
+        expect(installer.download_queue).to receive(:enqueue)
+          .with(an_instance_of(Bottle), check_attestation: false, stage: true)
+
+        installer.prelude_fetch
+      end
+
+      it "enqueues only the bottle manifest when fetching metadata" do
+        expect(installer.download_queue).to receive(:enqueue).with(an_instance_of(Resource::BottleManifest))
+
+        installer.prelude_fetch(metadata_only: true)
+      end
+
+      it "enqueues the bottle without repeating metadata work after a metadata-only run" do
+        expect(installer.download_queue).to receive(:enqueue).with(an_instance_of(Resource::BottleManifest)).once
+
+        installer.prelude_fetch(metadata_only: true)
+
+        expect(installer.download_queue).to receive(:enqueue)
+          .with(an_instance_of(Bottle), check_attestation: false, stage: true)
+
+        installer.prelude_fetch
+      end
     end
 
     it "does not repeat source download prelude work" do

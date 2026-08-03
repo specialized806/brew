@@ -71,6 +71,28 @@ RSpec.describe Homebrew::DownloadQueue do
     expect(failure_index).to be > show_cursor_index
   end
 
+  it "fetches only downloads of the given class and keeps others queued unreported" do
+    manifest = instance_double(
+      Resource::BottleManifest,
+      cached_download:        HOMEBREW_CACHE/"downloads/testball_manifest.json",
+      checksum:               nil,
+      downloaded_and_valid?:  true,
+      downloader:             nil,
+      download_queue_message: "Bottle Manifest testball",
+      download_queue_name:    "testball",
+      download_queue_type:    "Bottle Manifest",
+    )
+    allow(manifest).to receive(:is_a?) { |klass| klass == Resource::BottleManifest }
+
+    download_queue.enqueue(manifest)
+    download_queue.enqueue(downloadable)
+
+    expect do
+      download_queue.fetch(only: Resource::BottleManifest)
+    end.to output(/Bottle Manifest testball/).to_stderr
+    expect(download_queue.downloads.keys).to eq [downloadable]
+  end
+
   it "raises and clears queue state on a bottle manifest failure in parallel mode" do
     allow(retryable_download).to receive(:fetch).and_raise(Resource::BottleManifest::Error.new("manifest missing"))
 
