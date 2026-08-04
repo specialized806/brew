@@ -395,13 +395,15 @@ Uninstall all dependencies not present in the \fBBrewfile\fP\&\.
 .P
 This workflow is useful for maintainers or testers who regularly install lots of formulae\.
 .P
+When cleanup is performed, Homebrew\[u2019]s global trust store is reset to the trust values declared by the \fBBrewfile\fP, removing trust entries not declared there\.
+.P
 Unless \fB\-\-force\fP is passed, this prompts before removing anything and returns a 1 exit code if the prompt is declined or cannot be shown\.
 .TP
 \fB\-\-install\fP
 Run \fBinstall\fP before cleaning up dependencies\.
 .TP
 \fB\-f\fP, \fB\-\-force\fP
-Actually perform cleanup operations\.
+Actually perform cleanup operations and reset Homebrew\[u2019]s global trust store to the \fBBrewfile\fP values\.
 .TP
 \fB\-\-all\fP
 Clean up all supported dependencies\.

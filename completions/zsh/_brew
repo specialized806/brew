@@ -926,7 +926,7 @@ cleanup)
           '--debug[Display any debugging information]' \
           '(--global)--file[Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout]' \
           '(--no-flatpak --no-cleanup-flatpak --no-dump-flatpak)--flatpak[Clean up Flatpak packages. Note: Linux only]' \
-          '--force[Actually perform cleanup operations]' \
+          '--force[Actually perform cleanup operations and reset Homebrew'\''s global trust store to the `Brewfile` values]' \
           '(--no-formula --no-formulae --no-brews --no-cleanup-brew --no-dump-brew)--formula[Clean up Homebrew formula dependencies]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
           '(--no-go --no-cleanup-go --no-dump-go)--go[Clean up Go packages]' \

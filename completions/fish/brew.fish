@@ -713,7 +713,7 @@ __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l cask -d 'Clean up Homebrew ca
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l debug -d 'Display any debugging information'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l file -d 'Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l flatpak -d 'Clean up Flatpak packages. Note: Linux only'
-__fish_brew_complete_sub_arg 'bundle' 'cleanup' -l force -d 'Actually perform cleanup operations'
+__fish_brew_complete_sub_arg 'bundle' 'cleanup' -l force -d 'Actually perform cleanup operations and reset Homebrew\'s global trust store to the `Brewfile` values'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l formula -d 'Clean up Homebrew formula dependencies'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l global -d 'Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l go -d 'Clean up Go packages'
