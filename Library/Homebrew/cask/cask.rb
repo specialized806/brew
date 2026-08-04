@@ -121,11 +121,14 @@ module Cask
 
       @default_config = T.let(config || Config.new, Config)
 
-      @config = T.let(if config_path.exist?
-                        Config.from_json(File.read(config_path), ignore_invalid_keys: true)
-                      else
-                        @default_config
-      end, Config)
+      @config = T.let(
+        if config_path.exist?
+          Config.from_json(File.read(config_path), ignore_invalid_keys: true)
+        else
+          @default_config
+        end,
+        Config,
+      )
       refresh
     end
 

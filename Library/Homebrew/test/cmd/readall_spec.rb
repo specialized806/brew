@@ -65,6 +65,83 @@ RSpec.describe Homebrew::Cmd::ReadallCmd do
     expect(success).to be false
   end
 
+  describe "Readall.valid_ruby_syntax?" do
+    it "returns true for valid Ruby files" do
+      file = mktmpdir/"valid.rb"
+      file.write "puts 1\n"
+
+      success = T.let(false, T::Boolean)
+      expect { success = Readall.valid_ruby_syntax?([file]) }.not_to output.to_stderr
+      expect(success).to be true
+    end
+
+    it "prints errors for files with invalid syntax" do
+      file = mktmpdir/"invalid.rb"
+      file.write "def foo(\n"
+
+      success = T.let(true, T::Boolean)
+      expect { success = Readall.valid_ruby_syntax?([file]) }.to output(/syntax error/).to_stderr
+      expect(success).to be false
+    end
+
+    it "prints warnings for files with questionable syntax" do
+      file = mktmpdir/"warning.rb"
+      file.write "def foo\n  bar = 1\n  nil\nend\n"
+
+      success = T.let(true, T::Boolean)
+      expect { success = Readall.valid_ruby_syntax?([file]) }.to output(/unused variable/).to_stderr
+      expect(success).to be false
+    end
+
+    it "aggregates failures across parallel worker processes" do
+      dir = mktmpdir
+      files = (1..9).map do |i|
+        file = dir/"valid#{i}.rb"
+        file.write "puts #{i}\n"
+        file
+      end
+      bad_file = dir/"invalid.rb"
+      bad_file.write "def foo(\n"
+      files << bad_file
+
+      success = T.let(true, T::Boolean)
+      expect { success = Readall.valid_ruby_syntax?(files) }.to output(/syntax error/).to_stderr
+      expect(success).to be false
+    end
+  end
+
+  it "validates tap files in parallel worker processes" do
+    tap_path = mktmpdir
+    cask_files = (1..8).map do |i|
+      file = tap_path/"Casks/linux-example#{i}.rb"
+      file.dirname.mkpath
+      file.write <<~RUBY
+        cask "linux-example#{i}" do
+          version "1.0"
+          sha256 arm: "0000000000000000000000000000000000000000000000000000000000000000"
+          url "https://example.invalid/x.tar.gz"
+          name "Example"
+          desc "Cask missing Linux stanzas"
+          homepage "https://example.invalid/"
+          binary "x"
+        end
+      RUBY
+      file
+    end
+
+    success = T.let(true, T::Boolean)
+    expect do
+      success = Homebrew::SimulateSystem.with(os: :linux) do
+        Readall.valid_tap?(
+          instance_double(Tap, formula_files: [], cask_files:),
+          os_arch_combinations: [[:linux, :arm]],
+        )
+      end
+    end.to output(a_string_matching(/(?=.*linux-example1\.rb)(?=.*linux-example8\.rb)/m)).to_stderr
+
+    expect(success).to be false
+  end
+
   it "explains nil sha256 values when loading tap casks on Linux" do
     tap_path = mktmpdir
     linux_cask_file = tap_path/"Casks/linux-example.rb"
