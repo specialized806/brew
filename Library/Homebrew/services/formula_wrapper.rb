@@ -263,13 +263,17 @@ module Homebrew
       end
 
       # Generate the service file content (plist or systemd unit),
-      # including any per-service user environment variable overrides.
+      # including any per-service user environment variable overrides,
+      # or read the package-provided service file if the formula's
+      # service block does not define a command.
       sig { returns(String) }
       def service_contents
-        if System.launchctl?
-          formula.service.to_plist
+        if !service? || !load_service.command?
+          service_file.read
+        elsif System.launchctl?
+          load_service.to_plist
         else
-          formula.service.to_systemd_unit
+          load_service.to_systemd_unit
         end
       end
 
