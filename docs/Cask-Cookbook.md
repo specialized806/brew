@@ -49,7 +49,7 @@ Having a common order for stanzas makes casks easier to update and parse. Below 
     version
     sha256
 
-    on_<system> # <system> blocks may be any supported macOS release (descending from oldest), `macos`, or `linux`
+    on_<system> # arm, intel, supported macOS releases (oldest first), macos, then linux
 
     language
 

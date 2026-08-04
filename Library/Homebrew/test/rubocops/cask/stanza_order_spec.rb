@@ -11,6 +11,43 @@ RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
     ])
   end
 
+  it "registers every new top-level cask DSL" do
+    expect(RuboCop::Cask::Constants::STANZA_ORDER).to include(
+      :on_macos,
+      :on_linux,
+      :on_system_conditional,
+      :appimage,
+      :generated_script,
+      :command_wrapper,
+      :generate_completions_from_executable,
+      :preflight_steps,
+      :postflight_steps,
+      :uninstall_preflight_steps,
+      :uninstall_postflight_steps,
+    )
+  end
+
+  it "orders system conditionals before version and URL stanzas" do
+    expect_offense <<~CASK
+      cask 'foo' do
+        version :latest
+        ^^^^^^^^^^^^^^^ `version` stanza out of order
+        url 'https://foo.brew.sh/foo.zip'
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `url` stanza out of order
+        artifact = on_system_conditional macos: 'foo.dmg', linux: 'foo.AppImage'
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `on_system_conditional` stanza out of order
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask 'foo' do
+        artifact = on_system_conditional macos: 'foo.dmg', linux: 'foo.AppImage'
+        version :latest
+        url 'https://foo.brew.sh/foo.zip'
+      end
+    CASK
+  end
+
   it "accepts a sole stanza" do
     expect_no_offenses <<~CASK
       cask 'foo' do
