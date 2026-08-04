@@ -128,6 +128,7 @@ module Cask
       :no_autobump_message,
       :on_system_blocks_exist?,
       :on_os_blocks_exist?,
+      :on_linux_blocks_exist?,
       :on_system_block_min_os,
       :depends_on_set_in_block?,
       *ORDINARY_ARTIFACT_CLASSES.map(&:dsl_key),
@@ -197,6 +198,7 @@ module Cask
       @auto_updates_set_in_block = T.let(false, T::Boolean)
       @autobump = T.let(true, T::Boolean)
       @called_in_on_system_block = T.let(false, T::Boolean)
+      @called_in_on_os_block = T.let(false, T::Boolean)
       @cask = cask
       @caveats = T.let(DSL::Caveats.new(cask), DSL::Caveats)
       @conflicts_with = T.let(nil, T.nilable(DSL::ConflictsWith))
@@ -231,6 +233,7 @@ module Cask
       @no_autobump_message = T.let(nil, T.nilable(T.any(String, Symbol)))
       @on_system_blocks_exist = T.let(false, T::Boolean)
       @on_os_blocks_exist = T.let(false, T::Boolean)
+      @on_linux_blocks_exist = T.let(false, T::Boolean)
       @on_system_block_min_os = T.let(nil, T.nilable(MacOSVersion))
       @os = T.let(nil, T.nilable(String))
       @os_set_in_block = T.let(false, T::Boolean)
@@ -263,6 +266,9 @@ module Cask
 
     sig { returns(T::Boolean) }
     def on_os_blocks_exist? = @on_os_blocks_exist
+
+    sig { returns(T::Boolean) }
+    def on_linux_blocks_exist? = @on_linux_blocks_exist
 
     sig { returns(T::Boolean) }
     def sha256_set_for_linux? = @sha256_set_for_linux
@@ -570,13 +576,16 @@ module Cask
           # running OS, matching `sha256` inside an `on_macos`/`on_linux` block;
           # `depends_on` governs whether the cask is usable there. A checksum
           # declared for the running OS but missing the running architecture
-          # still raises.
+          # still raises on the real system but is nil under simulation so
+          # API variations can be generated for the missing architecture.
           running_os_checksums = if OnSystem.os_condition_met?(:linux)
             [x86_64_linux, arm64_linux]
           else
             [arm, x86_64]
           end
-          raise CaskInvalidError.new(cask, "invalid 'sha256' value: nil") if running_os_checksums.any?(&:present?)
+          if running_os_checksums.any?(&:present?) && !Homebrew::SimulateSystem.simulating?
+            raise CaskInvalidError.new(cask, "invalid 'sha256' value: nil")
+          end
 
           nil
         else
@@ -653,7 +662,10 @@ module Cask
       return @depends_on if kwargs.empty?
 
       begin
-        @depends_on.load(kwargs, set_in_block: @called_in_on_system_block)
+        # Only OS blocks scope a dependency to one OS: `on_arm`/`on_intel`
+        # blocks are evaluated on every OS, so a macOS dependency inside one
+        # applies everywhere and marks the cask macOS-only.
+        @depends_on.load(kwargs, set_in_block: @called_in_on_system_block, os_scoped: @called_in_on_os_block)
       rescue RuntimeError => e
         raise CaskInvalidError.new(cask, e)
       end
