@@ -858,6 +858,7 @@ module Cask
       [klass.dsl_key, klass.uninstall_dsl_key].each do |dsl_key|
         define_method(dsl_key) do |&block|
           T.bind(self, DSL)
+          # odeprecated "`#{dsl_key}`", "`#{dsl_key}_steps`"
           artifacts.add(klass.new(cask, dsl_key => block))
         end
       end
