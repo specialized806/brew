@@ -163,8 +163,8 @@ module Homebrew
           YAML
         end
         # Pick a random 5 minute block in which to execute the autobump action to avoid peak GitHub loads
-        hour = Random.rand(23)
-        minute = Random.rand(11) * 5
+        hour = Random.rand(24)
+        minute = Random.rand(12) * 5
         workflow.gsub!("this will be changed later and randomised by brew tap-new") do
           "Every day at #{hour}:#{minute} UTC"
         end
