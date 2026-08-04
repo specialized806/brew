@@ -1,7 +1,14 @@
+# brew tap-new uses this file to generate a PR test workflow for the new tap
 name: tap-new tests template
 
 on:
   workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash -xeuo pipefail {0}
 
 jobs:
   test-bot:
