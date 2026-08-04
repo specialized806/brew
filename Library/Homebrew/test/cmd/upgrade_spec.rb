@@ -1017,6 +1017,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     allow(formula).to receive(:latest_formula).and_return(formula)
     allow(Migrator).to receive(:migrate_if_needed)
     allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    expect(Homebrew).not_to receive(:default_download_queue)
     expect(download_queue).to receive(:fetch)
       .with(only: Resource::BottleManifest, heading: "Downloading bottle manifests", allow_failures: true)
 
