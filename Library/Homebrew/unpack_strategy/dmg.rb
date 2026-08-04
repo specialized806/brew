@@ -172,6 +172,10 @@ module UnpackStrategy
     end
     private_constant :Mount
 
+    # UDIF disk images store the "koly" signature at the start of a 512-byte trailer.
+    UDIF_TRAILER_SIZE = 512
+    private_constant :UDIF_TRAILER_SIZE
+
     sig { override.returns(T::Array[String]) }
     def self.extensions
       [".dmg"]
@@ -182,20 +186,32 @@ module UnpackStrategy
 
     sig { override.params(path: Pathname).returns(T::Boolean) }
     def self.can_extract?(path)
-      result = if diskutil_image?
-        system_command("diskutil", args: ["image", "info", "--plist", "--", path], print_stderr: false)
+      if diskutil_image?
+        can_extract_with_diskutil?(path)
       else
-        system_command("hdiutil", args: ["imageinfo", "-format", path], print_stderr: false)
+        can_extract_with_hdiutil?(path)
       end
+    end
+
+    sig { params(path: Pathname).returns(T::Boolean) }
+    private_class_method def self.can_extract_with_diskutil?(path)
+      result = system_command("diskutil", args: ["image", "info", "--plist", "--", path], print_stderr: false)
 
       stdout, _, status = result.to_a
       return !stdout.empty? if status.success?
-      return false unless diskutil_image?
       return false if stdout.empty?
-      return false if path.size < 512
+      return false if path.size < UDIF_TRAILER_SIZE
 
-      # `diskutil` exits unsuccessfully after printing an SLA. Confirm its UDIF trailer directly.
-      path.binread(4, path.size - 512) == "koly"
+      # `diskutil` exits unsuccessfully after printing an SLA. Confirm the image directly.
+      path.binread(4, path.size - UDIF_TRAILER_SIZE) == "koly"
+    end
+
+    sig { params(path: Pathname).returns(T::Boolean) }
+    private_class_method def self.can_extract_with_hdiutil?(path)
+      stdout, _, status = system_command(
+        "hdiutil", args: ["imageinfo", "-format", path], print_stderr: false
+      ).to_a
+      (status.success? && !stdout.empty?) || false
     end
 
     sig { params(verbose: T::Boolean, _block: T.proc.params(arg0: T::Array[Mount]).void).void }
@@ -264,19 +280,35 @@ module UnpackStrategy
       ).returns(SystemCommand::Result)
     }
     def attach_image(image_path, mount_dir:, input: [], print_stderr: true, verbose: false)
-      unless self.class.diskutil_image?
-        return system_command(
-          "hdiutil",
-          args:         [
-            "attach", "-plist", "-nobrowse", "-readonly",
-            "-mountrandom", mount_dir, image_path
-          ],
+      if self.class.diskutil_image?
+        attach_image_with_diskutil(
+          image_path,
+          mount_dir:,
+          input:,
+          print_stderr:,
+          verbose:,
+        )
+      else
+        attach_image_with_hdiutil(
+          image_path,
+          mount_dir:,
           input:,
           print_stderr:,
           verbose:,
         )
       end
+    end
 
+    sig {
+      params(
+        image_path:   Pathname,
+        mount_dir:    Pathname,
+        input:        T.any(String, T::Array[String]),
+        print_stderr: T::Boolean,
+        verbose:      T::Boolean,
+      ).returns(SystemCommand::Result)
+    }
+    def attach_image_with_diskutil(image_path, mount_dir:, input:, print_stderr:, verbose:)
       args = ["image", "attach", "--plist", "--readOnly", "--mountOptions", "nobrowse"]
       mount_point = mount_dir/"mount"
       mount_point.mkpath
@@ -300,26 +332,58 @@ module UnpackStrategy
       )
     end
 
+    sig {
+      params(
+        image_path:   Pathname,
+        mount_dir:    Pathname,
+        input:        T.any(String, T::Array[String]),
+        print_stderr: T::Boolean,
+        verbose:      T::Boolean,
+      ).returns(SystemCommand::Result)
+    }
+    def attach_image_with_hdiutil(image_path, mount_dir:, input:, print_stderr:, verbose:)
+      system_command(
+        "hdiutil",
+        args:         [
+          "attach", "-plist", "-nobrowse", "-readonly",
+          "-mountrandom", mount_dir, image_path
+        ],
+        input:,
+        print_stderr:,
+        verbose:,
+      )
+    end
+
     sig { params(image_path: Pathname, mount_dir: Pathname, verbose: T::Boolean).returns(Pathname) }
     def convert_image(image_path, mount_dir:, verbose:)
       if self.class.diskutil_image?
-        converted_path = mount_dir/image_path.basename.sub_ext(".dmg")
-        system_command!(
-          "diskutil",
-          args:         ["image", "create", "from", "--format", "RAW", image_path, converted_path],
-          print_stderr: verbose,
-          verbose:,
-        )
+        convert_image_with_diskutil(image_path, mount_dir:, verbose:)
       else
-        converted_path = mount_dir/image_path.basename.sub_ext(".cdr")
-        quiet_flag = "-quiet" unless verbose
-        system_command!(
-          "hdiutil",
-          args:    ["convert", *quiet_flag, "-format", "UDTO", "-o", converted_path, image_path],
-          verbose:,
-        )
+        convert_image_with_hdiutil(image_path, mount_dir:, verbose:)
       end
+    end
 
+    sig { params(image_path: Pathname, mount_dir: Pathname, verbose: T::Boolean).returns(Pathname) }
+    def convert_image_with_diskutil(image_path, mount_dir:, verbose:)
+      converted_path = mount_dir/image_path.basename.sub_ext(".dmg")
+      system_command!(
+        "diskutil",
+        args:         ["image", "create", "from", "--format", "RAW", image_path, converted_path],
+        print_stderr: verbose,
+        verbose:,
+      )
+      converted_path
+    end
+
+    sig { params(image_path: Pathname, mount_dir: Pathname, verbose: T::Boolean).returns(Pathname) }
+    def convert_image_with_hdiutil(image_path, mount_dir:, verbose:)
+      converted_path = mount_dir/image_path.basename.sub_ext(".cdr")
+      quiet_flag = "-quiet" unless verbose
+      system_command!(
+        "hdiutil",
+        args:    ["convert", *quiet_flag, "-format", "UDTO", "-o", converted_path, image_path],
+        verbose:,
+      )
       converted_path
     end
 
