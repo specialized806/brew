@@ -470,7 +470,7 @@ is stripped during metadata serialisation.
 - [x] PR 4.1, formula install-step sandboxing.
   Commit: `Sandbox formula install steps`.
   Scope: run structured formula steps inside the existing post-install child
-  process so macOS Seatbelt and Linux Bubblewrap apply the same filesystem and
+  process so macOS Seatbelt and Linux Landlock apply the same filesystem and
   network policy as legacy `post_install` hooks. This must land before any tap
   migrations use filesystem-mutating steps.
 - PR 5, default config and template writes (historical split workflow).

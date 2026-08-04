@@ -448,20 +448,7 @@ class FormulaInstaller
     if Homebrew::EnvConfig.developer?
       # `recursive_dependencies` trims cyclic dependencies, so we do one level and take the recursive deps of that.
       # Mapping direct dependencies to deeper dependencies in a hash is also useful for the cyclic output below.
-      recursive_dep_map = formula.deps.to_h do |dep|
-        # We cheat a bit with bubblewrap. We eagerly add it to build dependencies on tier-one systems.
-        # But this cyclic dependency check is (intentionally) overly strict and forbids cyclic build dependencies,
-        # to help prevent cases that would break, for example, mass bottling.
-        recursive_deps = if dep.name == "bubblewrap" && dep.implicit?
-          []
-        else
-          dep.to_formula.recursive_dependencies do |_dependent, recursive_dep|
-            Dependable::PRUNE if recursive_dep.name == "bubblewrap" && recursive_dep.implicit?
-          end
-        end
-
-        [dep, recursive_deps]
-      end
+      recursive_dep_map = formula.deps.to_h { |dep| [dep, dep.to_formula.recursive_dependencies] }
 
       cyclic_dependencies = []
       recursive_dep_map.each do |dep, recursive_deps|
@@ -1065,8 +1052,6 @@ on_request: installed_on_request?, options:)
 
     # let's reset Utils::Git.available? if we just installed git
     Utils::Git.clear_available_cache if formula.name == "git"
-
-    Sandbox.reset_state! if formula.name == "bubblewrap"
 
     # use installed ca-certificates when it's needed and available
     if formula.name == "ca-certificates" &&

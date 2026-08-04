@@ -2116,11 +2116,6 @@ line; lines starting with `#` are comments. Changes take effect on the next
 Installs and configures Homebrew's Ruby. If `command` is passed, it will only
 run Bundler if necessary for that command.
 
-### `setup-sandbox`
-
-Run any necessary commands to setup the Homebrew sandbox. Must be run with
-`sudo`. Currently a no-op on non-Linux.
-
 ### `shellenv` \[*`shell`* ...\]
 
 Valid shells: bash\|csh\|fish\|pwsh\|sh\|tcsh\|zsh

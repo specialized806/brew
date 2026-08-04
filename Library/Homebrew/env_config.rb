@@ -658,7 +658,7 @@ module Homebrew
         default:     true,
       },
       HOMEBREW_SANDBOX_LINUX:                    {
-        description: "The `bwrap`(1) sandbox is the default for formula installation and testing " \
+        description: "The Landlock sandbox is the default for formula installation and testing " \
                      "on Linux unless `$HOMEBREW_NO_SANDBOX_LINUX` is set.",
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_SANDBOX_LINUX,
