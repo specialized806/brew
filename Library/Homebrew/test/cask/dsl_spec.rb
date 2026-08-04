@@ -185,17 +185,19 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         end
       end
 
-      it "raises when the running-architecture macOS checksum is missing" do
+      it "has no checksum when simulating an architecture whose checksum is missing" do
         Homebrew::SimulateSystem.with(os: :macos, arch: :intel) do
-          expect do
-            Cask::Cask.new("checksum-cask") do
-              sha256 arm: "imasha2arm", arm64_linux: "imasha2armlinux"
-            end
-          end.to raise_error(Cask::CaskInvalidError, /invalid 'sha256' value/)
+          cask = Cask::Cask.new("checksum-cask") do
+            sha256 arm: "imasha2arm", arm64_linux: "imasha2armlinux"
+          end
+
+          expect(cask.sha256).to be_nil
         end
       end
 
-      it "raises when the running-architecture Linux checksum is missing" do
+      it "raises on the real system when the running-architecture checksum is missing" do
+        allow(Homebrew::SimulateSystem).to receive(:simulating?).and_return(false)
+
         Homebrew::SimulateSystem.with(os: :linux, arch: :intel) do
           expect do
             Cask::Cask.new("checksum-cask") do
@@ -576,6 +578,23 @@ RSpec.describe Cask::DSL, :cask, :no_api do
           end
 
           expect(cask.depends_on.macos).to eq(MacOSRequirement.new([:ventura], comparator: ">="))
+          expect(cask.depends_on.requires_macos?).to be true
+        end
+      end
+    end
+
+    context "when only an arch block declares the macOS version" do
+      it "requires macOS because arch blocks are evaluated on every OS" do
+        Homebrew::SimulateSystem.with(os: :linux, arch: :arm) do
+          cask = Cask::Cask.new("with-arch-scoped-macos-version") do
+            on_arm do
+              depends_on macos: :ventura
+            end
+            on_intel do
+              depends_on macos: :monterey
+            end
+          end
+
           expect(cask.depends_on.requires_macos?).to be true
         end
       end

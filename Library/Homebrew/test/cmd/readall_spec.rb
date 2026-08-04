@@ -35,7 +35,7 @@ RSpec.describe Homebrew::Cmd::ReadallCmd do
         name "Example"
         desc "macOS-only cask"
         homepage "https://example.invalid/"
-        depends_on macos: ">= :ventura"
+        depends_on macos: :ventura
         binary "x"
       end
     RUBY
@@ -169,5 +169,77 @@ RSpec.describe Homebrew::Cmd::ReadallCmd do
     end.to output(/Missing Linux stanzas.*`depends_on :macos`/m).to_stderr
 
     expect(success).to be false
+  end
+
+  it "reports Linux architectures missing a checksum despite an `on_macos` macOS dependency" do
+    tap_path = mktmpdir
+    cross_os_cask_file = tap_path/"Casks/cross-os-example.rb"
+    cross_os_cask_file.dirname.mkpath
+    cross_os_cask_file.write <<~RUBY
+      cask "cross-os-example" do
+        version "1.0"
+        sha256 arm:          "0000000000000000000000000000000000000000000000000000000000000000",
+               intel:        "1111111111111111111111111111111111111111111111111111111111111111",
+               x86_64_linux: "2222222222222222222222222222222222222222222222222222222222222222"
+        url "https://example.invalid/x.tar.gz"
+        name "Example"
+        desc "Cross-OS cask"
+        homepage "https://example.invalid/"
+
+        on_macos do
+          depends_on macos: :ventura
+        end
+
+        binary "x"
+      end
+    RUBY
+
+    success = T.let(false, T::Boolean)
+    expect do
+      success = Homebrew::SimulateSystem.with(os: :linux) do
+        Readall.valid_tap?(
+          instance_double(Tap, formula_files: [], cask_files: [cross_os_cask_file]),
+          os_arch_combinations: [[:linux, :arm]],
+        )
+      end
+    end.to output(/Missing Linux stanzas/).to_stderr
+
+    expect(success).to be false
+  end
+
+  it "allows Linux architectures excluded by `depends_on arch:`" do
+    tap_path = mktmpdir
+    linux_intel_cask_file = tap_path/"Casks/linux-intel-example.rb"
+    linux_intel_cask_file.dirname.mkpath
+    linux_intel_cask_file.write <<~RUBY
+      cask "linux-intel-example" do
+        version "1.0"
+        sha256 arm:          "0000000000000000000000000000000000000000000000000000000000000000",
+               intel:        "1111111111111111111111111111111111111111111111111111111111111111",
+               x86_64_linux: "2222222222222222222222222222222222222222222222222222222222222222"
+        url "https://example.invalid/x.tar.gz"
+        name "Example"
+        desc "Intel-only-on-Linux cask"
+        homepage "https://example.invalid/"
+
+        on_linux do
+          depends_on arch: :x86_64
+        end
+
+        binary "x"
+      end
+    RUBY
+
+    success = T.let(false, T::Boolean)
+    expect do
+      success = Homebrew::SimulateSystem.with(os: :linux) do
+        Readall.valid_tap?(
+          instance_double(Tap, formula_files: [], cask_files: [linux_intel_cask_file]),
+          os_arch_combinations: [[:linux, :arm], [:linux, :intel]],
+        )
+      end
+    end.not_to output.to_stderr
+
+    expect(success).to be true
   end
 end
