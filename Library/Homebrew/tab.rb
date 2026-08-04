@@ -71,7 +71,7 @@ class AbstractTab
            source:                   T.nilable(T::Hash[String, T.untyped]),
            built_on:                 T.nilable(T::Hash[String, T.untyped]),
            runtime_dependencies:     RuntimeDependencies,
-           _unknown:                 T.untyped).void
+           _unknown:                 T.anything).void
   }
   def initialize(homebrew_version: nil, tabfile: nil, loaded_from_api: nil, loaded_from_internal_api: nil,
                  installed_on_request: nil, time: nil, arch: nil, source: nil, built_on: nil,
