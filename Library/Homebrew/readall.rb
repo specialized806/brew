@@ -129,8 +129,6 @@ module Readall
 
     success = T.let(true, T::Boolean)
     (files || tap.cask_files).each do |file|
-      next if file.read.match?(/^\s*depends_on(?:\s*\(\s*|\s+)(?::macos\b|macos:)/)
-
       cask = if arch
         Homebrew::SimulateSystem.with(os: :macos, arch:) do
           loaded_cask = Cask::CaskLoader.load(file)
@@ -144,24 +142,28 @@ module Readall
       end
       next unless cask
 
-      linux_sha256 = if arch
-        Homebrew::SimulateSystem.with(os: :linux, arch:) do
-          cask.refresh
-          cask.sha256
-        end
+      check_linux_sha256 = lambda do
+        cask.refresh
+        arch_types = cask.depends_on.arch&.map { |cask_arch| cask_arch[:type] }
+        # `depends_on arch:` excludes this architecture, so no Linux
+        # checksum is expected for it.
+        next true if arch_types&.exclude?(Homebrew::SimulateSystem.current_arch)
+
+        !cask.sha256.nil?
+      end
+      linux_sha256_valid = if arch
+        Homebrew::SimulateSystem.with(os: :linux, arch:, &check_linux_sha256)
       else
-        Homebrew::SimulateSystem.with(os: :linux) do
-          cask.refresh
-          cask.sha256
-        end
+        Homebrew::SimulateSystem.with(os: :linux, &check_linux_sha256)
       end
       # No `sha256` matched Linux, so the cask cannot be downloaded there
       # despite not being marked macOS-only.
-      next unless linux_sha256.nil?
+      next if linux_sha256_valid
 
       onoe "Invalid cask (#{os_and_arch}): #{file}"
       $stderr.puts "Missing Linux stanzas can leave Linux `sha256` as nil. " \
-                   "Add `depends_on :macos` if this cask is macOS-only."
+                   "Add `depends_on :macos` if this cask is macOS-only or " \
+                   "`depends_on arch:` if it does not support this architecture."
       success = false
     rescue Interrupt
       raise

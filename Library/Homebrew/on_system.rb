@@ -90,12 +90,15 @@ module OnSystem
       base.define_method(:"on_#{base_os}") do |&block|
         @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
         @on_os_blocks_exist = T.let(true, T.nilable(TrueClass))
+        @on_linux_blocks_exist = T.let(true, T.nilable(TrueClass)) if base_os == :linux
 
         return unless OnSystem.os_condition_met? OnSystem.condition_from_method_name(T.must(__method__))
 
         @called_in_on_system_block = true
+        @called_in_on_os_block = T.let(true, T.nilable(T::Boolean))
         result = block.call
         @called_in_on_system_block = false
+        @called_in_on_os_block = false
 
         result
       end
@@ -104,6 +107,7 @@ module OnSystem
     base.define_method(:on_system) do |linux, macos:, &block|
       @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
       @on_os_blocks_exist = T.let(true, T.nilable(TrueClass))
+      @on_linux_blocks_exist = T.let(true, T.nilable(TrueClass))
 
       raise ArgumentError, "The first argument to `on_system` must be `:linux`" if linux != :linux
 
@@ -115,8 +119,10 @@ module OnSystem
       return if !OnSystem.os_condition_met?(os_version, or_condition) && !OnSystem.os_condition_met?(:linux)
 
       @called_in_on_system_block = true
+      @called_in_on_os_block = T.let(true, T.nilable(T::Boolean))
       result = block.call
       @called_in_on_system_block = false
+      @called_in_on_os_block = false
 
       result
     end
@@ -151,8 +157,10 @@ module OnSystem
           T.nilable(MacOSVersion),
         )
         @called_in_on_system_block = T.let(true, T.nilable(T::Boolean))
+        @called_in_on_os_block = T.let(true, T.nilable(T::Boolean))
         result = block.call
         @called_in_on_system_block = false
+        @called_in_on_os_block = false
 
         result
       end

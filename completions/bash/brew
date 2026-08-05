@@ -3645,9 +3645,11 @@ _brew_vulns() {
       --brewfile
       --debug
       --deps
+      --fix-available
       --help
       --json
       --max-summary
+      --no-fix-available
       --no-ignore-patches
       --quiet
       --severity

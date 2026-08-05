@@ -6,8 +6,15 @@ require "rubocops/install_steps"
 RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
   subject(:cop) { described_class.new }
 
-  it "allows `post_install` and `post_install_steps` during incremental conversion" do
-    expect_no_offenses(<<~RUBY)
+  it "only permits implemented install step methods" do
+    expect(Homebrew::InstallSteps::DSL.public_instance_methods).to include(
+      *(RuboCop::Cop::InstallStepsHelper::ALLOWED_STEP_METHODS |
+        RuboCop::Cop::InstallStepsHelper::CASK_ALLOWED_STEP_METHODS),
+    )
+  end
+
+  it "allows `post_install` and `post_install_steps` in third-party taps during incremental conversion" do
+    expect_no_offenses(<<~RUBY, "/Taps/example/homebrew-core/Formula/f/foo.rb")
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
 
@@ -16,6 +23,21 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         end
 
         def post_install; end
+      end
+    RUBY
+  end
+
+  it "rejects `post_install` in official Homebrew taps" do
+    expect_offense(<<~RUBY, "/Taps/homebrew/homebrew-example/Formula/f/foo.rb")
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          touch "foo/state"
+        end
+
+        def post_install; end
+        ^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Formulae in official Homebrew taps must use `post_install_steps` instead of `post_install`.
       end
     RUBY
   end
@@ -42,6 +64,19 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
         post_install_steps do
           system "true"
           ^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Steps blocks may only contain install step DSL calls. Prefer canonical calls: `mkdir_p`, `touch`, `move`, `move_contents`, `copy`, `remove`, `inreplace`, `symlink`, `symlink_tree`, `symlink_children`, `write_file`, `init_data_dir`, `compile_gsettings_schemas`, `update_gdk_pixbuf_loaders_cache`, `update_gtk_icon_cache`, `update_mime_database`, `update_desktop_database`, `set_permissions`, `run`, `terminate_process`, `warn`, `change_dylib_id`, `configure_gcc_runtime`, `install_gzipped_executable`, `configure_glibc_runtime`, `configure_clang_system`, `configure_php`, `bootstrap_cpython`, `bootstrap_pypy`, `if_path_exists`, `unless_path_exists`, `on_macos`, `on_linux`.
+        end
+      end
+    RUBY
+  end
+
+  it "rejects `brew ruby` in steps blocks" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        url "https://brew.sh/foo-1.0.tgz"
+
+        post_install_steps do
+          run "{{HOMEBREW_BREW_FILE}}", args: ["ruby", "--", "{{libexec}}/post-install.rb"]
+              ^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/InstallSteps: Install steps must not use `brew ruby` because it enables developer mode.
         end
       end
     RUBY
@@ -133,7 +168,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::InstallSteps do
   end
 
   it "autocorrects simple `post_install` file preparation" do
-    expect_offense(<<~RUBY)
+    expect_offense(<<~RUBY, "/Taps/homebrew/homebrew-core/Formula/f/foo.rb")
       class Foo < Formula
         url "https://brew.sh/foo-1.0.tgz"
 
