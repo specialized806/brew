@@ -4083,6 +4083,8 @@ class Formula
       current_steps.concat(
         if block
           Homebrew::InstallSteps::DSL.build(
+            # TODO: Remove the undocumented `default_base: :var` compatibility default after official taps use
+            # explicit bases.
             default_base:        :var,
             default_source_base: :prefix,
             default_target_base: :prefix,

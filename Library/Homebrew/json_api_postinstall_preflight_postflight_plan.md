@@ -18,9 +18,9 @@ The canonical step methods follow existing Formula, Cask, `Pathname`,
 `FileUtils`, `SystemCommand` and utility naming where practical. Shared file
 operations use `mkdir_p`, `touch`, `move`, `move_contents`, `copy`, `remove`,
 `inreplace`, `symlink`, `symlink_tree`, `symlink_children` and `write_file`.
-Formula steps default `mkdir_p` and `touch` paths to `var`, and source/target
-paths to `prefix`. Cask steps default `base`, `source_base` and `target_base`
-to `staged_path`.
+Formula steps should specify `base: :var` for paths under `var`, while
+source/target paths default to `prefix`. Cask steps default `base`,
+`source_base` and `target_base` to `staged_path`.
 
 Formula `post_install_steps` may temporarily coexist with `post_install` so tap
 conversions can peel supported repeated statements out of larger hooks. Runtime
@@ -427,8 +427,10 @@ is stripped during metadata serialisation.
   directory and `17` certificate/trust formulae could also move once their
   operations fit the supported step set. Runtime behaviour changes only for
   formulae that opt into `post_install_steps`.
-  Notes for implementation: default `mkdir_p`/`touch` to `var` and source/target
-  paths to `prefix`; expose the ordered array through `FormulaStruct`; make
+  Notes for implementation: formula definitions should specify `base: :var`
+  explicitly for `mkdir_p`/`touch` and other single-path steps, while
+  source/target paths default to `prefix`; expose the ordered array through
+  `FormulaStruct`; make
   `post_install_steps` run before any remaining `post_install`; document that
   the two forms may coexist only as an incremental conversion bridge. Keep the
   tap-wide autocorrect audit in a follow-up commit so the implementation can
@@ -468,7 +470,7 @@ is stripped during metadata serialisation.
 - [x] PR 4.1, formula install-step sandboxing.
   Commit: `Sandbox formula install steps`.
   Scope: run structured formula steps inside the existing post-install child
-  process so macOS Seatbelt and Linux Bubblewrap apply the same filesystem and
+  process so macOS Seatbelt and Linux Landlock apply the same filesystem and
   network policy as legacy `post_install` hooks. This must land before any tap
   migrations use filesystem-mutating steps.
 - PR 5, default config and template writes (historical split workflow).
@@ -687,3 +689,12 @@ is stripped during metadata serialisation.
 - [ ] PR 32, close the bridges and deprecate legacy hooks.
   Hard prerequisite: the merged `homebrew/core` head has no `post_install`
   methods and the merged `homebrew/cask` head has no legacy flight blocks.
+- [ ] PR 33, remove the documented formula `var` default while retaining it
+  temporarily as a runtime compatibility fallback.
+- [ ] PR 34, migrate every implicit `var` path in `homebrew/core` to an
+  explicit `base: :var`. `homebrew/cask` uses `staged_path` rather than `var`
+  as its install-step default and requires no matching migration.
+- [ ] PR 35, audit and autocorrect implicit formula `var` paths so new
+  official-tap uses cannot be introduced.
+- [ ] PR 36, remove the formula runtime compatibility fallback after the
+  official-tap migration and enforcement have landed.

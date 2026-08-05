@@ -395,13 +395,15 @@ Uninstall all dependencies not present in the \fBBrewfile\fP\&\.
 .P
 This workflow is useful for maintainers or testers who regularly install lots of formulae\.
 .P
+When cleanup is performed, Homebrew\[u2019]s global trust store is reset to the trust values declared by the \fBBrewfile\fP, removing trust entries not declared there\.
+.P
 Unless \fB\-\-force\fP is passed, this prompts before removing anything and returns a 1 exit code if the prompt is declined or cannot be shown\.
 .TP
 \fB\-\-install\fP
 Run \fBinstall\fP before cleaning up dependencies\.
 .TP
 \fB\-f\fP, \fB\-\-force\fP
-Actually perform cleanup operations\.
+Actually perform cleanup operations and reset Homebrew\[u2019]s global trust store to the \fBBrewfile\fP values\.
 .TP
 \fB\-\-all\fP
 Clean up all supported dependencies\.
@@ -1344,8 +1346,6 @@ Output as JSON\.
 Remove all unused services\.
 .SS "\fBsetup\-ruby\fP \fR[\fIcommand\fP \.\.\.]"
 Installs and configures Homebrew\[u2019]s Ruby\. If \fBcommand\fP is passed, it will only run Bundler if necessary for that command\.
-.SS "\fBsetup\-sandbox\fP"
-Run any necessary commands to setup the Homebrew sandbox\. Must be run with \fBsudo\fP\&\. Currently a no\-op on non\-Linux\.
 .SS "\fBshellenv\fP \fR[\fIshell\fP \.\.\.]"
 Valid shells: bash|csh|fish|pwsh|sh|tcsh|zsh
 .P
@@ -2004,7 +2004,7 @@ Treat all named arguments as casks\.
 Summarise contributions to Homebrew repositories\.
 .TP
 \fB\-\-user\fP
-Specify a comma\-separated list of GitHub usernames or email addresses to find contributions from\. Omitting this flag searches Homebrew maintainers\. With \fB\-\-maintainer\-report\-csv\fP, only matching quarter\-end Maintainers are included\.
+Specify a comma\-separated list of GitHub usernames or email addresses to find contributions from\. Omitting this flag searches Homebrew maintainers and requires access to the \fBHomebrew/maintainers\fP team\. With \fB\-\-maintainer\-report\-csv\fP, only matching quarter\-end Maintainers are included\.
 .TP
 \fB\-\-repositories\fP
 Specify a comma\-separated list of repositories to search\. All repositories must be under the same user or organisation\. Omitting this flag, or specifying \fB\-\-repositories=primary\fP, searches only the main repositories: \fBHomebrew/brew\fP, \fBHomebrew/homebrew\-core\fP, \fBHomebrew/homebrew\-cask\fP\&\.

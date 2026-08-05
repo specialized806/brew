@@ -713,7 +713,7 @@ __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l cask -d 'Clean up Homebrew ca
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l debug -d 'Display any debugging information'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l file -d 'Read from or write to the `Brewfile` from this location. Use `--file=-` to pipe to stdin/stdout'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l flatpak -d 'Clean up Flatpak packages. Note: Linux only'
-__fish_brew_complete_sub_arg 'bundle' 'cleanup' -l force -d 'Actually perform cleanup operations'
+__fish_brew_complete_sub_arg 'bundle' 'cleanup' -l force -d 'Actually perform cleanup operations and reset Homebrew\'s global trust store to the `Brewfile` values'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l formula -d 'Clean up Homebrew formula dependencies'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l global -d 'Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise'
 __fish_brew_complete_sub_arg 'bundle' 'cleanup' -l go -d 'Clean up Go packages'
@@ -876,7 +876,7 @@ __fish_brew_complete_arg 'contributions' -l quiet -d 'Make some output more quie
 __fish_brew_complete_arg 'contributions' -l repositories -d 'Specify a comma-separated list of repositories to search. All repositories must be under the same user or organisation. Omitting this flag, or specifying `--repositories=primary`, searches only the main repositories: `Homebrew/brew`, `Homebrew/homebrew-core`, `Homebrew/homebrew-cask`'
 __fish_brew_complete_arg 'contributions' -l team -d 'Specify the team to populate users from. The first part of the team name will be used as the organisation'
 __fish_brew_complete_arg 'contributions' -l to -d 'Date (ISO 8601 format) to stop searching contributions'
-__fish_brew_complete_arg 'contributions' -l user -d 'Specify a comma-separated list of GitHub usernames or email addresses to find contributions from. Omitting this flag searches Homebrew maintainers. With `--maintainer-report-csv`, only matching quarter-end Maintainers are included'
+__fish_brew_complete_arg 'contributions' -l user -d 'Specify a comma-separated list of GitHub usernames or email addresses to find contributions from. Omitting this flag searches Homebrew maintainers and requires access to the `Homebrew/maintainers` team. With `--maintainer-report-csv`, only matching quarter-end Maintainers are included'
 __fish_brew_complete_arg 'contributions' -l verbose -d 'Make some output more verbose'
 
 
@@ -1802,13 +1802,6 @@ __fish_brew_complete_arg 'setup-ruby' -l help -d 'Show this message'
 __fish_brew_complete_arg 'setup-ruby' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'setup-ruby' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'setup-ruby' -a '(__fish_brew_suggest_commands)'
-
-
-__fish_brew_complete_cmd 'setup-sandbox' 'Run any necessary commands to setup the Homebrew sandbox'
-__fish_brew_complete_arg 'setup-sandbox' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'setup-sandbox' -l help -d 'Show this message'
-__fish_brew_complete_arg 'setup-sandbox' -l quiet -d 'Make some output more quiet'
-__fish_brew_complete_arg 'setup-sandbox' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'sh' 'Enter an interactive shell for Homebrew\'s build environment'

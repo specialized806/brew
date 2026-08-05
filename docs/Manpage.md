@@ -613,6 +613,9 @@ flags which will help with finding keg-only dependencies like `openssl`,
 This workflow is useful for maintainers or testers who regularly install lots of
 formulae.
 
+When cleanup is performed, Homebrew's global trust store is reset to the trust
+values declared by the `Brewfile`, removing trust entries not declared there.
+
 Unless `--force` is passed, this prompts before removing anything and returns a
 1 exit code if the prompt is declined or cannot be shown.
 
@@ -622,7 +625,8 @@ Unless `--force` is passed, this prompts before removing anything and returns a
 
 `-f`, `--force`
 
-: Actually perform cleanup operations.
+: Actually perform cleanup operations and reset Homebrew's global trust store to
+  the `Brewfile` values.
 
 `--all`
 
@@ -2112,11 +2116,6 @@ line; lines starting with `#` are comments. Changes take effect on the next
 Installs and configures Homebrew's Ruby. If `command` is passed, it will only
 run Bundler if necessary for that command.
 
-### `setup-sandbox`
-
-Run any necessary commands to setup the Homebrew sandbox. Must be run with
-`sudo`. Currently a no-op on non-Linux.
-
 ### `shellenv` \[*`shell`* ...\]
 
 Valid shells: bash\|csh\|fish\|pwsh\|sh\|tcsh\|zsh
@@ -3162,7 +3161,8 @@ Summarise contributions to Homebrew repositories.
 `--user`
 
 : Specify a comma-separated list of GitHub usernames or email addresses to find
-  contributions from. Omitting this flag searches Homebrew maintainers. With
+  contributions from. Omitting this flag searches Homebrew maintainers and
+  requires access to the `Homebrew/maintainers` team. With
   `--maintainer-report-csv`, only matching quarter-end Maintainers are included.
 
 `--repositories`
