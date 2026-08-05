@@ -12,9 +12,11 @@ module Homebrew
       CrateEntry = T.type_alias { T.any(Crate, Checkable) }
 
       # `cargo install --list` reports the origin of anything not installed from a
-      # registry, as either a git URL or a local path.
-      GIT_SOURCE_REGEX = %r{\A(?:ssh|git|https?|file)://|\.git\z}
+      # registry, as either a git URL or a local path. `--git` takes a URL and
+      # rejects an scp-style remote, so a scheme is required here too.
+      GIT_SOURCE_REGEX = %r{\A(?:ssh|git|https?|file)://}
       PATH_SOURCE_REGEX = %r{\A\.{0,2}/}
+      GIT_REFERENCE_KEYS = %w[branch tag rev].freeze
       PACKAGE_LIST_REGEX = /\A(?<name>[^\s:]+)\s+v[0-9A-Za-z.+-]+(?:\s+\((?<origin>[^)]+)\))?/
 
       class << self
@@ -41,6 +43,11 @@ module Homebrew
           if source.present?
             normalized_source = normalize_source(source)
             raise "options[:source](#{source.inspect}) should be a git URL or a local path" if normalized_source.nil?
+
+            selector = normalized_source.partition("?").last
+            if selector.present? && GIT_REFERENCE_KEYS.exclude?(selector.partition("=").first)
+              raise "options[:source](#{source.inspect}) should select a branch, tag or rev"
+            end
 
             normalized_options[:source] = normalized_source
           end
@@ -236,7 +243,7 @@ module Homebrew
           url, _, query = source.partition("?")
           key, _, value = query.partition("=")
           args = ["--git", url]
-          args.push("--#{key}", value) if %w[branch tag rev].include?(key)
+          args.push("--#{key}", value) if GIT_REFERENCE_KEYS.include?(key)
 
           args
         end

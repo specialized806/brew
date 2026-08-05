@@ -45,6 +45,16 @@ RSpec.describe Homebrew::Bundle::Cargo do
         .to raise_error(RuntimeError, /should be a git URL or a local path/)
     end
 
+    it "rejects a git query that selects something other than a branch, tag or rev" do
+      expect { described_class.entry("tftio-kb", source: "ssh://git@example.com/tftio/kb.git?foo=bar") }
+        .to raise_error(RuntimeError, /should select a branch, tag or rev/)
+    end
+
+    it "rejects an scp-style git remote that cargo cannot parse as a URL" do
+      expect { described_class.entry("bat", source: "git@github.com:sharkdp/bat.git") }
+        .to raise_error(RuntimeError, /should be a git URL or a local path/)
+    end
+
     it "rejects unknown options" do
       expect { described_class.entry("ripgrep", features: ["pcre2"]) }
         .to raise_error(RuntimeError, /unknown options/)
