@@ -4,7 +4,7 @@
 require "utils/linkage"
 
 RSpec.describe Utils do
-  [:needs_macos, :needs_linux].each do |needs_os|
+  test_each([:needs_macos, :needs_linux]) do |needs_os|
     describe "::binary_linked_to_library?", needs_os do
       let(:suffix) { OS.mac? ? ".dylib" : ".so" }
 

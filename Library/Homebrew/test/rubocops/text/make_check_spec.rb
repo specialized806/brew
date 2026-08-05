@@ -43,4 +43,20 @@ RSpec.describe RuboCop::Cop::FormulaAuditStrict::MakeCheck do
       end
     RUBY
   end
+
+  it "reuses style exceptions across formulae in the same tap" do
+    setup_style_exceptions
+    allow(Pathname).to receive(:glob).and_call_original
+    expect(Pathname).to receive(:glob).with("#{path}/style_exceptions/*.json").once.and_call_original
+
+    2.times do
+      expect_no_offenses(<<~RUBY, "#{path}/Formula/bar.rb")
+        class Bar < Formula
+          desc "bar"
+          url "https://brew.sh/bar-1.0.tgz"
+          system "make", "-j1", "test"
+        end
+      RUBY
+    end
+  end
 end

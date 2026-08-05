@@ -637,8 +637,8 @@ RSpec.describe Formula do
 
   specify "#migration_needed" do
     f = Testball.new("newname")
-    f.instance_variable_set(:@oldnames, ["oldname"])
-    f.instance_variable_set(:@tap, CoreTap.instance)
+    f.oldnames = ["oldname"]
+    f.tap = CoreTap.instance
 
     oldname_prefix = (HOMEBREW_CELLAR/"oldname/2.20")
     newname_prefix = (HOMEBREW_CELLAR/"newname/2.10")
@@ -667,6 +667,7 @@ RSpec.describe Formula do
                                                   .and_return(["same-name-cask"])
 
     expect(formula("same-name-cask", tap:) do
+      T.bind(self, T.class_of(Formula))
       url "https://brew.sh/same-name-cask-1.0.tar.gz"
     end.oldnames).to be_empty
   end
@@ -924,6 +925,25 @@ RSpec.describe Formula do
     expect(f.class.url).to eq("foo-1.0")
   end
 
+  specify ".homepage with a human browser check" do
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      homepage "https://brew.sh", browsed: "2026-07-26"
+      url "https://brew.sh/test-1.0.tar.gz"
+    end
+
+    expect(f.homepage_browsed).to eq(Date.new(2026, 7, 26))
+  end
+
+  specify ".homepage requires a URL with a human browser check" do
+    expect do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        homepage browsed: "2026-07-26"
+      end
+    end.to raise_error(ArgumentError, "`browsed` requires a homepage URL")
+  end
+
   specify "spec integration" do
     f = formula do
       T.bind(self, T.class_of(Formula))
@@ -953,7 +973,7 @@ RSpec.describe Formula do
     end
 
     expect(f.active_spec_sym).to eq(:stable)
-    expect(f.send(:active_spec)).to eq(f.stable)
+    expect(f.active_spec).to eq(f.stable)
     expect(f.pkg_version.to_s).to eq("1.0_1")
 
     expect { f.active_spec = :head }.to raise_error(FormulaSpecificationError)
@@ -1153,6 +1173,20 @@ RSpec.describe Formula do
     )
   end
 
+  specify "#run_post_install runs install steps before the remaining hook" do
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+    end
+
+    allow(Tab).to receive(:for_formula).with(f).and_return(f.build)
+    allow(f).to receive_messages(post_install_steps_defined?: true, post_install_defined?: true)
+    expect(f).to receive(:run_post_install_steps).ordered
+    expect(f).to receive(:post_install).ordered
+
+    f.run_post_install
+  end
+
   specify "#post_install_steps" do
     f = formula do
       T.bind(self, T.class_of(Formula))
@@ -1161,9 +1195,9 @@ RSpec.describe Formula do
       post_install_steps do
         mkdir_p "log/foo"
         touch "foo/marker"
-        mv "move-source", "move-target"
-        move_children "children-source", "children-target"
-        ln_s "move-target", "linked-target", source_base: :relative, uninstall: true
+        move "move-source", "move-target"
+        move_contents "children-source", "children-target"
+        symlink "move-target", "linked-target", source_base: :relative, remove_on_uninstall: true
       end
     end
 
@@ -1171,12 +1205,13 @@ RSpec.describe Formula do
       { "type" => "mkdir_p", "path" => { "base" => "var", "path" => "log/foo" } },
       { "type" => "touch", "path" => { "base" => "var", "path" => "foo/marker" } },
       {
-        "type"   => "move",
-        "source" => { "base" => "prefix", "path" => "move-source" },
-        "target" => { "base" => "prefix", "path" => "move-target" },
+        "type"      => "move",
+        "source"    => { "base" => "prefix", "path" => "move-source" },
+        "target"    => { "base" => "prefix", "path" => "move-target" },
+        "overwrite" => true,
       },
       {
-        "type"   => "move_children",
+        "type"   => "move_contents",
         "source" => { "base" => "prefix", "path" => "children-source" },
         "target" => { "base" => "prefix", "path" => "children-target" },
       },
@@ -1227,10 +1262,11 @@ RSpec.describe Formula do
 
   specify "#run_post_install_steps uses the versioned prefix" do
     f = formula "post-install-steps-prefix" do
+      T.bind(self, T.class_of(Formula))
       url "foo-1.0"
 
       post_install_steps do
-        ln_s "source", "linked"
+        symlink "source", "linked"
       end
     end
 
@@ -1770,6 +1806,7 @@ RSpec.describe Formula do
 
     it "serialises type and explicit resolves on an external patch" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch do
           url "https://example.com/foo.diff"
@@ -1795,6 +1832,7 @@ RSpec.describe Formula do
 
     it "serialises resolves inferred from url and apply paths" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch do
           url "https://example.com/debian.tar.xz"
@@ -1811,6 +1849,7 @@ RSpec.describe Formula do
 
     it "serialises non-CVE resolves entries with the appropriate issue type" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch do
           url "https://example.com/foo.diff"
@@ -1828,6 +1867,7 @@ RSpec.describe Formula do
 
     it "serialises type on a local file patch" do
       f = formula "foo" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         patch do
           file "Patches/foo.diff"
@@ -2290,7 +2330,7 @@ RSpec.describe Formula do
     end
 
     example "greater same tap installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
       setup_tab_for_prefix(greater_prefix, tap: "homebrew/core")
       expect(f.outdated_kegs).to be_empty
     end
@@ -2301,7 +2341,7 @@ RSpec.describe Formula do
     end
 
     example "outdated same tap installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
       setup_tab_for_prefix(outdated_prefix, tap: "homebrew/core")
       expect(f.outdated_kegs).not_to be_empty
     end
@@ -2387,19 +2427,19 @@ RSpec.describe Formula do
     end
 
     example "outdated same head installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
       setup_tab_for_prefix(head_prefix, tap: "homebrew/core")
       expect(f.outdated_kegs).to be_empty
     end
 
     example "outdated different head installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
       setup_tab_for_prefix(head_prefix, tap: "user/repo")
       expect(f.outdated_kegs).to be_empty
     end
 
     example "outdated mixed taps greater version installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
       setup_tab_for_prefix(outdated_prefix, tap: "homebrew/core")
       setup_tab_for_prefix(greater_prefix, tap: "user/repo")
 
@@ -2412,7 +2452,7 @@ RSpec.describe Formula do
     end
 
     example "outdated mixed taps outdated version installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
 
       extra_outdated_prefix = HOMEBREW_CELLAR/f.name/"1.0"
 
@@ -2429,7 +2469,7 @@ RSpec.describe Formula do
     end
 
     example "outdated same version tap installed" do
-      f.instance_variable_set(:@tap, CoreTap.instance)
+      f.tap = CoreTap.instance
       setup_tab_for_prefix(same_prefix, tap: "homebrew/core")
 
       expect(f.outdated_kegs).to be_empty
@@ -2950,7 +2990,7 @@ RSpec.describe Formula do
       actions.each do |action|
         it "can #{action} network access for #{phase}" do
           f = Class.new(Testball) do
-            send(:"#{action}_network_access!", phase)
+            public_send(:"#{action}_network_access!", phase)
           end
 
           expect(f.network_access_allowed?(phase)).to be(action == "allow")
@@ -2958,10 +2998,10 @@ RSpec.describe Formula do
       end
     end
 
-    actions.each do |action|
+    test_each(actions) do |action|
       it "can #{action} network access for all phases" do
         f = Class.new(Testball) do
-          send(:"#{action}_network_access!")
+          public_send(:"#{action}_network_access!")
         end
 
         PHASES.each do |phase|
@@ -3200,6 +3240,123 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_cabal_v2_args" do
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "allows changing the installation directory" do
+      expect(f.std_cabal_v2_args(installdir: "/tmp/foo")).to include("--installdir=/tmp/foo")
+    end
+
+    it "excludes installation arguments when `installdir: false`" do
+      expect(f.std_cabal_v2_args(installdir: false)).not_to include(a_string_starting_with("--install"))
+    end
+
+    context "when running on Linux", :needs_linux do
+      it "includes flag for PIE on arm" do
+        allow(Hardware::CPU).to receive(:arm?).and_return(true)
+        expect(f.std_cabal_v2_args).to include("--ghc-option=-pie")
+      end
+
+      it "excludes flag for PIE on non-arm" do
+        allow(Hardware::CPU).to receive(:arm?).and_return(false)
+        expect(f.std_cabal_v2_args).not_to include("--ghc-option=-pie")
+      end
+    end
+  end
+
+  describe "#std_go_args" do
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "defaults to stripping binaries" do
+      expect(f.std_go_args).to include("-ldflags=-s -w")
+
+      ldflags = "-X main.version=1.0.0"
+      expect(f.std_go_args(ldflags:)).to include("-ldflags=-s -w #{ldflags}")
+    end
+
+    it "does not strip binaries when building with debug symbols" do
+      allow(ENV).to receive(:debug_symbols?).and_return(true)
+      expect(f.std_go_args).not_to include(a_string_starting_with("-ldflags"))
+
+      ldflags = "-X main.version=1.0.0"
+      expect(f.std_go_args(ldflags:)).to include("-ldflags=#{ldflags}")
+    end
+
+    it "raises an error when provided an invalid ldflags symbol" do
+      expect { f.std_go_args(ldflags: :foo) }.to raise_error(ArgumentError, "Invalid ldflags: :foo")
+    end
+
+    context "with `ldflags: :goreleaser`" do
+      subject(:std_go_args) { f.std_go_args(ldflags: :goreleaser) }
+
+      let(:built_by) { "Homebrew" }
+      let(:commit) { built_by }
+      let(:date) { "2026-01-01T12:00:00Z" }
+      let(:expected_ldflags) do
+        "-s -w " \
+          "-X 'main.version=1.0' " \
+          "-X 'main.commit=#{commit}' " \
+          "-X 'main.date=#{date}' " \
+          "-X 'main.builtBy=#{built_by}'"
+      end
+
+      before { allow(f).to receive(:time).and_return(Time.parse(date)) }
+
+      context "when in a git repository" do
+        let(:buildpath) { mktmpdir }
+        let(:commit) { Utils.popen_read("git", "-C", buildpath, "rev-parse", "HEAD").chomp }
+
+        before { allow(f).to receive(:buildpath).and_return(buildpath) }
+
+        around do |example|
+          buildpath.cd do
+            FileUtils.touch "LICENSE"
+            system "git", "init"
+            system "git", "add", "--all"
+            system "git", "commit", "-m", "Initial commit"
+            example.run
+          end
+        end
+
+        it "uses git commit for main.commit" do
+          expect(std_go_args).to include("-ldflags=#{expected_ldflags}")
+        end
+      end
+
+      context "when not in a git repository and tap is available" do
+        let(:built_by) { "someone" }
+
+        before { allow(f).to receive(:tap).and_return(Tap.fetch(built_by, "repo")) }
+
+        it "uses tap user for main.commit" do
+          expect(std_go_args).to include("-ldflags=#{expected_ldflags}")
+        end
+      end
+
+      context "when not in a git repository and tap is not available" do
+        before { allow(f).to receive(:tap).and_return(nil) }
+
+        it "uses Homebrew for main.commit" do
+          expect(std_go_args).to include("-ldflags=#{expected_ldflags}")
+        end
+      end
+    end
+
+    it "includes a comma-separated list of input tags" do
+      expect(f.std_go_args(tags: %w[foo bar baz])).to include("-tags=foo,bar,baz")
+    end
+  end
+
   describe "#std_pip_args" do
     let(:f) do
       formula do
@@ -3216,6 +3373,7 @@ RSpec.describe Formula do
   describe "#std_zig_args" do
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
@@ -3237,18 +3395,19 @@ RSpec.describe Formula do
   describe "#common_sandbox_env" do
     let(:f) do
       formula do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end
 
     it "sets Bundler cooldown for RubyGems dependencies" do
-      expect(f.send(:common_sandbox_env, mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
+      expect(f.common_sandbox_env(mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
     end
 
     it "prevents build tools from reading user configuration" do
       home = mktmpdir
 
-      expect(f.send(:common_sandbox_env, home)).to include(
+      expect(f.common_sandbox_env(home)).to include(
         GIT_CONFIG_GLOBAL:     Utils::Git.no_global_config_file,
         GIT_TERMINAL_PROMPT:   "0",
         GOENV:                 "off",

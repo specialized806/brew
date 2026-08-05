@@ -3,6 +3,7 @@
 
 require "json"
 require "fileutils"
+require "uri"
 require "vulns/osv"
 require "vulns/scanner"
 
@@ -135,7 +136,15 @@ module Homebrew
           record[:details] = upstream["details"] if upstream["details"]
           record[:severity] = upstream["severity"] if upstream["severity"]
           record[:upstream] = ([vuln_id] + Array(upstream["aliases"])).uniq
-          record[:references] = upstream["references"] if upstream["references"]
+          if (refs = upstream["references"])
+            # OSV.dev merges NVD and cve.org reference lists without normalising
+            # percent-encoding, so the same URL can appear twice (e.g. `%40` vs
+            # `@`). Collapse those while keeping the same URL under distinct
+            # `type` values, which the schema allows and which carries meaning.
+            record[:references] = refs.uniq do |r|
+              [r["type"], URI::RFC2396_PARSER.unescape(r["url"].to_s)]
+            end
+          end
         end
 
         record

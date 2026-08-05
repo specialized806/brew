@@ -217,6 +217,31 @@ RSpec.describe Cask::CaskLoader, :cask do
     end
   end
 
+  describe "::load_from_installed_caskfile" do
+    let(:caskfile) do
+      (Cask::Caskroom.path/"stubbed/.metadata/1.0/20250101000000.000/Casks").tap(&:mkpath)/"stubbed.json"
+    end
+
+    before { caskfile.write("{}") }
+
+    it "falls back to the API for missing artifacts by default" do
+      allow(Homebrew::API).to receive(:cask_token?).with("stubbed").and_return(true)
+      expect(Homebrew::API::Cask).to receive(:cask_json).with("stubbed").and_return(
+        "artifacts" => [{ "app" => ["Stubbed.app"] }],
+      )
+
+      expect(described_class.load_from_installed_caskfile(caskfile).artifacts_list(uninstall_only: true))
+        .to eq([{ app: ["Stubbed.app"] }])
+    end
+
+    it "does not consult the API when api_fallback is disabled" do
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      expect(described_class.load_from_installed_caskfile(caskfile, api_fallback: false).artifacts_list)
+        .to be_empty
+    end
+  end
+
   describe "::load_prefer_installed" do
     let(:foo_tap) { Tap.fetch("user", "foo") }
     let(:bar_tap) { Tap.fetch("user", "bar") }
@@ -400,7 +425,7 @@ RSpec.describe Cask::CaskLoader, :cask do
 
       it "raises CaskUnreadableError when loaded from installed caskfile" do
         loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
-        loader.instance_variable_set(:@from_installed_caskfile, true)
+        loader.from_installed_caskfile = true
         expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError, /appcast/)
       end
     end
@@ -466,7 +491,7 @@ RSpec.describe Cask::CaskLoader, :cask do
 
       it "raises CaskUnreadableError when loaded from installed caskfile" do
         loader = Cask::CaskLoader::FromPathLoader.new(cask_file)
-        loader.instance_variable_set(:@from_installed_caskfile, true)
+        loader.from_installed_caskfile = true
         expect { loader.load(config: nil) }.to raise_error(Cask::CaskUnreadableError, /Unknown key: :formula/)
       end
     end
@@ -538,6 +563,129 @@ RSpec.describe Cask::CaskLoader, :cask do
         expect(loader).not_to be_nil
         expect(loader).to be_a(Cask::CaskLoader::FromPathLoader)
       end
+    end
+  end
+
+  describe "::resolve_installed_artifacts" do
+    before { allow(Homebrew::API).to receive(:cask_token?).and_return(true) }
+
+    it "does not request API metadata for a removed cask" do
+      token = "removed-cask"
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(false)
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
+    end
+
+    it "falls back to API artifacts when the membership check fails" do
+      token = "unavailable-membership"
+      api_artifacts = [{ "app" => ["API.app"] }]
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_raise(
+        ErrorDuringExecution.new(["curl"], status: 22),
+      )
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => api_artifacts })
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq(api_artifacts)
+    end
+
+    it "returns empty artifacts when the API download fails" do
+      token = "unavailable"
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(
+        ErrorDuringExecution.new(["curl"], status: 22),
+      )
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
+    end
+
+    it "returns empty artifacts when the API cannot be loaded" do
+      allow(Homebrew::API).to receive(:cask_token?).with("unavailable").and_return(true)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with("unavailable").and_raise(SystemExit.new(1))
+
+      expect(described_class.resolve_installed_artifacts("unavailable", nil)).to eq([])
+    end
+
+    it "falls back to API artifacts when tap lookup is ambiguous" do
+      token = "ambiguous"
+      api_artifacts = [{ "app" => ["API.app"] }]
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(nil)
+      allow(Cask::CaskLoader::FromNameLoader).to receive(:try_new)
+        .with(token, warn: false)
+        .and_raise(Cask::TapCaskAmbiguityError.new(token, []))
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => api_artifacts })
+
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq(api_artifacts)
+    end
+
+    it "returns empty artifacts when the installed tap and API are unavailable" do
+      token = "unavailable-tap"
+      tap = Tap.fetch("thirdparty", "missing")
+      allow(described_class).to receive(:load)
+        .with("#{tap}/#{token}", warn: false)
+        .and_raise(Cask::TapCaskUnavailableError.new(tap, token))
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(SystemExit.new(1))
+
+      expect(described_class.resolve_installed_artifacts(token, nil, tap:)).to eq([])
+    end
+  end
+
+  describe "::recover_from_installed_caskfile" do
+    let(:caskroom) { mktmpdir/"Caskroom" }
+
+    before { allow(Cask::Caskroom).to receive(:path).and_return(caskroom) }
+
+    it "reconstructs the installed version and artifacts from its receipt" do
+      token = "recoverable"
+      caskfile = caskroom/token/".metadata/1.0/20250101000000.000/Casks/#{token}.rb"
+      caskfile.dirname.mkpath
+      caskfile.write("unreadable")
+      (caskroom/token/".metadata/INSTALL_RECEIPT.json").write JSON.generate({
+        "source"                  => { "version" => "1.0" },
+        "uninstall_flight_blocks" => false,
+        "uninstall_artifacts"     => [{ "app" => ["Recoverable.app"] }],
+      })
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      recovered_cask = described_class.recover_from_installed_caskfile(caskfile)
+
+      expect([
+        recovered_cask&.version&.to_s,
+        recovered_cask&.artifacts_list(uninstall_only: true),
+      ]).to eq([
+        "1.0",
+        [{ app: ["Recoverable.app"] }],
+      ])
+    end
+
+    it "does not reconstruct missing uninstall flight blocks" do
+      token = "flight-block"
+      caskfile = caskroom/token/".metadata/1.0/20250101000000.000/Casks/#{token}.rb"
+      caskfile.dirname.mkpath
+      caskfile.write("unreadable")
+      (caskroom/token/".metadata/INSTALL_RECEIPT.json").write JSON.generate({
+        "source"                  => { "version" => "1.0" },
+        "uninstall_flight_blocks" => true,
+        "uninstall_artifacts"     => [{ "uninstall_preflight" => nil }],
+      })
+      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+
+      expect(described_class.recover_from_installed_caskfile(caskfile)).to be_nil
+    end
+
+    it "returns nil when the reconstructed metadata remains invalid" do
+      token = "still-invalid"
+      caskfile = caskroom/token/".metadata/1.0/20250101000000.000/Casks/#{token}.rb"
+      caskfile.dirname.mkpath
+      caskfile.write("unreadable")
+      (caskroom/token/".metadata/INSTALL_RECEIPT.json").write JSON.generate({
+        "source"              => { "version" => "1.0" },
+        "uninstall_artifacts" => [{ "app" => ["Still Invalid.app"] }],
+      })
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:new)
+        .and_raise(Cask::CaskInvalidError.new(token, "invalid recovered metadata"))
+
+      expect(described_class.recover_from_installed_caskfile(caskfile)).to be_nil
     end
   end
 end

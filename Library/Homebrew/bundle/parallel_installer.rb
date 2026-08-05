@@ -5,7 +5,9 @@ require "concurrent/executors"
 require "concurrent/promises"
 require "monitor"
 require "utils"
+require "utils/tty"
 require "bundle/package_types"
+require "dependency_collector"
 
 module Homebrew
   module Bundle
@@ -101,8 +103,6 @@ module Homebrew
         @pool.wait_for_termination
       end
 
-      private
-
       sig { params(entries: T::Array[Installer::InstallableEntry]).returns(T::Hash[String, T::Set[String]]) }
       def build_dependency_map(entries)
         installed_taps = Homebrew::Bundle::Tap.installed_taps
@@ -155,6 +155,13 @@ module Homebrew
           end
         end
 
+        # Phase 3.5: formulae racing for an undeclared implicit dependency (e.g. a
+        # Linux sandbox executable) wait on just the first one, not on each other.
+        implicit_pioneer = T.let(nil, T.nilable(String))
+        unless DependencyCollector.new.implicit_dependency_names.empty?
+          implicit_pioneer = entries.find { |entry| entry.cls == Homebrew::Bundle::Brew }&.name
+        end
+
         # Phase 4: Merge explicit ordering and implicit lock conflicts.
         entries.each_with_object({}) do |entry, map|
           depends_on = brewfile_deps.fetch(entry.name).each_with_object(Set.new) do |dep, set|
@@ -172,9 +179,28 @@ module Homebrew
             depends_on << earlier.name if entry_rdeps.intersect?(earlier_rdeps)
           end
 
+          if implicit_pioneer && entry.name != implicit_pioneer && entry.cls == Homebrew::Bundle::Brew
+            depends_on << implicit_pioneer
+          end
+
           map[entry.name] = depends_on
         end
       end
+
+      sig { params(message: String, stream: IO).void }
+      def write_output(message, stream: $stdout)
+        @output_mutex.synchronize do
+          # Interactive installers can leave ONLCR disabled, so use CRLF to
+          # ensure terminal status output returns to column 0.
+          if stream.tty?
+            stream.write(message, "\r\n")
+          else
+            stream.puts(message)
+          end
+        end
+      end
+
+      private
 
       sig { params(name: String).returns(String) }
       def normalize_formula_name(name)
@@ -285,22 +311,11 @@ module Homebrew
         end
       end
 
-      sig { params(message: String, stream: IO).void }
-      def write_output(message, stream: $stdout)
-        @output_mutex.synchronize do
-          # Interactive installers can leave ONLCR disabled, so use CRLF to
-          # ensure terminal status output returns to column 0.
-          if stream.tty?
-            stream.write(message, "\r\n")
-          else
-            stream.puts(message)
-          end
-        end
-      end
-
       sig { void }
       def clear_tty_line
-        File.open("/dev/tty", "w") { |f| f.print("\r\e[K") }
+        File.open("/dev/tty", "w") do |f|
+          f.print("#{Tty.begin_synchronized_update}\r\e[K#{Tty.end_synchronized_update}")
+        end
       rescue Errno::ENXIO, Errno::ENOENT, Errno::EACCES, Errno::EPERM
         # No TTY available (CI, piped output) - nothing to clean up.
         nil

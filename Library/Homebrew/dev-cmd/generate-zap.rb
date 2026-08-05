@@ -88,6 +88,9 @@ module Homebrew
 
       UUID_PATTERN = /[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}/i
 
+      # Keep in sync with `RuboCop::Cop::Cask::SharedFilelistGlob`.
+      SHARED_FILELIST_PATTERN = /\.sfl\d\z/
+
       sig { override.void }
       def run
         patterns = if args.name?
@@ -112,8 +115,8 @@ module Homebrew
           odie message
         end
 
-        trash_paths  = replace_uuids(collapse_to_wildcards(trash_paths))
-        delete_paths = replace_uuids(collapse_to_wildcards(delete_paths))
+        trash_paths  = glob_shared_filelists(replace_uuids(collapse_to_wildcards(trash_paths)))
+        delete_paths = glob_shared_filelists(replace_uuids(collapse_to_wildcards(delete_paths)))
 
         rmdir_paths = derive_rmdir_candidates(trash_paths + delete_paths)
 
@@ -126,8 +129,6 @@ module Homebrew
         puts format_stanza(trash: trash_paths, delete: delete_paths, rmdir: rmdir_paths)
       end
 
-      private
-
       sig { params(cask: Cask::Cask).returns(T::Array[String]) }
       def resolve_patterns_from_cask(cask)
         app_artifact = cask.artifacts.find { |a| a.is_a?(Cask::Artifact::App) }
@@ -139,11 +140,6 @@ module Homebrew
           ohai "No app artifact found in cask \"#{cask.token}\"; using token as app name."
           [cask.token.tr("-", " ").split.map(&:capitalize).join(" ")]
         end
-      end
-
-      sig { params(patterns: T::Array[String]).returns(String) }
-      def format_patterns(patterns)
-        patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence
       end
 
       sig { params(app_artifact: Cask::Artifact::App).returns(T::Array[String]) }
@@ -226,7 +222,7 @@ module Homebrew
           basenames = entries.map { |e| File.basename(e) }
           wildcarded = find_wildcard_groups(basenames)
 
-          dir = File.dirname(T.must(entries.first))
+          dir = File.dirname(entries.fetch(0))
           wildcarded.each do |name|
             result << File.join(dir, name)
           end
@@ -235,38 +231,14 @@ module Homebrew
         result.uniq.sort
       end
 
-      sig { params(basenames: T::Array[String]).returns(T::Array[String]) }
-      def find_wildcard_groups(basenames)
-        return basenames if basenames.size <= 1
-
-        used = Array.new(basenames.size, false)
-        result = []
-
-        basenames.each_with_index do |name, i|
-          next if used[i]
-
-          group_indices = [i]
-          basenames.each_with_index do |other, j|
-            next if i == j || used[j]
-            next unless other.start_with?(name)
-
-            group_indices << j
-          end
-
-          if group_indices.size > 1
-            result << "#{name}*"
-            group_indices.each { |idx| used[idx] = true }
-          else
-            result << name
-          end
-        end
-
-        result
-      end
-
       sig { params(paths: T::Array[String]).returns(T::Array[String]) }
       def replace_uuids(paths)
         paths.map { |p| p.gsub(UUID_PATTERN, "*") }.uniq.sort
+      end
+
+      sig { params(paths: T::Array[String]).returns(T::Array[String]) }
+      def glob_shared_filelists(paths)
+        paths.map { |p| p.sub(SHARED_FILELIST_PATTERN, ".sfl*") }.uniq.sort
       end
 
       sig { params(paths: T::Array[String]).returns(T::Array[String]) }
@@ -311,6 +283,42 @@ module Homebrew
 
         directives.join(",\n")
                   .prepend("zap ")
+      end
+
+      private
+
+      sig { params(patterns: T::Array[String]).returns(String) }
+      def format_patterns(patterns)
+        patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence
+      end
+
+      sig { params(basenames: T::Array[String]).returns(T::Array[String]) }
+      def find_wildcard_groups(basenames)
+        return basenames if basenames.size <= 1
+
+        used = Array.new(basenames.size, false)
+        result = []
+
+        basenames.each_with_index do |name, i|
+          next if used[i]
+
+          group_indices = [i]
+          basenames.each_with_index do |other, j|
+            next if i == j || used[j]
+            next unless other.start_with?(name)
+
+            group_indices << j
+          end
+
+          if group_indices.size > 1
+            result << "#{name}*"
+            group_indices.each { |idx| used[idx] = true }
+          else
+            result << name
+          end
+        end
+
+        result
       end
 
       sig { params(key: String, paths: T::Array[String]).returns(String) }

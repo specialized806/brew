@@ -4,6 +4,24 @@
 require "utils/github"
 
 RSpec.describe GitHub do
+  describe "::members_by_team" do
+    it "reports an inaccessible team without assuming the token scope is missing" do
+      allow(GitHub::API).to receive(:open_graphql).and_return({
+        "organization" => {
+          "teams" => { "nodes" => [] },
+          "team"  => nil,
+        },
+      })
+
+      expect { described_class.members_by_team("Homebrew", "maintainers") }
+        .to raise_error(
+          GitHub::API::Error,
+          "Could not access the team Homebrew/maintainers. Please check that your GitHub account has access to the " \
+          "team and that your token has the required permissions.",
+        )
+    end
+  end
+
   describe "::API.commit" do
     it "fetches the main branch commit by default" do
       commit = { "sha" => "abc123" }
@@ -172,66 +190,6 @@ RSpec.describe GitHub do
 
     it "gets commit hashes for a paginated pull request API response" do
       expect(described_class.pull_request_commits("Homebrew", "legacy-homebrew", 50678, per_page: 1)).to eq(hashes)
-    end
-  end
-
-  describe "::count_repo_commits" do
-    let(:five_shas) { %w[abcdef ghjkl mnop qrst uvwxyz] }
-    let(:ten_shas) { %w[abcdef ghjkl mnop qrst uvwxyz fedcba lkjhg ponm tsrq zyxwvu] }
-    let(:max) { 1000 }
-    let(:verbose) { false }
-    let(:from) { nil }
-    let(:to) { nil }
-
-    it "counts commits authored by a user" do
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/cask", "user1", "author", nil, nil, max, verbose).and_return(five_shas)
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/cask", "user1", "committer", nil, nil, max, verbose).and_return([])
-
-      expect(described_class.count_repository_commits("homebrew/cask", "user1", max:, verbose:, from:,
-to:)).to eq(5)
-    end
-
-    it "counts commits committed by a user" do
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/core", "user1", "author", nil, nil, max, verbose).and_return([])
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/core", "user1", "committer", nil, nil, max, verbose).and_return(five_shas)
-
-      expect(described_class.count_repository_commits("homebrew/core", "user1", max:, verbose:, from:,
-to:)).to eq(5)
-    end
-
-    it "calculates correctly when authored > committed with different shas" do
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/cask", "user1", "author", nil, nil, max, verbose).and_return(ten_shas)
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/cask", "user1", "committer", nil, nil, max, verbose).and_return(%w[1 2 3 4 5])
-
-      expect(described_class.count_repository_commits("homebrew/cask", "user1", max:, verbose:, from:,
-to:)).to eq(15)
-    end
-
-    it "calculates correctly when committed > authored" do
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/cask", "user1", "author", nil, nil, max, verbose).and_return(five_shas)
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/cask", "user1", "committer", nil, nil, max, verbose).and_return(ten_shas)
-
-      expect(described_class.count_repository_commits("homebrew/cask", "user1", max:, verbose:, from:,
-to:)).to eq(10)
-    end
-
-    it "deduplicates commits authored and committed by the same user" do
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/core", "user1", "author", nil, nil, max, verbose).and_return(five_shas)
-      allow(described_class).to receive(:repo_commits_for_user)
-        .with("homebrew/core", "user1", "committer", nil, nil, max, verbose).and_return(five_shas)
-
-      # Because user1 authored and committed the same 5 commits.
-      expect(described_class.count_repository_commits("homebrew/core", "user1", max:, verbose:, from:,
-to:)).to eq(5)
     end
   end
 end

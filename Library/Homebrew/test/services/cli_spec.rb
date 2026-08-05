@@ -4,8 +4,11 @@
 require "services/cli"
 require "services/system"
 require "services/formula_wrapper"
+require "test/support/helper/services"
 
 RSpec.describe Homebrew::Services::Cli do
+  include Test::Helper::Services
+
   subject(:services_cli) { described_class }
 
   let(:service_string) { "service" }
@@ -39,7 +42,7 @@ RSpec.describe Homebrew::Services::Cli do
         udisks2.service          loaded active running Disk Manager
         user@1000.service        loaded active running User Manager for UID 1000
       EOS
-      expect(services_cli.running).to eq(["homebrew.php.service"])
+      expect(services_cli.running).to eq(["homebrew.php"])
     end
   end
 
@@ -333,15 +336,16 @@ RSpec.describe Homebrew::Services::Cli do
       timer_file.write("timer")
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
-        name:         "name",
-        service_name: "homebrew.name",
-        installed?:   true,
+        name:             "name",
+        service_name:     "homebrew.name",
+        installed?:       true,
         service_file:,
-        dest:         dest_dir/service_file.basename,
+        service_contents: "service",
+        dest:             dest_dir/service_file.basename,
         dest_dir:,
-        timed?:       true,
+        timed?:           true,
         timer_file:,
-        timer_dest:   dest_dir/timer_file.basename,
+        timer_dest:       dest_dir/timer_file.basename,
       )
 
       services_cli.install_service_file(service, nil)
@@ -351,10 +355,8 @@ RSpec.describe Homebrew::Services::Cli do
 
     context "when given `--sudo-service-user`" do
       let(:dest_dir) { mktmpdir }
-      let(:service) do
-        source_dir = mktmpdir
-        service_file = source_dir/"homebrew.test.plist"
-        service_file.write <<~XML
+      let(:plist_xml) do
+        <<~XML
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -368,13 +370,19 @@ RSpec.describe Homebrew::Services::Cli do
           </dict>
           </plist>
         XML
+      end
+      let(:service) do
+        source_dir = mktmpdir
+        service_file = source_dir/"homebrew.test.plist"
+        service_file.write(plist_xml)
         instance_double(
           Homebrew::Services::FormulaWrapper,
-          name:         "name",
-          service_name: "homebrew.test",
-          installed?:   true,
+          name:             "name",
+          service_name:     "homebrew.test",
+          installed?:       true,
           service_file:,
-          dest:         dest_dir/"homebrew.test.plist",
+          service_contents: plist_xml,
+          dest:             dest_dir/"homebrew.test.plist",
           dest_dir:,
         )
       end
@@ -407,7 +415,7 @@ RSpec.describe Homebrew::Services::Cli do
         printf '%s\\n' "$*" >> "#{log}"
       SH
       (bindir/"systemctl").chmod 0755
-      Homebrew::Services::System::Systemctl.reset_executable!
+      reset_services_memoization!
     end
 
     it "checks non-enabling run" do
@@ -466,7 +474,7 @@ RSpec.describe Homebrew::Services::Cli do
         printf '%s\\n' "$*" >> "#{log}"
       SH
       (bindir/"launchctl").chmod 0755
-      Homebrew::Services::System.reset_launchctl!
+      reset_services_memoization!
     end
 
     it "checks non-enabling run" do

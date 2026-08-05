@@ -92,6 +92,7 @@ Style/Documentation:
     - os.rb
     - os/mac.rb
     - resource.rb
+    - service.rb
     - startup/config.rb
     - utils/gzip.rb
     - utils/inreplace.rb

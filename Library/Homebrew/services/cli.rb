@@ -39,7 +39,7 @@ module Homebrew
                                        "--no-pager",
                                        "--no-legend")
         end.chomp.split("\n").filter_map do |svc|
-          Regexp.last_match(0) if svc =~ /homebrew(?>\.mxcl)?\.([\w+-.@]+)/
+          svc[/homebrew(?>\.mxcl)?\.([\w+-.@]+)/]&.delete_suffix(".service")
         end
       end
 
@@ -296,6 +296,7 @@ module Homebrew
         elsif System.launchctl?
           group = "admin"
           chown "root", group, service.dest
+          require "plist"
           plist_data = service.dest.read
           plist = begin
             Plist.parse_xml(plist_data, marshal: false)
@@ -413,11 +414,12 @@ module Homebrew
 
         temp = Tempfile.new(service.service_name)
         temp << if file.nil?
-          contents = service.service_file.read
+          contents = service.service_contents
 
           if sudo_service_user && System.launchctl?
             # set the username in the new plist file
             ohai "Setting username in #{service.service_name} to: #{sudo_service_user}"
+            require "plist"
             plist_data = Plist.parse_xml(contents, marshal: false)
             plist_data["UserName"] = sudo_service_user
             plist_data.to_plist

@@ -7,6 +7,11 @@ require "dev-cmd/irb"
 RSpec.describe Homebrew::DevCmd::Irb do
   it_behaves_like "parseable arguments"
 
+  it "deprecates the Pry option" do
+    expect { described_class.new(["--pry"]) }
+      .to raise_error(MethodDeprecatedError, /default IRB backend.*Pry is largely unmaintained upstream/i)
+  end
+
   describe "integration test" do
     let(:history_file) { Pathname("#{Dir.home}/.brew_irb_history") }
 

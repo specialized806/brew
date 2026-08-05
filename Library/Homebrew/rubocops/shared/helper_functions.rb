@@ -14,6 +14,40 @@ module RuboCop
     module HelperFunctions
       include RangeHelp
 
+      @processed_source = T.let(nil, T.nilable(RuboCop::ProcessedSource))
+      @descendant_send_nodes = T.let(
+        {}.compare_by_identity,
+        T::Hash[RuboCop::AST::Node, T::Array[RuboCop::AST::SendNode]],
+      )
+      @descendant_send_nodes_by_method_name = T.let(
+        {}.compare_by_identity,
+        T::Hash[RuboCop::AST::Node, T::Hash[Symbol, T::Array[RuboCop::AST::SendNode]]],
+      )
+
+      sig {
+        params(processed_source: RuboCop::ProcessedSource, node: RuboCop::AST::Node)
+          .returns(T::Array[RuboCop::AST::SendNode])
+      }
+      def self.descendant_send_nodes(processed_source, node)
+        unless @processed_source.equal?(processed_source)
+          @processed_source = processed_source
+          @descendant_send_nodes.clear
+          @descendant_send_nodes_by_method_name.clear
+        end
+
+        @descendant_send_nodes[node] ||= node.each_descendant(:send).to_a
+      end
+
+      sig {
+        params(processed_source: RuboCop::ProcessedSource, node: RuboCop::AST::Node)
+          .returns(T::Hash[Symbol, T::Array[RuboCop::AST::SendNode]])
+      }
+      def self.descendant_send_nodes_by_method_name(processed_source, node)
+        descendant_send_nodes(processed_source, node)
+        @descendant_send_nodes_by_method_name[node] ||=
+          @descendant_send_nodes.fetch(node).group_by(&:method_name)
+      end
+
       # Checks for regex match of pattern in the node and
       # sets the appropriate instance variables to report the match.
       sig { params(node: RuboCop::AST::Node, pattern: T.any(Regexp, String)).returns(T.nilable(MatchData)) }
@@ -163,11 +197,9 @@ module RuboCop
       }
       def find_every_method_call_by_name(node, method_name = nil)
         return [] if node.nil?
+        return HelperFunctions.descendant_send_nodes(processed_source, node) if method_name.nil?
 
-        node.each_descendant(:send).select do |method_node|
-          method_name.nil? ||
-            method_name == method_node.method_name
-        end
+        HelperFunctions.descendant_send_nodes_by_method_name(processed_source, node).fetch(method_name, [])
       end
 
       # Returns array of function call nodes matching func_name in every descendant of node.
@@ -182,9 +214,12 @@ module RuboCop
       def find_every_func_call_by_name(node, func_name = nil)
         return [] if node.nil?
 
-        node.each_descendant(:send).select do |func_node|
-          func_node.receiver.nil? && (func_name.nil? || func_name == func_node.method_name)
+        nodes = if func_name.nil?
+          HelperFunctions.descendant_send_nodes(processed_source, node)
+        else
+          HelperFunctions.descendant_send_nodes_by_method_name(processed_source, node).fetch(func_name, [])
         end
+        nodes.select { |func_node| func_node.receiver.nil? }
       end
 
       # Given a method_name and arguments, yields to a block with
@@ -261,7 +296,7 @@ module RuboCop
         ).returns(T.anything)
       }
       def find_instance_call(node, name, &_block)
-        node.each_descendant(:send) do |method_node|
+        HelperFunctions.descendant_send_nodes(processed_source, node).each do |method_node|
           next if method_node.receiver.nil?
           next if method_node.receiver.const_name != name &&
                   !(method_node.receiver.send_type? && method_node.receiver.method_name == name)
@@ -406,13 +441,11 @@ module RuboCop
       # Check if method_name is called among every descendant node of given node.
       sig { params(node: RuboCop::AST::Node, method_name: Symbol).returns(T::Boolean) }
       def method_called_ever?(node, method_name)
-        node.each_descendant(:send) do |call_node|
-          next if call_node.method_name != method_name
+        call_node = HelperFunctions.descendant_send_nodes_by_method_name(processed_source, node)[method_name]&.first
+        return false unless call_node
 
-          @offensive_node = call_node
-          return true
-        end
-        false
+        @offensive_node = call_node
+        true
       end
 
       # Checks for precedence; returns the first pair of precedence-violating nodes.

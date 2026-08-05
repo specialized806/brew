@@ -48,6 +48,7 @@ module Homebrew
         const :resource_versions, T::Array[ResourceVersionInfo], default: []
         const :repology_latest, T.any(String, Version)
         const :newer_than_upstream, T::Hash[Symbol, T::Boolean], default: {}
+        const :cooldown_skipped_versions, T::Hash[Symbol, Version], default: {}
         const :duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
         const :maybe_duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
       end
@@ -184,62 +185,6 @@ module Homebrew
         end
       end
 
-      private
-
-      sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Boolean) }
-      def skip_repology?(formula_or_cask)
-        return true unless args.repology?
-
-        (ENV["CI"].present? && args.open_pr? && formula_or_cask.livecheck_defined?) ||
-          (formula_or_cask.is_a?(Formula) && formula_or_cask.versioned_formula?)
-      end
-
-      sig { params(formulae_and_casks: T::Array[T.any(Formula, Cask::Cask)]).void }
-      def handle_formulae_and_casks(formulae_and_casks)
-        Livecheck.load_other_tap_strategies(formulae_and_casks)
-
-        ambiguous_casks = []
-        if !args.formula? && !args.cask?
-          ambiguous_casks = formulae_and_casks
-                            .group_by { |item| Livecheck.package_or_resource_name(item, full_name: true) }
-                            .values
-                            .select { |items| items.length > 1 }
-                            .flatten
-                            .grep(Cask::Cask)
-        end
-
-        ambiguous_names = []
-        unless args.full_name?
-          ambiguous_names = (formulae_and_casks - ambiguous_casks)
-                            .group_by { |item| Livecheck.package_or_resource_name(item) }
-                            .values
-                            .select { |items| items.length > 1 }
-                            .flatten
-        end
-
-        formulae_and_casks.each_with_index do |formula_or_cask, i|
-          puts if i.positive?
-          next if skip_ineligible_formulae!(formula_or_cask)
-
-          use_full_name = args.full_name? || ambiguous_names.include?(formula_or_cask)
-          name = Livecheck.package_or_resource_name(formula_or_cask, full_name: use_full_name)
-          repository = if formula_or_cask.is_a?(Formula)
-            Repology::HOMEBREW_CORE
-          else
-            Repology::HOMEBREW_CASK
-          end
-
-          package_data = Repology.single_package_query(name, repository:) unless skip_repology?(formula_or_cask)
-
-          retrieve_and_display_info_and_open_pr(
-            formula_or_cask,
-            name,
-            package_data&.values&.first || [],
-            ambiguous_cask: ambiguous_casks.include?(formula_or_cask),
-          )
-        end
-      end
-
       sig {
         params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Boolean)
       }
@@ -271,86 +216,6 @@ module Homebrew
       sig {
         params(
           formula_or_cask: T.any(Formula, Cask::Cask),
-          current:         T.nilable(T.any(Version, Cask::DSL::Version)),
-        ).returns(T.any(Version, String))
-      }
-      def livecheck_result(formula_or_cask, current)
-        name = Livecheck.package_or_resource_name(formula_or_cask)
-
-        referenced_formula_or_cask, = Livecheck.resolve_livecheck_reference(
-          formula_or_cask,
-          full_name: false,
-          debug:     false,
-        )
-
-        # Check skip conditions for a referenced formula/cask
-        if referenced_formula_or_cask
-          skip_info = Livecheck::SkipConditions.referenced_skip_information(
-            referenced_formula_or_cask,
-            name,
-            full_name: false,
-            verbose:   false,
-          )
-        end
-
-        skip_info ||= Livecheck::SkipConditions.skip_information(
-          formula_or_cask,
-          full_name: false,
-          verbose:   false,
-        )
-
-        if skip_info.present?
-          skip_status = skip_info[:status]
-          skip_messages = skip_info[:messages]
-          skip_message = skip_messages.join("; ") if skip_messages.present?
-          return "error: #{skip_message}" if skip_status == "error" && skip_message
-
-          return "skipped - #{skip_message || skip_status}"
-        end
-
-        version_info = Livecheck.latest_version(
-          formula_or_cask,
-          referenced_formula_or_cask:,
-          json: true, full_name: false, verbose: true, debug: false
-        )
-        return "unable to get versions" if version_info.blank?
-
-        if !version_info.key?(:latest_throttled)
-          version_with_cooldown(version_info, current) || Version.new(version_info[:latest])
-        elsif version_info[:latest_throttled].nil?
-          "unable to get throttled versions"
-        else
-          Version.new(version_info[:latest_throttled])
-        end
-      rescue => e
-        "error: #{e}"
-      end
-
-      sig {
-        params(
-          formula_or_cask: T.any(Formula, Cask::Cask),
-          name:            String,
-          version:         T.nilable(String),
-        ).returns T.nilable(T.any(T::Array[String], String))
-      }
-      def retrieve_pull_requests(formula_or_cask, name, version: nil)
-        tap_remote_repo = formula_or_cask.tap&.remote_repository || formula_or_cask.tap&.full_name
-        odie "unexpected nil tap remote repository" if tap_remote_repo.nil?
-
-        pull_requests = begin
-          GitHub.fetch_pull_requests(name, tap_remote_repo, version:)
-        rescue GitHub::API::ValidationFailedError => e
-          odebug "Error fetching pull requests for #{formula_or_cask} #{name}: #{e}"
-          nil
-        end
-        return if pull_requests.blank?
-
-        pull_requests.map { |pr| "#{pr["title"]} (#{Formatter.url(pr["html_url"])})" }.join(", ")
-      end
-
-      sig {
-        params(
-          formula_or_cask: T.any(Formula, Cask::Cask),
           repositories:    T::Array[String],
           name:            String,
         ).returns(VersionBumpInfo)
@@ -366,6 +231,7 @@ module Homebrew
         deprecated = {}
         current_versions = {}
         new_versions = {}
+        cooldown_skipped_versions = {}
 
         repology_latest = repositories.present? ? Repology.latest_version(repositories) : "not found"
         repology_latest_is_a_version = repology_latest.is_a?(Version)
@@ -407,7 +273,8 @@ module Homebrew
             deprecated[version_key] = loaded_formula_or_cask.deprecated?
             formula_or_cask_has_livecheck = loaded_formula_or_cask.livecheck_defined?
 
-            livecheck_latest = livecheck_result(loaded_formula_or_cask, current_version_value)
+            livecheck_latest, cooldown_skipped = livecheck_result(loaded_formula_or_cask, current_version_value)
+            cooldown_skipped_versions[version_key] = cooldown_skipped if cooldown_skipped
             livecheck_latest_is_a_version = livecheck_latest.is_a?(Version)
 
             new_version_value = if (livecheck_latest_is_a_version &&
@@ -443,12 +310,17 @@ module Homebrew
           single_arch = arch_options[0]
           current_versions = { general: current_versions[single_arch] }
           new_versions = { general: new_versions[single_arch] }
+          cooldown_skipped_versions = { general: cooldown_skipped_versions[single_arch] }.compact
         else
           if current_versions[:arm].present? && current_versions[:arm] == current_versions[:intel]
             current_versions = { general: current_versions[:arm] }
           end
           if new_versions[:arm].present? && new_versions[:arm] == new_versions[:intel]
             new_versions = { general: new_versions[:arm] }
+          end
+          if cooldown_skipped_versions[:arm].present? &&
+             cooldown_skipped_versions[:arm] == cooldown_skipped_versions[:intel]
+            cooldown_skipped_versions = { general: cooldown_skipped_versions[:arm] }
           end
         end
 
@@ -522,71 +394,10 @@ module Homebrew
           resource_versions:,
           repology_latest:,
           newer_than_upstream:,
+          cooldown_skipped_versions:,
           duplicate_pull_requests:,
           maybe_duplicate_pull_requests:,
         )
-      end
-
-      sig {
-        params(
-          formula:                Formula,
-          formula_latest_version: String,
-        ).returns(T::Array[ResourceVersionInfo])
-      }
-      def collect_resource_versions(formula, formula_latest_version)
-        resource_versions = []
-
-        formula.resources.each do |resource|
-          next unless resource.livecheck_defined?
-          next if resource.livecheck.skip?
-
-          # Resources that reference :parent track the formula version directly
-          if resource.livecheck.formula == :parent
-            current = resource.version.to_s
-            resource_versions << ResourceVersionInfo.new(
-              name:                resource.name,
-              current_version:     current,
-              latest_version:      formula_latest_version,
-              outdated:            Version.new(current) < Version.new(formula_latest_version),
-              newer_than_upstream: Version.new(current) > Version.new(formula_latest_version),
-            )
-            next
-          end
-
-          resource_info = Livecheck.resource_version(
-            resource,
-            formula_latest_version,
-            json:      true,
-            full_name: false,
-            debug:     false,
-            quiet:     true,
-            verbose:   false,
-          )
-
-          if resource_info.empty? || resource_info[:status] == "error"
-            resource_versions << ResourceVersionInfo.new(
-              name:                resource.name,
-              current_version:     resource.version.to_s,
-              latest_version:      nil,
-              outdated:            false,
-              newer_than_upstream: false,
-            )
-            next
-          end
-
-          version_info = resource_info[:version]
-          next if version_info.blank?
-
-          resource_versions << ResourceVersionInfo.new(
-            name:                resource.name,
-            current_version:     version_info[:current],
-            latest_version:      version_info[:latest],
-            outdated:            version_info[:outdated] == true,
-            newer_than_upstream: version_info[:newer_than_upstream] == true,
-          )
-        end
-
-        resource_versions
       end
 
       sig {
@@ -608,6 +419,7 @@ module Homebrew
         new_version = version_info.new_version
         repology_latest = version_info.repology_latest
         newer_than_upstream = version_info.newer_than_upstream
+        cooldown_skipped_version = version_info.cooldown_skipped_versions.values.max
         duplicate_pull_requests = version_info.duplicate_pull_requests
         maybe_duplicate_pull_requests = version_info.maybe_duplicate_pull_requests
 
@@ -616,7 +428,11 @@ module Homebrew
 
         title_name = ambiguous_cask ? "#{name} (cask)" : name
         title = if (repology_latest == current_version.general || !repology_latest.is_a?(Version)) && versions_equal
-          "#{title_name} #{Tty.green}is up to date!#{Tty.reset}"
+          if cooldown_skipped_version
+            "#{title_name} #{Tty.yellow}has a new version in release cooldown#{Tty.reset}"
+          else
+            "#{title_name} #{Tty.green}is up to date!#{Tty.reset}"
+          end
         else
           title_name
         end
@@ -644,11 +460,18 @@ module Homebrew
         end
 
         throttled = formula_or_cask.livecheck.throttle || formula_or_cask.livecheck.throttle_days
+        latest_versions = if cooldown_skipped_version
+          cooldown_days = Utils.pluralize("day", Homebrew::RELEASE_COOLDOWN_DAYS, include_count: true)
+          "#{cooldown_skipped_version} (released less than #{cooldown_days} ago)"
+        else
+          "#{new_versions}#{" (throttled)" if throttled}"
+        end
         ohai title
         puts <<~EOS
           Current #{version_info.version_name}  #{current_versions}
-          Latest livecheck version: #{new_versions}#{" (throttled)" if throttled}
+          Latest livecheck version: #{latest_versions}
         EOS
+        puts "Bump-ready version:       #{new_versions}" if cooldown_skipped_version
         puts <<~EOS unless skip_repology?(formula_or_cask)
           Latest Repology version:  #{repology_latest}
         EOS
@@ -876,42 +699,6 @@ module Homebrew
         value.match?(LIVECHECK_MESSAGE_REGEX)
       end
 
-      sig {
-        params(
-          formula:     Formula,
-          new_version: T.nilable(T.any(Version, Cask::DSL::Version)),
-        ).returns(T::Array[String])
-      }
-      def synced_with(formula, new_version)
-        synced_with = []
-
-        formula.tap&.synced_versions_formulae&.each do |synced_formulae|
-          next unless synced_formulae.include?(formula.name)
-
-          synced_formulae.each do |synced_formula|
-            synced_formula = Formulary.factory(synced_formula)
-            next if synced_formula == formula.name
-
-            synced_with << synced_formula.name if synced_formula.version != new_version
-          end
-        end
-
-        synced_with
-      end
-
-      sig { params(tap: Tap, casks: T::Boolean).returns(T::Array[T.any(Formula, Cask::Cask)]) }
-      def autobumped_formulae_or_casks(tap, casks: false)
-        autobump_list = tap.autobump
-        autobump_list.map do |name|
-          qualified_name = "#{tap.name}/#{name}"
-          if casks
-            Cask::CaskLoader.load(qualified_name)
-          else
-            Formulary.factory(qualified_name)
-          end
-        end
-      end
-
       # Identifies the highest upstream version that has been released before
       # the cooldown interval.
       #
@@ -1025,6 +812,245 @@ module Homebrew
             next unless (date_str = release["created_at"])
 
             return version if DateTime.parse(date_str) < cooldown_interval
+          end
+        end
+      end
+
+      private
+
+      sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Boolean) }
+      def skip_repology?(formula_or_cask)
+        return true unless args.repology?
+
+        (ENV["CI"].present? && args.open_pr? && formula_or_cask.livecheck_defined?) ||
+          (formula_or_cask.is_a?(Formula) && formula_or_cask.versioned_formula?)
+      end
+
+      sig { params(formulae_and_casks: T::Array[T.any(Formula, Cask::Cask)]).void }
+      def handle_formulae_and_casks(formulae_and_casks)
+        Livecheck.load_other_tap_strategies(formulae_and_casks)
+
+        ambiguous_casks = []
+        if !args.formula? && !args.cask?
+          ambiguous_casks = formulae_and_casks
+                            .group_by { |item| Livecheck.package_or_resource_name(item, full_name: true) }
+                            .values
+                            .select { |items| items.length > 1 }
+                            .flatten
+                            .grep(Cask::Cask)
+        end
+
+        ambiguous_names = []
+        unless args.full_name?
+          ambiguous_names = (formulae_and_casks - ambiguous_casks)
+                            .group_by { |item| Livecheck.package_or_resource_name(item) }
+                            .values
+                            .select { |items| items.length > 1 }
+                            .flatten
+        end
+
+        formulae_and_casks.each_with_index do |formula_or_cask, i|
+          puts if i.positive?
+          next if skip_ineligible_formulae!(formula_or_cask)
+
+          use_full_name = args.full_name? || ambiguous_names.include?(formula_or_cask)
+          name = Livecheck.package_or_resource_name(formula_or_cask, full_name: use_full_name)
+          repository = if formula_or_cask.is_a?(Formula)
+            Repology::HOMEBREW_CORE
+          else
+            Repology::HOMEBREW_CASK
+          end
+
+          package_data = Repology.single_package_query(name, repository:) unless skip_repology?(formula_or_cask)
+
+          retrieve_and_display_info_and_open_pr(
+            formula_or_cask,
+            name,
+            package_data&.values&.first || [],
+            ambiguous_cask: ambiguous_casks.include?(formula_or_cask),
+          )
+        end
+      end
+
+      # Returns the new version (or a message string) and the newest upstream
+      # version skipped due to the release cooldown, if any.
+      sig {
+        params(
+          formula_or_cask: T.any(Formula, Cask::Cask),
+          current:         T.nilable(T.any(Version, Cask::DSL::Version)),
+        ).returns([T.any(Version, String), T.nilable(Version)])
+      }
+      def livecheck_result(formula_or_cask, current)
+        name = Livecheck.package_or_resource_name(formula_or_cask)
+
+        referenced_formula_or_cask, = Livecheck.resolve_livecheck_reference(
+          formula_or_cask,
+          full_name: false,
+          debug:     false,
+        )
+
+        # Check skip conditions for a referenced formula/cask
+        if referenced_formula_or_cask
+          skip_info = Livecheck::SkipConditions.referenced_skip_information(
+            referenced_formula_or_cask,
+            name,
+            full_name: false,
+            verbose:   false,
+          )
+        end
+
+        skip_info ||= Livecheck::SkipConditions.skip_information(
+          formula_or_cask,
+          full_name: false,
+          verbose:   false,
+        )
+
+        if skip_info.present?
+          skip_status = skip_info[:status]
+          skip_messages = skip_info[:messages]
+          skip_message = skip_messages.join("; ") if skip_messages.present?
+          return "error: #{skip_message}", nil if skip_status == "error" && skip_message
+
+          return "skipped - #{skip_message || skip_status}", nil
+        end
+
+        version_info = Livecheck.latest_version(
+          formula_or_cask,
+          referenced_formula_or_cask:,
+          json: true, full_name: false, verbose: true, debug: false
+        )
+        return "unable to get versions", nil if version_info.blank?
+
+        if !version_info.key?(:latest_throttled)
+          latest = Version.new(version_info[:latest])
+          cooldown_version = version_with_cooldown(version_info, current)
+          cooldown_skipped = (latest if cooldown_version && cooldown_version < latest)
+          [cooldown_version || latest, cooldown_skipped]
+        elsif version_info[:latest_throttled].nil?
+          ["unable to get throttled versions", nil]
+        else
+          [Version.new(version_info[:latest_throttled]), nil]
+        end
+      rescue => e
+        ["error: #{e}", nil]
+      end
+
+      sig {
+        params(
+          formula_or_cask: T.any(Formula, Cask::Cask),
+          name:            String,
+          version:         T.nilable(String),
+        ).returns T.nilable(T.any(T::Array[String], String))
+      }
+      def retrieve_pull_requests(formula_or_cask, name, version: nil)
+        tap_remote_repo = formula_or_cask.tap&.remote_repository || formula_or_cask.tap&.full_name
+        odie "unexpected nil tap remote repository" if tap_remote_repo.nil?
+
+        pull_requests = begin
+          GitHub.fetch_pull_requests(name, tap_remote_repo, version:)
+        rescue GitHub::API::ValidationFailedError => e
+          odebug "Error fetching pull requests for #{formula_or_cask} #{name}: #{e}"
+          nil
+        end
+        return if pull_requests.blank?
+
+        pull_requests.map { |pr| "#{pr["title"]} (#{Formatter.url(pr["html_url"])})" }.join(", ")
+      end
+
+      sig {
+        params(
+          formula:                Formula,
+          formula_latest_version: String,
+        ).returns(T::Array[ResourceVersionInfo])
+      }
+      def collect_resource_versions(formula, formula_latest_version)
+        resource_versions = []
+
+        formula.resources.each do |resource|
+          next unless resource.livecheck_defined?
+          next if resource.livecheck.skip?
+
+          # Resources that reference :parent track the formula version directly
+          if resource.livecheck.formula == :parent
+            current = resource.version.to_s
+            resource_versions << ResourceVersionInfo.new(
+              name:                resource.name,
+              current_version:     current,
+              latest_version:      formula_latest_version,
+              outdated:            Version.new(current) < Version.new(formula_latest_version),
+              newer_than_upstream: Version.new(current) > Version.new(formula_latest_version),
+            )
+            next
+          end
+
+          resource_info = Livecheck.resource_version(
+            resource,
+            formula_latest_version,
+            json:      true,
+            full_name: false,
+            debug:     false,
+            quiet:     true,
+            verbose:   false,
+          )
+
+          if resource_info.empty? || resource_info[:status] == "error"
+            resource_versions << ResourceVersionInfo.new(
+              name:                resource.name,
+              current_version:     resource.version.to_s,
+              latest_version:      nil,
+              outdated:            false,
+              newer_than_upstream: false,
+            )
+            next
+          end
+
+          version_info = resource_info[:version]
+          next if version_info.blank?
+
+          resource_versions << ResourceVersionInfo.new(
+            name:                resource.name,
+            current_version:     version_info[:current],
+            latest_version:      version_info[:latest],
+            outdated:            version_info[:outdated] == true,
+            newer_than_upstream: version_info[:newer_than_upstream] == true,
+          )
+        end
+
+        resource_versions
+      end
+
+      sig {
+        params(
+          formula:     Formula,
+          new_version: T.nilable(T.any(Version, Cask::DSL::Version)),
+        ).returns(T::Array[String])
+      }
+      def synced_with(formula, new_version)
+        synced_with = []
+
+        formula.tap&.synced_versions_formulae&.each do |synced_formulae|
+          next unless synced_formulae.include?(formula.name)
+
+          synced_formulae.each do |synced_formula|
+            synced_formula = Formulary.factory(synced_formula)
+            next if synced_formula == formula.name
+
+            synced_with << synced_formula.name if synced_formula.version != new_version
+          end
+        end
+
+        synced_with
+      end
+
+      sig { params(tap: Tap, casks: T::Boolean).returns(T::Array[T.any(Formula, Cask::Cask)]) }
+      def autobumped_formulae_or_casks(tap, casks: false)
+        autobump_list = tap.autobump
+        autobump_list.map do |name|
+          qualified_name = "#{tap.name}/#{name}"
+          if casks
+            Cask::CaskLoader.load(qualified_name)
+          else
+            Formulary.factory(qualified_name)
           end
         end
       end

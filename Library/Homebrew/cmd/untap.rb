@@ -1,7 +1,11 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "English"
 require "abstract_command"
+require "ask"
+require "cask/uninstall"
+require "uninstall"
 require "utils"
 
 module Homebrew
@@ -12,7 +16,7 @@ module Homebrew
           Remove a tapped formula repository.
         EOS
         switch "-f", "--force",
-               description: "Untap even if formulae or casks from this tap are currently installed."
+               description: "Uninstall all formulae and casks from this tap with `--force` before untapping."
 
         named_args :tap, min: 1
       end
@@ -36,18 +40,61 @@ module Homebrew
             installed_tap_casks = installed_casks_for(tap:)
 
             if installed_tap_formulae.present? || installed_tap_casks.present?
-              installed_names = (installed_tap_formulae + installed_tap_casks.map(&:token)).join("\n")
-              if args.force? || Homebrew::EnvConfig.developer?
+              installed_formulae_names = installed_tap_formulae.map(&:full_name)
+              installed_cask_names = installed_tap_casks.map(&:full_name)
+              installed_package_types = if installed_formulae_names.empty?
+                "casks"
+              elsif installed_cask_names.empty?
+                "formulae"
+              else
+                "formulae and casks"
+              end
+              installed_names = (installed_formulae_names + installed_cask_names).join("\n")
+              if Homebrew::EnvConfig.developer? && !args.force?
                 opoo <<~EOS
-                  Untapping #{tap} even though it contains the following installed formulae or casks:
+                  Untapping #{tap} even though it contains the following installed #{installed_package_types}:
                   #{installed_names}
                 EOS
               else
-                ofail <<~EOS
-                  Refusing to untap #{tap} because it contains the following installed formulae or casks:
-                  #{installed_names}
-                EOS
-                next
+                unless args.force?
+                  ohai "Would untap #{tap} after uninstalling the following #{installed_package_types}:"
+                  puts installed_names
+                  confirmed = begin
+                    Homebrew::Ask.confirm?(action: "changes")
+                  rescue SystemExit
+                    false
+                  end
+                  unless confirmed
+                    ofail <<~EOS
+                      Refusing to untap #{tap} because it contains the following installed #{installed_package_types}:
+                      #{installed_names}
+                    EOS
+                    next
+                  end
+                end
+
+                named_args = installed_formulae_names + installed_cask_names
+                kegs_by_rack = installed_tap_formulae.flat_map do |formula|
+                  formula.installed_kegs.select { |keg| keg.tab.tap == tap }
+                end.group_by(&:rack)
+
+                Cask::Uninstall.check_dependent_casks(*installed_tap_casks, named_args:)
+                next if Homebrew.failed?
+
+                Uninstall.uninstall_kegs(kegs_by_rack, casks: installed_tap_casks, force: args.force?, named_args:)
+                next if Homebrew.failed?
+
+                begin
+                  Cask::Uninstall.uninstall_casks(*installed_tap_casks, force: args.force?)
+                rescue
+                  ofail $ERROR_INFO
+                  next
+                end
+
+                if installed_formulae_for(tap:).present? || installed_casks_for(tap:).present?
+                  ofail "Failed to fully uninstall #{installed_package_types} from #{tap}"
+                  next
+                end
               end
             end
           end

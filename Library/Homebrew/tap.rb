@@ -588,8 +588,7 @@ class Tap
       clear_cache
     end
 
-    # `--` guards against a redirect value that begins with `-` being treated as a `git` option.
-    safe_system "git", "-C", path, "remote", "set-url", "origin", "--", redirected_remote
+    safe_system "git", "-C", path, "remote", "set-url", "origin", "--end-of-options", redirected_remote
     clear_cache
     Tap.clear_cache
 
@@ -612,9 +611,12 @@ class Tap
   def git_command!(args, chdir: nil)
     require "system_command"
 
+    # Disable Git hooks (e.g. a `core.hooksPath` set by `git lfs install`),
+    # which can break tap Git operations.
+    # Keep in sync with the `git` wrappers in cmd/update.sh and cmd/update-reset.sh.
+    args = ["-c", "core.hooksPath=#{File::NULL}", *args]
     SystemCommand.run!("git", args:, chdir:, env: { "GIT_TERMINAL_PROMPT" => "0" }, print_stderr: true)
   end
-  private :git_command!
 
   # Install this {Tap}.
   #
@@ -703,7 +705,7 @@ class Tap
     Tap.clear_cache
 
     $stderr.ohai "Tapping #{name}" unless quiet
-    args = %W[clone #{requested_remote} #{path}]
+    args = %w[clone]
 
     # Override possible user configs like:
     #   git config --global clone.defaultRemoteName notorigin
@@ -714,11 +716,13 @@ class Tap
     args << "--template="
     # Prevent `fsmonitor` from watching this repository.
     args << "--config" << "core.fsmonitor=false"
+    args << "--end-of-options" << requested_remote << path.to_s
 
     begin
       if worktree_source_tap_path
         # Keep core and cask taps connected to the same local source checkout as brew.
-        worktree_args = ["-C", worktree_source_tap_path, "worktree", "add"]
+        # Disable Git hooks as in `git_command!`.
+        worktree_args = ["-c", "core.hooksPath=#{File::NULL}", "-C", worktree_source_tap_path, "worktree", "add"]
         worktree_args << "--quiet" if quiet
         worktree_args += ["--detach", path, "HEAD"]
         safe_system "git", *worktree_args
@@ -808,7 +812,7 @@ class Tap
   def fix_remote_configuration(requested_remote: nil, quiet: false)
     if requested_remote.present?
       path.cd do
-        safe_system "git", "remote", "set-url", "origin", requested_remote
+        safe_system "git", "remote", "set-url", "origin", "--end-of-options", requested_remote
         safe_system "git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"
       end
       $stderr.ohai "#{name}: changed remote from #{remote} to #{requested_remote}" unless quiet
@@ -1163,6 +1167,8 @@ class Tap
 
   sig { returns(T::Hash[String, T.untyped]) }
   def to_hash
+    require "trust"
+
     hash = {
       "name"          => name,
       "user"          => user,

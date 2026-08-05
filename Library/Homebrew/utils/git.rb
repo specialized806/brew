@@ -53,7 +53,7 @@ module Utils
     def self.remote_exists?(url)
       return true unless available?
 
-      quiet_system "git", "ls-remote", url
+      quiet_system "git", "ls-remote", "--end-of-options", url
     end
 
     sig { void }
@@ -206,21 +206,6 @@ module Utils
       # There is some support for partial clones prior to 2.20, but we avoid using it
       # due to performance issues
       version >= Version.new("2.20.0")
-    end
-
-    sig {
-      params(repository_path: T.nilable(Pathname), person: String, from: T.nilable(String),
-             to: T.nilable(String)).returns(Integer)
-    }
-    def self.count_coauthors(repository_path, person, from:, to:)
-      return 0 unless repository_path
-
-      cmd = [git.to_s, "-C", repository_path.to_s, "log", "--oneline"]
-      cmd << "--format='%(trailers:key=Co-authored-by:)''"
-      cmd << "--before=#{to}" if to
-      cmd << "--after=#{from}" if from
-
-      Utils.safe_popen_read(*cmd).lines.count { |l| l.include?(person) }
     end
   end
 end

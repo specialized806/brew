@@ -13,6 +13,7 @@ module Homebrew
   class Service
     extend Forwardable
     include OnSystem::MacOSAndLinux
+    include Utils::Output::Mixin
     include Utils::Path
 
     RUN_TYPE_IMMEDIATE = :immediate
@@ -34,7 +35,7 @@ module Homebrew
     sig { returns(String) }
     attr_reader :plist_name, :service_name
 
-    sig { params(formula: Formula, block: T.nilable(T.proc.void)).void }
+    sig { params(formula: Formula, block: T.nilable(T.proc.bind(Homebrew::Service).void)).void }
     def initialize(formula, &block)
       @cron = T.let({}, T::Hash[Symbol, T.any(Integer, String)])
       @environment_variables = T.let({}, T::Hash[Symbol, String])
@@ -59,6 +60,7 @@ module Homebrew
       @run_type = T.let(RUN_TYPE_IMMEDIATE, Symbol)
       @service_name = T.let(default_service_name, String)
       @sockets = T.let({}, Sockets)
+      @stop_timeout = T.let(nil, T.nilable(Integer))
       @working_dir = T.let(nil, T.nilable(String))
       instance_eval(&block) if block
 
@@ -85,6 +87,11 @@ module Homebrew
       "homebrew.#{@formula.name}"
     end
 
+    # A hash with the `launchd` service name on macOS and/or the `systemd`
+    # service name on Linux. Homebrew generates a default name for the service
+    # file if this is not present.
+    #
+    # @api public
     sig { params(macos: T.nilable(String), linux: T.nilable(String)).void }
     def name(macos: nil, linux: nil)
       raise TypeError, "Service#name expects at least one String" if [macos, linux].none?(String)
@@ -93,12 +100,15 @@ module Homebrew
       @service_name = linux if linux
     end
 
+    # The command to execute: an array with arguments or a path.
+    #
+    # @api public
     sig {
       params(
         command: T.nilable(RunParam),
         macos:   T.nilable(RunParam),
         linux:   T.nilable(RunParam),
-      ).returns(T.nilable(T::Array[T.any(String, Pathname)]))
+      ).returns(T.nilable(T::Array[String]))
     }
     def run(command = nil, macos: nil, linux: nil)
       # Save parameters for serialization
@@ -119,6 +129,9 @@ module Homebrew
       end
     end
 
+    # Directory to operate from.
+    #
+    # @api public
     sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
     def working_dir(path = T.unsafe(nil))
       if path
@@ -128,6 +141,9 @@ module Homebrew
       end
     end
 
+    # Directory to use as a chroot for the process.
+    #
+    # @api public
     sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
     def root_dir(path = T.unsafe(nil))
       if path
@@ -137,6 +153,9 @@ module Homebrew
       end
     end
 
+    # Path to use as input for the process.
+    #
+    # @api public
     sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
     def input_path(path = T.unsafe(nil))
       if path
@@ -146,6 +165,9 @@ module Homebrew
       end
     end
 
+    # Path to write `stdout` to.
+    #
+    # @api public
     sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
     def log_path(path = T.unsafe(nil))
       if path
@@ -155,6 +177,9 @@ module Homebrew
       end
     end
 
+    # Path to write `stderr` to.
+    #
+    # @api public
     sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
     def error_log_path(path = T.unsafe(nil))
       if path
@@ -164,6 +189,9 @@ module Homebrew
       end
     end
 
+    # Sets contexts in which the service will keep the process running.
+    #
+    # @api public
     sig {
       params(value: T.any(T::Boolean, T::Hash[Symbol, T.untyped]))
         .returns(T.nilable(T::Hash[Symbol, T.untyped]))
@@ -183,6 +211,10 @@ module Homebrew
       end
     end
 
+    # Whether the service requires root access. If true, Homebrew hints at using
+    # `sudo` on various occasions, but does not enforce it.
+    #
+    # @api public
     sig { params(value: T::Boolean).returns(T::Boolean) }
     def require_root(value = T.unsafe(nil))
       if value.nil?
@@ -198,6 +230,9 @@ module Homebrew
       @require_root.present? && @require_root == true
     end
 
+    # Whether the command should run when the service is loaded.
+    #
+    # @api public
     sig { params(value: T::Boolean).returns(T.nilable(T::Boolean)) }
     def run_at_load(value = T.unsafe(nil))
       if value.nil?
@@ -207,6 +242,9 @@ module Homebrew
       end
     end
 
+    # Socket that is created as an access point to the service.
+    #
+    # @api public
     sig {
       params(value: T.any(String, T::Hash[Symbol, String]))
         .returns(T::Hash[Symbol, T::Hash[Symbol, String]])
@@ -241,6 +279,9 @@ module Homebrew
       !@keep_alive.empty? && @keep_alive[:always] != false
     end
 
+    # Whether the command should only run once.
+    #
+    # @api public
     sig { params(value: T::Boolean).returns(T::Boolean) }
     def launch_only_once(value = T.unsafe(nil))
       if value.nil?
@@ -250,6 +291,9 @@ module Homebrew
       end
     end
 
+    # Number of seconds to delay before restarting a process.
+    #
+    # @api public
     sig { params(value: Integer).returns(T.nilable(Integer)) }
     def restart_delay(value = T.unsafe(nil))
       if value
@@ -259,6 +303,9 @@ module Homebrew
       end
     end
 
+    # Minimum seconds to wait before invocations (macOS default is `10`).
+    #
+    # @api public
     sig { params(value: Integer).returns(T.nilable(Integer)) }
     def throttle_interval(value = T.unsafe(nil))
       return @throttle_interval if value.nil?
@@ -266,6 +313,22 @@ module Homebrew
       @throttle_interval = value
     end
 
+    # Number of seconds to wait before forcibly stopping a process.
+    #
+    # @api public
+    sig { params(value: Integer).returns(T.nilable(Integer)) }
+    def stop_timeout(value = T.unsafe(nil))
+      return @stop_timeout if value.nil?
+
+      raise TypeError, "Service#stop_timeout must be a non-negative integer" if value.negative?
+
+      @stop_timeout = value
+    end
+
+    # Type of process to manage: `:background`, `:standard`, `:interactive` or
+    # `:adaptive`.
+    #
+    # @api public
     sig { params(value: Symbol).returns(T.nilable(Symbol)) }
     def process_type(value = T.unsafe(nil))
       case value
@@ -280,6 +343,9 @@ module Homebrew
       end
     end
 
+    # The type of service: `:immediate`, `:interval` or `:cron`.
+    #
+    # @api public
     sig { params(value: Symbol).returns(T.nilable(Symbol)) }
     def run_type(value = T.unsafe(nil))
       case value
@@ -292,6 +358,9 @@ module Homebrew
       end
     end
 
+    # Controls the start interval, required for the `:interval` type.
+    #
+    # @api public
     sig { params(value: Integer).returns(T.nilable(Integer)) }
     def interval(value = T.unsafe(nil))
       if value
@@ -301,6 +370,9 @@ module Homebrew
       end
     end
 
+    # Controls the trigger times, required for the `:cron` type.
+    #
+    # @api public
     sig { params(value: String).returns(T::Hash[Symbol, T.any(Integer, String)]) }
     def cron(value = T.unsafe(nil))
       if value
@@ -356,11 +428,68 @@ module Homebrew
       parsed
     end
 
+    # Hash of variables to set.
+    #
+    # @api public
     sig { params(variables: T::Hash[Symbol, T.any(Pathname, String)]).returns(T.nilable(T::Hash[Symbol, String])) }
     def environment_variables(variables = {})
       @environment_variables = variables.transform_values(&:to_s)
     end
 
+    # Returns the effective environment variables with user overrides merged
+    # in from `$HOMEBREW_USER_CONFIG_HOME/services/<formula>.env`.  User
+    # overrides take precedence over formula-defined variables.
+    sig { returns(T::Hash[Symbol, String]) }
+    def effective_environment_variables
+      env_vars = @environment_variables.dup
+
+      env_file = Pathname.new("#{ENV.fetch("HOMEBREW_USER_CONFIG_HOME")}/services/#{@formula.name}.env")
+      return env_vars unless env_file.file?
+
+      # User env overrides are not supported for root services.
+      # `sudo -E` can preserve a caller-controlled HOME, and TOCTOU
+      # between symlink resolution, permission checks, and reading makes
+      # it impossible to safely validate a user-owned override file when
+      # generating a root service definition.
+      if Process.euid.zero?
+        opoo "Skipping #{env_file}: user env overrides are not supported for root services."
+        return env_vars
+      end
+
+      if env_file.world_writable?
+        opoo "Skipping #{env_file}: file is world-writable."
+        return env_vars
+      end
+
+      if env_file.stat.mode.anybits?(020)
+        opoo "Skipping #{env_file}: file is group-writable."
+        return env_vars
+      end
+
+      # Read each line, strip whitespace, and remove blank lines and
+      # comments (lines starting with `#`). Then parse remaining lines
+      # as KEY=value pairs, warning on lines missing a `=` separator.
+      overrides = env_file.each_line
+                          .map(&:strip)
+                          .reject { |line| line.empty? || line.start_with?("#") }
+                          .each_with_object({}) do |line, hash|
+                            key, value = line.split("=", 2)
+                            if key.blank? || value.nil?
+                              opoo "Skipping invalid line in #{env_file}: #{line}"
+                              next
+                            end
+
+                            hash[key.strip] = value.strip
+                          end
+
+      overrides.each { |key, value| env_vars[key.to_sym] = value }
+
+      env_vars
+    end
+
+    # Timers created by `launchd` jobs are coalesced unless this is set.
+    #
+    # @api public
     sig { params(value: T::Boolean).returns(T::Boolean) }
     def macos_legacy_timers(value = T.unsafe(nil))
       if value.nil?
@@ -370,6 +499,11 @@ module Homebrew
       end
     end
 
+    # Default scheduling priority (nice level), from `-20` highest to `19`
+    # lowest. **Note:** Negative nice values (higher priority) require
+    # `require_root: true` to be set.
+    #
+    # @api public
     sig { params(value: Integer).returns(T.nilable(Integer)) }
     def nice(value = T.unsafe(nil))
       return @nice if value.nil?
@@ -381,6 +515,7 @@ module Homebrew
 
     delegate [:bin, :etc, :libexec, :opt_bin, :opt_libexec, :opt_pkgshare, :opt_prefix, :opt_sbin, :var] => :@formula
 
+    # @api internal
     sig { returns(String) }
     def std_service_path_env
       "#{HOMEBREW_PREFIX}/bin:#{HOMEBREW_PREFIX}/sbin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -413,11 +548,11 @@ module Homebrew
     # Returns the `String` command to run manually instead of the service.
     sig { returns(String) }
     def manual_command
-      vars = @environment_variables.except(:PATH)
-                                   .map { |k, v| "#{k}=\"#{v}\"" }
+      env_vars = effective_environment_variables.except(:PATH)
+                                                .map { |k, v| "#{k}=\"#{v}\"" }
 
-      vars.concat(command.map { |arg| Utils::Shell.sh_quote(arg) })
-      vars.join(" ")
+      env_vars.concat(command.map { |arg| Utils::Shell.sh_quote(arg) })
+      env_vars.join(" ")
     end
 
     # Returns a `Boolean` describing if a service is timed.
@@ -438,6 +573,7 @@ module Homebrew
 
       base[:LaunchOnlyOnce] = @launch_only_once if @launch_only_once == true
       base[:LegacyTimers] = @macos_legacy_timers if @macos_legacy_timers == true
+      base[:ExitTimeOut] = @stop_timeout if @stop_timeout.present?
       base[:TimeOut] = @restart_delay if @restart_delay.present?
       base[:ThrottleInterval] = @throttle_interval if @throttle_interval.present?
       base[:ProcessType] = @process_type.to_s.capitalize if @process_type.present?
@@ -448,7 +584,9 @@ module Homebrew
       base[:StandardInPath] = File.expand_path(@input_path) if @input_path.present?
       base[:StandardOutPath] = File.expand_path(@log_path) if @log_path.present?
       base[:StandardErrorPath] = File.expand_path(@error_log_path) if @error_log_path.present?
-      base[:EnvironmentVariables] = @environment_variables unless @environment_variables.empty?
+      if (env_vars = effective_environment_variables).present?
+        base[:EnvironmentVariables] = env_vars
+      end
 
       if keep_alive?
         if (always = @keep_alive[:always].presence)
@@ -485,6 +623,7 @@ module Homebrew
       # general sense.
       base[:LimitLoadToSessionType] = %w[Aqua Background LoginWindow StandardIO System]
 
+      require "plist"
       base.to_plist
     end
 
@@ -508,13 +647,18 @@ module Homebrew
         end
       end
       options << "RestartSec=#{restart_delay}" if @restart_delay.present?
+      options << "TimeoutStopSec=#{@stop_timeout}" if @stop_timeout.present?
       options << "Nice=#{@nice}" if @nice.present?
       options << "WorkingDirectory=#{File.expand_path(@working_dir)}" if @working_dir.present?
       options << "RootDirectory=#{File.expand_path(@root_dir)}" if @root_dir.present?
       options << "StandardInput=file:#{File.expand_path(@input_path)}" if @input_path.present?
       options << "StandardOutput=append:#{File.expand_path(@log_path)}" if @log_path.present?
       options << "StandardError=append:#{File.expand_path(@error_log_path)}" if @error_log_path.present?
-      options += @environment_variables.map { |k, v| "Environment=\"#{k}=#{v}\"" } if @environment_variables.present?
+      if (env_vars = effective_environment_variables).present?
+        options += env_vars.map do |k, v|
+          "Environment=\"#{k}=#{v}\""
+        end
+      end
 
       <<~SYSTEMD
         [Unit]
@@ -614,6 +758,7 @@ module Homebrew
         error_log_path:        @error_log_path,
         restart_delay:         @restart_delay,
         throttle_interval:     @throttle_interval,
+        stop_timeout:          @stop_timeout,
         nice:                  @nice,
         process_type:          @process_type,
         macos_legacy_timers:   @macos_legacy_timers,
@@ -669,7 +814,7 @@ module Homebrew
         hash[key.to_sym] = replace_placeholders(value)
       end
 
-      %w[interval cron launch_only_once require_root restart_delay throttle_interval nice
+      %w[interval cron launch_only_once require_root restart_delay throttle_interval stop_timeout nice
          macos_legacy_timers].each do |key|
         next if (value = api_hash[key]).nil?
 

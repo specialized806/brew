@@ -11,7 +11,7 @@ module Cask
     sig {
       params(
         casks: ::Cask::Cask, verbose: T::Boolean, force: T::Boolean, skip_cask_deps: T::Boolean, binaries: T::Boolean,
-        require_sha: T::Boolean, quarantine: T::Boolean, zap: T::Boolean, skip_prefetch: T::Boolean,
+        require_sha: T::Boolean, zap: T::Boolean, skip_prefetch: T::Boolean,
         download_queue: T.nilable(Homebrew::DownloadQueue)
       ).void
     }
@@ -22,14 +22,12 @@ module Cask
       skip_cask_deps: false,
       binaries: false,
       require_sha: false,
-      quarantine: false,
       zap: false,
       skip_prefetch: false,
       download_queue: nil
     )
       require "cask/installer"
 
-      quarantine = true if quarantine.nil?
       created_download_queue = T.let(false, T::Boolean)
       if download_queue.nil?
         if skip_prefetch
@@ -51,7 +49,6 @@ module Cask
             skip_cask_deps:,
             require_sha:,
             reinstall:      true,
-            quarantine:,
             zap:,
             download_queue:,
             defer_fetch:    true,
@@ -60,9 +57,9 @@ module Cask
 
         unless skip_prefetch
           Homebrew::Install.enqueue_cask_installers(cask_installers, download_queue:)
-          oh1 "Fetching downloads for: #{casks.map { |cask| Formatter.identifier(cask.full_name) }.to_sentence}",
-              truncate: false
-          download_queue.fetch
+          download_queue.fetch(
+            heading: Homebrew::Install.combined_fetch_downloads_heading(cask_names: casks.map(&:full_name)),
+          )
         end
       ensure
         download_queue.shutdown if created_download_queue

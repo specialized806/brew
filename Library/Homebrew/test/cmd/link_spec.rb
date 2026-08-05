@@ -38,10 +38,10 @@ RSpec.describe Homebrew::Cmd::Link do
     expect(HOMEBREW_PREFIX/"bin/testfile").to be_a_file
   end
 
-  {
+  test_each_hash({
     "@-versioned" => "testball-link-output@1.0",
     "-full"       => "testball-link-output-full",
-  }.each do |formula_type, formula_name|
+  }) do |formula_type, formula_name|
     it "does not print keg-only output when linking a #{formula_type} formula" do
       test_formula = formula(formula_name) do
         T.bind(self, T.class_of(Formula))

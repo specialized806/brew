@@ -186,9 +186,8 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
         .with("/bin/launchctl", args: ["list"])
         .and_return(instance_double(SystemCommand::Result, stdout: launchctl_list))
 
-      expect(subject.send(:find_launchctl_with_wildcard,
-                          "my.fancy.package.service.*")).to eq(["my.fancy.package.service.12345",
-                                                                "my.fancy.package.service.test"])
+      expect(subject.find_launchctl_with_wildcard("my.fancy.package.service.*"))
+        .to eq(["my.fancy.package.service.12345", "my.fancy.package.service.test"])
     end
   end
 
@@ -358,7 +357,7 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
     end
   end
 
-  [:script, :early_script].each do |script_type|
+  test_each([:script, :early_script]) do |script_type|
     context "when using #{script_type.inspect}" do
       let(:fake_system_command) { NeverSudoSystemCommand }
       let(:token) { "with-#{artifact_dsl_key}-#{script_type}".tr("_", "-") }

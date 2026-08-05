@@ -35,7 +35,7 @@ module Homebrew
     def mismatch_warning_message(mismatch)
       <<~EOS
         You have pkgconf installed that was built on macOS #{mismatch[0]},
-                 but you are running macOS #{mismatch[1]}.
+                but you are running macOS #{mismatch[1]}.
 
         This can cause issues with packages that depend on system libraries, such as libffi.
         To fix this issue, reinstall pkgconf:

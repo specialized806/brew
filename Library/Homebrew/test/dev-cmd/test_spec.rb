@@ -47,7 +47,7 @@ RSpec.describe Homebrew::DevCmd::Test do
     (HOMEBREW_LINKED_KEGS/formula_name).make_relative_symlink(Formula[formula_name].prefix)
 
     expect { brew "test", "--verbose", formula_name, "HOMEBREW_NO_INSTALL_FROM_API" => "1" }
-      .to output(/curl: \(6\) Could not resolve host: example\.org/).to_stdout
+      .to output(/curl: \((?:6\) Could not resolve host:|7\) Failed to connect to) example\.org/).to_stdout
       .and be_a_failure
   end
 end

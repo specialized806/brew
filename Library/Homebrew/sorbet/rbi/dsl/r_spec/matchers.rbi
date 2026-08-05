@@ -79,6 +79,9 @@ module RSpec::Matchers
   def be_cask_file(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def be_caskfile_only(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_custom_remote(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
@@ -149,6 +152,9 @@ module RSpec::Matchers
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_installed_on_request(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def be_installed_on_request_present(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_latest_version_installed(*args, &block); end

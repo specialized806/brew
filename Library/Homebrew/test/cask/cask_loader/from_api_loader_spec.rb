@@ -54,6 +54,8 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
                              cask_renames:        {},
                              cask_tap_migrations: {},
                              cask_tap_git_head:   internal_tap_git_head)
+      allow(Homebrew::API::Internal).to receive(:cask_name?) { |token| casks_from_internal_api_hash.key?(token) }
+      allow(Homebrew::API::Internal).to receive(:cask_hash) { |token| casks_from_internal_api_hash[token] }
 
       # The call to `Cask::CaskLoader.load` above sets the Tap cache prematurely.
       Tap.clear_cache
@@ -183,6 +185,8 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       token = "url-less-installed-cask"
       caskroom = mktmpdir
       allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => [] })
       path = caskroom/token/".metadata/latest/20260713000000.000/Casks/#{token}.json"
       cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
       allow(cask).to receive(:installed_version).and_return("latest")
@@ -190,6 +194,51 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       cask.download_sha_path.write("old-download-sha")
 
       expect(cask.outdated?(greedy: true)).to be(true)
+    end
+
+    it "uses current API artifacts for installed metadata without receipt artifacts" do
+      token = "receipt-less-installed-cask"
+      caskroom = mktmpdir
+      allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
+      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
+        "artifacts" => [
+          { "app" => ["Receipt-less.app"] },
+          { "uninstall" => [{ "quit" => "com.example.receipt-less" }] },
+          { "zap" => [{ "trash" => "~/Library/Preferences/com.example.receipt-less.plist" }] },
+        ],
+      })
+      path = caskroom/token/".metadata/1.0/20260713000000.000/Casks/#{token}.json"
+
+      cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
+
+      expect(cask.artifacts_list(uninstall_only: true)).to eq([
+        { uninstall: [{ quit: "com.example.receipt-less" }] },
+        { app: ["Receipt-less.app"] },
+        { zap: [{ trash: "~/Library/Preferences/com.example.receipt-less.plist" }] },
+      ])
+    end
+
+    it "does not read a malformed receipt when installed metadata is self-contained" do
+      token = "self-contained-installed-cask"
+      caskroom = mktmpdir
+      allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
+      receipt = caskroom/token/".metadata/INSTALL_RECEIPT.json"
+      receipt.dirname.mkpath
+      receipt.write("{")
+      path = caskroom/token/".metadata/1.0/20260713000000.000/Casks/#{token}.json"
+
+      cask = described_class.new(
+        token,
+        from_json:               {
+          "version"   => "1.0",
+          "artifacts" => [{ "app" => ["Self-contained.app"] }],
+        },
+        path:,
+        from_installed_caskfile: true,
+      ).load(config: nil)
+
+      expect(cask.artifacts_list(uninstall_only: true)).to eq([{ app: ["Self-contained.app"] }])
     end
 
     shared_examples "loads from API" do |cask_token, caskfile_only:|
@@ -285,7 +334,27 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     end
 
     context "with a language stanza" do
-      include_examples "loads from API", "with-languages", caskfile_only: true
+      include_examples "loads from API", "with-languages", caskfile_only: false
+
+      it "loads the selected language variation from both APIs" do
+        config = Cask::Config.new(explicit: { languages: ["zh"] })
+        casks = [api_loader.load(config:), internal_api_loader.load(config:)]
+
+        expect(casks.map do |cask|
+          [cask.language, cask.url.to_s, cask.sha256.to_s, cask.artifacts.first.to_args]
+        end).to all(eq([
+          "zh-CN",
+          "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz",
+          "fab685fabf73d5a9382581ce8698fce9408f5feaa49fa10d9bc6c510493300f5",
+          ["Container.app"],
+        ]))
+      end
+
+      it "keeps the source fallback for old API data" do
+        cask = described_class.new(api_token, from_json: cask_json.except("language_variations")).load(config: nil)
+
+        expect(cask).to be_caskfile_only
+      end
     end
   end
 end

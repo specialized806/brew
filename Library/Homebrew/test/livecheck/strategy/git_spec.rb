@@ -55,7 +55,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
     before do
       # Clear the processed URL cache before each test, to ensure that we're
       # properly testing the method's processing logic.
-      git.instance_variable_set(:@processed_urls, {})
+      git.processed_urls = {}
     end
 
     let(:github_git_url_with_extension) { "https://github.com/Homebrew/brew.git" }
@@ -64,7 +64,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
       # This uses an unrealistic value to make sure that we are receiving a
       # cached value from `@processed_urls` and not a newly-processed URL.
       cached_value = "CACHED"
-      git.instance_variable_set(:@processed_urls, { non_git_url => cached_value })
+      git.processed_urls = { non_git_url => cached_value }
       expect(git.preprocess_url(non_git_url)).to eq(cached_value)
     end
 
@@ -183,6 +183,22 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
   end
 
   describe "::ls_remote_tags" do
+    it "terminates options before the URL" do
+      expect(git).to receive(:system_command)
+        .with(
+          "git",
+          args:         ["ls-remote", "--tags", "--end-of-options", "-u:evil"],
+          env:          { "GIT_TERMINAL_PROMPT" => "0" },
+          print_stdout: false,
+          print_stderr: false,
+          debug:        false,
+          verbose:      false,
+        )
+        .and_return([nil, nil, nil])
+
+      git.ls_remote_tags("-u:evil")
+    end
+
     it "returns the Git tags for the provided remote URL", :needs_network do
       expect(git.ls_remote_tags(git_url)).not_to be_empty
     end

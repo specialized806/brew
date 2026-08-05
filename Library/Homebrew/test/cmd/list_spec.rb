@@ -33,14 +33,18 @@ RSpec.describe Homebrew::Cmd::List do
     Cask::CaskLoader.load(token).tap { |cask| InstallHelper.stub_cask_installation(cask) }
   end
 
+  def bash_list_env
+    {
+      "HOMEBREW_CASKROOM" => Cask::Caskroom.path.to_s,
+      "HOMEBREW_CELLAR"   => HOMEBREW_CELLAR.to_s,
+      "HOMEBREW_LIBRARY"  => HOMEBREW_LIBRARY_PATH.parent.to_s,
+      "HOMEBREW_PREFIX"   => HOMEBREW_PREFIX.to_s,
+    }
+  end
+
   def run_list_bash(env = {})
     stdout, stderr, status = Open3.capture3(
-      {
-        "HOMEBREW_CASKROOM" => Cask::Caskroom.path.to_s,
-        "HOMEBREW_CELLAR"   => HOMEBREW_CELLAR.to_s,
-        "HOMEBREW_LIBRARY"  => HOMEBREW_LIBRARY_PATH.to_s,
-        "HOMEBREW_PREFIX"   => HOMEBREW_PREFIX.to_s,
-      }.merge(env),
+      bash_list_env.merge(env),
       "/bin/bash", "-c", <<~SH,
         source "$1"
 
@@ -85,7 +89,7 @@ RSpec.describe Homebrew::Cmd::List do
             homebrew-list list --versions --json
         }
 
-        check "formulae and casks" 0 "${EXPECTED_PLAIN}" "" homebrew-list list
+        check "formulae and casks" 0 "${EXPECTED_PLAIN}" "${EXPECTED_PLAIN_STDERR}" homebrew-list list
         check "formula and cask versions JSON" 0 "${EXPECTED_JSON}" "" homebrew-list list --versions --json
         check "formula versions JSON" 0 "${EXPECTED_FORMULA_JSON}" "" \\
           homebrew-list list --versions --json --formula
@@ -110,7 +114,48 @@ RSpec.describe Homebrew::Cmd::List do
     status
   end
 
+  def bash_list_output(argv)
+    Open3.capture3(
+      bash_list_env,
+      "/bin/bash", "-c", 'source "$1" && shift && homebrew-list list "$@"',
+      "bash", (HOMEBREW_LIBRARY_PATH/"list.sh").to_s, *argv
+    )
+  end
+
+  def ruby_list_output(argv)
+    old_stdout = $stdout
+    old_stderr = $stderr
+    $stdout = StringIO.new
+    $stderr = StringIO.new
+    described_class.new(argv).run
+    [$stdout.string, $stderr.string]
+  ensure
+    $stdout = old_stdout
+    $stderr = old_stderr
+  end
+
   it_behaves_like "parseable arguments"
+
+  # The Bash fast path serves bare listings in production while tests usually enter
+  # at the Ruby command, so drift between the two ships silently unless they are
+  # tested against each other.
+  it "matches the Bash fast path against the Ruby command", :cask do
+    install_formula_version "testball", "0.1"
+    install_cask "local-caffeine"
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
+
+    variants = [[], ["-1"], ["--formula"], ["--cask"]]
+    bash_results = variants.map do |argv|
+      stdout, stderr, status = bash_list_output(argv)
+      [argv, status.success?, stdout, stderr]
+    end
+    ruby_results = variants.map do |argv|
+      stdout, stderr = ruby_list_output(argv)
+      [argv, true, stdout, stderr]
+    end
+
+    expect(bash_results).to eq(ruby_results)
+  end
 
   it "prints all installed formulae" do
     formulae.each do |f|
@@ -120,6 +165,40 @@ RSpec.describe Homebrew::Cmd::List do
     expect { described_class.new(["--formula"]).run }
       .to output("#{formulae.join("\n")}\n").to_stdout
       .and not_to_output.to_stderr
+  end
+
+  it "prints full names for formulae installed from untrusted taps", :trust_store do
+    tap = Tap.fetch("thirdparty", "foo")
+    formula_path = tap.formula_dir/"untrusted.rb"
+    formula_path.dirname.mkpath
+    formula_path.write <<~RUBY
+      raise "untrusted tap formula evaluated"
+    RUBY
+    keg = HOMEBREW_CELLAR/"untrusted/1.0"
+    (keg/".brew").mkpath
+    (keg/".brew/untrusted.rb").write <<~RUBY
+      raise "installed untrusted formula evaluated"
+    RUBY
+    (keg/AbstractTab::FILENAME).write JSON.generate(source: { tap: tap.name })
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { described_class.new(["--formula", "--full-name", "-1"]).run }
+        .to output("thirdparty/foo/untrusted\n").to_stdout
+        .and not_to_output.to_stderr
+    end
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "continues when an installation receipt is invalid" do
+    install_formula_version "working", "1.0"
+    keg = HOMEBREW_CELLAR/"broken/1.0"
+    keg.mkpath
+    (keg/AbstractTab::FILENAME).write "{"
+
+    expect { described_class.new(["--formula", "--full-name", "-1"]).run }
+      .to output("broken\nworking\n").to_stdout
+      .and output(/Could not identify the tap for broken from its installation receipt/).to_stderr
   end
 
   describe "filtering by install-on-request status" do
@@ -172,6 +251,7 @@ RSpec.describe Homebrew::Cmd::List do
     (HOMEBREW_PREFIX/"var/homebrew/pinned_casks").mkpath
     FileUtils.ln_s Cask::Caskroom.path/"local-caffeine/1.2.3",
                    HOMEBREW_PREFIX/"var/homebrew/pinned_casks/local-caffeine"
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
 
     empty_cellar = mktmpdir
     empty_caskroom = mktmpdir
@@ -194,7 +274,9 @@ RSpec.describe Homebrew::Cmd::List do
                "EXPECTED_EMPTY_JSON"   => list_versions_json,
                "EXPECTED_FORMULA_JSON" => list_versions_json(formulae: formulae_json),
                "EXPECTED_JSON"         => list_versions_json(formulae: formulae_json, casks: casks_json),
-               "EXPECTED_PLAIN"        => "testball\nlocal-caffeine\n",
+               "EXPECTED_PLAIN"        => "testball\ndangling-alias\nlocal-caffeine\n",
+               "EXPECTED_PLAIN_STDERR" => "Warning: Broken Caskroom symlinks " \
+                                          "(`brew cleanup` removes them): dangling-alias\n",
                "NO_JQ_CASKROOM"        => no_jq_caskroom.to_s,
                "NO_JQ_CELLAR"          => no_jq_cellar.to_s,
                "NO_JQ_PATH"            => no_jq_root.to_s,
@@ -227,6 +309,14 @@ RSpec.describe Homebrew::Cmd::List do
       .and be_a_success
 
     cask.unpin
+  end
+
+  it "warns about broken Caskroom symlinks" do
+    Cask::Caskroom.path.mkpath
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
+
+    expect { described_class.new(["--cask"]).run }
+      .to output(/Broken Caskroom symlinks \(`brew cleanup` removes them\): dangling-alias/).to_stderr
   end
 
   it "fails only for explicitly named missing pinned packages", :cask do

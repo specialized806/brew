@@ -24,22 +24,111 @@ RSpec.describe Homebrew::Cmd::Untap do
       .and raise_error(SystemExit)
   end
 
-  it "continues untapping remaining taps when one has installed formulae" do
+  it "continues untapping remaining taps when uninstallation is declined" do
     tap1 = Tap.fetch("homebrew", "foo")
     tap2 = Tap.fetch("homebrew", "bar")
 
     cmd = described_class.new(["homebrew/foo", "homebrew/bar"])
     allow(cmd.args.named).to receive(:to_installed_taps).and_return([tap1, tap2])
 
-    allow(cmd).to receive(:installed_formulae_for).with(tap: tap1).and_return(["homebrew/foo/testball"])
+    formula = instance_double(Formula, full_name: "homebrew/foo/testball")
+    allow(cmd).to receive(:installed_formulae_for).with(tap: tap1).and_return([formula])
     allow(cmd).to receive(:installed_formulae_for).with(tap: tap2).and_return([])
     allow(cmd).to receive(:installed_casks_for).with(tap: tap1).and_return([])
     allow(cmd).to receive(:installed_casks_for).with(tap: tap2).and_return([])
 
     expect(tap1).not_to receive(:uninstall)
+    allow(Homebrew::Ask).to receive(:confirm?)
+      .with(action: "changes")
+      .and_raise(SystemExit)
     expect(tap2).to receive(:uninstall).with(manual: true)
 
-    expect { cmd.run }.to output(/Refusing to untap/).to_stderr
+    expect { cmd.run }
+      .to output(/Refusing to untap.*following installed formulae:/m).to_stderr
+      .and output(%r{Would untap homebrew/foo after uninstalling the following formulae.*testball}m).to_stdout
+    expect(Homebrew).to have_failed
+  ensure
+    Homebrew.failed = false
+  end
+
+  it "lists installed packages before offering to uninstall them and untap" do
+    tap = Tap.fetch("homebrew", "foo")
+    rack = HOMEBREW_CELLAR/"testball"
+    keg = instance_double(Keg, rack:, tab: instance_double(Tab, tap:))
+    formula = instance_double(
+      Formula,
+      full_name:      "homebrew/foo/testball",
+      installed_kegs: [keg],
+      to_s:           "homebrew/foo/testball",
+    )
+    cask = instance_double(Cask::Cask, full_name: "homebrew/foo/testcask", token: "testcask")
+    cmd = described_class.new(["homebrew/foo"])
+
+    allow(cmd.args.named).to receive(:to_installed_taps).and_return([tap])
+    allow(cmd).to receive(:installed_formulae_for).with(tap:).and_return([formula], [])
+    allow(cmd).to receive(:installed_casks_for).with(tap:).and_return([cask], [])
+    allow(Homebrew::Ask).to receive(:confirm?)
+      .with(action: "changes")
+      .and_return(true)
+
+    named_args = [formula.full_name, cask.full_name]
+    expect(Cask::Uninstall).to receive(:check_dependent_casks).with(cask, named_args:).ordered
+    expect(Homebrew::Uninstall).to receive(:uninstall_kegs)
+      .with({ rack => [keg] }, casks: [cask], force: false, named_args:).ordered
+    expect(Cask::Uninstall).to receive(:uninstall_casks).with(cask, force: false)
+    expect(tap).to receive(:uninstall).with(manual: true)
+
+    expect { cmd.run }.to output(<<~EOS).to_stdout
+      ==> Would untap homebrew/foo after uninstalling the following formulae and casks:
+      homebrew/foo/testball
+      homebrew/foo/testcask
+    EOS
+  end
+
+  it "force-uninstalls installed packages without prompting before untapping" do
+    tap = Tap.fetch("homebrew", "foo")
+    rack = HOMEBREW_CELLAR/"testball"
+    keg = instance_double(Keg, rack:, tab: instance_double(Tab, tap:))
+    formula = instance_double(
+      Formula,
+      full_name:      "homebrew/foo/testball",
+      installed_kegs: [keg],
+    )
+    cask = instance_double(Cask::Cask, full_name: "homebrew/foo/testcask")
+    cmd = described_class.new(["--force", "homebrew/foo"])
+
+    allow(cmd.args.named).to receive(:to_installed_taps).and_return([tap])
+    allow(cmd).to receive(:installed_formulae_for).with(tap:).and_return([formula], [])
+    allow(cmd).to receive(:installed_casks_for).with(tap:).and_return([cask], [])
+    expect(Homebrew::Ask).not_to receive(:confirm?)
+
+    named_args = [formula.full_name, cask.full_name]
+    expect(Cask::Uninstall).to receive(:check_dependent_casks).with(cask, named_args:).ordered
+    expect(Homebrew::Uninstall).to receive(:uninstall_kegs)
+      .with({ rack => [keg] }, casks: [cask], force: true, named_args:).ordered
+    expect(Cask::Uninstall).to receive(:uninstall_casks).with(cask, force: true)
+    expect(tap).to receive(:uninstall).with(manual: true)
+
+    expect { cmd.run }.not_to output.to_stdout
+  end
+
+  it "does not untap when an installation remains" do
+    tap = Tap.fetch("homebrew", "foo")
+    cask = instance_double(Cask::Cask, full_name: "homebrew/foo/testcask", token: "testcask")
+    cmd = described_class.new(["homebrew/foo"])
+
+    allow(cmd.args.named).to receive(:to_installed_taps).and_return([tap])
+    allow(cmd).to receive(:installed_formulae_for).with(tap:).and_return([], [])
+    allow(cmd).to receive(:installed_casks_for).with(tap:).and_return([cask], [cask])
+    allow(Homebrew::Ask).to receive(:confirm?)
+      .with(action: "changes")
+      .and_return(true)
+    allow(Homebrew::Uninstall).to receive(:uninstall_kegs)
+    allow(Cask::Uninstall).to receive(:check_dependent_casks)
+    allow(Cask::Uninstall).to receive(:uninstall_casks)
+    expect(tap).not_to receive(:uninstall)
+
+    expect { cmd.run }.to output(%r{Failed to fully uninstall casks from homebrew/foo}).to_stderr
     expect(Homebrew).to have_failed
   ensure
     Homebrew.failed = false

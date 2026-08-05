@@ -106,4 +106,13 @@ RSpec.describe DependencyCollector do
       expect { collector.add(resource) }.to raise_error(TypeError)
     end
   end
+
+  describe "#implicit_dependency_names" do
+    it "is empty when nothing needs to be silently installed" do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
+      allow(DevelopmentTools).to receive_messages(needs_build_formulae?: false, needs_libc_formula?: false)
+
+      expect(collector.implicit_dependency_names).to eq(Set.new)
+    end
+  end
 end

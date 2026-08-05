@@ -187,6 +187,7 @@ module OS
           # Fast path that will probably almost always work unless `xcode-select -p` is misconfigured
           version_plist = T.must(prefix).parent/"version.plist"
           if version_plist.file?
+            require "plist"
             data = Plist.parse_xml(version_plist, marshal: false)
             version = data["CFBundleShortVersionString"] if data
             return version if version
@@ -296,8 +297,6 @@ module OS
 
       sig { returns(String) }
       def self.update_instructions
-        return installation_instructions if OS::Mac.version.prerelease?
-
         software_update_location = if MacOS.version >= "13"
           "System Settings"
         else

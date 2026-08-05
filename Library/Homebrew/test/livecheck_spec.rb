@@ -74,14 +74,14 @@ RSpec.describe Livecheck do
   describe "#skip" do
     it "sets @skip to true when no argument is provided" do
       expect(livecheck_f.skip).to be true
-      expect(livecheck_f.instance_variable_get(:@skip)).to be true
-      expect(livecheck_f.instance_variable_get(:@skip_msg)).to be_nil
+      expect(livecheck_f.skip?).to be true
+      expect(livecheck_f.skip_msg).to be_nil
     end
 
     it "sets @skip to true and @skip_msg to the provided String" do
       expect(livecheck_f.skip("foo")).to be true
-      expect(livecheck_f.instance_variable_get(:@skip)).to be true
-      expect(livecheck_f.instance_variable_get(:@skip_msg)).to eq("foo")
+      expect(livecheck_f.skip?).to be true
+      expect(livecheck_f.skip_msg).to eq("foo")
     end
   end
 
@@ -240,10 +240,10 @@ RSpec.describe Livecheck do
       end
     end
 
-    {
+    test_each_hash({
       needs_arm:   "arm",
       needs_intel: "intel",
-    }.each do |metadata, expected_arch|
+    }) do |metadata, expected_arch|
       it "delegates `arch` in `livecheck` block to `package_or_resource`", metadata do
         expect(c_arch.livecheck.url).to eq("https://brew.sh/#{expected_arch}")
       end
@@ -268,10 +268,10 @@ RSpec.describe Livecheck do
       end
     end
 
-    {
+    test_each_hash({
       needs_macos: "macos",
       needs_linux: "linux",
-    }.each do |metadata, expected_os|
+    }) do |metadata, expected_os|
       it "delegates `os` in `livecheck` block to `package_or_resource`", metadata do
         expect(c_os.livecheck.url).to eq("https://brew.sh/#{expected_os}")
       end

@@ -8,6 +8,7 @@ RSpec.describe Homebrew::Vulns::OsvExport do
 
   let(:nvi) do
     formula("nvi") do
+      T.bind(self, T.class_of(Formula))
       url "https://deb.debian.org/debian/pool/main/n/nvi/nvi_1.81.6.orig.tar.gz"
       version "1.81.6"
       revision 6
@@ -26,6 +27,7 @@ RSpec.describe Homebrew::Vulns::OsvExport do
 
   let(:libquicktime) do
     formula("libquicktime") do
+      T.bind(self, T.class_of(Formula))
       url "https://downloads.sourceforge.net/project/libquicktime/libquicktime-1.2.4.tar.gz"
       revision 5
       patch do
@@ -74,6 +76,7 @@ RSpec.describe Homebrew::Vulns::OsvExport do
 
     it "emits file for local patches and drops entries with no locator" do
       f = formula("x") do
+        T.bind(self, T.class_of(Formula))
         url "https://example.com/x-1.0.tar.gz"
         patch do
           file "Patches/x/fix.patch"
@@ -122,8 +125,28 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       expect(record[:references]).to eq upstream["references"]
     end
 
+    it "deduplicates references that differ only by percent-encoding, preserving distinct types" do
+      upstream = {
+        "references" => [
+          { "type" => "WEB", "url" => "https://lists.example.org/announce%40lists/msg" },
+          { "type" => "WEB", "url" => "https://lists.example.org/announce@lists/msg" },
+          { "type" => "REPORT", "url" => "https://bugs.example.org/+bug/1" },
+          { "type" => "ADVISORY", "url" => "https://bugs.example.org/+bug/1" },
+        ],
+      }
+
+      record = described_class.record_for(nvi, "CVE-2015-2305", upstream:, now:)
+
+      expect(record[:references]).to eq [
+        { "type" => "WEB", "url" => "https://lists.example.org/announce%40lists/msg" },
+        { "type" => "REPORT", "url" => "https://bugs.example.org/+bug/1" },
+        { "type" => "ADVISORY", "url" => "https://bugs.example.org/+bug/1" },
+      ]
+    end
+
     it "percent-encodes @ in the purl but not the package name" do
       glibc = formula("glibc@2.13") do
+        T.bind(self, T.class_of(Formula))
         url "https://ftp.gnu.org/gnu/glibc/glibc-2.13.tar.gz"
         patch do
           url "https://example.com/fix.patch"
@@ -140,6 +163,7 @@ RSpec.describe Homebrew::Vulns::OsvExport do
 
     it "percent-encodes + in the purl" do
       libsigcxx = formula("libsigc++") do
+        T.bind(self, T.class_of(Formula))
         url "https://download.gnome.org/sources/libsigc++/3.6/libsigc++-3.6.0.tar.xz"
         patch do
           url "https://example.com/fix.patch"
@@ -163,6 +187,7 @@ RSpec.describe Homebrew::Vulns::OsvExport do
 
     it "omits the revision suffix when revision is zero" do
       f = formula("x") do
+        T.bind(self, T.class_of(Formula))
         url "https://example.com/x-1.0.tar.gz"
         patch do
           url "https://example.com/fix.patch"
@@ -247,6 +272,7 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       let(:earlier) { Time.utc(2026, 6, 1, 0, 0, 0) }
       let(:nvi_bumped) do
         formula("nvi") do
+          T.bind(self, T.class_of(Formula))
           url "https://deb.debian.org/debian/pool/main/n/nvi/nvi_1.81.6.orig.tar.gz"
           version "1.81.6"
           revision 7

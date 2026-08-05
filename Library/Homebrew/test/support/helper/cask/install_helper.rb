@@ -35,9 +35,12 @@ module InstallHelper
     # Create the staged_path (version directory)
     cask.staged_path.mkpath
 
-    # Create metadata directory structure and save caskfile
+    # Create metadata directory structure and save the caskfile and receipt
     # This makes installed? and installed_version work
     Cask::Installer.new(cask).save_caskfile
+    tab = Cask::Tab.create(cask)
+    tab.installed_on_request = true
+    tab.write
 
     return unless create_app_dirs
 

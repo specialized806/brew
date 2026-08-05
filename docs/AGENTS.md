@@ -21,6 +21,8 @@ These instructions apply when working in `docs/`.
   This keeps diffs small and readable.
 - Format tables so the raw Markdown is readable: pad each column with spaces so the cell borders line up vertically.
 - Use UK spelling and punctuation.
+- Use `licence` for the noun and `license` for the verb.
+  Keep `license` when referring to the exact DSL stanza, command-line option or other interface name.
 - Avoid em-dashes (prefer semicolons, colons and commas) and Oxford commas.
 - Do not use bare URLs; use Markdown links.
   Internal links must point at the `.md` file (for example `[Bottles](Bottles.md)`), not a `docs.brew.sh` URL.
@@ -40,7 +42,7 @@ At a minimum, from `docs/` run:
 
 Also run these from the repository root when docs content changes:
 
-- `HOMEBREW_NO_AUTO_UPDATE=1 vale docs/`
+- `rg --files docs -0 -g '*.md' -g '!vendor/**' -g '!_site/**' -g '!rubydoc/**' | xargs -0 vale`
 - `HOMEBREW_NO_AUTO_UPDATE=1 brew style docs`
 
 ## Notes

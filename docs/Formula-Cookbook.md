@@ -65,7 +65,8 @@ brew create https://example.com/foo-0.1.tar.gz
 
 This creates `$(brew --repository)/Library/Taps/homebrew/homebrew-core/Formula/f/foo.rb` and opens it in your `EDITOR`.
 
-Passing in `--ruby` or `--python` will populate various defaults commonly useful for projects written in those languages.
+`brew create --help` lists templates for supported languages and build systems.
+Pass the appropriate option to populate useful defaults for the project.
 
 If `brew` said `Warning: Version cannot be determined from URL` when doing the `create` step, you’ll need to explicitly add the correct [`version`](/rubydoc/Formula.html#version-class_method) to the formula and then save the formula.
 
@@ -77,19 +78,33 @@ Homebrew will try to guess the formula’s name from its URL. If it fails to do 
 
 An SSL/TLS (https) [`homepage`](/rubydoc/Formula.html#homepage-class_method) is preferred, if one is available.
 
+If a homepage blocks automated requests but works in a browser, record the date it was last checked by a human:
+
+```ruby
+homepage "https://www.example.com", browsed: "2026-07-26"
+```
+
+This skips automated homepage availability audits for one year. Do not use a future date.
+
 Try to summarise from the [`homepage`](/rubydoc/Formula.html#homepage-class_method) what the formula does in the [`desc`](/rubydoc/Formula.html#desc-class_method)ription. Note that the [`desc`](/rubydoc/Formula.html#desc-class_method)ription is automatically prepended with the formula name when printed.
 
 ### Fill in the `license`
 
 **We don’t accept new formulae into Homebrew/homebrew-core without a [`license`](/rubydoc/Formula.html#license-class_method)!**
 
-We only accept formulae that use a [Debian Free Software Guidelines license](https://wiki.debian.org/DFSGLicenses) or are released into the public domain following [DFSG Guidelines on Public Domain software](https://wiki.debian.org/DFSGLicenses#Public_Domain).
+We only accept formulae that use a licence compatible with the [Debian Free Software Guidelines](https://wiki.debian.org/DFSGLicenses) or are released into the public domain following [DFSG Guidelines on Public Domain software](https://wiki.debian.org/DFSGLicenses#Public_Domain).
 
-Use the license identifier from the [SPDX License List](https://spdx.org/licenses/) e.g. `license "BSD-2-Clause"`, or use `license :public_domain` for public domain software.
+Use the licence identifier from the [SPDX License List](https://spdx.org/licenses/) e.g. `license "BSD-2-Clause"`, or use `license :public_domain` for public domain software.
 
-Use `:any_of`, `:all_of` or `:with` to describe complex license expressions. `:any_of` should be used when the user can choose which license to use. `:all_of` should be used when the user must use all licenses. `:with` should be used to specify a valid SPDX exception. Add `+` to an identifier to indicate that the formulae can be licensed under later versions of the same license.
+Use `:any_of`, `:all_of` or `:with` to describe complex licence expressions.
 
-Check out the [License Guidelines](License-Guidelines.md) for examples of complex license expressions in Homebrew formulae.
+* `:any_of` should be used when the user can choose which licence to use.
+* `:all_of` should be used when the user must use all licences.
+* `:with` should be used to specify a valid SPDX exception.
+
+Add `+` to an identifier to indicate that the formulae can be licensed under later versions of the same licence.
+
+Check out the [Licence Guidelines](Licence-Guidelines.md) for examples of complex licence expressions in Homebrew formulae.
 
 ### Check the build system
 
@@ -119,13 +134,10 @@ We generally try not to duplicate system libraries and complicated tools in core
 
 Special exceptions are OpenSSL and LibreSSL. Things that use either *should* be built using Homebrew’s shipped equivalent and our BrewTestBot's post-install `audit` will warn if it detects you haven't done this.
 
-For `Homebrew/homebrew-core`, keep dependencies minimal and context-dependent.
-Prefer dependencies needed to build, test or satisfy current core dependents,
-and avoid adding optional upstream features that bring in large recursive
-dependency trees. When a formula needs both a light default build and a maximal
-build, maintainers may prefer a separate `*-full` formula instead. See the
-[dependency policy in the `Homebrew/homebrew-core` Maintainer
-Guide]({% link Homebrew-homebrew-core-Maintainer-Guide.md %}#dependencies-and-full-variants).
+For `homebrew/core`, keep dependencies minimal and context-dependent.
+Prefer dependencies needed to build, test or satisfy current core dependents and avoid optional upstream features that bring in large recursive dependency trees.
+When a formula needs both a light default build and a maximal build, Homebrew may accept a separate `*-full` formula.
+See the [`homebrew/core` dependency policy](Acceptable-Formulae.md#dependencies-and-full-variants).
 
 **Important:** `$(brew --prefix)/bin` is NOT in the `PATH` during formula installation. If you have dependencies at build time, you must specify them and `brew` will add them to the `PATH` or create a [`Requirement`](/rubydoc/Requirement.html).
 
@@ -152,7 +164,12 @@ A `String` (e.g. `"jpeg"`) specifies a formula dependency.
 
 A `Symbol` (e.g. `:xcode`) specifies a [`Requirement`](/rubydoc/Requirement.html) to restrict installation to systems meeting certain criteria, which can be fulfilled by one or more formulae, casks or other system-wide installed software (e.g. Xcode). Some [`Requirement`](/rubydoc/Requirement.html)s can also take a string or symbol specifying their minimum version that the formula depends on.
 
-Top-level `depends_on :macos` marks a formula as macOS-only. Top-level `depends_on macos: :sonoma` marks a formula as macOS-only and declares the minimum compatible macOS release. Top-level `depends_on maximum_macos: :ventura` marks a formula as macOS-only and declares the newest compatible macOS release. Top-level `depends_on :linux` marks a formula as Linux-only. For a formula that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`.
+* Top-level `depends_on :macos` marks a formula as macOS-only.
+* Top-level `depends_on macos: :sonoma` marks a formula as macOS-only and declares the minimum compatible macOS release.
+* Top-level `depends_on maximum_macos: :ventura` marks a formula as macOS-only and declares the newest compatible macOS release.
+* Top-level `depends_on :linux` marks a formula as Linux-only.
+
+For a formula that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`.
 
 A `Hash` (e.g. `=>`) adds information to a dependency. Given a string or symbol, the value can be one or more of the following values:
 
@@ -233,6 +250,22 @@ $ otool -L /opt/homebrew/bin/ldapvi
     /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1213.0.0)
 ```
 
+### Changing a dynamic library ID
+
+Use [`change_dylib_id`](/rubydoc/Formula.html#change_dylib_id-instance_method)
+inside `install` or `post_install` when one Mach-O dynamic library needs a
+non-standard ID. Both the source and its complete new ID are explicit. Set
+`resolve_source: true` when the source is a symlink and its target should be
+edited. For example:
+
+```ruby
+change_dylib_id lib/"libfoo.dylib", opt_lib/"libfoo.dylib"
+change_dylib_id lib/"libfoo.dylib", "@rpath/libfoo.1.dylib", resolve_source: true
+```
+
+The helper preserves the file's permissions and codesigns the modified library
+on Apple Silicon.
+
 ### Specifying macOS components as dependencies
 
 If a formula dependency is required on all platforms but can be handled by a component that ships with macOS, specify it with [`uses_from_macos`](/rubydoc/Formula.html#uses_from_macos-class_method). On Linux it acts like [`depends_on`](/rubydoc/Formula.html#depends_on-class_method), while on macOS it's ignored unless the host system is older than the optional `since:` parameter.
@@ -255,58 +288,11 @@ To require the `curl` formula on Linux and pre-macOS 12:
 uses_from_macos "curl", since: :monterey
 ```
 
-### Specifying gems, Python modules, Go projects, etc. as dependencies
+### Language-specific dependencies
 
-Homebrew doesn’t package already-packaged language-specific libraries. These should be installed directly from `gem`/`cpan`/`pip` etc.
-
-### Ruby Gem Dependencies
-
-The preferred mechanism for installing gem dependencies is to use `bundler` with the upstream's `Gemfile.lock`. This requires the upstream checks in their `Gemfile.lock`, so if they don't, it's a good idea to file an issue and ask them to do so. Assuming they have one, this is as simple as:
-
-```ruby
-ENV["GEM_HOME"] = libexec
-system "bundle", "install", "--without", "development"
-```
-
-From there, you can build and install the project itself:
-
-```ruby
-system "gem", "build", "<project>.gemspec"
-system "gem", "install", "--ignore-dependencies", "<project>-#{version}.gem"
-```
-
-And install any bins, and munge their shebang lines, with:
-
-```ruby
-bin.install libexec/"bin/<bin>"
-bin.env_script_all_files(libexec/"bin", GEM_HOME: ENV.fetch("GEM_HOME", nil))
-```
-
-### Python dependencies
-
-For python we use [`resource`](/rubydoc/Formula.html#resource-class_method)s for dependencies and there's automation to generate these for you. Running `brew update-python-resources <formula>` will automatically add the necessary [`resource`](/rubydoc/Formula.html#resource-class_method) stanzas for the dependencies of your Python application to the formula. Note that `brew update-python-resources` is run automatically by `brew create` if you pass the `--python` switch. If `brew update-python-resources` is unable to determine the correct `resource` stanzas, [homebrew-pypi-poet](https://github.com/tdsmith/homebrew-pypi-poet) is a good third-party alternative that may help.
-
-### All other cases
-
-If all else fails, you'll want to use [`resource`](/rubydoc/Formula.html#resource-class_method)s for all other language-specific dependencies. This requires you to specify both a specific URL for a version and the sha256 checksum for security. Here's an example:
-
-```ruby
-class Foo < Formula
-  # ...
-  url "https://example.com/foo-1.0.tar.gz"
-
-  resource "pycrypto" do
-    url "https://files.pythonhosted.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz"
-    sha256 "f2ce1e989b272cfcb677616763e0a2e7ec659effa67a88aa92b3a65528f60a3c"
-  end
-
-  def install
-    resource("pycrypto").stage { system "python", "-m", "pip", "install", *std_pip_args, "." }
-  end
-end
-```
-
-[`jrnl`](https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/j/jrnl.rb) is an example of a formula that does this well. The end result means the user doesn't have to use `pip` or Python and can just run `jrnl`.
+Use [Language-Specific Formulae](Language-Specific-Formulae.md) for Python, Node.js, Java and Ruby dependency and installation patterns.
+Use [`resource`](/rubydoc/Formula.html#resource-class_method) blocks when dependencies need separate immutable URLs and SHA-256 checksums.
+Do not rely on packages installed in the contributor's global language environment.
 
 ### Install the formula
 
@@ -389,7 +375,7 @@ In case there are specific issues with the Homebrew packaging (compared to how t
 
 Name the formula like the project markets the product. So it’s `pkgconf`, not `pkgconfig`; `sdl_mixer`, not `sdl-mixer` or `sdlmixer`.
 
-The only exception is stuff like “Apache Ant”. Apache sticks “Apache” in front of everything, but we use the formula name `ant`. We only include the prefix in cases like `gnuplot` (because it’s part of the name) and `gnu-go` (because everyone calls it “GNU Go”—nobody just calls it “Go”). The word “Go” is too common and there are too many implementations of it.
+The only exception is software such as “Apache Ant”. Apache puts “Apache” in front of everything, but we use the formula name `ant`. We only include the prefix in cases such as `gnuplot`, where it is part of the name, and `gnu-go`, because everyone calls it “GNU Go” and not just “Go”. The word “Go” is too common and there are too many implementations of it.
 
 If you’re not sure about the name, check its homepage, Wikipedia page and [what Debian calls it](https://www.debian.org/distrib/packages).
 
@@ -485,105 +471,20 @@ end
 
 For any formula using certain well-known build systems, there will be arguments that should be passed during compilation so that the build conforms to Homebrew standards. These have been collected into a set of `std_*_args` methods. Detailed information about each of those methods can be found in the [`Formula` class API](/rubydoc/Formula.html) documentation.
 
-Most of these methods accept parameters to customize their output. For example, to set the install prefix to [**`libexec`**](#variables-for-directory-locations) for `configure` or `cmake`:
+Most of these methods accept parameters to customise their output. For example, to set the install prefix to [**`libexec`**](#variables-for-directory-locations) for `configure` or `cmake`:
 
 ```ruby
 system "./configure", *std_configure_args(prefix: libexec)
 system "cmake", "-S", ".", "-B", "build", *std_cmake_args(install_prefix: libexec)
 ```
 
-The `std_*_args` methods, as well as the arguments they pass, are:
+Homebrew provides helpers for Cabal, Cargo, CMake, Autoconf, Go, Meson, npm, pip and Zig builds.
+Pass the helper directly to the build command rather than copying its expanded argument list, because defaults change with Homebrew's build and security policy.
+Use the [`Formula` class API](/rubydoc/Formula.html) for each helper's current signature, supported overrides and generated arguments.
 
-#### `std_cabal_v2_args`
-
-```ruby
-"--jobs=#{ENV.make_jobs}"
-"--max-backjumps=100000"
-"--install-method=copy"
-"--installdir=#{bin}"
-```
-
-#### `std_cargo_args`
-
-```ruby
-"--locked"
-"--root=#{root}"
-"--path=#{path}"
-```
-
-#### `std_cmake_args`
-
-```ruby
-"-DCMAKE_INSTALL_PREFIX=#{install_prefix}"
-"-DCMAKE_INSTALL_LIBDIR=#{install_libdir}"
-"-DCMAKE_BUILD_TYPE=Release"
-"-DCMAKE_FIND_FRAMEWORK=#{find_framework}"
-"-DCMAKE_VERBOSE_MAKEFILE=ON"
-"-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=#{HOMEBREW_LIBRARY_PATH}/cmake/trap_fetchcontent_provider.cmake"
-"-Wno-dev"
-"-DBUILD_TESTING=OFF"
-```
-
-#### `std_configure_args`
-
-```ruby
-"--disable-debug"
-"--disable-dependency-tracking"
-"--prefix=#{prefix}"
-"--libdir=#{libdir}"
-```
-
-#### `std_go_args`
-
-```ruby
-"-trimpath"
-"-o=#{output}"
-```
-
-It also provides a convenient way to set `-ldflags`, `-gcflags`, and `-tags`, see examples: [`babelfish`](https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/b/babelfish.rb) and [`wazero`](https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/w/wazero.rb) formulae.
-
-#### `std_meson_args`
-
-```ruby
-"--prefix=#{prefix}"
-"--libdir=lib"
-"--buildtype=release"
-"--wrap-mode=nofallback"
-```
-
-#### `std_npm_args`
-
-```ruby
-"-ddd"
-"--global"
-"--build-from-source"
-"--cache=$(brew --cache)/npm_cache"
-"--prefix=#{libexec}"
-```
-
-#### `std_pip_args`
-
-```ruby
-"--verbose"
-"--no-deps"
-"--no-binary=:all:"
-"--ignore-installed"
-"--no-compile"
-```
-
-#### `std_zig_args`
-
-```ruby
-"--prefix"
-prefix
-"--release=#{release_mode}"
-"-Doptimize=Release#{release_mode}"
-"--summary"
-"all"
-"-Dcpu=#{Hardware.zig_cpu(ENV.effective_arch)}"
-```
-
-`release_mode` is a symbol that accepts only `:fast`, `:safe`, and `:small` values (with `:fast` being default).
+Use `std_npm_args` for npm installations as described in [Language-Specific Formulae](Language-Specific-Formulae.md#standard-npm-installation).
+Use `std_pip_args` for direct pip installations as described in [Language-Specific Formulae](Language-Specific-Formulae.md#installing-python-bindings).
+`std_go_args` also provides supported ways to set `-ldflags`, `-gcflags` and `-tags`; see the [`babelfish`](https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/b/babelfish.rb) and [`wazero`](https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/w/wazero.rb) formulae for current examples.
 
 ### `bin.install "foo"`
 
@@ -733,7 +634,7 @@ patch do
 end
 ```
 
-`resolves` records what the patch fixes: one or more CVE identifiers (`CVE-YYYY-NNNN`), GHSA identifiers (`GHSA-xxxx-xxxx-xxxx`) or issue/PR URLs. CVE identifiers are also inferred automatically from the patch `url`, `apply` paths and `file` path, so a Debian-style `CVE-2016-2399.patch` is picked up without an explicit `resolves`.
+`resolves` records what the patch fixes: one or more CVE identifiers (`CVE-YYYY-NNNN`), GHSA identifiers (`GHSA-xxxx-xxxx-xxxx`), OSV identifiers (`OSV-YYYY-NNNN`) or issue/PR URLs. CVE identifiers are also inferred automatically from the patch `url`, `apply` paths and `file` path, so a Debian-style `CVE-2016-2399.patch` is picked up without an explicit `resolves`.
 
 ```ruby
 patch do
@@ -821,7 +722,7 @@ See the [`icoutils`](https://github.com/Homebrew/homebrew-core/blob/442f9cc511ce
 
 ### `livecheck` blocks
 
-When `brew livecheck` is unable to identify versions for a formula, we can control its behavior using a `livecheck` block. Here is a simple example to check a page for links containing a filename like `example-1.2.tar.gz`:
+When `brew livecheck` is unable to identify versions for a formula, we can control its behaviour using a `livecheck` block. Here is a simple example to check a page for links containing a filename like `example-1.2.tar.gz`:
 
 ```ruby
 livecheck do
@@ -832,7 +733,7 @@ end
 
 For `url`/`regex` guidelines and additional `livecheck` block examples, refer to the [`brew livecheck`](Brew-Livecheck.md) documentation. For more technical information on the methods used in a `livecheck` block, please refer to the [`Livecheck` class](/rubydoc/Livecheck.html) documentation.
 
-### Excluding formula from autobumping
+### Excluding formulae from autobumping
 
 By default, all new formulae in the `Homebrew/homebrew-core` repository are autobumped. This means that future updates are handled automatically by Homebrew CI jobs, and contributors do not have to submit pull requests.
 
@@ -929,8 +830,8 @@ Formulae can specify an alternate download for the upstream project's developmen
 
 * Git repositories **must always** specify `branch:`. If the repository is very large, specify `only_path` to [limit the checkout to one path](Cask-Cookbook.md#git-urls).
 
-```sh
-head "<https://github.com/some/package.git>", branch: "main"
+```ruby
+head "https://github.com/some/package.git", branch: "main"
 ```
 
 * Mercurial repositories need `branch:` specified to fetch a branch other than "default".
@@ -961,7 +862,7 @@ You can test whether the [`head`](/rubydoc/Formula.html#head-class_method) is be
 
 ### Compiler selection
 
-Sometimes a package fails to build when using a certain compiler. Since recent [Xcode versions](Xcode.md) no longer include a GCC compiler we cannot simply force the use of GCC. Instead, the correct way to declare this is with the [`fails_with`](/rubydoc/Formula.html#fails_with-class_method) DSL method. A properly constructed [`fails_with`](/rubydoc/Formula.html#fails_with-class_method) block documents the latest compiler build version known to cause compilation to fail, and the cause of the failure. For example:
+Sometimes a package fails to build when using a certain compiler. Since the [supported Xcode and Command Line Tools versions](Installation.md#macos-requirements) no longer include a GCC compiler we cannot simply force the use of GCC. Instead, the correct way to declare this is with the [`fails_with`](/rubydoc/Formula.html#fails_with-class_method) DSL method. A properly constructed [`fails_with`](/rubydoc/Formula.html#fails_with-class_method) block documents the latest compiler build version known to cause compilation to fail, and the cause of the failure. For example:
 
 ```ruby
 fails_with :clang do
@@ -1164,9 +1065,9 @@ end
 
 ### Running commands after installation
 
-Any initialization steps that aren't necessarily part of the install process can be located in a `post_install` block, such as setup commands or data directory creation. This block can be re-run separately with `brew postinstall <formula>`.
+Formulae in official Homebrew taps must represent post-install work with [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method); new `post_install` methods are rejected. These steps can be re-run separately with `brew postinstall <formula>`, are stored in the JSON API and do not require downloading source formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code. Homebrew executes the steps with the same post-install sandbox policy.
 
-For simple file preparation, prefer [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method). These steps are stored in the JSON API and do not require evaluating formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code.
+The legacy `post_install` method remains available temporarily for third-party tap compatibility, but is not an authoring interface for official formulae.
 
 ```ruby
 class Foo < Formula
@@ -1174,73 +1075,119 @@ class Foo < Formula
   url "https://example.com/foo-1.0.tar.gz"
 
   post_install_steps do
-    mkdir_p "log/foo"
-    touch "foo/state"
-    mv "default.conf", "foo/default.conf"
-    ln_s "cert.pem", "foo/cert.pem", source_base: :relative
+    mkdir_p "log/foo", base: :var
+    touch "foo/state", base: :var
+    move "default.conf", "foo/default.conf"
+    symlink "cert.pem", "foo/cert.pem", source_base: :relative
   end
   # ...
 end
 ```
 
-During incremental conversions a formula may define both `post_install_steps`
-and `post_install`. The structured steps run first and `post_install` runs last
-for the remaining Ruby work. Remove `post_install` once all of its behaviour is
-represented by structured steps.
-
 #### File preparation steps
 
-`mkdir`, `mkdir_p` and `touch` default to paths relative to `var`. `move`, `mv`, `move_children`, `symlink`, `ln_s` and `ln_sf` default their source and target paths to `prefix`. Use `base:`, `source_base:` or `target_base:` when a step needs another formula path such as `pkgetc`; use `source_base: :relative` for relative symlink sources.
+Specify `base:` for paths such as `var`, `etc` or `pkgetc`. File steps with separate source and target paths default those paths to `prefix`; use `source_base:` or `target_base:` to select another formula path and `source_base: :relative` for relative symlink sources.
 
-* `mkdir`: create one directory; example: `mkdir "log/foo"`.
-* `mkdir_p`: create a directory and any missing parents; example: `mkdir_p "log/foo"`.
-* `touch`: create or update a file timestamp; example: `touch "foo/state"`.
+* `mkdir_p`: create a directory and any missing parents; example: `mkdir_p "log/foo", base: :var`.
+* `touch`: create or update a file timestamp; example: `touch "foo/state", base: :var`.
 * `move`: move one file or directory; example: `move "default.conf", "foo/default.conf"`.
-* `mv`: alias for `move`; example: `mv "default.conf", "foo/default.conf"`.
-* `move_children`: move the contents of one directory into another; example: `move_children "defaults", "foo/defaults"`.
+* `move_contents`: move the contents of one directory into another; example: `move_contents "defaults", "foo/defaults"`.
+* `copy`: copy a file or, with `recursive: true`, a directory; example: `copy "default.conf", "foo/default.conf"`.
+* `remove`: remove one or more paths; example: `remove ["old.conf", "foo/*.bak"], base: :var`. Use `recursive: true` for directories.
+* `inreplace`: replace a string or regular expression in a file; example: `inreplace "foo.conf", "@PREFIX@", "{{HOMEBREW_PREFIX}}", base: :etc`. Its `audit_result:` and `global:` options match the formula `inreplace` helper.
 * `symlink`: create a symlink; example: `symlink "cert.pem", "foo/cert.pem", source_base: :relative`.
-* `ln_s`: alias for `symlink`; example: `ln_s "cert.pem", "foo/cert.pem", source_base: :relative`.
-* `ln_sf`: create or replace a symlink; example: `ln_sf "cert.pem", "foo/cert.pem", source_base: :relative`.
+* `symlink_tree`: recursively symlink a directory's contents while preserving real target directories.
+* `symlink_children`: symlink each direct child of a directory, optionally adding a `prefix:` or `suffix:`.
+* `set_permissions`: change existing path permissions; example: `set_permissions "foo", "0755", base: :var`.
+* `change_dylib_id`: change one Mach-O dynamic library ID; pass the complete source and new ID, use `resolve_source: true` for a source symlink and wrap the step in `on_macos`.
+
+`move` and `copy` replace an existing target by default, matching the corresponding file helpers; pass `overwrite: false` to reject replacement. `symlink` preserves an existing target by default, so pass `overwrite: true` when replacement is intentional. `move` and `copy` accept `source_glob: true` when the glob must resolve to exactly one source; `symlink` accepts one or more matching sources. Path collections used by `remove` and `set_permissions` expand globs automatically. `remove` ignores missing paths and may additionally be restricted with `symlink_target_contains:` or `content_contains:`. It accepts `sudo: true` or `sudo: :if_needed` for paths requiring elevated permissions.
+
+Use `if_path_exists`, `unless_path_exists`, `on_macos` and `on_linux` blocks to guard one or more steps. Specify the guard path's `base:` explicitly. A condition is evaluated once when its scope begins, so related steps make the same decision:
+
+```ruby
+unless_path_exists "foo/default.conf", base: :var do
+  mkdir_p "foo", base: :var
+  copy "default.conf", "foo/default.conf"
+end
+```
 
 #### Default config and template steps
 
-`write` creates a default configuration or data file from literal content. It defaults to the same base as the other file preparation steps; pass `base:` (such as `base: :etc`) to target another formula path. By default `write` does not overwrite an existing file, so user edits are preserved across upgrades; pass `overwrite: true` to always replace the file.
+`write_file` atomically writes its exact literal content, replacing an existing file. Specify its `base:`, such as `base: :etc`. Use `unless_path_exists` when a default file should preserve user edits across upgrades:
 
-* `write`: write literal content to a file unless it already exists; example: `write "foo.conf", "key = value", base: :etc`.
-* `write` with `overwrite: true`: always replace the file; example: `write "foo/version", "1.0", overwrite: true`.
-
-A trailing newline is appended unless the content already ends with one, so written files end in a newline as POSIX expects.
+```ruby
+unless_path_exists "foo.conf", base: :etc do
+  write_file "foo.conf", "key = value\n", base: :etc
+end
+```
 
 {% raw %}
-Content may use a fixed set of `{{...}}` tokens that are expanded at install time so paths are not hardcoded into the JSON API: `{{HOMEBREW_PREFIX}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}` and `{{version.major_minor}}`. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. Use tokens instead of Ruby interpolation, for example `write "foo.conf", "prefix = {{HOMEBREW_PREFIX}}", base: :etc`.
+
+#### Interpolation in steps blocks
+
+Ruby `#{...}` interpolation is normally evaluated before structured steps are serialised. The Ruby expression does not pass through the JSON API; only the string it produced does. A concrete result is safe only when it is identical for every installation represented by the JSON. RuboCop cannot generally establish that from arbitrary Ruby, so use interpolation in ordinary formula methods such as `install`, where Ruby code is evaluated locally.
+
+`{{...}}` is not Ruby interpolation. It remains literal in the JSON API and the install-step runner expands supported tokens at install time. Use this form for install-time values in `post_install_steps`, especially values that depend on the current Homebrew installation. When a path argument supports `base:`, `source_base:` or `target_base:`, prefer those options to embedding a path token.
+
+The runtime steps DSL retains compatibility helpers for `formula_name`, `name`, `version`, `version.major` and `version.major_minor`. Interpolating these helpers is safe and permitted by RuboCop because they return the corresponding `{{...}}` token text rather than a concrete value. Other Ruby interpolation is rejected. Prefer explicit `{{...}}` tokens in new steps so it is clear that expansion is deferred until installation.
+
+Content, replacements, command arguments and command environments may use a fixed set of `{{...}}` tokens: `{{HOMEBREW_BREW_FILE}}`, `{{HOMEBREW_CELLAR}}`, `{{HOMEBREW_PREFIX}}`, `{{formula_name}}`, `{{name}}`, `{{user}}`, `{{prefix}}`, `{{opt_prefix}}`, `{{bin}}`, `{{sbin}}`, `{{lib}}`, `{{libexec}}`, `{{share}}`, `{{pkgshare}}`, `{{rack}}`, `{{var}}`, `{{etc}}`, `{{pkgetc}}`, `{{version}}`, `{{version.major}}` and `{{version.major_minor}}`. `{{name}}` is retained for compatibility; prefer `{{formula_name}}`. Completion directory tokens are also available. Any other `{{...}}` is left verbatim, so literal braces are never rewritten. For example: `write_file "foo.conf", "prefix = {{HOMEBREW_PREFIX}}\n", base: :etc`.
 {% endraw %}
+
+#### Command and lifecycle steps
+
+`run` executes one command with a literal argument array; it does not evaluate a shell command string. Select the executable with `base:`, such as `:bin`, `:libexec` or `:homebrew_prefix`, or pass an absolute system executable. The step also supports a literal `env:`, `stdin_path:`, `stdout_path:`, `chdir:` and `sudo:`. Standard output is hidden by default and standard error is printed, matching `SystemCommand`; use `print_stdout: true` or `print_stderr: false` to change that behaviour.
+
+```ruby
+run "foo-helper", args: ["--prefix", "{{HOMEBREW_PREFIX}}"], base: :libexec
+terminate_process "foo", match: :full, attempts: 3
+if_path_exists "foo.conf", base: :etc do
+  warn "Remove the old foo.conf before continuing"
+end
+```
+
+`terminate_process` terminates a process by name or, with `match: :full`, by its full command line. `attempts:` is the total number of attempts and defaults to one. Failure is ignored by default; pass `must_succeed: true` when it should abort. The step also supports `notices:` shown before the first attempt and a `failure_message:` warning.
+`warn` emits a literal warning. Wrap it in `if_path_exists` when the warning only applies while a path exists.
+
+#### Repeated formula actions
+
+Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action.
+
+* `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
+* `install_gzipped_executable`: unpack and install a gzipped executable.
+* `configure_glibc_runtime`: generate requested glibc locales and timezone links.
+* `configure_clang_system`: generate macOS Clang system configuration files.
+* `configure_php`: configure shared PEAR and PECL state.
+* `bootstrap_cpython`: bootstrap CPython packaging state.
+* `bootstrap_pypy`: bootstrap PyPy packaging state with the required `abi_version:` argument.
 
 #### Service data directory steps
 
 `init_data_dir` creates a database service data directory and runs a supported
 bootstrap command unless the directory already contains the default marker
-file. It defaults to paths relative to `var` and skips the bootstrap command in
-Homebrew's GitHub Actions jobs. It does not change permissions or ownership.
+file. Specify its `base:`, normally `base: :var`. It skips the bootstrap command
+in Homebrew's GitHub Actions jobs and does not change permissions or ownership.
 
-* `init_data_dir` with `using: :postgresql_initdb`: initialise PostgreSQL with
-  `initdb`; example: `init_data_dir "postgresql@16", using: :postgresql_initdb`.
+* `init_data_dir` with `using: :postgresql`: initialise PostgreSQL with
+  `initdb`; example: `init_data_dir "postgresql@16", using: :postgresql, base: :var`.
   PostgreSQL defaults to `locale: "en_US.UTF-8"` and can set another locale,
-  for example `init_data_dir "postgresql@12", using: :postgresql_initdb, locale: "C"`.
-* `init_data_dir` with `using: :mysql_initialize`: initialise MySQL with
+  for example `init_data_dir "postgresql@12", using: :postgresql, locale: "C", base: :var`.
+* `init_data_dir` with `using: :mysql`: initialise MySQL with
   `mysqld --initialize-insecure`; example:
-  `init_data_dir "mysql", using: :mysql_initialize`.
-* `init_data_dir` with `using: :mariadb_install_db`: initialise MariaDB with
-  `mysql_install_db`; example: `init_data_dir "mysql", using: :mariadb_install_db`.
+  `init_data_dir "mysql", using: :mysql, base: :var`.
+* `init_data_dir` with `using: :mariadb`: initialise MariaDB with
+  `mysql_install_db`; example: `init_data_dir "mysql", using: :mariadb, base: :var`.
 
-`link_dir` recursively links a source directory's contents into a target
+`symlink_tree` recursively links a source directory's contents into a target
 directory, preserving existing real directories and skipping `.DS_Store` files.
-`link_children` links each direct child of a source directory into a target
+`symlink_children` links each direct child of a source directory into a target
 directory, defaulting the target to the same path as the source, and can add a
 `prefix` or `suffix` to each linked name. For example:
 
 ```ruby
-link_dir "share/postgresql", "share/#{name}"
-link_children "bin", suffix: "-#{version.major}"
+symlink_tree "share/postgresql", "share/{{formula_name}}"
+symlink_children "bin", suffix: "-{{version.major}}"
 ```
 
 #### Desktop and cache rebuild steps
@@ -1248,9 +1195,8 @@ link_children "bin", suffix: "-#{version.major}"
 These steps rebuild shared desktop and cache state using Homebrew-owned tools.
 
 * `compile_gsettings_schemas`: compile GSettings schemas in `share/glib-2.0/schemas`.
-* `gio_querymodules`: rebuild the GIO module cache in `lib/gio/modules`.
-* `gdk_pixbuf_query_loaders`: update the GDK Pixbuf loader cache.
-* `gtk_update_icon_cache`: refresh the `hicolor` GTK icon cache.
+* `update_gdk_pixbuf_loaders_cache`: update the GDK Pixbuf loader cache.
+* `update_gtk_icon_cache`: refresh the `hicolor` GTK icon cache.
 * `update_mime_database`: rebuild the shared MIME database in `share/mime`.
 * `update_desktop_database`: rebuild the desktop entry database in `share/applications`.
 
@@ -1260,10 +1206,11 @@ class Foo < Formula
   url "https://example.com/foo-1.0.tar.gz"
 
   post_install_steps do
-    ln_sf "cert.pem", "cert.pem",
-          source_formula: "ca-certificates",
-          source_base:    :formula_pkgetc,
-          target_base:    :pkgetc
+    symlink "cert.pem", "cert.pem",
+            source_formula: "ca-certificates",
+            source_base:    :formula_pkgetc,
+            target_base:    :pkgetc,
+            overwrite:      true
   end
   # ...
 end
@@ -1328,6 +1275,7 @@ This table lists the options you can set within a `service` block. The `run` or 
 | `cron`                  | -            |  yes  |  yes  | controls the trigger times, required for the `:cron` type |
 | `keep_alive`            | `false`      |  yes  |  yes  | [sets contexts](#keep_alive-options) in which the service will keep the process running |
 | `launch_only_once`      | `false`      |  yes  |  yes  | whether the command should only run once |
+| `run_at_load`           | `true`       |  yes  | no-op | whether the command should run when the service is loaded |
 | `require_root`          | `false`      |  yes  |  yes  | whether the service requires root access. If true, Homebrew hints at using `sudo` on various occasions, but does not enforce it |
 | `environment_variables` | -            |  yes  |  yes  | hash of variables to set |
 | `working_dir`           | -            |  yes  |  yes  | directory to operate from |
@@ -1336,10 +1284,11 @@ This table lists the options you can set within a `service` block. The `run` or 
 | `log_path`              | -            |  yes  |  yes  | path to write `stdout` to |
 | `error_log_path`        | -            |  yes  |  yes  | path to write `stderr` to |
 | `restart_delay`         | -            |  yes  |  yes  | number of seconds to delay before restarting a process |
+| `stop_timeout`          | -            |  yes  |  yes  | number of seconds to wait before forcibly stopping a process |
 | `throttle_interval`     | -            |  yes  | no-op | minimum seconds to wait before invocations (macOS default is `10`) |
 | `process_type`          | -            |  yes  | no-op | type of process to manage: `:background`, `:standard`, `:interactive` or `:adaptive` |
 | `macos_legacy_timers`   | -            |  yes  | no-op | timers created by `launchd` jobs are coalesced unless this is set |
-| `sockets`               | -            |  yes  | no-op | socket that is created as an accesspoint to the service |
+| `sockets`               | -            |  yes  | no-op | socket that is created as an access point to the service |
 | `nice`                  | -            |  yes  |  yes  | default scheduling priority (nice level), from `-20` highest to `19` lowest. **Note:** Negative nice values (higher priority) require `require_root: true` to be set. |
 | `name`                  | -            |  yes  |  yes  | a hash with the `launchd` service name on macOS and/or the `systemd` service name on Linux. Homebrew generates a default name for the service file if this is not present |
 
@@ -1463,7 +1412,7 @@ Homebrew has multiple levels of environment variable filtering which affects whi
 
 Firstly, the overall [environment in which Homebrew runs is filtered](https://github.com/Homebrew/brew/issues/932) to avoid environment contamination breaking from-source builds. In particular, this process filters all but a select list of variables, plus allowing any prefixed with `HOMEBREW_`. The specific implementation is found in [`bin/brew`](https://github.com/Homebrew/brew/blob/HEAD/bin/brew).
 
-The second level of filtering [removes sensitive environment variables](https://github.com/Homebrew/brew/pull/2524) (such as credentials like keys, passwords or tokens) to prevent malicious subprocesses from obtaining them. This has the effect of preventing any such variables from reaching a formula's Ruby code since they are filtered before it is called. The specific implementation is found in the [`ENV.clear_sensitive_environment!` method](https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/extend/ENV.rb).
+The second level of filtering [removes sensitive environment variables](https://github.com/Homebrew/brew/pull/2524) (such as credentials like keys, passwords or tokens) to prevent malicious subprocesses from obtaining them. This has the effect of preventing any such variables from reaching a formula's Ruby code since they are filtered before it is called. The specific implementation is found in the [`ENV.clear_sensitive_environment!` method](https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/extend/ENV/sensitive.rb).
 
 In summary, any environment variables intended for use by a formula need to conform to these filtering rules in order to be available.
 
@@ -1477,7 +1426,7 @@ There are also `ENV` helper methods available for many common environment variab
 
 * `ENV.cxx11` - compile with C++11 features enabled
 * `ENV.deparallelize` - compile with only one job at a time; pass a block to have it only influence specific install steps
-* `ENV.O0`, `ENV.O1`, `ENV.O3` - set a specific compiler optimization level (*default:* macOS: `-Os`, Linux: `-O2`)
+* `ENV.O0`, `ENV.O1`, `ENV.O3` - set a specific compiler optimisation level (*default:* Clang: `-Os`, GCC: `-O2`)
 * `ENV.runtime_cpu_detection` - account for formulae that detect CPU features at runtime
 * `ENV.append_to_cflags` - add a value to `CFLAGS` `CXXFLAGS` `OBJCFLAGS` `OBJCXXFLAGS` all at once
 * `ENV.prepend_create_path` - create and prepend a path to an existing list of paths

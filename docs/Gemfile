@@ -16,7 +16,6 @@ group :jekyll_plugins do
 end
 
 gem "irb"
-gem "redcarpet"
 gem "yard"
 gem "yard-sorbet"
 

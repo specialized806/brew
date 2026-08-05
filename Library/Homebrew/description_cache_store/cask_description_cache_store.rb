@@ -36,11 +36,15 @@ class CaskDescriptionCacheStore < DescriptionCacheStore
     return populate_if_empty! if database.empty?
     return if report.empty?
 
-    alterations = report.select_formula_or_cask(:AC) +
-                  report.select_formula_or_cask(:MC)
+    alterations = T.cast(
+      report.select_formula_or_cask(:AC) +
+      report.select_formula_or_cask(:MC),
+      T::Array[String],
+    )
+    deletions = T.cast(report.select_formula_or_cask(:DC), T::Array[String])
 
     update_from_cask_tokens!(alterations)
-    delete_from_cask_tokens!(report.select_formula_or_cask(:DC))
+    delete_from_cask_tokens!(deletions)
   end
 
   # Use an array of cask tokens to update the {CaskDescriptionCacheStore}.

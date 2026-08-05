@@ -137,7 +137,11 @@ module Homebrew
           raise GhAuthInvalid, "invalid credentials"
         end
 
-        raise MissingAttestationError, "attestation not found: #{e}" if e.stderr.include?("HTTP 404: Not Found")
+        # The API used to return 404 but now can return 200 with an empty array.
+        # We match the no attestation case precisely as there are similarly worded errors.
+        if e.stderr.include?("HTTP 404: Not Found") || e.stderr.match?(/: no attestations found\R/)
+          raise MissingAttestationError, "attestation not found: #{e}"
+        end
 
         raise InvalidAttestationError, "attestation verification failed: #{e}"
       end
@@ -219,9 +223,7 @@ module Homebrew
         # This was originally unintentional, but has a virtuous side effect of further
         # limiting domain separation on the backfilled signatures (by committing them to
         # their original bottle URLs).
-        url_sha256 = if EnvConfig.bottle_domain == HOMEBREW_BOTTLE_DEFAULT_DOMAIN
-          Digest::SHA256.hexdigest(bottle.url)
-        else
+        url_sha256 = if EnvConfig.bottle_domain_custom?
           # If our bottle is coming from a mirror, we need to recompute the expected
           # non-mirror URL to make the hash match.
           checksum = bottle.resource.checksum
@@ -231,6 +233,8 @@ module Homebrew
           url = "#{HOMEBREW_BOTTLE_DEFAULT_DOMAIN}/#{path}"
 
           Digest::SHA256.hexdigest(url)
+        else
+          Digest::SHA256.hexdigest(bottle.url)
         end
         subject = "#{url_sha256}--#{bottle.filename}"
 

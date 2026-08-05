@@ -60,6 +60,15 @@ module Tty
       string.gsub(/\033\[\d+(;\d+)*m/, "")
     end
 
+    # Simulates a terminal rendering `\r` overwrites (e.g. curl's `--progress-bar`).
+    sig { params(string: String).returns(String) }
+    def collapse_carriage_returns(string)
+      string.split("\n", -1).map do |line|
+        # `\r` resets the cursor, it doesn't erase, so keep the last non-empty segment.
+        line.split("\r", -1).reject(&:empty?).last || ""
+      end.join("\n")
+    end
+
     sig { params(line_count: Integer).returns(String) }
     def move_cursor_up_beginning(line_count)
       "\033[#{line_count}F"
@@ -88,6 +97,16 @@ module Tty
     sig { returns(String) }
     def show_cursor
       "\033[?25h"
+    end
+
+    sig { returns(String) }
+    def begin_synchronized_update
+      "\033[?2026h"
+    end
+
+    sig { returns(String) }
+    def end_synchronized_update
+      "\033[?2026l"
     end
 
     sig { returns(T.nilable([Integer, Integer])) }

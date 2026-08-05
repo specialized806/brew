@@ -41,6 +41,20 @@ module Homebrew
 
         require "utils/github"
 
+        # Keep in sync with the "Check for release blockers" step in
+        # .github/workflows/release.yml.
+        blocking_labels = ["release blocker"]
+        blocking_labels << "major/minor release blocker" if args.major? || args.minor?
+        release_blockers = blocking_labels.flat_map do |label|
+          GitHub.issues(repo: "Homebrew/brew", state: "open", labels: label)
+        rescue *GitHub::API::ERRORS => e
+          odie "Unable to check for release blockers: #{e.message}!"
+        end
+        if release_blockers.present?
+          blocker_urls = release_urls(release_blockers).uniq.join("\n")
+          odie "Open issues or pull requests are blocking this release:\n#{blocker_urls}"
+        end
+
         begin
           latest_release = GitHub.get_latest_release "Homebrew", "brew"
         rescue GitHub::API::HTTPNotFoundError
@@ -215,8 +229,6 @@ module Homebrew
         exec_browser release_url
       end
 
-      private
-
       sig { params(name: String).returns(T::Array[T::Hash[String, T.untyped]]) }
       def matching_releases(name)
         releases_url = "#{GitHub::API_URL}/repos/Homebrew/brew/releases?per_page=#{GitHub::MAX_PER_PAGE}"
@@ -239,6 +251,8 @@ module Homebrew
           Time.at(0)
         end
       end
+
+      private
 
       sig { params(releases: T::Array[T::Hash[String, T.untyped]]).returns(T::Array[String]) }
       def release_urls(releases)

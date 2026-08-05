@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-06-10"
+last_review_date: "2026-07-26"
 ---
 
 # Responsible AI Usage
@@ -15,12 +15,17 @@ These guidelines exist to make Homebrew better rather than shifting work and ris
 
 AI is not responsible for its output: you are responsible for the output of the AI tools you use.
 A pull request with your name on it is your work regardless of how much of it an AI wrote.
+Do not identify an AI tool as an author, co-author, committer or signatory of a commit, including through an `Assisted-by`, `Co-developed-by` or similar commit trailer.
+Disclose the tool's involvement in the pull request description instead.
 
 Verify AI output for correctness as you would that of an avatarless GitHub user with no previous contributions.
 Read it, run it, test it and make sure you understand it.
 
 Do not ask other humans to review your AI-generated code until you have reviewed it yourself.
-This is already a requirement in our [Contributing guide](https://github.com/Homebrew/brew/blob/HEAD/CONTRIBUTING.md): you must review all AI/LLM-generated content before asking anyone in Homebrew to review it, and you must be able to address all review comments yourself even when the AI cannot.
+This is already a requirement in our [Contributing guide](https://github.com/Homebrew/brew/blob/HEAD/CONTRIBUTING.md): you must review all AI/LLM-generated content before asking anyone in Homebrew to review it.
+
+Answer maintainer questions and pull request review comments yourself without using AI/LLM.
+Reviewers need to engage directly with the person responsible for the contribution.
 
 As the [pull request template](https://github.com/Homebrew/brew/blob/HEAD/.github/PULL_REQUEST_TEMPLATE.md) sets out, disclose when AI was used to generate or assist with a pull request and explain how you verified the changes.
 

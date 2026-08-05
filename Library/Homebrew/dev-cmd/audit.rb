@@ -263,7 +263,9 @@ module Homebrew
           path = cask.sourcefile_path
 
           errors = os_arch_combinations.flat_map do |os, arch|
-            next [] if os == :linux
+            # Linux-only casks have no stanza values for macOS, so audit them
+            # under Linux instead.
+            os = :linux if os != :linux && !cask.supports_macos?
 
             SimulateSystem.with(os:, arch:) do
               odebug "Auditing Cask #{cask} on os #{os} and arch #{arch}"
@@ -280,7 +282,6 @@ module Homebrew
                 # because boolean switches are already `nil` if not passed
                 audit_signing:  args.signing?,
                 audit_new_cask: args.new? || nil,
-                quarantine:     true,
                 any_named_args: !no_named_args,
                 only:           args.only || [],
                 except:         args.except || [],

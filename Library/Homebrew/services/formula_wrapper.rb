@@ -144,19 +144,6 @@ module Homebrew
         formula.any_version_installed?
       end
 
-      # Returns `true` if the plist file exists.
-      sig { returns(T::Boolean) }
-      def plist?
-        return false unless installed?
-        return true if service_file.file?
-        return false unless formula.opt_prefix.exist?
-        return true if Keg.for(formula.opt_prefix).plist_installed?
-
-        false
-      rescue NotAKegError
-        false
-      end
-
       sig { void }
       def reset_cache!
         @status_output_success_type = nil
@@ -191,6 +178,7 @@ module Homebrew
       def owner
         if System.launchctl? && dest.exist?
           # read the username from the plist file
+          require "plist"
           plist = begin
             Plist.parse_xml(dest.read, marshal: false)
           rescue
@@ -272,6 +260,21 @@ module Homebrew
         hash[:cron] = service.cron.presence
 
         hash
+      end
+
+      # Generate the service file content (plist or systemd unit),
+      # including any per-service user environment variable overrides,
+      # or read the package-provided service file if the formula's
+      # service block does not define a command.
+      sig { returns(String) }
+      def service_contents
+        if !service? || !load_service.command?
+          service_file.read
+        elsif System.launchctl?
+          load_service.to_plist
+        else
+          load_service.to_systemd_unit
+        end
       end
 
       private

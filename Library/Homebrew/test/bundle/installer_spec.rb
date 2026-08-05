@@ -280,7 +280,7 @@ RSpec.describe Homebrew::Bundle::Installer do
         output = IO.pipe do |reader, writer|
           allow(writer).to receive(:tty?).and_return(true)
 
-          parallel_installer.send(:write_output, "Installing alpha", stream: writer)
+          parallel_installer.write_output("Installing alpha", stream: writer)
           writer.close
 
           reader.read
@@ -293,7 +293,7 @@ RSpec.describe Homebrew::Bundle::Installer do
         output = IO.pipe do |reader, writer|
           allow(writer).to receive(:tty?).and_return(false)
 
-          parallel_installer.send(:write_output, "Installing alpha", stream: writer)
+          parallel_installer.write_output("Installing alpha", stream: writer)
           writer.close
 
           reader.read
@@ -417,9 +417,68 @@ RSpec.describe Homebrew::Bundle::Installer do
       dependency_map = Homebrew::Bundle::ParallelInstaller.new(
         entries,
         jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).send(:build_dependency_map, entries)
+      ).build_dependency_map(entries)
 
       expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
+    end
+
+    it "serializes formulae that would both silently install the same implicit dependency" do
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set.new)
+      allow(DependencyCollector).to receive(:new).and_return(
+        instance_double(DependencyCollector, implicit_dependency_names: Set["glibc"]),
+      )
+
+      entries = [alpha_entry, beta_entry]
+      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
+        entries,
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).build_dependency_map(entries)
+
+      expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
+    end
+
+    it "only waits on the first formula racing for a shared implicit dependency, not on every other" do
+      gamma_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name: "gamma", options: {}, verb: "Installing", cls: Homebrew::Bundle::Brew,
+      )
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with(any_args).and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with(any_args).and_return(Set.new)
+      allow(DependencyCollector).to receive(:new).and_return(
+        instance_double(DependencyCollector, implicit_dependency_names: Set["glibc"]),
+      )
+
+      entries = [alpha_entry, beta_entry, gamma_entry]
+      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
+        entries,
+        jobs: 3, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).build_dependency_map(entries)
+
+      expect(dependency_map.fetch("alpha")).to eq(Set.new)
+      expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
+      expect(dependency_map.fetch("gamma")).to eq(Set["alpha"])
+    end
+
+    it "does not force a cask with no formula dependencies to wait on a shared implicit dependency" do
+      installable_cask_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
+        name: "google-chrome", options: {}, verb: "Installing", cls: Homebrew::Bundle::Cask,
+      )
+      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
+      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
+      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["google-chrome"]).and_return([])
+      allow(DependencyCollector).to receive(:new).and_return(
+        instance_double(DependencyCollector, implicit_dependency_names: Set["glibc"]),
+      )
+
+      entries = [alpha_entry, installable_cask_entry]
+      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
+        entries,
+        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
+      ).build_dependency_map(entries)
+
+      expect(dependency_map.fetch("google-chrome")).to eq(Set.new)
     end
 
     it "installs a Brewfile `gh` before other entries when verifying attestations" do
@@ -440,7 +499,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       dependency_map = Homebrew::Bundle::ParallelInstaller.new(
         entries,
         jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).send(:build_dependency_map, entries)
+      ).build_dependency_map(entries)
 
       expect(dependency_map.fetch("alpha")).to eq(Set["gh"])
     end

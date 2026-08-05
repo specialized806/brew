@@ -93,7 +93,6 @@ module Superenv
     self["HOMEBREW_OPT"] = "#{HOMEBREW_PREFIX}/opt"
     self["HOMEBREW_TEMP"] = HOMEBREW_TEMP.to_s
     self["HOMEBREW_OPTFLAGS"] = determine_optflags
-    self["HOMEBREW_ARCHFLAGS"] = ""
     self["HOMEBREW_MAKE_JOBS"] = determine_make_jobs.to_s
     self["CMAKE_PREFIX_PATH"] = determine_cmake_prefix_path
     self["CMAKE_FRAMEWORK_PATH"] = determine_cmake_frameworks_path

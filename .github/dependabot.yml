@@ -65,7 +65,9 @@ updates:
   - dependency-type: all
   cooldown:
     default-days: 7
-- package-ecosystem: pip
+    exclude:
+    - Homebrew/actions/*
+- package-ecosystem: uv
   directories:
   - "/Library/Homebrew/formula-analytics/"
   schedule:
@@ -74,7 +76,7 @@ updates:
     time: '08:00'
     timezone: Etc/UTC
   groups:
-    pip:
+    uv:
       patterns:
       - "*"
   allow:

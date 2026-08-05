@@ -4,90 +4,6 @@
 require "vulns/scanner"
 
 RSpec.describe Homebrew::Vulns::Scanner do
-  describe ".repo_url" do
-    it "extracts a GitHub repo from an archive/refs/tags URL" do
-      url = "https://github.com/nektos/act/archive/refs/tags/v0.2.84.tar.gz"
-      expect(described_class.repo_url(url)).to eq "https://github.com/nektos/act"
-    end
-
-    it "extracts a GitHub repo from a releases/download URL" do
-      url = "https://github.com/owner/repo/releases/download/v1.2.3/source.tar.gz"
-      expect(described_class.repo_url(url)).to eq "https://github.com/owner/repo"
-    end
-
-    it "extracts a GitHub repo from a .git URL" do
-      expect(described_class.repo_url("https://github.com/AomediaOrg/aom.git"))
-        .to eq "https://github.com/AomediaOrg/aom"
-    end
-
-    it "extracts a GitLab repo, stripping the /-/ path segment" do
-      url = "https://gitlab.com/owner/repo/-/archive/v1.2.3/repo-v1.2.3.tar.gz"
-      expect(described_class.repo_url(url)).to eq "https://gitlab.com/owner/repo"
-    end
-
-    it "extracts a Codeberg repo" do
-      url = "https://codeberg.org/owner/repo/archive/v1.2.3.tar.gz"
-      expect(described_class.repo_url(url)).to eq "https://codeberg.org/owner/repo"
-    end
-
-    it "falls back to the head URL when the stable URL is not a supported forge" do
-      stable = "https://aomedia.googlesource.com/aom.git"
-      head = "https://github.com/AomediaOrg/aom.git"
-      expect(described_class.repo_url(stable, head)).to eq "https://github.com/AomediaOrg/aom"
-    end
-
-    it "falls back to the homepage when neither stable nor head is a supported forge" do
-      stable = "https://libssh2.org/download/libssh2-1.11.0.tar.gz"
-      homepage = "https://github.com/libssh2/libssh2"
-      expect(described_class.repo_url(stable, nil, homepage)).to eq "https://github.com/libssh2/libssh2"
-    end
-
-    it "returns nil for unsupported hosts" do
-      expect(described_class.repo_url("https://example.com/source.tar.gz")).to be_nil
-    end
-
-    it "returns nil for nil input" do
-      expect(described_class.repo_url(nil)).to be_nil
-      expect(described_class.repo_url(nil, nil)).to be_nil
-    end
-  end
-
-  describe ".tag" do
-    it "extracts from archive/refs/tags .tar.gz" do
-      expect(described_class.tag("https://github.com/nektos/act/archive/refs/tags/v0.2.84.tar.gz"))
-        .to eq "v0.2.84"
-    end
-
-    it "extracts a tag without a v prefix" do
-      url = "https://github.com/abseil/abseil-cpp/archive/refs/tags/20250814.1.tar.gz"
-      expect(described_class.tag(url)).to eq "20250814.1"
-    end
-
-    it "extracts from archive/refs/tags .zip" do
-      expect(described_class.tag("https://github.com/owner/repo/archive/refs/tags/v1.0.0.zip"))
-        .to eq "v1.0.0"
-    end
-
-    it "extracts from archive/<tag>.tar.gz" do
-      expect(described_class.tag("https://codeberg.org/owner/repo/archive/v1.2.3.tar.gz"))
-        .to eq "v1.2.3"
-    end
-
-    it "extracts from releases/download/<tag>/" do
-      url = "https://github.com/owner/repo/releases/download/v1.2.3/source.tar.gz"
-      expect(described_class.tag(url)).to eq "v1.2.3"
-    end
-
-    it "extracts from tarball/<tag>" do
-      expect(described_class.tag("https://github.com/owner/repo/tarball/v1.2.3")).to eq "v1.2.3"
-    end
-
-    it "returns nil when no tag pattern matches" do
-      expect(described_class.tag("https://example.com/source.tar.gz")).to be_nil
-      expect(described_class.tag(nil)).to be_nil
-    end
-  end
-
   describe ".resolved_ids" do
     it "collects security-type resolves across all patches, uppercased and deduplicated" do
       patches = [
@@ -164,6 +80,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
   describe "#build_target" do
     it "derives repo from head and tag from stable version for a non-forge tarball" do
       curl = formula("curl") do
+        T.bind(self, T.class_of(Formula))
         url "https://curl.se/download/curl-8.5.0.tar.bz2"
         head "https://github.com/curl/curl.git"
       end
@@ -177,6 +94,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "queries a non-forge head URL verbatim when no candidate is a supported forge" do
       bash = formula("bash") do
+        T.bind(self, T.class_of(Formula))
         homepage "https://www.gnu.org/software/bash/"
         url "https://ftpmirror.gnu.org/gnu/bash/bash-5.3.tar.gz"
         head "https://git.savannah.gnu.org/git/bash.git"
@@ -190,6 +108,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "queries a non-forge stable URL verbatim when its path yields a tag" do
       thing = formula("thing") do
+        T.bind(self, T.class_of(Formula))
         url "https://gitea.example.com/owner/thing/archive/v1.2.3.tar.gz"
       end
 
@@ -201,18 +120,20 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "prefers an explicit stable tag over the derived version" do
       aom = formula("aom") do
+        T.bind(self, T.class_of(Formula))
         homepage "https://github.com/AomediaOrg/aom"
         url "https://aomedia.googlesource.com/aom.git", tag: "v3.13.1"
       end
 
       target = described_class.new([aom]).build_target(aom)
 
-      expect(target.repo_url).to eq "https://github.com/AomediaOrg/aom"
+      expect(target.repo_url).to eq "https://github.com/aomediaorg/aom"
       expect(target.tag).to eq "v3.13.1"
     end
 
     it "queries the SBOM versionInfo when the SBOM downloadLocation has no extractable tag" do
       curl = formula("curl") do
+        T.bind(self, T.class_of(Formula))
         url "https://curl.se/download/curl-8.5.0.tar.bz2"
         head "https://github.com/curl/curl.git"
       end
@@ -238,6 +159,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "queries a non-forge head URL verbatim when the SBOM downloadLocation host is unsupported" do
       bash = formula("bash") do
+        T.bind(self, T.class_of(Formula))
         homepage "https://www.gnu.org/software/bash/"
         url "https://ftpmirror.gnu.org/gnu/bash/bash-5.3.tar.gz"
         head "https://git.savannah.gnu.org/git/bash.git"
@@ -266,24 +188,28 @@ RSpec.describe Homebrew::Vulns::Scanner do
   describe "#scan" do
     let(:act) do
       formula("act") do
+        T.bind(self, T.class_of(Formula))
         url "https://github.com/nektos/act/archive/refs/tags/v0.2.84.tar.gz"
       end
     end
 
     let(:openssl) do
       formula("openssl@3") do
+        T.bind(self, T.class_of(Formula))
         url "https://github.com/openssl/openssl/releases/download/openssl-3.0.0/openssl-3.0.0.tar.gz"
       end
     end
 
     let(:unsupported) do
       formula("aom") do
+        T.bind(self, T.class_of(Formula))
         url "https://aomedia.googlesource.com/aom.git", tag: "v3.13.1"
       end
     end
 
     let(:libquicktime) do
       formula("libquicktime") do
+        T.bind(self, T.class_of(Formula))
         url "https://github.com/owner/libquicktime/archive/refs/tags/v1.2.4.tar.gz"
         patch do
           url "https://deb.debian.org/debian/pool/main/libq/libquicktime/libquicktime_1.2.4-12.debian.tar.xz"
@@ -330,7 +256,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "skips formulae without a queryable repo URL and tag" do
       allow(Homebrew::Vulns::OSV).to receive(:query_batch).with(
-        [{ repo_url: "https://github.com/nektos/act", version: "v0.2.84" }],
+        [{ ecosystem: "GIT", name: "https://github.com/nektos/act", version: "v0.2.84" }],
       ).and_return([[]])
 
       results = described_class.new([act, unsupported]).scan
@@ -420,9 +346,11 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
     it "does not conflate formulae with the same short name from different taps" do
       core_thing = formula("thing", tap: CoreTap.instance) do
+        T.bind(self, T.class_of(Formula))
         url "https://github.com/owner-a/thing/archive/refs/tags/v1.0.0.tar.gz"
       end
       tap_thing = formula("thing", tap: Tap.fetch("someone", "tap")) do
+        T.bind(self, T.class_of(Formula))
         url "https://github.com/owner-b/thing/archive/refs/tags/v2.0.0.tar.gz"
       end
       expect(core_thing.name).to eq tap_thing.name
@@ -436,8 +364,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
       described_class.new([core_thing, tap_thing]).scan
 
       expect(queried).to eq [
-        { repo_url: "https://github.com/owner-a/thing", version: "v1.0.0" },
-        { repo_url: "https://github.com/owner-b/thing", version: "v2.0.0" },
+        { ecosystem: "GIT", name: "https://github.com/owner-a/thing", version: "v1.0.0" },
+        { ecosystem: "GIT", name: "https://github.com/owner-b/thing", version: "v2.0.0" },
       ]
     end
 
@@ -523,7 +451,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         described_class.new([act]).scan
 
-        expect(queried).to eq [{ repo_url: "https://github.com/nektos/act", version: "v0.2.80" }]
+        expect(queried).to eq [{ ecosystem: "GIT", name: "https://github.com/nektos/act", version: "v0.2.80" }]
       end
 
       it "reports the installed version in findings" do
@@ -559,8 +487,96 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         results = described_class.new([act]).scan
 
-        expect(queried).to eq [{ repo_url: "https://github.com/nektos/act", version: "v0.2.84" }]
+        expect(queried).to eq [{ ecosystem: "GIT", name: "https://github.com/nektos/act", version: "v0.2.84" }]
         expect(results.outdated_without_sbom).to eq ["act"]
+      end
+
+      it "filters out vulnerabilities that do not have a fix available when only_fixed is true" do
+        no_fix_vuln = osv_record("CVE-NO-FIX", "affected" => [{
+          "ranges" => [{
+            "type"   => "SEMVER",
+            "events" => [{ "introduced" => "0" }],
+          }],
+        }])
+        with_fix_vuln = osv_record("CVE-WITH-FIX", "affected" => [{
+          "ranges" => [{
+            "type"   => "SEMVER",
+            "events" => [{ "introduced" => "0" }, { "fixed" => "1.2.3" }],
+          }],
+        }])
+
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch)
+          .and_return([[{ "id" => "CVE-NO-FIX" }, { "id" => "CVE-WITH-FIX" }]])
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-NO-FIX").and_return(no_fix_vuln)
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-WITH-FIX").and_return(with_fix_vuln)
+
+        results = described_class.new([act], only_fixed: true).scan
+
+        expect(results.findings.first.open.map(&:id)).to eq ["CVE-WITH-FIX"]
+      end
+
+      it "filters out vulnerabilities that do have a fix available when except_fixed is true" do
+        no_fix_vuln = osv_record("CVE-NO-FIX", "affected" => [{
+          "ranges" => [{
+            "type"   => "SEMVER",
+            "events" => [{ "introduced" => "0" }],
+          }],
+        }])
+        with_fix_vuln = osv_record("CVE-WITH-FIX", "affected" => [{
+          "ranges" => [{
+            "type"   => "SEMVER",
+            "events" => [{ "introduced" => "0" }, { "fixed" => "1.2.3" }],
+          }],
+        }])
+
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch)
+          .and_return([[{ "id" => "CVE-NO-FIX" }, { "id" => "CVE-WITH-FIX" }]])
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-NO-FIX").and_return(no_fix_vuln)
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-WITH-FIX").and_return(with_fix_vuln)
+
+        results = described_class.new([act], except_fixed: true).scan
+
+        expect(results.findings.first.open.map(&:id)).to eq ["CVE-NO-FIX"]
+      end
+
+      it "filters out vulnerabilities that are matched in an open-ended interval when only_fixed is true" do
+        reopened_vuln = osv_record("CVE-REOPENED", "affected" => [{
+          "ranges" => [{
+            "type"   => "SEMVER",
+            "events" => [
+              { "introduced" => "0" },
+              { "fixed" => "0.2.80" },
+              { "introduced" => "0.2.83" },
+            ],
+          }],
+        }])
+
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-REOPENED" }]])
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-REOPENED").and_return(reopened_vuln)
+
+        results = described_class.new([act], only_fixed: true).scan
+
+        expect(results.findings).to be_empty
+      end
+
+      it "treats a reopened GIT range with no closing fixed event as no fix available" do
+        reopened_git_vuln = osv_record("CVE-GIT-REOPENED", "affected" => [{
+          "ranges" => [{
+            "type"   => "GIT",
+            "events" => [
+              { "introduced" => "abc1234" },
+              { "fixed" => "def5678" },
+              { "introduced" => "ghi9012" },
+            ],
+          }],
+        }])
+
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-GIT-REOPENED" }]])
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-GIT-REOPENED").and_return(reopened_git_vuln)
+
+        results = described_class.new([act], only_fixed: true).scan
+
+        expect(results.findings).to be_empty
       end
     end
   end

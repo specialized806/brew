@@ -66,6 +66,41 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
     end
   end
 
+  describe "#service_contents" do
+    it "macOS - generates the plist from the formula service block" do
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      allow(service).to receive(:service?).and_return(true)
+      allow(service_object).to receive_messages(command?: true, to_plist: "plist contents")
+
+      expect(service.service_contents).to eq("plist contents")
+    end
+
+    it "systemD - generates the unit from the formula service block" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      allow(service).to receive(:service?).and_return(true)
+      allow(service_object).to receive_messages(command?: true, to_systemd_unit: "unit contents")
+
+      expect(service.service_contents).to eq("unit contents")
+    end
+
+    it "reads the package-provided service file when the service block has no command" do
+      service_file = mktmpdir/"custom.name.plist"
+      service_file.write("package plist")
+      allow(service).to receive_messages(service?: true, service_file:)
+      allow(service_object).to receive(:command?).and_return(false)
+
+      expect(service.service_contents).to eq("package plist")
+    end
+
+    it "reads the package-provided service file when the formula has no service block" do
+      service_file = mktmpdir/"custom.name.plist"
+      service_file.write("package plist")
+      allow(service).to receive(:service_file).and_return(service_file)
+
+      expect(service.service_contents).to eq("package plist")
+    end
+  end
+
   describe "#service_name" do
     it "macOS - outputs the service name" do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
@@ -170,29 +205,24 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
     end
   end
 
-  describe "#plist?" do
-    it "false if not installed" do
-      allow(service).to receive(:installed?).and_return(false)
-      expect(service.plist?).to be(false)
-    end
-
-    it "true if installed and file" do
-      tempfile = File.new("/tmp/foo", File::CREAT)
-      allow(service).to receive_messages(installed?: true, service_file: tempfile_path = Pathname.new(tempfile))
-      expect(service.plist?).to be(true)
-      File.delete(tempfile_path)
-    end
-
-    it "false if opt_prefix missing" do
-      allow(service).to receive_messages(installed?:   true,
-                                         service_file: Pathname.new(File::NULL),
-                                         formula:      instance_double(Formula,
-                                                                       opt_prefix: Pathname.new("/dfslkfhjdsolshlk")))
-      expect(service.plist?).to be(false)
-    end
-  end
-
   describe "#owner" do
+    it "reads the user from a launchd plist" do
+      plist = mktmpdir/"homebrew.test.plist"
+      plist.write <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+          <dict>
+            <key>UserName</key>
+            <string>_serviced</string>
+          </dict>
+        </plist>
+      XML
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      allow(service).to receive(:dest).and_return(plist)
+
+      expect(service.owner).to eq("_serviced")
+    end
+
     it "root if file present" do
       allow(service).to receive(:boot_path_service_file_present?).and_return(true)
       expect(service.owner).to eq("root")

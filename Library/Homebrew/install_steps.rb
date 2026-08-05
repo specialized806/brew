@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "simulate_system"
 require "system_command"
 require "utils/output"
 
@@ -9,16 +10,29 @@ module Homebrew
   module InstallSteps
     PathSpec = T.type_alias { T::Hash[String, String] }
     PathSpecs = T.type_alias { T::Array[PathSpec] }
-    StepValue = T.type_alias { T.any(String, T::Boolean, PathSpec, PathSpecs) }
+    StepValue = T.type_alias { T.any(String, Integer, T::Boolean, T::Array[String], PathSpec, PathSpecs) }
     Step = T.type_alias { T::Hash[String, StepValue] }
     Steps = T.type_alias { T::Array[Step] }
     Paths = T.type_alias { T.any(String, Pathname, T::Array[T.any(String, Pathname)]) }
     RawPathSpec = T.type_alias { T::Hash[T.any(String, Symbol), T.nilable(T.any(String, Symbol, Pathname))] }
     RawPathSpecs = T.type_alias { T::Array[T.any(String, Symbol, Pathname, RawPathSpec)] }
-    RawStepValue = T.type_alias { T.nilable(T.any(String, Symbol, T::Boolean, Pathname, RawPathSpec, RawPathSpecs)) }
+    RawStepValue = T.type_alias do
+      T.nilable(T.any(String, Symbol, Integer, T::Boolean, Pathname, RawPathSpec, RawPathSpecs))
+    end
     RawStep = T.type_alias { T::Hash[T.any(String, Symbol), RawStepValue] }
     SystemCommandArg = T.type_alias { T.any(String, Pathname) }
     TemplateTokenValue = T.type_alias { T.any(String, Pathname) }
+
+    sig { params(file: Pathname, id: T.any(String, Pathname), resolve_source: T::Boolean).void }
+    def self.change_dylib_id(file, id, resolve_source: false)
+      file = file.realpath if resolve_source
+
+      require "macho"
+      file.ensure_writable do
+        MachO::Tools.change_dylib_id file, id.to_s
+        MachO.codesign! file if Hardware::CPU.arm?
+      end
+    end
 
     class DSL
       ((instance_methods + private_instance_methods) -
@@ -46,6 +60,15 @@ module Homebrew
       TEMPLATE_VERSION = TemplateVersion.new.freeze
       private_constant :TEMPLATE_VERSION
 
+      ABSOLUTE_TEMPLATE_TOKENS = %w[
+        HOMEBREW_PREFIX HOMEBREW_CELLAR prefix opt_prefix bin sbin lib libexec share pkgshare var etc pkgetc
+        staged_path appdir caskroom_path temp rack bash_completion zsh_completion fish_completion pwsh_completion
+      ].freeze
+      private_constant :ABSOLUTE_TEMPLATE_TOKENS
+
+      PRESERVED_STEP_VALUE_KEYS = %w[after args before content env overwrite].freeze
+      private_constant :PRESERVED_STEP_VALUE_KEYS
+
       sig {
         params(
           default_base:        ::T.nilable(::T.any(::String, ::Symbol)),
@@ -58,14 +81,27 @@ module Homebrew
         @default_source_base = default_source_base
         @default_target_base = default_target_base
         @steps = ::T.let([], Steps)
+        @guards = ::T.let([], PathSpecs)
+        @next_guard_id = ::T.let(0, ::Integer)
       end
 
       sig { returns(Steps) }
       attr_reader :steps
 
+      # odeprecated
       sig { returns(String) }
       def name
         "{{name}}"
+      end
+
+      sig { returns(String) }
+      def formula_name
+        "{{formula_name}}"
+      end
+
+      sig { returns(String) }
+      def token
+        "{{token}}"
       end
 
       sig { returns(TemplateVersion) }
@@ -78,13 +114,45 @@ module Homebrew
           default_base:        ::T.nilable(::T.any(::String, ::Symbol)),
           default_source_base: ::T.nilable(::T.any(::String, ::Symbol)),
           default_target_base: ::T.nilable(::T.any(::String, ::Symbol)),
-          block:               ::T.nilable(::T.proc.void),
+          block:               ::T.nilable(::T.proc.bind(DSL).void),
         ).returns(Steps)
       }
       def self.build(default_base: nil, default_source_base: nil, default_target_base: nil, &block)
         dsl = new(default_base:, default_source_base:, default_target_base:)
         dsl.instance_eval(&block) if block
         dsl.steps
+      end
+
+      sig {
+        params(
+          path:  ::T.any(::String, ::Pathname),
+          base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          block: ::T.proc.void,
+        ).void
+      }
+      def if_path_exists(path, base: nil, &block)
+        with_guard(path_spec(path, base:, default_base: @default_base).merge("condition" => "if_exists"), &block)
+      end
+
+      sig {
+        params(
+          path:  ::T.any(::String, ::Pathname),
+          base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          block: ::T.proc.void,
+        ).void
+      }
+      def unless_path_exists(path, base: nil, &block)
+        with_guard(path_spec(path, base:, default_base: @default_base).merge("condition" => "unless_exists"), &block)
+      end
+
+      sig { params(block: ::T.proc.void).void }
+      def on_macos(&block)
+        with_guard({ "condition" => "on", "value" => "macos" }, &block)
+      end
+
+      sig { params(block: ::T.proc.void).void }
+      def on_linux(&block)
+        with_guard({ "condition" => "on", "value" => "linux" }, &block)
       end
 
       sig { params(steps: ::T::Array[RawStep]).returns(Steps) }
@@ -94,9 +162,26 @@ module Homebrew
             key = key.to_s
             [key, normalise_step_value(key, value)]
           end
-          ::T.cast(::Utils.deep_compact_blank(step), Step)
+          compact_step(step)
         end
       end
+
+      sig { params(step: ::T::Hash[String, ::T.nilable(StepValue)]).returns(Step) }
+      def self.compact_step(step)
+        compacted_step = ::T.cast(
+          ::Utils.deep_compact_blank(step.except(*PRESERVED_STEP_VALUE_KEYS)) || {},
+          Step,
+        )
+        PRESERVED_STEP_VALUE_KEYS.each do |key|
+          value = step[key]
+          next if value.nil?
+          next if %w[args env].include?(key) && [[], {}].include?(value)
+
+          compacted_step[key] = value
+        end
+        compacted_step
+      end
+      private_class_method :compact_step
 
       sig { params(key: String, obj: RawStepValue).returns(::T.nilable(StepValue)) }
       def self.normalise_step_value(key, obj)
@@ -104,11 +189,25 @@ module Homebrew
         when Symbol
           obj.to_s
         when Array
-          obj.map { |value| normalise_path_value(value) } if key == "paths"
+          if %w[guards paths].include?(key)
+            obj.map { |value| normalise_path_value(value) }
+          else
+            obj.map(&:to_s)
+          end
         when Hash
-          normalise_path_value(obj)
+          if key == "env"
+            ::T.cast(obj.to_h { |env_key, value| [env_key.to_s, value&.to_s] }.compact, PathSpec)
+          else
+            normalise_path_value(obj)
+          end
         when String, Pathname
-          %w[path source target matching_certificate].include?(key) ? normalise_path_value(obj) : obj.to_s
+          if %w[
+            path source target command matching_certificate stdin_path stdout_path chdir
+          ].include?(key)
+            normalise_path_value(obj)
+          else
+            obj.to_s
+          end
         else
           obj
         end
@@ -126,6 +225,7 @@ module Homebrew
       end
       private_class_method :normalise_path_value
 
+      # odeprecated
       sig { params(path: ::T.any(::String, ::Pathname), base: ::T.nilable(::T.any(::String, ::Symbol))).void }
       def mkdir(path, base: nil)
         add_step("mkdir", "path" => path_spec(path, base:, default_base: @default_base))
@@ -147,18 +247,25 @@ module Homebrew
           target:      ::T.any(::String, ::Pathname),
           source_base: ::T.nilable(::T.any(::String, ::Symbol)),
           target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          # odeprecated
           force:       ::T::Boolean,
+          overwrite:   ::T::Boolean,
+          source_glob: ::T::Boolean,
         ).void
       }
-      def move(source, target, source_base: nil, target_base: nil, force: false)
+      def move(source, target, source_base: nil, target_base: nil, force: false, overwrite: true, source_glob: false)
         add_step("move",
-                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
-                 "target" => path_spec(target, base: target_base, default_base: @default_target_base),
-                 "force"  => force)
+                 "source"      => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target"      => path_spec(target, base: target_base, default_base: @default_target_base),
+                 "force"       => force,
+                 "overwrite"   => overwrite,
+                 "source_glob" => source_glob)
       end
 
+      # odeprecated
       alias mv move
 
+      # odeprecated
       sig {
         params(
           source:      ::T.any(::String, ::Pathname),
@@ -175,27 +282,113 @@ module Homebrew
 
       sig {
         params(
-          source:         ::T.any(::String, ::Pathname),
-          target:         ::T.any(::String, ::Pathname),
-          source_base:    ::T.nilable(::T.any(::String, ::Symbol)),
-          target_base:    ::T.nilable(::T.any(::String, ::Symbol)),
-          source_formula: ::T.nilable(::String),
-          target_formula: ::T.nilable(::String),
-          force:          ::T::Boolean,
-          uninstall:      ::T::Boolean,
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def move_contents(source, target, source_base: nil, target_base: nil)
+        add_step("move_contents",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      sig {
+        params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          recursive:   ::T::Boolean,
+          overwrite:   ::T::Boolean,
+          source_glob: ::T::Boolean,
+        ).void
+      }
+      def copy(source, target, source_base: nil, target_base: nil, recursive: false, overwrite: true,
+               source_glob: false)
+        add_step("copy",
+                 "source"      => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target"      => path_spec(target, base: target_base, default_base: @default_target_base),
+                 "recursive"   => recursive,
+                 "overwrite"   => (false unless overwrite),
+                 "source_glob" => source_glob)
+      end
+
+      sig {
+        params(
+          paths:                   Paths,
+          base:                    ::T.nilable(::T.any(::String, ::Symbol)),
+          recursive:               ::T::Boolean,
+          sudo:                    ::T.any(::T::Boolean, ::Symbol),
+          symlink_target_contains: ::T.nilable(::String),
+          content_contains:        ::T.nilable(::String),
+        ).void
+      }
+      def remove(paths, base: nil, recursive: false, sudo: false, symlink_target_contains: nil,
+                 content_contains: nil)
+        add_step("remove",
+                 "paths"                   => path_specs(paths, base:, default_base: @default_base),
+                 "recursive"               => recursive,
+                 "sudo"                    => sudo.is_a?(::Symbol) ? sudo.to_s : sudo,
+                 "symlink_target_contains" => symlink_target_contains,
+                 "content_contains"        => content_contains)
+      end
+
+      sig {
+        params(
+          path:         ::T.any(::String, ::Pathname),
+          before:       ::T.any(::String, ::Regexp),
+          after:        ::String,
+          base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          audit_result: ::T::Boolean,
+          global:       ::T::Boolean,
+        ).void
+      }
+      def inreplace(path, before, after, base: nil, audit_result: true, global: true)
+        add_step("inreplace",
+                 "path"           => path_spec(path, base:, default_base: @default_base),
+                 "before"         => before.is_a?(::Regexp) ? before.source : before,
+                 "after"          => after,
+                 "regexp"         => before.is_a?(::Regexp),
+                 "regexp_options" => (before.options if before.is_a?(::Regexp)),
+                 "skip_audit"     => !audit_result,
+                 "first_only"     => !global)
+      end
+
+      sig {
+        params(
+          source:              ::T.any(::String, ::Pathname),
+          target:              ::T.any(::String, ::Pathname),
+          source_base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          source_formula:      ::T.nilable(::String),
+          target_formula:      ::T.nilable(::String),
+          # odeprecated
+          force:               ::T::Boolean,
+          # odeprecated
+          uninstall:           ::T::Boolean,
+          overwrite:           ::T::Boolean,
+          remove_on_uninstall: ::T::Boolean,
+          source_glob:         ::T::Boolean,
+          sudo:                ::T.any(::T::Boolean, ::Symbol),
         ).void
       }
       def symlink(source, target, source_base: nil, target_base: nil, source_formula: nil, target_formula: nil,
-                  force: false, uninstall: false)
+                  force: false, uninstall: false, overwrite: false, remove_on_uninstall: false,
+                  source_glob: false, sudo: false)
         add_step("symlink",
-                 "source"    => path_spec(source, base: source_base, formula: source_formula,
-                                           default_base: @default_source_base),
-                 "target"    => path_spec(target, base: target_base, formula: target_formula,
-                                           default_base: @default_target_base),
-                 "force"     => force,
-                 "uninstall" => uninstall)
+                 "source"      => path_spec(source, base: source_base, formula: source_formula,
+                                    default_base: @default_source_base),
+                 "target"      => path_spec(target, base: target_base, formula: target_formula,
+                                    default_base: @default_target_base),
+                 "force"       => (true if force || overwrite),
+                 "uninstall"   => (true if uninstall || remove_on_uninstall),
+                 "source_glob" => source_glob,
+                 "sudo"        => sudo.is_a?(::Symbol) ? sudo.to_s : sudo)
       end
 
+      # odeprecated
       sig {
         params(
           source:         ::T.any(::String, ::Pathname),
@@ -213,6 +406,7 @@ module Homebrew
         symlink(source, target, source_base:, target_base:, source_formula:, target_formula:, force:, uninstall:)
       end
 
+      # odeprecated
       sig {
         params(
           source:         ::T.any(::String, ::Pathname),
@@ -229,6 +423,7 @@ module Homebrew
         symlink(source, target, source_base:, target_base:, source_formula:, target_formula:, force: true, uninstall:)
       end
 
+      # odeprecated
       sig {
         params(
           source:      ::T.any(::String, ::Pathname),
@@ -243,6 +438,21 @@ module Homebrew
                  "target" => path_spec(target, base: target_base, default_base: @default_target_base))
       end
 
+      sig {
+        params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def symlink_tree(source, target, source_base: nil, target_base: :homebrew_prefix)
+        add_step("link_dir",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      # odeprecated
       sig {
         params(
           source:      ::T.any(::String, ::Pathname),
@@ -263,6 +473,26 @@ module Homebrew
 
       sig {
         params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.nilable(::T.any(::String, ::Pathname)),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          prefix:      ::String,
+          suffix:      ::String,
+        ).void
+      }
+      def symlink_children(source, target = nil, source_base: nil, target_base: :homebrew_prefix, prefix: "",
+                           suffix: "")
+        add_step("link_children",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target || source, base: target_base, default_base: @default_target_base),
+                 "prefix" => prefix,
+                 "suffix" => suffix)
+      end
+
+      # odeprecated
+      sig {
+        params(
           path:      ::T.any(::String, ::Pathname),
           content:   ::String,
           base:      ::T.nilable(::T.any(::String, ::Symbol)),
@@ -274,7 +504,21 @@ module Homebrew
         add_step("write",
                  "path"      => path_spec(path, base:, default_base: @default_base),
                  "content"   => content,
-                 "overwrite" => overwrite)
+                 "overwrite" => (true if overwrite))
+      end
+
+      sig {
+        params(
+          path:    ::T.any(::String, ::Pathname),
+          content: ::String,
+          base:    ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def write_file(path, content, base: nil)
+        add_step("write",
+                 "path"      => path_spec(path, base:, default_base: @default_base),
+                 "content"   => content,
+                 "overwrite" => true)
       end
 
       sig {
@@ -286,9 +530,15 @@ module Homebrew
         ).void
       }
       def init_data_dir(path, using:, base: nil, locale: nil)
+        using = case using.to_s
+        when "postgresql" then "postgresql_initdb"
+        when "mysql" then "mysql_initialize"
+        when "mariadb" then "mariadb_install_db"
+        else using.to_s
+        end
         add_step("init_data_dir",
                  "path"   => path_spec(path, base:, default_base: @default_base),
-                 "using"  => using.to_s,
+                 "using"  => using,
                  "locale" => locale)
       end
 
@@ -297,18 +547,31 @@ module Homebrew
         add_rebuild_action("compile_gsettings_schemas", "share/glib-2.0/schemas")
       end
 
+      # odeprecated
       sig { void }
       def gio_querymodules
         add_rebuild_action("gio_querymodules", "lib/gio/modules")
       end
 
+      # odeprecated
       sig { void }
       def gdk_pixbuf_query_loaders
         add_step("gdk_pixbuf_query_loaders")
       end
 
       sig { void }
+      def update_gdk_pixbuf_loaders_cache
+        add_step("gdk_pixbuf_query_loaders")
+      end
+
+      # odeprecated
+      sig { void }
       def gtk_update_icon_cache
+        add_rebuild_action("gtk_update_icon_cache", "share/icons/hicolor")
+      end
+
+      sig { void }
+      def update_gtk_icon_cache
         add_rebuild_action("gtk_update_icon_cache", "share/icons/hicolor")
       end
 
@@ -322,6 +585,7 @@ module Homebrew
         add_rebuild_action("update_desktop_database", "share/applications")
       end
 
+      # odeprecated
       sig {
         params(
           name:                 ::String,
@@ -338,39 +602,190 @@ module Homebrew
 
       sig {
         params(
-          paths:       Paths,
-          permissions: ::String,
-          base:        ::T.nilable(::T.any(::String, ::Symbol)),
+          name:           ::String,
+          fingerprint_of: ::T.nilable(::T.any(::String, ::Pathname)),
+          base:           ::T.nilable(::T.any(::String, ::Symbol)),
         ).void
       }
-      def set_permissions(paths, permissions, base: nil)
-        add_step("set_permissions",
-                 "paths"       => path_specs(paths, base:, default_base: @default_base),
-                 "permissions" => permissions)
+      def delete_keychain_certificates(name, fingerprint_of: nil, base: nil)
+        add_step("delete_keychain_certificate",
+                 "name"                 => name,
+                 "matching_certificate" => (path_spec(fingerprint_of, base:, default_base: nil) if fingerprint_of))
       end
 
       sig {
         params(
-          paths: Paths,
-          user:  ::T.nilable(::String),
-          group: ::String,
-          base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          paths:       Paths,
+          permissions: ::String,
+          base:        ::T.nilable(::T.any(::String, ::Symbol)),
+          recursive:   ::T::Boolean,
         ).void
       }
-      def set_ownership(paths, user: nil, group: "staff", base: nil)
+      def set_permissions(paths, permissions, base: nil, recursive: true)
+        add_step("set_permissions",
+                 "paths"         => path_specs(paths, base:, default_base: @default_base),
+                 "permissions"   => permissions,
+                 "non_recursive" => !recursive)
+      end
+
+      sig {
+        params(
+          paths:     Paths,
+          user:      ::T.nilable(::String),
+          group:     ::String,
+          base:      ::T.nilable(::T.any(::String, ::Symbol)),
+          recursive: ::T::Boolean,
+        ).void
+      }
+      def set_ownership(paths, user: nil, group: "staff", base: nil, recursive: true)
         add_step("set_ownership",
-                 "paths" => path_specs(paths, base:, default_base: @default_base),
-                 "user"  => user,
-                 "group" => group)
+                 "paths"         => path_specs(paths, base:, default_base: @default_base),
+                 "user"          => user,
+                 "group"         => (group if group != "staff"),
+                 "non_recursive" => !recursive)
+      end
+
+      sig {
+        params(
+          source:         ::T.any(::String, ::Pathname),
+          id:             ::T.any(::String, ::Pathname),
+          base:           ::T.nilable(::T.any(::String, ::Symbol)),
+          resolve_source: ::T::Boolean,
+        ).void
+      }
+      def change_dylib_id(source, id, base: nil, resolve_source: false)
+        add_step("change_dylib_id",
+                 "source"         => path_spec(source, base:, default_base: @default_source_base),
+                 "id"             => id.to_s,
+                 "resolve_source" => resolve_source)
+      end
+
+      sig {
+        params(
+          command:      ::T.any(::String, ::Pathname),
+          args:         ::T::Array[::T.any(::String, ::Pathname)],
+          base:         ::T.nilable(::T.any(::String, ::Symbol)),
+          env:          ::T::Hash[::String, ::String],
+          sudo:         ::T::Boolean,
+          print_stdout: ::T::Boolean,
+          print_stderr: ::T::Boolean,
+          stdin_path:   ::T.nilable(::T.any(::String, ::Pathname)),
+          stdout_path:  ::T.nilable(::T.any(::String, ::Pathname)),
+          chdir:        ::T.nilable(::T.any(::String, ::Pathname)),
+        ).void
+      }
+      def run(command, args: [], base: nil, env: {}, sudo: false, print_stdout: false, print_stderr: true,
+              stdin_path: nil, stdout_path: nil, chdir: nil)
+        add_step("run",
+                 "command"         => path_spec(command, base:, default_base: nil),
+                 "args"            => args.map(&:to_s),
+                 "env"             => env,
+                 "sudo"            => sudo,
+                 "print_stdout"    => print_stdout,
+                 "suppress_stderr" => !print_stderr,
+                 "stdin_path"      => optional_path_spec(stdin_path, default_base: @default_base),
+                 "stdout_path"     => optional_path_spec(stdout_path, default_base: @default_base),
+                 "chdir"           => optional_path_spec(chdir, default_base: @default_base))
+      end
+
+      sig {
+        params(
+          name:            ::String,
+          match:           ::T.any(::String, ::Symbol),
+          sudo:            ::T::Boolean,
+          attempts:        ::Integer,
+          must_succeed:    ::T::Boolean,
+          notices:         ::T::Array[::String],
+          failure_message: ::T.nilable(::String),
+        ).void
+      }
+      def terminate_process(name, match: :name, sudo: false, attempts: 1, must_succeed: false,
+                            notices: [], failure_message: nil)
+        ::Kernel.raise ::ArgumentError, "terminate_process attempts must be positive" if attempts < 1
+
+        match = match.to_s
+        unless %w[name full].include?(match)
+          ::Kernel.raise ::ArgumentError, "terminate_process match must be :name or :full"
+        end
+
+        add_step("terminate_process",
+                 "name"            => name,
+                 "match"           => (match if match != "name"),
+                 "sudo"            => sudo,
+                 "attempts"        => (attempts if attempts != 1),
+                 "must_succeed"    => must_succeed,
+                 "notices"         => notices,
+                 "failure_message" => failure_message)
+      end
+
+      sig { params(message: ::String).void }
+      def warn(message)
+        add_step("warn", "message" => message)
+      end
+
+      sig { void }
+      def configure_gcc_runtime
+        add_step("configure_gcc_runtime")
+      end
+
+      sig {
+        params(
+          source:      ::T.any(::String, ::Pathname),
+          target:      ::T.any(::String, ::Pathname),
+          source_base: ::T.nilable(::T.any(::String, ::Symbol)),
+          target_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).void
+      }
+      def install_gzipped_executable(source, target, source_base: nil, target_base: nil)
+        add_step("install_gzipped_executable",
+                 "source" => path_spec(source, base: source_base, default_base: @default_source_base),
+                 "target" => path_spec(target, base: target_base, default_base: @default_target_base))
+      end
+
+      sig { void }
+      def configure_glibc_runtime
+        add_step("configure_glibc_runtime")
+      end
+
+      sig { void }
+      def configure_clang_system
+        add_step("configure_clang_system")
+      end
+
+      sig { void }
+      def configure_php
+        add_step("configure_php")
+      end
+
+      sig { void }
+      def bootstrap_cpython
+        add_step("bootstrap_cpython")
+      end
+
+      sig { params(abi_version: ::String).void }
+      def bootstrap_pypy(abi_version:)
+        add_step("bootstrap_pypy", "abi_version" => abi_version)
       end
 
       private
 
+      sig { params(guard: PathSpec, block: ::T.proc.bind(DSL).void).void }
+      def with_guard(guard, &block)
+        previous_guards = ::T.let(nil, ::T.nilable(PathSpecs))
+        previous_guards = @guards
+        @next_guard_id += 1
+        @guards = [*@guards, guard.merge("id" => @next_guard_id.to_s)]
+        instance_eval(&block)
+      ensure
+        @guards = previous_guards if previous_guards
+      end
+
       sig { params(type: ::String, fields: ::T.nilable(StepValue)).void }
       def add_step(type, **fields)
         step = fields.transform_keys(&:to_s)
+        step["guards"] = @guards unless @guards.empty?
         step["type"] = type
-        @steps << ::T.cast(::Utils.deep_compact_blank(step), Step)
+        @steps.concat(::Homebrew::InstallSteps::DSL.normalise_steps([step]))
       end
 
       sig { params(type: ::String, path: ::String).void }
@@ -408,6 +823,16 @@ module Homebrew
 
       sig {
         params(
+          path:         ::T.nilable(::T.any(::String, ::Pathname)),
+          default_base: ::T.nilable(::T.any(::String, ::Symbol)),
+        ).returns(::T.nilable(PathSpec))
+      }
+      def optional_path_spec(path, default_base:)
+        path_spec(path, base: nil, default_base:) if path
+      end
+
+      sig {
+        params(
           path:         ::T.any(::String, ::Pathname),
           default_base: ::T.nilable(::T.any(::String, ::Symbol)),
         ).returns(::T.nilable(::T.any(::String, ::Symbol)))
@@ -415,6 +840,7 @@ module Homebrew
       def default_base_for(path, default_base)
         path = path.to_s
         return if path.start_with?("/", "~")
+        return if ABSOLUTE_TEMPLATE_TOKENS.any? { |token| path.start_with?("{{#{token}}}") }
 
         default_base
       end
@@ -427,16 +853,22 @@ module Homebrew
       # Path tokens reuse the step base resolution; formula metadata tokens are
       # resolved separately. Anything else is left verbatim so literal braces in
       # templates are never rewritten.
-      CONTENT_PATH_TOKENS = %w[prefix opt_prefix bin var etc pkgetc staged_path appdir].freeze
+      CONTENT_PATH_TOKENS = %w[
+        prefix opt_prefix bin sbin lib libexec share pkgshare var etc pkgetc staged_path appdir caskroom_path
+        temp rack
+        bash_completion zsh_completion fish_completion pwsh_completion
+      ].freeze
 
       sig { params(context: Object, command: T.class_of(SystemCommand)).void }
       def initialize(context:, command: SystemCommand)
         @context = context
         @command = command
+        @guard_results = T.let({}, T::Hash[PathSpec, T::Boolean])
       end
 
       sig { params(steps: Steps, phase: Symbol).void }
       def run(steps, phase: :install)
+        @guard_results.clear
         DSL.normalise_steps(steps).each do |step|
           if phase == :uninstall
             run_uninstall_step(step)
@@ -450,6 +882,8 @@ module Homebrew
 
       sig { params(step: Step).void }
       def run_install_step(step)
+        return unless step_guards_match?(step)
+
         case step.fetch("type")
         when "mkdir"
           resolve_path(step_path(step, "path")).mkdir
@@ -462,11 +896,20 @@ module Homebrew
           path.dirname.mkpath
           FileUtils.touch path
         when "move"
-          source = resolve_path(step_path(step, "source"))
+          source = resolve_step_source(step)
           target = resolve_path(step_path(step, "target"))
           target.dirname.mkpath
-          FileUtils.mv source, target, force: step["force"] == true
-        when "move_children"
+          destination = step_destination(source, target)
+          if step.key?("overwrite")
+            overwrite = step["overwrite"] == true || step["force"] == true
+            raise Errno::EEXIST, destination.to_s if destination.exist? && !overwrite
+
+            FileUtils.rm_rf destination if overwrite && destination != source && (source.exist? || source.symlink?)
+            FileUtils.mv source, target
+          else
+            FileUtils.mv source, target, force: step["force"] == true
+          end
+        when "move_children", "move_contents"
           source = resolve_path(step_path(step, "source"))
           target = resolve_path(step_path(step, "target"))
           target.mkpath
@@ -474,6 +917,53 @@ module Homebrew
           return if children.empty?
 
           FileUtils.mv children, target
+        when "copy"
+          source = resolve_step_source(step)
+          target = resolve_path(step_path(step, "target"))
+          target.dirname.mkpath
+          destination = step_destination(source, target)
+          overwrite = step["overwrite"] != false
+          raise Errno::EEXIST, destination.to_s if destination.exist? && !overwrite
+
+          if step["recursive"] == true
+            FileUtils.cp_r source, target, remove_destination: overwrite
+          else
+            FileUtils.rm_f destination if overwrite && destination.symlink?
+            FileUtils.cp source, target
+          end
+        when "remove"
+          paths = step_paths(step, "paths").flat_map { |path| expand_path_glob(path) }
+          if step.key?("symlink_target_contains")
+            paths.select! do |path|
+              path.symlink? && path.readlink.to_s.include?(step_string(step, "symlink_target_contains"))
+            end
+          end
+          if step.key?("content_contains")
+            paths.select! do |path|
+              path.file? && path.readable? && path.read.include?(step_string(step, "content_contains"))
+            end
+          end
+          paths.each do |path|
+            if step["sudo"] == true || (step["sudo"] == "if_needed" && !path.dirname.writable?)
+              require "cask/utils"
+              ::Cask::Utils.gain_permissions_remove(path, command: @command)
+            elsif step["recursive"] == true
+              FileUtils.rm_rf path
+            else
+              FileUtils.rm_f path
+            end
+          end
+        when "inreplace"
+          require "utils/inreplace"
+
+          path = resolve_path(step_path(step, "path"))
+          before = expand_template_tokens(step_string(step, "before"))
+          after = expand_template_tokens(step_string(step, "after"))
+          regexp_options = T.cast(step["regexp_options"], T.nilable(Integer))
+          before = Regexp.new(before, regexp_options || 0) if step["regexp"] == true
+          Utils::Inreplace.inreplace(path, before, after,
+                                     audit_result: step["skip_audit"] != true,
+                                     global:       step["first_only"] != true)
         when "link_dir"
           source_dir = resolve_path(step_path(step, "source"))
           target_dir = resolve_path(step_path(step, "target"))
@@ -499,18 +989,55 @@ module Homebrew
           end
         when "symlink"
           target = resolve_path(step_path(step, "target"))
-          target.dirname.mkpath
-          FileUtils.rm_f target if step["force"] == true
-          File.symlink link_source(step_path(step, "source")), target
+          if step["source_glob"] == true
+            sources = expand_path_glob(step_path(step, "source"))
+            return if sources.empty?
+
+            if sources.length > 1 || target.directory?
+              target.mkpath
+              sources.each { |source| create_symlink(source, target/source.basename, step) }
+            else
+              source = sources.first
+              create_symlink(source, target, step) if source
+            end
+          else
+            create_symlink(link_source(step_path(step, "source")), target, step)
+          end
         when "write"
           content = T.cast(step["content"], T.nilable(String))
-          raise ArgumentError, "install step write requires non-empty content" if content.blank?
+          raise ArgumentError, "install step write requires content" if content.nil?
 
           path = resolve_path(step_path(step, "path"))
           if step["overwrite"] == true || !path.exist?
             path.dirname.mkpath
-            path.write(expand_template_tokens(content))
+            path.atomic_write(expand_template_tokens(content))
           end
+        when "run"
+          run_serialised_command(step)
+        when "terminate_process"
+          run_terminate_process(step)
+        when "change_dylib_id"
+          Homebrew::InstallSteps.change_dylib_id(
+            resolve_path(step_path(step, "source")),
+            expand_template_tokens(step_string(step, "id")),
+            resolve_source: step["resolve_source"] == true,
+          )
+        when "warn"
+          opoo expand_template_tokens(step_string(step, "message"))
+        when "configure_gcc_runtime"
+          run_configure_gcc_runtime
+        when "install_gzipped_executable"
+          run_install_gzipped_executable(step)
+        when "configure_glibc_runtime"
+          run_configure_glibc_runtime
+        when "configure_clang_system"
+          run_configure_clang_system
+        when "configure_php"
+          run_configure_php
+        when "bootstrap_cpython"
+          run_bootstrap_cpython
+        when "bootstrap_pypy"
+          run_bootstrap_pypy(step_string(step, "abi_version"))
         when "set_permissions"
           run_set_permissions(step)
         when "set_ownership"
@@ -571,12 +1098,106 @@ module Homebrew
         end
       end
 
+      sig { params(step: Step).returns(T::Boolean) }
+      def step_guards_match?(step)
+        guards = T.cast(step["guards"], T.nilable(PathSpecs))
+        guards.nil? || guards.all? { |guard| guard_matches?(guard) }
+      end
+
+      sig { params(guard: PathSpec).returns(T::Boolean) }
+      def guard_matches?(guard)
+        return @guard_results.fetch(guard) if @guard_results.key?(guard)
+
+        matches = case guard.fetch("condition")
+        when "if_exists"
+          path_spec_exists?(guard)
+        when "unless_exists"
+          !path_spec_exists?(guard)
+        when "on"
+          case guard.fetch("value")
+          when "macos" then Homebrew::SimulateSystem.simulating_or_running_on_macos?
+          when "linux" then Homebrew::SimulateSystem.simulating_or_running_on_linux?
+          else false
+          end
+        else
+          false
+        end
+        @guard_results[guard] = matches
+      end
+
+      sig { params(step: Step).void }
+      def run_serialised_command(step)
+        command = resolve_command(step_path(step, "command"))
+        args = T.cast(step["args"], T.nilable(T::Array[String]))&.map { |arg| expand_template_tokens(arg) } || []
+        environment = T.cast(step["env"] || {}, PathSpec)
+                       .transform_values { |value| expand_template_tokens(value.to_s) }
+        input = step.key?("stdin_path") ? resolve_path(step_path(step, "stdin_path")).read : []
+        working_directory = resolve_path(step_path(step, "chdir")) if step.key?("chdir")
+        result = @command.run!(command, args:, sudo: step["sudo"] == true, env: environment, input:,
+                                      print_stdout: step["print_stdout"] == true,
+                                      print_stderr: step["suppress_stderr"] != true, reset_uid: true,
+                                      chdir: working_directory)
+
+        return unless step.key?("stdout_path")
+
+        output_path = resolve_path(step_path(step, "stdout_path"))
+        output_path.dirname.mkpath
+        output_path.write(result.stdout)
+      end
+
+      sig { params(step: Step).void }
+      def run_terminate_process(step)
+        T.cast(step["notices"], T.nilable(T::Array[String]))&.each do |notice|
+          ohai expand_template_tokens(notice)
+        end
+        name = expand_template_tokens(step_string(step, "name"))
+        if step["match"] == "full"
+          command = "/usr/bin/pkill"
+          args = ["-f", name]
+        else
+          command = "/usr/bin/killall"
+          args = [name]
+        end
+        attempts = T.cast(step["attempts"] || 1, Integer)
+
+        begin
+          run_command command, *args, sudo: step["sudo"] == true
+        rescue ErrorDuringExecution
+          attempts -= 1
+          if attempts <= 0
+            failure_message = T.cast(step["failure_message"], T.nilable(String))
+            opoo expand_template_tokens(failure_message) if failure_message
+            raise if step["must_succeed"] == true
+
+            return
+          end
+
+          sleep 1
+          retry
+        end
+      end
+
+      sig { params(source: SystemCommandArg, target: Pathname, step: Step).void }
+      def create_symlink(source, target, step)
+        target.dirname.mkpath
+        if step["sudo"] == true || (step["sudo"] == "if_needed" && !target.dirname.writable?)
+          args = ["-s"]
+          args << "-f" if step["force"] == true
+          @command.run!("/bin/ln", args: [*args, source, target], sudo: true)
+        else
+          FileUtils.rm_f target if step["force"] == true
+          File.symlink source, target
+        end
+      end
+
       sig { params(step: Step).void }
       def run_set_permissions(step)
         paths = existing_step_paths(step)
         return if paths.empty?
 
-        @command.run!("chmod", args: ["-R", "--", step_string(step, "permissions"), *paths], sudo: false)
+        args = []
+        args << "-R" if step["non_recursive"] != true
+        @command.run!("chmod", args: [*args, "--", step_string(step, "permissions"), *paths], sudo: false)
       end
 
       sig { params(step: Step).void }
@@ -600,7 +1221,9 @@ module Homebrew
         end
 
         ohai "Changing ownership of paths required by #{@context} with `sudo` (which may request your password)..."
-        @command.run!("chown", args: ["-R", "--", "#{step["user"] || ::User.current}:#{step["group"] || "staff"}",
+        args = []
+        args << "-R" if step["non_recursive"] != true
+        @command.run!("chown", args: [*args, "--", "#{step["user"] || ::User.current}:#{step["group"] || "staff"}",
                                       *paths],
                                sudo: true)
       end
@@ -611,7 +1234,15 @@ module Homebrew
         return if step["uninstall"] != true
 
         target = resolve_path(step_path(step, "target"))
-        FileUtils.rm_f target if target.symlink?
+        return unless target.symlink?
+        return if target.readlink != Pathname(link_source(step_path(step, "source")))
+
+        if step["sudo"] == true || (step["sudo"] == "if_needed" && !target.dirname.writable?)
+          require "cask/utils"
+          ::Cask::Utils.gain_permissions_remove(target, command: @command)
+        else
+          FileUtils.rm_f target
+        end
       end
 
       sig { params(step: Step).void }
@@ -662,10 +1293,20 @@ module Homebrew
       sig { params(token: String).returns(T.nilable(TemplateTokenValue)) }
       def template_token_value(token)
         case token
+        when "HOMEBREW_BREW_FILE"
+          HOMEBREW_BREW_FILE
+        when "HOMEBREW_CELLAR"
+          HOMEBREW_CELLAR
         when "HOMEBREW_PREFIX"
           HOMEBREW_PREFIX
+        when "formula_name"
+          context_value(:name)&.to_s
         when "name"
           context_name
+        when "token"
+          context_value(:token)&.to_s
+        when "user"
+          ENV.fetch("USER")
         when "version"
           context_version
         when "version.major"
@@ -689,10 +1330,48 @@ module Homebrew
 
       sig { params(step: Step).returns(T::Array[Pathname]) }
       def existing_step_paths(step)
-        step_paths(step, "paths").filter_map do |spec|
-          path = resolve_path(spec).expand_path
-          path if path.exist?
+        step_paths(step, "paths").flat_map { |spec| expand_path_glob(spec) }.select(&:exist?)
+      end
+
+      sig { params(step: Step).returns(Pathname) }
+      def resolve_step_source(step)
+        source_spec = step_path(step, "source")
+        source = resolve_path(source_spec)
+        return source if step["source_glob"] != true
+
+        sources = expand_path_glob(source_spec).select { |path| path.exist? || path.symlink? }.uniq
+        raise ArgumentError, "install step source glob must match exactly one path: #{source}" if sources.length != 1
+
+        sources.fetch(0)
+      end
+
+      sig { params(source: Pathname, target: Pathname).returns(Pathname) }
+      def step_destination(source, target)
+        target.directory? ? target/source.basename : target
+      end
+
+      sig { params(spec: PathSpec).returns(T::Array[Pathname]) }
+      def expand_path_glob(spec)
+        base = spec["base"]
+        # odeprecated
+        base = "search_path" if base == "path"
+        if base == "search_path"
+          path = expand_template_tokens(spec.fetch("path"))
+          return ENV.fetch("PATH", "").split(File::PATH_SEPARATOR).flat_map do |directory|
+            candidate = Pathname(directory)/path
+            candidate.to_s.match?(/[?*\[{]/) ? Pathname.glob(candidate.to_s) : [candidate]
+          end
         end
+
+        path = resolve_path(spec).expand_path
+        return [path] unless path.to_s.match?(/[?*\[{]/)
+
+        Pathname.glob(path.to_s)
+      end
+
+      sig { params(spec: PathSpec).returns(T::Boolean) }
+      def path_spec_exists?(spec)
+        expand_path_glob(spec).any?(&:exist?)
       end
 
       sig { params(step: Step, key: String).returns(String) }
@@ -738,6 +1417,13 @@ module Homebrew
         root_path(base, spec["formula"])/path
       end
 
+      sig { params(spec: PathSpec).returns(SystemCommandArg) }
+      def resolve_command(spec)
+        return expand_template_tokens(spec.fetch("path")) if spec["base"].blank? || spec["base"] == "relative"
+
+        resolve_path(spec)
+      end
+
       sig { params(spec: PathSpec).returns(String) }
       def link_source(spec)
         return expand_template_tokens(spec.fetch("path")) if spec["base"] == "relative"
@@ -758,6 +1444,8 @@ module Homebrew
         case base
         when "home"
           Pathname(Dir.home)
+        when "temp"
+          HOMEBREW_TEMP
         when "homebrew_prefix"
           HOMEBREW_PREFIX
         when "formula_pkgetc"
@@ -815,3 +1503,5 @@ module Homebrew
     end
   end
 end
+
+require "install_steps/formula_actions"

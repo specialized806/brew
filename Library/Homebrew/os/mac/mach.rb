@@ -1,17 +1,20 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "macho"
-
 # {Pathname} extension for dealing with Mach-O files.
 module MachOShim
   extend T::Helpers
 
   requires_ancestor { Pathname }
 
+  MachOFile = T.type_alias { T.any(MachO::MachOFile, MachO::FatFile) }
+  private_constant :MachOFile
+
   sig { params(args: T.untyped).void }
   def initialize(*args)
-    @macho = T.let(nil, T.nilable(T.any(MachO::MachOFile, MachO::FatFile)))
+    require "macho"
+
+    @macho = T.let(nil, T.nilable(MachOFile))
     @mach_data = T.let(nil, T.nilable(T::Array[T::Hash[Symbol, Symbol]]))
 
     super
@@ -20,8 +23,9 @@ module MachOShim
   sig { returns(T.nilable(String)) }
   def dylib_id = macho.dylib_id
 
-  sig { returns(T.any(MachO::MachOFile, MachO::FatFile)) }
+  sig { returns(MachOFile) }
   def macho
+    require "macho"
     @macho ||= MachO.open(to_s)
   end
   private :macho

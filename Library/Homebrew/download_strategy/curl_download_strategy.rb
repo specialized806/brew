@@ -39,7 +39,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
 
     download_lock = DownloadLock.new(temporary_path)
     begin
-      download_lock.lock
+      download_lock.lock_or_wait(quiet: quiet?, timeout: Utils::Timer.remaining(end_time))
 
       urls = [url, *mirrors]
 
@@ -109,7 +109,8 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
           begin
             _fetch(url:, resolved_url: T.must(resolved_url), timeout: Utils::Timer.remaining!(end_time))
           rescue ErrorDuringExecution => e
-            raise CurlDownloadStrategyError.new(url, e.stderr.strip)
+            clean_stderr = strip_progress_bar(Tty.collapse_carriage_returns(e.stderr)).strip
+            raise CurlDownloadStrategyError.new(url, clean_stderr)
           end
           cached_location.dirname.mkpath
           temporary_path.rename(cached_location.to_s)
@@ -144,6 +145,32 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   def resolved_time_file_size(timeout: nil)
     _, _, time, file_size, = resolve_url_basename_time_file_size(url, timeout:)
     [time, T.must(file_size)]
+  end
+
+  sig { void }
+  def allow_deferred_environment_expansion!
+    @expand_deferred_environment = true
+  end
+
+  # Curl options to be always passed to curl,
+  # with raw head calls (`curl --head`) or with actual `fetch`.
+  sig { returns(T::Array[String]) }
+  def _curl_args
+    args = []
+
+    args += ["-b", meta.fetch(:cookies).map { |k, v| "#{k}=#{v}" }.join(";")] if meta.key?(:cookies)
+
+    args += ["-e", meta.fetch(:referer)] if meta.key?(:referer)
+
+    args += ["--user", meta.fetch(:user)] if meta.key?(:user)
+
+    if meta.fetch(:headers, []).any? { |header| header.include?(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX) }
+      args += ["--max-redirs", "0"]
+    end
+
+    args += expand_deferred_environment_args(meta.fetch(:headers, [])).flat_map { |h| ["--header", h.strip] }
+
+    args
   end
 
   private
@@ -262,11 +289,6 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
     curl_download resolved_url, to:, try_partial: @try_partial, timeout:
   end
 
-  sig { void }
-  def allow_deferred_environment_expansion!
-    @expand_deferred_environment = true
-  end
-
   sig { params(args: T::Array[String]).returns(T::Array[String]) }
   def expand_deferred_environment_args(args)
     return args unless @expand_deferred_environment
@@ -274,27 +296,6 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
     with_context(deferred_environment_expansion: true) do
       args.map { |arg| ENV.expand_deferred_environment(arg) }
     end
-  end
-
-  # Curl options to be always passed to curl,
-  # with raw head calls (`curl --head`) or with actual `fetch`.
-  sig { returns(T::Array[String]) }
-  def _curl_args
-    args = []
-
-    args += ["-b", meta.fetch(:cookies).map { |k, v| "#{k}=#{v}" }.join(";")] if meta.key?(:cookies)
-
-    args += ["-e", meta.fetch(:referer)] if meta.key?(:referer)
-
-    args += ["--user", meta.fetch(:user)] if meta.key?(:user)
-
-    if meta.fetch(:headers, []).any? { |header| header.include?(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX) }
-      args += ["--max-redirs", "0"]
-    end
-
-    args += expand_deferred_environment_args(meta.fetch(:headers, [])).flat_map { |h| ["--header", h.strip] }
-
-    args
   end
 
   sig { returns(T::Hash[Symbol, T.any(String, Symbol)]) }

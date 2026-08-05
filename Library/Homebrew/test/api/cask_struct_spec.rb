@@ -16,7 +16,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         "auto_updates"         => true,
         "languages"            => ["en"],
         "url_args"             => ["https://example.com/file.dmg"],
-        "url_kwargs"           => { verified: "example.com/" },
+        "url_kwargs"           => { user_agent: ":fake" },
         "conflicts_with_args"  => { cask: ["other-cask"] },
         "depends_on_args"      => { macos: ">= :catalina" },
         "container_args"       => { type: :zip },
@@ -58,8 +58,8 @@ RSpec.describe Homebrew::API::CaskStruct do
       )
 
       Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
-        expect(struct.send(:"#{predicate}?")).to be(false),
-                                                 "expected #{predicate}? to default to false"
+        expect(struct.public_send(:"#{predicate}?")).to be(false),
+                                                        "expected #{predicate}? to default to false"
       end
     end
 
@@ -76,8 +76,8 @@ RSpec.describe Homebrew::API::CaskStruct do
       )
 
       Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
-        expect(struct.send(:"#{predicate}?")).to be(true),
-                                                 "expected #{predicate}? to be true"
+        expect(struct.public_send(:"#{predicate}?")).to be(true),
+                                                        "expected #{predicate}? to be true"
       end
     end
   end
@@ -119,6 +119,39 @@ RSpec.describe Homebrew::API::CaskStruct do
       )
 
       expect(struct.caveats(appdir: "/Applications")).to be_nil
+    end
+  end
+
+  describe "#localise" do
+    it "selects matching locale groups and falls back to the default" do
+      struct = described_class.new(
+        sha256:              "english",
+        version:             "1.0.0",
+        url_args:            ["https://example.com/en.dmg"],
+        language_variations: [
+          {
+            languages: ["zh", "CN"],
+            value:     "zh-CN",
+            overrides: {
+              "sha256"   => "chinese",
+              "url_args" => ["https://example.com/zh.dmg"],
+              "names"    => [":Chinese"],
+            },
+          },
+          { languages: ["en"], default: true, value: "en-US", overrides: {} },
+        ],
+      )
+
+      chinese = struct.localise(["zh-Hans-CN"])
+      default = struct.localise(["fr"])
+
+      expect([
+        [chinese.sha256, chinese.url_args, chinese.names, struct.language(["zh-Hans-CN"])],
+        [default.sha256, default.url_args, struct.language(["fr"])],
+      ]).to eq([
+        ["chinese", ["https://example.com/zh.dmg"], [":Chinese"], "zh-CN"],
+        ["english", ["https://example.com/en.dmg"], "en-US"],
+      ])
     end
   end
 
@@ -199,7 +232,7 @@ RSpec.describe Homebrew::API::CaskStruct do
       struct = described_class.deserialize(hash)
 
       Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
-        expect(struct.send(:"#{predicate}?")).to be false
+        expect(struct.public_send(:"#{predicate}?")).to be false
       end
     end
 
@@ -222,7 +255,7 @@ RSpec.describe Homebrew::API::CaskStruct do
       struct = described_class.deserialize(hash)
 
       Homebrew::API::CaskStruct::PREDICATES.each do |predicate|
-        expect(struct.send(:"#{predicate}?")).to be true
+        expect(struct.public_send(:"#{predicate}?")).to be true
       end
     end
   end
@@ -248,7 +281,7 @@ RSpec.describe Homebrew::API::CaskStruct do
         sha256:               "abc123",
         tap_string:           "homebrew/cask",
         url_args:             ["https://example.com/file.dmg"],
-        url_kwargs:           { verified: "example.com/" },
+        url_kwargs:           { user_agent: ":fake" },
         version:              "1.0.0",
       )
 

@@ -490,15 +490,20 @@ class TapRedirectNotAllowedError < RuntimeError; end
 
 # Raised when another Homebrew operation is already in progress.
 class OperationInProgressError < RuntimeError
-  sig { params(locked_path: Pathname).void }
-  def initialize(locked_path)
+  sig { params(locked_path: Pathname, waited: T.nilable(Integer)).void }
+  def initialize(locked_path, waited: nil)
     full_command = Homebrew.running_command_with_args.presence || "brew"
     lock_context = if (env_lock_context = Homebrew::EnvConfig.lock_context.presence)
       "\n#{env_lock_context}"
     end
+    advice = if waited
+      "Gave up after waiting #{waited} seconds. Terminate it to continue."
+    else
+      "Please wait for it to finish or terminate it to continue."
+    end
     message = <<~EOS
       A `#{full_command}` process has already locked #{locked_path}.#{lock_context}
-      Please wait for it to finish or terminate it to continue.
+      #{advice}
     EOS
 
     super message

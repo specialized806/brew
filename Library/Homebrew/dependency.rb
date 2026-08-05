@@ -163,6 +163,9 @@ class Dependency
   end
 
   class << self
+    sig { returns(T.nilable(T::Array[T.any(String, Symbol)])) }
+    attr_reader :expand_stack
+
     # Expand the dependencies of each dependent recursively, optionally yielding
     # `[dependent, dep]` pairs to allow callers to apply arbitrary filters to
     # the list.
@@ -190,12 +193,8 @@ class Dependency
       @expand_stack.push dependent.name
 
       begin
-        if cache_key.present?
-          cache_key = "#{cache_key}-#{cache_timestamp}" if cache_timestamp
-
-          if (entry = cache(cache_key, cache_timestamp:)[cache_id dependent])
-            return entry.dup
-          end
+        if cache_key.present? && (entry = cache(cache_key, cache_timestamp:)[cache_id dependent])
+          return entry.dup
         end
 
         expanded_deps = []
@@ -209,7 +208,8 @@ class Dependency
           when Dependable::SKIP
             next if @expand_stack.include? dep.name
 
-            expanded_deps.concat(expand(formula_for_dependency(dep, formula_cache), cache_key:, formula_cache:,
+            expanded_deps.concat(expand(formula_for_dependency(dep, formula_cache),
+                                        cache_key:, cache_timestamp:, formula_cache:,
                                         &block))
           when Dependable::KEEP_BUT_PRUNE_RECURSIVE_DEPS
             expanded_deps << dep
@@ -217,7 +217,7 @@ class Dependency
             next if @expand_stack.include? dep.name
 
             dep_formula = formula_for_dependency(dep, formula_cache)
-            expanded_deps.concat(expand(dep_formula, cache_key:, formula_cache:, &block))
+            expanded_deps.concat(expand(dep_formula, cache_key:, cache_timestamp:, formula_cache:, &block))
 
             # Fixes names for renamed/aliased formulae.
             dep = dep.dup_with_formula_name(dep_formula)

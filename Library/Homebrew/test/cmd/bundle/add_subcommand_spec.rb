@@ -58,4 +58,65 @@ RSpec.describe Homebrew::Cmd::Bundle::AddSubcommand do
       expect(File.read(file)).to include("#{type} \"#{args.first}\"")
     end
   end
+
+  context "when called with a fully-qualified formula from an untapped tap" do
+    let(:args) { ["user/repo/hello"] }
+    let(:type) { :brew }
+    let(:file) { "/tmp/some_random_brewfile#{Random.rand(2 ** 16)}" }
+    let(:events) { [] }
+
+    before do
+      tap = Tap.fetch("user", "repo")
+      formula_instance = formula("hello") do
+        T.bind(self, T.class_of(Formula))
+        url "hello-1.0"
+      end
+
+      allow(Tap).to receive(:with_formula_name).with(args.first).and_return([tap, "hello"])
+      allow(tap).to receive(:ensure_installed!) { events << :tap }
+      allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!).with(args, type: :formula) do
+        events << :trust
+      end
+      allow(Formulary).to receive(:factory).with(args.first) do
+        events << :load
+        formula_instance
+      end
+    end
+
+    it "installs and trusts the tap before loading the formula" do
+      add
+      expect(events).to eq([:tap, :trust, :load])
+    end
+  end
+
+  context "when called with a fully-qualified cask from an untapped tap" do
+    let(:args) { ["user/repo/alacritty"] }
+    let(:type) { :cask }
+    let(:file) { "/tmp/some_random_brewfile#{Random.rand(2 ** 16)}" }
+    let(:events) { [] }
+
+    before do
+      tap = Tap.fetch("user", "repo")
+      cask = Cask::CaskLoader::FromContentLoader.new(+<<~RUBY).load(config: nil)
+        cask "alacritty" do
+          version "1.0"
+        end
+      RUBY
+
+      allow(Tap).to receive(:with_cask_token).with(args.first).and_return([tap, "alacritty"])
+      allow(tap).to receive(:ensure_installed!) { events << :tap }
+      allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!).with(args, type: :cask) do
+        events << :trust
+      end
+      allow(Cask::CaskLoader).to receive(:load).with(args.first) do
+        events << :load
+        cask
+      end
+    end
+
+    it "installs and trusts the tap before loading the cask" do
+      add
+      expect(events).to eq([:tap, :trust, :load])
+    end
+  end
 end

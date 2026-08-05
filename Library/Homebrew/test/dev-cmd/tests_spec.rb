@@ -14,42 +14,37 @@ RSpec.describe Homebrew::DevCmd::Tests do
       require "extend/os/linux/dev-cmd/tests"
       require "sandbox"
 
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(true)
       allow(GitHub::Actions).to receive(:env_set?).and_return(false)
     end
 
     it "does not require the Linux sandbox when Linux sandboxing is disabled" do
+      allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
+      allow(Sandbox).to receive_messages(available?: false, failure_reason: "sandbox unavailable")
+      expect(Sandbox).not_to receive(:ensure_sandbox_available!)
+
+      expect { tests.check_test_environment! }.not_to raise_error
+    end
+
+    it "does not fail on GitHub Actions when the Linux sandbox is unavailable" do
       allow(Sandbox).to receive(:available?).and_return(false)
-      expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
-      expect(Sandbox).not_to receive(:configure!)
-
-      with_env(HOMEBREW_NO_SANDBOX_LINUX: "1") do
-        expect { tests.send(:check_test_environment!) }.not_to raise_error
-      end
-    end
-
-    it "raises when the requested Linux sandbox is unavailable" do
-      allow(Sandbox).to receive_messages(available?:     false,
-                                         failure_reason: "Bubblewrap is not working.")
-      expect(Sandbox).to receive(:ensure_sandbox_installed!).with(install_from_tests: true)
-
-      expect { tests.send(:check_test_environment!) }
-        .to raise_error(RuntimeError, "Bubblewrap is not working.")
-    end
-
-    it "installs and probes sandbox availability when Linux sandboxing is enabled" do
-      allow(Sandbox).to receive(:available?).and_return(true)
-      expect(Sandbox).to receive(:ensure_sandbox_installed!).with(install_from_tests: true)
-
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
-    end
-
-    it "configures the sandbox on GitHub Actions when Linux sandboxing is enabled" do
       allow(GitHub::Actions).to receive(:env_set?).and_return(true)
-      allow(Sandbox).to receive(:available?).and_return(true)
-      expect(Sandbox).to receive(:configure!)
-      expect(Sandbox).not_to receive(:ensure_sandbox_installed!)
+      expect(Sandbox).not_to receive(:ensure_sandbox_available!)
 
-      expect { tests.send(:check_test_environment!) }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to raise_error
+    end
+
+    it "fails outside GitHub Actions when the Linux sandbox is unavailable" do
+      allow(Sandbox).to receive_messages(available?: false, failure_reason: "Landlock is not available.")
+
+      expect { tests.check_test_environment! }
+        .to raise_error(RuntimeError, "Landlock is not available.")
+    end
+
+    it "passes when the Linux sandbox is available" do
+      allow(Sandbox).to receive(:available?).and_return(true)
+
+      expect { tests.check_test_environment! }.not_to raise_error
     end
   end
 
@@ -82,7 +77,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
   end
 
   describe "#changed_test_files" do
-    subject(:changed_test_files) { tests.send(:changed_test_files) }
+    subject(:changed_test_files) { tests.changed_test_files }
 
     let(:tests) { described_class.new([]) }
 

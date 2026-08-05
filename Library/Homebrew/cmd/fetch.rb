@@ -172,6 +172,67 @@ module Homebrew
         download_queue.shutdown
       end
 
+      sig { params(cask: Cask::Cask).returns(T::Array[Cask::Download]) }
+      def cask_downloads(cask)
+        ref = cask.reloadable_ref
+
+        if args.all_platforms? && cask.loaded_from_api?
+          opoo "Cask #{cask} was loaded from the API; cannot fetch all operating system and " \
+               "architecture variants. Set `HOMEBREW_NO_INSTALL_FROM_API=1` to fetch them all."
+        end
+
+        # With `--all-platforms`, a cask without `on_system` blocks resolves
+        # identically everywhere, so one combination covers the whole matrix.
+        cask_combinations = args.os_arch_combinations
+        cask_combinations = cask_combinations.first(1) if args.all_platforms? && !cask.on_system_blocks_exist?
+
+        downloads = T.let([], T::Array[Cask::Download])
+        enqueued_urls = Set.new
+
+        cask_combinations.each do |os, arch|
+          SimulateSystem.with(os:, arch:) do
+            loaded_cask = begin
+              Cask::CaskLoader.load(ref)
+            rescue Cask::CaskInvalidError, Cask::CaskUnreadableError
+              raise unless cask.on_system_blocks_exist?
+            end
+            if loaded_cask.nil? || loaded_cask.depends_on.arch&.none? { |dep_arch| dep_arch[:type] == arch }
+              opoo "Cask #{cask} is not supported on os #{os} and arch #{arch}"
+              next
+            end
+
+            languages = (loaded_cask.languages if args.all_platforms?)
+            languages = [nil] if languages.blank?
+
+            languages.each do |language|
+              localized_cask = loaded_cask
+              if language
+                # Reload per language: `Cask::Download` reads `sha256`/`url`
+                # lazily, so each download needs its own cask instance.
+                localized_cask = Cask::CaskLoader.load(ref)
+                localized_cask.config = localized_cask.config.merge(
+                  Cask::Config.new(explicit: { languages: [language] }),
+                )
+              end
+
+              if localized_cask.url.nil? || localized_cask.sha256.nil?
+                opoo "Cask #{cask} is not supported on os #{os} and arch #{arch}"
+                next
+              end
+
+              next unless enqueued_urls.add?(localized_cask.url.to_s)
+
+              downloads << Cask::Download.new(
+                localized_cask,
+                require_sha: Homebrew::EnvConfig.cask_opts_require_sha?,
+              )
+            end
+          end
+        end
+
+        downloads
+      end
+
       private
 
       sig { returns(T::Boolean) }
@@ -185,7 +246,7 @@ module Homebrew
         names = api_fetch_names(
           regex:   HOMEBREW_DEFAULT_TAP_FORMULA_REGEX,
           capture: :name,
-          hashes:  Homebrew::API::Internal.formula_hashes,
+          named:   ->(name) { Homebrew::API::Internal.formula_name?(name) },
           aliases: Homebrew::API::Internal.formula_aliases,
           renames: Homebrew::API::Internal.formula_renames,
         )
@@ -225,7 +286,7 @@ module Homebrew
         tokens = api_fetch_names(
           regex:   HOMEBREW_DEFAULT_TAP_CASK_REGEX,
           capture: :token,
-          hashes:  Homebrew::API::Internal.cask_hashes,
+          named:   ->(token) { Homebrew::API::Internal.cask_name?(token) },
           aliases: {},
           renames: Homebrew::API::Internal.cask_renames,
         )
@@ -236,7 +297,6 @@ module Homebrew
           download = Homebrew::API::CaskDownload.download(
             token:,
             cask_struct: Homebrew::API::Internal.cask_struct(token),
-            quarantine:  true,
             require_sha: Homebrew::EnvConfig.cask_opts_require_sha?,
           )
           return false if download.nil?
@@ -265,12 +325,12 @@ module Homebrew
         params(
           regex:   Regexp,
           capture: Symbol,
-          hashes:  T::Hash[String, T::Hash[String, T.untyped]],
+          named:   T.proc.params(name: String).returns(T::Boolean),
           aliases: T::Hash[String, String],
           renames: T::Hash[String, String],
         ).returns(T.nilable(T::Array[String]))
       }
-      def api_fetch_names(regex:, capture:, hashes:, aliases:, renames:)
+      def api_fetch_names(regex:, capture:, named:, aliases:, renames:)
         requested_names = args.named.downcased_unique_named
         names = T.let(requested_names.filter_map do |requested_name|
           name = requested_name[regex, capture]
@@ -279,75 +339,13 @@ module Homebrew
           name = name.downcase
           name = aliases.fetch(name, name)
           name = renames.fetch(name, name)
-          next unless hashes.key?(name)
+          next unless named.call(name)
 
           name
         end, T::Array[String])
         return if names.length != requested_names.length
 
         names
-      end
-
-      sig { params(cask: Cask::Cask).returns(T::Array[Cask::Download]) }
-      def cask_downloads(cask)
-        ref = cask.reloadable_ref
-
-        if args.all_platforms? && cask.loaded_from_api?
-          opoo "Cask #{cask} was loaded from the API; cannot fetch all operating system and " \
-               "architecture variants. Set `HOMEBREW_NO_INSTALL_FROM_API=1` to fetch them all."
-        end
-
-        # With `--all-platforms`, a cask without `on_system` blocks resolves
-        # identically everywhere, so one combination covers the whole matrix.
-        cask_combinations = args.os_arch_combinations
-        cask_combinations = cask_combinations.first(1) if args.all_platforms? && !cask.on_system_blocks_exist?
-
-        downloads = T.let([], T::Array[Cask::Download])
-        enqueued_urls = Set.new
-
-        cask_combinations.each do |os, arch|
-          SimulateSystem.with(os:, arch:) do
-            loaded_cask = begin
-              Cask::CaskLoader.load(ref)
-            rescue Cask::CaskInvalidError, Cask::CaskUnreadableError
-              raise unless cask.on_system_blocks_exist?
-            end
-            if loaded_cask.nil?
-              opoo "Cask #{cask} is not supported on os #{os} and arch #{arch}"
-              next
-            end
-
-            languages = (loaded_cask.languages if args.all_platforms?)
-            languages = [nil] if languages.blank?
-
-            languages.each do |language|
-              localized_cask = loaded_cask
-              if language
-                # Reload per language: `Cask::Download` reads `sha256`/`url`
-                # lazily, so each download needs its own cask instance.
-                localized_cask = Cask::CaskLoader.load(ref)
-                localized_cask.config = localized_cask.config.merge(
-                  Cask::Config.new(explicit: { languages: [language] }),
-                )
-              end
-
-              if localized_cask.url.nil? || localized_cask.sha256.nil?
-                opoo "Cask #{cask} is not supported on os #{os} and arch #{arch}"
-                next
-              end
-
-              next unless enqueued_urls.add?(localized_cask.url.to_s)
-
-              downloads << Cask::Download.new(
-                localized_cask,
-                quarantine:  true,
-                require_sha: Homebrew::EnvConfig.cask_opts_require_sha?,
-              )
-            end
-          end
-        end
-
-        downloads
       end
 
       sig { returns(Integer) }

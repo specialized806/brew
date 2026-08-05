@@ -37,7 +37,6 @@ module OS
             related_formula_names.merge(versioned_formulae_names)
           end
           [
-            dependency_collector.bubblewrap_dep_if_needed(related_formula_names),
             dependency_collector.gcc_dep_if_needed(related_formula_names),
             dependency_collector.glibc_dep_if_needed(related_formula_names),
           ].compact.freeze
@@ -48,6 +47,13 @@ module OS
       sig { returns(T::Boolean) }
       def valid_platform?
         supports_linux?
+      end
+
+      sig { params(installdir: T.any(String, ::Pathname, FalseClass)).returns(T::Array[String]) }
+      def std_cabal_v2_args(installdir: bin)
+        args = super
+        args << "--ghc-option=-pie" if ::Hardware::CPU.arm?
+        args
       end
     end
   end

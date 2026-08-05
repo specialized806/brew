@@ -76,7 +76,7 @@ module Cask
         :built_in_caveat
       end
 
-      sig { params(block: T.proc.returns(T.nilable(T.any(Symbol, String)))).void }
+      sig { params(block: T.proc.bind(Caveats).returns(T.nilable(T.any(Symbol, String)))).void }
       def eval_caveats(&block)
         result = instance_eval(&block)
         return unless result
@@ -135,7 +135,7 @@ module Cask
         <<~EOS
           Cask #{cask} installs files under /usr/local. The presence of such
           files can cause warnings when running `brew doctor`, which is considered
-          to be a bug in Homebrew Cask.
+          to be a bug in Homebrew's cask handling.
         EOS
       end
 
@@ -160,6 +160,7 @@ module Cask
 
       caveat :requires_rosetta do
         next if Homebrew::SimulateSystem.current_arch != :arm
+        next if Hardware::CPU.rosetta_installed?
 
         <<~EOS
           #{cask} is built for Intel macOS and so requires Rosetta 2 to be installed.

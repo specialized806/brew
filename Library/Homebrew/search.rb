@@ -56,9 +56,10 @@ module Homebrew
         # Since only one command is typically loaded at a time, this alias is not expected to be available at runtime.
         args:            T.any(Homebrew::Cmd::Desc::Args, Homebrew::Cmd::SearchCmd::Args),
         search_type:     T.nilable(Descriptions::SearchField),
+        show_missing:    T::Boolean,
       ).void
     }
-    def self.search_descriptions(string_or_regex, args, search_type: nil)
+    def self.search_descriptions(string_or_regex, args, search_type: nil, show_missing: false)
       require "descriptions"
 
       search_type ||= Descriptions::SearchField::Description
@@ -95,7 +96,7 @@ module Homebrew
       if eval_all
         CacheStoreDatabase.use(:cask_descriptions) do |db|
           cache_store = CaskDescriptionCacheStore.new(T.cast(db, CacheStoreDatabase[String, T.anything]))
-          Descriptions.search(string_or_regex, search_type, cache_store, eval_all:).print
+          Descriptions.search(string_or_regex, search_type, cache_store, eval_all:).print(show_missing:)
         end
       else
         unofficial = Tap.all.sum { |tap| tap.official? ? 0 : tap.cask_files.size }
@@ -109,7 +110,7 @@ module Homebrew
         status_data = casks.transform_values do |cask|
           { deprecated: cask["deprecate_present"].present?, disabled: cask["disable_present"].present? }
         end
-        Descriptions.search(string_or_regex, search_type, descriptions, status_data:, eval_all:).print
+        Descriptions.search(string_or_regex, search_type, descriptions, status_data:, eval_all:).print(show_missing:)
       end
     end
 

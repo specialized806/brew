@@ -4,27 +4,19 @@
 if ENV["HOMEBREW_TESTS_COVERAGE"]
   require "simplecov"
   require "simplecov-cobertura"
+  SimpleCov.start
 
   formatters = [
     SimpleCov::Formatter::HTMLFormatter,
     SimpleCov::Formatter::CoberturaFormatter,
   ]
   SimpleCov.formatters = SimpleCov::Formatter::MultiFormatter.new(formatters)
-
-  # Needed for outputting coverage reporting only once for parallel_tests.
-  # Otherwise, "Coverage report generated" will get spammed for each process.
-  if ENV["TEST_ENV_NUMBER"]
-    SimpleCov.at_exit do
-      result = SimpleCov.result
-      # `SimpleCov.result` calls `ParallelTests.wait_for_other_processes_to_finish`
-      # internally for you on the last process.
-      result.format! if ParallelTests.last_process?
-    end
-  end
 end
 
 require_relative "../standalone"
 require_relative "../warnings"
+
+Warnings.ignore(/CGI library is removed from Ruby 4\.0\./) { require "cgi" }
 
 require "test-prof"
 
@@ -55,6 +47,7 @@ require "test/support/helper/fixtures"
 require "test/support/helper/formula"
 require "test/support/helper/mktmpdir"
 require "test/support/helper/subcommand"
+require "test/support/helper/test_each"
 
 require "test/support/helper/spec/shared_context/homebrew_cask" if OS.mac?
 require "test/support/helper/spec/shared_context/integration_test"
@@ -151,6 +144,8 @@ RSpec.configure do |config|
   config.include(Test::Helper::Formula)
   config.include(Test::Helper::MkTmpDir)
   config.include(Test::Helper::Subcommand)
+
+  config.extend(Test::Helper::TestEach)
 
   # Enable aggregate failures by default
   config.define_derived_metadata do |metadata|
@@ -286,9 +281,9 @@ RSpec.configure do |config|
 
     Tap.installed.each(&:clear_cache)
     Cachable::Registry.clear_all_caches
-    FormulaInstaller.clear_attempted
-    FormulaInstaller.clear_installed
-    FormulaInstaller.clear_fetched
+    FormulaInstaller.attempted.clear
+    FormulaInstaller.installed.clear
+    FormulaInstaller.fetched.clear
     Utils::Curl.clear_path_cache
 
     TEST_DIRECTORIES.each(&:mkpath)
@@ -369,6 +364,10 @@ RSpec.configure do |config|
       ENV.replace(@__env)
       Homebrew::SimulateSystem.clear
       Context.current = Context::ContextStruct.new
+      # Shut down and drop any memoized download queue so an example that
+      # stubbed `DownloadQueue.new` cannot leak a double into later examples
+      # or the `at_exit` shutdown hook.
+      Homebrew.reset_default_download_queue if Homebrew.respond_to?(:reset_default_download_queue)
 
       $stdout.reopen(@__stdout)
       $stderr.reopen(@__stderr)

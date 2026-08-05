@@ -49,13 +49,26 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
                        .respond_to?(:to_json),
       ).to be(true)
     end
+
+    it "uses unprivileged Linux containers" do
+      linux_containers = described_class.new([], ["deleted"], all_supported: false, dependent_matrix: false)
+                                        .active_runner_specs_hash
+                                        .filter_map { |runner| runner[:container] }
+
+      expect(linux_containers).to eq(Array.new(2) do
+        {
+          image:   "ghcr.io/homebrew/brew:main",
+          options: "--init --user linuxbrew",
+        }
+      end)
+    end
   end
 
   describe "#generate_runners!" do
     it "is idempotent" do
       matrix = described_class.new([], [], all_supported: false, dependent_matrix: false)
       runners = matrix.runners.dup
-      matrix.send(:generate_runners!)
+      matrix.generate_runners!
 
       expect(matrix.runners).to eq(runners)
     end
@@ -183,6 +196,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
             stub_const("OS::LINUX_CI_ARM_RUNNER", "ubuntu-24.04-arm")
 
             allow(ENV).to receive(:fetch).with("HOMEBREW_MACOS_LONG_TIMEOUT", "false").and_return("true")
+            allow(ENV).to receive(:key?).and_call_original
             allow(ENV).to receive(:key?).with("GITHUB_ACTIONS").and_return(true)
             allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
 
@@ -365,7 +379,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
       dependencies.each { |dependency| depends_on dependency }
 
       kwargs.each do |k, v|
-        send(:"on_#{k}") do
+        public_send(:"on_#{k}") do
           v.each do |dep|
             depends_on dep
           end

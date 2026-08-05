@@ -22,15 +22,13 @@ module Cask
     sig {
       params(
         cask:        ::Cask::Cask,
-        quarantine:  T.nilable(T::Boolean),
         require_sha: T::Boolean,
       ).void
     }
-    def initialize(cask, quarantine: nil, require_sha: false)
+    def initialize(cask, require_sha: false)
       super()
 
       @cask = cask
-      @quarantine = quarantine
       @require_sha = require_sha
     end
 
@@ -124,7 +122,6 @@ module Cask
         container.extract_nestedly(to:, basename:, verbose:)
       end
 
-      return unless @quarantine
       return unless Quarantine.available?
 
       Quarantine.propagate(from: container.path, to:)
@@ -229,6 +226,9 @@ module Cask
     sig { override.returns(String) }
     def download_queue_type = "Cask"
 
+    sig { override.returns(String) }
+    def download_name = cask.token
+
     private
 
     sig { void }
@@ -243,14 +243,9 @@ module Cask
 
     sig { params(path: Pathname).void }
     def quarantine(path)
-      return if @quarantine.nil?
       return unless Quarantine.available?
 
-      if @quarantine
-        Quarantine.cask!(cask: @cask, download_path: path)
-      else
-        Quarantine.release!(download_path: path)
-      end
+      Quarantine.cask!(cask: @cask, download_path: path)
     end
 
     sig { returns(T::Boolean) }
@@ -280,8 +275,5 @@ module Cask
     def cache
       Cache.path
     end
-
-    sig { override.returns(String) }
-    def download_name = cask.token
   end
 end

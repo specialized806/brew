@@ -244,11 +244,6 @@ module Homebrew
             shared_download_queue ||= Homebrew::DownloadQueue.new(pour: true)
             download_queue = shared_download_queue
             begin
-              Install.show_combined_fetch_downloads_heading(
-                formula_names: formulae_installers.map { |fi| fi.formula.name },
-                cask_names:    casks.map(&:full_name),
-              )
-
               valid_formula_installers = Install.enqueue_formulae(formulae_installers,
                                                                   download_queue:)
 
@@ -268,7 +263,10 @@ module Homebrew
                 )
               end
               Install.enqueue_cask_installers(fetch_cask_installers, download_queue:)
-              download_queue.fetch
+              download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
+                formula_names: valid_formula_installers.map { |fi| fi.formula.name },
+                cask_names:    casks.map(&:full_name),
+              ))
               casks_prefetched = true
               valid_formula_installers
             ensure
@@ -320,7 +318,6 @@ module Homebrew
               force:          args.force?,
               require_sha:    args.require_sha?,
               skip_cask_deps: args.skip_cask_deps?,
-              quarantine:     true,
               zap:            args.zap?,
               skip_prefetch:  casks_prefetched,
               download_queue: nil,

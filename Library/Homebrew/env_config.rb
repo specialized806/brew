@@ -102,6 +102,16 @@ module Homebrew
                       "disable auto-update entirely with `$HOMEBREW_NO_AUTO_UPDATE`.",
         default_text: "`86400` (24 hours), `3600` (1 hour) if a developer command has been run " \
                       "or `300` (5 minutes) if `$HOMEBREW_NO_INSTALL_FROM_API` is set.",
+        # Keep in sync with the auto-update defaults in Library/Homebrew/brew.sh.
+        default:      lambda {
+          if ENV["HOMEBREW_NO_INSTALL_FROM_API"].present? || ENV["HOMEBREW_AUTO_UPDATE_TAP"].present?
+            300
+          elsif ENV["HOMEBREW_DEV_CMD_RUN"].present?
+            3600
+          else
+            86400
+          end
+        },
       },
       HOMEBREW_AVOID_NESTED_SANDBOXING:          {
         description: "If set, skip Homebrew's sandbox when it is itself running inside another " \
@@ -124,13 +134,13 @@ module Homebrew
         default_text: "`$BAT_THEME`.",
       },
       HOMEBREW_BOTTLE_DOMAIN:                    {
-        description:  "Use this URL as the download mirror for bottles. " \
-                      "If bottles at that URL are temporarily unavailable, " \
-                      "the default bottle domain will be used as a fallback mirror. " \
+        description:  "Use this URL as the download mirror for bottles and their manifests. " \
+                      "If a bottle or manifest is unavailable at the mirror, " \
+                      "the default bottle domain will be used as a fallback. " \
+                      "Prefer `$HOMEBREW_ARTIFACT_DOMAIN` for a mirror that transparently proxies all " \
+                      "Homebrew downloads. " \
                       "For example, `export HOMEBREW_BOTTLE_DOMAIN=http://localhost:8080` will cause all bottles " \
-                      "to download from the prefix `http://localhost:8080/`. " \
-                      "If bottles are not available at `$HOMEBREW_BOTTLE_DOMAIN` " \
-                      "they will be downloaded from the default bottle domain.",
+                      "to download from the prefix `http://localhost:8080/`.",
         default_text: "`https://ghcr.io/v2/homebrew/core`.",
         default:      HOMEBREW_BOTTLE_DEFAULT_DOMAIN,
       },
@@ -294,7 +304,7 @@ module Homebrew
       HOMEBREW_DOCKER_REGISTRY_BASIC_AUTH_TOKEN: {
         description: "Use this base64 encoded username and password for authenticating with a Docker registry " \
                      "proxying GitHub Packages. If set to `none`, no authentication header will be sent. " \
-                     "This can be used, if remote `$HOMEBREW_BOTTLE_DOMAIN` does not support any authentication. " \
+                     "This can be used, if remote `$HOMEBREW_ARTIFACT_DOMAIN` does not support any authentication. " \
                      "If `$HOMEBREW_DOCKER_REGISTRY_TOKEN` is set, it will be used instead.",
       },
       HOMEBREW_DOCKER_REGISTRY_TOKEN:            {
@@ -350,8 +360,8 @@ module Homebrew
                      "formula or cask if it or any of its dependencies is on this list.",
       },
       HOMEBREW_FORBIDDEN_LICENSES:               {
-        description: "A space-separated list of SPDX license identifiers. Homebrew will refuse to install a " \
-                     "formula if it or any of its dependencies has a license on this list.",
+        description: "A space-separated list of SPDX licence identifiers. Homebrew will refuse to install a " \
+                     "formula if it or any of its dependencies has a licence on this list.",
       },
       HOMEBREW_FORBIDDEN_OWNER:                  {
         description: "The person who has set any `$HOMEBREW_FORBIDDEN_*` variables.",
@@ -374,8 +384,10 @@ module Homebrew
       HOMEBREW_FORBID_PACKAGES_FROM_PATHS:       {
         description:  "If set, Homebrew will refuse to read formulae or casks provided from file paths, " \
                       "e.g. `brew install ./package.rb`.",
-        boolean:      true,
+        boolean:      :set,
         default_text: "true unless `$HOMEBREW_DEVELOPER` is set.",
+        # Keep in sync with forbid_packages_from_paths? below.
+        default:      -> { ENV["HOMEBREW_TESTS"].blank? && ENV["HOMEBREW_DEVELOPER"].blank? },
       },
       HOMEBREW_FORCE_API_AUTO_UPDATE:            {
         description: "If set, update the Homebrew API formula or cask data even if " \
@@ -627,10 +639,13 @@ module Homebrew
       HOMEBREW_PIP_INDEX_URL:                    {
         description:  "If set, `brew install` <formula> will use this URL to download PyPI package resources.",
         default_text: "`https://pypi.org/simple`.",
+        default:      "https://pypi.org/simple",
       },
       HOMEBREW_PRY:                              {
-        description: "If set, use Pry for the `brew irb` command.",
+        description: "This variable no longer has any effect because Pry is largely unmaintained upstream.",
         boolean:     true,
+        odeprecated: true,
+        replacement: "the default IRB backend (Pry is largely unmaintained upstream)",
       },
       HOMEBREW_REQUIRE_TAP_TRUST:                {
         # odeprecated: make tap trust checks default in a later release.
@@ -643,7 +658,7 @@ module Homebrew
         default:     true,
       },
       HOMEBREW_SANDBOX_LINUX:                    {
-        description: "The `bwrap`(1) sandbox is the default for formula installation and testing " \
+        description: "The Landlock sandbox is the default for formula installation and testing " \
                      "on Linux unless `$HOMEBREW_NO_SANDBOX_LINUX` is set.",
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_SANDBOX_LINUX,
@@ -680,6 +695,7 @@ module Homebrew
         description:  "If set, Homebrew will use the given config file instead of `~/.ssh/config` when " \
                       "fetching Git repositories over SSH.",
         default_text: "`~/.ssh/config`",
+        default:      -> { "#{Dir.home}/.ssh/config" },
       },
       HOMEBREW_SUDO_THROUGH_SUDO_USER:           {
         description: "If set, Homebrew will use the `$SUDO_USER` environment variable to define the user to " \
@@ -770,6 +786,8 @@ module Homebrew
       },
     }.freeze, T::Hash[Symbol, T::Hash[Symbol, T.untyped]])
 
+    ANALYTICS_VARIABLES = T.let((ENVS.keys - [:HOMEBREW_NO_ANALYTICS]).freeze, T::Array[Symbol])
+
     sig { params(env: Symbol, hash: T::Hash[Symbol, T.untyped]).returns(String) }
     def env_method_name(env, hash)
       method_name = env.to_s
@@ -782,6 +800,20 @@ module Homebrew
     sig { params(hash: T::Hash[Symbol, T.untyped]).returns(T::Boolean) }
     def hidden?(hash)
       !!(hash[:hidden] || hash[:odeprecated] || hash[:odisabled])
+    end
+
+    # The default value as human text, e.g. for the manpage or analytics:
+    # `default_text` summarises defaults that vary by platform or machine.
+    sig { params(env: Symbol).returns(T.nilable(String)) }
+    def default_description(env)
+      hash = ENVS[env]
+      return if hash.nil?
+
+      default_text = hash[:default_text]
+      return default_text if default_text
+
+      default = hash[:default]
+      "`#{default}`." if default
     end
 
     # Defaults and parsing that cannot be expressed by the generated helpers.
@@ -802,6 +834,42 @@ module Homebrew
     # `_NO_` variants, where any non-empty value must mean enabled. Use
     # `disabled_by:` when one boolean env var should override another.
     FALSY_VALUES = %w[false no off nil 0].freeze
+
+    sig { params(env: Symbol).returns(T::Boolean) }
+    def non_default_variable?(env)
+      value = ENV.fetch(env.to_s, nil)
+      # Blank values behave like unset in the generated accessors.
+      return false if value.blank?
+
+      config = ENVS.fetch(env)
+      default = config.fetch(:default, config[:boolean] ? false : nil)
+      default = default.call if default.respond_to?(:call)
+      if config[:boolean]
+        enabled = config[:boolean] == :set || FALSY_VALUES.exclude?(value.downcase)
+        enabled != default
+      else
+        value != default.to_s
+      end
+    end
+
+    # Whether the user set this variable rather than Homebrew exporting
+    # it itself, e.g. `HOMEBREW_EDITOR` from `EDITOR`. The matching Bash
+    # records `HOMEBREW_USER_SET_VARS` in `bin/brew` before any exports.
+    sig { params(env: Symbol).returns(T::Boolean) }
+    def user_set_variable?(env)
+      return false if ENV.fetch(env.to_s, nil).blank?
+      return true unless env.to_s.start_with?("HOMEBREW_")
+
+      ENV.fetch("HOMEBREW_USER_SET_VARS", "").split.include?(env.to_s)
+    end
+
+    sig { returns(T::Array[String]) }
+    def non_default_variables
+      ENV.filter_map do |env, _value|
+        env_symbol = env.to_sym
+        env if ENVS.key?(env_symbol) && user_set_variable?(env_symbol) && non_default_variable?(env_symbol)
+      end.sort
+    end
 
     ENVS.each do |env, hash|
       # Needs a custom implementation.
@@ -824,7 +892,12 @@ module Homebrew
         end
       elsif hash[:default].present?
         define_method(method_name) do
-          env_value(env, hash).presence || hash.fetch(:default).to_s
+          value = env_value(env, hash).presence
+          next value if value
+
+          default = hash.fetch(:default)
+          default = default.call if default.respond_to?(:call)
+          default.to_s
         end
       else
         define_method(method_name) do
@@ -873,6 +946,11 @@ module Homebrew
       true
     end
 
+    sig { returns(T::Boolean) }
+    def bottle_domain_custom?
+      Homebrew::EnvConfig.bottle_domain != HOMEBREW_BOTTLE_DEFAULT_DOMAIN
+    end
+
     sig { returns(String) }
     def make_jobs
       jobs = ENV["HOMEBREW_MAKE_JOBS"].to_i
@@ -899,16 +977,6 @@ module Homebrew
       method_name = :cask_opts_binaries
       env_value = T.cast(Homebrew::EnvConfig.public_send(method_name), T.nilable(String))
       return FALSY_VALUES.exclude?(env_value.downcase) if env_value.present?
-
-      true
-    end
-
-    sig { returns(T::Boolean) }
-    def cask_opts_quarantine?
-      cask_opts.reverse_each do |opt|
-        return true if opt == "--quarantine"
-        return false if opt == "--no-quarantine"
-      end
 
       true
     end
@@ -944,6 +1012,7 @@ module Homebrew
 
       # Provide an opt-out for tests and developers.
       # Our testing framework installs formulae from file paths all over the place.
+      # Keep in sync with the HOMEBREW_FORBID_PACKAGES_FROM_PATHS default above.
       ENV["HOMEBREW_TESTS"].blank? && ENV["HOMEBREW_DEVELOPER"].blank?
     end
 

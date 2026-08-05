@@ -18,6 +18,10 @@ module RuboCop
                                    "`FORMULA_COOKBOOK_METHODS`: %<methods>s."
         MISSING_CASK_LIST_MSG = "Method `%<method>s` is annotated with `@api public` in `%<file>s` but is " \
                                 "missing from `CASK_COOKBOOK_METHODS`."
+        MISSING_SERVICE_LIST_MSG = "Method `%<method>s` is annotated with `@api public` in `service.rb` but is " \
+                                   "missing from the Formula Cookbook's \"Service block methods\" table."
+        MISMATCHED_SERVICE_LIST_MSG = "`SERVICE_COOKBOOK_METHODS` is out of sync with the Formula Cookbook's " \
+                                      "\"Service block methods\" table: %<diff>s."
 
         sig { void }
         def on_new_investigation
@@ -49,6 +53,8 @@ module RuboCop
               )
             end
 
+            check_service_cookbook_list
+
             return
           end
 
@@ -58,6 +64,7 @@ module RuboCop
                                  "Formula Cookbook", relative_path, api_public_targets)
           check_cookbook_methods(ApiAnnotationHelper::CASK_COOKBOOK_METHODS,
                                  "Cask Cookbook", relative_path, api_public_targets)
+          check_service_methods(relative_path, api_public_targets)
 
           return unless %w[cask/dsl.rb cask/cask.rb cask/dsl/version.rb].include?(relative_path)
 
@@ -167,6 +174,65 @@ module RuboCop
 
             add_offense(node, message: format(MSG, method: method_name, cookbook: cookbook_name))
           end
+        end
+
+        # Ensure `SERVICE_COOKBOOK_METHODS` stays a 1:1 mirror of the cookbook's
+        # "Service block methods" table.
+        sig { void }
+        def check_service_cookbook_list
+          table = parse_service_block_table
+          list = ApiAnnotationHelper::SERVICE_COOKBOOK_METHODS
+          return if table == list
+
+          diff = []
+          if (missing_from_list = (table - list).to_a.sort).any?
+            diff << "missing from the list: #{missing_from_list.map { |m| "`#{m}`" }.join(", ")}"
+          end
+          if (missing_from_table = (list - table).to_a.sort).any?
+            diff << "not in the cookbook table: #{missing_from_table.map { |m| "`#{m}`" }.join(", ")}"
+          end
+
+          node = processed_source.ast&.each_descendant(:casgn)&.find do |casgn|
+            casgn.const_name == "SERVICE_COOKBOOK_METHODS"
+          end
+          add_offense(node || processed_source.ast || processed_source.buffer.source_range,
+                      message: format(MISMATCHED_SERVICE_LIST_MSG, diff: diff.join("; ")))
+        end
+
+        # Cross-check `service.rb`'s `@api public` annotations against the
+        # "Service block methods" table: every documented method must be
+        # `@api public` and every `@api public` method must be documented.
+        sig { params(relative_path: String, api_public_targets: T::Set[Integer]).void }
+        def check_service_methods(relative_path, api_public_targets)
+          return if relative_path != "service.rb"
+
+          documented = ApiAnnotationHelper::SERVICE_COOKBOOK_METHODS
+          processed_source.ast&.each_descendant(:def, :defs) do |node|
+            method_name = node.method_name.to_s
+            annotated = api_public_targets.include?(node.loc.line)
+
+            if documented.include?(method_name) && !annotated
+              add_offense(node, message: format(MSG, method: method_name, cookbook: "Formula Cookbook"))
+            elsif annotated && !documented.include?(method_name)
+              add_offense(node, message: format(MISSING_SERVICE_LIST_MSG, method: method_name))
+            end
+          end
+        end
+
+        # Method names in the first (backticked) column of the "Service block
+        # methods" table in docs/Formula-Cookbook.md.
+        sig { returns(T::Set[String]) }
+        def parse_service_block_table
+          path = HOMEBREW_LIBRARY_PATH.parent.parent/"docs/Formula-Cookbook.md"
+          return Set.new unless path.exist?
+
+          lines = path.readlines
+          start = lines.index { |line| line.start_with?("#### Service block methods") }
+          return Set.new if start.nil?
+
+          rest = lines[(start + 1)..] || []
+          finish = rest.index { |line| line.start_with?("#") } || rest.length
+          rest[0, finish].filter_map { |line| line[/\A\|\s*`([^`]+)`/, 1] }.to_set
         end
       end
     end

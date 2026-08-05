@@ -135,9 +135,15 @@ After tapping, users can install your formulae either with:
 - `brew install foo` if there's no core formula with the same name
 - `brew install user/repository/foo` to avoid conflicts with core formulae
 
-Users who install by short name will need to run `brew trust user/repository`
-first when Homebrew requires explicit trust for non-official taps, in
-Homebrew 6.0.0 or 5.2.0, whichever comes first.
+Non-official taps require explicit trust by default.
+Trust only the formula when whole-tap trust is unnecessary:
+
+```sh
+brew trust --formula user/repository/foo
+```
+
+Use `brew trust --tap user/repository` only when every formula, cask and external command in the tap should be trusted.
+See [Tap Trust](Tap-Trust.md) for the complete trust model.
 
 ## Maintaining a tap
 

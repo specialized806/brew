@@ -15,6 +15,7 @@ RSpec.describe Cask::Installer, :cask do
       cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
       described_class.new(cask).save_caskfile
+      Cask::Tab.create(cask).write
 
       expect([
         cask.installed_caskfile&.basename&.to_s,
@@ -44,12 +45,20 @@ RSpec.describe Cask::Installer, :cask do
       ])
     end
 
-    it "strips legacy install flight blocks from JSON metadata" do
+    it "strips legacy install flight blocks and records empty artifacts in JSON metadata" do
       cask = Cask::CaskLoader.load(cask_path("with-preflight"))
 
       described_class.new(cask).save_caskfile
 
-      expect(JSON.parse(cask.installed_caskfile.read).keys).to be_empty
+      expect(JSON.parse(cask.installed_caskfile.read)).to eq({ "artifacts" => [] })
+    end
+
+    it "stores intentional empty artifacts in JSON metadata" do
+      cask = Cask::CaskLoader.load(cask_path("stage-only"))
+
+      described_class.new(cask).save_caskfile
+
+      expect(JSON.parse(cask.installed_caskfile.read)).to eq({ "artifacts" => [] })
     end
 
     it "stores legacy uninstall flight block casks as Ruby metadata" do
@@ -92,6 +101,7 @@ RSpec.describe Cask::Installer, :cask do
       end
 
       described_class.new(cask).save_caskfile
+      Cask::Tab.create(cask).write
 
       loaded_cask = Cask::CaskLoader.load_from_installed_caskfile(cask.installed_caskfile)
       expect([
@@ -219,6 +229,41 @@ RSpec.describe Cask::Installer, :cask do
       expect do
         described_class.new(arch_cask).check_arch_requirements
       end.to raise_error(Cask::CaskError, /\Awith-depends-on-arch: This cask depends on hardware architecture/)
+    end
+
+    it "names the cask when it has nothing to install on this system" do
+      no_artifacts_cask = Cask::Cask.new("with-no-artifacts", loaded_from_api: true) do
+        version "1.0"
+        sha256 :no_check
+        url "https://brew.sh/x.zip"
+      end
+      expect do
+        described_class.new(no_artifacts_cask).check_supported_system
+      end.to raise_error(Cask::CaskError, "with-no-artifacts: This cask is not available on macOS.")
+    end
+
+    it "treats uninstall-only artifacts as nothing to install" do
+      zap_only_cask = Cask::Cask.new("with-zap-only", loaded_from_api: true) do
+        version "1.0"
+        sha256 :no_check
+        url "https://brew.sh/x.zip"
+        zap trash: "~/Library/Caches/brew-test"
+      end
+      expect do
+        described_class.new(zap_only_cask).check_supported_system
+      end.to raise_error(Cask::CaskError, "with-zap-only: This cask is not available on macOS.")
+    end
+
+    it "does not treat stage_only casks as having nothing to install" do
+      stage_only_cask = Cask::Cask.new("with-stage-only", loaded_from_api: true) do
+        version "1.0"
+        sha256 :no_check
+        url "https://brew.sh/x.zip"
+        stage_only true
+      end
+      expect do
+        described_class.new(stage_only_cask).check_supported_system
+      end.not_to raise_error
     end
 
     it "installs fine if sha256 :no_check is used with --require-sha and --force" do
@@ -375,7 +420,7 @@ RSpec.describe Cask::Installer, :cask do
         expect(Homebrew::API::Cask).to receive(:source_download_cask).once.and_return(source_caffeine)
 
         caffeine = Cask::CaskLoader.load(path)
-        expect(caffeine).to receive(:loaded_from_api?).once.and_return(true)
+        allow(caffeine).to receive(:loaded_from_api?).and_return(true)
         expect(caffeine).to receive(:caskfile_only?).once.and_return(true)
 
         described_class.new(caffeine).install
@@ -452,6 +497,21 @@ RSpec.describe Cask::Installer, :cask do
       expect(Cask::Caskroom.path.join("local-caffeine")).not_to be_a_directory
     end
 
+    it "removes Caskroom symlinks the uninstall broke, whatever name they carry" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      alias_link = Cask::Caskroom.path.join("local-caffeine-renamed")
+      unrelated_link = Cask::Caskroom.path.join("alias-of-another-cask")
+      installer = described_class.new(caffeine)
+      installer.install
+      FileUtils.ln_s "local-caffeine", alias_link
+      FileUtils.ln_s "another-cask", unrelated_link
+
+      installer.uninstall
+
+      expect([alias_link.symlink?, unrelated_link.symlink?, Cask::Caskroom.path.join("local-caffeine").exist?])
+        .to eq([false, true, false])
+    end
+
     it "uninstalls all versions if force is set" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
       mutated_version = "#{caffeine.version}.1"
@@ -486,7 +546,7 @@ RSpec.describe Cask::Installer, :cask do
         expect(Homebrew::API::Cask).to receive(:source_download_cask).twice.and_return(source_caffeine)
 
         caffeine = Cask::CaskLoader.load(path)
-        expect(caffeine).to receive(:loaded_from_api?).twice.and_return(true)
+        allow(caffeine).to receive(:loaded_from_api?).and_return(true)
         expect(caffeine).to receive(:caskfile_only?).twice.and_return(true)
         expect(caffeine).to receive(:installed_caskfile).once.and_return(invalid_path)
 
@@ -565,7 +625,6 @@ RSpec.describe Cask::Installer, :cask do
           version "0.1"
         end
       RUBY
-      Formulary.cache.delete(dep_path.to_s)
 
       cask = Cask::Cask.new("homebrew-forbidden-dependent-tap") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
@@ -601,7 +660,6 @@ RSpec.describe Cask::Installer, :cask do
           version "0.1"
         end
       RUBY
-      Formulary.cache.delete(dep_path.to_s)
 
       cask = Cask::Cask.new("homebrew-forbidden-dependent-cask") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
@@ -670,6 +728,7 @@ RSpec.describe Cask::Installer, :cask do
       ENV["HOMEBREW_FORBIDDEN_CASKS"] = cask_name = "homebrew-forbidden-cask"
       cask = Cask::Cask.new(cask_name) do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+        app "Fake.app"
       end
       allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true)
       installer = described_class.new(cask)
@@ -687,6 +746,7 @@ RSpec.describe Cask::Installer, :cask do
         url "https://example.com/source-cask.zip"
         version "0.9"
         sha256 "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
+        app "Fake.app"
       end
       cask_struct = Homebrew::API::CaskStruct.new(
         sha256:   "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97",
@@ -706,9 +766,33 @@ RSpec.describe Cask::Installer, :cask do
       installer.enqueue_downloads
     end
 
+    it "enqueues the selected language download from API data" do
+      source_cask = Cask::CaskLoader.load("with-languages")
+      cask_struct = Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(
+        source_cask.to_hash_with_variations,
+      )
+      config = Cask::Config.new(explicit: { languages: ["zh"] })
+      cask = Cask::CaskLoader::FromAPILoader.new(
+        "language-api-cask",
+        from_json:          cask_struct.serialize,
+        from_internal_json: true,
+      ).load(config:)
+      download_queue = instance_double(Homebrew::DownloadQueue)
+      installer = described_class.new(cask, download_queue:)
+
+      allow(Homebrew::API::Internal).to receive(:cask_struct).with("language-api-cask").and_return(cask_struct)
+      expect(Homebrew::API::Cask).not_to receive(:source_download)
+      expect(download_queue).to receive(:enqueue) do |download|
+        expect(download.url.to_s).to eq("file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz")
+      end
+
+      installer.enqueue_downloads
+    end
+
     it "enqueues source API caskfiles before the main cask download" do
       cask = Cask::Cask.new("source-api-cask") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+        app "Fake.app"
       end
       allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: ["en"])
       download_queue = instance_double(Homebrew::DownloadQueue)
@@ -726,6 +810,7 @@ RSpec.describe Cask::Installer, :cask do
     it "leaves source API caskfiles in the main queue when their URL is known" do
       cask = Cask::Cask.new("source-api-cask") do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
+        app "Fake.app"
       end
       allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: [])
       download_queue = instance_double(Homebrew::DownloadQueue)
@@ -825,6 +910,31 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
+  describe "#load_installed_caskfile!" do
+    it "uses recovered installed metadata before falling back to the current cask" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      recovered_cask = Cask::Cask.new(cask.token) do
+        version "1.0"
+        app "Recovered.app"
+      end
+      installed_caskfile = mktmpdir/"local-caffeine.json"
+      installed_caskfile.write("{}")
+      allow(Cask::Migrator).to receive(:migrate_if_needed)
+      allow(cask).to receive(:installed_caskfile).and_return(installed_caskfile)
+      allow(Cask::CaskLoader).to receive(:load_from_installed_caskfile)
+        .with(installed_caskfile)
+        .and_raise(Cask::CaskInvalidError.new(cask.token, "broken DSL"))
+      expect(Cask::CaskLoader).to receive(:recover_from_installed_caskfile)
+        .with(installed_caskfile, tab: an_instance_of(Cask::Tab), fallback_cask: cask)
+        .and_return(recovered_cask)
+
+      installer = described_class.new(cask)
+      installer.load_installed_caskfile!
+
+      expect(installer.cask).to equal(recovered_cask)
+    end
+  end
+
   describe "rename operations" do
     let(:tmpdir) { mktmpdir }
     let(:staged_path) { Pathname(tmpdir) }
@@ -848,7 +958,7 @@ RSpec.describe Cask::Installer, :cask do
       allow(cask).to receive(:staged_path).and_return(staged_path)
 
       installer = described_class.new(cask)
-      installer.send(:process_rename_operations)
+      installer.process_rename_operations
 
       expect(staged_path / "Renamed App.app").to be_a_directory
       expect(staged_path / "Original App.app").not_to exist
@@ -868,7 +978,7 @@ RSpec.describe Cask::Installer, :cask do
       allow(cask).to receive(:staged_path).and_return(staged_path)
 
       installer = described_class.new(cask)
-      installer.send(:process_rename_operations)
+      installer.process_rename_operations
 
       expect(staged_path / "Final Name.app").to be_a_directory
       expect(staged_path / "Original.app").not_to exist
@@ -888,7 +998,7 @@ RSpec.describe Cask::Installer, :cask do
       allow(cask).to receive(:staged_path).and_return(staged_path)
 
       installer = described_class.new(cask)
-      installer.send(:process_rename_operations)
+      installer.process_rename_operations
 
       expect(staged_path / "Test App.pkg").to be_a_file
       expect((staged_path / "Test App.pkg").read).to eq("test content")
@@ -909,7 +1019,7 @@ RSpec.describe Cask::Installer, :cask do
 
       installer = described_class.new(cask)
 
-      expect { installer.send(:process_rename_operations) }.not_to raise_error
+      expect { installer.process_rename_operations }.not_to raise_error
       expect(staged_path / "Different.app").to be_a_directory
       expect(staged_path / "Target.app").not_to exist
     end

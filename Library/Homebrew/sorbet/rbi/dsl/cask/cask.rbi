@@ -46,6 +46,9 @@ class Cask::Cask
   def colorpicker(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def command_wrapper(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def conflicts_with(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
@@ -115,7 +118,13 @@ class Cask::Cask
   def generate_completions_from_executable(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def generated_script(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def homepage(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def homepage_browsed(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def input_method(*args, &block); end
@@ -128,9 +137,6 @@ class Cask::Cask
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def keyboard_layout(*args, &block); end
-
-  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
-  def language(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def livecheck(*args, &block); end

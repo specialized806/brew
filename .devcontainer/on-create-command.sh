@@ -13,6 +13,9 @@ then
   exit 0
 fi
 
+# disable interactive ask mode so non-interactive prebuilds don't hang
+export HOMEBREW_NO_ASK=1
+
 # install Homebrew's development gems
 brew install-bundler-gems --groups=all
 

@@ -258,6 +258,23 @@ homebrew-list() {
       echo "${cask_output}"
     fi
 
+    # Keep in sync with Homebrew::Cmd::List#warn_about_broken_caskroom_symlinks
+    # in Library/Homebrew/cmd/list.rb.
+    local broken_cask_symlinks=()
+    local cask_path
+    for cask_path in "${HOMEBREW_CASKROOM}"/*
+    do
+      [[ -L "${cask_path}" && ! -e "${cask_path}" ]] || continue
+      broken_cask_symlinks+=("${cask_path##*/}")
+    done
+    if ((${#broken_cask_symlinks[@]} > 0))
+    then
+      source "${HOMEBREW_LIBRARY}/Homebrew/utils.sh"
+      local joined_broken_cask_symlinks
+      printf -v joined_broken_cask_symlinks '%s, ' "${broken_cask_symlinks[@]}"
+      opoo "Broken Caskroom symlinks (\`brew cleanup\` removes them): ${joined_broken_cask_symlinks%, }"
+    fi
+
     return 0
   fi
 }

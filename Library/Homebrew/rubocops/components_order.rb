@@ -167,7 +167,7 @@ module RuboCop
             pour_bottle?
           ]
           on_system_allowed_methods += on_system_methods.map(&:to_s)
-          _, offensive_node = check_order(component_precedence_list, on_system_block.body)
+          @present_components, offensive_node = check_order(component_precedence_list, on_system_block.body)
           component_problem(*offensive_node) if offensive_node
           child_nodes = on_system_block.body.begin_type? ? on_system_block.body.child_nodes : [on_system_block.body]
           child_nodes.each do |child|

@@ -77,7 +77,7 @@ module Homebrew
                   "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
           end
 
-          Search.search_descriptions(string_or_regex, args)
+          Search.search_descriptions(string_or_regex, args, show_missing: true)
         elsif args.pull_request?
           search_pull_requests(query)
         else
@@ -88,6 +88,21 @@ module Homebrew
         puts "Use `brew desc` to list packages with a short description." if args.verbose?
 
         print_regex_help
+      end
+
+      sig { params(query: String, found_matches: T::Boolean).void }
+      def print_missing_formula_help(query, found_matches)
+        return unless $stdout.tty?
+        return if query.match?(Search::QUERY_REGEX)
+
+        reason = MissingFormula.reason(query, silent: true)
+        return if reason.nil?
+
+        if found_matches
+          puts
+          puts "If you meant #{query.inspect} specifically:"
+        end
+        puts reason
       end
 
       private
@@ -153,21 +168,6 @@ module Homebrew
         print_missing_formula_help(query, count.positive?) if all_casks.exclude?(query)
 
         odie "No formulae or casks found for #{query.inspect}." if count.zero?
-      end
-
-      sig { params(query: String, found_matches: T::Boolean).void }
-      def print_missing_formula_help(query, found_matches)
-        return unless $stdout.tty?
-        return if query.match?(Search::QUERY_REGEX)
-
-        reason = MissingFormula.reason(query, silent: true)
-        return if reason.nil?
-
-        if found_matches
-          puts
-          puts "If you meant #{query.inspect} specifically:"
-        end
-        puts reason
       end
     end
   end

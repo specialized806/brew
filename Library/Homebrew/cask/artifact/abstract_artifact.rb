@@ -71,12 +71,13 @@ module Cask
       def sort_order
         @sort_order ||= T.let(
           [
-            PreflightBlock,
             PreflightSteps,
             UninstallPreflightSteps,
+            PreflightBlock,
             # The `uninstall` stanza should be run first, as it may
             # depend on other artifacts still being installed.
             Uninstall,
+            GeneratedScript,
             Installer,
             # `pkg` should be run before `binary`, so
             # targets are created prior to linking.
@@ -85,6 +86,7 @@ module Cask
             Pkg,
             [
               App,
+              AppImage,
               Suite,
               Artifact,
               Colorpicker,
@@ -102,13 +104,17 @@ module Cask
               Vst3Plugin,
               ScreenSaver,
             ],
-            Binary,
+            [
+              Binary,
+              CommandWrapper,
+            ],
             Manpage,
             [
               BashCompletion,
               FishCompletion,
               ZshCompletion,
             ],
+            GeneratedCompletion,
             PostflightSteps,
             UninstallPostflightSteps,
             PostflightBlock,
@@ -197,7 +203,6 @@ module Cask
 
       sig { returns(T.nilable(Sandbox)) }
       def cask_sandbox
-        Sandbox.ensure_sandbox_installed!
         return unless Sandbox.available?
 
         Sandbox.new.tap do |sandbox|

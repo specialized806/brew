@@ -71,6 +71,14 @@ Homebrew/CompactBlank:
     # `blank?` is not necessarily available here:
     - "Homebrew/extend/enumerable.rb"
 
+Homebrew/NoBase64:
+  Description: "Use `String#unpack1` or `Array#pack` instead of the `base64` gem."
+  Include:
+    - "/**/{Formula,Casks}/**/*.rb"
+    - "**/{Formula,Casks}/**/*.rb"
+  Exclude:
+    - "Homebrew/test/**/*.rb"
+
 Homebrew/NoFileutilsRmrf:
   Include:
     - "/**/{Formula,Casks}/**/*.rb"
@@ -93,6 +101,20 @@ Homebrew/NegateInclude:
     - "Homebrew/standalone/init.rb"
     - "Homebrew/rubocops/**/*"
     - "Homebrew/sorbet/tapioca/**/*"
+
+Homebrew/NoInstanceVariableAccessInTests:
+  Description: "Use public `attr_*` accessors instead of `instance_variable_get`/`instance_variable_set` in tests."
+  Include:
+    - "Homebrew/test/**/*.rb"
+  Exclude:
+    - "Homebrew/test/support/fixtures/**/*"
+
+Homebrew/NoSendInTests:
+  Description: "Make the target method public and call it directly instead of using `send` in tests."
+  Include:
+    - "Homebrew/test/**/*.rb"
+  Exclude:
+    - "Homebrew/test/support/fixtures/**/*"
 
 Homebrew/UnreferencedLet:
   Description: "Removes a lazy `let` whose name is never referenced (its block never runs)."
@@ -160,7 +182,6 @@ Layout/LineLength:
       '"~/Library/Caches/',
       '"~/Library/Containers',
       '"~/Application Support',
-      " was verified as official when first introduced to the cask",
     ]
 
 # conflicts with DSL-style path concatenation with `/`
@@ -311,7 +332,6 @@ Sorbet/StrictSigil:
     - "/**/{Formula,Casks}/**/*.rb"
     - "**/{Formula,Casks}/**/*.rb"
     - "Homebrew/bundle/{formula_dumper,checker,commands/exec}.rb" # These aren't typed: true yet.
-    - "Homebrew/formula-analytics/pycall-setup.rbi" # Type stubs for external PyCall/InfluxDB dependencies.
     - "Homebrew/ignorable.rbi" # Workaround for Sorbet to allow aliasing `raise`.
     - "Homebrew/{standalone,startup}/*.rb" # These are loaded before sorbet-runtime
     - "Homebrew/test/**/*.rb"

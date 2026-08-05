@@ -1,5 +1,5 @@
 ---
-last_review_date: 2026-04-04
+last_review_date: 2026-07-18
 redirect_from:
   - /Tips-N'-Tricks
 ---
@@ -35,7 +35,7 @@ brew sh          # or: eval "$(brew --env)"
 gem install ronn # or c-programs
 ```
 
-This imports the `brew` environment into your existing shell; `gem` will pick up the environment variables and be able to build. As a bonus, `brew`'s automatically determined optimization flags are set.
+This imports the `brew` environment into your existing shell; `gem` will pick up the environment variables and be able to build. As a bonus, `brew`'s automatically determined optimisation flags are set.
 
 ## Install only a formula's dependencies (not the formula)
 
@@ -96,7 +96,7 @@ export HOMEBREW_INSTALL_BADGE="☕️ 🐸"
 
 Running `brew bundle dump` will record an installation to a `Brewfile` and `brew bundle install` will install from a `Brewfile`. See `brew bundle --help` for more details.
 
-## Appoint Homebrew Cask to manage a manually-installed app
+## Adopt a manually installed app as a cask
 
 Run `brew install --cask` with the `--adopt` switch:
 
@@ -196,7 +196,7 @@ $ brew alias --edit
 
 - [pcmpl-homebrew](https://github.com/hiddenlotus/pcmpl-homebrew) provides completion for emacs shell-mode and eshell-mode.
 
-## macOS Terminal.app: Enable the "Open man Page" contextual menu item
+## macOS Terminal.app: enable the "Open man Page" contextual menu item
 
 In the macOS Terminal, you can right-click on a command name (like `ls` or `tar`) and pop open its manpage in a new window by selecting "Open man Page".
 
@@ -250,7 +250,7 @@ export HOMEBREW_DOCKER_REGISTRY_BASIC_AUTH_TOKEN=none
 
 ## Load Homebrew from the same dotfiles on different operating systems
 
-Some users may want to use the same shell initialization files on macOS and Linux.
+Some users may want to use the same shell initialisation files on macOS and Linux.
 Use this to detect the likely Homebrew installation directory and load Homebrew when it's found.
 You may need to adapt this to your particular shell or other particulars of your environment.
 

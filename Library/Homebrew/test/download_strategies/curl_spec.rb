@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "download_strategy"
@@ -24,7 +24,7 @@ RSpec.describe CurlDownloadStrategy do
   end
 
   it "parses the opts and sets the corresponding args" do
-    expect(strategy.send(:_curl_args)).to eq(["--user", "download:123456"])
+    expect(strategy._curl_args).to eq(["--user", "download:123456"])
   end
 
   context "with a deferred HOMEBREW_ secret in a header" do
@@ -38,8 +38,8 @@ RSpec.describe CurlDownloadStrategy do
 
     it "does not expand the placeholder outside Downloadable#fetch" do
       expect(header).to include(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)
-      expect(strategy.send(:_curl_args)).to include(header)
-      expect(strategy.send(:_curl_args)).to include("--max-redirs", "0")
+      expect(strategy._curl_args).to include(header)
+      expect(strategy._curl_args).to include("--max-redirs", "0")
     end
   end
 
@@ -195,7 +195,7 @@ RSpec.describe CurlDownloadStrategy do
       end
 
       before do
-        strategy.send(:allow_deferred_environment_expansion!)
+        strategy.allow_deferred_environment_expansion!
       end
 
       after { ENV.delete("HOMEBREW_PRIVATE_TOKEN") }
@@ -397,7 +397,7 @@ RSpec.describe CurlDownloadStrategy do
     end
 
     context "when content-range has invalid format" do
-      ["invalid-format", "bytes 0-1023", "bytes 0-1023/abc", "bytes 0-1023/", ""].each do |invalid_value|
+      test_each(["invalid-format", "bytes 0-1023", "bytes 0-1023/abc", "bytes 0-1023/", ""]) do |invalid_value|
         context "with value #{invalid_value.inspect}" do
           let(:headers) do
             {

@@ -149,6 +149,7 @@ module Cask
       if dry_run
         oh1 "Would migrate cask #{Formatter.identifier(old_token)} to #{Formatter.identifier(new_token)}"
 
+        puts "rm #{new_caskroom_path}" if new_caskroom_path.symlink?
         puts "cp -r #{old_caskroom_path} #{new_caskroom_path}"
         puts "mv #{new_caskroom_path}/#{old_installed_caskfile} #{new_caskroom_path}/#{new_installed_caskfile}"
         puts "rm -r #{old_caskroom_path}"
@@ -160,6 +161,11 @@ module Cask
         end
       else
         oh1 "Migrating cask #{Formatter.identifier(old_token)} to #{Formatter.identifier(new_token)}"
+
+        # An earlier rename migration era could leave the new token as an alias symlink
+        # pointing at the old directory; remove it so the copy below cannot recurse
+        # into its own source.
+        FileUtils.rm new_caskroom_path if new_caskroom_path.symlink?
 
         begin
           FileUtils.cp_r old_caskroom_path, new_caskroom_path

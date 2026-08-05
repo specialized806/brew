@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "compilers"
+require "extend/os/linux/sandbox/landlock"
 require "os/linux/glibc"
 require "os/linux/libstdcxx"
 require "system_command"
@@ -106,6 +107,7 @@ module OS
         sig { params(out: T.any(File, StringIO, IO)).void }
         def linux_config(out = $stdout)
           out.puts "Kernel: #{Utils.safe_popen_read("uname", "-mors").chomp}"
+          out.puts "Landlock ABI: #{::Sandbox::Landlock.kernel_abi_version || "N/A"}"
           out.puts "OS: #{OS::Linux.os_version}"
           if OS.wsl?
             out.puts "WSL: #{OS::Linux.wsl_version}"

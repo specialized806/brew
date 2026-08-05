@@ -39,6 +39,28 @@ module Homebrew
         end
       end
 
+      sig { void }
+      def migrate_caskroom_caskfiles_to_json
+        return unless Cask::Caskroom.path.directory?
+
+        Cask::Caskroom.path.glob("*/.metadata/*/*/Casks/*.{json,rb}").each do |caskfile|
+          Cask::Caskroom.migrate_caskfile_to_json(caskfile)
+        rescue => e
+          opoo "Failed to migrate #{caskfile} to JSON metadata: #{e}"
+        end
+      end
+
+      sig { void }
+      def donation_message
+        return if Settings.read("donationmessage") == "true"
+
+        ohai "Homebrew is run entirely by unpaid volunteers. Please consider donating:"
+        puts "  #{Formatter.url("https://github.com/Homebrew/brew#-donations")}\n\n"
+
+        # Consider the message possibly missed if not a TTY.
+        Settings.write "donationmessage", true if $stdout.tty?
+      end
+
       private
 
       sig { void }
@@ -365,21 +387,6 @@ module Homebrew
       end
 
       sig { void }
-      def migrate_caskroom_caskfiles_to_json
-        return unless Cask::Caskroom.path.directory?
-
-        Cask::Caskroom.path.glob("*/.metadata/*/*/Casks/*.{internal.json,rb}").each do |caskfile|
-          cask = Cask::CaskLoader.load(caskfile, warn: false)
-          next if cask.uninstall_flight_blocks?
-
-          (caskfile.dirname/"#{cask.token}.json").atomic_write(JSON.pretty_generate(cask.to_installed_json_hash))
-          caskfile.unlink
-        rescue => e
-          opoo "Failed to migrate #{caskfile} to JSON metadata: #{e}"
-        end
-      end
-
-      sig { void }
       def analytics_message
         return if Utils::Analytics.messages_displayed?
         return if Utils::Analytics.no_message_output?
@@ -407,17 +414,6 @@ module Homebrew
 
         # Consider the messages possibly missed if not a TTY.
         Utils::Analytics.messages_displayed! if $stdout.tty?
-      end
-
-      sig { void }
-      def donation_message
-        return if Settings.read("donationmessage") == "true"
-
-        ohai "Homebrew is run entirely by unpaid volunteers. Please consider donating:"
-        puts "  #{Formatter.url("https://github.com/Homebrew/brew#-donations")}\n\n"
-
-        # Consider the message possibly missed if not a TTY.
-        Settings.write "donationmessage", true if $stdout.tty?
       end
 
       sig { void }

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "diagnostic"
+require "diagnostic/finding"
 require "fileutils"
 require "hardware"
 require "development_tools"
@@ -30,11 +31,10 @@ module Homebrew
       def check_cc_argv(cc)
         return unless cc
 
-        @checks ||= T.let(Diagnostic::Checks.new, T.nilable(Homebrew::Diagnostic::Checks))
         opoo <<~EOS
           You passed `--cc=#{cc}`.
 
-          #{@checks.support_tier_message(tier: 3)}
+          #{Diagnostic::Finding.support_tier_message(tier: 3)}
         EOS
       end
 
@@ -344,34 +344,30 @@ module Homebrew
         shutdown_download_queue: true,
         show_downloads_heading: true
       )
-        formulae_names_to_install = formula_installers.map { |fi| fi.formula.name }
-        return formula_installers if formulae_names_to_install.empty?
+        return formula_installers if formula_installers.empty?
 
         download_queue = T.let(download_queue || Homebrew::DownloadQueue.new(pour: true), Homebrew::DownloadQueue)
 
-        if show_downloads_heading
-          formula_sentence = formulae_names_to_install.map { |name| Formatter.identifier(name) }.to_sentence
-          oh1 "Fetching downloads for: #{formula_sentence}", truncate: false
-        end
-
         begin
           valid_formula_installers = prelude_fetch_formulae(formula_installers, download_queue:)
-          download_queue.fetch
+          # Wait on just the bottle manifests dependency resolution needs so
+          # in-flight bottles are only reported under the downloads heading.
+          download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests",
+                               allow_failures: true)
 
           [:prelude, :enqueue_fetch].each do |step|
-            valid_formula_installers.select! do |fi|
-              fi.public_send(step)
-              true
-            rescue CannotInstallFormulaError => e
-              ofail e.message
-              false
-            rescue UnsatisfiedRequirements, DownloadError, ChecksumMismatchError => e
-              ofail "#{fi.formula}: #{e}"
-              false
-            end
+            valid_formula_installers = select_formula_installers(valid_formula_installers, step:)
             next if step == :enqueue_fetch && !fetch_after_enqueue
 
-            download_queue.fetch
+            if step == :prelude
+              download_queue.fetch(only: Resource::BottleManifest, heading: "Downloading bottle manifests",
+                                   allow_failures: true)
+            else
+              heading = if show_downloads_heading
+                combined_fetch_downloads_heading(formula_names: valid_formula_installers.map { |fi| fi.formula.name })
+              end
+              download_queue.fetch(heading:)
+            end
           end
         ensure
           download_queue.shutdown if shutdown_download_queue
@@ -384,20 +380,39 @@ module Homebrew
         params(
           formula_installers: T::Array[FormulaInstaller],
           download_queue:     Homebrew::DownloadQueue,
+          metadata_only:      T::Boolean,
         ).returns(T::Array[FormulaInstaller])
       }
-      def prelude_fetch_formulae(formula_installers, download_queue:)
+      def prelude_fetch_formulae(formula_installers, download_queue:, metadata_only: false)
         formula_installers.each do |fi|
           fi.download_queue = download_queue
         end
 
+        # Only pass the keyword when limiting the fetch so mocks and
+        # overrides expecting the historical no-argument call keep working.
+        action = ->(fi) { metadata_only ? fi.prelude_fetch(metadata_only: true) : fi.prelude_fetch }
+        select_formula_installers(formula_installers, action:)
+      end
+
+      sig {
+        params(
+          formula_installers: T::Array[FormulaInstaller],
+          step:               T.nilable(Symbol),
+          action:             T.nilable(T.proc.params(formula_installer: FormulaInstaller).void),
+        ).returns(T::Array[FormulaInstaller])
+      }
+      def select_formula_installers(formula_installers, step: nil, action: nil)
         formula_installers.select do |fi|
-          fi.prelude_fetch
+          if action
+            action.call(fi)
+          elsif step
+            fi.public_send(step)
+          end
           true
         rescue CannotInstallFormulaError => e
           ofail e.message
           false
-        rescue UnsatisfiedRequirements, DownloadError, ChecksumMismatchError => e
+        rescue => e
           ofail "#{fi.formula}: #{e}"
           false
         end
@@ -414,27 +429,39 @@ module Homebrew
         )
       end
 
-      sig { params(formula_names: T::Array[String], cask_names: T::Array[String]).void }
-      def show_combined_fetch_downloads_heading(formula_names: [], cask_names: [])
+      sig { params(formula_names: T::Array[String], cask_names: T::Array[String]).returns(T.nilable(String)) }
+      def combined_fetch_downloads_heading(formula_names: [], cask_names: [])
         combined_fetch_targets = formula_names.map { |name| Formatter.identifier(name) } +
                                  cask_names.map { |name| Formatter.identifier(name) }
         return if combined_fetch_targets.empty?
 
-        oh1 "Fetching downloads for: #{combined_fetch_targets.to_sentence}", truncate: false
+        "Fetching downloads for: #{combined_fetch_targets.to_sentence}"
       end
 
       sig { params(cask_installers: T::Array[T.untyped], download_queue: Homebrew::DownloadQueue).void }
       def enqueue_cask_installers(cask_installers, download_queue:)
-        if cask_installers.any?(&:source_download_requires_pre_fetch?)
-          source_downloads = cask_installers.filter_map(&:prelude_fetch_download)
-          if source_downloads.any?
-            oh1 "Downloading Cask files"
-            source_downloads.each { |source_download| download_queue.enqueue(source_download) }
-            download_queue.fetch
+        source_downloads = []
+        valid_cask_installers = cask_installers.select do |cask_installer|
+          if cask_installer.source_download_requires_pre_fetch? &&
+             (source_download = cask_installer.prelude_fetch_download)
+            source_downloads << source_download
           end
+          true
+        rescue => e
+          ofail "#{cask_installer.cask}: #{e}"
+          false
         end
 
-        cask_installers.each(&:enqueue_downloads)
+        if source_downloads.any?
+          source_downloads.each { |source_download| download_queue.enqueue(source_download) }
+          download_queue.fetch(only: Cask::Download, heading: "Downloading Cask files")
+        end
+
+        valid_cask_installers.each do |cask_installer|
+          cask_installer.enqueue_downloads
+        rescue => e
+          ofail "#{cask_installer.cask}: #{e}"
+        end
       end
 
       sig {
@@ -481,6 +508,8 @@ module Homebrew
           puts formulae_names_to_install.join(" ")
 
           formula_installers.each do |fi|
+            next if fi.ignore_deps?
+
             print_dry_run_dependencies(fi.formula, fi.compute_dependencies, &:name)
           end
           return
@@ -672,7 +701,9 @@ module Homebrew
         ).returns(T::Boolean)
       }
       def formulae_ask_prompt_needed?(formulae_installer, dependants)
-        formulae_installer.any? { |formula_installer| formula_installer.compute_dependencies.present? } ||
+        formulae_installer.any? do |formula_installer|
+          !formula_installer.ignore_deps? && formula_installer.compute_dependencies.present?
+        end ||
           dependants.upgradeable.present?
       end
 
@@ -716,6 +747,16 @@ module Homebrew
         ask_input(action:)
       end
 
+      sig { params(all_fatal: T::Boolean).void }
+      def perform_preinstall_checks(all_fatal: false)
+        check_prefix
+        check_cpu
+        attempt_directory_creation
+        Diagnostic.checks(:supported_configuration_checks, fatal: all_fatal)
+        Diagnostic.checks(:preinstall_checks, fatal: false)
+        Diagnostic.checks(:fatal_preinstall_checks)
+      end
+
       private
 
       sig { params(action: String).returns(String) }
@@ -735,16 +776,6 @@ module Homebrew
         [formula, *formula.old_installed_formulae].map(&:linked_keg)
                                                   .select(&:directory?)
                                                   .map { |k| Keg.new(k.resolved_path) }
-      end
-
-      sig { params(all_fatal: T::Boolean).void }
-      def perform_preinstall_checks(all_fatal: false)
-        check_prefix
-        check_cpu
-        attempt_directory_creation
-        Diagnostic.checks(:supported_configuration_checks, fatal: all_fatal)
-        Diagnostic.checks(:preinstall_checks, fatal: false)
-        Diagnostic.checks(:fatal_preinstall_checks)
       end
 
       sig { void }

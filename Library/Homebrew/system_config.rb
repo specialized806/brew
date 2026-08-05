@@ -153,6 +153,7 @@ module SystemConfig
     sig { params(out: T.any(File, StringIO, IO)).void }
     def core_tap_config(out = $stdout)
       dump_tap_config(CoreTap.instance, out)
+      dump_tap_config(CoreCaskTap.instance, out)
     end
 
     sig { params(out: T.any(File, StringIO, IO)).void }
@@ -172,19 +173,17 @@ module SystemConfig
       out.puts "HOMEBREW_REPOSITORY: #{repository}" if repository.to_s != Homebrew::DEFAULT_REPOSITORY.to_s
       out.puts "HOMEBREW_CELLAR: #{cellar}" if cellar.to_s != Homebrew::DEFAULT_CELLAR.to_s
 
-      Homebrew::EnvConfig::ENVS.each do |env, hash|
-        next if Homebrew::EnvConfig.hidden?(hash) && !ENV.key?(env.to_s)
-
-        method_name = Homebrew::EnvConfig.env_method_name(env, hash)
+      Homebrew::EnvConfig.non_default_variables.each do |env|
+        env_symbol = env.to_sym
+        hash = Homebrew::EnvConfig::ENVS.fetch(env_symbol)
+        value = Homebrew::EnvConfig.public_send(Homebrew::EnvConfig.env_method_name(env_symbol, hash))
 
         if hash[:boolean]
-          out.puts "#{env}: set" if Homebrew::EnvConfig.public_send(method_name)
+          out.puts "#{env}: #{value ? "set" : "false"}"
           next
         end
 
-        value = Homebrew::EnvConfig.public_send(method_name)
         next unless value
-        next if (default = hash[:default].presence) && value.to_s == default.to_s
 
         if ENV.sensitive?(env)
           out.puts "#{env}: set"

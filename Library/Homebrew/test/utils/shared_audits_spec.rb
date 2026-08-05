@@ -36,6 +36,26 @@ RSpec.describe SharedAudits do
     allow(Utils::Curl).to receive(:curl_output).and_return curl_output
   end
 
+  describe "::homepage_browsed_recently?" do
+    before { allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26)) }
+
+    it "returns true for a date less than a year ago" do
+      expect(described_class.homepage_browsed_recently?(Date.new(2025, 7, 27))).to be(true)
+    end
+
+    it "returns false for a date a year ago" do
+      expect(described_class.homepage_browsed_recently?(Date.new(2025, 7, 26))).to be(false)
+    end
+
+    it "returns false for a future date" do
+      expect(described_class.homepage_browsed_recently?(Date.new(2026, 7, 27))).to be(false)
+    end
+
+    it "returns false without a date" do
+      expect(described_class.homepage_browsed_recently?(nil)).to be(false)
+    end
+  end
+
   describe "::eol_data" do
     it "returns a parsed JSON object if the product is found" do
       mock_curl_output stdout: eol_json_text

@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 require "abstract_command"
-require "erb"
 require "fileutils"
 require "system_command"
 require "tap"
@@ -20,12 +19,12 @@ module Homebrew
           Generate the template files for a new tap.
         EOS
         switch "--no-git",
-               description: "Don't initialize a Git repository for the tap."
+               description: "Don't initialise a Git repository for the tap."
         flag   "--pull-label=",
                description: "Ignored; publishing pull requests is now manually dispatched.",
                odeprecated: true
         flag   "--branch=",
-               description: "Initialize Git repository and setup GitHub Actions workflows with the " \
+               description: "Initialise a Git repository and set up GitHub Actions workflows with the " \
                             "specified branch name (default: `main`)."
         switch "--github-packages",
                description: "Upload bottles to GitHub Packages."
@@ -72,147 +71,40 @@ module Homebrew
         MARKDOWN
         write_path(tap, "README.md", readme)
 
-        tests_yml = <<~ERB
-          name: brew test-bot
+        dependabot_yml = <<~YAML
+          version: 2
+          updates:
+            - package-ecosystem: github-actions
+              directory: "/"
+              schedule:
+                interval: weekly
+              groups:
+                github-actions:
+                  patterns:
+                    - "*"
+        YAML
 
-          on:
-            push:
-              branches:
-                - <%= branch %>
-            pull_request:
-
-          jobs:
-            test-bot:
-              strategy:
-                matrix:
-                  os: [ macos-15-intel, macos-26 ]
-                  include:
-                    - os: ubuntu-latest
-                      container: ghcr.io/homebrew/brew:main
-              runs-on: ${{ matrix.os }}
-              container: ${{ matrix.container }}
-              options: ${{ matrix.container != '' && '--privileged' }}
-              permissions:
-                actions: read
-                checks: read
-                contents: read
-          <% if args.github_packages? -%>
-                packages: read
-          <% end -%>
-                pull-requests: read
-              steps:
-                - name: Set up Homebrew
-                  id: set-up-homebrew
-                  uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-                  with:
-                    token: ${{ secrets.GITHUB_TOKEN }}
-
-                - name: Cache Homebrew Bundler RubyGems
-                  uses: actions/cache@v5
-                  with:
-                    path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-                    key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-                    restore-keys: ${{ matrix.os }}-rubygems-
-
-                - run: brew test-bot --only-cleanup-before
-
-                - run: brew test-bot --only-setup
-
-                - run: brew test-bot --only-tap-syntax
-          <% if args.github_packages? -%>
-                - name: Base64-encode GITHUB_TOKEN for HOMEBREW_DOCKER_REGISTRY_TOKEN
-                  id: base64-encode
-                  if: github.event_name == 'pull_request'
-                  env:
-                    TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  run: |
-                    base64_token=$(echo -n "${TOKEN}" | base64 | tr -d "\\n")
-                    echo "::add-mask::${base64_token}"
-                    echo "token=${base64_token}" >> "${GITHUB_OUTPUT}"
-          <% end -%>
-                - run: brew test-bot --only-formulae#{" --root-url=#{root_url}" if root_url}
-                  if: github.event_name == 'pull_request'
-          <% if args.github_packages? -%>
-                  env:
-                    HOMEBREW_DOCKER_REGISTRY_TOKEN: ${{ steps.base64-encode.outputs.token }}
-          <% end -%>
-
-                - name: Upload bottles as artifact
-                  if: always() && github.event_name == 'pull_request'
-                  uses: actions/upload-artifact@v7
-                  with:
-                    name: bottles_${{ matrix.os }}
-                    path: '*.bottle.*'
-        ERB
-
-        publish_yml = <<~ERB
-          name: brew pr-pull
-
-          on:
-            workflow_dispatch:
-              inputs:
-                pull_request:
-                  description: Pull request number
-                  required: true
-                head_sha:
-                  description: Expected pull request head commit SHA (optional)
-
-          jobs:
-            pr-pull:
-              runs-on: ubuntu-latest
-              permissions:
-                actions: read
-                checks: read
-                contents: write
-                issues: read
-          <% if args.github_packages? -%>
-                packages: write
-          <% end -%>
-                pull-requests: write
-              steps:
-                - name: Set up Homebrew
-                  uses: Homebrew/actions/setup-homebrew@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-                  with:
-                    token: ${{ secrets.GITHUB_TOKEN }}
-
-                - name: Set up git
-                  uses: Homebrew/actions/git-user-config@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-
-                - name: Pull bottles
-                  env:
-                    HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          <% if args.github_packages? -%>
-                    HOMEBREW_GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                    HOMEBREW_GITHUB_PACKAGES_USER: ${{ github.repository_owner }}
-          <% end -%>
-                    HEAD_SHA: ${{ inputs.head_sha }}
-                    PULL_REQUEST: ${{ inputs.pull_request }}
-                  run: |
-                    if [[ -n "$HEAD_SHA" ]]
-                    then
-                      brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA" "$PULL_REQUEST"
-                    else
-                      brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"
-                    fi
-
-                - name: Push commits
-                  uses: Homebrew/actions/git-try-push@1f8e202ffddf94def7f42f6fa3a482e821489f9c # 2026.07.10.1
-                  with:
-                    branch: <%= branch %>
-        ERB
-
+        tests_yml = render_workflow_template(
+          "tap-new-tests.yml", branch:, github_packages: args.github_packages?, root_url:
+        )
+        publish_yml = render_workflow_template(
+          "tap-new-publish.yml", branch:, github_packages: args.github_packages?
+        )
+        autobump_yml = render_workflow_template(
+          "tap-new-autobump.yml", branch:, github_packages: args.github_packages?
+        )
         (tap.path/".github/workflows").mkpath
-        write_path(tap, ".github/workflows/tests.yml", ERB.new(tests_yml, trim_mode: "-").result(binding))
-        write_path(tap, ".github/workflows/publish.yml", ERB.new(publish_yml, trim_mode: "-").result(binding))
+        write_path(tap, ".github/dependabot.yml", dependabot_yml)
+        write_path(tap, ".github/workflows/tests.yml", tests_yml)
+        write_path(tap, ".github/workflows/publish.yml", publish_yml)
+        write_path(tap, ".github/workflows/autobump.yml", autobump_yml)
 
         unless args.no_git?
           cd tap.path do |path|
             Utils::Git.set_name_email!
             Utils::Git.setup_gpg!
 
-            # Would be nice to use --initial-branch here but it's not available in
-            # older versions of Git that we support.
-            safe_system "git", "-c", "init.defaultBranch=#{branch}", "init"
+            safe_system "git", "init", "--initial-branch=#{branch}"
 
             args = []
             git_owner = File.stat(File.join(path, ".git")).uid
@@ -247,6 +139,49 @@ module Homebrew
       end
 
       private
+
+      sig {
+        params(
+          filename:        String,
+          branch:          String,
+          github_packages: T::Boolean,
+          root_url:        T.nilable(String),
+        ).returns(String)
+      }
+      def render_workflow_template(filename, branch:, github_packages:, root_url: nil)
+        workflow = (HOMEBREW_LIBRARY_PATH.parent.parent/".github/workflows"/filename).read
+        workflow.sub!("name: tap-new tests template", "name: brew test-bot")
+        workflow.sub!("name: tap-new publish template", "name: brew pr-pull")
+        workflow.sub!("name: tap-new autobump template", "name: brew bump")
+        if filename == "tap-new-tests.yml"
+          workflow.sub!("on:\n  workflow_dispatch:\n", <<~YAML)
+            on:
+              push:
+                branches:
+                  - #{branch}
+              pull_request:
+          YAML
+        end
+        # Pick a random 5 minute block in which to execute the autobump action to avoid peak GitHub loads
+        hour = Random.rand(24)
+        minute = Random.rand(12) * 5
+        workflow.gsub!("this will be changed later and randomised by brew tap-new") do
+          "Every day at #{hour}:#{minute} UTC"
+        end
+        workflow.gsub!("\"1 1 1 1 1\"") { "#{minute} #{hour} * * *" }
+
+        workflow.sub!("    if: github.repository == ''\n", "")
+        workflow.gsub!("TAP_NEW_BRANCH") { branch }
+        workflow.gsub!("TAP_NEW_ROOT_URL_ARGUMENT") { root_url ? " --root-url=#{root_url}" : "" }
+        unless github_packages
+          workflow.gsub!(
+            /^[ \t]*# tap-new-github-packages-start\n.*?^[ \t]*# tap-new-github-packages-end\n/m,
+            "",
+          )
+        end
+        workflow.gsub!(/^[ \t]*# tap-new-github-packages-(?:start|end)\n/, "")
+        workflow
+      end
 
       sig { params(tap: Tap, filename: T.any(String, Pathname), content: String).void }
       def write_path(tap, filename, content)

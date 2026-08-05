@@ -87,12 +87,14 @@ module Homebrew
 
         runner = random_runner[:name]
         syntax_job = {
-          name:   "syntax",
+          name:   "tap_syntax",
           tap:    tap.name,
           runner:,
+          stable: false,
         }
+        stable_syntax_job = syntax_job.merge(name: "tap_syntax (stable)", stable: true, skip_audit: true)
 
-        matrix = [syntax_job]
+        matrix = [syntax_job, stable_syntax_job]
 
         if !syntax_only && !labels&.include?("ci-syntax-only")
           cask_jobs = if casks&.any?
@@ -114,7 +116,12 @@ module Homebrew
           matrix += cask_jobs
         end
 
-        syntax_job[:name] += " (#{syntax_job[:runner]})"
+        jobs = matrix.count
+        odie "Maximum job matrix size exceeded: #{jobs}/#{MAX_JOBS}" if jobs > MAX_JOBS
+
+        [syntax_job, stable_syntax_job].each do |job|
+          job[:name] += " (#{job[:runner]})"
+        end
 
         puts JSON.pretty_generate(matrix)
         github_output = ENV.fetch("GITHUB_OUTPUT", nil)
@@ -185,6 +192,28 @@ module Homebrew
         end
       end
 
+      sig { params(cask: Cask::Cask).returns([T::Array[T::Hash[Symbol, T.any(Symbol, String)]], T::Boolean]) }
+      def runners(cask:)
+        filtered_runners = filter_runners(cask)
+
+        filtered_macos_found = filtered_runners.keys.any? do |runner|
+          cask.to_hash_with_variations["variations"].key?(runner.fetch(:symbol).to_sym)
+        end
+
+        if filtered_macos_found
+          # If the cask varies on a MacOS version, test it on every possible macOS version.
+          [filtered_runners.keys, true]
+        else
+          macos_runners, linux_runners = filtered_runners.partition do |runner, _|
+            runner.fetch(:symbol) != :linux
+          end
+          selected_runners = macos_runners.group_by { |runner, _| runner.fetch(:arch) }.map do |_, runners|
+            random_runner(runners.to_h)
+          end + linux_runners.map(&:first)
+          [selected_runners, false]
+        end
+      end
+
       private
 
       sig { params(cask: Cask::Cask, os: Symbol).returns(T::Array[Symbol]) }
@@ -214,28 +243,6 @@ module Homebrew
         raise "unexpected nil max_runner" unless max_runner
 
         max_runner.first
-      end
-
-      sig { params(cask: Cask::Cask).returns([T::Array[T::Hash[Symbol, T.any(Symbol, String)]], T::Boolean]) }
-      def runners(cask:)
-        filtered_runners = filter_runners(cask)
-
-        filtered_macos_found = filtered_runners.keys.any? do |runner|
-          cask.to_hash_with_variations["variations"].key?(runner.fetch(:symbol).to_sym)
-        end
-
-        if filtered_macos_found
-          # If the cask varies on a MacOS version, test it on every possible macOS version.
-          [filtered_runners.keys, true]
-        else
-          macos_runners, linux_runners = filtered_runners.partition do |runner, _|
-            runner.fetch(:symbol) != :linux
-          end
-          selected_runners = macos_runners.group_by { |runner, _| runner.fetch(:arch) }.map do |_, runners|
-            random_runner(runners.to_h)
-          end + linux_runners.map(&:first)
-          [selected_runners, false]
-        end
       end
 
       sig {

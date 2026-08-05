@@ -3,7 +3,7 @@
 
 RSpec.describe Cask::Download, :cask do
   describe "#download_name" do
-    subject(:download_name) { described_class.new(cask).send(:download_name) }
+    subject(:download_name) { described_class.new(cask).download_name }
 
     let(:token) { "example-cask" }
     let(:full_token) { token }
@@ -93,7 +93,7 @@ RSpec.describe Cask::Download, :cask do
       cached_download.write("already downloaded")
       checksum = Checksum.new(cached_download.sha256)
       cask = instance_double(Cask::Cask, sha256: checksum)
-      download = described_class.new(cask, quarantine: true)
+      download = described_class.new(cask)
 
       allow(download).to receive(:cached_download).and_return(cached_download)
       allow(download).to receive(:verify_download_integrity) do |filename|

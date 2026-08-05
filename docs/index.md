@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-06-08"
+last_review_date: "2026-07-18"
 ---
 
 Start with [installation](Installation.md),
@@ -34,35 +34,30 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 
 - [Querying `brew`](Querying-Brew.md)
 - [C++ Standard Libraries](C%2B%2B-Standard-Libraries.md)
-- [MD5 and SHA-1 Deprecation](Checksum_Deprecation.md)
-- [Custom GCC and Cross Compilers](Custom-GCC-and-cross-compilers.md)
+- [Custom GCC and Cross-Compilers](Custom-GCC-and-cross-compilers.md)
 - [External Commands](External-Commands.md)
-- [Ruby Gems, Python Eggs and Perl Modules](Gems,-Eggs-and-Perl-Modules.md)
-- [Java](Homebrew-and-Java.md)
-- [Python](Homebrew-and-Python.md)
-- [How to Build Software Outside Homebrew with Homebrew `keg_only` Dependencies](How-to-Build-Software-Outside-Homebrew-with-Homebrew-keg-only-Dependencies.md)
-- [Xcode](Xcode.md)
+- [Language Runtimes and Packages](Language-Runtimes-and-Packages.md)
+- [Building Software with Homebrew Keg-Only Dependencies](How-to-Build-Software-Outside-Homebrew-with-Homebrew-keg-only-Dependencies.md)
 
 - [Creating a Homebrew Issue](Creating-a-Homebrew-Issue.md)
 - [Updating Software in Homebrew](Updating-Software-in-Homebrew.md)
 - [Adding Software to Homebrew](Adding-Software-to-Homebrew.md)
 
-- [Kickstarter Supporters](Kickstarter-Supporters.md)
-
 ## Contributors
 
-- [How to Open a Pull Request (and get it merged)](How-To-Open-a-Homebrew-Pull-Request.md)
+- [How to Open a Homebrew Pull Request (and get it merged)](How-To-Open-a-Homebrew-Pull-Request.md)
 - [Responsible AI Usage](Responsible-AI-Usage.md)
 - [Working with Homebrew as an Upstream Project](Working-with-Homebrew-as-an-Upstream-Project.md)
 - [Formula Cookbook](Formula-Cookbook.md)
 - [Cask Cookbook](Cask-Cookbook.md)
 - [Acceptable Formulae](Acceptable-Formulae.md)
 - [Acceptable Casks](Acceptable-Casks.md)
-- [License Guidelines](License-Guidelines.md)
+- [Package Acceptance Policy](Package-Acceptance-Policy.md)
+- [Licence Guidelines](Licence-Guidelines.md)
+- [Checksum Requirements](Checksum-Requirements.md)
 - [Formulae Versions](Versions.md)
 - [Deprecating, Disabling and Removing](Deprecating-Disabling-and-Removing.md)
-- [Node for Formula Authors](Node-for-Formula-Authors.md)
-- [Python for Formula Authors](Python-for-Formula-Authors.md)
+- [Language-Specific Formulae](Language-Specific-Formulae.md)
 - [`brew livecheck`](Brew-Livecheck.md)
 - [Autobump](Autobump.md)
 - [Migrating a Formula to a Tap](Migrating-A-Formula-To-A-Tap.md)
@@ -87,10 +82,11 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Homebrew/homebrew-cask Maintainer Guide](Homebrew-homebrew-cask-Maintainer-Guide.md)
 
 - [BrewTestBot for Maintainers](BrewTestBot-For-Maintainers.md)
-- [Common Issues for Maintainers](Common-Issues-for-Core-Contributors.md)
+- [Common Issues for Maintainers](Common-Issues-for-Maintainers.md)
 - [Releases](Releases.md)
 
 - [Linux CI](Linux-CI.md)
+- [Xcode](Xcode.md)
 
 ## Governance
 
@@ -100,3 +96,7 @@ Documentation is grouped below by audience: users, contributors, maintainers and
 - [Homebrew's Expense and Reimbursement Policy](Expense-and-Reimbursement-Policy.md)
 - [How To Organise the Homebrew AGM](How-To-Organise-the-AGM.md)
 - [Homebrew's Maintainer Stipends and Grants](Maintainer-Stipends-and-Grants.md)
+
+## Project history
+
+- [Kickstarter Supporters](Kickstarter-Supporters.md)

@@ -56,6 +56,42 @@ RSpec.describe Formulary do
   end
 
   describe "::load_formula" do
+    it "continues evaluation after ignorable errors with ignore_errors" do
+      formula_class = described_class.load_formula(
+        "ignorable-error",
+        mktmpdir/"ignorable-error.rb",
+        <<~RUBY,
+          class IgnorableError < Formula
+            raise ArgumentError, "should be ignored"
+            url "https://brew.sh/ignorable-error-1.0.tar.gz"
+          end
+        RUBY
+        "IgnorableErrorNamespace",
+        flags:         [],
+        ignore_errors: true,
+      )
+
+      expect(formula_class.stable.url).to eq("https://brew.sh/ignorable-error-1.0.tar.gz")
+    end
+
+    it "raises FormulaUnreadableError for errors it cannot resume despite ignore_errors" do
+      expect do
+        described_class.load_formula(
+          "unreadable-error",
+          mktmpdir/"unreadable-error.rb",
+          <<~RUBY,
+            class UnreadableError < Formula
+              nonexistent_dsl_method "foo"
+              url "https://brew.sh/unreadable-error-1.0.tar.gz"
+            end
+          RUBY
+          "UnreadableErrorNamespace",
+          flags:         [],
+          ignore_errors: true,
+        )
+      end.to raise_error(FormulaUnreadableError)
+    end
+
     it "masks sensitive environment variables while evaluating formulae" do
       with_env(HOMEBREW_SECRET_TOKEN: "password") do
         formula_class = described_class.load_formula(
@@ -356,12 +392,9 @@ RSpec.describe Formulary do
           expect(described_class.factory(formula_name)).to be_a(Formula)
         end
 
-        it "returns a Formula from an Alias path" do
-          expect(described_class.factory(alias_name)).to be_a(Formula)
-        end
-
-        it "returns a Formula from a fully qualified Alias path" do
-          expect(described_class.factory("#{tap.name}/#{alias_name}")).to be_a(Formula)
+        it "returns a Formula with the correct alias path from a bare or fully qualified Alias name" do
+          expect(described_class.factory(alias_name).alias_path).to eq(alias_path)
+          expect(described_class.factory("#{tap.name}/#{alias_name}").alias_path).to eq(alias_path)
         end
 
         it "raises an error when the Formula cannot be found" do
@@ -552,6 +585,10 @@ RSpec.describe Formulary do
         allow(Homebrew::API).to receive_messages(formula_names: [formula_name], formula_aliases: {},
                                                  formula_renames: {})
         allow(Homebrew::API::Internal).to receive(:formula_hashes) { Homebrew::API::Formula.all_formulae }
+        allow(Homebrew::API::Internal).to receive(:formula_hash) { |name| Homebrew::API::Formula.all_formulae[name] }
+        allow(Homebrew::API::Internal).to receive(:formula_name?) do |name|
+          Homebrew::API::Formula.all_formulae.key?(name)
+        end
         allow(Homebrew::API::Internal).to receive(:formula_struct) do |name|
           Homebrew::API::Formula::FormulaStructGenerator.generate_formula_struct_hash(
             Homebrew::API::Formula.all_formulae.fetch(name),
@@ -615,20 +652,40 @@ RSpec.describe Formulary do
         expect(formula.loaded_from_internal_api?).to be true
       end
 
+      it "runs post-install steps loaded from the internal API without source Ruby" do
+        step = { "type" => "warn", "message" => "loaded from internal API" }
+        allow(Homebrew::API::Formula).to receive(:all_formulae)
+          .and_return formula_json_contents("post_install_steps" => [step])
+        expect(Homebrew::API::Formula).not_to receive(:source_download_formula)
+
+        formula = described_class.factory(formula_name)
+        runner = Homebrew::InstallSteps::Runner.new(context: formula)
+        expect(runner).to receive(:opoo).with("loaded from internal API")
+
+        runner.run(formula.post_install_steps)
+      end
+
       it "loads patches from API JSON" do
         allow(Homebrew::API::Formula).to receive(:all_formulae).and_return formula_json_contents(
           "patches" => [
             {
-              "strip"  => "p1",
-              "url"    => "https://example.com/test.patch",
-              "sha256" => TEST_SHA256,
+              "strip"    => "p1",
+              "url"      => "https://example.com/test.patch",
+              "sha256"   => TEST_SHA256,
+              "resolves" => [
+                { "type" => "security", "id" => "CVE-2024-1234" },
+                { "type" => "defect", "id" => "https://github.com/foo/bar/issues/1" },
+              ],
             },
           ],
         )
 
         formula = described_class.factory(formula_name)
 
-        expect(formula.patchlist.first).to be_a(ExternalPatch)
+        expect(formula.patchlist.first).to be_a(ExternalPatch).and have_attributes(resolves: [
+          "CVE-2024-1234",
+          "https://github.com/foo/bar/issues/1",
+        ])
       end
 
       it "returns a deprecated Formula when given a name" do
@@ -865,6 +922,15 @@ RSpec.describe Formulary do
       name = "foo-bar"
       expect(described_class.core_path(name))
         .to eq(Pathname.new("#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/Formula/#{name}.rb"))
+    end
+
+    it "returns the sharded path directly for API-known formulae" do
+      ENV.delete("HOMEBREW_NO_INSTALL_FROM_API")
+      name = "foo-bar"
+      allow(Homebrew::API::Internal).to receive(:formula_hashes_cached?).and_return(true)
+      allow(Homebrew::API).to receive(:formula_name?).with(name).and_return(true)
+      expect(described_class.core_path(name))
+        .to eq(Pathname.new("#{HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/Formula/f/#{name}.rb"))
     end
   end
 

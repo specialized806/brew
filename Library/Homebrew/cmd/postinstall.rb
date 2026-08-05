@@ -23,11 +23,10 @@ module Homebrew
           post_install_steps_defined = f.post_install_steps_defined?
           post_install_defined = f.post_install_defined?
 
-          f.run_post_install_steps if post_install_steps_defined
-          if post_install_defined
+          if post_install_steps_defined || post_install_defined
             fi = FormulaInstaller.new(f, **{ debug: args.debug?, quiet: args.quiet?, verbose: args.verbose? }.compact)
             fi.post_install
-          elsif !post_install_steps_defined
+          else
             opoo "#{f}: no `post_install` method was defined in the formula!"
           end
         end

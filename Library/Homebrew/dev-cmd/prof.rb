@@ -15,13 +15,17 @@ module Homebrew
                description: "Use `stackprof` instead of `ruby-prof` (the default)."
         switch "--vernier",
                description: "Use `vernier` instead of `ruby-prof` (the default)."
+        switch "--timings",
+               description: "Record machine-readable timings for Homebrew command phases."
+        conflicts "--timings", "--stackprof"
+        conflicts "--timings", "--vernier"
 
         named_args :command, min: 1
       end
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["prof"], setup_path: false)
+        Homebrew.install_bundler_gems!(groups: ["prof"], setup_path: false) unless args.timings?
 
         brew_rb = (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path
         FileUtils.mkdir_p "prof"
@@ -37,6 +41,14 @@ module Homebrew
           EOS
         else
           raise UsageError, "`#{cmd}` is an unknown command!"
+        end
+
+        if args.timings?
+          output_filename = "prof/timings.json"
+          safe_system({ "HOMEBREW_PHASE_TIMINGS" => output_filename },
+                      *HOMEBREW_RUBY_EXEC_ARGS, brew_rb, *args.named)
+          ohai "Phase timings written to #{output_filename}"
+          return
         end
 
         Homebrew.setup_gem_environment!

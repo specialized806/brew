@@ -22,6 +22,7 @@ module Hardware
     ].freeze, T::Array[Symbol])
 
     INTEL_64BIT_OLDEST_CPU = :core2
+    ROSETTA_RUNTIME_PATH = "/Library/Apple/usr/libexec/oah/libRosettaRuntime"
 
     class << self
       sig { returns(T::Hash[Symbol, String]) }
@@ -205,6 +206,11 @@ module Hardware
 
       sig { returns(T::Boolean) }
       def in_rosetta2?
+        false
+      end
+
+      sig { returns(T::Boolean) }
+      def rosetta_installed?
         false
       end
     end

@@ -80,6 +80,9 @@ class Sandbox
     false
   end
 
+  sig { returns(T::Boolean) }
+  def self.full_write_isolation? = true
+
   # Whether Homebrew is itself running inside another sandbox, which would make
   # its own nested sandbox hang (macOS) or fail to start (Linux). Overridden
   # per-OS.
@@ -117,9 +120,6 @@ class Sandbox
     true
   end
 
-  sig { params(install_from_tests: T::Boolean).void }
-  def self.ensure_sandbox_installed!(install_from_tests: false); end
-
   sig { void }
   def self.ensure_sandbox_available!
     return if available?
@@ -142,24 +142,8 @@ class Sandbox
   sig { void }
   def self.reset_state!; end
 
-  sig { returns(T::Array[String]) }
-  def self.configuration_commands = []
-
-  sig { returns(T::Array[String]) }
-  def self.configuration_command_messages = []
-
-  sig { returns(T.nilable(String)) }
-  def self.sandbox_install_command = nil
-
-  sig { void }
-  def self.configure!
-    ensure_sandbox_installed!
-    reset_state!
-  end
-
   sig { params(command: T.any(String, Pathname), writable_path: T.any(String, Pathname), deny_network: T::Boolean).void }
   def self.run_command(*command, writable_path:, deny_network: false)
-    ensure_sandbox_installed!
     ensure_sandbox_available!
 
     writable_path = Pathname(writable_path).expand_path
@@ -265,7 +249,7 @@ class Sandbox
     require "trust"
 
     home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
-    if [
+    readable_paths = [
       HOMEBREW_PREFIX,
       HOMEBREW_REPOSITORY,
       HOMEBREW_CACHE,
@@ -276,10 +260,11 @@ class Sandbox
       ENV.fetch("RUNNER_TEMP", nil),
       Homebrew::Trust.trust_file,
       *home_write_paths.select { |path| File.exist?(path) },
-    ].compact.any? do |path|
+    ].compact.flat_map do |path|
       path = Pathname(path)
-      [path.expand_path, (path.realpath if path.exist?)].compact.any? { |pathname| pathname.ascend.include?(home) }
+      [path.expand_path, (path.realpath if path.exist?)].compact
     end
+    if readable_paths.any? { |path| path.ascend.include?(home) }
       # When Homebrew or CI needs some `$HOME` paths to stay readable, deny only
       # well-known credential and personal-data paths instead of enumerating all
       # of `$HOME`.
@@ -360,7 +345,25 @@ class Sandbox
         "OneDrive",
       ].each do |path|
         path = home/path
-        deny_read_path path if path.exist?
+        next unless path.exist?
+
+        path = path.realpath
+        next unless path.ascend.include?(home)
+
+        if (readable_path = readable_paths.find { |required_path| required_path.ascend.include?(path) })
+          opoo <<~EOS
+            The sandbox cannot prevent formulae from reading:
+              #{path}
+            because this required path is inside it:
+              #{readable_path}
+            Formulae may access personal data in this directory.
+          EOS
+          next
+        end
+
+        deny_read_path path
+      rescue Errno::ENOENT
+        nil
       end
       return
     end
@@ -497,7 +500,7 @@ class Sandbox
             end
 
             stdout_thread = Thread.new do
-              controller.each_char { |c| print(c) }
+              copy_pty_output(controller)
             end
 
             Utils.safe_fork(directory: tmpdir, yield_parent: true) do |error_pipe|
@@ -515,6 +518,7 @@ class Sandbox
                 Dir.chdir(tmpdir)
 
                 worker.close_on_exec = true
+                apply_sandbox
                 exec(*command, in: worker, out: worker, err: worker) # And map everything to the PTY.
               else
                 # Parent side
@@ -572,10 +576,18 @@ class Sandbox
     SandboxPathFilter.new(path: filter_path, type:)
   end
 
-  private
-
   sig { returns(SandboxProfile) }
   attr_reader :profile
+
+  sig { params(controller: IO).void }
+  def copy_pty_output(controller)
+    controller.each_char { |c| print(c) }
+  rescue Errno::EIO
+    # Linux marks a PTY as an I/O error when its peer closes, so treat this as EOF:
+    # https://github.com/torvalds/linux/blob/master/drivers/tty/pty.c
+  end
+
+  private
 
   sig { returns(T::Boolean) }
   attr_reader :failed
@@ -603,6 +615,9 @@ class Sandbox
 
   sig { void }
   def ensure_child_tty_available; end
+
+  sig { void }
+  def apply_sandbox; end
 
   sig { void }
   def record_sandbox_log; end
