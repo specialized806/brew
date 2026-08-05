@@ -16,7 +16,7 @@ RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
       :on_macos,
       :on_linux,
       :on_system_conditional,
-      :appimage,
+      :app_image,
       :generated_script,
       :command_wrapper,
       :generate_completions_from_executable,
@@ -86,11 +86,11 @@ RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
     CASK
   end
 
-  it "orders `appimage` after `app`" do
+  it "orders `app_image` after `app`" do
     expect_offense <<~CASK
       cask 'foo' do
-        appimage 'Foo.AppImage'
-        ^^^^^^^^^^^^^^^^^^^^^^^ `appimage` stanza out of order
+        app_image 'Foo.AppImage'
+        ^^^^^^^^^^^^^^^^^^^^^^^^ `app_image` stanza out of order
         app 'Foo.app'
         ^^^^^^^^^^^^^ `app` stanza out of order
       end
@@ -99,7 +99,7 @@ RSpec.describe RuboCop::Cop::Cask::StanzaOrder, :config do
     expect_correction <<~CASK
       cask 'foo' do
         app 'Foo.app'
-        appimage 'Foo.AppImage'
+        app_image 'Foo.AppImage'
       end
     CASK
   end
