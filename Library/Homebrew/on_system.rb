@@ -88,7 +88,6 @@ module OnSystem
       base.define_method(:"on_#{base_os}") do |&block|
         @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
         @on_os_blocks_exist = T.let(true, T.nilable(TrueClass))
-        @on_linux_blocks_exist = T.let(true, T.nilable(TrueClass)) if base_os == :linux
 
         return unless OnSystem.os_condition_met? OnSystem.condition_from_method_name(T.must(__method__))
 
@@ -105,7 +104,6 @@ module OnSystem
     base.define_method(:on_system) do |linux, macos:, &block|
       @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
       @on_os_blocks_exist = T.let(true, T.nilable(TrueClass))
-      @on_linux_blocks_exist = T.let(true, T.nilable(TrueClass))
 
       raise ArgumentError, "The first argument to `on_system` must be `:linux`" if linux != :linux
 

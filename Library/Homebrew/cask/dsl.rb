@@ -128,7 +128,6 @@ module Cask
       :no_autobump_message,
       :on_system_blocks_exist?,
       :on_os_blocks_exist?,
-      :on_linux_blocks_exist?,
       :on_system_block_min_os,
       :depends_on_set_in_block?,
       *ORDINARY_ARTIFACT_CLASSES.map(&:dsl_key),
@@ -233,13 +232,11 @@ module Cask
       @no_autobump_message = T.let(nil, T.nilable(T.any(String, Symbol)))
       @on_system_blocks_exist = T.let(false, T::Boolean)
       @on_os_blocks_exist = T.let(false, T::Boolean)
-      @on_linux_blocks_exist = T.let(false, T::Boolean)
       @on_system_block_min_os = T.let(nil, T.nilable(MacOSVersion))
       @os = T.let(nil, T.nilable(String))
       @os_set_in_block = T.let(false, T::Boolean)
       @rename = T.let([], T::Array[DSL::Rename])
       @sha256 = T.let(nil, T.nilable(T.any(Checksum, Symbol)))
-      @sha256_set_for_linux = T.let(false, T::Boolean)
       @sha256_set_in_block = T.let(false, T::Boolean)
       @staged_path = T.let(nil, T.nilable(Pathname))
       @token = T.let(cask.token, String)
@@ -266,12 +263,6 @@ module Cask
 
     sig { returns(T::Boolean) }
     def on_os_blocks_exist? = @on_os_blocks_exist
-
-    sig { returns(T::Boolean) }
-    def on_linux_blocks_exist? = @on_linux_blocks_exist
-
-    sig { returns(T::Boolean) }
-    def sha256_set_for_linux? = @sha256_set_for_linux
 
     # Specifies the cask's name.
     #
@@ -560,7 +551,6 @@ module Cask
         if arm.present? || x86_64.present? || x86_64_linux.present? || arm64_linux.present?
           @on_system_blocks_exist = true
         end
-        @sha256_set_for_linux = true if x86_64_linux.present? || arm64_linux.present?
 
         val = arg || on_system_conditional(
           macos: on_arch_conditional(arm:, intel: x86_64),
