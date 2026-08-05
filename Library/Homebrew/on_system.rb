@@ -25,7 +25,9 @@ module OnSystem
 
   sig { params(os_name: Symbol, or_condition: T.nilable(Symbol)).returns(T::Boolean) }
   def self.os_condition_met?(os_name, or_condition = nil)
-    return Homebrew::SimulateSystem.send(:"simulating_or_running_on_#{os_name}?") if BASE_OS_OPTIONS.include?(os_name)
+    if BASE_OS_OPTIONS.include?(os_name)
+      return Homebrew::SimulateSystem.public_send(:"simulating_or_running_on_#{os_name}?")
+    end
 
     raise ArgumentError, "Invalid OS condition: #{os_name.inspect}" unless MacOSVersion::SYMBOLS.key?(os_name)
 
