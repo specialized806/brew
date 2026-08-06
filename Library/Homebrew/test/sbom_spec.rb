@@ -132,6 +132,54 @@ RSpec.describe SBOM do
         )
       end
 
+      it "emits pkg:brew purl in externalRefs for source archive package" do
+        expect(sbom.to_spdx_sbom[:packages]).to include(
+          hash_including(
+            SPDXID:       "SPDXRef-Archive-formula_name-src",
+            externalRefs: [{
+              referenceCategory: "PACKAGE-MANAGER",
+              referenceLocator:  "pkg:brew/homebrew/core/formula_name@0.1",
+              referenceType:     "purl",
+            }],
+          ),
+        )
+      end
+
+      # NOTE: We don't package `requests`. This is here for testing upstream purl identification.
+      context "with a PyPI source URL" do
+        let(:f) do
+          formula do
+            T.bind(self, T.class_of(Formula))
+            homepage "https://brew.sh"
+
+            url "https://files.pythonhosted.org/packages/d6/5d/47f0d014022a106f235948924b17f54c9356a815a51086082eeef7f3747d/requests-2.25.1.tar.gz"
+            sha256 TEST_SHA256
+
+            bottle do
+              root_url "https://brew.sh/bottles"
+              sha256 all: "9befdad158e59763fb0622083974a6252878019702d8c961e1bec3a5f5305339"
+            end
+          end
+        end
+
+        it "emits both pkg:brew and upstream purl in externalRefs for source archive package" do
+          expect(sbom.to_spdx_sbom[:packages]).to include(
+            hash_including(
+              SPDXID:       "SPDXRef-Archive-formula_name-src",
+              externalRefs: [{
+                referenceCategory: "PACKAGE-MANAGER",
+                referenceLocator:  "pkg:brew/homebrew/core/formula_name@2.25.1",
+                referenceType:     "purl",
+              }, {
+                referenceCategory: "PACKAGE-MANAGER",
+                referenceLocator:  "pkg:pypi/requests@2.25.1",
+                referenceType:     "purl",
+              }],
+            ),
+          )
+        end
+      end
+
       it "omits host-specific packages when bottling" do
         spdx = sbom.to_spdx_sbom(bottling: true)
         package_ids = spdx[:packages].map { |package| package[:SPDXID] }
