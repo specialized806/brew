@@ -4335,6 +4335,12 @@ command execution (e.g. `$(cat file)`).
   are both set, if the request to `$HOMEBREW_ARTIFACT_DOMAIN` fails then
   Homebrew will error rather than trying any other/default URLs.
 
+`HOMEBREW_AUTO_UPDATE_QUIET`
+
+: If set, the auto-update run before commands like `brew install`, `brew
+  upgrade` or `brew tap` will not show information about new, outdated or
+  deleted formulae and casks.
+
 `HOMEBREW_AUTO_UPDATE_SECS`
 
 : Run `brew update` once every `$HOMEBREW_AUTO_UPDATE_SECS` seconds before some
