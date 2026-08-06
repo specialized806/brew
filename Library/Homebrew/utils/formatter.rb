@@ -120,11 +120,11 @@ module Formatter
     if prefix.nil? && color.nil?
       string.to_s
     elsif prefix.nil?
-      "#{Tty.send(T.must(color))}#{string}#{Tty.reset}"
+      "#{Tty.public_send(T.must(color))}#{string}#{Tty.reset}"
     elsif color.nil?
       "#{prefix} #{string}"
     else
-      "#{Tty.send(color)}#{prefix}#{Tty.reset} #{string}"
+      "#{Tty.public_send(color)}#{prefix}#{Tty.reset} #{string}"
     end
   end
   private_class_method :prefix

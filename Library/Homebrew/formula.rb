@@ -415,7 +415,7 @@ class Formula
 
   sig { params(name: T.any(String, Symbol)).void }
   def spec_eval(name)
-    spec = self.class.send(name).dup
+    spec = self.class.public_send(name).dup
     return unless spec.url
 
     spec.owner = self

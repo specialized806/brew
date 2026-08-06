@@ -535,7 +535,7 @@ module Homebrew
       when :url
         package_or_resource.url&.to_s if package_or_resource.is_a?(Cask::Cask) || package_or_resource.is_a?(Resource)
       when :head, :stable
-        package_or_resource.send(livecheck_url)&.url if package_or_resource.is_a?(Formula)
+        package_or_resource.public_send(livecheck_url)&.url if package_or_resource.is_a?(Formula)
       when :homepage
         package_or_resource.homepage unless package_or_resource.is_a?(Resource)
       end

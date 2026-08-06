@@ -199,7 +199,7 @@ module Homebrew
         old_keys.each do |key|
           next if skip_keys.include?(key)
 
-          old_value = old_bottle_spec.send(key).to_s
+          old_value = old_bottle_spec.public_send(key).to_s
           new_value = new_values[key].to_s
 
           next if old_value.present? && new_value == old_value
@@ -623,14 +623,14 @@ module Homebrew
         old_spec = formula.bottle_specification
         if args.keep_old? && !old_spec.checksums.empty?
           mismatches = [:root_url, :rebuild].reject do |key|
-            old_spec.send(key) == bottle.send(key)
+            old_spec.public_send(key) == bottle.public_send(key)
           end
           unless mismatches.empty?
             bottle_path.unlink if bottle_path.exist?
 
             mismatches.map! do |key|
-              old_value = old_spec.send(key).inspect
-              value = bottle.send(key).inspect
+              old_value = old_spec.public_send(key).inspect
+              value = bottle.public_send(key).inspect
               "#{key}: old: #{old_value}, new: #{value}"
             end
 

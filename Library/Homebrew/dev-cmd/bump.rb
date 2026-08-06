@@ -588,11 +588,11 @@ module Homebrew
 
         if multiple_versions[:new]
           (BumpVersionParser::VERSION_SYMBOLS - [:general]).each do |arch|
-            new_arch_version = new_version.send(arch)
+            new_arch_version = new_version.public_send(arch)
             next if new_arch_version.blank? || message?(new_arch_version)
 
             current_arch_version = if multiple_versions[:current]
-              current_version.send(arch)
+              current_version.public_send(arch)
             else
               current_version.general
             end
@@ -603,7 +603,7 @@ module Homebrew
         elsif multiple_versions[:current]
           if (new_version_general = new_version.general) && !message?(new_version_general)
             (BumpVersionParser::VERSION_SYMBOLS - [:general]).each do |arch|
-              current_arch_version = current_version.send(arch)
+              current_arch_version = current_version.public_send(arch)
               next if current_arch_version.blank? || new_version_general <= current_arch_version
 
               version_args << "--version-#{arch}=#{new_version_general}"
@@ -629,12 +629,12 @@ module Homebrew
         current_versions = {}
         new_versions = {}
         BumpVersionParser::VERSION_SYMBOLS.each do |type|
-          current_version_value = current_version.send(type)
+          current_version_value = current_version.public_send(type)
           if current_version_value
             current_versions[type] = Livecheck::LivecheckVersion.create(formula_or_cask, current_version_value)
           end
 
-          new_version_value = new_version.send(type)
+          new_version_value = new_version.public_send(type)
           if message?(new_version_value)
             # Store a string, so we can easily tell when a value is a message
             # rather than a version
