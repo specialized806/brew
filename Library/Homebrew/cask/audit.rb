@@ -492,6 +492,15 @@ module Cask
     end
 
     sig { void }
+    def audit_unnecessary_verified
+      return unless new_cask?
+      return unless cask.url
+      return unless verified_present?
+
+      add_error "the `verified` parameter has been deprecated; use the `url` stanza without it"
+    end
+
+    sig { void }
     def audit_generic_artifacts
       cask.artifacts.grep(Artifact::Artifact).each do |artifact|
         unless artifact.target.absolute?
@@ -1367,6 +1376,11 @@ module Cask
     sig { returns(T.nilable(String)) }
     def domain
       URI(cask.url.to_s).host
+    end
+
+    sig { returns(T::Boolean) }
+    def verified_present?
+      cask.url&.verified.present?
     end
 
     sig { returns(Tap) }
