@@ -40,9 +40,19 @@ RSpec.describe Homebrew::Bundle::Cargo do
         .to raise_error(RuntimeError, /options\[:source\]/)
     end
 
-    it "rejects a source that is neither a git URL nor a local path" do
+    it "rejects a source that is not a git URL" do
       expect { described_class.entry("tftio-kb", source: "tftio-kb") }
-        .to raise_error(RuntimeError, /should be a git URL or a local path/)
+        .to raise_error(RuntimeError, /should be a git URL/)
+    end
+
+    it "rejects a local path, which does not resolve on another machine" do
+      expect { described_class.entry("bat", source: "/Users/test/src/bat") }
+        .to raise_error(RuntimeError, /should be a git URL/)
+    end
+
+    it "rejects a file:// git URL, which does not resolve on another machine either" do
+      expect { described_class.entry("bat", source: "file:///Users/test/src/bat") }
+        .to raise_error(RuntimeError, /should be a git URL/)
     end
 
     it "rejects a git query that selects something other than a branch, tag or rev" do
@@ -52,7 +62,7 @@ RSpec.describe Homebrew::Bundle::Cargo do
 
     it "rejects an scp-style git remote that cargo cannot parse as a URL" do
       expect { described_class.entry("bat", source: "git@github.com:sharkdp/bat.git") }
-        .to raise_error(RuntimeError, /should be a git URL or a local path/)
+        .to raise_error(RuntimeError, /should be a git URL/)
     end
 
     it "rejects unknown options" do
@@ -135,13 +145,13 @@ RSpec.describe Homebrew::Bundle::Cargo do
           <<~EOS
             ripgrep v13.0.0:
                 rg
-            bat v0.24.0 (/Users/test/src/bat)
+            bat v0.24.0 (https://github.com/sharkdp/bat#3492d620)
           EOS
         end
 
         expect(dumper.packages).to eql([
           { name: "ripgrep", source: nil },
-          { name: "bat", source: "/Users/test/src/bat" },
+          { name: "bat", source: "https://github.com/sharkdp/bat" },
         ])
       end
 
@@ -173,6 +183,43 @@ RSpec.describe Homebrew::Bundle::Cargo do
         EOS
 
         expect(dumper.dump).to eql('cargo "tftio-kb", source: "ssh://git@example.com/tftio/kb.git?tag=v4.0.0"')
+      end
+
+      it "dumps a crate installed from a local path without a source" do
+        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
+          bat v0.24.0 (/Users/test/src/bat):
+              bat
+        EOS
+
+        expect(dumper.dump).to eql('cargo "bat"')
+      end
+
+      it "complains about a local origin it had to drop" do
+        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
+          bat v0.24.0 (/Users/test/src/bat):
+              bat
+        EOS
+
+        expect { expect(dumper.dump_output).to eql('cargo "bat"') }
+          .to output(%r{bat was installed from /Users/test/src/bat}).to_stderr
+      end
+
+      it "says nothing about crates it could dump" do
+        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
+          tftio-kb v4.0.0 (ssh://git@example.com/tftio/kb.git#3492d620):
+              kb
+        EOS
+
+        expect { dumper.dump_output }.not_to output.to_stderr
+      end
+
+      it "dumps a crate installed from a file:// repository without a source" do
+        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
+          bat v0.24.0 (file:///Users/test/src/bat#3492d620):
+              bat
+        EOS
+
+        expect(dumper.dump).to eql('cargo "bat"')
       end
 
       it "ignores an origin it cannot classify as a source" do
@@ -310,17 +357,6 @@ RSpec.describe Homebrew::Bundle::Cargo do
           expect(
             described_class.install!("tftio-kb", source: "ssh://git@example.com/tftio/kb.git?rev=3492d620"),
           ).to be(true)
-        end
-
-        it "installs a package from a path source" do
-          source = "/Users/test/src/bat"
-          expect(Homebrew::Bundle).to receive(:system) do |*args, verbose:|
-            expect(args).to eq(["/tmp/rust/bin/cargo", "install", "--locked", "--path", source, "bat"])
-            expect(verbose).to be(false)
-            true
-          end
-          expect(described_class.preinstall!("bat", source:)).to be(true)
-          expect(described_class.install!("bat", source:)).to be(true)
         end
 
         it "updates dump output after install in the same process" do
