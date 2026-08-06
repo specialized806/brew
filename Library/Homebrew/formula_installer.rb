@@ -1354,10 +1354,10 @@ on_request: installed_on_request?, options:)
     @show_summary_heading = true
   end
 
-  sig { returns(Pathname) }
+  sig { returns(T.any(String, Pathname)) }
   def post_install_formula_path
     # Use the formula from the keg when any of the following is true:
-    # * We're installing from the JSON API
+    # * We're installing from the JSON API and it has a Ruby post-install hook
     # * We're installing a local bottle file
     # * We're building from source
     # * The formula doesn't exist in the tap (or the tap isn't installed)
@@ -1372,7 +1372,11 @@ on_request: installed_on_request?, options:)
     return tap_formula_path if installed_prefix.nil?
 
     keg_formula_path = installed_prefix/".brew/#{formula.name}.rb"
-    return keg_formula_path if formula.loaded_from_api?
+    if formula.loaded_from_api?
+      return formula.full_name unless formula.post_install_defined?
+
+      return keg_formula_path
+    end
     return keg_formula_path if formula.local_bottle_path
     return keg_formula_path if build_from_source?
 

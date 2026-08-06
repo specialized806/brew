@@ -181,6 +181,35 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#post_install_formula_path" do
+    it "uses the API formula for structured-only post-installs" do
+      formula = formula("api-install-steps") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      installer = described_class.new(formula)
+
+      allow(formula).to receive_messages(any_installed_prefix: mktmpdir, loaded_from_api?: true,
+                                         post_install_defined?: false)
+
+      expect(installer.post_install_formula_path).to eq(formula.full_name)
+    end
+
+    it "uses the keg formula for API post-installs with Ruby hooks" do
+      formula = formula("api-post-install-hook") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      installer = described_class.new(formula)
+      installed_prefix = mktmpdir
+
+      allow(formula).to receive_messages(any_installed_prefix: installed_prefix, loaded_from_api?: true,
+                                         post_install_defined?: true)
+
+      expect(installer.post_install_formula_path).to eq(installed_prefix/".brew/api-post-install-hook.rb")
+    end
+  end
+
   describe "#pour" do
     let(:f) do
       formula("missing-bottle-tab") do
