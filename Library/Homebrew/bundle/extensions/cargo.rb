@@ -2,13 +2,10 @@
 # frozen_string_literal: true
 
 require "bundle/extensions/extension"
-require "utils/output"
 
 module Homebrew
   module Bundle
     class Cargo < Extension
-      extend ::Utils::Output::Mixin
-
       SourceOptions = T.type_alias { T::Hash[Symbol, String] }
       Crate = T.type_alias { { name: String, source: T.nilable(String) } }
       Checkable = T.type_alias { { name: String, options: SourceOptions } }
@@ -20,7 +17,6 @@ module Homebrew
       # scheme is accepted. `--git` rejects an scp-style remote, so a scheme is
       # required too.
       GIT_SOURCE_REGEX = %r{\A(?:ssh|git|https?)://}
-      LOCAL_SOURCE_REGEX = %r{\A(?:file://|\.{0,2}/)}
       GIT_REFERENCE_KEYS = %w[branch tag rev].freeze
       PACKAGE_LIST_REGEX = /\A(?<name>[^\s:]+)\s+v[0-9A-Za-z.+-]+(?:\s+\((?<origin>[^)]+)\))?/
 
@@ -64,7 +60,6 @@ module Homebrew
         def reset!
           @packages = T.let(nil, T.nilable(T::Array[Crate]))
           @installed_packages = T.let(nil, T.nilable(T::Array[Crate]))
-          @local_origins = T.let(nil, T.nilable(T::Hash[String, String]))
         end
 
         sig { override.returns(T.nilable(String)) }
@@ -109,21 +104,6 @@ module Homebrew
           return package[:source] if package.key?(:source)
 
           package[:options].fetch(:source, nil)
-        end
-
-        # A crate built from somewhere only this machine can reach is dumped as a
-        # registry crate, because omitting it would leave the Brewfile quietly
-        # incomplete, so say what was lost rather than let it pass unremarked.
-        sig { override.params(describe: T::Boolean, no_restart: T::Boolean).returns(String) }
-        def dump_output(describe: false, no_restart: false)
-          output = super
-          @local_origins&.each do |name, origin|
-            opoo "#{name} was installed from #{origin}, which is local to this " \
-                 "machine and cannot be used in a Brewfile. It is dumped without " \
-                 "a source and so will be installed from the registry."
-          end
-
-          output
         end
 
         sig { override.params(package: Object).returns(String) }
@@ -280,10 +260,7 @@ module Homebrew
             name = match[:name]
             next if name.nil?
 
-            origin = match[:origin]
-            (@local_origins ||= {})[name] = origin if origin&.match?(LOCAL_SOURCE_REGEX)
-
-            { name:, source: normalize_source(origin) }
+            { name:, source: normalize_source(match[:origin]) }
           end.uniq
         end
         private :parse_package_list

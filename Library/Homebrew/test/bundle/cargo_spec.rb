@@ -194,25 +194,6 @@ RSpec.describe Homebrew::Bundle::Cargo do
         expect(dumper.dump).to eql('cargo "bat"')
       end
 
-      it "complains about a local origin it had to drop" do
-        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
-          bat v0.24.0 (/Users/test/src/bat):
-              bat
-        EOS
-
-        expect { expect(dumper.dump_output).to eql('cargo "bat"') }
-          .to output(%r{bat was installed from /Users/test/src/bat}).to_stderr
-      end
-
-      it "says nothing about crates it could dump" do
-        allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
-          tftio-kb v4.0.0 (ssh://git@example.com/tftio/kb.git#3492d620):
-              kb
-        EOS
-
-        expect { dumper.dump_output }.not_to output.to_stderr
-      end
-
       it "dumps a crate installed from a file:// repository without a source" do
         allow(described_class).to receive(:`).with("cargo install --list").and_return(<<~EOS)
           bat v0.24.0 (file:///Users/test/src/bat#3492d620):
