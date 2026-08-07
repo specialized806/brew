@@ -69,6 +69,17 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"stage/linked-target").readlink).to eq(Pathname("move-target"))
   end
 
+  specify "allows directory creation through parent sandbox paths" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :prefix) do
+      mkdir "one"
+      mkdir_p "two/three"
+    end
+
+    paths = Homebrew::InstallSteps::Runner.new(context:).sandbox_write_paths(steps)
+
+    expect(paths).to contain_exactly(root/"prefix", root/"prefix/two")
+  end
+
   specify "changes an explicit Mach-O dylib ID" do
     steps = Homebrew::InstallSteps::DSL.build(default_source_base: :prefix) do
       on_macos do
@@ -603,11 +614,16 @@ RSpec.describe Homebrew::InstallSteps do
 
   specify "serialises command environments as JSON objects" do
     steps = Homebrew::InstallSteps::DSL.build do
-      run "helper", env: { "EXAMPLE" => "{{formula_name}}" }
+      run "helper", env: { "EXAMPLE" => "{{formula_name}}" },
+                    writable_paths: ["Library/Application Support/Example"], writable_base: :home
     end
 
     expect(steps).to include(a_hash_including(
-                               "type" => "run", "env" => { "EXAMPLE" => "{{formula_name}}" },
+                               "type"           => "run",
+                               "env"            => { "EXAMPLE" => "{{formula_name}}" },
+                               "writable_paths" => [
+                                 { "base" => "home", "path" => "Library/Application Support/Example" },
+                               ],
                              ))
   end
 
