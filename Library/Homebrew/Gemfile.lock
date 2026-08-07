@@ -196,6 +196,7 @@ DEPENDENCIES
   ruby-macho
   ruby-prof
   ruby-progressbar
+  rubydex
   simplecov
   simplecov-cobertura
   sorbet-runtime
