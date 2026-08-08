@@ -1481,10 +1481,12 @@ module Homebrew
 
       sig { params(formula: String, executable: String, args: SystemCommandArg).void }
       def run_formula_tool(formula, executable, *args)
-        # Load the formula so missing helper formulae fail before running a guessed path.
-        # rubocop:disable Homebrew/FormulaPathMethods
-        run_command Formula[formula].opt_bin/executable, *args
-        # rubocop:enable Homebrew/FormulaPathMethods
+        require "utils/path"
+
+        tool = Utils::Path.formula_opt_bin(formula)/executable
+        raise ArgumentError, "#{formula} is missing required executable: #{tool}" unless tool.executable?
+
+        run_command tool, *args
       end
 
       sig { params(base: String, formula: T.nilable(String)).returns(Pathname) }
@@ -1520,7 +1522,7 @@ module Homebrew
 
         case method
         when :pkgetc
-          ::Formula[formula].pkgetc
+          HOMEBREW_PREFIX/"etc"/Utils.name_from_full_name(formula)
         when :opt_prefix
           Utils::Path.formula_opt_prefix(formula)
         else

@@ -1152,7 +1152,7 @@ end
 
 #### Repeated formula actions
 
-Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action.
+Use the named actions below for formula families that share post-install algorithms. Unique complex logic should be installed as a packaged helper and invoked with `run` instead of adding a formula-specific action. Any static formula inputs needed by a named action must be installed into the bottle rather than fetched from formula resources after pouring.
 
 * `configure_gcc_runtime`: generate the Linux GCC runtime links and specs.
 * `install_gzipped_executable`: unpack and install a gzipped executable.

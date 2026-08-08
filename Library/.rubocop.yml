@@ -72,6 +72,11 @@ Homebrew/CompactBlank:
     # `blank?` is not necessarily available here:
     - "Homebrew/extend/enumerable.rb"
 
+Homebrew/InstallStepsSourceIndependence:
+  Include:
+    - "Homebrew/install_steps.rb"
+    - "Homebrew/install_steps/**/*.rb"
+
 Homebrew/NoBase64:
   Description: "Use `String#unpack1` or `Array#pack` instead of the `base64` gem."
   Include:
