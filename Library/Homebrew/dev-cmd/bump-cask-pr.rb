@@ -265,7 +265,7 @@ module Homebrew
           # something that should be handled by better version replacement logic
           # but this is a workaround for now.
           arch_values = arch_values.sort_by do |type|
-            new_version_value = Version.new(new_version.send(type) || "0")
+            new_version_value = Version.new(new_version.public_send(type) || "0")
             Livecheck::LivecheckVersion.create(cask, new_version_value)
           end.reverse
         end
@@ -303,7 +303,7 @@ module Homebrew
             next if unsupported_nested_arch_stanza?(contents, :version, arch) ||
                     unsupported_nested_arch_stanza?(contents, :sha256, arch)
 
-            bump_version = new_version.send(arch) || new_version.general
+            bump_version = new_version.public_send(arch) || new_version.general
             next unless bump_version
 
             version_scope = cask_stanza_scope(contents, :version, arch)

@@ -417,7 +417,7 @@ module Formulary
       if f.any_version_installed?
         tab = Tab.for_formula(f)
         resolved_spec = spec || tab.spec
-        f.active_spec = resolved_spec if f.send(resolved_spec)
+        f.active_spec = resolved_spec if f.public_send(resolved_spec)
         f.build = tab
         if f.head? && tab.tabfile
           k = Keg.new(T.must(tab.tabfile).parent)

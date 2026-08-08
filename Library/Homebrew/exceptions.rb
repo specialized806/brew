@@ -721,7 +721,7 @@ class BuildError < RuntimeError
     require "diagnostic"
     checks = Homebrew::Diagnostic::Checks.new
     checks.build_error_checks.each do |check|
-      out = checks.send(check)
+      out = checks.public_send(check)
       next if out.nil?
 
       puts

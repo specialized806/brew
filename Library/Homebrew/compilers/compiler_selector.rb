@@ -113,7 +113,7 @@ class CompilerSelector
     when "gcc", GNU_GCC_REGEXP
       versions.gcc_version(name.to_s)
     else
-      versions.send(:"#{name}_build_version")
+      versions.public_send(:"#{name}_build_version")
     end
   end
 end

@@ -341,7 +341,7 @@ module Cask
     def audit_required_stanzas
       odebug "Auditing required stanzas"
       [:version, :sha256, :url, :homepage].each do |sym|
-        add_error "a #{sym} stanza is required" unless cask.send(sym)
+        add_error "a #{sym} stanza is required" unless cask.public_send(sym)
       end
       add_error "at least one name stanza is required" if cask.name.empty?
       # TODO: specific DSL knowledge should not be spread around in various files like this
