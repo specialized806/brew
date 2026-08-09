@@ -5248,6 +5248,17 @@ class Formula
       paths.flatten!
       T.must(link_overwrite_paths).merge(paths)
     end
+
+    # Returns the major.minor {Version} for the given Python executable,
+    # as a shorthand for `Language::Python.major_minor_version` in the formula DSL.
+    #
+    # @param python [String, Pathname] the Python executable (e.g. `"python3"`)
+    # @return [Version, nil] the major.minor version, or `nil` when the version cannot be determined
+    # @api public
+    sig { params(python: T.any(String, Pathname)).returns(T.nilable(Version)) }
+    def python_major_minor_version(python)
+      Language::Python.major_minor_version(python)
+    end
   end
 end
 
