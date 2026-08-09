@@ -873,6 +873,7 @@ module Homebrew
         temp rack
         bash_completion zsh_completion fish_completion pwsh_completion
       ].freeze
+      IMPLICIT_SUDO_STEP_TYPES = %w[delete_keychain_certificate set_ownership].freeze
 
       sig { params(context: Object, command: T.class_of(SystemCommand)).void }
       def initialize(context:, command: SystemCommand)
@@ -932,6 +933,14 @@ module Homebrew
             []
           end
         end.uniq
+      end
+
+      sig { params(steps: Steps).returns(T::Boolean) }
+      def sudo_required?(steps)
+        DSL.normalise_steps(steps).any? do |step|
+          step["sudo"] == true || step["sudo"] == "if_needed" ||
+            IMPLICIT_SUDO_STEP_TYPES.include?(step["type"])
+        end
       end
 
       private
