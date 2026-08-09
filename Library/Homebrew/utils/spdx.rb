@@ -202,12 +202,13 @@ module SPDX
   end
 
   # The `org.opencontainers.image.licenses` OCI annotation only accepts a limited
-  # length (`limit`), so shorten an over-long licence to a valid prefix rather than
+  # length (`limit`). GHCR rejects 256-character values on OCI child manifests, so
+  # the default is 255. Shorten an over-long licence to a valid prefix rather than
   # discarding it entirely. Only top-level `AND` expressions can be shortened safely:
   # a prefix of "A AND B AND ..." still holds, whereas dropping `OR` alternatives
   # would change the licence, so those fall back to `:cannot_represent`.
   sig { params(license: String, limit: Integer).returns(String) }
-  def truncate_license(license, limit: 256)
+  def truncate_license(license, limit: 255)
     return license if license.length <= limit
 
     fallback = license_expression_to_string(:cannot_represent) || license
