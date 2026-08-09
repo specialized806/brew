@@ -195,6 +195,30 @@ RSpec.describe Homebrew::API::CaskStruct do
       ])
   end
 
+  it "preserves false values in serialized artifact arguments" do
+    struct = described_class.new(
+      sha256:               "abc123",
+      version:              "1.0.0",
+      ruby_source_checksum: { sha256: "def456" },
+      raw_artifacts:        [
+        [
+          :uninstall,
+          [],
+          { script: { executable: "/usr/bin/pkill", must_succeed: false } },
+          nil,
+        ],
+      ],
+    )
+
+    expect(struct.serialize.fetch("raw_artifacts"))
+      .to eq([
+        [
+          ":uninstall",
+          { ":script" => { ":executable" => "/usr/bin/pkill", ":must_succeed" => false } },
+        ],
+      ])
+  end
+
   specify "::deserialize_artifact_args", :aggregate_failures do
     expect(described_class.deserialize_artifact_args([:foo]))
       .to eq([:foo, [], {}, nil])
