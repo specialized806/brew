@@ -141,7 +141,7 @@ module Homebrew
 
         hash["raw_artifacts"] = ::Utils.deep_compact_blank(raw_artifacts.map do |artifact|
           serialize_artifact_args(artifact)
-        end, compact_zero: false)
+        end, compact_zero: false, compact_false: false)
 
         hash = ::Utils.deep_stringify_symbols(hash)
         raw_artifacts = hash["raw_artifacts"]

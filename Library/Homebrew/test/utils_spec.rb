@@ -269,5 +269,11 @@ RSpec.describe Utils do
 
       expect(described_class.deep_compact_blank(input)).to eq(expected_output)
     end
+
+    it "preserves false when compact_false is disabled" do
+      input = { a: false, b: [false], c: { d: false } }
+
+      expect(described_class.deep_compact_blank(input, compact_false: false)).to eq(input)
+    end
   end
 end

@@ -216,21 +216,25 @@ module Utils
 
   sig {
     type_parameters(:U)
-      .params(obj: T.all(T.type_parameter(:U), Object), compact_zero: T::Boolean)
+      .params(obj: T.all(T.type_parameter(:U), Object), compact_zero: T::Boolean, compact_false: T::Boolean)
       .returns(T.nilable(T.type_parameter(:U)))
   }
-  def self.deep_compact_blank(obj, compact_zero: true)
+  def self.deep_compact_blank(obj, compact_zero: true, compact_false: true)
     obj = case obj
     when Hash
-      obj.transform_values { |v| deep_compact_blank(v, compact_zero:) }
+      obj.transform_values { |v| deep_compact_blank(v, compact_zero:, compact_false:) }
          .compact
     when Array
-      obj.filter_map { |v| deep_compact_blank(v, compact_zero:) }
+      obj.each_with_object([]) do |v, compacted|
+        value = deep_compact_blank(v, compact_zero:, compact_false:)
+        compacted << value unless value.nil?
+      end
     else
       obj
     end
 
-    return if obj.blank? || (compact_zero && obj.is_a?(Numeric) && obj.zero?)
+    return if (compact_false || obj != false) &&
+              (obj.blank? || (compact_zero && obj.is_a?(Numeric) && obj.zero?))
 
     obj
   end
