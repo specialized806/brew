@@ -297,6 +297,12 @@ class Sandbox
     add_rule allow: true, operation: "file-read*", filter: path_filter(path, type)
   end
 
+  sig { params(path: T.any(String, Pathname), no_sandbox: T::Boolean).void }
+  def allow_process_exec(path, no_sandbox: false)
+    modifier = "no-sandbox" if no_sandbox
+    add_rule allow: true, operation: "process-exec", filter: path_filter(path, :literal), modifier:
+  end
+
   sig { params(path: T.any(String, Pathname), type: Symbol).void }
   def deny_read(path:, type: :literal)
     add_rule allow: false, operation: "file-read*", filter: path_filter(path, type)

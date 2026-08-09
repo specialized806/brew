@@ -119,6 +119,29 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
     expect(original_home/"Library/Application Support/cask-home-state").to exist
   end
 
+  it "allows explicitly privileged steps to run sudo outside the sandbox" do
+    cask = Cask::Cask.new("with-sandboxed-sudo-install-steps") do
+      version "1.2.3"
+      sha256 :no_check
+      url "file://#{TEST_FIXTURE_DIR}/cask/container.zip"
+
+      postflight_steps do
+        run "/usr/bin/true", sudo: true
+      end
+    end
+    sandbox = instance_double(Sandbox).as_null_object
+    cask.staged_path.mkpath
+    cask.config_path.dirname.mkpath
+
+    allow(Sandbox).to receive_messages(available?: true, new: sandbox)
+    allow(sandbox).to receive(:allow_write_path)
+    allow(Sandbox).to receive(:with_preserved_brew_file).and_yield
+    expect(sandbox).to receive(:allow_process_exec).with("/usr/bin/sudo", no_sandbox: true)
+    expect(sandbox).to receive(:run)
+
+    Cask::Installer.new(cask, command: NeverSudoSystemCommand).install_artifacts
+  end
+
   it "runs a flight block after matching steps during migration" do
     cask = Cask::Cask.new("with-install-steps-bridge") do
       version "1.2.3"

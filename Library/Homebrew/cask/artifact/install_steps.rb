@@ -41,6 +41,7 @@ module Cask
 
         sandbox.allow_write_path cask.caskroom_path
         sandbox.allow_write_path cask.config.appdir
+        sandbox.allow_process_exec "/usr/bin/sudo", no_sandbox: true if steps.any? { |step| step["sudo"] == true }
         Keg.keg_link_directories.each { |directory| sandbox.allow_write_path HOMEBREW_PREFIX/directory }
         original_home = Pathname(Dir.home).expand_path
         runner.sandbox_write_paths(steps, phase:).each do |path|
