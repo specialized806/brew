@@ -2230,6 +2230,14 @@ class Formula
     args
   end
 
+  # Standard parameters for Swift builds.
+  #
+  # @api public
+  sig { returns(T::Array[String]) }
+  def std_swift_args
+    ["--configuration", "release", "--jobs", ENV.make_jobs.to_s]
+  end
+
   # Standard parameters for Zig builds.
   #
   # `release_mode` can be set to either `:safe`, `:fast` or `:small`,
