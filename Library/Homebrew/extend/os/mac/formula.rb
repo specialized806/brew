@@ -29,6 +29,11 @@ module OS
         args
       end
 
+      sig { returns(T::Array[String]) }
+      def std_swift_args
+        ["--disable-sandbox"].concat(super)
+      end
+
       sig {
         params(
           prefix:       T.any(String, ::Pathname),

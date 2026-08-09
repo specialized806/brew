@@ -55,6 +55,12 @@ module OS
         args << "--ghc-option=-pie" if ::Hardware::CPU.arm?
         args
       end
+
+      sig { returns(T::Array[String]) }
+      def std_swift_args
+        # Use ld shim to help find Homebrew-installed libraries
+        ["--static-swift-stdlib", "-Xswiftc", "-use-ld=ld"].concat(super)
+      end
     end
   end
 end

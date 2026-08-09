@@ -3386,6 +3386,28 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_swift_args" do
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "allows controlling parallel jobs" do
+      allow(ENV).to receive(:make_jobs).and_return(5)
+      expect(f.std_swift_args.join(" ")).to include("--jobs 5")
+    end
+
+    it "disables non-writable sandbox path on macOS", :needs_macos do
+      expect(f.std_swift_args).to include("--disable-sandbox")
+    end
+
+    it "includes override for ld shim on Linux", :needs_linux do
+      expect(f.std_swift_args).to include("-use-ld=ld")
+    end
+  end
+
   describe "#std_zig_args" do
     let(:f) do
       formula do
