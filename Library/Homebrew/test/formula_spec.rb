@@ -147,6 +147,15 @@ RSpec.describe Formula do
     end
   end
 
+  describe ".python_major_minor_version" do
+    it "delegates to Language::Python.major_minor_version" do
+      version = instance_double(Version, "version")
+      expect(Language::Python).to receive(:major_minor_version).with("python3").and_return(version)
+
+      expect(described_class.python_major_minor_version("python3")).to be(version)
+    end
+  end
+
   describe "#versioned_formulae" do
     let(:f) do
       formula "foo" do
