@@ -1243,6 +1243,7 @@ module Homebrew
       refs = [
         default_branch,
         default_branch&.delete_prefix("origin/"),
+        "origin/HEAD",
         "origin/main",
         "main",
         "HEAD",
