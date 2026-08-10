@@ -5,6 +5,7 @@ require "json"
 require "development_tools"
 require "utils/curl"
 require "utils/output"
+require "vulns/purl"
 
 # Rather than calling `new` directly, use one of the class methods like {SBOM.create}.
 class SBOM
@@ -144,7 +145,7 @@ class SBOM
       "externalRefs"     => [
         {
           "referenceCategory" => "PACKAGE-MANAGER",
-          "referenceLocator"  => "pkg:brew/#{formula_full_name}@#{version}",
+          "referenceLocator"  => brew_purl(formula_full_name, version),
           "referenceType"     => "purl",
         },
       ],
@@ -157,6 +158,17 @@ class SBOM
     }
   end
   private_class_method :bottle_package
+
+  sig { params(full_name: String, version: T.nilable(T.any(String, Version))).returns(String) }
+  def self.brew_purl(full_name, version)
+    namespace, _, name = full_name.rpartition("/")
+    Homebrew::Vulns::Purl.new(
+      type:      "brew",
+      namespace: namespace.presence,
+      name:,
+      version:   version&.to_s,
+    ).to_s
+  end
 
   sig {
     params(
@@ -497,7 +509,7 @@ class SBOM
         externalRefs:     [
           {
             referenceCategory: "PACKAGE-MANAGER",
-            referenceLocator:  "pkg:brew/#{tap}/#{name}@#{stable_version}",
+            referenceLocator:  SBOM.brew_purl([source.tap_name, name].compact.join("/"), stable_version),
             referenceType:     "purl",
           },
         ],
@@ -616,7 +628,7 @@ class SBOM
         externalRefs:     [
           {
             referenceCategory: "PACKAGE-MANAGER",
-            referenceLocator:  "pkg:brew/#{dependency["full_name"]}@#{dependency_pkg_version}",
+            referenceLocator:  SBOM.brew_purl(dependency.fetch("full_name").to_s, dependency_pkg_version),
             referenceType:     "purl",
           },
         ],
