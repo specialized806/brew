@@ -372,9 +372,9 @@ RSpec.describe Homebrew::InstallSteps do
     (root/"var").mkpath
     (root/"var/remove.txt").write "remove"
     command = class_double(SystemCommand)
-    expect(command).to receive(:run!)
-      .with("helper", args: [""], sudo: false, env: { "EMPTY" => "" }, input: [], print_stdout: false,
-                      print_stderr: true, reset_uid: true, chdir: nil)
+    expect(command).to receive(:run)
+      .with("helper", args: [""], sudo: false, env: { "EMPTY" => "" }, input: [], must_succeed: true,
+                      print_stdout: false, print_stderr: true, reset_uid: true, chdir: nil)
 
     Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
 
@@ -663,9 +663,10 @@ RSpec.describe Homebrew::InstallSteps do
     end
 
     command = class_double(SystemCommand)
-    expect(command).to receive(:run!)
+    expect(command).to receive(:run)
       .with(root/"prefix/libexec/helper", args: ["--path=#{root}/var"], sudo: false,
-                                           env: { "EXAMPLE" => "#{root}/var/value" }, input: [], print_stdout: false,
+                                           env: { "EXAMPLE" => "#{root}/var/value" }, input: [],
+                                           must_succeed: true, print_stdout: false,
                                            print_stderr: true, reset_uid: true, chdir: nil)
 
     Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
@@ -693,16 +694,46 @@ RSpec.describe Homebrew::InstallSteps do
 
     (root/"var/work").mkpath
     (root/"var/input.txt").write "input"
-    result = instance_double(SystemCommand::Result, stdout: "output")
+    result = instance_double(SystemCommand::Result, stdout: "output", success?: true)
     command = class_double(SystemCommand)
-    expect(command).to receive(:run!)
-      .with(root/"prefix/bin/filter", args: [], sudo: false, env: {}, input: "input", print_stdout: false,
-                                      print_stderr: true, reset_uid: true, chdir: root/"var/work")
+    expect(command).to receive(:run)
+      .with(root/"prefix/bin/filter", args: [], sudo: false, env: {}, input: "input", must_succeed: true,
+                                      print_stdout: false, print_stderr: true, reset_uid: true,
+                                      chdir: root/"var/work")
       .and_return(result)
 
     Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
 
     expect((root/"var/output.txt").read).to eq("output")
+  end
+
+  specify "allows a run step to fail when it must not succeed" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      run "helper", base: :libexec, must_succeed: false
+    end
+
+    expect(steps).to include(a_hash_including("type" => "run", "allow_failure" => true))
+
+    command = class_double(SystemCommand)
+    expect(command).to receive(:run)
+      .with(root/"prefix/libexec/helper", args: [], sudo: false, env: {}, input: [], must_succeed: false,
+                                           print_stdout: false, print_stderr: true, reset_uid: true, chdir: nil)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+  end
+
+  specify "does not write an output path when an ignored run step fails" do
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :var) do
+      run "filter", base: :bin, stdout_path: "output.txt", must_succeed: false
+    end
+
+    result = instance_double(SystemCommand::Result, success?: false)
+    command = class_double(SystemCommand)
+    allow(command).to receive(:run).and_return(result)
+
+    Homebrew::InstallSteps::Runner.new(context:, command:).run(steps)
+
+    expect(root/"var/output.txt").not_to exist
   end
 
   specify "can ignore process termination failure after retries" do

@@ -675,6 +675,7 @@ module Homebrew
           base:           ::T.nilable(::T.any(::String, ::Symbol)),
           env:            ::T::Hash[::String, ::String],
           sudo:           ::T::Boolean,
+          must_succeed:   ::T::Boolean,
           print_stdout:   ::T::Boolean,
           print_stderr:   ::T::Boolean,
           stdin_path:     ::T.nilable(::T.any(::String, ::Pathname)),
@@ -684,13 +685,15 @@ module Homebrew
           writable_base:  ::T.nilable(::T.any(::String, ::Symbol)),
         ).void
       }
-      def run(command, args: [], base: nil, env: {}, sudo: false, print_stdout: false, print_stderr: true,
-              stdin_path: nil, stdout_path: nil, chdir: nil, writable_paths: [], writable_base: nil)
+      def run(command, args: [], base: nil, env: {}, sudo: false, must_succeed: true, print_stdout: false,
+              print_stderr: true, stdin_path: nil, stdout_path: nil, chdir: nil, writable_paths: [],
+              writable_base: nil)
         add_step("run",
                  "command"         => path_spec(command, base:, default_base: nil),
                  "args"            => args.map(&:to_s),
                  "env"             => env,
                  "sudo"            => sudo,
+                 "allow_failure"   => !must_succeed,
                  "print_stdout"    => print_stdout,
                  "suppress_stderr" => !print_stderr,
                  "stdin_path"      => optional_path_spec(stdin_path, default_base: @default_base),
@@ -1198,12 +1201,14 @@ module Homebrew
                        .transform_values { |value| expand_template_tokens(value.to_s) }
         input = step.key?("stdin_path") ? resolve_path(step_path(step, "stdin_path")).read : []
         working_directory = resolve_path(step_path(step, "chdir")) if step.key?("chdir")
-        result = @command.run!(command, args:, sudo: step["sudo"] == true, env: environment, input:,
-                                      print_stdout: step["print_stdout"] == true,
-                                      print_stderr: step["suppress_stderr"] != true, reset_uid: true,
-                                      chdir: working_directory)
+        result = @command.run(command, args:, sudo: step["sudo"] == true, env: environment, input:,
+                                     must_succeed: step["allow_failure"] != true,
+                                     print_stdout: step["print_stdout"] == true,
+                                     print_stderr: step["suppress_stderr"] != true, reset_uid: true,
+                                     chdir: working_directory)
 
         return unless step.key?("stdout_path")
+        return unless result.success?
 
         output_path = resolve_path(step_path(step, "stdout_path"))
         output_path.dirname.mkpath
