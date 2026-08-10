@@ -262,4 +262,19 @@ RSpec.describe SBOM do
       end
     end
   end
+
+  describe ".brew_purl" do
+    it "percent-encodes @ in versioned formula names" do
+      expect(described_class.brew_purl("homebrew/core/python@3.12", "3.12.8"))
+        .to eq("pkg:brew/homebrew/core/python%403.12@3.12.8")
+    end
+
+    it "omits the namespace for a bare formula name" do
+      expect(described_class.brew_purl("zlib", "1.3.1")).to eq("pkg:brew/zlib@1.3.1")
+    end
+
+    it "omits the version segment when version is nil" do
+      expect(described_class.brew_purl("homebrew/core/foo", nil)).to eq("pkg:brew/homebrew/core/foo")
+    end
+  end
 end
