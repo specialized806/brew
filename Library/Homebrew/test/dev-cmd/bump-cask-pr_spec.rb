@@ -350,6 +350,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
 
           url "https://brew.sh/foo-\#{arch}-\#{version}.dmg"
           name "Foo"
+          depends_on :macos
         end
       RUBY
       cask = Homebrew::SimulateSystem.with(os: newest_macos, arch: :arm) { cask_from_contents(contents) }
@@ -371,6 +372,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
 
             url "https://brew.sh/foo-\#{arch}-\#{version}.dmg"
             name "Foo"
+            depends_on :macos
           end
         RUBY
     end
@@ -519,6 +521,37 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
           name "Foo"
         end
       RUBY
+    end
+
+    it "requires depends_on arch when a checksum is missing" do
+      contents = <<~RUBY
+        cask "foo" do
+          arch arm: "arm64", intel: "x64"
+          os macos: "macos", linux: "linux"
+
+          version "1.0"
+          sha256 arm:          "#{old_hash}",
+                 arm64_linux:  "#{new_hash}",
+                 x86_64_linux: "#{intel_hash}"
+
+          url "https://brew.sh/foo-\#{os}-\#{arch}-\#{version}.zip"
+          name "Foo"
+
+          on_macos do
+            app "Foo.app"
+          end
+          on_linux do
+            binary "foo"
+          end
+        end
+      RUBY
+      cask = cask_from_contents(contents)
+      new_version = Homebrew::BumpVersionParser.new(general: "2.0")
+      allow(Cask::Download).to receive(:new) { raise "download attempted" }
+
+      expect do
+        bump_cask_pr.replace_version_and_checksum(cask, nil, new_version, contents)
+      end.to raise_error(Cask::CaskError, /No checksum.*`depends_on arch:`/)
     end
 
     it "leaves nested architecture stanzas unchanged when matching values could be replaced globally" do

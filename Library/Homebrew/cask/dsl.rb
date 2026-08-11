@@ -562,21 +562,6 @@ module Cask
         when String
           Checksum.new(val)
         when nil
-          # Checksums declared for only the other OS mean no checksum for the
-          # running OS, matching `sha256` inside an `on_macos`/`on_linux` block;
-          # `depends_on` governs whether the cask is usable there. A checksum
-          # declared for the running OS but missing the running architecture
-          # still raises on the real system but is nil under simulation so
-          # API variations can be generated for the missing architecture.
-          running_os_checksums = if OnSystem.os_condition_met?(:linux)
-            [x86_64_linux, arm64_linux]
-          else
-            [arm, x86_64]
-          end
-          if running_os_checksums.any?(&:present?) && !Homebrew::SimulateSystem.simulating?
-            raise CaskInvalidError.new(cask, "invalid 'sha256' value: nil")
-          end
-
           nil
         else
           raise CaskInvalidError.new(cask, "invalid 'sha256' value: #{val.inspect}")
