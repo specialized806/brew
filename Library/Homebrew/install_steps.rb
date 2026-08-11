@@ -683,11 +683,12 @@ module Homebrew
           chdir:          ::T.nilable(::T.any(::String, ::Pathname)),
           writable_paths: Paths,
           writable_base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          network_access: ::T::Boolean,
         ).void
       }
       def run(command, args: [], base: nil, env: {}, sudo: false, must_succeed: true, print_stdout: false,
               print_stderr: true, stdin_path: nil, stdout_path: nil, chdir: nil, writable_paths: [],
-              writable_base: nil)
+              writable_base: nil, network_access: false)
         add_step("run",
                  "command"         => path_spec(command, base:, default_base: nil),
                  "args"            => args.map(&:to_s),
@@ -703,7 +704,8 @@ module Homebrew
                    writable_paths,
                    base:         writable_base,
                    default_base: @default_base,
-                 ))
+                 ),
+                 "network_access"  => network_access)
       end
 
       sig {
