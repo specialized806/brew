@@ -55,6 +55,28 @@ RSpec.describe Cask::Download, :cask do
       expect(download).not_to receive(:downloader)
       expect { download.fetch }.to raise_error(/--require-sha/)
     end
+
+    it "fails before downloading if sha256 is nil with --require-sha" do
+      missing_checksum = Cask::CaskLoader.load(cask_path("missing-checksum"))
+      download = described_class.new(missing_checksum, require_sha: true)
+      allow(download).to receive(:downloader) { raise "download attempted" }
+
+      expect { download.fetch }.to raise_error(Cask::CaskError, /--require-sha/)
+    end
+
+    it "fails before downloading if a platform checksum is missing" do
+      Homebrew::SimulateSystem.with(os: :macos, arch: :intel) do
+        cask = Cask::Cask.new("missing-platform-checksum") do
+          version "1.2.3"
+          sha256 arm: "0000000000000000000000000000000000000000000000000000000000000000"
+          url "https://brew.sh/example.zip"
+        end
+        download = described_class.new(cask)
+        allow(download).to receive(:downloader) { raise "download attempted" }
+
+        expect { download.fetch }.to raise_error(Cask::CaskError, /`depends_on`/)
+      end
+    end
   end
 
   describe "#stage_from_download_queue?" do

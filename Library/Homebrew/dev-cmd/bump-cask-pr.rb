@@ -293,6 +293,9 @@ module Homebrew
         generate_system_options(cask, new_version).each do |os, arch|
           tag = Utils::Bottles::Tag.new(system: os, arch:)
           old_cask.refresh_for_tag(tag) do
+            next if tag.macos? && !old_cask.supports_macos?
+            next if tag.linux? && !old_cask.supports_linux?
+
             # Skip archs excluded by the cask's `depends_on arch:`.
             reloaded_archs = old_cask.depends_on.arch&.filter_map { |a| a[:type] }&.uniq
             next if reloaded_archs.present? && reloaded_archs.exclude?(arch)
@@ -317,6 +320,11 @@ module Homebrew
             tmp_cask = Cask::CaskLoader::FromContentLoader.new(contents)
                                                           .load(config: nil)
             old_hash = tmp_cask.sha256
+            if old_hash.nil?
+              raise Cask::CaskError, "#{cask}: No checksum is defined for #{tag.to_sym.inspect}. " \
+                                     "Add `depends_on arch:` or an operating system `depends_on` to " \
+                                     "declare unsupported platforms."
+            end
             next if new_hash.is_a?(String) && old_hash.to_s == new_hash
 
             checksum_scope = cask_stanza_scope(contents, :sha256, arch)
