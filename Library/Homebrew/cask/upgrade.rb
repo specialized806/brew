@@ -64,7 +64,7 @@ module Cask
 
           if cask.outdated?(greedy: true)
             true
-          elsif cask.version.latest?
+          elsif cask.version&.latest?
             opoo "Not upgrading #{cask.token}, the downloaded artifact has not changed" unless quiet
             false
           else
