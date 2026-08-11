@@ -70,4 +70,56 @@ RSpec.describe Homebrew::Upgrade do
         .to output(/Would upgrade.*python@3.14 3.7.1 -> 3.14.6/m).to_stdout
     end
   end
+
+  describe "::formula_installers" do
+    it "explains when installed dependencies satisfy the bottle metadata" do
+      dependent = formula("dependent") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/dependent-2.0"
+      end
+      formula_installer = instance_double(
+        FormulaInstaller,
+        bottle_tab_runtime_dependencies: { "dependency" => { "version" => "2.0", "revision" => "0" } },
+        determine_bottle_tab_attributes: nil,
+        fetch_bottle_tab:                nil,
+        formula:                         dependent,
+      )
+      dependency = instance_double(Dependency)
+      download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+
+      allow(Migrator).to receive(:migrate_if_needed)
+      allow(described_class).to receive(:create_formula_installer).and_return(formula_installer)
+      allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+      allow(Dependency).to receive(:new).with("dependency").and_return(dependency)
+      allow(dependency).to receive(:installed?)
+        .with(minimum_version: Version.new("2.0"), minimum_revision: 0)
+        .and_return(true)
+
+      expect do
+        described_class.formula_installers([dependent], flags: [], dependents: true)
+      end.to output(
+        "==> Not upgrading dependent: installed runtime dependencies satisfy bottle metadata\n",
+      ).to_stdout
+    end
+  end
+
+  describe "::upgrade_dependents" do
+    it "returns installed dependents unless they are primary formulae" do
+      installed_dependent = formula("installed-dependent") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/installed-dependent-2.0"
+      end
+      primary_formula = formula("primary") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/primary-2.0"
+      end
+      FormulaInstaller.installed.merge([installed_dependent, primary_formula])
+      dependants = Homebrew::Upgrade::Dependents.new(
+        upgradeable: [installed_dependent, primary_formula], pinned: [], skipped: [],
+      )
+
+      expect(described_class.upgrade_dependents(dependants, [primary_formula], flags: []))
+        .to contain_exactly(installed_dependent)
+    end
+  end
 end
