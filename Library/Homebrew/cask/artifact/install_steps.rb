@@ -33,7 +33,9 @@ module Cask
       sig { params(command: T.class_of(SystemCommand), phase: Symbol).void }
       def run_steps(command, phase: :install)
         runner = Homebrew::InstallSteps::Runner.new(context: cask, command:)
-        sandbox = cask_sandbox
+        sandbox = cask_sandbox(network_access_allowed: steps.any? do |step|
+          step["type"] == "run" && step["network_access"] == true
+        end)
         unless sandbox
           runner.run(steps, phase:)
           return
