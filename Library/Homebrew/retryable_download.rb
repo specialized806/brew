@@ -88,12 +88,12 @@ module Homebrew
       tries_remaining = @tries - @try
       raise if tries_remaining.zero?
 
-      wait = 2 ** @try
-      unless quiet
+      Utils.exponential_backoff_sleep(@try) do |wait|
+        next if quiet
+
         what = Utils.pluralize("try", tries_remaining)
         ohai "Retrying download in #{wait}s... (#{tries_remaining} #{what} left)"
       end
-      sleep wait
 
       # Preserve the partial `.incomplete` file on network errors so the next
       # attempt can resume via `--continue-at`. Clear the cache only when the

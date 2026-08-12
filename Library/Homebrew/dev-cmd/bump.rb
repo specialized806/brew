@@ -876,9 +876,7 @@ module Homebrew
             )
             consecutive_github_api_errors = 0
           rescue GitHub::API::RateLimitExceededError => e
-            sleep_seconds = [e.reset - Time.now.to_i, 1].max
-            opoo "GitHub rate limit exceeded, sleeping for #{sleep_seconds} seconds..."
-            sleep sleep_seconds
+            GitHub::API.sleep_for_rate_limit(e)
             retry
           rescue GitHub::API::AuthenticationFailedError
             # Retrying this for the remaining packages cannot succeed, so stop now.
@@ -886,9 +884,9 @@ module Homebrew
           rescue GitHub::API::Error => e
             github_api_retries += 1
             if github_api_retries <= MAX_GITHUB_API_RETRIES
-              wait = 2 ** github_api_retries
-              onoe "#{name}: retrying in #{wait}s after a GitHub API error: #{e}"
-              sleep wait
+              Utils.exponential_backoff_sleep(github_api_retries) do |wait|
+                onoe "#{name}: retrying in #{wait}s after a GitHub API error: #{e}"
+              end
               retry
             end
 

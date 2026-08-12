@@ -366,7 +366,7 @@ class GitHubPackages
       rescue ErrorDuringExecution
         retry_count += 1
         odie "Cannot perform an upload to registry after retrying multiple times!" if retry_count >= 10
-        sleep 2 ** retry_count
+        Utils.exponential_backoff_sleep(retry_count)
         retry
       end
 
