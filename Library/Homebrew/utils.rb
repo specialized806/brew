@@ -112,6 +112,15 @@ module Utils
     "#{prefix}#{stem}#{suffix}"
   end
 
+  # Sleeps for an exponentially increasing wait (`base ** try` seconds), yielding
+  # the wait time first so callers can print a message before sleeping.
+  sig { params(try: Integer, base: Integer, _blk: T.nilable(T.proc.params(wait: Integer).void)).void }
+  def self.exponential_backoff_sleep(try, base: 2, &_blk)
+    wait = base.pow(try)
+    yield wait if block_given?
+    sleep wait
+  end
+
   sig { params(author: String).returns({ email: String, name: String }) }
   def self.parse_author!(author)
     match_data = /^(?<name>[^<]+?)[ \t]*<(?<email>[^>]+?)>$/.match(author)

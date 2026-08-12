@@ -25,6 +25,8 @@ module Homebrew
         timeout:         60,
         retries:         0,
       }.freeze, T::Hash[Symbol, T.untyped])
+      MAX_CONSECUTIVE_GITHUB_API_ERRORS = 5
+      MAX_GITHUB_API_RETRIES = 3
       PYPI_UNSTABLE_VERSION_REGEX = /^(?:\d+!)?\d+(?:\.\d+)*(?:a|b|rc)\d+|\.dev\d+$/i
 
       LIVECHECK_MESSAGE_REGEX = /^(?:error:|skipped|unable to get(?: throttled)? versions)/i
@@ -849,6 +851,7 @@ module Homebrew
                             .flatten
         end
 
+        consecutive_github_api_errors = 0
         formulae_and_casks.each_with_index do |formula_or_cask, i|
           puts if i.positive?
           next if skip_ineligible_formulae!(formula_or_cask)
@@ -863,12 +866,37 @@ module Homebrew
 
           package_data = Repology.single_package_query(name, repository:) unless skip_repology?(formula_or_cask)
 
-          retrieve_and_display_info_and_open_pr(
-            formula_or_cask,
-            name,
-            package_data&.values&.first || [],
-            ambiguous_cask: ambiguous_casks.include?(formula_or_cask),
-          )
+          github_api_retries = 0
+          begin
+            retrieve_and_display_info_and_open_pr(
+              formula_or_cask,
+              name,
+              package_data&.values&.first || [],
+              ambiguous_cask: ambiguous_casks.include?(formula_or_cask),
+            )
+            consecutive_github_api_errors = 0
+          rescue GitHub::API::RateLimitExceededError => e
+            GitHub::API.sleep_for_rate_limit(e)
+            retry
+          rescue GitHub::API::AuthenticationFailedError
+            # Retrying this for the remaining packages cannot succeed, so stop now.
+            raise
+          rescue GitHub::API::Error => e
+            github_api_retries += 1
+            if github_api_retries <= MAX_GITHUB_API_RETRIES
+              Utils.exponential_backoff_sleep(github_api_retries) do |wait|
+                onoe "#{name}: retrying in #{wait}s after a GitHub API error: #{e}"
+              end
+              retry
+            end
+
+            consecutive_github_api_errors += 1
+            if consecutive_github_api_errors >= MAX_CONSECUTIVE_GITHUB_API_ERRORS
+              odie "Aborting after #{consecutive_github_api_errors} consecutive GitHub API errors: #{e}"
+            end
+
+            onoe "#{name}: skipped after a GitHub API error: #{e}"
+          end
         end
       end
 
