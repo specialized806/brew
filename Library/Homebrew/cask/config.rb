@@ -134,8 +134,9 @@ module Cask
       @fish_completion = T.let(nil, T.nilable(Pathname))
 
       if ignore_invalid_keys
-        unknown_keys = ((@env&.keys || []) + @explicit.keys).uniq - self.class.defaults.keys
-        opoo "Ignoring unknown cask configuration keys: #{unknown_keys.inspect}" unless unknown_keys.empty?
+        if (unknown_keys = ((Array(@env&.keys) + @explicit.keys).uniq - self.class.defaults.keys).presence)
+          opoo "Ignoring unknown cask configuration keys: #{unknown_keys.inspect}"
+        end
 
         @env&.delete_if { |key, _| unknown_keys.include?(key) }
         @explicit.delete_if { |key, _| unknown_keys.include?(key) }
