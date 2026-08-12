@@ -62,9 +62,13 @@ module Cask
             next false
           end
 
-          if cask.outdated?(greedy: true)
+          version = cask.version
+          if version.nil?
+            opoo "Not upgrading #{cask.token}, no version is available for the current platform" unless quiet
+            false
+          elsif cask.outdated?(greedy: true)
             true
-          elsif cask.version&.latest?
+          elsif version.latest?
             opoo "Not upgrading #{cask.token}, the downloaded artifact has not changed" unless quiet
             false
           else
