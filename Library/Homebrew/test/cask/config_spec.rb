@@ -37,6 +37,22 @@ RSpec.describe Cask::Config, :cask do
       EOS
       expect(config.appdir).to eq(Pathname("/path/to/apps"))
     end
+
+    it "ignores invalid keys when requested" do
+      json = <<~EOS
+        {
+          "default": {},
+          "env": {
+            "appdir": "/path/to/apps",
+            "invaliddir": "/path/to/invalid"
+          },
+          "explicit": {}
+        }
+      EOS
+      config = described_class.from_json(json, ignore_invalid_keys: true)
+
+      expect(config.env).to eq(appdir: Pathname("/path/to/apps"))
+    end
   end
 
   describe "#default" do
@@ -76,6 +92,33 @@ RSpec.describe Cask::Config, :cask do
       ENV["HOMEBREW_CASK_OPTS"] = "--appdir=/path/to/apps"
 
       expect(config.env).to eq(appdir: Pathname("/path/to/apps"))
+    end
+
+    it "normalizes hyphenated option names to underscored keys" do
+      ENV["HOMEBREW_CASK_OPTS"] = "--input-methoddir=/path/to/input/methods"
+
+      expect(config.env).to eq(input_methoddir: Pathname("/path/to/input/methods"))
+      expect(config.input_methoddir).to eq(Pathname("/path/to/input/methods"))
+    end
+
+    it "accepts underscored option names" do
+      ENV["HOMEBREW_CASK_OPTS"] = "--input_methoddir=/path/to/input/methods"
+
+      expect(config.env).to eq(input_methoddir: Pathname("/path/to/input/methods"))
+    end
+
+    it "normalizes option names but not their values" do
+      ENV["HOMEBREW_CASK_OPTS"] = "--language=zh-TW,en-GB"
+
+      expect(config.env).to eq(languages: ["zh-TW", "en-GB"])
+    end
+
+    it "survives a JSON round-trip" do
+      ENV["HOMEBREW_CASK_OPTS"] = "--input-methoddir=/path/to/input/methods"
+
+      round_tripped = described_class.from_json(config.to_json)
+
+      expect(round_tripped.input_methoddir).to eq(Pathname("/path/to/input/methods"))
     end
   end
 

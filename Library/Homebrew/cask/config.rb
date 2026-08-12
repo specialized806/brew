@@ -153,7 +153,8 @@ module Cask
           .select { |arg| arg.include?("=") }
           .map { |arg| T.cast(arg.split("=", 2), [String, String]) }
           .to_h do |(flag, value)|
-            key = flag.sub(/^--/, "")
+            # command-line flags are hyphenated (e.g. --input-methoddir) but config keys use underscores
+            key = flag.sub(/^--/, "").tr("-", "_")
             # converts --language flag to :languages config key
             if key == "language"
               key = "languages"
