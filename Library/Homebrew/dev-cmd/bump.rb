@@ -26,7 +26,7 @@ module Homebrew
         retries:         0,
       }.freeze, T::Hash[Symbol, T.untyped])
       MAX_CONSECUTIVE_GITHUB_API_ERRORS = 5
-      GITHUB_API_ERROR_RETRY_SLEEP = 5
+      MAX_GITHUB_API_RETRIES = 3
       PYPI_UNSTABLE_VERSION_REGEX = /^(?:\d+!)?\d+(?:\.\d+)*(?:a|b|rc)\d+|\.dev\d+$/i
 
       LIVECHECK_MESSAGE_REGEX = /^(?:error:|skipped|unable to get(?: throttled)? versions)/i
@@ -866,7 +866,7 @@ module Homebrew
 
           package_data = Repology.single_package_query(name, repository:) unless skip_repology?(formula_or_cask)
 
-          retried = T.let(false, T::Boolean)
+          github_api_retries = 0
           begin
             retrieve_and_display_info_and_open_pr(
               formula_or_cask,
@@ -875,14 +875,20 @@ module Homebrew
               ambiguous_cask: ambiguous_casks.include?(formula_or_cask),
             )
             consecutive_github_api_errors = 0
-          rescue GitHub::API::RateLimitExceededError, GitHub::API::AuthenticationFailedError
-            # Retrying these for the remaining packages cannot succeed, so stop now.
+          rescue GitHub::API::RateLimitExceededError => e
+            sleep_seconds = [e.reset - Time.now.to_i, 1].max
+            opoo "GitHub rate limit exceeded, sleeping for #{sleep_seconds} seconds..."
+            sleep sleep_seconds
+            retry
+          rescue GitHub::API::AuthenticationFailedError
+            # Retrying this for the remaining packages cannot succeed, so stop now.
             raise
           rescue GitHub::API::Error => e
-            unless retried
-              retried = true
-              onoe "#{name}: retrying after a GitHub API error: #{e}"
-              sleep GITHUB_API_ERROR_RETRY_SLEEP
+            github_api_retries += 1
+            if github_api_retries <= MAX_GITHUB_API_RETRIES
+              wait = 2 ** github_api_retries
+              onoe "#{name}: retrying in #{wait}s after a GitHub API error: #{e}"
+              sleep wait
               retry
             end
 
