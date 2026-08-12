@@ -157,6 +157,29 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
     RUBY
   end
 
+  it "autocorrects missing bare macOS dependencies for artifacts in architecture blocks" do
+    expect_offense(<<~RUBY)
+      cask "basic" do
+        on_intel do
+          version "1.0"
+          app "Basic.app"
+          ^^^^^^^^^^^^^^^ Add `depends_on :macos` for macOS-only casks.
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      cask "basic" do
+        on_intel do
+          version "1.0"
+          app "Basic.app"
+        end
+
+        depends_on :macos
+      end
+    RUBY
+  end
+
   it "autocorrects missing bare Linux dependencies for Linux-only cask stanzas" do
     expect_offense(<<~RUBY)
       cask "basic" do
@@ -250,6 +273,92 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
         app_image "Basic.AppImage"
       end
     RUBY
+  end
+
+  it "autocorrects missing bare Linux dependencies for artifacts in architecture blocks" do
+    expect_offense(<<~RUBY)
+      cask "basic" do
+        on_arm do
+          version "1.0"
+          app_image "Basic.AppImage"
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^ Add `depends_on :linux` for Linux-only casks.
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      cask "basic" do
+        on_arm do
+          version "1.0"
+          app_image "Basic.AppImage"
+        end
+
+        depends_on :linux
+      end
+    RUBY
+  end
+
+  it "requires OS scoping for architecture artifacts in cross-platform casks" do
+    expect_offense(<<~RUBY)
+      cask "dual-os-arch" do
+        on_intel do
+          app "Foo.app"
+          ^^^^^^^^^^^^^ Move this macOS-only stanza into an `on_macos` block for cross-platform casks.
+        end
+
+        on_linux do
+          app_image "Foo.AppImage"
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "requires OS scoping for top-level artifacts in cross-platform casks" do
+    expect_offense(<<~RUBY)
+      cask "toplevel-cross-platform" do
+        app "Foo.app"
+        ^^^^^^^^^^^^^ Move this macOS-only stanza into an `on_macos` block for cross-platform casks.
+
+        on_linux do
+          binary "foo"
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "requires OS scoping for artifacts in on_system blocks" do
+    expect_offense(<<~RUBY)
+      cask "on-system-artifact" do
+        on_system :linux, macos: :sonoma_or_older do
+          app_image "Foo.AppImage"
+          ^^^^^^^^^^^^^^^^^^^^^^^^ Move this Linux-only stanza into an `on_linux` block for cross-platform casks.
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not autocorrect conflicting OS-specific architecture artifacts" do
+    expect_offense(<<~RUBY)
+      cask "conflicting-arch-artifacts" do
+        on_arm do
+          app_image "Foo.AppImage"
+          ^^^^^^^^^^^^^^^^^^^^^^^^ Move this Linux-only stanza into an `on_linux` block for cross-platform casks.
+        end
+
+        on_intel do
+          app "Foo.app"
+          ^^^^^^^^^^^^^ Move this macOS-only stanza into an `on_macos` block for cross-platform casks.
+        end
+      end
+    RUBY
+
+    expect_no_corrections
   end
 
   it "accepts casks without macOS-only or Linux-only stanzas" do

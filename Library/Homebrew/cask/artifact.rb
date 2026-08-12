@@ -35,31 +35,3 @@ require "cask/artifact/stage_only"
 require "cask/artifact/suite"
 require "cask/artifact/uninstall"
 require "cask/artifact/zap"
-
-module Cask
-  # Module containing all cask artifact classes.
-  module Artifact
-    MACOS_ONLY_ARTIFACTS = [
-      ::Cask::Artifact::App,
-      ::Cask::Artifact::AudioUnitPlugin,
-      ::Cask::Artifact::Colorpicker,
-      ::Cask::Artifact::Dictionary,
-      ::Cask::Artifact::InputMethod,
-      ::Cask::Artifact::InternetPlugin,
-      ::Cask::Artifact::KeyboardLayout,
-      ::Cask::Artifact::Mdimporter,
-      ::Cask::Artifact::Pkg,
-      ::Cask::Artifact::Prefpane,
-      ::Cask::Artifact::Qlplugin,
-      ::Cask::Artifact::ScreenSaver,
-      ::Cask::Artifact::Service,
-      ::Cask::Artifact::Suite,
-      ::Cask::Artifact::VstPlugin,
-      ::Cask::Artifact::Vst3Plugin,
-    ].freeze
-
-    LINUX_ONLY_ARTIFACTS = [
-      ::Cask::Artifact::AppImage,
-    ].freeze
-  end
-end
