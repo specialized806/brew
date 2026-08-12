@@ -21,6 +21,11 @@ RSpec.describe Homebrew::Bundle::Uv do
       expect { described_class.entry("probetool", source: "file:///Users/test/src/probetool") }
         .to raise_error(RuntimeError, /local to this machine/)
     end
+
+    it "rejects a git+file:// URL" do
+      expect { described_class.entry("probetool", source: "git+file:///Users/test/src/probetool") }
+        .to raise_error(RuntimeError, /local to this machine/)
+    end
   end
 
   describe "checking" do
@@ -174,6 +179,24 @@ RSpec.describe Homebrew::Bundle::Uv do
       it "dumps a tool installed from a directory without a source" do
         allow(described_class).to receive(:`).with(uv_tool_list_command).and_return(<<~OUTPUT)
           probetool v0.1.0 [required: file:///Users/test/src/probetool]
+          - probetool
+        OUTPUT
+
+        expect(dumper.dump).to eql('uv "probetool"')
+      end
+
+      it "dumps a tool installed from a git+file:// URL without a source" do
+        allow(described_class).to receive(:`).with(uv_tool_list_command).and_return(<<~OUTPUT)
+          probetool v0.1.0 [required: git+file:///Users/test/src/probetool]
+          - probetool
+        OUTPUT
+
+        expect(dumper.dump).to eql('uv "probetool"')
+      end
+
+      it "dumps a tool installed from a directory named like a git repository without a source" do
+        allow(described_class).to receive(:`).with(uv_tool_list_command).and_return(<<~OUTPUT)
+          probetool v0.1.0 [required: file:///Users/test/src/probetool.git]
           - probetool
         OUTPUT
 

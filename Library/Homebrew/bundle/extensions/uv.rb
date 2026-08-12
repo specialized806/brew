@@ -14,8 +14,11 @@ module Homebrew
       SOURCE_REQUIREMENT_REGEX = %r{\A(?:git\+|https?://)|\.git\z}
       # `uv tool list` reports a tool installed from a directory as an absolute
       # `file://` URL, and a hand-written Brewfile can name a path directly.
-      # Neither resolves on another machine, so neither is accepted.
-      LOCAL_SOURCE_REGEX = %r{\A(?:file://|\.{0,2}/)}
+      # `uv tool install` also takes either spelling behind a `git+` prefix.
+      # None of them resolves on another machine, so none is accepted, and a
+      # tool installed from one is dumped without a `source:` rather than with
+      # one that would then fail to parse.
+      LOCAL_SOURCE_REGEX = %r{\A(?:git\+)?(?:file://|\.{0,2}/)}
 
       class << self
         sig { override.returns(Symbol) }
@@ -154,6 +157,7 @@ module Homebrew
         def parse_source(required_raw)
           source = normalize_source(required_raw)
           return if source.nil?
+          return if source.match?(LOCAL_SOURCE_REGEX)
           return source if source.match?(SOURCE_REQUIREMENT_REGEX)
 
           nil
