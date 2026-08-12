@@ -738,6 +738,16 @@ RSpec.describe Cask::DSL, :cask, :no_api do
       end
     end
 
+    context "when specified multiple times" do
+      let(:token) { "with-conflicts-with-multiple" }
+
+      it "merges and deduplicates all conflicts_with stanzas" do
+        os_conflict = OS.mac? ? "macos-caffeine" : "linux-caffeine"
+        expect(cask.conflicts_with[:cask])
+          .to eq(Set.new(["local-caffeine", "with-caffeine", os_conflict]))
+      end
+    end
+
     context "with invalid conflicts_with key" do
       let(:token) { "invalid-conflicts-with-key" }
 

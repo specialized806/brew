@@ -8,9 +8,9 @@ module RuboCop
         include CaskHelp
 
         # These stanzas can be overridden by `on_*` blocks, so take them into account.
-        # TODO: Update this list if new stanzas are added to `Cask::DSL` that call `set_unique_stanza`.
+        # TODO: Update this list when stanzas in `Cask::DSL` start or stop calling `set_unique_stanza`.
         OVERRIDABLE_METHODS = [
-          :appcast, :arch, :auto_updates, :conflicts_with, :container,
+          :appcast, :arch, :auto_updates, :container,
           :desc, :homepage, :os, :sha256, :url, :version
         ].freeze
 
