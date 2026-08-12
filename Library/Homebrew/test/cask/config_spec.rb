@@ -25,6 +25,19 @@ RSpec.describe Cask::Config, :cask do
   end
 
   describe "::from_json" do
+    let(:invalid_keys_json) do
+      <<~EOS
+        {
+          "default": {},
+          "env": {
+            "appdir": "/path/to/apps",
+            "invaliddir": "/path/to/invalid"
+          },
+          "explicit": {}
+        }
+      EOS
+    end
+
     it "deserializes a configuration in JSON format" do
       config = described_class.from_json <<~EOS
         {
@@ -39,19 +52,21 @@ RSpec.describe Cask::Config, :cask do
     end
 
     it "ignores invalid keys when requested" do
-      json = <<~EOS
-        {
-          "default": {},
-          "env": {
-            "appdir": "/path/to/apps",
-            "invaliddir": "/path/to/invalid"
-          },
-          "explicit": {}
-        }
-      EOS
-      config = described_class.from_json(json, ignore_invalid_keys: true)
+      config = described_class.from_json(invalid_keys_json, ignore_invalid_keys: true)
 
       expect(config.env).to eq(appdir: Pathname("/path/to/apps"))
+    end
+
+    it "warns about ignored invalid keys" do
+      expect { described_class.from_json(invalid_keys_json, ignore_invalid_keys: true) }
+        .to output(/Ignoring unknown cask configuration keys: \[:invaliddir\]/).to_stderr
+    end
+
+    it "does not warn when all keys are valid" do
+      valid_json = { default: {}, env: { appdir: "/path/to/apps" }, explicit: {} }.to_json
+
+      expect { described_class.from_json(valid_json, ignore_invalid_keys: true) }
+        .not_to output.to_stderr
     end
   end
 

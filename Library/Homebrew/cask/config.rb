@@ -6,12 +6,15 @@ require "json"
 require "lazy_object"
 require "locale"
 require "extend/hash/keys"
+require "utils/output"
 
 module Cask
   # Configuration for installing casks.
   #
   # @api internal
   class Config
+    include ::Utils::Output::Mixin
+
     ConfigHash = T.type_alias { T::Hash[Symbol, T.any(LazyObject, String, Pathname, T::Array[String])] }
     DEFAULT_DIRS = T.let(
       {
@@ -131,8 +134,11 @@ module Cask
       @fish_completion = T.let(nil, T.nilable(Pathname))
 
       if ignore_invalid_keys
-        @env&.delete_if { |key, _| self.class.defaults.keys.exclude?(key) }
-        @explicit.delete_if { |key, _| self.class.defaults.keys.exclude?(key) }
+        unknown_keys = ((@env&.keys || []) + @explicit.keys).uniq - self.class.defaults.keys
+        opoo "Ignoring unknown cask configuration keys: #{unknown_keys.inspect}" unless unknown_keys.empty?
+
+        @env&.delete_if { |key, _| unknown_keys.include?(key) }
+        @explicit.delete_if { |key, _| unknown_keys.include?(key) }
         return
       end
 
