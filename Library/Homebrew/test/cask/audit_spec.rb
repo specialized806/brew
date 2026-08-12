@@ -170,6 +170,42 @@ RSpec.describe Cask::Audit, :cask do
           it { is_expected.to error_with(/#{stanza} stanza is required/) }
         end
       end
+
+      context "when a cask has only uninstall artifacts" do
+        let(:cask) do
+          Cask::Cask.new("uninstall-only") do
+            version :latest
+            sha256 :no_check
+            url "https://brew.sh/foo.pkg"
+            name "Uninstall Only"
+            homepage "https://brew.sh/"
+            uninstall pkgutil: "org.example.foo"
+            zap trash: "~/Library/Caches/org.example.foo"
+          end
+        end
+
+        it { is_expected.to error_with("at least one installable artifact stanza is required") }
+      end
+
+      context "when a cask has an installable artifact only on Linux" do
+        let(:cask) do
+          Homebrew::SimulateSystem.with(os: :sequoia, arch: :arm) do
+            Cask::Cask.new("linux-only-artifact") do
+              version :latest
+              sha256 :no_check
+              url "https://brew.sh/foo"
+              name "Linux Only Artifact"
+              homepage "https://brew.sh/"
+
+              on_linux do
+                binary "foo"
+              end
+            end
+          end
+        end
+
+        it { is_expected.not_to error_with("at least one installable artifact stanza is required") }
+      end
     end
 
     describe "checking homepage availability" do
