@@ -47,6 +47,20 @@ RSpec.describe Cask::Upgrade, :cask do
     allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(true)
   end
 
+  it "warns and excludes casks with no version for the current platform" do
+    cask = Homebrew::SimulateSystem.with(os: :linux) do
+      Cask::Cask.new("macos-only") do
+        on_macos do
+          version "1.2.3"
+        end
+      end
+    end
+
+    expect do
+      expect(described_class.outdated_casks([cask], args:, force: true, quiet: false)).to be_empty
+    end.to output(/Not upgrading macos-only, no version is available for the current platform/).to_stderr
+  end
+
   context "when the upgrade is a dry run" do
     # Use stub installation for dry-run tests since they mock upgrade_cask
     # and only need to verify installation state, not perform real upgrades.

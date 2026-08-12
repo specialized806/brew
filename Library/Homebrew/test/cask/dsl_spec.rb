@@ -195,15 +195,16 @@ RSpec.describe Cask::DSL, :cask, :no_api do
         end
       end
 
-      it "raises on the real system when the running-architecture checksum is missing" do
+      it "loads the architecture requirement when the running-architecture checksum is missing" do
         allow(Homebrew::SimulateSystem).to receive(:simulating?).and_return(false)
 
         Homebrew::SimulateSystem.with(os: :linux, arch: :intel) do
-          expect do
-            Cask::Cask.new("checksum-cask") do
-              sha256 arm64_linux: "imasha2armlinux", intel: "imasha2intel"
-            end
-          end.to raise_error(Cask::CaskInvalidError, /invalid 'sha256' value/)
+          cask = Cask::Cask.new("checksum-cask") do
+            sha256 arm64_linux: "imasha2armlinux", intel: "imasha2intel"
+            depends_on arch: :arm64
+          end
+
+          expect([cask.sha256, cask.depends_on.arch]).to eq([nil, [{ type: :arm, bits: 64 }]])
         end
       end
     end
@@ -734,6 +735,16 @@ RSpec.describe Cask::DSL, :cask, :no_api do
 
       it "allows conflicts_with stanza to be specified" do
         expect(cask.conflicts_with[:formula]).to be_empty
+      end
+    end
+
+    context "when specified multiple times" do
+      let(:token) { "with-conflicts-with-multiple" }
+
+      it "merges and deduplicates all conflicts_with stanzas" do
+        os_conflict = OS.mac? ? "macos-caffeine" : "linux-caffeine"
+        expect(cask.conflicts_with[:cask])
+          .to eq(Set.new(["local-caffeine", "with-caffeine", os_conflict]))
       end
     end
 

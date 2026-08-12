@@ -201,13 +201,13 @@ module Cask
         cask.config
       end
 
-      sig { returns(T.nilable(Sandbox)) }
-      def cask_sandbox
+      sig { params(network_access_allowed: T::Boolean).returns(T.nilable(Sandbox)) }
+      def cask_sandbox(network_access_allowed: false)
         return unless Sandbox.use_for?("running cask artifact operations")
 
         Sandbox.new.tap do |sandbox|
           sandbox.allow_read(path: cask.staged_path, type: :subpath)
-          sandbox.add_install_hook_rules(network_access_allowed: false)
+          sandbox.add_install_hook_rules(network_access_allowed:)
         end
       end
 

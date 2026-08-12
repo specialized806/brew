@@ -687,6 +687,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     end
   end
 
+  it "does not claim to upgrade dependents whose runtime dependencies are satisfied" do
+    formula = formula("sqlite") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/sqlite-3.53.2.tar.gz"
+    end
+    dependent = formula("python@3.14") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/python@3.14-3.14.5.tar.gz"
+    end
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [dependent], pinned: [], skipped: [])
+
+    allow(Homebrew::Upgrade).to receive(:formula_installers).and_return([])
+    allow(FormulaInstaller).to receive(:installed).and_return([])
+
+    expect do
+      Homebrew::Upgrade.upgrade_dependents(dependants, [formula], flags: [])
+    end.not_to output(/Upgrading.*python@3\.14/m).to_stdout
+  end
+
   it "does not print aggregate package sizes" do
     cmd = described_class.new(["--dry-run"])
     summary = Homebrew::Cmd::UpgradeCmd::FinalUpgradeSummary.new(
@@ -1200,7 +1219,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       allow(formula).to receive(:opt_prefix).and_return(new_keg)
       [formula_installer]
     end
-    allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
+    allow(Homebrew::Upgrade).to receive(:upgrade_dependents).and_return([])
 
     cmd.upgrade_outdated_formulae!([])
 
@@ -1234,8 +1253,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
         dependants:          Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: []),
       ),
     )
-    allow(Homebrew::Upgrade).to receive(:upgrade_formulae).and_return([successful_formula_installer])
-    allow(Homebrew::Upgrade).to receive(:upgrade_dependents)
+    allow(Homebrew::Upgrade).to receive_messages(upgrade_formulae:   [successful_formula_installer],
+                                                 upgrade_dependents: [])
 
     cmd.upgrade_outdated_formulae!([])
 
@@ -1243,6 +1262,51 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       version_changes: contain_exactly("testball 0.1 -> 0.2"),
       deprecated:      contain_exactly("failball"),
     )
+  end
+
+  it "reports only successful dependent version changes in the final summary" do
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.2"
+    end
+    upgraded_dependent = formula("upgraded-dependent") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/upgraded-dependent-0.2"
+    end
+    skipped_dependent = formula("skipped-dependent") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/skipped-dependent-0.2"
+    end
+    formula_installer = FormulaInstaller.new(formula)
+    old_formula_keg = HOMEBREW_CELLAR/"testball/0.1"
+    old_upgraded_dependent_keg = HOMEBREW_CELLAR/"upgraded-dependent/0.1"
+    old_skipped_dependent_keg = HOMEBREW_CELLAR/"skipped-dependent/0.1"
+    old_formula_keg.mkpath
+    old_upgraded_dependent_keg.mkpath
+    old_skipped_dependent_keg.mkpath
+    allow(formula).to receive_messages(optlinked?: true, opt_prefix: old_formula_keg)
+    allow(upgraded_dependent).to receive_messages(optlinked?: true, opt_prefix: old_upgraded_dependent_keg)
+    allow(skipped_dependent).to receive_messages(optlinked?: true, opt_prefix: old_skipped_dependent_keg)
+    cmd = described_class.new([])
+
+    allow(cmd).to receive(:formulae_upgrade_context).and_return(
+      Homebrew::Cmd::UpgradeCmd::FormulaeUpgradeContext.new(
+        formulae_to_install: [formula],
+        formulae_installer:  [formula_installer],
+        dependants:          Homebrew::Upgrade::Dependents.new(
+          upgradeable: [upgraded_dependent, skipped_dependent], pinned: [], skipped: [],
+        ),
+      ),
+    )
+    allow(Homebrew::Upgrade).to receive_messages(
+      upgrade_formulae:   [formula_installer],
+      upgrade_dependents: [upgraded_dependent],
+    )
+
+    cmd.upgrade_outdated_formulae!([])
+
+    expect(cmd.final_upgrade_summary.version_changes)
+      .to contain_exactly("testball 0.1 -> 0.2", "upgraded-dependent 0.1 -> 0.2")
   end
 
   it_behaves_like "reinstall_pkgconf_if_needed"

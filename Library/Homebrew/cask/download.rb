@@ -59,7 +59,8 @@ module Cask
         .returns(Pathname)
     }
     def fetch(quiet: nil, verify_download_integrity: true, timeout: nil)
-      verify_has_sha if @require_sha
+      verify_has_sha if @require_sha ||
+                        (@cask.sha256.nil? && (@cask.on_system_blocks_exist? || @cask.loaded_from_api?))
       downloader.quiet! if quiet
 
       begin
@@ -233,7 +234,14 @@ module Cask
 
     sig { void }
     def verify_has_sha
-      return if @cask.sha256 != :no_check
+      return if @cask.sha256.is_a?(Checksum)
+
+      unless @require_sha
+        raise CaskError, <<~EOS
+          Cask '#{@cask}' does not have a sha256 checksum defined for this platform.
+          Add an appropriate `depends_on` stanza if the cask does not support this platform.
+        EOS
+      end
 
       raise CaskError, <<~EOS
         Cask '#{@cask}' does not have a sha256 checksum defined.

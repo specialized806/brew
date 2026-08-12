@@ -64,7 +64,7 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
     artifact = cask.artifacts.find { |candidate| candidate.is_a?(Cask::Artifact::PostflightSteps) }
     run_step = artifact.steps.find { |step| step["type"] == "run" }
 
-    expect(run_step).not_to include("print_stdout", "suppress_stderr", "writable_paths")
+    expect(run_step).not_to include("print_stdout", "suppress_stderr", "writable_paths", "network_access")
   end
 
   it "sandboxes complete step blocks, including system commands" do
@@ -117,6 +117,28 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
 
     expect(cask.staged_path/"sandbox-ran").to exist
     expect(original_home/"Library/Application Support/cask-home-state").to exist
+  end
+
+  it "allows network access for runs that request it" do
+    cask = Cask::Cask.new("with-networked-install-step") do
+      version "1.2.3"
+      sha256 :no_check
+      url "file://#{TEST_FIXTURE_DIR}/cask/container.zip"
+
+      postflight_steps do
+        run "/usr/bin/true", network_access: true
+      end
+    end
+    sandbox = instance_double(Sandbox).as_null_object
+    cask.staged_path.mkpath
+    cask.config_path.dirname.mkpath
+
+    allow(Sandbox).to receive_messages(available?: true, new: sandbox)
+    allow(Sandbox).to receive(:with_preserved_brew_file).and_yield
+    expect(sandbox).to receive(:add_install_hook_rules).with(network_access_allowed: true)
+    expect(sandbox).to receive(:run)
+
+    Cask::Installer.new(cask, command: NeverSudoSystemCommand).install_artifacts
   end
 
   context "when install steps may require sudo" do
