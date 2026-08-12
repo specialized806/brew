@@ -153,6 +153,19 @@ RSpec.describe RuboCop::Cop::Cask::NoOverrides, :config do
     CASK
   end
 
+  it "accepts `conflicts_with` in both top-level and `on_*` blocks" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        version "1.2.3"
+        conflicts_with cask: "foo-beta"
+
+        on_sequoia :or_older do
+          conflicts_with cask: "foo-legacy"
+        end
+      end
+    CASK
+  end
+
   it "reports an offense when `on_*` blocks override a single upper-level stanza" do
     expect_offense <<~CASK
       cask 'foo' do
