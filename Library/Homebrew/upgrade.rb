@@ -152,8 +152,8 @@ module Homebrew
             end
 
             if all_runtime_deps_installed
-              # Don't need to install this bottle if all of the runtime
-              # dependencies have the same or newer version already installed.
+              ohai "Not upgrading #{fi.formula.full_specified_name}: " \
+                   "installed runtime dependencies satisfy bottle metadata"
               next
             end
           end
@@ -278,7 +278,7 @@ module Homebrew
                dry_run: T::Boolean, installed_on_request: T::Boolean, force_bottle: T::Boolean,
                build_from_source_formulae: T::Array[String], interactive: T::Boolean, keep_tmp: T::Boolean,
                debug_symbols: T::Boolean, force: T::Boolean, debug: T::Boolean, quiet: T::Boolean,
-               verbose: T::Boolean, skip_formula_names: T::Array[String]).void
+               verbose: T::Boolean, skip_formula_names: T::Array[String]).returns(T::Array[Formula])
       }
       def upgrade_dependents(deps, formulae,
                              flags:,
@@ -294,7 +294,7 @@ module Homebrew
                              quiet: false,
                              verbose: false,
                              skip_formula_names: [])
-        return if deps.blank?
+        return [] if deps.blank?
 
         upgradeable = deps.upgradeable
         pinned      = deps.pinned
@@ -314,8 +314,38 @@ module Homebrew
           EOS
         end
 
+        installed_formulae = FormulaInstaller.installed
+        upgraded_formulae = T.let([], T::Array[Formula])
+        unless dry_run
+          primary_formula_names = formulae.map(&:full_name)
+          upgraded_formulae.concat(upgradeable.select do |f|
+            installed_formulae.include?(f) && primary_formula_names.exclude?(f.full_name)
+          end)
+        end
+
         upgradeable.reject! do |f|
-          FormulaInstaller.installed.include?(f) || (dry_run && skip_formula_names.include?(f.full_name))
+          installed_formulae.include?(f) || (dry_run && skip_formula_names.include?(f.full_name))
+        end
+
+        return upgraded_formulae if upgradeable.blank?
+
+        dependent_installers = T.let([], T::Array[FormulaInstaller])
+        unless dry_run
+          dependent_installers = formula_installers(
+            upgradeable.dup,
+            flags:,
+            force_bottle:,
+            build_from_source_formulae:,
+            dependents:                 true,
+            interactive:,
+            keep_tmp:,
+            debug_symbols:,
+            force:,
+            debug:,
+            quiet:,
+            verbose:,
+          )
+          upgradeable = dependent_installers.map(&:formula)
         end
 
         # Print the upgradable dependents.
@@ -337,30 +367,12 @@ module Homebrew
           puts format_upgrade_summary(formulae_upgrades).join("\n")
         end
 
-        return if upgradeable.blank?
-
-        unless dry_run
-          dependent_installers = formula_installers(
-            upgradeable,
-            flags:,
-            force_bottle:,
-            build_from_source_formulae:,
-            dependents:                 true,
-            interactive:,
-            keep_tmp:,
-            debug_symbols:,
-            force:,
-            debug:,
-            quiet:,
-            verbose:,
-          )
-          upgrade_formulae(dependent_installers, dry_run:, verbose:)
-        end
+        upgraded_formulae.concat(upgrade_formulae(dependent_installers, verbose:).map(&:formula)) unless dry_run
 
         # Update non-core installed formulae for linkage checks after upgrading
         # Don't need to check core formulae because we do so at CI time.
         installed_non_core_formulae = FormulaInstaller.installed.to_a.reject(&:core_formula?)
-        return if installed_non_core_formulae.blank?
+        return upgraded_formulae if installed_non_core_formulae.blank?
 
         # Assess the dependents tree again now we've upgraded.
         unless dry_run
@@ -376,7 +388,7 @@ module Homebrew
           else
             ohai "No broken dependents found!"
           end
-          return
+          return upgraded_formulae
         end
 
         reinstallable_broken_dependents =
@@ -409,7 +421,7 @@ module Homebrew
                                               .join(", ")
         end
 
-        return if dry_run
+        return upgraded_formulae if dry_run
 
         reinstall_contexts = reinstallable_broken_dependents.map do |formula|
           Reinstall.build_install_context(
@@ -444,6 +456,7 @@ module Homebrew
           puts
           Homebrew.failed = true
         end
+        upgraded_formulae
       end
 
       sig {

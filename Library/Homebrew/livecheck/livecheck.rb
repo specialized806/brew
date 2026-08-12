@@ -535,7 +535,7 @@ module Homebrew
       when :url
         package_or_resource.url&.to_s if package_or_resource.is_a?(Cask::Cask) || package_or_resource.is_a?(Resource)
       when :head, :stable
-        package_or_resource.send(livecheck_url)&.url if package_or_resource.is_a?(Formula)
+        package_or_resource.public_send(livecheck_url)&.url if package_or_resource.is_a?(Formula)
       when :homepage
         package_or_resource.homepage unless package_or_resource.is_a?(Resource)
       end
@@ -804,10 +804,12 @@ module Homebrew
         }
 
         if livecheck_throttle || livecheck_throttle_days
-          if livecheck_throttle
-            throttled_match_version_map = match_version_map.select do |_match, version|
+          throttled_match_version_map = if livecheck_throttle
+            match_version_map.select do |_match, version|
               throttle_allows_bump?(formula_or_cask, version, throttle_rate: livecheck_throttle)
             end
+          else
+            {}
           end
 
           if livecheck_throttle_days &&
@@ -1232,19 +1234,35 @@ module Homebrew
         "symbolic-ref",
         "refs/remotes/origin/HEAD",
         "--short",
-      ).chomp.delete_prefix("origin/").presence || "main"
+        chdir: tap.path,
+        err:   :close,
+      ).chomp.presence
+
+      # A detached checkout, as used for pull request CI, has no local branch,
+      # so fall back to the remote-tracking ref and finally the current commit.
+      refs = [
+        default_branch,
+        default_branch&.delete_prefix("origin/"),
+        "origin/HEAD",
+        "origin/main",
+        "main",
+        "HEAD",
+      ].compact.uniq
 
       relative_sourcefile = sourcefile.relative_path_from(tap.path).to_s
-      timestamp = Utils.popen_read(
-        Utils::Git.git,
-        "log",
-        default_branch,
-        "-1",
-        "--format=%ct",
-        "--",
-        relative_sourcefile,
-        chdir: tap.path,
-      ).chomp.presence
+      timestamp = refs.lazy.filter_map do |ref|
+        Utils.popen_read(
+          Utils::Git.git,
+          "log",
+          ref,
+          "-1",
+          "--format=%ct",
+          "--",
+          relative_sourcefile,
+          chdir: tap.path,
+          err:   :close,
+        ).chomp.presence
+      end.first
       return if timestamp.nil?
 
       Integer(timestamp, exception: false)

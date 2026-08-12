@@ -372,13 +372,10 @@ on_request: true)
 
     sig { void }
     def check_supported_system
-      # Audited casks always have an activatable artifact for the systems they
-      # support, so API data without one means this system is unsupported.
+      # API data without an installable artifact means this system is unsupported.
       # Source loads keep working for unaudited casks, e.g. naked containers.
       return unless @cask.loaded_from_api?
-      return if @cask.artifacts.any? do |artifact|
-        artifact.respond_to?(:install_phase) || artifact.is_a?(Artifact::StageOnly)
-      end
+      return if @cask.installable_artifact?
 
       os_name = Homebrew::SimulateSystem.simulating_or_running_on_macos? ? "macOS" : "Linux"
       raise CaskError, "#{@cask}: This cask is not available on #{os_name}."

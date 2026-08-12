@@ -112,6 +112,15 @@ module Utils
     "#{prefix}#{stem}#{suffix}"
   end
 
+  # Sleeps for an exponentially increasing wait (`base ** try` seconds), yielding
+  # the wait time first so callers can print a message before sleeping.
+  sig { params(try: Integer, base: Integer, _blk: T.nilable(T.proc.params(wait: Integer).void)).void }
+  def self.exponential_backoff_sleep(try, base: 2, &_blk)
+    wait = base.pow(try)
+    yield wait if block_given?
+    sleep wait
+  end
+
   sig { params(author: String).returns({ email: String, name: String }) }
   def self.parse_author!(author)
     match_data = /^(?<name>[^<]+?)[ \t]*<(?<email>[^>]+?)>$/.match(author)
@@ -216,21 +225,25 @@ module Utils
 
   sig {
     type_parameters(:U)
-      .params(obj: T.all(T.type_parameter(:U), Object), compact_zero: T::Boolean)
+      .params(obj: T.all(T.type_parameter(:U), Object), compact_zero: T::Boolean, compact_false: T::Boolean)
       .returns(T.nilable(T.type_parameter(:U)))
   }
-  def self.deep_compact_blank(obj, compact_zero: true)
+  def self.deep_compact_blank(obj, compact_zero: true, compact_false: true)
     obj = case obj
     when Hash
-      obj.transform_values { |v| deep_compact_blank(v, compact_zero:) }
+      obj.transform_values { |v| deep_compact_blank(v, compact_zero:, compact_false:) }
          .compact
     when Array
-      obj.filter_map { |v| deep_compact_blank(v, compact_zero:) }
+      obj.each_with_object([]) do |v, compacted|
+        value = deep_compact_blank(v, compact_zero:, compact_false:)
+        compacted << value unless value.nil?
+      end
     else
       obj
     end
 
-    return if obj.blank? || (compact_zero && obj.is_a?(Numeric) && obj.zero?)
+    return if (compact_false || obj != false) &&
+              (obj.blank? || (compact_zero && obj.is_a?(Numeric) && obj.zero?))
 
     obj
   end

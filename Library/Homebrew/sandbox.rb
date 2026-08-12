@@ -120,6 +120,69 @@ class Sandbox
     true
   end
 
+  sig { params(step: String, warn_without_sandbox: T::Boolean).returns(T::Boolean) }
+  def self.use_for?(step, warn_without_sandbox: true)
+    unless available?
+      opoo "Sandbox unavailable: #{step} without sandboxing!" if warn_without_sandbox
+      return false
+    end
+
+    if avoid_nested_sandboxing?
+      opoo "#{step.capitalize} without Homebrew's sandbox; relying on the outer sandbox." if warn_without_sandbox
+      return false
+    end
+
+    true
+  end
+
+  sig {
+    params(
+      args:                 T.any(String, Pathname),
+      step:                 String,
+      warn_without_sandbox: T::Boolean,
+      _block:               T.proc.params(sandbox: Sandbox).void,
+    ).void
+  }
+  def self.run_or_fork(*args, step:, warn_without_sandbox: true, &_block)
+    if use_for?(step, warn_without_sandbox:)
+      sandbox = new
+      yield sandbox
+      sandbox.run(*args)
+    else
+      Utils.safe_fork { exec(*args) }
+    end
+  end
+
+  # Landlock cannot protect `bin/brew` while allowing writes to `bin`, so a
+  # sandboxed install hook could replace `brew` to persist into later commands.
+  sig { params(block: T.proc.void).void }
+  def self.with_preserved_brew_file(&block)
+    return yield if full_write_isolation?
+
+    brew_file = HOMEBREW_PREFIX/"bin/brew"
+    File.open(brew_file.dirname) do |brew_directory|
+      brew_directory_mode = brew_directory.stat.mode & 07777
+      symlink = brew_file.symlink?
+      contents = symlink ? brew_file.readlink.to_s : brew_file.binread
+      brew_file_mode = brew_file.lstat.mode & 07777
+
+      begin
+        yield
+      ensure
+        brew_directory.chmod brew_directory_mode
+        if symlink && (!brew_file.symlink? || brew_file.readlink.to_s != contents)
+          FileUtils.rm_rf brew_file
+          brew_file.make_symlink contents
+        elsif !symlink && (brew_file.symlink? || !brew_file.file? || brew_file.binread != contents ||
+                           (brew_file.lstat.mode & 07777) != brew_file_mode)
+          FileUtils.rm_rf brew_file
+          brew_file.atomic_write contents
+          brew_file.chmod brew_file_mode
+        end
+      end
+    end
+  end
+
   sig { void }
   def self.ensure_sandbox_available!
     return if available?
@@ -232,6 +295,12 @@ class Sandbox
   sig { params(path: T.any(String, Pathname), type: Symbol).void }
   def allow_read(path:, type: :literal)
     add_rule allow: true, operation: "file-read*", filter: path_filter(path, type)
+  end
+
+  sig { params(path: T.any(String, Pathname), no_sandbox: T::Boolean).void }
+  def allow_process_exec(path, no_sandbox: false)
+    modifier = "no-sandbox" if no_sandbox
+    add_rule allow: true, operation: "process-exec", filter: path_filter(path, :literal), modifier:
   end
 
   sig { params(path: T.any(String, Pathname), type: Symbol).void }
@@ -413,6 +482,14 @@ class Sandbox
   def allow_write_temp_and_cache
     allow_write_path HOMEBREW_TEMP
     allow_write_path HOMEBREW_CACHE
+  end
+
+  sig { params(network_access_allowed: T::Boolean).void }
+  def add_install_hook_rules(network_access_allowed:)
+    allow_write_temp_and_cache
+    deny_write_homebrew_repository
+    deny_read_home
+    deny_all_network unless network_access_allowed
   end
 
   sig { void }

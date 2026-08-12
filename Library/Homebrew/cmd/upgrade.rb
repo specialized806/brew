@@ -636,7 +636,8 @@ module Homebrew
 
         formula_version_changes = formula_upgrade_descriptions(context.formulae_installer.map(&:formula),
                                                                include_sizes: dry_run)
-        dependent_version_changes = formula_upgrade_descriptions(context.dependants.upgradeable,
+        dependent_formulae = context.dependants.upgradeable.dup
+        dependent_version_changes = formula_upgrade_descriptions(dependent_formulae,
                                                                  include_sizes: dry_run)
         if dry_run
           record_formula_upgrade_summary(context,
@@ -663,7 +664,7 @@ module Homebrew
           skip_formula_names:,
         )
 
-        Upgrade.upgrade_dependents(
+        upgraded_dependent_formulae = Upgrade.upgrade_dependents(
           context.dependants, context.formulae_to_install,
           flags:                      args.flags_only,
           dry_run:,
@@ -680,17 +681,18 @@ module Homebrew
         )
 
         unless dry_run
-          upgraded_formula_installers_by_identity = T.let({}.compare_by_identity,
-                                                          T::Hash[FormulaInstaller, T::Boolean])
-          upgraded_formula_installers.each do |formula_installer|
-            upgraded_formula_installers_by_identity[formula_installer] = true
+          upgraded_formulae_by_identity = T.let({}.compare_by_identity, T::Hash[Formula, T::Boolean])
+          (upgraded_formula_installers.map(&:formula) + upgraded_dependent_formulae).each do |formula|
+            upgraded_formulae_by_identity[formula] = true
           end
+          planned_formulae = context.formulae_installer.map(&:formula) + dependent_formulae
+          version_changes = formula_version_changes + dependent_version_changes
           record_formula_upgrade_summary(
             context,
             formulae_installer: upgraded_formula_installers,
-            version_changes:    context.formulae_installer.each_with_index.filter_map do |formula_installer, index|
-              formula_version_changes.fetch(index) if upgraded_formula_installers_by_identity.key?(formula_installer)
-            end + dependent_version_changes,
+            version_changes:    planned_formulae.each_with_index.filter_map do |formula, index|
+              version_changes.fetch(index) if upgraded_formulae_by_identity.key?(formula)
+            end,
           )
         end
 

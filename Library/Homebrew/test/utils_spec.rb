@@ -157,6 +157,23 @@ RSpec.describe Utils do
     end
   end
 
+  describe ".exponential_backoff_sleep" do
+    it "sleeps for 2**try seconds" do
+      expect(described_class).to receive(:sleep).with(8)
+      described_class.exponential_backoff_sleep(3)
+    end
+
+    it "sleeps for base**try seconds when a base is given" do
+      expect(described_class).to receive(:sleep).with(27)
+      described_class.exponential_backoff_sleep(3, base: 3)
+    end
+
+    it "yields the wait time before sleeping" do
+      allow(described_class).to receive(:sleep)
+      expect { |block| described_class.exponential_backoff_sleep(2, &block) }.to yield_with_args(4)
+    end
+  end
+
   describe ".underscore" do
     # commented out entries require acronyms inflections
     let(:words) do
@@ -268,6 +285,12 @@ RSpec.describe Utils do
       }
 
       expect(described_class.deep_compact_blank(input)).to eq(expected_output)
+    end
+
+    it "preserves false when compact_false is disabled" do
+      input = { a: false, b: [false], c: { d: false } }
+
+      expect(described_class.deep_compact_blank(input, compact_false: false)).to eq(input)
     end
   end
 end

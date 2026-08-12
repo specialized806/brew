@@ -5,6 +5,7 @@ require "json"
 require "development_tools"
 require "utils/curl"
 require "utils/output"
+require "vulns/identify"
 
 # Rather than calling `new` directly, use one of the class methods like {SBOM.create}.
 class SBOM
@@ -144,7 +145,7 @@ class SBOM
       "externalRefs"     => [
         {
           "referenceCategory" => "PACKAGE-MANAGER",
-          "referenceLocator"  => "pkg:brew/#{formula_full_name}@#{version}",
+          "referenceLocator"  => brew_purl(formula_full_name, version),
           "referenceType"     => "purl",
         },
       ],
@@ -157,6 +158,17 @@ class SBOM
     }
   end
   private_class_method :bottle_package
+
+  sig { params(full_name: String, version: T.nilable(T.any(String, Version))).returns(String) }
+  def self.brew_purl(full_name, version)
+    namespace, _, name = full_name.rpartition("/")
+    Homebrew::Vulns::Purl.new(
+      type:      "brew",
+      namespace: namespace.presence,
+      name:,
+      version:   version&.to_s,
+    ).to_s
+  end
 
   sig {
     params(
@@ -497,7 +509,7 @@ class SBOM
         externalRefs:     [
           {
             referenceCategory: "PACKAGE-MANAGER",
-            referenceLocator:  "pkg:brew/#{tap}/#{name}@#{stable_version}",
+            referenceLocator:  SBOM.brew_purl([source.tap_name, name].compact.join("/"), stable_version),
             referenceType:     "purl",
           },
         ],
@@ -535,6 +547,24 @@ class SBOM
       package
     end
 
+    source_purl = SBOM.brew_purl([source.tap_name, name].compact.join("/"), spec_version)
+
+    external_refs = T.let([
+      {
+        referenceCategory: "PACKAGE-MANAGER",
+        referenceLocator:  source_purl,
+        referenceType:     "purl",
+      },
+    ], T::Array[SPDXSymbolHash])
+
+    if (registry_pkg = Homebrew::Vulns::Identify.registry_package(source.url))
+      external_refs << {
+        referenceCategory: "PACKAGE-MANAGER",
+        referenceLocator:  registry_pkg.purl,
+        referenceType:     "purl",
+      }
+    end
+
     [
       {
         SPDXID:           "SPDXRef-Archive-#{name}-src",
@@ -546,7 +576,7 @@ class SBOM
         licenseConcluded: assert_value(license),
         downloadLocation: source.url,
         copyrightText:    assert_value(nil),
-        externalRefs:     [],
+        externalRefs:     external_refs,
         checksums:        [
           {
             algorithm:     "SHA256",
@@ -616,7 +646,7 @@ class SBOM
         externalRefs:     [
           {
             referenceCategory: "PACKAGE-MANAGER",
-            referenceLocator:  "pkg:brew/#{dependency["full_name"]}@#{dependency_pkg_version}",
+            referenceLocator:  SBOM.brew_purl(dependency.fetch("full_name").to_s, dependency_pkg_version),
             referenceType:     "purl",
           },
         ],

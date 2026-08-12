@@ -516,9 +516,7 @@ module Homebrew
         end
         results
       rescue GitHub::API::RateLimitExceededError => e
-        sleep_seconds = [e.reset - Time.now.to_i, 1].max
-        opoo "GitHub rate limit exceeded, sleeping for #{sleep_seconds} seconds..."
-        sleep sleep_seconds
+        GitHub::API.sleep_for_rate_limit(e)
         retry
       end
 

@@ -21,6 +21,12 @@ module Cask
         super(conflicts)
       end
 
+      sig { params(other: ConflictsWith).returns(T.self_type) }
+      def merge!(other)
+        other.to_h.each { |key, values| __getobj__[key] |= Set.new(values) }
+        self
+      end
+
       sig { returns(T::Hash[Symbol, T::Array[String]]) }
       def to_h
         __getobj__.transform_values(&:to_a)

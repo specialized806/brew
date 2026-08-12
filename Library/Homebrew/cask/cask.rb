@@ -257,6 +257,31 @@ module Cask
     end
 
     sig { returns(T::Boolean) }
+    def installable_artifact?
+      artifacts.any? do |artifact|
+        artifact.respond_to?(:install_phase) || artifact.is_a?(Artifact::StageOnly)
+      end
+    end
+
+    sig { params(os: Symbol).returns(T::Boolean) }
+    def artifacts_supported_on_os?(os)
+      case os
+      when :linux
+        artifacts.all? do |artifact|
+          if artifact.is_a?(Artifact::Installer)
+            !artifact.manual_install
+          else
+            Artifact::MACOS_ONLY_ARTIFACTS.exclude?(artifact.class)
+          end
+        end
+      when :macos
+        artifacts.none? { |artifact| Artifact::LINUX_ONLY_ARTIFACTS.include?(artifact.class) }
+      else
+        raise ArgumentError, "Unsupported operating system: #{os.inspect}"
+      end
+    end
+
+    sig { returns(T::Boolean) }
     def supports_linux?
       return true if depends_on.requires_linux?
 
@@ -612,17 +637,24 @@ module Cask
 
       hash = to_h_with_language_variations
       variations = {}
+      supported_platforms = []
+      on_system_blocks_exist = dsl!.on_system_blocks_exist?
 
-      if dsl!.on_system_blocks_exist?
+      if on_system_blocks_exist
         begin
           OnSystem::VALID_OS_ARCH_TAGS.each do |bottle_tag|
             macos_requirements = [depends_on.macos, depends_on.maximum_macos].compact
             next if bottle_tag.macos? &&
                     macos_requirements.present? &&
                     !dsl!.depends_on_set_in_block? &&
-                    macos_requirements.any? { |requirement| !requirement.allows?(bottle_tag.to_macos_version) }
+                    macos_requirements.any? do |requirement|
+                      # Avoid recursive equality between cached version-comparison keys across casks.
+                      !requirement.allows?(MacOSVersion.from_symbol(bottle_tag.system))
+                    end
 
             refresh_for_tag(bottle_tag) do
+              supported_platforms << bottle_tag.to_sym if platform_supported?(bottle_tag)
+
               to_h_with_language_variations.each do |key, value|
                 next if HASH_KEYS_TO_SKIP.include? key
                 next if value.to_s == hash[key].to_s
@@ -635,9 +667,14 @@ module Cask
         ensure
           refresh
         end
+      else
+        supported_platforms = OnSystem::VALID_OS_ARCH_TAGS.filter_map do |bottle_tag|
+          bottle_tag.to_sym if platform_supported?(bottle_tag)
+        end
       end
 
       hash["variations"] = variations
+      hash["supported_platforms"] = supported_platforms
       hash
     end
 
@@ -719,6 +756,28 @@ module Cask
     end
 
     private
+
+    sig { params(bottle_tag: ::Utils::Bottles::Tag).returns(T::Boolean) }
+    def platform_supported?(bottle_tag)
+      return false if bottle_tag.linux? && !supports_linux?
+      return false if bottle_tag.macos? && !supports_macos?
+      return false if version.blank? || sha256.blank? || url.blank?
+      return false unless installable_artifact?
+      return false if bottle_tag.linux? && !artifacts_supported_on_os?(:linux)
+      return false if bottle_tag.macos? && !artifacts_supported_on_os?(:macos)
+
+      arch_supported = depends_on.arch&.any? do |arch|
+        required_arch = ::Utils::Bottles::Tag.new(system: bottle_tag.system, arch: arch[:type]).standardized_arch
+        required_arch == bottle_tag.standardized_arch
+      end
+      return false if arch_supported == false
+
+      return true unless bottle_tag.macos?
+
+      [depends_on.macos, depends_on.maximum_macos].compact.all? do |requirement|
+        requirement.allows?(bottle_tag.to_macos_version)
+      end
+    end
 
     # Returns caveats text for API serialization, excluding conditional
     # built-in caveats that depend on the current machine's state.

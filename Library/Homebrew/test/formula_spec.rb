@@ -147,6 +147,15 @@ RSpec.describe Formula do
     end
   end
 
+  describe ".python_major_minor_version" do
+    it "delegates to Language::Python.major_minor_version" do
+      version = instance_double(Version, "version")
+      expect(Language::Python).to receive(:major_minor_version).with("python3").and_return(version)
+
+      expect(described_class.python_major_minor_version("python3")).to be(version)
+    end
+  end
+
   describe "#versioned_formulae" do
     let(:f) do
       formula "foo" do
@@ -1160,6 +1169,7 @@ RSpec.describe Formula do
 
     allow(Tab).to receive(:for_formula).with(f).and_return(f.build)
     allow(f).to receive(:post_install) { env = ENV.to_hash }
+    expect(Dir).to receive(:mktmpdir).with("#{f.name}-postinstall-", HOMEBREW_TEMP).and_call_original
 
     f.run_post_install
 
@@ -3382,6 +3392,28 @@ RSpec.describe Formula do
 
     it "filters packages uploaded within the last day" do
       expect(f.std_pip_args).to include("--uploaded-prior-to=P1D")
+    end
+  end
+
+  describe "#std_swift_args" do
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "allows controlling parallel jobs" do
+      allow(ENV).to receive(:make_jobs).and_return(5)
+      expect(f.std_swift_args.join(" ")).to include("--jobs 5")
+    end
+
+    it "disables non-writable sandbox path on macOS", :needs_macos do
+      expect(f.std_swift_args).to include("--disable-sandbox")
+    end
+
+    it "includes override for ld shim on Linux", :needs_linux do
+      expect(f.std_swift_args).to include("-use-ld=ld")
     end
   end
 

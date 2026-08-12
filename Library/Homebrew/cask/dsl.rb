@@ -201,7 +201,6 @@ module Cask
       @cask = cask
       @caveats = T.let(DSL::Caveats.new(cask), DSL::Caveats)
       @conflicts_with = T.let(nil, T.nilable(DSL::ConflictsWith))
-      @conflicts_with_set_in_block = T.let(false, T::Boolean)
       @container = T.let(nil, T.nilable(DSL::Container))
       @container_set_in_block = T.let(false, T::Boolean)
       @depends_on = T.let(DSL::DependsOn.new, DSL::DependsOn)
@@ -562,21 +561,6 @@ module Cask
         when String
           Checksum.new(val)
         when nil
-          # Checksums declared for only the other OS mean no checksum for the
-          # running OS, matching `sha256` inside an `on_macos`/`on_linux` block;
-          # `depends_on` governs whether the cask is usable there. A checksum
-          # declared for the running OS but missing the running architecture
-          # still raises on the real system but is nil under simulation so
-          # API variations can be generated for the missing architecture.
-          running_os_checksums = if OnSystem.os_condition_met?(:linux)
-            [x86_64_linux, arm64_linux]
-          else
-            [arm, x86_64]
-          end
-          if running_os_checksums.any?(&:present?) && !Homebrew::SimulateSystem.simulating?
-            raise CaskInvalidError.new(cask, "invalid 'sha256' value: nil")
-          end
-
           nil
         else
           raise CaskInvalidError.new(cask, "invalid 'sha256' value: #{val.inspect}")
@@ -664,11 +648,19 @@ module Cask
 
     # Declare conflicts that keep a cask from installing or working correctly.
     #
+    # NOTE: Multiple `conflicts_with` stanzas can be specified; they are merged.
+    #
     # @api public
     sig { params(kwargs: T.anything).returns(T.nilable(DSL::ConflictsWith)) }
     def conflicts_with(**kwargs)
-      # TODO: Remove this constraint and instead merge multiple `conflicts_with` stanzas
-      set_unique_stanza(:conflicts_with, kwargs.empty?) { DSL::ConflictsWith.new(**kwargs) }
+      return @conflicts_with if kwargs.empty?
+
+      new_conflicts = DSL::ConflictsWith.new(**kwargs)
+      @conflicts_with = @conflicts_with&.merge!(new_conflicts) || new_conflicts
+    rescue CaskInvalidError
+      raise
+    rescue => e
+      raise CaskInvalidError.new(cask, "'conflicts_with' stanza failed with: #{e}")
     end
 
     sig { returns(Pathname) }

@@ -415,7 +415,7 @@ class Formula
 
   sig { params(name: T.any(String, Symbol)).void }
   def spec_eval(name)
-    spec = self.class.send(name).dup
+    spec = self.class.public_send(name).dup
     return unless spec.url
 
     spec.owner = self
@@ -538,8 +538,7 @@ class Formula
     !!head && !stable
   end
 
-  # Stop RuboCop from erroneously indenting hash target
-  delegate [ # rubocop:disable Layout/HashAlignment
+  delegate [
     :bottle_defined?,
     :bottle_tag?,
     :bottled?,
@@ -618,8 +617,7 @@ class Formula
   # @see .version
   delegate version: :active_spec
 
-  # Stop RuboCop from erroneously indenting hash target
-  delegate [ # rubocop:disable Layout/HashAlignment
+  delegate [
     :allow_network_access!,
     :deny_network_access!,
     :network_access_allowed?,
@@ -1631,7 +1629,9 @@ class Formula
         PATH:          PATH.new(ORIGINAL_PATHS),
       }
 
-      Dir.mktmpdir("#{name}-postinstall-") do |home|
+      # Formula post-install creates its isolated HOME inside the child because
+      # the entire `postinstall.rb` process is already sandboxed by its parent.
+      Dir.mktmpdir("#{name}-postinstall-", HOMEBREW_TEMP) do |home|
         postinstall_home = Pathname(home)
         new_env[:HOME] = postinstall_home.to_s
         new_env.merge!(common_sandbox_env(postinstall_home))
@@ -2228,6 +2228,14 @@ class Formula
     args << "--prefix=#{prefix}" if prefix
     args << "--no-build-isolation" unless build_isolation
     args
+  end
+
+  # Standard parameters for Swift builds.
+  #
+  # @api public
+  sig { returns(T::Array[String]) }
+  def std_swift_args
+    ["--configuration", "release", "--jobs", ENV.make_jobs.to_s]
   end
 
   # Standard parameters for Zig builds.
@@ -5239,6 +5247,17 @@ class Formula
     def link_overwrite(*paths)
       paths.flatten!
       T.must(link_overwrite_paths).merge(paths)
+    end
+
+    # Returns the major.minor {Version} for the given Python executable,
+    # as a shorthand for `Language::Python.major_minor_version` in the formula DSL.
+    #
+    # @param python [String, Pathname] the Python executable (e.g. `"python3"`)
+    # @return [Version, nil] the major.minor version, or `nil` when the version cannot be determined
+    # @api public
+    sig { params(python: T.any(String, Pathname)).returns(T.nilable(Version)) }
+    def python_major_minor_version(python)
+      Language::Python.major_minor_version(python)
     end
   end
 end

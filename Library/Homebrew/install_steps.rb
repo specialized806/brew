@@ -189,7 +189,7 @@ module Homebrew
         when Symbol
           obj.to_s
         when Array
-          if %w[guards paths].include?(key)
+          if %w[guards paths writable_paths].include?(key)
             obj.map { |value| normalise_path_value(value) }
           else
             obj.map(&:to_s)
@@ -509,16 +509,19 @@ module Homebrew
 
       sig {
         params(
-          path:    ::T.any(::String, ::Pathname),
-          content: ::String,
-          base:    ::T.nilable(::T.any(::String, ::Symbol)),
+          path:           ::T.any(::String, ::Pathname),
+          content:        ::String,
+          base:           ::T.nilable(::T.any(::String, ::Symbol)),
+          overwrite:      ::T::Boolean,
+          append_newline: ::T::Boolean,
         ).void
       }
-      def write_file(path, content, base: nil)
+      def write_file(path, content, base: nil, overwrite: true, append_newline: false)
+        content = "#{content}\n" if append_newline && !content.end_with?("\n")
         add_step("write",
                  "path"      => path_spec(path, base:, default_base: @default_base),
                  "content"   => content,
-                 "overwrite" => true)
+                 "overwrite" => (true if overwrite))
       end
 
       sig {
@@ -550,6 +553,11 @@ module Homebrew
       # odeprecated
       sig { void }
       def gio_querymodules
+        add_rebuild_action("gio_querymodules", "lib/gio/modules")
+      end
+
+      sig { void }
+      def update_gio_modules_cache
         add_rebuild_action("gio_querymodules", "lib/gio/modules")
       end
 
@@ -662,30 +670,42 @@ module Homebrew
 
       sig {
         params(
-          command:      ::T.any(::String, ::Pathname),
-          args:         ::T::Array[::T.any(::String, ::Pathname)],
-          base:         ::T.nilable(::T.any(::String, ::Symbol)),
-          env:          ::T::Hash[::String, ::String],
-          sudo:         ::T::Boolean,
-          print_stdout: ::T::Boolean,
-          print_stderr: ::T::Boolean,
-          stdin_path:   ::T.nilable(::T.any(::String, ::Pathname)),
-          stdout_path:  ::T.nilable(::T.any(::String, ::Pathname)),
-          chdir:        ::T.nilable(::T.any(::String, ::Pathname)),
+          command:        ::T.any(::String, ::Pathname),
+          args:           ::T::Array[::T.any(::String, ::Pathname)],
+          base:           ::T.nilable(::T.any(::String, ::Symbol)),
+          env:            ::T::Hash[::String, ::String],
+          sudo:           ::T::Boolean,
+          must_succeed:   ::T::Boolean,
+          print_stdout:   ::T::Boolean,
+          print_stderr:   ::T::Boolean,
+          stdin_path:     ::T.nilable(::T.any(::String, ::Pathname)),
+          stdout_path:    ::T.nilable(::T.any(::String, ::Pathname)),
+          chdir:          ::T.nilable(::T.any(::String, ::Pathname)),
+          writable_paths: Paths,
+          writable_base:  ::T.nilable(::T.any(::String, ::Symbol)),
+          network_access: ::T::Boolean,
         ).void
       }
-      def run(command, args: [], base: nil, env: {}, sudo: false, print_stdout: false, print_stderr: true,
-              stdin_path: nil, stdout_path: nil, chdir: nil)
+      def run(command, args: [], base: nil, env: {}, sudo: false, must_succeed: true, print_stdout: false,
+              print_stderr: true, stdin_path: nil, stdout_path: nil, chdir: nil, writable_paths: [],
+              writable_base: nil, network_access: false)
         add_step("run",
                  "command"         => path_spec(command, base:, default_base: nil),
                  "args"            => args.map(&:to_s),
                  "env"             => env,
                  "sudo"            => sudo,
+                 "allow_failure"   => !must_succeed,
                  "print_stdout"    => print_stdout,
                  "suppress_stderr" => !print_stderr,
                  "stdin_path"      => optional_path_spec(stdin_path, default_base: @default_base),
                  "stdout_path"     => optional_path_spec(stdout_path, default_base: @default_base),
-                 "chdir"           => optional_path_spec(chdir, default_base: @default_base))
+                 "chdir"           => optional_path_spec(chdir, default_base: @default_base),
+                 "writable_paths"  => path_specs(
+                   writable_paths,
+                   base:         writable_base,
+                   default_base: @default_base,
+                 ),
+                 "network_access"  => network_access)
       end
 
       sig {
@@ -858,6 +878,7 @@ module Homebrew
         temp rack
         bash_completion zsh_completion fish_completion pwsh_completion
       ].freeze
+      IMPLICIT_SUDO_STEP_TYPES = %w[delete_keychain_certificate set_ownership].freeze
 
       sig { params(context: Object, command: T.class_of(SystemCommand)).void }
       def initialize(context:, command: SystemCommand)
@@ -875,6 +896,55 @@ module Homebrew
           else
             run_install_step(step)
           end
+        end
+      end
+
+      sig { params(steps: Steps, phase: Symbol).returns(T::Array[Pathname]) }
+      def sandbox_write_paths(steps, phase: :install)
+        DSL.normalise_steps(steps).flat_map do |step|
+          if phase == :uninstall
+            next [] if step["type"] != "symlink" || step["uninstall"] != true
+
+            next [resolve_path(step_path(step, "target")).parent]
+          end
+
+          case step.fetch("type")
+          when "mkdir", "mkdir_p", "touch", "write"
+            [resolve_path(step_path(step, "path")).parent]
+          when "move"
+            [resolve_path(step_path(step, "source")).parent, resolve_path(step_path(step, "target")).parent]
+          when "move_children", "move_contents"
+            [resolve_path(step_path(step, "source")), resolve_path(step_path(step, "target"))]
+          when "copy", "symlink"
+            [resolve_path(step_path(step, "target")).parent]
+          when "remove"
+            step_paths(step, "paths").flat_map { |path| expand_path_glob(path) }.map(&:parent)
+          when "inreplace", "change_dylib_id"
+            key = (step["type"] == "inreplace") ? "path" : "source"
+            [resolve_path(step_path(step, key))]
+          when "link_dir", "link_children"
+            [resolve_path(step_path(step, "target"))]
+          when "run"
+            paths = step.key?("stdout_path") ? [resolve_path(step_path(step, "stdout_path")).parent] : []
+            if step.key?("writable_paths")
+              paths.concat(step_paths(step, "writable_paths").map do |path|
+                resolve_path(path)
+              end)
+            end
+            paths
+          when "set_permissions", "set_ownership"
+            existing_step_paths(step)
+          else
+            []
+          end
+        end.uniq
+      end
+
+      sig { params(steps: Steps).returns(T::Boolean) }
+      def sudo_required?(steps)
+        DSL.normalise_steps(steps).any? do |step|
+          step["sudo"] == true || step["sudo"] == "if_needed" ||
+            IMPLICIT_SUDO_STEP_TYPES.include?(step["type"])
         end
       end
 
@@ -1133,12 +1203,14 @@ module Homebrew
                        .transform_values { |value| expand_template_tokens(value.to_s) }
         input = step.key?("stdin_path") ? resolve_path(step_path(step, "stdin_path")).read : []
         working_directory = resolve_path(step_path(step, "chdir")) if step.key?("chdir")
-        result = @command.run!(command, args:, sudo: step["sudo"] == true, env: environment, input:,
-                                      print_stdout: step["print_stdout"] == true,
-                                      print_stderr: step["suppress_stderr"] != true, reset_uid: true,
-                                      chdir: working_directory)
+        result = @command.run(command, args:, sudo: step["sudo"] == true, env: environment, input:,
+                                     must_succeed: step["allow_failure"] != true,
+                                     print_stdout: step["print_stdout"] == true,
+                                     print_stderr: step["suppress_stderr"] != true, reset_uid: true,
+                                     chdir: working_directory)
 
         return unless step.key?("stdout_path")
+        return unless result.success?
 
         output_path = resolve_path(step_path(step, "stdout_path"))
         output_path.dirname.mkpath
@@ -1433,17 +1505,19 @@ module Homebrew
 
       sig { params(formula: String, executable: String, args: SystemCommandArg).void }
       def run_formula_tool(formula, executable, *args)
-        # Load the formula so missing helper formulae fail before running a guessed path.
-        # rubocop:disable Homebrew/FormulaPathMethods
-        run_command Formula[formula].opt_bin/executable, *args
-        # rubocop:enable Homebrew/FormulaPathMethods
+        require "utils/path"
+
+        tool = Utils::Path.formula_opt_bin(formula)/executable
+        raise ArgumentError, "#{formula} is missing required executable: #{tool}" unless tool.executable?
+
+        run_command tool, *args
       end
 
       sig { params(base: String, formula: T.nilable(String)).returns(Pathname) }
       def root_path(base, formula)
         case base
         when "home"
-          Pathname(Dir.home)
+          context_value(:home) ? context_path(base) : Pathname(Dir.home)
         when "temp"
           HOMEBREW_TEMP
         when "homebrew_prefix"
@@ -1472,7 +1546,7 @@ module Homebrew
 
         case method
         when :pkgetc
-          ::Formula[formula].pkgetc
+          HOMEBREW_PREFIX/"etc"/Utils.name_from_full_name(formula)
         when :opt_prefix
           Utils::Path.formula_opt_prefix(formula)
         else

@@ -160,14 +160,22 @@ module GitHub
       end
     end
 
-    ERRORS = T.let([
+    ERRORS = [
       AuthenticationFailedError,
       GitRepositoryIsEmptyError,
       HTTPNotFoundError,
       RateLimitExceededError,
       Error,
       JSON::ParserError,
-    ].freeze, T::Array[T.any(T.class_of(Error), T.class_of(JSON::ParserError))])
+    ].freeze
+
+    # Sleeps until the rate limit from the given exception has reset.
+    sig { params(exception: RateLimitExceededError).void }
+    def self.sleep_for_rate_limit(exception)
+      sleep_seconds = [exception.reset - Time.now.to_i, 1].max
+      opoo "GitHub rate limit exceeded, sleeping for #{sleep_seconds} seconds..."
+      sleep sleep_seconds
+    end
 
     # Gets the token from the GitHub CLI for github.com.
     sig { returns(T.nilable(String)) }
