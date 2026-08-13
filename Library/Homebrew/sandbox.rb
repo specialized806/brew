@@ -612,14 +612,30 @@ class Sandbox
           end
 
           if $stdin.tty?
-            # If stdin is a TTY, use io.raw to set stdin to a raw, passthrough
-            # mode while we copy the input/output of the process spawned in the
-            # PTY. After we've finished copying to/from the PTY process, io.raw
-            # will restore the stdin TTY to its original state.
+            # If stdin is a TTY, set it to a raw, passthrough mode while we
+            # copy the input/output of the process spawned in the PTY, then
+            # restore its original state afterwards. Keep `opost` set, unlike
+            # `IO#raw`: clearing it stops LF -> CRLF translation for the whole
+            # terminal, so anything written outside the PTY meanwhile (e.g.
+            # our own `$stdout` when piped) renders staircased — and set the
+            # mode in one `stty` call so there is no window where `opost` is
+            # clear.
             begin
               # Ignore SIGTTOU as setting raw mode will hang if the process is in the background.
               old_ttou = trap(:TTOU, "IGNORE")
-              $stdin.raw(&write_to_pty)
+              saved_stty = Utils.popen_read("stty", "-g").chomp
+              if saved_stty.empty?
+                # Cannot save the terminal state, so don't change it either.
+                write_to_pty.call
+              else
+                begin
+                  # `-echo` matches `IO#raw`; `stty raw` alone leaves echo on.
+                  system("stty", "raw", "-echo", "opost")
+                  write_to_pty.call
+                ensure
+                  system("stty", saved_stty)
+                end
+              end
             ensure
               trap(:TTOU, old_ttou)
             end
