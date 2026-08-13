@@ -38,6 +38,19 @@ RSpec.describe Cask::Config, :cask do
       EOS
     end
 
+    let(:legacy_keys_json) do
+      <<~EOS
+        {
+          "default": {},
+          "env": {
+            "appdir": "/path/to/apps",
+            "input-methoddir": "/path/to/input/methods"
+          },
+          "explicit": {}
+        }
+      EOS
+    end
+
     it "deserializes a configuration in JSON format" do
       config = described_class.from_json <<~EOS
         {
@@ -67,6 +80,43 @@ RSpec.describe Cask::Config, :cask do
 
       expect { described_class.from_json(valid_json, ignore_invalid_keys: true) }
         .not_to output.to_stderr
+    end
+
+    it "raises for unknown keys" do
+      expect { described_class.from_json(invalid_keys_json) }
+        .to raise_error(ArgumentError, /Unknown key: :invaliddir/)
+    end
+
+    it "drops legacy hyphenated keys" do
+      config = described_class.from_json(legacy_keys_json, ignore_invalid_keys: true)
+
+      expect(config.env).to eq(appdir: Pathname("/path/to/apps"))
+      expect(config.input_methoddir).to eq(Pathname(TEST_TMPDIR).join("cask-input_methoddir"))
+    end
+
+    it "does not warn about legacy hyphenated keys" do
+      expect { described_class.from_json(legacy_keys_json, ignore_invalid_keys: true) }
+        .not_to output.to_stderr
+    end
+
+    it "accepts legacy hyphenated keys without ignoring invalid keys" do
+      config = described_class.from_json(legacy_keys_json)
+
+      expect(config.input_methoddir).to eq(Pathname(TEST_TMPDIR).join("cask-input_methoddir"))
+    end
+
+    it "warns about unknown hyphenated keys" do
+      unknown_json = { default: {}, env: { "bogus-typodir": "/path/to/bogus" }, explicit: {} }.to_json
+
+      expect { described_class.from_json(unknown_json, ignore_invalid_keys: true) }
+        .to output(/Ignoring unknown cask configuration keys: \[:"bogus-typodir"\]/).to_stderr
+    end
+
+    it "tolerates null configuration sections" do
+      null_sections_json = '{"default": null, "env": null, "explicit": null}'
+
+      expect { described_class.from_json(null_sections_json, ignore_invalid_keys: true) }
+        .not_to raise_error
     end
   end
 
