@@ -110,6 +110,26 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       .to_stdout
   end
 
+  it "loads the Repology index from --repology=<file> instead of the published feed" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "repology.json")
+      File.write(path, JSON.generate({ "meta" => {}, "formulae" => {} }))
+      expect(Homebrew::Vulns::Repology).not_to receive(:load)
+
+      records = JSON.parse(capture_stdout do
+        cmd_for("requests", "--json", "--no-history", "--repology", path).run
+      end)
+      expect(records.first["id"]).to eq "BREW-requests-CVE-2024-1234"
+    end
+  end
+
+  it "raises on an unreadable --repology file" do
+    expect { cmd_for("requests", "--json", "--repology", "/nonexistent/repology.json").run }
+      .to raise_error(Errno::ENOENT)
+  end
+
   it "reports an OSV outage and finishes the emitter without raising" do
     allow(Homebrew::Vulns::OSV).to receive(:query_batch)
       .and_raise(Homebrew::Vulns::OSV::ApiError, "503")
