@@ -646,13 +646,6 @@ RSpec.describe Cask::Cask, :cask do
     end
   end
 
-  describe "#artifacts_supported_on_os?" do
-    it "rejects unknown operating systems" do
-      expect { cask.artifacts_supported_on_os?(:windows) }
-        .to raise_error(ArgumentError, "Unsupported operating system: :windows")
-    end
-  end
-
   describe "#outdated_info" do
     it "includes pinned cask details" do
       cask = Cask::CaskLoader.load("local-caffeine")
@@ -1035,7 +1028,7 @@ RSpec.describe Cask::Cask, :cask do
         )
       end
 
-      it "excludes Linux for macOS-only artifacts" do
+      it "does not infer macOS support from artifact types" do
         c = described_class.new("macos-artifact") do
           version :latest
           arch arm: "arm64", intel: "x86_64"
@@ -1044,10 +1037,10 @@ RSpec.describe Cask::Cask, :cask do
           app "Foo.app"
         end
 
-        expect(c.to_hash_with_variations["supported_platforms"]).to eq(macos_platforms)
+        expect(c.to_hash_with_variations["supported_platforms"]).to eq(platform_tags.map(&:to_sym))
       end
 
-      it "excludes Linux for manual installers" do
+      it "does not infer macOS support from manual installers" do
         c = described_class.new("manual-installer") do
           version :latest
           arch arm: "arm64", intel: "x86_64"
@@ -1056,15 +1049,39 @@ RSpec.describe Cask::Cask, :cask do
           installer manual: "Foo.app"
         end
 
-        expect(c.to_hash_with_variations["supported_platforms"]).to eq(macos_platforms)
+        expect(c.to_hash_with_variations["supported_platforms"]).to eq(platform_tags.map(&:to_sym))
       end
 
-      it "excludes macOS for Linux-only artifacts" do
+      it "does not infer Linux support from artifact types" do
         c = described_class.new("linux-artifact") do
           version :latest
           arch arm: "arm64", intel: "x86_64"
           sha256 :no_check
           url "https://brew.sh/#{arch}.zip"
+          app_image "Foo.AppImage"
+        end
+
+        expect(c.to_hash_with_variations["supported_platforms"]).to eq(platform_tags.map(&:to_sym))
+      end
+
+      it "excludes Linux for casks with a bare macOS dependency" do
+        c = described_class.new("macos-only") do
+          version :latest
+          sha256 :no_check
+          url "https://brew.sh/foo.zip"
+          depends_on :macos
+          app "Foo.app"
+        end
+
+        expect(c.to_hash_with_variations["supported_platforms"]).to eq(macos_platforms)
+      end
+
+      it "excludes macOS for casks with a bare Linux dependency" do
+        c = described_class.new("linux-only") do
+          version :latest
+          sha256 :no_check
+          url "https://brew.sh/foo.zip"
+          depends_on :linux
           app_image "Foo.AppImage"
         end
 
