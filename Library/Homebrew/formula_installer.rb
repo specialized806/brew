@@ -925,7 +925,8 @@ on_request: installed_on_request?, options:)
       quiet:                      quiet?,
       verbose:                    verbose?,
     )
-    oh1 "Installing #{formula.full_name} dependency: #{Formatter.identifier(dep.name)}"
+    action = dep_formula.outdated? ? "Upgrading" : "Installing"
+    oh1 "#{action} #{formula.full_name} dependency: #{Formatter.identifier(dep.name)}"
     # prelude only needed to populate bottle_tab_runtime_dependencies, fetching has already been done.
     fi.prelude
     fi.install
