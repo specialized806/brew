@@ -111,6 +111,13 @@ RSpec.describe Cask::Config, :cask do
       expect { described_class.from_json(unknown_json, ignore_invalid_keys: true) }
         .to output(/Ignoring unknown cask configuration keys: \[:"bogus-typodir"\]/).to_stderr
     end
+
+    it "tolerates null configuration sections" do
+      null_sections_json = '{"default": null, "env": null, "explicit": null}'
+
+      expect { described_class.from_json(null_sections_json, ignore_invalid_keys: true) }
+        .not_to raise_error
+    end
   end
 
   describe "#default" do
