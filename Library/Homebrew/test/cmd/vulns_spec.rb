@@ -61,7 +61,7 @@ RSpec.describe Homebrew::Cmd::Vulns do
 
   describe "#run" do
     def stub_scan(findings)
-      results = Homebrew::Vulns::Scanner::Results.new(findings:, checked: 1, skipped: 0)
+      results = Homebrew::Vulns::Scanner::Results.new(findings:, checked: 1, skipped_formulae: [])
       allow_any_instance_of(Homebrew::Vulns::Scanner).to receive(:scan).and_return(results)
     end
 
@@ -123,17 +123,29 @@ RSpec.describe Homebrew::Cmd::Vulns do
 
     it "emits JSON with --json" do
       stub_scan([])
-      expect { described_class.new(["--json"]).run }.to output("[]\n").to_stdout
+      expect { described_class.new(["--json"]).run }.to output(<<~JSON).to_stdout
+        {
+          "findings": [],
+          "skipped_formulae": []
+        }
+      JSON
     end
 
     it "warns to stderr and fails when installed versions could not be checked, even with --json" do
       results = Homebrew::Vulns::Scanner::Results.new(
-        findings: [], checked: 1, skipped: 0, outdated_without_sbom: ["openssl@3"],
+        findings: [], checked: 1, skipped_formulae: [], outdated_without_sbom: ["openssl@3"],
       )
       allow_any_instance_of(Homebrew::Vulns::Scanner).to receive(:scan).and_return(results)
 
+      expected_json = <<~JSON
+        {
+          "findings": [],
+          "skipped_formulae": []
+        }
+      JSON
+
       expect { described_class.new(["--json"]).run }
-        .to output("[]\n").to_stdout
+        .to output(expected_json).to_stdout
         .and output(/openssl@3.*could not be determined.*brew upgrade/m).to_stderr
       expect(Homebrew.failed?).to be true
     end
@@ -143,7 +155,8 @@ RSpec.describe Homebrew::Cmd::Vulns do
         .with(anything, hash_including(min_severity: :high))
         .and_return(
           instance_double(Homebrew::Vulns::Scanner,
-                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0, skipped: 0)),
+                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0,
+                                                                      skipped_formulae: [])),
         )
       described_class.new(["--severity=high", "--json"]).run
     end
@@ -153,29 +166,48 @@ RSpec.describe Homebrew::Cmd::Vulns do
         .with(anything, hash_including(ignore_patches: false))
         .and_return(
           instance_double(Homebrew::Vulns::Scanner,
-                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0, skipped: 0)),
+                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0,
+                                                                      skipped_formulae: [])),
         )
       described_class.new(["--no-ignore-patches", "--json"]).run
     end
 
-    it "passes --fix-available to the scanner" do
+    it "passes --fix-available to the scanner as fix_type: :released" do
       expect(Homebrew::Vulns::Scanner).to receive(:new)
-        .with(anything, hash_including(only_fixed: true))
+        .with(anything, hash_including(fix_type: :released))
         .and_return(
           instance_double(Homebrew::Vulns::Scanner,
-                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0, skipped: 0)),
+                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0,
+                                                                      skipped_formulae: [])),
         )
       described_class.new(["--fix-available", "--json"]).run
     end
 
-    it "passes --no-fix-available to the scanner" do
+    it "passes --no-fix-available to the scanner as fix_type: :unreleased" do
       expect(Homebrew::Vulns::Scanner).to receive(:new)
-        .with(anything, hash_including(except_fixed: true))
+        .with(anything, hash_including(fix_type: :unreleased))
         .and_return(
           instance_double(Homebrew::Vulns::Scanner,
-                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0, skipped: 0)),
+                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0,
+                                                                      skipped_formulae: [])),
         )
       described_class.new(["--no-fix-available", "--json"]).run
+    end
+
+    it "passes --fix-type to the scanner" do
+      expect(Homebrew::Vulns::Scanner).to receive(:new)
+        .with(anything, hash_including(fix_type: :patch))
+        .and_return(
+          instance_double(Homebrew::Vulns::Scanner,
+                          scan: Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 0,
+                                                                      skipped_formulae: [])),
+        )
+      described_class.new(["--fix-type=patch", "--json"]).run
+    end
+
+    it "rejects invalid --fix-type values" do
+      expect { described_class.new(["--fix-type=invalid"]).run }
+        .to raise_error(UsageError, /`--fix-type` must be one of/)
     end
 
     it "rejects passing both --fix-available and --no-fix-available" do
@@ -184,6 +216,21 @@ RSpec.describe Homebrew::Cmd::Vulns do
           UsageError,
           /mutually exclusive/,
         )
+    end
+
+    it "rejects passing both --fix-available and --fix-type" do
+      expect { described_class.new(["--fix-available", "--fix-type=patch"]).run }
+        .to raise_error(
+          UsageError,
+          /mutually exclusive/,
+        )
+    end
+
+    it "passes list_skipped to Output.text when --list-skipped is given" do
+      stub_scan([])
+      expect(Homebrew::Vulns::Output).to receive(:text)
+        .with(anything, hash_including(list_skipped: true))
+      described_class.new(["--list-skipped"]).run
     end
 
     context "with an installed keg from an untrusted tap" do

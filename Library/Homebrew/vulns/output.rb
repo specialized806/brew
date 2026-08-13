@@ -11,12 +11,25 @@ module Homebrew
     module Output
       DEFAULT_MAX_SUMMARY = 60
 
-      sig { params(results: Scanner::Results, max_summary: Integer, io: T.any(IO, StringIO)).void }
-      def self.text(results, max_summary: DEFAULT_MAX_SUMMARY, io: $stdout)
+      sig {
+        params(
+          results:      Scanner::Results,
+          max_summary:  Integer,
+          list_skipped: T::Boolean,
+          io:           T.any(IO, StringIO),
+        ).void
+      }
+      def self.text(results, max_summary: DEFAULT_MAX_SUMMARY, list_skipped: false, io: $stdout)
         io.puts "Checking #{Utils.pluralize("package", results.checked, include_count: true)} for vulnerabilities..."
         if results.skipped.positive?
-          io.puts "(#{Utils.pluralize("package", results.skipped, include_count: true)} " \
-                  "skipped - no supported source URL)"
+          msg = "(#{Utils.pluralize("package", results.skipped, include_count: true)} " \
+                "skipped - no supported source URL)"
+          if list_skipped && results.skipped_formulae.any?
+            io.puts "#{msg}:"
+            results.skipped_formulae.sort.each { |f| io.puts "  #{sanitize(f)}" }
+          else
+            io.puts msg
+          end
         end
         io.puts
 
@@ -51,16 +64,19 @@ include_count: true)} " \
 
       sig { params(results: Scanner::Results, io: T.any(IO, StringIO)).void }
       def self.json(results, io: $stdout)
-        data = results.findings.map do |f|
-          {
-            formula:         f.name,
-            version:         f.version,
-            tag:             f.tag,
-            repo_url:        f.repo_url,
-            vulnerabilities: f.open.map { |v| vuln_json(v) },
-            patched:         f.patched.map { |v| vuln_json(v) },
-          }
-        end
+        data = {
+          findings:         results.findings.map do |f|
+            {
+              formula:         f.name,
+              version:         f.version,
+              tag:             f.tag,
+              repo_url:        f.repo_url,
+              vulnerabilities: f.open.map { |v| vuln_json(v) },
+              patched:         f.patched.map { |v| vuln_json(v) },
+            }
+          end,
+          skipped_formulae: results.skipped_formulae,
+        }
         io.puts JSON.pretty_generate(data)
       end
 

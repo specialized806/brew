@@ -8,6 +8,7 @@ module Homebrew
   module Cmd
     class Vulns < AbstractCommand
       SEVERITIES = %w[low medium high critical].freeze
+      FIX_TYPES = %w[released patch any none unreleased].freeze
 
       cmd_args do
         description <<~EOS
@@ -23,15 +24,17 @@ module Homebrew
                description: "Check formulae listed in a Brewfile. " \
                             "Defaults to `./Brewfile`; use `--brewfile=`<path> to specify another."
         switch "--fix-available",
-               description: "Only report vulnerabilities that have a fix available. " \
-                            "Note that this may exclude vulnerabilities with fixes available " \
-                            "if we cannot determine that the fix is included in the version " \
-                            "under consideration."
+               description: "Only report vulnerabilities that have a released version fix available. " \
+                            "Shortcut for `--fix-type=released`."
         switch "--no-fix-available",
-               description: "Only report vulnerabilities that do not have a fix available. " \
-                            "Note that this may include vulnerabilities with fixes available " \
-                            "if we cannot determine that the fix is included in the version " \
-                            "under consideration."
+               description: "Only report vulnerabilities that do not have a released version fix available " \
+                            "(includes unreleased commit SHA patches). Shortcut for `--fix-type=unreleased`."
+        flag   "--fix-type=",
+               description: "Filter findings by fix type: `released` (official version release), " \
+                            "`patch` (unreleased commit SHA), `any` (either), `none` (neither), " \
+                            "`unreleased` (no released version fix)."
+        switch "--list-skipped",
+               description: "List packages skipped due to missing or unsupported source URL."
         flag   "-s", "--severity=",
                description: "Only report findings at or above: `low`, `medium`, `high`, `critical`."
         flag   "-m", "--max-summary=",
@@ -39,7 +42,7 @@ module Homebrew
         switch "-j", "--json",
                description: "Output JSON."
 
-        conflicts "--fix-available", "--no-fix-available"
+        conflicts "--fix-available", "--no-fix-available", "--fix-type"
 
         named_args :formula
       end
@@ -55,14 +58,17 @@ module Homebrew
           formulae,
           ignore_patches: !args.no_ignore_patches?,
           min_severity:   severity,
-          only_fixed:     args.fix_available?,
-          except_fixed:   args.no_fix_available?,
+          fix_type:,
         ).scan
 
         if args.json?
           Homebrew::Vulns::Output.json(results)
         else
-          Homebrew::Vulns::Output.text(results, max_summary: summary_width)
+          Homebrew::Vulns::Output.text(
+            results,
+            max_summary:  summary_width,
+            list_skipped: args.list_skipped?,
+          )
         end
 
         if untrusted_skipped.any?
@@ -144,6 +150,20 @@ module Homebrew
         raise UsageError, "`--max-summary` must be a non-negative integer" unless raw.match?(/\A\d+\z/)
 
         raw.to_i
+      end
+
+      sig { returns(T.nilable(Symbol)) }
+      def fix_type
+        if args.fix_available?
+          :released
+        elsif args.no_fix_available?
+          :unreleased
+        elsif (raw = args.fix_type)
+          raw = raw.downcase
+          raise UsageError, "`--fix-type` must be one of: #{FIX_TYPES.join(", ")}" unless FIX_TYPES.include?(raw)
+
+          raw.to_sym
+        end
       end
     end
   end

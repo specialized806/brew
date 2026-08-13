@@ -510,7 +510,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-NO-FIX").and_return(no_fix_vuln)
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-WITH-FIX").and_return(with_fix_vuln)
 
-        results = described_class.new([act], only_fixed: true).scan
+        results = described_class.new([act], fix_type: :any).scan
 
         expect(results.findings.first.open.map(&:id)).to eq ["CVE-WITH-FIX"]
       end
@@ -534,7 +534,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-NO-FIX").and_return(no_fix_vuln)
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-WITH-FIX").and_return(with_fix_vuln)
 
-        results = described_class.new([act], except_fixed: true).scan
+        results = described_class.new([act], fix_type: :none).scan
 
         expect(results.findings.first.open.map(&:id)).to eq ["CVE-NO-FIX"]
       end
@@ -554,7 +554,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
         allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-REOPENED" }]])
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-REOPENED").and_return(reopened_vuln)
 
-        results = described_class.new([act], only_fixed: true).scan
+        results = described_class.new([act], fix_type: :any).scan
 
         expect(results.findings).to be_empty
       end
@@ -574,9 +574,38 @@ RSpec.describe Homebrew::Vulns::Scanner do
         allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-GIT-REOPENED" }]])
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-GIT-REOPENED").and_return(reopened_git_vuln)
 
-        results = described_class.new([act], only_fixed: true).scan
+        results = described_class.new([act], fix_type: :any).scan
 
         expect(results.findings).to be_empty
+      end
+
+      it "filters vulnerabilities with released and patch fix options" do
+        released_fix_vuln = osv_record("CVE-RELEASED", "affected" => [{
+          "ranges" => [{
+            "type"   => "SEMVER",
+            "events" => [{ "introduced" => "0" }, { "fixed" => "1.2.3" }],
+          }],
+        }])
+        patch_fix_vuln = osv_record("CVE-PATCH", "affected" => [{
+          "ranges" => [{
+            "type"   => "GIT",
+            "events" => [{ "introduced" => "0" }, { "fixed" => "def456" }],
+          }],
+        }])
+
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch)
+          .and_return([[{ "id" => "CVE-RELEASED" }, { "id" => "CVE-PATCH" }]])
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-RELEASED").and_return(released_fix_vuln)
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-PATCH").and_return(patch_fix_vuln)
+
+        r_only = described_class.new([act], fix_type: :released).scan
+        expect(r_only.findings.first.open.map(&:id)).to eq ["CVE-RELEASED"]
+
+        r_except = described_class.new([act], fix_type: :unreleased).scan
+        expect(r_except.findings.first.open.map(&:id)).to eq ["CVE-PATCH"]
+
+        p_only = described_class.new([act], fix_type: :patch).scan
+        expect(p_only.findings.first.open.map(&:id)).to eq ["CVE-PATCH"]
       end
     end
   end

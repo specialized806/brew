@@ -3663,8 +3663,10 @@ _brew_vulns() {
       --debug
       --deps
       --fix-available
+      --fix-type
       --help
       --json
+      --list-skipped
       --max-summary
       --no-fix-available
       --no-ignore-patches

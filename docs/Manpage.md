@@ -2558,15 +2558,24 @@ With no arguments, all installed formulae are checked.
 
 `--fix-available`
 
-: Only report vulnerabilities that have a fix available. Note that this may
-  exclude vulnerabilities with fixes available if we cannot determine that the
-  fix is included in the version under consideration.
+: Only report vulnerabilities that have a released version fix available.
+  Shortcut for `--fix-type=released`.
 
 `--no-fix-available`
 
-: Only report vulnerabilities that do not have a fix available. Note that this
-  may include vulnerabilities with fixes available if we cannot determine that
-  the fix is included in the version under consideration.
+: Only report vulnerabilities that do not have a released version fix available
+  (includes unreleased commit SHA patches). Shortcut for
+  `--fix-type=unreleased`.
+
+`--fix-type`
+
+: Filter findings by fix type: `released` (official version release), `patch`
+  (unreleased commit SHA), `any` (either), `none` (neither), `unreleased` (no
+  released version fix).
+
+`--list-skipped`
+
+: List packages skipped due to missing or unsupported source URL.
 
 `-s`, `--severity`
 
