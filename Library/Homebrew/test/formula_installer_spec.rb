@@ -493,6 +493,37 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#install_dependency" do
+    it "reports an outdated dependency as upgrading" do
+      dependency_formula = formula "outdated-dependency" do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      dependency = instance_double(Dependency, to_formula: dependency_formula, name: dependency_formula.name,
+                                               options: Options.new)
+      installer = described_class.new(Testball.new)
+
+      allow(dependency_formula).to receive_messages(
+        linked_keg:                Pathname("/tmp/nonexistent-linked-keg"),
+        latest_version_installed?: false,
+        tap:                       nil,
+        any_version_installed?:    true,
+        outdated?:                 true,
+      )
+      expect(installer).to receive(:oh1)
+        .with("Upgrading testball dependency: #{Formatter.identifier(dependency_formula.name)}")
+      allow(described_class).to receive(:new).and_wrap_original do |original, formula, **kwargs|
+        instance = original.call(formula, **kwargs)
+        next instance if formula != dependency_formula
+
+        allow(instance).to receive_messages(prelude: true, install: true, finish: true)
+        instance
+      end
+
+      installer.install_dependency(dependency)
+    end
+  end
+
   describe "#check_conflicts" do
     let(:test_formula) do
       formula "testball" do
