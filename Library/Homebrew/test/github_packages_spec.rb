@@ -4,6 +4,94 @@
 require "github_packages"
 
 RSpec.describe GitHubPackages do
+  describe "#upload_bottles" do
+    it "reports progress when uploading many bottles" do
+      github_packages = described_class.new
+      events = []
+      bottles_hash = {
+        "foo" => {},
+        "bar" => {},
+        "baz" => {},
+      }
+
+      allow(Homebrew::EnvConfig).to receive_messages(
+        github_packages_user:  "brewtest",
+        github_packages_token: "ghp_test",
+      )
+      allow(github_packages).to receive(:load_schemas!)
+      allow(github_packages).to receive(:preupload_check)
+      allow(github_packages).to receive(:ensure_executable!).and_return(Pathname("skopeo"))
+      allow(github_packages).to receive(:upload_bottle) do |_, _, _, formula_full_name, *_args, **_options|
+        events << "Uploaded #{formula_full_name}"
+      end
+      allow(github_packages).to receive(:ohai) { |message| events << message }
+
+      github_packages.upload_bottles(bottles_hash, keep_old: false, dry_run: false, warn_on_error: false)
+
+      expect(events).to eq([
+        "Uploaded foo",
+        "Upload progress: 1 formula(e) uploaded, 2 remaining",
+        "Uploaded bar",
+        "Upload progress: 2 formula(e) uploaded, 1 remaining",
+        "Uploaded baz",
+        "Upload progress: 3 formula(e) uploaded, 0 remaining",
+      ])
+    end
+
+    it "does not report progress when uploading fewer than three bottles" do
+      github_packages = described_class.new
+      events = []
+      bottles_hash = {
+        "foo" => {},
+        "bar" => {},
+      }
+
+      allow(Homebrew::EnvConfig).to receive_messages(
+        github_packages_user:  "brewtest",
+        github_packages_token: "ghp_test",
+      )
+      allow(github_packages).to receive(:load_schemas!)
+      allow(github_packages).to receive(:preupload_check)
+      allow(github_packages).to receive(:ensure_executable!).and_return(Pathname("skopeo"))
+      allow(github_packages).to receive(:upload_bottle) do |_, _, _, formula_full_name, *_args, **_options|
+        events << "Uploaded #{formula_full_name}"
+      end
+      allow(github_packages).to receive(:ohai) { |message| events << message }
+
+      github_packages.upload_bottles(bottles_hash, keep_old: false, dry_run: false, warn_on_error: false)
+
+      expect(events).to eq([
+        "Uploaded foo",
+        "Uploaded bar",
+      ])
+    end
+
+    it "includes skipped bottles in progress" do
+      github_packages = described_class.new
+      bottles_hash = {
+        "foo" => {},
+        "bar" => {},
+        "baz" => {},
+      }
+
+      allow(Homebrew::EnvConfig).to receive_messages(
+        github_packages_user:  "brewtest",
+        github_packages_token: "ghp_test",
+      )
+      allow(github_packages).to receive(:ensure_executable!).and_return(Pathname("skopeo"))
+      allow(github_packages).to receive(:load_schemas!)
+      allow(github_packages).to receive(:preupload_check)
+
+      expect do
+        github_packages.upload_bottles(bottles_hash, keep_old: false, dry_run: false, warn_on_error: true)
+      end.to output(<<~EOS).to_stdout
+        ==> Upload progress: 1 formula(e) uploaded, 2 remaining
+        ==> Upload progress: 2 formula(e) uploaded, 1 remaining
+        ==> Upload progress: 3 formula(e) uploaded, 0 remaining
+      EOS
+    end
+  end
+
   describe "#upload_bottle" do
     it "omits platform metadata from image index descriptors for all bottles" do
       mktmpdir.cd do
