@@ -705,6 +705,9 @@ class RBI::Method < ::RBI::NodeWithComments
   sig { params(name: ::String).void }
   def add_kw_rest_param(name); end
 
+  sig { void }
+  def add_no_kw_param; end
+
   sig { params(name: ::String, default_value: ::String).void }
   def add_opt_param(name, default_value); end
 
@@ -718,6 +721,7 @@ class RBI::Method < ::RBI::NodeWithComments
     params(
       params: T.nilable(T::Array[::RBI::SigParam]),
       return_type: T.any(::RBI::Type, ::String),
+      bind_type: T.nilable(T.any(::RBI::Type, ::String)),
       is_abstract: T::Boolean,
       is_override: T::Boolean,
       is_overridable: T::Boolean,
@@ -727,7 +731,7 @@ class RBI::Method < ::RBI::NodeWithComments
       block: T.nilable(T.proc.params(node: ::RBI::Sig).void)
     ).void
   end
-  def add_sig(params: T.unsafe(nil), return_type: T.unsafe(nil), is_abstract: T.unsafe(nil), is_override: T.unsafe(nil), is_overridable: T.unsafe(nil), is_final: T.unsafe(nil), type_params: T.unsafe(nil), checked: T.unsafe(nil), &block); end
+  def add_sig(params: T.unsafe(nil), return_type: T.unsafe(nil), bind_type: T.unsafe(nil), is_abstract: T.unsafe(nil), is_override: T.unsafe(nil), is_overridable: T.unsafe(nil), is_final: T.unsafe(nil), type_params: T.unsafe(nil), checked: T.unsafe(nil), &block); end
 
   sig { override.params(other: ::RBI::Node).returns(T::Boolean) }
   def compatible_with?(other); end
@@ -844,6 +848,26 @@ class RBI::Module < ::RBI::Scope
 
   sig { returns(::String) }
   def name; end
+end
+
+class RBI::NoKwParam < ::RBI::Param
+  sig do
+    params(
+      loc: T.nilable(::RBI::Loc),
+      comments: T.nilable(T::Array[::RBI::Comment]),
+      block: T.nilable(T.proc.params(node: ::RBI::NoKwParam).void)
+    ).void
+  end
+  def initialize(loc: T.unsafe(nil), comments: T.unsafe(nil), &block); end
+
+  sig { params(other: T.nilable(::Object)).returns(T::Boolean) }
+  def ==(other); end
+
+  sig { override.returns(T::Boolean) }
+  def anonymous?; end
+
+  sig { override.returns(::String) }
+  def to_s; end
 end
 
 class RBI::Node
@@ -1046,6 +1070,9 @@ class RBI::Parser::SigBuilder < ::RBI::Parser::Visitor
   sig { params(node: ::Prism::Node).returns(::String) }
   def sig_param_name(node); end
 
+  sig { params(node: ::Prism::CallNode).returns(T.nilable(::String)) }
+  def sig_type_argument(node); end
+
   sig { override.params(node: ::Prism::AssocNode).void }
   def visit_assoc_node(node); end
 
@@ -1157,6 +1184,9 @@ class RBI::Parser::Visitor < ::Prism::Visitor
   sig { params(node: ::Prism::Node).returns(::Prism::Location) }
   def adjust_prism_location_for_heredoc(node); end
 
+  sig { params(node: ::Prism::Node).returns(T::Boolean) }
+  def braceless_shape?(node); end
+
   sig { params(node: ::Prism::Node).returns(::RBI::Loc) }
   def node_loc(node); end
 
@@ -1171,6 +1201,9 @@ class RBI::Parser::Visitor < ::Prism::Visitor
 
   sig { params(node: T.nilable(::Prism::Node)).returns(T::Boolean) }
   def t_sig_without_runtime?(node); end
+
+  sig { params(node: ::Prism::Node).returns(::String) }
+  def type_string(node); end
 end
 
 class RBI::Printer < ::RBI::Visitor
@@ -1322,6 +1355,9 @@ class RBI::Printer < ::RBI::Visitor
 
   sig { override.params(node: ::RBI::Module).void }
   def visit_module(node); end
+
+  sig { override.params(node: ::RBI::NoKwParam).void }
+  def visit_no_kw_param(node); end
 
   sig { override.params(node: ::RBI::OptParam).void }
   def visit_opt_param(node); end
@@ -1596,11 +1632,11 @@ class RBI::RBSPrinter < ::RBI::Visitor
   sig { params(node: ::RBI::Method, sig: ::RBI::Sig).void }
   def print_method_sig(node, sig); end
 
-  sig { params(node: ::RBI::Method, sig: ::RBI::Sig).void }
-  def print_method_sig_inline(node, sig); end
+  sig { params(sig_param: T.nilable(::RBI::SigParam)).void }
+  def print_method_sig_block(sig_param); end
 
-  sig { params(node: ::RBI::Method, sig: ::RBI::Sig).void }
-  def print_method_sig_multiline(node, sig); end
+  sig { params(node: ::RBI::Method, sig: ::RBI::Sig, multiline: T::Boolean).void }
+  def print_method_sig_content(node, sig, multiline:); end
 
   sig { params(string: ::String).void }
   def printl(string); end
@@ -1685,6 +1721,9 @@ class RBI::RBSPrinter < ::RBI::Visitor
 
   sig { override.params(node: ::RBI::Module).void }
   def visit_module(node); end
+
+  sig { override.params(node: ::RBI::NoKwParam).void }
+  def visit_no_kw_param(node); end
 
   sig { override.params(node: ::RBI::OptParam).void }
   def visit_opt_param(node); end
@@ -2236,6 +2275,7 @@ class RBI::Sig < ::RBI::NodeWithComments
     params(
       params: T.nilable(T::Array[::RBI::SigParam]),
       return_type: T.any(::RBI::Type, ::String),
+      bind_type: T.nilable(T.any(::RBI::Type, ::String)),
       is_abstract: T::Boolean,
       is_override: T::Boolean,
       is_overridable: T::Boolean,
@@ -2250,7 +2290,7 @@ class RBI::Sig < ::RBI::NodeWithComments
       block: T.nilable(T.proc.params(node: ::RBI::Sig).void)
     ).void
   end
-  def initialize(params: T.unsafe(nil), return_type: T.unsafe(nil), is_abstract: T.unsafe(nil), is_override: T.unsafe(nil), is_overridable: T.unsafe(nil), is_final: T.unsafe(nil), allow_incompatible_override: T.unsafe(nil), allow_incompatible_override_visibility: T.unsafe(nil), without_runtime: T.unsafe(nil), type_params: T.unsafe(nil), checked: T.unsafe(nil), loc: T.unsafe(nil), comments: T.unsafe(nil), &block); end
+  def initialize(params: T.unsafe(nil), return_type: T.unsafe(nil), bind_type: T.unsafe(nil), is_abstract: T.unsafe(nil), is_override: T.unsafe(nil), is_overridable: T.unsafe(nil), is_final: T.unsafe(nil), allow_incompatible_override: T.unsafe(nil), allow_incompatible_override_visibility: T.unsafe(nil), without_runtime: T.unsafe(nil), type_params: T.unsafe(nil), checked: T.unsafe(nil), loc: T.unsafe(nil), comments: T.unsafe(nil), &block); end
 
   sig { params(param: ::RBI::SigParam).void }
   def <<(param); end
@@ -2270,6 +2310,11 @@ class RBI::Sig < ::RBI::NodeWithComments
   def allow_incompatible_override_visibility; end
 
   def allow_incompatible_override_visibility=(_arg0); end
+
+  sig { returns(T.nilable(T.any(::RBI::Type, ::String))) }
+  def bind_type; end
+
+  def bind_type=(_arg0); end
 
   sig { returns(T.nilable(::Symbol)) }
   def checked; end
@@ -2678,8 +2723,13 @@ class RBI::Type
     sig { returns(::RBI::Type::Boolean) }
     def boolean; end
 
-    sig { params(type: ::RBI::Type::Simple, type_parameter: T.nilable(::RBI::Type)).returns(::RBI::Type::ClassOf) }
-    def class_of(type, type_parameter = T.unsafe(nil)); end
+    sig do
+      params(
+        type: ::RBI::Type::Simple,
+        type_parameters: T.any(::RBI::Type, T::Array[::RBI::Type])
+      ).returns(::RBI::Type::ClassOf)
+    end
+    def class_of(type, *type_parameters); end
 
     sig { params(name: ::String, params: T.any(::RBI::Type, T::Array[::RBI::Type])).returns(::RBI::Type::Generic) }
     def generic(name, *params); end
@@ -2872,8 +2922,8 @@ class RBI::Type::Class < ::RBI::Type
 end
 
 class RBI::Type::ClassOf < ::RBI::Type
-  sig { params(type: ::RBI::Type::Simple, type_parameter: T.nilable(::RBI::Type)).void }
-  def initialize(type, type_parameter = T.unsafe(nil)); end
+  sig { params(type: ::RBI::Type::Simple, type_parameters: ::RBI::Type).void }
+  def initialize(type, *type_parameters); end
 
   sig { override.params(other: ::BasicObject).returns(T::Boolean) }
   def ==(other); end
@@ -2890,8 +2940,8 @@ class RBI::Type::ClassOf < ::RBI::Type
   sig { returns(::RBI::Type::Simple) }
   def type; end
 
-  sig { returns(T.nilable(::RBI::Type)) }
-  def type_parameter; end
+  sig { returns(T::Array[::RBI::Type]) }
+  def type_parameters; end
 end
 
 class RBI::Type::Composite < ::RBI::Type
@@ -3464,6 +3514,9 @@ class RBI::Visitor
 
   sig { params(node: ::RBI::Module).void }
   def visit_module(node); end
+
+  sig { params(node: ::RBI::NoKwParam).void }
+  def visit_no_kw_param(node); end
 
   sig { params(node: ::RBI::OptParam).void }
   def visit_opt_param(node); end
