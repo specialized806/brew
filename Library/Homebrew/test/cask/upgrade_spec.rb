@@ -749,7 +749,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(local_caffeine, args:)
-      end.to raise_error(Cask::CaskError)
+      end.to output(/local-caffeine: finalize failed/).to_stderr
 
       expect(JSON.parse(receipt_path.read).dig("source", "version")).to eq("1.2.2")
     end
@@ -783,7 +783,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(will_fail_if_upgraded, args:)
-      end.to raise_error(Cask::CaskError).and output(output_reverted).to_stderr
+      end.to output(output_reverted).to_stderr
 
       expect(will_fail_if_upgraded).to be_installed
       expect(will_fail_if_upgraded_path).to be_a_file
@@ -801,7 +801,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(bad_checksum, args:)
-      end.to raise_error(ChecksumMismatchError).and(not_to_output(output_reverted).to_stderr)
+      end.to output(/bad-checksum: SHA-256 mismatch/).to_stderr.and(not_to_output(output_reverted).to_stderr)
 
       expect(bad_checksum).to be_installed
       expect(bad_checksum_path).to be_a_directory
@@ -809,13 +809,13 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum.staged_path).not_to exist
     end
 
-    it "raises the original upgrade error, not a failure that occurs while rolling back" do
+    it "reports the original upgrade error, not a failure that occurs while rolling back" do
       will_fail_if_upgraded = Cask::CaskLoader.load("will-fail-if-upgraded")
       allow_any_instance_of(Cask::Installer).to receive(:revert_upgrade).and_raise("rollback failed")
 
       expect do
         described_class.upgrade_casks!(will_fail_if_upgraded, args:)
-      end.to raise_error(Cask::CaskError)
+      end.to output(/Error: will-fail-if-upgraded: /).to_stderr
     end
   end
 
@@ -865,7 +865,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(args:, skip_prefetch: true, summary_upgrades:)
-      end.to raise_error(Cask::MultipleCaskErrors)
+      end.to output(/bad-checksum: failed.*bad-checksum2: failed/m).to_stderr
 
       expect(upgraded_tokens).to contain_exactly("bad-checksum", "bad-checksum2", "local-transmission-zip")
       expect(summary_upgrades).to contain_exactly("local-transmission-zip 2.60 -> 2.61")
@@ -919,16 +919,13 @@ RSpec.describe Cask::Upgrade, :cask do
           summary_upgrades:,
           args:
         )
-      end.to raise_error(
-        Cask::CaskError,
-        "local-caffeine: This cask does not run on macOS versions older than Tahoe.",
-      )
+      end.to output(/local-caffeine: This cask does not run on macOS versions older than Tahoe\./).to_stderr
 
       expect(upgraded_tokens).to eq(["local-transmission-zip"])
       expect(summary_upgrades).to eq(["local-transmission-zip 2.60 -> 2.61"])
     end
 
-    it "raises prefetched requirement errors after compatible casks" do
+    it "reports prefetched requirement errors alongside compatible casks" do
       summary_upgrades = []
       upgraded_tokens = []
       cask_error = Cask::CaskError.new(
@@ -948,7 +945,7 @@ RSpec.describe Cask::Upgrade, :cask do
           prefetched_errors:    [cask_error],
           args:,
         )
-      end.to raise_error(Cask::CaskError, cask_error.message)
+      end.to output(/#{Regexp.escape(cask_error.message)}/).to_stderr
 
       expect(upgraded_tokens).to eq(["local-transmission-zip"])
       expect(summary_upgrades).to eq(["local-transmission-zip 2.60 -> 2.61"])

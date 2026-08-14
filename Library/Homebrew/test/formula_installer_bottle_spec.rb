@@ -102,6 +102,35 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  specify "bottle install with a corrupt cached download", :aggregate_failures do
+    allow(DevelopmentTools).to receive(:installed?).and_return(false)
+    formula = TestballBottle.new
+    bottle = formula.bottle
+    stub_formula_loader formula
+
+    # Simulate a GitHub Packages bottle blob, which is trusted without being
+    # rehashed, so this corrupt download is only noticed when it fails to
+    # extract and must then be discarded and downloaded again.
+    bottle.cached_download.dirname.mkpath
+    bottle.cached_download.write("corrupt" * 1000)
+    allow(bottle).to receive(:downloaded_and_valid?).and_return(true)
+
+    formula_installer = described_class.new(formula)
+    begin
+      expect do
+        Homebrew::Install.fetch_formulae([formula_installer])
+        formula_installer.install
+      end.to output(/Removing corrupt cached download/).to_stderr
+
+      expect(formula).to be_latest_version_installed
+      expect(Homebrew).not_to have_failed
+    ensure
+      Keg.new(formula.prefix).uninstall if formula.prefix.directory?
+      formula.clear_cache
+      bottle.clear_cache
+    end
+  end
+
   specify "build tools error" do
     allow(DevelopmentTools).to receive(:installed?).and_return(false)
 

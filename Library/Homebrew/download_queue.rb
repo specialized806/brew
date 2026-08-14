@@ -34,7 +34,7 @@ module Homebrew
       @downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
       @cancelled = T.let(Concurrent::AtomicBoolean.new(false), Concurrent::AtomicBoolean)
       @active_threads = T.let(Concurrent::Set.new, Concurrent::Set)
-      @fetch_failed = T.let(false, T::Boolean)
+      @failed_downloads = T.let([], T::Array[Downloadable])
       @deferred_failure_messages = T.let([], T::Array[T.proc.void])
     end
 
@@ -117,7 +117,7 @@ module Homebrew
              allow_failures: T::Boolean).void
     }
     def fetch(only: nil, heading: nil, allow_failures: false)
-      @fetch_failed = false
+      @failed_downloads = []
       @deferred_failure_messages = []
       context_before_fetch = Context.current
       fetchable_downloads = if only
@@ -151,7 +151,7 @@ module Homebrew
             next
           end
 
-          @fetch_failed = true
+          @failed_downloads << downloadable
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
         rescue
           raise unless allow_failures
@@ -191,7 +191,7 @@ module Homebrew
               unlink_cached_download(downloadable) if exception.is_a?(ChecksumMismatchError)
             elsif future.rejected?
               if exception.is_a?(ChecksumMismatchError)
-                @fetch_failed = true
+                @failed_downloads << downloadable
                 actual = Digest::SHA256.file(downloadable.cached_download).hexdigest
                 actual_message, expected_message = align_checksum_mismatch_message(downloadable.download_queue_type)
 
@@ -218,7 +218,7 @@ module Homebrew
                 else
                   future.reason.to_s
                 end
-                @fetch_failed = true
+                @failed_downloads << downloadable
                 report_or_defer_failure { ofail failure_message }
               end
             end
@@ -308,8 +308,10 @@ module Homebrew
       end
     end
 
-    sig { returns(T::Boolean) }
-    attr_reader :fetch_failed
+    # The downloadables that failed in the last `fetch`, so callers can retry
+    # or skip only the packages that were actually affected.
+    sig { returns(T::Array[Downloadable]) }
+    attr_reader :failed_downloads
 
     sig { params(message: String).void }
     def stdout_print_and_flush_if_tty(message)

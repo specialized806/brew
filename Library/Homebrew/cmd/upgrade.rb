@@ -5,6 +5,7 @@ require "abstract_command"
 require "formula_installer"
 require "install"
 require "upgrade"
+require "cask/download"
 require "cask/utils"
 require "cask/upgrade"
 require "api"
@@ -287,10 +288,13 @@ module Homebrew
               formula_names: prefetched_formulae_names,
               cask_names:    prefetched_cask_names,
             ))
-            if shared_download_queue.fetch_failed
-              formulae_prefetched = false
-              prefetched_casks = false
-            end
+            # Only redo the slower unprefetched fetch for the kind of package
+            # that actually failed, so e.g. one bad bottle does not also
+            # re-verify every already downloaded cask.
+            failed_cask_downloads, failed_formula_downloads =
+              shared_download_queue.failed_downloads.partition { |download| download.is_a?(Cask::Download) }
+            formulae_prefetched = false if failed_formula_downloads.any?
+            prefetched_casks = false if failed_cask_downloads.any?
           ensure
             shared_download_queue.shutdown
           end
@@ -790,9 +794,8 @@ module Homebrew
         return false if minimum_version.present? && casks.empty?
 
         if skip_prefetch && casks.empty? && prefetched_cask_errors.present?
-          raise Cask::MultipleCaskErrors, prefetched_cask_errors if prefetched_cask_errors.count > 1
-
-          raise prefetched_cask_errors.fetch(0)
+          prefetched_cask_errors.each { |error| ofail error }
+          return false
         end
 
         Cask::Upgrade.upgrade_casks!(

@@ -51,7 +51,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     formula_installer = FormulaInstaller.new(formula)
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
     reinstall_context = Homebrew::Reinstall::InstallationContext.new(
       formula_installer:,
       formula:,
@@ -124,6 +124,44 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     expect(download_queue).to receive(:shutdown).ordered
 
     cmd.run
+  end
+
+  it "reinstalls the remaining formulae after one fails" do
+    cmd = described_class.new(["--yes", "one", "two"])
+    download_queue = instance_double(Homebrew::DownloadQueue, shutdown: nil, failed_downloads: [])
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+    contexts = %w[one two].map do |name|
+      formula = formula(name) do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/#{name}-0.1.tar.gz"
+      end
+      allow(formula).to receive_messages(latest_formula: formula, pinned?: false)
+      Homebrew::Reinstall::InstallationContext.new(
+        formula_installer: FormulaInstaller.new(formula),
+        formula:,
+        keg:               nil,
+        options:           Options.create([]),
+      )
+    end
+
+    allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
+      .with(method: :resolve)
+      .and_return(contexts.map(&:formula))
+    allow(Migrator).to receive(:migrate_if_needed)
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    allow(Homebrew::Reinstall).to receive(:build_install_context).and_return(*contexts)
+    allow(Homebrew::Install).to receive(:fetch_formulae).and_return(contexts.map(&:formula_installer))
+    allow(Homebrew::Reinstall).to receive(:reinstall_formula).with(contexts.fetch(0))
+                                                             .and_raise("gzip decompression failed")
+    allow(Homebrew::Cleanup).to receive_messages(install_formula_clean!: nil, periodic_clean!: nil)
+    allow(Homebrew::Upgrade).to receive_messages(dependants:, upgrade_dependents: [])
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect(Homebrew::Reinstall).to receive(:reinstall_formula).with(contexts.fetch(1))
+
+    expect { cmd.run }.to output(/Error: one: gzip decompression failed/).to_stderr
   end
 
   it "reinstalls a Formula", :integration_test do

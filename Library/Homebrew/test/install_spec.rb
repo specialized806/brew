@@ -48,6 +48,46 @@ RSpec.describe Homebrew::Install do
     end
   end
 
+  describe "::reject_failed_downloads" do
+    it "skips the formula whose download failed and keeps the rest" do
+      bottle_spec = BottleSpecification.new
+      bottle_spec.sha256(arm64_big_sur: "deadbeef" * 8)
+      failed_bottle = Bottle.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
+                                 name: "bad-bottle", pkg_version: PkgVersion.new(Version.new("1.0"), 0))
+      bad_fi = instance_double(FormulaInstaller, formula: formula("bad-bottle") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end)
+      good_fi = instance_double(FormulaInstaller, formula: formula("good-bottle") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end)
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [failed_bottle])
+
+      expect(described_class.reject_failed_downloads([bad_fi, good_fi], download_queue:)).to eq([good_fi])
+    end
+  end
+
+  describe "::install_formulae" do
+    it "skips a formula whose install raises and continues with the rest" do
+      bad_fi = instance_double(FormulaInstaller, formula: formula("bad-bottle") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end)
+      good_fi = instance_double(FormulaInstaller, formula: formula("good-bottle") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end)
+      allow(Homebrew::Cleanup).to receive(:install_formula_clean!)
+      allow(described_class).to receive(:install_formula).with(bad_fi, upgrade: false)
+                                                         .and_raise("gzip decompression failed")
+      expect(described_class).to receive(:install_formula).with(good_fi, upgrade: false)
+
+      expect { described_class.install_formulae([bad_fi, good_fi]) }
+        .to output(/Error: bad-bottle: gzip decompression failed/).to_stderr
+    end
+  end
+
   describe "::enqueue_cask_installers" do
     it "skips casks whose enqueue raises and continues with the rest" do
       bad_cask = instance_double(Cask::Cask, to_s: "bad-cask")

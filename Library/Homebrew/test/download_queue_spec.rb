@@ -38,7 +38,7 @@ RSpec.describe Homebrew::DownloadQueue do
 
     expect { download_queue.fetch }.to output(/network blew up/).to_stderr
 
-    expect(download_queue.fetch_failed).to be(true)
+    expect(download_queue.failed_downloads).to eq([downloadable])
     expect(Homebrew).to have_failed
   end
 
@@ -108,7 +108,7 @@ RSpec.describe Homebrew::DownloadQueue do
     download_queue.enqueue(downloadable)
 
     expect { download_queue.fetch(allow_failures: true) }.to output(/✘/).to_stderr
-    expect(download_queue.fetch_failed).to be false
+    expect(download_queue.failed_downloads).to be_empty
     expect(Homebrew).not_to have_failed
   end
 

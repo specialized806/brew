@@ -449,12 +449,12 @@ module Homebrew
           # We already attempted to reinstall f as part of the dependency tree of
           # another formula. In that case, don't generate an error, just move on.
           nil
-        rescue CannotInstallFormulaError, DownloadError => e
-          ofail e
         rescue BuildError => e
           e.dump(verbose:)
           puts
           Homebrew.failed = true
+        rescue => e
+          ofail e
         end
         upgraded_formulae
       end
@@ -490,6 +490,11 @@ module Homebrew
         e.dump(verbose:)
         puts
         Homebrew.failed = true
+        false
+      rescue => e
+        # Keep a single failed upgrade (e.g. a bottle that fails to extract)
+        # from aborting the rest of the batch while still failing the run.
+        ofail "#{formula_installer.formula.full_specified_name}: #{e}"
         false
       end
 

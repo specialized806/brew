@@ -367,6 +367,7 @@ module Homebrew
                 combined_fetch_downloads_heading(formula_names: valid_formula_installers.map { |fi| fi.formula.name })
               end
               download_queue.fetch(heading:)
+              valid_formula_installers = reject_failed_downloads(valid_formula_installers, download_queue:)
             end
           end
         ensure
@@ -374,6 +375,25 @@ module Homebrew
         end
 
         valid_formula_installers
+      end
+
+      # A failed download has already been reported, so skip installing its
+      # formula rather than failing a second time on the missing or known-bad
+      # download, while still installing everything else.
+      sig {
+        params(formula_installers: T::Array[FormulaInstaller],
+               download_queue:     Homebrew::DownloadQueue).returns(T::Array[FormulaInstaller])
+      }
+      def reject_failed_downloads(formula_installers, download_queue:)
+        failed_names = download_queue.failed_downloads.filter_map do |downloadable|
+          case downloadable
+          when Bottle then downloadable.name
+          when Resource then downloadable.owner&.name
+          end
+        end
+        return formula_installers if failed_names.empty?
+
+        formula_installers.reject { |fi| failed_names.include?(fi.formula.name) }
       end
 
       sig {
@@ -520,6 +540,13 @@ module Homebrew
           upgrade = formula.linked? && formula.outdated? && !formula.head? && !Homebrew::EnvConfig.no_install_upgrade?
           install_formula(fi, upgrade:)
           Cleanup.install_formula_clean!(formula)
+        rescue BuildError
+          # Reported (with analytics) by the global handler in `brew.rb`.
+          raise
+        rescue => e
+          # Keep a single failed install (e.g. a bottle that fails to extract)
+          # from aborting the rest of the batch while still failing the run.
+          ofail "#{fi.formula.full_specified_name}: #{e}"
         end
       end
 

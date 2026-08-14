@@ -158,6 +158,34 @@ class Bottle
     downloader.bottle_blob_sha256 == resource_checksum.hexdigest
   end
 
+  # A cached immutable blob is trusted without rehashing it (see
+  # `downloaded_and_valid?`), so a locally corrupted bottle would fail to
+  # extract on every run: verify it after a failed extraction and, when it was
+  # indeed corrupt, discard it and retry with a freshly downloaded one.
+  sig { params(quiet: T::Boolean, _block: T.proc.void).void }
+  def with_corrupt_download_retry(quiet: false, &_block)
+    yield
+  rescue
+    discard_corrupt_cached_download
+    raise if cached_download.exist?
+
+    downloading!
+    fetch(quiet:)
+    extracting!
+    yield
+  end
+
+  sig { void }
+  def discard_corrupt_cached_download
+    expected_checksum = resource.checksum
+    return if expected_checksum.nil?
+    return unless cached_download.file?
+    return if cached_download.sha256 == expected_checksum.hexdigest
+
+    opoo "Removing corrupt cached download: #{cached_download.basename}"
+    clear_cache
+  end
+
   sig { override.returns(T.nilable(Integer)) }
   def total_size
     bottle_size || super
@@ -184,7 +212,7 @@ class Bottle
   end
 
   sig { void }
-  def stage = downloader.stage
+  def stage = with_corrupt_download_retry { downloader.stage }
 
   sig { params(timeout: T.nilable(T.any(Integer, Float)), quiet: T::Boolean).void }
   def fetch_tab(timeout: nil, quiet: false)
@@ -269,10 +297,12 @@ class Bottle
     bottle_tmp_keg = staged_path_from_download_queue
     bottle_poured_file = staged_path_from_download_queue_marker
 
-    begin
+    # Stay quiet on the retry: the download queue is redrawing its own
+    # progress lines while this runs in a worker thread.
+    with_corrupt_download_retry(quiet: true) do
       HOMEBREW_TEMP_CELLAR.mkpath
 
-      return if bottle_poured_file.exist?
+      next if bottle_poured_file.exist?
 
       FileUtils.rm(bottle_poured_file) if bottle_poured_file.symlink?
       FileUtils.rm_r(bottle_tmp_keg) if bottle_tmp_keg.directory?
