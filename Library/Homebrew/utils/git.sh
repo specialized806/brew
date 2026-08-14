@@ -110,20 +110,23 @@ read-homebrew-git-config() {
 # keyed by the HEAD revision. Leaves HOMEBREW_VERSION unchanged when the
 # revision cannot be determined e.g. in a shallow or non-Git repository.
 set-homebrew-version-from-git() {
-  local git_describe_cache="${HOMEBREW_REPOSITORY}/.git/describe-cache"
+  local git_directory="${HOMEBREW_REPOSITORY}/.git"
+  local git_describe_cache="${git_directory}/describe-cache"
+  local git_directory_owned_by_user
+  [[ -O "${git_directory}/." ]] && git_directory_owned_by_user="1"
 
   # Read HEAD and its ref directly rather than through `git rev-parse HEAD`
   # to avoid a fork on every invocation.
   local git_head="" git_revision="" git_ref
   local git_revision_regex="^([0-9a-f]{40}|[0-9a-f]{64})$"
-  read -r git_head 2>/dev/null <"${HOMEBREW_REPOSITORY}/.git/HEAD"
+  read -r git_head 2>/dev/null <"${git_directory}/HEAD"
   if [[ "${git_head}" == "ref: "* ]]
   then
     git_ref="${git_head#ref: }"
-    if [[ -f "${HOMEBREW_REPOSITORY}/.git/${git_ref}" ]]
+    if [[ -f "${git_directory}/${git_ref}" ]]
     then
-      read -r git_revision 2>/dev/null <"${HOMEBREW_REPOSITORY}/.git/${git_ref}"
-    elif [[ -f "${HOMEBREW_REPOSITORY}/.git/packed-refs" ]]
+      read -r git_revision 2>/dev/null <"${git_directory}/${git_ref}"
+    elif [[ -f "${git_directory}/packed-refs" ]]
     then
       local packed_revision packed_ref
       while read -r packed_revision packed_ref
@@ -133,7 +136,7 @@ set-homebrew-version-from-git() {
           git_revision="${packed_revision}"
           break
         fi
-      done <"${HOMEBREW_REPOSITORY}/.git/packed-refs"
+      done <"${git_directory}/packed-refs"
     fi
   elif [[ "${git_head}" =~ ${git_revision_regex} ]]
   then
@@ -143,14 +146,14 @@ set-homebrew-version-from-git() {
   [[ "${git_revision}" =~ ${git_revision_regex} ]] || git_revision=""
 
   # Fall back to git for anything unusual e.g. a worktree where .git is a file.
-  if [[ -z "${git_revision}" && -e "${HOMEBREW_REPOSITORY}/.git" ]]
+  if [[ -z "${git_revision}" && -e "${git_directory}" ]]
   then
     git_revision=$("${HOMEBREW_GIT}" -C "${HOMEBREW_REPOSITORY}" rev-parse HEAD 2>/dev/null)
   fi
 
   if [[ -z "${git_revision}" ]]
   then
-    if [[ -d "${git_describe_cache}" ]]
+    if [[ -n "${git_directory_owned_by_user}" && -d "${git_describe_cache}" ]]
     then
       # Don't care about permission errors here.
       rm -rf "${git_describe_cache}" 2>/dev/null
@@ -176,12 +179,15 @@ set-homebrew-version-from-git() {
   if [[ -z "${HOMEBREW_VERSION}" ]]
   then
     HOMEBREW_VERSION="$("${HOMEBREW_GIT}" -C "${HOMEBREW_REPOSITORY}" describe --tags --dirty --abbrev=7 2>/dev/null)"
-    # Don't output any permissions errors here. The user may not have write
-    # permissions to the cache but we don't care because it's an optional
-    # performance improvement.
-    rm -rf "${git_describe_cache}" 2>/dev/null
-    mkdir -p "${git_describe_cache}" 2>/dev/null
-    { echo "${HOMEBREW_VERSION}" >"${git_describe_cache_file}"; } 2>/dev/null
+    if [[ -n "${git_directory_owned_by_user}" ]]
+    then
+      # Don't output any permissions errors here. The user may not have write
+      # permissions to the cache but we don't care because it's an optional
+      # performance improvement.
+      rm -rf "${git_describe_cache}" 2>/dev/null
+      mkdir -p "${git_describe_cache}" 2>/dev/null
+      { echo "${HOMEBREW_VERSION}" >"${git_describe_cache_file}"; } 2>/dev/null
+    fi
   fi
   return 0
 }
