@@ -411,7 +411,7 @@ module Cask
 
       odebug "Auditing sha256 string is a legal SHA-256 digest"
       return unless cask.sha256.is_a?(Checksum)
-      return if cask.sha256.length == 64 && cask.sha256[/^[0-9a-f]+$/i]
+      return if cask.sha256[/\A[0-9a-f]{64}\z/i]
 
       add_error "sha256 string must be of 64 hexadecimal characters"
     end

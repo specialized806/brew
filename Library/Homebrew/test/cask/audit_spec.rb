@@ -978,6 +978,20 @@ RSpec.describe Cask::Audit, :cask do
         it { is_expected.to error_with("sha256 string must be of 64 hexadecimal characters") }
       end
 
+      context "when sha256 is 64 characters but contains a newline" do
+        let(:only) { ["sha256_actually_256"] }
+        let(:cask_token) { "invalid-sha256-newline" }
+
+        it { is_expected.to error_with("sha256 string must be of 64 hexadecimal characters") }
+      end
+
+      context "when sha256 is 64 characters but only one of them is hexadecimal" do
+        let(:only) { ["sha256_actually_256"] }
+        let(:cask_token) { "invalid-sha256-hex-fragment" }
+
+        it { is_expected.to error_with("sha256 string must be of 64 hexadecimal characters") }
+      end
+
       context "when sha256 is sha256 for empty string" do
         let(:only) { ["sha256_invalid"] }
         let(:cask_token) { "sha256-for-empty-string" }
