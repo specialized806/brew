@@ -95,10 +95,26 @@ module CPAN
 
     odie "\"#{formula.name}\" has no CPAN resources to update." if cpan_resources.empty?
 
+    non_cpan_resource_names = formula.resources.filter_map do |resource|
+      resource.name unless resource.url.start_with?(METACPAN_URL_PREFIX)
+    end
+    livecheck_resource_names = cpan_resources.filter_map do |resource|
+      resource.name if resource.livecheck_defined?
+    end
+
+    unless print_only
+      odie <<~EOS unless non_cpan_resource_names.empty?
+        "#{formula.name}" contains non-CPAN resources: #{non_cpan_resource_names.sort.join(", ")}
+        Please update the resources manually.
+      EOS
+      odie <<~EOS unless livecheck_resource_names.empty?
+        "#{formula.name}" contains CPAN resources with livecheck blocks: #{livecheck_resource_names.sort.join(", ")}
+        Please update the resources manually.
+      EOS
+    end
+
     show_info = !print_only && !quiet
 
-    non_cpan_resources = formula.resources.reject { |resource| resource.url.start_with?(METACPAN_URL_PREFIX) }
-    ohai "Skipping #{non_cpan_resources.length} non-CPAN resources" if non_cpan_resources.any? && show_info
     ohai "Found #{cpan_resources.length} CPAN resources to update" if show_info
 
     new_resource_blocks = ""

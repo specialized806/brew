@@ -135,6 +135,30 @@ RSpec.describe CPAN do
         end
       RUBY
     end
+    let(:mixed_formula_contents) do
+      formula_contents.sub(
+        "  def install",
+        [
+          '  resource "vendored-blob" do',
+          "    url \"#{non_cpan_package_url}\"",
+          "    sha256 \"#{"e" * 64}\"",
+          "  end",
+          "",
+          "  def install",
+        ].join("\n"),
+      )
+    end
+    let(:livecheck_formula_contents) do
+      formula_contents.sub(
+        "    sha256 \"#{"c" * 64}\"",
+        [
+          "    sha256 \"#{"c" * 64}\"",
+          "    livecheck do",
+          "      regex(/Scalar-List-Utils[._-]v?(\\d+(?:\\.\\d+)+)\\.t/i)",
+          "    end",
+        ].join("\n"),
+      )
+    end
     let(:test_formula) do
       formula_path.write(formula_contents)
       resource_url = cpan_package_url
@@ -144,6 +168,38 @@ RSpec.describe CPAN do
         resource "Scalar::Util" do
           url resource_url
           sha256 "c" * 64
+        end
+      end
+    end
+    let(:mixed_formula) do
+      formula_path.write(mixed_formula_contents)
+      resource_url = cpan_package_url
+      non_cpan_url = non_cpan_package_url
+      formula("foo", path: formula_path) do
+        T.bind(self, T.class_of(Formula))
+        url "https://example.com/foo-1.0.tar.gz"
+        resource "Scalar::Util" do
+          url resource_url
+          sha256 "c" * 64
+        end
+        resource "vendored-blob" do
+          url non_cpan_url
+          sha256 "e" * 64
+        end
+      end
+    end
+    let(:livecheck_formula) do
+      formula_path.write(livecheck_formula_contents)
+      resource_url = cpan_package_url
+      formula("foo", path: formula_path) do
+        T.bind(self, T.class_of(Formula))
+        url "https://example.com/foo-1.0.tar.gz"
+        resource "Scalar::Util" do
+          url resource_url
+          sha256 "c" * 64
+          livecheck do
+            regex(/Scalar-List-Utils[._-]v?(\d+(?:\.\d+)+)\.t/i)
+          end
         end
       end
     end
@@ -157,23 +213,24 @@ RSpec.describe CPAN do
         "version"         => "1.69",
       )
     end
-
-    before do
-      allow(Utils::Curl).to receive(:curl_output).and_return(curl_result(stdout: latest_metadata))
-    end
-
-    it "prints updated CPAN resource blocks" do
-      expected_output = [
+    let(:updated_resource_output) do
+      [
         "  resource \"Scalar::Util\" do",
         "    url \"#{latest_package_url}\"",
         "    sha256 \"#{"d" * 64}\"",
         "  end",
         "",
       ].join("\n")
+    end
 
+    before do
+      allow(Utils::Curl).to receive(:curl_output).and_return(curl_result(stdout: latest_metadata))
+    end
+
+    it "prints updated CPAN resource blocks" do
       expect do
         described_class.update_perl_resources!(test_formula, print_only: true)
-      end.to output(expected_output).to_stdout
+      end.to output(updated_resource_output).to_stdout
     end
 
     it "updates CPAN resource blocks in the formula" do
@@ -181,6 +238,40 @@ RSpec.describe CPAN do
 
       expect(formula_path.read).to eq formula_contents.sub(cpan_package_url, latest_package_url)
                                                       .sub("c" * 64, "d" * 64)
+    end
+
+    it "fails without modifying formulas containing non-CPAN resources" do
+      expect(Utils::Curl).not_to receive(:curl_output)
+
+      expect do
+        described_class.update_perl_resources!(mixed_formula, quiet: true)
+      end.to raise_error(SystemExit).and output(
+        /"foo" contains non-CPAN resources: vendored-blob.*Please update the resources manually/m,
+      ).to_stderr
+      expect(formula_path.read).to eq mixed_formula_contents
+    end
+
+    it "prints CPAN resource blocks for formulas containing non-CPAN resources" do
+      expect do
+        described_class.update_perl_resources!(mixed_formula, print_only: true)
+      end.to output(updated_resource_output).to_stdout
+    end
+
+    it "fails without modifying formulas containing CPAN resource livecheck blocks" do
+      expect(Utils::Curl).not_to receive(:curl_output)
+
+      expect do
+        described_class.update_perl_resources!(livecheck_formula, quiet: true)
+      end.to raise_error(SystemExit).and output(
+        /"foo" contains CPAN resources with livecheck blocks: Scalar::Util.*Please update the resources manually/m,
+      ).to_stderr
+      expect(formula_path.read).to eq livecheck_formula_contents
+    end
+
+    it "prints CPAN resource blocks for formulas containing CPAN resource livecheck blocks" do
+      expect do
+        described_class.update_perl_resources!(livecheck_formula, print_only: true)
+      end.to output(updated_resource_output).to_stdout
     end
 
     it "reports resolved resource updates" do
