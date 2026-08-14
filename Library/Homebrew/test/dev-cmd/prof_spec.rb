@@ -108,7 +108,8 @@ RSpec.describe Homebrew::DevCmd::Prof do
       timings = JSON.parse((HOMEBREW_LIBRARY_PATH/"prof/timings.json").read)
       phases = timings.fetch("events").map { |event| event.fetch("phase") }
       expect(phases).to include(
-        "startup", "formula_resolution", "formula_inflation", "download_enqueue", "curl_body", "checksum", "symlink"
+        "startup", "cli_parse", "command_load", "formula_resolution", "formula_inflation", "download_enqueue",
+        "curl_body", "checksum", "symlink"
       )
     end
   end
