@@ -1125,6 +1125,13 @@ __fish_brew_complete_arg 'formulae' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'formulae' -l verbose -d 'Make some output more verbose'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-advisories-api' -d 'Generate advisory API data for https://formulae.brew.sh from a checkout of https://github.com/Homebrew/advisory-database'
+__fish_brew_complete_arg 'generate-advisories-api' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'generate-advisories-api' -l help -d 'Show this message'
+__fish_brew_complete_arg 'generate-advisories-api' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'generate-advisories-api' -l verbose -d 'Make some output more verbose'
+
+
 complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-analytics-api' -d 'Generates analytics API data files for https://formulae.brew.sh'
 __fish_brew_complete_arg 'generate-analytics-api' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'generate-analytics-api' -l help -d 'Show this message'
