@@ -24,9 +24,22 @@ module Utils
     # code that is >= 400.
     CURL_HTTP_RETURNED_ERROR_EXIT_CODE = 22
 
+    # Error returned when an operation took longer than the given timeout.
+    CURL_OPERATION_TIMEOUT_EXIT_CODE = 28
+
+    # Error returned when the server closed the connection without replying.
+    CURL_GOT_NOTHING_EXIT_CODE = 52
+
     # Error returned when curl gets an error from the lowest networking layers
     # that the receiving of data failed.
     CURL_RECV_ERROR_EXIT_CODE = 56
+
+    # Failures that can occur after the request has been sent.
+    CURL_REQUEST_SENT_EXIT_CODES = T.let([
+      CURL_OPERATION_TIMEOUT_EXIT_CODE,
+      CURL_GOT_NOTHING_EXIT_CODE,
+      CURL_RECV_ERROR_EXIT_CODE,
+    ].freeze, T::Array[Integer])
 
     # This regex is used to extract the part of an ETag within quotation marks,
     # ignoring any leading weak validator indicator (`W/`). This simplifies
@@ -51,6 +64,9 @@ module Utils
     private_constant :CURL_WEIRD_SERVER_REPLY_EXIT_CODE,
                      :CURL_HTTP_RETURNED_ERROR_EXIT_CODE,
                      :CURL_RECV_ERROR_EXIT_CODE,
+                     :CURL_OPERATION_TIMEOUT_EXIT_CODE,
+                     :CURL_GOT_NOTHING_EXIT_CODE,
+                     :CURL_REQUEST_SENT_EXIT_CODES,
                      :ETAG_VALUE_REGEX, :HTTP_RESPONSE_BODY_SEPARATOR,
                      :HTTP_STATUS_LINE_REGEX,
                      :HTTPS_REDIRECT_CURL_ARGS, :PROGRESS_BAR_REGEX
@@ -457,16 +473,32 @@ module Utils
 
       details = T.let({}, T::Hash[Symbol, T.untyped])
       attempts = 0
+      # The body is only read to compare an HTTP URL with its HTTPS counterpart.
+      head_only = T.let(url == secure_url, T::Boolean)
       user_agents.each do |user_agent|
         loop do
           details = curl_http_content_headers_and_checksum(
             url,
             specs:,
             hash_needed:,
+            head_only:,
             use_homebrew_curl:,
             user_agent:,
             referer:,
           )
+
+          # Some servers reject `HEAD` but serve `GET`.
+          # DNS and connection failures happen before the request is sent.
+          head_rejected = if (status_code = details[:status_code])
+            !http_status_ok?(status_code)
+          else
+            CURL_REQUEST_SENT_EXIT_CODES.include?(details[:exit_status])
+          end
+
+          if head_only && head_rejected
+            head_only = false
+            next
+          end
 
           # Retry on network issues
           break if details[:exit_status] != 52 && details[:exit_status] != 56
@@ -484,6 +516,9 @@ module Utils
         return if details[:responses].any? do |response|
           url_protected_by_cloudflare?(response) || url_protected_by_incapsula?(response)
         end
+
+        # TODO: `utils/shared_audits` requires this file in turn.
+        require "utils/shared_audits"
 
         # https://github.com/Homebrew/brew/issues/13789
         # If the `:homepage` of a formula is private, it will fail an `audit`
@@ -561,13 +596,14 @@ module Utils
         url:               String,
         specs:             T::Hash[Symbol, String],
         hash_needed:       T::Boolean,
+        head_only:         T::Boolean,
         use_homebrew_curl: T::Boolean,
         user_agent:        T.any(String, Symbol),
         referer:           T.nilable(String),
       ).returns(T::Hash[Symbol, T.untyped])
     }
     def curl_http_content_headers_and_checksum(
-      url, specs: {}, hash_needed: false,
+      url, specs: {}, hash_needed: false, head_only: false,
       use_homebrew_curl: false, user_agent: :default, referer: nil
     )
       file = Tempfile.new.tap(&:close)
@@ -583,8 +619,14 @@ module Utils
       end
 
       max_time = hash_needed ? 600 : 25
+      # `--head` prints the headers itself, so `--dump-header` would duplicate them.
+      output_args = if head_only
+        ["--head"]
+      else
+        ["--dump-header", "-", "--output", file.path]
+      end
       output, _, status = curl_output(
-        *specs, "--dump-header", "-", "--output", file.path, "--location", url,
+        *specs, *output_args, "--location", url,
         use_homebrew_curl:,
         connect_timeout:   15,
         max_time:,
@@ -606,7 +648,7 @@ module Utils
       etag = headers["etag"][ETAG_VALUE_REGEX, 1] if headers["etag"].present?
       content_length = headers["content-length"]
 
-      if status.success? && (file_path = file.path)
+      if !head_only && status.success? && (file_path = file.path)
         file_hash = Digest::SHA256.file(file_path).hexdigest if hash_needed
 
         # Only load file contents for text-based content comparison on small files.
