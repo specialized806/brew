@@ -77,6 +77,66 @@ RSpec.describe "Bash" do
     end
   end
 
+  describe "set-homebrew-version-from-git" do
+    it "writes the cache when the current user owns the Git directory" do
+      Dir.mktmpdir("brew-git-cache-") do |tmpdir|
+        repository = Pathname(tmpdir)
+        revision = "0123456789abcdef0123456789abcdef01234567"
+        (repository/".git/refs/heads").mkpath
+        (repository/".git/HEAD").write "ref: refs/heads/main\n"
+        (repository/".git/refs/heads/main").write "#{revision}\n"
+
+        stdout, stderr, status = Open3.capture3(
+          { "HOMEBREW_GIT" => "git", "HOMEBREW_REPOSITORY" => repository.to_s },
+          "/bin/bash", "-c", <<~BASH, "bash", (HOMEBREW_LIBRARY_PATH/"utils/git.sh").to_s
+            source "$1"
+            git() {
+              [[ "$*" == *"describe --tags"* ]] && printf "1.2.3"
+            }
+            HOMEBREW_VERSION=
+            set-homebrew-version-from-git
+            printf "%s" "${HOMEBREW_VERSION}"
+          BASH
+        )
+
+        cache_file = repository/".git/describe-cache"/revision
+        expect([stdout, stderr, status.success?, cache_file.read]).to eq(["1.2.3", "", true, "1.2.3\n"])
+      end
+    end
+
+    it "does not mutate the cache when the current user does not own the Git directory" do
+      skip "User is root so the root directory is owned by the current user." if Process.euid.zero?
+
+      Dir.mktmpdir("brew-git-cache-") do |tmpdir|
+        repository = Pathname(tmpdir)
+        (repository/".git").make_symlink "/"
+        operations = repository/"operations"
+
+        stdout, stderr, status = Open3.capture3(
+          { "HOMEBREW_GIT" => "git", "HOMEBREW_REPOSITORY" => repository.to_s },
+          "/bin/bash", "-c", <<~'BASH', "bash", (HOMEBREW_LIBRARY_PATH/"utils/git.sh").to_s, operations.to_s
+            source "$1"
+            operations="$2"
+            git() {
+              case "$*" in
+                *"rev-parse HEAD") printf "0123456789abcdef0123456789abcdef01234567" ;;
+                *"describe --tags"*) printf "1.2.3" ;;
+                *) return 1 ;;
+              esac
+            }
+            rm() { printf "rm\n" >>"${operations}"; }
+            mkdir() { printf "mkdir\n" >>"${operations}"; }
+            HOMEBREW_VERSION=
+            set-homebrew-version-from-git
+            printf "%s" "${HOMEBREW_VERSION}"
+          BASH
+        )
+
+        expect([stdout, stderr, status.success?, operations.exist?]).to eq(["1.2.3", "", true, false])
+      end
+    end
+  end
+
   describe "every `.sh` file" do
     it "has valid Bash syntax" do
       Pathname.glob("#{HOMEBREW_LIBRARY_PATH}/**/*.sh").each do |path|
