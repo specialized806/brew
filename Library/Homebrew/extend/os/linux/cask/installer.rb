@@ -11,7 +11,7 @@ module OS
 
         sig { void }
         def check_stanza_os_requirements
-          return if !cask.depends_on.requires_macos? && cask.artifacts_supported_on_os?(:linux)
+          return if cask.supports_linux?
 
           raise ::Cask::CaskError, "#{cask}: This cask requires macOS."
         end

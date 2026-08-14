@@ -9,6 +9,7 @@ require "tmpdir"
 require "utils/output"
 
 module Cask
+  # Module containing all cask artifact classes.
   module Artifact
     # Abstract superclass for all artifacts.
     class AbstractArtifact

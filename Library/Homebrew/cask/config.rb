@@ -77,11 +77,21 @@ module Cask
       config = JSON.parse(json, symbolize_names: true)
 
       new(
-        default:             config.fetch(:default,  {}),
-        env:                 config.fetch(:env,      {}),
-        explicit:            config.fetch(:explicit, {}),
+        default:             reject_legacy_keys(config.fetch(:default,  {})),
+        env:                 reject_legacy_keys(config.fetch(:env,      {})),
+        explicit:            reject_legacy_keys(config.fetch(:explicit, {})) || {},
         ignore_invalid_keys:,
       )
+    end
+
+    # Saved configs can contain hyphenated option names that were never honored when read back,
+    # so drop them instead of warning about them or retroactively making them take effect.
+    sig { params(config: T.nilable(ConfigHash)).returns(T.nilable(ConfigHash)) }
+    def self.reject_legacy_keys(config)
+      return if config.nil?
+
+      valid_keys = defaults
+      config.reject { |key, _| key.to_s.include?("-") && valid_keys.key?(key.to_s.tr("-", "_").to_sym) }
     end
 
     # runtime recursive evaluation forces the LazyObject to be evaluated

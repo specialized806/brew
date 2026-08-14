@@ -347,6 +347,7 @@ _brew_advisory_match() {
       --no-history
       --output
       --quiet
+      --repology
       --verbose
       "
       return

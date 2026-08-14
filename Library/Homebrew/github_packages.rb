@@ -75,13 +75,16 @@ class GitHubPackages
 
     # We intentionally iterate over `bottles_hash` twice to
     # avoid erroring out in the middle of uploading bottles.
-    # rubocop:disable Style/CombinableLoops
-    bottles_hash.each do |formula_full_name, bottle_hash|
+    bottle_count = bottles_hash.count
+    bottles_hash.each_with_index do |(formula_full_name, bottle_hash), index|
       # Next, upload the bottles after checking them all.
       upload_bottle(user, token, skopeo, formula_full_name, bottle_hash,
                     keep_old:, dry_run:, warn_on_error:)
+      next if bottle_count < 3
+
+      uploaded_count = index + 1
+      ohai "Upload progress: #{uploaded_count} formula(e) uploaded, #{bottle_count - uploaded_count} remaining"
     end
-    # rubocop:enable Style/CombinableLoops
   end
 
   sig { params(version: Version, rebuild: Integer, bottle_tag: T.nilable(String)).returns(String) }

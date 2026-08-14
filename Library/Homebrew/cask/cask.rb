@@ -263,24 +263,6 @@ module Cask
       end
     end
 
-    sig { params(os: Symbol).returns(T::Boolean) }
-    def artifacts_supported_on_os?(os)
-      case os
-      when :linux
-        artifacts.all? do |artifact|
-          if artifact.is_a?(Artifact::Installer)
-            !artifact.manual_install
-          else
-            Artifact::MACOS_ONLY_ARTIFACTS.exclude?(artifact.class)
-          end
-        end
-      when :macos
-        artifacts.none? { |artifact| Artifact::LINUX_ONLY_ARTIFACTS.include?(artifact.class) }
-      else
-        raise ArgumentError, "Unsupported operating system: #{os.inspect}"
-      end
-    end
-
     sig { returns(T::Boolean) }
     def supports_linux?
       return true if depends_on.requires_linux?
@@ -763,8 +745,6 @@ module Cask
       return false if bottle_tag.macos? && !supports_macos?
       return false if version.blank? || sha256.blank? || url.blank?
       return false unless installable_artifact?
-      return false if bottle_tag.linux? && !artifacts_supported_on_os?(:linux)
-      return false if bottle_tag.macos? && !artifacts_supported_on_os?(:macos)
 
       arch_supported = depends_on.arch&.any? do |arch|
         required_arch = ::Utils::Bottles::Tag.new(system: bottle_tag.system, arch: arch[:type]).standardized_arch

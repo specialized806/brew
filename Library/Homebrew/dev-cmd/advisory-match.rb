@@ -28,6 +28,9 @@ module Homebrew
                description: "Write each record to <directory> as " \
                             "`BREW-<formula>-<id>.json`, preserving existing " \
                             "`published`/`ranges` fields."
+        flag   "--repology=",
+               description: "Load the formula to distro-package index from " \
+                            "<file> instead of the published `data/repology.json`."
         switch "--no-history",
                description: "Skip the `FormulaVersions` walk for the `fixed` " \
                             "boundary; use the current `pkg_version` instead."
@@ -47,7 +50,7 @@ module Homebrew
         Homebrew.with_no_api_env do
           latest_macos = MacOSVersion.new((HOMEBREW_MACOS_NEWEST_UNSUPPORTED.to_i - 1).to_s).to_sym
           Homebrew::SimulateSystem.with(os: latest_macos, arch: :arm) do
-            matcher = Homebrew::Vulns::Match.new(bulk: args.all? || args.index?)
+            matcher = Homebrew::Vulns::Match.new(repology: local_repology, bulk: args.all? || args.index?)
             next emit_index(matcher) if args.index?
 
             emitter = build_emitter
@@ -75,6 +78,15 @@ module Homebrew
             emitter.finish
           end
         end
+      end
+
+      # A CI run that has just built the index locally (advisory-database's
+      # Ingest) reads it directly instead of fetching the published copy.
+      sig { returns(T.nilable(Homebrew::Vulns::Repology)) }
+      def local_repology
+        return unless (path = args.repology)
+
+        Homebrew::Vulns::Repology.from_file(Pathname(path))
       end
 
       sig { returns(T::Enumerator[Formula]) }
