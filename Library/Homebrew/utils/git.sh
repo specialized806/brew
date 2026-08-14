@@ -112,7 +112,7 @@ read-homebrew-git-config() {
 set-homebrew-version-from-git() {
   local git_directory="${HOMEBREW_REPOSITORY}/.git"
   local git_describe_cache="${git_directory}/describe-cache"
-  local git_directory_owned_by_user=""
+  local git_directory_owned_by_user
   [[ -O "${git_directory}/." ]] && git_directory_owned_by_user="1"
 
   # Read HEAD and its ref directly rather than through `git rev-parse HEAD`
