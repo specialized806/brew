@@ -270,6 +270,17 @@ class Sandbox
     raise NotImplementedError, "Sandbox is not implemented for this OS."
   end
 
+  # The terminal state to restore after a PTY passthrough. It cannot change
+  # in the background while `brew` runs (each passthrough restores it), so
+  # capture it once per process. `nil` when it cannot be captured.
+  sig { returns(T.nilable(String)) }
+  def self.tty_state
+    return @tty_state if defined?(@tty_state)
+
+    state = Utils.popen_read("stty", "-g").chomp
+    @tty_state = T.let(state.empty? ? nil : state, T.nilable(String))
+  end
+
   sig { void }
   def initialize
     @profile = T.let(SandboxProfile.new, SandboxProfile)
@@ -623,17 +634,17 @@ class Sandbox
             begin
               # Ignore SIGTTOU as setting raw mode will hang if the process is in the background.
               old_ttou = trap(:TTOU, "IGNORE")
-              saved_stty = Utils.popen_read("stty", "-g").chomp
-              if saved_stty.empty?
+              saved_stty = Sandbox.tty_state
+              if saved_stty.nil?
                 # Cannot save the terminal state, so don't change it either.
                 write_to_pty.call
               else
                 begin
                   # `-echo` matches `IO#raw`; `stty raw` alone leaves echo on.
-                  system("stty", "raw", "-echo", "opost")
+                  Utils.popen_read("stty", "raw", "-echo", "opost")
                   write_to_pty.call
                 ensure
-                  system("stty", saved_stty)
+                  Utils.popen_read("stty", saved_stty)
                 end
               end
             ensure
