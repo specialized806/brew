@@ -144,10 +144,10 @@ This skips automated homepage availability audits for one year. Do not use a fut
 ### At least one artifact stanza is also required
 
 Each cask must declare one or more [artifacts](/rubydoc/Cask/Artifact.html) (i.e. something to install).
-Not every artifact type is supported on every operating system and a cask does not need to support both macOS and Linux.
-The `app_image` stanza is Linux-only, macOS integration stanzas such as `app` and `pkg` are macOS-only and portable stanzas such as `binary` can be used on either operating system.
-A cask that runs on only one operating system should declare that with a top-level [`depends_on :macos`](#stanza-depends_on) or `depends_on :linux`, which is what determines its supported operating systems.
-A cask that runs on both should instead scope its OS-specific artifacts inside `on_macos` and `on_linux` blocks, because a top-level OS dependency would drop support for the other operating system.
+Homebrew determines a cask's supported operating systems from its [`depends_on`](#stanza-depends_on) declarations, not from its artifact types.
+Artifact stanzas can be OS-specific or portable: `app_image` is Linux-only, `app` and `pkg` are macOS-only, and `binary` works on either operating system.
+Use a matching top-level `depends_on :macos` or `depends_on :linux` for a cask that supports only one operating system.
+Cross-platform casks should scope OS-specific artifact stanzas inside `on_macos` or `on_linux` blocks; a top-level OS dependency would drop support for the other operating system.
 
 | name                                                                                   | multiple occurrences allowed? | value                                                                                                                                                                                                                                                                                                                                                                      |
 | -------------------------------------------------------------------------------------- | :---------------------------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
