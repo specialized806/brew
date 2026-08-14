@@ -24,8 +24,8 @@ std_trap = trap("INT") { exit! 130 } # no backtrace thanks
 require_relative "global"
 require "utils/output"
 
+require "utils/phase_timings"
 if phase_timings_output
-  require "utils/phase_timings"
   Homebrew::PhaseTimings.start!(
     output_path: phase_timings_output,
     started_at:  phase_timings_started_at,
@@ -61,8 +61,10 @@ begin
 
   ARGV.delete_at(help_cmd_index) if help_cmd_index
 
-  require "cli/parser"
-  args = Homebrew::CLI::Parser.new(Homebrew::Cmd::Brew).parse(ARGV.dup.freeze, ignore_invalid_options: true)
+  args = Homebrew::PhaseTimings.measure("cli_parse") do
+    require "cli/parser"
+    Homebrew::CLI::Parser.new(Homebrew::Cmd::Brew).parse(ARGV.dup.freeze, ignore_invalid_options: true)
+  end
   Context.current = args.context
 
   path = PATH.new(ENV.fetch("PATH"))
@@ -81,20 +83,24 @@ begin
   external_ruby_cmd_path = T.let(nil, T.nilable(Pathname))
   external_cmd_path = T.let(nil, T.nilable(Pathname))
 
-  if cmd
-    cmd = Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.fetch(cmd, cmd)
-    internal_cmd = Commands.valid_internal_cmd?(cmd) || Commands.valid_internal_dev_cmd?(cmd)
+  # `valid_internal_cmd?` requires the command's file, so this covers the
+  # command's entire `require` graph: usually the largest phase of all.
+  Homebrew::PhaseTimings.measure("command_load") do
+    if cmd
+      cmd = Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.fetch(cmd, cmd)
+      internal_cmd = Commands.valid_internal_cmd?(cmd) || Commands.valid_internal_dev_cmd?(cmd)
 
-    unless internal_cmd
-      # Add contributed commands to PATH before checking.
-      homebrew_path.append(Commands.tap_cmd_directories)
+      unless internal_cmd
+        # Add contributed commands to PATH before checking.
+        homebrew_path.append(Commands.tap_cmd_directories)
 
-      # External commands expect a normal PATH
-      ENV["PATH"] = homebrew_path.to_s
+        # External commands expect a normal PATH
+        ENV["PATH"] = homebrew_path.to_s
 
-      external_ruby_v2_cmd = !Commands.external_ruby_v2_cmd_path(cmd).nil?
-      external_ruby_cmd_path = Commands.external_ruby_cmd_path(cmd) unless external_ruby_v2_cmd
-      external_cmd_path = Commands.external_cmd_path(cmd) if !external_ruby_v2_cmd && external_ruby_cmd_path.nil?
+        external_ruby_v2_cmd = !Commands.external_ruby_v2_cmd_path(cmd).nil?
+        external_ruby_cmd_path = Commands.external_ruby_cmd_path(cmd) unless external_ruby_v2_cmd
+        external_cmd_path = Commands.external_cmd_path(cmd) if !external_ruby_v2_cmd && external_ruby_cmd_path.nil?
+      end
     end
   end
 
@@ -129,7 +135,7 @@ begin
       Homebrew::PhaseTimings.install! if phase_timings_output
       Homebrew::API.fetch_api_files! if install_from_api
 
-      command_instance = cmd_class.new
+      command_instance = Homebrew::PhaseTimings.measure("cli_parse") { cmd_class.new }
 
       require "utils/analytics"
       Utils::Analytics.report_command_run(command_instance)

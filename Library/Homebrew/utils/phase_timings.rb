@@ -1,8 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "json"
-
 module Homebrew
   module PhaseTimings
     Event = T.type_alias { T::Hash[String, T.any(Integer, String)] }
@@ -38,6 +36,10 @@ module Homebrew
         .returns(T.type_parameter(:U))
     }
     def self.measure(phase, detail: nil, &_block)
+      # Recording is opt-in via `$HOMEBREW_PHASE_TIMINGS`, so callers on the
+      # startup path can measure unconditionally without paying for it.
+      return yield if @output_path.nil?
+
       started_at = monotonic_time
       begin
         yield
@@ -90,6 +92,8 @@ module Homebrew
     def self.write!
       output_path = @output_path
       return if output_path.nil?
+
+      require "json"
 
       events = @mutex.synchronize { @events.sort_by { |event| event.fetch("start") } }
       output_path.dirname.mkpath
