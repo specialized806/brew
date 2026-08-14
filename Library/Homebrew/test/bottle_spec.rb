@@ -37,6 +37,51 @@ RSpec.describe Bottle do
     end
   end
 
+  describe "#stage_from_download_queue" do
+    sig { params(checksum: String, content: String).returns(Bottle) }
+    def cached_bottle(checksum, content)
+      bottle_spec = BottleSpecification.new
+      bottle_spec.root_url(HOMEBREW_BOTTLE_DEFAULT_DOMAIN)
+      bottle_spec.sha256(cellar: :any_skip_relocation, arm64_big_sur: checksum)
+      bottle = described_class.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
+                                   name: "foo", pkg_version: PkgVersion.new(Version.new("1.2.3"), 0))
+      bottle.cached_download.dirname.mkpath
+      bottle.cached_download.write(content)
+      bottle
+    end
+
+    it "downloads a corrupt cached bottle again and extracts it", :aggregate_failures do
+      bottle = cached_bottle("d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97", "corrupt")
+      unpack_strategy = instance_double(UnpackStrategy::Tar)
+      allow(unpack_strategy).to receive(:extract_nestedly) { bottle.staged_path_from_download_queue.mkpath }
+      extractions = 0
+      allow(UnpackStrategy).to receive(:detect) do
+        extractions += 1
+        raise "gzip decompression failed" if extractions == 1
+
+        unpack_strategy
+      end
+
+      expect(bottle).to receive(:fetch) { bottle.cached_download.write("valid") }
+
+      expect { bottle.stage_from_download_queue(bottle.cached_download, pour: true) }
+        .to output(/Removing corrupt cached download/).to_stderr
+      expect(extractions).to eq(2)
+    end
+
+    it "keeps a cached bottle matching its checksum that fails to extract", :aggregate_failures do
+      content = "valid but unextractable"
+      bottle = cached_bottle(Digest::SHA256.hexdigest(content), content)
+      allow(UnpackStrategy).to receive(:detect).and_raise("gzip decompression failed")
+
+      expect(bottle).not_to receive(:fetch)
+
+      expect { bottle.stage_from_download_queue(bottle.cached_download, pour: true) }
+        .to raise_error(RuntimeError, "gzip decompression failed")
+      expect(bottle.cached_download).to exist
+    end
+  end
+
   describe "#github_packages_manifest_resource" do
     sig { returns(String) }
     def bottle_domain = "https://mirror.example.com/homebrew-bottles"

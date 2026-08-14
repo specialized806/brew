@@ -69,6 +69,15 @@ RSpec.describe Homebrew::Upgrade do
       expect { described_class.upgrade_formula(formula_installer, dry_run: true) }
         .to output(/Would upgrade.*python@3.14 3.7.1 -> 3.14.6/m).to_stdout
     end
+
+    it "reports a failed upgrade instead of aborting the rest of the batch" do
+      formula_installer = instance_double(FormulaInstaller, formula: Testball.new)
+      allow(Homebrew::Install).to receive(:install_formula).and_raise("gzip decompression failed")
+
+      expect do
+        expect(described_class.upgrade_formula(formula_installer)).to be(false)
+      end.to output(/Error: testball: gzip decompression failed/).to_stderr
+    end
   end
 
   describe "::formula_installers" do

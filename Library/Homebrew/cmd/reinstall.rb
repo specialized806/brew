@@ -268,7 +268,7 @@ module Homebrew
                 cask_names:    casks.map(&:full_name),
               ))
               casks_prefetched = true
-              valid_formula_installers
+              Install.reject_failed_downloads(valid_formula_installers, download_queue:)
             ensure
               download_queue.shutdown
             end
@@ -285,13 +285,18 @@ module Homebrew
             Install.fetch_formulae(formulae_installers)
           end
 
-          exit 1 if Homebrew.failed?
-
+          # Reinstall everything that did download, rather than aborting the
+          # whole run; the failures above still exit nonzero at the end.
           reinstall_contexts.each do |reinstall_context|
             next unless valid_formula_installers.include?(reinstall_context.formula_installer)
 
             Homebrew::Reinstall.reinstall_formula(reinstall_context)
             Cleanup.install_formula_clean!(reinstall_context.formula)
+          rescue BuildError
+            # Reported (with analytics) by the global handler in `brew.rb`.
+            raise
+          rescue => e
+            ofail "#{reinstall_context.formula.full_specified_name}: #{e}"
           end
 
           Upgrade.upgrade_dependents(

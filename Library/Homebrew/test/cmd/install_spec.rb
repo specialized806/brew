@@ -331,7 +331,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it "starts formula prelude fetches before dependant checks when not asking" do
     cmd = described_class.new(["--yes", "testball"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
     formula = formula("testball") do
       T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.1.tar.gz"
@@ -363,10 +363,64 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     cmd.run
   end
 
+  it "installs what did download after an earlier failure" do
+    cmd = described_class.new(["--yes", "testball"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+    end
+    formula_installer = instance_double(FormulaInstaller, formula:, download_queue: nil, prelude_fetch: nil)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
+    allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).and_return([formula])
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::Install).to receive(:check_cc_argv)
+    allow(Homebrew::Install).to receive_messages(install_formula?: true, formula_installers: [formula_installer],
+                                                 enqueue_formulae: [formula_installer])
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    allow(formula_installer).to receive(:download_queue=)
+    allow(Homebrew::Upgrade).to receive_messages(dependants:, upgrade_dependents: [])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew.messages).to receive(:display_messages)
+    # A failure earlier in the run (e.g. one download of many) must not stop
+    # the packages that are ready from being installed.
+    Homebrew.failed = true
+
+    expect(Homebrew::Install).to receive(:install_formulae).with([formula_installer], dry_run: false, verbose: false)
+
+    cmd.run
+  end
+
+  it "names the cask that failed to install", :cask do
+    cmd = described_class.new(["--yes", "local-caffeine"])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+    installer = instance_double(Cask::Installer, enqueue_downloads: nil, source_download_requires_pre_fetch?: false)
+    dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
+
+    allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
+    allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
+    allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).and_return([cask])
+    allow(Cask::Upgrade).to receive(:outdated_casks).and_return([])
+    allow(Cask::Installer).to receive(:new).and_return(installer)
+    allow(installer).to receive(:install).and_raise("uh-oh")
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+    allow(Homebrew::Install).to receive(:check_cc_argv)
+    allow(Homebrew::Upgrade).to receive_messages(dependants:, upgrade_dependents: [])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    expect { cmd.run }.to output(/local-caffeine: uh-oh/).to_stderr
+  end
+
   it "drains metadata-only prelude fetches before the dry-run plan when asking" do
     cmd = described_class.new(["testball"])
-    download_queue = instance_double(Homebrew::DownloadQueue, shutdown:  nil,
-                                                              downloads: { instance_double(Downloadable) => nil })
+    downloads = { instance_double(Downloadable) => nil }
+    download_queue = instance_double(Homebrew::DownloadQueue, shutdown: nil, failed_downloads: [], downloads:)
     formula = formula("testball") do
       T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball-0.1.tar.gz"
@@ -498,7 +552,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
 
   it "prints a shared fetch heading and correct upgrade count", :cask do
     cmd = described_class.new(["--yes", "codex"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
     formula = formula("testball_bottle") do
       T.bind(self, T.class_of(Formula))
       url "https://brew.sh/testball_bottle-0.1.tar.gz"

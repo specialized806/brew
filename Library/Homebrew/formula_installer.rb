@@ -1596,6 +1596,9 @@ on_request: installed_on_request?, options:)
         FileUtils.rm(bottle_poured_file)
         FileUtils.mv(bottle_tmp_keg, formula.prefix)
         bottle_tmp_keg.parent.rmdir_if_possible
+      elsif downloadable_object.is_a?(Bottle)
+        # Retries with a fresh download if the cached bottle turns out corrupt.
+        downloadable_object.stage
       else
         downloadable_object.downloader.stage
       end

@@ -391,13 +391,14 @@ module Homebrew
               formula_names: formulae_installer.map { |fi| fi.formula.name },
               cask_names:    fetch_casks.map(&:full_name),
             ))
+            # Install everything that did download, rather than aborting the
+            # whole run; the failures above still exit nonzero at the end.
+            formulae_installer = Install.reject_failed_downloads(formulae_installer, download_queue:)
           ensure
             download_queue.shutdown
           end
         end
         shared_download_queue&.shutdown
-
-        exit 1 if Homebrew.failed?
 
         Install.install_formulae(formulae_installer,
                                  dry_run: args.dry_run?,
@@ -419,22 +420,20 @@ module Homebrew
         )
 
         if casks.any?
-          begin
-            new_casks.each do |cask|
-              Cask::Installer.new(
-                cask,
-                adopt:          args.adopt?,
-                binaries:       args.binaries?,
-                defer_fetch:    fetch_casks.include?(cask),
-                force:          args.force?,
-                quiet:          args.quiet?,
-                require_sha:    args.require_sha?,
-                skip_cask_deps: args.skip_cask_deps?,
-                verbose:        args.verbose?,
-              ).install
-            end
+          new_casks.each do |cask|
+            Cask::Installer.new(
+              cask,
+              adopt:          args.adopt?,
+              binaries:       args.binaries?,
+              defer_fetch:    fetch_casks.include?(cask),
+              force:          args.force?,
+              quiet:          args.quiet?,
+              require_sha:    args.require_sha?,
+              skip_cask_deps: args.skip_cask_deps?,
+              verbose:        args.verbose?,
+            ).install
           rescue => e
-            ofail e
+            ofail "#{cask.full_name}: #{e}"
           end
 
           if !Homebrew::EnvConfig.no_install_upgrade? && installed_casks.any?

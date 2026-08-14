@@ -212,8 +212,10 @@ module Cask
 
       return false if upgradable_casks.empty?
 
-      caught_exceptions = []
-      caught_exceptions.concat(prefetched_errors) if prefetched_errors
+      # Report each failure as it happens and carry on with the other casks,
+      # rather than aborting the run; `ofail` still exits nonzero at the end.
+      prefetched_errors&.each { |error| ofail error }
+      failed = T.let(prefetched_errors.present?, T::Boolean)
 
       created_download_queue = T.let(false, T::Boolean)
       download_queue ||= if !dry_run && !skip_prefetch
@@ -236,7 +238,8 @@ module Cask
             begin
               installer.check_requirements
             rescue CaskError => e
-              caught_exceptions << e
+              ofail e
+              failed = true
               next false
             end
 
@@ -257,7 +260,7 @@ module Cask
         end
       end
 
-      return false if upgradable_casks.empty? && caught_exceptions.empty?
+      return false if upgradable_casks.empty? && !failed
 
       cask_upgrades = upgradable_casks.map do |(old_cask, new_cask)|
         "#{new_cask.full_name} #{old_cask.version} -> #{new_cask.version}"
@@ -280,18 +283,12 @@ module Cask
         )
         summary_upgrades&.push(cask_upgrades.fetch(index))
       rescue => e
-        new_exception = e.exception("#{new_cask.full_name}: #{e}")
-        new_exception.set_backtrace(e.backtrace)
-        caught_exceptions << new_exception
+        ofail "#{new_cask.full_name}: #{e}"
+        failed = true
         next
       end
 
-      return true if caught_exceptions.empty?
-
-      raise MultipleCaskErrors, caught_exceptions if caught_exceptions.count > 1
-      raise caught_exceptions.fetch(0) if caught_exceptions.one?
-
-      false
+      !failed
     end
 
     sig {

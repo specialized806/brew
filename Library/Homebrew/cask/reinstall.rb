@@ -65,22 +65,15 @@ module Cask
         download_queue.shutdown if created_download_queue
       end
 
-      exit 1 if Homebrew.failed?
-
-      caught_exceptions = []
-
+      # Reinstall everything that did download and report each failure as it
+      # happens, rather than aborting the whole run; the failures still exit
+      # nonzero at the end.
       cask_installers.each do |installer|
         installer.install
       rescue => e
-        caught_exceptions << e
+        ofail "#{installer.cask.full_name}: #{e}"
         next
       end
-
-      return if caught_exceptions.empty?
-
-      raise MultipleCaskErrors, caught_exceptions if caught_exceptions.count > 1
-
-      raise caught_exceptions.fetch(0)
     end
   end
 end
