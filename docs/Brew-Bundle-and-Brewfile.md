@@ -82,6 +82,8 @@ flatpak "io.github.dvlv.boxbuddyrs", remote: "flathub-beta"
 
 WinGet installs run with installer interactivity disabled. If WinGet reports that elevation is required, `brew bundle` retries through Windows UAC.
 
+A uv tool's `source:` must resolve on another machine, so a local path and the `file://` URL that `uv tool list` reports for one are both rejected when the `Brewfile` is parsed, in their plain and their `git+`-prefixed spellings alike. A tool installed from any of them is dumped without a `source:`.
+
 A Cargo package's `source:` is a git URL (`https://`, `ssh://` or `git://`) and is installed with `cargo install --git`. Neither a local path nor a `file://` URL is accepted, since neither resolves on another machine, and a crate installed from one is dumped without a `source:`. The name is the crate's package name from its `Cargo.toml`, which is not always the name of the repository or of the binary it installs, so `brew bundle dump` output is the reliable thing to copy. A branch, tag or revision chosen when the package was installed is carried in the URL as `?branch=`, `?tag=` or `?rev=`, and is restored with the corresponding `cargo install` flag. Where none was chosen, only the repository is recorded and not the commit currently installed, so restoring a `Brewfile` builds the repository's default branch rather than the exact commit.
 
 Run `brew bundle` again and this outputs:

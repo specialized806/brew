@@ -11,7 +11,14 @@ module Homebrew
       Checkable = T.type_alias { { name: String, options: WithOptions } }
       ToolEntry = T.type_alias { T.any(Tool, Checkable) }
 
-      SOURCE_REQUIREMENT_REGEX = %r{\A(?:git\+|https?://|file://|\.{0,2}/)|\.git\z}
+      SOURCE_REQUIREMENT_REGEX = %r{\A(?:git\+|https?://)|\.git\z}
+      # `uv tool list` reports a tool installed from a directory as an absolute
+      # `file://` URL, and a hand-written Brewfile can name a path directly.
+      # `uv tool install` also takes either spelling behind a `git+` prefix.
+      # None of them resolves on another machine, so none is accepted, and a
+      # tool installed from one is dumped without a `source:` rather than with
+      # one that would then fail to parse.
+      LOCAL_SOURCE_REGEX = %r{\A(?:git\+)?(?:file://|\.{0,2}/)}
 
       class << self
         sig { override.returns(Symbol) }
@@ -42,6 +49,10 @@ module Homebrew
           normalized_with = normalize_with(with || [])
           normalized_options[:with] = normalized_with if normalized_with.present?
           normalized_source = normalize_source(source)
+          if normalized_source&.match?(LOCAL_SOURCE_REGEX)
+            raise "options[:source](#{source.inspect}) is local to this machine so cannot be used in a Brewfile"
+          end
+
           normalized_options[:source] = normalized_source if normalized_source.present?
 
           Dsl::Entry.new(:uv, name, normalized_options)
@@ -146,6 +157,7 @@ module Homebrew
         def parse_source(required_raw)
           source = normalize_source(required_raw)
           return if source.nil?
+          return if source.match?(LOCAL_SOURCE_REGEX)
           return source if source.match?(SOURCE_REQUIREMENT_REGEX)
 
           nil
