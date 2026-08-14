@@ -77,6 +77,18 @@ RSpec.describe Homebrew::Cleanup do
       expect(lock_file).to exist
     end
 
+    it "cleans up unreferenced downloads once, however many formulae are installed" do
+      ENV["HOMEBREW_NO_AUTOREMOVE"] = "1"
+      installed = ["foo", "bar", "baz"].map do |name|
+        instance_double(Formula, name:, eligible_kegs_for_cleanup: [])
+      end
+      allow(Formula).to receive(:installed).and_return(installed)
+
+      expect(cleanup).to receive(:cleanup_unreferenced_downloads).once.and_call_original
+
+      cleanup.clean!
+    end
+
     it "doesn't load untrusted installed formulae while cleaning the cache" do
       cache_file = HOMEBREW_CACHE/"untrusted--1.0"
       cache_file.write "cached"
@@ -268,6 +280,41 @@ RSpec.describe Homebrew::Cleanup do
     expect(f2).not_to be_latest_version_installed
     expect(f3).to be_latest_version_installed
     expect(f4).to be_latest_version_installed
+  end
+
+  describe "#formula_cache_paths" do
+    let(:cache) { mktmpdir/"cache" }
+    let(:testball) { instance_double(Formula, name: "testball") }
+
+    before do
+      cache.mkpath
+    end
+
+    it "returns only the formula's own downloads and bottle manifests" do
+      matching = [
+        cache/"testball--1.0.tar.gz",
+        cache/"testball--rsrc--1.0.txt",
+        cache/"testball_bottle_manifest--1.0.bottle_manifest.json",
+      ]
+      non_matching = [
+        cache/".testball--1.0.tar.gz",
+        cache/"testball-foo--1.0.tar.gz",
+        cache/"testball_bottle_manifest",
+        cache/"testballs--1.0.tar.gz",
+      ]
+      (matching + non_matching).each { |path| FileUtils.touch path }
+
+      expect(described_class.new(cache:).formula_cache_paths(testball)).to eq(matching)
+    end
+
+    it "reads the cache directory only once for multiple formulae" do
+      cleanup = described_class.new(cache:)
+
+      expect(cache).to receive(:children).once.and_return([cache/"testball--1.0.tar.gz"])
+
+      cleanup.formula_cache_paths(testball)
+      cleanup.formula_cache_paths(instance_double(Formula, name: "other"))
+    end
   end
 
   describe "#cleanup_cask", :cask do
