@@ -1,5 +1,4 @@
 ---
-title: Homebrew Security and Supply Chain
 description: Homebrew security and supply chain defences, including package review, checksums, signed metadata, bottles, sandboxing and tap trust.
 redirect_from:
   - /Supply-Chain-Security
