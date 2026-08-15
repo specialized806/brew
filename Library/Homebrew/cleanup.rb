@@ -480,19 +480,22 @@ module Homebrew
       cleanup_cache(cache_entries(paths, type:), cleanup_unreferenced:)
     end
 
+    # Returns the cached `<formula>--<version>` and
+    # `<formula>_bottle_manifest--<version>` downloads for a formula. Globbing
+    # these per formula rescans the entire cache each time, which is quadratic
+    # for `brew cleanup`, so index the cache by name prefix once instead.
     sig { params(formula: Formula).returns(T::Array[Pathname]) }
     def formula_cache_paths(formula)
-      index = @formula_cache_paths ||= begin
-        children = cache.directory? ? cache.children : []
-        children.each_with_object({}) do |path, hash|
-          prefix, separator, = path.basename.to_s.partition("--")
-          next if separator.empty? || prefix.start_with?(".")
+      return [] unless cache.directory?
 
-          (hash[prefix] ||= []) << path
-        end
+      index = @formula_cache_paths ||= cache.children.each_with_object({}) do |path, hash|
+        prefix, separator, = path.basename.to_s.partition("--")
+        next if prefix.start_with?(".") || separator.empty?
+
+        (hash[prefix] ||= []) << path
       end
 
-      (index.fetch(formula.name, []) + index.fetch("#{formula.name}_bottle_manifest", [])).sort
+      [*index.fetch(formula.name, []), *index.fetch("#{formula.name}_bottle_manifest", [])].sort
     end
 
     sig {
