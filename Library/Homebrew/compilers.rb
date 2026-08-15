@@ -2,9 +2,11 @@
 # frozen_string_literal: true
 
 module CompilerConstants
-  # GCC 7 - Ubuntu 18.04 (ESM ends 2028-04-01)
-  # GCC 8 - RHEL 8       (ELS ends 2032-05-31)
-  GNU_GCC_VERSIONS = %w[7 8 9 10 11 12 13 14 15 16].freeze
+  # GCC 8 is the minimum version needed for `-ffile-prefix-map`.
+  # Oldest GCC versions in use by LTS distros include:
+  # * Ubuntu 18.04 (ESM ends 2028-04-01) - GCC 7 default, GCC 8 is available
+  # * RHEL 8 (ELS ends 2032-05-31) - GCC 8 default and newer versions via gcc-toolset
+  GNU_GCC_VERSIONS = %w[8 9 10 11 12 13 14 15 16].freeze
   GNU_GCC_REGEXP = /^gcc-(#{GNU_GCC_VERSIONS.join("|")})$/
   COMPILER_SYMBOL_MAP = T.let({
     "gcc"        => :gcc,
