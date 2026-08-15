@@ -653,6 +653,109 @@ RSpec.describe "Utils::Curl" do
     end
   end
 
+  describe "::curl_http_content_headers_and_checksum" do
+    def curl_args_for(**options)
+      args = T.let([], T::Array[String])
+      allow(self).to receive(:curl_output) do |*arguments, **_options|
+        args = arguments
+        ["", "", instance_double(Process::Status, success?: false, exitstatus: 0)]
+      end
+      curl_http_content_headers_and_checksum("https://brew.sh/", **options)
+      args
+    end
+
+    it "requests headers only when `head_only` is set" do
+      expect(curl_args_for(head_only: true)).to include("--head")
+    end
+
+    it "does not write the body to a file when `head_only` is set" do
+      expect(curl_args_for(head_only: true)).not_to include("--output")
+    end
+
+    it "does not combine `--dump-header` with `--head`" do
+      expect(curl_args_for(head_only: true)).not_to include("--dump-header")
+    end
+
+    it "downloads the body when `head_only` is not set" do
+      expect(curl_args_for(head_only: false)).to include("--output")
+    end
+  end
+
+  describe "::curl_check_http_content" do
+    let(:response) do
+      {
+        url:            "https://brew.sh/",
+        final_url:      nil,
+        exit_status:    0,
+        status_code:    "200",
+        headers:        {},
+        etag:           nil,
+        content_length: nil,
+        file:           nil,
+        file_hash:      nil,
+        responses:      [],
+      }
+    end
+
+    # Returns the recorded `head_only` of each fetch; responses are used in turn.
+    def record_head_only(*responses)
+      recorded = []
+      allow(self).to receive(:curl_http_content_headers_and_checksum) do |_url, **options|
+        recorded << options[:head_only]
+        responses[[recorded.length - 1, responses.length - 1].min]
+      end
+      recorded
+    end
+
+    it "requests headers only for an HTTPS URL" do
+      recorded = record_head_only(response)
+      curl_check_http_content("https://brew.sh/", "homepage URL")
+      expect(recorded).to eq([true])
+    end
+
+    it "downloads the body for an HTTP URL, which needs it for comparison" do
+      recorded = record_head_only(response)
+      curl_check_http_content("http://brew.sh/", "homepage URL")
+      expect(recorded).to all(be_falsey)
+    end
+
+    it "retries as a `GET` when the server rejects `HEAD`" do
+      recorded = record_head_only(response.merge(status_code: "405"), response)
+      curl_check_http_content("https://brew.sh/", "homepage URL")
+      expect(recorded).to eq([true, false])
+    end
+
+    it "reports the problem from the `GET` when the server rejects `HEAD`" do
+      record_head_only(response.merge(status_code: "405"), response.merge(status_code: "500"))
+      expect(curl_check_http_content("https://brew.sh/", "homepage URL"))
+        .to include("HTTP status code 500")
+    end
+
+    # The request may have reached the server, so `HEAD` could be why it failed.
+    test_each([28, 52, 56]) do |exit_status|
+      it "retries as a `GET` when `HEAD` failed with exit status #{exit_status}" do
+        recorded = record_head_only(response.merge(status_code: nil, exit_status:), response)
+        curl_check_http_content("https://brew.sh/", "homepage URL")
+        expect(recorded).to eq([true, false])
+      end
+    end
+
+    # These happen before the request is sent.
+    test_each([6, 7]) do |exit_status|
+      it "does not retry as a `GET` when `HEAD` failed with exit status #{exit_status}" do
+        recorded = record_head_only(response.merge(status_code: nil, exit_status:))
+        curl_check_http_content("https://brew.sh/", "homepage URL")
+        expect(recorded).to eq([true])
+      end
+    end
+
+    it "still reports an unreachable URL when the `GET` retry also fails" do
+      record_head_only(response.merge(status_code: nil, exit_status: 28))
+      expect(curl_check_http_content("https://brew.sh/", "homepage URL"))
+        .to include("is not reachable")
+    end
+  end
+
   describe "::http_status_ok?" do
     it "returns `true` when `status` is 1xx or 2xx" do
       expect(http_status_ok?("200")).to be(true)
