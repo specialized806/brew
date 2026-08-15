@@ -52,17 +52,35 @@ RSpec.describe RuboCop::Cop::Cask::EmptyConditionalArgument, :config do
     CASK
   end
 
+  it "reports an offense when a nested argument is an empty string" do
+    expect_offense(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64", intel: on_system_conditional(macos: "-intel", linux: "")
+                                                                          ^^^^^^^^^ Remove the empty `linux:` argument from the `on_system_conditional` stanza.
+        os macos: on_arch_conditional(arm: "", intel: "-mac"), linux: "-linux"
+                                      ^^^^^^^ Remove the empty `arm:` argument from the `on_arch_conditional` stanza.
+      end
+    CASK
+
+    expect_correction(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64", intel: on_system_conditional(macos: "-intel")
+        os macos: on_arch_conditional(intel: "-mac"), linux: "-linux"
+      end
+    CASK
+  end
+
   it "reports an offense when every argument is an empty string" do
     expect_offense(<<~CASK)
       cask "foo" do
         arch arm: "", intel: ""
         ^^^^^^^^^^^^^^^^^^^^^^^ Remove the `arch` stanza as all its arguments are empty.
         file_arch = on_arch_conditional arm: "", intel: ""
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_arch_conditional` stanza as all its arguments are empty.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_arch_conditional` stanza as all its arguments are empty.
         os macos: "", linux: ""
         ^^^^^^^^^^^^^^^^^^^^^^^ Remove the `os` stanza as all its arguments are empty.
         file_os = on_system_conditional macos: "", linux: ""
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_system_conditional` stanza as all its arguments are empty.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_system_conditional` stanza as all its arguments are empty.
         url "https://example.com/foo.zip"
       end
     CASK
@@ -74,17 +92,35 @@ RSpec.describe RuboCop::Cop::Cask::EmptyConditionalArgument, :config do
     CASK
   end
 
+  it "reports an offense when every nested argument is an empty string" do
+    expect_offense(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64", intel: on_system_conditional(macos: "", linux: "")
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_system_conditional` stanza as all its arguments are empty.
+        os macos: on_arch_conditional(arm: "", intel: ""), linux: "-linux"
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_arch_conditional` stanza as all its arguments are empty.
+      end
+    CASK
+
+    expect_correction(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64"
+        os linux: "-linux"
+      end
+    CASK
+  end
+
   it "reports an offense when the only argument is an empty string" do
     expect_offense(<<~CASK)
       cask "foo" do
         arch arm: ""
         ^^^^^^^^^^^^ Remove the `arch` stanza as all its arguments are empty.
         file_arch = on_arch_conditional intel: ""
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_arch_conditional` stanza as all its arguments are empty.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_arch_conditional` stanza as all its arguments are empty.
         os macos: ""
         ^^^^^^^^^^^^ Remove the `os` stanza as all its arguments are empty.
         file_os = on_system_conditional linux: ""
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_system_conditional` stanza as all its arguments are empty.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_system_conditional` stanza as all its arguments are empty.
         url "https://example.com/foo.zip"
       end
     CASK
@@ -92,6 +128,24 @@ RSpec.describe RuboCop::Cop::Cask::EmptyConditionalArgument, :config do
     expect_correction(<<~CASK)
       cask "foo" do
         url "https://example.com/foo.zip"
+      end
+    CASK
+  end
+
+  it "reports an offense when the only nested argument is an empty string" do
+    expect_offense(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64", intel: on_system_conditional(macos: "")
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_system_conditional` stanza as all its arguments are empty.
+        os macos: on_arch_conditional(intel: ""), linux: "-linux"
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the `on_arch_conditional` stanza as all its arguments are empty.
+      end
+    CASK
+
+    expect_correction(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64"
+        os linux: "-linux"
       end
     CASK
   end
@@ -127,6 +181,15 @@ RSpec.describe RuboCop::Cop::Cask::EmptyConditionalArgument, :config do
         file_arch = on_arch_conditional arm: "-aarch64", intel: "-x86_64"
         os macos: "-darwin", linux: "-linux"
         fle_os = on_system_conditional macos: "-mac", linux: "-gnu"
+      end
+    CASK
+  end
+
+  it "reports no offenses when no nested argument is an empty string" do
+    expect_no_offenses(<<~CASK)
+      cask "foo" do
+        arch arm: "-arm64", intel: on_system_conditional(macos: "-intel", linux: "-x86_64")
+        os macos: on_arch_conditional(arm: "-darwin", intel: "-mac"), linux: "-linux"
       end
     CASK
   end

@@ -28,12 +28,12 @@ module RuboCop
         MSG_KEY = "Remove the empty `%<key>s:` argument from the `%<stanza>s` stanza."
         MSG_STANZA = "Remove the `%<stanza>s` stanza as all its arguments are empty."
 
-        CONDITIONAL_STANZAS = [
-          :arch,
-          :on_arch_conditional,
-          :os,
-          :on_system_conditional,
-        ].freeze
+        SYSTEM_STANZAS = [:arch, :os].freeze
+        ON_CONDITIONAL_STANZAS = [:on_arch_conditional, :on_system_conditional].freeze
+        CONDITIONAL_STANZAS = T.let(
+          [*SYSTEM_STANZAS, *ON_CONDITIONAL_STANZAS].freeze,
+          T::Array[Symbol],
+        )
 
         sig { params(node: RuboCop::AST::SendNode).void }
         def on_send(node)
@@ -44,9 +44,20 @@ module RuboCop
           pairs = hash.pairs
           return if pairs.none? { |pair| empty_string_value?(pair) }
 
-          if pairs.all? { |pair| empty_string_value?(pair) }
+          if SYSTEM_STANZAS.include?(stanza) && pairs.all? { |pair| empty_string_value?(pair) }
             add_offense(node, message: format(MSG_STANZA, stanza:)) do |corrector|
               corrector.remove(range_by_whole_lines(node.source_range, include_final_newline: true))
+            end
+            return
+          elsif ON_CONDITIONAL_STANZAS.include?(stanza) && pairs.all? { |pair| empty_string_value?(pair) }
+            if conditional_variable?(node.parent)
+              add_offense(node.parent, message: format(MSG_STANZA, stanza:)) do |corrector|
+                corrector.remove(range_by_whole_lines(node.parent.source_range, include_final_newline: true))
+              end
+            else
+              add_offense(node, message: format(MSG_STANZA, stanza:)) do |corrector|
+                corrector.replace(node.source_range, '""')
+              end
             end
             return
           end
@@ -73,6 +84,10 @@ module RuboCop
         def empty_string_value?(pair)
           pair.value.str_type? && pair.value.value.empty?
         end
+
+        def_node_matcher :conditional_variable?, <<~PATTERN
+          (lvasgn _ (send nil? {#{ON_CONDITIONAL_STANZAS.map(&:inspect).join(" ")}} ...))
+        PATTERN
       end
     end
   end
