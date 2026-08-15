@@ -3,7 +3,7 @@
 
 require "rubocops/rubocop-cask"
 
-RSpec.describe RuboCop::Cop::Cask::EmptyArchArgument, :config do
+RSpec.describe RuboCop::Cop::Cask::EmptyConditionalArgument, :config do
   it "reports an offense when a trailing `arch` argument is an empty string" do
     expect_offense(<<~CASK)
       cask "foo" do
@@ -22,14 +22,14 @@ RSpec.describe RuboCop::Cop::Cask::EmptyArchArgument, :config do
   it "reports an offense when a leading `arch` argument is an empty string" do
     expect_offense(<<~CASK)
       cask "foo" do
-        arch arm: "", intel: "intel"
+        arch arm: "", intel: "-intel"
              ^^^^^^^ Remove the empty `arm:` argument from the `arch` stanza.
       end
     CASK
 
     expect_correction(<<~CASK)
       cask "foo" do
-        arch intel: "intel"
+        arch intel: "-intel"
       end
     CASK
   end
