@@ -41,22 +41,22 @@ module Cask
         directives.keys.join(", ")
       end
 
-      private
-
       sig { params(dsl_key: Symbol).returns(T::Class[::Cask::DSL::Base]) }
-      def class_for_dsl_key(dsl_key)
-        namespace = self.class.name.to_s.sub(/::.*::.*$/, "")
+      def self.class_for_dsl_key(dsl_key)
+        namespace = name.to_s.sub(/::.*::.*$/, "")
         # The DSL class name is derived dynamically from the flight block's key.
         # rubocop:disable Sorbet/ConstantsFromStrings
-        self.class.const_get("#{namespace}::DSL::#{dsl_key.to_s.split("_").map(&:capitalize).join}")
+        const_get("#{namespace}::DSL::#{dsl_key.to_s.split("_").map(&:capitalize).join}")
         # rubocop:enable Sorbet/ConstantsFromStrings
       end
+
+      private
 
       sig { params(dsl_key: Symbol).void }
       def abstract_phase(dsl_key)
         return if (block = directives[dsl_key]).nil?
 
-        class_for_dsl_key(dsl_key).new(cask).instance_eval(&T.cast(block, T.proc.returns(T.anything)))
+        self.class.class_for_dsl_key(dsl_key).new(cask).instance_eval(&T.cast(block, T.proc.returns(T.anything)))
       end
     end
   end
