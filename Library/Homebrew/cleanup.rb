@@ -402,6 +402,8 @@ module Homebrew
                .sort_by(&:name)
                .reject { |f| Cleanup.skip_clean_formula?(f) }
                .each do |formula|
+          # Don't `cleanup_unreferenced` here for each formula.
+          # Instead, let it be run once `cleanup_cache` below.
           cleanup_formula(formula, quiet:, ds_store: false, cache_db: false, cleanup_unreferenced: false)
         end
 
