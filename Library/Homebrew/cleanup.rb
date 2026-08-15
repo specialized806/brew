@@ -277,6 +277,7 @@ module Homebrew
       @days = T.let(days || Homebrew::EnvConfig.cleanup_max_age_days.to_i, Integer)
       @cache = cache
       @cleaned_up_paths = T.let(Set.new, T::Set[Pathname])
+      @formula_cache_paths = T.let(nil, T.nilable(T::Hash[String, T::Array[Pathname]]))
     end
 
     sig { returns(T::Boolean) }
@@ -401,7 +402,9 @@ module Homebrew
                .sort_by(&:name)
                .reject { |f| Cleanup.skip_clean_formula?(f) }
                .each do |formula|
-          cleanup_formula(formula, quiet:, ds_store: false, cache_db: false)
+          # Don't `cleanup_unreferenced` here for each formula.
+          # Instead, let it be run once `cleanup_cache` below.
+          cleanup_formula(formula, quiet:, ds_store: false, cache_db: false, cleanup_unreferenced: false)
         end
 
         if ENV["HOMEBREW_AUTOREMOVE"].present?
@@ -479,11 +482,32 @@ module Homebrew
       cleanup_cache(cache_entries(paths, type:), cleanup_unreferenced:)
     end
 
-    sig { params(formula: Formula, quiet: T::Boolean, ds_store: T::Boolean, cache_db: T::Boolean).void }
-    def cleanup_formula(formula, quiet: false, ds_store: true, cache_db: true)
+    # Returns the cached `<formula>--<version>` and
+    # `<formula>_bottle_manifest--<version>` downloads for a formula. Globbing
+    # these per formula rescans the entire cache each time, which is quadratic
+    # for `brew cleanup`, so index the cache by name prefix once instead.
+    sig { params(formula: Formula).returns(T::Array[Pathname]) }
+    def formula_cache_paths(formula)
+      return [] unless cache.directory?
+
+      index = @formula_cache_paths ||= cache.children.each_with_object({}) do |path, hash|
+        prefix, separator, = path.basename.to_s.partition("--")
+        next if prefix.start_with?(".") || separator.empty?
+
+        (hash[prefix] ||= []) << path
+      end
+
+      [*index.fetch(formula.name, []), *index.fetch("#{formula.name}_bottle_manifest", [])].sort
+    end
+
+    sig {
+      params(formula: Formula, quiet: T::Boolean, ds_store: T::Boolean, cache_db: T::Boolean,
+             cleanup_unreferenced: T::Boolean).void
+    }
+    def cleanup_formula(formula, quiet: false, ds_store: true, cache_db: true, cleanup_unreferenced: true)
       formula.eligible_kegs_for_cleanup(quiet:)
              .each { |keg| cleanup_keg(keg) }
-      cleanup_cache_entries(Pathname.glob(cache/"#{formula.name}{_bottle_manifest,}--*"), type: nil)
+      cleanup_cache_entries(formula_cache_paths(formula), type: nil, cleanup_unreferenced:)
       rm_ds_store([formula.rack]) if ds_store
       cleanup_cache_db(formula.rack) if cache_db
       cleanup_lockfiles(FormulaLock.new(formula.name).path)
