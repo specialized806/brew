@@ -643,7 +643,6 @@ class Sandbox
               else
                 # Cannot get the terminal state, so don't change it either.
                 write_to_pty.call
-                end
               end
             ensure
               trap(:TTOU, old_ttou)
