@@ -611,10 +611,14 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
 
     it "dumps new formulae report" do
       allow(hub).to receive(:select_formula_or_cask).with(:A).and_return(["foo", "bar", "baz"])
-      allow(hub).to receive_messages(installed?: false, all_formula_json: [
-        { "name" => "foo", "desc" => "foobly things" },
-        { "name" => "baz", "desc" => "baz desc" },
-      ])
+      allow(hub).to receive(:installed?).and_return(false)
+      allow(Homebrew::API::Internal).to receive(:formula_hash) do |name|
+        {
+          "foo" => { "desc" => "foobly things" },
+          "baz" => { "desc" => "baz desc" },
+        }[name]
+      end
+      allow(Homebrew::API).to receive(:fetch_json_api_file).and_raise("unexpected public API lookup")
       expect { hub.dump }.to output(<<~EOS).to_stdout
         ==> New Formulae
         bar
@@ -625,10 +629,14 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
 
     it "dumps new casks report" do
       allow(hub).to receive(:select_formula_or_cask).with(:AC).and_return(["cask1", "cask2", "foo/tap/cask3"])
-      allow(hub).to receive_messages(cask_installed?: false, all_cask_json: [
-        { "token" => "cask1", "desc" => "desc1" },
-        { "token" => "cask3", "desc" => "desc3" },
-      ])
+      allow(hub).to receive(:cask_installed?).and_return(false)
+      allow(Homebrew::API::Internal).to receive(:cask_hash) do |token|
+        {
+          "cask1" => { "desc" => "desc1" },
+          "cask3" => { "desc" => "desc3" },
+        }[token]
+      end
+      allow(Homebrew::API).to receive(:fetch_json_api_file).and_raise("unexpected public API lookup")
       allow(Cask::Caskroom).to receive(:any_casks_installed?).and_return(true)
       expect { hub.dump }.to output(<<~EOS).to_stdout
         ==> New Casks

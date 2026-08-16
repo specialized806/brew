@@ -180,26 +180,6 @@ class ReporterHub
     (Cask::Caskroom.path/cask).directory?
   end
 
-  sig { returns(T::Array[T.untyped]) }
-  def all_formula_json
-    return @all_formula_json if @all_formula_json
-
-    @all_formula_json = T.let(nil, T.nilable(T::Array[T.untyped]))
-    all_formula_json, = Homebrew::API.fetch_json_api_file "formula.jws.json"
-    all_formula_json = T.cast(all_formula_json, T::Array[T.untyped])
-    @all_formula_json = all_formula_json
-  end
-
-  sig { returns(T::Array[T.untyped]) }
-  def all_cask_json
-    return @all_cask_json if @all_cask_json
-
-    @all_cask_json = T.let(nil, T.nilable(T::Array[T.untyped]))
-    all_cask_json, = Homebrew::API.fetch_json_api_file "cask.jws.json"
-    all_cask_json = T.cast(all_cask_json, T::Array[T.untyped])
-    @all_cask_json = all_cask_json
-  end
-
   sig { params(formula: String).returns(T.nilable(String)) }
   def description(formula)
     if Homebrew::EnvConfig.no_install_from_api?
@@ -212,9 +192,7 @@ class ReporterHub
         nil
       end
     else
-      all_formula_json.find { |f| f["name"] == formula }
-                      &.fetch("desc", nil)
-                      &.presence
+      Homebrew::API::Internal.formula_hash(formula)&.fetch("desc", nil)&.presence
     end
   end
 
@@ -230,9 +208,7 @@ class ReporterHub
         nil
       end
     else
-      all_cask_json.find { |f| f["token"] == cask }
-                   &.fetch("desc", nil)
-                   &.presence
+      Homebrew::API::Internal.cask_hash(cask)&.fetch("desc", nil)&.presence
     end
   end
 end
