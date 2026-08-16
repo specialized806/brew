@@ -275,10 +275,8 @@ class Sandbox
   # capture it once per process. `nil` when it cannot be captured.
   sig { returns(T.nilable(String)) }
   def self.tty_state
-    return @tty_state if defined?(@tty_state)
-
-    state = Utils.popen_read("stty", "-g").chomp
-    @tty_state = T.let(state.empty? ? nil : state, T.nilable(String))
+    @tty_state ||= T.let(Utils.popen_read("stty", "-g").chomp, T.nilable(String))
+    @tty_state.presence
   end
 
   sig { void }
