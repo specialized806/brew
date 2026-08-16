@@ -634,17 +634,17 @@ class Sandbox
             begin
               # Ignore SIGTTOU as setting raw mode will hang if the process is in the background.
               old_ttou = trap(:TTOU, "IGNORE")
-              saved_stty = Sandbox.tty_state
-              if saved_stty.nil?
-                # Cannot save the terminal state, so don't change it either.
-                write_to_pty.call
-              else
+              if (tty_state = Sandbox.tty_state)
                 begin
                   # `-echo` matches `IO#raw`; `stty raw` alone leaves echo on.
                   Utils.popen_read("stty", "raw", "-echo", "opost")
                   write_to_pty.call
                 ensure
-                  Utils.popen_read("stty", saved_stty)
+                  Utils.popen_read("stty", tty_state)
+                end
+              else
+                # Cannot get the terminal state, so don't change it either.
+                write_to_pty.call
                 end
               end
             ensure
