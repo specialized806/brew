@@ -443,16 +443,16 @@ module Cask
               Quarantine.inherit_user_approval!(download_path: artifact.target)
             rescue CaskQuarantineReleaseError => e
               odebug e
-              opoo "Homebrew couldn't inherit #{new_cask.token}'s quarantine approval so macOS will prompt at " \
+              opoo "Homebrew couldn't inherit #{new_cask.token}'s quarantine approval so macOS may prompt at " \
                    "next launch."
             end
           when :signer_changed
-            opoo "#{new_cask.token}'s signer changed so macOS will prompt at next launch."
+            opoo "#{new_cask.token}'s signer changed so macOS may prompt at next launch."
           when :signer_unverified
-            opoo "Homebrew couldn't verify #{new_cask.token}'s signer so macOS will prompt at next launch."
+            opoo "Homebrew couldn't verify #{new_cask.token}'s signer so macOS may prompt at next launch."
           when :unapproved
             message = "#{new_cask.token} wasn't quarantine approved so not approving now. " \
-                      "macOS will prompt at next launch."
+                      "macOS may prompt at next launch."
             if verbose
               ohai message
             else
