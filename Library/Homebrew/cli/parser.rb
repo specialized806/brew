@@ -527,7 +527,7 @@ module Homebrew
         remaining_args = if non_options.empty?
           remaining
         else
-          [*remaining, "--", non_options]
+          [*remaining, "--", *non_options]
         end
         @args.freeze_remaining_args!(remaining_args)
         @args.freeze_processed_options!(@processed_options)

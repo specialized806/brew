@@ -84,6 +84,11 @@ RSpec.describe Homebrew::CLI::Parser do
       end
     end
 
+    it "flattens arguments after `--` into remaining" do
+      args = parser.parse(["-v", "--", "foo", "bar"])
+      expect(args.remaining).to eq ["--", "foo", "bar"]
+    end
+
     it "parses short option" do
       args = parser.parse(["-v"])
       expect(args).to be_verbose
