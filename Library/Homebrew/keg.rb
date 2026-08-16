@@ -519,6 +519,7 @@ class Keg
            %r{^icons/}, # all icons subfolders should also mkpath
            /^zsh/,
            /^fish/,
+           /^pwsh/,
            %r{^lua/}, #  Lua, Lua51, Lua53 all need the same handling.
            %r{^guile/},
            /^postgresql@\d+/,
