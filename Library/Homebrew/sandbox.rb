@@ -270,6 +270,15 @@ class Sandbox
     raise NotImplementedError, "Sandbox is not implemented for this OS."
   end
 
+  # The terminal state to restore after a PTY passthrough. It cannot change
+  # in the background while `brew` runs (each passthrough restores it), so
+  # capture it once per process. `nil` when it cannot be captured.
+  sig { returns(T.nilable(String)) }
+  def self.tty_state
+    @tty_state ||= T.let(Utils.popen_read("stty", "-g").chomp, T.nilable(String))
+    @tty_state.presence
+  end
+
   sig { void }
   def initialize
     @profile = T.let(SandboxProfile.new, SandboxProfile)
@@ -612,14 +621,29 @@ class Sandbox
           end
 
           if $stdin.tty?
-            # If stdin is a TTY, use io.raw to set stdin to a raw, passthrough
-            # mode while we copy the input/output of the process spawned in the
-            # PTY. After we've finished copying to/from the PTY process, io.raw
-            # will restore the stdin TTY to its original state.
+            # If stdin is a TTY, set it to a raw, passthrough mode while we
+            # copy the input/output of the process spawned in the PTY, then
+            # restore its original state afterwards. Keep `opost` set, unlike
+            # `IO#raw`: clearing it stops LF -> CRLF translation for the whole
+            # terminal, so anything written outside the PTY meanwhile (e.g.
+            # our own `$stdout` when piped) renders staircased — and set the
+            # mode in one `stty` call so there is no window where `opost` is
+            # clear.
             begin
               # Ignore SIGTTOU as setting raw mode will hang if the process is in the background.
               old_ttou = trap(:TTOU, "IGNORE")
-              $stdin.raw(&write_to_pty)
+              if (tty_state = Sandbox.tty_state)
+                begin
+                  # `-echo` matches `IO#raw`; `stty raw` alone leaves echo on.
+                  Utils.popen_read("stty", "raw", "-echo", "opost")
+                  write_to_pty.call
+                ensure
+                  Utils.popen_read("stty", tty_state)
+                end
+              else
+                # Cannot get the terminal state, so don't change it either.
+                write_to_pty.call
+              end
             ensure
               trap(:TTOU, old_ttou)
             end
