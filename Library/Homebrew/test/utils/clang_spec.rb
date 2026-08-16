@@ -16,7 +16,7 @@ RSpec.describe Utils::Clang, :needs_macos do
     described_class.write_system_config_files(
       config_dir:,
       macos_version:,
-      kernel_version: 23,
+      kernel_version: Version.new("23"),
       arch:           :arm64,
     )
 

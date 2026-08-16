@@ -7,7 +7,7 @@ module Utils
       params(
         config_dir:     Pathname,
         macos_version:  T.any(String, MacOSVersion),
-        kernel_version: T.any(String, Integer),
+        kernel_version: T.any(String, Version),
         arch:           Symbol,
       ).void
     }
