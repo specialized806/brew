@@ -210,6 +210,24 @@ RSpec.describe Sandbox::Landlock do
       ])
     end
 
+    it "skips readable paths removed after command setup" do
+      readable_dir = mktmpdir
+      denied_dir = mktmpdir
+      sandbox.deny_read_path denied_dir
+      allow(landlock).to receive(:readable_paths).with([denied_dir]).and_return([readable_dir.to_s])
+      landlock.command(["true"], tmpdir.to_s)
+      readable_dir.rmdir
+
+      allow(described_class).to receive_messages(abi_version: 10, landlock_create_ruleset: 17,
+                                                 landlock_add_rule: 0, set_no_new_privileges: 0,
+                                                 landlock_restrict_self: 0)
+      allow(landlock).to receive(:open_path).and_return(18)
+      expect(landlock).to receive(:open_path).with(readable_dir.to_s).and_raise(Errno::ENOENT)
+      allow(landlock).to receive(:close_file_descriptor)
+
+      expect { landlock.apply! }.not_to raise_error
+    end
+
     it "allows pseudo-terminal device access" do
       landlock.command(["true"], tmpdir.to_s)
 

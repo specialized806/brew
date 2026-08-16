@@ -354,6 +354,8 @@ class Sandbox
         @readable_paths.each do |path|
           allowed_access = File.directory?(path) ? READ_ACCESS_FS : FILE_READ_ACCESS_FS
           add_path_rule(ruleset_fd, path, allowed_access)
+        rescue Errno::ENOENT
+          nil
         end
         @writable_paths.each do |path|
           allowed_access = if File.directory?(path)
