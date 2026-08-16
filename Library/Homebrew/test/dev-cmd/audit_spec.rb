@@ -84,5 +84,31 @@ RSpec.describe Homebrew::DevCmd::Audit do
         expect { audit.run }.not_to output.to_stdout
       end
     end
+
+    it "enables API access when auditing external formulae after it was automatically disabled" do
+      formula_file = tap_path/"Formula/example.rb"
+      formula_file.dirname.mkpath
+      formula_file.write <<~RUBY
+        class Example < Formula
+          desc "Example"
+          homepage "https://example.com"
+          url "https://example.com/example-1.0.tar.gz"
+          sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+
+          depends_on "dependency"
+        end
+      RUBY
+      allow(tap).to receive_messages(formula_files: [formula_file], cask_files: [])
+      formula_auditor = instance_double(Homebrew::FormulaAuditor, audit: nil, problems: [], new_formula_problems: [])
+
+      with_env(HOMEBREW_NO_INSTALL_FROM_API: "1", HOMEBREW_AUTOMATICALLY_SET_NO_INSTALL_FROM_API: "1") do
+        expect(Homebrew::FormulaAuditor).to receive(:new) do
+          expect(Homebrew::EnvConfig.no_install_from_api?).to be(false)
+          formula_auditor
+        end
+
+        audit.run
+      end
+    end
   end
 end
