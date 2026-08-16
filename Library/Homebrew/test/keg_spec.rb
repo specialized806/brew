@@ -181,6 +181,14 @@ RSpec.describe Keg do
       expect(link.lstat).to be_a_directory
     end
 
+    specify "share/pwsh directory is created" do
+      link = HOMEBREW_PREFIX/"share"/"pwsh"
+      (keg/"share"/"pwsh"/"completions").mkpath
+      FileUtils.touch keg/"share"/"pwsh"/"completions"/"_test.ps1"
+      keg.link
+      expect(link.lstat).to be_a_directory
+    end
+
     specify "symlinks are linked directly" do
       link = HOMEBREW_PREFIX/"lib"/"pkgconfig"
 
