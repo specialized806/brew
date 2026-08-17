@@ -44,8 +44,21 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
       urls = [url, *mirrors]
 
       if (domain = Homebrew::EnvConfig.artifact_domain)
+        domain = domain.chomp("/")
+        # If the artifact domain already contains the Docker Registry API's
+        # `/v2/` path (e.g. an OCI registry proxying ghcr.io under a repository
+        # prefix: https://mirror.example.com/v2/ghcr-io), skip the `v2/` from
+        # the original URL rather than producing a duplicate `/v2/`.
+        # Keep this in sync with the portable-ruby URL handling in
+        # Library/Homebrew/cmd/vendor-install.sh.
+        domain_contains_v2 = %r{\Ahttps?://[^/]+/v2(?:/|\z)}.match?(domain)
+
         artifact_urls = urls.map do |u|
-          u.sub(%r{^https?://#{GitHubPackages::URL_DOMAIN}/}o, "#{domain.chomp("/")}/")
+          if domain_contains_v2
+            u.sub(%r{^https?://#{GitHubPackages::URL_DOMAIN}/v2/}o, "#{domain}/")
+          else
+            u.sub(%r{^https?://#{GitHubPackages::URL_DOMAIN}/}o, "#{domain}/")
+          end
         end
 
         urls = if Homebrew::EnvConfig.artifact_domain_no_fallback?
