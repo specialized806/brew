@@ -69,18 +69,47 @@ module Cask
                      print_stderr: false).stdout.rstrip
     end
 
-    sig { params(file: T.any(String, Pathname)).returns(T::Boolean) }
-    def self.user_approved?(file)
-      return false if xattr.nil?
-
-      quarantine_status = status(file)
+    sig { params(quarantine_status: String).returns(T::Boolean) }
+    def self.user_approved_status?(quarantine_status)
       return false if quarantine_status.empty?
 
       quarantine_status.split(";").fetch(0).to_i(16).anybits?(USER_APPROVED_FLAG)
     end
+    private_class_method :user_approved_status?
 
-    sig { params(download_path: T.nilable(Pathname)).void }
-    def self.inherit_user_approval!(download_path: nil)
+    sig { params(file: T.any(String, Pathname)).returns(T::Boolean) }
+    def self.user_approved?(file)
+      return false if xattr.nil?
+
+      user_approved_status?(status(file))
+    end
+
+    # The paths inside `directory` that Gatekeeper has approved, relative to it. macOS records approval on
+    # each file as it is first evaluated, so a bundle accumulates approvals for the components that have
+    # actually run rather than carrying one bundle-wide state.
+    sig { params(directory: T.any(String, Pathname)).returns(T::Array[String]) }
+    def self.user_approved_paths(directory)
+      directory = Pathname(directory)
+      xattr = self.xattr
+      return [] if xattr.nil? || !directory.directory?
+
+      # Read the whole tree in one pass: `xattr -r` prefixes each line with `path: `, and exits non-zero
+      # for the paths without the attribute, which is the normal case, so don't use `system_command!`.
+      system_command(xattr,
+                     args:         ["-p", "-r", QUARANTINE_ATTRIBUTE, directory],
+                     print_stderr: false).stdout.lines.filter_map do |line|
+        path, _, quarantine_status = line.rstrip.partition(": ")
+        next unless user_approved_status?(quarantine_status)
+
+        path = Pathname(path)
+        next if path == directory || path.symlink?
+
+        path.relative_path_from(directory).to_s
+      end
+    end
+
+    sig { params(download_path: T.nilable(Pathname), approved_paths: T::Array[String]).void }
+    def self.inherit_user_approval!(download_path: nil, approved_paths: [])
       return if !download_path || !detect(download_path)
 
       # Preserve quarantine provenance so Gatekeeper still checks the upgraded app while carrying forward
@@ -91,15 +120,23 @@ module Cask
       xattr = self.xattr
       raise "unexpected nil xattr" if xattr.nil?
 
-      quarantiner = system_command(xattr,
+      # Mirror the approvals the previous version had accumulated onto the paths it shared with this one;
+      # anything new to this version has never run, so it stays unapproved.
+      inherited_paths = approved_paths.map { |path| download_path/path }
+                                      .select { |path| path.exist? && !path.symlink? }
+
+      quarantiner = system_command("/usr/bin/xargs",
                                    args:         [
+                                     "-0",
+                                     "--",
+                                     xattr,
                                      "-w",
                                      QUARANTINE_ATTRIBUTE,
                                      status(download_path).sub(/\A[0-9a-f]+/i) do |flags|
                                        (flags.to_i(16) | USER_APPROVED_FLAG).to_s(16).rjust(flags.length, "0")
                                      end,
-                                     download_path,
                                    ],
+                                   input:        [download_path, *inherited_paths].join("\0"),
                                    print_stderr: false)
 
       return if quarantiner.success?
