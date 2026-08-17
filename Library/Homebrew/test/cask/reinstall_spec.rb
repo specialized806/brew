@@ -70,7 +70,7 @@ RSpec.describe Cask::Reinstall, :cask do
     allow(failing_installer).to receive(:enqueue_dependency_downloads)
     allow(failing_installer).to receive(:install).and_raise(Cask::CaskError.new("reinstall failed"))
 
-    successful_installer = instance_double(Cask::Installer)
+    successful_installer = instance_double(Cask::Installer, cask: cask2)
     allow(successful_installer).to receive(:prelude)
     allow(successful_installer).to receive(:source_download_requires_pre_fetch?).and_return(false)
     allow(successful_installer).to receive(:enqueue_downloads)
@@ -83,9 +83,35 @@ RSpec.describe Cask::Reinstall, :cask do
       .to output(/local-caffeine: reinstall failed/).to_stderr
   end
 
+  it "returns reinstalled casks without a caveat mode option" do
+    cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+    installer = instance_double(Cask::Installer, cask:, install: nil)
+
+    expect(Cask::Installer).to receive(:new) do |new_cask, **options|
+      expect(new_cask).to eq(cask)
+      expect(options).not_to have_key(:defer_caveats)
+      installer
+    end
+
+    expect(described_class.reinstall_casks(cask, skip_prefetch: true)).to eq([cask])
+  end
+
+  it "returns the casks from supplied installers" do
+    requested_cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+    reinstalled_cask = Cask::CaskLoader.load(cask_path("local-transmission-zip"))
+    installer = Cask::Installer.allocate
+    allow(installer).to receive_messages(cask: reinstalled_cask, install: nil)
+
+    expect(described_class.reinstall_casks(
+             requested_cask,
+             skip_prefetch:   true,
+             cask_installers: [installer],
+           )).to eq([reinstalled_cask])
+  end
+
   it "reinstalls casks after an earlier failure in the same run" do
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
-    installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil,
+    installer = instance_double(Cask::Installer, cask:, prelude: nil, enqueue_downloads: nil,
                                                  enqueue_dependency_downloads: nil,
                                                  source_download_requires_pre_fetch?: false)
     allow(Cask::Installer).to receive(:new).and_return(installer)

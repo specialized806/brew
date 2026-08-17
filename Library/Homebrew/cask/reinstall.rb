@@ -3,6 +3,7 @@
 
 require "utils/output"
 require "install"
+require "cask/installer"
 
 module Cask
   class Reinstall
@@ -12,8 +13,9 @@ module Cask
       params(
         casks: ::Cask::Cask, verbose: T::Boolean, force: T::Boolean, skip_cask_deps: T::Boolean, binaries: T::Boolean,
         require_sha: T::Boolean, zap: T::Boolean, skip_prefetch: T::Boolean,
-        download_queue: T.nilable(Homebrew::DownloadQueue)
-      ).void
+        download_queue: T.nilable(Homebrew::DownloadQueue),
+        cask_installers: T.nilable(T::Array[Installer])
+      ).returns(T::Array[Cask])
     }
     def self.reinstall_casks(
       *casks,
@@ -24,10 +26,9 @@ module Cask
       require_sha: false,
       zap: false,
       skip_prefetch: false,
-      download_queue: nil
+      download_queue: nil,
+      cask_installers: nil
     )
-      require "cask/installer"
-
       created_download_queue = T.let(false, T::Boolean)
       if download_queue.nil?
         if skip_prefetch
@@ -38,27 +39,29 @@ module Cask
         end
       end
 
-      cask_installers = T.let([], T::Array[Installer])
+      cask_installers = T.let(cask_installers || [], T::Array[Installer])
       begin
-        cask_installers = casks.map do |cask|
-          Installer.new(
-            cask,
-            binaries:,
-            verbose:,
-            force:,
-            skip_cask_deps:,
-            require_sha:,
-            reinstall:      true,
-            zap:,
-            download_queue:,
-            defer_fetch:    true,
-          )
+        if cask_installers.empty?
+          cask_installers = casks.map do |cask|
+            Installer.new(
+              cask,
+              binaries:,
+              verbose:,
+              force:,
+              skip_cask_deps:,
+              require_sha:,
+              reinstall:      true,
+              zap:,
+              download_queue:,
+              defer_fetch:    true,
+            )
+          end
         end
 
         unless skip_prefetch
           Homebrew::Install.enqueue_cask_installers(cask_installers, download_queue:)
           download_queue.fetch(
-            heading: Homebrew::Install.combined_fetch_downloads_heading(cask_names: casks.map(&:full_name)),
+            heading: "Fetching dependency downloads",
           )
         end
       ensure
@@ -68,12 +71,14 @@ module Cask
       # Reinstall everything that did download and report each failure as it
       # happens, rather than aborting the whole run; the failures still exit
       # nonzero at the end.
+      reinstalled_casks = T.let([], T::Array[Cask])
       cask_installers.each do |installer|
         installer.install
+        reinstalled_casks << installer.cask
       rescue => e
         ofail "#{installer.cask.full_name}: #{e}"
-        next
       end
+      reinstalled_casks
     end
   end
 end

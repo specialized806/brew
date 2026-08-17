@@ -1835,7 +1835,7 @@ reinstall` will be run for outdated dependents and dependents with broken
 linkage, respectively.
 
 Unless `$HOMEBREW_NO_INSTALL_CLEANUP` is set, `brew cleanup` will then be run
-for the reinstalled formulae or, every 30 days, for all formulae.
+for the reinstalled formulae and casks or, every 30 days, for all packages.
 
 `-d`, `--debug`
 
