@@ -613,7 +613,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(local_caffeine, args:)
-      end.to output(/couldn't inherit local-caffeine's quarantine approval so macOS will prompt/).to_stderr
+      end.to output(/couldn't inherit local-caffeine's quarantine approval so macOS may prompt/).to_stderr
     end
 
     it "reports the skipped quarantine release under --verbose when approval is missing" do
@@ -635,7 +635,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(local_caffeine, args:)
-      end.to output(/local-caffeine's signer changed so macOS will prompt/).to_stderr
+      end.to output(/local-caffeine's signer changed so macOS may prompt/).to_stderr
     end
 
     it "reports an unverified signer by default so the returning Gatekeeper prompt is explained" do
