@@ -88,6 +88,19 @@ RSpec.describe Cask::Info, :cask do
     expect { described_class.info(cask, args:) }.to not_to_output(/Metadata/).to_stdout
   end
 
+  it "shows installed and available versions when a cask is outdated" do
+    cask = Cask::CaskLoader.load("local-transmission")
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+    allow(cask).to receive_messages(installed?:        true,
+                                    installed_version: "2.60",
+                                    outdated?:         true,
+                                    version:           Cask::DSL::Version.new("2.61"),
+                                    supports_linux?:   false)
+
+    expect { described_class.info(cask, args:) }
+      .to output(/==> .*↑.*: 2\.60 → 2\.61/).to_stdout
+  end
+
   it "prints cask dependencies if the Cask has any" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
     mock_cask_installed("local-transmission-zip")
@@ -256,9 +269,8 @@ RSpec.describe Cask::Info, :cask do
         tabfile:              TEST_FIXTURE_DIR/"cask_receipt.json",
         time:,
       )
-      allow(cask).to receive(:installed?).and_return(true)
       expect(cask).to receive(:caskroom_path).and_return(caskroom)
-      expect(cask).to receive(:installed_version).and_return("2.61")
+      allow(cask).to receive_messages(installed?: true, outdated?: false, installed_version: "2.61")
       allow(Cask::Tab).to receive(:for_cask).with(cask).and_return(tab)
       allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
@@ -291,9 +303,8 @@ RSpec.describe Cask::Info, :cask do
         tabfile:                  TEST_FIXTURE_DIR/"cask_receipt.json",
         time:,
       )
-      allow(cask).to receive(:installed?).and_return(true)
       expect(cask).to receive(:caskroom_path).and_return(caskroom)
-      expect(cask).to receive(:installed_version).and_return("2.61")
+      allow(cask).to receive_messages(installed?: true, outdated?: false, installed_version: "2.61")
       allow(Cask::Tab).to receive(:for_cask).with(cask).and_return(tab)
       allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 

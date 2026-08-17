@@ -52,13 +52,20 @@ module Cask
     sig { params(cask: Cask, installed: T::Boolean).returns(String) }
     def self.title_info(cask, installed:)
       name_with_status = if installed
-        pretty_installed(cask.token)
+        pretty_install_status(cask.token, installed: true, outdated: cask.outdated?, bold: true)
       else
         pretty_uninstalled(cask.token)
       end
       title = oh1_title(name_with_status).to_s
       title += " (#{cask.name.join(", ")})" unless cask.name.empty?
-      title += ": #{cask.version}"
+
+      version = if installed && cask.outdated? && cask.installed_version.present?
+        "#{cask.installed_version} → #{cask.version}"
+      else
+        cask.version.to_s
+      end
+
+      title += ": #{version}"
       title += " (auto_updates)" if cask.auto_updates
       title
     end
