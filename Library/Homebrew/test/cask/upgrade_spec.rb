@@ -514,6 +514,7 @@ RSpec.describe Cask::Upgrade, :cask do
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
                { auto_updates_path.to_s => true },
+               { auto_updates_path.to_s => false },
              )).to eq(:release)
     end
 
@@ -526,6 +527,7 @@ RSpec.describe Cask::Upgrade, :cask do
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
                { auto_updates_path.to_s => true },
+               { auto_updates_path.to_s => false },
              )).to eq(:signer_changed)
     end
 
@@ -535,6 +537,7 @@ RSpec.describe Cask::Upgrade, :cask do
                auto_updates,
                { auto_updates_path.to_s => nil },
                { auto_updates_path.to_s => true },
+               { auto_updates_path.to_s => false },
              )).to eq(:signer_unverified)
     end
 
@@ -547,6 +550,7 @@ RSpec.describe Cask::Upgrade, :cask do
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
                { auto_updates_path.to_s => true },
+               { auto_updates_path.to_s => false },
              )).to eq(:signer_unverified)
     end
 
@@ -555,6 +559,7 @@ RSpec.describe Cask::Upgrade, :cask do
                outdated_auto_updates,
                auto_updates,
                { auto_updates_path.to_s => auto_updates_identity },
+               { auto_updates_path.to_s => false },
                { auto_updates_path.to_s => false },
              )).to eq(:unapproved)
     end
@@ -569,7 +574,34 @@ RSpec.describe Cask::Upgrade, :cask do
                local_caffeine,
                { local_caffeine_path.to_s => local_caffeine_identity },
                { local_caffeine_path.to_s => true },
+               { local_caffeine_path.to_s => false },
              )).to eq(:release)
+    end
+
+    it "releases quarantine when the old app carried no quarantine attribute at all" do
+      allow(Cask::Quarantine).to receive(:signing_identity_match)
+        .with(auto_updates_path, auto_updates_identity).and_return(true)
+
+      expect(described_class.quarantine_release_decision(
+               outdated_auto_updates,
+               auto_updates,
+               { auto_updates_path.to_s => auto_updates_identity },
+               { auto_updates_path.to_s => false },
+               { auto_updates_path.to_s => true },
+             )).to eq(:release)
+    end
+
+    it "reports a changed signer for an unquarantined old app whose identity no longer matches" do
+      allow(Cask::Quarantine).to receive(:signing_identity_match)
+        .with(auto_updates_path, auto_updates_identity).and_return(false)
+
+      expect(described_class.quarantine_release_decision(
+               outdated_auto_updates,
+               auto_updates,
+               { auto_updates_path.to_s => auto_updates_identity },
+               { auto_updates_path.to_s => false },
+               { auto_updates_path.to_s => true },
+             )).to eq(:signer_changed)
     end
 
     it "reports missing approval for casks without auto_updates when Gatekeeper was not approved" do
@@ -577,6 +609,7 @@ RSpec.describe Cask::Upgrade, :cask do
                outdated_local_caffeine,
                local_caffeine,
                { local_caffeine_path.to_s => local_caffeine_identity },
+               { local_caffeine_path.to_s => false },
                { local_caffeine_path.to_s => false },
              )).to eq(:unapproved)
     end
