@@ -471,7 +471,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect(Homebrew::Cleanup).to receive(:install_clean!).with(formulae: [], casks: []).ordered
     expect(Homebrew::Cleanup).to receive(:periodic_clean!).with(dry_run: false).ordered
     expect(Homebrew.messages).to receive(:display_messages)
-      .with(display_times: false)
+      .with(force_caveats: true, display_times: false)
       .ordered
     expect(cmd).to receive(:show_final_upgrade_summary).with(no_args).ordered
 

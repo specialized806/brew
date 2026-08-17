@@ -341,10 +341,12 @@ module Homebrew
 
         Homebrew::Reinstall.reinstall_pkgconf_if_needed!(dry_run: args.dry_run?)
 
-        Cleanup.install_clean!(formulae: @upgraded_formulae, casks: @upgraded_casks) unless args.dry_run?
-        Cleanup.periodic_clean!(dry_run: args.dry_run?)
-
-        Homebrew.messages.display_messages(display_times: args.display_times?)
+        Install.finish_installation(
+          formulae:      @upgraded_formulae,
+          casks:         @upgraded_casks,
+          dry_run:       args.dry_run?,
+          display_times: args.display_times?,
+        )
 
         show_final_upgrade_summary
       end

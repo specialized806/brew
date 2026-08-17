@@ -274,12 +274,16 @@ RSpec.describe Cask::Installer, :cask do
       expect(no_checksum).to be_installed
     end
 
-    it "prints caveats if they're present" do
+    it "records caveats without printing them inline" do
       with_caveats = Cask::CaskLoader.load(cask_path("with-caveats"))
+
+      expect(Homebrew.messages).to receive(:record_caveats)
+        .with(with_caveats.token, with_caveats.caveats)
+      expect(described_class).not_to receive(:caveats)
 
       expect do
         described_class.new(with_caveats).install
-      end.to output(/Here are some things you might want to know/).to_stdout
+      end.not_to output(/Here are some things you might want to know/).to_stdout
 
       expect(with_caveats).to be_installed
     end

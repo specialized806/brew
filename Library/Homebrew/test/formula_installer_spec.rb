@@ -1426,6 +1426,22 @@ RSpec.describe FormulaInstaller do
   describe "#caveats" do
     subject(:formula_installer) { described_class.new(Testball.new) }
 
+    it "records caveats without printing them inline" do
+      formula = Testball.new
+      installer = described_class.new(formula, installed_on_request: true)
+      caveats = instance_double(
+        Caveats,
+        caveats:               "Add testball to your PATH",
+        completions_and_elisp: [],
+        empty?:                false,
+      )
+
+      allow(Caveats).to receive(:new).with(formula).and_return(caveats)
+      expect(Homebrew.messages).to receive(:record_caveats).with(formula.name, caveats)
+
+      expect { installer.caveats }.not_to output.to_stdout
+    end
+
     it "shows audit problems if HOMEBREW_DEVELOPER is set" do
       ENV["HOMEBREW_DEVELOPER"] = "1"
       with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
