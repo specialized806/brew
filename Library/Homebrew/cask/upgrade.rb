@@ -401,6 +401,7 @@ module Cask
       new_artifacts_installed = false
       old_signing_identities = T.let({}, T::Hash[String, T.nilable(Quarantine::SigningIdentity)])
       old_user_approved = T.let({}, T::Hash[String, T::Boolean])
+      old_approved_paths = T.let({}, T::Hash[String, T::Array[String]])
 
       begin
         oh1 "Upgrading #{Formatter.identifier(old_cask)}"
@@ -416,12 +417,14 @@ module Cask
         new_cask_installer.fetch
 
         old_cask.artifacts.grep(Artifact::App).each do |artifact|
-          old_user_approved[artifact.target.to_s] =
-            if artifact.target.exist?
-              Quarantine.user_approved?(artifact.target)
-            else
-              false
-            end
+          user_approved = if artifact.target.exist?
+            Quarantine.user_approved?(artifact.target)
+          else
+            false
+          end
+          old_user_approved[artifact.target.to_s] = user_approved
+          # Only an already approved app has approvals to pass on, so skip the scan otherwise.
+          old_approved_paths[artifact.target.to_s] = Quarantine.user_approved_paths(artifact.target) if user_approved
           old_signing_identities[artifact.target.to_s] = Quarantine.signing_identity(artifact.target)
         end
 
@@ -440,7 +443,10 @@ module Cask
           case quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
           when :release
             new_cask.artifacts.grep(Artifact::App).each do |artifact|
-              Quarantine.inherit_user_approval!(download_path: artifact.target)
+              Quarantine.inherit_user_approval!(
+                download_path:  artifact.target,
+                approved_paths: old_approved_paths.fetch(artifact.target.to_s, []),
+              )
             rescue CaskQuarantineReleaseError => e
               odebug e
               opoo "Homebrew couldn't inherit #{new_cask.token}'s quarantine approval so macOS may prompt at " \
