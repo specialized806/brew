@@ -246,6 +246,12 @@ module Homebrew
               # don't unnecessarily require a full Homebrew/core clone.
               fa = if f.core_formula?
                 Homebrew.with_no_api_env(&audit_proc)
+              elsif Homebrew::EnvConfig.automatically_set_no_install_from_api?
+                with_env(
+                  HOMEBREW_NO_INSTALL_FROM_API:                   nil,
+                  HOMEBREW_AUTOMATICALLY_SET_NO_INSTALL_FROM_API: nil,
+                  &audit_proc
+                )
               else
                 audit_proc.call
               end
