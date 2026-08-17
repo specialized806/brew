@@ -31,7 +31,7 @@ module Homebrew
         @remaining = T.let([], T::Array[String])
       end
 
-      sig { params(remaining_args: T::Array[T.any(T::Array[String], String)]).void }
+      sig { params(remaining_args: T::Array[String]).void }
       def freeze_remaining_args!(remaining_args) = @remaining.replace(remaining_args).freeze
 
       sig { params(named_args: T::Array[String], cask_options: T::Boolean, without_api: T::Boolean).void }
