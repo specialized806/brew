@@ -395,10 +395,10 @@ end
 
 The value should be another cask token.
 
-Example: [macFUSE](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/m/macfuse.rb#L17), which conflicts with `macfuse-dev`.
+Example: [macFUSE](https://github.com/Homebrew/homebrew-cask/blob/aa461148bbb5119af26b82cccf5003e2b4e50d95/Casks/m/macfuse.rb#L17), which conflicts with `macfuse@dev`.
 
 ```ruby
-conflicts_with cask: "macfuse-dev"
+conflicts_with cask: "macfuse@dev"
 ```
 
 ### Stanza: `depends_on`
