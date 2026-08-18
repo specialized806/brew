@@ -6,16 +6,15 @@ require "vulns/vulnerability"
 
 module Homebrew
   module Vulns
-    # Reader for the concatenated `BREW-*` OSV corpus published by
-    # Homebrew/advisory-database at `data/advisories.json` (built by that
-    # repository's `AdvisoryIndex` via `rake advisories:concat`).
+    # Reader for the concatenated `BREW-*` OSV corpus generated from
+    # Homebrew/advisory-database and published by formulae.brew.sh at
+    # `/api/advisories.json`.
     #
     # Consumed by `brew generate-formula-api` to attach a `vulnerabilities`
     # field to each formula's API JSON, and by `brew vulns` (Phase 4) as the
     # local `ecosystem: Homebrew` range source until osv.dev ingests the feed.
     class AdvisoryDatabase < CachedFeed
-      DATA_URL = "https://raw.githubusercontent.com/Homebrew/advisory-database/" \
-                 "main/data/advisories.json"
+      DATA_URL = "https://formulae.brew.sh/api/advisories.json"
 
       sig { override.returns(String) }
       def self.data_url = DATA_URL

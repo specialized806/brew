@@ -55,7 +55,7 @@ module Homebrew
         Tempfile.create([cache_filename, ".download"], cache_file.dirname.to_s) do |tmp|
           tmp.close
           path = Pathname(tmp.path)
-          Utils::Curl.curl_download("--fail", "--silent", data_url, to: path)
+          Utils::Curl.curl_download("--fail", "--silent", "--compressed", data_url, to: path)
           loaded = from_file(path)
           File.rename(path, cache_file)
           return loaded
