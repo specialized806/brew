@@ -808,12 +808,18 @@ class Keg
     root.find do |src|
       next if src == root
 
-      dst = HOMEBREW_PREFIX + src.relative_path_from(path)
+      relative_src = src.relative_path_from(path)
+      dst = HOMEBREW_PREFIX + relative_src
       dst.extend ObserverPathnameExtension
 
       if src.symlink? || src.file?
         Find.prune if File.basename(src) == ".DS_Store"
-        Find.prune if src.resolved_path == dst
+        resolved_src = src.resolved_path
+        Find.prune if resolved_src == dst
+        # Skip symlinks where the source is located in another keg at the same
+        # relative path. Split formulae (e.g. llvm + flang) can use these when
+        # their binaries need to find files at a specific relative path.
+        Find.prune if resolved_src.fnmatch?("#{HOMEBREW_PREFIX}/opt/*/#{relative_src}", File::FNM_PATHNAME)
         # Don't link pyc or pyo files because Python overwrites these
         # cached object files and next time brew wants to link, the
         # file is in the way.
