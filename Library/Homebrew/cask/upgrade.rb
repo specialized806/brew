@@ -297,14 +297,20 @@ module Cask
         new_cask:               Cask,
         old_signing_identities: T::Hash[String, T.nilable(Quarantine::SigningIdentity)],
         old_user_approved:      T::Hash[String, T::Boolean],
+        old_unquarantined:      T::Hash[String, T::Boolean],
       ).returns(Symbol)
     }
-    def self.quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
+    def self.quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved,
+                                         old_unquarantined)
       old_app_artifacts = old_cask.artifacts.grep(Artifact::App)
       new_app_artifacts = new_cask.artifacts.grep(Artifact::App)
       return :skip if old_app_artifacts.empty? || old_app_artifacts.length != new_app_artifacts.length
       return :unapproved unless old_app_artifacts.all? do |artifact|
-        old_user_approved.fetch(artifact.target.to_s, false)
+        # An app with no quarantine attribute already launches without a Gatekeeper prompt, so carry
+        # that state forward as well: an app whose own updater replaced the bundle should not cost the
+        # user a prompt at its next upgrade. The signing identity is still checked below.
+        old_user_approved.fetch(artifact.target.to_s, false) ||
+        old_unquarantined.fetch(artifact.target.to_s, false)
       end
 
       old_app_artifacts.each_with_index do |artifact, index|
@@ -402,6 +408,7 @@ module Cask
       old_signing_identities = T.let({}, T::Hash[String, T.nilable(Quarantine::SigningIdentity)])
       old_user_approved = T.let({}, T::Hash[String, T::Boolean])
       old_approved_paths = T.let({}, T::Hash[String, T::Array[String]])
+      old_unquarantined = T.let({}, T::Hash[String, T::Boolean])
 
       begin
         oh1 "Upgrading #{Formatter.identifier(old_cask)}"
@@ -425,6 +432,11 @@ module Cask
           old_user_approved[artifact.target.to_s] = user_approved
           # Only an already approved app has approvals to pass on, so skip the scan otherwise.
           old_approved_paths[artifact.target.to_s] = Quarantine.user_approved_paths(artifact.target) if user_approved
+          old_unquarantined[artifact.target.to_s] = if artifact.target.exist?
+            Quarantine.detect(artifact.target).blank?
+          else
+            false
+          end
           old_signing_identities[artifact.target.to_s] = Quarantine.signing_identity(artifact.target)
         end
 
@@ -440,8 +452,12 @@ module Cask
         new_artifacts_installed = true
 
         if Quarantine.available?
-          case quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved)
+          case quarantine_release_decision(old_cask, new_cask, old_signing_identities, old_user_approved,
+                                           old_unquarantined)
           when :release
+            if old_unquarantined.value?(true)
+              odebug "#{new_cask.token} wasn't quarantined so approving the new version to match."
+            end
             new_cask.artifacts.grep(Artifact::App).each do |artifact|
               Quarantine.inherit_user_approval!(
                 download_path:  artifact.target,
