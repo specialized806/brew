@@ -81,7 +81,7 @@ module Homebrew
 
           @apps = if (mas = package_manager_executable)
             `#{mas} list 2>/dev/null`.split("\n").filter_map do |app|
-              app_details = app.match(/\A\s*(?<id>\d+)\s+(?<name>.*?)\s+\((?<version>[\d.]*)\)\Z/)
+              app_details = app.match(/\A\s*(?<id>\d+)\s+(?<name>.*?)\s+\(?(?<version>[\d.]*)\)?\Z/)
               next if app_details.nil?
 
               id = app_details[:id]

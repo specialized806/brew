@@ -175,6 +175,34 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
         expect(dumper.apps).to eql(expected_app_details_array)
       end
     end
+
+    context "with the 8.0.0+ format" do
+      let(:new_mas_output) do
+        <<~HEREDOC
+          1440147259  AdGuard for Safari  1.9.13
+           497799835  Xcode               12.5
+           425424353  The Unarchiver      4.3.1
+        HEREDOC
+      end
+
+      let(:expected_app_details_array) do
+        [
+          ["1440147259", "AdGuard for Safari"],
+          ["497799835", "Xcode"],
+          ["425424353", "The Unarchiver"],
+        ]
+      end
+
+      before do
+        described_class.reset!
+        allow(described_class).to receive_messages(package_manager_executable: Pathname.new("mas"),
+                                                   "`":                        new_mas_output)
+      end
+
+      it "parses the app versions without parentheses" do
+        expect(dumper.apps).to eql(expected_app_details_array)
+      end
+    end
   end
 
   describe "installing" do
