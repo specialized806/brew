@@ -227,6 +227,9 @@ module Downloadable
     false
   end
 
+  sig { overridable.returns(T.nilable(Pathname)) }
+  def staged_path_from_download_queue; end
+
   sig { overridable.params(_download: Pathname, pour: T::Boolean).void }
   def stage_from_download_queue(_download, pour:); end
 

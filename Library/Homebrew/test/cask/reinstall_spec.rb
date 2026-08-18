@@ -22,7 +22,7 @@ RSpec.describe Cask::Reinstall, :cask do
 
     expect do
       described_class.reinstall_casks(Cask::CaskLoader.load("local-caffeine"))
-    end.to output(output).to_stdout.and output(/==> Fetching downloads for:.*caffeine/).to_stderr
+    end.to output(output).to_stdout.and output(/==> Downloading Cask files/).to_stderr
   end
 
   it "displays the reinstallation progress with zapping" do
@@ -44,7 +44,7 @@ RSpec.describe Cask::Reinstall, :cask do
 
     expect do
       described_class.reinstall_casks(Cask::CaskLoader.load("local-caffeine"), zap: true)
-    end.to output(output).to_stdout.and output(/==> Fetching downloads for:.*caffeine/).to_stderr
+    end.to output(output).to_stdout.and output(/==> Downloading Cask files/).to_stderr
   end
 
   it "allows reinstalling a Cask" do
@@ -67,12 +67,14 @@ RSpec.describe Cask::Reinstall, :cask do
     allow(failing_installer).to receive(:prelude)
     allow(failing_installer).to receive(:source_download_requires_pre_fetch?).and_return(false)
     allow(failing_installer).to receive(:enqueue_downloads)
+    allow(failing_installer).to receive(:enqueue_dependency_downloads)
     allow(failing_installer).to receive(:install).and_raise(Cask::CaskError.new("reinstall failed"))
 
     successful_installer = instance_double(Cask::Installer)
     allow(successful_installer).to receive(:prelude)
     allow(successful_installer).to receive(:source_download_requires_pre_fetch?).and_return(false)
     allow(successful_installer).to receive(:enqueue_downloads)
+    allow(successful_installer).to receive(:enqueue_dependency_downloads)
 
     allow(Cask::Installer).to receive(:new).and_return(failing_installer, successful_installer)
 
@@ -84,6 +86,7 @@ RSpec.describe Cask::Reinstall, :cask do
   it "reinstalls casks after an earlier failure in the same run" do
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     installer = instance_double(Cask::Installer, prelude: nil, enqueue_downloads: nil,
+                                                 enqueue_dependency_downloads: nil,
                                                  source_download_requires_pre_fetch?: false)
     allow(Cask::Installer).to receive(:new).and_return(installer)
     # A failure earlier in the run (e.g. a formula in the same `brew reinstall`)

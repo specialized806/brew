@@ -494,6 +494,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
     it 'prefetches "auto_updates true" casks with quarantine until signed identity is checked' do
       installer = instance_double(Cask::Installer, check_requirements: nil, enqueue_downloads: nil,
+                                                   enqueue_dependency_downloads: nil,
                                                    source_download_requires_pre_fetch?: false)
 
       expect(Cask::Installer).to receive(:new) do |cask, **|
@@ -934,7 +935,8 @@ RSpec.describe Cask::Upgrade, :cask do
       summary_upgrades = []
       upgraded_tokens = []
       incompatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
-      compatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
+      compatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false,
+                                                              enqueue_dependency_downloads:        nil)
 
       allow(incompatible_installer).to receive(:check_requirements)
         .and_raise(Cask::CaskError, "local-caffeine: This cask does not run on macOS versions older than Tahoe.")

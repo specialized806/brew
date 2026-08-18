@@ -266,9 +266,16 @@ module Homebrew
     attr_reader :disk_cleanup_size
 
     sig {
-      params(args: String, dry_run: T::Boolean, scrub: T::Boolean, days: T.nilable(Integer), cache: Pathname).void
+      params(
+        args:    String,
+        dry_run: T::Boolean,
+        scrub:   T::Boolean,
+        days:    T.nilable(Integer),
+        cache:   Pathname,
+        output:  T.any(IO, StringIO),
+      ).void
     }
-    def initialize(*args, dry_run: false, scrub: false, days: nil, cache: HOMEBREW_CACHE)
+    def initialize(*args, dry_run: false, scrub: false, days: nil, cache: HOMEBREW_CACHE, output: $stdout)
       @disk_cleanup_size = T.let(0, Integer)
       @args = args
       @dry_run = dry_run
@@ -276,6 +283,7 @@ module Homebrew
       @prune = T.let(days.present?, T::Boolean)
       @days = T.let(days || Homebrew::EnvConfig.cleanup_max_age_days.to_i, Integer)
       @cache = cache
+      @output = output
       @cleaned_up_paths = T.let(Set.new, T::Set[Pathname])
       @formula_cache_paths = T.let(nil, T.nilable(T::Hash[String, T::Array[Pathname]]))
     end
@@ -337,6 +345,42 @@ module Homebrew
       ohai "Running `brew cleanup #{formula}`..."
       puts_no_install_cleanup_disable_message_if_not_already!
       Cleanup.new.cleanup_formula(formula)
+    end
+
+    sig { params(formulae: T::Array[Formula], casks: T::Array[Cask::Cask]).void }
+    def self.install_clean!(formulae: [], casks: [])
+      return if Homebrew::EnvConfig.no_install_cleanup?
+
+      formulae = install_cleanup_formulae(formulae).uniq(&:full_name)
+      casks = casks.uniq(&:full_name)
+      packages = T.let(formulae + casks, T::Array[T.any(Formula, Cask::Cask)])
+      return if packages.empty?
+
+      cleanup_output = Utils.parallel_map(packages) do |package|
+        output = StringIO.new
+        cleanup = Cleanup.new(output:)
+        name = case package
+        when Formula
+          cleanup.cleanup_formula(package, quiet: true, cache_db: false, cleanup_unreferenced: false)
+          package.full_specified_name
+        when Cask::Cask
+          cleanup.cleanup_cask(package, cleanup_unreferenced: false)
+          package.full_name
+        else
+          T.absurd(package)
+        end
+        [name, output.string]
+      end
+
+      Cleanup.new.cleanup_cache_db if formulae.present?
+      Cleanup.new.cleanup_unreferenced_downloads
+
+      oh1 "Cleanup"
+      cleanup_output.each do |name, output|
+        ohai name
+        print output
+      end
+      puts_no_install_cleanup_disable_message_if_not_already!
     end
 
     sig { void }
@@ -405,6 +449,12 @@ module Homebrew
           # Don't `cleanup_unreferenced` here for each formula.
           # Instead, let it be run once `cleanup_cache` below.
           cleanup_formula(formula, quiet:, ds_store: false, cache_db: false, cleanup_unreferenced: false)
+        end
+
+        if periodic
+          Cask::Caskroom.casks.sort_by(&:full_name).each do |cask|
+            cleanup_cask(cask, ds_store: false, cleanup_legacy_downloads: false, cleanup_unreferenced: false)
+          end
         end
 
         if ENV["HOMEBREW_AUTOREMOVE"].present?
@@ -513,11 +563,18 @@ module Homebrew
       cleanup_lockfiles(FormulaLock.new(formula.name).path)
     end
 
-    sig { params(cask: Cask::Cask, ds_store: T::Boolean).void }
-    def cleanup_cask(cask, ds_store: true)
+    sig {
+      params(
+        cask:                     Cask::Cask,
+        ds_store:                 T::Boolean,
+        cleanup_legacy_downloads: T::Boolean,
+        cleanup_unreferenced:     T::Boolean,
+      ).void
+    }
+    def cleanup_cask(cask, ds_store: true, cleanup_legacy_downloads: true, cleanup_unreferenced: true)
       cleanup_cache_entries(Pathname.glob(cache/"Cask/#{cask.token}--*"), type: :cask, cleanup_unreferenced: false)
-      cleanup_legacy_cask_downloads([cask])
-      cleanup_unreferenced_downloads
+      cleanup_legacy_cask_downloads([cask]) if cleanup_legacy_downloads
+      cleanup_unreferenced_downloads if cleanup_unreferenced
 
       rm_ds_store([cask.caskroom_path]) if ds_store
       cleanup_lockfiles(CaskLock.new(cask.token).path)
@@ -700,9 +757,9 @@ module Homebrew
       @disk_cleanup_size += path.disk_usage
 
       if dry_run?
-        puts "Would remove: #{path} (#{path.abv})"
+        @output.puts "Would remove: #{path} (#{path.abv})"
       else
-        puts "Removing: #{path}... (#{path.abv})"
+        @output.puts "Removing: #{path}... (#{path.abv})"
         yield
       end
     end

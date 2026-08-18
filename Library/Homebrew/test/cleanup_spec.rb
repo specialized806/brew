@@ -27,6 +27,30 @@ RSpec.describe Homebrew::Cleanup do
     FileUtils.rm_rf HOMEBREW_LIBRARY/"Homebrew"
   end
 
+  describe "::install_clean!" do
+    it "cleans formulae and casks in parallel before reporting them", :cask do
+      formula = Testball.new
+      cask = Cask::Cask.new("local-caffeine")
+
+      allow(described_class).to receive(:install_cleanup_formulae).with([formula]).and_return([formula])
+      expect(Utils).to receive(:parallel_map).with([formula, cask]).and_call_original
+      expect_any_instance_of(described_class).to receive(:cleanup_formula)
+        .with(formula, quiet: true, cache_db: false, cleanup_unreferenced: false)
+      expect_any_instance_of(described_class).to receive(:cleanup_cask)
+        .with(cask, cleanup_unreferenced: false)
+      expect_any_instance_of(described_class).to receive(:cleanup_cache_db).with(no_args)
+      expect_any_instance_of(described_class).to receive(:cleanup_unreferenced_downloads).with(no_args)
+
+      with_env(HOMEBREW_NO_ENV_HINTS: "1") do
+        expect { described_class.install_clean!(formulae: [formula], casks: [cask]) }.to output(<<~EOS).to_stdout
+          ==> Cleanup
+          ==> testball
+          ==> local-caffeine
+        EOS
+      end
+    end
+  end
+
   describe "::prune?" do
     subject(:path) { HOMEBREW_CACHE/"foo" }
 
@@ -46,6 +70,18 @@ RSpec.describe Homebrew::Cleanup do
   end
 
   describe "::cleanup" do
+    it "cleans installed casks during periodic cleanup", :cask do
+      cask = Cask::Cask.new("local-caffeine")
+      ENV["HOMEBREW_NO_AUTOREMOVE"] = "1"
+      allow(Formula).to receive(:installed).and_return([])
+      allow(Cask::Caskroom).to receive(:casks).and_return([cask])
+
+      expect(cleanup).to receive(:cleanup_cask)
+        .with(cask, ds_store: false, cleanup_legacy_downloads: false, cleanup_unreferenced: false)
+
+      cleanup.clean!(periodic: true)
+    end
+
     it "removes .DS_Store and lock files" do
       cleanup.clean!
 
