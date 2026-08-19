@@ -33,6 +33,32 @@ RSpec.describe Homebrew::Cmd::Bundle::CheckSubcommand, :no_api do
                                                            taps_to_tap:         nothing)
       expect { do_check }.not_to raise_error
     end
+
+    it "recognises installed casks alongside formulae", :cask, :integration_test do
+      allow(Formulary).to receive(:loader_for).and_call_original
+      setup_test_formula "testball", tab_attributes: { installed_on_request: true }
+
+      installed_caskfile = Cask::Caskroom.path/
+                           "local-caffeine/.metadata/1.2.3/20250101000000.000/Casks/local-caffeine.rb"
+      installed_caskfile.dirname.mkpath
+      FileUtils.cp cask_path("local-caffeine"), installed_caskfile
+
+      brewfile = mktmpdir/"Brewfile"
+      brewfile.write <<~RUBY
+        brew "testball", link: false
+        cask "local-caffeine"
+      RUBY
+
+      brew_env = {
+        "HOMEBREW_SORBET_RECURSIVE" => nil,
+        "HOMEBREW_SORBET_RUNTIME"   => nil,
+      }
+
+      expect { brew "bundle", "check", "--no-upgrade", "--verbose", "--file=#{brewfile}", brew_env }
+        .to output("The Brewfile's dependencies are satisfied.\n").to_stdout
+        .and not_to_output.to_stderr
+        .and be_a_success
+    end
   end
 
   context "when no dependencies are specified" do
