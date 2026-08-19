@@ -399,6 +399,94 @@ RSpec.describe Homebrew::CLI::Parser do
     end
   end
 
+  describe "formula options" do
+    subject(:parser) do
+      described_class.new(Cmd) do
+        formula_options
+      end
+    end
+
+    let(:api_cache) { mktmpdir }
+
+    before do
+      stub_const("Homebrew::API::HOMEBREW_CACHE_API", api_cache)
+      allow(Homebrew::EnvConfig).to receive(:no_install_from_api?).and_return(false)
+    end
+
+    it "does not inflate API-backed formulae" do
+      (api_cache/"formula_names.txt").write("foo\n")
+
+      expect(Formulary).not_to receive(:factory)
+      parser.parse(["foo"])
+    end
+
+    it "reads API cache files once for multiple formulae" do
+      (api_cache/"formula_names.txt").write("foo\n")
+      (api_cache/"formula_aliases.txt").write("bar|foo\n")
+      reads = Hash.new(0)
+      allow_any_instance_of(Pathname).to receive(:read).and_wrap_original do |method|
+        reads[method.receiver.basename.to_s] += 1
+        method.call
+      end
+
+      expect(Formulary).not_to receive(:factory)
+      parser.parse(%w[foo bar])
+      expect(reads).to eq("formula_names.txt" => 1, "formula_aliases.txt" => 1)
+    end
+
+    it "inflates API-backed formulae when commands access them" do
+      (api_cache/"formula_names.txt").write("foo\n")
+      full_formula = formula "foo", path: api_cache/"foo.rb", tap: Tap.fetch("user/repo") do
+        url "https://brew.sh/foo-1.0.tar.gz"
+        version "1.0"
+      end
+
+      expect(Formulary).to receive(:factory).once.and_return(full_formula)
+      expect(parser.parse(["foo"]).named.to_formulae).to eq([full_formula])
+    end
+
+    it "does not inflate API-backed formula aliases or renames" do
+      (api_cache/"formula_aliases.txt").write("foo-alias|foo\nfoo-old|foo\n")
+
+      expect(Formulary).not_to receive(:factory)
+      parser.parse(%w[foo-alias foo-old])
+    end
+
+    it "uses API metadata already loaded when the cache files are missing" do
+      allow(Homebrew::API::Internal).to receive(:formula_hashes_cached?).and_return(true)
+      allow(Homebrew::API).to receive_messages(formula_name?: false, formula_aliases: { "foo-alias" => "foo" },
+                                               formula_renames: { "foo-old" => "foo" })
+      allow(Homebrew::API).to receive(:formula_name?).with("foo").and_return(true)
+
+      expect(Formulary).not_to receive(:factory)
+      parser.parse(%w[foo foo-alias foo-old])
+    end
+
+    it "does not inflate a fully qualified core formula without API caches" do
+      allow(Homebrew::API::Internal).to receive(:formula_hashes_cached?).and_return(false)
+
+      expect(Formulary).not_to receive(:factory)
+      parser.parse(["homebrew/core/foo"])
+    end
+
+    it "inflates other formulae to parse their options" do
+      allow(Homebrew::API::Internal).to receive(:formula_hashes_cached?).and_return(false)
+      option = instance_double(Option, flag: "--with-foo", description: "Build with foo")
+      formula = instance_double(Formula, name: "foo", options: [option])
+
+      expect(Formulary).to receive(:factory).and_return(formula)
+      parser.parse(%w[foo --with-foo])
+    end
+
+    it "inflates formulae when API installs are disabled" do
+      allow(Homebrew::EnvConfig).to receive(:no_install_from_api?).and_return(true)
+      formula = instance_double(Formula, name: "foo", options: [])
+
+      expect(Formulary).to receive(:factory).and_return(formula)
+      parser.parse(["foo"])
+    end
+  end
+
   describe "usage banner generation" do
     it "includes `[options]` if more than two non-global options are available" do
       parser = described_class.new(Cmd) do
