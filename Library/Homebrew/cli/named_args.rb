@@ -204,6 +204,9 @@ module Homebrew
               tap.path
             else
               next Formulary.path(name) if only == :formula
+
+              require "cask/cask_loader"
+
               next Cask::CaskLoader.path(name) if only == :cask
 
               formula_path = Formulary.path(name)
@@ -376,6 +379,8 @@ module Homebrew
             warn_if_cask_conflicts(name, "formula")
             return formula_or_kegs
           else
+            require "cask/cask_loader"
+
             want_keg_like_cask = [:latest_kegs, :default_kegs, :kegs].include?(method)
 
             cask = begin
@@ -615,6 +620,19 @@ module Homebrew
 
       sig { params(ref: String, loaded_type: String).void }
       def warn_if_cask_conflicts(ref, loaded_type)
+        unless defined?(Cask::CaskLoader)
+          api_cask = !Homebrew::EnvConfig.no_install_from_api? &&
+                     (Homebrew::API.cask_token?(ref) || Homebrew::API.cask_renames.key?(ref) ||
+                      Homebrew::API.cask_tap_migrations.key?(ref))
+          tapped_cask = Tap.any? do |tap|
+            tap.cask_tokens.include?(ref) || tap.cask_renames.key?(ref) || tap.tap_migrations.key?(ref)
+          end
+          installed_cask = Cask::Caskroom.cask_installed?(ref)
+          return if !api_cask && !tapped_cask && !installed_cask
+
+          require "cask/cask_loader"
+        end
+
         available = true
         cask = begin
           Cask::CaskLoader.load(ref, warn: false)

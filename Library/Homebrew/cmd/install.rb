@@ -3,15 +3,9 @@
 
 require "abstract_command"
 require "cask/config"
-require "cask/installer"
-require "cask/upgrade"
-
-require "cask_dependent"
-require "missing_formula"
-require "formula_installer"
+require "formula"
 require "development_tools"
-require "install"
-require "upgrade"
+require "install/check"
 require "trust"
 
 module Homebrew
@@ -221,14 +215,17 @@ module Homebrew
         new_casks = T.let([], T::Array[Cask::Cask])
         upgrade_casks = T.let([], T::Array[Cask::Cask])
         fetch_casks = T.let([], T::Array[Cask::Cask])
-        prefetched_cask_installers = T.let([], T::Array[Cask::Installer])
         if casks.any?
+          require "cask/installer"
+          require "cask/upgrade"
+          require "install"
+
+          prefetched_cask_installers = T.let([], T::Array[Cask::Installer])
+
           if args.dry_run?
             Install.print_dry_run_casks(casks, skip_cask_deps: args.skip_cask_deps?, include_installed: false)
             return
           end
-
-          require "cask/installer"
 
           installed_casks, new_casks = casks.partition(&:installed?)
 
@@ -242,6 +239,7 @@ module Homebrew
         end
 
         if Homebrew::EnvConfig.verify_attestations?
+          require "attestation"
           formulae = Homebrew::Attestation.sort_formulae_for_install(formulae)
         end
 
@@ -275,6 +273,8 @@ module Homebrew
         end
 
         return if formulae.any? && installed_formulae.empty? && casks.empty?
+
+        require "install"
 
         formulae_installer = Install.formula_installers(
           installed_formulae,
@@ -381,7 +381,7 @@ module Homebrew
                                  Homebrew::DownloadQueue)
           shared_download_queue = nil
           begin
-            unless ask
+            if !ask && upgrade_casks.any?
               Cask::Upgrade.show_upgrade_summary(
                 upgrade_casks.map { |cask| "#{cask.full_name} #{cask.installed_version} -> #{cask.version}" },
               )
@@ -453,7 +453,7 @@ module Homebrew
         )
 
         installed_or_upgraded_casks = T.let([], T::Array[Cask::Cask])
-        if casks.any?
+        if prefetched_cask_installers
           new_casks.each do |cask|
             installer = prefetched_cask_installers.find { |candidate| candidate.cask.equal?(cask) }
             installer ||= Cask::Installer.new(
@@ -527,6 +527,7 @@ module Homebrew
 
         opoo e
 
+        require "missing_formula"
         reason = MissingFormula.reason(name, silent: true)
         if !args.cask? && reason
           $stderr.puts reason

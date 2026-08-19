@@ -2,12 +2,29 @@
 # frozen_string_literal: true
 
 require "cmd/install"
+Warnings.ignore(/circular require considered harmful/) { require "install" }
+require "cask/installer"
+require "cask/upgrade"
 require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::InstallCmd do
   include FileUtils
 
   it_behaves_like "parseable arguments"
+
+  it "defers full installers and the cask implementation at command load" do
+    stdout, stderr, status = Open3.capture3(
+      *HOMEBREW_RUBY_EXEC_ARGS,
+      "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
+      "-rglobal", "-rcmd/install",
+      "-e", <<~RUBY
+        deferred = %w[cask/cask.rb formula_installer.rb install.rb].map { |path| HOMEBREW_LIBRARY_PATH/path }
+        puts $LOADED_FEATURES & deferred.map(&:to_s)
+      RUBY
+    )
+
+    expect([stdout, stderr, status.success?]).to eq(["", "", true])
+  end
 
   it "prints a formula dry-run plan when asking" do
     added = formula("added") do

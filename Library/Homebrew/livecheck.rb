@@ -3,7 +3,7 @@
 
 require "livecheck/constants"
 require "livecheck/options"
-require "cask/cask"
+require "cask/cask_base"
 
 # The {Livecheck} class implements the DSL methods used in a formula's, cask's
 # or resource's `livecheck` block and stores related instance variables. Most

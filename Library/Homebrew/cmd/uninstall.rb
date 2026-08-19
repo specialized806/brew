@@ -130,7 +130,10 @@ module Homebrew
           opoo "`$HOMEBREW_AUTOREMOVE` is now a no-op as it is the default behaviour. " \
                "Set `HOMEBREW_NO_AUTOREMOVE=1` to disable it."
         end
-        Cleanup.autoremove unless Homebrew::EnvConfig.no_autoremove?
+        unless Homebrew::EnvConfig.no_autoremove?
+          require "cleanup"
+          Cleanup.autoremove
+        end
 
         unavailable_errors.each { |e| ofail e } unless args.force?
       end
