@@ -71,7 +71,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
       .ordered
     expect(Homebrew::Cleanup).to receive(:periodic_clean!).ordered
     expect(Homebrew.messages).to receive(:display_messages)
-      .with(display_times: false)
+      .with(force_caveats: true, display_times: false)
       .ordered
 
     cmd.run
@@ -182,7 +182,7 @@ RSpec.describe Homebrew::Cmd::Reinstall do
       .ordered
     expect(Homebrew::Cleanup).to receive(:periodic_clean!).ordered
     expect(Homebrew.messages).to receive(:display_messages)
-      .with(display_times: false)
+      .with(force_caveats: true, display_times: false)
       .ordered
 
     cmd.run

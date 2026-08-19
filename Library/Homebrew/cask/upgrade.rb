@@ -423,9 +423,7 @@ module Cask
         # Start new cask's installation steps
         new_cask_installer.prelude
 
-        if (caveats = new_cask_installer.caveats)
-          puts caveats
-        end
+        new_cask_installer.record_caveats
 
         new_cask_installer.fetch
 

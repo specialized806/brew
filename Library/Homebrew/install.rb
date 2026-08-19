@@ -9,6 +9,8 @@ require "development_tools"
 require "upgrade"
 require "download_queue"
 require "ask"
+require "cleanup"
+require "messages"
 require "utils/output"
 require "utils/topological_hash"
 
@@ -506,6 +508,20 @@ module Homebrew
           ofail "#{cask_installer.cask}: #{e}"
         end
         downloads_succeeded
+      end
+
+      sig {
+        params(
+          formulae:      T::Array[Formula],
+          casks:         T::Array[Cask::Cask],
+          dry_run:       T::Boolean,
+          display_times: T::Boolean,
+        ).void
+      }
+      def finish_installation(formulae:, casks:, dry_run: false, display_times: false)
+        Cleanup.install_clean!(formulae:, casks:) unless dry_run
+        Cleanup.periodic_clean!(dry_run:)
+        Homebrew.messages.display_messages(force_caveats: true, display_times:)
       end
 
       sig {

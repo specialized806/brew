@@ -4,10 +4,8 @@
 require "abstract_command"
 require "formula_installer"
 require "development_tools"
-require "messages"
 require "install"
 require "reinstall"
-require "cleanup"
 require "cask/utils"
 require "cask/installer"
 require "cask/reinstall"
@@ -351,10 +349,11 @@ module Homebrew
 
         unavailable_errors.each { |e| ofail e }
 
-        Cleanup.install_clean!(formulae: reinstalled_formulae, casks: reinstalled_casks)
-        Cleanup.periodic_clean!
-
-        Homebrew.messages.display_messages(display_times: args.display_times?)
+        Install.finish_installation(
+          formulae:      reinstalled_formulae,
+          casks:         reinstalled_casks,
+          display_times: args.display_times?,
+        )
       end
     end
   end

@@ -115,15 +115,22 @@ module Cask
     def self.caveats(cask)
       odebug "Printing caveats"
 
-      caveats = cask.caveats
-      return if caveats.empty?
-
-      Homebrew.messages.record_caveats(cask.token, caveats)
+      caveats = record_caveats(cask)
+      return unless caveats
 
       <<~EOS
         #{ohai_title "Caveats"}
         #{caveats}
       EOS
+    end
+
+    sig { params(cask: ::Cask::Cask).returns(T.nilable(String)) }
+    def self.record_caveats(cask)
+      caveats = cask.caveats
+      return if caveats.empty?
+
+      Homebrew.messages.record_caveats(cask.token, caveats)
+      caveats
     end
 
     sig { params(quiet: T.nilable(T::Boolean), timeout: T.nilable(T.any(Integer, Float))).void }
@@ -175,7 +182,7 @@ module Cask
 
       prelude
 
-      print caveats
+      record_caveats
       fetch
       uninstall_existing_cask if reinstall?
 
@@ -553,9 +560,9 @@ on_request: true)
       [cask_installers, formula_installers]
     end
 
-    sig { returns(T.nilable(String)) }
-    def caveats
-      self.class.caveats(@cask)
+    sig { void }
+    def record_caveats
+      self.class.record_caveats(@cask)
     end
 
     sig { returns(Pathname) }

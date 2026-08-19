@@ -11,7 +11,6 @@ require "missing_formula"
 require "formula_installer"
 require "development_tools"
 require "install"
-require "cleanup"
 require "upgrade"
 require "trust"
 
@@ -496,13 +495,12 @@ module Homebrew
           end
         end
 
-        unless args.dry_run?
-          Cleanup.install_clean!(formulae: installed_or_upgraded_formulae,
-                                 casks:    installed_or_upgraded_casks)
-        end
-        Cleanup.periodic_clean!(dry_run: args.dry_run?)
-
-        Homebrew.messages.display_messages(display_times: args.display_times?)
+        Install.finish_installation(
+          formulae:      installed_or_upgraded_formulae,
+          casks:         installed_or_upgraded_casks,
+          dry_run:       args.dry_run?,
+          display_times: args.display_times?,
+        )
       rescue FormulaUnreadableError, FormulaClassUnavailableError,
              TapFormulaUnreadableError, TapFormulaClassUnavailableError => e
         require "utils/backtrace"

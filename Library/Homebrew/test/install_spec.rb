@@ -101,6 +101,23 @@ RSpec.describe Homebrew::Install do
     end
   end
 
+  describe "::finish_installation" do
+    it "cleans packages before reporting caveats" do
+      formula = instance_double(Formula)
+      cask = instance_double(Cask::Cask)
+
+      expect(Homebrew::Cleanup).to receive(:install_clean!)
+        .with(formulae: [formula], casks: [cask])
+        .ordered
+      expect(Homebrew::Cleanup).to receive(:periodic_clean!).with(dry_run: false).ordered
+      expect(Homebrew.messages).to receive(:display_messages)
+        .with(force_caveats: true, display_times: true)
+        .ordered
+
+      described_class.finish_installation(formulae: [formula], casks: [cask], display_times: true)
+    end
+  end
+
   describe "::enqueue_cask_installers" do
     it "fetches source API downloads before enqueueing cask downloads" do
       source_download = instance_double(Homebrew::API::SourceDownload)
