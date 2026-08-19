@@ -35,6 +35,7 @@ module RuboCop
           libxcrypt
           libxml2
           libxslt
+          lldb
           llvm
           lsof
           m4
