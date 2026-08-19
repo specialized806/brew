@@ -270,6 +270,7 @@ module Homebrew
           odie "Found Ruby files in wrong directory:\n#{ruby_files_in_wrong_directory.join("\n")}"
         end
 
+        require "cask/cask_loader"
         cask_files_to_check = if cask_names.any?
           cask_names.map do |cask_name|
             Cask::CaskLoader.find_cask_in_tap(cask_name, tap).relative_path_from(tap.path)
