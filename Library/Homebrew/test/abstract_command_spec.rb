@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -23,7 +23,7 @@ RSpec.describe Homebrew::AbstractCommand do
       end
 
       it "allows access to args" do
-        expect(TestCat.new(["--bar", "baz"]).args.bar).to eq("baz")
+        expect(TestCat.new(["--bar", "baz"]).args).to have_attributes(bar: "baz")
       end
 
       it "raises on invalid args" do
@@ -68,7 +68,9 @@ RSpec.describe Homebrew::AbstractCommand do
           filename = File.basename(file, ".rb")
           require(file)
           command = described_class.command(filename)
-          expect(Pathname(File.join(__dir__, "../#{dir}/#{command.command_name}.rb"))).to exist
+          expect(command).not_to be_nil, "No command found for #{filename}"
+
+          expect(Pathname(File.join(__dir__, "../#{dir}/#{command&.command_name}.rb"))).to exist
         end
       end
     end

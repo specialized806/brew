@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -19,7 +19,10 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
         resolves "CVE-2015-2305"
       end
     end
-    plain = formula("plain") { url "https://example.com/plain-1.0.tar.gz" }
+    plain = formula("plain") do
+      T.bind(self, T.class_of(Formula))
+      url "https://example.com/plain-1.0.tar.gz"
+    end
     [nvi, plain].each do |f|
       allow(f).to receive(:to_hash_with_variations)
         .and_return({ "patches" => f.serialized_patches, "variations" => {} })
@@ -104,7 +107,12 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
   describe "#first_fixed_version" do
     subject(:cmd) { described_class.new(["out"]) }
 
-    let(:current) { formula("x") { url "https://example.com/x-1.2.tar.gz" } }
+    let(:current) do
+      formula("x") do
+        T.bind(self, T.class_of(Formula))
+        url "https://example.com/x-1.2.tar.gz"
+      end
+    end
 
     def with_history(revisions)
       fv = instance_double(FormulaVersions)
