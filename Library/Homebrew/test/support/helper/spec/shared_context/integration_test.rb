@@ -74,6 +74,7 @@ module Test
           ENV.fetch("PATH"),
         ].compact.join(File::PATH_SEPARATOR)
 
+        env["HOMEBREW_AVOID_NESTED_SANDBOXING"] = "1"
         env.merge!(
           "PATH"                         => path,
           "HOMEBREW_PATH"                => path,
