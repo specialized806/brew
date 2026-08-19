@@ -65,6 +65,10 @@ module Cask
       @ran_prelude_fetch = T.let(false, T::Boolean)
       @ran_prelude = T.let(false, T::Boolean)
       @cask_and_formula_dependencies = T.let(nil, T.nilable(T::Array[T.any(Formula, ::Cask::Cask)]))
+      @dependency_cask_installers = T.let(nil, T.nilable(T::Array[Installer]))
+      @dependency_formula_installers = T.let(nil, T.nilable(T::Array[FormulaInstaller]))
+      @dependencies_enqueued = T.let(false, T::Boolean)
+      @download_failed = T.let(false, T::Boolean)
       @installed_uninstall_artifacts_missing = T.let(false, T::Boolean)
     end
 
@@ -76,6 +80,12 @@ module Cask
 
     sig { returns(T::Boolean) }
     def force? = @force
+
+    sig { returns(T::Boolean) }
+    def download_failed? = @download_failed
+
+    sig { void }
+    def download_failed! = @download_failed = true
 
     sig { returns(T::Boolean) }
     def installed_on_request? = @installed_on_request
@@ -153,6 +163,8 @@ module Cask
 
     sig { void }
     def install
+      raise CaskError, "Download failed for #{@cask}." if download_failed?
+
       start_time = Time.now
       odebug "Cask::Installer#install"
 
@@ -393,7 +405,7 @@ on_request: true)
     def check_arch_requirements
       return if @cask.depends_on.arch.nil?
 
-      @current_arch = T.let(@current_arch, T.nilable(T::Hash[Symbol, T.untyped]))
+      @current_arch = T.let(@current_arch, T.nilable(T::Hash[Symbol, T.nilable(T.any(Symbol, Integer))]))
       @current_arch ||= { type: Hardware::CPU.type, bits: Hardware::CPU.bits }
       return if @cask.depends_on.arch.any? do |arch|
         arch[:type] == @current_arch[:type] &&
@@ -438,6 +450,22 @@ on_request: true)
     end
 
     sig { void }
+    def enqueue_dependency_downloads
+      return unless installed_on_request?
+
+      cask_installers, formula_installers = dependency_installers(defer_fetch: true)
+      if cask_installers.any?
+        Homebrew::Install.enqueue_cask_installers(cask_installers,
+                                                  download_queue: @download_queue)
+      end
+      if formula_installers.any?
+        @dependency_formula_installers = Homebrew::Install.enqueue_formulae(formula_installers,
+                                                                            download_queue: @download_queue)
+      end
+      @dependencies_enqueued = true
+    end
+
+    sig { void }
     def satisfy_cask_and_formula_dependencies
       return unless installed_on_request?
 
@@ -453,15 +481,48 @@ on_request: true)
       end
 
       ohai "Installing dependencies: #{missing_formulae_and_casks.join(", ")}"
+      if skip_cask_deps?
+        missing_formulae_and_casks.grep(Cask).each do |dependency|
+          opoo "`--skip-cask-deps` is set; skipping installation of #{dependency}."
+        end
+      end
+
+      cask_installers, formula_installers = dependency_installers
+      if (failed_installer = cask_installers.find(&:download_failed?))
+        raise CaskError, "Dependency download failed for #{failed_installer.cask}."
+      end
+
+      cask_installers.reject { |installer| installer.cask.installed? }.each(&:install)
+      return if formula_installers.blank?
+
+      Homebrew::Install.perform_preinstall_checks_once
+      valid_formula_installers = if @dependencies_enqueued
+        Homebrew::Install.reject_failed_downloads(formula_installers, download_queue: @download_queue)
+      else
+        Homebrew::Install.fetch_formulae(formula_installers)
+      end
+      valid_formula_installers.each do |formula_installer|
+        next if formula_installer.formula.any_version_installed? && formula_installer.formula.optlinked?
+
+        formula_installer.install
+        formula_installer.finish
+      end
+    end
+
+    sig {
+      params(defer_fetch: T::Boolean)
+        .returns([T::Array[Installer], T::Array[FormulaInstaller]])
+    }
+    def dependency_installers(defer_fetch: false)
+      if @dependency_cask_installers && @dependency_formula_installers
+        return [@dependency_cask_installers, @dependency_formula_installers]
+      end
+
       cask_installers = T.let([], T::Array[Installer])
       formula_installers = T.let([], T::Array[FormulaInstaller])
-
-      missing_formulae_and_casks.each do |cask_or_formula|
+      missing_cask_and_formula_dependencies.each do |cask_or_formula|
         if cask_or_formula.is_a?(Cask)
-          if skip_cask_deps?
-            opoo "`--skip-cask-deps` is set; skipping installation of #{cask_or_formula}."
-            next
-          end
+          next if skip_cask_deps?
 
           cask_installers << Installer.new(
             cask_or_formula,
@@ -472,6 +533,8 @@ on_request: true)
             quiet:                quiet?,
             require_sha:          require_sha?,
             verbose:              verbose?,
+            download_queue:       @download_queue,
+            defer_fetch:,
           )
         else
           formula_installers << FormulaInstaller.new(
@@ -485,15 +548,9 @@ on_request: true)
         end
       end
 
-      cask_installers.each(&:install)
-      return if formula_installers.blank?
-
-      Homebrew::Install.perform_preinstall_checks_once
-      valid_formula_installers = Homebrew::Install.fetch_formulae(formula_installers)
-      valid_formula_installers.each do |formula_installer|
-        formula_installer.install
-        formula_installer.finish
-      end
+      @dependency_cask_installers = cask_installers
+      @dependency_formula_installers = formula_installers
+      [cask_installers, formula_installers]
     end
 
     sig { returns(T.nilable(String)) }

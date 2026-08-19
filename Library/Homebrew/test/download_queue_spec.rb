@@ -11,12 +11,13 @@ RSpec.describe Homebrew::DownloadQueue do
     instance_double(
       Downloadable,
       cached_download:,
-      checksum:               nil,
-      downloaded_and_valid?:  false,
-      downloader:             nil,
-      download_queue_message: "Bottle testball",
-      download_queue_name:    "testball",
-      download_queue_type:    "Bottle",
+      checksum:                        nil,
+      downloaded_and_valid?:           false,
+      downloader:                      nil,
+      download_queue_message:          "Bottle testball",
+      download_queue_name:             "testball",
+      download_queue_type:             "Bottle",
+      staged_path_from_download_queue: nil,
     )
   end
   let(:download_error) { DownloadError.new(downloadable, RuntimeError.new("network blew up")) }
@@ -341,6 +342,35 @@ RSpec.describe Homebrew::DownloadQueue do
 
     download_queue.enqueue(downloadable)
     download_queue.enqueue(downloadable, stage: true)
+    download_queue.fetch
+  end
+
+  it "stages duplicate downloads with the same destination once" do
+    staged_path = HOMEBREW_TEMP_CELLAR/"testball/0.1"
+    bottles = Array.new(2) do
+      instance_double(
+        Bottle,
+        cached_download:,
+        downloaded_and_valid?:           false,
+        downloader:                      nil,
+        download_queue_message:          "Bottle testball",
+        download_queue_name:             "testball",
+        download_queue_type:             "Bottle",
+        staged_path_from_download_queue: staged_path,
+      )
+    end
+    bottles.each do |bottle|
+      allow(bottle).to receive_messages(
+        downloaded!:                nil,
+        extracting!:                nil,
+        stage_from_download_queue?: true,
+      )
+    end
+    expect(retryable_download).to receive(:fetch).once.and_return(cached_download)
+    expect(bottles.first).to receive(:stage_from_download_queue).once
+    expect(bottles.second).not_to receive(:stage_from_download_queue)
+
+    bottles.each { |bottle| download_queue.enqueue(bottle, stage: true) }
     download_queue.fetch
   end
 

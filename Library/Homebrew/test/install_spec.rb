@@ -69,6 +69,19 @@ RSpec.describe Homebrew::Install do
   end
 
   describe "::install_formulae" do
+    it "returns installed formulae without cleaning them inline when cleanup is deferred" do
+      formula = formula("good-bottle") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      formula_installer = instance_double(FormulaInstaller, formula:)
+
+      expect(described_class).to receive(:install_formula).with(formula_installer, upgrade: false)
+      expect(Homebrew::Cleanup).not_to receive(:install_formula_clean!)
+
+      expect(described_class.install_formulae([formula_installer], cleanup: false)).to eq([formula])
+    end
+
     it "skips a formula whose install raises and continues with the rest" do
       bad_fi = instance_double(FormulaInstaller, formula: formula("bad-bottle") do
         T.bind(self, T.class_of(Formula))
@@ -89,13 +102,70 @@ RSpec.describe Homebrew::Install do
   end
 
   describe "::enqueue_cask_installers" do
+    it "fetches source API downloads before enqueueing cask downloads" do
+      source_download = instance_double(Homebrew::API::SourceDownload)
+      installer = instance_double(
+        Cask::Installer,
+        cask:                                instance_double(Cask::Cask),
+        enqueue_dependency_downloads:        nil,
+        enqueue_downloads:                   nil,
+        prelude_fetch_download:              source_download,
+        source_download_requires_pre_fetch?: true,
+      )
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [])
+
+      expect(download_queue).to receive(:enqueue).with(source_download).ordered
+      expect(download_queue).to receive(:fetch)
+        .with(only: Homebrew::API::SourceDownload, heading: "Downloading Cask files")
+        .ordered
+      expect(installer).to receive(:enqueue_downloads).ordered
+      expect(download_queue).to receive(:fetch)
+        .with(only: Cask::Download, heading: "Downloading Cask files")
+        .ordered
+
+      described_class.enqueue_cask_installers([installer], download_queue:)
+    end
+
+    it "marks a cask whose source API download fails" do
+      source_download = Homebrew::API::SourceDownload.new("https://brew.sh/cask.rb", nil)
+      installer = instance_double(
+        Cask::Installer,
+        cask:                                instance_double(Cask::Cask),
+        prelude_fetch_download:              source_download,
+        source_download_requires_pre_fetch?: true,
+      )
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [source_download])
+
+      allow(download_queue).to receive(:enqueue)
+      allow(download_queue).to receive(:fetch)
+      expect(installer).to receive(:download_failed!)
+      expect(installer).not_to receive(:enqueue_downloads)
+
+      expect(described_class.enqueue_cask_installers([installer], download_queue:)).to be(false)
+    end
+
+    it "enqueues dependencies after fetching primary cask downloads" do
+      cask = instance_double(Cask::Cask, to_s: "dependent-cask")
+      installer = instance_double(Cask::Installer, cask:, source_download_requires_pre_fetch?: false)
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [])
+
+      expect(installer).to receive(:enqueue_downloads).ordered
+      expect(download_queue).to receive(:fetch)
+        .with(only: Cask::Download, heading: "Downloading Cask files")
+        .ordered
+      expect(installer).to receive(:enqueue_dependency_downloads).ordered
+
+      described_class.enqueue_cask_installers([installer], download_queue:)
+    end
+
     it "skips casks whose enqueue raises and continues with the rest" do
       bad_cask = instance_double(Cask::Cask, to_s: "bad-cask")
       bad_installer = instance_double(Cask::Installer, cask:                                bad_cask,
                                                        source_download_requires_pre_fetch?: false)
       allow(bad_installer).to receive(:enqueue_downloads)
         .and_raise(URI::InvalidURIError, 'bad URI (is not URI?): "https://example.com/bad -cask.dmg"')
-      good_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
+      good_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false,
+                                                        enqueue_dependency_downloads:        nil)
       expect(good_installer).to receive(:enqueue_downloads)
 
       download_queue = Homebrew::DownloadQueue.new(pour: true)

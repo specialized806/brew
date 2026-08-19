@@ -274,7 +274,7 @@ class Bottle
   sig { returns(Filename) }
   def filename = Filename.new(@name, @pkg_version, @tag, @spec.rebuild)
 
-  sig { returns(Pathname) }
+  sig { override.returns(Pathname) }
   def staged_path_from_download_queue
     bottle_filename = filename
     HOMEBREW_TEMP_CELLAR/bottle_filename.name/bottle_filename.version.to_s

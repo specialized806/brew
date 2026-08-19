@@ -748,6 +748,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       version:           "0.118.0",
     )
     installer = instance_double(Cask::Installer, check_requirements: nil, enqueue_downloads: nil,
+                                                 enqueue_dependency_downloads: nil,
                                                  source_download_requires_pre_fetch?: false)
 
     expect(Homebrew::DownloadQueue).to receive(:new).once.and_return(download_queue)
@@ -882,6 +883,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       Cask::Installer,
       check_requirements:                  nil,
       enqueue_downloads:                   nil,
+      enqueue_dependency_downloads:        nil,
       source_download_requires_pre_fetch?: true,
     )
     source_download = instance_double(Homebrew::API::SourceDownload)
@@ -903,6 +905,9 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     allow(Cask::Installer).to receive(:new).and_return(installer)
     expect(installer).to receive(:prelude_fetch_download).and_return(source_download)
     expect(download_queue).to receive(:enqueue).with(source_download).ordered
+    expect(download_queue).to receive(:fetch)
+      .with(only: Homebrew::API::SourceDownload, heading: "Downloading Cask files")
+      .ordered
     expect(download_queue).to receive(:fetch)
       .with(only: Cask::Download, heading: "Downloading Cask files")
       .ordered
@@ -986,6 +991,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       Cask::Installer,
       check_requirements:                  nil,
       enqueue_downloads:                   nil,
+      enqueue_dependency_downloads:        nil,
       source_download_requires_pre_fetch?: true,
     )
 
@@ -1006,8 +1012,11 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     allow(Cask::Installer).to receive(:new).and_return(installer)
     expect(installer).to receive(:prelude_fetch_download).and_return(nil)
     expect(download_queue).to receive(:fetch)
+      .with(only: Cask::Download, heading: "Downloading Cask files")
+      .ordered
+    expect(download_queue).to receive(:fetch)
       .with(heading: "Fetching downloads for: deno and codex")
-      .once
+      .ordered
     allow(Cask::Upgrade).to receive_messages(outdated_casks: [cask], upgrade_casks!: true)
     allow(Homebrew::Cleanup).to receive(:periodic_clean!)
     allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
@@ -1066,7 +1075,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       installed_version: "0.117.0",
       version:           "0.118.0",
     )
-    installer = instance_double(Cask::Installer, check_requirements: nil, enqueue_downloads: nil,
+    installer = instance_double(Cask::Installer, check_requirements: nil, downloader: nil,
+                                                 enqueue_downloads: nil, enqueue_dependency_downloads: nil,
                                                  source_download_requires_pre_fetch?: false)
 
     allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)

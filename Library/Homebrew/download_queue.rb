@@ -32,6 +32,7 @@ module Homebrew
       @spinner = T.let(nil, T.nilable(Spinner))
       @symlink_targets = T.let({}, T::Hash[Pathname, T::Set[Downloadable]])
       @downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
+      @staged_downloads_by_location = T.let({}, T::Hash[Pathname, Concurrent::Promises::Future])
       @cancelled = T.let(Concurrent::AtomicBoolean.new(false), Concurrent::AtomicBoolean)
       @active_threads = T.let(Concurrent::Set.new, Concurrent::Set)
       @failed_downloads = T.let([], T::Array[Downloadable])
@@ -81,19 +82,27 @@ module Homebrew
       end
 
       downloads[downloadable] = if stage
-        download.then_on(
-          pool, downloadable, pour, @cancelled
-        ) do |downloaded_path, queued_downloadable, queue_pour, cancelled|
-          with_active_thread do
-            raise CancelledDownloadError if cancelled.true?
+        stage_download = lambda do
+          download.then_on(
+            pool, downloadable, pour, @cancelled
+          ) do |downloaded_path, queued_downloadable, queue_pour, cancelled|
+            with_active_thread do
+              raise CancelledDownloadError if cancelled.true?
 
-            if queued_downloadable.stage_from_download_queue?(downloaded_path, pour: queue_pour)
-              queued_downloadable.extracting!
-              queued_downloadable.stage_from_download_queue(downloaded_path, pour: queue_pour)
-              queued_downloadable.downloaded!
+              if queued_downloadable.stage_from_download_queue?(downloaded_path, pour: queue_pour)
+                queued_downloadable.extracting!
+                queued_downloadable.stage_from_download_queue(downloaded_path, pour: queue_pour)
+                queued_downloadable.downloaded!
+              end
+              downloaded_path
             end
-            downloaded_path
           end
+        end
+
+        if (staged_location = downloadable.staged_path_from_download_queue)
+          @staged_downloads_by_location[staged_location] ||= stage_download.call
+        else
+          stage_download.call
         end
       else
         download
@@ -301,9 +310,12 @@ module Homebrew
         # Keep unfetched downloads (and their location dedup entries) queued
         # for the next fetch.
         fetchable_downloads.each_key { |downloadable| downloads.delete(downloadable) }
+        fetched_staging = fetchable_downloads.each_value.to_set
+        @staged_downloads_by_location.delete_if { |_, future| fetched_staging.include?(future) }
       else
         downloads.clear
         @downloads_by_location.clear
+        @staged_downloads_by_location.clear
         @symlink_targets.clear
       end
     end

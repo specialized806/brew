@@ -458,13 +458,16 @@ module Homebrew
         "Fetching downloads for: #{combined_fetch_targets.to_sentence}"
       end
 
-      sig { params(cask_installers: T::Array[T.untyped], download_queue: Homebrew::DownloadQueue).void }
+      sig {
+        params(cask_installers: T::Array[Cask::Installer], download_queue: Homebrew::DownloadQueue)
+          .returns(T::Boolean)
+      }
       def enqueue_cask_installers(cask_installers, download_queue:)
-        source_downloads = []
+        source_download_installers = {}
         valid_cask_installers = cask_installers.select do |cask_installer|
           if cask_installer.source_download_requires_pre_fetch? &&
              (source_download = cask_installer.prelude_fetch_download)
-            source_downloads << source_download
+            source_download_installers[source_download] = cask_installer
           end
           true
         rescue => e
@@ -472,16 +475,37 @@ module Homebrew
           false
         end
 
-        if source_downloads.any?
-          source_downloads.each { |source_download| download_queue.enqueue(source_download) }
-          download_queue.fetch(only: Cask::Download, heading: "Downloading Cask files")
+        if source_download_installers.any?
+          source_download_installers.each_key { |source_download| download_queue.enqueue(source_download) }
+          download_queue.fetch(only: Homebrew::API::SourceDownload, heading: "Downloading Cask files")
         end
 
-        valid_cask_installers.each do |cask_installer|
+        failed_source_downloads = download_queue.failed_downloads.grep(Homebrew::API::SourceDownload)
+        failed_source_installers = failed_source_downloads.map do |download|
+          source_download_installers.fetch(download).tap(&:download_failed!)
+        end
+
+        valid_cask_installers.select! do |cask_installer|
+          next false if failed_source_installers.include?(cask_installer)
+
           cask_installer.enqueue_downloads
+          true
+        rescue => e
+          ofail "#{cask_installer.cask}: #{e}"
+          false
+        end
+
+        download_queue.fetch(only: Cask::Download, heading: "Downloading Cask files")
+        downloads_succeeded = failed_source_downloads.empty? && download_queue.failed_downloads.none?(Cask::Download)
+        valid_cask_installers.each do |cask_installer|
+          if !downloads_succeeded && download_queue.failed_downloads.include?(cask_installer.downloader)
+            cask_installer.download_failed!
+          end
+          cask_installer.enqueue_dependency_downloads
         rescue => e
           ofail "#{cask_installer.cask}: #{e}"
         end
+        downloads_succeeded
       end
 
       sig {
@@ -492,7 +516,8 @@ module Homebrew
                cc: T.nilable(String), git: T::Boolean, interactive: T::Boolean, keep_tmp: T::Boolean,
                debug_symbols: T::Boolean, force: T::Boolean, overwrite: T::Boolean, debug: T::Boolean,
                quiet: T::Boolean, verbose: T::Boolean, dry_run: T::Boolean,
-               dry_run_action: String, skip_post_install: T::Boolean, skip_link: T::Boolean).void
+               dry_run_action: String, skip_post_install: T::Boolean, skip_link: T::Boolean,
+               cleanup: T::Boolean).returns(T::Array[Formula])
       }
       def install_formulae(
         formula_installers,
@@ -517,10 +542,11 @@ module Homebrew
         dry_run: false,
         dry_run_action: "install",
         skip_post_install: false,
-        skip_link: false
+        skip_link: false,
+        cleanup: true
       )
         formulae_names_to_install = formula_installers.map { |fi| fi.formula.name }
-        return if formulae_names_to_install.empty?
+        return [] if formulae_names_to_install.empty?
 
         if dry_run
           ohai "Would #{dry_run_action} #{Utils.pluralize("formula", formulae_names_to_install.count,
@@ -532,14 +558,16 @@ module Homebrew
 
             print_dry_run_dependencies(fi.formula, fi.compute_dependencies, &:name)
           end
-          return
+          return []
         end
 
+        installed_formulae = T.let([], T::Array[Formula])
         formula_installers.each do |fi|
           formula = fi.formula
           upgrade = formula.linked? && formula.outdated? && !formula.head? && !Homebrew::EnvConfig.no_install_upgrade?
           install_formula(fi, upgrade:)
-          Cleanup.install_formula_clean!(formula)
+          Cleanup.install_formula_clean!(formula) if cleanup
+          installed_formulae << formula
         rescue BuildError
           # Reported (with analytics) by the global handler in `brew.rb`.
           raise
@@ -548,6 +576,7 @@ module Homebrew
           # from aborting the rest of the batch while still failing the run.
           ofail "#{fi.formula.full_specified_name}: #{e}"
         end
+        installed_formulae
       end
 
       sig {

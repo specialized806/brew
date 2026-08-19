@@ -910,6 +910,39 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
+  describe "#enqueue_dependency_downloads" do
+    it "reuses formula dependencies fetched before installation" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      dependency = formula("cask-dependency") do
+        url "https://brew.sh/cask-dependency-1.0.tar.gz"
+      end
+      queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [])
+      installer = described_class.new(cask, download_queue: queue)
+      allow(installer).to receive_messages(cask_and_formula_dependencies:         [dependency],
+                                           missing_cask_and_formula_dependencies: [dependency])
+      allow(dependency).to receive_messages(any_version_installed?: false, optlinked?: false)
+      formula_installers = nil
+
+      expect(Homebrew::Install).to receive(:enqueue_formulae) do |installers, download_queue:|
+        expect(download_queue).to equal(queue)
+        formula_installers = installers
+        installers
+      end
+      installer.enqueue_dependency_downloads
+      formula_installers&.each do |formula_installer|
+        allow(formula_installer).to receive(:install)
+        allow(formula_installer).to receive(:finish)
+      end
+      allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
+      expect(Homebrew::Install).not_to receive(:fetch_formulae)
+      expect(Homebrew::Install).to receive(:reject_failed_downloads)
+        .with(formula_installers, download_queue: queue)
+        .and_return(formula_installers)
+
+      installer.satisfy_cask_and_formula_dependencies
+    end
+  end
+
   describe "#load_installed_caskfile!" do
     it "uses recovered installed metadata before falling back to the current cask" do
       cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
