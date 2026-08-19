@@ -213,6 +213,7 @@ module Homebrew
       return unless @core_tap
       return unless @strict
 
+      require "missing_formula"
       problem "'#{name}' is not allowed in homebrew/core." if MissingFormula.disallowed_reason(name)
 
       if Formula.aliases.include? name

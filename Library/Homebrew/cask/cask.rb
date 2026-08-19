@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "bundle_version"
+require "cask/cask_base"
 require "cask/cask_loader"
 require "cask/config"
 require "cask/dsl"
@@ -14,7 +15,6 @@ require "trust"
 module Cask
   # An instance of a cask.
   class Cask
-    extend Forwardable
     extend APIHashable
     extend ::Utils::Output::Mixin
     include Metadata

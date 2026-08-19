@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "upgrade"
+require "install"
 require "formula_installer"
 require "dependency"
 require "keg"

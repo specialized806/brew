@@ -7,7 +7,6 @@ require "installed_dependents"
 require "stringio"
 
 require "formula"
-require "cask/cask_loader"
 
 module Homebrew
   # Helper class for cleaning up the Homebrew cache.
@@ -441,6 +440,8 @@ module Homebrew
 
     sig { params(quiet: T::Boolean, periodic: T::Boolean).void }
     def clean!(quiet: false, periodic: false)
+      require "cask/cask_loader"
+
       if args.empty?
         Formula.installed
                .sort_by(&:name)
