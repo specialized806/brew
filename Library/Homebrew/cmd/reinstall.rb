@@ -9,6 +9,7 @@ require "install"
 require "reinstall"
 require "cleanup"
 require "cask/utils"
+require "cask/installer"
 require "cask/reinstall"
 require "upgrade"
 require "api"
@@ -26,7 +27,7 @@ module Homebrew
           outdated dependents and dependents with broken linkage, respectively.
 
           Unless `$HOMEBREW_NO_INSTALL_CLEANUP` is set, `brew cleanup` will then be run for the
-          reinstalled formulae or, every 30 days, for all formulae.
+          reinstalled formulae and casks or, every 30 days, for all packages.
         EOS
         switch "-d", "--debug",
                description: "If brewing fails, open an interactive debugging session with access to IRB " \
@@ -165,6 +166,8 @@ module Homebrew
         end
         shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
         casks_prefetched = T.let(false, T::Boolean)
+        reinstalled_formulae = T.let([], T::Array[Formula])
+        prefetched_cask_installers = T.let([], T::Array[Cask::Installer])
 
         Install.ask_casks casks, action: "reinstallation", skip_cask_deps: args.skip_cask_deps? if ask
 
@@ -240,15 +243,33 @@ module Homebrew
             )
           end
 
-          valid_formula_installers = if casks.any?
-            shared_download_queue ||= Homebrew::DownloadQueue.new(pour: true)
-            download_queue = shared_download_queue
-            begin
-              valid_formula_installers = Install.enqueue_formulae(formulae_installers,
-                                                                  download_queue:)
+          dependent_formulae_installers = Upgrade.dependent_formula_installers(
+            dependants,
+            formulae,
+            flags:                      args.flags_only,
+            force_bottle:               args.force_bottle?,
+            build_from_source_formulae: args.build_from_source_formulae,
+            interactive:                args.interactive?,
+            keep_tmp:                   args.keep_tmp?,
+            debug_symbols:              args.debug_symbols?,
+            force:                      args.force?,
+            debug:                      args.debug?,
+            quiet:                      args.quiet?,
+            verbose:                    args.verbose?,
+          )
 
-              require "cask/installer"
-              fetch_cask_installers = casks.map do |cask|
+          shared_download_queue ||= Homebrew::DownloadQueue.new(pour: true)
+          download_queue = shared_download_queue
+          begin
+            all_formulae_installers = Install.enqueue_formulae(
+              (formulae_installers + dependent_formulae_installers).uniq { |fi| fi.formula.full_name },
+              download_queue:,
+            )
+            formulae_installers &= all_formulae_installers
+            dependent_formulae_installers &= all_formulae_installers
+
+            if casks.any?
+              prefetched_cask_installers = casks.map do |cask|
                 Cask::Installer.new(
                   cask,
                   binaries:       args.binaries?,
@@ -262,36 +283,28 @@ module Homebrew
                   defer_fetch:    true,
                 )
               end
-              Install.enqueue_cask_installers(fetch_cask_installers, download_queue:)
-              download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
-                formula_names: valid_formula_installers.map { |fi| fi.formula.name },
-                cask_names:    casks.map(&:full_name),
-              ))
-              casks_prefetched = true
-              Install.reject_failed_downloads(valid_formula_installers, download_queue:)
-            ensure
-              download_queue.shutdown
+              Install.enqueue_cask_installers(prefetched_cask_installers, download_queue:)
             end
-          elsif shared_download_queue
-            download_queue = shared_download_queue
-            begin
-              Install.fetch_formulae(formulae_installers,
-                                     download_queue:,
-                                     shutdown_download_queue: false)
-            ensure
-              download_queue.shutdown
-            end
-          else
-            Install.fetch_formulae(formulae_installers)
+
+            download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
+              formula_names: all_formulae_installers.map { |fi| fi.formula.name },
+              cask_names:    casks.map(&:full_name),
+            ))
+            casks_prefetched = casks.any?
+            all_formulae_installers = Install.reject_failed_downloads(all_formulae_installers, download_queue:)
+            formulae_installers &= all_formulae_installers
+            dependent_formulae_installers &= all_formulae_installers
+          ensure
+            download_queue.shutdown
           end
 
           # Reinstall everything that did download, rather than aborting the
           # whole run; the failures above still exit nonzero at the end.
           reinstall_contexts.each do |reinstall_context|
-            next unless valid_formula_installers.include?(reinstall_context.formula_installer)
+            next unless formulae_installers.include?(reinstall_context.formula_installer)
 
             Homebrew::Reinstall.reinstall_formula(reinstall_context)
-            Cleanup.install_formula_clean!(reinstall_context.formula)
+            reinstalled_formulae << reinstall_context.formula
           rescue BuildError
             # Reported (with analytics) by the global handler in `brew.rb`.
             raise
@@ -299,33 +312,37 @@ module Homebrew
             ofail "#{reinstall_context.formula.full_specified_name}: #{e}"
           end
 
-          Upgrade.upgrade_dependents(
+          reinstalled_formulae |= Upgrade.upgrade_dependents(
             dependants, formulae,
-            flags:                      args.flags_only,
-            force_bottle:               args.force_bottle?,
-            build_from_source_formulae: args.build_from_source_formulae,
-            interactive:                args.interactive?,
-            keep_tmp:                   args.keep_tmp?,
-            debug_symbols:              args.debug_symbols?,
-            force:                      args.force?,
-            debug:                      args.debug?,
-            quiet:                      args.quiet?,
-            verbose:                    args.verbose?
+            flags:                         args.flags_only,
+            force_bottle:                  args.force_bottle?,
+            build_from_source_formulae:    args.build_from_source_formulae,
+            interactive:                   args.interactive?,
+            keep_tmp:                      args.keep_tmp?,
+            debug_symbols:                 args.debug_symbols?,
+            force:                         args.force?,
+            debug:                         args.debug?,
+            quiet:                         args.quiet?,
+            verbose:                       args.verbose?,
+            cleanup:                       false,
+            prefetched_formula_installers: dependent_formulae_installers
           )
         end
 
+        reinstalled_casks = T.let([], T::Array[Cask::Cask])
         if casks.any?
           begin
-            Cask::Reinstall.reinstall_casks(
+            reinstalled_casks = Cask::Reinstall.reinstall_casks(
               *casks,
-              binaries:       args.binaries?,
-              verbose:        args.verbose?,
-              force:          args.force?,
-              require_sha:    args.require_sha?,
-              skip_cask_deps: args.skip_cask_deps?,
-              zap:            args.zap?,
-              skip_prefetch:  casks_prefetched,
-              download_queue: nil,
+              binaries:        args.binaries?,
+              verbose:         args.verbose?,
+              force:           args.force?,
+              require_sha:     args.require_sha?,
+              skip_cask_deps:  args.skip_cask_deps?,
+              zap:             args.zap?,
+              skip_prefetch:   casks_prefetched,
+              download_queue:  nil,
+              cask_installers: prefetched_cask_installers.presence,
             )
           rescue => e
             ofail e
@@ -334,6 +351,7 @@ module Homebrew
 
         unavailable_errors.each { |e| ofail e }
 
+        Cleanup.install_clean!(formulae: reinstalled_formulae, casks: reinstalled_casks)
         Cleanup.periodic_clean!
 
         Homebrew.messages.display_messages(display_times: args.display_times?)
