@@ -10,7 +10,18 @@ RSpec.describe RuboCop::Cop::Cask::UninstallWildcard, :config do
         url "https://example.com/foo.zip"
 
         uninstall quit: "*"
-                        ^^^ Include part of an ID alongside a wildcard, otherwise everything is matched.
+                        ^^^ Include at least 3 parts of an ID with a wildcard, e.g. `com.example.*`.
+      end
+    CASK
+  end
+
+  it "reports an offense when a wildcard has too little of an ID to match on" do
+    expect_offense(<<~CASK)
+      cask "foo" do
+        url "https://example.com/foo.zip"
+
+        uninstall quit: "com.a*"
+                        ^^^^^^^^ Include at least 3 parts of an ID with a wildcard, e.g. `com.example.*`.
       end
     CASK
   end
@@ -21,8 +32,8 @@ RSpec.describe RuboCop::Cop::Cask::UninstallWildcard, :config do
         url "https://example.com/foo.zip"
 
         uninstall signal: [
-          ["TERM", "*.*"],
-                   ^^^^^ Include part of an ID alongside a wildcard, otherwise everything is matched.
+          ["TERM", "*.*.*"],
+                   ^^^^^^^ Include at least 3 parts of an ID with a wildcard, e.g. `com.example.*`.
         ]
       end
     CASK
@@ -33,20 +44,31 @@ RSpec.describe RuboCop::Cop::Cask::UninstallWildcard, :config do
       cask "foo" do
         url "https://example.com/foo.zip"
 
-        zap launchctl: ["com.example.foo", "**"]
-                                           ^^^^ Include part of an ID alongside a wildcard, otherwise everything is matched.
+        zap launchctl: ["com.example.foo", "c*.a*"]
+                                           ^^^^^^^ Include at least 3 parts of an ID with a wildcard, e.g. `com.example.*`.
       end
     CASK
   end
 
-  it "reports no offenses when a wildcard includes part of an ID" do
+  it "reports no offenses when a wildcard includes enough of an ID" do
     expect_no_offenses(<<~CASK)
       cask "foo" do
         url "https://example.com/foo.zip"
 
-        uninstall quit:      "com.example.foo*",
-                  launchctl: "com.example.foo.*",
+        uninstall quit:      "com.hp.scan.*",
+                  launchctl: "*.com.example.foo.*",
                   signal:    [["TERM", "com.example.foo*"]]
+      end
+    CASK
+  end
+
+  it "reports no offenses for an interpolated ID" do
+    expect_no_offenses(<<~'CASK')
+      cask "foo" do
+        version "1.0"
+        url "https://example.com/foo.zip"
+
+        uninstall quit: "com.example.foo.#{version.major}*"
       end
     CASK
   end

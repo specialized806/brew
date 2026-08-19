@@ -1018,6 +1018,8 @@ brew list-installed-launchjob-ids
 A bundle ID may contain a `*` wildcard, which quits every running application whose bundle ID matches, e.g. `quit: "com.example.app*"` quits both `com.example.app` and `com.example.app.helper`.
 The wildcard must match the whole bundle ID, so `quit: "example.app*"` does not match `com.example.app`.
 Matching ignores case, as it does for an exact bundle ID, and `*` is the only special character.
+A wildcard needs at least three dot-separated parts of an ID to match on, so an overly broad pattern such as `com.*` is rejected by `brew style`.
+Wildcards match nothing when not logged into a GUI, as the list of running applications is unavailable.
 
 Bundle IDs for currently running applications can be listed using [`brew list-running-app-ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-running-app-ids.rb):
 
@@ -1037,7 +1039,7 @@ brew list-ids-in-app '/path/to/application.app'
 
 Bundle IDs for `signal:` targets may be obtained in the same way as for `quit:`. The value for `signal:` is an array of arrays, with each cell containing two elements: the desired Unix signal followed by the corresponding bundle ID.
 
-A bundle ID may contain a `*` wildcard, as it may for `quit:`, which signals every running process whose bundle ID matches.
+A bundle ID may contain a `*` wildcard, as it may for `quit:`, which signals the processes of every running application whose bundle ID matches.
 
 The Unix signal may be given in numeric or string form (see the `kill`(1) man page for more details).
 

@@ -174,6 +174,15 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
       artifact.uninstall_quit("com.example*", upgrade: true, command: fake_system_command)
     end
 
+    it "does not list running applications without a GUI" do
+      allow(User.current).to receive(:gui?).and_return(false)
+
+      expect(artifact).not_to receive(:running_bundle_ids)
+
+      expect { artifact.uninstall_quit("com.example.app*", upgrade: true, command: fake_system_command) }
+        .to output(/Not logged into a GUI/).to_stderr
+    end
+
     it "does not list running applications without a wildcard" do
       allow(artifact).to receive(:running?).and_return(false)
 

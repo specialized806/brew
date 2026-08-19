@@ -164,7 +164,7 @@ module Cask
 
       sig { params(search: String).returns(T::Array[String]) }
       def find_launchctl_with_wildcard(search)
-        regex = Regexp.escape(search).gsub("\\*", ".*")
+        regex = wildcard_pattern(search)
         system_command!("/bin/launchctl", args: ["list"])
           .stdout.lines.drop(1) # skip stdout column headers
           .filter_map do |line|
@@ -338,9 +338,23 @@ module Cask
       def expand_bundle_id(bundle_id)
         return [bundle_id] unless bundle_id.include?("*")
 
+        # Listing running applications needs a GUI session, so warn once for the
+        # pattern rather than enumerating and matching nothing.
+        unless T.must(User.current).gui?
+          opoo "Not logged into a GUI; skipping applications matching '#{bundle_id}'."
+          return []
+        end
+
         # Anchored so that e.g. `com.example*` cannot match `org.other.com.example`,
         # and case-insensitive because `Application()` resolves bundle IDs that way.
-        running_bundle_ids.grep(/\A#{Regexp.escape(bundle_id).gsub("\\*", ".*")}\z/i)
+        running_bundle_ids.grep(/\A#{wildcard_pattern(bundle_id)}\z/i)
+      end
+
+      # Translates a `*` wildcard into a regular expression fragment, leaving the
+      # rest of the ID literal. Anchoring and case are left to the caller.
+      sig { params(search: String).returns(String) }
+      def wildcard_pattern(search)
+        Regexp.escape(search).gsub("\\*", ".*")
       end
 
       sig { returns(T::Array[String]) }
@@ -386,15 +400,13 @@ module Cask
       }
       def uninstall_signal(*signals, command: nil, **_kwargs)
         signals = signals.flat_map do |pair|
-          next [pair] if pair.size != 2
+          raise CaskInvalidError.new(cask, "Each #{stanza} :signal must consist of 2 elements.") if pair.size != 2
 
           signal, bundle_id = pair
           expand_bundle_id(bundle_id).map { |expanded_id| [signal, expanded_id] }
         end
 
         signals.each do |pair|
-          raise CaskInvalidError.new(cask, "Each #{stanza} :signal must consist of 2 elements.") if pair.size != 2
-
           signal, bundle_id = pair
           ohai "Signalling '#{signal}' to application ID '#{bundle_id}'"
           pids = running_processes(bundle_id).map(&:first)
