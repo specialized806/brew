@@ -80,6 +80,23 @@ RSpec.describe Homebrew::Upgrade do
     end
   end
 
+  describe "::upgrade_formulae" do
+    it "can defer cleanup until the batch has finished installing" do
+      formula_installer = instance_double(FormulaInstaller, formula: Testball.new)
+
+      allow(described_class).to receive(:upgrade_formula).with(
+        formula_installer,
+        dry_run:            false,
+        verbose:            false,
+        skip_formula_names: [],
+      ).and_return(true)
+      expect(Homebrew::Cleanup).not_to receive(:install_formula_clean!)
+
+      expect(described_class.upgrade_formulae([formula_installer], fetch: false, cleanup: false))
+        .to eq([formula_installer])
+    end
+  end
+
   describe "::formula_installers" do
     it "explains when installed dependencies satisfy the bottle metadata" do
       dependent = formula("dependent") do
@@ -112,6 +129,33 @@ RSpec.describe Homebrew::Upgrade do
     end
   end
 
+  describe "::dependent_formula_installers" do
+    it "excludes primary formulae without a caveat mode option" do
+      primary = Testball.new
+      dependant = formula("dependant") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/dependant-2.0"
+      end
+      formula_installer = FormulaInstaller.new(dependant)
+      dependants = Homebrew::Upgrade::Dependents.new(
+        upgradeable: [primary, dependant], pinned: [], skipped: [],
+      )
+
+      expect(described_class).to receive(:formula_installers) do |formulae, **options|
+        expect(formulae).to eq([dependant])
+        expect(options).to include(flags: [], dependents: true)
+        expect(options).not_to have_key(:defer_caveats)
+        [formula_installer]
+      end
+
+      expect(described_class.dependent_formula_installers(
+               dependants,
+               [primary],
+               flags: [],
+             )).to eq([formula_installer])
+    end
+  end
+
   describe "::upgrade_dependents" do
     it "returns installed dependents unless they are primary formulae" do
       installed_dependent = formula("installed-dependent") do
@@ -129,6 +173,51 @@ RSpec.describe Homebrew::Upgrade do
 
       expect(described_class.upgrade_dependents(dependants, [primary_formula], flags: []))
         .to contain_exactly(installed_dependent)
+    end
+
+    it "installs prefetched dependants without fetching again" do
+      dependant = formula("dependant") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/dependant-2.0"
+      end
+      formula_installer = FormulaInstaller.new(dependant)
+      dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [dependant], pinned: [], skipped: [])
+
+      allow(FormulaInstaller).to receive(:installed).and_return(Set.new)
+      expect(described_class).not_to receive(:formula_installers)
+      expect(described_class).to receive(:filter_dependent_formula_installers)
+        .with([formula_installer])
+        .and_return([formula_installer])
+      expect(described_class).to receive(:upgrade_formulae)
+        .with([formula_installer], verbose: false, cleanup: false, fetch: false)
+        .and_return([formula_installer])
+
+      expect(described_class.upgrade_dependents(
+               dependants,
+               [],
+               flags:                         [],
+               cleanup:                       false,
+               prefetched_formula_installers: [formula_installer],
+             )).to eq([dependant])
+    end
+
+    it "rechecks prefetched dependants after primary formulae are installed" do
+      dependant = Testball.new
+      formula_installer = FormulaInstaller.new(dependant)
+      dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [dependant], pinned: [], skipped: [])
+
+      allow(FormulaInstaller).to receive(:installed).and_return(Set.new)
+      expect(described_class).to receive(:filter_dependent_formula_installers)
+        .with([formula_installer])
+        .and_return([])
+      expect(described_class).not_to receive(:upgrade_formulae)
+
+      expect(described_class.upgrade_dependents(
+               dependants,
+               [],
+               flags:                         [],
+               prefetched_formula_installers: [formula_installer],
+             )).to be_empty
     end
   end
 end

@@ -215,6 +215,24 @@ RSpec.describe Cask::Upgrade, :cask do
         )
       end
 
+      it "records upgraded casks without a caveat mode option" do
+        upgraded_casks = []
+
+        expect(described_class).to receive(:upgrade_cask) do |_, _, **options|
+          expect(options).not_to have_key(:defer_caveats)
+        end
+
+        described_class.upgrade_casks!(
+          local_caffeine,
+          upgraded_casks:,
+          skip_prefetch:        true,
+          show_upgrade_summary: false,
+          args:,
+        )
+
+        expect(upgraded_casks).to eq([local_caffeine])
+      end
+
       it "excludes pinned Casks" do
         local_caffeine.pin
         summary_pinned = []
@@ -493,17 +511,40 @@ RSpec.describe Cask::Upgrade, :cask do
     end
 
     it 'prefetches "auto_updates true" casks with quarantine until signed identity is checked' do
-      installer = instance_double(Cask::Installer, check_requirements: nil, enqueue_downloads: nil,
-                                                   enqueue_dependency_downloads: nil,
+      installer = instance_double(Cask::Installer, cask: auto_updates, check_requirements: nil,
+                                                   enqueue_downloads: nil, enqueue_dependency_downloads: nil,
                                                    source_download_requires_pre_fetch?: false)
 
       expect(Cask::Installer).to receive(:new) do |cask, **|
         expect(cask).to eq(auto_updates)
         installer
       end
-      expect(described_class).to receive(:upgrade_cask)
+      expect(described_class).to receive(:upgrade_cask) do |_, _, new_cask_installer:, **|
+        expect(new_cask_installer).to equal(installer)
+      end
 
       described_class.upgrade_casks!(auto_updates, show_upgrade_summary: false, args:)
+    end
+
+    it "retains installers in a caller-supplied prefetch collection" do
+      installer = Cask::Installer.allocate
+      prefetched_cask_installers = []
+      download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil)
+
+      allow(installer).to receive_messages(cask: auto_updates, check_requirements: nil)
+      allow(Cask::Installer).to receive(:new).and_return(installer)
+      allow(Homebrew::Install).to receive(:enqueue_cask_installers)
+      allow(described_class).to receive(:upgrade_cask)
+
+      described_class.upgrade_casks!(
+        auto_updates,
+        download_queue:,
+        prefetched_cask_installers:,
+        show_upgrade_summary:       false,
+        args:,
+      )
+
+      expect(prefetched_cask_installers).to eq([installer])
     end
 
     it "releases quarantine when Gatekeeper was already approved and identity matches" do
@@ -935,12 +976,14 @@ RSpec.describe Cask::Upgrade, :cask do
       summary_upgrades = []
       upgraded_tokens = []
       incompatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
-      compatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false,
-                                                              enqueue_dependency_downloads:        nil)
+      compatible_installer = instance_double(Cask::Installer, cask:                                local_transmission,
+                                                              enqueue_dependency_downloads:        nil,
+                                                              source_download_requires_pre_fetch?: false)
 
       allow(incompatible_installer).to receive(:check_requirements)
         .and_raise(Cask::CaskError, "local-caffeine: This cask does not run on macOS versions older than Tahoe.")
-      allow(compatible_installer).to receive_messages(check_requirements: nil, enqueue_downloads: nil)
+      allow(compatible_installer).to receive_messages(check_requirements: nil, enqueue_downloads: nil,
+                                                      enqueue_dependency_downloads: nil)
       allow(Cask::Installer).to receive(:new) do |cask, **|
         (cask.token == "local-caffeine") ? incompatible_installer : compatible_installer
       end
