@@ -48,6 +48,16 @@ module Tapioca
               return_type: "void",
             )
           end
+
+          OnSystem::ARCH_OPTIONS.each do |arch|
+            klass.create_method(
+              "on_#{arch}",
+              parameters:  [
+                create_block_param("block", type: "T.proc.bind(Cask::DSL).returns(T.anything)"),
+              ],
+              return_type: "T.anything",
+            )
+          end
         end
       end
 
