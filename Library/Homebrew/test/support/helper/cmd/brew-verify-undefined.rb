@@ -60,17 +60,18 @@ UNDEFINED_CONSTANTS = %w[
 ].freeze
 
 UNDEFINED_CONSTANTS_AFTER_REQUIRE = T.let({
-  "api"                           => %w[Base64 Concurrent Homebrew::DownloadQueue Plist],
-  "cask/artifact/pkg"             => %w[Plist],
-  "dev-cmd/formula-analytics"     => %w[InfluxDBClient3 PyCall],
-  "downloadable"                  => %w[Concurrent],
-  "extend/os/mac/extend/pathname" => %w[MachO],
-  "formula_cellar_checks"         => %w[Plist],
-  "keg"                           => %w[MachO],
-  "livecheck/livecheck"           => %w[Addressable],
-  "os/mac/xcode"                  => %w[Plist],
-  "service"                       => %w[Plist],
-  "services/cli"                  => %w[Plist],
+  "api"                             => %w[Base64 Concurrent Homebrew::DownloadQueue Plist],
+  "cask/artifact/pkg"               => %w[Plist],
+  "dev-cmd/formula-analytics"       => %w[InfluxDBClient3 PyCall],
+  "dev-cmd/generate-cask-ci-matrix" => %w[Cask::Cask Cask::CaskLoader],
+  "downloadable"                    => %w[Concurrent],
+  "extend/os/mac/extend/pathname"   => %w[MachO],
+  "formula_cellar_checks"           => %w[Plist],
+  "keg"                             => %w[MachO],
+  "livecheck/livecheck"             => %w[Addressable],
+  "os/mac/xcode"                    => %w[Plist],
+  "service"                         => %w[Plist],
+  "services/cli"                    => %w[Plist],
 }.freeze, T::Hash[String, T::Array[String]])
 
 module Homebrew
