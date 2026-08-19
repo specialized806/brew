@@ -70,6 +70,8 @@ module Cask
 
     sig { params(caskfile: Pathname).void }
     def self.migrate_caskfile_to_json(caskfile)
+      require "cask/cask_loader"
+
       # Parse regular installed JSON so current files can be skipped and useful URL data can survive repairs.
       token = CaskLoader.token_from_path(caskfile)
       installed_json_caskfile = CaskLoader.installed_json_caskfile?(caskfile)
@@ -225,6 +227,8 @@ module Cask
     # @api internal
     sig { params(config: T.nilable(Config)).returns(T::Array[Cask]) }
     def self.casks(config: nil)
+      require "cask/cask_loader"
+
       tokens.sort.filter_map do |token|
         # This is nested so that the rescue can catch errors from both branches
         begin
