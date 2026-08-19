@@ -87,6 +87,8 @@ module Cask
         ).void
       }
       def uninstall_quit(*bundle_ids, command: nil, upgrade: false, **_kwargs)
+        bundle_ids = bundle_ids.flat_map { |bundle_id| expand_bundle_id(bundle_id) }
+
         bundle_ids.each do |bundle_id|
           next unless running?(bundle_id)
 
@@ -310,6 +312,47 @@ module Cask
                                     print_stderr: true).status.success? || false
       end
 
+      RUNNING_BUNDLE_IDS_SCRIPT = <<~JAVASCRIPT
+        'use strict';
+
+        ObjC.import('AppKit')
+
+        function run() {
+          var apps = $.NSWorkspace.sharedWorkspace.runningApplications
+          var bundleIds = []
+
+          for (var i = 0; i < apps.count; i++) {
+            var bundleId = apps.objectAtIndex(i).bundleIdentifier
+            if (!bundleId.isNil()) {
+              bundleIds.push(ObjC.unwrap(bundleId))
+            }
+          }
+
+          return bundleIds.join("\\n")
+        }
+      JAVASCRIPT
+      private_constant :RUNNING_BUNDLE_IDS_SCRIPT
+
+      # Expands a `*` wildcard to the bundle IDs of matching running applications.
+      sig { params(bundle_id: String).returns(T::Array[String]) }
+      def expand_bundle_id(bundle_id)
+        return [bundle_id] unless bundle_id.include?("*")
+
+        # Anchored so that e.g. `com.example*` cannot match `org.other.com.example`,
+        # and case-insensitive because `Application()` resolves bundle IDs that way.
+        running_bundle_ids.grep(/\A#{Regexp.escape(bundle_id).gsub("\\*", ".*")}\z/i)
+      end
+
+      sig { returns(T::Array[String]) }
+      def running_bundle_ids
+        @running_bundle_ids ||= T.let(
+          system_command("osascript", args:         ["-l", "JavaScript", "-e", RUNNING_BUNDLE_IDS_SCRIPT],
+                                      print_stderr: true)
+            .stdout.split("\n").map(&:strip).reject(&:empty?),
+          T.nilable(T::Array[String]),
+        )
+      end
+
       sig { params(bundle_id: String).returns(SystemCommand::Result) }
       def quit(bundle_id)
         script = <<~JAVASCRIPT
@@ -342,6 +385,13 @@ module Cask
         params(signals: [String, String], command: T.nilable(T.class_of(SystemCommand)), _kwargs: T.anything).void
       }
       def uninstall_signal(*signals, command: nil, **_kwargs)
+        signals = signals.flat_map do |pair|
+          next [pair] if pair.size != 2
+
+          signal, bundle_id = pair
+          expand_bundle_id(bundle_id).map { |expanded_id| [signal, expanded_id] }
+        end
+
         signals.each do |pair|
           raise CaskInvalidError.new(cask, "Each #{stanza} :signal must consist of 2 elements.") if pair.size != 2
 

@@ -1015,6 +1015,10 @@ brew list-installed-launchjob-ids
 
 `quit:` sends the standard macOS quit Apple Event to the application (equivalent to Cmd+Q), which allows the app to present save dialogs before closing. It runs during both `brew uninstall` and `brew upgrade`/`brew reinstall`.
 
+A bundle ID may contain a `*` wildcard, which quits every running application whose bundle ID matches, e.g. `quit: "com.example.app*"` quits both `com.example.app` and `com.example.app.helper`.
+The wildcard must match the whole bundle ID, so `quit: "example.app*"` does not match `com.example.app`.
+Matching ignores case, as it does for an exact bundle ID, and `*` is the only special character.
+
 Bundle IDs for currently running applications can be listed using [`brew list-running-app-ids`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/cmd/list-running-app-ids.rb):
 
 ```bash
@@ -1032,6 +1036,8 @@ brew list-ids-in-app '/path/to/application.app'
 `signal:` should only be needed in the rare case that a process does not respond to `quit:`.
 
 Bundle IDs for `signal:` targets may be obtained in the same way as for `quit:`. The value for `signal:` is an array of arrays, with each cell containing two elements: the desired Unix signal followed by the corresponding bundle ID.
+
+A bundle ID may contain a `*` wildcard, as it may for `quit:`, which signals every running process whose bundle ID matches.
 
 The Unix signal may be given in numeric or string form (see the `kill`(1) man page for more details).
 
