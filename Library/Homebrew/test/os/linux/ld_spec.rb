@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "os/linux/ld"
@@ -61,9 +61,9 @@ RSpec.describe OS::Linux::Ld do
   end
 
   describe "::library_paths" do
-    ld_etc = Pathname("")
+    let(:ld_etc) { Pathname(Dir.mktmpdir("homebrew-tests-ld-etc-", Dir.tmpdir)) }
+
     before do
-      ld_etc = Pathname(Dir.mktmpdir("homebrew-tests-ld-etc-", Dir.tmpdir))
       FileUtils.mkdir [ld_etc/"subdir1", ld_etc/"subdir2"]
       (ld_etc/"ld.so.conf").write <<~EOS
         # This line is a comment

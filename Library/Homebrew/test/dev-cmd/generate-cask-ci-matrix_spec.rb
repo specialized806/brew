@@ -275,6 +275,31 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       .and raise_error(SystemExit)
   end
 
+  it "generates a cask matrix in a clean process", :cask, :integration_test, :no_api do
+    CoreCaskTap.instance.path.cd do
+      system "git", "init", "--quiet"
+      system "git", "-c", "user.name=Homebrew Tests", "-c", "user.email=tests@brew.sh",
+             "commit", "--quiet", "--allow-empty", "-m", "initial"
+      system "git", "branch", "origin"
+
+      # Run without the Sorbet runtime so this exercises the same `require` graph as
+      # a real `brew generate-cask-ci-matrix`, which loads fewer files.
+      brew_env = {
+        "CI"                        => "1",
+        "GITHUB_OUTPUT"             => nil,
+        "GITHUB_REPOSITORY"         => "Homebrew/homebrew-cask",
+        "HOMEBREW_SORBET_RECURSIVE" => nil,
+        "HOMEBREW_SORBET_RUNTIME"   => nil,
+      }
+
+      expect do
+        expect do
+          brew "generate-cask-ci-matrix", "--cask", "local-caffeine", brew_env
+        end.to be_a_success
+      end.to output(/"token": "local-caffeine"/).to_stdout
+    end
+  end
+
   describe "::filter_runners" do
     let(:arm_linux_runner) { OS::LINUX_CI_ARM_RUNNER }
     # We simulate a macOS version older than the newest, as the method will use

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/bottles"
@@ -53,9 +53,7 @@ RSpec.describe Utils::Bottles do
 
         runtime_dependencies = described_class.load_tab(formula).runtime_dependencies
 
-        expect(runtime_dependencies).not_to be_nil
-        expect(runtime_dependencies.size).to eq(1)
-        expect(runtime_dependencies.first).to include("full_name" => "testball1")
+        expect(runtime_dependencies).to contain_exactly(a_hash_including("full_name" => "testball1"))
       end
     end
   end

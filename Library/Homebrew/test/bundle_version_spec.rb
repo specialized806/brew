@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle_version"
@@ -41,7 +41,7 @@ RSpec.describe Homebrew::BundleVersion do
       ["2.5.2(3329)", "3329"] => "2.5.2,3329",
     }
 
-    expected_mappings.each do |(short_version, version), expected_version|
+    test_each_hash(expected_mappings) do |(short_version, version), expected_version|
       it "maps (#{short_version.inspect}, #{version.inspect}) to #{expected_version.inspect}" do
         expect(described_class.new(short_version, version).nice_version)
           .to eq expected_version
