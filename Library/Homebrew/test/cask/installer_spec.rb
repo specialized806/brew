@@ -10,6 +10,25 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
+  describe "#extract_primary_container" do
+    it "respects the installer's download integrity setting" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      installer = described_class.new(cask, verify_download_integrity: false)
+      download = instance_double(Cask::Download)
+      downloaded_path = Pathname("/path/to/downloaded/cask")
+
+      allow(installer).to receive(:downloader).and_return(download)
+      expect(download).to receive(:fetch)
+        .with(quiet: true, verify_download_integrity: false, timeout: nil)
+        .and_return(downloaded_path)
+      expect(download).to receive(:extract_primary_container).with(to: cask.staged_path, verbose: false)
+
+      installer.extract_primary_container
+
+      expect(cask.download).to eq(downloaded_path)
+    end
+  end
+
   describe "#save_caskfile" do
     it "stores casks loaded from Ruby source as JSON metadata" do
       cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
