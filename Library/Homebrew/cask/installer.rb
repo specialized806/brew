@@ -308,6 +308,8 @@ on_request: true)
 
     sig { params(to: Pathname).void }
     def extract_primary_container(to: @cask.staged_path)
+      download(quiet: true) if @cask.download.nil?
+
       downloader.extract_primary_container(to:, verbose: verbose?)
     end
 

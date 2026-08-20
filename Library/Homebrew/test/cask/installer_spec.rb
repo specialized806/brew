@@ -1,12 +1,32 @@
 # typed: false
 # frozen_string_literal: true
 
+require "cask/installer"
 RSpec.describe Cask::Installer, :cask do
   def stub_dmg_extraction
     allow(UnpackStrategy::Dmg).to receive(:can_extract?).and_return(true)
     allow_any_instance_of(UnpackStrategy::Dmg).to receive(:extract_nestedly) do |_strategy, to:, **|
       to.mkpath
       yield to
+    end
+  end
+
+  describe "#extract_primary_container" do
+    it "respects the installer's download integrity setting" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      installer = described_class.new(cask, verify_download_integrity: false)
+      download = instance_double(Cask::Download)
+      downloaded_path = Pathname("/path/to/downloaded/cask")
+
+      allow(installer).to receive(:downloader).and_return(download)
+      expect(download).to receive(:fetch)
+        .with(quiet: true, verify_download_integrity: false, timeout: nil)
+        .and_return(downloaded_path)
+      expect(download).to receive(:extract_primary_container).with(to: cask.staged_path, verbose: false)
+
+      installer.extract_primary_container
+
+      expect(cask.download).to eq(downloaded_path)
     end
   end
 
