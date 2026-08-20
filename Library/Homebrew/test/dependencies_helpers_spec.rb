@@ -1,9 +1,12 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "dependencies_helpers"
 
 RSpec.describe DependenciesHelpers do
+  # Sorbet only resolves `dependents` below from a constant literal.
+  include DependenciesHelpers # rubocop:disable RSpec/DescribedClass
+
   specify "#dependents" do
     foo = formula "foo" do
       T.bind(self, T.class_of(Formula))
@@ -38,9 +41,7 @@ RSpec.describe DependenciesHelpers do
       :any_version_installed?,
     ]
 
-    dependents = Class.new.extend(described_class).dependents([foo, foo_cask, bar, bar_cask])
-
-    dependents.each do |dependent|
+    dependents([foo, foo_cask, bar, bar_cask]).each do |dependent|
       methods.each do |method|
         expect(dependent.respond_to?(method))
           .to be true
