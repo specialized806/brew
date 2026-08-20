@@ -4,9 +4,10 @@
 require_relative "shared_examples"
 
 RSpec.describe UnpackStrategy::Subversion, :needs_svnadmin do
+  subject(:path) { working_copy }
+
   let(:repo) { mktmpdir }
   let(:working_copy) { mktmpdir }
-  let(:path) { working_copy }
 
   before do
     safe_system "svnadmin", "create", repo
