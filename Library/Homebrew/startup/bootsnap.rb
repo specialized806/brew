@@ -3,6 +3,26 @@
 
 module Homebrew
   module Bootsnap
+    # This is the default Bundler group and its transitive dependencies. Optional
+    # groups must not rotate the compile cache used by the core load graph.
+    CORE_GEM_NAMES = %w[
+      bindata
+      concurrent-ruby
+      elftools
+      logger
+      patchelf
+      plist
+      ruby-macho
+      sorbet-runtime
+    ].freeze
+    private_constant :CORE_GEM_NAMES
+
+    def self.core_gem_names = CORE_GEM_NAMES
+
+    private_class_method def self.gem_directories
+      Dir.children(File.join(Gem.paths.path, "gems")).sort
+    end
+
     def self.key
       @key ||= begin
         require "digest/sha2"
@@ -10,7 +30,9 @@ module Homebrew
         checksum = Digest::SHA256.new
         checksum << RUBY_VERSION
         checksum << RUBY_PLATFORM
-        checksum << Dir.children(File.join(Gem.paths.path, "gems")).join(",")
+        checksum << gem_directories
+                    .select { |gem| core_gem_names.any? { |name| gem.start_with?("#{name}-") } }
+                    .join(",")
 
         checksum.hexdigest
       end
@@ -21,6 +43,10 @@ module Homebrew
       raise "Needs `$HOMEBREW_CACHE` or `$HOMEBREW_DEFAULT_CACHE`!" if cache.nil? || cache.empty?
 
       File.join(cache, "bootsnap", key)
+    end
+
+    private_class_method def self.load_path_cache
+      File.join(cache_dir, "bootsnap/load-path-cache")
     end
 
     private_class_method def self.ignore_directories
@@ -46,6 +72,17 @@ module Homebrew
         return
       end
 
+      installed_gem_directories = gem_directories.join(",")
+      gem_directories_cache = File.join(cache_dir, "bootsnap/gem-directories")
+      if !File.exist?(gem_directories_cache) || File.read(gem_directories_cache) != installed_gem_directories
+        # The compile cache is shared across optional groups, but Bootsnap treats
+        # gem load paths as immutable, so invalidate their separate index.
+        require "fileutils"
+        FileUtils.rm_f load_path_cache
+        FileUtils.mkdir_p File.dirname(gem_directories_cache)
+        File.write(gem_directories_cache, installed_gem_directories)
+      end
+
       ::Bootsnap.setup(
         cache_dir:,
         ignore_directories:,
@@ -64,9 +101,12 @@ module Homebrew
       return unless enabled?
 
       ::Bootsnap.unload_cache!
+      # Gem changes invalidate resolution, but compiled files validate themselves
+      # against their source contents, so only discard the persisted load path.
+      require "fileutils"
+      FileUtils.rm_f load_path_cache
       @key = nil
 
-      # The compile cache doesn't get unloaded so we don't need to load it again!
       load!(compile_cache: false)
     end
 
