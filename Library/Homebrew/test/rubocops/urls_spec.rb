@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "rubocops/urls"
@@ -322,10 +322,9 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
   end
 
   context "when auditing Apache URLs" do
-    let(:expected_url) { "https://www.apache.org/dyn/closer.lua?path=apr/apr-1.7.6.tar.bz2" }
-
     shared_examples "offense" do |url|
       it "registers an offense and corrects" do
+        expected_url = "https://www.apache.org/dyn/closer.lua?path=apr/apr-1.7.6.tar.bz2"
         message = "FormulaAudit/Urls: #{url} should be: #{expected_url}"
 
         expect_offense(<<~RUBY, url:, message:)
