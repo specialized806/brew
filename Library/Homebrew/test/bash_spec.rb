@@ -1,10 +1,11 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "open3"
 
 RSpec.describe "Bash" do
   matcher :have_valid_bash_syntax do
+    T.bind(self, T.class_of(RSpec::Matchers::DSL::Matcher))
     match do |file|
       stdout, stderr, status = Open3.capture3("/bin/bash", "-n", file)
 

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "version"
@@ -433,8 +433,9 @@ RSpec.describe Version do
 
   describe "::detect" do
     matcher :be_detected_from do |url, **specs|
+      T.bind(self, T.class_of(RSpec::Matchers::DSL::Matcher))
       match do |expected|
-        @detected = described_class.detect(url, **specs)
+        @detected = Version.detect(url, **specs)
         @detected == expected
       end
 
