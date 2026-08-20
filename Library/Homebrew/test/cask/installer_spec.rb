@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "cask/installer"
+Warnings.ignore(/circular require considered harmful/) { require "install" }
+
 RSpec.describe Cask::Installer, :cask do
   def stub_dmg_extraction
     allow(UnpackStrategy::Dmg).to receive(:can_extract?).and_return(true)
