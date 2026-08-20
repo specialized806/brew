@@ -10,8 +10,8 @@ module OS
 
       requires_ancestor { ::Keg }
 
-      sig { params(relocation: ::Keg::Relocation, skip_protodesc_cold: T::Boolean).void }
-      def relocate_dynamic_linkage(relocation, skip_protodesc_cold: false)
+      sig { params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).void }
+      def relocate_dynamic_linkage(relocation, with_placeholders: false)
         # Patching the dynamic linker of glibc breaks it.
         return if name.match? Version.formula_optionally_versioned_regex(:glibc)
 
@@ -19,22 +19,23 @@ module OS
 
         elf_files.each do |file|
           file.ensure_writable do
-            change_rpath!(file, old_prefix, new_prefix, skip_protodesc_cold:)
+            change_rpath!(file, old_prefix, new_prefix, with_placeholders:)
           end
         end
       end
 
       sig {
         params(file: ELFShim, old_prefix: T.any(String, Regexp), new_prefix: String,
-               skip_protodesc_cold: T::Boolean).returns(T::Boolean)
+               with_placeholders: T::Boolean).returns(T::Boolean)
       }
-      def change_rpath!(file, old_prefix, new_prefix, skip_protodesc_cold: false)
+      def change_rpath!(file, old_prefix, new_prefix, with_placeholders: false)
         return false if !file.elf? || !file.dynamic_elf?
 
         # Skip relocation of files with `protodesc_cold` sections because patchelf.rb seems to break them,
         # but only when bottling (as we don't want to break existing bottles that require relocation).
         # https://github.com/Homebrew/homebrew-core/pull/232490#issuecomment-3161362452
-        return false if skip_protodesc_cold && file.section_names.include?("protodesc_cold")
+        # Also skip relocation of files with `.bun` sections
+        return false if with_placeholders && file.section_names.intersect?(["protodesc_cold", ".bun"])
 
         updated = {}
         old_rpath = file.rpath
