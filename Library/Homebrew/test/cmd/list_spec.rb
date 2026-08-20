@@ -297,11 +297,17 @@ RSpec.describe Homebrew::Cmd::List do
       .to raise_error(UsageError, /`brew list --json` requires `--versions`\./)
   end
 
-  it "prints pinned formulae and casks", :cask, :integration_test do
+  it "prints formula and cask versions", :cask, :integration_test do
     setup_test_formula "testball", tab_attributes: { installed_on_request: true }
     Formula["testball"].pin
     cask = Cask::CaskLoader.load("local-caffeine")
     InstallHelper.stub_cask_installation(cask)
+    FileUtils.ln_s "missing-cask", Cask::Caskroom.path/"dangling-alias"
+
+    expect { brew "list", "--versions" }
+      .to output("testball 0.1\nlocal-caffeine 1.2.3\n").to_stdout
+      .and be_a_success
+
     cask.pin
 
     expect { brew "list", "--pinned", "--versions" }
