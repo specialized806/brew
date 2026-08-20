@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Download, :cask do
@@ -9,11 +9,10 @@ RSpec.describe Cask::Download, :cask do
     let(:full_token) { token }
     let(:url) { instance_double(URL, to_s: url_to_s, specs: {}) }
     let(:url_to_s) { "https://example.com/app.dmg" }
+    let(:version) { nil }
     let(:cask) { instance_double(Cask::Cask, token:, full_token:, version:, url:) }
 
     context "when cask has no version" do
-      let(:version) { nil }
-
       it "returns the cask token" do
         expect(download_name).to eq "example-cask"
       end
@@ -133,6 +132,7 @@ RSpec.describe Cask::Download, :cask do
     subject(:verification) { described_class.new(cask).verify_download_integrity(downloaded_path) }
 
     let(:tap) { nil }
+    let(:expected_sha256) { nil }
     let(:cask) { instance_double(Cask::Cask, token: "cask", sha256: expected_sha256, tap:) }
     let(:cafebabe) { "cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe" }
     let(:deadbeef) { "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" }
@@ -168,8 +168,6 @@ RSpec.describe Cask::Download, :cask do
     end
 
     context "when the expected checksum is nil" do
-      let(:expected_sha256) { nil }
-
       it "outputs an error" do
         expect { verification }.to output(/sha256 "#{computed_sha256}"/).to_stderr
       end

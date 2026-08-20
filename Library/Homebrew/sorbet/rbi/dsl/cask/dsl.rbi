@@ -63,6 +63,12 @@ class Cask::DSL
   sig { params(args: T.anything, kwargs: T.anything).void }
   def mdimporter(*args, **kwargs); end
 
+  sig { params(block: T.proc.bind(Cask::DSL).returns(T.anything)).returns(T.anything) }
+  def on_arm(&block); end
+
+  sig { params(block: T.proc.bind(Cask::DSL).returns(T.anything)).returns(T.anything) }
+  def on_intel(&block); end
+
   sig { params(args: T.anything, kwargs: T.anything).void }
   def pkg(*args, **kwargs); end
 
