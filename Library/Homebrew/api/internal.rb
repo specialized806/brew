@@ -191,7 +191,8 @@ module Homebrew
         download_and_cache_data! unless data_loaded?
 
         Homebrew::API.write_names_file!("formula", regenerate:) { formula_names }
-        Homebrew::API.write_aliases_file!("formula", regenerate:) { formula_aliases }
+        # Renames resolve like aliases in lightweight formula lookups.
+        Homebrew::API.write_aliases_file!("formula", regenerate:) { formula_aliases.merge(formula_renames) }
         Homebrew::API.write_executables_file!(regenerate:, source: cached_packages_json_file_path) { formula_hashes }
       end
 
