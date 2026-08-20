@@ -19,20 +19,20 @@ RSpec.describe Homebrew::Bootsnap do
   end
 
   describe "::key" do
-    it "ignores optional gems and changes when a core gem changes" do
+    it "ignores profiler gems and changes when a core gem changes" do
       gem_home = mktmpdir
       gems = gem_home/"gems"
       (gems/"sorbet-runtime-1.0").mkpath
       original_key = bootsnap_key(gem_home)
 
-      (gems/"rspec-1.0").mkpath
-      optional_gem_key = bootsnap_key(gem_home)
+      (gems/"stackprof-1.0").mkpath
+      profiler_gem_key = bootsnap_key(gem_home)
 
       (gems/"sorbet-runtime-1.0").rmdir
       (gems/"sorbet-runtime-2.0").mkpath
       core_gem_key = bootsnap_key(gem_home)
 
-      expect([optional_gem_key == original_key, core_gem_key == original_key]).to eq([true, false])
+      expect([profiler_gem_key == original_key, core_gem_key == original_key]).to eq([true, false])
     end
   end
 
