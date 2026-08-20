@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "os/mac/ffi/native_library"
@@ -8,9 +8,12 @@ RSpec.describe MacOS::FFI::NativeLibrary, :needs_macos do
     Module.new do
       extend MacOS::FFI::NativeLibrary
 
+      T.bind(self, T.all(Module, MacOS::FFI::NativeLibrary))
+
       use_library "/usr/lib/libSystem.B.dylib"
 
-      def self.process_id
+      define_singleton_method(:process_id) do
+        T.bind(self, T.all(Module, MacOS::FFI::NativeLibrary))
         function("getpid", [], Fiddle::TYPE_INT).call
       end
     end
