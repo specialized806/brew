@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -11,7 +11,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
     let!(:target) do
       path = HOMEBREW_TAP_DIRECTORY/"homebrew/homebrew-foo"
       (path/"Formula").mkpath
-      target = Tap.from_path(path)
+      target = Tap.fetch("homebrew", "foo")
       core_tap = CoreTap.instance
       core_tap.path.cd do
         system "git", "init"

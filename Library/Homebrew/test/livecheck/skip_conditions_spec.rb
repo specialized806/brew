@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "livecheck/livecheck"
@@ -92,7 +92,7 @@ RSpec.describe Homebrew::Livecheck::SkipConditions do
       basic:                                 Cask::Cask.new("test") do
         version "0.0.1,2"
 
-        url "https://brew.sh/test-#{version.csv.first}.tgz"
+        url "https://brew.sh/test-0.0.1.tgz"
         name "Test"
         desc "Test cask"
         homepage "https://brew.sh"

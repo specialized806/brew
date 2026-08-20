@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "manpages"
@@ -37,7 +37,7 @@ RSpec.describe Homebrew::Manpages do
                                               .cmd_parser_manpage_lines(subcommand_parser)
                                               .join
                                               .split("`test install`:")
-    install_section, info_section = install_and_info_sections.split("`test info` <service>:")
+    install_section, info_section = install_and_info_sections.to_s.split("`test info` <service>:")
 
     expect(root_section).to include("`--global`")
     expect(root_section).not_to include("`--force`")
