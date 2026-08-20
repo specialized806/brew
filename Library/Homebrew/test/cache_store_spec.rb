@@ -17,6 +17,35 @@ RSpec.describe CacheStoreDatabase do
         # do nothing
       end
     end
+
+    it "releases the refcount when the block breaks" do
+      cache_store = instance_double(described_class, "cache_store", write_if_dirty!: nil)
+      allow(described_class).to receive(:new).with(type).and_return(cache_store)
+      expect(cache_store).to receive(:write_if_dirty!).twice
+
+      described_class.use(type) do |_db|
+        break
+      end
+      described_class.use(type) do |_db|
+        # do nothing
+      end
+    end
+
+    it "does not raise when used concurrently, including `break`" do
+      threads = Array.new(8) do |i|
+        Thread.new do
+          25.times do |n|
+            described_class.use(:concurrent_test) do |db|
+              break if n.odd?
+
+              db.delete("missing-#{i}-#{n}")
+            end
+          end
+        end
+      end
+
+      expect { threads.each(&:join) }.not_to raise_error
+    end
   end
 
   describe "#set" do

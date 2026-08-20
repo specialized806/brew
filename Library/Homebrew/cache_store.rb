@@ -13,6 +13,9 @@ class CacheStoreDatabase
   Key = type_member
   Value = type_member
 
+  # Shared by `Utils.parallel_map` during install cleanup.
+  @mutex = T.let(Thread::Mutex.new, Thread::Mutex)
+
   # Yields the cache store database.
   # Closes the database after use if it has been loaded.
   sig {
@@ -24,28 +27,37 @@ class CacheStoreDatabase
       .returns(T.type_parameter(:U))
   }
   def self.use(type, &_blk)
-    @db_type_reference_hash ||= T.let({}, T.nilable(T::Hash[T.untyped, T.untyped]))
-    @db_type_reference_hash[type] ||= {}
-    type_ref = @db_type_reference_hash[type]
+    type_ref = T.let(nil, T.untyped)
+    db = T.let(nil, T.nilable(CacheStoreDatabase[T.anything, T.anything]))
 
-    type_ref[:count] ||= 0
-    type_ref[:count]  += 1
+    @mutex.synchronize do
+      @db_type_reference_hash ||= T.let({}, T.nilable(T::Hash[T.untyped, T.untyped]))
+      @db_type_reference_hash[type] ||= {}
+      type_ref = @db_type_reference_hash[type]
 
-    type_ref[:db] ||= CacheStoreDatabase.new(type)
-
-    return_value = yield(type_ref[:db])
-    if type_ref[:count].positive?
-      type_ref[:count] -= 1
-    else
-      type_ref[:count] = 0
+      type_ref[:count] ||= 0
+      type_ref[:count] += 1
+      type_ref[:db] ||= CacheStoreDatabase.new(type)
+      db = type_ref[:db]
     end
 
-    if type_ref[:count].zero?
-      type_ref[:db].write_if_dirty!
-      type_ref.delete(:db)
-    end
+    begin
+      raise ArgumentError, "CacheStoreDatabase.use failed to allocate #{type} store" if db.nil?
 
-    return_value
+      yield(db)
+    ensure
+      # `break` from the block used to skip the decrement and leak the refcount.
+      to_write = T.let(nil, T.nilable(CacheStoreDatabase[T.anything, T.anything]))
+      @mutex.synchronize do
+        if type_ref[:count].positive?
+          type_ref[:count] -= 1
+        else
+          type_ref[:count] = 0
+        end
+        to_write = type_ref.delete(:db) if type_ref[:count].zero?
+      end
+      to_write&.write_if_dirty!
+    end
   end
 
   # Creates a CacheStoreDatabase.
