@@ -13,8 +13,17 @@ class CacheStoreDatabase
   Key = type_member
   Value = type_member
 
-  # Shared by `Utils.parallel_map` during install cleanup.
-  @mutex = T.let(Thread::Mutex.new, Thread::Mutex)
+  # Tracks the active users and shared database for one cache type.
+  class TypeReference < T::Struct
+    const :mutex, Thread::Mutex
+    prop :active_users, Integer, default: 0
+    prop :database, T.nilable(CacheStoreDatabase[T.anything, T.anything]), default: nil
+  end
+  private_constant :TypeReference
+
+  # Only reference creation is global; each cache type has its own lifecycle lock.
+  @type_references_mutex = T.let(Thread::Mutex.new, Thread::Mutex)
+  @type_references = T.let({}, T::Hash[Symbol, TypeReference])
 
   # Yields the cache store database.
   # Closes the database after use if it has been loaded.
@@ -27,36 +36,28 @@ class CacheStoreDatabase
       .returns(T.type_parameter(:U))
   }
   def self.use(type, &_blk)
-    type_ref = T.let(nil, T.untyped)
-    db = T.let(nil, T.nilable(CacheStoreDatabase[T.anything, T.anything]))
+    type_ref = @type_references_mutex.synchronize do
+      @type_references[type] ||= TypeReference.new(mutex: Thread::Mutex.new)
+    end
 
-    @mutex.synchronize do
-      @db_type_reference_hash ||= T.let({}, T.nilable(T::Hash[T.untyped, T.untyped]))
-      @db_type_reference_hash[type] ||= {}
-      type_ref = @db_type_reference_hash[type]
-
-      type_ref[:count] ||= 0
-      type_ref[:count] += 1
-      type_ref[:db] ||= CacheStoreDatabase.new(type)
-      db = type_ref[:db]
+    db = type_ref.mutex.synchronize do
+      type_ref.active_users += 1
+      type_ref.database ||= CacheStoreDatabase.new(type)
     end
 
     begin
-      raise ArgumentError, "CacheStoreDatabase.use failed to allocate #{type} store" if db.nil?
-
-      yield(db)
+      return_value = yield(db)
+      return_value
     ensure
       # `break` from the block used to skip the decrement and leak the refcount.
-      to_write = T.let(nil, T.nilable(CacheStoreDatabase[T.anything, T.anything]))
-      @mutex.synchronize do
-        if type_ref[:count].positive?
-          type_ref[:count] -= 1
-        else
-          type_ref[:count] = 0
+      type_ref.mutex.synchronize do
+        type_ref.active_users -= 1
+        if type_ref.active_users.zero?
+          # Prevent a replacement database from opening until the final write completes.
+          type_ref.database&.write_if_dirty!
+          type_ref.database = nil
         end
-        to_write = type_ref.delete(:db) if type_ref[:count].zero?
       end
-      to_write&.write_if_dirty!
     end
   end
 

@@ -31,6 +31,42 @@ RSpec.describe CacheStoreDatabase do
       end
     end
 
+    it "returns the block value" do
+      expect(described_class.use(type) { :return_value }).to eq(:return_value)
+    end
+
+    it "finishes writing before opening a replacement database" do
+      events = Queue.new
+      write_started = Queue.new
+      finish_write = Queue.new
+      first_cache_store = instance_double(described_class, "first_cache_store")
+      second_cache_store = instance_double(described_class, "second_cache_store", write_if_dirty!: nil)
+      allow(first_cache_store).to receive(:write_if_dirty!) do
+        events << :write_started
+        write_started << true
+        finish_write.pop
+        events << :write_finished
+      end
+      allow(described_class).to receive(:new).with(type).and_return(first_cache_store, second_cache_store)
+
+      first_use = Thread.new { described_class.use(type) { nil } }
+      write_started.pop
+      second_use = Thread.new do
+        events << :second_use_started
+        described_class.use(type) { events << :second_database_opened }
+      end
+      Thread.pass while second_use.status == "run"
+      finish_write << true
+      [first_use, second_use].each(&:value)
+
+      expect(Array.new(4) { events.pop }).to eq([
+        :write_started,
+        :second_use_started,
+        :write_finished,
+        :second_database_opened,
+      ])
+    end
+
     it "does not raise when used concurrently, including `break`" do
       threads = Array.new(8) do |i|
         Thread.new do
@@ -44,7 +80,7 @@ RSpec.describe CacheStoreDatabase do
         end
       end
 
-      expect { threads.each(&:join) }.not_to raise_error
+      expect { threads.each(&:value) }.not_to raise_error
     end
   end
 
