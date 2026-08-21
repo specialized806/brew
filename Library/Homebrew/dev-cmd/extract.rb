@@ -60,11 +60,11 @@ module Homebrew
         end
 
         rev = T.let(nil, T.nilable(String))
+        test_formula = T.let(nil, T.nilable(Formula))
         if args.version
           ohai "Searching repository history"
           version = args.version
           version_segments = Gem::Version.new(version).segments if Gem::Version.correct?(version)
-          test_formula = T.let(nil, T.nilable(Formula))
           result = ""
           loop do
             rev = rev.nil? ? start_rev : "#{rev}~1"
@@ -115,12 +115,14 @@ module Homebrew
             rev, (path,) = Utils::Git.last_revision_commit_of_files(repo, pattern, before_commit: start_rev)
             odie "Could not find #{name}! The formula or version may not have existed." if rev.nil?
             file = repo/T.must(path)
-            version = T.must(formula_at_revision(repo, name, file, rev)).version
+            test_formula = T.must(formula_at_revision(repo, name, file, rev))
+            version = test_formula.version
             result = Utils::Git.last_revision_of_file(repo, file)
           else
             file = files.fetch(0).realpath
-            rev = T.let("HEAD", T.nilable(String))
-            version = Formulary.factory(file).version
+            rev = "HEAD"
+            test_formula = Formulary.factory(file)
+            version = test_formula.version
             result = File.read(file)
           end
         end
@@ -157,6 +159,26 @@ module Homebrew
         ohai "Writing formula for #{name} at #{version} from revision #{rev} to:", path
         path.dirname.mkpath
         path.write result
+
+        patches = test_formula.patchlist + test_formula.resources.flat_map(&:patches)
+        patches.grep(LocalPatch).map { |patch| patch.file.to_s }.uniq.each do |patch_file|
+          patch_contents = Utils::Git.file_at_commit(repo, patch_file, rev)
+          odie "Could not find #{patch_file} at revision #{rev}!" if patch_contents.blank?
+
+          patch_path = destination_tap.path/patch_file
+          if patch_path.exist?
+            odie <<~EOS unless args.force?
+              Destination patch already exists: #{patch_path}
+              To overwrite it and continue anyways, run:
+                brew extract --force --version=#{version} #{name} #{destination_tap.name}
+            EOS
+            odebug "Overwriting existing patch at #{patch_path}"
+            patch_path.delete
+          end
+          ohai "Writing #{patch_file} from revision #{rev} to:", patch_path
+          patch_path.dirname.mkpath
+          patch_path.write patch_contents
+        end
       end
 
       private

@@ -26,8 +26,12 @@ RSpec.describe Homebrew::DevCmd::Extract do
               cellar :any
             end
 
+            patch do
+              file "noop-a.diff"
+            end
           end
         RUBY
+        FileUtils.cp patch_fixture("noop-a"), "noop-a.diff"
         system "git", "add", "--all"
         system "git", "commit", "-m", "testball 0.1"
         # Replace with a valid formula for the next version
@@ -36,6 +40,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
             url "https://brew.sh/testball-0.2.tar.gz"
           end
         RUBY
+        FileUtils.rm "noop-a.diff"
         system "git", "add", "--all"
         system "git", "commit", "-m", "testball 0.2"
       end
@@ -50,6 +55,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
         .and be_a_success
       expect(path).to exist
       expect(Formulary.factory(path).version).to eq "0.2"
+      expect(target[:path]/"noop-a.diff").not_to exist
     end
 
     it "retrieves the specified version of formula" do
@@ -58,6 +64,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
         .to output(/^#{path}$/).to_stdout
       expect(path).to exist
       expect(Formulary.factory(path).version).to eq "0.1"
+      expect(target[:path]/"noop-a.diff").to exist
     end
 
     it "retrieves the compatible version of formula" do
@@ -66,6 +73,7 @@ RSpec.describe Homebrew::DevCmd::Extract do
         .to output(/^#{path}$/).to_stdout
       expect(path).to exist
       expect(Formulary.factory(path).version).to eq "0.2"
+      expect(target[:path]/"noop-a.diff").not_to exist
     end
   end
 end
