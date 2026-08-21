@@ -18,8 +18,8 @@ RSpec.describe Homebrew::Vulns::Output do
     Homebrew::Vulns::Scanner::Finding.new(name:, version:, tag:, repo_url:, open:, patched:)
   end
 
-  def results(findings, checked: findings.size, skipped: 0)
-    Homebrew::Vulns::Scanner::Results.new(findings:, checked:, skipped:)
+  def results(findings, checked: findings.size, skipped_formulae: [])
+    Homebrew::Vulns::Scanner::Results.new(findings:, checked:, skipped_formulae:)
   end
 
   describe ".text" do
@@ -38,6 +38,13 @@ RSpec.describe Homebrew::Vulns::Output do
       out = render(results([f]))
       expect(out).to include "No open vulnerabilities found."
       expect(out).not_to include "No vulnerabilities found.\n"
+    end
+
+    it "lists skipped package names when list_skipped is true" do
+      res = Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 1, skipped_formulae: ["aom", "libssh2"])
+      out = render(res, list_skipped: true)
+      expect(out).to include "(2 packages skipped - no supported source URL):"
+      expect(out).to include "  aom\n  libssh2"
     end
 
     it "prints formula, version, vuln id, severity and summary" do
@@ -119,7 +126,7 @@ RSpec.describe Homebrew::Vulns::Output do
     end
 
     it "reports checked and skipped counts" do
-      out = render(results([], checked: 5, skipped: 2))
+      out = render(results([], checked: 5, skipped_formulae: ["a", "b"]))
       expect(out).to include "Checking 5 packages for vulnerabilities"
       expect(out).to include "(2 packages skipped - no supported source URL)"
     end
@@ -132,8 +139,8 @@ RSpec.describe Homebrew::Vulns::Output do
       JSON.parse(out)
     end
 
-    it "emits an empty array when there are no findings" do
-      expect(render(results([]))).to eq []
+    it "emits an empty findings array and empty skipped_formulae when there are no findings" do
+      expect(render(results([]))).to eq("findings" => [], "skipped_formulae" => [])
     end
 
     it "emits one object per finding with vulnerabilities and patched arrays" do
@@ -143,27 +150,35 @@ RSpec.describe Homebrew::Vulns::Output do
                                   aliases: ["GHSA-x"], fixed: ["v10.0.0"])],
                   patched:  [vuln("CVE-2016-2399")])
       data = render(results([f]))
-      expect(data).to eq [
-        {
-          "formula"         => "vim",
-          "version"         => "9.1.2050",
-          "tag"             => "v9.1.2050",
-          "repo_url"        => "https://github.com/vim/vim",
-          "vulnerabilities" => [
-            { "id" => "CVE-2024-1234", "severity" => "HIGH", "summary" => "Heap overflow",
-              "aliases" => ["GHSA-x"], "fixed_versions" => ["v10.0.0"] },
-          ],
-          "patched"         => [
-            { "id" => "CVE-2016-2399", "severity" => "HIGH", "summary" => nil,
-              "aliases" => [], "fixed_versions" => [] },
-          ],
-        },
-      ]
+      expect(data).to eq(
+        "findings"         => [
+          {
+            "formula"         => "vim",
+            "version"         => "9.1.2050",
+            "tag"             => "v9.1.2050",
+            "repo_url"        => "https://github.com/vim/vim",
+            "vulnerabilities" => [
+              { "id" => "CVE-2024-1234", "severity" => "HIGH", "summary" => "Heap overflow",
+                "aliases" => ["GHSA-x"], "fixed_versions" => ["v10.0.0"] },
+            ],
+            "patched"         => [
+              { "id" => "CVE-2016-2399", "severity" => "HIGH", "summary" => nil,
+                "aliases" => [], "fixed_versions" => [] },
+            ],
+          },
+        ],
+        "skipped_formulae" => [],
+      )
     end
 
     it "emits an empty patched array when nothing is resolved" do
       f = finding(name: "vim", version: "9.1", open: [vuln("CVE-2024-1234")])
-      expect(render(results([f])).first["patched"]).to eq []
+      expect(render(results([f])).dig("findings", 0, "patched")).to eq []
+    end
+
+    it "includes skipped_formulae in the JSON output" do
+      res = Homebrew::Vulns::Scanner::Results.new(findings: [], checked: 1, skipped_formulae: ["aom", "libssh2"])
+      expect(render(res)["skipped_formulae"]).to eq ["aom", "libssh2"]
     end
   end
 end

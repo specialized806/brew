@@ -1613,10 +1613,16 @@ Report vulnerabilities even when a formula patch resolves them\.
 Check formulae listed in a Brewfile\. Defaults to \fB\&\./Brewfile\fP; use \fB\-\-brewfile=\fP\fIpath\fP to specify another\.
 .TP
 \fB\-\-fix\-available\fP
-Only report vulnerabilities that have a fix available\. Note that this may exclude vulnerabilities with fixes available if we cannot determine that the fix is included in the version under consideration\.
+Only report vulnerabilities that have a released version fix available\. Shortcut for \fB\-\-fix\-type=released\fP\&\.
 .TP
 \fB\-\-no\-fix\-available\fP
-Only report vulnerabilities that do not have a fix available\. Note that this may include vulnerabilities with fixes available if we cannot determine that the fix is included in the version under consideration\.
+Only report vulnerabilities that do not have a released version fix available (includes unreleased commit SHA patches)\. Shortcut for \fB\-\-fix\-type=unreleased\fP\&\.
+.TP
+\fB\-\-fix\-type\fP
+Filter findings by fix type: \fBreleased\fP (official version release), \fBpatch\fP (unreleased commit SHA), \fBany\fP (either), \fBnone\fP (neither), \fBunreleased\fP (no released version fix)\.
+.TP
+\fB\-\-list\-skipped\fP
+List packages skipped due to missing or unsupported source URL\.
 .TP
 \fB\-s\fP, \fB\-\-severity\fP
 Only report findings at or above: \fBlow\fP, \fBmedium\fP, \fBhigh\fP, \fBcritical\fP\&\.

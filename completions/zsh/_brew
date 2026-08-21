@@ -2931,11 +2931,13 @@ _brew_vulns() {
     '--brewfile[Check formulae listed in a Brewfile. Defaults to `./Brewfile`; use `--brewfile=`path to specify another]' \
     '--debug[Display any debugging information]' \
     '--deps[Also check the dependencies of named formulae]' \
-    '(--no-fix-available)--fix-available[Only report vulnerabilities that have a fix available. Note that this may exclude vulnerabilities with fixes available if we cannot determine that the fix is included in the version under consideration]' \
+    '(--no-fix-available --fix-type)--fix-available[Only report vulnerabilities that have a released version fix available. Shortcut for `--fix-type=released`]' \
+    '(--fix-available --no-fix-available)--fix-type[Filter findings by fix type: `released` (official version release), `patch` (unreleased commit SHA), `any` (either), `none` (neither), `unreleased` (no released version fix)]' \
     '--help[Show this message]' \
     '--json[Output JSON]' \
+    '--list-skipped[List packages skipped due to missing or unsupported source URL]' \
     '--max-summary[Truncate summaries to n characters (default 60, 0 for no limit)]' \
-    '(--fix-available)--no-fix-available[Only report vulnerabilities that do not have a fix available. Note that this may include vulnerabilities with fixes available if we cannot determine that the fix is included in the version under consideration]' \
+    '(--fix-available --fix-type)--no-fix-available[Only report vulnerabilities that do not have a released version fix available (includes unreleased commit SHA patches). Shortcut for `--fix-type=unreleased`]' \
     '--no-ignore-patches[Report vulnerabilities even when a formula patch resolves them]' \
     '--quiet[Make some output more quiet]' \
     '--severity[Only report findings at or above: `low`, `medium`, `high`, `critical`]' \

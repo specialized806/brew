@@ -59,20 +59,26 @@ module Homebrew
         attr_reader :findings
 
         sig { returns(Integer) }
-        attr_reader :checked, :skipped
+        attr_reader :checked
 
         sig { returns(T::Array[String]) }
-        attr_reader :outdated_without_sbom
+        attr_reader :skipped_formulae, :outdated_without_sbom
 
         sig {
-          params(findings: T::Array[Finding], checked: Integer, skipped: Integer,
+          params(findings: T::Array[Finding], checked: Integer,
+                 skipped_formulae: T::Array[String],
                  outdated_without_sbom: T::Array[String]).void
         }
-        def initialize(findings:, checked:, skipped:, outdated_without_sbom: [])
+        def initialize(findings:, checked:, skipped_formulae:, outdated_without_sbom: [])
           @findings = findings
           @checked = checked
-          @skipped = skipped
+          @skipped_formulae = skipped_formulae
           @outdated_without_sbom = outdated_without_sbom
+        end
+
+        sig { returns(Integer) }
+        def skipped
+          skipped_formulae.size
         end
 
         sig { returns(T::Boolean) }
@@ -92,14 +98,13 @@ module Homebrew
 
       sig {
         params(formulae: T::Array[Formula], ignore_patches: T::Boolean, min_severity: T.nilable(Symbol),
-               only_fixed: T::Boolean, except_fixed: T::Boolean).void
+               fix_type: T.nilable(Symbol)).void
       }
-      def initialize(formulae, ignore_patches: true, min_severity: nil, only_fixed: false, except_fixed: false)
+      def initialize(formulae, ignore_patches: true, min_severity: nil, fix_type: nil)
         @formulae = formulae
         @ignore_patches = ignore_patches
         @min_severity_level = T.let(min_severity ? SEVERITY_LEVELS.fetch(min_severity) : 0, Integer)
-        @only_fixed = only_fixed
-        @except_fixed = except_fixed
+        @fix_type = fix_type
       end
 
       Target = Struct.new(:repo_url, :tag, :version, :from_installed_sbom, :current_recipe_applies,
@@ -108,11 +113,10 @@ module Homebrew
 
       sig { returns(Results) }
       def scan
-        queryable, skipped = @formulae.partition { |f| target_for(f) }
+        queryable, skipped_formulae = @formulae.partition { |f| target_for(f) }
+        skipped_formulae = skipped_formulae.map(&:full_name)
         outdated_without_sbom = queryable.select { |f| stale_target?(f) }.map(&:name)
-        if queryable.empty?
-          return Results.new(findings: [], checked: 0, skipped: skipped.size, outdated_without_sbom:)
-        end
+        return Results.new(findings: [], checked: 0, skipped_formulae:, outdated_without_sbom:) if queryable.empty?
 
         targets = queryable.map { |f| T.must(target_for(f)) }
         batch = OSV.query_batch(targets.map { |t| { ecosystem: "GIT", name: t.repo_url, version: t.tag } })
@@ -125,8 +129,18 @@ module Homebrew
           vulns = fetch_vulnerabilities(ids)
                   .select { |v| v.affects_version?(target.tag) }
                   .select { |v| v.severity_level >= @min_severity_level }
-          vulns = vulns.select { |v| v.fix_available?(target.tag, target.repo_url) } if @only_fixed
-          vulns = vulns.reject { |v| v.fix_available?(target.tag, target.repo_url) } if @except_fixed
+          case @fix_type
+          when :released
+            vulns = vulns.select { |v| v.released_fix_available?(target.tag, target.repo_url) }
+          when :patch
+            vulns = vulns.select { |v| v.patch_fix_available?(target.tag, target.repo_url) }
+          when :any
+            vulns = vulns.select { |v| v.fix_available?(target.tag, target.repo_url) }
+          when :none
+            vulns = vulns.reject { |v| v.fix_available?(target.tag, target.repo_url) }
+          when :unreleased
+            vulns = vulns.reject { |v| v.released_fix_available?(target.tag, target.repo_url) }
+          end
           next if vulns.empty?
 
           open, patched = partition_patched(formula, target, vulns)
@@ -142,7 +156,7 @@ module Homebrew
           )
         end
 
-        Results.new(findings:, checked: queryable.size, skipped: skipped.size, outdated_without_sbom:)
+        Results.new(findings:, checked: queryable.size, skipped_formulae:, outdated_without_sbom:)
       end
 
       sig { params(formula: Formula).returns(T.nilable(Target)) }

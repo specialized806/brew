@@ -20,11 +20,17 @@ class Homebrew::Cmd::Vulns::Args < Homebrew::CLI::Args
   sig { returns(T::Boolean) }
   def fix_available?; end
 
+  sig { returns(T.nilable(String)) }
+  def fix_type; end
+
   sig { returns(T::Boolean) }
   def j?; end
 
   sig { returns(T::Boolean) }
   def json?; end
+
+  sig { returns(T::Boolean) }
+  def list_skipped?; end
 
   sig { returns(T.nilable(String)) }
   def m; end
