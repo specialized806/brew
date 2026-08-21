@@ -768,6 +768,20 @@ RSpec.describe Cask::Upgrade, :cask do
     end
   end
 
+  context "when quarantine support is unavailable" do
+    before do
+      Cask::Installer.new(Cask::CaskLoader.load(cask_path("outdated/local-caffeine"))).install
+    end
+
+    it "upgrades without reading quarantine metadata" do
+      allow(Cask::Quarantine).to receive(:available?).and_return(false)
+      expect(Cask::Quarantine).not_to receive(:detect)
+
+      expect { described_class.upgrade_casks!(local_caffeine, args:) }
+        .to change(local_caffeine, :installed_version).from("1.2.2").to("1.2.3")
+    end
+  end
+
   context "when upgrading after a forced upgrade without a cask receipt" do
     before do
       InstallHelper.stub_cask_installation(Cask::CaskLoader.load(cask_path("outdated/local-caffeine")))
