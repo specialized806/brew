@@ -23,10 +23,19 @@ module Homebrew
     }.freeze, T::Hash[Symbol, Symbol])
     private_constant :SETTING_KEYS
 
-    sig { params(home: T.any(String, Pathname)).returns(Pathname) }
-    def self.trust_file(home: Dir.home(ENV.fetch("USER")))
+    sig { params(home: T.nilable(T.any(String, Pathname))).returns(Pathname) }
+    def self.trust_file(home: nil)
+      user = ENV.fetch("USER")
+      user_home = Pathname.new begin
+        Dir.home(user)
+      rescue ArgumentError
+        fallback_home = Dir.home
+        opoo "Could not determine home directory for `$USER` (#{user}); falling back to #{fallback_home}."
+        fallback_home
+      end
+      home ||= user_home
       user_config_home = Pathname.new(ENV.fetch("HOMEBREW_USER_CONFIG_HOME"))
-      if user_config_home == Pathname.new(Dir.home(ENV.fetch("USER")))/".homebrew"
+      if user_config_home == user_home/".homebrew"
         Pathname.new(home.to_s)/".homebrew/trust.json"
       else
         user_config_home/"trust.json"

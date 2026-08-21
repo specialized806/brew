@@ -213,6 +213,15 @@ RSpec.describe Homebrew::Trust, :trust_store do
     end
   end
 
+  it "falls back to the current home when USER cannot be looked up" do
+    home = Pathname(TEST_TMPDIR)/"home"
+
+    with_env(USER: "nonexistent_user_zzz", HOME: home, HOMEBREW_USER_CONFIG_HOME: home/".homebrew") do
+      expect { expect(described_class.trust_file).to eq(home/".homebrew/trust.json") }
+        .to output(/Could not determine home directory for `\$USER` \(nonexistent_user_zzz\)/).to_stderr
+    end
+  end
+
   it "trusts a GitHub SSH-remote tap by its name" do
     tap = Tap.fetch("thirdparty", "foo")
     tap.path.mkpath
