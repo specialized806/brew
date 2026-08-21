@@ -10,6 +10,7 @@ alias
 as-console-user
 audit
 autoremove
+benchmark
 bottle
 bump
 bump-cask-pr

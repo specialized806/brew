@@ -50,6 +50,14 @@ module Homebrew
 
     sig { void }
     def self.install!
+      # A class can only be instrumented once it is loaded, so load the install
+      # path here rather than reporting zero for phases a command loads later.
+      measure("instrumentation") do
+        require "cleanup"
+        require "download_queue"
+        require "formula_installer"
+      end
+
       instrument(Homebrew::CLI::NamedArgs, :to_formulae_and_casks, "formula_resolution") if defined?(Homebrew::CLI)
       instrument(Formulary.singleton_class, :factory, "formula_inflation") if defined?(Formulary)
       instrument(Homebrew::API.singleton_class, :fetch_api_files!, "api_metadata_load") if defined?(Homebrew::API)
@@ -60,15 +68,14 @@ module Homebrew
         instrument(Homebrew::Install.singleton_class, :formula_installers, "planning")
         instrument(Homebrew::Install.singleton_class, :perform_preinstall_checks_once, "preinstall_checks")
       end
-      if defined?(FormulaInstaller)
-        instrument(FormulaInstaller, :prelude, "planning")
-        instrument(FormulaInstaller, :compute_dependencies, "dependency_resolution")
-        instrument(FormulaInstaller, :pour, "pour")
-        instrument(FormulaInstaller, :link, "link")
-        instrument(FormulaInstaller, :clean, "cleanup")
-        instrument(FormulaInstaller, :post_install, "postinstall")
-      end
-      instrument(Homebrew::DownloadQueue, :enqueue, "download_enqueue") if defined?(Homebrew::DownloadQueue)
+      instrument(FormulaInstaller, :prelude, "planning")
+      instrument(FormulaInstaller, :compute_dependencies, "dependency_resolution")
+      instrument(FormulaInstaller, :pour, "pour")
+      instrument(FormulaInstaller, :link, "link")
+      instrument(FormulaInstaller, :clean, "cleanup")
+      instrument(FormulaInstaller, :post_install, "postinstall")
+      instrument(Homebrew::DownloadQueue, :enqueue, "download_enqueue")
+      instrument(Cleanup.singleton_class, :install_formula_clean!, "cleanup")
       if defined?(Utils::Curl)
         instrument(Utils::Curl, :curl_headers, "curl_headers")
         instrument(Utils::Curl.singleton_class, :curl_headers, "curl_headers")
@@ -83,9 +90,6 @@ module Homebrew
       instrument(Bottle, :stage_from_download_queue, "extraction") if defined?(Bottle)
       instrument(Cask::Download, :stage_from_download_queue, "extraction") if defined?(Cask::Download)
       instrument(Tab, :write, "tab_write") if defined?(Tab)
-      return unless defined?(Cleanup)
-
-      instrument(Cleanup.singleton_class, :install_formula_clean!, "cleanup")
     end
 
     sig { void }

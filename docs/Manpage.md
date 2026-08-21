@@ -2800,6 +2800,30 @@ checks. Will exit with a non-zero status if any errors are found.
 
 : Treat all named arguments as casks.
 
+### `benchmark` \[`--exec`\] \[`--runs=`\] *`formula`* \[...\]
+
+Benchmark this `brew` with `hyperfine`, installing `hyperfine` first if it is
+missing. Each of the metadata-cold, archive-cold, archive-warm and fully-warm
+`brew install` workloads is measured separately, as are the metadata-cold,
+archive-cold and archive-warm `brew fetch` workloads for each of 1, 10, 50 and
+100 *`formula`*e that are available: pass 100 *`formula`*e for full coverage and
+fewer for a shorter run.
+
+The first *`formula`* is used for the install workloads: its dependencies are
+installed once up front and left behind. All *`formula`*e must initially be
+uninstalled and the archive-cold workloads re-download every bottle in the
+batch. Mean wall times and `$HOMEBREW_PHASE_TIMINGS` phase totals are printed
+and written to `benchmark/results.json`.
+
+`--exec`
+
+: Run `hyperfine` with the arguments given after `--` instead of Homebrew's own
+  workloads, e.g. `brew benchmark --exec -- 'brew --version'`.
+
+`--runs`
+
+: Number of repetitions of each workload. Defaults to 3.
+
 ### `bottle` \[*`options`*\] *`installed_formula`*\|*`file`* \[...\]
 
 Generate a bottle (binary package) from a formula that was installed with

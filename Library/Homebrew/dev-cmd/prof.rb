@@ -37,7 +37,7 @@ module Homebrew
         when ".sh"
           raise UsageError, <<~EOS
             `#{cmd}` is a Bash command!
-            Try `hyperfine` for benchmarking instead.
+            Try `brew benchmark --exec` for benchmarking instead.
           EOS
         else
           raise UsageError, "`#{cmd}` is an unknown command!"
