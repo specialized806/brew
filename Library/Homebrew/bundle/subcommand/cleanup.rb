@@ -213,7 +213,7 @@ module Homebrew
               would_uninstall = true
             end
 
-            would_cleanup = Cleanup.printed_dry_run_output?(Cleanup.dry_run_output)
+            would_cleanup = Cleanup.printed_dry_run_output?(Cleanup.dry_run_output(quiet: true))
             would_change = would_uninstall || would_cleanup
 
             # `Ask.confirm?` only prints a prompt on a TTY; when it does, don't
