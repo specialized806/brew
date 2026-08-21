@@ -491,6 +491,21 @@ RSpec.describe Homebrew::Cleanup do
     end
   end
 
+  describe "::cleanup_bootsnap" do
+    it "removes stale keys and keeps the current key" do
+      cache = mktmpdir
+      current = cache/"bootsnap/current"
+      stale = cache/"bootsnap/stale"
+      current.mkpath
+      stale.mkpath
+      allow(Homebrew::Bootsnap).to receive(:key).and_return("current")
+
+      described_class.new(cache:).cleanup_bootsnap
+
+      expect([current.exist?, stale.exist?]).to eq([true, false])
+    end
+  end
+
   describe "::cleanup_cache" do
     it "removes legacy cask downloads during full cache cleanup", :cask do
       cask = Cask::CaskLoader.load("local-transmission")

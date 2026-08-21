@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "extend/ENV"
@@ -20,6 +20,8 @@ RSpec.describe Requirement do
 
   describe "#tags" do
     subject(:req) { klass.new(tags) }
+
+    let(:tags) { [] }
 
     context "with a single tag" do
       let(:tags) { ["bar"] }
@@ -50,6 +52,7 @@ RSpec.describe Requirement do
     describe "#fatal true is specified" do
       let(:klass) do
         Class.new(described_class) do
+          T.bind(self, T.class_of(Requirement))
           fatal true
         end
       end

@@ -23,8 +23,8 @@ module OS
         end
       end
 
-      sig { params(relocation: ::Keg::Relocation, skip_protodesc_cold: T::Boolean).void }
-      def relocate_dynamic_linkage(relocation, skip_protodesc_cold: false)
+      sig { params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).void }
+      def relocate_dynamic_linkage(relocation, with_placeholders: false)
         mach_o_files.each do |file|
           file.ensure_writable do
             modified = T.let(false, T::Boolean)

@@ -274,7 +274,6 @@ module Homebrew
           exec bundle, "install", out: :err
         end)
         if $CHILD_STATUS.success?
-          Homebrew::Bootsnap.reset! if defined?(Homebrew::Bootsnap) # Gem install can run before Bootsnap loads
           true
         else
           message = <<~EOS
@@ -302,6 +301,8 @@ module Homebrew
       end
 
       if bundle_installed
+        # `bundle clean` can remove load paths just as `bundle install` can add them.
+        Homebrew::Bootsnap.reset! if defined?(Homebrew::Bootsnap) # Gem setup can run before Bootsnap loads
         write_user_gem_groups(groups)
         @bundle_installed_groups = groups
       end

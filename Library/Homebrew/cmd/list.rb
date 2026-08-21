@@ -315,7 +315,9 @@ module Homebrew
       sig { void }
       def list_casks
         casks = if args.no_named?
-          cask_paths = Cask::Caskroom.path.children.reject(&:file?).map do |path|
+          require "cask/cask_loader"
+
+          cask_paths = Cask::Caskroom.path.children.select(&:directory?).map do |path|
             if path.symlink?
               real_path = path.realpath
               real_path.basename.to_s

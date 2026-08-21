@@ -219,6 +219,15 @@ RSpec.describe Homebrew::API::Internal do
     expect((cache_dir/"internal/executables.txt").read).to eq("foo:foo-bin food\n")
   end
 
+  it "writes formula aliases and renames as cached mappings" do
+    Homebrew::API.write_names_and_aliases
+
+    mappings = formulae_aliases.merge(formulae_renames).map { |old_name, name| "#{old_name}|#{name}" }.sort
+    expect((cache_dir/"formula_aliases.txt").read.lines(chomp: true)).to eq(
+      mappings,
+    )
+  end
+
   it "returns the expected cask hashes" do
     cask_hashes_output = described_class.cask_hashes
     expect(cask_hashes_output).to eq cask_hashes

@@ -13,6 +13,18 @@ class CacheStoreDatabase
   Key = type_member
   Value = type_member
 
+  # Tracks the active users and shared database for one cache type.
+  class TypeReference < T::Struct
+    const :mutex, Thread::Mutex
+    prop :active_users, Integer, default: 0
+    prop :database, T.nilable(CacheStoreDatabase[T.anything, T.anything]), default: nil
+  end
+  private_constant :TypeReference
+
+  # Only reference creation is global; each cache type has its own lifecycle lock.
+  @type_references_mutex = T.let(Thread::Mutex.new, Thread::Mutex)
+  @type_references = T.let({}, T::Hash[Symbol, TypeReference])
+
   # Yields the cache store database.
   # Closes the database after use if it has been loaded.
   sig {
@@ -24,28 +36,29 @@ class CacheStoreDatabase
       .returns(T.type_parameter(:U))
   }
   def self.use(type, &_blk)
-    @db_type_reference_hash ||= T.let({}, T.nilable(T::Hash[T.untyped, T.untyped]))
-    @db_type_reference_hash[type] ||= {}
-    type_ref = @db_type_reference_hash[type]
-
-    type_ref[:count] ||= 0
-    type_ref[:count]  += 1
-
-    type_ref[:db] ||= CacheStoreDatabase.new(type)
-
-    return_value = yield(type_ref[:db])
-    if type_ref[:count].positive?
-      type_ref[:count] -= 1
-    else
-      type_ref[:count] = 0
+    type_ref = @type_references_mutex.synchronize do
+      @type_references[type] ||= TypeReference.new(mutex: Thread::Mutex.new)
     end
 
-    if type_ref[:count].zero?
-      type_ref[:db].write_if_dirty!
-      type_ref.delete(:db)
+    db = type_ref.mutex.synchronize do
+      type_ref.active_users += 1
+      type_ref.database ||= CacheStoreDatabase.new(type)
     end
 
-    return_value
+    begin
+      return_value = yield(db)
+      return_value
+    ensure
+      # `break` from the block used to skip the decrement and leak the refcount.
+      type_ref.mutex.synchronize do
+        type_ref.active_users -= 1
+        if type_ref.active_users.zero?
+          # Prevent a replacement database from opening until the final write completes.
+          type_ref.database&.write_if_dirty!
+          type_ref.database = nil
+        end
+      end
+    end
   end
 
   # Creates a CacheStoreDatabase.

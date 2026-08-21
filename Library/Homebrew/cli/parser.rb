@@ -1134,12 +1134,35 @@ module Homebrew
         else
           :stable
         end
+        # homebrew/core formulae cannot define options, so defer their inflation until command execution.
+        install_from_api = !Homebrew::EnvConfig.no_install_from_api?
+        api_formula_cache_contents = if install_from_api && named_args.any?
+          %w[formula_names.txt formula_aliases.txt].filter_map do |file|
+            path = Homebrew::API::HOMEBREW_CACHE_API/file
+            path.read if path.file?
+          end
+        else
+          []
+        end
 
         # Only lowercase names, not paths, bottle filenames or URLs
         named_args.filter_map do |arg|
           next if arg.match?(HOMEBREW_CASK_TAP_CASK_REGEX)
 
           begin
+            api_formula_name = arg[HOMEBREW_DEFAULT_TAP_FORMULA_REGEX, :name]
+            if install_from_api && api_formula_name
+              api_formula_pattern = /^#{Regexp.escape(api_formula_name)}(?:\||$)/
+              cached_api_formula = arg != api_formula_name || api_formula_cache_contents.any? do |contents|
+                contents.match?(api_formula_pattern)
+              end
+              cached_api_formula ||= Homebrew::API::Internal.formula_hashes_cached? &&
+                                     (Homebrew::API.formula_name?(api_formula_name) ||
+                                      Homebrew::API.formula_aliases.key?(api_formula_name) ||
+                                      Homebrew::API.formula_renames.key?(api_formula_name))
+              next if cached_api_formula
+            end
+
             Formulary.factory(arg, spec, flags: argv.select { |a| a.start_with?("--") })
           rescue FormulaUnavailableError, FormulaSpecificationError
             nil

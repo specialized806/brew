@@ -3,6 +3,7 @@
 
 require "formula"
 require "formula_installer"
+Warnings.ignore(/circular require considered harmful/) { require "install" }
 require "keg"
 require "sandbox"
 require "tab"

@@ -118,7 +118,7 @@ RSpec.describe FormulaInstaller do
     formula_installer = described_class.new(formula)
     begin
       expect do
-        Homebrew::Install.fetch_formulae([formula_installer])
+        formula_installer.fetch
         formula_installer.install
       end.to output(/Removing corrupt cached download/).to_stderr
 

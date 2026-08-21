@@ -5,7 +5,7 @@ require_relative "shared_examples"
 
 RSpec.describe UnpackStrategy::Dmg, :needs_macos do
   describe "#mount" do
-    let(:path) { TEST_FIXTURE_DIR/"cask/container.dmg" }
+    subject(:path) { TEST_FIXTURE_DIR/"cask/container.dmg" }
 
     include_examples "UnpackStrategy::detect"
 

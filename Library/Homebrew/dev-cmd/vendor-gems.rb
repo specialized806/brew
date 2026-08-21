@@ -45,6 +45,21 @@ module Homebrew
           ohai "bundle install --standalone"
           run_bundle "install", "--standalone"
 
+          require "bundler"
+          definition = Bundler::Definition.build(Bundler.default_gemfile, Bundler.default_lockfile, false)
+          # Bundler ships with Ruby, outside the directory hashed by Bootsnap.
+          core_gem_names = definition.specs_for([:default])
+                                     .filter_map { |spec| spec.name if spec.name != "bundler" }
+                                     .sort
+          bootsnap_gem_names = Homebrew::Bootsnap.core_gem_names.sort
+          if core_gem_names != bootsnap_gem_names
+            raise <<~EOS
+              Bootsnap core gem list is out of date.
+              Expected: #{core_gem_names.join(", ")}
+              Actual: #{bootsnap_gem_names.join(", ")}
+            EOS
+          end
+
           if GitHub::Actions.env_set? && HOMEBREW_PREFIX.to_s == HOMEBREW_LINUX_DEFAULT_PREFIX
             ohai "chmod +t -R /home/linuxbrew/"
             system "sudo", "chmod", "+t", "-R", "/home/linuxbrew/"
