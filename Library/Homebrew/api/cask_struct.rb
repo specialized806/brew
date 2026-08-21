@@ -30,7 +30,7 @@ module Homebrew
         :homepage,
       ].freeze
 
-      EMPTY_BLOCK = T.let(-> {}.freeze, T.proc.void)
+      EMPTY_BLOCK = T.let(proc {}.freeze, T.proc.void)
       EMPTY_BLOCK_PLACEHOLDER = :empty_block
 
       ArtifactArgs = T.type_alias do
@@ -178,7 +178,7 @@ module Homebrew
       def serialize_artifact_args(artifact)
         key, args, kwargs, block = artifact
 
-        # We can't serialize Procs, so always use an empty block placeholder to be deserialized as `-> {}`.
+        # We can't serialize Procs, so always use an empty block placeholder to be deserialized as `proc {}`.
         block = EMPTY_BLOCK_PLACEHOLDER unless block.nil?
 
         [key, args, kwargs, block]
