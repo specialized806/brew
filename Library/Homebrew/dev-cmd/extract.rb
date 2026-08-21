@@ -143,7 +143,7 @@ module Homebrew
         path.write result
 
         patches = formula.patchlist + formula.resources.flat_map(&:patches)
-        patches.grep(LocalPatch).map { |patch| patch.file.to_s }.uniq.each do |patch_file|
+        patches.grep(LocalPatch).map { |patch| Pathname(patch.file).cleanpath }.uniq.each do |patch_file|
           patch_contents = Utils::Git.file_at_commit(repo, patch_file, rev)
           odie "Could not find #{patch_file} at revision #{rev}!" if patch_contents.blank?
 
