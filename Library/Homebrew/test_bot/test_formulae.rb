@@ -233,9 +233,10 @@ module Homebrew
           @fetched_refs << git_ref if steps.fetch(-1).passed?
         end
 
-        relative_formula_path = formula.path.relative_path_from(repository)
+        relative_paths = [formula.path.relative_path_from(repository).to_s]
+        relative_paths.concat(formula.patchlist.grep(LocalPatch).map { |patch| patch.file.to_s })
         !!system(git.to_s, "-C", repository.to_s, "diff", "--no-ext-diff", "--quiet", git_ref, "--",
-                 relative_formula_path.to_s)
+                 *relative_paths)
       end
 
       sig { params(formula: String, bottle_dir: Pathname).returns(T.nilable(T::Hash[String, T.untyped])) }
