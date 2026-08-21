@@ -8,6 +8,13 @@ module OS
   module Mac
     module FFI
       # Security.framework code-signing wrapper.
+      #
+      # Every Core Foundation object is scoped to a {CoreFoundation::ReleasePool}
+      # so it is released before returning to the caller. Security.framework
+      # objects especially must never be left to GC-time release: their
+      # destructors log via `os_log`, which crashes when run on the child side
+      # of `fork` (e.g. in `Utils.popen`).
+      # https://github.com/Homebrew/brew/issues/23606
       module Security
         extend NativeLibrary
 
@@ -27,10 +34,11 @@ module OS
 
         sig {
           params(
+            pool:  CoreFoundation::ReleasePool,
             block: T.proc.params(result: Fiddle::Pointer).returns(Integer),
           ).returns(T.nilable(Fiddle::Pointer))
         }
-        private_class_method def self.retained_pointer(&block)
+        private_class_method def self.retained_pointer(pool, &block)
           result = Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP, Fiddle::RUBY_FREE)
           result[0, Fiddle::SIZEOF_VOIDP] = [0].pack("J")
           return unless yield(result).zero?
@@ -38,18 +46,18 @@ module OS
           pointer = result.ptr
           return if pointer.null?
 
-          CoreFoundation.autorelease(pointer)
+          pool.track(pointer)
         end
 
-        sig { params(path: String).returns(T.nilable(Fiddle::Pointer)) }
-        private_class_method def self.static_code(path)
-          path_string = CoreFoundation.string_create(File.expand_path(path))
+        sig { params(path: String, pool: CoreFoundation::ReleasePool).returns(T.nilable(Fiddle::Pointer)) }
+        private_class_method def self.static_code(path, pool)
+          path_string = pool.track(CoreFoundation.string_create(File.expand_path(path)))
           return if path_string.null?
 
-          path_url = CoreFoundation.url_create_with_file_system_path(path_string)
+          path_url = pool.track(CoreFoundation.url_create_with_file_system_path(path_string))
           return if path_url.null?
 
-          retained_pointer do |result|
+          retained_pointer(pool) do |result|
             # https://developer.apple.com/documentation/security/secstaticcodecreatewithpath%28_%3A_%3A_%3A%29
             function(
               "SecStaticCodeCreateWithPath",
@@ -64,70 +72,74 @@ module OS
         # https://developer.apple.com/documentation/security/applying-code-requirements
         sig { params(path: String).returns(T.nilable(String)) }
         def self.designated_requirement(path)
-          code = static_code(path)
-          return if code.nil?
+          CoreFoundation.with_release_pool do |pool|
+            code = static_code(path, pool)
+            next if code.nil?
 
-          requirement = retained_pointer do |result|
-            # https://developer.apple.com/documentation/security/seccodecopydesignatedrequirement%28_%3A_%3A_%3A%29
-            function(
-              "SecCodeCopyDesignatedRequirement",
+            requirement = retained_pointer(pool) do |result|
+              # https://developer.apple.com/documentation/security/seccodecopydesignatedrequirement%28_%3A_%3A_%3A%29
+              function(
+                "SecCodeCopyDesignatedRequirement",
+                FUNCTION_ARGUMENT_TYPES,
+                Fiddle::TYPE_INT,
+              ).call(code, 0, result)
+            end
+            next if requirement.nil?
+
+            # Validate sealed content against its own identity before trusting it.
+            # https://developer.apple.com/documentation/security/secstaticcodecheckvalidity%28_%3A_%3A_%3A%29
+            next unless function(
+              "SecStaticCodeCheckValidity",
               FUNCTION_ARGUMENT_TYPES,
               Fiddle::TYPE_INT,
-            ).call(code, 0, result)
+            ).call(code, VALIDATION_FLAGS, requirement).zero?
+
+            requirement_string = retained_pointer(pool) do |result|
+              function(
+                "SecRequirementCopyString",
+                FUNCTION_ARGUMENT_TYPES,
+                Fiddle::TYPE_INT,
+              ).call(requirement, 0, result)
+            end
+            next if requirement_string.nil?
+
+            ObjectiveC.message_send(
+              requirement_string,
+              "UTF8String",
+              [],
+              Fiddle::TYPE_VOIDP,
+            ).to_s
           end
-          return if requirement.nil?
-
-          # Validate sealed content against its own identity before trusting it.
-          # https://developer.apple.com/documentation/security/secstaticcodecheckvalidity%28_%3A_%3A_%3A%29
-          return unless function(
-            "SecStaticCodeCheckValidity",
-            FUNCTION_ARGUMENT_TYPES,
-            Fiddle::TYPE_INT,
-          ).call(code, VALIDATION_FLAGS, requirement).zero?
-
-          requirement_string = retained_pointer do |result|
-            function(
-              "SecRequirementCopyString",
-              FUNCTION_ARGUMENT_TYPES,
-              Fiddle::TYPE_INT,
-            ).call(requirement, 0, result)
-          end
-          return if requirement_string.nil?
-
-          ObjectiveC.message_send(
-            requirement_string,
-            "UTF8String",
-            [],
-            Fiddle::TYPE_VOIDP,
-          ).to_s
         end
 
         sig { params(path: String, requirement: String).returns(T.nilable(T::Boolean)) }
         def self.requirement_match(path, requirement)
-          code = static_code(path)
-          return if code.nil?
+          CoreFoundation.with_release_pool do |pool|
+            code = static_code(path, pool)
+            next if code.nil?
 
-          requirement_string = CoreFoundation.string_create(requirement)
-          return if requirement_string.null?
+            requirement_string = pool.track(CoreFoundation.string_create(requirement))
+            next if requirement_string.null?
 
-          compiled_requirement = retained_pointer do |result|
-            # https://developer.apple.com/documentation/security/1394522-secrequirementcreatewithstring
-            function(
-              "SecRequirementCreateWithString",
+            compiled_requirement = retained_pointer(pool) do |result|
+              # https://developer.apple.com/documentation/security/1394522-secrequirementcreatewithstring
+              function(
+                "SecRequirementCreateWithString",
+                FUNCTION_ARGUMENT_TYPES,
+                Fiddle::TYPE_INT,
+              ).call(requirement_string, 0, result)
+            end
+            next if compiled_requirement.nil?
+
+            status = function(
+              "SecStaticCodeCheckValidity",
               FUNCTION_ARGUMENT_TYPES,
               Fiddle::TYPE_INT,
-            ).call(requirement_string, 0, result)
+            ).call(code, VALIDATION_FLAGS, compiled_requirement)
+            next true if status.zero?
+
+            false if status == REQUIREMENT_FAILED_STATUS
           end
-          return if compiled_requirement.nil?
-
-          status = function(
-            "SecStaticCodeCheckValidity",
-            FUNCTION_ARGUMENT_TYPES,
-            Fiddle::TYPE_INT,
-          ).call(code, VALIDATION_FLAGS, compiled_requirement)
-          return true if status.zero?
-
-          false if status == REQUIREMENT_FAILED_STATUS
         end
       end
     end
