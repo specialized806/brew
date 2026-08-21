@@ -1767,6 +1767,16 @@ Treat all named arguments as formulae\.
 .TP
 \fB\-\-cask\fP
 Treat all named arguments as casks\.
+.SS "\fBbenchmark\fP \fR[\fB\-\-exec\fP] \fR[\fB\-\-runs=\fP] \fIformula\fP \fR[\.\.\.]"
+Benchmark this \fBbrew\fP with \fBhyperfine\fP, installing \fBhyperfine\fP first if it is missing\. Each of the metadata\-cold, archive\-cold, archive\-warm and fully\-warm \fBbrew install\fP workloads is measured separately, as are the metadata\-cold, archive\-cold and archive\-warm \fBbrew fetch\fP workloads for each of 1, 10, 50 and 100 \fIformula\fPe that are available: pass 100 \fIformula\fPe for full coverage and fewer for a shorter run\.
+.P
+The first \fIformula\fP is used for the install workloads: its dependencies are installed once up front and left behind\. All \fIformula\fPe must initially be uninstalled and the archive\-cold workloads re\-download every bottle in the batch\. Mean wall times and \fB$HOMEBREW_PHASE_TIMINGS\fP phase totals are printed and written to \fBbenchmark/results\.json\fP\&\.
+.TP
+\fB\-\-exec\fP
+Run \fBhyperfine\fP with the arguments given after \fB\-\-\fP instead of Homebrew\[u2019]s own workloads, e\.g\. \fBbrew benchmark \-\-exec \-\- \'brew \-\-version\'\fP\&\.
+.TP
+\fB\-\-runs\fP
+Number of repetitions of each workload\. Defaults to 3\.
 .SS "\fBbottle\fP \fR[\fIoptions\fP] \fIinstalled_formula\fP|\fIfile\fP \fR[\.\.\.]"
 Generate a bottle (binary package) from a formula that was installed with \fB\-\-build\-bottle\fP\&\. If the formula specifies a rebuild version, it will be incremented in the generated DSL\. Passing \fB\-\-keep\-old\fP will attempt to keep it at its original value, while \fB\-\-no\-rebuild\fP will remove it\.
 .TP

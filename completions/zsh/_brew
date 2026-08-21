@@ -168,6 +168,7 @@ __brew_internal_commands() {
     'as-console-user:Run a Homebrew command as the active macOS console user'
     'audit:Check formula or cask for Homebrew coding style violations'
     'autoremove:Uninstall formulae that were only installed as a dependency of another formula and are now no longer needed'
+    'benchmark:Benchmark this `brew` with `hyperfine`, installing `hyperfine` first if it is missing'
     'bottle:Generate a bottle (binary package) from a formula that was installed with `--build-bottle`'
     'bump:Displays out-of-date packages and the latest version available'
     'bump-cask-pr:Create a pull request to update cask with a new version'
@@ -568,6 +569,19 @@ _brew_autoremove() {
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
+}
+
+# brew benchmark
+_brew_benchmark() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '(--runs)--exec[Run `hyperfine` with the arguments given after `--` instead of Homebrew'\''s own workloads, e.g. `brew benchmark --exec -- '\''brew --version'\''`]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '(--exec)--runs[Number of repetitions of each workload. Defaults to 3]' \
+    '--verbose[Make some output more verbose]' \
+    - formula \
+    '*:formula:__brew_formulae'
 }
 
 # brew bottle

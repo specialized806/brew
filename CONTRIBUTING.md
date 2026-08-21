@@ -20,7 +20,7 @@ First time contributing to Homebrew? Read our [Code of Conduct](https://github.c
 * Ideally, open a pull request to implement it, describing both the problem it solves for you and your proposed solution.
 * If not, open an issue with a detailed description of your proposed feature, the motivation for it and alternatives considered.
 * Please note we may close this issue or ask you to create a pull request if this is not something we see as sufficiently high priority.
-* Any pull request claiming performance improvements (e.g. "this is faster") must include [Hyperfine](https://github.com/sharkdp/hyperfine) benchmark results demonstrating the improvement.
+* Any pull request claiming performance improvements (e.g. "this is faster") must include `brew benchmark` results demonstrating the improvement.
 
 ### "Artificial Intelligence"/Large Language Model (AI/LLM) usage
 
