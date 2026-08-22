@@ -85,7 +85,10 @@ begin
       output_path.dirname.mkpath
       output_path.write(
         Utils::ShellCompletion.generate_completion_output(
-          commands, completion["shell_parameter"], completion.fetch("env")
+          commands,
+          completion["shell_parameter"],
+          completion.fetch("env"),
+          print_stderr: completion.fetch("print_stderr"),
         ),
       )
     rescue => e

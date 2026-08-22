@@ -104,5 +104,22 @@ RSpec.describe Utils::ShellCompletion do
 
       described_class.generate_completion_output(["/usr/bin/foo"], nil, {})
     end
+
+    it "suppresses stderr when requested" do
+      expect(Utils).to receive(:safe_popen_read).with(
+        {}, "/usr/bin/foo"
+      ).and_return("output")
+
+      described_class.generate_completion_output(["/usr/bin/foo"], nil, {}, print_stderr: false)
+    end
+
+    it "prints stderr when HOMEBREW_STDERR is set" do
+      ENV["HOMEBREW_STDERR"] = "1"
+      expect(Utils).to receive(:safe_popen_read).with(
+        {}, "/usr/bin/foo", err: :err
+      ).and_return("output")
+
+      described_class.generate_completion_output(["/usr/bin/foo"], nil, {}, print_stderr: false)
+    end
   end
 end
