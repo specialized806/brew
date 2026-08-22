@@ -59,45 +59,49 @@ module OS
 
             odebug "Quarantining #{download_path}"
 
-            path_cf_string = MacOS::FFI::CoreFoundation.string_create(download_path.to_s)
-            if path_cf_string.null?
-              Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
-                                                           "Failed to create CFString for path")
+            MacOS::FFI::CoreFoundation.with_release_pool do |pool|
+              path_cf_string = pool.track(MacOS::FFI::CoreFoundation.string_create(download_path.to_s))
+              if path_cf_string.null?
+                Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
+                                                             "Failed to create CFString for path")
+              end
+
+              path_cf_url = pool.track(MacOS::FFI::CoreFoundation.url_create_with_file_system_path(path_cf_string))
+              if path_cf_url.null?
+                Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
+                                                             "Failed to create CFURL for path")
+              end
+
+              quarantine_agent_name = pool.track(MacOS::FFI::CoreFoundation.string_create("Homebrew Cask"))
+              quarantine_data_url = pool.track(MacOS::FFI::CoreFoundation.string_create(cask.url.to_s))
+              quarantine_origin_url = pool.track(MacOS::FFI::CoreFoundation.string_create(cask.homepage.to_s))
+              if quarantine_agent_name.null? || quarantine_data_url.null? || quarantine_origin_url.null?
+                Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
+                                                             "Failed to create CFString for quarantine properties")
+              end
+
+              quarantine_properties = {
+                MacOS::FFI::LaunchServices.quarantine_agent_name_key => quarantine_agent_name,
+                MacOS::FFI::LaunchServices.quarantine_type_key       => MacOS::FFI::LaunchServices.quarantine_type_web_download,
+                MacOS::FFI::LaunchServices.quarantine_data_url_key   => quarantine_data_url,
+                MacOS::FFI::LaunchServices.quarantine_origin_url_key => quarantine_origin_url,
+              }
+              quarantine_dictionary = pool.track(MacOS::FFI::CoreFoundation.dictionary_create(quarantine_properties))
+              if quarantine_dictionary.null?
+                Kernel.raise ::Cask::CaskQuarantineError.new(download_path, "Failed to create quarantine dictionary")
+              end
+
+              success = MacOS::FFI::CoreFoundation.url_set_resource_property_for_key(
+                path_cf_url,
+                MacOS::FFI::CoreFoundation.url_quarantine_properties_key,
+                quarantine_dictionary,
+              )
+
+              unless success
+                Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
+                                                             "Failed to set quarantine properties for URL")
+              end
             end
-
-            path_cf_url = MacOS::FFI::CoreFoundation.url_create_with_file_system_path(path_cf_string)
-            if path_cf_url.null?
-              Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
-                                                           "Failed to create CFURL for path")
-            end
-
-            quarantine_agent_name = MacOS::FFI::CoreFoundation.string_create("Homebrew Cask")
-            quarantine_data_url = MacOS::FFI::CoreFoundation.string_create(cask.url.to_s)
-            quarantine_origin_url = MacOS::FFI::CoreFoundation.string_create(cask.homepage.to_s)
-            if quarantine_agent_name.null? || quarantine_data_url.null? || quarantine_origin_url.null?
-              Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
-                                                           "Failed to create CFString for quarantine properties")
-            end
-
-            quarantine_dictionary = MacOS::FFI::CoreFoundation.dictionary_create(
-              MacOS::FFI::LaunchServices.quarantine_agent_name_key => quarantine_agent_name,
-              MacOS::FFI::LaunchServices.quarantine_type_key       => MacOS::FFI::LaunchServices.quarantine_type_web_download,
-              MacOS::FFI::LaunchServices.quarantine_data_url_key   => quarantine_data_url,
-              MacOS::FFI::LaunchServices.quarantine_origin_url_key => quarantine_origin_url,
-            )
-            if quarantine_dictionary.null?
-              Kernel.raise ::Cask::CaskQuarantineError.new(download_path, "Failed to create quarantine dictionary")
-            end
-
-            success = MacOS::FFI::CoreFoundation.url_set_resource_property_for_key(
-              path_cf_url,
-              MacOS::FFI::CoreFoundation.url_quarantine_properties_key,
-              quarantine_dictionary,
-            )
-
-            return if success
-
-            Kernel.raise ::Cask::CaskQuarantineError.new(download_path, "Failed to set quarantine properties for URL")
           end
 
           sig { params(from: ::Pathname, to: ::Pathname, command: T.class_of(::SystemCommand)).void }

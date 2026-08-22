@@ -7,19 +7,63 @@ module OS
   module Mac
     module FFI
       # CoreFoundation.framework wrapper
+      #
+      # Methods that create Core Foundation objects follow the Create Rule: the
+      # caller owns the result and must release it deterministically with
+      # {release}, usually via {with_release_pool}. Constant accessors return
+      # borrowed references that must not be released. Ownership must not be
+      # handed to the garbage collector: a GC-time `CFRelease` can run on the
+      # child side of `fork` (e.g. in `Utils.popen`), where Core Foundation is
+      # not fork-safe.
+      # https://github.com/Homebrew/brew/issues/23606
       module CoreFoundation
         extend NativeLibrary
 
         use_library "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
 
-        sig { params(ptr: Fiddle::Pointer).returns(Fiddle::Pointer) }
-        def self.autorelease(ptr)
-          return ptr if ptr.null?
+        # Tracks Core Foundation objects so they can be released deterministically.
+        class ReleasePool
+          sig { void }
+          def initialize
+            @pointers = T.let([], T::Array[Fiddle::Pointer])
+          end
 
-          # CoreFoundation/CFBase.h:
-          #   void CFRelease(CFTypeRef cf);
-          ptr.free = function("CFRelease", [Fiddle::TYPE_VOIDP], Fiddle::TYPE_VOID)
-          ptr
+          # Registers an owned Core Foundation object for release when the pool
+          # is drained and returns it unchanged.
+          sig { params(ptr: Fiddle::Pointer).returns(Fiddle::Pointer) }
+          def track(ptr)
+            @pointers << ptr unless ptr.null?
+            ptr
+          end
+
+          sig { void }
+          def drain
+            @pointers.reverse_each { |ptr| CoreFoundation.release(ptr) }
+            @pointers.clear
+          end
+        end
+
+        # Yields a {ReleasePool} and drains it when the block finishes,
+        # releasing every tracked object even if the block raises.
+        sig {
+          type_parameters(:U)
+            .params(_block: T.proc.params(pool: ReleasePool).returns(T.type_parameter(:U)))
+            .returns(T.type_parameter(:U))
+        }
+        def self.with_release_pool(&_block)
+          pool = ReleasePool.new
+          yield pool
+        ensure
+          pool&.drain
+        end
+
+        # CoreFoundation/CFBase.h:
+        #   void CFRelease(CFTypeRef cf);
+        sig { params(ptr: Fiddle::Pointer).void }
+        def self.release(ptr)
+          return if ptr.null?
+
+          function("CFRelease", [Fiddle::TYPE_VOIDP], Fiddle::TYPE_VOID).call(ptr)
         end
 
         # CoreFoundation/CFDictionary.h:
@@ -55,13 +99,11 @@ module OS
             0x08000100
           end
 
-          autorelease(
-            function(
-              "CFStringCreateWithCString",
-              [Fiddle::TYPE_VOIDP, Fiddle::TYPE_CONST_STRING, Fiddle::TYPE_UINT32_T],
-              Fiddle::TYPE_VOIDP,
-            ).call(nil, string, cf_encoding),
-          )
+          function(
+            "CFStringCreateWithCString",
+            [Fiddle::TYPE_VOIDP, Fiddle::TYPE_CONST_STRING, Fiddle::TYPE_UINT32_T],
+            Fiddle::TYPE_VOIDP,
+          ).call(nil, string, cf_encoding)
         end
 
         # CoreFoundation/CFDictionary.h:
@@ -80,17 +122,15 @@ module OS
               # Convert array of pointers to continous stream of pointers in the C buffer
               keys[0, size] = hash.keys.pack("J*")
               values[0, size] = hash.values.pack("J*")
-              return autorelease(
-                function(
-                  "CFDictionaryCreate",
-                  [
-                    Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP,
-                    Fiddle::TYPE_LONG, Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP
-                  ],
-                  Fiddle::TYPE_VOIDP,
-                ).call(
-                  nil, keys, values, hash.size, type_dictionary_key_call_backs, type_dictionary_value_call_backs
-                ),
+              return function(
+                "CFDictionaryCreate",
+                [
+                  Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP,
+                  Fiddle::TYPE_LONG, Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP
+                ],
+                Fiddle::TYPE_VOIDP,
+              ).call(
+                nil, keys, values, hash.size, type_dictionary_key_call_backs, type_dictionary_value_call_backs
               )
             end
           end
@@ -101,13 +141,11 @@ module OS
         #     CFStringRef filePath, CFURLPathStyle pathStyle, Boolean isDirectory);
         sig { params(path: Fiddle::Pointer).returns(Fiddle::Pointer) }
         def self.url_create_with_file_system_path(path)
-          autorelease(
-            function(
-              "CFURLCreateWithFileSystemPath",
-              [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_LONG, Fiddle::TYPE_BOOL],
-              Fiddle::TYPE_VOIDP,
-            ).call(nil, path, 0, false),
-          )
+          function(
+            "CFURLCreateWithFileSystemPath",
+            [Fiddle::TYPE_VOIDP, Fiddle::TYPE_VOIDP, Fiddle::TYPE_LONG, Fiddle::TYPE_BOOL],
+            Fiddle::TYPE_VOIDP,
+          ).call(nil, path, 0, false)
         end
 
         # CoreFoundation/CFURL.h:
