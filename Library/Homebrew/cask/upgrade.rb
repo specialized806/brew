@@ -254,11 +254,12 @@ module Cask
             true
           end
 
-          Homebrew::Install.enqueue_cask_installers(prefetched_cask_installers,
+          prefetched_cask_installers.replace(Homebrew::Install.enqueue_cask_installers(prefetched_cask_installers))
+          prefetch_download_queue.fetch(heading: Homebrew::Install.combined_fetch_downloads_heading(
+            cask_names: prefetched_cask_installers.map { |installer| installer.cask.full_name },
+          ))
+          Homebrew::Install.fetch_cask_dependencies(prefetched_cask_installers,
                                                     download_queue: prefetch_download_queue)
-          prefetch_download_queue.fetch(
-            heading: "Fetching dependency downloads",
-          )
         ensure
           prefetch_download_queue.shutdown if created_download_queue
         end

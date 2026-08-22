@@ -103,8 +103,9 @@ RSpec.describe Homebrew::Cmd::Reinstall do
     allow(Homebrew::Install).to receive(:perform_preinstall_checks_once)
     allow(Homebrew::Reinstall).to receive(:build_install_context).and_return(reinstall_context)
     allow(Homebrew::Install).to receive(:ask_formulae)
-    allow(Homebrew::Install).to receive(:enqueue_formulae).and_return([formula_installer])
-    allow(Homebrew::Install).to receive(:enqueue_cask_installers)
+    allow(Homebrew::Install).to receive_messages(enqueue_formulae:        [formula_installer],
+                                                 enqueue_cask_installers: [cask_installer])
+    allow(Homebrew::Install).to receive(:fetch_cask_dependencies)
     allow(Cask::Installer).to receive(:new).and_return(cask_installer)
     allow(Homebrew::Reinstall).to receive(:reinstall_formula)
     allow(Homebrew::Upgrade).to receive_messages(dependants: dependants, upgrade_dependents: [])

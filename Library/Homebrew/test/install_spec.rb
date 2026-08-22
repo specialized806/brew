@@ -119,79 +119,86 @@ RSpec.describe Homebrew::Install do
   end
 
   describe "::enqueue_cask_installers" do
-    it "fetches source API downloads before enqueueing cask downloads" do
-      source_download = instance_double(Homebrew::API::SourceDownload)
-      installer = instance_double(
-        Cask::Installer,
-        cask:                                instance_double(Cask::Cask),
-        enqueue_dependency_downloads:        nil,
-        enqueue_downloads:                   nil,
-        prelude_fetch_download:              source_download,
-        source_download_requires_pre_fetch?: true,
-      )
-      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [])
+    it "returns the installers whose downloads were enqueued" do
+      installer = instance_double(Cask::Installer)
 
-      expect(download_queue).to receive(:enqueue).with(source_download).ordered
-      expect(download_queue).to receive(:fetch)
-        .with(only: Homebrew::API::SourceDownload, heading: "Downloading Cask files")
-        .ordered
-      expect(installer).to receive(:enqueue_downloads).ordered
-      expect(download_queue).to receive(:fetch)
-        .with(only: Cask::Download, heading: "Downloading Cask files")
-        .ordered
+      expect(installer).to receive(:enqueue_downloads)
 
-      described_class.enqueue_cask_installers([installer], download_queue:)
-    end
-
-    it "marks a cask whose source API download fails" do
-      source_download = Homebrew::API::SourceDownload.new("https://brew.sh/cask.rb", nil)
-      installer = instance_double(
-        Cask::Installer,
-        cask:                                instance_double(Cask::Cask),
-        prelude_fetch_download:              source_download,
-        source_download_requires_pre_fetch?: true,
-      )
-      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [source_download])
-
-      allow(download_queue).to receive(:enqueue)
-      allow(download_queue).to receive(:fetch)
-      expect(installer).to receive(:download_failed!)
-      expect(installer).not_to receive(:enqueue_downloads)
-
-      expect(described_class.enqueue_cask_installers([installer], download_queue:)).to be(false)
-    end
-
-    it "enqueues dependencies after fetching primary cask downloads" do
-      cask = instance_double(Cask::Cask, to_s: "dependent-cask")
-      installer = instance_double(Cask::Installer, cask:, source_download_requires_pre_fetch?: false)
-      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [])
-
-      expect(installer).to receive(:enqueue_downloads).ordered
-      expect(download_queue).to receive(:fetch)
-        .with(only: Cask::Download, heading: "Downloading Cask files")
-        .ordered
-      expect(installer).to receive(:enqueue_dependency_downloads).ordered
-
-      described_class.enqueue_cask_installers([installer], download_queue:)
+      expect(described_class.enqueue_cask_installers([installer])).to eq([installer])
     end
 
     it "skips casks whose enqueue raises and continues with the rest" do
-      bad_cask = instance_double(Cask::Cask, to_s: "bad-cask")
-      bad_installer = instance_double(Cask::Installer, cask:                                bad_cask,
-                                                       source_download_requires_pre_fetch?: false)
+      bad_installer = instance_double(Cask::Installer, cask: instance_double(Cask::Cask, to_s: "bad-cask"))
       allow(bad_installer).to receive(:enqueue_downloads)
         .and_raise(URI::InvalidURIError, 'bad URI (is not URI?): "https://example.com/bad -cask.dmg"')
-      good_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false,
-                                                        enqueue_dependency_downloads:        nil)
-      expect(good_installer).to receive(:enqueue_downloads)
+      good_installer = instance_double(Cask::Installer, enqueue_downloads: nil)
 
-      download_queue = Homebrew::DownloadQueue.new(pour: true)
-      begin
-        expect { described_class.enqueue_cask_installers([bad_installer, good_installer], download_queue:) }
-          .to output(/Error: bad-cask: bad URI/).to_stderr
-      ensure
-        download_queue.shutdown
-      end
+      expect do
+        expect(described_class.enqueue_cask_installers([bad_installer, good_installer])).to eq([good_installer])
+      end.to output(/Error: bad-cask: bad URI/).to_stderr
+    end
+  end
+
+  describe "::fetch_cask_dependencies" do
+    it "enqueues dependency downloads once the cask downloads have been fetched" do
+      installer = instance_double(Cask::Installer)
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [])
+
+      expect(installer).to receive(:enqueue_dependency_downloads).ordered
+      expect(download_queue).to receive(:fetch).with(heading: "Fetching dependency downloads").ordered
+
+      described_class.fetch_cask_dependencies([installer], download_queue:)
+    end
+
+    it "marks casks whose downloads failed before resolving dependencies" do
+      downloader = instance_double(Cask::Download)
+      installer = instance_double(Cask::Installer, downloader:, enqueue_dependency_downloads: nil)
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [downloader], fetch: nil)
+
+      allow(installer).to receive(:download_failed?).and_return(false, true)
+      expect(installer).to receive(:download_failed!).ordered
+      expect(installer).to receive(:enqueue_dependency_downloads).ordered
+
+      described_class.fetch_cask_dependencies([installer], download_queue:)
+    end
+
+    it "skips casks whose dependency resolution raises and continues with the rest" do
+      bad_installer = instance_double(Cask::Installer, cask: instance_double(Cask::Cask, to_s: "bad-cask"))
+      allow(bad_installer).to receive(:enqueue_dependency_downloads).and_raise("unexpected nil primary_container")
+      good_installer = instance_double(Cask::Installer)
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [], fetch: nil)
+
+      expect(good_installer).to receive(:enqueue_dependency_downloads)
+
+      expect { described_class.fetch_cask_dependencies([bad_installer, good_installer], download_queue:) }
+        .to output(/Error: bad-cask: unexpected nil primary_container/).to_stderr
+    end
+  end
+
+  describe "::mark_failed_cask_downloads" do
+    it "marks cask installers whose downloads failed" do
+      downloader = instance_double(Cask::Download)
+      installer = instance_double(Cask::Installer, downloader:, download_failed?: false)
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [downloader])
+
+      expect(installer).to receive(:download_failed!)
+
+      described_class.mark_failed_cask_downloads([installer], download_queue:)
+    end
+
+    it "marks dependency cask installers whose downloads failed" do
+      dependency_downloader = instance_double(Cask::Download)
+      dependency_installer = instance_double(Cask::Installer, downloader:       dependency_downloader,
+                                                              download_failed?: false)
+      installer = instance_double(Cask::Installer, downloader:                 instance_double(Cask::Download),
+                                                   download_failed?:           false,
+                                                   dependency_cask_installers: [dependency_installer])
+      download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [dependency_downloader])
+
+      expect(installer).not_to receive(:download_failed!)
+      expect(dependency_installer).to receive(:download_failed!)
+
+      described_class.mark_failed_cask_downloads([installer], download_queue:)
     end
   end
 

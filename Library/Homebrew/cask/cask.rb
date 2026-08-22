@@ -112,7 +112,6 @@ module Cask
       @loaded_from_api = loaded_from_api
       @loaded_from_internal_api = loaded_from_internal_api
       @api_source = api_source
-      @language_variations_available = T.let(false, T::Boolean)
       @language_evaluator = T.let(nil, T.nilable(T.proc.params(languages: T::Array[String]).returns(T.nilable(String))))
       @loader = loader
       # Sorbet has trouble with bound procs assigned to instance variables:
@@ -273,13 +272,6 @@ module Cask
     sig { returns(T::Boolean) }
     def supports_macos?
       !depends_on.requires_linux?
-    end
-
-    # The caskfile is needed during installation when there are legacy
-    # `*flight` blocks or language variations missing from API data.
-    sig { returns(T::Boolean) }
-    def caskfile_only?
-      (languages.any? && !@language_variations_available) || artifacts.any?(Artifact::AbstractFlightBlock)
     end
 
     sig { returns(T::Boolean) }
@@ -521,7 +513,6 @@ module Cask
       raise ArgumentError, "Expected cask to be loaded from the API" unless loaded_from_api?
 
       @languages = cask_struct.languages
-      @language_variations_available = cask_struct.language_variations.any?
       @language_evaluator = ->(languages) { cask_struct.language(languages) }
       @tap_git_head = tap_git_head
       @ruby_source_path = cask_struct.ruby_source_path

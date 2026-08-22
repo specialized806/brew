@@ -441,8 +441,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     installer = instance_double(Cask::Installer, cask:, enqueue_downloads: nil,
-                                                  enqueue_dependency_downloads: nil,
-                                                  source_download_requires_pre_fetch?: false)
+                                                  enqueue_dependency_downloads: nil)
     dependants = Homebrew::Upgrade::Dependents.new(upgradeable: [], pinned: [], skipped: [])
 
     allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
@@ -466,8 +465,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil, failed_downloads: [])
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     installer = instance_double(Cask::Installer, cask:, install: nil, enqueue_downloads: nil,
-                                                  enqueue_dependency_downloads: nil,
-                                                  source_download_requires_pre_fetch?: false)
+                                                  enqueue_dependency_downloads: nil)
 
     allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
     allow(Homebrew::Trust).to receive(:trust_fully_qualified_items!)
@@ -488,7 +486,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     allow(Cask::Installer).to receive(:new).and_return(installer)
 
     expect(download_queue).to receive(:fetch)
-      .with(only: Cask::Download, heading: "Downloading Cask files")
+      .with(heading: "Fetching downloads for: local-caffeine")
       .ordered
     expect(download_queue).to receive(:fetch)
       .with(heading: "Fetching dependency downloads")
@@ -648,8 +646,7 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
     formula_installer = instance_double(FormulaInstaller, formula:)
     cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
     installer = instance_double(Cask::Installer, cask:, enqueue_downloads: nil,
-                                                  enqueue_dependency_downloads: nil,
-                                                  source_download_requires_pre_fetch?: false)
+                                                  enqueue_dependency_downloads: nil)
 
     allow(Tap).to receive_messages(with_formula_name: nil, with_cask_token: nil)
     allow(cmd.args.named).to receive(:to_formulae_and_casks).with(warn: false).and_return([formula, cask])
@@ -688,10 +685,10 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
       true
     end
     expect(download_queue).to receive(:fetch)
-      .with(only: Cask::Download, heading: "Downloading Cask files")
+      .with(heading: "Fetching downloads for: testball_bottle and codex")
       .ordered
     expect(download_queue).to receive(:fetch)
-      .with(heading: "Fetching downloads for: testball_bottle")
+      .with(heading: "Fetching dependency downloads")
       .ordered
 
     expect { cmd.run }.to output(<<~EOS).to_stdout

@@ -792,6 +792,16 @@ RSpec.describe Homebrew::Cleanup do
       expect([source_file.exist?, nested_source_file.exist?]).to eq([true, true])
     end
 
+    it "removes cached API cask source paths" do
+      source_file = HOMEBREW_CACHE/"api-source/Homebrew/homebrew-cask/abc123/Cask/testball.rb"
+      source_file.dirname.mkpath
+      FileUtils.touch source_file
+
+      cleanup.cleanup_cache([{ path: source_file, type: :api_source }])
+
+      expect(source_file).not_to exist
+    end
+
     context "when cleaning old files in HOMEBREW_CACHE" do
       let(:bottle) { HOMEBREW_CACHE/"testball--0.0.1.tag.bottle.tar.gz" }
       let(:testball) { HOMEBREW_CACHE/"testball--0.0.1" }

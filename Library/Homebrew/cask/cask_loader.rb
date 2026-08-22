@@ -158,7 +158,7 @@ module Cask
 
         @token = T.let(CaskLoader.token_from_path(path), String)
         @path = T.let(path, Pathname)
-        @tap = T.let(Tap.from_path(path) || Homebrew::API.tap_from_source_download(path), T.nilable(Tap))
+        @tap = T.let(Tap.from_path(path), T.nilable(Tap))
         @from_installed_caskfile = T.let(false, T::Boolean)
         @api_fallback = T.let(true, T::Boolean)
       end
