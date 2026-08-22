@@ -9,12 +9,28 @@ RSpec.describe Homebrew::Cmd::Untap do
 
   it_behaves_like "parseable arguments"
 
-  it "untaps a given Tap", :integration_test do
+  it "untaps a given Tap with an installed cask", :cask, :integration_test do
     setup_test_tap
+    tap = Tap.fetch("homebrew", "foo")
 
-    expect { brew "untap", "homebrew/foo" }
+    cask_source = <<~RUBY
+      cask "testcask" do
+        version "1.2.3"
+        sha256 :no_check
+        url "https://brew.sh/"
+      end
+    RUBY
+
+    cask_path = tap.cask_dir/"testcask.rb"
+    cask_path.dirname.mkpath
+    cask_path.write(cask_source)
+    tap.clear_cache
+
+    cask = Cask::CaskLoader::FromContentLoader.new(cask_source, tap:).load(config: nil)
+    InstallHelper.install_with_caskfile(cask)
+
+    expect { brew "untap", "--force", "homebrew/foo" }
       .to output(/Untapped/).to_stderr
-      .and not_to_output.to_stdout
       .and be_a_success
   end
 
