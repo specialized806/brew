@@ -427,21 +427,27 @@ module Cask
 
         new_cask_installer.fetch
 
-        old_cask.artifacts.grep(Artifact::App).each do |artifact|
-          user_approved = if artifact.target.exist?
-            Quarantine.user_approved?(artifact.target)
-          else
-            false
+        # This snapshot reads quarantine metadata, so it needs the same guard as the code below that uses it.
+        if Quarantine.available?
+          old_cask.artifacts.grep(Artifact::App).each do |artifact|
+            user_approved = if artifact.target.exist?
+              Quarantine.user_approved?(artifact.target)
+            else
+              false
+            end
+            old_user_approved[artifact.target.to_s] = user_approved
+            # Only an already approved app has approvals to pass on, so skip the scan otherwise.
+            if user_approved
+              old_approved_paths[artifact.target.to_s] =
+                Quarantine.user_approved_paths(artifact.target)
+            end
+            old_unquarantined[artifact.target.to_s] = if artifact.target.exist?
+              Quarantine.detect(artifact.target).blank?
+            else
+              false
+            end
+            old_signing_identities[artifact.target.to_s] = Quarantine.signing_identity(artifact.target)
           end
-          old_user_approved[artifact.target.to_s] = user_approved
-          # Only an already approved app has approvals to pass on, so skip the scan otherwise.
-          old_approved_paths[artifact.target.to_s] = Quarantine.user_approved_paths(artifact.target) if user_approved
-          old_unquarantined[artifact.target.to_s] = if artifact.target.exist?
-            Quarantine.detect(artifact.target).blank?
-          else
-            false
-          end
-          old_signing_identities[artifact.target.to_s] = Quarantine.signing_identity(artifact.target)
         end
 
         # Move the old cask's artifacts back to staging
