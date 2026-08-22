@@ -562,6 +562,8 @@ RSpec.describe Homebrew::Vulns::Match do
       record = matcher.to_brew_record(requests, hit, now:)
 
       expect(record[:id]).to eq "BREW-requests-CVE-2024-1234"
+      expect(matcher.record_id(requests, hit))
+        .to eq Homebrew::Vulns::OsvExport.record_for(requests, "CVE-2024-1234", now:)[:id]
       expect(record[:upstream]).to eq ["CVE-2024-1234", "GHSA-abcd"]
       expect(record[:severity]).to eq [{ "type" => "CVSS_V3", "score" => "..." }]
       expect(record[:references]).to eq [{ "type" => "ADVISORY", "url" => "https://x" }]

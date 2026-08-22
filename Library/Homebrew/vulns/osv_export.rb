@@ -59,7 +59,7 @@ module Homebrew
         annotated.each do |formula, patches|
           Scanner.resolved_ids(patches).each do |vuln_id|
             upstream = upstream_cache.fetch(vuln_id) { upstream_cache[vuln_id] = fetch_upstream(vuln_id) }
-            path = File.join(dir, "#{ID_PREFIX}-#{formula.name}-#{vuln_id}.json")
+            path = File.join(dir, "#{record_id(formula, vuln_id)}.json")
             existing = File.file?(path)
             # A transient OSV outage would otherwise strip summary/severity/etc.
             # from an existing enriched record; leave it untouched instead.
@@ -123,7 +123,7 @@ module Homebrew
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         record = T.let({
           schema_version:    SCHEMA_VERSION,
-          id:                "#{ID_PREFIX}-#{formula.name}-#{vuln_id}",
+          id:                record_id(formula, vuln_id),
           published:         timestamp,
           modified:          timestamp,
           upstream:          [vuln_id],
@@ -148,6 +148,11 @@ module Homebrew
         end
 
         record
+      end
+
+      sig { params(formula: Formula, vuln_id: String).returns(String) }
+      def self.record_id(formula, vuln_id)
+        "#{ID_PREFIX}-#{formula.name}-#{vuln_id}"
       end
 
       sig {

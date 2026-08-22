@@ -497,7 +497,7 @@ module Homebrew
 
         record = T.let({
           schema_version:    OsvExport::SCHEMA_VERSION,
-          id:                "#{OsvExport::ID_PREFIX}-#{formula.name}-#{hit.canonical_id}",
+          id:                record_id(formula, hit),
           published:         timestamp,
           modified:          timestamp,
           upstream:          vuln.identifiers,
@@ -518,6 +518,11 @@ module Homebrew
         end
 
         record
+      end
+
+      sig { params(formula: Formula, hit: Hit).returns(String) }
+      def record_id(formula, hit)
+        OsvExport.record_id(formula, hit.canonical_id)
       end
 
       sig {
