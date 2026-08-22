@@ -149,6 +149,13 @@ RSpec.describe Homebrew::Search do
       expect(described_class.search_casks(/testball/))
         .to eq([described_class.pretty_installed("testball")])
     end
+
+    it "loads the cask loader itself" do
+      script = 'require "global"; require "search"; ' \
+               'print Homebrew::Search.search_casks("homebrew/cask/nonexistent-cask").inspect'
+      expect(Utils.popen_read({ "HOMEBREW_NO_INSTALL_FROM_API" => "1" },
+                              RUBY_PATH, "-I", HOMEBREW_LIBRARY_PATH.to_s, "-e", script, err: :out)).to eq("[]")
+    end
   end
 
   describe "#search_descriptions" do

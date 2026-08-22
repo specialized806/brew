@@ -158,6 +158,8 @@ module Homebrew
 
     sig { params(string_or_regex: T.any(Regexp, String)).returns(T::Array[String]) }
     def self.search_casks(string_or_regex)
+      require "cask/cask_loader"
+
       if string_or_regex.is_a?(String) && string_or_regex.match?(HOMEBREW_TAP_CASK_REGEX)
         return begin
           matched_cask = Cask::CaskLoader.load(string_or_regex)
