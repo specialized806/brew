@@ -202,6 +202,10 @@ RSpec.configure do |config|
     ERROR
   end
 
+  config.before do
+    allow(Utils).to receive(:sleep)
+  end
+
   config.before(:each, :no_api) do
     ENV["HOMEBREW_NO_INSTALL_FROM_API"] = "1"
   end

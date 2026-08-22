@@ -56,7 +56,7 @@ RSpec.describe Cask::Migrator do
 
   describe ".migrate_if_needed", :cask do
     let(:old_cask) { Cask::CaskLoader.load(cask_path("local-caffeine")) }
-    let(:new_cask) { Cask::CaskLoader.load(cask_path("local-transmission")) }
+    let(:new_cask) { Cask::CaskLoader.load(cask_path("local-transmission-zip")) }
     let(:old_caskroom_path) { Cask::Caskroom.path/"local-caffeine" }
     let(:appdir) { Pathname(new_cask.config.appdir) }
 
@@ -81,7 +81,7 @@ RSpec.describe Cask::Migrator do
     context "when the new token is an alias symlink pointing at the old directory" do
       it "moves the old cask to the new token without copying it into itself" do
         InstallHelper.stub_cask_installation(old_cask)
-        FileUtils.ln_s "local-caffeine", Cask::Caskroom.path/"local-transmission"
+        FileUtils.ln_s "local-caffeine", Cask::Caskroom.path/"local-transmission-zip"
         rename_old_cask_to_new_cask
 
         described_class.migrate_if_needed(new_cask)
@@ -89,7 +89,7 @@ RSpec.describe Cask::Migrator do
         expect([
           old_caskroom_path.symlink?,
           new_cask.installed_version,
-          (Cask::Caskroom.path/"local-transmission/local-caffeine").exist?,
+          (Cask::Caskroom.path/"local-transmission-zip/local-caffeine").exist?,
         ]).to eq([true, old_cask.version.to_s, false])
       end
     end
@@ -115,7 +115,7 @@ RSpec.describe Cask::Migrator do
 
       it "does not uninstall the old cask in a dry run" do
         expect { described_class.migrate_if_needed(new_cask, dry_run: true) }
-          .to output(/local-transmission is already installed, so local-caffeine would be uninstalled/)
+          .to output(/local-transmission-zip is already installed, so local-caffeine would be uninstalled/)
           .to_stdout
 
         expect([old_caskroom_path.directory?, (appdir/"Caffeine.app").exist?]).to eq([true, true])
