@@ -310,17 +310,17 @@ module Homebrew
       true
     end
 
-    sig { params(args: String, formulae: T::Array[Formula]).returns(String) }
-    def self.dry_run_output(*args, formulae: [])
+    sig { params(args: String, formulae: T::Array[Formula], quiet: T::Boolean).returns(String) }
+    def self.dry_run_output(*args, formulae: [], quiet: false)
       output = StringIO.new
       old_stdout = $stdout
       begin
         $stdout = output
         cleanup = Cleanup.new(*args, dry_run: true)
         if formulae.empty?
-          cleanup.clean!
+          cleanup.clean!(quiet:)
         else
-          formulae.each { |formula| cleanup.cleanup_formula(formula) }
+          formulae.each { |formula| cleanup.cleanup_formula(formula, quiet:) }
         end
       ensure
         $stdout = old_stdout
@@ -341,9 +341,13 @@ module Homebrew
     def self.install_formula_clean!(formula)
       return if install_cleanup_formulae([formula]).blank?
 
+      output = StringIO.new
+      Cleanup.new(output:).cleanup_formula(formula, quiet: true)
+      return if output.string.empty?
+
       ohai "Running `brew cleanup #{formula}`..."
       puts_no_install_cleanup_disable_message_if_not_already!
-      Cleanup.new.cleanup_formula(formula)
+      print output.string
     end
 
     sig { params(formulae: T::Array[Formula], casks: T::Array[Cask::Cask]).void }
@@ -373,6 +377,9 @@ module Homebrew
 
       Cleanup.new.cleanup_cache_db if formulae.present?
       Cleanup.new.cleanup_unreferenced_downloads
+
+      cleanup_output.reject! { |_, output| output.empty? }
+      return if cleanup_output.empty?
 
       oh1 "Cleanup"
       cleanup_output.each do |name, output|

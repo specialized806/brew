@@ -6,7 +6,7 @@
 
 - [ ] Have you followed our [Contributing](https://github.com/Homebrew/brew/blob/HEAD/CONTRIBUTING.md) guidelines?
 - [ ] Have you checked for other open [Pull Requests](https://github.com/Homebrew/brew/pulls) for the same change?
-- [ ] Have you explained what your changes do? Performance claims (e.g. "this is faster") must include [Hyperfine](https://github.com/sharkdp/hyperfine) benchmarks.
+- [ ] Have you explained what your changes do? Performance claims (e.g. "this is faster") must include `brew benchmark` results.
 - [ ] Have you explained why you'd like these changes included, not just what they do?
 - [ ] For bug fixes, have you given step-by-step `brew` commands to reproduce the bug?
 - [ ] Have you written new tests (excluding integration tests)? [Here's an example](https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/test/PATH_spec.rb).
