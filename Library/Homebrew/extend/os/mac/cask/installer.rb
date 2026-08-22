@@ -13,8 +13,8 @@ module OS
 
         sig { params(predecessor: T.nilable(::Cask::Cask)).void }
         def install_artifacts(predecessor: nil)
-          # Resolve and memoise the system languages before any artifact work:
-          # resolving them lazily later (e.g. while serialising the cask config)
+          # Resolve and memoize the system languages before any artifact work:
+          # resolving them lazily later (e.g. while serializing the cask config)
           # would fork (`Utils.popen`) after this process has already used
           # fork-hostile frameworks such as Security.framework for signing
           # checks.

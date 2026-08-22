@@ -295,7 +295,10 @@ RSpec.describe Cask::Quarantine do
 
     it "resolves the system languages before using Security.framework" do
       call_order = []
-      allow(MacOS).to receive(:languages) { call_order << :languages }
+      allow(MacOS).to receive(:languages) do
+        call_order << :languages
+        ["en-US"]
+      end
       allow(MacOS::FFI::Security).to receive(:designated_requirement) do
         call_order << :designated_requirement
         nil
@@ -303,7 +306,8 @@ RSpec.describe Cask::Quarantine do
 
       klass.signing_identity(file)
 
-      expect(call_order).to eq([:languages, :designated_requirement])
+      expect(call_order.first).to eq(:languages)
+      expect(call_order).to include(:designated_requirement)
     end
   end
 

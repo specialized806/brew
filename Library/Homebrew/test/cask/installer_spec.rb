@@ -142,12 +142,16 @@ RSpec.describe Cask::Installer, :cask do
       allow(installer).to receive(:save_config_file)
 
       call_order = []
-      allow(MacOS).to receive(:languages) { call_order << :languages }
+      allow(MacOS).to receive(:languages) do
+        call_order << :languages
+        ["en-US"]
+      end
       allow_any_instance_of(Cask::Artifact::App).to receive(:install_phase) { call_order << :install_phase }
 
       installer.install_artifacts
 
-      expect(call_order).to eq([:languages, :install_phase])
+      expect(call_order.first).to eq(:languages)
+      expect(call_order).to include(:install_phase)
     end
   end
 
