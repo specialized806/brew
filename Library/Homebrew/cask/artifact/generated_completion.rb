@@ -102,6 +102,7 @@ module Cask
             ),
             "env"             => popen_read_env,
             "output_path"     => completion_script_path(shell).to_s,
+            "print_stderr"    => false,
           }
         end
 
@@ -140,7 +141,10 @@ module Cask
         output_path.dirname.mkpath
         output_path.write(
           ::Utils::ShellCompletion.generate_completion_output(
-            completion.fetch("commands"), completion["shell_parameter"], completion.fetch("env")
+            completion.fetch("commands"),
+            completion["shell_parameter"],
+            completion.fetch("env"),
+            print_stderr: completion.fetch("print_stderr"),
           ),
         )
       rescue => e
