@@ -397,7 +397,7 @@ RSpec.describe Tab do
 
       f = formula do
         T.bind(self, T.class_of(Formula))
-        url "foo-1.0"
+        url "file:///foo-1.0"
         depends_on "bar"
         depends_on "user/repo/from_tap"
         depends_on "baz" => :build
@@ -444,7 +444,7 @@ RSpec.describe Tab do
       alias_path = CoreTap.instance.alias_dir/"bar"
       f = formula(alias_path:) do
         T.bind(self, T.class_of(Formula))
-        url "foo-1.0"
+        url "file:///foo-1.0"
       end
       compiler = DevelopmentTools.default_compiler
       stdlib = :libcxx
