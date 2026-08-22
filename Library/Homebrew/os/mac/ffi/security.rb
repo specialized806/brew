@@ -39,6 +39,8 @@ module OS
           ).returns(T.nilable(Fiddle::Pointer))
         }
         private_class_method def self.retained_pointer(pool, &block)
+          # Plain malloc scratch for the out-parameter, safely left to GC;
+          # only the Core Foundation object it yields needs pool-scoped release.
           result = Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP, Fiddle::RUBY_FREE)
           result[0, Fiddle::SIZEOF_VOIDP] = [0].pack("J")
           return unless yield(result).zero?

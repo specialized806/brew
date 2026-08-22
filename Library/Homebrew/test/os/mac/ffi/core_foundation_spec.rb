@@ -21,7 +21,7 @@ RSpec.describe MacOS::FFI::CoreFoundation, :needs_macos do
     end
   end
 
-  describe "::with_release_pool" do
+  describe ".with_release_pool" do
     it "returns the result of the block" do
       expect(described_class.with_release_pool { |_pool| "result" }).to eq("result")
     end

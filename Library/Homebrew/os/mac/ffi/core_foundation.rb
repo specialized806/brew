@@ -8,12 +8,13 @@ module OS
     module FFI
       # CoreFoundation.framework wrapper
       #
-      # Methods returning Core Foundation objects follow the Create Rule: the
+      # Methods that create Core Foundation objects follow the Create Rule: the
       # caller owns the result and must release it deterministically with
-      # {release}, usually via {with_release_pool}. Ownership must not be handed
-      # to the garbage collector: a GC-time `CFRelease` can run on the child
-      # side of `fork` (e.g. in `Utils.popen`), where Core Foundation is not
-      # fork-safe.
+      # {release}, usually via {with_release_pool}. Constant accessors return
+      # borrowed references that must not be released. Ownership must not be
+      # handed to the garbage collector: a GC-time `CFRelease` can run on the
+      # child side of `fork` (e.g. in `Utils.popen`), where Core Foundation is
+      # not fork-safe.
       # https://github.com/Homebrew/brew/issues/23606
       module CoreFoundation
         extend NativeLibrary
