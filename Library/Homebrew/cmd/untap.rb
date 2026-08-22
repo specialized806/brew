@@ -125,6 +125,7 @@ module Homebrew
       # All installed casks currently available in a tap by cask full name.
       sig { params(tap: Tap).returns(T::Array[Cask::Cask]) }
       def installed_casks_for(tap:)
+        require "cask/cask_loader"
         tap.cask_tokens.filter_map do |cask_token|
           next unless installed_cask_tokens.include?(Utils.name_from_full_name(cask_token))
 
