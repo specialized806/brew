@@ -21,6 +21,9 @@ class Homebrew::DevCmd::AdvisoryMatch::Args < Homebrew::CLI::Args
   def json?; end
 
   sig { returns(T::Boolean) }
+  def new_history?; end
+
+  sig { returns(T::Boolean) }
   def no_history?; end
 
   sig { returns(T.nilable(String)) }

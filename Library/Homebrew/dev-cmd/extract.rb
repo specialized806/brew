@@ -60,11 +60,11 @@ module Homebrew
         end
 
         rev = T.let(nil, T.nilable(String))
+        formula = T.let(nil, T.nilable(Formula))
+        version = args.version
+        ohai "Searching repository history"
         if args.version
-          ohai "Searching repository history"
-          version = args.version
           version_segments = Gem::Version.new(version).segments if Gem::Version.correct?(version)
-          test_formula = T.let(nil, T.nilable(Formula))
           result = ""
           loop do
             rev = rev.nil? ? start_rev : "#{rev}~1"
@@ -75,55 +75,39 @@ module Homebrew
                 Try again after running:
                   git -C "#{source_tap.path}" fetch --unshallow
               EOS
-            elsif rev.nil?
+            elsif rev.nil? || path.nil?
               odie "Could not find #{name}! The formula or version may not have existed."
             end
 
-            file = repo/T.must(path)
+            file = repo/path
             result = Utils::Git.last_revision_of_file(repo, file, before_commit: rev)
             if result.empty?
               odebug "Skipping revision #{rev} - file is empty at this revision"
               next
             end
 
-            test_formula = formula_at_revision(repo, name, file, rev)
-            break if test_formula.nil? || test_formula.version == version
+            formula = formula_at_revision(repo, name, file, rev)
+            break if formula.nil? || formula.version == version
 
-            if version_segments && Gem::Version.correct?(test_formula.version)
-              test_formula_version_segments = Gem::Version.new(test_formula.version).segments
+            if version_segments && Gem::Version.correct?(formula.version)
+              test_formula_version_segments = Gem::Version.new(formula.version).segments
               if version_segments.length < test_formula_version_segments.length
                 odebug "Apply semantic versioning with #{test_formula_version_segments}"
                 break if version_segments == test_formula_version_segments.first(version_segments.length)
               end
             end
 
-            odebug "Trying #{test_formula.version} from revision #{rev} against desired #{version}"
+            odebug "Trying #{formula.version} from revision #{rev} against desired #{version}"
           end
-          odie "Could not find #{name}! The formula or version may not have existed." if test_formula.nil?
         else
-          # Search in the root directory of `repository` as well as recursively in all of its subdirectories.
-          files = if start_rev == "HEAD"
-            Dir[repo/"{,**/}"].filter_map do |dir|
-              Pathname.glob("#{dir}/#{name}.rb").find(&:file?)
-            end
-          else
-            []
-          end
-
-          if files.empty?
-            ohai "Searching repository history"
-            rev, (path,) = Utils::Git.last_revision_commit_of_files(repo, pattern, before_commit: start_rev)
-            odie "Could not find #{name}! The formula or version may not have existed." if rev.nil?
-            file = repo/T.must(path)
-            version = T.must(formula_at_revision(repo, name, file, rev)).version
-            result = Utils::Git.last_revision_of_file(repo, file)
-          else
-            file = files.fetch(0).realpath
-            rev = T.let("HEAD", T.nilable(String))
-            version = Formulary.factory(file).version
-            result = File.read(file)
-          end
+          rev, (path,) = Utils::Git.last_revision_commit_of_files(repo, pattern, before_commit: start_rev)
+          odie "Could not find #{name}! The formula or version may not have existed." if rev.nil? || path.nil?
+          file = repo/path
+          formula = formula_at_revision(repo, name, file, rev)
+          result = Utils::Git.file_at_commit(repo, file, rev)
         end
+        odie "Could not find #{name}! The formula or version may not have existed." if formula.nil?
+        version ||= formula.version
 
         # The class name has to be renamed to match the new filename,
         # e.g. Foo version 1.2.3 becomes FooAT123 and resides in Foo@1.2.3.rb.
@@ -157,6 +141,28 @@ module Homebrew
         ohai "Writing formula for #{name} at #{version} from revision #{rev} to:", path
         path.dirname.mkpath
         path.write result
+
+        patches = formula.patchlist + formula.resources.flat_map(&:patches)
+        patches.grep(LocalPatch).map { |patch| Pathname(patch.file).cleanpath }.uniq.each do |patch_file|
+          patch_contents = Utils::Git.file_at_commit(repo, patch_file, rev)
+          odie "Could not find #{patch_file} at revision #{rev}!" if patch_contents.blank?
+
+          patch_path = destination_tap.path/patch_file
+          if patch_path.exist?
+            next if patch_path.read == patch_contents
+
+            odie <<~EOS unless args.force?
+              Destination patch already exists: #{patch_path}
+              To overwrite it and continue anyways, run:
+                brew extract --force --version=#{version} #{name} #{destination_tap.name}
+            EOS
+            odebug "Overwriting existing patch at #{patch_path}"
+            patch_path.delete
+          end
+          ohai "Writing #{patch_file} from revision #{rev} to:", patch_path
+          patch_path.dirname.mkpath
+          patch_path.write patch_contents
+        end
       end
 
       private

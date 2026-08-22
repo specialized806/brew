@@ -66,6 +66,110 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
+  it "only walks history for records not already present with --new-history" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      record = {
+        "schema_version"    => Homebrew::Vulns::OsvExport::SCHEMA_VERSION,
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "modified"          => "2026-01-01T00:00:00Z",
+        "affected"          => [{
+          "package" => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [
+            { "introduced" => "0" }, { "fixed" => "2.28.1" }
+          ] }],
+        }],
+        "database_specific" => { "source" => "matched" },
+      }
+      File.write(path, JSON.generate(record))
+
+      matcher = Homebrew::Vulns::Match.new
+      allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+      expect(matcher).not_to receive(:first_fixed_version)
+
+      expect { cmd_for("requests", "--output", dir, "--new-history").run }
+        .to output(/0 history walks/).to_stdout
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events", 1))
+        .to eq("fixed" => "2.28.1")
+    end
+  end
+
+  it "uses the historical boundary for a new record with --new-history" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      expect { cmd_for("requests", "--output", dir, "--new-history").run }
+        .to output(/1 history walks/).to_stdout
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events", 1))
+        .to eq("fixed" => "2.28.1")
+    end
+  end
+
+  it "walks history when an existing matched record has no ranges" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(path, JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "affected"          => [{ "package" => { "ecosystem" => "Homebrew", "name" => "requests" } }],
+        "database_specific" => { "source" => "matched" },
+      }))
+
+      cmd_for("requests", "--output", dir, "--new-history").run
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events", 1))
+        .to eq("fixed" => "2.28.1")
+    end
+  end
+
+  it "walks history when an existing record is malformed" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(path, "{")
+
+      cmd_for("requests", "--output", dir, "--new-history").run
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events", 1))
+        .to eq("fixed" => "2.28.1")
+    end
+  end
+
+  it "does not walk history for a new record with --no-history" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).not_to receive(:first_fixed_version)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      cmd_for("requests", "--output", dir, "--no-history").run
+    end
+  end
+
+  it "does not count a history walk for a new record that is still affected" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).not_to receive(:first_fixed_version)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      expect { cmd_for("requests", "--output", dir, "--new-history").run }
+        .to output(/0 history walks/).to_stdout
+    end
+  end
+
   it "drops :not_applicable hits instead of emitting them as open ranges" do
     allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2024-1234" }], []])
     allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1234").and_return(
@@ -88,7 +192,11 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
                                        "database_specific" => { "source" => "generated" },
                                        "affected"          => [{ "ecosystem_specific" => { "fix" => "patch" } }] }))
 
-      expect { cmd_for("requests", "--output", dir, "--no-history").run }
+      matcher = Homebrew::Vulns::Match.new
+      expect(matcher).not_to receive(:first_fixed_version)
+      allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+      expect { cmd_for("requests", "--output", dir, "--new-history").run }
         .to output(/0 records written.*1 generated left as-is/).to_stdout
       expect(JSON.parse(File.read(path)).dig("affected", 0, "ecosystem_specific", "fix")).to eq "patch"
     end
@@ -158,6 +266,16 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
   it "rejects --all with --json" do
     expect { described_class.new(["--all", "--json"]) }.to raise_error(UsageError, /mutually exclusive/)
+  end
+
+  it "requires --output with --new-history" do
+    expect { described_class.new(["requests", "--new-history"]) }
+      .to raise_error(UsageError, /--new-history.*--output/)
+  end
+
+  it "rejects --new-history with --no-history" do
+    expect { described_class.new(["requests", "--output", "out", "--new-history", "--no-history"]) }
+      .to raise_error(UsageError, /mutually exclusive/)
   end
 
   it "emits the formula-identity index with --index" do
