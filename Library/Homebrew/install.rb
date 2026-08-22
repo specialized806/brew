@@ -271,54 +271,49 @@ module Homebrew
         "Fetching downloads for: #{combined_fetch_targets.to_sentence}"
       end
 
-      sig {
-        params(cask_installers: T::Array[Cask::Installer], download_queue: Homebrew::DownloadQueue)
-          .returns(T::Boolean)
-      }
-      def enqueue_cask_installers(cask_installers, download_queue:)
-        source_download_installers = {}
-        valid_cask_installers = cask_installers.select do |cask_installer|
-          if cask_installer.source_download_requires_pre_fetch? &&
-             (source_download = cask_installer.prelude_fetch_download)
-            source_download_installers[source_download] = cask_installer
-          end
-          true
-        rescue => e
-          ofail "#{cask_installer.cask}: #{e}"
-          false
-        end
-
-        if source_download_installers.any?
-          source_download_installers.each_key { |source_download| download_queue.enqueue(source_download) }
-          download_queue.fetch(only: Homebrew::API::SourceDownload, heading: "Downloading Cask files")
-        end
-
-        failed_source_downloads = download_queue.failed_downloads.grep(Homebrew::API::SourceDownload)
-        failed_source_installers = failed_source_downloads.map do |download|
-          source_download_installers.fetch(download).tap(&:download_failed!)
-        end
-
-        valid_cask_installers.select! do |cask_installer|
-          next false if failed_source_installers.include?(cask_installer)
-
+      # Leave the cask downloads queued so the caller fetches them alongside
+      # any formula bottles under one heading instead of draining them first.
+      sig { params(cask_installers: T::Array[Cask::Installer]).returns(T::Array[Cask::Installer]) }
+      def enqueue_cask_installers(cask_installers)
+        cask_installers.select do |cask_installer|
           cask_installer.enqueue_downloads
           true
         rescue => e
           ofail "#{cask_installer.cask}: #{e}"
           false
         end
+      end
 
-        download_queue.fetch(only: Cask::Download, heading: "Downloading Cask files")
-        downloads_succeeded = failed_source_downloads.empty? && download_queue.failed_downloads.none?(Cask::Download)
-        valid_cask_installers.each do |cask_installer|
-          if !downloads_succeeded && download_queue.failed_downloads.include?(cask_installer.downloader)
-            cask_installer.download_failed!
-          end
+      # Cask dependencies are resolved from the downloaded container, so they
+      # can only be queued once the cask downloads above have been fetched.
+      sig { params(cask_installers: T::Array[Cask::Installer], download_queue: Homebrew::DownloadQueue).void }
+      def fetch_cask_dependencies(cask_installers, download_queue:)
+        return if cask_installers.empty?
+
+        mark_failed_cask_downloads(cask_installers, download_queue:)
+        cask_installers.each do |cask_installer|
           cask_installer.enqueue_dependency_downloads
         rescue => e
           ofail "#{cask_installer.cask}: #{e}"
         end
-        downloads_succeeded
+        download_queue.fetch(heading: "Fetching dependency downloads")
+        mark_failed_cask_downloads(cask_installers, download_queue:)
+      end
+
+      sig { params(cask_installers: T::Array[Cask::Installer], download_queue: Homebrew::DownloadQueue).void }
+      def mark_failed_cask_downloads(cask_installers, download_queue:)
+        failed_downloads = download_queue.failed_downloads
+        return if failed_downloads.empty?
+
+        cask_installers.each do |cask_installer|
+          next if cask_installer.download_failed?
+
+          if failed_downloads.include?(cask_installer.downloader)
+            cask_installer.download_failed!
+          else
+            mark_failed_cask_downloads(cask_installer.dependency_cask_installers, download_queue:)
+          end
+        end
       end
 
       sig {

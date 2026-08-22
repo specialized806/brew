@@ -411,12 +411,16 @@ module Homebrew
                 )
               end
 
-              Install.enqueue_cask_installers(prefetched_cask_installers, download_queue:)
+              prefetched_cask_installers = Install.enqueue_cask_installers(prefetched_cask_installers)
             end
 
             download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
               formula_names: all_formulae_installer.map { |fi| fi.formula.name },
+              cask_names:    fetch_casks.map(&:full_name),
             ) || "Fetching dependency downloads")
+            if prefetched_cask_installers
+              Install.fetch_cask_dependencies(prefetched_cask_installers, download_queue:)
+            end
             # Install everything that did download, rather than aborting the
             # whole run; the failures above still exit nonzero at the end.
             all_formulae_installer = Install.reject_failed_downloads(all_formulae_installer, download_queue:)

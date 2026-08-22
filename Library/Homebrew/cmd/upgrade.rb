@@ -297,6 +297,7 @@ module Homebrew
             end
             shared_download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
               formula_names: prefetched_formulae_names,
+              cask_names:    prefetched_cask_names,
             ) || "Fetching dependency downloads")
             # Only redo the slower unprefetched fetch for the kind of package
             # that actually failed, so e.g. one bad bottle does not also
@@ -305,6 +306,9 @@ module Homebrew
               shared_download_queue.failed_downloads.partition { |download| download.is_a?(Cask::Download) }
             formulae_prefetched = false if failed_formula_downloads.any?
             prefetched_casks = false if failed_cask_downloads.any?
+            if prefetched_casks
+              Install.fetch_cask_dependencies(prefetched_cask_installers, download_queue: shared_download_queue)
+            end
           ensure
             shared_download_queue.shutdown
           end
@@ -818,17 +822,17 @@ module Homebrew
           fetchable_cask_installers << installer
           true
         end
-        prefetch_casks&.replace(outdated_casks)
         return prefetch_errors.present? if outdated_casks.empty?
 
-        cask_names = outdated_casks.map(&:full_name)
-        cask_downloads_succeeded = Install.enqueue_cask_installers(fetchable_cask_installers, download_queue:)
-        prefetch_installers&.replace(fetchable_cask_installers)
-        prefetch_names&.replace(cask_names)
+        valid_cask_installers = Install.enqueue_cask_installers(fetchable_cask_installers)
+        valid_casks = valid_cask_installers.map(&:cask)
+        prefetch_installers&.replace(valid_cask_installers)
+        prefetch_casks&.replace(valid_casks)
+        prefetch_names&.replace(valid_casks.map(&:full_name))
         prefetch_upgrades&.replace(
-          outdated_casks.map { |cask| "#{cask.full_name} #{cask.installed_version} -> #{cask.version}" },
+          valid_casks.map { |cask| "#{cask.full_name} #{cask.installed_version} -> #{cask.version}" },
         )
-        cask_downloads_succeeded != false
+        true
       rescue => e
         ofail e
         false

@@ -145,12 +145,12 @@ RSpec.describe Cask::Installer, :cask do
         call_order << :languages
         ["en-US"]
       end
-      allow(installer).to receive(:check_prelude_requirements) { call_order << :prelude_requirements }
+      allow(installer).to receive(:check_requirements) { call_order << :requirements }
 
       installer.prelude
 
       expect(call_order.first).to eq(:languages)
-      expect(call_order).to include(:prelude_requirements)
+      expect(call_order).to include(:requirements)
     end
   end
 
@@ -472,23 +472,6 @@ RSpec.describe Cask::Installer, :cask do
       expect(latest_cask.download_sha_path).to be_a_file
     end
 
-    context "when loaded from the api and caskfile is required" do
-      let(:path) { cask_path("local-caffeine") }
-      let(:content) { File.read(path) }
-
-      it "installs cask" do
-        source_caffeine = Cask::CaskLoader.load(path)
-        expect(Homebrew::API::Cask).to receive(:source_download_cask).once.and_return(source_caffeine)
-
-        caffeine = Cask::CaskLoader.load(path)
-        allow(caffeine).to receive(:loaded_from_api?).and_return(true)
-        expect(caffeine).to receive(:caskfile_only?).once.and_return(true)
-
-        described_class.new(caffeine).install
-        expect(Cask::CaskLoader.load(path)).to be_installed
-      end
-    end
-
     context "when loaded from the api with unsupported requirements" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-preflight")) }
       let(:download_queue) { instance_double(Homebrew::DownloadQueue, enqueue: nil) }
@@ -501,16 +484,12 @@ RSpec.describe Cask::Installer, :cask do
       end
 
       it "checks requirements before enqueueing downloads" do
-        expect(Homebrew::API::Cask).not_to receive(:source_download)
-
         expect do
           described_class.new(cask, download_queue:).enqueue_downloads
         end.to raise_error(Cask::CaskError, "with-preflight: macOS is required")
       end
 
-      it "checks requirements before loading the source cask during fetch" do
-        expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
-
+      it "checks requirements before downloading during fetch" do
         expect do
           described_class.new(cask).fetch
         end.to raise_error(Cask::CaskError, "with-preflight: macOS is required")
@@ -591,32 +570,6 @@ RSpec.describe Cask::Installer, :cask do
       expect(Cask::Caskroom.path.join("local-caffeine", caffeine.version)).not_to be_a_directory
       expect(Cask::Caskroom.path.join("local-caffeine", mutated_version)).not_to be_a_directory
       expect(Cask::Caskroom.path.join("local-caffeine")).not_to be_a_directory
-    end
-
-    context "when loaded from the api, caskfile is required and installed caskfile is invalid" do
-      let(:path) { cask_path("local-caffeine") }
-      let(:content) { File.read(path) }
-      let(:invalid_path) { instance_double(Pathname) }
-
-      before do
-        allow(invalid_path).to receive(:exist?).and_return(false)
-      end
-
-      it "uninstalls cask" do
-        source_caffeine = Cask::CaskLoader.load(path)
-        expect(Homebrew::API::Cask).to receive(:source_download_cask).twice.and_return(source_caffeine)
-
-        caffeine = Cask::CaskLoader.load(path)
-        allow(caffeine).to receive(:loaded_from_api?).and_return(true)
-        expect(caffeine).to receive(:caskfile_only?).twice.and_return(true)
-        expect(caffeine).to receive(:installed_caskfile).once.and_return(invalid_path)
-
-        described_class.new(caffeine).install
-        expect(Cask::CaskLoader.load(path)).to be_installed
-
-        described_class.new(caffeine).uninstall
-        expect(Cask::CaskLoader.load(path)).not_to be_installed
-      end
     end
   end
 
@@ -785,23 +738,21 @@ RSpec.describe Cask::Installer, :cask do
   end
 
   describe "#prelude" do
-    it "raises on forbidden cask before fetching the caskfile from the Source API" do
+    it "raises on forbidden cask before downloading" do
       ENV["HOMEBREW_FORBIDDEN_CASKS"] = cask_name = "homebrew-forbidden-cask"
       cask = Cask::Cask.new(cask_name) do
         url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
         app "Fake.app"
       end
-      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true)
       installer = described_class.new(cask)
 
-      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
       expect(installer).not_to receive(:download)
 
       expect { installer.prelude }.to raise_error(Cask::CaskCannotBeInstalledError, /forbidden for installation/)
     end
   end
 
-  describe "#prelude_fetch" do
+  describe "#enqueue_downloads" do
     it "uses API cask metadata for API-loaded cask downloads" do
       cask = Cask::Cask.new("api-cask", loaded_from_api: true, loaded_from_internal_api: true) do
         url "https://example.com/source-cask.zip"
@@ -818,7 +769,6 @@ RSpec.describe Cask::Installer, :cask do
       installer = described_class.new(cask, download_queue:)
 
       allow(Homebrew::API::Internal).to receive(:cask_struct).with("api-cask").and_return(cask_struct)
-      expect(Homebrew::API::Cask).not_to receive(:source_download)
       expect(download_queue).to receive(:enqueue) do |download|
         expect(download).to be_a(Cask::Download)
         expect(download.url.to_s).to eq("https://example.com/api-cask.zip")
@@ -842,44 +792,9 @@ RSpec.describe Cask::Installer, :cask do
       installer = described_class.new(cask, download_queue:)
 
       allow(Homebrew::API::Internal).to receive(:cask_struct).with("language-api-cask").and_return(cask_struct)
-      expect(Homebrew::API::Cask).not_to receive(:source_download)
       expect(download_queue).to receive(:enqueue) do |download|
         expect(download.url.to_s).to eq("file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz")
       end
-
-      installer.enqueue_downloads
-    end
-
-    it "enqueues source API caskfiles before the main cask download" do
-      cask = Cask::Cask.new("source-api-cask") do
-        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
-        app "Fake.app"
-      end
-      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: ["en"])
-      download_queue = instance_double(Homebrew::DownloadQueue)
-      installer = described_class.new(cask, download_queue:)
-      source_download = instance_double(Homebrew::API::SourceDownload, downloaded?: false)
-
-      expect(Homebrew::API::Cask).to receive(:source_download_for).with(cask).and_return(source_download)
-      expect(download_queue).to receive(:enqueue).with(source_download)
-      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
-      expect(installer).not_to receive(:download)
-
-      installer.prelude_fetch
-    end
-
-    it "leaves source API caskfiles in the main queue when their URL is known" do
-      cask = Cask::Cask.new("source-api-cask") do
-        url "file://#{TEST_FIXTURE_DIR}/cask/container.tar.gz"
-        app "Fake.app"
-      end
-      allow(cask).to receive_messages(loaded_from_api?: true, caskfile_only?: true, languages: [])
-      download_queue = instance_double(Homebrew::DownloadQueue)
-      installer = described_class.new(cask, download_queue:)
-
-      expect(Homebrew::API::Cask).to receive(:source_download).with(cask, download_queue:, enqueue: true)
-      expect(Homebrew::API::Cask).not_to receive(:source_download_cask)
-      expect(download_queue).to receive(:enqueue).with(instance_of(Cask::Download))
 
       installer.enqueue_downloads
     end
@@ -972,6 +887,16 @@ RSpec.describe Cask::Installer, :cask do
   end
 
   describe "#enqueue_dependency_downloads" do
+    it "skips dependency resolution when the cask download failed" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      installer = described_class.new(cask, download_queue: instance_double(Homebrew::DownloadQueue))
+      installer.download_failed!
+
+      expect(installer).not_to receive(:cask_and_formula_dependencies)
+
+      installer.enqueue_dependency_downloads
+    end
+
     it "reuses formula dependencies fetched before installation" do
       cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
       dependency = formula("cask-dependency") do

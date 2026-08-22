@@ -3,7 +3,6 @@
 
 require "cachable"
 require "api"
-require "api/source_download"
 require "api/cask/cask_struct_generator"
 
 module Homebrew
@@ -35,53 +34,6 @@ module Homebrew
 
         cache["cask_json"] ||= {}
         cache["cask_json"][name] = json_cask
-      end
-
-      sig {
-        params(
-          cask:           ::Cask::Cask,
-          download_queue: DownloadQueueType,
-          enqueue:        T::Boolean,
-        ).returns(Homebrew::API::SourceDownload)
-      }
-      def self.source_download(cask, download_queue: nil, enqueue: false)
-        download = source_download_for(cask)
-
-        if enqueue
-          require "download_queue"
-          download_queue ||= Homebrew.default_download_queue
-          download_queue.enqueue(download)
-        elsif !download.symlink_location.exist?
-          download.fetch
-        end
-
-        download
-      end
-
-      sig { params(cask: ::Cask::Cask).returns(Homebrew::API::SourceDownload) }
-      def self.source_download_for(cask)
-        path = cask.ruby_source_path.to_s
-        sha256 = cask.ruby_source_checksum[:sha256]
-        checksum = Checksum.new(sha256) if sha256
-        git_head = cask.tap_git_head || "HEAD"
-        tap = cask.tap&.full_name || "Homebrew/homebrew-cask"
-
-        Homebrew::API::SourceDownload.new(
-          "https://raw.githubusercontent.com/#{tap}/#{git_head}/#{path}",
-          checksum,
-          mirrors: [
-            "#{HOMEBREW_API_DEFAULT_DOMAIN}/cask-source/#{File.basename(path)}",
-          ],
-          cache:   HOMEBREW_CACHE_API_SOURCE/"#{tap}/#{git_head}/Cask",
-        )
-      end
-
-      sig { params(cask: ::Cask::Cask).returns(::Cask::Cask) }
-      def self.source_download_cask(cask)
-        download = source_download(cask)
-
-        ::Cask::CaskLoader::FromPathLoader.new(download.symlink_location)
-                                          .load(config: cask.config)
       end
 
       sig { returns(Pathname) }

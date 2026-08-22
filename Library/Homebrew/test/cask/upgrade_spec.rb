@@ -512,8 +512,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
     it 'prefetches "auto_updates true" casks with quarantine until signed identity is checked' do
       installer = instance_double(Cask::Installer, cask: auto_updates, check_requirements: nil,
-                                                   enqueue_downloads: nil, enqueue_dependency_downloads: nil,
-                                                   source_download_requires_pre_fetch?: false)
+                                                   enqueue_downloads: nil, enqueue_dependency_downloads: nil)
 
       expect(Cask::Installer).to receive(:new) do |cask, **|
         expect(cask).to eq(auto_updates)
@@ -529,11 +528,11 @@ RSpec.describe Cask::Upgrade, :cask do
     it "retains installers in a caller-supplied prefetch collection" do
       installer = Cask::Installer.allocate
       prefetched_cask_installers = []
-      download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil)
+      download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [])
 
       allow(installer).to receive_messages(cask: auto_updates, check_requirements: nil)
       allow(Cask::Installer).to receive(:new).and_return(installer)
-      allow(Homebrew::Install).to receive(:enqueue_cask_installers)
+      allow(Homebrew::Install).to receive(:enqueue_cask_installers).and_return([installer])
       allow(described_class).to receive(:upgrade_cask)
 
       described_class.upgrade_casks!(
@@ -891,7 +890,7 @@ RSpec.describe Cask::Upgrade, :cask do
 
       expect do
         described_class.upgrade_casks!(bad_checksum, args:)
-      end.to output(/bad-checksum: SHA-256 mismatch/).to_stderr.and(not_to_output(output_reverted).to_stderr)
+      end.to output(/bad-checksum: Download failed/).to_stderr.and(not_to_output(output_reverted).to_stderr)
 
       expect(bad_checksum).to be_installed
       expect(bad_checksum_path).to be_a_directory
@@ -989,10 +988,9 @@ RSpec.describe Cask::Upgrade, :cask do
     it "continues upgrading compatible casks" do
       summary_upgrades = []
       upgraded_tokens = []
-      incompatible_installer = instance_double(Cask::Installer, source_download_requires_pre_fetch?: false)
-      compatible_installer = instance_double(Cask::Installer, cask:                                local_transmission,
-                                                              enqueue_dependency_downloads:        nil,
-                                                              source_download_requires_pre_fetch?: false)
+      incompatible_installer = instance_double(Cask::Installer)
+      compatible_installer = instance_double(Cask::Installer, cask:                         local_transmission,
+                                                              enqueue_dependency_downloads: nil)
 
       allow(incompatible_installer).to receive(:check_requirements)
         .and_raise(Cask::CaskError, "local-caffeine: This cask does not run on macOS versions older than Tahoe.")

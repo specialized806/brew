@@ -59,10 +59,11 @@ module Cask
         end
 
         unless skip_prefetch
-          Homebrew::Install.enqueue_cask_installers(cask_installers, download_queue:)
-          download_queue.fetch(
-            heading: "Fetching dependency downloads",
-          )
+          cask_installers = Homebrew::Install.enqueue_cask_installers(cask_installers)
+          download_queue.fetch(heading: Homebrew::Install.combined_fetch_downloads_heading(
+            cask_names: cask_installers.map { |installer| installer.cask.full_name },
+          ))
+          Homebrew::Install.fetch_cask_dependencies(cask_installers, download_queue:)
         end
       ensure
         download_queue.shutdown if created_download_queue

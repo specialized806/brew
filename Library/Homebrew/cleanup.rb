@@ -112,26 +112,13 @@ module Homebrew
         type = relative_path_parts.fetch(3)
         basename = relative_path_parts.fetch(-1)
         return false unless basename.end_with?(".rb")
+        # Cask sources are no longer downloaded, so any cached ones are stale.
+        return true if type == "Cask"
+        return false if type != "Formula"
 
-        name = "#{org}/#{repo}/#{File.basename(basename, ".rb")}"
-        package = case type
-        when "Cask"
-          begin
-            Cask::CaskLoader.load(name)
-          rescue Cask::CaskError
-            nil
-          end
-        when "Formula"
-          begin
-            Formulary.factory(name)
-          rescue FormulaUnavailableError
-            nil
-          end
-        end
-        return false if package.nil? && %w[Cask Formula].exclude?(type)
-        return true if package.nil?
-
-        package.tap_git_head != git_head
+        Formulary.factory("#{org}/#{repo}/#{File.basename(basename, ".rb")}").tap_git_head != git_head
+      rescue FormulaUnavailableError
+        true
       end
 
       sig { params(formula: Formula).returns(T::Set[String]) }

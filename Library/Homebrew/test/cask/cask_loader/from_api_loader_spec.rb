@@ -241,7 +241,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       expect(cask.artifacts_list(uninstall_only: true)).to eq([{ app: ["Self-contained.app"] }])
     end
 
-    shared_examples "loads from API" do |cask_token, caskfile_only:|
+    shared_examples "loads from API" do |cask_token|
       include_context "with API setup", cask_token
       include_context "with internal API setup", cask_token
       let(:cask_from_api) { api_loader.load(config: nil) }
@@ -252,7 +252,6 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
         expect(cask_from_api.token).to eq(api_token)
         expect(cask_from_api.loaded_from_api?).to be(true)
         expect(cask_from_api.loaded_from_internal_api?).to be(false)
-        expect(cask_from_api.caskfile_only?).to be(caskfile_only)
         expect(cask_from_api.sourcefile_path).to eq(Homebrew::API::Cask.cached_json_file_path)
       end
 
@@ -261,41 +260,40 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
         expect(cask_from_internal_api.token).to eq(internal_api_token)
         expect(cask_from_internal_api.loaded_from_api?).to be(true)
         expect(cask_from_internal_api.loaded_from_internal_api?).to be(true)
-        expect(cask_from_internal_api.caskfile_only?).to be(caskfile_only)
         expect(cask_from_internal_api.sourcefile_path).to eq(Homebrew::API::Internal.cached_packages_json_file_path)
       end
     end
 
     context "with a binary stanza" do
-      include_examples "loads from API", "with-binary", caskfile_only: false
+      include_examples "loads from API", "with-binary"
     end
 
     context "with cask dependencies" do
-      include_examples "loads from API", "with-depends-on-cask-multiple", caskfile_only: false
+      include_examples "loads from API", "with-depends-on-cask-multiple"
     end
 
     context "with formula dependencies" do
-      include_examples "loads from API", "with-depends-on-formula-multiple", caskfile_only: false
+      include_examples "loads from API", "with-depends-on-formula-multiple"
     end
 
     context "with macos dependencies" do
-      include_examples "loads from API", "with-depends-on-macos-array", caskfile_only: false
+      include_examples "loads from API", "with-depends-on-macos-array"
     end
 
     context "with an installer stanza" do
-      include_examples "loads from API", "with-installer-script", caskfile_only: false
+      include_examples "loads from API", "with-installer-script"
     end
 
     context "with uninstall stanzas" do
-      include_examples "loads from API", "with-uninstall-multi", caskfile_only: false
+      include_examples "loads from API", "with-uninstall-multi"
     end
 
     context "with a zap stanza" do
-      include_examples "loads from API", "with-zap", caskfile_only: false
+      include_examples "loads from API", "with-zap"
     end
 
     context "with install step stanzas" do
-      include_examples "loads from API", "with-install-steps", caskfile_only: false
+      include_examples "loads from API", "with-install-steps"
 
       context "when running install steps loaded from internal JSON API" do
         include_context "with internal API setup", "with-install-steps"
@@ -318,23 +316,23 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
     end
 
     context "with a preflight stanza" do
-      include_examples "loads from API", "with-preflight", caskfile_only: true
+      include_examples "loads from API", "with-preflight"
     end
 
     context "with an uninstall-preflight stanza" do
-      include_examples "loads from API", "with-uninstall-preflight", caskfile_only: true
+      include_examples "loads from API", "with-uninstall-preflight"
     end
 
     context "with a postflight stanza" do
-      include_examples "loads from API", "with-postflight", caskfile_only: true
+      include_examples "loads from API", "with-postflight"
     end
 
     context "with an uninstall-postflight stanza" do
-      include_examples "loads from API", "with-uninstall-postflight", caskfile_only: true
+      include_examples "loads from API", "with-uninstall-postflight"
     end
 
     context "with a language stanza" do
-      include_examples "loads from API", "with-languages", caskfile_only: false
+      include_examples "loads from API", "with-languages"
 
       it "loads the selected language variation from both APIs" do
         config = Cask::Config.new(explicit: { languages: ["zh"] })
@@ -348,12 +346,6 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           "fab685fabf73d5a9382581ce8698fce9408f5feaa49fa10d9bc6c510493300f5",
           ["Container.app"],
         ]))
-      end
-
-      it "keeps the source fallback for old API data" do
-        cask = described_class.new(api_token, from_json: cask_json.except("language_variations")).load(config: nil)
-
-        expect(cask).to be_caskfile_only
       end
     end
   end

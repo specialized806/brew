@@ -281,13 +281,14 @@ module Homebrew
                   defer_fetch:    true,
                 )
               end
-              Install.enqueue_cask_installers(prefetched_cask_installers, download_queue:)
+              prefetched_cask_installers = Install.enqueue_cask_installers(prefetched_cask_installers)
             end
 
             download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
               formula_names: all_formulae_installers.map { |fi| fi.formula.name },
               cask_names:    casks.map(&:full_name),
             ))
+            Install.fetch_cask_dependencies(prefetched_cask_installers, download_queue:)
             casks_prefetched = casks.any?
             all_formulae_installers = Install.reject_failed_downloads(all_formulae_installers, download_queue:)
             formulae_installers &= all_formulae_installers

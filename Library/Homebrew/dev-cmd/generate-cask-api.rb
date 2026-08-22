@@ -35,8 +35,9 @@ module Homebrew
         raise TapUnavailableError, tap.name unless tap.installed?
 
         unless args.dry_run?
-          directories = ["_data/cask", "api/cask", "api/cask-source", "cask", "api/internal"].freeze
-          FileUtils.rm_rf directories
+          directories = ["_data/cask", "api/cask", "cask", "api/internal"].freeze
+          # `api/cask-source` is no longer generated but may remain from earlier runs.
+          FileUtils.rm_rf directories + ["api/cask-source"]
           FileUtils.mkdir_p directories
         end
 
@@ -54,13 +55,11 @@ module Homebrew
               name = cask.token
               all_casks[name] = cask.to_hash_with_variations
               json = JSON.pretty_generate(all_casks[name])
-              cask_source = path.read
               html_template_name = html_template(name)
 
               unless args.dry_run?
                 File.write("_data/cask/#{name.tr("+", "_")}.json", "#{json}\n")
                 File.write("api/cask/#{name}.json", CASK_JSON_TEMPLATE)
-                File.write("api/cask-source/#{name}.rb", cask_source)
                 File.write("cask/#{name}.html", html_template_name)
               end
             rescue

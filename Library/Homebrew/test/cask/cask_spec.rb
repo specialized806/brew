@@ -682,7 +682,6 @@ RSpec.describe Cask::Cask, :cask do
 
     context "when loaded from json file" do
       it "returns expected hash" do
-        expect(Homebrew::API::Cask).not_to receive(:source_download)
         hash = Cask::CaskLoader::FromAPILoader.new(
           "everything", from_json: JSON.parse(expected_json)
         ).load(config: nil).to_h
@@ -1215,7 +1214,6 @@ RSpec.describe Cask::Cask, :cask do
       end
 
       it "returns expected hash with variations" do
-        expect(Homebrew::API::Cask).not_to receive(:source_download)
         cask = Cask::CaskLoader::FromAPILoader.new("everything-with-variations", from_json: JSON.parse(expected_json))
                                               .load(config: nil)
 
