@@ -344,6 +344,7 @@ _brew_advisory_match() {
       --help
       --index
       --json
+      --new-history
       --no-history
       --output
       --quiet

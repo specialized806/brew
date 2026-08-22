@@ -339,6 +339,7 @@ __fish_brew_complete_arg 'advisory-match' -l debug -d 'Display any debugging inf
 __fish_brew_complete_arg 'advisory-match' -l help -d 'Show this message'
 __fish_brew_complete_arg 'advisory-match' -l index -d 'Emit the formula-identity index as JSON and exit'
 __fish_brew_complete_arg 'advisory-match' -l json -d 'Output candidate records as a JSON array'
+__fish_brew_complete_arg 'advisory-match' -l new-history -d 'Walk `FormulaVersions` only for records whose reviewed ranges are not already in directory'
 __fish_brew_complete_arg 'advisory-match' -l no-history -d 'Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead'
 __fish_brew_complete_arg 'advisory-match' -l output -d 'Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields'
 __fish_brew_complete_arg 'advisory-match' -l quiet -d 'Make some output more quiet'

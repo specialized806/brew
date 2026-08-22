@@ -34,10 +34,15 @@ module Homebrew
         switch "--no-history",
                description: "Skip the `FormulaVersions` walk for the `fixed` " \
                             "boundary; use the current `pkg_version` instead."
+        switch "--new-history",
+               depends_on:  "--output=",
+               description: "Walk `FormulaVersions` only for records whose " \
+                            "reviewed ranges are not already in <directory>."
         conflicts "--all", "--index"
         conflicts "--all", "--json"
         conflicts "--index", "--json"
         conflicts "--index", "--output"
+        conflicts "--no-history", "--new-history"
 
         named_args [:formula]
 
@@ -64,7 +69,11 @@ module Homebrew
                   status, = matcher.range_status(hit)
                   next if status&.state == :not_applicable
 
-                  first_fixed = matcher.first_fixed_version(formula, hit) unless args.no_history?
+                  record_id = matcher.record_id(formula, hit)
+                  walk_history = !args.no_history? && status&.fixed?
+                  walk_history &&= emitter.history_required?(record_id) if args.new_history?
+                  emitter.record_history_walk if walk_history
+                  first_fixed = matcher.first_fixed_version(formula, hit) if walk_history
                   next if first_fixed == :never_affected
 
                   boundary = first_fixed if first_fixed.is_a?(String)
@@ -142,6 +151,12 @@ module Homebrew
       # `--output` and text mode write per-record and only accumulate counts;
       # `--json` accumulates the array (single-formula / PR-bot use, so bounded).
       class Emitter
+        sig { params(_record_id: String).returns(T::Boolean) }
+        def history_required?(_record_id) = true
+
+        sig { void }
+        def record_history_walk; end
+
         sig { params(record: T::Hash[Symbol, T.untyped]).void }
         def <<(record); end
 
@@ -159,11 +174,12 @@ module Homebrew
           @written = T.let(0, Integer)
           @unchanged = T.let(0, Integer)
           @skipped_generated = T.let(0, Integer)
+          @history_walks = T.let(0, Integer)
         end
 
         sig { override.params(record: T::Hash[Symbol, T.untyped]).void }
         def <<(record)
-          path = File.join(@dir, "#{record.fetch(:id)}.json")
+          path = record_path(record.fetch(:id))
           # A record already emitted by `generate-vulns-advisories` (a formula
           # `resolves` patch annotation) is more authoritative than a matched
           # candidate; overwriting it would drop `fix: "patch"` for a derived
@@ -182,6 +198,35 @@ module Homebrew
           @written += 1
         end
 
+        sig { override.params(record_id: String).returns(T::Boolean) }
+        def history_required?(record_id)
+          path = record_path(record_id)
+          return true unless File.file?(path)
+
+          existing = JSON.parse(File.read(path))
+          return true unless existing.is_a?(Hash)
+          return false if existing.dig("database_specific", "source") == "generated"
+
+          affected = existing["affected"]
+          return true unless affected.is_a?(Array)
+          return true if affected.empty?
+
+          affected.any? { |entry| !entry.is_a?(Hash) || !entry["ranges"] }
+        rescue JSON::ParserError
+          true
+        end
+
+        sig { override.void }
+        def record_history_walk
+          @history_walks += 1
+          puts "  #{@history_walks} history walks" if @verbose && (@history_walks % 100).zero?
+        end
+
+        sig { params(record_id: String).returns(String) }
+        def record_path(record_id)
+          File.join(@dir, "#{record_id}.json")
+        end
+
         sig { params(path: String).returns(T.nilable(String)) }
         def existing_source(path)
           JSON.parse(File.read(path)).dig("database_specific", "source")
@@ -192,7 +237,8 @@ module Homebrew
         sig { override.void }
         def finish
           Utils::Output.ohai "#{@written} records written to #{@dir} " \
-                             "(#{@unchanged} unchanged, #{@skipped_generated} generated left as-is)"
+                             "(#{@unchanged} unchanged, #{@skipped_generated} generated left as-is, " \
+                             "#{@history_walks} history walks)"
         end
       end
 
