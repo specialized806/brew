@@ -135,11 +135,28 @@ RSpec.describe Cask::Installer, :cask do
     end
   end
 
-  describe "#install_artifacts", :needs_macos do
-    it "resolves the system languages before installing artifacts" do
+  describe "#prelude", :needs_macos do
+    it "resolves the system languages before any other cask work" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
       installer = described_class.new(caffeine)
-      allow(installer).to receive(:save_config_file)
+
+      call_order = []
+      allow(MacOS).to receive(:languages) do
+        call_order << :languages
+        ["en-US"]
+      end
+      allow(installer).to receive(:check_prelude_requirements) { call_order << :prelude_requirements }
+
+      installer.prelude
+
+      expect(call_order.first).to eq(:languages)
+      expect(call_order).to include(:prelude_requirements)
+    end
+  end
+
+  describe "install" do
+    it "resolves the system languages before installing artifacts", :needs_macos do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
       call_order = []
       allow(MacOS).to receive(:languages) do
@@ -148,14 +165,12 @@ RSpec.describe Cask::Installer, :cask do
       end
       allow_any_instance_of(Cask::Artifact::App).to receive(:install_phase) { call_order << :install_phase }
 
-      installer.install_artifacts
+      described_class.new(caffeine).install
 
       expect(call_order.first).to eq(:languages)
       expect(call_order).to include(:install_phase)
     end
-  end
 
-  describe "install" do
     it "downloads and installs a nice fresh Cask" do
       caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
 

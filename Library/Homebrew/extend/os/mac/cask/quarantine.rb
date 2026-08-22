@@ -35,14 +35,6 @@ module OS
               .returns(T.nilable(::Cask::Quarantine::SigningIdentity))
           }
           def signing_identity(file)
-            # Resolve the system languages before the first Security.framework
-            # call: upgrades scan existing signing identities before
-            # `Cask::Installer#install_artifacts` runs, and the resolution
-            # forks (`Utils.popen`), which must happen while the process is
-            # still fork-safe.
-            # https://github.com/Homebrew/brew/issues/23606
-            MacOS.languages
-
             requirement = MacOS::FFI::Security.designated_requirement(file.to_s)
             return if requirement.nil?
 
