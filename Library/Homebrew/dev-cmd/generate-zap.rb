@@ -3,6 +3,7 @@
 
 require "abstract_command"
 require "cask"
+require "cask/pkg"
 require "system_command"
 
 module Homebrew
@@ -133,18 +134,67 @@ module Homebrew
       def resolve_patterns_from_cask(cask)
         app_artifact = cask.artifacts.find { |a| a.is_a?(Cask::Artifact::App) }
         if app_artifact
-          patterns = [app_artifact.target.basename(".app").to_s]
-          patterns.concat(bundle_identifiers(app_artifact))
-          patterns.uniq
-        else
-          ohai "No app artifact found in cask \"#{cask.token}\"; using token as app name."
-          [cask.token.tr("-", " ").split.map(&:capitalize).join(" ")]
+          return patterns_from_app_paths([app_artifact.target])
         end
+
+        token_pattern = cask.token.tr("-", " ").split.map(&:capitalize).join(" ")
+        pkg_app_paths = installed_pkg_app_paths(cask)
+        unless pkg_app_paths.empty?
+          ohai "No app artifact found in cask \"#{cask.token}\"; using installed package receipts."
+          patterns = patterns_from_app_paths(pkg_app_paths)
+          patterns << token_pattern unless patterns.any? { |pattern| pattern.casecmp?(token_pattern) }
+          return patterns
+        end
+
+        ohai "No app artifact or installed package app found in cask \"#{cask.token}\"; using token as app name."
+        [token_pattern]
       end
 
-      sig { params(app_artifact: Cask::Artifact::App).returns(T::Array[String]) }
-      def bundle_identifiers(app_artifact)
-        info_plist = app_artifact.target/"Contents/Info.plist"
+      sig { params(app_paths: T::Array[Pathname]).returns(T::Array[String]) }
+      def patterns_from_app_paths(app_paths)
+        app_paths.flat_map do |app_path|
+          [app_path.basename(".app").to_s, *bundle_identifiers(app_path)]
+        end.uniq
+      end
+
+      sig { params(cask: Cask::Cask).returns(T::Array[Pathname]) }
+      def installed_pkg_app_paths(cask)
+        pkgutil_receipt_patterns(cask).flat_map do |receipt_pattern|
+          Cask::Pkg.all_matching(receipt_pattern, SystemCommand).flat_map do |pkg|
+            pkg.pkgutil_bom_all.filter_map { |path| top_level_app_path(path) }
+          end
+        end.uniq.select(&:directory?)
+      end
+
+      sig { params(cask: Cask::Cask).returns(T::Array[String]) }
+      def pkgutil_receipt_patterns(cask)
+        patterns = T.let([], T::Array[String])
+
+        cask.artifacts.each do |artifact|
+          next unless artifact.is_a?(Cask::Artifact::AbstractUninstall)
+
+          pkgutil = artifact.directives[:pkgutil]
+          if pkgutil.is_a?(String)
+            patterns << pkgutil
+          elsif pkgutil.is_a?(Array)
+            pkgutil.each { |pattern| patterns << pattern if pattern.is_a?(String) }
+          end
+        end
+
+        patterns.uniq
+      end
+
+      sig { params(path: Pathname).returns(T.nilable(Pathname)) }
+      def top_level_app_path(path)
+        match = path.to_s.match(%r{\A(?<app_path>.*?\.app)(?:/|\z)}i)
+        return if match.nil?
+
+        Pathname.new(match[:app_path])
+      end
+
+      sig { params(app_path: Pathname).returns(T::Array[String]) }
+      def bundle_identifiers(app_path)
+        info_plist = app_path/"Contents/Info.plist"
         return [] if !info_plist.exist? || !info_plist.readable?
 
         plist = system_command!("plutil", args: ["-convert", "xml1", "-o", "-", info_plist]).plist

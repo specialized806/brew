@@ -57,6 +57,53 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
       end
     end
 
+    it "resolves an installed app and bundle identifier from a package receipt" do
+      Dir.mktmpdir do |tmpdir|
+        app_path = Pathname.new("#{tmpdir}/TestPkg.app")
+        info_plist = app_path/"Contents/Info.plist"
+        info_plist.dirname.mkpath
+        info_plist.write("")
+
+        cask = Cask::Cask.new("test-pkg") do
+          uninstall pkgutil: "com.example.test-pkg"
+        end
+        pkg = instance_double(
+          Cask::Pkg,
+          pkgutil_bom_all: [
+            app_path/"Contents/MacOS/TestPkg",
+            app_path/"Contents/Frameworks/TestPkg Helper.app/Contents/MacOS/TestPkg Helper",
+          ],
+        )
+        result = instance_double(SystemCommand::Result, plist: { "CFBundleIdentifier" => "com.example.testpkg" })
+
+        allow(Cask::Pkg).to receive(:all_matching)
+          .with("com.example.test-pkg", SystemCommand)
+          .and_return([pkg])
+        allow(generate_zap).to receive(:system_command!)
+          .with("plutil", args: ["-convert", "xml1", "-o", "-", info_plist])
+          .and_return(result)
+
+        expect(generate_zap.resolve_patterns_from_cask(cask))
+          .to eq(["TestPkg", "com.example.testpkg", "Test Pkg"])
+      end
+    end
+
+    it "ignores stale package receipts" do
+      cask = Cask::Cask.new("test-pkg") do
+        uninstall pkgutil: "com.example.test-pkg"
+      end
+      pkg = instance_double(
+        Cask::Pkg,
+        pkgutil_bom_all: [Pathname.new("/Applications/TestPkg.app/Contents/MacOS/TestPkg")],
+      )
+
+      allow(Cask::Pkg).to receive(:all_matching)
+        .with("com.example.test-pkg", SystemCommand)
+        .and_return([pkg])
+
+      expect(generate_zap.resolve_patterns_from_cask(cask)).to eq(["Test Pkg"])
+    end
+
     it "falls back to title-cased token when no app artifact exists" do
       cask = Cask::Cask.new("test-cask")
 
@@ -142,19 +189,16 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
 
   describe "#bundle_identifiers" do
     it "returns empty array when Info.plist is missing" do
-      app = instance_double(Cask::Artifact::App, target: Pathname.new("TestCask.app"))
-
-      expect(generate_zap.bundle_identifiers(app)).to eq([])
+      expect(generate_zap.bundle_identifiers(Pathname.new("TestCask.app"))).to eq([])
     end
 
     it "returns empty array when Info.plist is unreadable" do
       info_plist = instance_double(Pathname, exist?: true, readable?: false)
       app_path = instance_double(Pathname)
-      app = instance_double(Cask::Artifact::App, target: app_path)
 
       allow(app_path).to receive(:/).with("Contents/Info.plist").and_return(info_plist)
 
-      expect(generate_zap.bundle_identifiers(app)).to eq([])
+      expect(generate_zap.bundle_identifiers(app_path)).to eq([])
     end
 
     it "returns empty array when CFBundleIdentifier is not a string" do
@@ -164,14 +208,13 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
         info_plist.dirname.mkpath
         info_plist.write("")
 
-        app = instance_double(Cask::Artifact::App, target: app_path)
         result = instance_double(SystemCommand::Result, plist: { "CFBundleIdentifier" => [] })
 
         allow(generate_zap).to receive(:system_command!)
           .with("plutil", args: ["-convert", "xml1", "-o", "-", info_plist])
           .and_return(result)
 
-        expect(generate_zap.bundle_identifiers(app)).to eq([])
+        expect(generate_zap.bundle_identifiers(app_path)).to eq([])
       end
     end
   end
