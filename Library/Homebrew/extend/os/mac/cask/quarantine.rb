@@ -97,10 +97,10 @@ module OS
                 quarantine_dictionary,
               )
 
-              next if success
-
-              Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
-                                                           "Failed to set quarantine properties for URL")
+              unless success
+                Kernel.raise ::Cask::CaskQuarantineError.new(download_path,
+                                                             "Failed to set quarantine properties for URL")
+              end
             end
           end
 
