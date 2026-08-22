@@ -3,7 +3,6 @@
 
 require "abstract_command"
 require "cask"
-require "cask/pkg"
 require "system_command"
 
 module Homebrew
