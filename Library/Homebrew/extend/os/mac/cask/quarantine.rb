@@ -55,6 +55,7 @@ module OS
 
           sig { params(cask: T.nilable(::Cask::Cask), download_path: T.nilable(::Pathname), action: T::Boolean).void }
           def cask!(cask: nil, download_path: nil, action: true)
+            return unless ::Cask::Quarantine.available?
             return if cask.nil? || download_path.nil?
 
             return if ::Cask::Quarantine.detect(download_path)
@@ -108,6 +109,8 @@ module OS
 
           sig { params(from: ::Pathname, to: ::Pathname, command: T.class_of(::SystemCommand)).void }
           def copy_xattrs(from, to, command:)
+            return unless ::Cask::Quarantine.available?
+
             odebug "Copying xattrs from #{from} to #{to}"
 
             if to.writable?

@@ -6,6 +6,52 @@ require "open3"
 RSpec.describe Cask::Quarantine do
   let(:klass) { described_class }
 
+  context "when quarantine support is unavailable" do
+    let(:file) { mktmpdir/"Test.app" }
+
+    before do
+      allow(klass).to receive_messages(available?: false, xattr: nil)
+    end
+
+    it "does not detect quarantine" do
+      expect(klass.detect(file)).to be(false)
+    end
+
+    it "returns an empty quarantine status" do
+      expect(klass.status(file)).to eq("")
+    end
+
+    it "does not release quarantine" do
+      expect(klass).not_to receive(:system_command)
+
+      klass.release!(download_path: file)
+    end
+
+    it "does not propagate quarantine" do
+      expect(klass).not_to receive(:system_command!)
+
+      klass.propagate(from: file, to: file)
+    end
+
+    it "does not inherit user approval" do
+      expect(klass).not_to receive(:system_command)
+
+      klass.inherit_user_approval!(download_path: file)
+    end
+
+    it "does not quarantine a cask" do
+      expect(klass).not_to receive(:detect)
+
+      klass.cask!(cask: instance_double(Cask::Cask), download_path: file)
+    end
+
+    it "does not copy extended attributes" do
+      expect(file).not_to receive(:writable?)
+
+      klass.copy_xattrs(file, file, command: class_double(SystemCommand))
+    end
+  end
+
   describe ".available?", :needs_macos do
     before do
       klass.remove_instance_variable(:@quarantine_support) if klass.instance_variable_defined?(:@quarantine_support)
@@ -107,6 +153,33 @@ RSpec.describe Cask::Quarantine do
     end
   end
 
+  describe ".propagate" do
+    let(:source) { mktmpdir/"download.zip" }
+    let(:destination) { mktmpdir }
+
+    before do
+      allow(klass).to receive(:available?).and_return(true)
+    end
+
+    it "does nothing when the source is not quarantined" do
+      allow(klass).to receive(:status).with(source).and_return("")
+      expect(klass).not_to receive(:system_command!)
+
+      klass.propagate(from: source, to: destination)
+    end
+
+    it "reads the source metadata once when propagating quarantine" do
+      allow(klass).to receive(:system_command!)
+      allow(klass).to receive_messages(
+        xattr:          Pathname("/usr/bin/xattr"),
+        system_command: instance_double(SystemCommand::Result, success?: true),
+      )
+      expect(klass).to receive(:status).with(source).once.and_return("0083;6723b9fa;Safari;event-id")
+
+      klass.propagate(from: source, to: destination)
+    end
+  end
+
   describe ".copy_xattrs", :needs_macos do
     it "uses FFI when the destination is writable" do
       require "os/mac/ffi"
@@ -178,6 +251,13 @@ RSpec.describe Cask::Quarantine do
 
     before do
       allow(klass).to receive(:xattr).and_return(Pathname("/usr/bin/xattr"))
+    end
+
+    it "does not locate xattr when quarantine is unavailable" do
+      allow(klass).to receive(:available?).and_return(false)
+      expect(klass).not_to receive(:xattr)
+
+      klass.user_approved?(file)
     end
 
     it "returns true when the user approval flag is set" do

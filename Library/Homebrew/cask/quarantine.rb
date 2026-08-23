@@ -61,6 +61,8 @@ module Cask
 
     sig { params(file: T.any(String, Pathname)).returns(String) }
     def self.status(file)
+      return "" unless available?
+
       xattr = self.xattr
       raise "unexpected nil xattr" if xattr.nil?
 
@@ -79,8 +81,6 @@ module Cask
 
     sig { params(file: T.any(String, Pathname)).returns(T::Boolean) }
     def self.user_approved?(file)
-      return false if xattr.nil?
-
       user_approved_status?(status(file))
     end
 
@@ -190,19 +190,18 @@ module Cask
     end
 
     sig { params(cask: T.nilable(Cask), download_path: T.nilable(Pathname), action: T::Boolean).void }
-    def self.cask!(cask: nil, download_path: nil, action: true)
-      raise NotImplementedError
-    end
+    def self.cask!(cask: nil, download_path: nil, action: true); end
 
     sig { params(from: T.nilable(Pathname), to: T.nilable(Pathname)).void }
     def self.propagate(from: nil, to: nil)
       return if from.nil? || to.nil?
 
-      raise CaskError, "#{from} was not quarantined properly." unless detect(from)
+      quarantine_status = status(from)
+      return if quarantine_status.empty?
 
       odebug "Propagating quarantine from #{from} to #{to}"
 
-      quarantine_status = toggle_no_translocation_bit(status(from))
+      quarantine_status = toggle_no_translocation_bit(quarantine_status)
 
       resolved_paths = Pathname.glob(to/"**/*", File::FNM_DOTMATCH).reject(&:symlink?)
 
@@ -237,9 +236,7 @@ module Cask
     end
 
     sig { params(from: Pathname, to: Pathname, command: T.class_of(SystemCommand)).void }
-    def self.copy_xattrs(from, to, command:)
-      raise NotImplementedError
-    end
+    def self.copy_xattrs(from, to, command:); end
 
     # Ensures that Homebrew has permission to update apps on macOS Ventura.
     # This may be granted either through the App Management toggle or the Full Disk Access toggle.

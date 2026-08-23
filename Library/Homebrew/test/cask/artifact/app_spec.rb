@@ -395,7 +395,7 @@ RSpec.describe Cask::Artifact::App, :cask do
     describe "when quarantine support is unavailable" do
       it "reinstalls into the reused directory without copying xattrs" do
         allow(Cask::Quarantine).to receive(:available?).and_return(false)
-        expect(Cask::Quarantine).not_to receive(:copy_xattrs)
+        expect(MacOS::FFI).not_to receive(:copy_xattrs)
 
         app.uninstall_phase(command:, force:, successor: cask)
         app.install_phase(command:, adopt:, force:, predecessor: cask)
