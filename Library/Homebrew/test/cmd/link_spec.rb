@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/link"
@@ -27,7 +27,7 @@ RSpec.describe Homebrew::Cmd::Link do
 
   it "links a given Formula", :integration_test do
     setup_test_formula "testball", tab_attributes: { installed_on_request: true }
-    Formula["testball"].any_installed_keg.unlink
+    Formula["testball"].any_installed_keg&.unlink
     Formula["testball"].bin.mkpath
     FileUtils.touch Formula["testball"].bin/"testfile"
 

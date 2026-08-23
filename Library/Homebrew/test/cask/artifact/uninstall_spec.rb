@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require_relative "shared_examples/uninstall_zap"
@@ -136,10 +136,10 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
   end
 
   describe "#uninstall_quit" do
-    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
+    let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
+    let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
     let(:fake_system_command) { NeverSudoSystemCommand }
-    let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
 
     before do
       allow(User.current).to receive(:gui?).and_return true
@@ -267,10 +267,9 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
   end
 
   describe "#post_uninstall_phase" do
-    subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
-
     context "when using :rmdir" do
       let(:fake_system_command) { NeverSudoSystemCommand }
+      let(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
       let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-rmdir")) }
       let(:empty_directory) { Pathname.new("#{TEST_TMPDIR}/empty_directory_path") }
       let(:empty_directory_tree) { empty_directory.join("nested", "empty_directory_path") }

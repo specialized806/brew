@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 # These tests assume the needed SDKs are correctly installed, i.e. `brew doctor` passes.
@@ -109,7 +109,7 @@ RSpec.describe "pkg-config", :needs_ci, type: :system do
     version = File.foreach("#{sdk}/usr/include/ncurses.h")
                   .lazy
                   .grep(/^#define NCURSES_VERSION_(MAJOR|MINOR|PATCH) (\d+)$/) do
-                    { Regexp.last_match(1).downcase => Regexp.last_match(2) }
+                    { Regexp.last_match(1).to_s.downcase => Regexp.last_match(2) }
                   end
                   .reduce(:merge!)
     version = "#{version["major"]}.#{version["minor"]}.#{version["patch"]}"
