@@ -619,27 +619,49 @@ module Homebrew
           # against the distro record's distro-versioned range.
           next if ev.subject_version.nil?
 
-          subject = subject_version(formula, ev.resource)&.to_s
-          evidence_range_status(ev, subject)
+          present, subject = subject_version_at(formula, ev)
+          # Absence means this formula revision did not ship the vulnerable
+          # package. Treat it as fixed for boundary walking so a temporary
+          # removal can be the fix boundary while still allowing the walk to
+          # find an older affected revision.
+          next :fixed unless present
+
+          evidence_range_status(ev, subject)&.state
         end
         return if results.empty?
-        return :affected if results.any?(&:affected?)
-        return :fixed if results.any?(&:fixed?)
+        return :affected if results.include?(:affected)
+        return :fixed if results.include?(:fixed)
 
         :not_applicable
       end
 
-      sig { params(formula: Formula, resource: T.nilable(String)).returns(T.nilable(Version)) }
-      def subject_version(formula, resource)
-        if resource
-          begin
-            formula.resource(resource)&.version
-          rescue ResourceMissingError
-            nil
-          end
-        else
-          formula.version
+      # Resolve a historical subject by upstream package identity so resource
+      # label changes do not look like removals. The boolean distinguishes a
+      # package that was absent (not affected at that revision) from one that
+      # was present but had no comparable version (uncheckable).
+      sig { params(formula: Formula, evidence: Evidence).returns([T::Boolean, T.nilable(String)]) }
+      def subject_version_at(formula, evidence)
+        return [true, formula.version.to_s] unless evidence.resource
+
+        exact_resource = formula.resources.find { |resource| resource.name == evidence.resource }
+        if exact_resource
+          exact_package = Identify.registry_package(exact_resource.url)
+          return [true, exact_resource.version&.to_s] unless exact_package
+          return [true, exact_package.version] if exact_package.ecosystem == evidence.ecosystem &&
+                                                  exact_package.name == evidence.name
         end
+
+        formula.resources.each do |resource|
+          next if resource.equal?(exact_resource)
+
+          package = Identify.registry_package(resource.url)
+          next if package.nil?
+          next if package.ecosystem != evidence.ecosystem || package.name != evidence.name
+
+          return [true, package.version]
+        end
+
+        [false, nil]
       end
     end
   end

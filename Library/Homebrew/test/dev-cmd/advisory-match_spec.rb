@@ -131,6 +131,30 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
+  it "walks history and closes an existing open range with --new-history" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(path, JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "affected"          => [{
+          "package" => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [{ "introduced" => "1.0" }] }],
+        }],
+        "database_specific" => { "source" => "matched" },
+      }))
+
+      expect { cmd_for("requests", "--output", dir, "--new-history").run }
+        .to output(/1 history walks/).to_stdout
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+        .to eq([{ "introduced" => "1.0" }, { "fixed" => "2.28.1" }])
+    end
+  end
+
   it "walks history when an existing record is malformed" do
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
     matcher = Homebrew::Vulns::Match.new
@@ -155,6 +179,29 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
     Dir.mktmpdir do |dir|
       cmd_for("requests", "--output", dir, "--no-history").run
+    end
+  end
+
+  it "does not close an existing open range with --no-history" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).not_to receive(:first_fixed_version)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(path, JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "affected"          => [{
+          "package" => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [{ "introduced" => "1.0" }] }],
+        }],
+        "database_specific" => { "source" => "matched" },
+      }))
+
+      cmd_for("requests", "--output", dir, "--no-history").run
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+        .to eq([{ "introduced" => "1.0" }])
     end
   end
 

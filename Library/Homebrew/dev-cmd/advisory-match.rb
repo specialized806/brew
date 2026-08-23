@@ -165,12 +165,13 @@ module Homebrew
       end
 
       class DirEmitter < Emitter
-        sig { params(dir: String, verbose: T::Boolean).void }
-        def initialize(dir, verbose:)
+        sig { params(dir: String, verbose: T::Boolean, close_open_ranges: T::Boolean).void }
+        def initialize(dir, verbose:, close_open_ranges:)
           super()
           FileUtils.mkdir_p(dir)
           @dir = dir
           @verbose = verbose
+          @close_open_ranges = close_open_ranges
           @written = T.let(0, Integer)
           @unchanged = T.let(0, Integer)
           @skipped_generated = T.let(0, Integer)
@@ -188,7 +189,8 @@ module Homebrew
             @skipped_generated += 1
             return
           end
-          merged = Homebrew::Vulns::OsvExport.merge_existing(path, record)
+          merged = Homebrew::Vulns::OsvExport.merge_existing(path, record,
+                                                             close_open_ranges: @close_open_ranges)
           if merged.nil?
             @unchanged += 1
             return
@@ -211,7 +213,9 @@ module Homebrew
           return true unless affected.is_a?(Array)
           return true if affected.empty?
 
-          affected.any? { |entry| !entry.is_a?(Hash) || !entry["ranges"] }
+          affected.any? do |entry|
+            !entry.is_a?(Hash) || !Homebrew::Vulns::OsvExport.ranges_terminal?(entry["ranges"])
+          end
         rescue JSON::ParserError
           true
         end
@@ -281,7 +285,7 @@ module Homebrew
       sig { returns(Emitter) }
       def build_emitter
         if (dir = args.output)
-          DirEmitter.new(dir, verbose: args.verbose?)
+          DirEmitter.new(dir, verbose: args.verbose?, close_open_ranges: !args.no_history?)
         elsif args.json?
           JsonEmitter.new
         else
