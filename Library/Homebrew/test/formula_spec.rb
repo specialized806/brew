@@ -3034,6 +3034,22 @@ RSpec.describe Formula do
         end
       end
     end
+
+    it "denies network access for phases not explicitly allowed" do
+      f = Class.new(Testball) do
+        allow_network_access! [:build, :test]
+      end
+
+      expect(PHASES.to_h { |phase| [phase, f.network_access_allowed?(phase)] })
+        .to eq(build: true, postinstall: false, test: true)
+    end
+
+    it "does not change network access when allowing an invalid phase" do
+      f = Class.new(Testball)
+
+      expect { f.allow_network_access! [:build, :foo] }.to raise_error(ArgumentError)
+      expect(PHASES).to all(satisfy { |phase| f.network_access_allowed?(phase) })
+    end
   end
 
   describe "#network_access_allowed?" do

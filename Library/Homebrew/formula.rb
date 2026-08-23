@@ -3994,7 +3994,8 @@ class Formula
 
     # The phases for which network access is allowed. By default, network
     # access is allowed for all phases. Valid phases are `:build`, `:test`,
-    # and `:postinstall`. When no argument is passed, network access will be
+    # and `:postinstall`. When phases are passed, network access will be denied
+    # for all other phases. When no argument is passed, network access will be
     # allowed for all phases.
     #
     # ### Examples
@@ -4020,9 +4021,9 @@ class Formula
       else
         phases_array.each do |phase|
           raise ArgumentError, "Unknown phase: #{phase}" unless SUPPORTED_NETWORK_ACCESS_PHASES.include?(phase)
-
-          network_access_allowed[phase] = true
         end
+        network_access_allowed.transform_values! { false }
+        phases_array.each { |phase| network_access_allowed[phase] = true }
       end
     end
 
