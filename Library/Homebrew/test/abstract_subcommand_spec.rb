@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "abstract_command"
@@ -28,9 +28,10 @@ RSpec.describe Homebrew::AbstractSubcommand do
         TestSubcommand.define(self)
       end
 
-      expect(parser.subcommands.first.name).to eq("test")
-      expect(parser.subcommands.first.aliases).to eq(["ts"])
-      expect(parser.subcommands.first.default).to be(true)
+      subcommand = parser.subcommands.fetch(0)
+      expect(subcommand.name).to eq("test")
+      expect(subcommand.aliases).to eq(["ts"])
+      expect(subcommand.default).to be(true)
       expect(parser.processed_options_for_subcommand("test").map(&:second)).to include("--foo")
     end
 
