@@ -187,21 +187,21 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
     end
   end
 
-  describe "#bundle_identifiers" do
-    it "returns empty array when Info.plist is missing" do
-      expect(generate_zap.bundle_identifiers(Pathname.new("TestCask.app"))).to eq([])
+  describe "#patterns_from_app_paths" do
+    it "returns only the app name when Info.plist is missing" do
+      expect(generate_zap.patterns_from_app_paths([Pathname.new("TestCask.app")])).to eq(["TestCask"])
     end
 
-    it "returns empty array when Info.plist is unreadable" do
+    it "returns only the app name when Info.plist is unreadable" do
       info_plist = instance_double(Pathname, exist?: true, readable?: false)
-      app_path = instance_double(Pathname)
+      app_path = instance_double(Pathname, basename: Pathname.new("TestCask"))
 
       allow(app_path).to receive(:/).with("Contents/Info.plist").and_return(info_plist)
 
-      expect(generate_zap.bundle_identifiers(app_path)).to eq([])
+      expect(generate_zap.patterns_from_app_paths([app_path])).to eq(["TestCask"])
     end
 
-    it "returns empty array when CFBundleIdentifier is not a string" do
+    it "returns only the app name when CFBundleIdentifier is not a string" do
       Dir.mktmpdir do |tmpdir|
         app_path = Pathname.new("#{tmpdir}/TestCask.app")
         info_plist = app_path/"Contents/Info.plist"
@@ -214,7 +214,7 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
           .with("plutil", args: ["-convert", "xml1", "-o", "-", info_plist])
           .and_return(result)
 
-        expect(generate_zap.bundle_identifiers(app_path)).to eq([])
+        expect(generate_zap.patterns_from_app_paths([app_path])).to eq(["TestCask"])
       end
     end
   end
