@@ -232,9 +232,13 @@ module Homebrew
 
       sig {
         params(string: String, keg: Keg, ignores: T::Array[Regexp],
-               formula_and_runtime_deps_names: T.nilable(T::Array[String])).returns(T::Boolean)
+               formula_and_runtime_deps_names: T.nilable(T::Array[String]),
+               binary_relocation_files: T::Array[Pathname],
+               binary_relocation_diagnostics: T::Array[T::Hash[String, T.any(String, Integer)]])
+          .returns(T::Boolean)
       }
-      def keg_contain?(string, keg, ignores, formula_and_runtime_deps_names = nil)
+      def keg_contain?(string, keg, ignores, formula_and_runtime_deps_names = nil,
+                       binary_relocation_files: [], binary_relocation_diagnostics: [])
         @put_string_exists_header, @put_filenames = nil
 
         print_filename = lambda do |str, filename|
@@ -269,6 +273,21 @@ module Homebrew
           text_matches = Keg.text_matches_in_file(file, string, ignores, linked_libraries,
                                                   formula_and_runtime_deps_names)
           result = true if text_matches.any?
+
+          if text_matches.present? && keg.binary_file?(file)
+            relative_path = file.relative_path_from(keg.to_path)
+            binary_relocation_files << relative_path unless binary_relocation_files.include?(relative_path)
+            text_matches.each do |match, offset|
+              break if binary_relocation_diagnostics.size >= MAXIMUM_STRING_MATCHES
+
+              diagnostic = {
+                "path"   => relative_path.to_s,
+                "string" => match,
+                "offset" => offset.to_i(16),
+              }
+              binary_relocation_diagnostics << diagnostic unless binary_relocation_diagnostics.include?(diagnostic)
+            end
+          end
 
           next if !args.verbose? || text_matches.empty?
 
@@ -487,16 +506,22 @@ module Homebrew
         ohai "Bottling #{local_filename}..."
 
         formula_and_runtime_deps_names = [formula.name] + formula.runtime_dependencies.map(&:name)
+        binary_relocation_files = T.let([], T::Array[Pathname])
+        # Detailed blockers stay in CI JSON while the client-facing tab contains only compact file paths.
+        binary_relocation_diagnostics = T.let([], T::Array[T::Hash[String, T.any(String, Integer)]])
 
         # this will be nil when using a local bottle
         keg&.lock do
           original_tab = nil
-          changed_files = nil
+          changed_files = T.let(nil, T.nilable(T::Array[Pathname]))
+          linkage_files = T.let(nil, T.nilable(T::Array[Pathname]))
 
           begin
             keg.delete_pyc_files!
 
-            changed_files = keg.replace_locations_with_placeholders unless args.skip_relocation?
+            unless args.skip_relocation?
+              changed_files, linkage_files = keg.replace_locations_with_placeholders
+            end
 
             Formula.clear_cache
             Keg.clear_cache
@@ -508,7 +533,72 @@ module Homebrew
             original_tab = tab.dup
             tab.poured_from_bottle = false
             tab.time = nil
-            tab.changed_files = changed_files.dup
+            tab.changed_files = changed_files&.dup
+            tab.linkage_files = linkage_files&.sort
+
+            ohai "Detecting if #{local_filename} is relocatable..." if keg.disk_usage > 1 * 1024 * 1024
+
+            is_usr_local_prefix = prefix == "/usr/local"
+            prefix_check = if is_usr_local_prefix
+              "#{prefix}/opt"
+            else
+              prefix
+            end
+
+            # Ignore matches to source code, which is not required at run time.
+            # These matches may be caused by debugging symbols.
+            ignores = [%r{/include/|\.(c|cc|cpp|h|hpp)$}]
+
+            # Add additional workarounds to ignore
+            ignores += formula_ignores(formula)
+
+            repository_reference = if HOMEBREW_PREFIX == HOMEBREW_REPOSITORY
+              HOMEBREW_LIBRARY
+            else
+              HOMEBREW_REPOSITORY
+            end.to_s
+            if keg_contain?(repository_reference, keg, ignores + ALLOWABLE_HOMEBREW_REPOSITORY_LINKS)
+              odie "Bottle contains non-relocatable reference to #{repository_reference}!"
+            end
+
+            relocatable = true
+            if args.skip_relocation?
+              skip_relocation = true
+            else
+              relocatable = false if keg_contain?(
+                prefix_check, keg, ignores, formula_and_runtime_deps_names,
+                binary_relocation_files:, binary_relocation_diagnostics:
+              )
+              relocatable = false if keg_contain?(
+                cellar, keg, ignores, formula_and_runtime_deps_names,
+                binary_relocation_files:, binary_relocation_diagnostics:
+              )
+              relocatable = false if keg_contain?(
+                HOMEBREW_LIBRARY.to_s, keg, ignores, formula_and_runtime_deps_names,
+                binary_relocation_files:, binary_relocation_diagnostics:
+              )
+              if is_usr_local_prefix
+                relocatable = false if keg_contain_absolute_symlink_starting_with?(prefix, keg)
+                if tap.disabled_new_usr_local_relocation_formulae.exclude?(formula.name)
+                  keg.new_usr_local_replacement_pairs.each_value do |value|
+                    relocatable = false if keg_contain?(
+                      value.fetch(:old), keg, ignores,
+                      binary_relocation_files:, binary_relocation_diagnostics:
+                    )
+                  end
+                else
+                  ["#{prefix}/etc", "#{prefix}/var", "#{prefix}/share/vim"].each do |path|
+                    relocatable = false if keg_contain?(
+                      path, keg, ignores,
+                      binary_relocation_files:, binary_relocation_diagnostics:
+                    )
+                  end
+                end
+              end
+              skip_relocation = relocatable && !keg.require_relocation?
+            end
+            tab.binary_relocation_files = args.skip_relocation? ? nil : binary_relocation_files.sort
+
             if args.only_json_tab?
               tab.changed_files&.delete(Pathname.new(AbstractTab::FILENAME))
               tab.tabfile&.unlink
@@ -546,52 +636,6 @@ module Homebrew
               sudo_purge
             end
 
-            ohai "Detecting if #{local_filename} is relocatable..." if bottle_path.size > 1 * 1024 * 1024
-
-            is_usr_local_prefix = prefix == "/usr/local"
-            prefix_check = if is_usr_local_prefix
-              "#{prefix}/opt"
-            else
-              prefix
-            end
-
-            # Ignore matches to source code, which is not required at run time.
-            # These matches may be caused by debugging symbols.
-            ignores = [%r{/include/|\.(c|cc|cpp|h|hpp)$}]
-
-            # Add additional workarounds to ignore
-            ignores += formula_ignores(formula)
-
-            repository_reference = if HOMEBREW_PREFIX == HOMEBREW_REPOSITORY
-              HOMEBREW_LIBRARY
-            else
-              HOMEBREW_REPOSITORY
-            end.to_s
-            if keg_contain?(repository_reference, keg, ignores + ALLOWABLE_HOMEBREW_REPOSITORY_LINKS)
-              odie "Bottle contains non-relocatable reference to #{repository_reference}!"
-            end
-
-            relocatable = true
-            if args.skip_relocation?
-              skip_relocation = true
-            else
-              relocatable = false if keg_contain?(prefix_check, keg, ignores, formula_and_runtime_deps_names)
-              relocatable = false if keg_contain?(cellar, keg, ignores, formula_and_runtime_deps_names)
-              relocatable = false if keg_contain?(HOMEBREW_LIBRARY.to_s, keg, ignores, formula_and_runtime_deps_names)
-              if is_usr_local_prefix
-                relocatable = false if keg_contain_absolute_symlink_starting_with?(prefix, keg)
-                if tap.disabled_new_usr_local_relocation_formulae.exclude?(formula.name)
-                  keg.new_usr_local_replacement_pairs.each_value do |value|
-                    relocatable = false if keg_contain?(value.fetch(:old), keg, ignores)
-                  end
-                else
-                  relocatable = false if keg_contain?("#{prefix}/etc", keg, ignores)
-                  relocatable = false if keg_contain?("#{prefix}/var", keg, ignores)
-                  relocatable = false if keg_contain?("#{prefix}/share/vim", keg, ignores)
-                end
-              end
-              skip_relocation = relocatable && !keg.require_relocation?
-            end
             puts if !relocatable && args.verbose?
           rescue Interrupt
             ignore_interrupts { bottle_path.unlink if bottle_path.exist? }
@@ -599,7 +643,7 @@ module Homebrew
           ensure
             ignore_interrupts do
               original_tab&.write
-              keg.replace_placeholders_with_locations(changed_files) if changed_files && !args.skip_relocation?
+              keg.replace_placeholders_with_locations(changed_files) if changed_files
             end
           end
         end
@@ -689,14 +733,15 @@ module Homebrew
               "date"     => Pathname(filename.to_s).mtime.utc.iso8601,
               "tags"     => {
                 bottle_tag.to_s => {
-                  "filename"        => filename.url_encode,
-                  "local_filename"  => filename.to_s,
-                  "sha256"          => sha256,
-                  "tab"             => bottle_tab.to_bottle_hash,
-                  "sbom"            => SBOM.create(formula, bottle_tab).to_spdx_supplement,
-                  "path_exec_files" => path_exec_files,
-                  "all_files"       => all_files,
-                  "installed_size"  => installed_size,
+                  "filename"                      => filename.url_encode,
+                  "local_filename"                => filename.to_s,
+                  "sha256"                        => sha256,
+                  "tab"                           => bottle_tab.to_bottle_hash,
+                  "binary_relocation_diagnostics" => binary_relocation_diagnostics,
+                  "sbom"                          => SBOM.create(formula, bottle_tab).to_spdx_supplement,
+                  "path_exec_files"               => path_exec_files,
+                  "all_files"                     => all_files,
+                  "installed_size"                => installed_size,
                 },
               },
             },

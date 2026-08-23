@@ -80,4 +80,12 @@ RSpec.describe Keg do
       EOS
     end
   end
+
+  specify "#replace_locations_with_placeholders returns its file lists" do
+    linkage_files = [Pathname("bin/foo")]
+    changed_files = [Pathname("share/foo")]
+    allow(keg).to receive_messages(relocate_dynamic_linkage: linkage_files, replace_text_in_files: changed_files)
+
+    expect(keg.replace_locations_with_placeholders).to eq([changed_files, linkage_files])
+  end
 end

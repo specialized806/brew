@@ -140,8 +140,11 @@ RSpec.describe GitHubPackages do
                                               "arm64_sonoma" => {
                                                 "local_filename" => bottle.to_s,
                                                 "tab"            => {
-                                                  "arch"     => "arm64",
-                                                  "built_on" => {
+                                                  "arch"                    => "arm64",
+                                                  "built_prefix"            => "/custom/prefix",
+                                                  "linkage_files"           => ["bin/foo"],
+                                                  "binary_relocation_files" => ["libexec/foo"],
+                                                  "built_on"                => {
                                                     "os"         => "Macintosh",
                                                     "os_version" => "macOS 14",
                                                   },
@@ -180,7 +183,13 @@ RSpec.describe GitHubPackages do
         expect(manifests_by_tag.fetch("1.0.arm64_sonoma"))
           .to include("platform" => include("architecture" => "arm64", "os" => "darwin"))
         expect(JSON.parse(manifests_by_tag.fetch("1.0.arm64_sonoma").fetch("annotations").fetch("sh.brew.tab")))
-          .to include("arch" => "arm64", "built_on" => include("os" => "Macintosh"))
+          .to include(
+            "arch"                    => "arm64",
+            "built_prefix"            => "/custom/prefix",
+            "linkage_files"           => ["bin/foo"],
+            "binary_relocation_files" => ["libexec/foo"],
+            "built_on"                => include("os" => "Macintosh"),
+          )
       end
     end
   end

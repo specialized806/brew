@@ -85,8 +85,8 @@ class Keg
     end
   end
 
-  sig { params(_relocation: Relocation, with_placeholders: T::Boolean).void }
-  def relocate_dynamic_linkage(_relocation, with_placeholders: false); end
+  sig { params(_relocation: Relocation, with_placeholders: T::Boolean).returns(T::Array[Pathname]) }
+  def relocate_dynamic_linkage(_relocation, with_placeholders: false) = []
 
   JAVA_REGEX = %r{#{HOMEBREW_PREFIX}/opt/openjdk(@\d+(\.\d+)*)?/libexec(/openjdk\.jdk/Contents/Home)?}
 
@@ -169,11 +169,11 @@ class Keg
     relocation
   end
 
-  sig { returns(T::Array[Pathname]) }
+  sig { returns([T::Array[Pathname], T::Array[Pathname]]) }
   def replace_locations_with_placeholders
     relocation = prepare_relocation_to_placeholders.freeze
-    relocate_dynamic_linkage(relocation, with_placeholders: true)
-    replace_text_in_files(relocation)
+    linkage_files = relocate_dynamic_linkage(relocation, with_placeholders: true)
+    [replace_text_in_files(relocation), linkage_files]
   end
 
   sig { returns(Relocation) }
