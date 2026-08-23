@@ -40,6 +40,12 @@ RSpec.describe Pathname do
     let(:long_prefix) { "/home/organized/very organized/litter/more organized than/your words can describe" }
     let(:prefixes) { [short_prefix, standard_prefix, long_prefix].map { |prefix| ELFPathname.wrap(prefix) } }
 
+    it "loads patchelf before reading metadata" do
+      patch_elfs do |elf|
+        expect { elf.patch!(rpath: short_prefix) }.not_to raise_error
+      end
+    end
+
     # file is copied as modified_elf to avoid caching issues
     it "only interpreter" do
       prefixes.each do |new_prefix|
