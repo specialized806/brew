@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -294,7 +294,7 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
     command = described_class.new(["--cask", "test"])
     allow(command).to receive_messages(random_runner:   { name: "macos-26" },
                                        generate_matrix: Array.new(
-                                         described_class::MAX_JOBS - 1, {}
+                                         Homebrew::DevCmd::GenerateCaskCiMatrix::MAX_JOBS - 1, {}
                                        ))
 
     expect { command.run }
