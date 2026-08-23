@@ -40,10 +40,8 @@ RSpec.describe Pathname do
     let(:long_prefix) { "/home/organized/very organized/litter/more organized than/your words can describe" }
     let(:prefixes) { [short_prefix, standard_prefix, long_prefix].map { |prefix| ELFPathname.wrap(prefix) } }
 
-    it "loads patchelf before reading metadata" do
-      patch_elfs do |elf|
-        expect { elf.patch!(rpath: short_prefix) }.not_to raise_error
-      end
+    it "does not evaluate the patcher signature at runtime" do
+      expect(T::Utils.signature_for_instance_method(ELFShim, :patchelf_patcher)).to be_nil
     end
 
     # file is copied as modified_elf to avoid caching issues

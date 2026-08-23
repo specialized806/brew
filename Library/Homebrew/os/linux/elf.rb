@@ -278,6 +278,8 @@ module ELFShim
   # Don't cache the patcher; it keeps the ELF file open so long as it is alive.
   # Instead, for read-only access to the ELF file's metadata, fetch it and cache
   # it with {Metadata}.
+  # PatchELF is loaded lazily inside this method, so avoid evaluating its return
+  # type at runtime before the constant is defined.
   T::Sig::WithoutRuntime.sig { returns(::PatchELF::Patcher) }
   def patchelf_patcher
     require "patchelf"
