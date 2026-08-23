@@ -207,9 +207,7 @@ module Formatter
 
   sig { params(number: Integer).returns(String) }
   def self.number_readable(number)
-    numstr = number.to_i.to_s
-    (numstr.size - 3).step(1, -3) { |i| numstr.insert(i.to_i, ",") }
-    numstr
+    number.to_i.to_s.gsub(/(\d)(?=(\d{3})+\z)/, "\\1,")
   end
 
   sig { params(input: String, secrets: T::Array[String]).returns(String) }
