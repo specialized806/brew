@@ -317,6 +317,21 @@ RSpec.describe Formulary do
           f = described_class.from_keg(keg)
           expect(f).to be_a(Formula)
         end
+
+        it "does not load a Formula using a removed alias" do
+          keg_path = HOMEBREW_CELLAR/formula_name/"0.1"
+          (keg_path/".brew/#{formula_name}.rb").tap do |keg_formula|
+            keg_formula.dirname.mkpath
+            keg_formula.write(formula_content)
+          end
+          tab = Tab.empty
+          tab.tabfile = keg_path/AbstractTab::FILENAME
+          tab.write
+          (HOMEBREW_PREFIX/"opt/removed-alias").make_relative_symlink(keg_path)
+          described_class.clear_cache
+
+          expect { described_class.factory("removed-alias") }.to raise_error(FormulaUnavailableError)
+        end
       end
 
       context "when migrating from a Tap" do

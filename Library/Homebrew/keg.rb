@@ -285,14 +285,7 @@ class Keg
     opt = opt_record.parent
     linkedkegs = linked_keg_record.parent
 
-    tap = begin
-      to_formula.tap
-    rescue
-      # If the formula can't be found, just ignore aliases for now.
-      nil
-    end
-
-    if tap
+    if (tap = tab.tap)
       bad_tap_opt = opt/tap.user
       FileUtils.rm_rf bad_tap_opt if !bad_tap_opt.symlink? && bad_tap_opt.directory?
     end
@@ -309,8 +302,8 @@ class Keg
       a = a.basename.to_s
       next if aliases.include?(a)
 
-      remove_alias_symlink(opt/a, rack)
-      remove_alias_symlink(linkedkegs/a, rack)
+      remove_alias_symlink(opt/a, rack, match_parent: true)
+      remove_alias_symlink(linkedkegs/a, rack, match_parent: true)
     end
   end
 
@@ -614,6 +607,7 @@ class Keg
 
   sig { params(verbose: T::Boolean, dry_run: T::Boolean, overwrite: T::Boolean).void }
   def optlink(verbose: false, dry_run: false, overwrite: false)
+    remove_old_aliases
     opt_record.delete if opt_record.symlink? || opt_record.exist?
     make_relative_symlink(opt_record, path, verbose:, dry_run:, overwrite:)
     aliases.each do |a|
@@ -780,10 +774,12 @@ class Keg
     raise LinkError.new(self, src.relative_path_from(path), dst, e)
   end
 
-  sig { params(alias_symlink: Pathname, alias_match_path: Pathname).void }
-  def remove_alias_symlink(alias_symlink, alias_match_path)
+  sig { params(alias_symlink: Pathname, alias_match_path: Pathname, match_parent: T::Boolean).void }
+  def remove_alias_symlink(alias_symlink, alias_match_path, match_parent: false)
     if alias_symlink.symlink? && alias_symlink.exist?
-      alias_symlink.delete if alias_match_path.exist? && alias_symlink.realpath == alias_match_path.realpath
+      alias_path = alias_symlink.realpath
+      alias_path = alias_path.parent if match_parent
+      alias_symlink.delete if alias_match_path.exist? && alias_path == alias_match_path.realpath
     elsif alias_symlink.symlink? || alias_symlink.exist?
       alias_symlink.delete
     end
