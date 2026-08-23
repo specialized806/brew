@@ -646,13 +646,13 @@ RSpec.describe Homebrew::Vulns::Match do
       revs = versions_newest_first.each_with_index.map { |_, i| ["r#{i}", "Formula/r/requests.rb"] }
       allow(fv).to receive(:rev_list) { |_, &b| revs.each { |rev, entry| b.call(rev, entry) } }
       versions_newest_first.each_with_index do |entry, i|
-        primary, res = Array(entry)
+        primary, res, resource_name = Array(entry)
         old = if primary
           formula("requests") do
             T.bind(self, T.class_of(Formula))
             url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-#{primary}.tar.gz"
             if res
-              resource "certifi" do
+              resource resource_name || "certifi" do
                 url "https://files.pythonhosted.org/packages/11/22/33/certifi-#{res}.tar.gz"
               end
             end
@@ -714,6 +714,70 @@ RSpec.describe Homebrew::Vulns::Match do
     it "returns :never_affected when the formula was already past fixed at its first revision" do
       stub_history(["2.31.0"])
       expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :never_affected
+    end
+
+    it "returns :never_affected when a fixed resource was absent from earlier formula revisions" do
+      stub_history([["2.18.0", "1.2.0"], ["2.17.0", nil]])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.18.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-1.2.0.tar.gz"
+        end
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "1.0.8" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "1.2.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_fixed_version(current, hit)).to eq :never_affected
+    end
+
+    it "continues past a resource-absence gap to find an older affected revision" do
+      stub_history([["3.0", "1.2.0"], ["2.0", nil], ["1.0", "1.0.7"]])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-3.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-1.2.0.tar.gz"
+        end
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "1.0.8" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "1.2.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_fixed_version(current, hit)).to eq "2.0"
+    end
+
+    it "follows a resource package across historical resource-label changes" do
+      stub_history([["3.0", "101.0", "certifi"], ["2.0", "100.0", "certifi-python"],
+                    ["1.0", "99.0", "certifi-python"]])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-3.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-101.0.tar.gz"
+        end
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "100.0" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "101.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_fixed_version(current, hit)).to eq "2.0"
     end
 
     it "keeps versionless (distro) evidence uncheckable at historical revisions too" do
