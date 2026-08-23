@@ -50,8 +50,11 @@ class Cmd
     @deps = Set.new(ENV.fetch("HOMEBREW_DEPENDENCIES", "").split(","))
     @formula_prefix = ENV["HOMEBREW_FORMULA_PREFIX"]
     @formula_buildpath = ENV["HOMEBREW_FORMULA_BUILDPATH"]
+    @self_dir = "#{canonical_path(formula_prefix)}/" if formula_prefix
+    @keg_dirs = [opt, cellar].map { canonical_path(it) }
+    @prefix_dirs = [prefix, cachedir, tmpdir].map { canonical_path(it) if it }
     # matches opt or Cellar prefix and formula name
-    @keg_regex = %r{(#{Regexp.escape(opt)}|#{Regexp.escape(cellar)})/([\w+-.@]+)}
+    @keg_regex = %r{(#{@keg_dirs.map { Regexp.escape(it) }.join("|")})/([\w+-.@]+)}
   end
 
   def split_args_at_double_dash(args)
@@ -157,8 +160,8 @@ class Cmd
   end
 
   def refurbished_args
-    @lset = Set.new(library_paths + system_library_paths)
-    @iset = Set.new(isystem_paths + include_paths)
+    @lset = Set.new((library_paths + system_library_paths).map { canonical_path(it) })
+    @iset = Set.new((isystem_paths + include_paths).map { canonical_path(it) })
 
     args = []
     enum = @args.each
@@ -272,14 +275,14 @@ class Cmd
 
   def keep?(path)
     # Allow references to self
-    if formula_prefix && path.start_with?("#{formula_prefix}/")
+    if @self_dir && path.start_with?(@self_dir)
       true
     # first two paths: reject references to Cellar or opt paths
     # for unspecified dependencies
-    elsif path.start_with?(cellar, opt)
+    elsif path.start_with?(*@keg_dirs)
       dep = path[keg_regex, 2]
       dep && @deps.include?(dep)
-    elsif path.start_with?(prefix, cachedir, tmpdir)
+    elsif path.start_with?(*@prefix_dirs)
       true
     elsif path.start_with?("/opt/local", "/opt/boxen/homebrew", "/opt/X11", "/sw", "/usr/X11")
       # ignore MacPorts, Boxen's Homebrew, X11, fink
@@ -403,7 +406,7 @@ class Cmd
   end
 
   def system_library_paths
-    paths = [canonical_path("#{sysroot}/usr/lib")]
+    paths = ["#{sysroot}/usr/lib"]
     paths << "/usr/local/lib" if !sysroot && !ENV["SDKROOT"]
     paths
   end
@@ -488,10 +491,14 @@ class Cmd
     (fuse_ld_arg == "ld") || fuse_ld_arg.end_with?("/usr/bin/ld")
   end
 
+  # A realpath that doesn't require the full path to exist. It canonicalizes the path
+  # components that exist and leaves the rest alone, like GNU realpath -m.
   def canonical_path(path)
     path = Pathname.new(path)
-    path = path.realpath if path.exist?
-    path.to_s
+    existing = path.ascend.find(&:exist?)
+    return path.to_s if existing.nil?
+
+    existing.realpath.join(path.relative_path_from(existing)).to_s
   end
 
   def path_flags(prefix, paths)
