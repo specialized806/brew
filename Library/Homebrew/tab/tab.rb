@@ -13,6 +13,9 @@ class Tab < AbstractTab
   sig { returns(T.nilable(T::Boolean)) }
   attr_accessor :built_as_bottle
 
+  sig { returns(T.nilable(String)) }
+  attr_accessor :built_prefix
+
   sig { returns(T.nilable(T.any(String, Symbol))) }
   attr_accessor :stdlib
 
@@ -37,25 +40,40 @@ class Tab < AbstractTab
   sig { returns(T.nilable(T::Array[Pathname])) }
   attr_accessor :changed_files
 
+  sig { returns(T.nilable(T::Array[Pathname])) }
+  attr_accessor :linkage_files
+
+  sig { returns(T.nilable(T::Array[Pathname])) }
+  attr_accessor :binary_relocation_files
+
   sig {
-    params(poured_from_bottle:   T.nilable(T::Boolean),
-           built_as_bottle:      T.nilable(T::Boolean),
-           changed_files:        T.nilable(T::Array[T.any(Pathname, String)]),
-           stdlib:               T.nilable(T.any(String, Symbol)),
-           aliases:              T.nilable(T::Array[String]),
-           used_options:         T.nilable(T::Array[String]),
-           unused_options:       T.nilable(T::Array[String]),
-           compiler:             T.nilable(T.any(String, Symbol)),
-           source_modified_time: T.nilable(Integer),
-           tapped_from:          T.nilable(String),
-           rest:                 T.untyped).void
+    params(poured_from_bottle:      T.nilable(T::Boolean),
+           built_as_bottle:         T.nilable(T::Boolean),
+           built_prefix:            T.nilable(String),
+           changed_files:           T.nilable(T::Array[T.any(Pathname, String)]),
+           linkage_files:           T.nilable(T::Array[T.any(Pathname, String)]),
+           binary_relocation_files: T.nilable(T::Array[T.any(Pathname, String)]),
+           stdlib:                  T.nilable(T.any(String, Symbol)),
+           aliases:                 T.nilable(T::Array[String]),
+           used_options:            T.nilable(T::Array[String]),
+           unused_options:          T.nilable(T::Array[String]),
+           compiler:                T.nilable(T.any(String, Symbol)),
+           source_modified_time:    T.nilable(Integer),
+           tapped_from:             T.nilable(String),
+           rest:                    T.untyped).void
   }
-  def initialize(poured_from_bottle: nil, built_as_bottle: nil, changed_files: nil, stdlib: nil, aliases: nil,
-                 used_options: nil, unused_options: nil, compiler: nil, source_modified_time: nil,
-                 tapped_from: nil, **rest)
+  def initialize(poured_from_bottle: nil, built_as_bottle: nil, built_prefix: nil, changed_files: nil,
+                 linkage_files: nil, binary_relocation_files: nil, stdlib: nil, aliases: nil, used_options: nil,
+                 unused_options: nil, compiler: nil, source_modified_time: nil, tapped_from: nil, **rest)
     @poured_from_bottle = poured_from_bottle
     @built_as_bottle = built_as_bottle
+    @built_prefix = built_prefix
     @changed_files = T.let(changed_files&.map { |f| Pathname(f) }, T.nilable(T::Array[Pathname]))
+    @linkage_files = T.let(linkage_files&.map { |f| Pathname(f) }, T.nilable(T::Array[Pathname]))
+    @binary_relocation_files = T.let(
+      binary_relocation_files&.map { |f| Pathname(f) },
+      T.nilable(T::Array[Pathname]),
+    )
     @stdlib = stdlib
     @aliases = aliases
     @used_options = used_options
@@ -83,6 +101,7 @@ class Tab < AbstractTab
     tab.unused_options = build.unused_options.as_flags
     tab.tabfile = formula.prefix/FILENAME
     tab.built_as_bottle = build.bottle?
+    tab.built_prefix = HOMEBREW_PREFIX.to_s if build.bottle? && !Homebrew.default_prefix?
     tab.poured_from_bottle = false
     tab.source_modified_time = formula.source_modified_time.to_i
     tab.compiler = compiler
@@ -371,11 +390,14 @@ class Tab < AbstractTab
       "used_options"             => used_options.as_flags,
       "unused_options"           => unused_options.as_flags,
       "built_as_bottle"          => built_as_bottle,
+      "built_prefix"             => built_prefix,
       "poured_from_bottle"       => poured_from_bottle,
       "loaded_from_api"          => loaded_from_api,
       "loaded_from_internal_api" => loaded_from_internal_api,
       "installed_on_request"     => installed_on_request,
       "changed_files"            => changed_files&.map(&:to_s),
+      "linkage_files"            => linkage_files&.map(&:to_s),
+      "binary_relocation_files"  => binary_relocation_files&.map(&:to_s),
       "time"                     => time,
       "source_modified_time"     => source_modified_time.to_i,
       "stdlib"                   => stdlib&.to_s,
@@ -387,6 +409,9 @@ class Tab < AbstractTab
       "built_on"                 => built_on,
     }
     attributes.delete("stdlib") if attributes["stdlib"].blank?
+    attributes.delete("built_prefix") if attributes["built_prefix"].nil?
+    attributes.delete("linkage_files") if attributes["linkage_files"].nil?
+    attributes.delete("binary_relocation_files") if attributes["binary_relocation_files"].nil?
 
     JSON.pretty_generate(attributes, options)
   end
@@ -395,17 +420,23 @@ class Tab < AbstractTab
   sig { returns(T::Hash[String, T.untyped]) }
   def to_bottle_hash
     attributes = {
-      "homebrew_version"     => homebrew_version,
-      "changed_files"        => changed_files&.map(&:to_s),
-      "source_modified_time" => source_modified_time.to_i,
-      "stdlib"               => stdlib&.to_s,
-      "compiler"             => compiler.to_s,
-      "runtime_dependencies" => runtime_dependencies,
-      "source"               => source.slice("scm_revision").compact.presence,
-      "arch"                 => arch,
-      "built_on"             => built_on,
+      "homebrew_version"        => homebrew_version,
+      "built_prefix"            => built_prefix,
+      "changed_files"           => changed_files&.map(&:to_s),
+      "linkage_files"           => linkage_files&.map(&:to_s),
+      "binary_relocation_files" => binary_relocation_files&.map(&:to_s),
+      "source_modified_time"    => source_modified_time.to_i,
+      "stdlib"                  => stdlib&.to_s,
+      "compiler"                => compiler.to_s,
+      "runtime_dependencies"    => runtime_dependencies,
+      "source"                  => source.slice("scm_revision").compact.presence,
+      "arch"                    => arch,
+      "built_on"                => built_on,
     }
     attributes.delete("stdlib") if attributes["stdlib"].blank?
+    attributes.delete("built_prefix") if attributes["built_prefix"].nil?
+    attributes.delete("linkage_files") if attributes["linkage_files"].nil?
+    attributes.delete("binary_relocation_files") if attributes["binary_relocation_files"].nil?
     attributes.delete("source") if attributes["source"].blank?
     attributes
   end

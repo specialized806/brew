@@ -21,6 +21,12 @@ Every Homebrew/core bottle pours at every prefix under 65 characters long.
 This is a living document: edit or remove steps as they are implemented so
 it always describes the remaining work.
 
+End each implementation commit body with this exact line:
+
+```text
+This change is part of [`plans/relocatable-bottles.md`](https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/plans/relocatable-bottles.md)
+```
+
 ## Current state (21 August 2026, formulae.brew.sh data)
 
 | Tag | `:any_skip_relocation` | `:any` | pinned |
@@ -156,15 +162,6 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 
 ### Phase 0: pour speed and relocation metadata (helps everyone, every prefix)
 
-1. Tab gains `built_prefix` as the literal prefix string, only when the
-   build prefix is not the tag's default. Ships pre-download via the
-   `sh.brew.tab` manifest annotation, like the rest of the tab since
-   `--only-json-tab`.
-2. Tab gains per-bottle file lists for every bottle: `changed_files`
-   (exists), `linkage_files` (Mach-O/ELF placeholder carriers) and
-   `binary_relocation_files` (raw-string blockers). Measured cost is about
-   40 to 600 bytes against today's 2.2 to 9.5 KB tabs. Full string/offset
-   diagnostics stay CI-side in the `brew bottle --json` output, capped.
 3. Metadata-driven fast pour, benchmarked, with scan fallback: no keg walks,
    only listed files touched, relocation coordinated into one write and one
    codesign per file, codesign parallelised across files. Benefits accrue to

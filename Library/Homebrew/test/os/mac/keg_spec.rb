@@ -77,4 +77,29 @@ RSpec.describe Keg do
       keg.codesign_patched_binary(file)
     end
   end
+
+  describe "#relocate_dynamic_linkage" do
+    let(:keg_path) { HOMEBREW_CELLAR/"a/1.0" }
+    let(:file) { MachOPathname.wrap(keg_path/"bin/test") }
+
+    before do
+      file.dirname.mkpath
+      touch file
+      allow(file).to receive(:ensure_writable).and_yield
+      allow(file).to receive_messages(dylib?: false, dynamically_linked_libraries: ["#{HOMEBREW_PREFIX}/lib/foo"],
+                                      rpaths: [])
+      allow(keg).to receive_messages(mach_o_files: [file], change_install_name: true)
+      allow(keg).to receive(:codesign_patched_binary)
+    end
+
+    after { keg.unlink }
+
+    it "returns changed linkage files relative to the keg" do
+      relocation = Keg::Relocation.new
+      relocation.add_replacement_pair(:prefix, HOMEBREW_PREFIX.to_s, Keg::PREFIX_PLACEHOLDER)
+      relocation.add_replacement_pair(:cellar, HOMEBREW_CELLAR.to_s, Keg::CELLAR_PLACEHOLDER)
+
+      expect(keg.relocate_dynamic_linkage(relocation)).to eq([Pathname("bin/test")])
+    end
+  end
 end

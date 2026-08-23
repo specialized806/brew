@@ -10,18 +10,24 @@ module OS
 
       requires_ancestor { ::Keg }
 
-      sig { params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).void }
+      sig {
+        params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).returns(T::Array[::Pathname])
+      }
       def relocate_dynamic_linkage(relocation, with_placeholders: false)
         # Patching the dynamic linker of glibc breaks it.
-        return if name.match? Version.formula_optionally_versioned_regex(:glibc)
+        return [] if name.match? Version.formula_optionally_versioned_regex(:glibc)
 
         old_prefix, new_prefix = relocation.replacement_pair_for(:prefix)
 
+        linkage_files = []
         elf_files.each do |file|
+          changed = T.let(false, T::Boolean)
           file.ensure_writable do
-            change_rpath!(file, old_prefix, new_prefix, with_placeholders:)
+            changed = change_rpath!(file, old_prefix, new_prefix, with_placeholders:)
           end
+          linkage_files << file.relative_path_from(path) if changed
         end
+        linkage_files
       end
 
       sig {

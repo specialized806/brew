@@ -23,8 +23,11 @@ module OS
         end
       end
 
-      sig { params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).void }
+      sig {
+        params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).returns(T::Array[::Pathname])
+      }
       def relocate_dynamic_linkage(relocation, with_placeholders: false)
+        linkage_files = []
         mach_o_files.each do |file|
           file.ensure_writable do
             modified = T.let(false, T::Boolean)
@@ -49,9 +52,11 @@ module OS
             end
 
             # codesign the file if needed
+            linkage_files << file.relative_path_from(path) if needs_codesigning
             codesign_patched_binary(file.to_s) if needs_codesigning
           end
         end
+        linkage_files
       end
 
       sig { void }

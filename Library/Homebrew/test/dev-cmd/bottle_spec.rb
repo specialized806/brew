@@ -34,23 +34,81 @@ RSpec.describe Homebrew::DevCmd::Bottle do
 
   it_behaves_like "parseable arguments"
 
-  it "builds a bottle for the given Formula", :integration_test, :needs_network do
-    install_test_formula "testball", build_bottle: true
+  it "does not restore locations when placeholdering fails" do
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-1.0.tar.gz"
+    end
+    tap = instance_double(
+      Tap,
+      installed?: true,
+      path:       HOMEBREW_REPOSITORY,
+      git_head:   "HEAD",
+      remote:     "https://github.com/Homebrew/homebrew-core",
+    )
+    keg = instance_double(Keg)
+    bottle = described_class.new(["--no-rebuild", formula.name])
+
+    allow(Homebrew).to receive(:install_bundler_gems!)
+    allow(bottle.args.named).to receive(:to_resolved_formulae).with(uniq: false).and_return([formula])
+    allow(formula).to receive_messages(latest_version_installed?: true, tap:, runtime_dependencies: [])
+    allow(Utils::Bottles).to receive(:built_as?).with(formula).and_return(true)
+    allow(Keg).to receive(:new).with(formula.prefix).and_return(keg)
+    allow(keg).to receive(:lock).and_yield
+    allow(keg).to receive(:delete_pyc_files!).and_raise("placeholdering failed")
+    allow(keg).to receive(:replace_placeholders_with_locations).and_raise("restoration ran")
+
+    expect { bottle.run }.to raise_error(RuntimeError, "placeholdering failed")
+  end
+
+  it "builds a bottle for the given Formula", :integration_test do
+    setup_test_formula "testball", tab_attributes: { built_as_bottle: true }
+    formula = Formula["testball"]
 
     # `brew bottle` should not fail with dead symlink
     # https://github.com/Homebrew/legacy-homebrew/issues/49007
-    (HOMEBREW_CELLAR/"testball/0.1").cd do
+    formula.prefix.cd do
       FileUtils.ln_s "not-exist", "symlink"
     end
+    formula.libexec.mkpath
+    (formula.libexec/"raw-prefix").binwrite(
+      "\0#{Array.new(Homebrew::DevCmd::Bottle::MAXIMUM_STRING_MATCHES + 1, formula.libexec.to_s).join("\0")}\0",
+    )
 
     begin
-      expect { brew "bottle", "--no-rebuild", "testball" }
+      expect { brew "bottle", "--no-rebuild", "--json", "testball" }
         .to output(/testball--0\.1.*\.bottle\.tar\.gz/).to_stdout
         .and not_to_output.to_stderr
         .and be_a_success
       expect(HOMEBREW_CELLAR/"testball-bottle.tar").not_to exist
+
+      tag = JSON.parse(Pathname(Dir["testball--0.1*.bottle.json"].fetch(0)).read)
+                .dig("testball", "bottle", "tags").values.fetch(0)
+      expect(tag.fetch("tab")).to include(
+        "changed_files"           => be_an(Array),
+        "linkage_files"           => be_an(Array),
+        "binary_relocation_files" => include("libexec/raw-prefix"),
+      )
+      binary_relocation_diagnostics = tag.fetch("binary_relocation_diagnostics")
+      expect(binary_relocation_diagnostics.size).to eq(Homebrew::DevCmd::Bottle::MAXIMUM_STRING_MATCHES)
+      expect(binary_relocation_diagnostics).to include(
+        include(
+          "path"   => "libexec/raw-prefix",
+          "string" => formula.libexec.to_s,
+          "offset" => be_an(Integer),
+        ),
+      )
+
+      expect { brew "bottle", "--no-rebuild", "--json", "--skip-relocation", "testball" }
+        .to be_a_success
+      skipped_tag = JSON.parse(Pathname(Dir["testball--0.1*.bottle.json"].fetch(0)).read)
+                        .dig("testball", "bottle", "tags").values.fetch(0)
+      expect(skipped_tag.fetch("tab").values_at(
+               "changed_files", "linkage_files", "binary_relocation_files"
+             )).to eq([nil, nil, nil])
     ensure
       FileUtils.rm_f Dir.glob("testball--0.1*.bottle.tar.gz")
+      FileUtils.rm_f Dir.glob("testball--0.1*.bottle.json")
     end
   end
 
