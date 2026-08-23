@@ -10,13 +10,7 @@ RSpec.describe Homebrew::Cmd::WhichFormula do
   it_behaves_like "parseable arguments"
 
   describe "which_formula" do
-    let(:shell_cellar) do
-      if (HOMEBREW_LIBRARY_PATH.parent.parent/"Cellar").directory?
-        HOMEBREW_LIBRARY_PATH.parent.parent/"Cellar"
-      else
-        HOMEBREW_CELLAR
-      end
-    end
+    let(:shell_cellar) { HOMEBREW_CELLAR }
 
     before do
       # Write the database where `brew which-formula` (a Bash command) reads it:
