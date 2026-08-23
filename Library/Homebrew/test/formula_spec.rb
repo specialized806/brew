@@ -3451,6 +3451,14 @@ RSpec.describe Formula do
       expect(f.common_sandbox_env(mktmpdir)[:BUNDLE_COOLDOWN]).to eq("1")
     end
 
+    it "does not configure Cargo cooldown before stable support" do
+      expect(f.common_sandbox_env(mktmpdir).keys & [
+        :CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE,
+        :CARGO_UNSTABLE_MIN_PUBLISH_AGE,
+        :RUSTC_BOOTSTRAP,
+      ]).to be_empty
+    end
+
     it "prevents build tools from reading user configuration" do
       home = mktmpdir
 

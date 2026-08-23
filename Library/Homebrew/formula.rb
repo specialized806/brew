@@ -3749,6 +3749,11 @@ class Formula
       GOENV:                   "off",
       GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
       CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
+      # TODO: Enable when `min-publish-age` stabilises in Cargo 1.100,
+      # expected with Rust 1.100 on 2026-11-12.
+      # https://github.com/rust-lang/cargo/pull/17335
+      # CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE: Utils.pluralize("day", Homebrew::RELEASE_COOLDOWN_DAYS,
+      #                                                        include_count: true),
       BUNDLE_COOLDOWN:         Homebrew::RELEASE_COOLDOWN_DAYS.to_s,
       PIP_CACHE_DIR:           "#{HOMEBREW_CACHE}/pip_cache",
       PIP_CONFIG_FILE:         File::NULL,
