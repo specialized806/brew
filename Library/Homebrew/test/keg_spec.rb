@@ -339,6 +339,25 @@ RSpec.describe Keg do
   end
 
   describe "#optlink" do
+    it "removes a stale versioned alias link" do
+      setup_test_keg("foo", "0.9")
+      stale_alias = HOMEBREW_PREFIX/"opt/foo@0"
+      stale_alias.make_relative_symlink(HOMEBREW_CELLAR/"foo/0.9")
+
+      keg.optlink
+
+      expect(stale_alias).not_to exist
+    end
+
+    it "preserves the opt link for a versioned Formula" do
+      versioned_keg = setup_test_keg("foo@1", "1.0")
+      versioned_keg.optlink
+
+      keg.optlink
+
+      expect(versioned_keg).to be_optlinked
+    end
+
     it "creates an opt link" do
       oldname_opt_record = HOMEBREW_PREFIX/"opt/oldfoo"
       oldname_opt_record.make_relative_symlink(HOMEBREW_CELLAR/"foo/1.0")
