@@ -38,6 +38,50 @@ RSpec.describe Homebrew::Vulns::OsvExport do
     end
   end
 
+  describe ".ranges_terminal?" do
+    it "accepts every OSV terminal event and rejects open or malformed ranges" do
+      %w[fixed last_affected limit].each do |terminal|
+        ranges = [{ "events" => [{ "introduced" => "0" }, { terminal => "2.0" }] }]
+        expect(described_class.ranges_terminal?(ranges)).to be true
+      end
+
+      expect(described_class.ranges_terminal?([{ "events" => [{ "introduced" => "0" }] }])).to be false
+      expect(described_class.ranges_terminal?([])).to be false
+      expect(described_class.ranges_terminal?([{ "events" => [] }])).to be false
+    end
+  end
+
+  describe ".merge_existing" do
+    it "repairs invalid ranges individually without discarding valid reviewed ranges" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "BREW-x-CVE-1.json")
+        File.write(path, JSON.generate({
+          "id"       => "BREW-x-CVE-1",
+          "affected" => [{
+            "ranges" => [
+              { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "1.0" }] },
+              { "type" => "ECOSYSTEM", "events" => [] },
+            ],
+          }],
+        }))
+        incoming = {
+          id:       "BREW-x-CVE-1",
+          affected: [{
+            ranges: [{ type: "ECOSYSTEM", events: [{ introduced: "0" }, { fixed: "2.0" }] }],
+          }],
+        }
+
+        merged = described_class.merge_existing(path, incoming, close_open_ranges: true)
+        ranges = JSON.parse(JSON.generate(merged)).dig("affected", 0, "ranges")
+
+        expect(ranges).to eq [
+          { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "1.0" }, { "fixed" => "2.0" }] },
+          { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "0" }, { "fixed" => "2.0" }] },
+        ]
+      end
+    end
+  end
+
   describe ".record_for" do
     it "builds a minimal record without upstream data" do
       record = described_class.record_for(nvi, "CVE-2015-2305", now:)

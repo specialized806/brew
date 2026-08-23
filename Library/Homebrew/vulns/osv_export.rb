@@ -33,6 +33,8 @@ module Homebrew
       SCHEMA_VERSION = "1.7.3"
       ECOSYSTEM = "Homebrew"
       ID_PREFIX = "BREW"
+      RANGE_EVENT_KEYS = %w[introduced fixed last_affected limit].freeze
+      private_constant :RANGE_EVENT_KEYS
 
       # `annotated` is a list of `[formula, serialized_patches]` pairs. The
       # patches are passed in rather than read from the formula so callers can
@@ -80,15 +82,17 @@ module Homebrew
       end
 
       # If a record already exists at `path`, carry forward its `published`
-      # timestamp and `affected[].ranges` (so the `fixed` boundary reflects when
-      # the annotation was first observed rather than drifting to today's
-      # `pkg_version`), and skip the write entirely when nothing else has
-      # changed. Records for annotations no longer in core are simply not
-      # visited, so they persist.
+      # timestamp and `affected[].ranges` (so a terminal boundary does not
+      # drift to today's `pkg_version`), and skip the write entirely when
+      # nothing else has changed. `close_open_ranges` lets the matcher append a
+      # newly discovered `fixed` event to an existing open range while
+      # preserving its reviewed introduction events. Records for annotations
+      # no longer in core are simply not visited, so they persist.
       sig {
-        params(path: String, record: T::Hash[Symbol, T.untyped]).returns(T.nilable(T::Hash[Symbol, T.untyped]))
+        params(path: String, record: T::Hash[Symbol, T.untyped], close_open_ranges: T::Boolean)
+          .returns(T.nilable(T::Hash[Symbol, T.untyped]))
       }
-      def self.merge_existing(path, record)
+      def self.merge_existing(path, record, close_open_ranges: false)
         return record unless File.file?(path)
 
         existing = JSON.parse(File.read(path))
@@ -100,7 +104,13 @@ module Homebrew
         end
         Array(record[:affected]).each_with_index do |affected, index|
           existing_ranges = existing.dig("affected", index, "ranges")
-          affected[:ranges] = existing_ranges if existing_ranges
+          next unless existing_ranges
+
+          affected[:ranges] = if close_open_ranges
+            merge_open_ranges(existing_ranges, affected[:ranges])
+          else
+            existing_ranges
+          end
         end
 
         # Compare as parsed structures so key ordering (which JSON does not
@@ -112,6 +122,69 @@ module Homebrew
       rescue JSON::ParserError
         record
       end
+
+      # True only when every range has a terminal `fixed`, `last_affected`, or
+      # `limit` event. Invalid/empty ranges deliberately return false so the
+      # selective matcher repairs them instead of treating them as reviewed.
+      sig { params(ranges: T.untyped).returns(T::Boolean) }
+      def self.ranges_terminal?(ranges)
+        return false unless ranges.is_a?(Array)
+        return false if ranges.empty?
+
+        !!ranges.all? { |range| range_state(range) == :terminal }
+      end
+
+      sig { params(existing_ranges: T.untyped, incoming_ranges: T.untyped).returns(T.untyped) }
+      def self.merge_open_ranges(existing_ranges, incoming_ranges)
+        return incoming_ranges if !existing_ranges.is_a?(Array) || existing_ranges.empty?
+
+        incoming_ranges = Array(incoming_ranges)
+        fixed = incoming_ranges.filter_map do |range|
+          Array(range[:events] || range["events"]).rfind do |event|
+            event.is_a?(Hash) && (event.key?(:fixed) || event.key?("fixed"))
+          end
+        end.first
+        return existing_ranges unless fixed
+
+        fixed_version = fixed[:fixed] || fixed["fixed"]
+        existing_ranges.map.with_index do |range, index|
+          case range_state(range)
+          when :invalid
+            replacement = incoming_ranges[index] || incoming_ranges.first
+            next range unless replacement
+
+            if range.is_a?(Hash)
+              events = replacement[:events] || replacement["events"]
+              range.merge("events" => events)
+            else
+              replacement
+            end
+          when :open
+            range.merge("events" => [*range["events"], { "fixed" => fixed_version }])
+          else
+            range
+          end
+        end
+      end
+      private_class_method :merge_open_ranges
+
+      sig { params(range: T.untyped).returns(Symbol) }
+      def self.range_state(range)
+        return :invalid unless range.is_a?(Hash)
+
+        events = range["events"] || range[:events]
+        return :invalid if !events.is_a?(Array) || events.empty?
+
+        last = events.rfind do |event|
+          event.is_a?(Hash) && RANGE_EVENT_KEYS.any? do |key|
+            event.key?(key) || event.key?(key.to_sym)
+          end
+        end
+        return :invalid unless last
+
+        (last.key?("introduced") || last.key?(:introduced)) ? :open : :terminal
+      end
+      private_class_method :range_state
 
       sig {
         params(formula: Formula, vuln_id: String, patches: T::Array[T::Hash[String, T.untyped]],
