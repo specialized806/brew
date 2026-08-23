@@ -171,6 +171,7 @@ RSpec.describe Formatter do
       expect(described_class.number_readable(1)).to eq("1")
       expect(described_class.number_readable(1_000)).to eq("1,000")
       expect(described_class.number_readable(1_000_000)).to eq("1,000,000")
+      expect(described_class.number_readable(-123_456)).to eq("-123,456")
     end
   end
 
