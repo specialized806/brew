@@ -3903,6 +3903,10 @@ Run Homebrew's unit and integration tests.
 
 : Exit early on the first failing test.
 
+`--load-only`
+
+: Load each test file independently without running its examples.
+
 `--no-parallel`
 
 : Run tests serially.

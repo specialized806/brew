@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "cask/installer"
-Warnings.ignore(/circular require considered harmful/) { require "install" }
+require "install"
 
 RSpec.describe Cask::Installer, :cask do
   def stub_dmg_extraction

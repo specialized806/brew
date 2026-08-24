@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "cmd/install"
-Warnings.ignore(/circular require considered harmful/) { require "install" }
+require "install"
 require "cask/installer"
 require "cask/upgrade"
 require "cmd/shared_examples/args_parse"

@@ -236,6 +236,14 @@ jobs:
           - name: tests (macOS)
             test-flags: --coverage --profile 3
             runs-on: macos-26
+          - name: tests (load-only Linux)
+            test-flags: --load-only
+            runs-on: ubuntu-24.04
+            load_only: true
+          - name: tests (load-only macOS)
+            test-flags: --load-only
+            runs-on: macos-26
+            load_only: true
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
@@ -244,7 +252,8 @@ jobs:
           # We only test needs_homebrew_core tests on macOS because
           # homebrew/core is not available by default on GitHub-hosted Ubuntu
           # runners, and it's expensive to tap it.
-          core: ${{ runner.os == 'macOS' }}
+          # Load-only jobs never run examples, so they don't need it either.
+          core: ${{ runner.os == 'macOS' && matrix.load_only != true }}
           cask: false
 
       - name: Cache Bundler RubyGems
@@ -263,6 +272,7 @@ jobs:
         run: mkdir tests
 
       - name: Cache parallel tests log
+        if: matrix.load_only != true
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tests
@@ -277,7 +287,7 @@ jobs:
           workflow-key: tests-tests-online
 
       - name: Install brew tests macOS dependencies
-        if: runner.os != 'Linux'
+        if: runner.os != 'Linux' && matrix.load_only != true
         uses: Homebrew/actions/cache-homebrew-prefix@8f3d1ec8a696b3b9d9a6c3696b6c73033cab69e4 # 2026.08.14.1
         with:
           install: subversion gnupg
@@ -303,6 +313,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Get RSpec JUnit XML filenames
+        if: matrix.load_only != true
         id: junit_xml
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
         run: |
@@ -311,7 +322,7 @@ jobs:
           echo "filenames=${filenames%,}" >> "$GITHUB_OUTPUT"
 
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        if: github.event_name == 'pull_request' || matrix.name != 'tests (online)'
+        if: matrix.load_only != true && (github.event_name == 'pull_request' || matrix.name != 'tests (online)')
         with:
           working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
           files: ${{ steps.junit_xml.outputs.filenames }}
@@ -320,7 +331,7 @@ jobs:
           report_type: test_results
 
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        if: github.event_name == 'pull_request' || matrix.name != 'tests (online)'
+        if: matrix.load_only != true && (github.event_name == 'pull_request' || matrix.name != 'tests (online)')
         with:
           working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
           files: Library/Homebrew/test/coverage/coverage.xml

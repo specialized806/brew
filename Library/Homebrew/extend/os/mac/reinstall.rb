@@ -1,7 +1,6 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "install"
 require "utils/output"
 
 module OS
@@ -22,6 +21,8 @@ module OS
             opoo "pkgconf would be reinstalled due to macOS version mismatch"
             return
           end
+
+          require "install"
 
           pkgconf = ::Formula["pkgconf"]
 

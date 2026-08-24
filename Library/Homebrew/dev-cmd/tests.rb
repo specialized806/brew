@@ -29,6 +29,8 @@ module Homebrew
                description: "Only runs tests on files that were changed from the `main` branch."
         switch "--fail-fast",
                description: "Exit early on the first failing test."
+        switch "--load-only",
+               description: "Load each test file independently without running its examples."
         switch "--no-parallel",
                description: "Run tests serially."
         switch "--stackprof",
@@ -135,6 +137,7 @@ module Homebrew
             --require spec_helper
           ]
           bundle_args << "--fail-fast" if args.fail_fast?
+          bundle_args << "--dry-run" if args.load_only?
           bundle_args << "--profile" << args.profile if args.profile
           bundle_args << "--tag" << "~needs_arm" unless Hardware::CPU.arm?
           bundle_args << "--tag" << "~needs_intel" unless Hardware::CPU.intel?
@@ -173,6 +176,15 @@ module Homebrew
           elsif args.ruby_prof?
             ENV["TEST_RUBY_PROF"] = "call_stack"
             prof_filename = "#{test_prof}/ruby-prof-report-call_stack-wall-total.html"
+          end
+
+          if args.load_only?
+            # RSpec line selectors do not affect dry runs, and parallel_tests
+            # only accepts file paths.
+            files = files.map { |file| file.sub(/:\d+\z/, "") }.uniq
+            parallel_args += ["--test-file-limit", "1"]
+            parallel_args += ["-n", "1"] unless parallel
+            parallel = true
           end
 
           if parallel

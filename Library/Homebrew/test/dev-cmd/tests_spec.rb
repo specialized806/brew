@@ -48,6 +48,42 @@ RSpec.describe Homebrew::DevCmd::Tests do
         expect { tests.run }.to raise_error(UsageError, /No tests are available to run on this operating system/)
       end
     end
+
+    context "when loading tests without running examples" do
+      let(:args) { ["--load-only", "--no-parallel", "--only=warnings,exceptions"] }
+
+      it "loads each selected file in a separate RSpec process" do
+        invoked_arguments = T.let([], T::Array[String])
+        allow(tests).to receive(:system) do |*arguments|
+          invoked_arguments = arguments
+          system "/usr/bin/true"
+        end
+
+        tests.run
+
+        expect(invoked_arguments)
+          .to start_with("bundle", "exec", "parallel_rspec")
+          .and array_including_cons("--test-file-limit", "1", "-n", "1", "--")
+          .and include("--dry-run")
+          .and end_with("--", "test/warnings_spec.rb", "test/exceptions_spec.rb")
+      end
+    end
+
+    context "when loading a line-qualified test" do
+      let(:args) { ["--load-only", "--only=warnings:7"] }
+
+      it "loads the entire file" do
+        invoked_arguments = T.let([], T::Array[String])
+        allow(tests).to receive(:system) do |*arguments|
+          invoked_arguments = arguments
+          system "/usr/bin/true"
+        end
+
+        tests.run
+
+        expect(invoked_arguments).to end_with("--", "test/warnings_spec.rb")
+      end
+    end
   end
 
   describe "#check_test_environment!", :needs_linux do
