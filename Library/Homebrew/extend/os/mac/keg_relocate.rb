@@ -24,50 +24,63 @@ module OS
       end
 
       sig {
-        params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).returns(T::Array[::Pathname])
+        params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean,
+               files: T.nilable(T::Array[::Pathname])).returns(T::Array[::Pathname])
       }
-      def relocate_dynamic_linkage(relocation, with_placeholders: false)
+      def relocate_dynamic_linkage(relocation, with_placeholders: false, files: nil)
+        candidates = if files
+          # Metadata-driven pour: only the files recorded at bottle time carry
+          # placeholdered linkage, so skip the whole-keg walk.
+          files.filter_map do |relative_path|
+            file = path/relative_path
+            MachOPathname.wrap(file) if file.file? && !file.symlink?
+          end
+        else
+          mach_o_files
+        end
+
         linkage_files = []
-        mach_o_files.each do |file|
+        candidates.each do |file|
           file.ensure_writable do
             modified = T.let(false, T::Boolean)
-            needs_codesigning = T.let(false, T::Boolean)
 
-            if file.dylib? && (dylib_id = file.dylib_id)
-              id = relocated_name_for(dylib_id, relocation)
-              modified = change_dylib_id(id, file) if id
-              needs_codesigning ||= modified
+            if file.dylib? && (dylib_id = file.dylib_id) && (id = relocated_name_for(dylib_id, relocation))
+              modified = change_dylib_id(id, file, write: false) || modified
             end
 
             each_linkage_for(file, :dynamically_linked_libraries) do |old_name|
               new_name = relocated_name_for(old_name, relocation)
-              modified = change_install_name(old_name, new_name, file) if new_name
-              needs_codesigning ||= modified
+              modified = change_install_name(old_name, new_name, file, write: false) || modified if new_name
             end
 
             each_linkage_for(file, :rpaths) do |old_name|
               new_name = relocated_name_for(old_name, relocation)
-              modified = change_rpath(old_name, new_name, file) if new_name
-              needs_codesigning ||= modified
+              modified = change_rpath(old_name, new_name, file, write: false) || modified if new_name
             end
 
-            # codesign the file if needed
-            linkage_files << file.relative_path_from(path) if needs_codesigning
-            codesign_patched_binary(file.to_s) if needs_codesigning
+            next unless modified
+
+            # The edits above only mutated the in-memory Mach-O, so persist
+            # them in a single write per file.
+            file.save_changes
+            linkage_files << file.relative_path_from(path)
           end
         end
+
+        # Every saved file's signature is now broken, so re-sign each exactly
+        # once, parallelised across files.
+        codesign_patched_binaries(linkage_files.map { path/it })
         linkage_files
       end
 
       sig { void }
       def fix_dynamic_linkage
+        fixed_files = []
         mach_o_files.each do |file|
           file.ensure_writable do
             modified = T.let(false, T::Boolean)
-            needs_codesigning = T.let(false, T::Boolean)
 
-            modified = change_dylib_id(dylib_id_for(file), file) if file.dylib?
-            needs_codesigning ||= modified
+            modified = change_dylib_id(dylib_id_for(file), file, write: false) if file.dylib?
 
             each_linkage_for(file, :dynamically_linked_libraries) do |bad_name|
               # Don't fix absolute paths unless they are rooted in the build directory.
@@ -77,8 +90,10 @@ module OS
                 fixed_name(file, bad_name)
               end
               loader_name = loader_name_for(file, new_name)
-              modified = change_install_name(bad_name, loader_name, file) if loader_name != bad_name
-              needs_codesigning ||= modified
+              if loader_name != bad_name
+                modified = change_install_name(bad_name, loader_name, file,
+                                               write: false) || modified
+              end
             end
 
             each_linkage_for(file, :rpaths) do |bad_name|
@@ -86,8 +101,7 @@ module OS
               loader_name = loader_name_for(file, new_name)
               next if loader_name == bad_name
 
-              modified = change_rpath(bad_name, loader_name, file)
-              needs_codesigning ||= modified
+              modified = change_rpath(bad_name, loader_name, file, write: false) || modified
             end
 
             # Strip duplicate rpaths and rpaths rooted in the build directory.
@@ -96,14 +110,21 @@ module OS
             each_linkage_for(file, :rpaths, resolve_variable_references: true) do |bad_name|
               next if !rooted_in_build_directory?(bad_name) && file.rpaths.count(bad_name) == 1
 
-              modified = delete_rpath(bad_name, file)
-              needs_codesigning ||= modified
+              modified = delete_rpath(bad_name, file, write: false) || modified
             end
 
-            # codesign the file if needed
-            codesign_patched_binary(file.to_s) if needs_codesigning
+            next unless modified
+
+            # The edits above only mutated the in-memory Mach-O, so persist
+            # them in a single write per file.
+            file.save_changes
+            fixed_files << file
           end
         end
+
+        # Every saved file's signature is now broken, so re-sign each exactly
+        # once, parallelised across files.
+        codesign_patched_binaries(fixed_files)
 
         super
       end

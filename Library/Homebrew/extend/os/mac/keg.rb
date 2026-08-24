@@ -39,13 +39,13 @@ module OS
         end
       end
 
-      sig { params(id: String, file: MachOShim).returns(T::Boolean) }
-      def change_dylib_id(id, file)
+      sig { params(id: String, file: MachOShim, write: T::Boolean).returns(T::Boolean) }
+      def change_dylib_id(id, file, write: true)
         return false if file.dylib_id == id
 
         require_relocation!
         odebug "Changing dylib ID of #{file}\n  from #{file.dylib_id}\n    to #{id}"
-        file.change_dylib_id(id, strict: false)
+        file.change_dylib_id(id, strict: false, write:)
         true
       rescue MachO::MachOError
         onoe <<~EOS
@@ -56,13 +56,13 @@ module OS
         raise
       end
 
-      sig { params(old: String, new: String, file: MachOShim).returns(T::Boolean) }
-      def change_install_name(old, new, file)
+      sig { params(old: String, new: String, file: MachOShim, write: T::Boolean).returns(T::Boolean) }
+      def change_install_name(old, new, file, write: true)
         return false if old == new
 
         require_relocation!
         odebug "Changing install name in #{file}\n  from #{old}\n    to #{new}"
-        file.change_install_name(old, new, strict: false)
+        file.change_install_name(old, new, strict: false, write:)
         true
       rescue MachO::MachOError
         onoe <<~EOS
@@ -73,13 +73,13 @@ module OS
         raise
       end
 
-      sig { params(old: String, new: String, file: MachOShim).returns(T::Boolean) }
-      def change_rpath(old, new, file)
+      sig { params(old: String, new: String, file: MachOShim, write: T::Boolean).returns(T::Boolean) }
+      def change_rpath(old, new, file, write: true)
         return false if old == new
 
         require_relocation!
         odebug "Changing rpath in #{file}\n  from #{old}\n    to #{new}"
-        file.change_rpath(old, new, strict: false)
+        file.change_rpath(old, new, strict: false, write:)
         true
       rescue MachO::MachOError
         onoe <<~EOS
@@ -90,10 +90,10 @@ module OS
         raise
       end
 
-      sig { params(rpath: String, file: MachOShim).returns(T::Boolean) }
-      def delete_rpath(rpath, file)
+      sig { params(rpath: String, file: MachOShim, write: T::Boolean).returns(T::Boolean) }
+      def delete_rpath(rpath, file, write: true)
         odebug "Deleting rpath #{rpath} in #{file}"
-        !file.delete_rpath(rpath, strict: false).nil?
+        !file.delete_rpath(rpath, strict: false, write:).nil?
       rescue MachO::MachOError
         onoe <<~EOS
           Failed deleting rpath #{rpath} in #{file}
@@ -154,6 +154,25 @@ module OS
           Failed applying an ad-hoc signature to #{file}:
           #{e.message}
         EOS
+      end
+
+      sig { params(files: T::Array[::Pathname]).void }
+      def codesign_patched_binaries(files)
+        return if files.empty?
+
+        # Codesigning shells out on Intel and hashes every page of the file on
+        # Apple Silicon, so parallelise it across files.
+        queue = Queue.new
+        files.each { queue << it }
+        queue.close
+        Array.new([files.length, ::Hardware::CPU.cores].min) do
+          Thread.new do
+            while (file = queue.pop)
+              # Signing rewrites the file, which may not be user-writable.
+              file.ensure_writable { codesign_patched_binary(file.to_s) }
+            end
+          end
+        end.each(&:join)
       end
 
       sig { void }

@@ -1639,7 +1639,7 @@ on_request: installed_on_request?, options:)
       end
       skip_linkage = false
     end
-    keg.replace_placeholders_with_locations(tab.changed_files, skip_linkage:)
+    keg.replace_placeholders_with_locations(tab.changed_files, skip_linkage:, linkage_files: tab.linkage_files)
 
     cellar = formula.bottle_specification.tag_to_cellar(Utils::Bottles.tag)
     return if BottleSpecification::RELOCATABLE_CELLARS.include?(cellar)
@@ -1649,7 +1649,7 @@ on_request: installed_on_request?, options:)
 
     return unless ENV["HOMEBREW_RELOCATE_BUILD_PREFIX"]
 
-    keg.relocate_build_prefix(keg, prefix, HOMEBREW_PREFIX)
+    keg.relocate_build_prefix(keg, prefix, HOMEBREW_PREFIX, files: tab.binary_relocation_files)
   end
 
   sig { override.params(output: T.nilable(String)).void }

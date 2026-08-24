@@ -27,6 +27,10 @@ End each implementation commit body with this exact line:
 This change is part of [`plans/relocatable-bottles.md`](https://github.com/Homebrew/brew/blob/HEAD/Library/Homebrew/plans/relocatable-bottles.md)
 ```
 
+Any benchmark quoted in a commit message must be the full hyperfine
+output from `brew benchmark` (using its `--exec` mode for bespoke
+workloads), never hand-summarised numbers.
+
 ## Current state (21 August 2026, formulae.brew.sh data)
 
 | Tag | `:any_skip_relocation` | `:any` | pinned |
@@ -159,14 +163,6 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
     code is touched rarely and debugged under pressure.
 
 ## Plan
-
-### Phase 0: pour speed and relocation metadata (helps everyone, every prefix)
-
-3. Metadata-driven fast pour, benchmarked, with scan fallback: no keg walks,
-   only listed files touched, relocation coordinated into one write and one
-   codesign per file, codesign parallelised across files. Benefits accrue to
-   every install, default prefix included, as bottles are rebottled with
-   metadata.
 
 ### Phase 1: maximise relocatable bottles now (helps every custom prefix, any length)
 
@@ -307,7 +303,10 @@ the reason, so the exceptions list stays short, visible and countable.
   minus the named exceptions list.
 - `brew install` at any prefix up to 64 bytes never falls back to source
   because of relocation on the target platforms.
-- Default-prefix pours are measurably faster than before Phase 0.
+- Default-prefix pours are measurably faster than before the metadata-driven
+  pour (`brew benchmark` at implementation: 1.67x faster end-to-end on a
+  5,000-file synthetic keg, relocation cost itself dropping from ~320ms to
+  ~1ms), with gains accruing as bottles are rebottled with metadata.
 - CI fails when a formula regresses from relocatable-or-patchable without an
   annotation.
 

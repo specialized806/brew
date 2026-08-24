@@ -21,4 +21,12 @@ RSpec.describe Keg, :needs_linux do
     expect(keg.relocate_dynamic_linkage(keg.prepare_relocation_to_placeholders.freeze, with_placeholders: true))
       .to eq([Pathname("bin/test")])
   end
+
+  it "relocates only recorded linkage files without walking the keg" do
+    expect(keg).not_to receive(:elf_files)
+
+    relocation = keg.prepare_relocation_to_placeholders.freeze
+    expect(keg.relocate_dynamic_linkage(relocation, with_placeholders: true, files: [Pathname("bin/test")]))
+      .to eq([Pathname("bin/test")])
+  end
 end

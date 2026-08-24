@@ -695,6 +695,9 @@ class Keg
   sig { params(file: String).void }
   def codesign_patched_binary(file); end
 
+  sig { params(files: T::Array[Pathname]).void }
+  def codesign_patched_binaries(files); end
+
   private
 
   sig {

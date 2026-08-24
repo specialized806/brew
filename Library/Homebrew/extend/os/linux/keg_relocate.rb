@@ -11,16 +11,28 @@ module OS
       requires_ancestor { ::Keg }
 
       sig {
-        params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean).returns(T::Array[::Pathname])
+        params(relocation: ::Keg::Relocation, with_placeholders: T::Boolean,
+               files: T.nilable(T::Array[::Pathname])).returns(T::Array[::Pathname])
       }
-      def relocate_dynamic_linkage(relocation, with_placeholders: false)
+      def relocate_dynamic_linkage(relocation, with_placeholders: false, files: nil)
         # Patching the dynamic linker of glibc breaks it.
         return [] if name.match? Version.formula_optionally_versioned_regex(:glibc)
 
         old_prefix, new_prefix = relocation.replacement_pair_for(:prefix)
 
+        candidates = if files
+          # Metadata-driven pour: only the files recorded at bottle time carry
+          # placeholdered linkage, so skip the whole-keg walk.
+          files.filter_map do |relative_path|
+            file = path/relative_path
+            ELFPathname.wrap(file) if file.file? && !file.symlink?
+          end
+        else
+          elf_files
+        end
+
         linkage_files = []
-        elf_files.each do |file|
+        candidates.each do |file|
           changed = T.let(false, T::Boolean)
           file.ensure_writable do
             changed = change_rpath!(file, old_prefix, new_prefix, with_placeholders:)
