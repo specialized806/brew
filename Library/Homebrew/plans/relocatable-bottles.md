@@ -188,9 +188,6 @@ length limit and no new machinery.
 4. Reconcile checker divergences: pull `brew bottle --verbose` CI logs for
    the `abseil` class, fix whatever diverges, then batch re-mark provably
    clean pins `cellar :any` with no rebuild (sha256 unchanged).
-6. node-gyp debris: delete `build/**/obj.target`, `*.o` and `*.d` from
-   npm-installed trees and strip or debug-prefix-map compiled `.node`
-   addons. Flips the npm cluster.
 7. Data-driven ignore extensions where blocker diagnostics show a class is
    functionally dead.
 
