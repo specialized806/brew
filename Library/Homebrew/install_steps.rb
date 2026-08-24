@@ -870,6 +870,10 @@ module Homebrew
       include SystemCommand::Mixin
       include ::Utils::Output::Mixin
 
+      PRIVILEGED_STEP_REQUEST = "homebrew_cask_privileged_step"
+      PRIVILEGED_STEP_SUCCEEDED = "homebrew_cask_privileged_step_succeeded"
+      PRIVILEGED_STEP_FAILED = "homebrew_cask_privileged_step_failed"
+
       # Path tokens reuse the step base resolution; formula metadata tokens are
       # resolved separately. Anything else is left verbatim so literal braces in
       # templates are never rewritten.
@@ -887,14 +891,35 @@ module Homebrew
         @guard_results = T.let({}, T::Hash[PathSpec, T::Boolean])
       end
 
-      sig { params(steps: Steps, phase: Symbol).void }
-      def run(steps, phase: :install)
-        @guard_results.clear
-        DSL.normalise_steps(steps).each do |step|
+      # `privileged_step_handler` delegates steps that may need `sudo` to the
+      # caller (the parent process broker for sandboxed cask steps), and
+      # `reset_guard_results: false` lets that broker run steps one at a time
+      # while keeping guard snapshots from earlier steps in the same plan.
+      sig {
+        params(
+          steps:                   Steps,
+          phase:                   Symbol,
+          privileged_step_handler: T.nilable(T.proc.params(index: Integer).void),
+          reset_guard_results:     T::Boolean,
+        ).void
+      }
+      def run(steps, phase: :install, privileged_step_handler: nil, reset_guard_results: true)
+        @guard_results.clear if reset_guard_results
+        DSL.normalise_steps(steps).each_with_index do |step, index|
           if phase == :uninstall
-            run_uninstall_step(step)
+            if privileged_step_handler && sudo_required?([step])
+              privileged_step_handler.call(index)
+            else
+              run_uninstall_step(step)
+            end
           else
-            run_install_step(step)
+            next unless step_guards_match?(step)
+
+            if privileged_step_handler && sudo_required?([step])
+              privileged_step_handler.call(index)
+            else
+              run_install_step(step)
+            end
           end
         end
       end
@@ -952,8 +977,6 @@ module Homebrew
 
       sig { params(step: Step).void }
       def run_install_step(step)
-        return unless step_guards_match?(step)
-
         case step.fetch("type")
         when "mkdir"
           resolve_path(step_path(step, "path")).mkdir

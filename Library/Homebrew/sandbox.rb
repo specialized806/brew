@@ -548,8 +548,14 @@ class Sandbox
     add_rule allow: false, operation: "network*"
   end
 
-  sig { params(args: T.any(String, Pathname)).void }
-  def run(*args)
+  sig {
+    params(
+      args:                  T.any(String, Pathname),
+      passthrough_stdin:     T::Boolean,
+      child_message_handler: T.nilable(T.proc.params(message: String).returns(T.nilable(String))),
+    ).void
+  }
+  def run(*args, passthrough_stdin: true, child_message_handler: nil)
     Dir.mktmpdir("homebrew-sandbox", HOMEBREW_TEMP) do |tmpdir|
       allow_network path: File.join(tmpdir, "socket"), type: :literal if allow_network_for_error_pipe?
       @start = T.let(Time.now, T.nilable(Time))
@@ -579,17 +585,19 @@ class Sandbox
             old_winch = trap(:WINCH, &winch)
             winch.call(nil)
 
-            stdin_thread = Thread.new do
-              IO.copy_stream($stdin, controller)
-            rescue Errno::EIO
-              # stdin is unavailable - move on.
+            if passthrough_stdin
+              stdin_thread = Thread.new do
+                IO.copy_stream($stdin, controller)
+              rescue Errno::EIO
+                # stdin is unavailable - move on.
+              end
             end
 
             stdout_thread = Thread.new do
               copy_pty_output(controller)
             end
 
-            Utils.safe_fork(directory: tmpdir, yield_parent: true) do |error_pipe|
+            Utils.safe_fork(directory: tmpdir, yield_parent: true, child_message_handler:) do |error_pipe|
               if error_pipe
                 # Child side
                 Process.setsid
@@ -620,7 +628,7 @@ class Sandbox
             trap(:WINCH, old_winch)
           end
 
-          if $stdin.tty?
+          if $stdin.tty? && passthrough_stdin
             # If stdin is a TTY, set it to a raw, passthrough mode while we
             # copy the input/output of the process spawned in the PTY, then
             # restore its original state afterwards. Keep `opost` set, unlike

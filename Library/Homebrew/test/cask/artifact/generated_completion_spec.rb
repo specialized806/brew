@@ -42,7 +42,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
           allow(sandbox).to receive(:allow_read)
           allow(sandbox).to receive(:add_install_hook_rules)
           allow(sandbox).to receive(:allow_write_path)
-          allow(sandbox).to receive(:run) do |*args|
+          allow(sandbox).to receive(:run) do |*args, **|
             run_sandboxed_payload.call(args)
           end
         end
@@ -73,7 +73,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
             calls << :add_install_hook_rules
           end
           allow(sandbox).to receive(:allow_write_path)
-          allow(sandbox).to receive(:run) do |*args|
+          allow(sandbox).to receive(:run) do |*args, **|
             calls << :run
             homes << Pathname(args.grep(/^HOME=/).first.delete_prefix("HOME="))
             run_sandboxed_payload.call(args)
@@ -100,7 +100,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
           allow(sandbox).to receive(:allow_read)
           allow(sandbox).to receive(:add_install_hook_rules)
           allow(sandbox).to receive(:allow_write_path)
-          allow(sandbox).to receive(:run) do |*args|
+          allow(sandbox).to receive(:run) do |*args, **|
             captured_payload = JSON.parse(Pathname(args.last).read)
           end
         end
@@ -141,7 +141,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
             allow(sandbox).to receive(:allow_read)
             allow(sandbox).to receive(:add_install_hook_rules)
             allow(sandbox).to receive(:allow_write_path)
-            allow(sandbox).to receive(:run) do |*args|
+            allow(sandbox).to receive(:run) do |*args, **|
               run_sandboxed_payload.call(args)
             end
           end
@@ -195,7 +195,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
           allow(sandbox).to receive(:allow_read)
           allow(sandbox).to receive(:add_install_hook_rules)
           allow(sandbox).to receive(:allow_write_path)
-          allow(sandbox).to receive(:run) do |*args|
+          allow(sandbox).to receive(:run) do |*args, **|
             captured_payload = JSON.parse(Pathname(args.last).read)
             run_sandboxed_payload.call(args)
           end

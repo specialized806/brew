@@ -75,8 +75,14 @@ module OS
         end
       end
 
-      sig { params(args: T.any(String, ::Pathname)).void }
-      def run(*args)
+      sig {
+        params(
+          args:                  T.any(String, ::Pathname),
+          passthrough_stdin:     T::Boolean,
+          child_message_handler: T.nilable(T.proc.params(message: String).returns(T.nilable(String))),
+        ).void
+      }
+      def run(*args, passthrough_stdin: true, child_message_handler: nil)
         landlock.run { super }
       end
 

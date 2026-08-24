@@ -5,10 +5,51 @@ require "fcntl"
 require "utils/socket"
 
 module Utils
+  # Bidirectional channel handed to a forked child whose parent passed
+  # `child_message_handler` to `safe_fork`: request lines are written to the
+  # error pipe and each response is read back from a second pipe.
+  class ForkedChildChannel
+    sig { params(error_pipe: IO, response_pipe: IO).void }
+    def initialize(error_pipe, response_pipe)
+      @error_pipe = error_pipe
+      @response_pipe = response_pipe
+      @error_pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+      @response_pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    end
+
+    sig { params(message: String).void }
+    def puts(message)
+      @error_pipe.puts message
+    end
+
+    sig { void }
+    def flush
+      @error_pipe.flush
+    end
+
+    sig { returns(T.nilable(String)) }
+    def gets
+      @response_pipe.gets
+    end
+
+    sig { void }
+    def close
+      @error_pipe.close unless @error_pipe.closed?
+      @response_pipe.close unless @response_pipe.closed?
+    end
+  end
+
   sig { returns(IO) }
   def self.forked_child_error_pipe
     UNIXSocketExt.open(ENV.fetch("HOMEBREW_ERROR_PIPE"), &:recv_io).tap do |error_pipe|
       error_pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    end
+  end
+
+  sig { returns(ForkedChildChannel) }
+  def self.forked_child_channel
+    UNIXSocketExt.open(ENV.fetch("HOMEBREW_ERROR_PIPE")) do |socket|
+      ForkedChildChannel.new(socket.recv_io, socket.recv_io)
     end
   end
 
@@ -37,7 +78,7 @@ module Utils
     error_hash
   end
 
-  sig { params(error_pipe: T.nilable(IO), error: Exception).void }
+  sig { params(error_pipe: T.nilable(T.any(IO, ForkedChildChannel)), error: Exception).void }
   def self.report_forked_child_error(error_pipe, error)
     error_pipe&.puts child_error_hash(error).to_json
     error_pipe&.close
@@ -77,34 +118,46 @@ module Utils
   # See `man fork` for more information.
   sig {
     params(directory: T.nilable(String), yield_parent: T::Boolean,
+           child_message_handler: T.nilable(T.proc.params(message: String).returns(T.nilable(String))),
            _blk: T.proc.params(arg0: T.nilable(String)).void).void
   }
-  def self.safe_fork(directory: nil, yield_parent: false, &_blk)
+  def self.safe_fork(directory: nil, yield_parent: false, child_message_handler: nil, &_blk)
     block = proc do |tmpdir|
       UNIXServerExt.open("#{tmpdir}/socket") do |server|
-        read, write = IO.pipe
+        error_read, error_write = IO.pipe
+        response_read = T.let(nil, T.nilable(IO))
+        response_write = T.let(nil, T.nilable(IO))
+        response_read, response_write = IO.pipe if child_message_handler
 
         pid = fork do
           # bootsnap doesn't like these forked processes
           ENV["HOMEBREW_NO_BOOTSNAP"] = "1"
           error_pipe = server.path
           ENV["HOMEBREW_ERROR_PIPE"] = error_pipe
+          if child_message_handler
+            ENV["HOMEBREW_CHILD_MESSAGE_CHANNEL"] = "1"
+          else
+            ENV.delete("HOMEBREW_CHILD_MESSAGE_CHANNEL")
+          end
           server.close
-          read.close
-          write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+          error_read.close
+          response_write&.close
+          error_write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+          response_read&.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
 
           Process::UID.change_privilege(Process.euid) if Process.euid != Process.uid
 
           yield(error_pipe)
         # This could be any type of exception, so rescue them all.
         rescue Exception => e # rubocop:disable Lint/RescueException
-          report_forked_child_error(write, e)
+          report_forked_child_error(error_write, e)
 
           exit!
         else
           exit!(true)
         end
 
+        child_reaped = T.let(false, T::Boolean)
         begin
           yield(nil) if yield_parent
 
@@ -112,16 +165,43 @@ module Utils
             socket = server.accept_nonblock
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::ECONNABORTED, Errno::EPROTO, Errno::EINTR
             retry unless Process.waitpid(pid, Process::WNOHANG)
+
+            child_reaped = true
           else
-            socket.send_io(write)
+            socket.send_io(error_write)
+            socket.send_io(response_read) if response_read
             socket.close
           end
-          write.close
-          data = read.read
-          read.close
-          Process.waitpid(pid) unless socket.nil?
-        rescue Interrupt
-          Process.waitpid(pid)
+          error_write.close
+          response_read&.close
+          data = +""
+          # Lines the handler answers are responded to on the response pipe;
+          # anything else (e.g. a child error report) stays error data.
+          error_read.each_line do |line|
+            if child_message_handler && response_write && (response = child_message_handler.call(line))
+              response_write.puts response
+              response_write.flush
+            else
+              data << line
+            end
+          end
+          error_read.close
+          response_write&.close
+          unless socket.nil?
+            Process.waitpid(pid)
+            child_reaped = true
+          end
+        ensure
+          # Close the pipes before reaping: a child blocked waiting for a
+          # response must see EOF and exit or `waitpid` would deadlock.
+          [error_read, error_write, response_read, response_write].compact.each do |pipe|
+            pipe.close unless pipe.closed?
+          end
+          begin
+            Process.waitpid(pid) unless child_reaped
+          rescue Errno::ECHILD
+            nil
+          end
         end
 
         # 130 is the exit status for a process interrupted via Ctrl-C.
