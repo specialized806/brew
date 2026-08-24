@@ -40,5 +40,24 @@ RSpec.describe Keg do
 
       expect(new_prefix_matches.size).to eq 1
     end
+
+    specify "replace prefix in recorded files without scanning the keg" do
+      setup_binary_file
+
+      expect(keg).not_to receive(:each_unique_file_matching)
+      keg.relocate_build_prefix(keg, dir, newdir, files: [Pathname("file.bin")])
+
+      null_padding = "\x00" * (dir.to_s.length - newdir.to_s.length)
+      expect(binary_file.binread).to eq "\x00#{newdir}#{null_padding}\x00\n"
+    end
+
+    specify "does not rewrite recorded files without the old prefix" do
+      binary_file.atomic_write "\x00unrelated\x00"
+      inode = binary_file.stat.ino
+
+      keg.relocate_build_prefix(keg, dir, newdir, files: [Pathname("file.bin")])
+
+      expect(binary_file.stat.ino).to eq inode
+    end
   end
 end

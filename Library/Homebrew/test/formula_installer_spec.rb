@@ -251,7 +251,8 @@ RSpec.describe FormulaInstaller do
     let(:downloader) { instance_double(AbstractDownloadStrategy, basename: "missing-bottle-tab", stage: nil) }
     let(:downloadable) { instance_double(Resource, downloader:) }
     let(:tab) do
-      instance_double(Tab, changed_files: nil, source: { "versions" => {} }, write: nil).as_null_object
+      instance_double(Tab, changed_files: nil, linkage_files: nil, binary_relocation_files: nil,
+                      source: { "versions" => {} }, write: nil).as_null_object
     end
     let(:keg) { instance_double(Keg) }
 
@@ -265,7 +266,7 @@ RSpec.describe FormulaInstaller do
     end
 
     it "preserves the skip-linkage decision for the default bottle domain" do
-      expect(keg).to receive(:replace_placeholders_with_locations).with(nil, skip_linkage: true)
+      expect(keg).to receive(:replace_placeholders_with_locations).with(nil, skip_linkage: true, linkage_files: nil)
 
       installer.pour
     end
@@ -273,7 +274,7 @@ RSpec.describe FormulaInstaller do
     it "relocates dynamic linkage without metadata from a bottle mirror" do
       ENV["HOMEBREW_BOTTLE_DOMAIN"] = "https://mirror.example.com"
 
-      expect(keg).to receive(:replace_placeholders_with_locations).with(nil, skip_linkage: false)
+      expect(keg).to receive(:replace_placeholders_with_locations).with(nil, skip_linkage: false, linkage_files: nil)
 
       installer.pour
     end

@@ -85,8 +85,11 @@ class Keg
     end
   end
 
-  sig { params(_relocation: Relocation, with_placeholders: T::Boolean).returns(T::Array[Pathname]) }
-  def relocate_dynamic_linkage(_relocation, with_placeholders: false) = []
+  sig {
+    params(_relocation: Relocation, with_placeholders: T::Boolean,
+           files: T.nilable(T::Array[Pathname])).returns(T::Array[Pathname])
+  }
+  def relocate_dynamic_linkage(_relocation, with_placeholders: false, files: nil) = []
 
   JAVA_REGEX = %r{#{HOMEBREW_PREFIX}/opt/openjdk(@\d+(\.\d+)*)?/libexec(/openjdk\.jdk/Contents/Home)?}
 
@@ -191,10 +194,13 @@ class Keg
     relocation
   end
 
-  sig { params(files: T.nilable(T::Array[Pathname]), skip_linkage: T::Boolean).void }
-  def replace_placeholders_with_locations(files, skip_linkage: false)
+  sig {
+    params(files: T.nilable(T::Array[Pathname]), skip_linkage: T::Boolean,
+           linkage_files: T.nilable(T::Array[Pathname])).void
+  }
+  def replace_placeholders_with_locations(files, skip_linkage: false, linkage_files: nil)
     relocation = prepare_relocation_to_locations.freeze
-    relocate_dynamic_linkage(relocation) unless skip_linkage
+    relocate_dynamic_linkage(relocation, files: linkage_files) unless skip_linkage
     replace_text_in_files(relocation, files:)
   end
 
@@ -246,9 +252,30 @@ class Keg
     changed_files
   end
 
-  sig { params(keg: Keg, old_prefix: T.any(String, Pathname), new_prefix: T.any(String, Pathname)).void }
-  def relocate_build_prefix(keg, old_prefix, new_prefix)
-    each_unique_file_matching(old_prefix) do |file|
+  sig {
+    params(keg: Keg, old_prefix: T.any(String, Pathname), new_prefix: T.any(String, Pathname),
+           files: T.nilable(T::Array[Pathname])).void
+  }
+  def relocate_build_prefix(keg, old_prefix, new_prefix, files: nil)
+    candidates = T.let([], T::Array[Pathname])
+    if files
+      # Metadata-driven pour: only the files recorded at bottle time carry raw
+      # prefix strings, so skip the whole-keg scan.
+      hardlinks = Set.new
+      files.each do |relative_path|
+        file = path/relative_path
+        next if !file.file? || file.symlink?
+        # Hardlinks share an inode, so patch each inode only once.
+        next unless hardlinks.add? file.stat.ino
+
+        candidates << file
+      end
+    else
+      each_unique_file_matching(old_prefix) { |file| candidates << file }
+    end
+
+    patched_files = T.let([], T::Array[Pathname])
+    candidates.each do |file|
       # Skip files which are not binary, as they do not need null padding.
       next unless keg.binary_file?(file)
 
@@ -259,9 +286,15 @@ class Keg
       # Null padding is added if the new string is too short.
       file.ensure_writable do
         binary = File.binread file
-        odebug "Replacing build prefix in: #{file}"
         binary_strings = binary.split(/#{NULL_BYTE}/o, -1)
         match_indices = binary_strings.each_index.select { |i| binary_strings.fetch(i).include?(old_prefix.to_s) }
+
+        # Bottle metadata records files pinned by any prefix, cellar or
+        # repository reference, so a recorded file may not contain this
+        # particular string and must not be rewritten or re-signed.
+        next if match_indices.empty?
+
+        odebug "Replacing build prefix in: #{file}"
 
         # Only perform substitution on strings which match prefix regex.
         match_indices.each do |i|
@@ -281,9 +314,13 @@ class Keg
         end
 
         file.atomic_write patched_binary
+        patched_files << file
       end
-      codesign_patched_binary(file.to_s)
     end
+
+    # Each patch broke the file's signature, so re-sign each patched file
+    # exactly once, parallelised across files.
+    codesign_patched_binaries(patched_files)
   end
 
   sig { params(_options: T::Hash[Symbol, T::Boolean]).returns(T::Array[Symbol]) }

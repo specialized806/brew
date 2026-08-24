@@ -81,25 +81,85 @@ RSpec.describe Keg do
   describe "#relocate_dynamic_linkage" do
     let(:keg_path) { HOMEBREW_CELLAR/"a/1.0" }
     let(:file) { MachOPathname.wrap(keg_path/"bin/test") }
+    let(:relocation) do
+      relocation = Keg::Relocation.new
+      relocation.add_replacement_pair(:prefix, HOMEBREW_PREFIX.to_s, Keg::PREFIX_PLACEHOLDER)
+      relocation.add_replacement_pair(:cellar, HOMEBREW_CELLAR.to_s, Keg::CELLAR_PLACEHOLDER)
+      relocation
+    end
 
     before do
       file.dirname.mkpath
       touch file
       allow(file).to receive(:ensure_writable).and_yield
+      allow(file).to receive(:save_changes)
       allow(file).to receive_messages(dylib?: false, dynamically_linked_libraries: ["#{HOMEBREW_PREFIX}/lib/foo"],
                                       rpaths: [])
       allow(keg).to receive_messages(mach_o_files: [file], change_install_name: true)
-      allow(keg).to receive(:codesign_patched_binary)
+      allow(keg).to receive(:codesign_patched_binaries)
     end
 
     after { keg.unlink }
 
     it "returns changed linkage files relative to the keg" do
-      relocation = Keg::Relocation.new
-      relocation.add_replacement_pair(:prefix, HOMEBREW_PREFIX.to_s, Keg::PREFIX_PLACEHOLDER)
-      relocation.add_replacement_pair(:cellar, HOMEBREW_CELLAR.to_s, Keg::CELLAR_PLACEHOLDER)
-
       expect(keg.relocate_dynamic_linkage(relocation)).to eq([Pathname("bin/test")])
+    end
+
+    it "saves each changed file once and codesigns changed files together" do
+      expect(file).to receive(:save_changes).once
+      expect(keg).to receive(:codesign_patched_binaries).with([keg_path/"bin/test"])
+
+      keg.relocate_dynamic_linkage(relocation)
+    end
+
+    it "relocates only recorded linkage files without walking the keg" do
+      allow(MachOPathname).to receive(:wrap).and_return(file)
+      expect(keg).not_to receive(:mach_o_files)
+
+      expect(keg.relocate_dynamic_linkage(relocation, files: [Pathname("bin/test")])).to eq([Pathname("bin/test")])
+    end
+  end
+
+  describe "#fix_dynamic_linkage" do
+    let(:keg_path) { HOMEBREW_CELLAR/"a/1.0" }
+    let(:file) { MachOPathname.wrap(keg_path/"bin/test") }
+
+    before do
+      file.dirname.mkpath
+      touch file
+      allow(file).to receive(:ensure_writable).and_yield
+      allow(file).to receive(:save_changes)
+      allow(file).to receive_messages(dylib?: false, rpaths: [],
+                                      dynamically_linked_libraries: ["#{Keg::PREFIX_PLACEHOLDER}/lib/foo"])
+      allow(keg).to receive_messages(mach_o_files: [file], change_install_name: true)
+      allow(keg).to receive(:codesign_patched_binaries)
+    end
+
+    after { keg.unlink }
+
+    it "saves each fixed file once and codesigns fixed files together" do
+      expect(file).to receive(:save_changes).once
+      expect(keg).to receive(:codesign_patched_binaries).with([file])
+
+      keg.fix_dynamic_linkage
+    end
+  end
+
+  describe "#codesign_patched_binaries" do
+    let(:keg_path) { HOMEBREW_CELLAR/"a/1.0" }
+    let(:files) { [keg_path/"bin/a", keg_path/"bin/b"] }
+
+    before do
+      (keg_path/"bin").mkpath
+      files.each { |file| touch file }
+    end
+
+    after { keg.unlink }
+
+    it "codesigns every file" do
+      files.each { |file| expect(keg).to receive(:codesign_patched_binary).with(file.to_s) }
+
+      keg.codesign_patched_binaries(files)
     end
   end
 end
