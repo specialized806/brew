@@ -416,7 +416,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   # upgrades with asking for user prompts
   it "prints formula and cask ask plans before upgrading" do
     cmd = described_class.new([])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
 
     expect(cmd).to receive(:upgrade_outdated_formulae!)
       .with([], dry_run: true, show_upgrade_summary: false)
@@ -537,7 +538,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       url "https://brew.sh/testball-0.2"
     end
     cmd = described_class.new(["oldtestball"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
     allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
       .with(method: :resolve)
       .and_return([formula])
@@ -782,7 +784,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "prints a combined upgrade summary before fetching combined downloads" do
     cmd = described_class.new(["-y"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
     cask = instance_double(
       Cask::Cask,
       artifacts:         [],
@@ -839,7 +842,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       url "https://brew.sh/testball-0.2"
     end
     cmd = described_class.new(["--formula", "testball", "--yes"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
 
     allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
       .with(method: :resolve)
@@ -869,7 +873,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     installer = Cask::Installer.allocate
     allow(installer).to receive(:enqueue_dependency_downloads)
     cmd = described_class.new(["--cask", "codex", "--yes"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
 
     allow(cmd.args.named).to receive(:to_formulae_and_casks_and_unavailable)
       .with(method: :resolve)
@@ -954,7 +959,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
   it "asks before fetching formulae and casks in the same download queue" do
     cmd = described_class.new([])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
     cask = instance_double(
       Cask::Cask,
       artifacts:         [],
@@ -1003,9 +1009,40 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     cmd.run
   end
 
+  it "heads the downloads before prefetching them" do
+    cmd = described_class.new([])
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
+    sequence = []
+
+    allow(download_queue).to receive(:print_heading) { |heading| sequence << heading }
+    allow(cmd).to receive(:upgrade_outdated_formulae!) do |_, dry_run: false, prefetch_only: false,
+                                                              prefetch_names: nil, **|
+      if dry_run
+        cmd.final_upgrade_summary.version_changes << "deno 2.7.10 -> 2.7.11"
+      elsif prefetch_only
+        sequence << "prefetch"
+        prefetch_names&.replace(["deno"])
+      end
+
+      true
+    end
+    allow(cmd).to receive_messages(upgrade_outdated_casks!: false, prefetch_outdated_casks!: false)
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+    allow(Homebrew::Install).to receive(:ask)
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+
+    cmd.run
+
+    expect(sequence).to eq(["Fetching downloads for: deno", "prefetch"])
+  end
+
   it "uses prefetched compatible casks and carries requirement errors into upgrade" do
     cmd = described_class.new(["--yes"])
-    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil)
+    download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, failed_downloads: [], shutdown: nil,
+                                     print_heading: nil)
     cask = instance_double(Cask::Cask)
     cask_error = Cask::CaskError.new("bad-cask: This cask requires Linux.")
 
@@ -1163,6 +1200,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     cmd = described_class.new([])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch:            nil,
                                                               failed_downloads: [failed_download],
+                                                              print_heading:    nil,
                                                               shutdown:         nil)
     cask = instance_double(
       Cask::Cask,

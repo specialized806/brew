@@ -229,6 +229,7 @@ module Homebrew
         formulae_prefetched = T.let(false, T::Boolean)
         prefetched_casks = T.let(false, T::Boolean)
         ask_upgrade_planned = T.let(false, T::Boolean)
+        planned_fetch_names = T.let([], T::Array[String])
         shared_download_queue = T.let(nil, T.nilable(Homebrew::DownloadQueue))
         if ask
           unless only_upgrade_casks
@@ -249,9 +250,9 @@ module Homebrew
           end
 
           show_final_upgrade_summary(dry_run: true)
+          planned_fetch_names = final_upgrade_summary.version_changes.map { |change| change.split.fetch(0) }
           if Install.ask_prompt_needed?(
-            planned_names:   final_upgrade_summary.version_changes.map do |version_change|
-              planned_name = version_change.split.fetch(0)
+            planned_names:   planned_fetch_names.map do |planned_name|
               formulae.find { |formula| formula.full_specified_name == planned_name }&.full_name || planned_name
             end,
             requested_names: args.named,
@@ -267,6 +268,10 @@ module Homebrew
 
         if !args.dry_run? && (!ask || ask_upgrade_planned) && !(only_upgrade_formulae && only_upgrade_casks)
           shared_download_queue = Homebrew::DownloadQueue.new(pour: true)
+          # The preview shown before the prompt already knows what will be
+          # upgraded, so print the heading before the prefetch works it out again.
+          early_fetch_heading = Install.combined_fetch_downloads_heading(formula_names: planned_fetch_names)
+          shared_download_queue.print_heading(early_fetch_heading) if early_fetch_heading
           begin
             unless only_upgrade_casks
               formulae_prefetched = upgrade_outdated_formulae!(
@@ -295,10 +300,13 @@ module Homebrew
                 dry_run: args.dry_run?,
               )
             end
-            shared_download_queue.fetch(heading: Install.combined_fetch_downloads_heading(
-              formula_names: prefetched_formulae_names,
-              cask_names:    prefetched_cask_names,
-            ) || "Fetching dependency downloads")
+            unless early_fetch_heading
+              fetch_heading = Install.combined_fetch_downloads_heading(
+                formula_names: prefetched_formulae_names,
+                cask_names:    prefetched_cask_names,
+              ) || "Fetching dependency downloads"
+            end
+            shared_download_queue.fetch(heading: fetch_heading)
             # Only redo the slower unprefetched fetch for the kind of package
             # that actually failed, so e.g. one bad bottle does not also
             # re-verify every already downloaded cask.
