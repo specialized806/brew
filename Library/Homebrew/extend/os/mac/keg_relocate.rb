@@ -15,8 +15,13 @@ module OS
 
           # Check dynamic library linkage. Importantly, do not perform for static
           # libraries, which will falsely report "linkage" to themselves.
+          # Only the raw load-command names matter: resolving `@rpath` or
+          # `@loader_path` references against the live keg turns
+          # relocatable-by-construction linkage into absolute build-prefix
+          # paths and wrongly pins bottles, while genuinely unplaceholdered
+          # names contain the prefix in their raw form already.
           if file.mach_o_executable? || file.dylib? || file.mach_o_bundle?
-            file.dynamically_linked_libraries.select { |lib| lib.include? string }
+            file.dynamically_linked_libraries(resolve_variable_references: false).select { |lib| lib.include? string }
           else
             []
           end

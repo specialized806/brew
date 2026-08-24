@@ -34,6 +34,26 @@ RSpec.describe Keg do
     end
   end
 
+  describe "::file_linked_libraries" do
+    let(:file) { MachOPathname.wrap(keg_path/"lib/a.dylib") }
+
+    before do
+      file.dirname.mkpath
+      touch file
+      allow(MachOPathname).to receive(:wrap).and_return(file)
+      allow(file).to receive_messages(dylib?: true, mach_o_executable?: false, mach_o_bundle?: false)
+    end
+
+    it "checks raw load-command names without resolving variable references" do
+      expect(file).to receive(:dynamically_linked_libraries)
+        .with(resolve_variable_references: false)
+        .and_return(["@rpath/liba.dylib", "#{HOMEBREW_PREFIX}/lib/libb.dylib"])
+
+      expect(described_class.file_linked_libraries(file, HOMEBREW_PREFIX.to_s))
+        .to eq(["#{HOMEBREW_PREFIX}/lib/libb.dylib"])
+    end
+  end
+
   describe "#codesign_patched_binary" do
     let(:keg_path) { HOMEBREW_CELLAR/"a/1.0" }
     let(:file) { "#{keg_path}/bin/test" }
