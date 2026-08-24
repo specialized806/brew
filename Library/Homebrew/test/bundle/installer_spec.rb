@@ -13,6 +13,9 @@ RSpec.describe Homebrew::Bundle::Installer do
   let(:second_formula_entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "redis") }
   let(:cask_options) { { args: {}, full_name: "homebrew/cask/google-chrome" } }
   let(:cask_entry) { Homebrew::Bundle::Dsl::Entry.new(:cask, "google-chrome", cask_options) }
+  let(:flatpak_entry) do
+    Homebrew::Bundle::Dsl::Entry.new(:flatpak, "org.gnome.Calculator", { remote: "flathub" })
+  end
 
   before do
     described_class.reset!
@@ -67,6 +70,25 @@ RSpec.describe Homebrew::Bundle::Installer do
     expect(Homebrew::Bundle).not_to receive(:brew).with("fetch", any_args)
 
     described_class.install!([formula_entry], no_upgrade: true, quiet: true)
+  end
+
+  it "fails a missing Flatpak entry without skipping following entries or claiming success" do
+    tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "example/tap")
+    allow(Homebrew::Bundle::Flatpak).to receive(:package_manager_executable).and_return(nil)
+    expect(Homebrew::Bundle::Tap).to receive(:preinstall!)
+      .with("example/tap", no_upgrade: false, verbose: false)
+      .and_return(true)
+    expect(Homebrew::Bundle::Tap).to receive(:install!)
+      .with("example/tap", preinstall: true, no_upgrade: false, verbose: false, force: false)
+      .and_return(true)
+
+    result = T.let(nil, T.nilable(T::Boolean))
+    expect do
+      result = described_class.install!([flatpak_entry, tap_entry], quiet: false)
+    end.to output(
+      /flatpak is not installed.*Installing org\.gnome\.Calculator has failed!.*`brew bundle` failed!/m,
+    ).to_stderr.and not_to_output(/Using org\.gnome\.Calculator/).to_stdout
+    expect(result).to be(false)
   end
 
   it "skips fetching formulae from untapped taps" do
