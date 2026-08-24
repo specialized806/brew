@@ -82,7 +82,7 @@ RSpec.describe Homebrew::DevCmd::FormulaAnalytics do
       command.each_influx_record("SELECT 1") { |record| records << record }
 
       expect(records).to eq [{
-        "host"     => "eu-central-1-1.aws.cloud2.influxdata.com",
+        "host"     => "analytics.brew.sh",
         "org"      => Utils::Analytics::INFLUX_ORG,
         "database" => Utils::Analytics::INFLUX_BUCKET,
         "query"    => "SELECT 1",
