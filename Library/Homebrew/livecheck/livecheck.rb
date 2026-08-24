@@ -1143,19 +1143,19 @@ module Homebrew
       !throttle_days.nil? && throttle_interval_elapsed?(formula_or_cask, throttle_days)
     end
 
-    sig { params(package_or_resource: T.any(Formula, Cask::Cask)).returns(T.nilable(Integer)) }
-    def self.formula_or_cask_last_updated_timestamp(package_or_resource)
-      tap = package_or_resource.tap
+    sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T.nilable(Integer)) }
+    def self.formula_or_cask_last_updated_timestamp(formula_or_cask)
+      tap = formula_or_cask.tap
       return if tap.nil?
       return unless tap.git?
       return unless Utils::Git.available?
 
-      if package_or_resource.is_a?(Formula)
-        timestamp = formula_last_version_update_timestamp(package_or_resource, tap:)
+      if formula_or_cask.is_a?(Formula)
+        timestamp = formula_last_version_update_timestamp(formula_or_cask, tap:)
         return timestamp if timestamp.present?
       end
 
-      formula_or_cask_last_commit_timestamp(package_or_resource, tap)
+      formula_or_cask_last_commit_timestamp(formula_or_cask, tap)
     end
 
     sig { params(formula: Formula, tap: Tap).returns(T.nilable(Integer)) }
@@ -1218,14 +1218,14 @@ module Homebrew
     end
 
     sig {
-      params(package_or_resource: T.any(Formula, Cask::Cask), tap: Tap).returns(T.nilable(Integer))
+      params(formula_or_cask: T.any(Formula, Cask::Cask), tap: Tap).returns(T.nilable(Integer))
     }
-    private_class_method def self.formula_or_cask_last_commit_timestamp(package_or_resource, tap)
-      sourcefile = case package_or_resource
+    private_class_method def self.formula_or_cask_last_commit_timestamp(formula_or_cask, tap)
+      sourcefile = case formula_or_cask
       when Formula
-        package_or_resource.path
+        formula_or_cask.path
       when Cask::Cask
-        package_or_resource.sourcefile_path
+        formula_or_cask.sourcefile_path
       end
       return if sourcefile.nil?
 
@@ -1287,11 +1287,11 @@ module Homebrew
       nil
     end
 
-    sig { params(package_or_resource: T.any(Formula, Cask::Cask), days: Integer).returns(T::Boolean) }
-    def self.throttle_interval_elapsed?(package_or_resource, days)
+    sig { params(formula_or_cask: T.any(Formula, Cask::Cask), days: Integer).returns(T::Boolean) }
+    def self.throttle_interval_elapsed?(formula_or_cask, days)
       return false if days <= 0
 
-      last_updated_timestamp = formula_or_cask_last_updated_timestamp(package_or_resource)
+      last_updated_timestamp = formula_or_cask_last_updated_timestamp(formula_or_cask)
       return false if last_updated_timestamp.nil?
 
       elapsed_seconds = Time.now.to_i - last_updated_timestamp
