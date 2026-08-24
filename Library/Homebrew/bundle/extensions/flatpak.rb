@@ -176,7 +176,7 @@ module Homebrew
           _ = no_upgrade
           _ = url
 
-          return false unless package_manager_installed?
+          return true unless package_manager_installed?
 
           # Check if package is installed at all (regardless of remote)
           if package_installed?(name)
@@ -206,10 +206,14 @@ module Homebrew
           _ = no_upgrade
           _ = force
 
-          return true unless package_manager_installed?
           return true unless preinstall
 
-          flatpak = package_manager_executable!.to_s
+          flatpak = package_manager_executable
+          if flatpak.nil?
+            $stderr.puts "flatpak is not installed. Install it with your distribution's package manager."
+            return false
+          end
+          flatpak = flatpak.to_s
 
           # 3-tier remote handling:
           # - Tier 1: no URL → use named remote (default: flathub)

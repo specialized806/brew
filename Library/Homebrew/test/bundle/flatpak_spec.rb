@@ -230,16 +230,17 @@ RSpec.describe Homebrew::Bundle::Flatpak do
   end
 
   describe "installing" do
-    context "when Flatpak is not installed", :needs_linux do
+    context "when Flatpak is not installed" do
       before do
         described_class.reset!
         allow(described_class).to receive(:package_manager_executable).and_return(nil)
       end
 
-      it "returns false without attempting installation" do
+      it "fails with installation guidance without attempting installation" do
         expect(Homebrew::Bundle).not_to receive(:system)
-        expect(described_class.preinstall!("org.gnome.Calculator")).to be(false)
-        expect(described_class.install!("org.gnome.Calculator")).to be(true)
+        expect(described_class.preinstall!("org.gnome.Calculator")).to be(true)
+        expect { expect(described_class.install!("org.gnome.Calculator")).to be(false) }
+          .to output(/flatpak is not installed.*distribution's package manager/).to_stderr
       end
     end
 
