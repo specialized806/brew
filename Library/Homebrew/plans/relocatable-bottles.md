@@ -106,11 +106,14 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 - 12/17: compiled-in own-keg or prefix C strings (sysconfdir, datadir,
   localedir, plugin directories), e.g. `wget2`'s localedir, `graphviz`'s
   plugin directory, `python@3.x`'s framework prefix.
-- 2/17: stale ELF `.dynstr` bytes: patchelf.rb writes a placeholdered RUNPATH
-  but leaves the old string dead in the binary and the checker counts the
-  corpse (`harfbuzz`, `shared-mime-info`; the 224-formula glib/gobject
+- 2/17: stale ELF `.dynstr` bytes: Meson's install-time RPATH rewrite
+  overwrites the build RPATH without clearing the rest of the old string
+  (intentional upstream; Nix carries a patch), and patchelf leaves the old
+  table behind when growing one, so the checker counts the corpse
+  (`harfbuzz`, `shared-mime-info`; the 224-formula glib/gobject
   introspection cluster on Linux looks identical). Functionally these are
-  false positives.
+  false positives, since addressed by scanning ELF files by structure
+  (design decision 11).
 - 1/17: node-gyp build debris: native addons compiled inside the keg embed
   keg paths in debug info and ship stray `.o` artefacts (about 29 npm
   formulae).
@@ -161,6 +164,19 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 10. Non-intuitive logic must always be commented, especially relocation edge
     cases (NUL padding, string-table subtleties, codesign behaviour): this
     code is touched rarely and debugged under pressure.
+11. The relocatability checker deliberately errs towards classifying
+    bottles as relocatable rather than pinned. This is a rebalancing of the
+    original `strings`-based checker, which counted every prefix byte
+    sequence in a file as a pin: a wrongly pinned bottle forces source
+    builds for every non-default-prefix user and poisons its whole
+    dependent subtree, whereas a wrongly relocatable one surfaces as a
+    per-formula bug report with a trivial fix and is caught by the Phase 2
+    validation sweep and the test-bot relocated-pour test. Concretely, ELF
+    files are scanned by structure rather than as a whole: only the
+    interpreter the loader uses, the dynamic strings the loader references
+    and the contents of ordinary sections count; bytes outside every
+    section and unreferenced entries in loader-owned string tables never
+    do. Other file types keep the whole-file scan.
 
 ## Plan
 
@@ -172,10 +188,6 @@ length limit and no new machinery.
 4. Reconcile checker divergences: pull `brew bottle --verbose` CI logs for
    the `abseil` class, fix whatever diverges, then batch re-mark provably
    clean pins `cellar :any` with no rebuild (sha256 unchanged).
-5. ELF-aware checker: map string offsets to sections (elftools is already
-   vendored via patchelf.rb) and stop counting stale `.dynstr` corpses.
-   Flips the glib/gobject-introspection cluster and much of the Linux-only
-   pinned set on their next rebottle.
 6. node-gyp debris: delete `build/**/obj.target`, `*.o` and `*.d` from
    npm-installed trees and strip or debug-prefix-map compiled `.node`
    addons. Flips the npm cluster.

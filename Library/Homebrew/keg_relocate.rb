@@ -454,41 +454,193 @@ class Keg
   def self.text_matches_in_file(file, string, ignores, linked_libraries, formula_and_runtime_deps_names)
     text_matches = []
     path_regex = Relocation.path_to_regex(string)
-    Utils.popen_read("strings", "-t", "x", "-", file.to_s) do |io|
-      until io.eof?
-        str = io.readline.chomp
-        next if ignores.any? { |i| str.match?(i) }
-        next unless str.match? path_regex
+    each_candidate_string(file, string) do |(offset, match)|
+      next if ignores.any? { |i| match.match?(i) }
+      next unless match.match? path_regex
 
-        offset, match = str.split(" ", 2)
-        odie "Failed to parse strings output: #{str.inspect}" unless match
+      # Some binaries contain strings with lists of files
+      # e.g. `/usr/local/lib/foo:/usr/local/share/foo:/usr/lib/foo`
+      # Each item in the list should be checked separately
+      match.split(":").each do |sub_match|
+        # Not all items in the list may be matches
+        next unless sub_match.match? path_regex
+        next if linked_libraries.include? sub_match # Don't bother reporting a string if it was found by otool
 
-        # Some binaries contain strings with lists of files
-        # e.g. `/usr/local/lib/foo:/usr/local/share/foo:/usr/lib/foo`
-        # Each item in the list should be checked separately
-        match.split(":").each do |sub_match|
-          # Not all items in the list may be matches
-          next unless sub_match.match? path_regex
-          next if linked_libraries.include? sub_match # Don't bother reporting a string if it was found by otool
+        # Do not report matches to files that do not exist.
+        next unless File.exist? sub_match
 
-          # Do not report matches to files that do not exist.
-          next unless File.exist? sub_match
-
-          # Do not report matches to build dependencies.
-          if formula_and_runtime_deps_names.present?
-            begin
-              keg_name = Keg.for(Pathname.new(sub_match)).name
-              next unless formula_and_runtime_deps_names.include? keg_name
-            rescue NotAKegError
-              nil
-            end
+        # Do not report matches to build dependencies.
+        if formula_and_runtime_deps_names.present?
+          begin
+            keg_name = Keg.for(Pathname.new(sub_match)).name
+            next unless formula_and_runtime_deps_names.include? keg_name
+          rescue NotAKegError
+            nil
           end
-
-          text_matches << [match, offset] unless text_matches.any? { |text| text.last == offset }
         end
+
+        text_matches << [match, offset] unless text_matches.any? { |text| text.last == offset }
       end
     end
     text_matches
+  end
+
+  # Yields each printable string in the file with its hexadecimal offset, as
+  # `strings -t x` reports them. ELF files yield only the strings the loader
+  # or the program can reach, see `elf_relocation_strings`.
+  sig { params(file: Pathname, string: String, block: T.proc.params(candidate: [String, String]).void).void }
+  def self.each_candidate_string(file, string, &block)
+    if (elf_strings = elf_relocation_strings(file, string))
+      elf_strings.each(&block)
+      return
+    end
+
+    Utils.popen_read("strings", "-t", "x", "-", file.to_s) do |io|
+      until io.eof?
+        line = io.readline.chomp
+        offset, match = line.split(" ", 2)
+        odie "Failed to parse strings output: #{line.inspect}" if offset.nil? || match.nil?
+
+        yield [offset, match]
+      end
+    end
+  end
+
+  # Runs of at least four printable bytes, as `strings` reports by default.
+  PRINTABLE_RUN_REGEX = /[\t\x20-\x7e]{4,}/n
+  private_constant :PRINTABLE_RUN_REGEX
+
+  # Build tools leave dead prefix strings in ELF files: Meson's install-time
+  # RPATH fixer overwrites the build RPATH with the shorter install RPATH
+  # without clearing the rest of the old string, and patchelf moves the
+  # dynamic string table or interpreter when growing them, leaving the old
+  # copy behind. A whole-file `strings` scan still finds those bytes and
+  # wrongly pins bottles whose live linkage is fully placeholdered. ELF files
+  # are therefore scanned by structure rather than as a whole: the interpreter the
+  # loader uses, the dynamic strings the loader references and the contents of
+  # the remaining sections. Bytes outside every section and unreferenced
+  # entries in loader-owned string tables are never candidates.
+  #
+  # This deliberately errs towards relocatability (design decision 11 in
+  # `plans/relocatable-bottles.md`): a wrongly pinned bottle forces source
+  # builds for every non-default-prefix user, whereas a wrongly accepted one
+  # surfaces as a per-formula bug report and fix.
+  #
+  # Returns nil, so that the whole file is scanned instead, for files that are
+  # not ELF, cannot name their sections or whose tables are truncated.
+  sig { params(file: Pathname, string: String).returns(T.nilable(T::Array[[String, String]])) }
+  def self.elf_relocation_strings(file, string)
+    require "os/linux/elf"
+    return unless T.cast(Pathname.new(file.to_s).extend(ELFShim), ELFShim).elf?
+
+    require "elftools"
+    require "strscan"
+
+    stream = file.open("rb")
+    begin
+      elf = ELFTools::ELFFile.new(stream)
+      # A file may legally keep section headers while `e_shstrndx` is
+      # `SHN_UNDEF` (no section-name table); sections cannot be told apart
+      # without names.
+      return unless elf.strtab_section.is_a?(ELFTools::Sections::StrTabSection)
+
+      strings = T.let([], T::Array[[Integer, String]])
+
+      if (interp = elf.segment_by_type(:interp))
+        strings << [interp.header.p_offset.to_i, interp.interp_name]
+      end
+
+      string_table_range = T.let(nil, T.nilable(T::Range[Integer]))
+      if (dynamic = elf.segment_by_type(:dynamic))
+        # Dynamic tags whose value is an offset into the dynamic string
+        # table, i.e. the strings the loader can actually see.
+        string_tags = [
+          ELFTools::Constants::DT::DT_NEEDED,
+          ELFTools::Constants::DT::DT_SONAME,
+          ELFTools::Constants::DT::DT_RPATH,
+          ELFTools::Constants::DT::DT_RUNPATH,
+          ELFTools::Constants::DT::DT_AUXILIARY,
+          # elftools 1.3.1 mislabels `DT_USED` (0x7ffffffe) as `DT_FILTER`;
+          # both hold string-table offsets, so keep the mislabelled value
+          # and add the ELF ABI's real `DT_FILTER`.
+          ELFTools::Constants::DT::DT_FILTER,
+          0x7fffffff, # DT_FILTER
+          ELFTools::Constants::DT::DT_AUDIT,
+          ELFTools::Constants::DT::DT_DEPAUDIT,
+          ELFTools::Constants::DT::DT_CONFIG,
+        ]
+        string_table_vaddr = T.let(nil, T.nilable(Integer))
+        string_table_size = T.let(nil, T.nilable(Integer))
+        string_offsets = []
+        dynamic.tags.each do |tag|
+          case tag.header.d_tag.to_i
+          when ELFTools::Constants::DT::DT_STRTAB then string_table_vaddr = tag.header.d_val.to_i
+          when ELFTools::Constants::DT::DT_STRSZ then string_table_size = tag.header.d_val.to_i
+          when *string_tags then string_offsets << tag.header.d_val.to_i
+          end
+        end
+        if string_table_vaddr && (string_table_offset = elf.offset_from_vma(string_table_vaddr))
+          string_table_range = string_table_offset...(string_table_offset + string_table_size) if string_table_size
+
+          # Dynamic symbol names are loader-visible strings in the same
+          # table, referenced by `.dynsym` `st_name` rather than by dynamic
+          # tags. Version table strings also index the table but hold
+          # version names, never paths, so they are not collected.
+          elf.sections_by_type(ELFTools::Constants::SHT::SHT_DYNSYM).each do |section|
+            section.symbols.each do |symbol|
+              name_offset = symbol.header.st_name.to_i
+              string_offsets << name_offset unless name_offset.zero?
+            end
+          end
+
+          # A referenced string runs from its offset to the terminating NUL,
+          # so a suffix-merged reference to the interior `libfoo.so` of
+          # `/old/prefix/libfoo.so` never yields the dead prefix before it.
+          string_offsets.uniq.each do |offset|
+            stream.pos = string_table_offset + offset
+            referenced = stream.gets("\0")&.delete_suffix("\0")
+            strings << [string_table_offset + offset, referenced] if referenced
+          end
+        end
+      end
+
+      # Everything else the program itself can reach: the contents of the
+      # remaining sections. Loader-owned string regions are covered above and
+      # bytes outside every section are deliberately excluded from relocation.
+      elf.sections.each do |section|
+        header = section.header
+        # SHT_NOBITS sections (e.g. `.bss`) occupy no file bytes.
+        next if header.sh_type.to_i == ELFTools::Constants::SHT::SHT_NOBITS
+        next if header.sh_size.to_i.zero?
+        next if [".dynstr", ".interp"].include?(section.name)
+
+        section_start = header.sh_offset.to_i
+        next if string_table_range&.cover?(section_start)
+
+        data = section.data
+        # Cheap pre-check before extracting every printable run.
+        next unless data.include?(string)
+
+        scanner = StringScanner.new(data)
+        while scanner.skip_until(PRINTABLE_RUN_REGEX)
+          run = scanner.matched
+          strings << [section_start + scanner.pos - run.bytesize, run]
+        end
+      end
+
+      strings.filter_map do |offset, match|
+        next unless match.ascii_only?
+
+        [offset.to_s(16), match.force_encoding(Encoding::UTF_8)]
+      end
+    ensure
+      stream.close
+    end
+  rescue ELFTools::ELFError, IOError, SystemCallError
+    # Not valid ELF, or program, section or dynamic tables truncated or
+    # pointing outside the file mid-parse (Linux raises `Errno::EINVAL`
+    # for the resulting seek where macOS returns EOF).
+    nil
   end
 
   sig { params(_file: Pathname, _string: String).returns(T::Array[String]) }
