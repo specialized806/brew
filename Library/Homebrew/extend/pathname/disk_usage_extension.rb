@@ -29,9 +29,8 @@ module DiskUsageExtension
   sig { returns(String) }
   def abv
     out = +""
-    @file_count, @disk_usage = compute_disk_usage
-    out << "#{Formatter.number_readable(@file_count)} files, " if @file_count > 1
-    out << Formatter.disk_usage_readable(@disk_usage).to_s
+    out << "#{Formatter.number_readable(file_count)} files, " if file_count > 1
+    out << Formatter.disk_usage_readable(disk_usage).to_s
     out.freeze
   end
 
