@@ -872,7 +872,6 @@ module Homebrew
 
       PRIVILEGED_STEP_REQUEST = "homebrew_cask_privileged_step"
       PRIVILEGED_STEP_SUCCEEDED = "homebrew_cask_privileged_step_succeeded"
-      PRIVILEGED_STEP_FAILED = "homebrew_cask_privileged_step_failed"
 
       # Path tokens reuse the step base resolution; formula metadata tokens are
       # resolved separately. Anything else is left verbatim so literal braces in
@@ -906,20 +905,14 @@ module Homebrew
       def run(steps, phase: :install, privileged_step_handler: nil, reset_guard_results: true)
         @guard_results.clear if reset_guard_results
         DSL.normalise_steps(steps).each_with_index do |step, index|
-          if phase == :uninstall
-            if privileged_step_handler && sudo_required?([step])
-              privileged_step_handler.call(index)
-            else
-              run_uninstall_step(step)
-            end
-          else
-            next unless step_guards_match?(step)
+          next if phase != :uninstall && !step_guards_match?(step)
 
-            if privileged_step_handler && sudo_required?([step])
-              privileged_step_handler.call(index)
-            else
-              run_install_step(step)
-            end
+          if privileged_step_handler && sudo_required?([step])
+            privileged_step_handler.call(index)
+          elsif phase == :uninstall
+            run_uninstall_step(step)
+          else
+            run_install_step(step)
           end
         end
       end

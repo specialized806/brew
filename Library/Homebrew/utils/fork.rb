@@ -13,8 +13,6 @@ module Utils
     def initialize(error_pipe, response_pipe)
       @error_pipe = error_pipe
       @response_pipe = response_pipe
-      @error_pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
-      @response_pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
     end
 
     sig { params(message: String).void }
@@ -41,15 +39,22 @@ module Utils
 
   sig { returns(IO) }
   def self.forked_child_error_pipe
-    UNIXSocketExt.open(ENV.fetch("HOMEBREW_ERROR_PIPE"), &:recv_io).tap do |error_pipe|
-      error_pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+    UNIXSocketExt.open(ENV.fetch("HOMEBREW_ERROR_PIPE")) do |socket|
+      receive_forked_child_pipe(socket)
     end
   end
 
   sig { returns(ForkedChildChannel) }
   def self.forked_child_channel
     UNIXSocketExt.open(ENV.fetch("HOMEBREW_ERROR_PIPE")) do |socket|
-      ForkedChildChannel.new(socket.recv_io, socket.recv_io)
+      ForkedChildChannel.new(receive_forked_child_pipe(socket), receive_forked_child_pipe(socket))
+    end
+  end
+
+  sig { params(socket: UNIXSocket).returns(IO) }
+  private_class_method def self.receive_forked_child_pipe(socket)
+    socket.recv_io.tap do |pipe|
+      pipe.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
     end
   end
 

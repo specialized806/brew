@@ -196,13 +196,12 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
       allow(sandbox).to receive(:allow_write_path)
       allow(Sandbox).to receive(:with_preserved_brew_file).and_yield
       allow(sandbox).to receive(:run) do |*_, child_message_handler:, **|
-        response = child_message_handler.call(
+        child_message_handler.call(
           JSON.generate(
             "type"  => Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST,
             "index" => 0,
           ),
         )
-        expect(response).to eq(Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_FAILED)
       end
 
       expect do
@@ -230,14 +229,12 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
       allow(sandbox).to receive(:run) do |*_, child_message_handler:, **|
         messages = ["not JSON", "null", "5", "[1]", "true", "{}", '{"type":"other"}']
         messages.each do |message|
-          expect(child_message_handler.call(message))
-            .to eq(Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_FAILED)
+          expect { child_message_handler.call(message) }
+            .to raise_error(ArgumentError, "Invalid privileged cask child message.")
         end
       end
 
-      expect do
-        Cask::Installer.new(cask, command: NeverSudoSystemCommand).install_artifacts
-      end.to raise_error(ArgumentError, "Invalid privileged cask child message.")
+      Cask::Installer.new(cask, command: NeverSudoSystemCommand).install_artifacts
     end
 
     it "rejects invalid privileged step indices" do
@@ -258,13 +255,12 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
       allow(sandbox).to receive(:allow_write_path)
       allow(Sandbox).to receive(:with_preserved_brew_file).and_yield
       allow(sandbox).to receive(:run) do |*_, child_message_handler:, **|
-        response = child_message_handler.call(
+        child_message_handler.call(
           JSON.generate(
             "type"  => Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST,
             "index" => "0",
           ),
         )
-        expect(response).to eq(Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_FAILED)
       end
 
       expect do
@@ -290,13 +286,12 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
       allow(sandbox).to receive(:allow_write_path)
       allow(Sandbox).to receive(:with_preserved_brew_file).and_yield
       allow(sandbox).to receive(:run) do |*_, child_message_handler:, **|
-        response = child_message_handler.call(
+        child_message_handler.call(
           JSON.generate(
             "type"  => Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST,
             "index" => 99,
           ),
         )
-        expect(response).to eq(Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_FAILED)
       end
 
       expect do
@@ -329,8 +324,7 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
         )
         expect(child_message_handler.call(request))
           .to eq(Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_SUCCEEDED)
-        expect(child_message_handler.call(request))
-          .to eq(Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_FAILED)
+        child_message_handler.call(request)
       end
       expect(command).to receive(:run).once
 

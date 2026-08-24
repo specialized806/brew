@@ -68,74 +68,71 @@ module Cask
           return
         end
 
-        normalised_steps = Homebrew::InstallSteps::DSL.normalise_steps(steps)
-        parent_error = T.let(nil, T.nilable(Exception))
         last_privileged_index = T.let(-1, Integer)
         # macOS caches sudo credentials per terminal or session, so privileged
         # steps must run in this parent process to reuse its ticket instead of
-        # prompting once per sandbox child PTY. The child only nominates
-        # predeclared steps by index; each request is fully validated here
-        # because the sandboxed child is untrusted while running cask code.
+        # prompting once per sandbox child PTY.
         child_message_handler = proc do |message|
-          response = Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_FAILED
-          begin
-            request = begin
-              JSON.parse(message)
-            rescue JSON::ParserError
-              nil
-            end
-            # Child error reports arrive on the same pipe; leave them for
-            # `Utils.safe_fork` to raise.
-            next if request.is_a?(Hash) && request.key?("json_class")
-            next response if parent_error
+          index = run_privileged_step_request(message, runner:, phase:, last_privileged_index:)
+          next if index.nil?
 
-            if !request.is_a?(Hash) ||
-               request["type"] != Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST
-              raise ArgumentError, "Invalid privileged cask child message."
-            end
-
-            index = request.fetch("index")
-            unless index.is_a?(Integer)
-              raise ArgumentError,
-                    "Invalid privileged cask install step index: #{index.inspect}"
-            end
-            if index <= last_privileged_index
-              raise ArgumentError, "Privileged cask install steps must be requested in order."
-            end
-
-            step = normalised_steps.fetch(index)
-            unless runner.sudo_required?([step])
-              raise ArgumentError, "Cask install step #{index} is not privileged."
-            end
-
-            # Guards are re-evaluated here instead of trusting the child, and
-            # guard results persist across requests so multi-step guard blocks
-            # keep the snapshot semantics of a single uninterrupted run.
-            runner.run([step], phase:, reset_guard_results: false)
-            last_privileged_index = index
-            response = Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_SUCCEEDED
-          rescue Interrupt, StandardError => e
-            parent_error ||= e
-          end
-          response
+          last_privileged_index = index
+          Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_SUCCEEDED
         end
 
-        sandbox_error = T.let(nil, T.nilable(Exception))
-        begin
-          # Keep the parent terminal free for the sudo prompt: forwarded
-          # sandbox stdin would otherwise compete for the password input.
-          run_cask_sandbox(
-            sandbox,
-            payload,
-            passthrough_stdin:     false,
-            child_message_handler:,
-          )
-        rescue Interrupt, StandardError => e
-          sandbox_error = e
+        # Keep the parent terminal free for the sudo prompt: forwarded
+        # sandbox stdin would otherwise compete for the password input.
+        run_cask_sandbox(
+          sandbox,
+          payload,
+          passthrough_stdin:     false,
+          child_message_handler:,
+        )
+      end
+
+      sig {
+        params(
+          message:               String,
+          runner:                Homebrew::InstallSteps::Runner,
+          phase:                 Symbol,
+          last_privileged_index: Integer,
+        ).returns(T.nilable(Integer))
+      }
+      def run_privileged_step_request(message, runner:, phase:, last_privileged_index:)
+        request = begin
+          JSON.parse(message)
+        rescue JSON::ParserError
+          nil
+        end
+        # Child error reports arrive on the same pipe; leave them for
+        # `Utils.safe_fork` to raise.
+        return if request.is_a?(Hash) && request.key?("json_class")
+
+        # The sandboxed child is untrusted and may only nominate a predeclared
+        # privileged step by index.
+        if !request.is_a?(Hash) ||
+           request["type"] != Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST
+          raise ArgumentError, "Invalid privileged cask child message."
         end
 
-        raise parent_error if parent_error
-        raise sandbox_error if sandbox_error
+        index = request.fetch("index")
+        unless index.is_a?(Integer)
+          raise ArgumentError,
+                "Invalid privileged cask install step index: #{index.inspect}"
+        end
+        if index <= last_privileged_index
+          raise ArgumentError, "Privileged cask install steps must be requested in order."
+        end
+
+        step = steps.fetch(index)
+        unless runner.sudo_required?([step])
+          raise ArgumentError, "Cask install step #{index} is not privileged."
+        end
+
+        # Re-evaluate guards in the parent instead of trusting the child, while
+        # preserving snapshots across requests from the same step plan.
+        runner.run([step], phase:, reset_guard_results: false)
+        index
       end
     end
 
