@@ -133,25 +133,56 @@ module Homebrew
       def resolve_patterns_from_cask(cask)
         app_artifact = cask.artifacts.find { |a| a.is_a?(Cask::Artifact::App) }
         if app_artifact
-          patterns = [app_artifact.target.basename(".app").to_s]
-          patterns.concat(bundle_identifiers(app_artifact))
-          patterns.uniq
-        else
-          ohai "No app artifact found in cask \"#{cask.token}\"; using token as app name."
-          [cask.token.tr("-", " ").split.map(&:capitalize).join(" ")]
+          return patterns_from_app_paths([app_artifact.target])
         end
+
+        token_pattern = cask.token.tr("-", " ").split.map(&:capitalize).join(" ")
+        pkgutil_receipt_patterns = T.let([], T::Array[String])
+        cask.artifacts.each do |artifact|
+          next unless artifact.is_a?(Cask::Artifact::AbstractUninstall)
+
+          pkgutil = artifact.directives[:pkgutil]
+          if pkgutil.is_a?(String)
+            pkgutil_receipt_patterns << pkgutil
+          elsif pkgutil.is_a?(Array)
+            pkgutil.each { |pattern| pkgutil_receipt_patterns << pattern if pattern.is_a?(String) }
+          end
+        end
+
+        pkg_app_paths = pkgutil_receipt_patterns.uniq.flat_map do |receipt_pattern|
+          Cask::Pkg.all_matching(receipt_pattern, SystemCommand).flat_map do |pkg|
+            pkg.pkgutil_bom_all.filter_map do |path|
+              match = path.to_s.match(%r{\A(?<app_path>.*?\.app)(?:/|\z)}i)
+              next if match.nil?
+
+              Pathname.new(match[:app_path])
+            end
+          end
+        end.uniq.select(&:directory?)
+
+        unless pkg_app_paths.empty?
+          ohai "No app artifact found in cask \"#{cask.token}\"; using installed package receipts."
+          patterns = patterns_from_app_paths(pkg_app_paths)
+          patterns << token_pattern unless patterns.any? { |pattern| pattern.casecmp?(token_pattern) }
+          return patterns
+        end
+
+        ohai "No app artifact or installed package app found in cask \"#{cask.token}\"; using token as app name."
+        [token_pattern]
       end
 
-      sig { params(app_artifact: Cask::Artifact::App).returns(T::Array[String]) }
-      def bundle_identifiers(app_artifact)
-        info_plist = app_artifact.target/"Contents/Info.plist"
-        return [] if !info_plist.exist? || !info_plist.readable?
+      sig { params(app_paths: T::Array[Pathname]).returns(T::Array[String]) }
+      def patterns_from_app_paths(app_paths)
+        app_paths.flat_map do |app_path|
+          patterns = [app_path.basename(".app").to_s]
+          info_plist = app_path/"Contents/Info.plist"
+          next patterns if !info_plist.exist? || !info_plist.readable?
 
-        plist = system_command!("plutil", args: ["-convert", "xml1", "-o", "-", info_plist]).plist
-        bundle_identifier = plist["CFBundleIdentifier"]
-        return [] unless bundle_identifier.is_a?(String)
-
-        [bundle_identifier]
+          plist = system_command!("plutil", args: ["-convert", "xml1", "-o", "-", info_plist]).plist
+          bundle_identifier = plist["CFBundleIdentifier"]
+          patterns << bundle_identifier if bundle_identifier.is_a?(String)
+          patterns
+        end.uniq
       end
 
       sig {
