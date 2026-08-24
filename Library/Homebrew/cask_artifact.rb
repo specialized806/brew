@@ -55,7 +55,11 @@ module Cask
 end
 
 begin
-  error_pipe = Utils.forked_child_error_pipe
+  error_pipe = if ENV.delete("HOMEBREW_CHILD_MESSAGE_CHANNEL")
+    Utils.forked_child_channel
+  else
+    Utils.forked_child_error_pipe
+  end
 
   trap("INT", old_trap)
 
@@ -76,7 +80,27 @@ begin
     context = Cask::InstallStepsContext.new(payload.fetch("context"))
     steps = payload.fetch("steps")
     phase = payload.fetch("phase").to_sym
-    Homebrew::InstallSteps::Runner.new(context:).run(steps, phase:)
+    # Privileged steps execute in the parent process to reuse its sudo ticket
+    # (see Cask::Artifact::AbstractInstallSteps#run_steps). Request each step
+    # by index and wait for the outcome so ordering is preserved.
+    privileged_step_handler = if error_pipe.is_a?(Utils::ForkedChildChannel)
+      proc do |index|
+        error_pipe.puts JSON.generate(
+          "type"  => Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST,
+          "index" => index,
+        )
+        error_pipe.flush
+        response = error_pipe.gets&.chomp
+        next if response == Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_SUCCEEDED
+
+        raise "The parent process failed to run privileged cask install step #{index}."
+      end
+    else
+      proc do |index|
+        raise "Privileged cask install step #{index} requires a parent message channel."
+      end
+    end
+    Homebrew::InstallSteps::Runner.new(context:).run(steps, phase:, privileged_step_handler:)
   when "generated_completions"
     errors = []
     payload.fetch("completions").each do |completion|

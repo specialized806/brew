@@ -214,11 +214,13 @@ module Cask
 
       sig {
         params(
-          sandbox: Sandbox,
-          payload: T::Hash[String, T.untyped],
+          sandbox:               Sandbox,
+          payload:               T::Hash[String, T.untyped],
+          passthrough_stdin:     T::Boolean,
+          child_message_handler: T.nilable(T.proc.params(message: String).returns(T.nilable(String))),
         ).void
       }
-      def run_cask_sandbox(sandbox, payload)
+      def run_cask_sandbox(sandbox, payload, passthrough_stdin: true, child_message_handler: nil)
         # Formulae sandbox the complete `postinstall.rb` process. Do the same
         # for cask operations so Ruby file changes and every command share one
         # profile, instead of forwarding command input and output through files.
@@ -242,7 +244,9 @@ module Cask
               "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
               "--",
               HOMEBREW_LIBRARY_PATH/"cask_artifact.rb",
-              payload_path
+              payload_path,
+              passthrough_stdin:,
+              child_message_handler:
             )
           end
         end

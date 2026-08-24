@@ -43,30 +43,96 @@ module Cask
 
         sandbox.allow_write_path cask.caskroom_path
         sandbox.allow_write_path cask.config.appdir
-        sandbox.allow_process_exec "/usr/bin/sudo", no_sandbox: true if runner.sudo_required?(steps)
         Keg.keg_link_directories.each { |directory| sandbox.allow_write_path HOMEBREW_PREFIX/directory }
         original_home = Pathname(Dir.home).expand_path
         runner.sandbox_write_paths(steps, phase:).each do |path|
           sandbox.allow_write_path path
           sandbox.allow_read(path:, type: :subpath) if path.expand_path.ascend.include?(original_home)
         end
+        payload = {
+          "action"  => "install_steps",
+          "context" => {
+            "name"          => cask.name,
+            "token"         => cask.token,
+            "version"       => cask.version.to_s,
+            "staged_path"   => cask.staged_path.to_s,
+            "caskroom_path" => cask.caskroom_path.to_s,
+            "home"          => Dir.home,
+            "config"        => cask.config.to_json,
+          },
+          "phase"   => phase.to_s,
+          "steps"   => steps,
+        }
+        unless runner.sudo_required?(steps)
+          run_cask_sandbox(sandbox, payload)
+          return
+        end
+
+        last_privileged_index = T.let(-1, Integer)
+        # macOS caches sudo credentials per terminal or session, so privileged
+        # steps must run in this parent process to reuse its ticket instead of
+        # prompting once per sandbox child PTY.
+        child_message_handler = proc do |message|
+          index = run_privileged_step_request(message, runner:, phase:, last_privileged_index:)
+          next if index.nil?
+
+          last_privileged_index = index
+          Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_SUCCEEDED
+        end
+
+        # Keep the parent terminal free for the sudo prompt: forwarded
+        # sandbox stdin would otherwise compete for the password input.
         run_cask_sandbox(
           sandbox,
-          {
-            "action"  => "install_steps",
-            "context" => {
-              "name"          => cask.name,
-              "token"         => cask.token,
-              "version"       => cask.version.to_s,
-              "staged_path"   => cask.staged_path.to_s,
-              "caskroom_path" => cask.caskroom_path.to_s,
-              "home"          => Dir.home,
-              "config"        => cask.config.to_json,
-            },
-            "phase"   => phase.to_s,
-            "steps"   => steps,
-          },
+          payload,
+          passthrough_stdin:     false,
+          child_message_handler:,
         )
+      end
+
+      sig {
+        params(
+          message:               String,
+          runner:                Homebrew::InstallSteps::Runner,
+          phase:                 Symbol,
+          last_privileged_index: Integer,
+        ).returns(T.nilable(Integer))
+      }
+      def run_privileged_step_request(message, runner:, phase:, last_privileged_index:)
+        request = begin
+          JSON.parse(message)
+        rescue JSON::ParserError
+          nil
+        end
+        # Child error reports arrive on the same pipe; leave them for
+        # `Utils.safe_fork` to raise.
+        return if request.is_a?(Hash) && request.key?("json_class")
+
+        # The sandboxed child is untrusted and may only nominate a predeclared
+        # privileged step by index.
+        if !request.is_a?(Hash) ||
+           request["type"] != Homebrew::InstallSteps::Runner::PRIVILEGED_STEP_REQUEST
+          raise ArgumentError, "Invalid privileged cask child message."
+        end
+
+        index = request.fetch("index")
+        unless index.is_a?(Integer)
+          raise ArgumentError,
+                "Invalid privileged cask install step index: #{index.inspect}"
+        end
+        if index <= last_privileged_index
+          raise ArgumentError, "Privileged cask install steps must be requested in order."
+        end
+
+        step = steps.fetch(index)
+        unless runner.sudo_required?([step])
+          raise ArgumentError, "Cask install step #{index} is not privileged."
+        end
+
+        # Re-evaluate guards in the parent instead of trusting the child, while
+        # preserving snapshots across requests from the same step plan.
+        runner.run([step], phase:, reset_guard_results: false)
+        index
       end
     end
 

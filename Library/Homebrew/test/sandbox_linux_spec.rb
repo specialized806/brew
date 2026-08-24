@@ -42,6 +42,28 @@ RSpec.describe Sandbox, :needs_linux do
       end.not_to raise_error
     end
 
+    it "forwards child message handling options" do
+      messages = []
+      handler = proc do |message|
+        messages << message.chomp
+        "acknowledged"
+      end
+      script = <<~'RUBY'
+        UNIXSocket.open(ENV.fetch("HOMEBREW_ERROR_PIPE")) do |socket|
+          request_pipe = socket.recv_io
+          response_pipe = socket.recv_io
+          request_pipe.puts "privileged step"
+          request_pipe.flush
+          raise "parent did not acknowledge child message" if response_pipe.gets != "acknowledged\n"
+        end
+      RUBY
+
+      sandbox.run RUBY_PATH, "-rsocket", "-e", script,
+                  passthrough_stdin: false, child_message_handler: handler
+
+      expect(messages).to eq(["privileged step"])
+    end
+
     it "prevents listing a denied read hierarchy" do
       denied_dir = mktmpdir
       FileUtils.touch denied_dir/"secret"
