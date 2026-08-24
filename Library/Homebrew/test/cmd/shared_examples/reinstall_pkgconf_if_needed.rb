@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "reinstall"
+require "install"
 require "formula_installer"
 
 RSpec.shared_examples "reinstall_pkgconf_if_needed" do

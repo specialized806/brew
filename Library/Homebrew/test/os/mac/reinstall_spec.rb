@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "reinstall"
+require "install"
 require "extend/os/mac/pkgconf"
 
 RSpec.describe Homebrew::Reinstall do

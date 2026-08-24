@@ -16,6 +16,7 @@ end
 require_relative "../standalone"
 require_relative "../warnings"
 
+Warnings.fail_on(/circular require considered harmful/)
 Warnings.ignore(/CGI library is removed from Ruby 4\.0\./) { require "cgi" }
 
 require "test-prof"

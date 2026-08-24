@@ -3096,6 +3096,7 @@ _brew_tests() {
       --fail-fast
       --generic
       --help
+      --load-only
       --no-parallel
       --online
       --only
