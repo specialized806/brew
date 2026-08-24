@@ -31,6 +31,10 @@ Any benchmark quoted in a commit message must be the full hyperfine
 output from `brew benchmark` (using its `--exec` mode for bespoke
 workloads), never hand-summarised numbers.
 
+Pull requests must always fill in the repository's pull request
+template (`.github/PULL_REQUEST_TEMPLATE.md`), never bypass it
+(e.g. with `gh pr create --fill`).
+
 ## Current state (21 August 2026, formulae.brew.sh data)
 
 | Tag | `:any_skip_relocation` | `:any` | pinned |
