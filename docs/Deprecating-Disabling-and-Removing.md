@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-08"
+last_review_date: "2026-08-25"
 ---
 
 # Deprecating, Disabling and Removing
@@ -64,7 +64,7 @@ Formulae with dependents should not be deprecated unless all dependents are also
 
 Casks should be deprecated if at least one of the following are true:
 
-- the software fails macOS Gatekeeper checks for supported OS versions
+- the software fails [macOS Gatekeeper checks](Homebrew-Security-and-Supply-Chain.md#casks-have-a-different-trust-model) for supported OS versions
 - the software cannot be run on any supported OS versions
 - the software has outstanding CVEs
 - the software has been discontinued or abandoned upstream
