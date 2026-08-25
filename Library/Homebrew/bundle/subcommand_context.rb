@@ -15,7 +15,6 @@ module Homebrew
         const :verbose, T::Boolean
         const :force, T::Boolean
         const :ask, T::Boolean
-        const :jobs, Integer
         const :zap, T::Boolean
         const :no_type_args, T::Boolean
         const :extensions, T::Array[T.class_of(Homebrew::Bundle::Extension)]

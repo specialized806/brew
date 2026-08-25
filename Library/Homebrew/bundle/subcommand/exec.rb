@@ -105,7 +105,6 @@ module Homebrew
               verbose:      false,
               force:        false,
               ask:          false,
-              jobs:         1,
               zap:          false,
               no_type_args: true,
               extensions:   Homebrew::Bundle.extensions,

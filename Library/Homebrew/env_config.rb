@@ -191,10 +191,11 @@ module Homebrew
         hidden:      true,
       },
       HOMEBREW_BUNDLE_JOBS:                      {
-        # `HOMEBREW_BUNDLE_JOBS=auto` is the default.
-        description: "Use this value as the number of formula installations to run in parallel for " \
-                     "`brew bundle install`. Use `auto` for the number of CPU cores (max 4).",
+        description: "Ignored. `brew bundle install` batches its formula installations into a single " \
+                     "`brew install`, whose download concurrency is set by `$HOMEBREW_DOWNLOAD_CONCURRENCY`.",
         default:     "auto",
+        odeprecated: true,
+        replacement: "$HOMEBREW_DOWNLOAD_CONCURRENCY",
       },
       HOMEBREW_BUNDLE_NO_DESCRIBE:               {
         description: "If set, do not enable bundle description comments from `$HOMEBREW_BUNDLE_DESCRIBE` or " \
@@ -202,9 +203,10 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_BUNDLE_NO_JOBS:                   {
-        description: "If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or its default. " \
-                     "This does not disable an explicit `--jobs`.",
+        description: "Ignored. `brew bundle install` no longer runs formula installations in parallel.",
         boolean:     true,
+        odeprecated: true,
+        replacement: "$HOMEBREW_DOWNLOAD_CONCURRENCY",
       },
       HOMEBREW_BUNDLE_NO_SECRETS:                {
         description: "If set, `brew bundle exec`, `brew bundle env` and `brew bundle sh` will attempt to remove " \
@@ -827,7 +829,6 @@ module Homebrew
 
     # Defaults and parsing that cannot be expressed by the generated helpers.
     CUSTOM_IMPLEMENTATIONS = T.let(Set.new([
-      :HOMEBREW_BUNDLE_JOBS,
       :HOMEBREW_CASK_OPTS,
       :HOMEBREW_DOWNLOAD_CONCURRENCY,
       :HOMEBREW_FORBID_PACKAGES_FROM_PATHS,
@@ -997,19 +998,6 @@ module Homebrew
       method_name = :cask_opts_require_sha
       env_value = T.cast(Homebrew::EnvConfig.public_send(method_name), T.nilable(String))
       env_value.present? && FALSY_VALUES.exclude?(env_value.downcase)
-    end
-
-    sig { returns(T.nilable(String)) }
-    def bundle_jobs
-      if (env_value = ENV.fetch("HOMEBREW_BUNDLE_NO_JOBS", nil)).present? && FALSY_VALUES.exclude?(env_value.downcase)
-        return
-      end
-
-      default = ENVS.fetch(:HOMEBREW_BUNDLE_JOBS).fetch(:default).to_s
-      jobs = ENV["HOMEBREW_BUNDLE_JOBS"].presence
-      opoo "HOMEBREW_BUNDLE_JOBS=#{default} is now the default and no longer needs to be set." if jobs == default
-
-      jobs || default
     end
 
     sig { returns(T::Boolean) }

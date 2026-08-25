@@ -195,20 +195,6 @@ module Homebrew
           formula.presence || formulae_by_name(name)
         end
 
-        sig { params(name: String).returns(T::Array[String]) }
-        def formula_dep_names(name)
-          find_formula(name)&.fetch(:dependencies, []) || []
-        end
-
-        # Returns recursive dependency names for lock conflict detection.
-        sig { params(name: String).returns(T::Set[String]) }
-        def recursive_dep_names(name)
-          require "formula"
-          Formula[name].recursive_dependencies.to_set(&:name)
-        rescue FormulaUnavailableError
-          Set.new
-        end
-
         sig { returns(T::Array[T::Hash[Symbol, T.untyped]]) }
         def formulae
           return @formulae if @formulae

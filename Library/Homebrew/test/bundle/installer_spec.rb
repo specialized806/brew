@@ -5,7 +5,6 @@ require "bundle"
 require "attestation"
 require "bundle/dsl"
 require "bundle/installer"
-require "bundle/parallel_installer"
 require "trust"
 
 RSpec.describe Homebrew::Bundle::Installer do
@@ -26,6 +25,11 @@ RSpec.describe Homebrew::Bundle::Installer do
     allow(Homebrew::Bundle::Cask).to receive_messages(cask_upgradable?: false, install!: true)
     allow(Homebrew::Bundle::Cask).to receive_messages(installable_or_upgradable?: true, preinstall!: true)
     allow(Homebrew::Bundle::Tap).to receive_messages(preinstall!: true, install!: true, installed_taps: [])
+    # Formula entries are installed in one batched `brew install`, so specs asserting a
+    # specific `Bundle.brew` call need the others to fall through to a stub.
+    allow(Homebrew::Bundle).to receive(:brew).and_return(true)
+    # Entries can name a tap the Brewfile does not, which is otherwise cloned for real.
+    allow_any_instance_of(::Tap).to receive(:ensure_installed!)
   end
 
   it "resets cached package state before installing" do
@@ -272,474 +276,150 @@ RSpec.describe Homebrew::Bundle::Installer do
     described_class.install!([tap_entry, cask_entry], quiet: true)
   end
 
-  describe "parallel installation" do
-    let(:alpha_entry) do
-      Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "alpha",
-        options: {},
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Brew,
-      )
-    end
-    let(:beta_entry) do
-      Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "beta",
-        options: {},
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Brew,
-      )
+  describe "batched formula installation" do
+    before do
+      allow(Homebrew::Bundle).to receive(:brew).and_return(true)
     end
 
-    describe "output" do
-      subject(:parallel_installer) do
-        Homebrew::Bundle::ParallelInstaller.new(
-          [],
-          jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: false,
-        )
-      end
+    it "installs formulae needing installation in a single `brew install`" do
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--formula", "mysql", "redis", verbose: false)
+        .and_return(true)
 
-      it "uses CRLF for terminal output" do
-        output = IO.pipe do |reader, writer|
-          allow(writer).to receive(:tty?).and_return(true)
-
-          parallel_installer.write_output("Installing alpha", stream: writer)
-          writer.close
-
-          reader.read
-        end
-
-        expect(output).to eq("Installing alpha\r\n")
-      end
-
-      it "uses LF for redirected output" do
-        output = IO.pipe do |reader, writer|
-          allow(writer).to receive(:tty?).and_return(false)
-
-          parallel_installer.write_output("Installing alpha", stream: writer)
-          writer.close
-
-          reader.read
-        end
-
-        expect(output).to eq("Installing alpha\n")
-      end
+      described_class.install!([formula_entry, second_formula_entry], quiet: true)
     end
 
-    it "installs independent formulae in parallel with jobs > 1" do
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set.new)
+    it "upgrades formulae needing upgrading in a single `brew upgrade`" do
+      allow(Homebrew::Bundle::Brew).to receive(:formula_installed?).with("mysql").and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_installed?).with("redis").and_return(true)
+
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--formula", "mysql", verbose: false)
+        .and_return(true)
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("upgrade", "--formula", "redis", verbose: false)
+        .and_return(true)
+
+      described_class.install!([formula_entry, second_formula_entry], quiet: true)
+    end
+
+    it "counts every entry of a successful batch as installed" do
+      expect(described_class.install!([formula_entry, second_formula_entry], quiet: true)).to be(true)
+    end
+
+    it "attributes a failed batch to the entries that are not installed afterwards" do
+      allow(Homebrew::Bundle).to receive(:brew).with("install", any_args).and_return(false)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
+        .with("mysql", no_upgrade: false).and_return(true)
+      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?)
+        .with("redis", no_upgrade: false).and_return(false)
+
+      expect do
+        expect(described_class.install!([formula_entry, second_formula_entry], quiet: true)).to be(false)
+      end.to output(/Installing redis has failed!/).to_stderr
+    end
+
+    it "refreshes the cached view of what is installed before finishing each entry" do
+      expect(Homebrew::Bundle::Brew).to receive(:reset!).and_call_original.ordered
       expect(Homebrew::Bundle::Brew).to receive(:install!)
-        .with("alpha", preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .with("mysql", preinstall: false, no_upgrade: false, verbose: false, force: false)
+        .ordered
+        .and_return(true)
+
+      described_class.install!([formula_entry], quiet: true)
+    end
+
+    it "keeps an entry carrying options out of the batch" do
+      service_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "redis", { restart_service: :changed })
+
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--formula", "mysql", verbose: false)
         .and_return(true)
       expect(Homebrew::Bundle::Brew).to receive(:install!)
-        .with("beta", preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .with("redis", restart_service: :changed, preinstall: true, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
 
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [alpha_entry, beta_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
+      described_class.install!([formula_entry, service_entry], quiet: true)
     end
 
-    it "counts false parallel install results as failures" do
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set.new)
-      allow(Homebrew::Bundle::Brew).to receive(:install!)
-        .with("alpha", preinstall: true, no_upgrade: false, verbose: false, force: false)
+    it "keeps an entry needing a Brewfile tap out of the batch" do
+      tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
+      tapped_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "bar")
+      allow(Homebrew::API).to receive_messages(formula_name?: false, formula_aliases: {}, formula_renames: {})
+
+      expect(Homebrew::Bundle).not_to receive(:brew).with("install", any_args)
+      expect(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("bar", preinstall: true, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
-      allow(Homebrew::Bundle::Brew).to receive(:install!)
-        .with("beta", preinstall: true, no_upgrade: false, verbose: false, force: false)
-        .and_return(false)
 
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [alpha_entry, beta_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(1)
-      expect(failure).to eq(1)
+      described_class.install!([tap_entry, tapped_entry], quiet: true)
     end
 
-    it "prepares attestation verification before parallel installs" do
-      tpack_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "tpack",
-        options: { args: {}, full_name: "tmuxpack/tpack/tpack" },
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Cask,
-      )
-      install_order = []
+    it "keeps an unloadable formula out of the batch" do
+      allow(Formula).to receive(:[]).with("mysql").and_raise(FormulaUnavailableError, "mysql")
 
+      expect(Homebrew::Bundle).not_to receive(:brew).with("install", any_args)
+      expect(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("mysql", preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .and_return(true)
+
+      described_class.install!([formula_entry], quiet: true)
+    end
+
+    it "keeps an already up-to-date entry out of the batch but still finishes it" do
+      allow(Homebrew::Bundle::Brew).to receive(:preinstall!).with("mysql", any_args).and_return(false)
+
+      expect(Homebrew::Bundle).not_to receive(:brew).with("install", any_args)
+      expect(Homebrew::Bundle::Brew).to receive(:install!)
+        .with("mysql", preinstall: false, no_upgrade: false, verbose: false, force: false)
+        .and_return(true)
+
+      expect { described_class.install!([formula_entry], quiet: false) }.to output(/Using mysql/).to_stdout
+    end
+
+    it "does not batch casks" do
+      expect(Homebrew::Bundle).not_to receive(:brew).with("install", any_args)
+      expect(Homebrew::Bundle::Cask).to receive(:install!)
+        .with("google-chrome", **cask_options, preinstall: true, no_upgrade: false, verbose: false, force: false)
+        .and_return(true)
+
+      described_class.install!([cask_entry], quiet: true)
+    end
+
+    it "installs Brewfile taps before batching the formulae" do
+      tap_entry = Homebrew::Bundle::Dsl::Entry.new(:tap, "homebrew/foo")
+      order = []
+      allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
+        order << name
+        true
+      end
+      allow(Homebrew::Bundle).to receive(:brew) do |*args, **_options|
+        order << args.first
+        true
+      end
+
+      described_class.install!([formula_entry, tap_entry], quiet: true)
+
+      expect(order).to eq(["fetch", "homebrew/foo", "install"])
+    end
+
+    it "resolves `gh` before installing anything when verifying attestations" do
+      order = []
       allow(Homebrew::EnvConfig).to receive(:verify_attestations?).and_return(true)
       allow(Homebrew::Attestation).to receive(:gh_executable) do
-        install_order << "gh"
+        order << "gh"
         Pathname("/fake/gh")
       end
-      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
-      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"])
-                                                                     .and_return([])
-      allow(Tap).to receive(:with_cask_token).with("tmuxpack/tpack/tpack").and_return(nil)
-      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
-        install_order << name
+      allow(Homebrew::Bundle).to receive(:brew) do |*args, **_options|
+        order << args.first
         true
       end
 
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [alpha_entry, tpack_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
+      described_class.install!([formula_entry], quiet: true)
 
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order.first).to eq("gh")
-    end
-
-    it "serializes dependent formulae" do
-      install_order = []
-      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha")
-                                                                      .and_return({ dependencies: ["beta"] })
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set.new)
-
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [alpha_entry, beta_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order).to eq(["beta", "alpha"])
-    end
-
-    it "serializes formulae with shared build-only recursive dependencies" do
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set["shared-build-dep"])
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set["shared-build-dep"])
-
-      entries = [alpha_entry, beta_entry]
-      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
-        entries,
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).build_dependency_map(entries)
-
-      expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
-    end
-
-    it "serializes formulae that would both silently install the same implicit dependency" do
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("beta").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("beta").and_return(Set.new)
-      allow(DependencyCollector).to receive(:new).and_return(
-        instance_double(DependencyCollector, implicit_dependency_names: Set["glibc"]),
-      )
-
-      entries = [alpha_entry, beta_entry]
-      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
-        entries,
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).build_dependency_map(entries)
-
-      expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
-    end
-
-    it "only waits on the first formula racing for a shared implicit dependency, not on every other" do
-      gamma_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name: "gamma", options: {}, verb: "Installing", cls: Homebrew::Bundle::Brew,
-      )
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with(any_args).and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with(any_args).and_return(Set.new)
-      allow(DependencyCollector).to receive(:new).and_return(
-        instance_double(DependencyCollector, implicit_dependency_names: Set["glibc"]),
-      )
-
-      entries = [alpha_entry, beta_entry, gamma_entry]
-      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
-        entries,
-        jobs: 3, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).build_dependency_map(entries)
-
-      expect(dependency_map.fetch("alpha")).to eq(Set.new)
-      expect(dependency_map.fetch("beta")).to eq(Set["alpha"])
-      expect(dependency_map.fetch("gamma")).to eq(Set["alpha"])
-    end
-
-    it "does not force a cask with no formula dependencies to wait on a shared implicit dependency" do
-      installable_cask_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name: "google-chrome", options: {}, verb: "Installing", cls: Homebrew::Bundle::Cask,
-      )
-      allow(Homebrew::Bundle::Brew).to receive(:formulae_by_full_name).with("alpha").and_return({ dependencies: [] })
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["google-chrome"]).and_return([])
-      allow(DependencyCollector).to receive(:new).and_return(
-        instance_double(DependencyCollector, implicit_dependency_names: Set["glibc"]),
-      )
-
-      entries = [alpha_entry, installable_cask_entry]
-      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
-        entries,
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).build_dependency_map(entries)
-
-      expect(dependency_map.fetch("google-chrome")).to eq(Set.new)
-    end
-
-    it "installs a Brewfile `gh` before other entries when verifying attestations" do
-      gh_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "gh",
-        options: {},
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Brew,
-      )
-
-      allow(Homebrew::EnvConfig).to receive(:verify_attestations?).and_return(true)
-      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("gh").and_return([])
-      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("gh").and_return(Set.new)
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-
-      entries = [alpha_entry, gh_entry]
-      dependency_map = Homebrew::Bundle::ParallelInstaller.new(
-        entries,
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).build_dependency_map(entries)
-
-      expect(dependency_map.fetch("alpha")).to eq(Set["gh"])
-    end
-
-    it "uses cask full names when resolving formula dependencies" do
-      tpack_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "tpack",
-        options: { args: {}, full_name: "tmuxpack/tpack/tpack" },
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Cask,
-      )
-      install_order = []
-
-      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
-      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"])
-                                                                     .and_return(["alpha"])
-      allow(Tap).to receive(:with_cask_token).with("tmuxpack/tpack/tpack").and_return(nil)
-      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [alpha_entry, tpack_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order).to eq(["alpha", "tpack"])
-    end
-
-    it "taps fully qualified casks before resolving dependencies" do
-      tpack_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "tpack",
-        options: { args: {}, full_name: "tmuxpack/tpack/tpack" },
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Cask,
-      )
-      install_order = []
-      event_order = []
-      tap = instance_double(Tap, name: "tmuxpack/tpack", ensure_installed!: nil)
-
-      allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return([])
-      allow(Tap).to receive(:with_formula_name).with("alpha").and_return(nil)
-      allow(Tap).to receive(:with_cask_token).with("tmuxpack/tpack/tpack").and_return([tap, "tpack"])
-      allow(tap).to receive(:ensure_installed!) { event_order << :tap_install }
-      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
-      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names).with("alpha").and_return([])
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names).with("alpha").and_return(Set.new)
-      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["tmuxpack/tpack/tpack"]) do
-        event_order << :cask_deps
-        ["alpha"]
-      end
-      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [alpha_entry, tpack_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order).to eq(["alpha", "tpack"])
-      expect(event_order).to eq([:tap_install, :cask_deps])
-    end
-
-    it "installs unqualified formulae after Brewfile taps" do
-      tap_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "homebrew/foo",
-        options: {},
-        verb:    "Tapping",
-        cls:     Homebrew::Bundle::Tap,
-      )
-      tapped_formula_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "bar",
-        options: {},
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Brew,
-      )
-      install_order = []
-
-      allow(Homebrew::API).to receive_messages(formula_name?: false, formula_aliases: {}, formula_renames: {})
-      allow(Homebrew::Bundle::Brew).to receive_messages(formula_dep_names: [], recursive_dep_names: Set.new)
-      allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [tap_entry, tapped_formula_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order).to eq(["homebrew/foo", "bar"])
-    end
-
-    it "reads fully qualified formulae after installing their Brewfile taps" do
-      tap_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "thirdparty/rootformula",
-        options: {},
-        verb:    "Tapping",
-        cls:     Homebrew::Bundle::Tap,
-      )
-      tapped_formula_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "thirdparty/rootformula/foo",
-        options: {},
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Brew,
-      )
-      install_order = []
-      event_order = []
-
-      allow(Homebrew::Bundle::Brew).to receive(:formula_dep_names) do |name|
-        event_order << :formula_dep_names
-        expect(name).to eq("thirdparty/rootformula/foo")
-        []
-      end
-      allow(Homebrew::Bundle::Brew).to receive(:recursive_dep_names) do |name|
-        event_order << :recursive_dep_names
-        expect(name).to eq("thirdparty/rootformula/foo")
-        Set.new
-      end
-      allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
-        install_order << name
-        event_order << :tap_install
-        true
-      end
-      allow(Homebrew::Bundle::Brew).to receive(:install!) do |name, **_options|
-        install_order << name
-        event_order << :formula_install
-        true
-      end
-
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [tap_entry, tapped_formula_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order).to eq(["thirdparty/rootformula", "thirdparty/rootformula/foo"])
-      expect(event_order).to eq([:tap_install, :formula_dep_names, :recursive_dep_names, :formula_install])
-    end
-
-    it "installs unqualified casks after Brewfile taps" do
-      tap_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "xykong/tap",
-        options: {},
-        verb:    "Tapping",
-        cls:     Homebrew::Bundle::Tap,
-      )
-      tapped_cask_entry = Homebrew::Bundle::Installer::InstallableEntry.new(
-        name:    "flux-markdown",
-        options: { args: {}, full_name: "flux-markdown" },
-        verb:    "Installing",
-        cls:     Homebrew::Bundle::Cask,
-      )
-      install_order = []
-
-      allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
-      allow(Homebrew::Bundle).to receive(:cask_installed?).and_return(false)
-      allow(Homebrew::Bundle::Cask).to receive(:formula_dependencies).with(["flux-markdown"]).and_return([])
-      allow(Homebrew::Bundle::Tap).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-      allow(Homebrew::Bundle::Cask).to receive(:install!) do |name, **_options|
-        install_order << name
-        true
-      end
-
-      success, failure = Homebrew::Bundle::ParallelInstaller.new(
-        [tap_entry, tapped_cask_entry],
-        jobs: 2, no_upgrade: false, verbose: false, force: false, quiet: true,
-      ).run!
-
-      expect(success).to eq(2)
-      expect(failure).to eq(0)
-      expect(install_order).to eq(["xykong/tap", "flux-markdown"])
-    end
-
-    it "falls back to sequential with jobs=1" do
-      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?).with("mysql",
-                                                                                        no_upgrade: false)
-                                                                                  .and_return(false)
-      allow(Homebrew::Bundle::Brew).to receive(:formula_installed_and_up_to_date?).with("redis",
-                                                                                        no_upgrade: false)
-                                                                                  .and_return(false)
-
-      expect(Homebrew::Bundle::ParallelInstaller).not_to receive(:new)
-      expect(Homebrew::Bundle).to receive(:brew).with("fetch", "mysql", "redis",
-                                                      verbose: false).ordered.and_return(true)
-      expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
-        .with("mysql", no_upgrade: false, verbose: false).ordered.and_return(true)
-      expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
-        .with("redis", no_upgrade: false, verbose: false).ordered.and_return(true)
-
-      described_class.install!([formula_entry, second_formula_entry], jobs: 1, quiet: true)
+      expect(order.first).to eq("fetch")
+      expect(order).to include("gh")
+      expect(order.index("gh")).to be < order.index("install")
     end
   end
 end

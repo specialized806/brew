@@ -295,26 +295,6 @@ RSpec.describe Homebrew::EnvConfig do
     end
   end
 
-  describe ".bundle_jobs" do
-    it "returns auto if unset" do
-      with_env(HOMEBREW_BUNDLE_JOBS: nil, HOMEBREW_BUNDLE_NO_JOBS: nil) do
-        expect(env_config.bundle_jobs).to eql("auto")
-      end
-    end
-
-    it "returns nil if HOMEBREW_BUNDLE_NO_JOBS is set" do
-      with_env(HOMEBREW_BUNDLE_JOBS: "auto", HOMEBREW_BUNDLE_NO_JOBS: "1") do
-        expect(env_config.bundle_jobs).to be_nil
-      end
-    end
-
-    it "warns if HOMEBREW_BUNDLE_JOBS is explicitly set to the default" do
-      with_env(HOMEBREW_BUNDLE_JOBS: "auto", HOMEBREW_BUNDLE_NO_JOBS: nil) do
-        expect { env_config.bundle_jobs }.to output(/HOMEBREW_BUNDLE_JOBS=auto is now the default/).to_stderr
-      end
-    end
-  end
-
   describe ".bundle_no_secrets?" do
     it "returns true if unset" do
       with_env(HOMEBREW_BUNDLE_NO_SECRETS: nil, HOMEBREW_BUNDLE_SECRETS: nil) do

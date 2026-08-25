@@ -46,12 +46,11 @@ module Homebrew
           no_upgrade: T::Boolean,
           verbose:    T::Boolean,
           force:      T::Boolean,
-          jobs:       Integer,
           quiet:      T::Boolean,
         ).returns(T::Boolean)
       }
       def self.install!(entries, global: false, file: nil, no_lock: false, no_upgrade: false, verbose: false,
-                        force: false, jobs: 1, quiet: false)
+                        force: false, quiet: false)
         success = 0
         failure = 0
 
@@ -87,22 +86,35 @@ module Homebrew
           end
         end
 
-        if jobs > 1 && installable_entries.size > 1
-          require "bundle/parallel_installer"
+        # Taps first: later entries can live in them, and `ensure_installed!` below
+        # needs the ones the Brewfile itself provides to already be present.
+        tap_entries, pending_entries = installable_entries.partition { |entry| entry.cls == Tap }
+        tap_entries.each do |entry|
+          if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
+            success += 1
+          else
+            failure += 1
+          end
+        end
+        ::Tap.clear_cache if tap_entries.present?
+        installed_taps = ensure_entry_taps_installed!(pending_entries, tap_entries:)
+        prepare_attestation_verification!(pending_entries)
 
-          parallel = ParallelInstaller.new(
-            installable_entries, jobs:, no_upgrade:, verbose:, force:, quiet:
-          )
-          parallel_success, parallel_failure = parallel.run!
-          success += parallel_success
-          failure += parallel_failure
-        else
-          installable_entries.each do |entry|
-            if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
-              success += 1
-            else
-              failure += 1
-            end
+        batchable, remaining = pending_entries.partition do |entry|
+          batchable?(entry, entries: pending_entries, installed_taps:)
+        end
+
+        if batchable.present?
+          batch_success, batch_failure = batch_install!(batchable, no_upgrade:, verbose:, force:, quiet:)
+          success += batch_success
+          failure += batch_failure
+        end
+
+        remaining.each do |entry|
+          if install_entry!(entry, no_upgrade:, verbose:, force:, quiet:)
+            success += 1
+          else
+            failure += 1
           end
         end
 
@@ -182,6 +194,137 @@ module Homebrew
         true
       end
       private_class_method :unavailable_without_tap?
+
+      # Installs the taps that entries live in but the Brewfile does not list, returning
+      # the names of every tap now installed.
+      sig {
+        params(
+          entries:     T::Array[InstallableEntry],
+          tap_entries: T::Array[InstallableEntry],
+        ).returns(T::Array[String])
+      }
+      def self.ensure_entry_taps_installed!(entries, tap_entries:)
+        require "tap"
+
+        installed_taps = Tap.installed_taps
+        entries.each do |entry|
+          tap_with_name = case entry.cls.name
+          when "Homebrew::Bundle::Brew" then ::Tap.with_formula_name(entry.full_name)
+          when "Homebrew::Bundle::Cask" then ::Tap.with_cask_token(entry.full_name)
+          end
+          next unless tap_with_name
+
+          tap = tap_with_name.first
+          next if installed_taps.include?(tap.name)
+          next if tap_entries.any? { |tap_entry| tap_entry.name == tap.name }
+
+          tap.ensure_installed!
+          installed_taps << tap.name
+        end
+        installed_taps
+      end
+      private_class_method :ensure_entry_taps_installed!
+
+      # Resolve `gh` up front when it is needed to verify attestations, so that the
+      # batched install does not have to.
+      sig { params(entries: T::Array[InstallableEntry]).void }
+      def self.prepare_attestation_verification!(entries)
+        return unless Homebrew::EnvConfig.verify_attestations?
+        return unless entries.any? { |entry| [Brew, Cask].include?(entry.cls) }
+        return if entries.any? { |entry| entry.cls == Brew && entry.name == "gh" }
+
+        require "attestation"
+
+        Homebrew::Attestation.gh_executable
+      end
+      private_class_method :prepare_attestation_verification!
+
+      # Options that do not change the `brew install` command line, so entries carrying
+      # only these can share one invocation.
+      BATCHABLE_OPTION_KEYS = [:full_name, :trusted].freeze
+
+      # Formula entries whose install is a plain `brew install <name>` can be batched.
+      # Anything else keeps its own child process, because it either passes extra
+      # arguments, needs work before or after the install, or is not a formula at all.
+      sig {
+        params(
+          entry:          InstallableEntry,
+          entries:        T::Array[InstallableEntry],
+          installed_taps: T::Array[String],
+        ).returns(T::Boolean)
+      }
+      def self.batchable?(entry, entries:, installed_taps:)
+        return false if entry.cls != Brew
+        return false if (entry.options.keys - BATCHABLE_OPTION_KEYS).any?
+        return false if tap_dependencies(entry, entries:, installed_taps:).present?
+
+        # One name that cannot be loaded would otherwise fail the whole invocation
+        # before anything installs.
+        require "formula"
+        Formula[entry.full_name]
+        true
+      rescue
+        false
+      end
+      private_class_method :batchable?
+
+      # Installs every entry in one `brew install` and one `brew upgrade`, then finishes
+      # each entry so its link state is still reconciled per entry.
+      sig {
+        params(
+          entries:    T::Array[InstallableEntry],
+          no_upgrade: T::Boolean,
+          verbose:    T::Boolean,
+          force:      T::Boolean,
+          quiet:      T::Boolean,
+        ).returns([Integer, Integer])
+      }
+      def self.batch_install!(entries, no_upgrade:, verbose:, force:, quiet:)
+        actionable = entries.select do |entry|
+          if Brew.preinstall!(entry.name, **entry.options, no_upgrade:, verbose:)
+            puts Formatter.success("#{entry.verb} #{entry.name}")
+            true
+          else
+            puts "Using #{entry.name}" unless quiet
+            false
+          end
+        end
+
+        upgradable, fresh = actionable.partition { |entry| Brew.formula_installed?(entry.name) }
+
+        install_args = force ? ["--force", "--overwrite"] : []
+        upgrade_args = force ? ["--force"] : []
+        # Attempt both halves even if the first fails, like the per-entry path would.
+        installed_ok = fresh.empty? ||
+                       Bundle.brew("install", "--formula", *fresh.map(&:full_name), *install_args, verbose:)
+        upgraded_ok = upgradable.empty? ||
+                      Bundle.brew("upgrade", "--formula", *upgradable.map(&:name), *upgrade_args, verbose:)
+        batch_succeeded = installed_ok && upgraded_ok
+
+        # The batch changed what is installed, so the memoised views of it are stale and
+        # `Brew.install!` below would skip the link and service steps for every entry.
+        require "formula"
+        Formula.clear_cache
+        Brew.reset!
+
+        success = 0
+        failure = 0
+        entries.each do |entry|
+          # `brew install` exits non-zero if any package failed, so a successful batch
+          # means every entry in it succeeded. Only when it failed do we have to ask what
+          # ended up installed, since the exit status cannot name the entry that failed.
+          entry_succeeded = batch_succeeded || Brew.formula_installed_and_up_to_date?(entry.name, no_upgrade:)
+          if entry_succeeded &&
+             Brew.install!(entry.name, **entry.options, preinstall: false, no_upgrade:, verbose:, force:)
+            success += 1
+          else
+            $stderr.puts Formatter.error("#{entry.verb} #{entry.name} has failed!")
+            failure += 1
+          end
+        end
+        [success, failure]
+      end
+      private_class_method :batch_install!
 
       sig {
         params(
