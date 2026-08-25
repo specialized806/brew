@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-07-18"
+last_review_date: "2026-08-25"
 ---
 
 # Acceptable Casks
@@ -32,7 +32,7 @@ The [Cask Cookbook](Cask-Cookbook.md#casks-pinned-to-specific-versions) document
 * A cask is not required to support both operating systems.
 * A cask must work on every operating system and architecture it declares.
 * A cask that supports macOS must work on the latest major version of macOS.
-* On macOS, it must not require System Integrity Protection or Gatekeeper to be disabled or bypassed.
+* On macOS, apps, installers and other executable artefacts that Gatekeeper can assess must pass Homebrew's [Gatekeeper checks](Homebrew-Security-and-Supply-Chain.md#casks-have-a-different-trust-model) and must not require System Integrity Protection or Gatekeeper to be disabled or bypassed.
 
 Apple's [Rosetta 2 transition documentation](https://developer.apple.com/documentation/apple-silicon/about-the-rosetta-translation-environment/) says general application support will remain available through macOS 27, with only a narrower legacy-games-focused subset beyond that.
 Casks that require [`requires_rosetta`](Cask-Cookbook.md#caveats-mini-dsl) remain eligible while the latest major macOS release provides that general support.

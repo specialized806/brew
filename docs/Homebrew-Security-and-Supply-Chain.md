@@ -1,8 +1,8 @@
 ---
-description: Homebrew security and supply chain defences, including package review, checksums, signed metadata, bottles, sandboxing and tap trust.
+description: Homebrew security and supply chain defences, including formula and Cask trust models, checksums, signed metadata, bottles, Gatekeeper, sandboxing and tap trust.
 redirect_from:
   - /Supply-Chain-Security
-last_review_date: "2026-06-15"
+last_review_date: "2026-08-25"
 ---
 
 # Homebrew Security and Supply Chain
@@ -188,13 +188,34 @@ Homebrew builds run with a filtered, sanitised environment rather than your full
 
 ### Casks have a different trust model
 
-[Casks](Cask-Cookbook.md) install prebuilt applications straight from the vendor rather than from a Homebrew-built bottle, so their trust model is necessarily weaker than that of formulae.
-Homebrew reviews the cask definition and verifies a `sha256` checksum of the download where it can, but some casks set `sha256 :no_check` because the upstream `url` does not change between releases, and many set `auto_updates true` to declare that the application updates itself.
-For those casks the vendor, not Homebrew, controls the bytes you eventually run, and self-updating apps fetch later versions outside Homebrew entirely.
-Cask installation artifacts are treated as trusted vendor installation actions once a cask is accepted, so prefer casks from vendors you trust.
+Formulae and casks share Homebrew's reviewed package metadata and signed JSON API, but they do not share the same artefact security model.
+`homebrew/core` formulae are open source build recipes based on checksummed source.
+Homebrew builds bottles for formulae in its own controlled, ephemeral CI and checksums the result, so users normally trust Homebrew's reviewed source-to-bottle pipeline rather than a binary supplied and signed by the upstream developer.
 
-Even so, installing a cask is at worst no less secure than downloading and running that software directly from the vendor yourself, which is the realistic alternative.
-At best, when a cask pins a `sha256`, Homebrew additionally guarantees the download has not changed since a maintainer reviewed it, which is much more secure than an unverified manual download.
+[Casks](Cask-Cookbook.md) instead install prebuilt applications and installers supplied directly by the upstream developer.
+This is necessary for native macOS applications and proprietary software, but Homebrew usually cannot reproduce those binaries from source or compare them with an independently produced build.
+A cask's `sha256` proves that the downloaded bytes match the package metadata, but it does not prove who produced those bytes or whether the program inside is trustworthy.
+Some casks must use `sha256 :no_check` because their download URL changes contents in place, while self-updating applications can replace themselves outside Homebrew entirely.
+Cask installation artefacts are treated as trusted vendor installation actions once a cask is accepted, so users must still trust the vendor.
+
+On macOS, code signing, notarisation and Gatekeeper provide independent checks that compensate for this weaker artefact model:
+
+* A [Developer ID signature](https://developer.apple.com/developer-id/) ties the artefact to a certificate Apple issued to a registered developer and lets macOS detect changes made after it was signed.
+* [Apple's notary service](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution) automatically scans submitted software for known malicious content and code-signing problems, records the result and issues a ticket that Apple can later revoke.
+* [Gatekeeper](https://support.apple.com/guide/security/gatekeeper-and-runtime-protection-sec5599b66df/web) checks the developer identity, notarisation ticket and signature when quarantined software is first opened or installed.
+
+Homebrew applies macOS quarantine attributes to Cask downloads so Gatekeeper performs these checks instead of Homebrew bypassing them.
+Homebrew also audits apps, installers and other executable artefacts in official macOS casks that Gatekeeper can assess and requires them to pass on a default macOS configuration.
+These controls are not a guarantee that an application is harmless: notarisation is an automated malware check, not a source review or App Store review.
+They are nevertheless a meaningful additional trust layer outside the upstream download server and Homebrew's metadata, with an attributable developer, tamper detection and a revocation path if malicious software is discovered later.
+For a `sha256 :no_check` cask, this can be the principal validation of changing download contents that is independent of the upstream server.
+
+This requirement can make older casks ineligible even when users have run earlier versions without incident.
+That history does not authenticate the next download, detect later tampering or provide a revocable identity for it.
+Keeping such a cask would also require users to override the same macOS protection that Homebrew relies on for vendor-built artefacts.
+Homebrew therefore [deprecates, disables and eventually removes](Deprecating-Disabling-and-Removing.md#when-to-deprecate-casks) casks that fail Gatekeeper checks rather than normalising a security bypass.
+Removal does not mean Homebrew has determined that the software is malware; it means the upstream artefact no longer meets the security baseline for distribution through `homebrew/cask`.
+The cask can become eligible again when upstream provides artefacts that pass the checks.
 
 ### Cooldowns on riskier ecosystems
 

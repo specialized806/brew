@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-07-18"
+last_review_date: "2026-08-25"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -203,6 +203,12 @@ gh pr checkout pull_request_number
 Use `brew log <formula>` to find out! Likely because it had [unresolved issues](Acceptable-Formulae.md) and/or [our analytics](https://formulae.brew.sh/analytics/) indicated it was not widely used.
 
 For disabled and deprecated formulae, running `brew info <formula>` will also provide an explanation.
+
+## Why was a cask disabled or removed after a macOS security check?
+
+Official macOS casks must pass Homebrew's Gatekeeper checks without requiring users to bypass them.
+A failure is not a malware verdict, but the cask may be deprecated, disabled and eventually removed until upstream provides artefacts that pass.
+The [Cask security model](Homebrew-Security-and-Supply-Chain.md#casks-have-a-different-trust-model) explains why this policy differs from formulae and what signing, notarisation and Gatekeeper add.
 
 ## Homebrew is a poor name, it's too generic; why was it chosen?
 

@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-07-18"
+last_review_date: "2026-08-25"
 ---
 
 # Cask Cookbook
@@ -183,6 +183,7 @@ Cross-platform casks should scope OS-specific artifact stanzas inside `on_macos`
 ### Cask artifact trust and sandboxing
 
 Homebrew treats cask installation artifacts as trusted vendor installation actions once the cask has been accepted. Artifact stanzas such as [`app`](#stanza-app), [`pkg`](#stanza-pkg) and [`installer script`](#installer-script) are expected to install software and may write outside the Caskroom through Homebrew-managed moves, macOS installer services or vendor installer code.
+Official macOS casks must also meet the [Gatekeeper requirement](Acceptable-Casks.md#platform-compatibility-and-macos-security-protections); the [Cask security model](Homebrew-Security-and-Supply-Chain.md#casks-have-a-different-trust-model) explains why.
 
 Generated completion artifacts are different: `generate_completions_from_executable` runs an installed executable only to produce shell completion text. The complete generation operation, including writing the completion, runs in an isolated Ruby subprocess where Homebrew has an available sandbox. The sandbox allows reading the staged cask, writing the completion and temporary/cache files and blocks network access. This limits side effects from commands that should only print completion data.
 
