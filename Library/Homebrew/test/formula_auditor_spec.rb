@@ -140,6 +140,52 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
   end
 
+  describe "#audit_homepage_domain_age" do
+    let(:domain_problem) { "`homepage` domain `brew.sh` was registered on 2026-07-01" }
+
+    def homepage_auditor(**options)
+      formula_auditor "foo", <<~RUBY, { core_tap: true, new_formula: true }.merge(options)
+        class Foo < Formula
+          homepage "https://brew.sh"
+          url "https://brew.sh/foo-1.0.tar.gz"
+        end
+      RUBY
+    end
+
+    it "reports newly registered homepage domains" do
+      allow(SharedAudits).to receive(:new_domain_problem)
+        .with("https://brew.sh").and_return(domain_problem)
+
+      fa = homepage_auditor
+      fa.audit_homepage_domain_age
+
+      expect(fa.problems.first[:message]).to eq(domain_problem)
+    end
+
+    it "accepts established homepage domains" do
+      allow(SharedAudits).to receive(:new_domain_problem).and_return(nil)
+
+      fa = homepage_auditor
+      fa.audit_homepage_domain_age
+
+      expect(fa.problems).to be_empty
+    end
+
+    it "does not check existing formulae" do
+      fa = homepage_auditor new_formula: false
+
+      expect(SharedAudits).not_to receive(:new_domain_problem)
+      fa.audit_homepage_domain_age
+    end
+
+    it "does not check formulae outside homebrew/core" do
+      fa = homepage_auditor core_tap: false
+
+      expect(SharedAudits).not_to receive(:new_domain_problem)
+      fa.audit_homepage_domain_age
+    end
+  end
+
   describe "#audit_license" do
     let(:spdx_license_data) { SPDX.license_data }
     let(:spdx_exception_data) { SPDX.exception_data }
