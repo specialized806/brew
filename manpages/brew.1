@@ -215,7 +215,7 @@ Run \fBbrew upgrade\fP on outdated dependencies, even if \fB$HOMEBREW_BUNDLE_NO_
 Run \fBbrew upgrade\fP on any of these comma\-separated formulae, even if \fB$HOMEBREW_BUNDLE_NO_UPGRADE\fP is set\.
 .TP
 \fB\-\-jobs\fP
-Run up to this many formula installations in parallel\. Defaults to 1 (sequential)\. Use \fBauto\fP for the number of CPU cores (max 4)\.
+Ignored\. Formula installations are batched into a single \fBbrew install\fP, whose download concurrency is set by \fB$HOMEBREW_DOWNLOAD_CONCURRENCY\fP\&\.
 .TP
 \fB\-f\fP, \fB\-\-force\fP
 Run with \fB\-\-force\fP/\fB\-\-overwrite\fP\&\.
@@ -2903,18 +2903,8 @@ If set, \fBbrew bundle dump\fP will not dump WinGet packages\.
 \fBHOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP\fP
 If set, run \fBbrew bundle cleanup \-\-force\fP after \fBbrew bundle install\fP\&\.
 .TP
-\fBHOMEBREW_BUNDLE_JOBS\fP
-Use this value as the number of formula installations to run in parallel for \fBbrew bundle install\fP\&\. Use \fBauto\fP for the number of CPU cores (max 4)\.
-.RS
-.P
-\fIDefault:\fP \fBauto\fP\&\.
-.RE
-.TP
 \fBHOMEBREW_BUNDLE_NO_DESCRIBE\fP
 If set, do not enable bundle description comments from \fB$HOMEBREW_BUNDLE_DESCRIBE\fP or the default\. This does not disable an explicit \fB\-\-describe\fP\&\.
-.TP
-\fBHOMEBREW_BUNDLE_NO_JOBS\fP
-If set, do not enable parallel jobs from \fB$HOMEBREW_BUNDLE_JOBS\fP or its default\. This does not disable an explicit \fB\-\-jobs\fP\&\.
 .TP
 \fBHOMEBREW_BUNDLE_SECRETS\fP
 If set, do not enable the default secret scrubbing\. This does not disable an explicit \fB\-\-no\-secrets\fP\&\.

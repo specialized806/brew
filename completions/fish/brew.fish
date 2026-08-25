@@ -637,7 +637,7 @@ __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l force -d 'Run with `-
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l force-cleanup -d 'Perform cleanup after installing dependencies without asking. Enabled by default if `$HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP` is set and `--global` is passed'
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l global -d 'Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise'
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l help -d 'Show this message'
-__fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l jobs -d 'Run up to this many formula installations in parallel. Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)'
+__fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l jobs -d 'Ignored. Formula installations are batched into a single `brew install`, whose download concurrency is set by `$HOMEBREW_DOWNLOAD_CONCURRENCY`'
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l no-upgrade -d 'Do not run `brew upgrade` on outdated dependencies. Note they may still be upgraded by `brew install` if needed. Enabled by default if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set'
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_sub_arg 'bundle' 'install upgrade' -l upgrade -d 'Run `brew upgrade` on outdated dependencies, even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set'
