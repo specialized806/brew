@@ -71,6 +71,7 @@ module Homebrew
           if testing_portable_ruby?
             portable_formula!(f, args:)
           else
+            cleanup_package_manager_caches
             formula!(f, args:)
           end
           puts

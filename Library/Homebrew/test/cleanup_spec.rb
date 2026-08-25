@@ -601,6 +601,32 @@ RSpec.describe Homebrew::Cleanup do
       expect(go_cache).not_to exist
     end
 
+    it "cleans up 'bundler_cache'" do
+      bundler_cache = (HOMEBREW_CACHE/"bundler_cache")
+      bundler_cache.mkpath
+
+      cleanup.cleanup_cache
+
+      expect(bundler_cache).not_to exist
+    end
+
+    it "prunes only old files from the content-addressed 'npm_cache'" do
+      npm_cache = (HOMEBREW_CACHE/"npm_cache")
+      old_file = npm_cache/"_cacache/old"
+      new_file = npm_cache/"_cacache/new"
+      [old_file, new_file].each do |file|
+        file.dirname.mkpath
+        file.write ""
+      end
+      allow(described_class).to receive(:prune?).and_return(false)
+      allow(described_class).to receive(:prune?).with(old_file, anything).and_return(true)
+
+      cleanup.cleanup_cache
+
+      expect(old_file).not_to exist
+      expect(new_file).to exist
+    end
+
     it "cleans up 'glide_home'" do
       glide_home = (HOMEBREW_CACHE/"glide_home")
       glide_home.mkpath
@@ -619,13 +645,13 @@ RSpec.describe Homebrew::Cleanup do
       expect(java_cache).not_to exist
     end
 
-    it "cleans up 'npm_cache'" do
+    it "keeps the content-addressed 'npm_cache'" do
       npm_cache = (HOMEBREW_CACHE/"npm_cache")
       npm_cache.mkpath
 
       cleanup.cleanup_cache
 
-      expect(npm_cache).not_to exist
+      expect(npm_cache).to exist
     end
 
     it "cleans up 'gclient_cache'" do

@@ -9,6 +9,22 @@ RSpec.describe Homebrew::TestBot::TestFormulae do
     described_class.new(tap: nil, git: nil, dry_run: false, fail_fast: false, verbose: false)
   end
 
+  describe "#cleanup_package_manager_caches" do
+    it "removes caches that do not verify their contents but keeps content-addressed ones" do
+      read_only = HOMEBREW_CACHE/"go_mod_cache/read-only"
+      read_only.mkpath
+      read_only.chmod(0555)
+      (HOMEBREW_CACHE/"npm_cache").mkpath
+
+      with_env(HOMEBREW_GITHUB_ACTIONS: "1") do
+        test_formulae.cleanup_package_manager_caches
+      end
+
+      expect(HOMEBREW_CACHE/"go_mod_cache").not_to exist
+      expect(HOMEBREW_CACHE/"npm_cache").to exist
+    end
+  end
+
   describe "#artifact_cache_valid?" do
     it "rejects a bottle when a local patch has changed" do
       Dir.mktmpdir do |tmpdir|

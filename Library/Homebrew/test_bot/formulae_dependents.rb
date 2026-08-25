@@ -76,6 +76,7 @@ module Homebrew
         end
 
         @dependent_testing_formulae.each do |formula_name|
+          cleanup_package_manager_caches
           dependent_formulae!(formula_name, args:)
           puts
         end

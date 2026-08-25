@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "package_manager_cache"
 require "trust"
 
 module Homebrew
@@ -108,6 +109,20 @@ module Homebrew
         download_artifacts_from_previous_run!(artifact_pattern, dry_run:)
       rescue GitHub::API::AuthenticationFailedError => e
         opoo e
+      end
+
+      # A build could poison the package manager caches for the builds after
+      # it, so start each one with only the caches that verify their contents.
+      sig { void }
+      def cleanup_package_manager_caches
+        return if ENV["HOMEBREW_GITHUB_ACTIONS"].blank?
+
+        paths = Homebrew::PackageManagerCache.paths.select(&:exist?).reject do |path|
+          Homebrew::PackageManagerCache::CONTENT_ADDRESSED_DIRECTORIES.include?(path.basename.to_s)
+        end
+        # Go makes its module cache read-only.
+        paths.each { |path| FileUtils.chmod_R("u+w", path, force: true) }
+        FileUtils.rm_rf paths
       end
 
       protected
