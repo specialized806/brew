@@ -697,12 +697,11 @@ module Utils
     sig { returns(Version) }
     def curl_version
       @curl_version ||= T.let({}, T.nilable(T::Hash[String, Version]))
-      curl_v_stdout = curl_output("-V").stdout
-      version = curl_v_stdout[/curl (\d+(?:\.\d+)+)/, 1]
-      if version
-        @curl_version[curl_path] ||= Version.new(version)
-      else
-        odie("Failed to parse curl version from #{curl_v_stdout}")
+      @curl_version[curl_path] ||= begin
+        curl_v_stdout = curl_output("-V").stdout
+        version = curl_v_stdout[/curl (\d+(?:\.\d+)+)/, 1]
+        odie("Failed to parse curl version from #{curl_v_stdout}") if version.nil?
+        Version.new(version)
       end
     end
 
