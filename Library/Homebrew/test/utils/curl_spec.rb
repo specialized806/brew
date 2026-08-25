@@ -570,6 +570,14 @@ RSpec.describe "Utils::Curl" do
     it "returns a curl version string" do
       expect(curl_version).to match(/^v?(\d+(?:\.\d+)+)$/)
     end
+
+    it "only runs the curl subprocess on the first call" do
+      allow(self).to receive(:curl_path).and_return("/usr/bin/curl")
+      expect(self).to receive(:curl_output).once.and_return(
+        instance_double(SystemCommand::Result, stdout: "curl 8.7.1 (x86_64-apple-darwin)"),
+      )
+      2.times { expect(curl_version).to eq(Version.new("8.7.1")) }
+    end
   end
 
   describe "::curl_supports_fail_with_body?" do
