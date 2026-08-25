@@ -74,6 +74,49 @@ RSpec.describe SharedAudits do
     end
   end
 
+  describe "::domain_registration_date" do
+    let(:whois_output) do
+      <<~WHOIS
+        % IANA WHOIS server
+        domain:       SH
+        created:      1997-09-23
+
+        Domain Name: brew.sh
+        Creation Date: 2013-03-22T15:50:45Z
+      WHOIS
+    end
+
+    before do
+      allow(described_class).to receive(:which).with("whois").and_return(Pathname("/usr/bin/whois"))
+    end
+
+    def mock_whois(stdout:, success: true)
+      status = instance_double(Process::Status, success?: success)
+      result = instance_double(SystemCommand::Result, stdout:, status:)
+      allow(SystemCommand).to receive(:run).and_return(result)
+    end
+
+    it "ignores the IANA record for the TLD and returns the domain creation date" do
+      mock_whois stdout: whois_output
+      expect(described_class.domain_registration_date("brew.sh")).to eq(Date.new(2013, 3, 22))
+    end
+
+    it "returns nil when no creation date can be parsed" do
+      mock_whois stdout: "No match for domain \"NOPE.INVALID\".\n"
+      expect(described_class.domain_registration_date("nope.invalid")).to be_nil
+    end
+
+    it "returns nil when `whois` fails" do
+      mock_whois stdout: "", success: false
+      expect(described_class.domain_registration_date("fails.example")).to be_nil
+    end
+
+    it "returns nil when `whois` is unavailable" do
+      allow(described_class).to receive(:which).with("whois").and_return(nil)
+      expect(described_class.domain_registration_date("missing.example")).to be_nil
+    end
+  end
+
   describe "::github_tag_from_url" do
     it "finds tags in archive urls" do
       url = "https://github.com/a/b/archive/refs/tags/v1.2.3.tar.gz"

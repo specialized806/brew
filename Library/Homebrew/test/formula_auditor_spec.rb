@@ -140,6 +140,63 @@ RSpec.describe Homebrew::FormulaAuditor do
     end
   end
 
+  describe "#audit_homepage_domain_age" do
+    before { allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26)) }
+
+    def homepage_auditor(homepage, **options)
+      formula_auditor "foo", <<~RUBY, { online: true, core_tap: true }.merge(options)
+        class Foo < Formula
+          homepage "#{homepage}"
+          url "https://brew.sh/foo-1.0.tar.gz"
+        end
+      RUBY
+    end
+
+    it "reports domains registered less than 30 days ago" do
+      allow(SharedAudits).to receive(:domain_registration_date)
+        .with("brew.sh").and_return(Date.new(2026, 7, 1))
+
+      fa = homepage_auditor "https://www.brew.sh"
+      fa.audit_homepage_domain_age
+
+      expect(fa.problems.first[:message])
+        .to include("`homepage` domain `brew.sh` was registered on 2026-07-01")
+    end
+
+    it "accepts domains registered at least 30 days ago" do
+      allow(SharedAudits).to receive(:domain_registration_date)
+        .with("brew.sh").and_return(Date.new(2026, 6, 26))
+
+      fa = homepage_auditor "https://brew.sh"
+      fa.audit_homepage_domain_age
+
+      expect(fa.problems).to be_empty
+    end
+
+    it "accepts domains with an unknown registration date" do
+      allow(SharedAudits).to receive(:domain_registration_date).and_return(nil)
+
+      fa = homepage_auditor "https://brew.sh"
+      fa.audit_homepage_domain_age
+
+      expect(fa.problems).to be_empty
+    end
+
+    it "does not run `whois` when offline" do
+      fa = homepage_auditor "https://brew.sh", online: false
+
+      expect(SharedAudits).not_to receive(:domain_registration_date)
+      fa.audit_homepage_domain_age
+    end
+
+    it "does not run `whois` outside homebrew/core" do
+      fa = homepage_auditor "https://brew.sh", core_tap: false
+
+      expect(SharedAudits).not_to receive(:domain_registration_date)
+      fa.audit_homepage_domain_age
+    end
+  end
+
   describe "#audit_license" do
     let(:spdx_license_data) { SPDX.license_data }
     let(:spdx_exception_data) { SPDX.exception_data }

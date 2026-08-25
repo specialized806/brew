@@ -593,6 +593,61 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "homepage domain age" do
+      let(:only) { ["homepage_domain_age"] }
+      let(:online) { true }
+      let(:cask) do
+        Cask::Cask.new("homepage-domain-age", tap: CoreCaskTap.instance) do
+          version "1.0"
+          sha256 :no_check
+          url "https://brew.sh/homepage-domain-age.tar.gz"
+          homepage "https://www.brew.sh"
+        end
+      end
+
+      before { allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26)) }
+
+      context "when the homepage domain was registered less than 30 days ago" do
+        before do
+          allow(SharedAudits).to receive(:domain_registration_date)
+            .with("brew.sh").and_return(Date.new(2026, 7, 1))
+        end
+
+        it { is_expected.to error_with(/`homepage` domain `brew\.sh` was registered on 2026-07-01/) }
+      end
+
+      context "when the homepage domain was registered at least 30 days ago" do
+        before do
+          allow(SharedAudits).to receive(:domain_registration_date)
+            .with("brew.sh").and_return(Date.new(2026, 6, 26))
+        end
+
+        it { is_expected.to pass }
+      end
+
+      context "when the homepage domain registration date is unknown" do
+        before { allow(SharedAudits).to receive(:domain_registration_date).and_return(nil) }
+
+        it { is_expected.to pass }
+      end
+
+      context "when the cask is not in homebrew/cask" do
+        let(:cask) do
+          Cask::Cask.new("homepage-domain-age") do
+            version "1.0"
+            sha256 :no_check
+            url "https://brew.sh/homepage-domain-age.tar.gz"
+            homepage "https://www.brew.sh"
+          end
+        end
+
+        it "does not run `whois`" do
+          expect(SharedAudits).not_to receive(:domain_registration_date)
+          expect(run).to pass
+        end
+      end
+    end
+
     describe "artifact extraction" do
       let(:online) { true }
       let(:cask) do

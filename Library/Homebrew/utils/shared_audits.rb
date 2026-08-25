@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
 require "utils/curl"
 require "utils/github/api"
 
@@ -12,6 +13,10 @@ module SharedAudits
   GITLAB_NOTABILITY_THRESHOLDS = T.let({ forks: 30, stars: 75 }.freeze, T::Hash[Symbol, Integer])
   BITBUCKET_NOTABILITY_THRESHOLDS = T.let({ forks: 30, watchers: 75 }.freeze, T::Hash[Symbol, Integer])
   FORGEJO_NOTABILITY_THRESHOLDS = T.let({ forks: 30, watchers: 30, stars: 75 }.freeze, T::Hash[Symbol, Integer])
+  NEW_DOMAIN_THRESHOLD_DAYS = 30
+  WHOIS_TIMEOUT_SECONDS = 5
+  WHOIS_CREATION_DATE_REGEX = /^\s*(?:creation\s+date|created(?:\s+on)?|registered(?:\s+on)?|
+                                registration\s+(?:date|time))\s*:\s*(\S+)/ix
   @pull_request_author = T.let(nil, T.nilable(String))
   @pull_request_author_computed = T.let(false, T::Boolean)
   @self_submission_cache = T.let({}, T::Hash[String, T::Boolean])
@@ -22,6 +27,53 @@ module SharedAudits
 
     today = Date.today
     browsed <= today && browsed.next_year > today
+  end
+
+  sig { params(homepage: String).returns(T.nilable(String)) }
+  def self.new_domain_problem(homepage)
+    host = begin
+      URI(homepage).host
+    rescue URI::InvalidURIError
+      nil
+    end
+    return if host.blank?
+
+    domain = host.delete_prefix("www.")
+    registered_on = domain_registration_date(domain)
+    return if registered_on.nil?
+    return if (Date.today - registered_on) >= NEW_DOMAIN_THRESHOLD_DAYS
+
+    "`homepage` domain `#{domain}` was registered on #{registered_on}: " \
+      "homepages should exist for at least #{NEW_DOMAIN_THRESHOLD_DAYS} days before inclusion"
+  end
+
+  sig { params(domain: String).returns(T.nilable(Date)) }
+  def self.domain_registration_date(domain)
+    @domain_registration_date ||= T.let({}, T.nilable(T::Hash[String, T.nilable(Date)]))
+    return @domain_registration_date[domain] if @domain_registration_date.key?(domain)
+
+    @domain_registration_date[domain] = whois_creation_date(domain)
+  end
+
+  sig { params(domain: String).returns(T.nilable(Date)) }
+  private_class_method def self.whois_creation_date(domain)
+    return if which("whois").nil?
+
+    result = SystemCommand.run("whois", args: [domain], print_stderr: false, timeout: WHOIS_TIMEOUT_SECONDS)
+    return unless result.status.success?
+
+    # `whois` may concatenate the IANA record for the TLD (whose creation date is
+    # always ancient) with the registry record for the domain, so use the newest date.
+    result.stdout.lines.filter_map do |line|
+      value = line[WHOIS_CREATION_DATE_REGEX, 1]
+      next if value.nil?
+
+      Date.parse(value)
+    rescue Date::Error
+      nil
+    end.max
+  rescue Timeout::Error
+    nil
   end
 
   sig { returns(T.nilable(String)) }

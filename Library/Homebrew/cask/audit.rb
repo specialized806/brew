@@ -1127,6 +1127,16 @@ module Cask
     end
 
     sig { void }
+    def audit_homepage_domain_age
+      return unless new_cask?
+      return unless cask.tap&.official?
+      return unless (homepage = cask.homepage)
+
+      new_domain_problem = SharedAudits.new_domain_problem(homepage)
+      add_error new_domain_problem if new_domain_problem
+    end
+
+    sig { void }
     def audit_url_https_availability
       return unless online?
       return unless (url = cask.url)

@@ -663,6 +663,18 @@ module Homebrew
     end
 
     sig { void }
+    def audit_homepage_domain_age
+      return unless @core_tap
+      return unless @new_formula
+
+      homepage = formula.homepage
+      return if homepage.blank?
+
+      new_domain_problem = SharedAudits.new_domain_problem(homepage)
+      problem new_domain_problem if new_domain_problem
+    end
+
+    sig { void }
     def audit_duplicate_formula
       return unless @core_tap
       return unless @new_formula
