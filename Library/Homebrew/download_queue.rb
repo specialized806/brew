@@ -109,6 +109,18 @@ module Homebrew
       end
     end
 
+    sig { params(heading: String).void }
+    def print_heading(heading)
+      if tty
+        oh1 heading, truncate: false
+        $stdout.flush
+      else
+        # Keep the heading off parsed stdout (e.g. `brew info --json | jq`)
+        # and on the same stream as the non-TTY report lines below.
+        $stderr.puts oh1_title(heading, truncate: false)
+      end
+    end
+
     # Waits for and reports queued downloads. With `only:`, limits that to
     # downloadables of the given class, leaving the rest enqueued and
     # unreported for a later fetch, e.g. so dependency resolution can wait
@@ -136,16 +148,7 @@ module Homebrew
       end
       return if fetchable_downloads.empty?
 
-      if heading
-        if tty
-          oh1 heading, truncate: false
-          $stdout.flush
-        else
-          # Keep the heading off parsed stdout (e.g. `brew info --json | jq`)
-          # and on the same stream as the non-TTY report lines below.
-          $stderr.puts oh1_title(heading, truncate: false)
-        end
-      end
+      print_heading(heading) if heading
 
       if concurrency == 1
         fetchable_downloads.each do |downloadable, promise|
