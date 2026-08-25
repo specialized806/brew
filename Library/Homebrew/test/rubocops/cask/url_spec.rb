@@ -94,6 +94,74 @@ RSpec.describe RuboCop::Cop::Cask::Url, :config do
     CASK
   end
 
+  it "accepts multiple keyword parameters each on their own line" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            header: "Accept: application/octet-stream",
+            user_agent: :fake
+      end
+    CASK
+  end
+
+  it "reports an offense for a keyword parameter on the same line as another keyword parameter" do
+    expect_offense <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            header: "Accept: application/octet-stream", user_agent: :fake
+                                                        ^^^^^^^^^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            header: "Accept: application/octet-stream",
+            user_agent: :fake
+      end
+    CASK
+  end
+
+  it "reports an offense for a keyword splat on the same line as another keyword parameter" do
+    expect_offense <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            header: "Accept: application/octet-stream", **options
+                                                        ^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            header: "Accept: application/octet-stream",
+            **options
+      end
+    CASK
+  end
+
+  it "reports an offense for a keyword parameter on the last line of a multiline keyword parameter" do
+    expect_offense <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            data: {
+              key: "value",
+            }, user_agent: :fake
+               ^^^^^^^^^^^^^^^^^ Keyword URL parameter should be on a new indented line.
+      end
+    CASK
+
+    expect_correction <<~CASK
+      cask "foo" do
+        url "https://example.com/download/foo-v1.2.0.dmg",
+            data: {
+              key: "value",
+            },
+            user_agent: :fake
+      end
+    CASK
+  end
+
   it "reports an offense for an http:// URL in homebrew-cask" do
     expect_offense <<~CASK, "/homebrew-cask/Casks/f/foo.rb"
       cask "foo" do

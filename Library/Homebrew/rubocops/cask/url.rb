@@ -52,8 +52,20 @@ module RuboCop
 
           return unless hash_node.hash_type?
 
-          # TODO: also enforce that each keyword parameter after the first
-          #       starts on its own line.
+          hash_node.each_child_node.each_cons(2) do |previous_parameter, parameter|
+            next if parameter.first_line > previous_parameter.last_line
+
+            add_offense(
+              parameter.source_range,
+              message: "Keyword URL parameter should be on a new indented line.",
+            ) do |corrector|
+              corrector.replace(
+                range_between(previous_parameter.source_range.end_pos, parameter.source_range.begin_pos),
+                ",\n#{" " * url_stanza.loc.column}",
+              )
+            end
+          end
+
           return if hash_node.first_line > url_stanza.last_line && hash_node.loc.column > stanza_node.loc.column
 
           add_offense(
