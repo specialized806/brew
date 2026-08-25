@@ -23,10 +23,7 @@ module OS
         candidates = if files
           # Metadata-driven pour: only the files recorded at bottle time carry
           # placeholdered linkage, so skip the whole-keg walk.
-          files.filter_map do |relative_path|
-            file = path/relative_path
-            ELFPathname.wrap(file) if file.file? && !file.symlink?
-          end
+          keg_files(files).map { |file| ELFPathname.wrap(file) }
         else
           elf_files
         end
