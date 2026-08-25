@@ -11,6 +11,7 @@ require "trust"
 require "cmd/install"
 require "test/support/fixtures/testball"
 require "test/support/fixtures/testball_bottle"
+require "test/support/fixtures/testball_fetch"
 require "test/support/fixtures/failball"
 require "test/support/fixtures/failball_offline_install"
 
@@ -143,6 +144,37 @@ RSpec.describe FormulaInstaller do
       expect(installer).to receive(:post_install).ordered
 
       installer.finish
+    end
+  end
+
+  specify "installation runs fetch before install in a shared staging directory" do
+    temporary_install(TestballFetch.new) do |f|
+      expect(f.prefix/"fetched").to be_a_file
+    end
+  end
+
+  describe "#run_fetch" do
+    it "runs the fetch phase with network access and a writable cache" do
+      formula = formula("sandboxed-fetch") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+
+        def fetch; end
+      end
+      installer = described_class.new(formula)
+      sandbox = instance_double(Sandbox).as_null_object
+
+      allow(formula).to receive(:logs).and_return(mktmpdir)
+      allow(Sandbox).to receive_messages(new: sandbox, use_for?: true)
+      expect(sandbox).to receive(:allow_write_temp_and_cache)
+      expect(sandbox).not_to receive(:allow_write_cellar)
+      expect(sandbox).not_to receive(:deny_all_network)
+      expect(sandbox).to receive(:run) do |*args|
+        expect(args).to include(HOMEBREW_LIBRARY_PATH/"build.rb", formula.path)
+        expect(ENV.fetch("HOMEBREW_BUILD_FETCH_PHASE")).to eq("1")
+      end
+
+      installer.run_fetch
     end
   end
 
@@ -1553,6 +1585,34 @@ RSpec.describe FormulaInstaller do
       installer.build
 
       expect(installer.formula).to eq(source_formula)
+    end
+
+    it "builds offline in the fetch phase's staging directory when fetch is defined" do
+      formula = formula("offline-build") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+
+        def fetch; end
+      end
+      installer = described_class.new(formula)
+      sandbox = instance_double(Sandbox).as_null_object
+
+      allow(formula).to receive(:logs).and_return(mktmpdir)
+      allow(Sandbox).to receive_messages(new: sandbox, use_for?: true)
+      expect(installer).to receive(:run_fetch) do |staging_path:|
+        expect(staging_path).to be_a_directory
+      end
+      expect(sandbox).to receive(:deny_all_network)
+      expect(sandbox).not_to receive(:allow_write_temp_and_cache)
+      expect(sandbox).to receive(:run) do
+        staging_path = Pathname(ENV.fetch("HOMEBREW_BUILD_STAGING_PATH"))
+        expect(staging_path).to be_a_directory
+        FileUtils.rm_r(staging_path)
+        (formula.prefix/"bin").mkpath
+        (formula.prefix/"bin/foo").write ""
+      end
+
+      installer.build
     end
 
     it "raises when formula is loaded from API and source download fails" do

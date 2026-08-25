@@ -147,12 +147,15 @@ class Build
 
       formula.update_head_version
 
+      staged = staging_path.present? && !fetch_phase?
       formula.brew(
         fetch:         false,
         keep_tmp:      args.keep_tmp?,
         debug_symbols: args.debug_symbols?,
         interactive:   args.interactive?,
-      ) do
+        staging_path:,
+        staged:,
+      ) do |_formula, staging|
         with_env(
           # For head builds, HOMEBREW_FORMULA_PREFIX should include the commit,
           # which is not known until after the formula has been staged.
@@ -165,13 +168,24 @@ class Build
           # https://github.com/Homebrew/homebrew-core/pull/87470
           TZ:                         "UTC0",
         ) do
-          if args.git?
-            formula.selective_patch(is_data: false)
-            system "git", "init"
-            system "git", "add", "-A"
-            formula.selective_patch(is_data: true)
-          else
-            formula.patch
+          unless staged
+            if args.git?
+              formula.selective_patch(is_data: false)
+              system "git", "init"
+              system "git", "add", "-A"
+              formula.selective_patch(is_data: true)
+            else
+              formula.patch
+            end
+          end
+
+          if fetch_phase?
+            formula.with_logging("fetch") { formula.fetch }
+            if staging_path
+              staging.quiet!
+              staging.retain!
+            end
+            next
           end
 
           if args.interactive?
@@ -218,6 +232,19 @@ class Build
       end
     end
   end
+
+  # Keep these environment variables in sync with `FormulaInstaller#build`
+  # and `FormulaInstaller#run_fetch`.
+  sig { returns(T.nilable(Pathname)) }
+  def staging_path
+    path = ENV.fetch("HOMEBREW_BUILD_STAGING_PATH", nil)
+    return if path.nil?
+
+    Pathname(path)
+  end
+
+  sig { returns(T::Boolean) }
+  def fetch_phase? = ENV["HOMEBREW_BUILD_FETCH_PHASE"].present?
 
   sig { returns(T::Array[Symbol]) }
   def detect_stdlibs

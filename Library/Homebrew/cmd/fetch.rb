@@ -9,6 +9,7 @@ require "api/formula_bottle"
 require "cask/config"
 require "cask/download"
 require "download_queue"
+require "formula_installer"
 
 module Homebrew
   module Cmd
@@ -99,6 +100,8 @@ module Homebrew
         end.uniq
 
         os_arch_combinations = args.os_arch_combinations
+        current_os_arch = [SimulateSystem.current_os, SimulateSystem.current_arch]
+        fetch_hook_formulae = T.let([], T::Array[Formula])
 
         puts "Fetching: #{bucket * ", "}" if bucket.size > 1
         bucket.each do |formula_or_cask|
@@ -158,6 +161,7 @@ module Homebrew
                 end
 
                 formula.enqueue_resources_and_patches(download_queue:)
+                fetch_hook_formulae << formula if [os, arch] == current_os_arch
               end
             end
           when Cask::Cask
@@ -168,6 +172,8 @@ module Homebrew
         end
 
         download_queue.fetch
+
+        fetch_hook_formulae.each { |formula| run_fetch_hook(formula) }
       ensure
         download_queue.shutdown
       end
@@ -231,6 +237,35 @@ module Homebrew
         end
 
         downloads
+      end
+
+      # A formula's `fetch` runs in the build environment, so it needs the
+      # dependencies that `build.rb` would put on `PATH` to be installed.
+      sig { params(formula: Formula).void }
+      def run_fetch_hook(formula)
+        formula = Homebrew::API::Formula.source_download_formula(formula) if formula.loaded_from_api?
+        return unless formula.fetch_defined?
+
+        missing_dependencies = formula.recursive_dependencies do |_dependent, dependency|
+          next Dependable::PRUNE if dependency.implicit? || dependency.optional?
+          next Dependable::PRUNE if dependency.test? && !dependency.build?
+        end.map(&:to_formula).reject(&:any_version_installed?)
+        if missing_dependencies.present?
+          opoo <<~EOS
+            Not running #{formula.full_name}'s `fetch` as these dependencies are not installed:
+              #{missing_dependencies.map(&:full_name).join(", ")}
+            Install them first with:
+              brew install --only-dependencies #{formula.full_name}
+          EOS
+          return
+        end
+
+        FormulaInstaller.new(
+          formula,
+          build_from_source_formulae: args.build_from_source_formulae,
+          force_bottle:               args.force_bottle?,
+          **{ debug: args.debug?, quiet: args.quiet?, verbose: args.verbose? }.compact,
+        ).run_fetch
       end
 
       private

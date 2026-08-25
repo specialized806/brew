@@ -7,6 +7,25 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::FetchCmd do
   it_behaves_like "parseable arguments"
 
+  it "does not run a formula's fetch hook until its dependencies are installed" do
+    cmd = described_class.new(["--build-from-source", "foo"])
+    dependency = formula("bar") do
+      T.bind(self, T.class_of(Formula))
+      url "bar-1.0"
+    end
+    foo = formula("foo") do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+
+      sig { void }
+      def fetch; end
+    end
+    allow(foo).to receive(:recursive_dependencies).and_return([instance_double(Dependency, to_formula: dependency)])
+    expect(FormulaInstaller).not_to receive(:new)
+
+    expect { cmd.run_fetch_hook(foo) }.to output(/brew install --only-dependencies foo/).to_stderr
+  end
+
   it "uses API bottle metadata before loading simple core formulae" do
     cmd = described_class.new(["fast-fetch"])
     download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)

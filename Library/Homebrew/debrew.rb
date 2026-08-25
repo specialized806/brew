@@ -13,6 +13,11 @@ module Debrew
     end
 
     sig { void }
+    def fetch
+      Debrew.debrew { super }
+    end
+
+    sig { void }
     def patch
       Debrew.debrew { super }
     end

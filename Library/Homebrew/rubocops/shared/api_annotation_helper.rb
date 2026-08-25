@@ -36,6 +36,7 @@ module RuboCop
         "change_dylib_id"       => "formula.rb",
         "env_script_all_files"  => "extend/pathname.rb",
         "fails_with"            => "formula.rb",
+        "fetch"                 => "formula.rb",
         "post_install_steps"    => "formula.rb",
         "head"                  => "formula.rb",
         "homepage"              => "formula.rb",

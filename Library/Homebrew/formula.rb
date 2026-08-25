@@ -1573,6 +1573,38 @@ class Formula
 
   delegate pour_bottle_check_unsatisfied_reason: :"self.class"
 
+  # Downloads what {#install} needs from the network, e.g. with a language
+  # package manager, before building from source. It runs after the source has
+  # been unpacked and patched into {#buildpath}, with the same build
+  # environment as {#install} and with network access, and may write to
+  # {#buildpath} and the package manager caches in `HOMEBREW_CACHE`. When it
+  # is defined, {#install} runs in the same {#buildpath} without network
+  # access and with the rest of `HOMEBREW_CACHE` read-only, so it must use the
+  # package manager's offline mode. `brew fetch --build-from-source` also runs
+  # it once the dependencies are installed. It is never run when installing a
+  # bottle.
+  #
+  # ### Example
+  #
+  # ```ruby
+  # def fetch
+  #   system "cargo", "fetch", "--locked"
+  # end
+  #
+  # def install
+  #   system "cargo", "install", "--offline", *std_cargo_args
+  # end
+  # ```
+  #
+  # @api public
+  sig { overridable.void }
+  def fetch; end
+
+  sig { returns(T::Boolean) }
+  def fetch_defined?
+    method(:fetch).owner != Formula
+  end
+
   # odeprecated
   sig { overridable.void }
   def post_install; end
@@ -1856,14 +1888,19 @@ class Formula
 
   # Yields `|self,staging|` with current working directory set to the uncompressed tarball
   # where staging is a {Mktemp} staging context.
+  # With `staging_path`, the tarball is uncompressed into that directory rather
+  # than a fresh temporary one and, with `staged`, its already uncompressed and
+  # patched contents are reused so the fetch and build phases share it.
   sig(:final) {
     params(fetch: T::Boolean, keep_tmp: T::Boolean, debug_symbols: T::Boolean, interactive: T::Boolean,
+           staging_path: T.nilable(Pathname), staged: T::Boolean,
            _blk: T.proc.params(arg0: Formula, arg1: Mktemp).void).void
   }
-  def brew(fetch: true, keep_tmp: false, debug_symbols: false, interactive: false, &_blk)
+  def brew(fetch: true, keep_tmp: false, debug_symbols: false, interactive: false, staging_path: nil,
+           staged: false, &_blk)
     @prefix_returns_versioned_prefix = T.let(true, T.nilable(T::Boolean))
     active_spec.fetch if fetch
-    stage(interactive:, debug_symbols:) do |staging|
+    stage(interactive:, debug_symbols:, staging_path:, staged:) do |staging|
       staging.retain! if keep_tmp || debug_symbols
 
       prepare_patches
@@ -3739,7 +3776,7 @@ class Formula
     T.must(bottle).tab_attributes
   end
 
-  # Common environment variables used by sandboxed build, test and postinstall phases.
+  # Common environment variables used by sandboxed fetch, build, test and postinstall phases.
   sig { params(home: Pathname).returns(T::Hash[Symbol, String]) }
   def common_sandbox_env(home)
     Homebrew::PackageManagerCache.env.merge(
@@ -3806,9 +3843,12 @@ class Formula
     exit! 1 # never gets here unless exec threw or failed
   end
 
-  sig { params(interactive: T::Boolean, debug_symbols: T::Boolean, _block: T.proc.params(arg0: Mktemp).void).void }
-  def stage(interactive: false, debug_symbols: false, &_block)
-    active_spec.stage(debug_symbols:) do |staging|
+  sig {
+    params(interactive: T::Boolean, debug_symbols: T::Boolean, staging_path: T.nilable(Pathname), staged: T::Boolean,
+           _block: T.proc.params(arg0: Mktemp).void).void
+  }
+  def stage(interactive: false, debug_symbols: false, staging_path: nil, staged: false, &_block)
+    active_spec.stage(debug_symbols:, staging_path:, staged:) do |staging|
       @source_modified_time = T.let(active_spec.source_modified_time, T.nilable(Time))
       @buildpath = T.let(Pathname.pwd, T.nilable(Pathname))
       env_home = T.must(buildpath)/".brew_home"

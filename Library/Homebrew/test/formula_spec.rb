@@ -17,6 +17,7 @@ RSpec.describe Formula do
   alias_matcher :have_changed_alias, :be_alias_changed
 
   alias_matcher :have_option_defined, :be_option_defined
+  alias_matcher :have_fetch_defined, :be_fetch_defined
   alias_matcher :have_post_install_defined, :be_post_install_defined
   alias_matcher :have_test_defined, :be_test_defined
   alias_matcher :pour_bottle, :be_pour_bottle
@@ -1158,6 +1159,25 @@ RSpec.describe Formula do
 
     expect(f1).to have_post_install_defined
     expect(f2).not_to have_post_install_defined
+  end
+
+  specify "#fetch_defined?" do
+    f1 = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+
+      def fetch
+        # do nothing
+      end
+    end
+
+    f2 = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+    end
+
+    expect(f1).to have_fetch_defined
+    expect(f2).not_to have_fetch_defined
   end
 
   specify "#run_post_install prevents build tools from reading user configuration" do
