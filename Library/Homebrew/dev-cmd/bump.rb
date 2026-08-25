@@ -52,7 +52,7 @@ module Homebrew
         const :newer_than_upstream, T::Hash[Symbol, T::Boolean], default: {}
         const :cooldown_skipped_versions, T::Hash[Symbol, Version], default: {}
         const :duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
-        const :maybe_duplicate_pull_requests, T.nilable(T.any(T::Array[String], String))
+        const :open_bump_pull_requests, T.nilable(T.any(T::Array[String], String))
       end
 
       cmd_args do
@@ -380,8 +380,8 @@ module Homebrew
               version: pull_request_version,
             )
 
-            maybe_duplicate_pull_requests = if duplicate_pull_requests.nil?
-              retrieve_pull_requests(formula_or_cask, name)
+            open_bump_pull_requests = if duplicate_pull_requests.nil?
+              retrieve_pull_requests(formula_or_cask, name, state: "open")
             end
           end
         end
@@ -398,7 +398,7 @@ module Homebrew
           newer_than_upstream:,
           cooldown_skipped_versions:,
           duplicate_pull_requests:,
-          maybe_duplicate_pull_requests:,
+          open_bump_pull_requests:,
         )
       end
 
@@ -423,7 +423,7 @@ module Homebrew
         newer_than_upstream = version_info.newer_than_upstream
         cooldown_skipped_version = version_info.cooldown_skipped_versions.values.max
         duplicate_pull_requests = version_info.duplicate_pull_requests
-        maybe_duplicate_pull_requests = version_info.maybe_duplicate_pull_requests
+        open_bump_pull_requests = version_info.open_bump_pull_requests
 
         versions_equal = (new_version == current_version)
         all_newer_than_upstream = newer_than_upstream.all? { |_k, v| v == true }
@@ -509,18 +509,16 @@ module Homebrew
            !all_newer_than_upstream
           if duplicate_pull_requests
             duplicate_pull_requests_text = duplicate_pull_requests
-          elsif maybe_duplicate_pull_requests
+          elsif open_bump_pull_requests
             duplicate_pull_requests_text = "none"
-            maybe_duplicate_pull_requests_text = maybe_duplicate_pull_requests
+            open_bump_pull_requests_text = open_bump_pull_requests
           else
             duplicate_pull_requests_text = "none"
-            maybe_duplicate_pull_requests_text = "none"
+            open_bump_pull_requests_text = "none"
           end
 
           puts "Duplicate pull requests:  #{duplicate_pull_requests_text}"
-          if maybe_duplicate_pull_requests_text
-            puts "Maybe duplicate pull requests: #{maybe_duplicate_pull_requests_text}"
-          end
+          puts "Open bump pull requests:  #{open_bump_pull_requests_text}" if open_bump_pull_requests_text
         end
 
         if !args.open_pr? ||
@@ -544,7 +542,7 @@ module Homebrew
           return
         end
 
-        return if duplicate_pull_requests.present?
+        return if duplicate_pull_requests.present? || open_bump_pull_requests.present?
 
         version_args = version_args_for_bump(current_version:, new_version:, multiple_versions:, name:)
         return if version_args.blank?
@@ -818,6 +816,41 @@ module Homebrew
         end
       end
 
+      sig {
+        params(
+          formula_or_cask: T.any(Formula, Cask::Cask),
+          name:            String,
+          state:           T.nilable(String),
+          version:         T.nilable(String),
+        ).returns T.nilable(T.any(T::Array[String], String))
+      }
+      def retrieve_pull_requests(formula_or_cask, name, state: nil, version: nil)
+        tap_remote_repo = formula_or_cask.tap&.remote_repository || formula_or_cask.tap&.full_name
+        odie "unexpected nil tap remote repository" if tap_remote_repo.nil?
+
+        pull_requests = begin
+          GitHub.fetch_pull_requests(name, tap_remote_repo, state:, version:)
+        rescue GitHub::API::ValidationFailedError => e
+          odebug "Error fetching pull requests for #{formula_or_cask} #{name}: #{e}"
+          nil
+        end
+        return if pull_requests.blank?
+
+        # If a version is provided, we keep all matches in case a contributor has
+        # opened a PR with a non-standard title, e.g. "<name>: update to <version>".
+        # Otherwise, filter results to reduce false positives. The filter is still
+        # loose enough to allow synced formulae, e.g. "<name> <n2> ... <version>",
+        # and titles with parentheses, e.g. "<name> <version> (<extra-message>)"
+        if version.blank?
+          pull_requests.select! do |pr|
+            (title = pr["title"]) && title.start_with?("#{name} ") && title.exclude?(": ")
+          end
+          return if pull_requests.blank?
+        end
+
+        pull_requests.map { |pr| "#{pr["title"]} (#{Formatter.url(pr["html_url"])})" }.join(", ")
+      end
+
       private
 
       sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Boolean) }
@@ -961,28 +994,6 @@ module Homebrew
         end
       rescue => e
         ["error: #{e}", nil]
-      end
-
-      sig {
-        params(
-          formula_or_cask: T.any(Formula, Cask::Cask),
-          name:            String,
-          version:         T.nilable(String),
-        ).returns T.nilable(T.any(T::Array[String], String))
-      }
-      def retrieve_pull_requests(formula_or_cask, name, version: nil)
-        tap_remote_repo = formula_or_cask.tap&.remote_repository || formula_or_cask.tap&.full_name
-        odie "unexpected nil tap remote repository" if tap_remote_repo.nil?
-
-        pull_requests = begin
-          GitHub.fetch_pull_requests(name, tap_remote_repo, version:)
-        rescue GitHub::API::ValidationFailedError => e
-          odebug "Error fetching pull requests for #{formula_or_cask} #{name}: #{e}"
-          nil
-        end
-        return if pull_requests.blank?
-
-        pull_requests.map { |pr| "#{pr["title"]} (#{Formatter.url(pr["html_url"])})" }.join(", ")
       end
 
       sig {

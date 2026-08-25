@@ -163,19 +163,19 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
     it "passes arch-specific version arguments when a cask moves from one version to arch-specific versions" do
       version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
-        type:                          :cask,
-        deprecated:                    { general: false },
-        multiple_versions:             { current: false, new: true },
-        version_name:                  "cask version:   ",
-        current_version:               Homebrew::BumpVersionParser.new(general: Version.new("1.2.3")),
-        new_version:                   Homebrew::BumpVersionParser.new(
+        type:                    :cask,
+        deprecated:              { general: false },
+        multiple_versions:       { current: false, new: true },
+        version_name:            "cask version:   ",
+        current_version:         Homebrew::BumpVersionParser.new(general: Version.new("1.2.3")),
+        new_version:             Homebrew::BumpVersionParser.new(
           arm:   Version.new("1.2.5"),
           intel: Version.new("1.2.4"),
         ),
-        repology_latest:               "not found",
-        newer_than_upstream:           { general: false },
-        duplicate_pull_requests:       nil,
-        maybe_duplicate_pull_requests: nil,
+        repology_latest:         "not found",
+        newer_than_upstream:     { general: false },
+        duplicate_pull_requests: nil,
+        open_bump_pull_requests: nil,
       )
       allow(bump).to receive(:retrieve_versions_by_arch).and_return(version_info)
 
@@ -194,19 +194,19 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
     it "passes arch-specific version arguments when an arch-specific cask moves to one version" do
       version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
-        type:                          :cask,
-        deprecated:                    { arm: false, intel: false },
-        multiple_versions:             { current: true, new: false },
-        version_name:                  "cask version:   ",
-        current_version:               Homebrew::BumpVersionParser.new(
+        type:                    :cask,
+        deprecated:              { arm: false, intel: false },
+        multiple_versions:       { current: true, new: false },
+        version_name:            "cask version:   ",
+        current_version:         Homebrew::BumpVersionParser.new(
           arm:   Version.new("1.2.3"),
           intel: Version.new("1.2.2"),
         ),
-        new_version:                   Homebrew::BumpVersionParser.new(general: Version.new("1.2.4")),
-        repology_latest:               "not found",
-        newer_than_upstream:           { arm: false, intel: false },
-        duplicate_pull_requests:       nil,
-        maybe_duplicate_pull_requests: nil,
+        new_version:             Homebrew::BumpVersionParser.new(general: Version.new("1.2.4")),
+        repology_latest:         "not found",
+        newer_than_upstream:     { arm: false, intel: false },
+        duplicate_pull_requests: nil,
+        open_bump_pull_requests: nil,
       )
       allow(bump).to receive(:retrieve_versions_by_arch).and_return(version_info)
 
@@ -225,17 +225,17 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
     it "notes when a newer upstream version was skipped due to release cooldown" do
       version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
-        type:                          :formula,
-        deprecated:                    { general: false },
-        multiple_versions:             { current: false, new: false },
-        version_name:                  "formula version:",
-        current_version:               Homebrew::BumpVersionParser.new(general: Version.new("1.2.3")),
-        new_version:                   Homebrew::BumpVersionParser.new(general: Version.new("1.2.3")),
-        repology_latest:               "not found",
-        newer_than_upstream:           { general: false },
-        cooldown_skipped_versions:     { general: Version.new("1.2.4") },
-        duplicate_pull_requests:       nil,
-        maybe_duplicate_pull_requests: nil,
+        type:                      :formula,
+        deprecated:                { general: false },
+        multiple_versions:         { current: false, new: false },
+        version_name:              "formula version:",
+        current_version:           Homebrew::BumpVersionParser.new(general: Version.new("1.2.3")),
+        new_version:               Homebrew::BumpVersionParser.new(general: Version.new("1.2.3")),
+        repology_latest:           "not found",
+        newer_than_upstream:       { general: false },
+        cooldown_skipped_versions: { general: Version.new("1.2.4") },
+        duplicate_pull_requests:   nil,
+        open_bump_pull_requests:   nil,
       )
       allow(bump).to receive(:retrieve_versions_by_arch).and_return(version_info)
 
@@ -561,6 +561,44 @@ RSpec.describe Homebrew::DevCmd::Bump do
         .and_return([content, "", instance_double(Process::Status, success?: true)])
 
       expect(bump.version_with_cooldown(version_info, Version.new("1.2.2"))).to eq(Version.new("1.2.3"))
+    end
+  end
+
+  describe "::retrieve_pull_requests" do
+    let(:name) { "basic_formula" }
+    let(:tap_name) { "homebrew/tap" }
+    let(:version) { "1.2.3" }
+    let(:title) { "#{name} #{version}" }
+    let(:pull_url) { "https://github.com/Homebrew/homebrew-tap/pull" }
+    let(:pull_requests) { [] }
+
+    before do
+      allow(f_basic).to receive(:tap).and_return(Tap.fetch(tap_name))
+      allow(GitHub).to receive(:fetch_pull_requests).and_return(pull_requests)
+      add_pull_request(title, 100)
+    end
+
+    def add_pull_request(title, number)
+      pull_requests.append({
+        "number"   => number,
+        "title"    => title,
+        "state"    => "open",
+        "html_url" => "#{pull_url}/#{number}",
+      })
+    end
+
+    it "outputs all pull requests API returned when given a version" do
+      title_2 = "#{name}: update to #{version}"
+      add_pull_request(title_2, 101)
+      expect(bump.retrieve_pull_requests(f_basic, name, version:)).to eq(
+        "#{title} (#{pull_url}/100), #{title_2} (#{pull_url}/101)",
+      )
+    end
+
+    it "filters pull requests when not given a version" do
+      add_pull_request("#{name}: fix an issue with formula", 101)
+      add_pull_request("some other PR with #{name} #{version}", 102)
+      expect(bump.retrieve_pull_requests(f_basic, name)).to eq("#{title} (#{pull_url}/100)")
     end
   end
 end
