@@ -88,8 +88,10 @@ class BottleSpecification
 
     prefix = Pathname(cellar.to_s).parent.to_s
 
-    cellar_relocatable = cellar.size >= HOMEBREW_CELLAR.to_s.size && ENV["HOMEBREW_RELOCATE_BUILD_PREFIX"].present?
-    prefix_relocatable = prefix.size >= HOMEBREW_PREFIX.to_s.size && ENV["HOMEBREW_RELOCATE_BUILD_PREFIX"].present?
+    # Raw prefix strings are patched in place, so the byte length decides.
+    relocatable = Homebrew::EnvConfig.relocate_build_prefix?
+    cellar_relocatable = relocatable && cellar.to_s.bytesize >= HOMEBREW_CELLAR.to_s.bytesize
+    prefix_relocatable = relocatable && prefix.bytesize >= HOMEBREW_PREFIX.to_s.bytesize
 
     compatible_cellar = cellar == HOMEBREW_CELLAR.to_s || cellar_relocatable
     compatible_prefix = prefix == HOMEBREW_PREFIX.to_s || prefix_relocatable
