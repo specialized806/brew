@@ -141,58 +141,47 @@ RSpec.describe Homebrew::FormulaAuditor do
   end
 
   describe "#audit_homepage_domain_age" do
-    before { allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26)) }
+    let(:domain_problem) { "`homepage` domain `brew.sh` was registered on 2026-07-01" }
 
-    def homepage_auditor(homepage, **options)
-      formula_auditor "foo", <<~RUBY, { online: true, core_tap: true }.merge(options)
+    def homepage_auditor(**options)
+      formula_auditor "foo", <<~RUBY, { core_tap: true, new_formula: true }.merge(options)
         class Foo < Formula
-          homepage "#{homepage}"
+          homepage "https://brew.sh"
           url "https://brew.sh/foo-1.0.tar.gz"
         end
       RUBY
     end
 
-    it "reports domains registered less than 30 days ago" do
-      allow(SharedAudits).to receive(:domain_registration_date)
-        .with("brew.sh").and_return(Date.new(2026, 7, 1))
+    it "reports newly registered homepage domains" do
+      allow(SharedAudits).to receive(:new_domain_problem)
+        .with("https://brew.sh").and_return(domain_problem)
 
-      fa = homepage_auditor "https://www.brew.sh"
+      fa = homepage_auditor
       fa.audit_homepage_domain_age
 
-      expect(fa.problems.first[:message])
-        .to include("`homepage` domain `brew.sh` was registered on 2026-07-01")
+      expect(fa.problems.first[:message]).to eq(domain_problem)
     end
 
-    it "accepts domains registered at least 30 days ago" do
-      allow(SharedAudits).to receive(:domain_registration_date)
-        .with("brew.sh").and_return(Date.new(2026, 6, 26))
+    it "accepts established homepage domains" do
+      allow(SharedAudits).to receive(:new_domain_problem).and_return(nil)
 
-      fa = homepage_auditor "https://brew.sh"
-      fa.audit_homepage_domain_age
-
-      expect(fa.problems).to be_empty
-    end
-
-    it "accepts domains with an unknown registration date" do
-      allow(SharedAudits).to receive(:domain_registration_date).and_return(nil)
-
-      fa = homepage_auditor "https://brew.sh"
+      fa = homepage_auditor
       fa.audit_homepage_domain_age
 
       expect(fa.problems).to be_empty
     end
 
-    it "does not run `whois` when offline" do
-      fa = homepage_auditor "https://brew.sh", online: false
+    it "does not check existing formulae" do
+      fa = homepage_auditor new_formula: false
 
-      expect(SharedAudits).not_to receive(:domain_registration_date)
+      expect(SharedAudits).not_to receive(:new_domain_problem)
       fa.audit_homepage_domain_age
     end
 
-    it "does not run `whois` outside homebrew/core" do
-      fa = homepage_auditor "https://brew.sh", core_tap: false
+    it "does not check formulae outside homebrew/core" do
+      fa = homepage_auditor core_tap: false
 
-      expect(SharedAudits).not_to receive(:domain_registration_date)
+      expect(SharedAudits).not_to receive(:new_domain_problem)
       fa.audit_homepage_domain_age
     end
   end

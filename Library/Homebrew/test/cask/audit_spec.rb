@@ -595,54 +595,53 @@ RSpec.describe Cask::Audit, :cask do
 
     describe "homepage domain age" do
       let(:only) { ["homepage_domain_age"] }
-      let(:online) { true }
+      let(:new_cask) { true }
+      let(:domain_problem) { "`homepage` domain `brew.sh` was registered on 2026-07-01" }
       let(:cask) do
         Cask::Cask.new("homepage-domain-age", tap: CoreCaskTap.instance) do
           version "1.0"
           sha256 :no_check
           url "https://brew.sh/homepage-domain-age.tar.gz"
-          homepage "https://www.brew.sh"
+          homepage "https://brew.sh"
         end
       end
 
-      before { allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26)) }
-
-      context "when the homepage domain was registered less than 30 days ago" do
+      context "when the homepage domain is newly registered" do
         before do
-          allow(SharedAudits).to receive(:domain_registration_date)
-            .with("brew.sh").and_return(Date.new(2026, 7, 1))
+          allow(SharedAudits).to receive(:new_domain_problem)
+            .with("https://brew.sh").and_return(domain_problem)
         end
 
-        it { is_expected.to error_with(/`homepage` domain `brew\.sh` was registered on 2026-07-01/) }
+        it { is_expected.to error_with(domain_problem) }
       end
 
-      context "when the homepage domain was registered at least 30 days ago" do
-        before do
-          allow(SharedAudits).to receive(:domain_registration_date)
-            .with("brew.sh").and_return(Date.new(2026, 6, 26))
-        end
+      context "when the homepage domain is established" do
+        before { allow(SharedAudits).to receive(:new_domain_problem).and_return(nil) }
 
         it { is_expected.to pass }
       end
 
-      context "when the homepage domain registration date is unknown" do
-        before { allow(SharedAudits).to receive(:domain_registration_date).and_return(nil) }
+      context "when the cask is not new" do
+        let(:new_cask) { false }
 
-        it { is_expected.to pass }
+        it "does not check the homepage domain" do
+          expect(SharedAudits).not_to receive(:new_domain_problem)
+          expect(run).to pass
+        end
       end
 
-      context "when the cask is not in homebrew/cask" do
+      context "when the cask is not in an official tap" do
         let(:cask) do
           Cask::Cask.new("homepage-domain-age") do
             version "1.0"
             sha256 :no_check
             url "https://brew.sh/homepage-domain-age.tar.gz"
-            homepage "https://www.brew.sh"
+            homepage "https://brew.sh"
           end
         end
 
-        it "does not run `whois`" do
-          expect(SharedAudits).not_to receive(:domain_registration_date)
+        it "does not check the homepage domain" do
+          expect(SharedAudits).not_to receive(:new_domain_problem)
           expect(run).to pass
         end
       end

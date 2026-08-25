@@ -74,7 +74,7 @@ RSpec.describe SharedAudits do
     end
   end
 
-  describe "::domain_registration_date" do
+  describe "::new_domain_problem" do
     let(:whois_output) do
       <<~WHOIS
         % IANA WHOIS server
@@ -82,11 +82,12 @@ RSpec.describe SharedAudits do
         created:      1997-09-23
 
         Domain Name: brew.sh
-        Creation Date: 2013-03-22T15:50:45Z
+        Creation Date: 2026-07-01T15:50:45Z
       WHOIS
     end
 
     before do
+      allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26))
       allow(described_class).to receive(:which).with("whois").and_return(Pathname("/usr/bin/whois"))
     end
 
@@ -96,24 +97,60 @@ RSpec.describe SharedAudits do
       allow(SystemCommand).to receive(:run).and_return(result)
     end
 
-    it "ignores the IANA record for the TLD and returns the domain creation date" do
+    # The IANA record for the TLD is always ancient, so parsing must use the newest date.
+    it "reports domains registered less than 30 days ago, ignoring the IANA record for the TLD" do
       mock_whois stdout: whois_output
-      expect(described_class.domain_registration_date("brew.sh")).to eq(Date.new(2013, 3, 22))
+
+      expect(described_class.new_domain_problem("https://www.brew.sh/foo"))
+        .to include("`homepage` domain `brew.sh` was registered on 2026-07-01")
     end
 
-    it "returns nil when no creation date can be parsed" do
+    it "ignores domains registered at least 30 days ago" do
+      mock_whois stdout: whois_output.sub("2026-07-01T15:50:45Z", "2026-06-26T15:50:45Z")
+
+      expect(described_class.new_domain_problem("https://brew.sh")).to be_nil
+    end
+
+    it "ignores domains with no parseable creation date" do
       mock_whois stdout: "No match for domain \"NOPE.INVALID\".\n"
-      expect(described_class.domain_registration_date("nope.invalid")).to be_nil
+
+      expect(described_class.new_domain_problem("https://nope.invalid")).to be_nil
     end
 
-    it "returns nil when `whois` fails" do
+    it "ignores domains when `whois` fails" do
       mock_whois stdout: "", success: false
-      expect(described_class.domain_registration_date("fails.example")).to be_nil
+
+      expect(described_class.new_domain_problem("https://fails.example")).to be_nil
     end
 
-    it "returns nil when `whois` is unavailable" do
+    it "ignores domains when `whois` times out" do
+      allow(SystemCommand).to receive(:run).and_raise(Timeout::Error)
+
+      expect(described_class.new_domain_problem("https://slow.example")).to be_nil
+    end
+
+    it "ignores domains when `whois` is unavailable" do
       allow(described_class).to receive(:which).with("whois").and_return(nil)
-      expect(described_class.domain_registration_date("missing.example")).to be_nil
+
+      expect(described_class.new_domain_problem("https://missing.example")).to be_nil
+    end
+
+    it "ignores unparseable homepages" do
+      expect(described_class.new_domain_problem("not a url")).to be_nil
+    end
+
+    test_each(%w[
+      https://github.com/foo/bar
+      https://gitlab.com/foo/bar
+      https://bitbucket.org/foo/bar
+      https://codeberg.org/foo/bar
+      https://foo.github.io/bar
+      https://sr.ht/~foo/bar
+    ]) do |homepage|
+      it "does not run `whois` for the git forge homepage #{homepage}" do
+        expect(SystemCommand).not_to receive(:run)
+        expect(described_class.new_domain_problem(homepage)).to be_nil
+      end
     end
   end
 
