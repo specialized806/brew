@@ -244,6 +244,7 @@ class Reporter
 
         new_tap = Tap.fetch(new_tap_name)
         next unless ensure_trusted_tap_installed!(name, new_name, new_tap)
+        next unless ensure_trusted_migration_target!(:formula, new_full_name)
 
         ohai "#{name} has been moved to Homebrew.", <<~EOS
           To uninstall the cask, run:
@@ -273,6 +274,8 @@ class Reporter
       # For formulae migrated to cask: Auto-install cask or provide install instructions.
       # Check if the migration target is a cask (either in homebrew/cask or any other tap)
       if new_tap.core_cask_tap? || new_tap.cask_tokens.intersect?([new_full_name, new_name])
+        next unless ensure_trusted_migration_target!(:cask, new_full_name)
+
         migration_message = if new_tap == tap
           "#{full_name} has been migrated from a formula to a cask."
         else
@@ -364,6 +367,20 @@ class Reporter
 
     new_tap.ensure_installed!
     true
+  end
+
+  sig { params(type: Symbol, full_name: String).returns(T::Boolean) }
+  def ensure_trusted_migration_target!(type, full_name)
+    return true if Homebrew::Trust.trusted?(type, full_name)
+
+    opoo <<~EOS
+      Not automatically installing #{full_name} because the migration target is
+      not trusted.
+      To complete the migration yourself, run:
+        brew trust --#{type} #{full_name}
+        brew install --#{type} #{full_name}
+    EOS
+    false
   end
 
   sig { returns(String) }
