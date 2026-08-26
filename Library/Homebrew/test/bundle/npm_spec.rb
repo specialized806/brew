@@ -174,6 +174,29 @@ RSpec.describe Homebrew::Bundle::Npm do
           expect(described_class.preinstall!("vercel")).to be(true)
           expect(described_class.install!("vercel")).to be(true)
         end
+
+        it "installs multiple packages in npm's native batch" do
+          entries = [
+            Homebrew::Bundle::Dsl::Entry.new(:npm, "vercel"),
+            Homebrew::Bundle::Dsl::Entry.new(:npm, "typescript"),
+          ]
+          expect(described_class.batch_installable?("vercel")).to be(true)
+          expect(Homebrew::Bundle).to receive(:system)
+            .with(
+              "/opt/homebrew/bin/npm",
+              "install",
+              "--min-release-age=1",
+              "--cache=#{HOMEBREW_CACHE}/npm_cache",
+              "--ignore-scripts",
+              "-g",
+              "vercel",
+              "typescript",
+              verbose: false,
+            )
+            .and_return(true)
+
+          expect(described_class.install_batch!(entries, verbose: false)).to be(true)
+        end
       end
     end
   end

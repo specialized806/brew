@@ -330,11 +330,6 @@ to one or more of the following environment variables:
 : Run `brew upgrade` on any of these comma-separated formulae, even if
   `$HOMEBREW_BUNDLE_NO_UPGRADE` is set.
 
-`--jobs`
-
-: Ignored. Formula installations are batched into a single `brew install`, whose
-  download concurrency is set by `$HOMEBREW_DOWNLOAD_CONCURRENCY`.
-
 `-f`, `--force`
 
 : Run with `--force`/`--overwrite`.

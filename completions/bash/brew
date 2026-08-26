@@ -838,7 +838,6 @@ install)
         --force-cleanup
         --global
         --help
-        --jobs
         --no-upgrade
         --quiet
         --upgrade

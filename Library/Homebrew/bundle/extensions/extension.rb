@@ -143,21 +143,6 @@ module Homebrew
         "Installing"
       end
 
-      sig {
-        params(
-          name:       String,
-          options:    Homebrew::Bundle::EntryOptions,
-          no_upgrade: T::Boolean,
-        ).returns(T.nilable(String))
-      }
-      def self.fetchable_name(name, options = {}, no_upgrade: false)
-        _ = name
-        _ = options
-        _ = no_upgrade
-
-        nil
-      end
-
       sig { returns(T.nilable(String)) }
       def self.cleanup_heading
         nil

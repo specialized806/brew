@@ -39,19 +39,16 @@ module Homebrew
         "Installing"
       end
 
-      sig {
-        params(
-          name:       String,
-          options:    Homebrew::Bundle::EntryOptions,
-          no_upgrade: T::Boolean,
-        ).returns(T.nilable(String))
-      }
-      def self.fetchable_name(name, options = {}, no_upgrade: false)
-        _ = name
-        _ = options
-        _ = no_upgrade
+      sig { params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(T::Boolean) }
+      def self.batch_installable?(_name, _options = {})
+        false
+      end
 
-        nil
+      sig { params(_entries: T::Array[Dsl::Entry], verbose: T::Boolean).returns(T::Boolean) }
+      def self.install_batch!(_entries, verbose: false)
+        _ = verbose
+
+        raise NotImplementedError
       end
 
       sig { abstract.void }

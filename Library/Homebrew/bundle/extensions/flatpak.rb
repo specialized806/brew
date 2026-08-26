@@ -60,6 +60,37 @@ module Homebrew
           @installed_packages = T.let(nil, T.nilable(T::Array[Package]))
         end
 
+        sig {
+          override.params(
+            _name:   String,
+            options: Homebrew::Bundle::EntryOptions,
+          ).returns(T::Boolean)
+        }
+        def batch_installable?(_name, options = {})
+          !T.cast(options.fetch(:remote, "flathub"), String).start_with?("http://", "https://")
+        end
+
+        sig { override.params(entries: T::Array[Dsl::Entry], verbose: T::Boolean).returns(T::Boolean) }
+        def install_batch!(entries, verbose: false)
+          flatpak = package_manager_executable
+          unless flatpak
+            $stderr.puts "flatpak is not installed. Install it with your distribution's package manager."
+            return false
+          end
+          flatpak = flatpak.to_s
+
+          success = T.let(true, T::Boolean)
+          entries.group_by { |entry| [entry.options.fetch(:remote, "flathub"), entry.options[:url]] }
+                 .each do |(remote, url), remote_entries|
+            remote = T.cast(remote, String)
+            ensure_named_remote_exists!(flatpak, remote, T.cast(url, String), verbose:) if url
+            installed = Bundle.system(flatpak, "install", "-y", "--system", remote,
+                                      *remote_entries.map(&:name), verbose:)
+            success &&= installed
+          end
+          success
+        end
+
         sig { returns(T::Hash[String, String]) }
         def remote_urls
           remote_urls = @remote_urls

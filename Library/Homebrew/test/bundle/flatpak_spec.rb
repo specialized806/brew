@@ -244,6 +244,33 @@ RSpec.describe Homebrew::Bundle::Flatpak do
       end
     end
 
+    describe "native batches" do
+      before do
+        allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))
+      end
+
+      it "installs refs sharing a remote in one batch" do
+        entries = [
+          Homebrew::Bundle::Dsl::Entry.new(:flatpak, "org.gnome.Calculator", remote: "flathub"),
+          Homebrew::Bundle::Dsl::Entry.new(:flatpak, "org.gnome.Characters", remote: "flathub"),
+        ]
+        expect(described_class.batch_installable?("org.gnome.Calculator", remote: "flathub")).to be(true)
+        expect(Homebrew::Bundle).to receive(:system)
+          .with("flatpak", "install", "-y", "--system", "flathub",
+                "org.gnome.Calculator", "org.gnome.Characters", verbose: false)
+          .and_return(true)
+
+        expect(described_class.install_batch!(entries, verbose: false)).to be(true)
+      end
+
+      it "does not batch entries that need their own remote" do
+        expect(described_class.batch_installable?(
+                 "org.godotengine.Godot",
+                 remote: "https://dl.flathub.org/beta-repo/",
+               )).to be(false)
+      end
+    end
+
     context "when Flatpak is installed", :needs_linux do
       before do
         allow(described_class).to receive(:package_manager_executable).and_return(Pathname.new("flatpak"))

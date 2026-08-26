@@ -38,6 +38,17 @@ module Homebrew
           which("npm", ORIGINAL_PATHS)
         end
 
+        sig { override.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(T::Boolean) }
+        def batch_installable?(_name, _options = {})
+          true
+        end
+
+        sig { override.params(entries: T::Array[Dsl::Entry], verbose: T::Boolean).returns(T::Boolean) }
+        def install_batch!(entries, verbose: false)
+          Bundle.system(package_manager_executable!.to_s, "install", *Language::Node.npm_install_security_args,
+                        "-g", *entries.map(&:name), verbose:)
+        end
+
         sig { override.returns(T::Array[String]) }
         def packages
           packages = @packages

@@ -277,6 +277,19 @@ RSpec.describe Homebrew::Bundle::MacAppStore do
           expect(described_class.preinstall!("foo", 123)).to be(true)
           expect(described_class.install!("foo", 123)).to be(true)
         end
+
+        it "installs multiple apps in one native batch" do
+          entries = [
+            Homebrew::Bundle::Dsl::Entry.new(:mas, "foo", id: 123),
+            Homebrew::Bundle::Dsl::Entry.new(:mas, "bar", id: 456),
+          ]
+          expect(described_class.batch_installable?("foo", id: 123)).to be(true)
+          expect(Homebrew::Bundle).to receive(:system)
+            .with(Pathname("mas"), "install", "123", "456", verbose: false)
+            .and_return(true)
+
+          expect(described_class.install_batch!(entries, verbose: false)).to be(true)
+        end
       end
     end
   end

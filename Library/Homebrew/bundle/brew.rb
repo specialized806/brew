@@ -269,15 +269,6 @@ module Homebrew
           dump(describe:, no_restart:)
         end
 
-        sig { override.params(name: String, options: T::Hash[Symbol, T.untyped], no_upgrade: T::Boolean).returns(T.nilable(String)) }
-        def fetchable_name(name, options = {}, no_upgrade: false)
-          _ = options
-
-          return if formula_installed_and_up_to_date?(name, no_upgrade:)
-
-          name
-        end
-
         sig { returns(T::Hash[String, String]) }
         def formula_aliases
           return @formula_aliases if @formula_aliases

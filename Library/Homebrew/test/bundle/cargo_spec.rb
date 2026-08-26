@@ -305,6 +305,19 @@ RSpec.describe Homebrew::Bundle::Cargo do
           expect(described_class.install!("ripgrep")).to be(true)
         end
 
+        it "installs multiple registry crates in one native batch" do
+          entries = [
+            Homebrew::Bundle::Dsl::Entry.new(:cargo, "ripgrep"),
+            Homebrew::Bundle::Dsl::Entry.new(:cargo, "bat"),
+          ]
+          expect(described_class.batch_installable?("ripgrep")).to be(true)
+          expect(Homebrew::Bundle).to receive(:system)
+            .with("/tmp/rust/bin/cargo", "install", "--locked", "ripgrep", "bat", verbose: false)
+            .and_return(true)
+
+          expect(described_class.install_batch!(entries, verbose: false)).to be(true)
+        end
+
         it "installs a package from a git source by package name" do
           source = "ssh://git@example.com/tftio/kb.git"
           expect(Homebrew::Bundle).to receive(:system) do |*args, verbose:|

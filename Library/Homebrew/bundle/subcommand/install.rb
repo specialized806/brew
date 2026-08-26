@@ -35,10 +35,8 @@ module Homebrew
           flag   "--upgrade-formulae=", "--upgrade-formula=",
                  description: "Run `brew upgrade` on any of these comma-separated formulae, " \
                               "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
-          flag "--jobs=",
-               description: "Ignored. Formula installations are batched into a single " \
-                            "`brew install`, whose download concurrency is set by " \
-                            "`$HOMEBREW_DOWNLOAD_CONCURRENCY`."
+          # odeprecated
+          flag "--jobs=", hidden: true
           switch "-f", "--force",
                  description: "Run with `--force`/`--overwrite`."
           switch "--cleanup",
@@ -66,7 +64,7 @@ module Homebrew
           end
 
           if args.jobs.present?
-            opoo "`--jobs` is ignored: formula installations are batched into a single `brew install`."
+            opoo "`--jobs` is ignored: installations use package managers' native batching."
           end
 
           @dsl = Homebrew::Bundle::Brewfile.read(global: context.global, file: context.file)

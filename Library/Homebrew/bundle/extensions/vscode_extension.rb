@@ -44,6 +44,21 @@ module Homebrew
             which("code-insiders", ORIGINAL_PATHS)
         end
 
+        sig { override.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(T::Boolean) }
+        def batch_installable?(_name, _options = {})
+          true
+        end
+
+        sig { override.params(entries: T::Array[Dsl::Entry], verbose: T::Boolean).returns(T::Boolean) }
+        def install_batch!(entries, verbose: false)
+          vscode = package_manager_executable!
+          args = entries.flat_map { |entry| ["--install-extension", entry.name] }
+
+          Bundle.exchange_uid_if_needed! do
+            Bundle.system(vscode, *args, verbose:)
+          end
+        end
+
         sig { returns(T::Array[String]) }
         def extensions
           extensions = @extensions

@@ -77,6 +77,25 @@ module Homebrew
           which("cargo", ORIGINAL_PATHS)
         end
 
+        sig { override.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(T::Boolean) }
+        def batch_installable?(_name, _options = {})
+          true
+        end
+
+        sig { override.params(entries: T::Array[Dsl::Entry], verbose: T::Boolean).returns(T::Boolean) }
+        def install_batch!(entries, verbose: false)
+          cargo = package_manager_executable!
+          success = T.let(true, T::Boolean)
+          entries.group_by { |entry| entry.options[:source] }.each do |source, source_entries|
+            installed = with_env(cargo_env(cargo)) do
+              Bundle.system(cargo.to_s, "install", "--locked", *source_args(T.cast(source, T.nilable(String))),
+                            *source_entries.map(&:name), verbose:)
+            end
+            success &&= installed
+          end
+          success
+        end
+
         sig { override.returns(T::Array[Crate]) }
         def packages
           packages = @packages

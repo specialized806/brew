@@ -115,14 +115,6 @@ module Homebrew
           !cask_installed?(name) || upgrading?(no_upgrade, name, options)
         end
 
-        sig { params(name: String, options: Homebrew::Bundle::EntryOptions, no_upgrade: T::Boolean).returns(T.nilable(String)) }
-        def fetchable_name(name, options = {}, no_upgrade: false)
-          full_name = T.cast(options.fetch(:full_name, name), String)
-          return unless installable_or_upgradable?(name, no_upgrade:, **options)
-
-          full_name
-        end
-
         sig { params(cask: String, no_upgrade: T::Boolean).returns(T::Boolean) }
         def cask_installed_and_up_to_date?(cask, no_upgrade: false)
           return false unless cask_installed?(cask)
