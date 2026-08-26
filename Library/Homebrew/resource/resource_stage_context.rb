@@ -16,7 +16,7 @@ class ResourceStageContext
   attr_reader :staging
 
   def_delegators :@resource, :version, :url, :mirrors, :specs, :using, :source_modified_time
-  def_delegators :@staging, :retain!
+  def_delegators :@staging, :retain!, :quiet!
 
   sig { params(resource: Resource, staging: Mktemp).void }
   def initialize(resource, staging)

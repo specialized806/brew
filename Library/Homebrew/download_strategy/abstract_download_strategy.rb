@@ -120,7 +120,6 @@ class AbstractDownloadStrategy
       yield
     end
   end
-  private :chdir
 
   # Returns the most recent modified time for all files in the current working directory after stage.
   #

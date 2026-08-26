@@ -59,6 +59,35 @@ RSpec.describe RuboCop::Cop::FormulaAudit::OnSystemConditionals do
       RUBY
     end
 
+    it "reports an offense when `on_macos` is used in fetch method" do
+      expect_offense(<<~RUBY, "/homebrew-core/Formula/foo.rb")
+        class Foo < Formula
+          desc "foo"
+          url 'https://brew.sh/foo-1.0.tgz'
+
+          def fetch
+            on_macos do
+            ^^^^^^^^ FormulaAudit/OnSystemConditionals: Instead of using `on_macos` in `def fetch`, use `if OS.mac?`.
+              true
+            end
+          end
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        class Foo < Formula
+          desc "foo"
+          url 'https://brew.sh/foo-1.0.tgz'
+
+          def fetch
+            if OS.mac?
+              true
+            end
+          end
+        end
+      RUBY
+    end
+
     it "reports an offense when `on_macos` is used in install method" do
       expect_offense(<<~RUBY, "/homebrew-core/Formula/foo.rb")
         class Foo < Formula

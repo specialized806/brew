@@ -628,7 +628,7 @@ module RuboCop
         include OnSystemConditionalsHelper
         extend AutoCorrector
 
-        NO_ON_SYSTEM_METHOD_NAMES = [:install, :post_install].freeze
+        NO_ON_SYSTEM_METHOD_NAMES = [:install, :fetch, :post_install].freeze
         NO_ON_SYSTEM_BLOCK_NAMES = [:service, :test].freeze
 
         sig { override.params(formula_nodes: FormulaNodes).void }

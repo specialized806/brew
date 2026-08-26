@@ -1219,6 +1219,23 @@ end
 
 In the above example, the [`libressl`](https://github.com/Homebrew/homebrew-core/blob/442f9cc511ce6dfe75b96b2c83749d90dde914d2/Formula/lib/libressl.rb#L53-L56) formula replaces its stock list of certificates with a symlink to that of the `ca-certificates` formula.
 
+### Fetching dependencies before building
+
+Package managers such as Cargo, Go modules, npm and Bundler download dependencies while `install` runs, so those builds need network access and cannot be reproduced offline. Define a [`fetch`](/rubydoc/Formula.html#fetch-instance_method) method to do the downloading first. It runs after the source has been unpacked and patched into `buildpath`, with the same build environment and dependencies as `install` and with network access, and may write to `buildpath` and to the package manager caches Homebrew keeps in `HOMEBREW_CACHE` (`cargo_cache`, `go_mod_cache`, `npm_cache`, `bundler_cache` and so on). `install` then runs in the same `buildpath` without network access and with the rest of `HOMEBREW_CACHE` read-only, so it must use the package manager's offline mode. `brew fetch --build-from-source` runs `fetch` too once the formula's dependencies are installed. `fetch` is never run when installing a bottle.
+
+```ruby
+class Foo < Formula
+  # ...
+  def fetch
+    system "cargo", "fetch", "--locked"
+  end
+
+  def install
+    system "cargo", "install", "--offline", *std_cargo_args
+  end
+end
+```
+
 ### Handling files that should persist over formula upgrades
 
 For example, Ruby 1.9’s gems should be installed to `var/lib/ruby/` so that gems don’t need to be reinstalled when upgrading Ruby. You can usually do this with symlink trickery, or (ideally) a configure option.

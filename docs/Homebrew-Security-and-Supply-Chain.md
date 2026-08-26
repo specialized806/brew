@@ -172,11 +172,11 @@ That keeps AI useful as automation while preserving the human accountability and
 
 Installing a bottle unpacks reviewed, prebuilt files.
 Builds from source run inside a sandbox (see below).
-Running a formula's `post_install` step, whether from a bottle or a source build, may run upstream-supplied software, but this too runs inside the sandbox.
+Running a formula's `post_install` step, whether from a bottle or a source build, or its `fetch` step before a source build, may run upstream-supplied software, but this too runs inside the sandbox.
 
 ### Sandboxing
 
-Builds, `post_install` steps and tests run inside a sandbox that restricts filesystem and network access:
+Builds, `fetch` steps, `post_install` steps and tests run inside a sandbox that restricts filesystem and network access:
 
 * **macOS sandboxing** has long confined formula builds.
 * **Linux sandboxing** extends the same protection to Homebrew on Linux.

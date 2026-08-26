@@ -16,6 +16,8 @@ require "cache_store"
 require "download_queue"
 require "linkage_checker"
 require "messages"
+require "mktemp"
+require "package_manager_cache"
 require "cask/caskroom"
 require "cmd/install"
 require "find"
@@ -1139,38 +1141,36 @@ on_request: installed_on_request?, options:)
     # load. See: https://github.com/orgs/Homebrew/discussions/6455
     @formula = Homebrew::API::Formula.source_download_formula(formula) if formula.loaded_from_api?
 
+    formula_path = T.must(formula.specified_path)
+    staging_path = (create_staging_path if formula.fetch_defined?)
+    run_fetch(staging_path:) if staging_path
+
     # 1. formulae can modify ENV, so we must ensure that each
     #    installation has a pristine ENV when it starts, forking now is
     #    the easiest way to do this
-    formula_path = formula.specified_path
-    args = [
-      "nice",
-      *HOMEBREW_RUBY_EXEC_ARGS,
-      "--",
-      HOMEBREW_LIBRARY_PATH/"build.rb",
-      formula_path,
-    ].concat(build_argv)
-
-    Sandbox.run_or_fork(*args, step: "building") do |sandbox|
-      sandbox.allow_read_if_exists path: formula_path
-      if Homebrew::EnvConfig.require_tap_trust?
-        require "trust"
-        sandbox.allow_read_if_exists path: Homebrew::Trust.trust_file
+    with_env(HOMEBREW_BUILD_STAGING_PATH: staging_path, HOMEBREW_BUILD_FETCH_PHASE: nil) do
+      Sandbox.run_or_fork(*build_args(formula_path), step: "building") do |sandbox|
+        add_build_sandbox_rules(sandbox, formula_path, log_name: "build")
+        if interactive?
+          sandbox.allow_write_path(Dir.home)
+        else
+          sandbox.deny_read_home
+        end
+        sandbox.allow_write_xcode
+        sandbox.allow_write_cellar(formula)
+        if staging_path
+          # `fetch` has already downloaded everything, so `install` stays
+          # offline and off the download cache apart from the package manager
+          # caches, which their offline modes still write to.
+          sandbox.allow_write_path(HOMEBREW_TEMP)
+          sandbox.allow_write_path(staging_path)
+          Homebrew::PackageManagerCache.paths.each { |path| sandbox.allow_write_path(path) }
+          sandbox.deny_all_network
+        else
+          sandbox.allow_write_temp_and_cache
+          sandbox.deny_all_network unless formula.network_access_allowed?(:build)
+        end
       end
-      formula.logs.mkpath
-      sandbox.record_log(formula.logs/"build.sandbox.log")
-      if interactive?
-        sandbox.allow_write_path(Dir.home)
-      else
-        sandbox.deny_read_home
-      end
-      sandbox.allow_write_temp_and_cache
-      sandbox.allow_write_log(formula)
-      sandbox.allow_cvs
-      sandbox.allow_fossil
-      sandbox.allow_write_xcode
-      sandbox.allow_write_cellar(formula)
-      sandbox.deny_all_network unless formula.network_access_allowed?(:build)
     end
 
     formula.update_head_version
@@ -1190,6 +1190,62 @@ on_request: installed_on_request?, options:)
       formula.rack.rmdir_if_possible
     end
     raise e
+  ensure
+    # The build child removes the shared staging directory unless it has to
+    # be kept, so this only matters when no child got as far as staging.
+    FileUtils.rm_rf(staging_path) if staging_path && !keep_tmp? && !debug_symbols? && !interactive? && !debug?
+  end
+
+  # Runs the formula's `fetch` method with network access before `install`
+  # builds from source; `brew fetch --build-from-source` also runs it.
+  sig { params(staging_path: T.nilable(Pathname)).void }
+  def run_fetch(staging_path: nil)
+    @formula = Homebrew::API::Formula.source_download_formula(formula) if formula.loaded_from_api?
+
+    formula_path = T.must(formula.specified_path)
+    with_env(HOMEBREW_BUILD_FETCH_PHASE: "1", HOMEBREW_BUILD_STAGING_PATH: staging_path) do
+      Sandbox.run_or_fork(*build_args(formula_path), step: "fetching") do |sandbox|
+        add_build_sandbox_rules(sandbox, formula_path, log_name: "fetch")
+        sandbox.deny_read_home
+        sandbox.allow_write_temp_and_cache
+        sandbox.allow_write_path(staging_path) if staging_path
+      end
+    end
+  end
+
+  sig { params(formula_path: Pathname).returns(T::Array[T.any(String, Pathname)]) }
+  def build_args(formula_path)
+    [
+      "nice",
+      *HOMEBREW_RUBY_EXEC_ARGS,
+      "--",
+      HOMEBREW_LIBRARY_PATH/"build.rb",
+      formula_path,
+      *build_argv,
+    ]
+  end
+
+  sig { params(sandbox: Sandbox, formula_path: Pathname, log_name: String).void }
+  def add_build_sandbox_rules(sandbox, formula_path, log_name:)
+    sandbox.allow_read_if_exists path: formula_path
+    if Homebrew::EnvConfig.require_tap_trust?
+      require "trust"
+      sandbox.allow_read_if_exists path: Homebrew::Trust.trust_file
+    end
+    formula.logs.mkpath
+    sandbox.record_log(formula.logs/"#{log_name}.sandbox.log")
+    sandbox.allow_write_log(formula)
+    sandbox.allow_cvs
+    sandbox.allow_fossil
+  end
+
+  # The fetch and build phases run in separate sandboxes, so unpack the source
+  # once into a directory that outlives both.
+  sig { returns(Pathname) }
+  def create_staging_path
+    staging = Mktemp.new(formula.name, retain: true, retain_in_cache: debug_symbols?)
+    staging.quiet!
+    staging.run(chdir: false) { |mktemp| T.must(mktemp.tmpdir) }
   end
 
   sig { params(keg: Keg).void }
