@@ -41,6 +41,7 @@ require "find"
 require "install_steps"
 require "utils/spdx"
 require "on_system"
+require "package_manager_cache"
 require "api"
 require "api_hashable"
 require "release_cooldown"
@@ -3741,27 +3742,22 @@ class Formula
   # Common environment variables used by sandboxed build, test and postinstall phases.
   sig { params(home: Pathname).returns(T::Hash[Symbol, String]) }
   def common_sandbox_env(home)
-    {
-      _JAVA_OPTIONS:           "-Duser.home=#{HOMEBREW_CACHE}/java_cache",
-      GOCACHE:                 "#{HOMEBREW_CACHE}/go_cache",
+    Homebrew::PackageManagerCache.env.merge(
       GIT_CONFIG_GLOBAL:       Utils::Git.no_global_config_file,
       GIT_TERMINAL_PROMPT:     "0",
       GOENV:                   "off",
-      GOPATH:                  "#{HOMEBREW_CACHE}/go_mod_cache",
-      CARGO_HOME:              "#{HOMEBREW_CACHE}/cargo_cache",
       # TODO: Enable when `min-publish-age` stabilises in Cargo 1.100,
       # expected with Rust 1.100 on 2026-11-12.
       # https://github.com/rust-lang/cargo/pull/17335
       # CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE: Utils.pluralize("day", Homebrew::RELEASE_COOLDOWN_DAYS,
       #                                                        include_count: true),
       BUNDLE_COOLDOWN:         Homebrew::RELEASE_COOLDOWN_DAYS.to_s,
-      PIP_CACHE_DIR:           "#{HOMEBREW_CACHE}/pip_cache",
       PIP_CONFIG_FILE:         File::NULL,
       NPM_CONFIG_USERCONFIG:   File::NULL,
       CURL_HOME:               ENV.fetch("CURL_HOME") { home.to_s },
       PYTHONDONTWRITEBYTECODE: "1",
       XDG_CONFIG_HOME:         "#{home}/.config",
-    }
+    )
   end
 
   private

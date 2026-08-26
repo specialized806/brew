@@ -1,9 +1,11 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "find"
 require "utils/bottles"
 require "utils/output"
 require "installed_dependents"
+require "package_manager_cache"
 require "stringio"
 
 require "formula"
@@ -26,16 +28,13 @@ module Homebrew
 
       sig { params(pathname: Pathname).returns(T::Boolean) }
       def nested_cache?(pathname)
-        pathname.directory? && %w[
-          cargo_cache
-          go_cache
-          go_mod_cache
-          glide_home
-          java_cache
-          npm_cache
-          pip_cache
-          gclient_cache
-        ].include?(pathname.basename.to_s)
+        pathname.directory? && Homebrew::PackageManagerCache::DIRECTORIES.include?(pathname.basename.to_s)
+      end
+
+      sig { params(pathname: Pathname).returns(T::Boolean) }
+      def content_addressed_cache?(pathname)
+        pathname.directory? &&
+          Homebrew::PackageManagerCache::CONTENT_ADDRESSED_DIRECTORIES.include?(pathname.basename.to_s)
       end
 
       sig { params(pathname: Pathname).returns(T::Boolean) }
@@ -725,7 +724,17 @@ module Homebrew
 
         FileUtils.chmod_R 0755, path if self.class.go_cache_directory?(path) && !dry_run?
         next cleanup_path(path) { path.unlink } if self.class.incomplete?(path)
-        next cleanup_path(path) { FileUtils.rm_rf path } if self.class.nested_cache?(path)
+
+        if self.class.nested_cache?(path)
+          # Caches that verify their contents on every read stay safe to reuse
+          # between builds, so only prune their old files rather than wiping them.
+          if self.class.content_addressed_cache?(path)
+            prune_content_addressed_cache(path)
+          else
+            cleanup_path(path) { FileUtils.rm_rf path }
+          end
+          next
+        end
 
         if self.class.prune?(path, days)
           if path.file? || path.symlink?
@@ -742,6 +751,24 @@ module Homebrew
 
       cleanup_legacy_cask_downloads(Cask::Caskroom.casks) if full_cache_cleanup
       cleanup_unreferenced_downloads if cleanup_unreferenced
+    end
+
+    sig { params(path: Pathname).void }
+    def prune_content_addressed_cache(path)
+      files = Find.find(path.to_s).filter_map do |file|
+        file = Pathname(file)
+        file if file.file? && (scrub? || self.class.prune?(file, days))
+      end
+      return if files.empty?
+
+      @disk_cleanup_size += files.sum(&:disk_usage)
+      count = Utils.pluralize("file", files.count, include_count: true)
+      if dry_run?
+        @output.puts "Would prune #{count} from: #{path}"
+      else
+        @output.puts "Pruning #{count} from: #{path}..."
+        files.each(&:unlink)
+      end
     end
 
     sig { params(path: Pathname, _block: T.proc.void).void }
