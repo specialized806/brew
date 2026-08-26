@@ -60,12 +60,6 @@ module Homebrew
         }
         def context(args, extensions:, ask: false)
           subcommand = T.let(args.subcommand || "install", String)
-          jobs_arg = args.jobs || Homebrew::EnvConfig.bundle_jobs
-          jobs = if jobs_arg == "auto"
-            [Etc.nprocessors, 4].min
-          else
-            jobs_arg&.to_i || 1
-          end
           no_upgrade = if args.upgrade?
             false
           else
@@ -80,7 +74,6 @@ module Homebrew
             verbose:      args.verbose?,
             force:        args.force?,
             ask:,
-            jobs:         [jobs, 1].max,
             zap:          args.zap?,
             no_type_args: no_type_args?(args, extensions:),
             extensions:,

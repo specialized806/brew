@@ -35,10 +35,8 @@ module Homebrew
           flag   "--upgrade-formulae=", "--upgrade-formula=",
                  description: "Run `brew upgrade` on any of these comma-separated formulae, " \
                               "even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set."
-          # odeprecated: change default for 5.2 and document HOMEBREW_BUNDLE_JOBS
-          flag "--jobs=",
-               description: "Run up to this many formula installations in parallel. " \
-                            "Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)."
+          # odeprecated
+          flag "--jobs=", hidden: true
           switch "-f", "--force",
                  description: "Run with `--force`/`--overwrite`."
           switch "--cleanup",
@@ -65,6 +63,10 @@ module Homebrew
                               "or `$HOMEBREW_ASK`."
           end
 
+          if args.jobs.present?
+            opoo "`--jobs` is ignored: installations use package managers' native batching."
+          end
+
           @dsl = Homebrew::Bundle::Brewfile.read(global: context.global, file: context.file)
           result = Homebrew::Bundle::Installer.install!(
             @dsl.entries,
@@ -74,7 +76,6 @@ module Homebrew
             no_upgrade: context.no_upgrade,
             verbose:    context.verbose,
             force:      context.force,
-            jobs:       context.jobs,
             quiet:      quiet || args.quiet?,
           )
 

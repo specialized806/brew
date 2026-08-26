@@ -113,6 +113,20 @@ RSpec.describe Homebrew::Bundle::VscodeExtension do
           expect(described_class.install!("foo")).to be(true)
         end
 
+        it "installs multiple extensions in one native batch" do
+          entries = [
+            Homebrew::Bundle::Dsl::Entry.new(:vscode, "example.foo"),
+            Homebrew::Bundle::Dsl::Entry.new(:vscode, "example.bar"),
+          ]
+          expect(described_class.batch_installable?("example.foo")).to be(true)
+          expect(Homebrew::Bundle).to receive(:system)
+            .with(Pathname("code"), "--install-extension", "example.foo",
+                  "--install-extension", "example.bar", verbose: false)
+            .and_return(true)
+
+          expect(described_class.install_batch!(entries, verbose: false)).to be(true)
+        end
+
         it "installs extension when euid != uid and Process::UID.re_exchangeable? returns true" do
           allow(Process).to receive(:uid).and_return(0)
           allow(Etc).to receive(:getpwuid).with(0).and_return(double(dir: "/root"))

@@ -390,9 +390,12 @@ module Homebrew
           install_formula(fi, upgrade:)
           Cleanup.install_formula_clean!(formula) if cleanup
           installed_formulae << formula
-        rescue BuildError
-          # Reported (with analytics) by the global handler in `brew.rb`.
-          raise
+        rescue BuildError => e
+          require "utils/analytics"
+
+          Utils::Analytics.report_build_error(e)
+          e.dump(verbose:)
+          Homebrew.failed = true
         rescue => e
           # Keep a single failed install (e.g. a bottle that fails to extract)
           # from aborting the rest of the batch while still failing the run.

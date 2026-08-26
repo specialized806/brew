@@ -330,11 +330,6 @@ to one or more of the following environment variables:
 : Run `brew upgrade` on any of these comma-separated formulae, even if
   `$HOMEBREW_BUNDLE_NO_UPGRADE` is set.
 
-`--jobs`
-
-: Run up to this many formula installations in parallel. Defaults to 1
-  (sequential). Use `auto` for the number of CPU cores (max 4).
-
 `-f`, `--force`
 
 : Run with `--force`/`--overwrite`.
@@ -4540,23 +4535,11 @@ command execution (e.g. `$(cat file)`).
 
 : If set, run `brew bundle cleanup --force` after `brew bundle install`.
 
-`HOMEBREW_BUNDLE_JOBS`
-
-: Use this value as the number of formula installations to run in parallel for
-  `brew bundle install`. Use `auto` for the number of CPU cores (max 4).
-  
-  *Default:* `auto`.
-
 `HOMEBREW_BUNDLE_NO_DESCRIBE`
 
 : If set, do not enable bundle description comments from
   `$HOMEBREW_BUNDLE_DESCRIBE` or the default. This does not disable an explicit
   `--describe`.
-
-`HOMEBREW_BUNDLE_NO_JOBS`
-
-: If set, do not enable parallel jobs from `$HOMEBREW_BUNDLE_JOBS` or its
-  default. This does not disable an explicit `--jobs`.
 
 `HOMEBREW_BUNDLE_SECRETS`
 

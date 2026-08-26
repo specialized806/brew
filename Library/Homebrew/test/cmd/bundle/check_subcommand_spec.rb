@@ -168,7 +168,7 @@ RSpec.describe Homebrew::Cmd::Bundle::CheckSubcommand, :no_api do
     context "with install mode enabled" do
       it "raises an error after install leaves a formula with the wrong link status" do
         args = args_for_subcommand(:check, install?: true, global?: false, verbose?: false, upgrade_formulae: nil,
-                                           jobs: nil, file: nil)
+                                           file: nil)
         allow(Homebrew::Cmd::Bundle).to receive(:redirect_stdout).and_yield
         allow(Homebrew::Bundle::Brew).to receive(:install!).and_return(true)
         allow_any_instance_of(Pathname).to receive(:read).and_return("brew 'abc', link: true")

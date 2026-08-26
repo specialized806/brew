@@ -54,6 +54,26 @@ module Homebrew
           @outdated_app_ids = T.let(nil, T.nilable(T::Array[String]))
         end
 
+        sig { override.params(_name: String, _options: Homebrew::Bundle::EntryOptions).returns(T::Boolean) }
+        def batch_installable?(_name, _options = {})
+          true
+        end
+
+        sig { override.params(entries: T::Array[Dsl::Entry], verbose: T::Boolean).returns(T::Boolean) }
+        def install_batch!(entries, verbose: false)
+          outdated_entries, fresh_entries = entries.partition do |entry|
+            app_id_installed?(T.cast(entry.options.fetch(:id), Integer))
+          end
+          mas = package_manager_executable!
+          upgraded = outdated_entries.empty? || Bundle.system(
+            mas, "upgrade", *outdated_entries.map { |entry| entry.options.fetch(:id).to_s }, verbose:
+          )
+          fresh_installed = fresh_entries.empty? || Bundle.system(
+            mas, "install", *fresh_entries.map { |entry| entry.options.fetch(:id).to_s }, verbose:
+          ) || Bundle.system(mas, "get", *fresh_entries.map { |entry| entry.options.fetch(:id).to_s }, verbose:)
+          upgraded && fresh_installed
+        end
+
         sig { returns(T::Array[[String, String]]) }
         def apps
           apps = @apps

@@ -838,7 +838,6 @@ install|upgrade)
           '--force-cleanup[Perform cleanup after installing dependencies without asking. Enabled by default if `$HOMEBREW_BUNDLE_FORCE_INSTALL_CLEANUP` is set and `--global` is passed]' \
           '(--file)--global[Read from or write to the `Brewfile` from `$HOMEBREW_BUNDLE_FILE_GLOBAL` (if set), `${XDG_CONFIG_HOME}/homebrew/Brewfile` (if `$XDG_CONFIG_HOME` is set), `~/.homebrew/Brewfile` or `~/.Brewfile` otherwise]' \
           '--help[Show this message]' \
-          '--jobs[Run up to this many formula installations in parallel. Defaults to 1 (sequential). Use `auto` for the number of CPU cores (max 4)]' \
           '--no-upgrade[Do not run `brew upgrade` on outdated dependencies. Note they may still be upgraded by `brew install` if needed. Enabled by default if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \
           '--quiet[Make some output more quiet]' \
           '--upgrade[Run `brew upgrade` on outdated dependencies, even if `$HOMEBREW_BUNDLE_NO_UPGRADE` is set]' \

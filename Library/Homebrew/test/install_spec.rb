@@ -99,6 +99,27 @@ RSpec.describe Homebrew::Install do
       expect { described_class.install_formulae([bad_fi, good_fi]) }
         .to output(/Error: bad-bottle: gzip decompression failed/).to_stderr
     end
+
+    it "skips a formula whose build fails and continues with the rest" do
+      bad_formula = formula("bad-build") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      bad_fi = instance_double(FormulaInstaller, formula: bad_formula)
+      good_fi = instance_double(FormulaInstaller, formula: formula("good-build") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end)
+      error = BuildError.new(bad_formula, "make", ["install"], {})
+
+      allow(Homebrew::Cleanup).to receive(:install_formula_clean!)
+      allow(described_class).to receive(:install_formula).with(bad_fi, upgrade: false).and_raise(error)
+      expect(described_class).to receive(:install_formula).with(good_fi, upgrade: false)
+      expect(Utils::Analytics).to receive(:report_build_error).with(error)
+      expect(error).to receive(:dump).with(verbose: false)
+
+      expect(described_class.install_formulae([bad_fi, good_fi])).to eq([good_fi.formula])
+    end
   end
 
   describe "::finish_installation" do

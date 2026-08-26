@@ -645,6 +645,10 @@ on_request: installed_on_request?, options:)
     opoo "Nothing was installed to #{formula.prefix}" unless formula.latest_version_installed?
     end_time = Time.now
     Homebrew.messages.package_installed(formula.name, end_time - start_time)
+  # Always release locks for interrupts and exits too.
+  rescue Exception # rubocop:disable Lint/RescueException
+    unlock
+    raise
   end
 
   sig { void }
