@@ -3,6 +3,7 @@
 
 require "abstract_command"
 require "formula"
+require "cask/cask"
 require "cask/caskroom"
 require "dependencies_helpers"
 
