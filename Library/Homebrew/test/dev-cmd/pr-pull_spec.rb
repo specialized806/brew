@@ -85,6 +85,12 @@ RSpec.describe Homebrew::DevCmd::PrPull do
 
   it_behaves_like "parseable arguments"
 
+  it "loads the cask loader itself" do
+    script = 'require "global"; require "dev-cmd/pr-pull"; print Cask::CaskLoader.name'
+    expect(Utils.popen_read(RUBY_PATH, "-I", HOMEBREW_LIBRARY_PATH.to_s, "-e", script, err: :out))
+      .to eq("Cask::CaskLoader")
+  end
+
   describe "#check_pull_request_head_sha!" do
     it "outputs the pull request head SHA" do
       allow(GitHub).to receive(:pull_request_commits).with("Homebrew", "foo", "1").and_return(["actual"])

@@ -7,6 +7,7 @@ require "utils/github"
 require "utils/github/artifacts"
 require "tmpdir"
 require "formula"
+require "cask/cask_loader"
 
 module Homebrew
   module DevCmd
