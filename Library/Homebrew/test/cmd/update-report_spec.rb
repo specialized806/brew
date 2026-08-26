@@ -561,6 +561,16 @@ RSpec.describe Homebrew::Cmd::UpdateReport do
       end
     end
 
+    describe "#ensure_trusted_migration_target!" do
+      it "refuses to install an untrusted migration target" do
+        allow(Homebrew::Trust).to receive(:trusted?).with(:formula, "foo/bar/payload").and_return(false)
+
+        expect do
+          expect(reporter.ensure_trusted_migration_target!(:formula, "foo/bar/payload")).to be(false)
+        end.to output(%r{not trusted.*brew trust --formula foo/bar/payload}mi).to_stderr
+      end
+    end
+
     describe "#diff" do
       context "when using the API" do
         subject(:reporter) do
