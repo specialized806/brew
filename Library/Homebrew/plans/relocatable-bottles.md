@@ -31,6 +31,10 @@ Any benchmark quoted in a commit message must be the full hyperfine
 output from `brew benchmark` (using its `--exec` mode for bespoke
 workloads), never hand-summarised numbers.
 
+Pull requests must always fill in the repository's pull request
+template (`.github/PULL_REQUEST_TEMPLATE.md`), never bypass it
+(e.g. with `gh pr create --fill`).
+
 ## Current state (21 August 2026, formulae.brew.sh data)
 
 | Tag | `:any_skip_relocation` | `:any` | pinned |
@@ -118,9 +122,10 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
   keg paths in debug info and ship stray `.o` artefacts (about 29 npm
   formulae).
 - 1/17: `abseil` replays clean under the current checker yet CI pinned it:
-  some pins are stale or wrong. A bottle's cellar lives in the formula, not
-  the tarball, so provably clean bottles can be re-marked `cellar :any`
-  without rebuilding.
+  since explained and fixed (phantom resolved-linkage matches, Phase 1
+  item 4). A bottle's cellar lives in the formula, not the tarball, so
+  provably clean bottles can be re-marked `cellar :any` without
+  rebuilding.
 
 ## Design decisions
 
@@ -185,9 +190,19 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 Each pinned bottle flipped to `cellar :any` pours at any prefix with no
 length limit and no new machinery.
 
-4. Reconcile checker divergences: pull `brew bottle --verbose` CI logs for
-   the `abseil` class, fix whatever diverges, then batch re-mark provably
-   clean pins `cellar :any` with no rebuild (sha256 unchanged).
+4. Reconcile checker divergences: resolved. The `abseil` class was pinned
+   by `file_linked_libraries` resolving `@rpath`/`@loader_path` load
+   commands against the live keg at bottle time, turning relocatable
+   linkage into absolute build-prefix paths; the checker now reads raw
+   load-command names. Text matches never recorded it because googletest
+   include-path strings hit the `ignores` filters, which also explains
+   why only arm64 macOS pinned: `/usr/local/include/...` never byte-matched
+   Intel's `/usr/local/opt` and `/usr/local/Cellar` search strings and
+   Linux has no linkage check. Remaining: once the fix is deployed to CI,
+   batch re-mark provably clean pins `cellar :any` with no rebuild
+   (sha256 unchanged) in homebrew/core, starting from the 127 formulae
+   pinned on all arm64 macOS tags yet `:any` on `x86_64_linux` (e.g.
+   `abseil`, `boost`, `binutils`, `aws-sdk-cpp`).
 7. Data-driven ignore extensions where blocker diagnostics show a class is
    functionally dead.
 
@@ -321,9 +336,6 @@ the reason, so the exceptions list stays short, visible and countable.
 
 ## Open questions
 
-- The `abseil`-class anomaly: why did CI pin bottles whose contents pass the
-  current checker? Needs a `brew bottle --verbose` CI log to reconcile
-  before trusting the checker's output as blocker metadata.
 - Symbolic cellar spelling and JSON API versioning for third-party
   consumers.
 - How many formulae fail to build at all at a 64-byte prefix
