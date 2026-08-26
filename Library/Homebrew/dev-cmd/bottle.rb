@@ -518,6 +518,8 @@ module Homebrew
 
           begin
             keg.delete_pyc_files!
+            keg.delete_node_gyp_debris!
+            keg.strip_node_gyp_addons!
 
             unless args.skip_relocation?
               changed_files, linkage_files = keg.replace_locations_with_placeholders

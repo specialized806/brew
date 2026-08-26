@@ -629,6 +629,49 @@ class Keg
   end
 
   sig { void }
+  def delete_node_gyp_debris!
+    # node-gyp compiles native addons inside the keg at install time and
+    # leaves its intermediate objects and static archives behind; they embed
+    # build paths that pin bottles and are never needed at run time (addons
+    # load the linked `.node` files, not the objects they were linked from).
+    path.find do |pn|
+      next unless pn.to_s.include?("/node_modules/")
+
+      if pn.directory? && pn.basename.to_s == "obj.target"
+        FileUtils.rm_rf pn
+        Find.prune
+      elsif %w[.o .d].include?(pn.extname) ||
+            (pn.extname == ".a" && pn.to_s.include?("/build/"))
+        pn.delete
+      end
+    end
+  end
+
+  sig { void }
+  def strip_node_gyp_addons!
+    strip = which("strip")
+    return if strip.nil?
+
+    path.find do |pn|
+      next if pn.symlink? || pn.extname != ".node" || pn.to_s.exclude?("/node_modules/")
+
+      # node-gyp addons' `N_OSO`/`N_SO` stab strings embed keg build paths,
+      # which pin bottles; stripping debug entries removes them and Apple
+      # `strip` re-signs ad hoc, so no separate codesign step is needed.
+      # Strip to a temporary file so a failure (e.g. an addon `strip` cannot
+      # parse) leaves the addon untouched.
+      stripped = Pathname("#{pn}.stripped")
+      if quiet_system(strip.to_s, "-S", "-o", stripped.to_s, pn.to_s)
+        mode = pn.stat.mode
+        FileUtils.mv stripped, pn
+        pn.chmod mode
+      else
+        FileUtils.rm_f stripped
+      end
+    end
+  end
+
+  sig { void }
   def normalize_pod2man_outputs!
     # Only process uncompressed manpages, which end in a digit
     manpages = Dir[path/"share/man/*/*.[1-9]{,p,pm}"]

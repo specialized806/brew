@@ -390,6 +390,60 @@ RSpec.describe Keg do
     end
   end
 
+  describe "#delete_node_gyp_debris!" do
+    it "deletes intermediate node-gyp objects but keeps addons and other objects" do
+      keg_path = HOMEBREW_CELLAR/"foo/1.0"
+      build_dir = keg_path/"libexec/lib/node_modules/foo/build/Release"
+      (build_dir/"obj.target/foo").mkpath
+      touch build_dir/"obj.target/foo/binding.o"
+      touch build_dir/"addon.node"
+      touch build_dir/"binding.d"
+      touch build_dir/"leveldb.a"
+      (keg_path/"libexec/lib/node_modules/foo/lib").mkpath
+      touch keg_path/"libexec/lib/node_modules/foo/lib/shipped.a"
+      (keg_path/"lib").mkpath
+      touch keg_path/"lib/crt1.o"
+
+      keg.delete_node_gyp_debris!
+
+      expect(build_dir/"obj.target").not_to exist
+      expect(build_dir/"binding.d").not_to exist
+      expect(build_dir/"leveldb.a").not_to exist
+      expect(build_dir/"addon.node").to exist
+      expect(keg_path/"libexec/lib/node_modules/foo/lib/shipped.a").to exist
+      expect(keg_path/"lib/crt1.o").to exist
+    end
+  end
+
+  describe "#strip_node_gyp_addons!" do
+    let(:addon) { HOMEBREW_CELLAR/"foo/1.0/libexec/lib/node_modules/foo/build/Release/addon.node" }
+
+    before do
+      addon.dirname.mkpath
+      addon.write "unstripped"
+      allow(keg).to receive(:which).with("strip").and_return(Pathname("/usr/bin/strip"))
+    end
+
+    it "replaces addons under node_modules when strip succeeds" do
+      allow(keg).to receive(:quiet_system) do |*command|
+        File.write(command.fetch(3), "stripped")
+        true
+      end
+
+      keg.strip_node_gyp_addons!
+
+      expect(addon.read).to eq "stripped"
+    end
+
+    it "leaves addons untouched when strip fails" do
+      allow(keg).to receive(:quiet_system).and_return(false)
+
+      keg.strip_node_gyp_addons!
+
+      expect(addon.read).to eq "unstripped"
+    end
+  end
+
   describe "#homebrew_created_file?" do
     it "identifies Homebrew service files" do
       plist_file = instance_double(Pathname, extname: ".plist", basename: Pathname.new("homebrew.foo.plist"))
