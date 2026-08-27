@@ -3528,7 +3528,7 @@ class Formula
   # {#std_cmake_args}:
   #
   # ```ruby
-  # system "cmake", ".", *std_cmake_args
+  # system "cmake", "-S", ".", "-B", "build", *std_cmake_args
   # ```
   #
   # If the arguments given to `configure` (or `make` or `cmake`) are depending
