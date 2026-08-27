@@ -2160,7 +2160,7 @@ class Formula
       -DCMAKE_FIND_FRAMEWORK=#{find_framework}
       -DCMAKE_VERBOSE_MAKEFILE=ON
       -DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=#{HOMEBREW_LIBRARY_PATH}/cmake/trap_fetchcontent_provider.cmake
-      -Wno-dev
+      -Wno-author
       -DBUILD_TESTING=OFF
       -DCCACHE_FOUND=OFF
     ]
