@@ -37,9 +37,6 @@ RSpec.describe Homebrew::DevCmd::DetermineTestRunners do
       next if macos_version > GitHubRunnerMatrix::NEWEST_HOMEBREW_CORE_MACOS_RUNNER
 
       out << "#{v}-arm64"
-      next if macos_version > GitHubRunnerMatrix::NEWEST_HOMEBREW_CORE_INTEL_MACOS_RUNNER
-
-      out << "#{v}-x86_64"
     end
 
     out << linux_runner
