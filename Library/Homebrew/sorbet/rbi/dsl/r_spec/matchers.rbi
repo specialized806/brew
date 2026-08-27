@@ -118,6 +118,9 @@ module RSpec::Matchers
   def be_fatal(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def be_fetch_defined(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_follow_installed_alias(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
@@ -374,6 +377,9 @@ module RSpec::Matchers
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def have_failed(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def have_fetch_defined(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def have_formula_file(*args, &block); end

@@ -142,6 +142,9 @@ module Homebrew::EnvConfig
     sig { returns(T::Boolean) }
     def bundle_install_cleanup?; end
 
+    sig { returns(String) }
+    def bundle_jobs; end
+
     sig { returns(T::Boolean) }
     def bundle_no_describe?; end
 
