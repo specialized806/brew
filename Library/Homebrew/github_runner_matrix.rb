@@ -11,7 +11,6 @@ class GitHubRunnerMatrix
   # to allow people to jump to specific commits based on their macOS version.
   NEWEST_HOMEBREW_CORE_MACOS_RUNNER = :tahoe
   OLDEST_HOMEBREW_CORE_MACOS_RUNNER = :sonoma
-  NEWEST_HOMEBREW_CORE_INTEL_MACOS_RUNNER = :sonoma
 
   RunnerSpec = T.type_alias { T.any(LinuxRunnerSpec, MacOSRunnerSpec) }
   private_constant :RunnerSpec
@@ -137,7 +136,7 @@ class GitHubRunnerMatrix
         ["#{version}-arm64", @runner_timeout]
       end
 
-      # We test recursive dependents on ARM macOS, so they can be slower than our Intel runners.
+      # Testing recursive dependents takes longer, so give those jobs two hours.
       timeout *= 2 if @dependent_matrix && timeout < GITHUB_ACTIONS_RUNNER_TIMEOUT
       spec = MacOSRunnerSpec.new(
         name:    "macOS #{version}-arm64",
@@ -146,35 +145,6 @@ class GitHubRunnerMatrix
         cleanup: !runner.end_with?(ephemeral_suffix),
       )
       @runners << create_runner(:macos, :arm64, spec, macos_version)
-
-      skip_intel_runner = !@all_supported && macos_version > NEWEST_HOMEBREW_CORE_INTEL_MACOS_RUNNER
-      skip_intel_runner &&= @dependent_matrix || @testing_formulae.none? do |testing_formula|
-        bottle_spec = testing_formula.formula.bottle_specification
-        bottle_spec.tag?(Utils::Bottles.tag(macos_version.to_sym), no_older_versions: true) &&
-          !bottle_spec.tag?(Utils::Bottles.tag(:all), no_older_versions: true)
-      end
-      next if skip_intel_runner
-
-      github_runner_available = macos_version.between?(OLDEST_GITHUB_ACTIONS_INTEL_MACOS_RUNNER,
-                                                       NEWEST_GITHUB_ACTIONS_INTEL_MACOS_RUNNER)
-
-      runner, timeout = if use_github_runner && github_runner_available
-        ["macos-#{version}", GITHUB_ACTIONS_RUNNER_TIMEOUT]
-      else
-        ["#{version}-x86_64#{ephemeral_suffix}", @runner_timeout]
-      end
-
-      # macOS 12-x86_64 is usually slower.
-      timeout += 30 if macos_version <= :monterey
-      # The ARM runners are typically over twice as fast as the Intel runners.
-      timeout *= 2 if !(use_github_runner && github_runner_available) && timeout < GITHUB_ACTIONS_LONG_TIMEOUT
-      spec = MacOSRunnerSpec.new(
-        name:    "macOS #{version}-x86_64",
-        runner:,
-        timeout:,
-        cleanup: !runner.end_with?(ephemeral_suffix),
-      )
-      @runners << create_runner(:macos, :x86_64, spec, macos_version)
     end
 
     @runners.freeze
@@ -251,13 +221,10 @@ class GitHubRunnerMatrix
     end, T.nilable(String))
   end
 
-  NEWEST_GITHUB_ACTIONS_INTEL_MACOS_RUNNER = :ventura
-  OLDEST_GITHUB_ACTIONS_INTEL_MACOS_RUNNER = :ventura
   NEWEST_GITHUB_ACTIONS_ARM_MACOS_RUNNER = :tahoe
   OLDEST_GITHUB_ACTIONS_ARM_MACOS_RUNNER = :sonoma
   GITHUB_ACTIONS_RUNNER_TIMEOUT = 360
-  private_constant :NEWEST_GITHUB_ACTIONS_INTEL_MACOS_RUNNER, :OLDEST_GITHUB_ACTIONS_INTEL_MACOS_RUNNER,
-                   :NEWEST_GITHUB_ACTIONS_ARM_MACOS_RUNNER, :OLDEST_GITHUB_ACTIONS_ARM_MACOS_RUNNER,
+  private_constant :NEWEST_GITHUB_ACTIONS_ARM_MACOS_RUNNER, :OLDEST_GITHUB_ACTIONS_ARM_MACOS_RUNNER,
                    :GITHUB_ACTIONS_RUNNER_TIMEOUT
 
   sig { params(runner: GitHubRunner).returns(T::Array[String]) }
