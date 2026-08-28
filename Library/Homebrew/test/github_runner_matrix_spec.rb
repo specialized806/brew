@@ -16,6 +16,7 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
     setup_test_runner_formula("testball-depender-intel", ["testball", { arch: :x86_64 }])
   end
   let(:testball_depender_arm) { setup_test_runner_formula("testball-depender-arm", ["testball", { arch: :arm64 }]) }
+  let(:portable_ruby) { setup_test_runner_formula("portable-ruby") }
   let(:testball_depender_newest) do
     symbol, = newest_supported_macos
     setup_test_runner_formula("testball-depender-newest", ["testball", { macos: symbol }])
@@ -61,6 +62,25 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
           options: "--init --user linuxbrew",
         }
       end)
+    end
+
+    it "includes active macOS 11 Portable Ruby runners" do
+      runners = described_class.new([portable_ruby], [], all_supported: false, dependent_matrix: false)
+                               .active_runner_specs_hash
+      intel_runner = runners.find { |runner| runner[:runner] == "macos-15-intel" }
+      arm_runner = runners.find { |runner| runner[:name] == "macOS 11-cross arm64" }
+
+      expect(intel_runner).to include(
+        name:         "macOS 11-cross x86_64",
+        timeout:      360,
+        target_macos: "11.7.10",
+      )
+      expect(arm_runner).to include(
+        name:         "macOS 11-cross arm64",
+        timeout:      2160,
+        target_macos: nil,
+      )
+      expect(T.must(arm_runner).fetch(:runner)).to start_with("11-arm64-cross-")
     end
   end
 
