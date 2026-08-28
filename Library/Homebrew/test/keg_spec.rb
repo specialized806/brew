@@ -390,6 +390,32 @@ RSpec.describe Keg do
     end
   end
 
+  describe "#relativize_prefix_symlinks!" do
+    let(:keg_path) { HOMEBREW_CELLAR/"foo/1.0" }
+
+    it "rewrites absolute symlinks into the prefix and cellar as relative ones" do
+      (HOMEBREW_PREFIX/"opt/bar/lib").mkpath
+      touch keg_path/"bin/hiworld"
+      ln_s keg_path/"bin/hiworld", keg_path/"bin/self"
+      ln_s HOMEBREW_PREFIX/"opt/bar/lib", keg_path/"bin/other"
+      ln_s "/usr/bin/true", keg_path/"bin/system"
+
+      keg.relativize_prefix_symlinks!
+
+      expect((keg_path/"bin/self").readlink).to eq Pathname("hiworld")
+      expect((keg_path/"bin/other").readlink).to eq Pathname("../../../../opt/bar/lib")
+      expect((keg_path/"bin/system").readlink).to eq Pathname("/usr/bin/true")
+    end
+
+    it "retargets symlinks from the prefix a bottle was built for" do
+      ln_s "/build/prefix/Cellar/foo/1.0/bin/hiworld", keg_path/"bin/built"
+
+      keg.relativize_prefix_symlinks!(prefix: "/build/prefix", cellar: "/build/prefix/Cellar")
+
+      expect((keg_path/"bin/built").readlink).to eq Pathname("hiworld")
+    end
+  end
+
   describe "#delete_node_gyp_debris!" do
     it "deletes intermediate node-gyp objects but keeps addons and other objects" do
       keg_path = HOMEBREW_CELLAR/"foo/1.0"
