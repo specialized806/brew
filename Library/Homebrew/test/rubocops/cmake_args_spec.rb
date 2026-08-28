@@ -104,11 +104,49 @@ RSpec.describe RuboCop::Cop::FormulaAudit::CMakeArgs do
     RUBY
   end
 
-  it "does not register an offense when an explicit build directory is already passed" do
-    expect_no_offenses(<<~RUBY)
+  it "registers and adds only the source directory when a build directory is given" do
+    expect_offense(<<~RUBY)
       class Foo < Formula
         def install
           system "cmake", ".", "-B", "build", *std_cmake_args
+                          ^^^ FormulaAudit/CMakeArgs: Use explicit `-S` and `-B` arguments for CMake.
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      class Foo < Formula
+        def install
+          system "cmake", "-S", ".", "-B", "build", *std_cmake_args
+        end
+      end
+    RUBY
+  end
+
+  it "registers and adds only the source directory for a joined build directory" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        def install
+          system "cmake", ".", "-Bbuild", *std_cmake_args
+                          ^^^ FormulaAudit/CMakeArgs: Use explicit `-S` and `-B` arguments for CMake.
+        end
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      class Foo < Formula
+        def install
+          system "cmake", "-S", ".", "-Bbuild", *std_cmake_args
+        end
+      end
+    RUBY
+  end
+
+  it "does not register an offense for a joined source directory" do
+    expect_no_offenses(<<~RUBY)
+      class Foo < Formula
+        def install
+          system "cmake", ".", "-Ssrc", *std_cmake_args
         end
       end
     RUBY

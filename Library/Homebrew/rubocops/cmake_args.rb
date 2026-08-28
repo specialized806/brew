@@ -6,7 +6,8 @@ require "rubocops/extend/formula_cop"
 module RuboCop
   module Cop
     module FormulaAudit
-      # This cop checks that CMake source and build directories are explicit.
+      # This cop checks for a positional CMake source directory, which implicitly
+      # builds in the working directory.
       class CMakeArgs < FormulaCop
         extend AutoCorrector
 
@@ -26,13 +27,21 @@ module RuboCop
             # which implicitly builds in the working directory.
             next unless source_dir.is_a?(RuboCop::AST::StrNode)
             next if source_dir.value.start_with?("-")
-            # Leave calls that already pass an explicit directory alone, otherwise
-            # the correction below would add a second `-B` argument.
-            next if args.any? { |arg| node_equals?(arg, "-S") || node_equals?(arg, "-B") }
+
+            # `-S` and `-B` can be joined to their values, e.g. `-Bbuild`.
+            options = args.filter_map { |arg| arg.value if arg.is_a?(RuboCop::AST::StrNode) }
+            next if options.any? { |option| option.start_with?("-S") }
+
+            # Only add a build directory when the call doesn't already give one.
+            replacement = if options.any? { |option| option.start_with?("-B") }
+              %Q("-S", #{source_dir.source})
+            else
+              %Q("-S", #{source_dir.source}, "-B", ".")
+            end
 
             offending_node(source_dir)
             problem MSG do |corrector|
-              corrector.replace(source_dir.source_range, %Q("-S", #{source_dir.source}, "-B", "."))
+              corrector.replace(source_dir.source_range, replacement)
             end
           end
         end
