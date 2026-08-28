@@ -201,7 +201,7 @@ class BinData::BasePrimitive < ::BinData::Base
   def hash; end
   def initialize_instance; end
   def initialize_shared_instance; end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def snapshot; end
   def value; end
   def value=(val); end
@@ -282,7 +282,6 @@ module BinData::BitField
     def create_params_code(nbits); end
     def create_uint2int_code(nbits, signed); end
     def define_class(name, nbits, endian, signed = T.unsafe(nil)); end
-    def define_methods(bit_class, nbits, endian, signed); end
   end
 end
 
@@ -311,7 +310,7 @@ class BinData::Buffer < ::BinData::Base
   def do_read(io); end
   def do_write(io); end
   def initialize_instance; end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def raw_num_bytes; end
   def snapshot; end
 
@@ -352,7 +351,7 @@ class BinData::Choice < ::BinData::Base
   def do_write(*args); end
   def initialize_instance; end
   def initialize_shared_instance; end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def respond_to?(symbol, include_all = T.unsafe(nil)); end
   def selection; end
   def snapshot(*args); end
@@ -390,7 +389,7 @@ end
 
 module BinData::DSLMixin
   def dsl_parser(parser_type = T.unsafe(nil)); end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def to_ary; end
   def to_str; end
 end
@@ -409,7 +408,7 @@ class BinData::DSLMixin::DSLBigAndLittleEndianHandler
 end
 
 class BinData::DSLMixin::DSLFieldParser
-  def initialize(hints, symbol, *args, &block); end
+  def initialize(namespace, hints, symbol, *args, &block); end
 
   def name; end
   def name_from_field_declaration(args); end
@@ -443,8 +442,11 @@ class BinData::DSLMixin::DSLParser
   def endian(endian = T.unsafe(nil)); end
   def fields; end
   def hide(*args); end
-  def method_missing(*args, &block); end
+  def method_missing(*args, **kwargs, &block); end
+  def namespace; end
+  def namespace=(_arg0); end
   def parser_type; end
+  def search_namespace(*args); end
   def search_prefix(*args); end
 
   private
@@ -478,7 +480,7 @@ class BinData::DelayedIO < ::BinData::Base
   def do_write(io); end
   def include_obj?; end
   def initialize_instance; end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def num_bytes; end
   def read_now!; end
   def rel_offset; end
@@ -662,7 +664,6 @@ end
 module BinData::Int
   class << self
     def define_class(name, nbits, endian, signed); end
-    def define_methods(int_class, nbits, endian, signed); end
 
     private
 
@@ -680,6 +681,11 @@ module BinData::Int
     def val_as_packed_words(nbits, endian); end
   end
 end
+
+class BinData::Int32be < ::BinData::BasePrimitive; end
+class BinData::Int32le < ::BinData::BasePrimitive; end
+class BinData::Int64be < ::BinData::BasePrimitive; end
+class BinData::Int64le < ::BinData::BasePrimitive; end
 
 class BinData::Int8 < ::BinData::BasePrimitive
   def assign(val); end
@@ -701,15 +707,15 @@ class BinData::LazyEvaluator
 
   def index; end
   def lazy_eval(val, overrides = T.unsafe(nil)); end
-  def method_missing(symbol, *args); end
+  def method_missing(symbol, *args, **kwargs); end
   def parent; end
 
   private
 
   def callable?(obj); end
-  def eval_symbol_in_parent_context(symbol, args); end
-  def recursively_eval(val, args); end
-  def resolve_symbol_in_parent_context(symbol, args); end
+  def eval_symbol_in_parent_context(symbol, args, kwargs); end
+  def recursively_eval(val, args, kwargs); end
+  def resolve_symbol_in_parent_context(symbol, args, kwargs); end
 end
 
 module BinData::MultiFieldArgSeparator
@@ -726,7 +732,7 @@ class BinData::Primitive < ::BinData::BasePrimitive
   def do_num_bytes; end
   def do_write(io); end
   def initialize_instance; end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def respond_to?(symbol, include_private = T.unsafe(nil)); end
 
   private
@@ -768,17 +774,18 @@ BinData::RegisteredClasses = T.let(T.unsafe(nil), BinData::Registry)
 class BinData::Registry
   def initialize; end
 
-  def lookup(name, hints = T.unsafe(nil)); end
-  def register(name, class_to_register); end
+  def lookup(namespace, name, hints = T.unsafe(nil)); end
+  def register(namespace, name, class_to_register); end
   def underscore_name(name); end
-  def unregister(name); end
+  def unregister(namespace, name); end
 
   private
 
+  def backwards_compatible_search_names(name, hints); end
   def name_with_endian(name, endian); end
   def name_with_prefix(name, prefix); end
   def register_dynamic_class(name); end
-  def search_names(name, hints); end
+  def search_names(namespace, name, hints); end
   def warn_if_name_is_already_registered(name, class_to_register); end
 end
 
@@ -804,13 +811,13 @@ class BinData::SanitizedBigEndian < ::BinData::SanitizedParameter
 end
 
 class BinData::SanitizedChoices < ::BinData::SanitizedParameter
-  def initialize(choices, hints); end
+  def initialize(choices, namespace, hints); end
 
   def [](key); end
 end
 
 class BinData::SanitizedField < ::BinData::SanitizedParameter
-  def initialize(name, field_type, field_params, hints); end
+  def initialize(name, field_type, field_params, namespace, hints); end
 
   def has_parameter?(param); end
   def instantiate(value = T.unsafe(nil), parent = T.unsafe(nil)); end
@@ -822,7 +829,7 @@ end
 class BinData::SanitizedFields < ::BinData::SanitizedParameter
   include ::Enumerable
 
-  def initialize(hints, base_fields = T.unsafe(nil)); end
+  def initialize(namespace, hints, base_fields = T.unsafe(nil)); end
 
   def [](idx); end
   def add_field(type, name, params); end
@@ -844,13 +851,15 @@ end
 class BinData::SanitizedParameter; end
 
 class BinData::SanitizedParameters < ::Hash
-  def initialize(parameters, the_class, hints); end
+  def initialize(parameters, the_class, namespace, hints); end
 
   def create_sanitized_params(params, the_class); end
   def has_at_least_one_of?(*keys); end
   def has_parameter?(_arg0); end
   def hints; end
+  def merge_dsl_params; end
   def must_be_integer(*keys); end
+  def must_have_at_least_one_of(*keys); end
   def rename_parameter(old_key, new_key); end
   def sanitize(key, &block); end
   def sanitize_choices(key, &block); end
@@ -881,7 +890,7 @@ BinData::SanitizedParameters::BIG_ENDIAN = T.let(T.unsafe(nil), BinData::Sanitiz
 BinData::SanitizedParameters::LITTLE_ENDIAN = T.let(T.unsafe(nil), BinData::SanitizedLittleEndian)
 
 class BinData::SanitizedPrototype < ::BinData::SanitizedParameter
-  def initialize(obj_type, obj_params, hints); end
+  def initialize(obj_type, obj_params, namespace, hints); end
 
   def has_parameter?(param); end
   def instantiate(value = T.unsafe(nil), parent = T.unsafe(nil)); end
@@ -920,7 +929,7 @@ class BinData::Section < ::BinData::Base
   def do_read(io); end
   def do_write(io); end
   def initialize_instance; end
-  def method_missing(symbol, *args, &block); end
+  def method_missing(symbol, *args, **kwargs, &block); end
   def snapshot; end
 
   private
@@ -1069,7 +1078,7 @@ BinData::Struct::RESERVED = T.let(T.unsafe(nil), Hash)
 
 class BinData::Struct::Snapshot < ::Hash
   def []=(key, value); end
-  def method_missing(symbol, *args); end
+  def method_missing(symbol, *args, **kwargs); end
 
   private
 
@@ -1086,6 +1095,7 @@ class BinData::StructArgProcessor < ::BinData::BaseArgProcessor
   def sanitize_endian(params); end
   def sanitize_fields(obj_class, params); end
   def sanitize_hide(params); end
+  def sanitize_search_namespace(params); end
   def sanitize_search_prefix(params); end
   def sanitized_field_names(sanitized_fields); end
 end
@@ -1101,6 +1111,13 @@ class BinData::Tracer
   def trace(msg); end
   def trace_obj(obj_name, val); end
 end
+
+class BinData::Uint16be < ::BinData::BasePrimitive; end
+class BinData::Uint16le < ::BinData::BasePrimitive; end
+class BinData::Uint32be < ::BinData::BasePrimitive; end
+class BinData::Uint32le < ::BinData::BasePrimitive; end
+class BinData::Uint64be < ::BinData::BasePrimitive; end
+class BinData::Uint64le < ::BinData::BasePrimitive; end
 
 class BinData::Uint8 < ::BinData::BasePrimitive
   def assign(val); end

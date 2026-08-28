@@ -1634,6 +1634,7 @@ class RBS::Environment::ClassEntry
   def initialize(name); end
 
   def <<(context_decl); end
+  def align_params(decl); end
   def context_decls; end
   def each_decl(&block); end
   def empty?; end
@@ -1652,6 +1653,7 @@ class RBS::Environment::ModuleEntry
   def initialize(name); end
 
   def <<(context_decl); end
+  def align_params(decl); end
   def context_decls; end
   def each_decl(&block); end
   def empty?; end
@@ -2161,10 +2163,10 @@ class RBS::Parser
     def _lex(_arg0, _arg1); end
     def _parse_inline_leading_annotation(_arg0, _arg1, _arg2, _arg3); end
     def _parse_inline_trailing_annotation(_arg0, _arg1, _arg2, _arg3); end
-    def _parse_method_type(_arg0, _arg1, _arg2, _arg3, _arg4); end
-    def _parse_method_type_to_bytes(_arg0, _arg1, _arg2, _arg3, _arg4); end
-    def _parse_signature(_arg0, _arg1, _arg2); end
-    def _parse_signature_to_bytes(_arg0, _arg1, _arg2); end
+    def _parse_method_type(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5); end
+    def _parse_method_type_to_bytes(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5); end
+    def _parse_signature(_arg0, _arg1, _arg2, _arg3); end
+    def _parse_signature_to_bytes(_arg0, _arg1, _arg2, _arg3); end
     def _parse_type(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, _arg7); end
     def _parse_type_params(_arg0, _arg1, _arg2, _arg3); end
     def _parse_type_to_bytes(_arg0, _arg1, _arg2, _arg3, _arg4, _arg5, _arg6, _arg7); end
@@ -2852,7 +2854,7 @@ module RBS::Types::EmptyEachType
 end
 
 class RBS::Types::Function
-  def initialize(required_positionals:, optional_positionals:, rest_positionals:, trailing_positionals:, required_keywords:, optional_keywords:, rest_keywords:, return_type:); end
+  def initialize(required_positionals:, optional_positionals:, rest_positionals:, trailing_positionals:, required_keywords:, optional_keywords:, rest_keywords:, return_type:, forwarding: T.unsafe(nil)); end
 
   def ==(other); end
   def amap(array, &block); end
@@ -2862,6 +2864,8 @@ class RBS::Types::Function
   def each_type; end
   def empty?; end
   def eql?(other); end
+  def forwarding; end
+  def forwarding?; end
   def free_variables(set = T.unsafe(nil)); end
   def has_classish_type?; end
   def has_keyword?; end
@@ -2882,13 +2886,24 @@ class RBS::Types::Function
   def sub(s); end
   def to_json(state = T.unsafe(nil)); end
   def trailing_positionals; end
-  def update(required_positionals: T.unsafe(nil), optional_positionals: T.unsafe(nil), rest_positionals: T.unsafe(nil), trailing_positionals: T.unsafe(nil), required_keywords: T.unsafe(nil), optional_keywords: T.unsafe(nil), rest_keywords: T.unsafe(nil), return_type: T.unsafe(nil)); end
+  def update(required_positionals: T.unsafe(nil), optional_positionals: T.unsafe(nil), rest_positionals: T.unsafe(nil), trailing_positionals: T.unsafe(nil), required_keywords: T.unsafe(nil), optional_keywords: T.unsafe(nil), rest_keywords: T.unsafe(nil), forwarding: T.unsafe(nil), return_type: T.unsafe(nil)); end
   def with_nonreturn_void?; end
   def with_return_type(type); end
 
   class << self
     def empty(return_type); end
   end
+end
+
+class RBS::Types::Function::ForwardingParam
+  def initialize(location:); end
+
+  def ==(other); end
+  def eql?(other); end
+  def hash; end
+  def location; end
+  def to_json(state = T.unsafe(nil)); end
+  def to_s; end
 end
 
 class RBS::Types::Function::Param

@@ -161,6 +161,8 @@ Vernier::Middleware::HOOKS = T.let(T.unsafe(nil), Array)
 module Vernier::Output; end
 
 class Vernier::Output::Cpuprofile
+  include ::Vernier::OutputHelpers
+
   def initialize(profile); end
 
   def output; end
@@ -179,6 +181,8 @@ class Vernier::Output::Cpuprofile
 end
 
 class Vernier::Output::FileListing
+  include ::Vernier::OutputHelpers
+
   def initialize(profile); end
 
   def format_file(output, filename, all_samples, total:); end
@@ -187,12 +191,15 @@ class Vernier::Output::FileListing
   def output(template: T.unsafe(nil)); end
   def samples_by_file; end
   def total; end
+
+  private
+
+  def frame_weights(stack_table, stack_weights); end
 end
 
 class Vernier::Output::FileListing::SamplesByLocation
   def initialize; end
 
-  def +(other); end
   def self; end
   def self=(_arg0); end
   def total; end
@@ -251,6 +258,8 @@ Vernier::Output::Firefox::Categorizer::ORDERED_CATEGORIES = T.let(T.unsafe(nil),
 Vernier::Output::Firefox::Categorizer::RAILS_COMPONENTS = T.let(T.unsafe(nil), Array)
 
 class Vernier::Output::Firefox::Thread
+  include ::Vernier::OutputHelpers
+
   def initialize(ruby_thread_id, profile, categorizer, name:, tid:, samples:, weights:, markers:, started_at:, timestamps: T.unsafe(nil), sample_categories: T.unsafe(nil), stopped_at: T.unsafe(nil), allocations: T.unsafe(nil), is_main: T.unsafe(nil), is_start: T.unsafe(nil)); end
 
   def allocations_table; end
@@ -312,6 +321,8 @@ Vernier::Output::Markdown::DEFAULT_LINES_PER_FILE = T.let(T.unsafe(nil), Integer
 Vernier::Output::Markdown::DEFAULT_TOP_N = T.let(T.unsafe(nil), Integer)
 
 class Vernier::Output::Top
+  include ::Vernier::OutputHelpers
+
   def initialize(profile, row_limit); end
 
   def output; end
@@ -325,6 +336,11 @@ class Vernier::Output::Top::Table
   def row_separator; end
   def to_s; end
   def widths; end
+end
+
+module Vernier::OutputHelpers
+  def collapse_stack_weights(samples, weights); end
+  def sanitize_string(string); end
 end
 
 class Vernier::ParsedProfile
