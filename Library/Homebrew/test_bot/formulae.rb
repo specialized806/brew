@@ -113,6 +113,17 @@ module Homebrew
         formula.install_etc_var
       end
 
+      sig { params(dependencies: T::Array[String]).void }
+      def install_padded_prefix_source_dependencies(dependencies)
+        return if HOMEBREW_PREFIX.to_s != Utils::Bottles.tag.padded_prefix
+
+        source_dependencies = dependencies.select { |dependency| Formulary.factory(dependency).bottle.nil? }
+        return if source_dependencies.empty?
+
+        test "brew", "install", "--formulae", "--build-from-source",
+             named_args: source_dependencies
+      end
+
       sig { returns(T::Boolean) }
       def verify_local_bottles
         # Portable Ruby bottles are handled differently.
@@ -395,6 +406,7 @@ module Homebrew
         unless @unchanged_dependencies.empty?
           test "brew", "fetch", "--formulae", "--retry",
                *@unchanged_dependencies
+          install_padded_prefix_source_dependencies(@unchanged_dependencies)
         end
 
         changed_dependencies = dependencies - @unchanged_dependencies

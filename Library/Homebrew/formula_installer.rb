@@ -282,16 +282,11 @@ class FormulaInstaller
       if output_warning
         cellar = bottle.built_cellar.to_s
         prefix = Pathname(cellar).parent
-        # Raw prefix strings can only be replaced in place by an equal-or-shorter
-        # byte string, so the byte length difference is the fact that matters.
-        excess = [HOMEBREW_PREFIX.to_s.bytesize - prefix.to_s.bytesize,
-                  HOMEBREW_CELLAR.to_s.bytesize - cellar.bytesize].max
-        cause = if excess.positive?
-          "Your prefix is #{excess} bytes longer than the bottle's build prefix."
-        elsif excess.negative?
-          "Your prefix is #{-excess} bytes shorter than the bottle's build prefix."
+        cause = if Homebrew::EnvConfig.no_relocate_build_prefix?
+          "`HOMEBREW_NO_RELOCATE_BUILD_PREFIX` disables bottle build-prefix relocation."
         else
-          "Your prefix is the same length as the bottle's build prefix."
+          "Your prefix `#{HOMEBREW_PREFIX}` is #{HOMEBREW_PREFIX.to_s.length} characters long, but this bottle " \
+            "can only be relocated to a prefix with a maximum length of #{prefix.to_s.length} characters."
         end
         opoo <<~EOS
           Building #{formula.full_name} from source as the bottle needs:
@@ -1748,7 +1743,7 @@ on_request: installed_on_request?, options:)
     build_cellar = tab.built_prefix ? "#{prefix}/Cellar" : cellar.to_s
     return if build_cellar == HOMEBREW_CELLAR.to_s && prefix == HOMEBREW_PREFIX.to_s
 
-    return if !tab.padded_prefix && !Homebrew::EnvConfig.relocate_build_prefix?
+    return if Homebrew::EnvConfig.no_relocate_build_prefix?
 
     tab.relocated_build_prefix = prefix
     tab.relocated_files = keg.relocate_build_prefix(keg, prefix, HOMEBREW_PREFIX,

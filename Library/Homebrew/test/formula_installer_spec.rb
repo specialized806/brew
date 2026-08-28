@@ -412,6 +412,17 @@ RSpec.describe FormulaInstaller do
         installer.pour
       end
     end
+
+    context "with a legacy bottle from a longer prefix" do
+      let(:bottle_cellar) { "#{HOMEBREW_PREFIX}-longer/Cellar" }
+
+      it "patches the build prefix by default" do
+        prefix = Pathname(bottle_cellar).parent.to_s
+        expect(keg).to receive(:relocate_build_prefix).with(keg, prefix, HOMEBREW_PREFIX, files: nil).and_return([])
+
+        installer.pour
+      end
+    end
   end
 
   describe "#pour_bottle? with a bottle built for another prefix" do
@@ -428,16 +439,28 @@ RSpec.describe FormulaInstaller do
       Class.new(described_class).new(f)
     end
 
-    it "states how much longer the prefix is than the bottle's" do
+    it "states when the prefix is too long to relocate the bottle" do
       installer = installer_for_cellar("/short/Cellar")
+      prefix = HOMEBREW_PREFIX.to_s
+      message = "Your prefix `#{prefix}` is #{prefix.length} characters long, but this bottle can only be " \
+                "relocated to a prefix with a maximum length of 6 characters."
 
-      expect { installer.pour_bottle?(output_warning: true) }.to output(/bytes longer than/).to_stderr
+      expect { installer.pour_bottle?(output_warning: true) }
+        .to output(satisfy { |stderr| stderr.include?(message) && stderr.exclude?("bytes") }).to_stderr
     end
 
-    it "states how much shorter the prefix is than the bottle's" do
+    it "pours a bottle built for a longer prefix by default" do
       installer = installer_for_cellar("#{HOMEBREW_PREFIX}-longer/Cellar")
 
-      expect { installer.pour_bottle?(output_warning: true) }.to output(/7 bytes shorter than/).to_stderr
+      expect(installer.pour_bottle?(output_warning: true)).to be true
+    end
+
+    it "states when build prefix relocation is disabled" do
+      ENV["HOMEBREW_NO_RELOCATE_BUILD_PREFIX"] = "1"
+      installer = installer_for_cellar("#{HOMEBREW_PREFIX}-longer/Cellar")
+
+      expect { installer.pour_bottle?(output_warning: true) }
+        .to output(/HOMEBREW_NO_RELOCATE_BUILD_PREFIX/).to_stderr
     end
   end
 

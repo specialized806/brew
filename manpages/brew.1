@@ -3222,6 +3222,9 @@ If set, \fBbrew install\fP \fIformula|cask\fP will not upgrade \fIformula|cask\f
 \fBHOMEBREW_NO_PATH_SHADOW_CHECK\fP
 If set, \fBbrew info\fP and \fBbrew install\fP will not warn when a formula\[u2019]s executables are shadowed by other commands earlier on \fB$PATH\fP\&\.
 .TP
+\fBHOMEBREW_NO_RELOCATE_BUILD_PREFIX\fP
+If set, do not relocate bottles built for a different prefix at install time\. Homebrew will build from source instead\.
+.TP
 \fBHOMEBREW_NO_REQUIRE_TAP_TRUST\fP
 If set, do not require non\-official tap formulae, casks or commands to be trusted\. This is not recommended and will be removed in a later release\. Also enables commands that evaluate all formulae and casks\.
 .TP
