@@ -20,6 +20,29 @@ module Homebrew
     GH_ACTIONS_ARTIFACT_CLEANUP_DAYS = 3
     private_constant :CLEANUP_DEFAULT_DAYS, :GH_ACTIONS_ARTIFACT_CLEANUP_DAYS
 
+    class InstallCleanupOutput
+      sig { params(output: T.any(IO, StringIO), heading: String).void }
+      def initialize(output, heading)
+        @output = output
+        @heading = heading
+        @mutex = T.let(Thread::Mutex.new, Thread::Mutex)
+        @printed = T.let(false, T::Boolean)
+      end
+
+      sig { params(line: String).void }
+      def puts(line)
+        @mutex.synchronize do
+          @output.puts @heading unless @printed
+          @printed = true
+          @output.puts line
+        end
+      end
+
+      sig { returns(T::Boolean) }
+      def printed? = @printed
+    end
+    private_constant :InstallCleanupOutput
+
     class << self
       sig { params(pathname: Pathname).returns(T::Boolean) }
       def incomplete?(pathname)
@@ -257,7 +280,7 @@ module Homebrew
         scrub:   T::Boolean,
         days:    T.nilable(Integer),
         cache:   Pathname,
-        output:  T.any(IO, StringIO),
+        output:  T.any(IO, StringIO, InstallCleanupOutput),
       ).void
     }
     def initialize(*args, dry_run: false, scrub: false, days: nil, cache: HOMEBREW_CACHE, output: $stdout)
@@ -345,33 +368,24 @@ module Homebrew
       packages = T.let(formulae + casks, T::Array[T.any(Formula, Cask::Cask)])
       return if packages.empty?
 
-      cleanup_output = Utils.parallel_map(packages) do |package|
-        output = StringIO.new
+      output = InstallCleanupOutput.new($stdout, oh1_title("Cleanup"))
+      Utils.parallel_map(packages) do |package|
         cleanup = Cleanup.new(output:)
-        name = case package
+        case package
         when Formula
           cleanup.cleanup_formula(package, quiet: true, cache_db: false, cleanup_unreferenced: false)
-          package.full_specified_name
         when Cask::Cask
           cleanup.cleanup_cask(package, cleanup_unreferenced: false)
-          package.full_name
         else
           T.absurd(package)
         end
-        [name, output.string]
       end
 
       Cleanup.new.cleanup_cache_db if formulae.present?
       Cleanup.new.cleanup_unreferenced_downloads
 
-      cleanup_output.reject! { |_, output| output.empty? }
-      return if cleanup_output.empty?
+      return unless output.printed?
 
-      oh1 "Cleanup"
-      cleanup_output.each do |name, output|
-        ohai name
-        print output
-      end
       puts_no_install_cleanup_disable_message_if_not_already!
     end
 
