@@ -16,15 +16,17 @@ RSpec.describe Homebrew::Cmd::CompletionsCmd do
       .to raise_error(Homebrew::CLI::MaxNamedArgumentsError)
   end
 
-  it "runs the status subcommand correctly", :integration_test do
+  it "links completions", :integration_test do
     HOMEBREW_REPOSITORY.cd do
       system "git", "init"
     end
 
-    brew "completions", "link"
-    expect { brew "completions" }
-      .to output(/Completions are linked/).to_stdout
+    expect { brew "completions", "link" }
+      .to output(/Completions are now linked/).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
+
+    Homebrew::Settings.clear_cache
+    expect(Homebrew::Completions.link_completions?).to be(true)
   end
 end

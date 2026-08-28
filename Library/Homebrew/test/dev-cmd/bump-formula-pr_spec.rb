@@ -17,6 +17,21 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
 
   it_behaves_like "parseable arguments"
 
+  it "updates a Formula without creating a pull request", :integration_test do
+    formula_path = setup_test_formula "testball"
+    CoreTap.instance.path.cd do
+      system "git", "init"
+      system "git", "remote", "add", "origin", "https://github.com/Homebrew/homebrew-core"
+    end
+    tarball = TEST_FIXTURE_DIR/"tarballs/testball2-0.1.tbz"
+
+    expect do
+      brew "bump-formula-pr", "--write-only", "--no-audit", "--version=0.2",
+           "--url=file://#{tarball}", "--sha256=#{tarball.sha256}", "testball"
+    end.to be_a_success
+    expect(formula_path.read).to include("version \"0.2\"")
+  end
+
   describe "#run" do
     it "adds updated mirrors as string literals" do
       formula_path = CoreTap.instance.new_formula_path("couchdb")

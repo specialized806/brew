@@ -5,6 +5,8 @@ if ENV["HOMEBREW_TESTS_COVERAGE"]
   require "simplecov"
   require "simplecov-cobertura"
   SimpleCov.start
+  require_relative "support/helper/integration_coverage"
+  Homebrew::TestIntegrationCoverage.prepare!
 
   formatters = [
     SimpleCov::Formatter::HTMLFormatter,

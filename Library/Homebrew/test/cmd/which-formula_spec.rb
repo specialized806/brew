@@ -8,6 +8,7 @@ require "cmd/which-formula"
 
 RSpec.describe Homebrew::Cmd::WhichFormula do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "which-formula", shell: true
 
   describe "which_formula" do
     let(:shell_cellar) { HOMEBREW_CELLAR }

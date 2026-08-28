@@ -10,6 +10,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
   before { stub_const("HOMEBREW_CACHE", mktmpdir) }
 
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "contributions"
 
   it "documents the governance reporting quarters" do
     help_text = described_class.parser.generate_help_text.gsub(/\s+/, " ")

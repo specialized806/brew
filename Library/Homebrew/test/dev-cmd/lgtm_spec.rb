@@ -9,6 +9,7 @@ require "utils/tty"
 
 RSpec.describe Homebrew::DevCmd::Lgtm do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "lgtm"
 
   describe "#run" do
     subject(:lgtm) { described_class.new(args) }

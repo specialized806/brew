@@ -6,6 +6,7 @@ require "dev-cmd/vendor-gems"
 
 RSpec.describe Homebrew::DevCmd::VendorGems do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "vendor-gems"
 
   sig { returns(Homebrew::DevCmd::VendorGems) }
   def vendor_gems_command

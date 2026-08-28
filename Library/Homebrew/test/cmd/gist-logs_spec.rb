@@ -7,6 +7,14 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::GistLogs do
   it_behaves_like "parseable arguments"
 
+  it "loads a Formula's build logs", :integration_test do
+    setup_test_formula "testball"
+
+    expect { brew "gist-logs", "testball", "HOMEBREW_TEST_GENERIC_OS" => "1" }
+      .to output(/No logs\./).to_stderr
+      .and be_a_failure
+  end
+
   describe ".truncate_text_to_approximate_size" do
     let(:glue) { "\n[...snip...]\n" } # hard-coded copy from truncate_text_to_approximate_size
 

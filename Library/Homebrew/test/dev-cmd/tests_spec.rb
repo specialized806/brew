@@ -7,6 +7,7 @@ require "parallel_tests/rspec/runner"
 
 RSpec.describe Homebrew::DevCmd::Tests do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "tests"
 
   describe "#run" do
     subject(:tests) { described_class.new(args) }

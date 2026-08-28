@@ -6,6 +6,7 @@ require "dev-cmd/typecheck"
 
 RSpec.describe Homebrew::DevCmd::Typecheck do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "typecheck"
 
   describe "#trim_rubocop_rbi" do
     let(:rbi_file) { Pathname.new("#{TEST_FIXTURE_DIR}/rubocop@x.x.x.rbi") }

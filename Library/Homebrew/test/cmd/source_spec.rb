@@ -7,9 +7,17 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Source do
   it_behaves_like "parseable arguments"
 
-  it "opens the Homebrew repo when no formula is specified", :integration_test do
+  it "opens Homebrew and Formula source repositories", :integration_test do
+    setup_test_formula "testball", <<~RUBY
+      url "https://github.com/Homebrew/testball/archive/refs/tags/v0.1.tar.gz"
+    RUBY
+
     expect { brew "source", "HOMEBREW_BROWSER" => "echo" }
       .to output(%r{https://github\.com/Homebrew/brew}).to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_success
+    expect { brew "source", "testball", "HOMEBREW_BROWSER" => "echo" }
+      .to output(%r{Opening repository for testball.*https://github\.com/Homebrew/testball}m).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
   end
