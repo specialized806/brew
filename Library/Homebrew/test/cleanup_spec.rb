@@ -79,7 +79,7 @@ RSpec.describe Homebrew::Cleanup do
       end
     end
 
-    it "only reports packages that were cleaned", :cask do
+    it "reports cleanup paths in real time without package headings", :cask do
       formula = Testball.new
       cask = Cask::Cask.new("local-caffeine")
       stale_path = mktmpdir/"testball--0.0"
@@ -88,7 +88,10 @@ RSpec.describe Homebrew::Cleanup do
       allow(described_class).to receive(:install_cleanup_formulae).with([formula]).and_return([formula])
       expect_any_instance_of(described_class).to receive(:cleanup_formula) do |cleanup, package, **|
         expect(package).to be(formula)
-        cleanup.cleanup_path(stale_path) { stale_path.unlink }
+        cleanup.cleanup_path(stale_path) do
+          expect($stdout.string).to include("Removing: #{stale_path}...")
+          stale_path.unlink
+        end
       end
       expect_any_instance_of(described_class).to receive(:cleanup_cask)
         .with(cask, cleanup_unreferenced: false)
@@ -98,7 +101,6 @@ RSpec.describe Homebrew::Cleanup do
       with_env(HOMEBREW_NO_ENV_HINTS: "1") do
         expect { described_class.install_clean!(formulae: [formula], casks: [cask]) }.to output(<<~EOS).to_stdout
           ==> Cleanup
-          ==> testball
           Removing: #{stale_path}... (#{stale_path.abv})
         EOS
       end
