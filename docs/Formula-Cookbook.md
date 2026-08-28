@@ -478,6 +478,8 @@ system "./configure", *std_configure_args(prefix: libexec)
 system "cmake", "-S", ".", "-B", "build", *std_cmake_args(install_prefix: libexec)
 ```
 
+Always pass CMake an explicit source directory (`-S`) and build directory (`-B`) rather than relying on the current working directory.
+
 Homebrew provides helpers for Cabal, Cargo, CMake, Autoconf, Go, Meson, npm, pip and Zig builds.
 Pass the helper directly to the build command rather than copying its expanded argument list, because defaults change with Homebrew's build and security policy.
 Use the [`Formula` class API](/rubydoc/Formula.html) for each helper's current signature, supported overrides and generated arguments.
