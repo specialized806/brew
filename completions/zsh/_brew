@@ -2532,7 +2532,7 @@ _brew_test_bot() {
 # brew tests
 _brew_tests() {
   _arguments \
-    '(--only)--changed[Only runs tests on files that were changed from the `main` branch]' \
+    '(--only --shard)--changed[Only runs tests on files that were changed from the `main` branch]' \
     '--coverage[Generate code coverage reports]' \
     '--debug[Enable debugging using `ruby/debug`, or surface the standard `odebug` output]' \
     '--fail-fast[Exit early on the first failing test]' \
@@ -2541,11 +2541,12 @@ _brew_tests() {
     '--load-only[Load each test file independently without running its examples]' \
     '--no-parallel[Run tests serially]' \
     '--online[Include tests that use the GitHub API and tests that use any of the taps for official external commands]' \
-    '(--changed)--only[Run only `test_script_spec.rb`. Appending `:line_number` will start at a specific line]' \
+    '(--changed --shard)--only[Run only `test_script_spec.rb`. Appending `:line_number` will start at a specific line]' \
     '--profile[Output the n slowest tests. When run without `--no-parallel` this will output the slowest tests for each parallel test process]' \
     '--quiet[Make some output more quiet]' \
     '(--stackprof --vernier)--ruby-prof[Use `ruby-prof` to profile tests]' \
     '--seed[Randomise tests with the specified value instead of a random seed]' \
+    '(--changed --only)--shard[Run only `index` of `total` test shards]' \
     '(--vernier --ruby-prof)--stackprof[Use `stackprof` to profile tests]' \
     '--verbose[Make some output more verbose]' \
     '(--stackprof --ruby-prof)--vernier[Use `vernier` to profile tests]'

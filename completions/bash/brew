@@ -3103,6 +3103,7 @@ _brew_tests() {
       --quiet
       --ruby-prof
       --seed
+      --shard
       --stackprof
       --verbose
       --vernier

@@ -68,6 +68,26 @@ TEST_DIRECTORIES = [
   HOMEBREW_ALIASES,
 ].freeze
 
+module Test
+  module Helper
+    module Dependencies
+      extend T::Helpers
+
+      requires_ancestor { RSpec::Core::Pending }
+
+      # Skip missing tools locally, but fail on CI so runner dependency
+      # regressions cannot silently reduce coverage.
+      def ensure_test_dependency!(available, message)
+        return if available
+
+        raise message if ENV["CI"]
+
+        skip message
+      end
+    end
+  end
+end
+
 # Make `instance_double` and `class_double`
 # work when type-checking is active.
 RSpec::Sorbet.allow_doubles!
@@ -145,6 +165,7 @@ RSpec.configure do |config|
   config.include(Test::Helper::Formula)
   config.include(Test::Helper::MkTmpDir)
   config.include(Test::Helper::Subcommand)
+  config.include(Test::Helper::Dependencies)
 
   config.extend(Test::Helper::TestEach)
 
@@ -166,15 +187,15 @@ RSpec.configure do |config|
   end
 
   config.before(:each, :needs_java) do
-    skip "Java is not installed." unless which("java")
+    ensure_test_dependency!(which("java"), "Java is not installed.")
   end
 
   config.before(:each, :needs_jq) do
-    skip "jq is not installed." unless which("jq")
+    ensure_test_dependency!(which("jq"), "jq is not installed.")
   end
 
   config.before(:each, :needs_python) do
-    skip "Python is not installed." if !which("python3") && !which("python")
+    ensure_test_dependency!(which("python3") || which("python"), "Python is not installed.")
   end
 
   config.before(:each, :needs_network) do
@@ -183,15 +204,15 @@ RSpec.configure do |config|
 
   config.before(:each, :needs_homebrew_core) do
     core_tap_path = "#{ENV.fetch("HOMEBREW_LIBRARY")}/Taps/homebrew/homebrew-core"
-    skip "Requires homebrew/core to be tapped." unless Dir.exist?(core_tap_path)
+    ensure_test_dependency!(Dir.exist?(core_tap_path), "Requires homebrew/core to be tapped.")
   end
 
   config.before(:each, :needs_systemd) do
-    skip "No SystemD found." unless which("systemctl")
+    ensure_test_dependency!(which("systemctl"), "No SystemD found.")
   end
 
   config.before(:each, :needs_daemon_manager) do
-    skip "No LaunchCTL or SystemD found." if !which("systemctl") && !which("launchctl")
+    ensure_test_dependency!(which("systemctl") || which("launchctl"), "No LaunchCTL or SystemD found.")
   end
 
   config.before do |example|
@@ -221,7 +242,7 @@ RSpec.configure do |config|
   end
 
   config.before(:each, :needs_svn) do
-    skip svn_client_skip_reason if svn_client_skip_reason
+    ensure_test_dependency!(false, svn_client_skip_reason) if svn_client_skip_reason
     if svn_client_path_dirs
       ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_client_path_dirs)
       next
@@ -237,7 +258,7 @@ RSpec.configure do |config|
     svn_shim = HOMEBREW_SHIMS_PATH/"shared/svn"
     unless quiet_system svn_shim, "--version"
       svn_client_skip_reason = "Subversion is not installed."
-      skip svn_client_skip_reason
+      ensure_test_dependency!(false, svn_client_skip_reason)
     end
 
     svn_shim_path = Pathname(Utils.popen_read(svn_shim, "--homebrew=print-path").chomp.presence)
@@ -246,7 +267,7 @@ RSpec.configure do |config|
     svn = which("svn", svn_paths)
     unless svn
       svn_client_skip_reason = "svn is not installed."
-      skip svn_client_skip_reason
+      ensure_test_dependency!(false, svn_client_skip_reason)
     end
 
     svn_client_path_dirs = [svn.dirname]
@@ -254,7 +275,7 @@ RSpec.configure do |config|
   end
 
   config.before(:each, :needs_svnadmin) do
-    skip svn_skip_reason if svn_skip_reason
+    ensure_test_dependency!(false, svn_skip_reason) if svn_skip_reason
     if svn_path_dirs
       ENV["PATH"] = PATH.new(ENV.fetch("PATH")).append(svn_path_dirs)
       next
@@ -263,7 +284,7 @@ RSpec.configure do |config|
     svnadmin = which("svnadmin")
     unless svnadmin
       svn_skip_reason = "svnadmin is not installed."
-      skip svn_skip_reason
+      ensure_test_dependency!(false, svn_skip_reason)
     end
 
     svn_path_dirs = [svnadmin.dirname]
@@ -272,13 +293,13 @@ RSpec.configure do |config|
 
   config.before(:each, :needs_homebrew_curl) do
     ENV["HOMEBREW_CURL"] = HOMEBREW_BREWED_CURL_PATH
-    skip "A `curl` with TLS 1.3 support is required." unless Utils::Curl.curl_supports_tls13?
+    ensure_test_dependency!(Utils::Curl.curl_supports_tls13?, "A `curl` with TLS 1.3 support is required.")
   rescue FormulaUnavailableError
-    skip "No `curl` formula is available."
+    ensure_test_dependency!(false, "No `curl` formula is available.")
   end
 
   config.before(:each, :needs_unzip) do
-    skip "Unzip is not installed." unless which("unzip")
+    ensure_test_dependency!(which("unzip"), "Unzip is not installed.")
   end
 
   config.around do |example|

@@ -42,13 +42,15 @@ module Homebrew
         flag   "--only=",
                description: "Run only `<test_script>_spec.rb`. Appending `:<line_number>` will start at a " \
                             "specific line."
+        flag   "--shard=",
+               description: "Run only `<index>` of `<total>` test shards."
         flag   "--profile=",
                description: "Output the <n> slowest tests. When run without `--no-parallel` this will output " \
                             "the slowest tests for each parallel test process."
         flag   "--seed=",
                description: "Randomise tests with the specified <value> instead of a random seed."
 
-        conflicts "--changed", "--only"
+        conflicts "--changed", "--only", "--shard"
         conflicts "--stackprof", "--vernier", "--ruby-prof"
 
         named_args :none
@@ -60,6 +62,7 @@ module Homebrew
         groups = Homebrew.valid_gem_groups - ["sorbet"]
         groups << "prof" if args.stackprof? || args.vernier? || args.ruby_prof?
         Homebrew.install_bundler_gems!(groups:)
+        require "parallel_tests/rspec/runner"
 
         HOMEBREW_LIBRARY_PATH.cd do
           setup_environment!
@@ -146,6 +149,20 @@ module Homebrew
 
           bundle_args = os_bundle_args(bundle_args)
           files = os_files(files)
+          if (shard = args.shard)
+            match = shard.match(%r{\A(\d+)/(\d+)\z})
+            raise UsageError, "Invalid `--shard` argument: #{shard}" unless match
+
+            shard_index = match[1].to_i
+            shard_count = match[2].to_i
+            if shard_count <= 1 || shard_index < 1 || shard_index > shard_count
+              raise UsageError, "Invalid `--shard` argument: #{shard}"
+            end
+
+            files = ParallelTests::RSpec::Runner.tests_in_groups(
+              files, shard_count, runtime_log: parallel_rspec_log_path
+            ).fetch(shard_index - 1)
+          end
           if files.blank?
             if args.changed?
               opoo "No tests are available to run on this operating system."
@@ -311,6 +328,7 @@ module Homebrew
       sig { params(bundle_args: T::Array[String]).returns(T::Array[String]) }
       def os_bundle_args(bundle_args)
         # for generic tests, remove macOS or Linux specific tests
+        bundle_args << "--tag" << "~needs_sandbox"
         non_linux_bundle_args(non_macos_bundle_args(bundle_args))
       end
 

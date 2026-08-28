@@ -3,6 +3,7 @@
 
 require "cmd/shared_examples/args_parse"
 require "dev-cmd/tests"
+require "parallel_tests/rspec/runner"
 
 RSpec.describe Homebrew::DevCmd::Tests do
   it_behaves_like "parseable arguments"
@@ -83,6 +84,43 @@ RSpec.describe Homebrew::DevCmd::Tests do
 
         expect(invoked_arguments).to end_with("--", "test/warnings_spec.rb")
       end
+    end
+
+    context "when sharding tests" do
+      let(:args) { ["--shard=2/2"] }
+
+      it "runs only the selected shard" do
+        ENV["CI"] = "1"
+        allow(Dir).to receive(:glob).with("test/**/*_spec.rb")
+                                    .and_return(%w[test/a_spec.rb test/b_spec.rb test/c_spec.rb test/d_spec.rb])
+        expect(ParallelTests::RSpec::Runner).to receive(:tests_in_groups)
+          .with(%w[test/a_spec.rb test/b_spec.rb test/c_spec.rb test/d_spec.rb], 2,
+                runtime_log: "tests/parallel_runtime_rspec.log")
+          .and_return([
+            %w[test/a_spec.rb test/c_spec.rb],
+            %w[test/b_spec.rb test/d_spec.rb],
+          ])
+        invoked_arguments = T.let([], T::Array[String])
+        allow(tests).to receive(:system) do |*arguments|
+          invoked_arguments = arguments
+          system "/usr/bin/true"
+        end
+
+        tests.run
+
+        expect(invoked_arguments).to end_with("--", "test/b_spec.rb", "test/d_spec.rb")
+      end
+    end
+  end
+
+  describe "#ensure_test_dependency!" do
+    include Test::Helper::Dependencies
+
+    it "fails when a dependency is missing on CI" do
+      ENV["CI"] = "1"
+
+      expect { ensure_test_dependency!(false, "Dependency is not installed.") }
+        .to raise_error(RuntimeError, "Dependency is not installed.")
     end
   end
 

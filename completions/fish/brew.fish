@@ -1983,6 +1983,7 @@ __fish_brew_complete_arg 'tests' -l profile -d 'Output the n slowest tests. When
 __fish_brew_complete_arg 'tests' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'tests' -l ruby-prof -d 'Use `ruby-prof` to profile tests'
 __fish_brew_complete_arg 'tests' -l seed -d 'Randomise tests with the specified value instead of a random seed'
+__fish_brew_complete_arg 'tests' -l shard -d 'Run only `index` of `total` test shards'
 __fish_brew_complete_arg 'tests' -l stackprof -d 'Use `stackprof` to profile tests'
 __fish_brew_complete_arg 'tests' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'tests' -l vernier -d 'Use `vernier` to profile tests'

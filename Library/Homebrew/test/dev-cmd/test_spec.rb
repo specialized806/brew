@@ -32,7 +32,7 @@ RSpec.describe Homebrew::DevCmd::Test do
       .and be_a_success
   end
 
-  it "blocks network access when test phase is offline", :integration_test do
+  it "blocks network access when test phase is offline", :integration_test, :needs_sandbox do
     skip "Sandbox not available." unless Sandbox.available?
     skip "Nested sandboxing is not supported." if Sandbox.nested_sandbox?
 
