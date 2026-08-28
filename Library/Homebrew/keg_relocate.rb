@@ -70,16 +70,26 @@ class Keg
 
   sig { void }
   def fix_dynamic_linkage
+    relativize_prefix_symlinks!
+  end
+
+  # Relocation never rewrites symlink targets, so make absolute symlinks into
+  # the given prefix or cellar relative to keep them resolving anywhere.
+  sig { params(prefix: String, cellar: String).void }
+  def relativize_prefix_symlinks!(prefix: HOMEBREW_PREFIX.to_s, cellar: HOMEBREW_CELLAR.to_s)
     symlink_files.each do |file|
       link = file.readlink
       # Don't fix relative symlinks
       next unless link.absolute?
 
-      link_starts_cellar = link.to_s.start_with?(HOMEBREW_CELLAR.to_s)
-      link_starts_prefix = link.to_s.start_with?(HOMEBREW_PREFIX.to_s)
-      next if !link_starts_cellar && !link_starts_prefix
+      target = if link.to_s.start_with?("#{cellar}/")
+        HOMEBREW_CELLAR/link.to_s.delete_prefix("#{cellar}/")
+      elsif link.to_s.start_with?("#{prefix}/")
+        HOMEBREW_PREFIX/link.to_s.delete_prefix("#{prefix}/")
+      end
+      next if target.nil?
 
-      new_src = link.relative_path_from(file.parent)
+      new_src = target.relative_path_from(file.parent)
       file.unlink
       FileUtils.ln_s(new_src, file)
     end

@@ -312,7 +312,7 @@ RSpec.describe FormulaInstaller do
     let(:downloadable) { instance_double(Resource, downloader:) }
     let(:tab) do
       instance_double(Tab, changed_files: nil, linkage_files: nil, binary_relocation_files: nil,
-                      source: { "versions" => {} }, write: nil).as_null_object
+                      built_prefix: nil, source: { "versions" => {} }, write: nil).as_null_object
     end
     let(:keg) { instance_double(Keg) }
 
@@ -322,7 +322,15 @@ RSpec.describe FormulaInstaller do
       allow(Tab).to receive(:clear_cache)
       allow(Keg).to receive(:new).with(f.prefix).and_return(keg)
       allow(keg).to receive(:replace_placeholders_with_locations)
+      allow(keg).to receive(:relativize_prefix_symlinks!)
       allow(f.bottle_specification).to receive(:skip_relocation?).with(tab:).and_return(true)
+    end
+
+    it "retargets absolute symlinks from the prefix the bottle was built for" do
+      cellar = Utils::Bottles.tag.default_cellar
+      expect(keg).to receive(:relativize_prefix_symlinks!).with(prefix: Pathname(cellar).parent.to_s, cellar:)
+
+      installer.pour
     end
 
     it "preserves the skip-linkage decision for the default bottle domain" do

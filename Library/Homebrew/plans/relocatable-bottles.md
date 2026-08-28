@@ -280,11 +280,10 @@ The padded-prefix scheme alone does not cover every non-`:any` bottle. Each
 residual class below is a goal with its own strategy, tracked to zero or to
 a named, formula-annotated exception:
 
-1. **Absolute symlinks into the prefix.** The checker pins bottles
-   containing them and nothing rewrites symlink targets at pour. Strategy:
-   at bottle time convert self-keg absolute symlinks to relative ones
-   (functionally identical); at pour time retarget remaining absolute
-   in-prefix targets as part of patching. Lands with Phase 2 hardening.
+1. **Absolute symlinks into the prefix.** Done: `brew bottle` rewrites
+   absolute symlinks into the prefix or cellar as relative ones
+   (functionally identical) and pouring retargets any left in older
+   bottles from the prefix they were built for.
 2. **Files patchelf must skip** (`protodesc_cold`/`.bun` sections, e.g.
    bun): these keep raw RPATH strings and auto-pin today. Strategy: the
    NUL-padded string patcher handles them at pour. A shortened NUL-padded

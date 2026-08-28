@@ -1713,6 +1713,18 @@ on_request: installed_on_request?, options:)
     end
     keg.replace_placeholders_with_locations(tab.changed_files, skip_linkage:, linkage_files: tab.linkage_files)
 
+    # Older bottles may still contain absolute symlinks into their build prefix.
+    build_cellar = if tab.built_prefix
+      "#{tab.built_prefix}/Cellar"
+    else
+      Utils::Bottles.tag.default_cellar
+    end
+    build_prefix = Pathname(build_cellar).parent.to_s
+    if build_prefix != HOMEBREW_PREFIX.to_s
+      keg.relativize_prefix_symlinks!(prefix: build_prefix,
+                                      cellar: build_cellar)
+    end
+
     cellar = formula.bottle_specification.tag_to_cellar(Utils::Bottles.tag)
     return if BottleSpecification::RELOCATABLE_CELLARS.include?(cellar)
 
