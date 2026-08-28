@@ -827,6 +827,8 @@ module Cask
         end
         return false if combined_version_comparisons.include?(0)
         return false if combined_version_comparisons.present? && combined_version_comparisons.exclude?(-1)
+        return false if combined_version_comparisons.empty? &&
+                        installed_short_version == tap_short_version.rpartition("-").first
       end
 
       return false if [installed_short_version, installed_bundle_version].any? do |installed_plist_version|
