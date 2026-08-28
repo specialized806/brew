@@ -7,6 +7,43 @@ require "dev-cmd/benchmark"
 RSpec.describe Homebrew::DevCmd::Benchmark do
   it_behaves_like "parseable arguments"
 
+  it "benchmarks a Formula", :integration_test do
+    formula_file = setup_test_formula "testball"
+    (HOMEBREW_PREFIX/"bin/brew").write <<~SH
+      #!/bin/sh
+      if [ "$1" = "--cache" ]; then
+        printf '/tmp/testball-cache\n'
+      fi
+    SH
+    (HOMEBREW_PREFIX/"bin/brew").chmod(0755)
+    bin = mktmpdir
+    (bin/"hyperfine").write <<~SH
+      #!/bin/sh
+      for argument in "$@"; do
+        if [ "${previous:-}" = "--export-json" ]; then
+          export_json=$argument
+        fi
+        previous=$argument
+      done
+      phase_output=$(printf '%s\n' "$export_json" | sed 's/hyperfine-/phases-/')
+      printf '{"results":[{"mean":0.1}]}' > "$export_json"
+      printf '{"events":[]}' > "$phase_output"
+    SH
+    (bin/"hyperfine").chmod(0755)
+
+    mktmpdir do |directory|
+      directory.cd do
+        expect do
+          brew "benchmark", "--runs=1", formula_file,
+               "PATH" => "#{bin}:#{ENV.fetch("PATH")}"
+        end
+          .to output(/Benchmark results.*Full results written/m).to_stdout
+          .and be_a_success
+      end
+      expect(directory/"benchmark/results.json").to be_a_file
+    end
+  end
+
   it "rotates workloads and records hyperfine and phase timings" do
     directory = mktmpdir
     hyperfine = mktmpdir/"hyperfine"

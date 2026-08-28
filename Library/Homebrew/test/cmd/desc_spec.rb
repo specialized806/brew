@@ -7,11 +7,11 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Desc do
   it_behaves_like "parseable arguments"
 
-  it "shows a given Formula's description", :integration_test do
+  it "shows a given Formula and Cask description", :cask, :integration_test do
     setup_test_formula "testball"
 
-    expect { brew "desc", "testball" }
-      .to output("testball: Some test\n").to_stdout
+    expect { brew "desc", "testball", "local-transmission" }
+      .to output("local-transmission: (Transmission) BitTorrent client\ntestball: Some test\n").to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
   end

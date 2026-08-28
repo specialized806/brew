@@ -26,7 +26,15 @@ RSpec.describe Homebrew::Cmd::Home do
 
   it_behaves_like "parseable arguments"
 
-  it "opens the project page when no formula or cask is specified", :integration_test do
+  it "opens the homepages for a given Formula and Cask", :cask, :integration_test do
+    setup_test_formula "testballhome", <<~RUBY
+      homepage "#{testballhome_homepage}"
+    RUBY
+
+    expect { brew "home", "testballhome", local_caffeine_path, "HOMEBREW_BROWSER" => "echo" }
+      .to output(/#{Regexp.escape(testballhome_homepage)}.*#{Regexp.escape(local_caffeine_homepage)}/m).to_stdout
+      .and output(/Treating #{Regexp.escape(local_caffeine_path)} as a cask/).to_stderr
+      .and be_a_success
     expect { brew "home", "HOMEBREW_BROWSER" => "echo" }
       .to output("https://brew.sh\n").to_stdout
       .and not_to_output.to_stderr

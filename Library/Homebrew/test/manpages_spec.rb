@@ -72,4 +72,18 @@ RSpec.describe Homebrew::Manpages do
 
     expect(manpage).not_to include(*hidden_commands)
   end
+
+  it "has integration test coverage for every documented command" do
+    missing_commands = {
+      "cmd"     => Commands.internal_commands,
+      "dev-cmd" => Commands.internal_developer_commands,
+    }.flat_map do |directory, commands|
+      commands.reject do |command|
+        spec = HOMEBREW_LIBRARY_PATH/"test/#{directory}/#{command}_spec.rb"
+        spec.exist? && spec.read.match?(/:integration_test|a documented command/)
+      end
+    end
+
+    expect(missing_commands).to be_empty
+  end
 end

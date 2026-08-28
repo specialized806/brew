@@ -7,6 +7,15 @@ require "dev-cmd/bump-compatibility-version"
 RSpec.describe Homebrew::DevCmd::BumpCompatibilityVersion do
   it_behaves_like "parseable arguments"
 
+  it "previews a Formula compatibility version bump", :integration_test do
+    setup_test_formula "testball"
+
+    expect { brew "bump-compatibility-version", "--dry-run", "testball" }
+      .to output(/add "compatibility_version 1"/).to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_success
+  end
+
   describe "#run" do
     before do
       allow(Homebrew).to receive(:install_bundler_gems!)

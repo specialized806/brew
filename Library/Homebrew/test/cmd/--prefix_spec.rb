@@ -7,9 +7,15 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Prefix do
   it_behaves_like "parseable arguments"
 
-  it "prints Homebrew's prefix", :integration_test do
+  it "prints Homebrew's prefix and a Formula's prefix", :integration_test do
+    testball = setup_test_formula "testball"
+
     expect { brew_sh "--prefix" }
       .to output("#{ENV.fetch("HOMEBREW_PREFIX")}\n").to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_success
+    expect { brew_sh "--prefix", testball }
+      .to output(%r{/opt/testball\n}).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
   end

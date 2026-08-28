@@ -9,6 +9,24 @@ RSpec.describe Homebrew::DevCmd::GenerateZap do
 
   it_behaves_like "parseable arguments"
 
+  it "generates a zap stanza for a Cask", :cask, :integration_test do
+    caskfile = CoreCaskTap.instance.cask_dir/"zap-integration.rb"
+    caskfile.write <<~RUBY
+      cask "zap-integration" do
+        version "1.0"
+        sha256 :no_check
+        url "https://brew.sh/zap-integration-1.0.zip"
+        app "CodexZapCoverageRandom.app"
+      end
+    RUBY
+    CoreCaskTap.instance.clear_cache
+
+    expect { brew "generate-zap", caskfile }
+      .to output(/Scanning for files matching.*No zap stanza required/m).to_stdout
+      .and output(/No files found matching/).to_stderr
+      .and be_a_success
+  end
+
   describe "#run" do
     it "surfaces Full Disk Access guidance when scanning raises a permission error" do
       generate_zap = described_class.new(["--name", "Test"])

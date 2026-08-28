@@ -7,19 +7,16 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Pin do
   it_behaves_like "parseable arguments"
 
-  it "pins a Formula's version", :integration_test do
+  it "pins Formula and Cask versions", :cask, :integration_test do
     setup_test_formula "testball", tab_attributes: { installed_on_request: true }
-
-    expect { brew "pin", "testball" }.to be_a_success
-  end
-
-  it "pins a Cask's version", :cask do
     cask = Cask::CaskLoader.load("local-caffeine")
     InstallHelper.stub_cask_installation(cask)
 
-    expect { described_class.new(["--cask", "local-caffeine"]).run }
+    expect { brew "pin", "testball", "local-caffeine" }
       .to not_to_output.to_stderr
+      .and be_a_success
 
+    expect(Formula["testball"]).to be_pinned
     expect(cask).to be_pinned
     expect(cask.pinned_version).to eq("1.2.3")
     cask.unpin

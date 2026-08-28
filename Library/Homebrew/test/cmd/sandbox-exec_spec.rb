@@ -6,6 +6,7 @@ require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::SandboxExec do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "sandbox-exec"
 
   it "runs the command in the requested sandbox" do
     expect(Sandbox).to receive(:run_command)

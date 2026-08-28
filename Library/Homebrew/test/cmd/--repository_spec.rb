@@ -4,6 +4,8 @@
 require "open3"
 
 RSpec.describe "brew --repository", type: :system do
+  it_behaves_like "a documented command", "--repository", shell: true
+
   it "prints Homebrew and Tap repositories" do
     stdout, stderr, status = Open3.capture3(
       {

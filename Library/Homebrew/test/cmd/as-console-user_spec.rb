@@ -21,6 +21,7 @@ RSpec.describe Homebrew::Cmd::AsConsoleUser do
   end
 
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "as-console-user", shell: true
 
   def run_as_console_user_shell(script, env = {})
     Bundler.with_unbundled_env do

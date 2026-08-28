@@ -7,7 +7,7 @@ require "dev-cmd/edit"
 RSpec.describe Homebrew::DevCmd::Edit do
   it_behaves_like "parseable arguments"
 
-  it "opens a given Formula in an editor", :integration_test do
+  it "opens a given Formula and prints a Cask's path", :cask, :integration_test do
     HOMEBREW_REPOSITORY.cd do
       system "git", "init"
     end
@@ -16,6 +16,10 @@ RSpec.describe Homebrew::DevCmd::Edit do
 
     expect { brew "edit", "testball", "HOMEBREW_EDITOR" => "/bin/cat", "HOMEBREW_NO_ENV_HINTS" => "1" }
       .to output(/# something here/).to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_success
+    expect { brew "edit", "--print-path", "--cask", cask_path("local-caffeine") }
+      .to output("#{cask_path("local-caffeine")}\n").to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
   end

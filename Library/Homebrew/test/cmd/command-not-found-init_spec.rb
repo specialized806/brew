@@ -6,4 +6,5 @@ require "cmd/command-not-found-init"
 
 RSpec.describe Homebrew::Cmd::CommandNotFoundInit do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "command-not-found-init"
 end
