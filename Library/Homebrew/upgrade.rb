@@ -228,14 +228,19 @@ module Homebrew
         else
           Install.fetch_formulae(formula_installers)
         end
+        dependency_summary = T.let(
+          dry_run ? { install: [], upgrade: [] } : nil,
+          T.nilable(Install::DependencySummary),
+        )
 
         upgraded_formula_installers = valid_formula_installers.select do |fi|
-          upgraded = upgrade_formula(fi, dry_run:, verbose:, skip_formula_names:)
+          upgraded = upgrade_formula(fi, dry_run:, verbose:, skip_formula_names:, dependency_summary:)
           Cleanup.install_formula_clean!(fi.formula) if upgraded && !dry_run && cleanup
           upgraded
         end
         return upgraded_formula_installers unless dry_run
 
+        Install.print_dry_run_dependency_summary(dependency_summary) if dependency_summary
         formulae_to_clean = Cleanup.install_cleanup_formulae(upgraded_formula_installers.map(&:formula))
         if formulae_to_clean.present? &&
            Cleanup.printed_dry_run_output?(Cleanup.dry_run_output(formulae: formulae_to_clean), ohai: true)
@@ -527,14 +532,16 @@ module Homebrew
 
       sig {
         params(formula_installer: FormulaInstaller, dry_run: T::Boolean, verbose: T::Boolean,
-               skip_formula_names: T::Array[String]).returns(T::Boolean)
+               skip_formula_names: T::Array[String],
+               dependency_summary: T.nilable(Install::DependencySummary)).returns(T::Boolean)
       }
-      def upgrade_formula(formula_installer, dry_run: false, verbose: false, skip_formula_names: [])
+      def upgrade_formula(formula_installer, dry_run: false, verbose: false, skip_formula_names: [],
+                          dependency_summary: nil)
         formula = formula_installer.formula
 
         if dry_run
           Install.print_dry_run_dependencies(formula, formula_installer.compute_dependencies,
-                                             skip_formula_names:) do |f|
+                                             skip_formula_names:, dependency_summary:) do |f|
             name = f.full_specified_name
             current_version = if f.optlinked?
               Keg.new(f.opt_prefix).version

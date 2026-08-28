@@ -27,11 +27,15 @@ module Homebrew
 
       class FinalUpgradeSummary < T::Struct
         prop :version_changes, T::Array[String], default: []
+        prop :dependent_version_changes, T::Array[String], default: []
         prop :pinned_formulae, T::Array[String], default: []
         prop :pinned_casks, T::Array[String], default: []
         prop :deprecated, T::Array[String], default: []
         prop :disabled, T::Array[String], default: []
         prop :source_build_formulae, T::Array[String], default: []
+
+        sig { returns(T::Array[String]) }
+        def all_version_changes = version_changes + dependent_version_changes
       end
 
       cmd_args do
@@ -250,7 +254,7 @@ module Homebrew
           end
 
           show_final_upgrade_summary(dry_run: true)
-          planned_fetch_names = final_upgrade_summary.version_changes.map { |change| change.split.fetch(0) }
+          planned_fetch_names = final_upgrade_summary.all_version_changes.map { |change| change.split.fetch(0) }
           if Install.ask_prompt_needed?(
             planned_names:   planned_fetch_names.map do |planned_name|
               formulae.find { |formula| formula.full_specified_name == planned_name }&.full_name || planned_name
@@ -261,7 +265,7 @@ module Homebrew
           )
             Install.ask(action: "upgrade")
           end
-          ask_upgrade_planned = final_upgrade_summary.version_changes.present?
+          ask_upgrade_planned = final_upgrade_summary.all_version_changes.present?
           skip_upgrades_after_failed_ask_preview = Homebrew.failed? && !ask_upgrade_planned
           @final_upgrade_summary = FinalUpgradeSummary.new
         end
@@ -514,20 +518,23 @@ module Homebrew
 
       sig {
         params(
-          context:            FormulaeUpgradeContext,
-          include_sizes:      T::Boolean,
-          formulae_installer: T.nilable(T::Array[FormulaInstaller]),
-          version_changes:    T.nilable(T::Array[String]),
+          context:                   FormulaeUpgradeContext,
+          include_sizes:             T::Boolean,
+          formulae_installer:        T.nilable(T::Array[FormulaInstaller]),
+          version_changes:           T.nilable(T::Array[String]),
+          dependent_version_changes: T.nilable(T::Array[String]),
         ).void
       }
-      def record_formula_upgrade_summary(context, include_sizes: false, formulae_installer: nil, version_changes: nil)
+      def record_formula_upgrade_summary(context, include_sizes: false, formulae_installer: nil, version_changes: nil,
+                                         dependent_version_changes: nil)
         summary = final_upgrade_summary
         formulae_installer ||= context.formulae_installer
         upgrade_formulae = formulae_installer.map(&:formula)
         dependent_formulae = context.dependants.upgradeable
-        summary.version_changes.concat(
-          version_changes || (formula_upgrade_descriptions(upgrade_formulae, include_sizes:) +
-            formula_upgrade_descriptions(dependent_formulae, include_sizes:)),
+        summary.version_changes.concat(version_changes || formula_upgrade_descriptions(upgrade_formulae,
+                                                                                       include_sizes:))
+        summary.dependent_version_changes.concat(
+          dependent_version_changes || formula_upgrade_descriptions(dependent_formulae, include_sizes:),
         )
         summary.pinned_formulae.concat((context.pinned_formulae + context.dependants.pinned).map do |formula|
           "#{formula.full_specified_name} #{formula.pkg_version}"
@@ -553,15 +560,27 @@ module Homebrew
       sig { params(dry_run: T::Boolean).void }
       def show_final_upgrade_summary(dry_run: args.dry_run?)
         summary = final_upgrade_summary
-        return if summary.version_changes.empty? && summary.pinned_formulae.empty? && summary.pinned_casks.empty? &&
+        return if summary.all_version_changes.empty? &&
+                  summary.pinned_formulae.empty? && summary.pinned_casks.empty? &&
                   summary.deprecated.empty? && summary.disabled.empty? && summary.source_build_formulae.empty?
 
-        if summary.version_changes.present?
-          version_change_count = summary.version_changes.uniq.count
+        named = args.named.present?
+        version_changes = named ? summary.version_changes : summary.all_version_changes
+        if version_changes.present?
+          version_change_count = version_changes.uniq.count
           show_final_upgrade_summary_section(
-            "#{dry_run ? "Would upgrade" : "Upgraded"} #{version_change_count} outdated " \
+            "#{dry_run ? "Would upgrade" : "Upgraded"} #{version_change_count} " \
+            "#{"requested " if named}outdated " \
             "#{Utils.pluralize("package", version_change_count)}",
-            Upgrade.format_upgrade_summary(summary.version_changes),
+            Upgrade.format_upgrade_summary(version_changes),
+          )
+        end
+        if named && summary.dependent_version_changes.present?
+          dependent_count = summary.dependent_version_changes.uniq.count
+          show_final_upgrade_summary_section(
+            "#{dry_run ? "Would upgrade" : "Upgraded"} #{dependent_count} " \
+            "#{Utils.pluralize("dependent", dependent_count)}",
+            Upgrade.format_upgrade_summary(summary.dependent_version_changes),
           )
         end
         if summary.pinned_formulae.present?
@@ -696,14 +715,15 @@ module Homebrew
           return true
         end
 
-        formula_version_changes = formula_upgrade_descriptions(context.formulae_installer.map(&:formula),
-                                                               include_sizes: dry_run)
+        planned_formula_version_changes = formula_upgrade_descriptions(context.formulae_installer.map(&:formula),
+                                                                       include_sizes: dry_run)
         dependent_formulae = context.dependants.upgradeable.dup
-        dependent_version_changes = formula_upgrade_descriptions(dependent_formulae,
-                                                                 include_sizes: dry_run)
+        planned_dependent_version_changes = formula_upgrade_descriptions(dependent_formulae,
+                                                                         include_sizes: dry_run)
         if dry_run
           record_formula_upgrade_summary(context,
-                                         version_changes: formula_version_changes + dependent_version_changes)
+                                         version_changes:           planned_formula_version_changes,
+                                         dependent_version_changes: planned_dependent_version_changes)
         end
         if !args.no_ask? && dry_run && args.named.present? &&
            Install.formulae_ask_prompt_needed?(context.formulae_installer, context.dependants)
@@ -755,14 +775,18 @@ module Homebrew
           (upgraded_formula_installers.map(&:formula) + upgraded_dependent_formulae).each do |formula|
             upgraded_formulae_by_identity[formula] = true
           end
-          planned_formulae = context.formulae_installer.map(&:formula) + dependent_formulae
-          version_changes = formula_version_changes + dependent_version_changes
+          formula_version_changes =
+            context.formulae_installer.map(&:formula).each_with_index.filter_map do |formula, index|
+              planned_formula_version_changes.fetch(index) if upgraded_formulae_by_identity.key?(formula)
+            end
+          dependent_version_changes = dependent_formulae.each_with_index.filter_map do |formula, index|
+            planned_dependent_version_changes.fetch(index) if upgraded_formulae_by_identity.key?(formula)
+          end
           record_formula_upgrade_summary(
             context,
-            formulae_installer: upgraded_formula_installers,
-            version_changes:    planned_formulae.each_with_index.filter_map do |formula, index|
-              version_changes.fetch(index) if upgraded_formulae_by_identity.key?(formula)
-            end,
+            formulae_installer:        upgraded_formula_installers,
+            version_changes:           formula_version_changes,
+            dependent_version_changes:,
           )
         end
 
