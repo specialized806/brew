@@ -3925,6 +3925,10 @@ Run Homebrew's unit and integration tests.
 : Run only `<test_script>_spec.rb`. Appending `:<line_number>` will start at a
   specific line.
 
+`--shard`
+
+: Run only `<index>` of `<total>` test shards.
+
 `--profile`
 
 : Output the *`n`* slowest tests. When run without `--no-parallel` this will

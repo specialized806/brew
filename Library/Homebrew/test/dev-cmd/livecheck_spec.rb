@@ -7,16 +7,20 @@ require "dev-cmd/livecheck"
 RSpec.describe Homebrew::DevCmd::LivecheckCmd do
   it_behaves_like "parseable arguments"
 
-  it "reports the latest version of a Formula", :integration_test, :needs_network do
+  it "skips a Formula and Cask with disabled livechecks", :cask, :integration_test do
     content = <<~RUBY
       desc "Some test"
       homepage "https://github.com/Homebrew/brew"
       url "https://brew.sh/test-1.0.0.tgz"
+
+      livecheck do
+        skip "integration test"
+      end
     RUBY
     setup_test_formula("test", content)
 
-    expect { brew "livecheck", "test" }
-      .to output(/test: /).to_stdout
+    expect { brew "livecheck", "test", "latest-with-livecheck-skip" }
+      .to output(/latest-with-livecheck-skip: skipped.*test: skipped - integration test/m).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success
   end

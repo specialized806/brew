@@ -11,6 +11,16 @@ RSpec.describe Homebrew::Cmd::Uses do
 
   it_behaves_like "parseable arguments"
 
+  it "finds Formulae that use a given Formula", :integration_test, :no_api do
+    setup_test_formula "foo"
+    setup_test_formula "bar"
+
+    expect { brew "uses", "foo", "HOMEBREW_REQUIRE_TAP_TRUST" => "1" }
+      .to output("bar\n").to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_success
+  end
+
   it "uses tap trust configuration to evaluate all formulae" do
     used_formula = instance_double(Formula, full_name: "foo")
     cmd = described_class.new(["--formula", "foo"])

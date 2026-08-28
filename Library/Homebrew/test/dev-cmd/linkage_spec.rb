@@ -7,8 +7,14 @@ require "dev-cmd/linkage"
 RSpec.describe Homebrew::DevCmd::Linkage do
   it_behaves_like "parseable arguments"
 
-  it "works when no arguments are provided", :integration_test do
+  it "checks installed Formulae", :integration_test do
+    setup_test_formula "testball", tab_attributes: { installed_on_request: true }
+
     expect { brew "linkage" }
+      .to be_a_success
+      .and not_to_output.to_stdout
+      .and not_to_output.to_stderr
+    expect { brew "linkage", "testball" }
       .to be_a_success
       .and not_to_output.to_stdout
       .and not_to_output.to_stderr

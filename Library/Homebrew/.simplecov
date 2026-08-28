@@ -34,52 +34,8 @@ SimpleCov.configure do
                .map { |p| "#{p}/**/*.rb" }.join(",")
   files = "{#{subdirs},*.rb}"
 
-  if (integration_test_number = ENV.fetch("HOMEBREW_INTEGRATION_TEST", nil))
-    # This needs a unique name so it won't be overwritten
-    command_name "brew_i:#{integration_test_number}"
-
-    # be quiet, the parent process will be in charge of output and checking coverage totals
-    SimpleCov.print_errors false
-
-    SimpleCov.at_exit do
-      # Just save result, but don't write formatted output.
-      coverage_result = Coverage.result.dup
-      simulated_files_path = File.join(
-        SimpleCov.coverage_path,
-        ".simulated_files#{ENV.fetch("TEST_ENV_NUMBER", "")}",
-      )
-      simulated_files = if File.exist?(simulated_files_path)
-        Set.new(File.readlines(simulated_files_path, chomp: true))
-      else
-        Set.new
-      end
-      simulated_files_count = simulated_files.size
-      Dir.glob(files, base: SimpleCov.root).each do |file|
-        absolute_path = File.expand_path(file, SimpleCov.root)
-        next if coverage_result.key?(absolute_path) || simulated_files.include?(absolute_path)
-
-        coverage_result[absolute_path] = SimpleCov::SimulateCoverage.call(absolute_path)
-        simulated_files << absolute_path
-      end
-      simplecov_result = SimpleCov::Result.new(coverage_result)
-      SimpleCov::ResultMerger.store_result(simplecov_result)
-      if simulated_files.size > simulated_files_count
-        FileUtils.mkdir_p(SimpleCov.coverage_path)
-        File.write(simulated_files_path, simulated_files.to_a.join("\n"))
-      end
-
-      # If an integration test raises a `SystemExit` exception on exit,
-      # exit immediately using the same status code to avoid reporting
-      # an error when expecting a non-successful exit status.
-      raise if $ERROR_INFO.is_a?(SystemExit)
-    end
-  else
-    command_name "brew:#{ENV.fetch("TEST_ENV_NUMBER", $PROCESS_ID)}"
-
-    # Not using this during integration tests makes the tests 4x times faster
-    # without changing the coverage.
-    cover files
-  end
+  command_name "brew:#{ENV.fetch("TEST_ENV_NUMBER", $PROCESS_ID)}"
+  cover files
 
   skip(/^build\.rb$/)
   skip(/^config\.rb$/)

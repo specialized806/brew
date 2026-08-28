@@ -19,6 +19,7 @@ RSpec.describe Homebrew::Cmd::Update do
   end
 
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "update", shell: true
 
   def run_update_shell(script, env)
     Bundler.with_unbundled_env do

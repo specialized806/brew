@@ -50,10 +50,7 @@ jobs:
         run: brew install-bundler-gems --groups=style,typecheck
 
       - name: Install actionlint, shellcheck and shfmt
-        uses: Homebrew/actions/cache-homebrew-prefix@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
-        with:
-          install: actionlint shellcheck shfmt
-          workflow-key: tests-syntax
+        run: brew install actionlint shellcheck shfmt
 
       - name: Cache style cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -210,7 +207,7 @@ jobs:
 
   tests:
     name: ${{ matrix.name }}
-    needs: syntax
+    if: github.repository_owner == 'Homebrew'
     runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 30
     permissions:
@@ -221,29 +218,105 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: tests (online)
+          - name: tests (online, 1/2)
             test-flags: --online --coverage --profile 3
             runs-on: ubuntu-latest
-          - name: tests (generic OS)
+            online: true
+            load-only: false
+            shard: 1
+            shard-count: 2
+            runtime-cache: tests-online-linux
+            runtime-log: parallel_runtime_rspec.online.log
+          - name: tests (online, 2/2)
+            test-flags: --online --coverage --profile 3
+            runs-on: ubuntu-latest
+            online: true
+            load-only: false
+            shard: 2
+            shard-count: 2
+            runtime-cache: tests-online-linux
+            runtime-log: parallel_runtime_rspec.online.log
+          - name: tests (generic OS, 1/2)
             test-flags: --generic --coverage --profile 3
             runs-on: ubuntu-latest
-          - name: tests (Linux)
+            online: false
+            load-only: false
+            shard: 1
+            shard-count: 2
+            runtime-cache: tests-generic-linux
+            runtime-log: parallel_runtime_rspec.generic.log
+          - name: tests (generic OS, 2/2)
+            test-flags: --generic --coverage --profile 3
+            runs-on: ubuntu-latest
+            online: false
+            load-only: false
+            shard: 2
+            shard-count: 2
+            runtime-cache: tests-generic-linux
+            runtime-log: parallel_runtime_rspec.generic.log
+          - name: tests (Linux, 1/2)
             test-flags: --coverage --profile 3
             runs-on: ubuntu-24.04
+            online: false
+            load-only: false
+            shard: 1
+            shard-count: 2
+            runtime-cache: tests-linux
+            runtime-log: parallel_runtime_rspec.log
+          - name: tests (Linux, 2/2)
+            test-flags: --coverage --profile 3
+            runs-on: ubuntu-24.04
+            online: false
+            load-only: false
+            shard: 2
+            shard-count: 2
+            runtime-cache: tests-linux
+            runtime-log: parallel_runtime_rspec.log
+          - name: tests (macOS, 1/2)
+            test-flags: --coverage --profile 3
+            runs-on: macos-26
+            online: false
+            load-only: false
+            shard: 1
+            shard-count: 2
+            runtime-cache: tests-macos
+            runtime-log: parallel_runtime_rspec.log
+          - name: tests (macOS, 2/2)
+            test-flags: --coverage --profile 3
+            runs-on: macos-26
+            online: false
+            load-only: false
+            shard: 2
+            shard-count: 2
+            runtime-cache: tests-macos
+            runtime-log: parallel_runtime_rspec.log
           - name: tests (no Sorbet)
             test-flags: --coverage --profile 3
             runs-on: ubuntu-24.04
-          - name: tests (macOS)
-            test-flags: --coverage --profile 3
-            runs-on: macos-26
+            online: false
+            load-only: false
+            shard: 0
+            shard-count: 0
+            runtime-cache: tests-no-sorbet-linux
+            runtime-log: parallel_runtime_rspec.log
           - name: tests (load-only Linux)
             test-flags: --load-only
             runs-on: ubuntu-24.04
-            load_only: true
+            online: false
+            load-only: true
+            shard: 0
+            shard-count: 0
+            runtime-cache: unused
+            runtime-log: parallel_runtime_rspec.log
           - name: tests (load-only macOS)
             test-flags: --load-only
             runs-on: macos-26
-            load_only: true
+            online: false
+            load-only: true
+            shard: 0
+            shard-count: 0
+            runtime-cache: unused
+            runtime-log: parallel_runtime_rspec.log
     steps:
       - name: Set up Homebrew
         id: set-up-homebrew
@@ -253,7 +326,7 @@ jobs:
           # homebrew/core is not available by default on GitHub-hosted Ubuntu
           # runners, and it's expensive to tap it.
           # Load-only jobs never run examples, so they don't need it either.
-          core: ${{ runner.os == 'macOS' && matrix.load_only != true }}
+          core: ${{ runner.os == 'macOS' && matrix.load-only != true }}
           cask: false
 
       - name: Cache Bundler RubyGems
@@ -268,31 +341,40 @@ jobs:
       - name: Install Bundler RubyGems
         run: brew install-bundler-gems --groups=all
 
+      - name: Untap untrusted preinstalled tap
+        if: runner.os == 'macOS' && matrix.load-only != true
+        run: |
+          if brew tap | grep -qx aws/tap; then
+            brew untap --force aws/tap
+          fi
+
+      - name: Install Subversion
+        if: matrix.online || (runner.os == 'macOS' && matrix.load-only != true)
+        run: brew install subversion
+
       - name: Create parallel test log directory
         run: mkdir tests
 
-      - name: Cache parallel tests log
-        if: matrix.load_only != true
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore parallel tests log
+        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: tests
-          key: ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-
+          path: tests/${{ matrix.runtime-log }}
+          key: ${{ matrix.runtime-cache }}-parallel-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ matrix.runtime-cache }}-parallel-runtime-
+            ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-
 
-      - name: Install brew tests --online dependencies
-        if: matrix.name == 'tests (online)'
-        uses: Homebrew/actions/cache-homebrew-prefix@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
-        with:
-          install: curl subversion
-          workflow-key: tests-tests-online
-
-      - name: Install brew tests macOS dependencies
-        if: runner.os != 'Linux' && matrix.load_only != true
-        uses: Homebrew/actions/cache-homebrew-prefix@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
-        with:
-          install: subversion gnupg
-          workflow-key: tests-tests-macos
-          uninstall: true
+      - name: Stage parallel tests log
+        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true)
+        run: |
+          mkdir -p "$TEST_RUNTIME_PATH"
+          if [[ -f "tests/$RUNTIME_LOG" ]]; then
+            cp "tests/$RUNTIME_LOG" "$TEST_RUNTIME_PATH/$RUNTIME_LOG"
+          fi
+        env:
+          RUNTIME_LOG: ${{ matrix.runtime-log }}
+          TEST_RUNTIME_PATH: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/tests
 
         # brew tests doesn't like world writable directories
       - name: Cleanup permissions
@@ -304,16 +386,54 @@ jobs:
         run: echo "HOMEBREW_TESTS_NO_SORBET_RUNTIME=1" >> "$GITHUB_ENV"
 
       - name: Run brew tests
-        if: github.event_name == 'pull_request' || matrix.name != 'tests (online)'
-        run: brew tests ${{ matrix.test-flags }}
+        if: github.event_name == 'pull_request' || matrix.online != true
+        run: |
+          read -ra test_flags <<< "$TEST_FLAGS"
+          if (( SHARD_COUNT > 0 )); then
+            test_flags+=("--shard=$SHARD_INDEX/$SHARD_COUNT")
+          fi
+          brew tests "${test_flags[@]}"
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # These cannot be queried at the macOS level on GitHub Actions.
           HOMEBREW_LANGUAGES: en-GB
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          TEST_FLAGS: ${{ matrix.test-flags }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ matrix.shard-count }}
+
+      - name: Collect parallel tests log
+        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true) && success()
+        run: |
+          cache_path="tests/$RUNTIME_LOG"
+          if (( SHARD_COUNT > 0 )); then
+            cache_path+=".$SHARD_INDEX"
+          fi
+          cp "$TEST_RUNTIME_PATH/$RUNTIME_LOG" "$cache_path"
+        env:
+          RUNTIME_LOG: ${{ matrix.runtime-log }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ matrix.shard-count }}
+          TEST_RUNTIME_PATH: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/tests
+
+      - name: Upload parallel tests log
+        if: matrix.shard-count > 0 && (github.event_name == 'pull_request' || matrix.online != true) && success()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.runtime-cache }}-parallel-runtime-${{ matrix.shard }}
+          path: tests/${{ matrix.runtime-log }}.${{ matrix.shard }}
+          retention-days: 1
+          overwrite: true
+
+      - name: Save parallel tests log
+        if: matrix.shard-count == 0 && matrix.load-only != true && success()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tests/${{ matrix.runtime-log }}
+          key: ${{ matrix.runtime-cache }}-parallel-runtime-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Get RSpec JUnit XML filenames
-        if: matrix.load_only != true
+        if: matrix.load-only != true
         id: junit_xml
         working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
         run: |
@@ -322,7 +442,7 @@ jobs:
           echo "filenames=${filenames%,}" >> "$GITHUB_OUTPUT"
 
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        if: matrix.load_only != true && (github.event_name == 'pull_request' || matrix.name != 'tests (online)')
+        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true)
         with:
           working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
           files: ${{ steps.junit_xml.outputs.filenames }}
@@ -331,12 +451,90 @@ jobs:
           report_type: test_results
 
       - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        if: matrix.load_only != true && (github.event_name == 'pull_request' || matrix.name != 'tests (online)')
+        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true)
         with:
           working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
           files: Library/Homebrew/test/coverage/coverage.xml
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Store test result
+        if: always() && matrix.shard-count > 0
+        run: |
+          mkdir -p test-results
+          printf '%s\n' "$TEST_RESULT" > "test-results/$SHARD_INDEX"
+        env:
+          TEST_RESULT: ${{ job.status }}
+          SHARD_INDEX: ${{ matrix.shard }}
+
+      - name: Upload test result
+        if: always() && matrix.shard-count > 0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.runtime-cache }}-test-result-${{ matrix.shard }}
+          path: test-results/${{ matrix.shard }}
+          retention-days: 1
+          overwrite: true
+
+  tests_result:
+    name: ${{ matrix.name }}
+    needs: tests
+    if: always()
+    runs-on: ubuntu-slim
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: tests (online)
+            online: true
+            runtime-cache: tests-online-linux
+            runtime-log: parallel_runtime_rspec.online.log
+          - name: tests (generic OS)
+            online: false
+            runtime-cache: tests-generic-linux
+            runtime-log: parallel_runtime_rspec.generic.log
+          - name: tests (Linux)
+            online: false
+            runtime-cache: tests-linux
+            runtime-log: parallel_runtime_rspec.log
+          - name: tests (macOS)
+            online: false
+            runtime-cache: tests-macos
+            runtime-log: parallel_runtime_rspec.log
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ matrix.runtime-cache }}-test-result-*
+          path: test-results
+          merge-multiple: true
+
+      - name: Check test results
+        run: |
+          test "$(cat test-results/1)" = success
+          test "$(cat test-results/2)" = success
+
+      - name: Download parallel tests logs
+        if: success() && (github.event_name == 'pull_request' || matrix.online != true)
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ matrix.runtime-cache }}-parallel-runtime-*
+          path: tests
+          merge-multiple: true
+
+      - name: Combine parallel tests logs
+        if: success() && (github.event_name == 'pull_request' || matrix.online != true)
+        run: |
+          cat "tests/$RUNTIME_LOG.1" "tests/$RUNTIME_LOG.2" > "tests/$RUNTIME_LOG"
+        env:
+          RUNTIME_LOG: ${{ matrix.runtime-log }}
+
+      - name: Save parallel tests log
+        if: success() && (github.event_name == 'pull_request' || matrix.online != true)
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tests/${{ matrix.runtime-log }}
+          key: ${{ matrix.runtime-cache }}-parallel-runtime-${{ github.run_id }}-${{ github.run_attempt }}
 
   test-bot:
     name: ${{ matrix.name }}
@@ -413,11 +611,7 @@ jobs:
           core: true
           cask: false
 
-      - uses: Homebrew/actions/cache-homebrew-prefix@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
-        with:
-          install: gnu-tar
-          workflow-key: test-bot
-          uninstall: true
+      - run: brew install gnu-tar
 
       - name: Disable Sorbet runtime
         if: matrix.name == 'test-bot (no Sorbet)'

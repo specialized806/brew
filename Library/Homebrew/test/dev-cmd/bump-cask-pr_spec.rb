@@ -75,6 +75,19 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
 
   it_behaves_like "parseable arguments"
 
+  it "updates a Cask without creating a pull request", :cask, :integration_test do
+    CoreCaskTap.instance.path.cd do
+      system "git", "init"
+      system "git", "remote", "add", "origin", "https://github.com/Homebrew/homebrew-cask"
+    end
+
+    expect do
+      brew "bump-cask-pr", "--write-only", "--no-audit", "--no-style",
+           "--version=1.2.4", "--sha256=:no_check", "local-caffeine"
+    end.to be_a_success
+    expect(Cask::CaskLoader.load("local-caffeine").version.to_s).to eq("1.2.4")
+  end
+
   describe "::generate_system_options" do
     # We simulate a macOS version older than the newest, as the method will use
     # the host macOS version instead of the default (the newest macOS version).

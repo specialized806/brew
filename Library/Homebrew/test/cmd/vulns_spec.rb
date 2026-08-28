@@ -8,6 +8,15 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Vulns do
   it_behaves_like "parseable arguments"
 
+  it "scans a Formula", :integration_test do
+    setup_test_formula "testball"
+
+    expect { brew "vulns", "--json", "testball" }
+      .to output(/"skipped_formulae"/).to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_success
+  end
+
   describe "#formulae" do
     let(:installed) { instance_double(Formula, full_name: "curl", recursive_dependencies: []) }
 

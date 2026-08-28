@@ -6,4 +6,5 @@ require "cmd/shared_examples/args_parse"
 
 RSpec.describe Homebrew::Cmd::PyenvSync do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "pyenv-sync"
 end

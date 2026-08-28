@@ -7,7 +7,7 @@ require "cmd/shared_examples/args_parse"
 RSpec.describe Homebrew::Cmd::Missing do
   it_behaves_like "parseable arguments"
 
-  it "prints missing dependencies", :integration_test, :no_api do
+  it "prints missing Formula and Cask dependencies", :cask, :integration_test, :no_api do
     setup_test_formula "foo"
     setup_test_formula "bar"
 
@@ -21,6 +21,14 @@ RSpec.describe Homebrew::Cmd::Missing do
 
     expect { brew "missing" }
       .to output("foo\n").to_stdout
+      .and not_to_output.to_stderr
+      .and be_a_failure
+
+    setup_test_formula "unar"
+    cask = Cask::CaskLoader.load("with-depends-on-everything")
+    InstallHelper.stub_cask_installation(cask)
+    expect { brew "missing", cask.token }
+      .to output(/local-caffeine.*unar/).to_stdout
       .and not_to_output.to_stderr
       .and be_a_failure
   end

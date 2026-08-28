@@ -44,6 +44,9 @@ class Homebrew::DevCmd::Tests::Args < Homebrew::CLI::Args
   sig { returns(T.nilable(String)) }
   def seed; end
 
+  sig { returns(T.nilable(String)) }
+  def shard; end
+
   sig { returns(T::Boolean) }
   def stackprof?; end
 

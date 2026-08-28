@@ -13,7 +13,7 @@ module Homebrew
   def exec(*args)
     if ENV["HOMEBREW_TESTS_COVERAGE"] && ENV["HOMEBREW_INTEGRATION_TEST"]
       # Ensure we get coverage results before replacing the current process.
-      SimpleCov.result
+      Homebrew::TestIntegrationCoverage.dump!
     end
     Kernel.exec(*args)
   end

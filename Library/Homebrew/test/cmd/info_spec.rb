@@ -55,10 +55,10 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
-  it "prints as json with the --json=v2 flag", :integration_test do
+  it "prints Formula and Cask JSON with the --json=v2 flag", :cask, :integration_test do
     setup_test_formula "testball"
 
-    expect { brew "info", "testball", "--json=v2" }
+    expect { brew "info", "testball", "local-caffeine", "--json=v2" }
       .to output(a_json_string).to_stdout
       .and not_to_output.to_stderr
       .and be_a_success

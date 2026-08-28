@@ -6,6 +6,7 @@ require "dev-cmd/install-bundler-gems"
 
 RSpec.describe Homebrew::DevCmd::InstallBundlerGems do
   it_behaves_like "parseable arguments"
+  it_behaves_like "a documented command", "install-bundler-gems"
 
   it "resets Bootsnap after cleaning gems" do
     bundle = "/tmp/bundle"

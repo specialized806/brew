@@ -41,8 +41,8 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
   it_behaves_like "parseable arguments"
 
-  describe "formula", :integration_test, :needs_homebrew_curl, :needs_network do
-    it "returns no data and prints a message for HEAD-only formulae" do
+  describe "formula and cask", :cask, :integration_test do
+    it "prints messages for HEAD-only Formulae and latest Casks" do
       content = <<~RUBY
         desc "HEAD-only test formula"
         homepage "https://brew.sh"
@@ -50,8 +50,8 @@ RSpec.describe Homebrew::DevCmd::Bump do
       RUBY
       setup_test_formula("headonly", content)
 
-      expect { brew "bump", "headonly" }
-        .to output(/Formula is HEAD-only./).to_stdout
+      expect { brew "bump", "--no-pull-requests", "headonly", "version-latest" }
+        .to output(/Formula is HEAD-only.*Cask uses `version :latest`/m).to_stdout
         .and not_to_output.to_stderr
         .and be_a_success
     end
