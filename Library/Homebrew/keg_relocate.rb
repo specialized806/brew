@@ -631,7 +631,7 @@ class Keg
       # A file may legally keep section headers while `e_shstrndx` is
       # `SHN_UNDEF` (no section-name table); sections cannot be told apart
       # without names.
-      return unless elf.strtab_section.is_a?(ELFTools::Sections::StrTabSection)
+      return unless elf.section_name_table.is_a?(ELFTools::Sections::StrTabSection)
 
       strings = T.let([], T::Array[[Integer, String]])
 
