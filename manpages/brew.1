@@ -1372,11 +1372,13 @@ Only mark formulae\.
 \fB\-\-cask\fP
 Only mark casks\.
 .SS "\fBtap\fP \fR[\fIoptions\fP] \fR[\fIuser\fP\fB/\fP\fIrepo\fP] \fR[\fIURL\fP]"
-Tap a formula repository\. If no arguments are provided, list all installed taps\.
+Tap a repository containing formulae, casks, or external commands\. If no arguments are provided, list all installed taps\.
 .P
-With \fIURL\fP unspecified, tap a formula repository from GitHub using HTTPS\. Since so many taps are hosted on GitHub, this command is a shortcut for \fBbrew tap\fP \fIuser\fP\fB/\fP\fIrepo\fP \fBhttps://github\.com/\fP\fIuser\fP\fB/homebrew\-\fP\fIrepo\fP\&\.
+With \fIURL\fP unspecified, tap a repository from GitHub using HTTPS\. Since so many taps are hosted on GitHub, this command is a shortcut for:
 .P
-With \fIURL\fP specified, tap a formula repository from anywhere, using any transport protocol that \fBgit\fP(1) handles\. The one\-argument form of \fBtap\fP simplifies but also limits\. This two\-argument command makes no assumptions, so taps can be cloned from places other than GitHub and using protocols other than HTTPS, e\.g\. SSH, git, HTTP, FTP(S), rsync\.
+\fBbrew tap\fP \fIuser\fP\fB/\fP\fIrepo\fP \fBhttps://github\.com/\fP\fIuser\fP\fB/homebrew\-\fP\fIrepo\fP
+.P
+With \fIURL\fP specified, tap a repository from anywhere, using any transport protocol that \fBgit\fP(1) handles\. Unlike the one\-argument form of \fBtap\fP which simplifies things, the two\-argument form makes no assumptions, so taps can be cloned from places other than GitHub and using protocols other than HTTPS, e\.g\. SSH, git, HTTP, FTP(S), rsync\.
 .TP
 \fB\-\-custom\-remote\fP
 Install or change a tap with a custom remote\. Useful for mirrors\.
