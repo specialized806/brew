@@ -182,7 +182,7 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
     sequence in a file as a pin: a wrongly pinned bottle forces source
     builds for every non-default-prefix user and poisons its whole
     dependent subtree, whereas a wrongly relocatable one surfaces as a
-    per-formula bug report with a trivial fix and is caught by the Phase 2
+    per-formula bug report with a trivial fix and is caught by the Phase 4
     validation sweep and the test-bot relocated-pour test. Concretely, ELF
     files are scanned by structure rather than as a whole: only the
     interpreter the loader uses, the dynamic strings the loader references
@@ -219,14 +219,14 @@ Whole dependency closures become pourable at prefixes up to the bottled
 default length (13 bytes arm64 macOS, 26 Linux), covering the hub formulae
 (`openssl@3`, `gettext`, `glib`, `python@3.x`) that Phase 1 cannot.
 
-11. Validation workflow: pour all pinned bottles into scratch prefixes with
-    `brew linkage` and smoke tests.
+All homebrew/brew code and individual-formula fixes (the brew side of
+Phase 3, the upstream hub track and the Completeness items) come before
+anything that touches homebrew/core CI or runs at catalogue scale: shadow
+builds, test-bot changes, infra cutover, sweeps and validation runs.
 
 ### Phase 3: migrate bottling to the 64-byte prefix (extends to long prefixes)
 
-12. Shadow builds first: build a pinned plus path-length-sensitive sample at
-    the candidate 64-byte prefixes on all three target platforms.
-13. brew: canonical 64-byte padded prefix constants for x86_64 Linux, arm64
+12. brew: canonical 64-byte padded prefix constants for x86_64 Linux, arm64
     Linux and arm64 macOS; bottling emits a symbolic cellar for pinned
     padded-built bottles (never a 64-character literal in formulae); pour
     patches down whenever `built_prefix` differs from the local prefix and
@@ -234,6 +234,8 @@ default length (13 bytes arm64 macOS, 26 Linux), covering the hub formulae
     the default prefix is then just another shorter prefix; the hidden
     variable covers only legacy short-built pinned bottles at custom
     prefixes until they churn out.
+13. Shadow builds: build a pinned plus path-length-sensitive sample at
+    the candidate 64-byte prefixes on all three target platforms.
 14. JSON API and formulae.brew.sh: symbolic cellar representation,
     version-gated for existing consumers.
 15. test-bot: build and test at the padded prefix; relocated-pour smoke test
@@ -255,9 +257,17 @@ default length (13 bytes arm64 macOS, 26 Linux), covering the hub formulae
     Old pinned bottles keep pouring unchanged at default prefixes
     throughout.
 
+19. Validation sweep, in homebrew/core CI (`workflow_dispatch`) once the
+    stages above are done: pour every pinned bottle into a scratch prefix
+    shorter than the bottled one on each target platform with patching
+    enabled, confirm each tab records `relocated_build_prefix`, run
+    `brew linkage --test` and `brew test`, and report a per-formula table;
+    this is the functional catch-all for scanner blind spots. Not before:
+    it is a mass run whose results change with every rebottle.
+
 ### Phase 5: default on
 
-19. Only when the catalogue is fully 64-built on the target platforms:
+20. Only when the catalogue is fully 64-built on the target platforms:
     relocation-by-patching becomes the default for every prefix up to 64
     bytes; the hidden variable is retired for
     `HOMEBREW_NO_RELOCATE_BUILD_PREFIX`; `docs/Bottles.md`,
@@ -288,13 +298,13 @@ a named, formula-annotated exception:
    bun): these keep raw RPATH strings and auto-pin today. Strategy: the
    NUL-padded string patcher handles them at pour. A shortened NUL-padded
    `.dynstr` entry is valid (the loader reads to the first NUL), and under
-   padded builds the replacement always fits. Verified with bun in Phase 2
-   validation.
+   padded builds the replacement always fits. Verified with bun in the
+   Phase 4 validation sweep.
 3. **Scanner blind spots**: prefix strings inside compressed, serialised or
    length-prefixed data that `strings`-based scanning cannot see. Under
    padded builds these become a correctness risk for default-prefix users
    too, since an unseen string never gets patched. Strategy: bottle-time
-   audit of known container formats with warnings; the Phase 2 pour
+   audit of known container formats with warnings; the Phase 4
    validation sweep and the test-bot relocated-pour test are the functional
    catch-all; findings become per-formula fixes. NUL padding inside a
    length-prefixed field can also corrupt rare formats, which the same
