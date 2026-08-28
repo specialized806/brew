@@ -20,6 +20,8 @@ module Homebrew
   module Install
     extend Utils::Output::Mixin
 
+    DependencySummary = T.type_alias { T::Hash[Symbol, T::Array[String]] }
+
     class << self
       sig { params(all_fatal: T::Boolean).void }
       def perform_preinstall_checks_once(all_fatal: false)
@@ -409,10 +411,11 @@ module Homebrew
           formula:            Formula,
           dependencies:       T::Array[Dependency],
           skip_formula_names: T::Array[String],
+          dependency_summary: T.nilable(DependencySummary),
           _block:             T.proc.params(arg0: Formula).returns(String),
         ).void
       }
-      def print_dry_run_dependencies(formula, dependencies, skip_formula_names: [], &_block)
+      def print_dry_run_dependencies(formula, dependencies, skip_formula_names: [], dependency_summary: nil, &_block)
         return if dependencies.empty?
 
         entries = dependencies.filter_map do |dep|
@@ -423,12 +426,23 @@ module Homebrew
         end
 
         upgrade, install = entries.partition(&:first)
-        { install:, upgrade: }.each do |verb, group|
+        summary = { install: install.map(&:last), upgrade: upgrade.map(&:last) }
+        if dependency_summary
+          summary.each { |verb, group| dependency_summary.fetch(verb).concat(group) }
+        else
+          print_dry_run_dependency_summary(summary, formula:)
+        end
+      end
+
+      sig { params(summary: DependencySummary, formula: T.nilable(Formula)).void }
+      def print_dry_run_dependency_summary(summary, formula: nil)
+        { install: summary.fetch(:install), upgrade: summary.fetch(:upgrade) }.each do |verb, group|
+          group = group.uniq
           next if group.empty?
 
-          ohai "Would #{verb} #{Utils.pluralize("dependency", group.count, include_count: true)} " \
-               "for #{formula.name}:"
-          puts Upgrade.format_upgrade_summary(group.map(&:last))
+          ohai "Would #{verb} #{Utils.pluralize("dependency", group.count, include_count: true)}" \
+               "#{" for #{formula.name}" if formula}:"
+          puts Upgrade.format_upgrade_summary(group)
         end
       end
 

@@ -90,11 +90,45 @@ RSpec.describe Homebrew::Upgrade do
         dry_run:            false,
         verbose:            false,
         skip_formula_names: [],
+        dependency_summary: nil,
       ).and_return(true)
       expect(Homebrew::Cleanup).not_to receive(:install_formula_clean!)
 
       expect(described_class.upgrade_formulae([formula_installer], fetch: false, cleanup: false))
         .to eq([formula_installer])
+    end
+
+    it "groups dependencies across formula upgrades" do
+      fresh = formula("fresh-dependency") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/fresh-dependency-2.0"
+      end
+      installed = formula("installed-dependency") do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/installed-dependency-2.0"
+      end
+      allow(fresh).to receive_messages(any_version_installed?: false, optlinked?: false, installed_kegs: [])
+      allow(installed).to receive_messages(any_version_installed?: true, optlinked?: true,
+                                           opt_prefix: HOMEBREW_PREFIX/"opt/installed-dependency")
+      allow(Keg).to receive(:new).with(HOMEBREW_PREFIX/"opt/installed-dependency")
+                                 .and_return(instance_double(Keg, version: PkgVersion.parse("1.0")))
+      fresh_dependency = instance_double(Dependency, to_formula: fresh)
+      installed_dependency = instance_double(Dependency, to_formula: installed)
+      formula_installers = [
+        instance_double(FormulaInstaller, formula:              Testball.new,
+                                          compute_dependencies: [fresh_dependency, installed_dependency]),
+        instance_double(FormulaInstaller, formula: Testball.new, compute_dependencies: [installed_dependency]),
+      ]
+      allow(Homebrew::Cleanup).to receive(:install_cleanup_formulae).and_return([])
+
+      expect do
+        described_class.upgrade_formulae(formula_installers, dry_run: true)
+      end.to output(<<~EOS).to_stdout
+        ==> Would install 1 dependency:
+        fresh-dependency 2.0
+        ==> Would upgrade 1 dependency:
+        installed-dependency 1.0 -> 2.0
+      EOS
     end
   end
 

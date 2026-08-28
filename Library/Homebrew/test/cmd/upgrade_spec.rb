@@ -740,7 +740,8 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   it "does not print aggregate package sizes" do
     cmd = described_class.new(["--dry-run"])
     summary = Homebrew::Cmd::UpgradeCmd::FinalUpgradeSummary.new(
-      version_changes: ["testball 0.1 -> 0.2 (500B)", "codex 1.0 -> 2.0"],
+      version_changes:           ["testball 0.1 -> 0.2 (500B)"],
+      dependent_version_changes: ["codex 1.0 -> 2.0"],
     )
 
     allow(cmd).to receive(:final_upgrade_summary).and_return(summary)
@@ -749,6 +750,24 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       ==> Would upgrade 2 outdated packages
       testball  0.1 -> 0.2 (500B)
       codex     1.0 -> 2.0
+    EOS
+  end
+
+  it "separates requested upgrades from dependent upgrades" do
+    cmd = described_class.new(["--dry-run", "z3"])
+    summary = Homebrew::Cmd::UpgradeCmd::FinalUpgradeSummary.new(
+      version_changes:           ["z3 4.16.0 -> 5.1.0"],
+      dependent_version_changes: ["llvm 22.1.8 -> 22.1.8_2", "rust 1.97.1 -> 1.98.0"],
+    )
+
+    allow(cmd).to receive(:final_upgrade_summary).and_return(summary)
+
+    expect { cmd.show_final_upgrade_summary }.to output(<<~EOS).to_stdout
+      ==> Would upgrade 1 requested outdated package
+      z3 4.16.0 -> 5.1.0
+      ==> Would upgrade 2 dependents
+      llvm  22.1.8 -> 22.1.8_2
+      rust  1.97.1 -> 1.98.0
     EOS
   end
 
@@ -1466,8 +1485,10 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
 
     cmd.upgrade_outdated_formulae!([])
 
-    expect(cmd.final_upgrade_summary.version_changes)
-      .to contain_exactly("testball 0.1 -> 0.2", "upgraded-dependent 0.1 -> 0.2")
+    expect(cmd.final_upgrade_summary).to have_attributes(
+      version_changes:           contain_exactly("testball 0.1 -> 0.2"),
+      dependent_version_changes: contain_exactly("upgraded-dependent 0.1 -> 0.2"),
+    )
   end
 
   it_behaves_like "reinstall_pkgconf_if_needed"
