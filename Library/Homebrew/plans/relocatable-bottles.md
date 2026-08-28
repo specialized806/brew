@@ -141,14 +141,18 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 2. Push logic and metadata generation to bottle time and away from pour time
    whenever possible: bottle time runs once on CI, pour time runs on every
    user's machine.
-3. The patching feature is pour-time only in its effect. Eligibility and
-   patching are entirely client-side, so it works retroactively for
-   published bottles and needs no homebrew/core changes. Bottle time only
-   adds accelerator metadata, always with a scan fallback, so there is no
-   version coupling.
-4. Bottling migrates to a canonical 64-byte padded build prefix per platform.
-   Every embedded C string then carries 64 bytes of patchable material, so
-   bottles patch down to any prefix up to 64 bytes, including the defaults.
+3. Legacy short-built bottle patching is pour-time only in its effect.
+   Eligibility and patching are entirely client-side, so it works
+   retroactively for published bottles and needs no homebrew/core changes.
+   Bottle time only adds accelerator metadata, always with a scan fallback,
+   so there is no version coupling for that stage.
+4. Bottling uses a canonical 64-byte padded build prefix per platform. Its
+   tab records `padded_prefix: true`, while formulae retain the tag's default
+   cellar. Every embedded C string then carries 64 bytes of patchable
+   material, so bottles patch down to any prefix up to 64 bytes, including
+   the defaults. Clients must understand the tab marker before the first
+   padded bottles are published, so the brew release precedes the
+   infrastructure cutover.
    64 rather than conda's 255 because CI runs `brew test` at the padded
    prefix, where Unix socket paths (`sun_path` is 104 bytes) and shebang
    limits punish very long prefixes.
@@ -161,7 +165,8 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 6. A bottle built at a non-default prefix records the literal prefix string
    as `built_prefix` in its tab; absence means the tag's default prefix, so
    tabs for today's bottles are unchanged. The literal string, not a
-   name/version pair, so the constant can change without a mapping.
+   name/version pair, so the constant can change without a mapping. A
+   canonical padded build also records `padded_prefix: true` there.
 7. The user contract is global, not per-bottle, for comprehensibility: one
    number (64) once migration completes; until then the interim rule is
    prefix length up to the bottled default (13 for arm64 macOS, 26 for
@@ -226,18 +231,8 @@ builds, test-bot changes, infra cutover, sweeps and validation runs.
 
 ### Phase 3: migrate bottling to the 64-byte prefix (extends to long prefixes)
 
-12. brew: canonical 64-byte padded prefix constants for x86_64 Linux, arm64
-    Linux and arm64 macOS; bottling emits a symbolic cellar for pinned
-    padded-built bottles (never a 64-character literal in formulae); pour
-    patches down whenever `built_prefix` differs from the local prefix and
-    fits. Patching is unconditional once a bottle is padded-built, because
-    the default prefix is then just another shorter prefix; the hidden
-    variable covers only legacy short-built pinned bottles at custom
-    prefixes until they churn out.
 13. Shadow builds: build a pinned plus path-length-sensitive sample at
     the candidate 64-byte prefixes on all three target platforms.
-14. JSON API and formulae.brew.sh: symbolic cellar representation,
-    version-gated for existing consumers.
 15. test-bot: build and test at the padded prefix; relocated-pour smoke test
     for changed formulae (pour the fresh bottle into a scratch short
     prefix), Linux first.
@@ -340,8 +335,6 @@ the reason, so the exceptions list stays short, visible and countable.
 
 ## Open questions
 
-- Symbolic cellar spelling and JSON API versioning for third-party
-  consumers.
 - How many formulae fail to build at all at a 64-byte prefix
   (path-length-sensitive build systems), discovered by the Phase 3 shadow
   builds; these block the sweep rather than staying pinned.

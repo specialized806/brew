@@ -5,6 +5,24 @@ require "bottle_specification"
 require "test/support/fixtures/testball_bottle"
 
 RSpec.describe Bottle do
+  describe "#compatible_locations?" do
+    it "fetches tab metadata before rejecting a padded bottle" do
+      tag = Utils::Bottles::Tag.from_symbol(:arm64_tahoe)
+      bottle_spec = BottleSpecification.new
+      bottle_spec.sha256(tag.to_sym => "deadbeef" * 8)
+      bottle = described_class.new(TestballBottle.new, bottle_spec, tag)
+      stub_const("HOMEBREW_PREFIX", Pathname("/short"))
+      stub_const("HOMEBREW_CELLAR", HOMEBREW_PREFIX/"Cellar")
+      allow(bottle).to receive(:tab_attributes).and_return(
+        {},
+        { "built_prefix" => tag.padded_prefix, "padded_prefix" => true },
+      )
+      expect(bottle).to receive(:fetch_tab).with(quiet: true)
+
+      expect(bottle.compatible_locations?).to be true
+    end
+  end
+
   describe "#filename" do
     it "renders the bottle filename" do
       bottle_spec = BottleSpecification.new

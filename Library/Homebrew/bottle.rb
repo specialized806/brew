@@ -200,7 +200,22 @@ class Bottle
 
   sig { returns(T::Boolean) }
   def compatible_locations?
-    @spec.compatible_locations?(tag: @tag)
+    return true if compatible_locations_from_tab?
+
+    fetch_tab(quiet: true)
+    compatible_locations_from_tab?
+  rescue DownloadError, Resource::BottleManifest::Error
+    false
+  end
+
+  sig { returns(T.any(Symbol, String)) }
+  def built_cellar
+    tab = tab_attributes
+    if tab["padded_prefix"] == true && (built_prefix = tab["built_prefix"])
+      "#{built_prefix}/Cellar"
+    else
+      @spec.tag_to_cellar(@tag)
+    end
   end
 
   # Does the bottle need to be relocated?
@@ -372,6 +387,13 @@ class Bottle
   def download_queue_name = "#{name} (#{resource.version})"
 
   private
+
+  sig { returns(T::Boolean) }
+  def compatible_locations_from_tab?
+    tab = tab_attributes
+    @spec.compatible_locations?(tag: @tag, built_prefix: tab["built_prefix"],
+                                padded_prefix: tab["padded_prefix"] == true)
+  end
 
   sig { params(specs: T::Hash[Symbol, T.anything]).returns(T::Hash[Symbol, T.anything]) }
   def select_download_strategy(specs)

@@ -94,4 +94,18 @@ RSpec.describe Utils::Bottles::Tag do
       expect(tag.valid_combination?).to be true
     end
   end
+
+  describe "#padded_prefix" do
+    it "returns distinct 64-byte prefixes for supported bottle platforms" do
+      prefixes = [:arm64_tahoe, :arm64_linux, :x86_64_linux].map do |tag|
+        described_class.from_symbol(tag).padded_prefix
+      end
+
+      expect([prefixes.uniq.length, *prefixes.map { |prefix| prefix&.bytesize }]).to eq([3, 64, 64, 64])
+    end
+
+    it "returns nil for Intel macOS" do
+      expect(described_class.from_symbol(:tahoe).padded_prefix).to be_nil
+    end
+  end
 end

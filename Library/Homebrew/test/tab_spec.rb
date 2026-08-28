@@ -577,6 +577,7 @@ RSpec.describe Tab do
 
   specify "#to_json" do
     tab.built_prefix = "/custom/prefix"
+    tab.padded_prefix = true
     tab.relocated_build_prefix = "/custom/prefix"
     tab.relocated_files = [Pathname("bin/foo")]
     json_tab = described_class.new(**JSON.parse(tab.to_json).transform_keys(&:to_sym))
@@ -591,6 +592,7 @@ RSpec.describe Tab do
     expect(json_tab.linkage_files).to eq(tab.linkage_files)
     expect(json_tab.binary_relocation_files).to eq(tab.binary_relocation_files)
     expect(json_tab.built_prefix).to eq(tab.built_prefix)
+    expect(json_tab.padded_prefix).to be true
     expect(json_tab.tap).to eq(tab.tap)
     expect(json_tab.spec).to eq(tab.spec)
     expect(json_tab.time).to eq(tab.time)
@@ -607,6 +609,7 @@ RSpec.describe Tab do
 
   specify "#to_bottle_hash" do
     tab.built_prefix = "/custom/prefix"
+    tab.padded_prefix = true
     tab.relocated_build_prefix = "/custom/prefix"
     json_tab = described_class.new(**JSON.parse(tab.to_bottle_hash.to_json).transform_keys(&:to_sym))
     expect(json_tab.relocated_build_prefix).to be_nil
@@ -615,6 +618,7 @@ RSpec.describe Tab do
     expect(json_tab.linkage_files).to eq(tab.linkage_files)
     expect(json_tab.binary_relocation_files).to eq(tab.binary_relocation_files)
     expect(json_tab.built_prefix).to eq(tab.built_prefix)
+    expect(json_tab.padded_prefix).to be true
     expect(json_tab.source_modified_time).to eq(tab.source_modified_time)
     expect(json_tab.stdlib).to eq(tab.stdlib)
     expect(json_tab.compiler).to eq(tab.compiler)

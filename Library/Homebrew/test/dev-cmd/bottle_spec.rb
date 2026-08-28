@@ -24,6 +24,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
                     "local_filename":"#{parameters[:local_filename]}",
                     "sha256":"#{parameters[:sha256]}"
                     #{",\"sbom\":#{parameters[:sbom].to_json}" if parameters[:sbom]}
+                    #{",\"tab\":#{parameters[:tab].to_json}" if parameters[:tab]}
                  }
               }
            }
@@ -161,6 +162,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
       FileUtils.rm_f "#{TEST_TMPDIR}/testball-1.0.arm64_big_sur.bottle.json"
       FileUtils.rm_f "#{TEST_TMPDIR}/testball-1.0.catalina.bottle.json"
       FileUtils.rm_f "#{TEST_TMPDIR}/testball-1.0.big_sur.bottle.json"
+      FileUtils.rm_f "#{TEST_TMPDIR}/testball-1.0.arm64_monterey.bottle.json"
     end
 
     it "adds the bottle block to a formula that has none" do
@@ -448,6 +450,40 @@ RSpec.describe Homebrew::DevCmd::Bottle do
       expect(formula_contents).to include("big_sur:")
       expect(formula_contents).not_to include("all:")
     end
+
+    it "does not collapse padded bottles into an all bottle" do
+      core_tap.path.cd do
+        system "git", "-c", "init.defaultBranch=master", "init"
+        setup_test_formula "testball"
+        system "git", "add", "--all"
+        system "git", "commit", "-m", "testball 0.1"
+      end
+
+      sha256 = "8f9aecd233463da6a4ea55f5f88fc5841718c013f3e2a7941350d6130f1dc149"
+      bottle_json_paths = ["arm64_big_sur", "arm64_monterey"].map do |tag|
+        Pathname("#{TEST_TMPDIR}/testball-1.0.#{tag}.bottle.json").tap do |path|
+          path.write stub_hash(
+            name:           "testball",
+            version:        "1.0",
+            path:           "#{core_tap.path}/Formula/testball.rb",
+            cellar:         Homebrew::DEFAULT_MACOS_ARM_CELLAR,
+            os:             tag,
+            filename:       "testball-1.0.#{tag}.bottle.tar.gz",
+            local_filename: "testball--1.0.#{tag}.bottle.tar.gz",
+            sha256:,
+            tab:            { "padded_prefix" => true },
+          )
+        end
+      end
+
+      expect do
+        brew "bottle", "--merge", *bottle_json_paths
+      end.to(
+        output(/\A(?!.* all:)(?=.*sha256 arm64_big_sur:)(?=.*sha256 arm64_monterey:)/m).to_stdout
+          .and(not_to_output.to_stderr)
+          .and(be_a_success),
+      )
+    end
   end
 
   describe "bottle_cmd" do
@@ -673,6 +709,14 @@ RSpec.describe Homebrew::DevCmd::Bottle do
     end
 
     describe "::bottle_output" do
+      it "omits a padded bottle's tag-default cellar" do
+        bottle = BottleSpecification.new
+        bottle.sha256(cellar:      Homebrew::DEFAULT_MACOS_ARM_CELLAR,
+                      arm64_tahoe: "109c0cb581a7b5d84da36d84b221fb9dd0f8a927b3044d82611791c9907e202e")
+
+        expect(homebrew.bottle_output(bottle, nil)).to include("sha256 arm64_tahoe:")
+      end
+
       it "includes a custom root_url" do
         bottle = BottleSpecification.new
         bottle.root_url("https://example.com")

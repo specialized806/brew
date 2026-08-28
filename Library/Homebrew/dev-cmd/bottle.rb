@@ -475,6 +475,7 @@ module Homebrew
 
         prefix = HOMEBREW_PREFIX.to_s
         cellar = HOMEBREW_CELLAR.to_s
+        padded = T.let(prefix == bottle_tag.padded_prefix, T::Boolean)
 
         if local_bottle_json
           bottle_path = formula.local_bottle_path
@@ -492,9 +493,12 @@ module Homebrew
                                           .tag_specification_for(bottle_tag, no_older_versions: true)
           relocatable = BottleSpecification::RELOCATABLE_CELLARS.include?(tag_spec.cellar)
           skip_relocation = tag_spec.cellar == BottleSpecification::ANY_SKIP_RELOCATION_CELLAR
+          padded = tab.padded_prefix == true
 
-          prefix = bottle_tag.default_prefix
-          cellar = bottle_tag.default_cellar
+          unless relocatable
+            cellar = tag_spec.cellar.to_s
+            prefix = tab.built_prefix || Pathname(cellar).parent.to_s
+          end
         else
           tar_filename = filename.to_s.sub(/.gz$/, "")
           tar_path = Pathname.pwd/tar_filename
@@ -600,6 +604,7 @@ module Homebrew
               end
               skip_relocation = relocatable && !keg.require_relocation?
             end
+            tab.padded_prefix = (padded && !relocatable) ? true : nil
             tab.binary_relocation_files = args.skip_relocation? ? nil : binary_relocation_files.sort
 
             if args.only_json_tab?
@@ -660,6 +665,9 @@ module Homebrew
           else
             BottleSpecification::ANY_CELLAR
           end
+        elsif padded
+          # Padded-prefix eligibility belongs in the tab, not formulae.
+          bottle_tag.default_cellar
         else
           cellar
         end
@@ -789,6 +797,7 @@ module Homebrew
           all_bottle = !args.no_all_checks? &&
                        (!old_bottle_spec_matches || bottle.rebuild != old_bottle_spec.rebuild) &&
                        tag_hashes.count > 1 &&
+                       tag_hashes.none? { it.dig("tab", "padded_prefix") == true } &&
                        tag_hashes.uniq { |tag_hash| "#{tag_hash["cellar"]}-#{tag_hash["sha256"]}" }.one?
 
           old_all_bottle = old_bottle_spec.tag?(Utils::Bottles.tag(:all))
