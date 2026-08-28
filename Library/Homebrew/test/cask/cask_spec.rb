@@ -381,6 +381,15 @@ RSpec.describe Cask::Cask, :cask do
         expect(cask.outdated_version).to be_nil
       end
 
+      it "is not outdated when the tap version has a suffix absent from the app bundle" do
+        tap_version = "3.6.4-28955b81"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("3.6.3-931da4a1")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "3.6.4", bundle_version: "3.6.4")
+
+        expect(cask.outdated_version).to be_nil
+      end
+
       it "is not outdated when the combined installed version is higher than the tap version" do
         tap_version = "2.61-2057"
         cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
@@ -388,6 +397,15 @@ RSpec.describe Cask::Cask, :cask do
         write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.61", bundle_version: "2058")
 
         expect(cask.outdated_version).to be_nil
+      end
+
+      it "is outdated when the combined installed version is lower than the tap version" do
+        tap_version = "2.61-2057"
+        cask = write_auto_updates_cask(cask_file, version: tap_version, artifacts:)
+        allow(cask).to receive(:installed_version).and_return("2.57-2056")
+        write_info_plist(cask.config.appdir/"MyFancyApp.app", short_version: "2.61", bundle_version: "2056")
+
+        expect(cask.outdated_version).to eq("2.57-2056")
       end
 
       it "is not outdated when the installed short version matches a CSV build candidate" do
