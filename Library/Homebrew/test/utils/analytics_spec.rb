@@ -3,6 +3,7 @@
 
 require "utils/analytics"
 require "formula_installer"
+require "cmd/info"
 
 RSpec.describe Utils::Analytics do
   describe "::with_wsl_suffix_if_needed" do
@@ -314,5 +315,52 @@ RSpec.describe Utils::Analytics do
     expect { described_class.table_output("install", "30", results) }
       .to output(/110 |  100.00%/).to_stdout
       .and not_to_output.to_stderr
+  end
+
+  describe "::output_github_packages_downloads" do
+    let(:json) { { "analytics" => { "install" => { "30d" => { "wget" => 750_000, "wget --HEAD" => 500 } } } } }
+    let(:args) { Homebrew::Cmd::Info.new(["--github-packages-downloads", "wget"]).args }
+    let(:wget) { instance_double(Formula, name: "wget", core_formula?: true) }
+
+    def stub_github_packages_pages(downloads_by_tag)
+      index_html = <<~HTML
+        <a href="/orgs/Homebrew/packages/container/core%2Fwget/2?tag=1.25.0-2">1.25.0-2</a>
+        <a href="/orgs/Homebrew/packages/container/core%2Fwget/1?tag=1.25.0-1">1.25.0-1</a>
+      HTML
+      allow(Utils::Curl).to receive(:curl_output) do |*curl_args, **|
+        curl_args.each_cons(2) do |flag, path|
+          next if flag != "--output"
+
+          downloads = downloads_by_tag[File.basename(path, ".html")]
+          next if downloads.nil?
+
+          File.write(path, <<~HTML)
+            <span class="text-left color-fg-muted">Last 30 days</span>
+            <span class="flex-auto text-right text-bold">#{downloads}</span>
+          HTML
+        end
+        instance_double(SystemCommand::Result, success?: true, stdout: index_html)
+      end
+    end
+
+    it "outputs downloads per tag, a total and the difference from analytics install events" do
+      stub_github_packages_pages("1.25.0-2" => "1,000", "1.25.0-1" => "1.5M")
+
+      expect { described_class.output_github_packages_downloads(wget, json, args:) }
+        .to output(
+          match(/^1 +\| 1\.25\.0-1 +\| 1,500,000 \| +99\.93%$/)
+            .and(match(/^2 +\| 1\.25\.0-2 +\| +1,000 \| +0\.07%$/))
+            .and(match(/^Total +\| +\| 1,501,000 \| +100\.00%$/))
+            .and(include("Difference from 750,500 analytics install events (30 days): +100.00%")),
+        ).to_stdout
+    end
+
+    it "warns instead of outputting a partial total when a tag's downloads cannot be fetched" do
+      stub_github_packages_pages("1.25.0-2" => "1,000")
+
+      expect { described_class.output_github_packages_downloads(wget, json, args:) }
+        .to output(/Failed to fetch GitHub Packages downloads for: 1\.25\.0-1$/).to_stderr
+        .and not_to_output.to_stdout
+    end
   end
 end
