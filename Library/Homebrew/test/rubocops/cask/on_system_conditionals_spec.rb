@@ -4,6 +4,124 @@
 require "rubocops/rubocop-cask"
 
 RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
+  context "when auditing nested `on_*` blocks" do
+    it "reports an offense when identical `on_*` blocks are nested" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_big_sur :or_older do
+            on_big_sur :or_older do
+            ^^^^^^^^^^^^^^^^^^^^ Remove the redundant nested `on_big_sur :or_older` block.
+              version "1.0"
+            end
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "reports an offense when identical architecture blocks are nested" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_arm do
+            on_arm do
+            ^^^^^^ Remove the redundant nested `on_arm` block.
+              version "1.0"
+            end
+          end
+        end
+      CASK
+    end
+
+    it "reports an offense when identical `on_system` blocks are nested" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_system :linux, macos: :big_sur_or_older do
+            on_system :linux, macos: :big_sur_or_older do
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Remove the redundant nested `on_system :linux, macos: :big_sur_or_older` block.
+              version "1.0"
+            end
+          end
+        end
+      CASK
+    end
+
+    it "reports an offense when identical `on_*` blocks have an intervening conditional" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          on_big_sur :or_older do
+            on_arm do
+              on_big_sur :or_older do
+              ^^^^^^^^^^^^^^^^^^^^ Remove the redundant nested `on_big_sur :or_older` block.
+                version "1.0"
+              end
+            end
+          end
+        end
+      CASK
+    end
+
+    it "accepts nested `on_*` blocks with different methods or arguments" do
+      expect_no_offenses <<~CASK
+        cask 'foo' do
+          on_ventura :or_older do
+            on_big_sur :or_older do
+              version "1.0"
+            end
+          end
+
+          on_big_sur :or_older do
+            on_big_sur do
+              version "2.0"
+            end
+          end
+        end
+      CASK
+    end
+
+    it "accepts nested methods with explicit receivers" do
+      expect_no_offenses <<~CASK
+        cask 'foo' do
+          on_arm do
+            helper.on_arm do
+              helper.on_arm do
+                version "1.0"
+              end
+            end
+          end
+        end
+      CASK
+    end
+
+    it "prefers flight stanza offenses for redundant nested `on_*` blocks" do
+      expect_offense <<~CASK
+        cask 'foo' do
+          postflight do
+            on_arm do
+            ^^^^^^ Instead of using `on_arm` in `postflight do`, use `if Hardware::CPU.arm?`.
+              on_arm do
+              ^^^^^^ Instead of using `on_arm` in `postflight do`, use `if Hardware::CPU.arm?`.
+                system_command "/bin/echo"
+              end
+            end
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask 'foo' do
+          postflight do
+            if Hardware::CPU.arm?
+              if Hardware::CPU.arm?
+                system_command "/bin/echo"
+              end
+            end
+          end
+        end
+      CASK
+    end
+  end
+
   context "when auditing `postflight` stanzas" do
     it "accepts when there are no `on_*` blocks" do
       expect_no_offenses <<~CASK
