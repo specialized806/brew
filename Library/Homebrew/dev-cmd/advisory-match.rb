@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "abstract_command"
+require "extend/object/deep_dup"
 require "fileutils"
 require "formula"
 require "vulns/match"
@@ -62,22 +63,69 @@ module Homebrew
             begin
               matcher.each_advisory_batch(each_formula) do |formula, hits|
                 report(matcher, formula, hits) if text_mode?
-                hits.each do |hit|
-                  # A `:not_applicable` hit (below every `introduced`) emitted
-                  # as `{introduced: 0}` with no `fixed` reads to OSV consumers
-                  # as currently affected; drop it instead.
+                # A below-introduced hit would otherwise look open to OSV
+                # consumers; it must not participate in alias maintenance.
+                actionable = hits.filter_map do |hit|
                   status, = matcher.range_status(hit)
-                  next if status&.state == :not_applicable
+                  [hit, status] if status&.state != :not_applicable
+                end
+                record_ids_by_canonical = actionable.to_h do |hit, _status|
+                  ids = matcher.record_ids(formula, hit)
+                  [ids.fetch(0), ids]
+                end
+                alias_errors = emitter.prepare_aliases(formula.name, record_ids_by_canonical)
+                if alias_errors.any?
+                  alias_errors.each { |error| onoe error }
+                  Homebrew.failed = true
+                  next
+                end
 
+                actionable.each do |hit, status|
                   record_id = matcher.record_id(formula, hit)
+                  next if emitter.alias_protected?(record_id)
+
+                  reviewed_state = emitter.reviewed_range_state(record_id)
+                  has_open_range = [:open, :mixed].include?(reviewed_state)
+                  has_terminal_range = [:terminal, :mixed].include?(reviewed_state)
+                  transition = (status&.fixed? && has_open_range) ||
+                               (status&.affected? && has_terminal_range)
+                  if args.no_history? && transition
+                    opoo "#{record_id}: reviewed range transition needs history; leaving it unchanged"
+                    next
+                  end
+
                   walk_history = !args.no_history? && status&.fixed?
                   walk_history &&= emitter.history_required?(record_id) if args.new_history?
                   emitter.record_history_walk if walk_history
                   first_fixed = matcher.first_fixed_version(formula, hit) if walk_history
                   next if first_fixed == :never_affected
 
-                  boundary = first_fixed if first_fixed.is_a?(String)
-                  emitter << matcher.to_brew_record(formula, hit, first_fixed: boundary)
+                  fixed_boundary = first_fixed if first_fixed.is_a?(String)
+                  if fixed_boundary && !emitter.fixed_boundary_valid?(record_id, fixed_boundary)
+                    onoe "#{record_id}: fixed #{fixed_boundary} does not follow its reviewed range"
+                    Homebrew.failed = true
+                    next
+                  end
+
+                  first_reintroduced = T.let(nil, T.nilable(String))
+                  if status&.affected? && has_terminal_range
+                    emitter.record_history_walk
+                    reintroduced = matcher.first_reintroduced_version(formula, hit)
+                    unless reintroduced.is_a?(String)
+                      onoe "#{record_id}: could not find a prior non-affected version for its reviewed fixed range"
+                      Homebrew.failed = true
+                      next
+                    end
+                    unless emitter.reintroduction_boundary_valid?(record_id, reintroduced)
+                      onoe "#{record_id}: reintroduction #{reintroduced} does not follow its reviewed range"
+                      Homebrew.failed = true
+                      next
+                    end
+                    first_reintroduced = reintroduced
+                  end
+
+                  emitter << matcher.to_brew_record(formula, hit, first_fixed:        fixed_boundary,
+                                                                  first_reintroduced:)
                 end
               end
             rescue Homebrew::Vulns::OSV::Error => e
@@ -151,11 +199,26 @@ module Homebrew
       # `--output` and text mode write per-record and only accumulate counts;
       # `--json` accumulates the array (single-formula / PR-bot use, so bounded).
       class Emitter
+        sig { params(_formula_name: String, _groups: T::Hash[String, T::Array[String]]).returns(T::Array[String]) }
+        def prepare_aliases(_formula_name, _groups) = []
+
+        sig { params(_record_id: String).returns(T::Boolean) }
+        def alias_protected?(_record_id) = false
+
         sig { params(_record_id: String).returns(T::Boolean) }
         def history_required?(_record_id) = true
 
+        sig { params(_record_id: String, _boundary: String).returns(T::Boolean) }
+        def fixed_boundary_valid?(_record_id, _boundary) = true
+
         sig { void }
         def record_history_walk; end
+
+        sig { params(_record_id: String).returns(T.nilable(Symbol)) }
+        def reviewed_range_state(_record_id); end
+
+        sig { params(_record_id: String, _boundary: String).returns(T::Boolean) }
+        def reintroduction_boundary_valid?(_record_id, _boundary) = true
 
         sig { params(record: T::Hash[Symbol, T.untyped]).void }
         def <<(record); end
@@ -176,48 +239,199 @@ module Homebrew
           @unchanged = T.let(0, Integer)
           @skipped_generated = T.let(0, Integer)
           @history_walks = T.let(0, Integer)
+          @alias_targets = T.let({}, T::Hash[String, T::Array[String]])
+          @protected_aliases = T.let({}, T::Hash[String, T::Boolean])
+          @alias_records = T.let({}, T::Hash[String, T.untyped])
+          @identity_paths = T.let({}, T::Hash[String, T::Array[String]])
+          @path_identities = T.let({}, T::Hash[String, T::Array[String]])
+          @alias_index_loaded = T.let(false, T::Boolean)
+        end
+
+        sig {
+          override.params(formula_name: String, groups: T::Hash[String, T::Array[String]])
+                  .returns(T::Array[String])
+        }
+        def prepare_aliases(formula_name, groups)
+          ensure_alias_index
+          errors = T.let([], T::Array[String])
+          targets = T.let({}, T::Hash[String, T::Array[String]])
+          protected = T.let({}, T::Hash[String, T::Boolean])
+          owners = T.let({}, T::Hash[String, String])
+          identity_owners = T.let({}, T::Hash[String, String])
+          generated_paths = T.let([], T::Array[String])
+
+          groups.each do |canonical_id, record_ids|
+            record_ids.each do |record_id|
+              if (owner = identity_owners[record_id]) && owner != canonical_id
+                errors << "#{canonical_id}: identity also belongs to #{owner}; leaving both unchanged"
+              else
+                identity_owners[record_id] = canonical_id
+              end
+            end
+            paths = matching_alias_paths(record_ids)
+            paths.each do |path|
+              if (owner = owners[path]) && owner != canonical_id
+                errors << "#{canonical_id}: alias family also belongs to #{owner}; leaving both unchanged"
+              else
+                owners[path] = canonical_id
+              end
+            end
+
+            writable = T.let([], T::Array[String])
+            paths.each do |path|
+              existing = alias_record(path)
+              if existing == :malformed
+                errors << "#{canonical_id}: malformed alias #{path}; leaving family unchanged"
+                next
+              end
+              unless existing.is_a?(Hash)
+                errors << "#{canonical_id}: invalid alias #{path}; leaving family unchanged"
+                next
+              end
+              if existing["id"] != File.basename(path, ".json")
+                errors << "#{canonical_id}: #{path} has a mismatched id; leaving family unchanged"
+                next
+              end
+
+              database_specific = existing["database_specific"]
+              source = database_specific["source"] if database_specific.is_a?(Hash)
+              if source == "generated"
+                generated_paths << path
+                next
+              end
+              if source != "matched"
+                errors << "#{canonical_id}: #{path} has unsupported source " \
+                          "#{source.inspect}; leaving family unchanged"
+                next
+              end
+
+              affected = existing["affected"]
+              names = affected_formula_names(existing)
+              if !affected.is_a?(Array) || !affected.one? || names != [formula_name]
+                errors << "#{canonical_id}: #{path} has unsupported affected entries for " \
+                          "#{formula_name}; leaving family unchanged"
+                next
+              end
+              writable << path
+            end
+
+            canonical_path = record_path(canonical_id)
+            writable << canonical_path unless File.file?(canonical_path)
+            writable.uniq!
+            targets[canonical_id] = writable
+            protected[canonical_id] = writable.empty?
+          end
+          return errors.uniq if errors.any?
+
+          @alias_targets.merge!(targets)
+          @protected_aliases.merge!(protected)
+          @skipped_generated += generated_paths.uniq.length
+          []
+        end
+
+        sig { override.params(record_id: String).returns(T::Boolean) }
+        def alias_protected?(record_id)
+          @protected_aliases.fetch(record_id, false)
         end
 
         sig { override.params(record: T::Hash[Symbol, T.untyped]).void }
         def <<(record)
-          path = record_path(record.fetch(:id))
-          # A record already emitted by `generate-vulns-advisories` (a formula
-          # `resolves` patch annotation) is more authoritative than a matched
-          # candidate; overwriting it would drop `fix: "patch"` for a derived
-          # `fix: null`/`"bump"`.
-          if File.file?(path) && existing_source(path) == "generated"
-            @skipped_generated += 1
-            return
+          updates = alias_target_paths(record.fetch(:id)).map do |path|
+            candidate = record.deep_dup
+            existing = alias_record(path) if File.file?(path)
+            if existing.is_a?(Hash)
+              candidate[:id] = existing.fetch("id")
+              candidate[:upstream] = (Array(existing["upstream"]) + Array(candidate[:upstream])).uniq
+            elsif File.file?(path)
+              candidate[:id] = File.basename(path, ".json")
+            end
+            merged = Homebrew::Vulns::OsvExport.merge_existing(
+              path, candidate, close_open_ranges: @close_open_ranges
+            )
+            [path, merged]
           end
-          merged = Homebrew::Vulns::OsvExport.merge_existing(path, record,
-                                                             close_open_ranges: @close_open_ranges)
-          if merged.nil?
-            @unchanged += 1
-            return
+
+          updates.each do |path, merged|
+            if merged.nil?
+              @unchanged += 1
+              next
+            end
+            File.write(path, "#{JSON.pretty_generate(merged)}\n")
+            puts "  wrote #{path}" if @verbose
+            @written += 1
           end
-          File.write(path, "#{JSON.pretty_generate(merged)}\n")
-          puts "  wrote #{path}" if @verbose
-          @written += 1
         end
 
         sig { override.params(record_id: String).returns(T::Boolean) }
         def history_required?(record_id)
-          path = record_path(record_id)
-          return true unless File.file?(path)
+          alias_target_paths(record_id).any? do |path|
+            next true unless File.file?(path)
 
-          existing = JSON.parse(File.read(path))
-          return true unless existing.is_a?(Hash)
-          return false if existing.dig("database_specific", "source") == "generated"
+            existing = alias_record(path)
+            next true unless existing.is_a?(Hash)
 
-          affected = existing["affected"]
-          return true unless affected.is_a?(Array)
-          return true if affected.empty?
+            affected = existing["affected"]
+            next true unless affected.is_a?(Array)
+            next true if affected.empty?
 
-          affected.any? do |entry|
-            !entry.is_a?(Hash) || !Homebrew::Vulns::OsvExport.ranges_terminal?(entry["ranges"])
+            affected.any? do |entry|
+              !entry.is_a?(Hash) ||
+                !Homebrew::Vulns::OsvExport.ranges_terminal?(homebrew_ranges(entry["ranges"]))
+            end
           end
-        rescue JSON::ParserError
-          true
+        end
+
+        sig { override.params(record_id: String, boundary: String).returns(T::Boolean) }
+        def fixed_boundary_valid?(record_id, boundary)
+          alias_target_paths(record_id).all? do |path|
+            next true unless File.file?(path)
+
+            existing = alias_record(path)
+            next false unless existing.is_a?(Hash)
+
+            affected = existing["affected"]
+            next false unless affected.is_a?(Array)
+
+            affected.all? do |entry|
+              entry.is_a?(Hash) &&
+                Homebrew::Vulns::OsvExport.fixed_follows?(homebrew_ranges(entry["ranges"]), boundary)
+            end
+          end
+        end
+
+        sig { override.params(record_id: String).returns(T.nilable(Symbol)) }
+        def reviewed_range_state(record_id)
+          paths = alias_target_paths(record_id).select { |path| File.file?(path) }
+          states_by_path = paths.map { |path| reviewed_states(path) }
+          return if states_by_path.any?(&:nil?)
+
+          states = states_by_path.flatten
+          return if states.empty?
+
+          unique = states.uniq
+          return :mixed if unique.include?(:open) && unique.include?(:terminal)
+
+          unique.fetch(0)
+        end
+
+        sig { override.params(record_id: String, boundary: String).returns(T::Boolean) }
+        def reintroduction_boundary_valid?(record_id, boundary)
+          alias_target_paths(record_id).all? do |path|
+            next true unless File.file?(path)
+
+            existing = alias_record(path)
+            next false unless existing.is_a?(Hash)
+
+            affected = existing["affected"]
+            next false unless affected.is_a?(Array)
+
+            affected.all? do |entry|
+              next false unless entry.is_a?(Hash)
+
+              ranges = homebrew_ranges(entry["ranges"])
+              Homebrew::Vulns::OsvExport.reintroduction_follows?(ranges, boundary)
+            end
+          end
         end
 
         sig { override.void }
@@ -231,11 +445,105 @@ module Homebrew
           File.join(@dir, "#{record_id}.json")
         end
 
-        sig { params(path: String).returns(T.nilable(String)) }
-        def existing_source(path)
-          JSON.parse(File.read(path)).dig("database_specific", "source")
+        sig { params(record_id: String).returns(T::Array[String]) }
+        def alias_target_paths(record_id)
+          @alias_targets.fetch(record_id) { [record_path(record_id)] }
+        end
+
+        sig { params(path: String).returns(T.untyped) }
+        def alias_record(path)
+          return @alias_records[path] if @alias_records.key?(path)
+
+          @alias_records[path] = JSON.parse(File.read(path))
         rescue JSON::ParserError
-          nil
+          @alias_records[path] = :malformed
+        end
+
+        sig { params(record: T::Hash[String, T.untyped]).returns(T::Array[String]) }
+        def affected_formula_names(record)
+          Array(record["affected"]).filter_map do |entry|
+            next unless entry.is_a?(Hash)
+
+            package = entry["package"]
+            next unless package.is_a?(Hash)
+            next if package["ecosystem"] != Homebrew::Vulns::OsvExport::ECOSYSTEM
+
+            package["name"]
+          end.uniq
+        end
+
+        sig { void }
+        def ensure_alias_index
+          return if @alias_index_loaded
+
+          Dir.glob(File.join(@dir, "BREW-*.json")).each do |path|
+            existing = alias_record(path)
+            next unless existing.is_a?(Hash)
+
+            formula_names = affected_formula_names(existing)
+            next unless formula_names.one?
+
+            identities = Array(existing["upstream"]).grep(String).map do |id|
+              "BREW-#{formula_names.fetch(0)}-#{id}"
+            end.uniq
+            @path_identities[path] = identities
+            identities.each { |identity| (@identity_paths[identity] ||= []) << path }
+          end
+          @alias_index_loaded = true
+        end
+
+        sig { params(record_ids: T::Array[String]).returns(T::Array[String]) }
+        def matching_alias_paths(record_ids)
+          pending = record_ids.dup
+          identities = T.let({}, T::Hash[String, T::Boolean])
+          paths = T.let({}, T::Hash[String, T::Boolean])
+          until pending.empty?
+            identity = pending.shift
+            next if identity.nil? || identities[identity]
+
+            identities[identity] = true
+            direct = record_path(identity)
+            linked = [direct, *@identity_paths.fetch(identity, [])]
+            linked.each do |path|
+              next unless File.file?(path)
+              next if paths[path]
+
+              paths[path] = true
+              pending.concat(@path_identities.fetch(path, []))
+            end
+          end
+          paths.keys.sort
+        end
+
+        sig { params(path: String).returns(T.nilable(T::Array[Symbol])) }
+        def reviewed_states(path)
+          existing = alias_record(path)
+          return unless existing.is_a?(Hash)
+
+          affected = existing["affected"]
+          return unless affected.is_a?(Array)
+          return if affected.empty?
+
+          states = affected.filter_map do |entry|
+            next unless entry.is_a?(Hash)
+
+            ranges = homebrew_ranges(entry["ranges"])
+            if Homebrew::Vulns::OsvExport.ranges_terminal?(ranges)
+              :terminal
+            elsif Homebrew::Vulns::OsvExport.ranges_open?(ranges)
+              :open
+            end
+          end
+          return if states.length != affected.length
+
+          states
+        end
+
+        sig { params(ranges: T.untyped).returns(T::Array[T.untyped]) }
+        def homebrew_ranges(ranges)
+          Array(ranges).select do |range|
+            range.is_a?(Hash) && range["type"] == "ECOSYSTEM"
+          end
         end
 
         sig { override.void }

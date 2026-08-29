@@ -48,6 +48,9 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       expect(described_class.ranges_terminal?([{ "events" => [{ "introduced" => "0" }] }])).to be false
       expect(described_class.ranges_terminal?([])).to be false
       expect(described_class.ranges_terminal?([{ "events" => [] }])).to be false
+      wildcard = [{ "events" => [{ "introduced" => "1.0" }, { "limit" => "*" }] }]
+      expect(described_class.ranges_terminal?(wildcard)).to be false
+      expect(described_class.ranges_open?(wildcard)).to be true
     end
   end
 
@@ -78,6 +81,197 @@ RSpec.describe Homebrew::Vulns::OsvExport do
           { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "1.0" }, { "fixed" => "2.0" }] },
           { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "0" }, { "fixed" => "2.0" }] },
         ]
+      end
+    end
+
+    it "idempotently reopens every kind of terminal reviewed range from an explicit reintroduction" do
+      %w[fixed last_affected limit].each do |terminal|
+        Dir.mktmpdir do |dir|
+          path = File.join(dir, "BREW-x-CVE-1.json")
+          File.write(path, JSON.generate({
+            "id"       => "BREW-x-CVE-1",
+            "affected" => [{
+              "ranges"             => [{ "type" => "ECOSYSTEM", "events" => [
+                { "introduced" => "0" }, { terminal => "1.0" }
+              ] }],
+              "ecosystem_specific" => { "range_state" => "fixed" },
+            }],
+          }))
+          incoming = lambda do
+            {
+              id:       "BREW-x-CVE-1",
+              affected: [{
+                ranges:             [{ type: "ECOSYSTEM", events: [{ introduced: "2.0" }] }],
+                ecosystem_specific: { range_state: "affected" },
+              }],
+            }
+          end
+
+          merged = described_class.merge_existing(path, incoming.call, close_open_ranges: true)
+          events = [{ "introduced" => "0" }, { terminal => "1.0" }, { "introduced" => "2.0" }]
+          expect(JSON.parse(JSON.generate(merged)).dig("affected", 0, "ranges", 0, "events")).to eq events
+
+          File.write(path, JSON.generate(merged))
+          merged_again = described_class.merge_existing(path, incoming.call, close_open_ranges: true)
+          expect(merged_again).to be_nil
+        end
+      end
+    end
+
+    it "allows a reintroduction at an exclusive limit but not an inclusive boundary" do
+      outcomes = %w[fixed last_affected limit].to_h do |terminal|
+        ranges = [{ "type" => "ECOSYSTEM", "events" => [
+          { "introduced" => "0" }, { terminal => "2.0" }
+        ] }]
+        [terminal, described_class.reintroduction_follows?(ranges, "2.0")]
+      end
+
+      expect(outcomes).to eq("fixed" => false, "last_affected" => false, "limit" => true)
+    end
+
+    it "adds Homebrew version events only to ECOSYSTEM ranges" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "BREW-x-CVE-1.json")
+        git_events = [{ "introduced" => "a" * 40 }, { "fixed" => "b" * 40 }]
+        File.write(path, JSON.generate({
+          "id"       => "BREW-x-CVE-1",
+          "affected" => [{
+            "ranges" => [
+              { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "0" }, { "fixed" => "1.0" }] },
+              { "type" => "GIT", "events" => git_events },
+            ],
+          }],
+        }))
+        incoming = {
+          id:       "BREW-x-CVE-1",
+          affected: [{ ranges: [{ type: "ECOSYSTEM", events: [{ introduced: "2.0" }] }] }],
+        }
+
+        merged = JSON.parse(JSON.generate(
+                              described_class.merge_existing(path, incoming, close_open_ranges: true),
+                            ))
+        expect(merged.dig("affected", 0, "ranges", 0, "events").last).to eq("introduced" => "2.0")
+        expect(merged.dig("affected", 0, "ranges", 1, "events")).to eq git_events
+      end
+    end
+
+    it "rejects a reintroduction that does not follow the reviewed terminal boundary" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "BREW-x-CVE-1.json")
+        existing = {
+          "id"       => "BREW-x-CVE-1",
+          "affected" => [{
+            "ranges" => [{ "type" => "ECOSYSTEM", "events" => [
+              { "introduced" => "0" }, { "fixed" => "2.0" }
+            ] }],
+          }],
+        }
+        File.write(path, JSON.generate(existing))
+        incoming = {
+          id:       "BREW-x-CVE-1",
+          affected: [{ ranges: [{ type: "ECOSYSTEM", events: [{ introduced: "1.5" }] }] }],
+        }
+
+        expect(described_class.merge_existing(path, incoming, close_open_ranges: true)).to be_nil
+        expect(JSON.parse(File.read(path))).to eq existing
+      end
+    end
+
+    it "rejects a fixed boundary that does not follow every open range" do
+      outcomes = ["1.5", "2.0"].map do |introduced|
+        Dir.mktmpdir do |dir|
+          path = File.join(dir, "BREW-x-CVE-1.json")
+          existing = {
+            "id"       => "BREW-x-CVE-1",
+            "affected" => [{
+              "ranges" => [
+                { "type" => "ECOSYSTEM", "events" => [
+                  { "introduced" => "1.0" }, { "limit" => "*" }
+                ] },
+                { "type" => "ECOSYSTEM", "events" => [{ "introduced" => introduced }] },
+              ],
+            }],
+          }
+          File.write(path, JSON.generate(existing))
+          incoming = {
+            id:       "BREW-x-CVE-1",
+            affected: [{ ranges: [{ type: "ECOSYSTEM", events: [
+              { introduced: "0" }, { fixed: "1.5" }
+            ] }] }],
+          }
+
+          merged = described_class.merge_existing(path, incoming, close_open_ranges: true)
+          [merged.nil?, JSON.parse(File.read(path)) == existing]
+        end
+      end
+
+      expect(outcomes).to eq [[true, true], [true, true]]
+    end
+
+    it "refreshes metadata while reopening only terminal ranges in a mixed range set" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "BREW-x-CVE-1.json")
+        File.write(path, JSON.generate({
+          "id"       => "BREW-x-CVE-1",
+          "summary"  => "stale",
+          "upstream" => ["GHSA-a"],
+          "affected" => [{
+            "ranges" => [
+              { "type" => "ECOSYSTEM", "events" => [
+                { "introduced" => "0" }, { "fixed" => "1.0" }
+              ] },
+              { "type" => "ECOSYSTEM", "events" => [
+                { "introduced" => "2.0" }, { "limit" => "*" }
+              ] },
+            ],
+          }],
+        }))
+        incoming = {
+          id:       "BREW-x-CVE-1",
+          summary:  "fresh",
+          upstream: ["GHSA-a", "CVE-1"],
+          affected: [{ ranges: [{ type: "ECOSYSTEM", events: [{ introduced: "3.0" }] }] }],
+        }
+
+        merged = JSON.parse(JSON.generate(
+                              described_class.merge_existing(path, incoming, close_open_ranges: true),
+                            ))
+        expect(merged.values_at("summary", "upstream", "affected")).to eq [
+          "fresh",
+          ["GHSA-a", "CVE-1"],
+          [{ "ranges" => [
+            { "type" => "ECOSYSTEM", "events" => [
+              { "introduced" => "0" }, { "fixed" => "1.0" }, { "introduced" => "3.0" }
+            ] },
+            { "type" => "ECOSYSTEM", "events" => [
+              { "introduced" => "2.0" }, { "limit" => "*" }
+            ] },
+          ] }],
+        ]
+      end
+    end
+
+    it "replaces an unbounded wildcard limit when closing an open range" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "BREW-x-CVE-1.json")
+        File.write(path, JSON.generate({
+          "id"       => "BREW-x-CVE-1",
+          "affected" => [{
+            "ranges" => [{ "type" => "ECOSYSTEM", "events" => [
+              { "introduced" => "1.0" }, { "limit" => "*" }
+            ] }],
+          }],
+        }))
+        incoming = {
+          id:       "BREW-x-CVE-1",
+          affected: [{ ranges: [{ type: "ECOSYSTEM", events: [
+            { introduced: "0" }, { fixed: "2.0" }
+          ] }] }],
+        }
+
+        merged = described_class.merge_existing(path, incoming, close_open_ranges: true)
+        events = JSON.parse(JSON.generate(merged)).dig("affected", 0, "ranges", 0, "events")
+        expect(events).to eq([{ "introduced" => "1.0" }, { "fixed" => "2.0" }])
       end
     end
   end
