@@ -195,6 +195,8 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
 
   context "when using :quit" do
     let(:cask) { Cask::CaskLoader.load(cask_path("with-#{artifact_dsl_key}-quit")) }
+
+    before { allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([]) }
     let(:bundle_id) { "my.fancy.package.app" }
 
     it "is skipped when the user is not a GUI user" do
@@ -236,6 +238,8 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
 
   context "when using :signal" do
     let(:cask) { Cask::CaskLoader.load(cask_path("with-#{artifact_dsl_key}-signal")) }
+
+    before { allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([]) }
     let(:bundle_id) { "my.fancy.package.app" }
     let(:signals) { %w[TERM KILL] }
     let(:unix_pids) { [12_345, 67_890] }

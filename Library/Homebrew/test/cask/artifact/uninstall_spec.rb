@@ -144,6 +144,19 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     before do
       allow(User.current).to receive(:gui?).and_return true
       allow(artifact).to receive(:quit).and_return(instance_double(SystemCommand::Result, success?: true))
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([])
+    end
+
+    it "does not quit the application hosting the `brew` process" do
+      allow(artifact).to receive(:running?).with("com.example.app").and_return(true)
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return(["com.Example.App"])
+
+      expect(artifact).not_to receive(:quit)
+      expect do
+        artifact.uninstall_quit("com.example.app", upgrade: true, command: fake_system_command)
+      end.to output(/Skipping quitting application 'com.example.app'/).to_stderr
+
+      expect(artifact.bundle_ids_to_reopen).to be_empty
     end
 
     it "quits every running application matching a wildcard" do
@@ -198,7 +211,22 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     let(:fake_system_command) { NeverSudoSystemCommand }
     let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-signal-wildcard")) }
 
-    before { allow(artifact).to receive(:sleep).with(3) }
+    before do
+      allow(artifact).to receive(:sleep).with(3)
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([])
+    end
+
+    it "does not signal the application hosting the `brew` process" do
+      allow(artifact).to receive(:running_processes).with("my.fancy.package")
+                                                    .and_return([[123, 0, "my.fancy.package"]])
+      allow(artifact).to receive(:running_bundle_ids).and_return(["my.fancy.package"])
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return(["my.fancy.package"])
+
+      expect(Process).not_to receive(:kill)
+
+      expect { artifact.uninstall_phase(command: fake_system_command) }
+        .to output(/Skipping signalling application 'my.fancy.package'/).to_stderr
+    end
 
     it "signals the running processes of every application matching a wildcard" do
       allow(artifact).to receive(:running_bundle_ids)
