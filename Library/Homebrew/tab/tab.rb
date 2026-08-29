@@ -16,6 +16,9 @@ class Tab < AbstractTab
   sig { returns(T.nilable(String)) }
   attr_accessor :built_prefix
 
+  sig { returns(T.nilable(T::Boolean)) }
+  attr_accessor :padded_prefix
+
   sig { returns(T.nilable(T.any(String, Symbol))) }
   attr_accessor :stdlib
 
@@ -57,6 +60,7 @@ class Tab < AbstractTab
     params(poured_from_bottle:      T.nilable(T::Boolean),
            built_as_bottle:         T.nilable(T::Boolean),
            built_prefix:            T.nilable(String),
+           padded_prefix:           T.nilable(T::Boolean),
            changed_files:           T.nilable(T::Array[T.any(Pathname, String)]),
            linkage_files:           T.nilable(T::Array[T.any(Pathname, String)]),
            binary_relocation_files: T.nilable(T::Array[T.any(Pathname, String)]),
@@ -71,13 +75,15 @@ class Tab < AbstractTab
            tapped_from:             T.nilable(String),
            rest:                    T.untyped).void
   }
-  def initialize(poured_from_bottle: nil, built_as_bottle: nil, built_prefix: nil, changed_files: nil,
+  def initialize(poured_from_bottle: nil, built_as_bottle: nil, built_prefix: nil, padded_prefix: nil,
+                 changed_files: nil,
                  linkage_files: nil, binary_relocation_files: nil, relocated_build_prefix: nil,
                  relocated_files: nil, stdlib: nil, aliases: nil, used_options: nil, unused_options: nil,
                  compiler: nil, source_modified_time: nil, tapped_from: nil, **rest)
     @poured_from_bottle = poured_from_bottle
     @built_as_bottle = built_as_bottle
     @built_prefix = built_prefix
+    @padded_prefix = padded_prefix
     @changed_files = T.let(changed_files&.map { |f| Pathname(f) }, T.nilable(T::Array[Pathname]))
     @linkage_files = T.let(linkage_files&.map { |f| Pathname(f) }, T.nilable(T::Array[Pathname]))
     @binary_relocation_files = T.let(
@@ -403,6 +409,7 @@ class Tab < AbstractTab
       "unused_options"           => unused_options.as_flags,
       "built_as_bottle"          => built_as_bottle,
       "built_prefix"             => built_prefix,
+      "padded_prefix"            => padded_prefix,
       "poured_from_bottle"       => poured_from_bottle,
       "loaded_from_api"          => loaded_from_api,
       "loaded_from_internal_api" => loaded_from_internal_api,
@@ -424,6 +431,7 @@ class Tab < AbstractTab
     }
     attributes.delete("stdlib") if attributes["stdlib"].blank?
     attributes.delete("built_prefix") if attributes["built_prefix"].nil?
+    attributes.delete("padded_prefix") if attributes["padded_prefix"].nil?
     attributes.delete("linkage_files") if attributes["linkage_files"].nil?
     attributes.delete("binary_relocation_files") if attributes["binary_relocation_files"].nil?
     attributes.delete("relocated_build_prefix") if attributes["relocated_build_prefix"].nil?
@@ -438,6 +446,7 @@ class Tab < AbstractTab
     attributes = {
       "homebrew_version"        => homebrew_version,
       "built_prefix"            => built_prefix,
+      "padded_prefix"           => padded_prefix,
       "changed_files"           => changed_files&.map(&:to_s),
       "linkage_files"           => linkage_files&.map(&:to_s),
       "binary_relocation_files" => binary_relocation_files&.map(&:to_s),
@@ -451,6 +460,7 @@ class Tab < AbstractTab
     }
     attributes.delete("stdlib") if attributes["stdlib"].blank?
     attributes.delete("built_prefix") if attributes["built_prefix"].nil?
+    attributes.delete("padded_prefix") if attributes["padded_prefix"].nil?
     attributes.delete("linkage_files") if attributes["linkage_files"].nil?
     attributes.delete("binary_relocation_files") if attributes["binary_relocation_files"].nil?
     attributes.delete("source") if attributes["source"].blank?

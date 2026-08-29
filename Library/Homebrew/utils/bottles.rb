@@ -295,6 +295,18 @@ module Utils
         end
       end
 
+      sig { returns(T.nilable(String)) }
+      def padded_prefix
+        if linux?
+          case standardized_arch
+          when :arm64 then Homebrew::LINUX_ARM64_BOTTLE_PREFIX
+          when :x86_64 then Homebrew::LINUX_X86_64_BOTTLE_PREFIX
+          end
+        elsif macos? && standardized_arch == :arm64
+          Homebrew::MACOS_ARM64_BOTTLE_PREFIX
+        end
+      end
+
       private
 
       sig { params(arch: Symbol).returns(Symbol) }

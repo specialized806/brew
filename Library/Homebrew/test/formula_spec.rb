@@ -2110,6 +2110,27 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#bottle" do
+    it "selects a padded bottle using its tab metadata" do
+      tag = Utils::Bottles.tag
+      f = formula "padded-bottle" do
+        T.bind(self, T.class_of(Formula))
+        url "padded-bottle-1.0"
+
+        bottle do
+          sha256 tag.to_sym => "deadbeef" * 8
+        end
+      end
+      bottle = f.bottle_for_tag(tag)
+      stub_const("HOMEBREW_PREFIX", Pathname("/short"))
+      stub_const("HOMEBREW_CELLAR", HOMEBREW_PREFIX/"Cellar")
+      allow(f).to receive(:bottle_for_tag).with(tag).and_return(bottle)
+      allow(bottle).to receive(:compatible_locations?).and_return(true)
+
+      expect([f.bottle, f.bottled?]).to eq([bottle, true])
+    end
+  end
+
   describe "#pour_bottle?" do
     it "returns false if set to false" do
       f = formula "foo" do

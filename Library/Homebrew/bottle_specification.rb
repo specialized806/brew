@@ -80,16 +80,21 @@ class BottleSpecification
     end
   end
 
-  sig { params(tag: Utils::Bottles::Tag).returns(T::Boolean) }
-  def compatible_locations?(tag: Utils::Bottles.tag)
-    cellar = tag_to_cellar(tag)
+  sig {
+    params(tag: Utils::Bottles::Tag, built_prefix: T.nilable(String), padded_prefix: T::Boolean)
+      .returns(T::Boolean)
+  }
+  def compatible_locations?(tag: Utils::Bottles.tag, built_prefix: nil, padded_prefix: false)
+    return false if padded_prefix && built_prefix.nil?
+
+    cellar = padded_prefix ? "#{built_prefix}/Cellar" : tag_to_cellar(tag)
 
     return true if RELOCATABLE_CELLARS.include?(cellar)
 
     prefix = Pathname(cellar.to_s).parent.to_s
 
     # Raw prefix strings are patched in place, so the byte length decides.
-    relocatable = Homebrew::EnvConfig.relocate_build_prefix?
+    relocatable = padded_prefix || Homebrew::EnvConfig.relocate_build_prefix?
     cellar_relocatable = relocatable && cellar.to_s.bytesize >= HOMEBREW_CELLAR.to_s.bytesize
     prefix_relocatable = relocatable && prefix.bytesize >= HOMEBREW_PREFIX.to_s.bytesize
 

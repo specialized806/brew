@@ -295,14 +295,51 @@ RSpec.describe FormulaInstaller do
     end
   end
 
+  describe "#determine_bottle_tab_attributes" do
+    it "uses dependency metadata from the selected API bottle" do
+      f = formula "padded-bottle-metadata" do
+        T.bind(self, T.class_of(Formula))
+        url "padded-bottle-metadata-1.0"
+        depends_on "dependency"
+      end
+      installer = described_class.new(f)
+      runtime_dependency = { "full_name" => "dependency", "version" => "2.0", "revision" => "1" }
+      bottle = instance_double(
+        Bottle,
+        tab_attributes: {
+          "runtime_dependencies" => [runtime_dependency],
+          "built_on"             => { "os_version" => "macOS 15" },
+        },
+        tag:            Utils::Bottles.tag,
+      )
+      allow(installer).to receive(:api_bottle).and_return(bottle)
+      dependency = f.deps.fetch(0)
+      dependency_formula = instance_double(Formula, deps: [], name: "dependency", full_name: "dependency")
+      allow(dependency).to receive(:to_formula).and_return(dependency_formula)
+      build_options = BuildOptions.new(Options.new, Options.new)
+      allow(installer).to receive_messages(effective_build_options_for: build_options, install_bottle_for?: false)
+
+      installer.determine_bottle_tab_attributes
+
+      expect(dependency).to receive(:satisfied?).with(
+        minimum_version:   Version.new("2.0"),
+        minimum_revision:  1,
+        bottle_os_version: "macOS 15",
+      ).and_return(false)
+      installer.expand_dependencies_for_formula(f)
+    end
+  end
+
   describe "#pour" do
+    let(:bottle_cellar) { :any_skip_relocation }
     let(:f) do
+      cellar = bottle_cellar
       formula("missing-bottle-tab") do
         T.bind(self, T.class_of(Formula))
         url "https://brew.sh/missing-bottle-tab-1.0.tar.gz"
 
         bottle do
-          sha256 cellar: :any_skip_relocation,
+          sha256 cellar:,
                  Utils::Bottles.tag.to_sym => "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97"
         end
       end
@@ -310,9 +347,11 @@ RSpec.describe FormulaInstaller do
     let(:installer) { Class.new(described_class).new(f) }
     let(:downloader) { instance_double(AbstractDownloadStrategy, basename: "missing-bottle-tab", stage: nil) }
     let(:downloadable) { instance_double(Resource, downloader:) }
+    let(:built_prefix) { nil }
+    let(:padded_prefix) { nil }
     let(:tab) do
       instance_double(Tab, changed_files: nil, linkage_files: nil, binary_relocation_files: nil,
-                      built_prefix: nil, source: { "versions" => {} }, write: nil).as_null_object
+                      built_prefix:, padded_prefix:, source: { "versions" => {} }, write: nil).as_null_object
     end
     let(:keg) { instance_double(Keg) }
 
@@ -355,6 +394,23 @@ RSpec.describe FormulaInstaller do
           stderr.scan("OCI registry proxy").one? &&
             stderr.include?("sh.brew.tab") && stderr.include?("HOMEBREW_ARTIFACT_DOMAIN")
         end).to_stderr
+    end
+
+    context "with a padded bottle" do
+      let(:bottle_cellar) { Utils::Bottles.tag.default_cellar }
+      let(:built_prefix) { "/#{"p" * 63}" }
+      let(:padded_prefix) { true }
+
+      it "patches the recorded build prefix without the legacy opt-in" do
+        relocated_files = [Pathname("bin/test")]
+        expect(keg).to receive(:relocate_build_prefix)
+          .with(keg, built_prefix, HOMEBREW_PREFIX, files: nil)
+          .and_return(relocated_files)
+        expect(tab).to receive(:relocated_build_prefix=).with(built_prefix)
+        expect(tab).to receive(:relocated_files=).with(relocated_files)
+
+        installer.pour
+      end
     end
   end
 
@@ -449,7 +505,7 @@ RSpec.describe FormulaInstaller do
       end
       installer = described_class.new(formula)
       installer.download_queue = instance_double(Homebrew::DownloadQueue)
-      manifest_resource = formula.bottle&.github_packages_manifest_resource
+      manifest_resource = installer.selected_bottle&.github_packages_manifest_resource
       cached_download = manifest_resource&.cached_download
 
       allow(manifest_resource).to receive(:downloaded?).and_return(true)
@@ -475,7 +531,7 @@ RSpec.describe FormulaInstaller do
       end
       installer = described_class.new(formula)
       installer.download_queue = instance_double(Homebrew::DownloadQueue)
-      manifest_resource = formula.bottle&.github_packages_manifest_resource
+      manifest_resource = installer.selected_bottle&.github_packages_manifest_resource
 
       allow(manifest_resource).to receive(:downloaded?).and_return(true)
       manifest_resource&.manifest_annotations = {}

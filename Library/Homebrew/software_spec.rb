@@ -170,7 +170,7 @@ class SoftwareSpec
     owner = self.owner
     return false unless owner.is_a?(Formula)
 
-    owner.force_bottle
+    owner.force_bottle || owner.bottle.present?
   end
 
   sig { params(block: T.proc.bind(BottleSpecification).void).void }

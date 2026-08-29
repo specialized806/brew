@@ -550,7 +550,8 @@ class Formula
   # The {Bottle} object for the currently active {SoftwareSpec}.
   sig { returns(T.nilable(Bottle)) }
   def bottle
-    @bottle ||= T.let(Bottle.new(self, bottle_specification), T.nilable(Bottle)) if bottled?
+    bottle = @bottle_candidate ||= T.let(bottle_for_tag(Utils::Bottles.tag), T.nilable(Bottle))
+    bottle if bottle && (force_bottle || bottle.compatible_locations?)
   end
 
   # The {Bottle} object for given tag.

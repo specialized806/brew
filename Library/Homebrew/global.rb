@@ -60,6 +60,11 @@ module Homebrew
   DEFAULT_MACOS_ARM_CELLAR = T.let("#{HOMEBREW_MACOS_ARM_DEFAULT_PREFIX}/Cellar".freeze, String)
   DEFAULT_LINUX_CELLAR = T.let("#{HOMEBREW_LINUX_DEFAULT_PREFIX}/Cellar".freeze, String)
 
+  # A pinned bottle built at one of these 64-byte prefixes can be patched for any shorter prefix.
+  MACOS_ARM64_BOTTLE_PREFIX = T.let("/opt/homebrew/.brew-padded-arm64".ljust(64, "_").freeze, String)
+  LINUX_ARM64_BOTTLE_PREFIX = T.let("/home/linuxbrew/.linuxbrew/.brew-padded-arm64".ljust(64, "_").freeze, String)
+  LINUX_X86_64_BOTTLE_PREFIX = T.let("/home/linuxbrew/.linuxbrew/.brew-padded-x86_64".ljust(64, "_").freeze, String)
+
   class << self
     sig { params(failed: T::Boolean).returns(T::Boolean) }
     attr_writer :failed
