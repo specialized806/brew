@@ -33,6 +33,10 @@ module RuboCop
         include CaskHelp
 
         FLIGHT_STANZA_NAMES = [:preflight, :postflight, :uninstall_preflight, :uninstall_postflight].freeze
+        ON_SYSTEM_BLOCK_METHODS = T.let(
+          [*RuboCop::Cask::Constants::ON_SYSTEM_METHODS, :on_system].freeze,
+          T::Array[Symbol],
+        )
 
         sig { override.params(cask_block: RuboCop::Cask::AST::CaskBlock).void }
         def on_cask(cask_block)
@@ -44,6 +48,7 @@ module RuboCop
             audit_on_system_blocks(stanza.stanza_node, stanza.stanza_name)
           end
 
+          audit_redundant_nested_on_system_blocks
           audit_arch_conditionals(cask_body, allowed_blocks: FLIGHT_STANZA_NAMES)
           audit_macos_version_conditionals(cask_body, recommend_on_system: false, allowed_blocks: FLIGHT_STANZA_NAMES)
           simplify_sha256_stanzas
@@ -57,6 +62,30 @@ module RuboCop
         attr_reader :cask_block
 
         def_delegators :cask_block, :toplevel_stanzas, :cask_body
+
+        sig { void }
+        def audit_redundant_nested_on_system_blocks
+          cask_body.each_node(:block) do |block_node|
+            next unless cask_on_system_conditional_block?(block_node)
+
+            method_node = block_node.method_node
+            next unless block_node.each_ancestor(:block).any? do |ancestor|
+              cask_on_system_conditional_block?(ancestor) && ancestor.method_node == method_node
+            end
+
+            add_offense(method_node, message: "Remove the redundant nested `#{method_node.source}` block.")
+          end
+        end
+
+        sig { params(node: RuboCop::AST::Node).returns(T::Boolean) }
+        def cask_on_system_conditional_block?(node)
+          method_node = node.method_node
+          return false unless method_node
+          return false unless method_node.receiver.nil?
+          return false unless ON_SYSTEM_BLOCK_METHODS.include?(method_node.method_name)
+
+          node.each_ancestor.any?(&:cask_block?)
+        end
 
         sig { void }
         def simplify_sha256_stanzas
