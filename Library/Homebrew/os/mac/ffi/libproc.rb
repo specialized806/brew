@@ -19,6 +19,7 @@ module OS
         # sys/proc_info.h:
         #   struct proc_bsdinfo { uint32_t pbi_flags, pbi_status, pbi_xstatus, pbi_pid, pbi_ppid; ... };
         PROC_BSDINFO_SIZE = 136
+        # `pbi_ppid` is the fifth `uint32_t` field.
         PROC_BSDINFO_PPID_OFFSET = 16
         private_constant :PROC_BSDINFO_SIZE, :PROC_BSDINFO_PPID_OFFSET
 
@@ -36,7 +37,7 @@ module OS
           ).call(pid, PROC_PIDTBSDINFO, 0, buffer, PROC_BSDINFO_SIZE)
           return if size != PROC_BSDINFO_SIZE
 
-          buffer[PROC_BSDINFO_PPID_OFFSET, 4].unpack1("L")
+          buffer[PROC_BSDINFO_PPID_OFFSET, Fiddle::SIZEOF_INT].unpack1("L")
         end
       end
     end

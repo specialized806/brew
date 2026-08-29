@@ -4,6 +4,8 @@
 require_relative "shared_examples/uninstall_zap"
 
 RSpec.describe Cask::Artifact::Uninstall, :cask do
+  before { allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([]) }
+
   describe "#uninstall_phase" do
     let(:fake_system_command) { NeverSudoSystemCommand }
 
@@ -144,7 +146,6 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     before do
       allow(User.current).to receive(:gui?).and_return true
       allow(artifact).to receive(:quit).and_return(instance_double(SystemCommand::Result, success?: true))
-      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([])
     end
 
     it "does not quit the application hosting the `brew` process" do
@@ -213,7 +214,6 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
     before do
       allow(artifact).to receive(:sleep).with(3)
-      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([])
     end
 
     it "does not signal the application hosting the `brew` process" do
@@ -251,45 +251,52 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     end
   end
 
-  describe ".ancestor_bundle_ids", :needs_macos do
+  describe ".ancestor_bundle_ids" do
     let(:klass) { Cask::Artifact::AbstractUninstall }
     let(:pid) { Process.pid }
 
-    def reset_cache
-      klass.remove_instance_variable(:@ancestor_bundle_ids) if klass.instance_variable_defined?(:@ancestor_bundle_ids)
+    before do
+      allow(klass).to receive(:ancestor_bundle_ids).and_call_original
+      klass.ancestor_bundle_ids = nil
     end
 
-    before { reset_cache }
-    after { reset_cache }
+    after { klass.ancestor_bundle_ids = nil }
 
     def stub_process_tree(tree)
-      allow(MacOS::FFI::LibProc).to receive(:parent_pid) { |child| tree[child] }
+      allow(klass).to receive(:parent_pid) { |child| tree[child] }
     end
 
     it "resolves the bundle IDs of the processes between brew and launchd" do
       stub_process_tree({ pid => 300, 300 => 200, 200 => 1 })
-      expect(MacOS::FFI::AppKit).to receive(:bundle_identifier_for_pid).with(pid).ordered.and_return(nil)
-      expect(MacOS::FFI::AppKit).to receive(:bundle_identifier_for_pid).with(300).ordered.and_return(nil)
-      expect(MacOS::FFI::AppKit).to receive(:bundle_identifier_for_pid).with(200).ordered
-                                                                       .and_return("com.example.terminal")
+      expect(klass).to receive(:bundle_identifier_for_pid).with(pid).ordered.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).with(300).ordered.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).with(200).ordered.and_return("com.example.terminal")
+
+      expect(klass.ancestor_bundle_ids).to eq ["com.example.terminal"]
+    end
+
+    it "stops walking when a parent cannot be resolved" do
+      stub_process_tree({ pid => 300 })
+      expect(klass).to receive(:bundle_identifier_for_pid).with(pid).ordered.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).with(300).ordered.and_return("com.example.terminal")
 
       expect(klass.ancestor_bundle_ids).to eq ["com.example.terminal"]
     end
 
     it "stops walking when the process tree loops back on itself" do
       stub_process_tree({ pid => 300, 300 => 200, 200 => 300 })
-      expect(MacOS::FFI::AppKit).to receive(:bundle_identifier_for_pid).exactly(3).times.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).exactly(3).times.and_return(nil)
 
       expect(klass.ancestor_bundle_ids).to be_empty
     end
 
     it "looks up the ancestry once for each brew invocation" do
       stub_process_tree({ pid => 300, 300 => 1 })
-      allow(MacOS::FFI::AppKit).to receive(:bundle_identifier_for_pid).and_return("com.example.terminal")
+      allow(klass).to receive(:bundle_identifier_for_pid).and_return("com.example.terminal")
 
       klass.ancestor_bundle_ids
-      expect(MacOS::FFI::LibProc).not_to receive(:parent_pid)
-      expect(MacOS::FFI::AppKit).not_to receive(:bundle_identifier_for_pid)
+      expect(klass).not_to receive(:parent_pid)
+      expect(klass).not_to receive(:bundle_identifier_for_pid)
 
       expect(klass.ancestor_bundle_ids).to eq %w[com.example.terminal com.example.terminal]
     end

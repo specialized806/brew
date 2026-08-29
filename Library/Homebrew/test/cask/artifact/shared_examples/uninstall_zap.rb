@@ -13,6 +13,7 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
 
   before do
     allow(fake_system_command).to receive(:is_a?) { |val| SystemCommand.is_a?(val) }
+    allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([])
   end
 
   context "when using :launchctl" do
@@ -195,8 +196,6 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
 
   context "when using :quit" do
     let(:cask) { Cask::CaskLoader.load(cask_path("with-#{artifact_dsl_key}-quit")) }
-
-    before { allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([]) }
     let(:bundle_id) { "my.fancy.package.app" }
 
     it "is skipped when the user is not a GUI user" do
@@ -206,6 +205,18 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
       expect do
         subject.public_send(:"#{artifact_dsl_key}_phase", command: fake_system_command)
       end.to output(/Not logged into a GUI; skipping quitting application ID 'my.fancy.package.app'\./).to_stderr
+    end
+
+    it "does not quit the application hosting the `brew` process" do
+      allow(User.current).to receive(:gui?).and_return true
+      allow(subject).to receive(:running?).with(bundle_id).and_return(true)
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([bundle_id])
+
+      expect(subject).not_to receive(:quit)
+      expect do
+        subject.public_send(:"#{artifact_dsl_key}_phase", command: fake_system_command)
+      end.to output(/Skipping quitting application 'my.fancy.package.app' as `brew` is running inside it\./)
+        .to_stderr
     end
 
     it "quits a running application" do
@@ -239,7 +250,6 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
   context "when using :signal" do
     let(:cask) { Cask::CaskLoader.load(cask_path("with-#{artifact_dsl_key}-signal")) }
 
-    before { allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([]) }
     let(:bundle_id) { "my.fancy.package.app" }
     let(:signals) { %w[TERM KILL] }
     let(:unix_pids) { [12_345, 67_890] }

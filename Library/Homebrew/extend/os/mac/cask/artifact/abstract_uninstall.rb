@@ -19,18 +19,14 @@ module OS
           end
 
           module ClassMethods
-            # The ancestry of the `brew` process cannot change while it runs, so the
-            # lookup is shared by every artifact of every cask in the same invocation.
-            sig { returns(T::Array[String]) }
-            def ancestor_bundle_ids
-              @ancestor_bundle_ids ||= T.let(begin
-                pids = [Process.pid]
-                while (ppid = MacOS::FFI::LibProc.parent_pid(pids.last)) && ppid > 1 && pids.exclude?(ppid)
-                  pids << ppid
-                end
+            sig { params(pid: Integer).returns(T.nilable(Integer)) }
+            def parent_pid(pid)
+              MacOS::FFI::LibProc.parent_pid(pid)
+            end
 
-                pids.filter_map { |pid| MacOS::FFI::AppKit.bundle_identifier_for_pid(pid) }
-              end, T.nilable(T::Array[String]))
+            sig { params(pid: Integer).returns(T.nilable(String)) }
+            def bundle_identifier_for_pid(pid)
+              MacOS::FFI::AppKit.bundle_identifier_for_pid(pid)
             end
           end
         end
