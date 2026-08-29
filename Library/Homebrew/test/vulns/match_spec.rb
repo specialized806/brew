@@ -506,6 +506,7 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(hits.map(&:canonical_id).sort).to eq ["CVE-2021-22204", "CVE-2021-99999"]
       merged = hits.find { |h| h.canonical_id == "CVE-2021-22204" }
       expect(T.must(merged).strategy).to eq :git
+      expect(T.must(merged).identifiers).to include("CVE-2021-22204", "GHSA-xxxx")
       expect(T.must(merged).evidence.map(&:strategy).uniq.sort).to eq [:cpansa, :distro, :git]
       expect(T.must(merged).evidence.find { |e| e.strategy == :cpansa }&.advisory).not_to be_nil
     end
@@ -633,7 +634,7 @@ RSpec.describe Homebrew::Vulns::Match do
     end
   end
 
-  describe "#first_fixed_version" do
+  describe "historical boundary walks" do
     let(:requests) do
       formula("requests") do
         T.bind(self, T.class_of(Formula))
@@ -714,6 +715,46 @@ RSpec.describe Homebrew::Vulns::Match do
     it "returns :never_affected when the formula was already past fixed at its first revision" do
       stub_history(["2.31.0"])
       expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :never_affected
+    end
+
+    it "keeps Git history uncheckable across repository URL changes" do
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/neworg/requests/archive/refs/tags/2.0.tar.gz"
+      end
+      historical = [
+        formula("requests") do
+          T.bind(self, T.class_of(Formula))
+          url "https://github.com/oldorg/requests/archive/refs/tags/1.1.tar.gz"
+        end,
+        formula("requests") do
+          T.bind(self, T.class_of(Formula))
+          url "https://github.com/oldorg/requests/archive/refs/tags/1.0.tar.gz"
+        end,
+      ]
+      fv = instance_double(FormulaVersions)
+      allow(fv).to receive(:rev_list) do |_, &block|
+        historical.each_index { |index| block.call("r#{index}", "Formula/r/requests.rb") }
+      end
+      historical.each_with_index do |old, index|
+        allow(fv).to receive(:formula_at_revision).with("r#{index}", anything).and_yield(old)
+      end
+      allow(FormulaVersions).to receive(:new).and_return(fv)
+      git_hit = lambda do |fixed|
+        make_hit(
+          vuln("id" => "CVE-1", "affected" => [
+            { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/neworg/requests" },
+              "ranges"  => [{ "type"   => "ECOSYSTEM",
+                              "events" => [{ "introduced" => "0" }, { "fixed" => fixed }] }] },
+          ]),
+          ev(:git, ecosystem: "GIT", name: "https://github.com/neworg/requests", subject_version: "2.0"),
+        )
+      end
+
+      expect([
+        matcher.first_fixed_version(current, git_hit.call("1.1")),
+        matcher.first_reintroduced_version(current, git_hit.call("3.0")),
+      ]).to eq ["2.0", :not_reintroduced]
     end
 
     it "returns :never_affected when a fixed resource was absent from earlier formula revisions" do
@@ -842,6 +883,135 @@ RSpec.describe Homebrew::Vulns::Match do
     it "returns nil when there is no comparable range" do
       hit = make_hit(vuln("id" => "CVE-1"), ev(:distro, ecosystem: "Debian", name: "requests"))
       expect(matcher.first_fixed_version(requests, hit)).to be_nil
+    end
+
+    it "fails closed when a descending reintroduction would cover a known fixed version" do
+      stub_history(["2.31.0", "2.32.0", "2.30.0"])
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+    end
+
+    it "uses the lowest representable version when the affected history moves backwards" do
+      stub_history([["3.0", "1.0"], ["4.0", "1.0"], ["2.0", "2.0"]])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-3.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-1.0.tar.gz"
+        end
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "1.5" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "1.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_reintroduced_version(current, hit)).to eq "3.0"
+    end
+
+    it "finds the formula boundary when a bundled resource becomes affected again" do
+      stub_history([["4.0", "1.0"], ["3.0", "1.0"], ["2.0", "1.2"], ["1.0", "0.9"]])
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-4.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-1.0.tar.gz"
+        end
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "1.1" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "1.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_reintroduced_version(current, hit)).to eq "3.0"
+    end
+
+    it "treats a historical primary-package identity change as absence" do
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/newpkg-1.0.tar.gz"
+        revision 1
+      end
+      previous = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/oldpkg-1.0.tar.gz"
+      end
+      fv = instance_double(FormulaVersions)
+      allow(fv).to receive(:rev_list) { |_, &b| b.call("r0", "Formula/r/requests.rb") }
+      allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(previous)
+      allow(FormulaVersions).to receive(:new).and_return(fv)
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "newpkg" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "2.0" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "newpkg", subject_version: "1.0"),
+      )
+
+      expect(matcher.first_reintroduced_version(current, hit)).to eq "1.0_1"
+    end
+
+    it "keeps an unidentifiable historical primary package uncheckable" do
+      previous = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://example.test/downloads/requests-2.30.0.tar.gz"
+      end
+      fv = instance_double(FormulaVersions)
+      allow(fv).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+      allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(previous)
+      allow(FormulaVersions).to receive(:new).and_return(fv)
+
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq "2.31.0"
+    end
+
+    it "does not let fixed evidence mask another uncheckable historical subject" do
+      previous = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.30.0.tar.gz"
+      end
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "2.28.1" }] }] },
+          { "package" => { "ecosystem" => "GIT", "name" => "https://github.com/psf/requests" },
+            "ranges"  => [{ "type"   => "GIT",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "f" * 40 }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0"),
+        ev(:git, ecosystem: "GIT", name: "https://github.com/psf/requests", subject_version: "e" * 40),
+      )
+
+      expect(matcher.aggregate_state_at(previous, hit)).to be_nil
+    end
+
+    it "does not invent a boundary when a historical revision cannot be loaded" do
+      stub_history([nil])
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+    end
+
+    it "does not invent a boundary when a historical revision cannot be compared" do
+      stub_history(["2.30.0"])
+      allow(matcher).to receive(:aggregate_state_at).and_return(nil)
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+    end
+
+    it "does not invent a reintroduction when every historical revision is affected" do
+      stub_history(["2.31.0", "2.30.0"])
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+    end
+
+    it "does not walk reintroduction history when the current version is fixed" do
+      expect(FormulaVersions).not_to receive(:new)
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.28.1"))).to be_nil
     end
   end
 

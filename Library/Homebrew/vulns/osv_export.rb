@@ -3,6 +3,7 @@
 
 require "json"
 require "fileutils"
+require "pkg_version"
 require "uri"
 require "vulns/osv"
 require "vulns/scanner"
@@ -34,7 +35,8 @@ module Homebrew
       ECOSYSTEM = "Homebrew"
       ID_PREFIX = "BREW"
       RANGE_EVENT_KEYS = %w[introduced fixed last_affected limit].freeze
-      private_constant :RANGE_EVENT_KEYS
+      TERMINAL_EVENT_KEYS = %w[fixed last_affected limit].freeze
+      private_constant :RANGE_EVENT_KEYS, :TERMINAL_EVENT_KEYS
 
       # `annotated` is a list of `[formula, serialized_patches]` pairs. The
       # patches are passed in rather than read from the formula so callers can
@@ -84,10 +86,10 @@ module Homebrew
       # If a record already exists at `path`, carry forward its `published`
       # timestamp and `affected[].ranges` (so a terminal boundary does not
       # drift to today's `pkg_version`), and skip the write entirely when
-      # nothing else has changed. `close_open_ranges` lets the matcher append a
-      # newly discovered `fixed` event to an existing open range while
-      # preserving its reviewed introduction events. Records for annotations
-      # no longer in core are simply not visited, so they persist.
+      # nothing else has changed. `close_open_ranges` lets the matcher merge a
+      # newly discovered `fixed` or reintroduced event into an existing range
+      # while preserving its reviewed history. Records for annotations no
+      # longer in core are simply not visited, so they persist.
       sig {
         params(path: String, record: T::Hash[Symbol, T.untyped], close_open_ranges: T::Boolean)
           .returns(T.nilable(T::Hash[Symbol, T.untyped]))
@@ -102,12 +104,25 @@ module Homebrew
         if (existing_published = existing["published"] || existing["modified"])
           record[:published] = existing_published
         end
-        Array(record[:affected]).each_with_index do |affected, index|
+        affected_records = Array(record[:affected])
+        invalid_transition = affected_records.each_with_index.any? do |affected, index|
+          existing_ranges = existing.dig("affected", index, "ranges")
+          next false unless existing_ranges
+
+          close_open_ranges && (
+            ((fixed = explicit_fixed(affected[:ranges])) && !fixed_follows?(existing_ranges, fixed)) ||
+            ((introduced = explicit_reintroduction(affected[:ranges])) &&
+              !reintroduction_follows?(existing_ranges, introduced))
+          )
+        end
+        return if invalid_transition
+
+        affected_records.each_with_index do |affected, index|
           existing_ranges = existing.dig("affected", index, "ranges")
           next unless existing_ranges
 
           affected[:ranges] = if close_open_ranges
-            merge_open_ranges(existing_ranges, affected[:ranges])
+            merge_range_transitions(existing_ranges, affected[:ranges])
           else
             existing_ranges
           end
@@ -134,8 +149,81 @@ module Homebrew
         !!ranges.all? { |range| range_state(range) == :terminal }
       end
 
+      sig { params(ranges: T.untyped).returns(T::Boolean) }
+      def self.ranges_open?(ranges)
+        return false unless ranges.is_a?(Array)
+        return false if ranges.empty?
+
+        states = ranges.map { |range| range_state(range) }
+        states.exclude?(:invalid) && states.include?(:open)
+      end
+
+      # True when `fixed` can close every reviewed open Homebrew ecosystem
+      # range. Terminal ranges are unchanged; invalid ranges remain eligible
+      # for the existing repair path.
+      sig { params(ranges: T.untyped, fixed: String).returns(T::Boolean) }
+      def self.fixed_follows?(ranges, fixed)
+        fixed_version = PkgVersion.parse(fixed)
+        Array(ranges).all? do |range|
+          next true unless range.is_a?(Hash)
+          next true if (range["type"] || range[:type]) != "ECOSYSTEM"
+          next true if range_state(range) != :open
+
+          event = Array(range["events"] || range[:events]).rfind do |item|
+            item.is_a?(Hash) && (item.key?("introduced") || item.key?(:introduced))
+          end
+          introduced = event&.[]("introduced") || event&.[](:introduced)
+          introduced.is_a?(String) && fixed_version > PkgVersion.parse(introduced)
+        rescue ArgumentError
+          false
+        end
+      rescue ArgumentError
+        false
+      end
+
+      # True when `introduced` is compatible with every reviewed Homebrew
+      # ecosystem range. Open ranges are already affected and remain unchanged;
+      # terminal ranges must end before the new boundary. Other OSV range types
+      # (notably GIT commit ranges) are ignored.
+      sig { params(ranges: T.untyped, introduced: String).returns(T::Boolean) }
+      def self.reintroduction_follows?(ranges, introduced)
+        ecosystem_ranges = Array(ranges).select do |range|
+          range.is_a?(Hash) && (range["type"] || range[:type]) == "ECOSYSTEM"
+        end
+        return false if ecosystem_ranges.empty?
+
+        introduced_version = PkgVersion.parse(introduced)
+        ecosystem_ranges.all? do |range|
+          state = range_state(range)
+          next true if state == :open
+          next false if state != :terminal
+
+          terminal = terminal_event(range)
+          next false unless terminal
+
+          terminal_key = TERMINAL_EVENT_KEYS.find do |key|
+            terminal.key?(key) || terminal.key?(key.to_sym)
+          end
+          next false unless terminal_key
+
+          terminal_version = terminal[terminal_key] || terminal[terminal_key.to_sym]
+          next false unless terminal_version.is_a?(String)
+
+          terminal_version = PkgVersion.parse(terminal_version)
+          if terminal_key == "limit"
+            introduced_version >= terminal_version
+          else
+            introduced_version > terminal_version
+          end
+        rescue ArgumentError
+          false
+        end
+      rescue ArgumentError
+        false
+      end
+
       sig { params(existing_ranges: T.untyped, incoming_ranges: T.untyped).returns(T.untyped) }
-      def self.merge_open_ranges(existing_ranges, incoming_ranges)
+      def self.merge_range_transitions(existing_ranges, incoming_ranges)
         return incoming_ranges if !existing_ranges.is_a?(Array) || existing_ranges.empty?
 
         incoming_ranges = Array(incoming_ranges)
@@ -144,9 +232,19 @@ module Homebrew
             event.is_a?(Hash) && (event.key?(:fixed) || event.key?("fixed"))
           end
         end.first
-        return existing_ranges unless fixed
+        fixed_version = fixed&.[](:fixed) || fixed&.[]("fixed")
+        introduced = incoming_ranges.filter_map do |range|
+          Array(range[:events] || range["events"]).rfind do |event|
+            next false unless event.is_a?(Hash)
 
-        fixed_version = fixed[:fixed] || fixed["fixed"]
+            value = event[:introduced] || event["introduced"]
+            value && value != "0"
+          end
+        end.first
+        introduced_version = introduced&.[](:introduced) || introduced&.[]("introduced")
+        has_invalid = existing_ranges.any? { |range| range_state(range) == :invalid }
+        return existing_ranges if fixed_version.nil? && introduced_version.nil? && !has_invalid
+
         existing_ranges.map.with_index do |range, index|
           case range_state(range)
           when :invalid
@@ -160,13 +258,35 @@ module Homebrew
               replacement
             end
           when :open
-            range.merge("events" => [*range["events"], { "fixed" => fixed_version }])
+            next range unless fixed_version
+            next range if (range["type"] || range[:type]) != "ECOSYSTEM"
+
+            events = Array(range["events"])
+            last_event_index = events.rindex do |event|
+              event.is_a?(Hash) && RANGE_EVENT_KEYS.any? do |key|
+                event.key?(key) || event.key?(key.to_sym)
+              end
+            end
+            last_event = events[last_event_index] if last_event_index
+            if last_event && (last_event["limit"] || last_event[:limit]) == "*"
+              events = events.dup
+              events[last_event_index] = { "fixed" => fixed_version }
+            else
+              events << { "fixed" => fixed_version }
+            end
+            range.merge("events" => events)
+          when :terminal
+            next range unless introduced_version
+            next range if (range["type"] || range[:type]) != "ECOSYSTEM"
+
+            events = Array(range["events"])
+            range.merge("events" => [*events, { "introduced" => introduced_version }])
           else
             range
           end
         end
       end
-      private_class_method :merge_open_ranges
+      private_class_method :merge_range_transitions
 
       sig { params(range: T.untyped).returns(Symbol) }
       def self.range_state(range)
@@ -182,9 +302,49 @@ module Homebrew
         end
         return :invalid unless last
 
+        limit = last["limit"] || last[:limit]
+        return :open if limit == "*"
+
         (last.key?("introduced") || last.key?(:introduced)) ? :open : :terminal
       end
       private_class_method :range_state
+
+      sig { params(range: T.untyped).returns(T.nilable(T::Hash[T.untyped, T.untyped])) }
+      def self.terminal_event(range)
+        return unless range.is_a?(Hash)
+
+        Array(range["events"] || range[:events]).rfind do |event|
+          event.is_a?(Hash) && TERMINAL_EVENT_KEYS.any? do |key|
+            event.key?(key) || event.key?(key.to_sym)
+          end
+        end
+      end
+      private_class_method :terminal_event
+
+      sig { params(ranges: T.untyped).returns(T.nilable(String)) }
+      def self.explicit_reintroduction(ranges)
+        event = Array(ranges).filter_map do |range|
+          Array(range[:events] || range["events"]).rfind do |event|
+            next false unless event.is_a?(Hash)
+
+            value = event[:introduced] || event["introduced"]
+            value && value != "0"
+          end
+        end.first
+        event && (event[:introduced] || event["introduced"])
+      end
+      private_class_method :explicit_reintroduction
+
+      sig { params(ranges: T.untyped).returns(T.nilable(String)) }
+      def self.explicit_fixed(ranges)
+        event = Array(ranges).filter_map do |range|
+          Array(range[:events] || range["events"]).rfind do |item|
+            item.is_a?(Hash) && (item.key?(:fixed) || item.key?("fixed"))
+          end
+        end.first
+        event && (event[:fixed] || event["fixed"])
+      end
+      private_class_method :explicit_fixed
 
       sig {
         params(formula: Formula, vuln_id: String, patches: T::Array[T::Hash[String, T.untyped]],

@@ -106,6 +106,13 @@ module Homebrew
         def canonical_id
           vulnerability.cve_ids.min || vulnerability.id
         end
+
+        sig { returns(T::Array[String]) }
+        def identifiers
+          evidence.flat_map { |item| item.source_record&.identifiers || [] }
+                  .prepend(*vulnerability.identifiers)
+                  .uniq
+        end
       end
 
       sig { params(repology: T.nilable(Repology), cpan_sec: T.nilable(CPANSec), bulk: T::Boolean).void }
@@ -474,7 +481,9 @@ module Homebrew
       # Emit a candidate `BREW-*` OSV record for `hit` against `formula`.
       #
       # `first_fixed` is the {PkgVersion} at which Homebrew first shipped a fix
-      # (from {#first_fixed_version} or a hand-set value). Otherwise
+      # (from {#first_fixed_version} or a hand-set value), and
+      # `first_reintroduced` is the first Homebrew version in a newer affected
+      # interval (from {#first_reintroduced_version}). Otherwise
       # {#range_status} is consulted: `affected? == false` sets
       # `fixed: pkg_version` and `ecosystem_specific.fix: "bump"`;
       # `affected? == true` (or no comparable range) emits no `fixed` event and
@@ -482,17 +491,18 @@ module Homebrew
       # preserves on-disk `ranges` on rewrite so a hand-corrected boundary
       # sticks.
       sig {
-        params(formula: Formula, hit: Hit, first_fixed: T.nilable(String), now: Time)
+        params(formula: Formula, hit: Hit, first_fixed: T.nilable(String),
+               first_reintroduced: T.nilable(String), now: Time)
           .returns(T::Hash[Symbol, T.untyped])
       }
-      def to_brew_record(formula, hit, first_fixed: nil, now: Time.now.utc)
+      def to_brew_record(formula, hit, first_fixed: nil, first_reintroduced: nil, now: Time.now.utc)
         vuln = hit.vulnerability
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         status, status_evidence = range_status(hit)
 
         fixed = first_fixed
         fixed ||= formula.pkg_version.to_s if status&.fixed?
-        events = T.let([{ introduced: "0" }], T::Array[T::Hash[Symbol, String]])
+        events = T.let([{ introduced: first_reintroduced || "0" }], T::Array[T::Hash[Symbol, String]])
         events << { fixed: } if fixed
 
         record = T.let({
@@ -500,7 +510,7 @@ module Homebrew
           id:                record_id(formula, hit),
           published:         timestamp,
           modified:          timestamp,
-          upstream:          vuln.identifiers,
+          upstream:          hit.identifiers,
           affected:          [affected_entry(formula, hit, events, fixed, status, status_evidence)],
           database_specific: {
             source:            "matched",
@@ -523,6 +533,11 @@ module Homebrew
       sig { params(formula: Formula, hit: Hit).returns(String) }
       def record_id(formula, hit)
         OsvExport.record_id(formula, hit.canonical_id)
+      end
+
+      sig { params(formula: Formula, hit: Hit).returns(T::Array[String]) }
+      def record_ids(formula, hit)
+        ([record_id(formula, hit)] + hit.identifiers.map { |id| OsvExport.record_id(formula, id) }).uniq
       end
 
       sig {
@@ -609,6 +624,54 @@ module Homebrew
         :never_affected
       end
 
+      # Return the lowest representable formula `pkg_version` in the newest
+      # contiguous affected run. This is the `introduced` boundary when a
+      # reviewed fixed range becomes affected again after a formula or resource
+      # regression, including a run whose version strings move backwards after
+      # a `version_scheme` change. After finding the transition, the remaining
+      # history is checked so the new interval cannot cover a known
+      # non-affected formula version.
+      # `:not_reintroduced` means no prior non-affected revision was verified,
+      # either because all loadable history remained affected or because a
+      # revision could not be loaded or compared safely.
+      sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
+      def first_reintroduced_version(formula, hit)
+        return unless range_status(hit)&.first&.affected?
+
+        fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
+        revs = @formula_rev_lists[formula.name] ||=
+          [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
+
+        first_affected = T.let(formula.pkg_version.to_s, String)
+        transition_found = T.let(false, T::Boolean)
+        revs.each do |rev, entry|
+          state = fv.formula_at_revision(rev, entry) do |old|
+            [aggregate_state_at(old, hit), old.pkg_version.to_s]
+          end
+          return :not_reintroduced if state.nil?
+
+          aggregate, pkg_version = state
+          return :not_reintroduced if aggregate.nil?
+
+          begin
+            historical = PkgVersion.parse(pkg_version)
+            boundary = PkgVersion.parse(first_affected)
+            if transition_found
+              return :not_reintroduced if aggregate != :affected && historical >= boundary
+            elsif aggregate == :affected
+              first_affected = pkg_version if historical < boundary
+            else
+              return :not_reintroduced if historical >= boundary
+
+              transition_found = true
+            end
+          rescue ArgumentError
+            return :not_reintroduced
+          end
+        end
+        transition_found ? first_affected : :not_reintroduced
+      end
+
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(Symbol)) }
       def aggregate_state_at(formula, hit)
         results = hit.evidence.filter_map do |ev|
@@ -625,11 +688,13 @@ module Homebrew
           # removal can be the fix boundary while still allowing the walk to
           # find an older affected revision.
           next :fixed unless present
+          next :unknown if subject.nil?
 
-          evidence_range_status(ev, subject)&.state
+          evidence_range_status(ev, subject)&.state || :unknown
         end
         return if results.empty?
         return :affected if results.include?(:affected)
+        return if results.include?(:unknown)
         return :fixed if results.include?(:fixed)
 
         :not_applicable
@@ -641,7 +706,26 @@ module Homebrew
       # was present but had no comparable version (uncheckable).
       sig { params(formula: Formula, evidence: Evidence).returns([T::Boolean, T.nilable(String)]) }
       def subject_version_at(formula, evidence)
-        return [true, formula.version.to_s] unless evidence.resource
+        unless evidence.resource
+          stable = formula.stable
+          stable_url = stable&.url
+          if evidence.ecosystem == "GIT"
+            repo = Identify.repo_url(stable_url, formula.head&.url, formula.homepage)
+            return [true, nil] if repo.nil?
+            return [true, nil] if repo != evidence.name
+
+            version = Identify.tag(stable_url) || stable&.specs&.dig(:tag) || stable&.version&.to_s
+            return [true, version]
+          end
+
+          primary_package = Identify.registry_package(stable_url)
+          return [true, nil] if primary_package.nil?
+          if primary_package.ecosystem != evidence.ecosystem || primary_package.name != evidence.name
+            return [false, nil]
+          end
+
+          return [true, primary_package.version]
+        end
 
         exact_resource = formula.resources.find { |resource| resource.name == evidence.resource }
         if exact_resource
