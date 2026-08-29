@@ -55,12 +55,12 @@ module DiskUsageExtension
       file_count = 0
       disk_usage = 0
       path.find do |f|
-        if f.directory?
-          disk_usage += f.lstat.size
+        # use Pathname#lstat instead of Pathname#stat to get info of symlink itself.
+        stat = f.lstat
+        if stat.directory? || (stat.symlink? && f.directory?)
+          disk_usage += stat.size
         else
-          file_count += 1 if f.basename.to_s != ".DS_Store"
-          # use Pathname#lstat instead of Pathname#stat to get info of symlink itself.
-          stat = f.lstat
+          file_count += 1 if File.basename(f.to_s) != ".DS_Store"
           file_id = [stat.dev, stat.ino]
           # count hardlinks only once.
           unless scanned_files.include?(file_id)
