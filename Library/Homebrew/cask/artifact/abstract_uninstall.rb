@@ -362,26 +362,6 @@ module Cask
         Regexp.escape(search).gsub("\\*", ".*")
       end
 
-      ANCESTOR_BUNDLE_IDS_SCRIPT = <<~JAVASCRIPT
-        'use strict';
-
-        ObjC.import('AppKit')
-
-        function run(argv) {
-          var bundleIds = []
-
-          for (var i = 0; i < argv.length; i++) {
-            var app = $.NSRunningApplication.runningApplicationWithProcessIdentifier(parseInt(argv[i], 10))
-            if (!app.isNil() && !app.bundleIdentifier.isNil()) {
-              bundleIds.push(ObjC.unwrap(app.bundleIdentifier))
-            }
-          }
-
-          return bundleIds.join("\\n")
-        }
-      JAVASCRIPT
-      private_constant :ANCESTOR_BUNDLE_IDS_SCRIPT
-
       # Whether the application with the given bundle ID is an ancestor of this
       # `brew` process, e.g. the terminal emulator the shell is running in.
       # Quitting or signalling it would take down `brew` itself.
@@ -391,28 +371,9 @@ module Cask
       end
 
       class << self
-        # The ancestry of the `brew` process cannot change while it runs, so the
-        # lookup is shared by every artifact of every cask in the same invocation.
+        # Bundle IDs of the applications this `brew` process is running inside.
         sig { returns(T::Array[String]) }
-        def ancestor_bundle_ids
-          @ancestor_bundle_ids ||= T.let(begin
-            parent_pids = {}
-            SystemCommand.run("/bin/ps", args: ["-axo", "pid=,ppid="], print_stderr: false).stdout.each_line do |line|
-              pid, ppid = line.split
-              parent_pids[pid.to_i] = ppid.to_i if pid && ppid
-            end
-
-            pids = [Process.pid]
-            while (ppid = parent_pids[pids.last]) && ppid > 1 && pids.exclude?(ppid)
-              pids << ppid
-            end
-
-            SystemCommand.run("osascript", args:         ["-l", "JavaScript", "-e", ANCESTOR_BUNDLE_IDS_SCRIPT,
-                                                          *pids.map(&:to_s)],
-                                           print_stderr: false)
-                         .stdout.split("\n").map(&:strip).reject(&:empty?)
-          end, T.nilable(T::Array[String]))
-        end
+        def ancestor_bundle_ids = []
       end
 
       sig { returns(T::Array[String]) }
