@@ -251,6 +251,55 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     end
   end
 
+  describe ".ancestor_bundle_ids" do
+    let(:klass) { Cask::Artifact::AbstractUninstall }
+    let(:pid) { Process.pid }
+    let(:osascript_args) { ["-l", "JavaScript", "-e", an_instance_of(String), pid.to_s, "300", "200"] }
+
+    def reset_cache
+      klass.remove_instance_variable(:@ancestor_bundle_ids) if klass.instance_variable_defined?(:@ancestor_bundle_ids)
+    end
+
+    before { reset_cache }
+    after { reset_cache }
+
+    def stub_ps(stdout)
+      allow(SystemCommand).to receive(:run)
+        .with("/bin/ps", args: ["-axo", "pid=,ppid="], print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, stdout:))
+    end
+
+    def stub_osascript(stdout)
+      allow(SystemCommand).to receive(:run)
+        .with("osascript", args: osascript_args, print_stderr: false)
+        .and_return(instance_double(SystemCommand::Result, stdout:))
+    end
+
+    it "resolves the bundle IDs of the processes between brew and launchd" do
+      stub_ps("#{pid} 300\n300 200\n200 1\n1 0\n")
+      stub_osascript("com.example.terminal\n")
+
+      expect(klass.ancestor_bundle_ids).to eq ["com.example.terminal"]
+    end
+
+    it "stops walking when the process tree loops back on itself" do
+      stub_ps("#{pid} 300\n300 200\n200 300\n")
+      stub_osascript("")
+
+      expect(klass.ancestor_bundle_ids).to be_empty
+    end
+
+    it "looks up the ancestry once for each brew invocation" do
+      stub_ps("#{pid} 300\n300 200\n200 1\n")
+      stub_osascript("com.example.terminal\n")
+
+      klass.ancestor_bundle_ids
+      expect(SystemCommand).not_to receive(:run)
+
+      expect(klass.ancestor_bundle_ids).to eq ["com.example.terminal"]
+    end
+  end
+
   describe "#bundle_ids_to_reopen" do
     subject(:artifact) { cask.artifacts.find { |a| a.is_a?(described_class) } }
 
