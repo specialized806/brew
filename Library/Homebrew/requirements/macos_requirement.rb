@@ -18,9 +18,10 @@ class MacOSRequirement < Requirement
   sig { returns(T.nilable(T.any(MacOSVersion, T::Array[MacOSVersion]))) }
   attr_reader :version
 
-  # Keep these around as empty arrays so we can keep the deprecation/disabling code the same.
+  # Keep both arrays so we can keep the deprecation/disabling code the same.
   # Treat these like odeprecated/odisabled in terms of deprecation/disabling.
   DISABLED_MACOS_VERSIONS = [
+    :catalina,
     :mojave,
     :high_sierra,
     :sierra,
@@ -37,7 +38,10 @@ class MacOSRequirement < Requirement
       new
     elsif args.count > 1
       new([args], comparator: "==")
-    elsif first_arg.is_a?(Symbol) && MacOSVersion::SYMBOLS.key?(first_arg)
+    elsif first_arg.is_a?(Symbol) &&
+          (MacOSVersion::SYMBOLS.key?(first_arg) ||
+           DISABLED_MACOS_VERSIONS.include?(first_arg) ||
+           DEPRECATED_MACOS_VERSIONS.include?(first_arg))
       new([first_arg], comparator:)
     elsif (md = /^\s*(?<comparator><|>|[=<>]=)\s*:(?<version>\S+)\s*$/.match(first_arg_s)) &&
           (comparator = md[:comparator]) && (version = md[:version])

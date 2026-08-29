@@ -11,7 +11,7 @@ cask "with-depends-on-everything" do
   depends_on cask: "local-caffeine"
   depends_on cask: "with-depends-on-cask"
   depends_on formula: "unar"
-  depends_on macos: :catalina
+  depends_on macos: :big_sur
 
   app "Caffeine.app"
 end

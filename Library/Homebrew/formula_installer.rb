@@ -1077,7 +1077,7 @@ on_request: installed_on_request?, options:)
 
     # use installed ca-certificates when it's needed and available
     if formula.name == "ca-certificates" &&
-       !DevelopmentTools.ca_file_handles_most_https_certificates?
+       Homebrew::EnvConfig.force_brewed_ca_certificates?
       ENV["SSL_CERT_FILE"] = ENV["GIT_SSL_CAINFO"] = (formula.pkgetc/"cert.pem").to_s
       ENV["GIT_SSL_CAPATH"] = formula.pkgetc.to_s
     end

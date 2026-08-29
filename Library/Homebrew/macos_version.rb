@@ -18,7 +18,7 @@ class MacOSVersion < Version
   end
 
   # NOTE: When removing symbols here, ensure that they are added
-  #       to `DEPRECATED_MACOS_VERSIONS` in `MacOSRequirement`.
+  #       to `DISABLED_MACOS_VERSIONS` in `MacOSRequirement`.
   # NOTE: Changes to this list must match `macos_version_name` in `cmd/update.sh`.
   SYMBOLS = T.let({
     golden_gate: "27",
@@ -29,8 +29,6 @@ class MacOSVersion < Version
     monterey:    "12",
     # odisabled: remove support for Big Sur and macOS x86_64 September (or later) 2027
     big_sur:     "11",
-    # odisabled: remove support for Catalina September (or later) 2026
-    catalina:    "10.15",
   }.freeze, T::Hash[Symbol, String])
 
   sig { params(macos_version: MacOSVersion).returns(Version) }
@@ -40,11 +38,8 @@ class MacOSVersion < Version
       Version.new(version_major.to_s)
     elsif version_major == 26
       Version.new((version_major - 1).to_s)
-    elsif version_major > 10
-      Version.new((version_major + 9).to_s)
     else
-      version_minor = macos_version.minor.to_i
-      Version.new((version_minor + 4).to_s)
+      Version.new((version_major + 9).to_s)
     end
   end
 
@@ -96,12 +91,7 @@ class MacOSVersion < Version
   def strip_patch
     return self if null?
 
-    # Big Sur is 11.x but Catalina is 10.15.x.
-    if major.to_i >= 11
-      self.class.new(major.to_s)
-    else
-      major_minor
-    end
+    self.class.new(major.to_s)
   end
 
   sig { returns(Symbol) }
@@ -165,7 +155,7 @@ class MacOSVersion < Version
   # Represents the absence of a version.
   #
   # NOTE: Constructor needs to called with an arbitrary macOS-like version which is then set to `nil`.
-  NULL = T.let(MacOSVersion.new("10.0").tap do |v|
+  NULL = T.let(MacOSVersion.new("11").tap do |v|
     T.let(v, MacOSVersion).instance_variable_set(:@version, nil)
   end.freeze, MacOSVersion)
 end

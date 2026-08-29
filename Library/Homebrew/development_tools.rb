@@ -162,20 +162,13 @@ class DevelopmentTools
     end
 
     sig { returns(T::Boolean) }
-    def ca_file_handles_most_https_certificates?
-      # The system CA file is too old for some modern HTTPS certificates on
-      # older OS versions.
-      ENV["HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD"].nil?
-    end
-
-    sig { returns(T::Boolean) }
     def curl_handles_most_https_certificates?
       true
     end
 
     sig { returns(T::Boolean) }
     def ca_file_substitution_required?
-      (!ca_file_handles_most_https_certificates? || ENV["HOMEBREW_FORCE_BREWED_CA_CERTIFICATES"].present?) &&
+      ENV["HOMEBREW_FORCE_BREWED_CA_CERTIFICATES"].present? &&
         !(HOMEBREW_PREFIX/"etc/ca-certificates/cert.pem").exist?
     end
 

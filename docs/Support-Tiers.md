@@ -106,7 +106,7 @@ An unsupported configuration is one in which:
 Unsupported configurations include:
 
 - FreeBSD
-- macOS Mojave 10.14 and earlier
+- macOS Catalina 10.15 and earlier
 - Multi-user Homebrew environments where multiple users share the same installation
 - Beowulf clusters
 - Nokia 3210s

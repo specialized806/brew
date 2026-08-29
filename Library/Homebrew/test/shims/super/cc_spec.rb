@@ -94,6 +94,24 @@ RSpec.describe CcShim::Cmd do
       .to include("-arch", "x86_64", "-march=westmere")
   end
 
+  it "raises deployment targets below the minimum macOS version" do
+    setup_env(real_prefix)
+    ENV["HOMEBREW_MACOS_OLDEST_ALLOWED"] = "11"
+
+    argv = [
+      "-mmacosx-version-min=10.15",
+      "-mmacosx-version-min=11",
+      "-mmacosx-version-min=15.2",
+    ]
+
+    deployment_targets = described_class.new("clang", argv).args.grep(/^-mmacosx-version-min=/)
+    expect(deployment_targets).to eq([
+      "-mmacosx-version-min=11",
+      "-mmacosx-version-min=11",
+      "-mmacosx-version-min=15.2",
+    ])
+  end
+
   context "when no path component of the prefix is a symlink" do
     it "keeps the prefix, declared dependencies and references to self" do
       expect(include_flags(real_prefix)).to include(

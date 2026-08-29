@@ -6,8 +6,8 @@ require "rubocops/os_depends_on"
 RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
   it "autocorrects cask macOS comparison strings" do
     expect_offense(<<~RUBY)
-      depends_on macos: ">= :catalina"
-                        ^^^^^^^^^^^^^^ Use `depends_on macos: :catalina`.
+      depends_on macos: ">= :big_sur"
+                        ^^^^^^^^^^^^^ Use `depends_on macos: :big_sur`.
       depends_on macos: "<= :sonoma"
                         ^^^^^^^^^^^^ Use `depends_on maximum_macos: :sonoma`.
       depends_on maximum_macos: "<= :tahoe"
@@ -15,7 +15,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
     RUBY
 
     expect_correction(<<~RUBY)
-      depends_on macos: :catalina
+      depends_on macos: :big_sur
       depends_on maximum_macos: :sonoma
       depends_on maximum_macos: :tahoe
     RUBY
@@ -25,11 +25,11 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
     expect_offense(<<~RUBY)
       depends_on :macos
       ^^^^^^^^^^^^^^^^^ Remove redundant `depends_on :macos`.
-      depends_on macos: :catalina
+      depends_on macos: :big_sur
     RUBY
 
     expect_correction(<<~RUBY)
-      depends_on macos: :catalina
+      depends_on macos: :big_sur
     RUBY
   end
 
@@ -45,8 +45,8 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
 
   it "reports conflicting macOS-only and Linux-only requirements" do
     expect_offense(<<~RUBY)
-      depends_on macos: :catalina
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `depends_on` cannot be macOS-only and Linux-only.
+      depends_on macos: :big_sur
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^ `depends_on` cannot be macOS-only and Linux-only.
       depends_on :linux
       ^^^^^^^^^^^^^^^^^ `depends_on` cannot be macOS-only and Linux-only.
     RUBY
@@ -55,7 +55,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
   it "allows scoped macOS requirements" do
     expect_no_offenses(<<~RUBY)
       on_macos do
-        depends_on macos: :catalina
+        depends_on macos: :big_sur
       end
 
       depends_on :linux
@@ -382,7 +382,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
         url "https://example.com/basic.zip"
         homepage "https://example.com"
 
-        depends_on macos: :catalina
+        depends_on macos: :big_sur
 
         app "Basic.app"
       end

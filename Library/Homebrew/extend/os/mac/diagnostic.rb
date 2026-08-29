@@ -80,7 +80,6 @@ module OS
             check_clt_minimum_version
             check_if_xcode_needs_clt_installed
             check_if_supported_sdk_available
-            check_broken_sdks
           ].freeze
         end
 
@@ -532,47 +531,6 @@ module OS
                 #{update_instructions}
               EOS
             ),
-          )
-        end
-
-        # The CLT 10.x -> 11.x upgrade process on 10.14 contained a bug which broke the SDKs.
-        # Notably, MacOSX10.14.sdk would indirectly symlink to MacOSX10.15.sdk.
-        # This diagnostic was introduced to check for this and recommend a full reinstall.
-        sig { returns(T.nilable(::Homebrew::Diagnostic::Finding)) }
-        def check_broken_sdks
-          locator = MacOS.sdk_locator
-
-          return if locator.all_sdks.all? do |sdk|
-            path_version = sdk.path.basename.to_s[MacOS::SDK::VERSIONED_SDK_REGEX, 1]
-            next true if path_version.blank?
-
-            sdk.version == MacOSVersion.new(path_version).strip_patch
-          end
-
-          if locator.source == :clt
-            source = "Command Line Tools (CLT)"
-            path_to_remove = MacOS::CLT::PKG_PATH
-            installation_instructions = MacOS::CLT.installation_instructions
-          else
-            source = "Xcode"
-            path_to_remove = MacOS::Xcode.bundle_path
-            installation_instructions = MacOS::Xcode.installation_instructions
-          end
-
-          remediation = ::Homebrew::Diagnostic::Finding::Remediation.new(
-            commands: ["sudo rm -rf #{path_to_remove}"],
-            text:     <<~EOS,
-              Remove the broken installation before reinstalling
-
-                #{installation_instructions}
-            EOS
-          )
-          ::Homebrew::Diagnostic::Finding.new(
-            <<~EOS,
-              The contents of the SDKs in your #{source} installation do not match the SDK folder names.
-              A clean reinstall of #{source} should fix this.
-            EOS
-            remediation:,
           )
         end
 

@@ -12,8 +12,6 @@ module OS
 
       sig { params(dylib: String).returns(T::Boolean) }
       def dylib_found_in_shared_cache?(dylib)
-        return false if MacOS.version < :big_sur
-
         require "os/mac/ffi"
         MacOS::FFI.dyld_shared_cache_contains_path(dylib)
       end

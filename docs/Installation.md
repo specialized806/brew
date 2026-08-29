@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-08-27"
+last_review_date: "2026-08-29"
 ---
 
 # Installation
@@ -95,7 +95,7 @@ Uninstallation is documented in the [FAQ](FAQ.md#how-do-i-uninstall-homebrew).
 
 <a data-proofer-ignore name="1"><sup>1</sup></a> For 32-bit or PPC support see [MacPorts](https://www.macports.org) or [Tigerbrew](https://github.com/mistydemeo/tigerbrew).
 
-<a data-proofer-ignore name="2"><sup>2</sup></a> On Apple Silicon, macOS 14 (Sonoma) or higher is best and supported; macOS 11 (Big Sur) – 13 (Ventura) are unsupported but may work. All Intel Mac configurations that can run Homebrew, including those using OpenCore Legacy Patcher, are [Tier 3](Support-Tiers.md#tier-3). macOS 10.14 (Mojave) and older will not run Homebrew at all.
+<a data-proofer-ignore name="2"><sup>2</sup></a> On Apple Silicon, macOS 14 (Sonoma) or higher is best and supported; macOS 11 (Big Sur) – 13 (Ventura) are unsupported but may work. All Intel Mac configurations that can run Homebrew, including those using OpenCore Legacy Patcher, are [Tier 3](Support-Tiers.md#tier-3). macOS 10.15 (Catalina) and older will not run Homebrew at all.
 
 <a data-proofer-ignore name="3"><sup>3</sup></a> Xcode or the CLT is required to build formulae from source and remains a requirement for a supported installation. Casks and bottles can be installed without developer tools. Downloading Xcode may require an Apple Developer account on older versions of Mac OS X. Sign up for free at [Apple's website](https://developer.apple.com/account/).
 

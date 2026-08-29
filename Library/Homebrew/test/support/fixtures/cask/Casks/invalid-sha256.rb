@@ -9,7 +9,7 @@ cask "invalid-sha256" do
   desc "Cask for testing an invalid sha256"
   homepage "https://brew.sh/"
 
-  depends_on macos: :catalina
+  depends_on macos: :big_sur
 
   app "Caffeine.app"
 end

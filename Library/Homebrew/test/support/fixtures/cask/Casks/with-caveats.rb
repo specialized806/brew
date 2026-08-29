@@ -7,7 +7,7 @@ cask "with-caveats" do
   url "file://#{TEST_FIXTURE_DIR}/cask/caffeine.zip"
   homepage "https://brew.sh/"
 
-  depends_on macos: :catalina
+  depends_on macos: :big_sur
 
   app "Caffeine.app"
 

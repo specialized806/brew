@@ -38,7 +38,7 @@ module OS
         def setup_bottle_sudo_purge!(args:)
           # This is needed where sparse files may be handled (bsdtar >=3.0).
           # We use gnu-tar with sparse files disabled when --only-json-tab is passed.
-          ENV["HOMEBREW_BOTTLE_SUDO_PURGE"] = "1" if MacOS.version >= :catalina && !args.only_json_tab?
+          ENV["HOMEBREW_BOTTLE_SUDO_PURGE"] = "1" unless args.only_json_tab?
         end
 
         sig { returns(T::Boolean) }

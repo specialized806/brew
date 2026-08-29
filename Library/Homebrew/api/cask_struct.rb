@@ -61,7 +61,7 @@ module Homebrew
           Symbol,
           # Values can be any of:
           T.any(
-            # Strings like ">= :catalina" for :macos
+            # Strings like ">= :big_sur" for :macos
             String,
             # Symbols like :intel or :arm64 for :arch
             Symbol,

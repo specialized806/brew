@@ -10,6 +10,16 @@ RSpec.describe MacOSRequirement do
   let(:macos_newest_allowed) { MacOSVersion.new(HOMEBREW_MACOS_NEWEST_UNSUPPORTED) }
   let(:tahoe_major) { MacOSVersion.new("26.0") }
 
+  it "disables Catalina requirements" do
+    expect { described_class.new([:catalina]) }
+      .to raise_error(MethodDeprecatedError, /`depends_on macos: :catalina`.*disabled/)
+  end
+
+  it "disables Catalina requirements when parsed from the DSL" do
+    expect { described_class.parse([:catalina], comparator: ">=") }
+      .to raise_error(MethodDeprecatedError, /`depends_on macos: :catalina`.*disabled/)
+  end
+
   describe "#satisfied?" do
     context "when running on macOS", :needs_macos do
       it "returns true" do
@@ -22,8 +32,8 @@ RSpec.describe MacOSRequirement do
       end
 
       it "supports maximum versions" do
-        requirement = described_class.new([:catalina], comparator: "<=")
-        expect(requirement.satisfied?).to eq MacOS.version <= :catalina
+        requirement = described_class.new([:big_sur], comparator: "<=")
+        expect(requirement.satisfied?).to eq MacOS.version <= :big_sur
       end
     end
 

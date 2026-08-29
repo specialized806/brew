@@ -123,8 +123,6 @@ module Homebrew
 
       sig { returns(T::Array[[Symbol, Symbol]]) }
       def os_arch_combinations
-        skip_invalid_combinations = false
-
         # `--all-platforms` is equivalent to `--os=all --arch=all`.
         all_platforms = @table[:all_platforms?]
 
@@ -133,8 +131,6 @@ module Homebrew
         when nil
           [SimulateSystem.current_os]
         when :all
-          skip_invalid_combinations = true
-
           OnSystem::ALL_OS_OPTIONS
         else
           [os_sym]
@@ -145,20 +141,12 @@ module Homebrew
         when nil
           [SimulateSystem.current_arch]
         when :all
-          skip_invalid_combinations = true
           OnSystem::ARCH_OPTIONS
         else
           [arch_sym]
         end
 
-        oses.product(arches).select do |os, arch|
-          if skip_invalid_combinations
-            bottle_tag = Utils::Bottles::Tag.new(system: os, arch:)
-            bottle_tag.valid_combination?
-          else
-            true
-          end
-        end
+        oses.product(arches)
       end
 
       private

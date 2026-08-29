@@ -79,7 +79,7 @@ RSpec.describe RuboCop::Cop::Cask::Desc, :config do
 
     expect_offense <<~RUBY, "/homebrew-cask/Casks/foo.rb"
       cask 'foo-bar' do
-        desc 'Toggles dark mode on macOS Catalina'
+        desc 'Toggles dark mode on macOS Big Sur'
                                    ^^^^^ Description shouldn't contain the platform.
       end
     RUBY

@@ -620,27 +620,27 @@ RSpec.describe Version do
 
     specify "bottle style" do
       expect(described_class.new("4.8.0"))
-        .to be_detected_from("https://homebrew.bintray.com/bottles/qt-4.8.0.lion.bottle.tar.gz")
+        .to be_detected_from("https://homebrew.bintray.com/bottles/qt-4.8.0.big_sur.bottle.tar.gz")
     end
 
     specify "versioned bottle style" do
       expect(described_class.new("4.8.1"))
-        .to be_detected_from("https://homebrew.bintray.com/bottles/qt-4.8.1.lion.bottle.1.tar.gz")
+        .to be_detected_from("https://homebrew.bintray.com/bottles/qt-4.8.1.big_sur.bottle.1.tar.gz")
     end
 
     specify "erlang bottle style" do
       expect(described_class.new("R15B"))
-        .to be_detected_from("https://homebrew.bintray.com/bottles/erlang-R15B.lion.bottle.tar.gz")
+        .to be_detected_from("https://homebrew.bintray.com/bottles/erlang-R15B.big_sur.bottle.tar.gz")
     end
 
     specify "another erlang bottle style" do
       expect(described_class.new("R15B01"))
-        .to be_detected_from("https://homebrew.bintray.com/bottles/erlang-R15B01.mountain_lion.bottle.tar.gz")
+        .to be_detected_from("https://homebrew.bintray.com/bottles/erlang-R15B01.monterey.bottle.tar.gz")
     end
 
     specify "yet another erlang bottle style" do
       expect(described_class.new("R15B03-1"))
-        .to be_detected_from("https://homebrew.bintray.com/bottles/erlang-R15B03-1.mountainlion.bottle.tar.gz")
+        .to be_detected_from("https://homebrew.bintray.com/bottles/erlang-R15B03-1.monterey.bottle.tar.gz")
     end
 
     specify "imagemagick style" do
@@ -650,7 +650,7 @@ RSpec.describe Version do
 
     specify "imagemagick bottle style" do
       expect(described_class.new("6.7.5-7"))
-        .to be_detected_from("https://homebrew.bintray.com/bottles/imagemagick-6.7.5-7.lion.bottle.tar.gz")
+        .to be_detected_from("https://homebrew.bintray.com/bottles/imagemagick-6.7.5-7.big_sur.bottle.tar.gz")
     end
 
     specify "imagemagick versioned bottle style" do

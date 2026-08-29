@@ -39,10 +39,6 @@ macos_version_name() {
   then
     # odisabled: remove support for Big Sur and macOS x86_64 September (or later) 2027
     echo "big_sur"
-  elif [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -ge "101500" ]]
-  then
-    # odisabled: remove support for Catalina September (or later) 2026
-    echo "catalina"
   fi
 }
 

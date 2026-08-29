@@ -7,8 +7,7 @@ module OS
   module Mac
     # Class representing a macOS SDK.
     class SDK
-      # 11.x SDKs are explicitly excluded - we want the MacOSX11.sdk symlink instead.
-      VERSIONED_SDK_REGEX = /MacOSX(10\.\d+|\d+)\.sdk$/
+      VERSIONED_SDK_REGEX = /MacOSX(\d+)\.sdk$/
 
       sig { returns(MacOSVersion) }
       attr_reader :version
@@ -93,8 +92,7 @@ module OS
         end
         return if sdk.blank?
 
-        # On OSs lower than 11, whenever the major versions don't match,
-        # only return an SDK older than the OS version if it was specifically requested
+        # Only return an SDK older than the OS version if it was specifically requested.
         return if version.blank? && sdk.version < OS::Mac.version
 
         sdk

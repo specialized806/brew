@@ -26,7 +26,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
           sha256 arm64_something_else: "aaaaaaaa"
           sha256 arm64_big_sur: "aaaaaaaa"
           sha256 big_sur: "faceb00c"
-          sha256 catalina: "deadbeef"
+          sha256 monterey: "deadbeef"
         end
       end
     RUBY
@@ -40,7 +40,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
           sha256 cellar: :any, arm64_something_else: "aaaaaaaa"
           sha256 cellar: :any_skip_relocation, arm64_big_sur: "aaaaaaaa"
           sha256 cellar: "/usr/local/Cellar", big_sur: "faceb00c"
-          sha256 catalina: "deadbeef"
+          sha256 monterey: "deadbeef"
         end
       end
     RUBY
@@ -75,7 +75,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
 
         bottle do
           rebuild 4
-          sha256 arm64_catalina: "aaaaaaaa"
+          sha256 arm64_monterey: "aaaaaaaa"
           sha256 arm64_big_sur: "aaaaaaaa"
         end
       end
@@ -99,7 +99,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
         bottle do
           rebuild 4
           sha256 big_sur: "faceb00c"
-          sha256 catalina: "deadbeef"
+          sha256 monterey: "deadbeef"
         end
       end
     RUBY
@@ -125,7 +125,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
         ^^^^^^^^^ FormulaAudit/BottleOrder: ARM bottles should be listed before Intel bottles
           rebuild 4
           sha256 big_sur: "faceb00c"
-          sha256 catalina: "deadbeef"
+          sha256 monterey: "deadbeef"
           sha256 arm64_big_sur: "aaaaaaaa"
         end
       end
@@ -139,7 +139,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
           rebuild 4
           sha256 arm64_big_sur: "aaaaaaaa"
           sha256 big_sur: "faceb00c"
-          sha256 catalina: "deadbeef"
+          sha256 monterey: "deadbeef"
         end
       end
     RUBY
@@ -154,8 +154,8 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
         ^^^^^^^^^ FormulaAudit/BottleOrder: ARM bottles should be listed before Intel bottles
           rebuild 4
           sha256 big_sur: "faceb00c"
-          sha256 arm64_catalina: "aaaaaaaa"
-          sha256 catalina: "deadbeef"
+          sha256 arm64_monterey: "aaaaaaaa"
+          sha256 monterey: "deadbeef"
           sha256 arm64_big_sur: "aaaaaaaa"
         end
       end
@@ -167,10 +167,10 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
 
         bottle do
           rebuild 4
-          sha256 arm64_catalina: "aaaaaaaa"
+          sha256 arm64_monterey: "aaaaaaaa"
           sha256 arm64_big_sur: "aaaaaaaa"
           sha256 big_sur: "faceb00c"
-          sha256 catalina: "deadbeef"
+          sha256 monterey: "deadbeef"
         end
       end
     RUBY
@@ -185,9 +185,9 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
         ^^^^^^^^^ FormulaAudit/BottleOrder: ARM bottles should be listed before Intel bottles
           rebuild 4
           sha256 cellar: "/usr/local/Cellar",  big_sur:        "faceb00c"
-          sha256                               catalina:       "deadbeef"
+          sha256                               monterey:       "deadbeef"
           sha256 cellar: :any,                 arm64_big_sur:  "aaaaaaaa"
-          sha256 cellar: :any_skip_relocation, arm64_catalina: "aaaaaaaa"
+          sha256 cellar: :any_skip_relocation, arm64_monterey: "aaaaaaaa"
         end
       end
     RUBY
@@ -199,9 +199,9 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
         bottle do
           rebuild 4
           sha256 cellar: :any,                 arm64_big_sur:  "aaaaaaaa"
-          sha256 cellar: :any_skip_relocation, arm64_catalina: "aaaaaaaa"
+          sha256 cellar: :any_skip_relocation, arm64_monterey: "aaaaaaaa"
           sha256 cellar: "/usr/local/Cellar",  big_sur:        "faceb00c"
-          sha256                               catalina:       "deadbeef"
+          sha256                               monterey:       "deadbeef"
         end
       end
     RUBY
@@ -217,8 +217,8 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
           cellar :any
           sha256 "faceb00c" => :big_sur
           sha256 "aaaaaaaa" => :arm64_big_sur
-          sha256 "aaaaaaaa" => :arm64_catalina
-          sha256 "deadbeef" => :catalina
+          sha256 "aaaaaaaa" => :arm64_monterey
+          sha256 "deadbeef" => :monterey
         end
       end
     RUBY
@@ -230,9 +230,9 @@ RSpec.describe RuboCop::Cop::FormulaAudit::BottleOrder do
         bottle do
           cellar :any
           sha256 "aaaaaaaa" => :arm64_big_sur
-          sha256 "aaaaaaaa" => :arm64_catalina
+          sha256 "aaaaaaaa" => :arm64_monterey
           sha256 "faceb00c" => :big_sur
-          sha256 "deadbeef" => :catalina
+          sha256 "deadbeef" => :monterey
         end
       end
     RUBY

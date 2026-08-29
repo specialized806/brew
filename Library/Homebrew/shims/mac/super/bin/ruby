@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# System Ruby's mkmf on Mojave (10.14) and later require SDKROOT set to work correctly.
+# System Ruby's mkmf requires SDKROOT set to work correctly.
 
 # HOMEBREW_LIBRARY is set by bin/brew
 # HOMEBREW_SDKROOT is set by extend/ENV/super.rb

@@ -29,7 +29,7 @@ RSpec.describe RuboCop::Cop::Cask::NoOverrides, :config do
     expect_no_offenses <<~CASK
       cask 'foo' do
         on_macos do
-          depends_on macos: :catalina
+          depends_on macos: :big_sur
         end
       end
     CASK

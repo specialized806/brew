@@ -51,8 +51,6 @@ module Homebrew
         ).returns(T.type_parameter(:U))
       }
       def with_tag(tag, &block)
-        raise ArgumentError, "Invalid tag: #{tag}" unless tag.valid_combination?
-
         with(os: tag.system, arch: tag.arch, &block)
       end
 

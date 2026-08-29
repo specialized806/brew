@@ -69,10 +69,8 @@ module OS
     def self.preferred_perl_version
       if version >= :sonoma
         "5.34"
-      elsif version >= :big_sur
-        "5.30"
       else
-        "5.18"
+        "5.30"
       end
     end
 

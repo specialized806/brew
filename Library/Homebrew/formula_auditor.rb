@@ -1381,8 +1381,6 @@ module Homebrew
 
       MacOSVersion::SYMBOLS.keys.product(OnSystem::ARCH_OPTIONS).each do |os, arch|
         bottle_tag = Utils::Bottles::Tag.new(system: os, arch:)
-        next unless bottle_tag.valid_combination?
-
         variation_dependencies = variations.dig(bottle_tag.to_sym, "dependencies")
         # This variation either:
         #   1. does not exist

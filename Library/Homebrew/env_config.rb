@@ -409,8 +409,7 @@ module Homebrew
         boolean:     true,
       },
       HOMEBREW_FORCE_BREWED_CA_CERTIFICATES:     {
-        description: "If set, always use a Homebrew-installed `ca-certificates` rather than the system version. " \
-                     "Automatically set if the system version is too old.",
+        description: "If set, always use a Homebrew-installed `ca-certificates` rather than the system version.",
         boolean:     :set,
       },
       HOMEBREW_FORCE_BREWED_CURL:                {
