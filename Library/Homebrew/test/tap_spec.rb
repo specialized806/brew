@@ -212,9 +212,19 @@ RSpec.describe Tap do
                                           "https://gitlab.com/other/repo")).to be true
     end
 
+    it "ignores a `.git` suffix on Codeberg remotes" do
+      expect(described_class.same_remote?("https://codeberg.org/other/repo.git",
+                                          "https://codeberg.org/other/repo")).to be true
+    end
+
     it "ignores a trailing slash on GitLab remotes" do
       expect(described_class.same_remote?("https://gitlab.com/other/repo/",
                                           "https://gitlab.com/other/repo")).to be true
+    end
+
+    it "ignores a trailing slash on Codeberg remotes" do
+      expect(described_class.same_remote?("https://codeberg.org/other/repo/",
+                                          "https://codeberg.org/other/repo")).to be true
     end
 
     it "keeps a `.git` suffix and trailing slash significant on a self-hosted remote" do
