@@ -491,20 +491,23 @@ module Homebrew
     sig { params(info: T::Hash[Symbol, T.untyped], verbose: T::Boolean, ambiguous_cask: T::Boolean).void }
     private_class_method def self.print_latest_version(info, verbose: false, ambiguous_cask: false)
       package_or_resource_s = info[:resource].present? ? "  " : ""
-      package_or_resource_s += "#{Tty.blue}#{info[:formula] || info[:cask] || info[:resource]}#{Tty.reset}"
+      package_or_resource = Tty.strip_ansi((info[:formula] || info[:cask] || info[:resource]).to_s)
+      package_or_resource_s += "#{Tty.blue}#{package_or_resource}#{Tty.reset}"
       package_or_resource_s += " (cask)" if ambiguous_cask
       package_or_resource_s += " (guessed)" if verbose && !info[:meta][:livecheck_defined]
 
+      current = Tty.strip_ansi(info[:version][:current].to_s)
       current_s = if info[:version][:newer_than_upstream]
-        "#{Tty.red}#{info[:version][:current]}#{Tty.reset}"
+        "#{Tty.red}#{current}#{Tty.reset}"
       else
-        info[:version][:current]
+        current
       end
 
+      latest = Tty.strip_ansi(info[:version][:latest].to_s)
       latest_s = if info[:version][:outdated]
-        "#{Tty.green}#{info[:version][:latest]}#{Tty.reset}"
+        "#{Tty.green}#{latest}#{Tty.reset}"
       else
-        info[:version][:latest]
+        latest
       end
 
       puts "#{package_or_resource_s}: #{current_s} ==> #{latest_s}"
@@ -792,10 +795,10 @@ module Homebrew
 
           if verbose
             match_version_map.each do |match, version|
-              puts "#{match} => #{version.inspect}"
+              puts Tty.strip_ansi("#{match} => #{version.inspect}")
             end
           else
-            puts match_version_map.values.join(", ")
+            puts Tty.strip_ansi(match_version_map.values.join(", "))
           end
         end
 
@@ -829,14 +832,14 @@ module Homebrew
 
             if verbose
               throttled_match_version_map.each do |match, version|
-                puts "#{match} => #{version.inspect}"
+                puts Tty.strip_ansi("#{match} => #{version.inspect}")
               end
             elsif throttled_match_version_map.present?
-              puts throttled_match_version_map.values.join(", ")
+              puts Tty.strip_ansi(throttled_match_version_map.values.join(", "))
             end
 
             if version_info[:latest_throttled] == version_info[:latest] && throttled_match_version_map.blank?
-              puts "#{version_info[:latest_throttled]} (throttle interval elapsed)"
+              puts Tty.strip_ansi("#{version_info[:latest_throttled]} (throttle interval elapsed)")
             end
           end
         end
@@ -1049,10 +1052,10 @@ module Homebrew
 
           if verbose
             match_version_map.each do |match, version|
-              puts "#{match} => #{version.inspect}"
+              puts Tty.strip_ansi("#{match} => #{version.inspect}")
             end
           else
-            puts match_version_map.values.join(", ")
+            puts Tty.strip_ansi(match_version_map.values.join(", "))
           end
         end
 

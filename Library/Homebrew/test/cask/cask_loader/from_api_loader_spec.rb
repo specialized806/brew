@@ -181,6 +181,54 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
   end
 
   describe "#load" do
+    it "does not dispatch unknown raw artifacts" do
+      marker = mktmpdir/"unexpected-dispatch"
+      cask_struct = Homebrew::API::CaskStruct.new(
+        version:       "1.0",
+        sha256:        "0" * 64,
+        url_args:      ["https://example.invalid/unknown-raw-artifact.zip"],
+        raw_artifacts: [[:instance_eval, ["FileUtils.touch(#{marker.to_s.dump})"], {}, nil]],
+      )
+      loader = described_class.new(
+        "unknown-raw-artifact",
+        from_json:          cask_struct.serialize,
+        from_internal_json: true,
+      )
+
+      expect { loader.load(config: nil) }.not_to change(marker, :exist?).from(false)
+    end
+
+    it "preserves supported stage-only, package, and uninstall artifacts" do
+      base_source = {
+        "token"   => "supported-artifacts",
+        "version" => "1.0",
+        "sha256"  => "0" * 64,
+        "url"     => "https://example.invalid/supported-artifacts.zip",
+      }
+      stage_only_cask = described_class.new(
+        "supported-stage-only",
+        from_json:               base_source.merge("artifacts" => [{ "stage_only" => [true] }]),
+        path:                    Pathname("/tmp/supported-stage-only.json"),
+        from_installed_caskfile: true,
+      ).load(config: nil)
+      pkg_cask = described_class.new(
+        "supported-pkg",
+        from_json:               base_source.merge(
+          "artifacts" => [
+            { "pkg" => ["Test.pkg"] },
+            { "uninstall" => [{ "pkgutil" => "com.example.test" }] },
+          ],
+        ),
+        path:                    Pathname("/tmp/supported-pkg.json"),
+        from_installed_caskfile: true,
+      ).load(config: nil)
+
+      expect([stage_only_cask.artifacts_list, pkg_cask.artifacts_list]).to eq([
+        [{ stage_only: [true] }],
+        [{ uninstall: [{ pkgutil: "com.example.test" }] }, { pkg: ["Test.pkg"] }],
+      ])
+    end
+
     it "handles greedy outdated checks for installed metadata without a URL" do
       token = "url-less-installed-cask"
       caskroom = mktmpdir

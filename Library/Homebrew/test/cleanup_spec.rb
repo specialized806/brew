@@ -721,6 +721,32 @@ RSpec.describe Homebrew::Cleanup do
       expect(api_package_files.map(&:exist?)).to eq([true, true])
     end
 
+    it "cleans up per-resource API files when pruning" do
+      cache = mktmpdir/"cache"
+      api_resource_files = [cache/"api/cask/foo.json", cache/"api/formula/foo.json"]
+      api_resource_files.each do |file|
+        file.dirname.mkpath
+        FileUtils.touch file
+      end
+
+      described_class.new(days: 0, cache:).cleanup_cache
+
+      expect(api_resource_files.map(&:exist?)).to eq([false, false])
+    end
+
+    it "cleans up per-resource API files with scrub" do
+      cache = mktmpdir/"cache"
+      api_resource_files = [cache/"api/cask/foo.json", cache/"api/formula/foo.json"]
+      api_resource_files.each do |file|
+        file.dirname.mkpath
+        FileUtils.touch file
+      end
+
+      described_class.new(scrub: true, cache:).cleanup_cache
+
+      expect(api_resource_files.map(&:exist?)).to eq([false, false])
+    end
+
     it "cleans up non-current internal package API files with scrub" do
       cache = mktmpdir/"cache"
       api_internal = cache/"api/internal"

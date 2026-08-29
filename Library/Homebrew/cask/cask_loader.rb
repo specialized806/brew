@@ -563,7 +563,12 @@ module Cask
           end
 
           localised_cask_struct.artifacts(appdir:).each do |key, args, kwargs, block|
-            send(key, *args, **kwargs, &block)
+            unless DSL::ARTIFACT_DSL_METHODS.include?(key)
+              odebug "Ignoring unsupported artifact stanza '#{key}' in cask '#{token}'"
+              next
+            end
+
+            public_send(key, *args, **kwargs, &block)
           end
 
           caveats T.must(localised_cask_struct.caveats(appdir:)) if localised_cask_struct.caveats?

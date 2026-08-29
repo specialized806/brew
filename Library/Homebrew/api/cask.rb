@@ -28,7 +28,8 @@ module Homebrew
       sig { params(name: String).void }
       def self.fetch_cask_json!(name)
         endpoint = "cask/#{name}.json"
-        json_cask, updated = Homebrew::API.fetch_json_api_file endpoint
+        json_cask, updated = Homebrew::API.fetch_json_api_file endpoint,
+                                                               stale_seconds: Homebrew::API::UNSIGNED_API_STALE_SECONDS
 
         json_cask = JSON.parse((HOMEBREW_CACHE_API/endpoint).read) unless updated
 

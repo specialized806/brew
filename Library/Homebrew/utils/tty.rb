@@ -44,6 +44,28 @@ module Tty
 
   CODES = T.let(COLOR_CODES.merge(STYLE_CODES).freeze, T::Hash[Symbol, Integer])
 
+  TERMINAL_CONTROL_SEQUENCE = %r{
+      (?:\e\]|\u009D).*?(?:\a|\e\\|\u009C|\z) |
+      (?:\e[P^_X]|\u0090|\u0098|\u009E|\u009F).*?(?:\e\\|\u009C|\z) |
+      (?:\e\[|\u009B)[0-?]*[\x20-/]*[@-~] |
+      \e[\x20-/]*[@-~] |
+      \e |
+      [\u0080-\u009F] |
+      [\a\r]
+    }mx
+  private_constant :TERMINAL_CONTROL_SEQUENCE
+
+  BINARY_TERMINAL_CONTROL_SEQUENCE = /
+      (?:\x1B\]|\x9D).*?(?:\x07|\x1B\\|\x9C|\z) |
+      (?:\x1B[P^_X]|\x90|\x98|\x9E|\x9F).*?(?:\x1B\\|\x9C|\z) |
+      (?:\x1B\[|\x9B)[0-?]*[\x20-\x2F]*[@-~] |
+      \x1B[\x20-\x2F]*[@-~] |
+      \x1B |
+      [\x80-\x9F] |
+      [\x07\r]
+    /mnx
+  private_constant :BINARY_TERMINAL_CONTROL_SEQUENCE
+
   class << self
     sig { params(stream: T.any(IO, StringIO), _block: T.proc.params(arg0: T.any(IO, StringIO)).void).void }
     def with(stream, &_block)
@@ -57,7 +79,11 @@ module Tty
 
     sig { params(string: String).returns(String) }
     def strip_ansi(string)
-      string.gsub(/\033\[\d+(;\d+)*m/, "")
+      if string.ascii_only? || (string.encoding == Encoding::UTF_8 && string.valid_encoding?)
+        string.gsub(TERMINAL_CONTROL_SEQUENCE, "")
+      else
+        string.b.gsub(BINARY_TERMINAL_CONTROL_SEQUENCE, "".b).force_encoding(string.encoding)
+      end
     end
 
     # Simulates a terminal rendering `\r` overwrites (e.g. curl's `--progress-bar`).
