@@ -52,8 +52,8 @@ class Tap
   # Fetch a {Tap} by name.
   #
   # @api public
-  sig { params(user: String, repository: String).returns(Tap) }
-  def self.fetch(user, repository = T.unsafe(nil))
+  sig { params(user: String, repository: T.nilable(String)).returns(Tap) }
+  def self.fetch(user, repository = nil)
     user, repository = user.split("/", 2) if repository.nil?
 
     if [user, repository].any? { |part| part.nil? || part.include?("/") }
@@ -61,6 +61,7 @@ class Tap
     end
 
     user = T.must(user)
+    repository = T.must(repository)
 
     # We special case homebrew and linuxbrew so that users don't have to shift in a terminal.
     user = user.capitalize if ["homebrew", "linuxbrew"].include?(user)
@@ -141,8 +142,9 @@ class Tap
 
   # Hosts where a `.git` suffix and trailing slashes are known not to change which repository a
   # remote identifies, so we can safely strip them. We don't assume this for arbitrary hosts
-  # (including self-hosted GitLab and GitHub Enterprise) where `repo.git` and `repo` may differ.
-  NORMALIZE_REMOTE_HOSTS = %w[github.com gitlab.com].freeze
+  # (including self-hosted GitLab, Forgejo, and GitHub Enterprise) where `repo.git` and `repo`
+  # may differ.
+  NORMALIZE_REMOTE_HOSTS = %w[codeberg.org github.com gitlab.com].freeze
 
   # An optional RFC 3986-ish `scheme://` (e.g. `https://`, `ssh://` or `git+https://`) followed by
   # optional `user@` userinfo: the part of a remote URL that can precede the host.
