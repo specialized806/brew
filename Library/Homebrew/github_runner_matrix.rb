@@ -96,12 +96,13 @@ class GitHubRunnerMatrix
     # Portable Ruby logic
     if @testing_formulae.any? { |tf| tf.name.start_with?("portable-") }
       x86_64_spec = MacOSRunnerSpec.new(
-        name:    "macOS 10.15-cross x86_64",
-        runner:  "10.15-cross-#{@github_run_id}",
-        timeout: GITHUB_ACTIONS_LONG_TIMEOUT,
-        cleanup: true,
+        name:         "macOS 11-cross x86_64",
+        runner:       "macos-15-intel",
+        timeout:      GITHUB_ACTIONS_RUNNER_TIMEOUT,
+        cleanup:      true,
+        target_macos: "11.7.10",
       )
-      x86_64_macos_version = MacOSVersion.new("10.15")
+      x86_64_macos_version = MacOSVersion.new("11")
       @runners << create_runner(:macos, :x86_64, x86_64_spec, x86_64_macos_version)
 
       # odisabled: remove support for Big Sur September (or later) 2027
