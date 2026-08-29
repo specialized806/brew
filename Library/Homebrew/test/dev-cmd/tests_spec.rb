@@ -119,9 +119,18 @@ RSpec.describe Homebrew::DevCmd::Tests do
 
     it "fails when a dependency is missing on CI" do
       ENV["CI"] = "1"
+      ENV.delete("HOMEBREW_TEST_BOT")
 
       expect { ensure_test_dependency!(false, "Dependency is not installed.") }
         .to raise_error(RuntimeError, "Dependency is not installed.")
+    end
+
+    it "skips when a dependency is missing under `brew test-bot`" do
+      ENV["CI"] = "1"
+      ENV["HOMEBREW_TEST_BOT"] = "1"
+
+      expect(self).to receive(:skip).with("Dependency is not installed.")
+      ensure_test_dependency!(false, "Dependency is not installed.")
     end
   end
 

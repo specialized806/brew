@@ -78,11 +78,13 @@ module Test
       requires_ancestor { RSpec::Core::Pending }
 
       # Skip missing tools locally, but fail on CI so runner dependency
-      # regressions cannot silently reduce coverage.
+      # regressions cannot silently reduce coverage. `brew test-bot`'s
+      # portable-ruby validation runs this suite in homebrew-core build
+      # containers that intentionally lack some tools, so skip there too.
       def ensure_test_dependency!(available, message)
         return if available
 
-        raise message if ENV["CI"]
+        raise message if ENV["CI"] && !ENV["HOMEBREW_TEST_BOT"]
 
         skip message
       end
