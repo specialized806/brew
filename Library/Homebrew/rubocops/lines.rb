@@ -8,28 +8,6 @@ require "utils/shell_completion"
 module RuboCop
   module Cop
     module FormulaAudit
-      # This cop checks for various miscellaneous Homebrew coding styles.
-      class Lines < FormulaCop
-        sig { override.params(_formula_nodes: FormulaNodes).void }
-        def audit_formula(_formula_nodes)
-          [:automake, :ant, :autoconf, :emacs, :expat, :libtool, :mysql, :perl,
-           :postgresql, :python, :python3, :rbenv, :ruby].each do |dependency|
-            next unless depends_on?(dependency)
-
-            problem ":#{dependency} is deprecated. Usage should be \"#{dependency}\"."
-          end
-
-          { apr: "apr-util", fortran: "gcc", gpg: "gnupg", hg: "mercurial",
-            mpi: "open-mpi", python2: "python" }.each do |requirement, dependency|
-            next unless depends_on?(requirement)
-
-            problem ":#{requirement} is deprecated. Usage should be \"#{dependency}\"."
-          end
-
-          problem ":tex is deprecated." if depends_on?(:tex)
-        end
-      end
-
       # This cop makes sure that a space is used for class inheritance.
       class ClassInheritance < FormulaCop
         sig { override.params(formula_nodes: FormulaNodes).void }
@@ -1019,10 +997,6 @@ module RuboCop
 
           find_method_with_args(body_node, :fails_with, :llvm) do
             problem "`fails_with :llvm` is now a no-op and should be removed"
-          end
-
-          find_method_with_args(body_node, :needs, :openmp) do
-            problem "`needs :openmp` should be replaced with `depends_on \"gcc\"`"
           end
 
           find_method_with_args(body_node, :system, /^(otool|install_name_tool|lipo)/) do

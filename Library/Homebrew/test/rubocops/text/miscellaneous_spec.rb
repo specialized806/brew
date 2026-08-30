@@ -336,17 +336,6 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Miscellaneous do
       RUBY
     end
 
-    it "reports an offense when `needs :openmp` is used" do
-      expect_offense(<<~RUBY)
-        class Foo < Formula
-          desc "foo"
-          url 'https://brew.sh/foo-1.0.tgz'
-          needs :openmp
-          ^^^^^^^^^^^^^ FormulaAudit/Miscellaneous: `needs :openmp` should be replaced with `depends_on "gcc"`
-        end
-      RUBY
-    end
-
     it "reports an offense when `MACOS_VERSION` is used" do
       expect_offense(<<~RUBY)
         class Foo < Formula
