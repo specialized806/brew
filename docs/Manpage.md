@@ -4985,6 +4985,11 @@ command execution (e.g. `$(cat file)`).
 : If set, `brew info` and `brew install` will not warn when a formula's
   executables are shadowed by other commands earlier on `$PATH`.
 
+`HOMEBREW_NO_RELOCATE_BUILD_PREFIX`
+
+: If set, do not relocate bottles built for a different prefix at install time.
+  Homebrew will build from source instead.
+
 `HOMEBREW_NO_REQUIRE_TAP_TRUST`
 
 : If set, do not require non-official tap formulae, casks or commands to be

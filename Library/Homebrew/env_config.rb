@@ -612,6 +612,11 @@ module Homebrew
                      "shadowed by other commands earlier on `$PATH`.",
         boolean:     true,
       },
+      HOMEBREW_NO_RELOCATE_BUILD_PREFIX:         {
+        description: "If set, do not relocate bottles built for a different prefix at install time. " \
+                     "Homebrew will build from source instead.",
+        boolean:     true,
+      },
       HOMEBREW_NO_REQUIRE_TAP_TRUST:             {
         # odeprecated: remove in a later release after tap trust checks are the default.
         description: "If set, do not require non-official tap formulae, casks or commands to be trusted. " \
@@ -657,12 +662,6 @@ module Homebrew
         boolean:     true,
         odeprecated: true,
         replacement: "the default IRB backend (Pry is largely unmaintained upstream)",
-      },
-      HOMEBREW_RELOCATE_BUILD_PREFIX:            {
-        description: "If set, pour bottles built for a longer prefix and patch the build prefix into their " \
-                     "binaries at install time.",
-        boolean:     true,
-        hidden:      true,
       },
       HOMEBREW_REQUIRE_TAP_TRUST:                {
         # odeprecated: make tap trust checks default in a later release.

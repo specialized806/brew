@@ -27,6 +27,35 @@ RSpec.describe Homebrew::TestBot::Formulae do
     end
   end
 
+  describe "#install_padded_prefix_source_dependencies" do
+    it "installs dependencies without compatible bottles at a padded prefix" do
+      Dir.mktmpdir do |tmpdir|
+        formulae = described_class.new(
+          tap: nil, git: "git", dry_run: true, fail_fast: false, verbose: false,
+          output_paths: {
+            bottle:                     Pathname.new("#{tmpdir}/bottle.txt"),
+            linkage:                    Pathname.new("#{tmpdir}/linkage.txt"),
+            skipped_or_failed_formulae: Pathname.new("#{tmpdir}/skipped.txt"),
+          }
+        )
+        compatible = instance_double(Formula, bottle: instance_double(Bottle))
+        incompatible = instance_double(Formula, bottle: nil)
+        allow(Formulary).to receive(:factory).with("compatible").and_return(compatible)
+        allow(Formulary).to receive(:factory).with("incompatible").and_return(incompatible)
+        padded_prefix = Utils::Bottles.tag.padded_prefix
+        raise "Current tag has no padded prefix" if padded_prefix.nil?
+
+        stub_const("HOMEBREW_PREFIX", Pathname(padded_prefix))
+
+        formulae.install_padded_prefix_source_dependencies(%w[compatible incompatible])
+
+        expect(formulae.steps.map(&:command)).to eq [
+          %w[brew install --formulae --build-from-source incompatible],
+        ]
+      end
+    end
+  end
+
   describe "#annotate_added_dependencies" do
     it "writes a warning annotation for the new recursive dependency impact" do
       formula = formula("foo") do

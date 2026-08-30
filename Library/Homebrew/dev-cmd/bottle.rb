@@ -538,6 +538,7 @@ module Homebrew
 
             tab = keg.tab
             original_tab = tab.dup
+            tab.built_prefix = prefix if tab.built_prefix
             tab.poured_from_bottle = false
             tab.time = nil
             tab.changed_files = changed_files&.dup

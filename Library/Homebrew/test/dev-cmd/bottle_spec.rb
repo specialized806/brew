@@ -63,7 +63,8 @@ RSpec.describe Homebrew::DevCmd::Bottle do
   end
 
   it "builds a bottle for the given Formula", :integration_test do
-    setup_test_formula "testball", tab_attributes: { built_as_bottle: true }
+    setup_test_formula "testball",
+                       tab_attributes: { built_as_bottle: true, built_prefix: Keg::PREFIX_PLACEHOLDER }
     formula = Formula["testball"]
 
     # `brew bottle` should not fail with dead symlink
@@ -89,6 +90,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
         "changed_files"           => be_an(Array),
         "linkage_files"           => be_an(Array),
         "binary_relocation_files" => include("libexec/raw-prefix"),
+        "built_prefix"            => HOMEBREW_PREFIX.to_s,
       )
       binary_relocation_diagnostics = tag.fetch("binary_relocation_diagnostics")
       expect(binary_relocation_diagnostics.size).to eq(Homebrew::DevCmd::Bottle::MAXIMUM_STRING_MATCHES)
