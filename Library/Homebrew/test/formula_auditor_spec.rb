@@ -1438,6 +1438,42 @@ RSpec.describe Homebrew::FormulaAuditor do
         end
       end
     end
+
+    describe "when a core formula has a libomp dependency" do
+      subject do
+        fa.audit_deps
+        fa.problems.first&.fetch(:message)
+      end
+
+      let(:fa) do
+        formula_auditor "foo", <<~RUBY, core_tap: true
+          class Foo < Formula
+            url "https://brew.sh/foo-1.0.tgz"
+            homepage "https://brew.sh"
+
+            depends_on "libomp"
+          end
+        RUBY
+      end
+
+      around do |example|
+        Homebrew::SimulateSystem.with(os:) do
+          example.run
+        end
+      end
+
+      describe "on Linux" do
+        let(:os) { :linux }
+
+        it { is_expected.to include("should not use 'libomp' on Linux") }
+      end
+
+      describe "on macOS" do
+        let(:os) { :macos }
+
+        it { is_expected.to be_nil }
+      end
+    end
   end
 
   describe "#audit_stable_version" do
