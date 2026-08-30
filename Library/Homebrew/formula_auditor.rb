@@ -446,6 +446,10 @@ module Homebrew
           if dep.tags.include?(:recommended) || dep.tags.include?(:optional)
             problem "Formulae in homebrew/core should not have optional or recommended dependencies"
           end
+
+          if Homebrew::SimulateSystem.simulating_or_running_on_linux? && dep.name == "libomp"
+            problem "Formulae in homebrew/core should not use 'libomp' on Linux"
+          end
         end
 
         next unless @core_tap
