@@ -113,10 +113,11 @@ module Tty
     def size
       return @size if defined?(@size)
 
+      @size = T.let(nil, T.nilable([Integer, Integer]))
       height, width = `/bin/stty size 2>/dev/null`.presence&.split&.map(&:to_i)
-      return if height.nil? || width.nil?
+      @size = [height, width] if height && width
 
-      @size = T.let([height, width], T.nilable([Integer, Integer]))
+      @size
     end
 
     sig { returns(Integer) }

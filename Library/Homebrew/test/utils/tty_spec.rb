@@ -40,6 +40,24 @@ RSpec.describe Tty do
     end
   end
 
+  describe "::size" do
+    before do
+      described_class.remove_instance_variable(:@size) if described_class.instance_variable_defined?(:@size)
+    end
+
+    after do
+      described_class.remove_instance_variable(:@size) if described_class.instance_variable_defined?(:@size)
+    end
+
+    it "memoises a failed `stty size` probe instead of respawning it" do
+      expect(described_class).to receive(:`).with("/bin/stty size 2>/dev/null").once.and_return("")
+
+      # We call this twice to check the failure is memoised
+      expect(described_class.size).to be_nil
+      expect(described_class.size).to be_nil
+    end
+  end
+
   describe "::width" do
     specify do
       expect(described_class.width).to be_a(Integer)
