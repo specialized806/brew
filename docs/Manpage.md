@@ -2753,7 +2753,9 @@ checks. Will exit with a non-zero status if any errors are found.
 
 `--fix`
 
-: Fix style violations automatically using RuboCop's auto-correct feature.
+: Fix style violations automatically using RuboCop's auto-correct feature. When
+  passed with `--online` for casks, also correct the `depends_on macos:` stanza
+  and the case of artifact stanzas.
 
 `--display-filename`
 
