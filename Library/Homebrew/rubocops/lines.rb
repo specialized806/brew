@@ -225,26 +225,6 @@ module RuboCop
         EOS
       end
 
-      # This cop makes sure that formulae depend on `open-mpi` instead of `mpich`.
-      class MpiCheck < FormulaCop
-        extend AutoCorrector
-
-        sig { override.params(formula_nodes: FormulaNodes).void }
-        def audit_formula(formula_nodes)
-          return if (body_node = formula_nodes.body_node).nil?
-
-          # Enforce use of OpenMPI for MPI dependency in core
-          return if formula_tap != "homebrew-core"
-
-          find_method_with_args(body_node, :depends_on, "mpich") do
-            problem "Formulae in homebrew/core should use `depends_on \"open-mpi\"` " \
-                    "instead of `#{T.must(@offensive_node).source}`." do |corrector|
-              corrector.replace(T.must(@offensive_node).source_range, "depends_on \"open-mpi\"")
-            end
-          end
-        end
-      end
-
       # This cop makes sure that formulae use `std_npm_args` instead of older
       # `local_npm_install_args` and `std_npm_install_args`.
       class StdNpmArgs < FormulaCop
@@ -280,6 +260,44 @@ module RuboCop
 
             offending_node(method)
             problem "Use `std_npm_args` for npm install"
+          end
+        end
+      end
+
+      # This cop makes sure that formulae depend on `jpeg-turbo` instead of `jpeg`.
+      class JpegCheck < FormulaCop
+        extend AutoCorrector
+
+        sig { override.params(formula_nodes: FormulaNodes).void }
+        def audit_formula(formula_nodes)
+          return if (body_node = formula_nodes.body_node).nil?
+          return if formula_tap != "homebrew-core"
+
+          find_method_with_args(body_node, :depends_on, "jpeg") do
+            problem "Formulae in homebrew/core should use `depends_on \"jpeg-turbo\"` " \
+                    "instead of `#{T.must(@offensive_node).source}`." do |corrector|
+              corrector.replace(T.must(@offensive_node).source_range, "depends_on \"jpeg-turbo\"")
+            end
+          end
+        end
+      end
+
+      # This cop makes sure that formulae depend on `open-mpi` instead of `mpich`.
+      class MpiCheck < FormulaCop
+        extend AutoCorrector
+
+        sig { override.params(formula_nodes: FormulaNodes).void }
+        def audit_formula(formula_nodes)
+          return if (body_node = formula_nodes.body_node).nil?
+
+          # Enforce use of OpenMPI for MPI dependency in core
+          return if formula_tap != "homebrew-core"
+
+          find_method_with_args(body_node, :depends_on, "mpich") do
+            problem "Formulae in homebrew/core should use `depends_on \"open-mpi\"` " \
+                    "instead of `#{T.must(@offensive_node).source}`." do |corrector|
+              corrector.replace(T.must(@offensive_node).source_range, "depends_on \"open-mpi\"")
+            end
           end
         end
       end
