@@ -44,6 +44,7 @@ module Homebrew
           when :brew
             Formulary.factory(arg).desc
           when :cask
+            Kernel.require "cask/cask_loader"
             ::Cask::CaskLoader.load(arg).desc
           end
 
