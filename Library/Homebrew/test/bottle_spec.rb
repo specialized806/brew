@@ -55,6 +55,63 @@ RSpec.describe Bottle do
     end
   end
 
+  describe "#stage" do
+    it "verifies a cached bottle against its checksum and refetches on mismatch", :aggregate_failures do
+      valid_content = "valid"
+      bottle_spec = BottleSpecification.new
+      bottle_spec.root_url("https://example.com")
+      bottle_spec.sha256(cellar: :any_skip_relocation, arm64_big_sur: Digest::SHA256.hexdigest(valid_content))
+      bottle = described_class.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
+                                   name: "foo", pkg_version: PkgVersion.new(Version.new("1.2.3"), 0))
+      bottle.cached_download.dirname.mkpath
+      bottle.cached_download.write("corrupt")
+      allow(bottle.downloader).to receive(:stage)
+      expect(bottle).to receive(:fetch) { bottle.cached_download.write(valid_content) }
+
+      expect { bottle.stage }.to output(/Removing corrupt cached download/).to_stderr
+    end
+
+    it "removes the cached bottle when the refetched download also fails verification", :aggregate_failures do
+      valid_content = "valid"
+      bottle_spec = BottleSpecification.new
+      bottle_spec.root_url("https://example.com")
+      expected_checksum = Checksum.new(Digest::SHA256.hexdigest(valid_content))
+      bottle_spec.sha256(cellar: :any_skip_relocation, arm64_big_sur: expected_checksum.hexdigest)
+      bottle = described_class.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
+                                   name: "foo", pkg_version: PkgVersion.new(Version.new("1.2.3"), 0))
+      bottle.cached_download.dirname.mkpath
+      bottle.cached_download.write("corrupt")
+      expect(bottle).to receive(:fetch) do
+        bottle.cached_download.write("still corrupt")
+        raise ChecksumMismatchError.new(bottle.cached_download, expected_checksum,
+                                        Checksum.new(Digest::SHA256.hexdigest("still corrupt")))
+      end
+
+      expect do
+        expect { bottle.stage }.to raise_error(ChecksumMismatchError)
+      end.to output(/Removing corrupt cached download/).to_stderr
+      expect(bottle.cached_download).not_to exist
+    end
+
+    it "trusts cached immutable blobs without rehashing them when pouring" do
+      bottle_spec = BottleSpecification.new
+      bottle_spec.root_url(HOMEBREW_BOTTLE_DEFAULT_DOMAIN)
+      bottle_spec.sha256(
+        cellar:        :any_skip_relocation,
+        arm64_big_sur: "d7b9f4e8bf83608b71fe958a99f19f2e5e68bb2582965d32e41759c24f1aef97",
+      )
+      bottle = described_class.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
+                                   name: "foo", pkg_version: PkgVersion.new(Version.new("1.2.3"), 0))
+      bottle.cached_download.dirname.mkpath
+      bottle.cached_download.write("cached")
+      allow(bottle.downloader).to receive(:stage)
+
+      expect(bottle.resource).not_to receive(:verify_download_integrity)
+
+      bottle.stage
+    end
+  end
+
   describe "#stage_from_download_queue" do
     sig { params(checksum: String, content: String).returns(Bottle) }
     def cached_bottle(checksum, content)

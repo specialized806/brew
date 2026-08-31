@@ -200,15 +200,27 @@ module Homebrew
                download_queue:     Homebrew::DownloadQueue).returns(T::Array[FormulaInstaller])
       }
       def reject_failed_downloads(formula_installers, download_queue:)
+        failed_names = forget_failed_formula_downloads(download_queue:)
+        return formula_installers if failed_names.empty?
+
+        formula_installers.reject { |fi| failed_names.include?(fi.formula.name) }
+      end
+
+      # A formula whose download failed must not stay marked as fetched:
+      # `FormulaInstaller#enqueue_fetch` marks formulae as fetched when their
+      # downloads are enqueued, so a later retry pass would otherwise skip
+      # fetching entirely and install from a known-bad cached download without
+      # any checksum verification (issue 23714).
+      sig { params(download_queue: Homebrew::DownloadQueue).returns(T::Array[String]) }
+      def forget_failed_formula_downloads(download_queue:)
         failed_names = download_queue.failed_downloads.filter_map do |downloadable|
           case downloadable
           when Bottle then downloadable.name
           when Resource then downloadable.owner&.name
           end
         end
-        return formula_installers if failed_names.empty?
-
-        formula_installers.reject { |fi| failed_names.include?(fi.formula.name) }
+        FormulaInstaller.fetched.delete_if { |formula| failed_names.include?(formula.name) } if failed_names.any?
+        failed_names
       end
 
       sig {

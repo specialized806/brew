@@ -135,6 +135,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     end
   end
 
+  it "does not upgrade a Formula whose download has a checksum mismatch", :integration_test do
+    formula_name = "testball"
+    formula_rack = HOMEBREW_CELLAR/formula_name
+    tarball = TEST_FIXTURE_DIR/"tarballs/testball-0.1.tbz"
+    write_formula formula_name, <<~RUBY
+      url "file://#{tarball}"
+      version "0.2"
+      sha256 "#{"bad0" * 16}"
+    RUBY
+    (formula_rack/"0.1/foo").mkpath
+
+    expect { brew "upgrade" }
+      .to output(/reports different checksum/).to_stderr
+      .and not_to_output(/Upgrading testball/).to_stdout
+      .and be_a_failure
+
+    expect(formula_rack/"0.2").not_to exist
+  end
+
   # links newer version when upgrade was interrupted
   it "links a newer Formula version when upgrade was interrupted" do
     formula_name = "testball_bottle"
