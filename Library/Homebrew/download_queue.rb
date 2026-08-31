@@ -131,8 +131,9 @@ module Homebrew
     # reported with a ✘ line but neither raise nor mark the fetch or run
     # as failed, for metadata prefetches such as the bottle manifest of a
     # version whose bottle has not been published yet, where dependency
-    # resolution just falls back to a full install; known-bad cached files
-    # from checksum mismatches are still removed.
+    # resolution just falls back to a full install. Known-bad cached files
+    # from checksum mismatches are always removed, tolerated or not, so
+    # they can never be reused or staged.
     sig {
       params(only: T.nilable(T::Class[Downloadable]), heading: T.nilable(String),
              allow_failures: T::Boolean).void
@@ -165,6 +166,8 @@ module Homebrew
 
           @failed_downloads << downloadable
           ofail "#{downloadable.download_queue_type} reports different checksum: #{e.expected}"
+          # Remove the known-bad download so it can never be staged later.
+          unlink_cached_download(downloadable)
         rescue
           raise unless allow_failures
 
@@ -204,13 +207,14 @@ module Homebrew
             elsif future.rejected?
               if exception.is_a?(ChecksumMismatchError)
                 @failed_downloads << downloadable
-                actual = Digest::SHA256.file(downloadable.cached_download).hexdigest
                 actual_message, expected_message = align_checksum_mismatch_message(downloadable.download_queue_type)
 
                 report_or_defer_failure do
                   ofail "#{actual_message} #{exception.expected}"
-                  puts "#{expected_message} #{actual}"
+                  puts "#{expected_message} #{exception.actual}"
                 end
+                # Remove the known-bad download so it can never be staged later.
+                unlink_cached_download(downloadable)
               elsif exception.is_a?(CannotInstallFormulaError)
                 unlink_cached_download(downloadable)
                 raise exception

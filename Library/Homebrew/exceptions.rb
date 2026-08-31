@@ -927,9 +927,13 @@ class ChecksumMismatchError < RuntimeError
   sig { returns(Checksum) }
   attr_reader :expected
 
+  sig { returns(Checksum) }
+  attr_reader :actual
+
   sig { params(path: T.any(Pathname, String), expected: Checksum, actual: Checksum).void }
   def initialize(path, expected, actual)
     @expected = expected
+    @actual = actual
 
     super <<~EOS
       SHA-256 mismatch

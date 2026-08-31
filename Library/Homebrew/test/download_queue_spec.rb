@@ -123,6 +123,39 @@ RSpec.describe Homebrew::DownloadQueue do
     expect(Homebrew).not_to have_failed
   end
 
+  it "removes known-bad cached files for checksum mismatch failures" do
+    cached_download.dirname.mkpath
+    cached_download.write("corrupt")
+    allow(retryable_download).to receive(:fetch)
+      .and_raise(ChecksumMismatchError.new(cached_download, Checksum.new("aa" * 32), Checksum.new("bb" * 32)))
+
+    download_queue.enqueue(downloadable)
+
+    # The reported checksum comes from the failed verification rather than
+    # rehashing the file, which the report itself has already removed.
+    expect { download_queue.fetch }
+      .to output(/reports different checksum: +#{"aa" * 32}/).to_stderr
+      .and output(/checksum of downloaded file: +#{"bb" * 32}/).to_stdout
+    expect(download_queue.failed_downloads).to eq([downloadable])
+    expect(cached_download).not_to exist
+    expect(Homebrew).to have_failed
+  end
+
+  it "removes known-bad cached files for checksum mismatch failures in serial mode" do
+    allow(Homebrew::EnvConfig).to receive(:download_concurrency).and_return(1)
+    cached_download.dirname.mkpath
+    cached_download.write("corrupt")
+    allow(retryable_download).to receive(:fetch)
+      .and_raise(ChecksumMismatchError.new(cached_download, Checksum.new("aa" * 32), Checksum.new("bb" * 32)))
+
+    download_queue.enqueue(downloadable)
+
+    expect { download_queue.fetch }.to output(/reports different checksum/).to_stderr
+    expect(download_queue.failed_downloads).to eq([downloadable])
+    expect(cached_download).not_to exist
+    expect(Homebrew).to have_failed
+  end
+
   it "removes known-bad cached files for tolerated checksum mismatches" do
     cached_download.dirname.mkpath
     cached_download.write("corrupt")

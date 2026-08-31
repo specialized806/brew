@@ -313,7 +313,10 @@ module Homebrew
             shared_download_queue.fetch(heading: fetch_heading)
             # Only redo the slower unprefetched fetch for the kind of package
             # that actually failed, so e.g. one bad bottle does not also
-            # re-verify every already downloaded cask.
+            # re-verify every already downloaded cask. The unprefetched fetch
+            # must fetch failed formulae again from scratch, so they cannot
+            # stay marked as already fetched.
+            Install.forget_failed_formula_downloads(download_queue: shared_download_queue)
             failed_cask_downloads, failed_formula_downloads =
               shared_download_queue.failed_downloads.partition { |download| download.is_a?(Cask::Download) }
             formulae_prefetched = false if failed_formula_downloads.any?

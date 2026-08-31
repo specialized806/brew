@@ -104,7 +104,16 @@ class Resource
 
     prepare_patches
     fetch_patches(skip_downloaded: true)
-    fetch unless downloaded?
+    begin
+      fetch unless downloaded?
+      # Never unpack a cached download that does not match the expected
+      # checksum, e.g. one left behind by a failed download elsewhere.
+      verify_download_integrity(cached_download) if checksum.present?
+    rescue ChecksumMismatchError
+      # Remove the known-bad download so the next attempt fetches it again.
+      clear_cache
+      raise
+    end
 
     unpack(target, debug_symbols:, staging_path:, staged:, &block)
   end

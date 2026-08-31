@@ -180,6 +180,8 @@ class Bottle
     expected_checksum = resource.checksum
     return if expected_checksum.nil?
     return unless cached_download.file?
+    # Hash directly, bypassing the digest cache: this must catch local
+    # corruption that kept the file's size and modification time.
     return if cached_download.sha256 == expected_checksum.hexdigest
 
     opoo "Removing corrupt cached download: #{cached_download.basename}"
@@ -227,7 +229,20 @@ class Bottle
   end
 
   sig { void }
-  def stage = with_corrupt_download_retry { downloader.stage }
+  def stage
+    with_corrupt_download_retry do
+      # Trusted immutable blobs skip the rehash (see `downloaded_and_valid?`);
+      # any other cached bottle must match its checksum before being poured.
+      verify_download_integrity(cached_download) unless downloaded_and_valid?
+      downloader.stage
+    end
+  rescue ChecksumMismatchError
+    # The retry's fresh download can itself fail verification, raising from
+    # inside the rescue clause above: remove the known-bad download so the
+    # next attempt fetches it again.
+    clear_cache
+    raise
+  end
 
   sig { params(timeout: T.nilable(T.any(Integer, Float)), quiet: T::Boolean).void }
   def fetch_tab(timeout: nil, quiet: false)

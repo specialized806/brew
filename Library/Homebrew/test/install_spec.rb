@@ -49,22 +49,27 @@ RSpec.describe Homebrew::Install do
   end
 
   describe "::reject_failed_downloads" do
-    it "skips the formula whose download failed and keeps the rest" do
+    it "skips the formula whose download failed, keeps the rest and unmarks the failure as fetched" do
       bottle_spec = BottleSpecification.new
       bottle_spec.sha256(arm64_big_sur: "deadbeef" * 8)
       failed_bottle = Bottle.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
                                  name: "bad-bottle", pkg_version: PkgVersion.new(Version.new("1.0"), 0))
-      bad_fi = instance_double(FormulaInstaller, formula: formula("bad-bottle") do
+      bad_formula = formula("bad-bottle") do
         T.bind(self, T.class_of(Formula))
         url "foo-1.0"
-      end)
+      end
+      bad_fi = instance_double(FormulaInstaller, formula: bad_formula)
       good_fi = instance_double(FormulaInstaller, formula: formula("good-bottle") do
         T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end)
       download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [failed_bottle])
+      FormulaInstaller.fetched << bad_formula
 
       expect(described_class.reject_failed_downloads([bad_fi, good_fi], download_queue:)).to eq([good_fi])
+      # A retry pass must fetch the failed formula again rather than skip it
+      # as already fetched and install its known-bad cached download.
+      expect(FormulaInstaller.fetched).to be_empty
     end
   end
 

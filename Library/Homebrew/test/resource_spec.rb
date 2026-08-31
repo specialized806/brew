@@ -229,6 +229,17 @@ RSpec.describe Resource do
 
       expect(resource.source_modified_time).to eq(last_modified)
     end
+
+    it "refuses to unpack a cached download that does not match the checksum and removes it" do
+      resource.sha256("bad0" * 16)
+      resource.cached_download.dirname.mkpath
+      FileUtils.cp tarball, resource.cached_download
+
+      expect { resource.stage(mktmpdir) }.to raise_error(ChecksumMismatchError)
+      # The known-bad download must be removed so the next attempt fetches
+      # a fresh copy instead of failing on the same file again.
+      expect(resource.cached_download).not_to exist
+    end
   end
 
   describe "#owner" do
@@ -310,7 +321,7 @@ RSpec.describe Resource do
     other_resource = described_class.new("other")
     other_resource.sha256(digest)
 
-    expect(fn).to receive(:verify_checksum).once.and_call_original
+    expect(fn).to receive(:sha256).once.and_call_original
 
     resource.verify_download_integrity(fn)
     other_resource.verify_download_integrity(fn)
@@ -320,20 +331,17 @@ RSpec.describe Resource do
     fn = Pathname.new("test")
 
     allow(fn).to receive(:file?).and_return(true)
-    expect(fn).to receive(:verify_checksum).and_raise(ChecksumMissingError)
-    expect(fn).to receive(:sha256)
+    expect(fn).to receive(:sha256).and_return(Digest::SHA256.hexdigest("content"))
 
-    resource.verify_download_integrity(fn)
+    expect do
+      resource.verify_download_integrity(fn)
+    end.to output(/Cannot verify integrity/).to_stderr
   end
 
   specify "#verify_download_integrity_mismatch" do
     fn = Pathname.new("foo")
-    allow(fn).to receive(:file?).and_return(true)
-    checksum = resource.sha256(TEST_SHA256)
-
-    expect(fn).to receive(:verify_checksum)
-      .with(checksum)
-      .and_raise(ChecksumMismatchError.new(fn, checksum, Checksum.new(Digest::SHA256.new.hexdigest)))
+    allow(fn).to receive_messages(file?: true, sha256: Digest::SHA256.hexdigest("mismatch"))
+    resource.sha256(TEST_SHA256)
 
     expect do
       resource.verify_download_integrity(fn)
