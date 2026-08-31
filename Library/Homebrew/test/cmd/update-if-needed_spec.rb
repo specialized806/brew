@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 RSpec.describe "brew update-if-needed", type: :system do
