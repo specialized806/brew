@@ -507,7 +507,6 @@ module Cask
 
     sig { void }
     def audit_unnecessary_verified
-      return unless new_cask?
       return unless cask.url
       return unless verified_present?
 
