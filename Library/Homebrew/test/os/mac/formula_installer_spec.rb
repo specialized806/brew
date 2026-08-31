@@ -10,6 +10,10 @@ RSpec.describe FormulaInstaller do
   describe "#fresh_install" do
     subject(:formula_installer) { described_class.new(Testball.new) }
 
+    before do
+      allow(Hardware::CPU).to receive(:arm?).and_return(true)
+    end
+
     it "is true when non-developer and non-outdated" do
       formula = Testball.new
       allow(Homebrew::EnvConfig).to receive_messages(developer?: false)
@@ -28,6 +32,14 @@ RSpec.describe FormulaInstaller do
       formula = Testball.new
       allow(Homebrew::EnvConfig).to receive_messages(developer?: false)
       allow(OS::Mac.version).to receive_messages(outdated_release?: true)
+      expect(formula_installer.fresh_install?(formula)).to be false
+    end
+
+    it "is false on Intel" do
+      formula = Testball.new
+      allow(Hardware::CPU).to receive(:arm?).and_return(false)
+      allow(Homebrew::EnvConfig).to receive_messages(developer?: false)
+      allow(OS::Mac.version).to receive_messages(outdated_release?: false)
       expect(formula_installer.fresh_install?(formula)).to be false
     end
   end

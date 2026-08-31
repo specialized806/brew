@@ -10,7 +10,9 @@ module OS
 
       sig { params(formula: Formula).returns(T.nilable(T::Boolean)) }
       def fresh_install?(formula)
-        !::Homebrew::EnvConfig.developer? && !OS::Mac.version.outdated_release? &&
+        ::Hardware::CPU.arm? &&
+          !::Homebrew::EnvConfig.developer? &&
+          !OS::Mac.version.outdated_release? &&
           (installed_on_request? || !formula.any_version_installed?)
       end
     end

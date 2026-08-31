@@ -135,16 +135,34 @@ module OS
           tier = 2
           who = +"We"
           remediation = nil
-          what = if OS::Mac.version.prerelease?
-            "pre-release version."
-          elsif OS::Mac.version.outdated_release?
+          version = MacOS.version
+          macports_url = Formatter.url("https://www.macports.org")
+          what = if OS::Mac.version.outdated_release?
             tier = 3
             who << " (and Apple)"
             remediation = <<~EOS
-              You may have better luck with MacPorts which supports older versions of macOS:
-              #{Formatter.url("https://www.macports.org")}
+              You will have better luck with MacPorts which still supports older versions of macOS:
+                #{macports_url}
             EOS
             "old version."
+          elsif ::Hardware::CPU.intel?
+            tier = 3
+            version = "on Intel x86_64"
+            remediation = <<~EOS
+              You will have better luck with MacPorts which still supports macOS Intel x86_64:
+                #{macports_url}
+            EOS
+            <<~EOS
+              platform (as-of September 2026, announced August 2025).
+
+              Apple have dropped Intel x86_64 support in macOS Golden Gate (27).
+              GitHub Actions are dropping macOS Intel x86_64 runners in 2027.
+              Homebrew is a non-profit project run entirely by volunteers, not employees.
+              If the biggest companies in the world cannot support macOS Intel x86_64
+              any longer, sadly neither can we.
+            EOS
+          elsif OS::Mac.version.prerelease?
+            "pre-release version."
           end
           return if what.blank?
 
@@ -152,41 +170,11 @@ module OS
 
           ::Homebrew::Diagnostic::Finding.new(
             <<~EOS,
-              You are using macOS #{MacOS.version}.
-              #{who} do not provide support for this #{what}
+              You are using macOS #{version}.
+              #{who} do not provide support for this #{what.chomp}
             EOS
             remediation:,
             tier:,
-          )
-        end
-
-        sig { returns(T.nilable(::Homebrew::Diagnostic::Finding)) }
-        def check_for_opencore
-          return if ::Hardware::CPU.physical_cpu_arm64?
-
-          # https://dortania.github.io/OpenCore-Legacy-Patcher/UPDATE.html#checking-oclp-and-opencore-versions
-          begin
-            opencore_version = Utils.safe_popen_read("/usr/sbin/nvram",
-                                                     "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version").split[1]
-            oclp_version = Utils.safe_popen_read("/usr/sbin/nvram",
-                                                 "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:OCLP-Version").split[1]
-            return if opencore_version.blank? || oclp_version.blank?
-          rescue ErrorDuringExecution
-            return
-          end
-
-          oclp_support_tier = if ::Hardware::CPU.features.include?(:pclmulqdq) && !OS::Mac.version.outdated_release?
-            2
-          else
-            3
-          end
-
-          ::Homebrew::Diagnostic::Finding.new(
-            <<~EOS,
-              You have booted macOS using OpenCore Legacy Patcher.
-              We do not provide support for this configuration.
-            EOS
-            tier: oclp_support_tier,
           )
         end
 

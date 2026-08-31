@@ -5,8 +5,8 @@
 Every Homebrew/core bottle pours at every prefix under 65 characters long.
 
 - This applies on x86_64 Linux, arm64 Linux and arm64 macOS; longer prefixes
-  build from source. Intel macOS keeps its legacy `/usr/local` bottling
-  until EOL and is out of scope.
+  build from source. Intel macOS is out of scope: Homebrew/core no longer
+  builds Intel bottles outside the portable Ruby toolchain.
 - It includes today's non-relocatable (cellar-pinned) bottles, i.e. those
   that are neither `cellar :any` nor `cellar :any_skip_relocation`. The
   padded-prefix scheme below handles most of them; the residual classes in
