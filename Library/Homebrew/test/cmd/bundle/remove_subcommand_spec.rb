@@ -3,7 +3,6 @@
 
 require "bundle"
 require "bundle/subcommand/remove"
-require "cask/cask_loader"
 
 RSpec.describe Homebrew::Cmd::Bundle::RemoveSubcommand do
   subject(:remove) do
@@ -130,6 +129,22 @@ RSpec.describe Homebrew::Cmd::Bundle::RemoveSubcommand do
         # FIXME: Why doesn't this work?
         # expect { remove }.to output("--formula").to_stderr
       end
+    end
+  end
+
+  it "removes a cask and its description comment", :cask, :integration_test do
+    mktmpdir do |path|
+      brewfile = path/"Brewfile"
+      brewfile.write <<~BREWFILE
+        # BitTorrent client
+        cask "local-transmission"
+      BREWFILE
+
+      expect { brew "bundle", "remove", "local-transmission", "--cask", "--file=#{brewfile}" }
+        .to not_to_output.to_stdout
+        .and not_to_output.to_stderr
+        .and be_a_success
+      expect(brewfile.read).to eq("\n")
     end
   end
 end

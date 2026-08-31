@@ -11,6 +11,7 @@ RSpec.describe Homebrew::Cmd::Bundle::AddSubcommand do
   end
 
   let(:global) { false }
+  let(:file) { "/tmp/some_random_brewfile#{Random.rand(2 ** 16)}" }
   let(:context) { bundle_subcommand_context(:add, global:, file:, no_type_args: false) }
   let(:args_object) do
     args_for_subcommand(:add, *args, formulae?: type == :brew, casks?: type == :cask, taps?: type == :tap,
@@ -117,6 +118,22 @@ RSpec.describe Homebrew::Cmd::Bundle::AddSubcommand do
     it "installs and trusts the tap before loading the cask" do
       add
       expect(events).to eq([:tap, :trust, :load])
+    end
+  end
+
+  it "adds a cask and its description comment", :cask, :integration_test do
+    mktmpdir do |path|
+      brewfile = path/"Brewfile"
+      brewfile.write ""
+
+      expect { brew "bundle", "add", "local-transmission", "--cask", "--file=#{brewfile}" }
+        .to not_to_output.to_stdout
+        .and not_to_output.to_stderr
+        .and be_a_success
+      expect(brewfile.read).to eq <<~BREWFILE
+        # BitTorrent client
+        cask "local-transmission"
+      BREWFILE
     end
   end
 end

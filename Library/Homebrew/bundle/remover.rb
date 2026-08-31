@@ -79,6 +79,8 @@ module Homebrew
 
         return formula if formula.present?
 
+        require "cask/cask_loader"
+
         begin
           ::Cask::CaskLoader.load(name)
         rescue ::Cask::CaskUnavailableError
