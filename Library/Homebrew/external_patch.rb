@@ -51,6 +51,17 @@ class ExternalPatch
 
   sig { void }
   def apply
+    begin
+      if downloaded?
+        verify_download_integrity(cached_download) if resource.checksum.present?
+      else
+        fetch
+      end
+    rescue ChecksumMismatchError
+      clear_cache
+      raise
+    end
+
     base_dir = Pathname.pwd
     resource.unpack do
       patch_dir = Pathname.pwd

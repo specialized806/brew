@@ -144,6 +144,10 @@ class Bottle
     retry
   end
 
+  # Whether the cached bottle can be reused without downloading it again. An
+  # immutable GitHub Packages blob is named after its own digest, so matching
+  # that name is enough to skip the download — but it says nothing about the
+  # file's contents, which every consumer must still verify before extracting.
   sig { override.returns(T::Boolean) }
   def downloaded_and_valid?
     return false unless cached_download.file?
@@ -158,10 +162,10 @@ class Bottle
     downloader.bottle_blob_sha256 == resource_checksum.hexdigest
   end
 
-  # A cached immutable blob is trusted without rehashing it (see
-  # `downloaded_and_valid?`), so a locally corrupted bottle would fail to
-  # extract on every run: verify it after a failed extraction and, when it was
-  # indeed corrupt, discard it and retry with a freshly downloaded one.
+  # Callers verify the cached download before consuming it. On failure, discard
+  # the cached file only when it is genuinely corrupt and retry once with a
+  # fresh download; a file that matches its checksum is kept and the original
+  # error re-raised.
   sig { params(quiet: T::Boolean, _block: T.proc.void).void }
   def with_corrupt_download_retry(quiet: false, &_block)
     yield
@@ -231,9 +235,7 @@ class Bottle
   sig { void }
   def stage
     with_corrupt_download_retry do
-      # Trusted immutable blobs skip the rehash (see `downloaded_and_valid?`);
-      # any other cached bottle must match its checksum before being poured.
-      verify_download_integrity(cached_download) unless downloaded_and_valid?
+      verify_download_integrity(cached_download)
       downloader.stage
     end
   rescue ChecksumMismatchError
@@ -337,6 +339,7 @@ class Bottle
       FileUtils.rm(bottle_poured_file) if bottle_poured_file.symlink?
       FileUtils.rm_r(bottle_tmp_keg) if bottle_tmp_keg.directory?
 
+      verify_download_integrity(download)
       UnpackStrategy.detect(download, prioritize_extension: true)
                     .extract_nestedly(to: HOMEBREW_TEMP_CELLAR)
 

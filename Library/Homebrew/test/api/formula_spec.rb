@@ -169,6 +169,44 @@ RSpec.describe Homebrew::API::Formula do
 
       described_class.source_download(f)
     end
+
+    it "verifies a cached source file before trusting its symlink" do
+      target = mktmpdir/"testball_target.rb"
+      target.write("mismatched")
+      symlink = mktmpdir/"testball.rb"
+      FileUtils.ln_s(target, symlink)
+      allow(f).to receive(:ruby_source_checksum)
+        .and_return(Checksum.new(Digest::SHA256.hexdigest("valid")))
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(symlink)
+
+      expect { described_class.source_download(f) }.to raise_error(ChecksumMismatchError)
+      expect(symlink).not_to exist
+    end
+
+    it "removes a freshly downloaded source file that fails verification" do
+      missing = mktmpdir/"testball.rb"
+      checksum = Checksum.new(Digest::SHA256.hexdigest("valid"))
+      allow(f).to receive(:ruby_source_checksum).and_return(checksum)
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(missing)
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:fetch)
+        .and_raise(ChecksumMismatchError.new(missing, checksum, Checksum.new(Digest::SHA256.hexdigest("bad"))))
+      expect_any_instance_of(Homebrew::API::SourceDownload).to receive(:clear_cache)
+
+      expect { described_class.source_download(f) }.to raise_error(ChecksumMismatchError)
+    end
+
+    it "reuses a cached source file that matches its checksum" do
+      content = "valid"
+      target = mktmpdir/"testball_target.rb"
+      target.write(content)
+      symlink = mktmpdir/"testball.rb"
+      FileUtils.ln_s(target, symlink)
+      allow(f).to receive(:ruby_source_checksum).and_return(Checksum.new(Digest::SHA256.hexdigest(content)))
+      allow_any_instance_of(Homebrew::API::SourceDownload).to receive(:symlink_location).and_return(symlink)
+      expect_any_instance_of(Homebrew::API::SourceDownload).not_to receive(:fetch)
+
+      expect(described_class.source_download(f).symlink_location).to eq(symlink)
+    end
   end
 
   describe "::source_download_formula" do

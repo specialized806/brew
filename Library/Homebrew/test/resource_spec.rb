@@ -240,6 +240,24 @@ RSpec.describe Resource do
       # a fresh copy instead of failing on the same file again.
       expect(resource.cached_download).not_to exist
     end
+
+    it "stages a cached download that matches its checksum" do
+      resource.downloader.fetch
+
+      expect { resource.stage(mktmpdir) }.not_to raise_error
+    end
+
+    it "does not verify the cached download when reusing an existing staging directory" do
+      resource.downloader.fetch
+
+      mktmpdir do |staging_path|
+        (staging_path/"source").mkpath
+        (staging_path/".source_modified_time").write(last_modified.to_i.to_s)
+        expect(resource).not_to receive(:verify_download_integrity)
+
+        resource.stage(staging_path:, staged: true) { nil }
+      end
+    end
   end
 
   describe "#owner" do

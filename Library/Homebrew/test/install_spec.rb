@@ -52,24 +52,60 @@ RSpec.describe Homebrew::Install do
     it "skips the formula whose download failed, keeps the rest and unmarks the failure as fetched" do
       bottle_spec = BottleSpecification.new
       bottle_spec.sha256(arm64_big_sur: "deadbeef" * 8)
-      failed_bottle = Bottle.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
-                                 name: "bad-bottle", pkg_version: PkgVersion.new(Version.new("1.0"), 0))
       bad_formula = formula("bad-bottle") do
         T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
-      bad_fi = instance_double(FormulaInstaller, formula: bad_formula)
-      good_fi = instance_double(FormulaInstaller, formula: formula("good-bottle") do
+      good_formula = formula("good-bottle") do
         T.bind(self, T.class_of(Formula))
         url "foo-1.0"
-      end)
+      end
+      failed_bottle = Bottle.new(bad_formula, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur))
+      bad_fi = instance_double(FormulaInstaller, formula: bad_formula)
+      good_fi = instance_double(FormulaInstaller, formula: good_formula)
       download_queue = instance_double(Homebrew::DownloadQueue, failed_downloads: [failed_bottle])
-      FormulaInstaller.fetched << bad_formula
+      FormulaInstaller.fetched.merge([bad_formula, good_formula])
 
       expect(described_class.reject_failed_downloads([bad_fi, good_fi], download_queue:)).to eq([good_fi])
-      # A retry pass must fetch the failed formula again rather than skip it
-      # as already fetched and install its known-bad cached download.
-      expect(FormulaInstaller.fetched).to be_empty
+      expect(FormulaInstaller.fetched).to contain_exactly(good_formula)
+    end
+
+    it "clears fetched state when an API source download fails" do
+      bad_formula = formula("bad-source") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      good_formula = formula("good-source") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      failed_download = Homebrew::API::SourceDownload.new(
+        "https://brew.sh/bad-source.rb",
+        Checksum.new("aa" * 32),
+        formula: bad_formula,
+      )
+      FormulaInstaller.fetched.merge([bad_formula, good_formula])
+
+      expect(described_class.unmark_failed_formulae([failed_download])).to eq([bad_formula.full_name])
+      expect(FormulaInstaller.fetched).to contain_exactly(good_formula)
+    end
+
+    it "does not clear a same-named formula from another tap" do
+      bad_formula = formula("shared-name") do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      other_formula = formula("shared-name", tap: Tap.fetch("other", "tap")) do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      failed_resource = bad_formula.resource
+      raise "formula resource unavailable" if failed_resource.nil?
+
+      FormulaInstaller.fetched.merge([bad_formula, other_formula])
+
+      expect(described_class.unmark_failed_formulae([failed_resource])).to eq([bad_formula.full_name])
+      expect(FormulaInstaller.fetched).to contain_exactly(other_formula)
     end
   end
 
