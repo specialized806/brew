@@ -1589,7 +1589,7 @@ class Formula
   #
   # ```ruby
   # def fetch
-  #   system "cargo", "fetch", "--locked"
+  #   system "cargo", "fetch", "--locked", "--target", "host-tuple"
   # end
   #
   # def install
