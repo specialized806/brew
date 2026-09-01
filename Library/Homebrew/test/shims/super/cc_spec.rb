@@ -80,6 +80,20 @@ RSpec.describe CcShim::Cmd do
     described_class.new("gcc", argv).args
   end
 
+  it "targets x86_64 with Apple Clang under Rosetta 2" do
+    setup_env(real_prefix)
+    ENV["HOMEBREW_CC"] = "clang"
+    ENV["HOMEBREW_OPTFLAGS"] = "-march=westmere"
+    ENV["HOMEBREW_PROCESSOR"] = "Intel"
+    ENV["HOMEBREW_PHYSICAL_PROCESSOR"] = "arm64"
+
+    command = described_class.new("clang", ["-c", "test.c"])
+    allow(command).to receive(:mac?).and_return(true)
+
+    expect(command.args)
+      .to include("-arch", "x86_64", "-march=westmere")
+  end
+
   context "when no path component of the prefix is a symlink" do
     it "keeps the prefix, declared dependencies and references to self" do
       expect(include_flags(real_prefix)).to include(

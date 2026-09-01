@@ -304,6 +304,13 @@ class Cmd
 
     return args if !refurbish_args? && !configure?
 
+    # Apple Clang on macOS 26 can default to arm64 on Apple Silicon even
+    # when Homebrew runs under Rosetta 2, making Intel-only optimisation
+    # flags such as `-march=westmere` invalid.
+    if mac? && ["clang", "clang++"].include?(tool) &&
+       ENV.values_at("HOMEBREW_PROCESSOR", "HOMEBREW_PHYSICAL_PROCESSOR") == ["Intel", "arm64"]
+      args << "-arch" << "x86_64"
+    end
     args << "-w" unless configure?
     args << "-#{ENV["HOMEBREW_OPTIMIZATION_LEVEL"]}"
     optflags.each do |optflag|
