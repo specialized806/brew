@@ -225,8 +225,19 @@ module Homebrew
           # end
 
         <% end %>
-        <% if [:autotools, :cmake, :meson, :perl, nil].include? @mode %>
+        <% if [:autotools, :cmake, :go, :meson, :perl, :rust, nil].include? @mode %>
           deny_network_access!
+
+        <% end %>
+        <% if @mode == :go %>
+          def fetch
+            system "go", "mod", "download"
+          end
+
+        <% elsif @mode == :rust %>
+          def fetch
+            system "cargo", "fetch", "--locked", "--target", "host-tuple"
+          end
 
         <% end %>
           def install
@@ -289,7 +300,7 @@ module Homebrew
             bin.install libexec/"bin/\#{name}"
             bin.env_script_all_files(libexec/"bin", GEM_HOME: ENV["GEM_HOME"])
         <% elsif @mode == :rust %>
-            system "cargo", "install", *std_cargo_args
+            system "cargo", "install", "--offline", *std_cargo_args
         <% elsif @mode == :zig %>
             system "zig", "build", *std_zig_args
         <% else %>
