@@ -1657,6 +1657,7 @@ on_request: installed_on_request?, options:)
     @api_bottle = Homebrew::API::FormulaBottle.bottle(
       name:           formula.name,
       formula_struct: Homebrew::API::Internal.formula_struct(formula.name),
+      formula:,
     )
   end
 

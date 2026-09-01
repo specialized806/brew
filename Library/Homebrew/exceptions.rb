@@ -925,10 +925,7 @@ class ChecksumMissingError < ArgumentError; end
 # Raised by {Pathname#verify_checksum} when verification fails.
 class ChecksumMismatchError < RuntimeError
   sig { returns(Checksum) }
-  attr_reader :expected
-
-  sig { returns(Checksum) }
-  attr_reader :actual
+  attr_reader :expected, :actual
 
   sig { params(path: T.any(Pathname, String), expected: Checksum, actual: Checksum).void }
   def initialize(path, expected, actual)

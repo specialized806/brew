@@ -1224,13 +1224,21 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
   end
 
   it "only distrusts the formula half of a shared prefetch whose bottle download failed" do
-    expect(run_upgrade_with_failed_shared_prefetch(instance_double(Bottle)))
-      .to eq(use_prefetched: false, skip_prefetch: true)
+    bottle_spec = BottleSpecification.new
+    bottle_spec.sha256(arm64_big_sur: "deadbeef" * 8)
+    formula = formula("deno") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/deno-2.7.11.tar.gz"
+    end
+    failed_bottle = Bottle.new(formula, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur))
+
+    expect(run_upgrade_with_failed_shared_prefetch(failed_bottle))
+      .to eq(use_prefetched: false, skip_prefetch: true, failed_formula_fetched: false)
   end
 
   it "only distrusts the cask half of a shared prefetch whose cask download failed" do
     expect(run_upgrade_with_failed_shared_prefetch(Cask::Download.new(Cask::Cask.new("codex"))))
-      .to eq(use_prefetched: true, skip_prefetch: false)
+      .to eq(use_prefetched: true, skip_prefetch: false, failed_formula_fetched: true)
   end
 
   def run_upgrade_with_failed_shared_prefetch(failed_download)
@@ -1248,6 +1256,11 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
       version:           "0.118.0",
     )
     installer = Cask::Installer.allocate
+    failed_formula = formula("deno") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/deno-2.7.11.tar.gz"
+    end
+    FormulaInstaller.fetched << failed_formula
     allow(installer).to receive_messages(cask:, check_requirements: nil, downloader: failed_download,
                                          download_failed!: nil, download_failed?: false, enqueue_downloads: nil,
                                          enqueue_dependency_downloads: nil)
@@ -1285,6 +1298,7 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     allow(Homebrew.messages).to receive(:display_messages)
 
     cmd.run
+    upgraded[:failed_formula_fetched] = FormulaInstaller.fetched.include?(failed_formula)
     upgraded
   end
 

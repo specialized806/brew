@@ -5,6 +5,7 @@ require "formula"
 require "formula_creator"
 require "missing_formula"
 require "cask/cask_loader"
+require "downloadable"
 
 module Homebrew
   module DevCmd
@@ -116,7 +117,7 @@ module Homebrew
             strategy = DownloadStrategyDetector.detect(url)
             downloader = strategy.new(url, token, version.to_s, cache: Cask::Cache.path)
             downloader.fetch
-            downloader.cached_location.sha256
+            Downloadable.verification_cache.sha256(downloader.cached_location)
           end
 
           [url.gsub(version.to_s, "\#{version}"), sha256]

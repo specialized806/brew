@@ -15,18 +15,23 @@ module Homebrew
     class SourceDownload
       include Downloadable
 
+      sig { returns(::Formula) }
+      attr_reader :formula
+
       sig {
         params(
           url:      String,
           checksum: T.nilable(Checksum),
+          formula:  ::Formula,
           mirrors:  T::Array[String],
           cache:    T.nilable(Pathname),
         ).void
       }
-      def initialize(url, checksum, mirrors: [], cache: nil)
+      def initialize(url, checksum, formula:, mirrors: [], cache: nil)
         super()
         @url = T.let(URL.new(url, using: API::SourceDownloadStrategy), URL)
         @checksum = checksum
+        @formula = formula
         @mirrors = mirrors
         @cache = cache
       end
@@ -47,6 +52,12 @@ module Homebrew
       sig { returns(Pathname) }
       def symlink_location
         downloader.symlink_location
+      end
+
+      sig { override.void }
+      def clear_cache
+        super
+        symlink_location.unlink if symlink_location.symlink?
       end
     end
   end

@@ -51,4 +51,46 @@ RSpec.describe Downloadable::VerificationCache do
       end
     end
   end
+
+  it "reuses the digest of a file already hashed at its real path when verifying through a symlink" do
+    symlink = file.dirname/"digest-cache-symlink.tar.gz"
+    FileUtils.rm_f(symlink)
+    FileUtils.ln_s(file, symlink)
+    expect(Digest::SHA256).to receive(:file).once.and_call_original
+
+    cache.verify(file, checksum)
+    cache.verify(symlink, checksum)
+  end
+
+  it "hashes a file again after its remembered digest is invalidated" do
+    expect(Digest::SHA256).to receive(:file).twice.and_call_original
+
+    cache.sha256(file)
+    cache.invalidate!(file)
+    expect(cache.sha256(file)).to eq(checksum.hexdigest)
+  end
+
+  describe "::check_repeated_hashing" do
+    before do
+      ENV["HOMEBREW_CHECK_REPEATED_HASHING"] = "1"
+    end
+
+    it "raises when an unchanged file is rehashed without the cache being involved" do
+      file.sha256
+
+      expect { file.sha256 }.to raise_error(Downloadable::VerificationCache::RepeatedHashingError)
+    end
+
+    it "raises when a file already hashed through the cache is rehashed directly" do
+      cache.sha256(file)
+
+      expect { file.sha256 }.to raise_error(Downloadable::VerificationCache::RepeatedHashingError)
+    end
+
+    it "allows repeated digest reads through the cache" do
+      cache.sha256(file)
+
+      expect(cache.sha256(file)).to eq(checksum.hexdigest)
+    end
+  end
 end

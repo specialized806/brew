@@ -14,6 +14,7 @@ require "messages"
 require "utils/output"
 require "utils/topological_hash"
 require "install/check"
+require "api/source_download"
 
 module Homebrew
   # Helper module for performing (pre-)install checks.
@@ -200,10 +201,10 @@ module Homebrew
                download_queue:     Homebrew::DownloadQueue).returns(T::Array[FormulaInstaller])
       }
       def reject_failed_downloads(formula_installers, download_queue:)
-        failed_names = forget_failed_formula_downloads(download_queue:)
-        return formula_installers if failed_names.empty?
+        failed_full_names = unmark_failed_formulae(download_queue.failed_downloads)
+        return formula_installers if failed_full_names.empty?
 
-        formula_installers.reject { |fi| failed_names.include?(fi.formula.name) }
+        formula_installers.reject { |fi| failed_full_names.include?(fi.formula.full_name) }
       end
 
       # A formula whose download failed must not stay marked as fetched:
@@ -211,16 +212,23 @@ module Homebrew
       # downloads are enqueued, so a later retry pass would otherwise skip
       # fetching entirely and install from a known-bad cached download without
       # any checksum verification (issue 23714).
-      sig { params(download_queue: Homebrew::DownloadQueue).returns(T::Array[String]) }
-      def forget_failed_formula_downloads(download_queue:)
-        failed_names = download_queue.failed_downloads.filter_map do |downloadable|
-          case downloadable
-          when Bottle then downloadable.name
-          when Resource then downloadable.owner&.name
+      sig { params(downloadables: T::Array[Downloadable]).returns(T::Array[String]) }
+      def unmark_failed_formulae(downloadables)
+        failed_full_names = downloadables.filter_map do |downloadable|
+          owner = case downloadable
+          when Bottle
+            downloadable.resource.owner
+          when Resource
+            downloadable.owner
+          when Homebrew::API::SourceDownload
+            downloadable.formula
           end
+          owner = owner.owner if owner.is_a?(SoftwareSpec)
+          owner.full_name if owner.is_a?(Formula)
         end
-        FormulaInstaller.fetched.delete_if { |formula| failed_names.include?(formula.name) } if failed_names.any?
-        failed_names
+
+        FormulaInstaller.fetched.delete_if { |formula| failed_full_names.include?(formula.full_name) }
+        failed_full_names
       end
 
       sig {

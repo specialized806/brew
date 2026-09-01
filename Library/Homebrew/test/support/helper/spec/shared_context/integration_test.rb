@@ -99,18 +99,21 @@ module Test
         env["HOMEBREW_AVOID_NESTED_SANDBOXING"] = "1"
         env["HOMEBREW_INTEGRATION_COVERAGE_DIR"] = ENV.fetch("HOMEBREW_INTEGRATION_COVERAGE_DIR", nil)
         env.merge!(
-          "PATH"                         => path,
-          "HOMEBREW_PATH"                => path,
-          "HOMEBREW_BREW_FILE"           => HOMEBREW_PREFIX/"bin/brew",
-          "HOMEBREW_INTEGRATION_TEST"    => command_id,
-          "HOMEBREW_TEST_TMPDIR"         => TEST_TMPDIR,
-          "HOMEBREW_DEV_CMD_RUN"         => "true",
-          "HOMEBREW_ASK"                 => nil,
-          "HOMEBREW_USE_RUBY_FROM_PATH"  => ENV.fetch("HOMEBREW_USE_RUBY_FROM_PATH", nil),
-          "HOMEBREW_NO_INSTALL_FROM_API" => ENV.fetch("HOMEBREW_NO_INSTALL_FROM_API", nil),
-          "HOMEBREW_SORBET_RUNTIME"      => nil,
-          "HOMEBREW_SORBET_RECURSIVE"    => nil,
-          "GEM_HOME"                     => nil,
+          "PATH"                            => path,
+          "HOMEBREW_PATH"                   => path,
+          "HOMEBREW_BREW_FILE"              => HOMEBREW_PREFIX/"bin/brew",
+          "HOMEBREW_INTEGRATION_TEST"       => command_id,
+          # Fail on repeated hashing of unchanged files that bypasses
+          # `Downloadable::VerificationCache`.
+          "HOMEBREW_CHECK_REPEATED_HASHING" => "1",
+          "HOMEBREW_TEST_TMPDIR"            => TEST_TMPDIR,
+          "HOMEBREW_DEV_CMD_RUN"            => "true",
+          "HOMEBREW_ASK"                    => nil,
+          "HOMEBREW_USE_RUBY_FROM_PATH"     => ENV.fetch("HOMEBREW_USE_RUBY_FROM_PATH", nil),
+          "HOMEBREW_NO_INSTALL_FROM_API"    => ENV.fetch("HOMEBREW_NO_INSTALL_FROM_API", nil),
+          "HOMEBREW_SORBET_RUNTIME"         => nil,
+          "HOMEBREW_SORBET_RECURSIVE"       => nil,
+          "GEM_HOME"                        => nil,
         )
 
         @ruby_args ||= begin

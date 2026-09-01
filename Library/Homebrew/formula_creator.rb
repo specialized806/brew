@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "downloadable"
 require "erb"
 require "utils/github"
 require "utils/output"
@@ -133,7 +134,9 @@ module Homebrew
             raise "Downloaded URL is not archive"
           end
 
-          @sha256 = T.let(filepath.sha256, T.nilable(String))
+          # The missing-checksum warning during the fetch above has already
+          # hashed the file, so reuse its digest.
+          @sha256 = T.let(Downloadable.verification_cache.sha256(filepath), T.nilable(String))
         end
 
         if @github

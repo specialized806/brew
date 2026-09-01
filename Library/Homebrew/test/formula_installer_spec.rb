@@ -1503,6 +1503,10 @@ RSpec.describe FormulaInstaller do
         installer.prelude_fetch
       end
 
+      it "associates an API bottle with its formula" do
+        expect(installer.api_bottle&.resource&.owner).to eq(deno_formula)
+      end
+
       it "enqueues only the bottle manifest when fetching metadata" do
         expect(installer.download_queue).to receive(:enqueue).with(an_instance_of(Resource::BottleManifest))
 

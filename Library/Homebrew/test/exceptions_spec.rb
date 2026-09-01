@@ -225,6 +225,7 @@ RSpec.describe "Exception" do
     let(:actual_checksum) { instance_double(Checksum, to_s: "deadcafe") }
 
     it(:to_s) { expect(error.to_s).to include("SHA-256 mismatch") }
+    it(:actual) { expect(error.actual).to eq(actual_checksum) }
 
     it "does not add an HTML hint for non-HTML downloads" do
       Tempfile.create("brew-checksum-test") do |file|

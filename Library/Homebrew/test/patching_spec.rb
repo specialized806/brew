@@ -111,6 +111,26 @@ RSpec.describe "patching", type: :system do
     ).to be_patched
   end
 
+  specify "external_patch_dsl_rejects_unverified_cached_download" do
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      patch do
+        url "file://#{patch_fixture("noop-a")}"
+        sha256 "0" * 64
+      end
+    end
+    external_patch = f.stable.patches.last
+    external_patch.cached_download.dirname.mkpath
+    FileUtils.cp patch_fixture("noop-a"), external_patch.cached_download
+
+    expect do
+      f.brew(fetch: false) { |formula, _| formula.patch }
+    end.to raise_error(ChecksumMismatchError)
+    expect(external_patch.cached_download).not_to exist
+  ensure
+    external_patch&.clear_cache
+  end
+
   specify "local_patch_dsl_resolves_path_loaded_formulae_from_formula_directory" do
     expect(
       formula(path: fixture("testball.rb")) do
