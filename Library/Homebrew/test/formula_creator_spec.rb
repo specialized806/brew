@@ -102,6 +102,10 @@ RSpec.describe Homebrew::FormulaCreator do
                     includes: ["deny_network_access!", "std_cmake_args"],
                     excludes: ["unrecognized options", 'resource "']
 
+    it_behaves_like "expected", :go,
+                    includes: ["deny_network_access!", "std_go_args", /"go".*"download"/],
+                    excludes: ["unrecognized options", 'resource "']
+
     it_behaves_like "expected", :meson,
                     includes: ["deny_network_access!", "std_meson_args"],
                     excludes: ["unrecognized options", 'resource "']
@@ -109,6 +113,10 @@ RSpec.describe Homebrew::FormulaCreator do
     it_behaves_like "expected", :perl,
                     includes: ["deny_network_access!", "PERL5LIB", 'resource "'],
                     excludes: ["unrecognized options"]
+
+    it_behaves_like "expected", :rust,
+                    includes: ["deny_network_access!", "std_cargo_args", /"cargo".*"fetch"/],
+                    excludes: ["unrecognized options", 'resource "']
 
     it_behaves_like "expected", nil,
                     includes: ["deny_network_access!", "unrecognized options"],
