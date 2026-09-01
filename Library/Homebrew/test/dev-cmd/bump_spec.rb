@@ -64,9 +64,9 @@ RSpec.describe Homebrew::DevCmd::Bump do
       .to raise_error(UsageError, /`--tap` requires `--auto` for official taps/)
   end
 
-  describe "::skip_ineligible_formulae!" do
+  describe "::skip_ineligible_package!" do
     it "prints a legible message for casks using `version :latest`" do
-      expect { expect(bump.skip_ineligible_formulae!(c_latest)).to be(true) }
+      expect { expect(bump.skip_ineligible_package!(c_latest)).to be(true) }
         .to output(/Cask uses `version :latest` so `brew bump` cannot check it\./).to_stdout
         .and not_to_output.to_stderr
     end
