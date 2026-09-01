@@ -554,6 +554,7 @@ jobs:
             runs-on: ubuntu-24.04-arm
             container: ghcr.io/homebrew/ubuntu24.04:latest
             prefix-constant: LINUX_ARM64_BOTTLE_PREFIX
+            system-tar: true
           - name: test-bot (Linux x86_64)
             runs-on: ubuntu-latest
             container: ghcr.io/homebrew/ubuntu24.04:main
@@ -561,6 +562,7 @@ jobs:
             runs-on: ubuntu-latest
             container: ghcr.io/homebrew/ubuntu24.04:main
             prefix-constant: LINUX_X86_64_BOTTLE_PREFIX
+            system-tar: true
           - name: test-bot (no Sorbet)
             runs-on: ubuntu-latest
             container: ghcr.io/homebrew/ubuntu24.04:main
@@ -570,8 +572,6 @@ jobs:
           - name: test-bot (Linux Homebrew glibc)
             runs-on: ubuntu-latest
             container: ubuntu:22.04
-          - name: test-bot (macOS x86_64)
-            runs-on: macos-15-intel
           - name: test-bot (macOS arm64)
             runs-on: macos-26
           - name: test-bot (macOS arm64, padded prefix)
@@ -635,6 +635,7 @@ jobs:
           echo "${padded_prefix}/bin" >> "${GITHUB_PATH}"
 
       - run: brew install gnu-tar
+        if: matrix.system-tar != true
 
       - name: Disable Sorbet runtime
         if: matrix.name == 'test-bot (no Sorbet)'
@@ -654,7 +655,15 @@ jobs:
         env:
           HOMEBREW_TEST_BOT_IGNORE_DOCTOR_FAILURE: ${{ matrix.prefix-constant && '1' || null }}
 
-      - run: brew test-bot --only-formulae --only-json-tab --test-default-formula
+      - name: Run brew test-bot formulae
+        run: |
+          test_bot_args=(--only-formulae)
+          if [[ -n "${JSON_TAB}" ]]; then
+            test_bot_args+=(--only-json-tab)
+          fi
+          brew test-bot "${test_bot_args[@]}" --test-default-formula
+        env:
+          JSON_TAB: ${{ matrix.system-tar != true && '1' || '' }}
 
   bundle-and-services:
     name: ${{ matrix.name }}
