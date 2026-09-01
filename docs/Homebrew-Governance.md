@@ -19,7 +19,7 @@ Homebrew’s governance is grounded in the principle that only active contributo
 - **Quarterly activity criteria**: Around 50 meaningful maintainer contributions or other work considered essential by the Project Leader per quarter to Primary Homebrew repositories to remain in good standing.
 - **Quarter**: A Homebrew reporting quarter, defined as one of the following periods: December–February, March–May, June–August, or September–November.
   Quarterly reporting covers the Maintainers listed in Homebrew/brew's README at the end of the quarter.
-  The report's `new role` value must indicate a downgrade for two consecutive quarters before the downgrade is applied.
+  The report's `potential new role` column uses preceding full quarterly reports to apply multi-quarter role requirements.
 - **Meaningful maintainer contributions**: Merged pull requests opened or merged by the Maintainer, pull requests created by others that GitHub reports as both reviewed by the Maintainer and approved, or merged co-authored commits in Primary Homebrew repositories.
   A pull request opened and merged by the same Maintainer counts only once for that Maintainer.
   Review attribution uses GitHub's `review:approved reviewed-by:USERNAME` search as an intentionally ambiguous, 100-result-capped activity proxy, not a precise approval audit.

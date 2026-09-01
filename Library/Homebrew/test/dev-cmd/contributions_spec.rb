@@ -20,7 +20,6 @@ RSpec.describe Homebrew::DevCmd::Contributions do
       "current directory",
       "brew-contributions-FROM-to-TO-USER.csv",
       "Only Maintainers listed at the end of that quarter are included",
-      "two consecutive quarters before a downgrade is applied",
       "Completed-period GitHub searches are cached in Homebrew's cache",
       "Repository-scoped follow-up searches ensure role activity checks remain accurate",
       "YEAR-1 is December of the previous year through February",
@@ -168,7 +167,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
       .and output(/`--user` must not contain empty values/).to_stderr
   end
 
-  it "reports activity criteria from fetched Git histories" do
+  it "reports activity criteria with and without historical reports" do
     command = described_class.new(["--maintainer-report-csv=2026-1"])
     quarter_end_ref = "quarter-end-ref"
     repository_refs = Homebrew::DevCmd::Contributions::PRIMARY_REPOS.to_h do |repository|
@@ -218,10 +217,15 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     allow(command).to receive(:maintainer_since)
       .with(Pathname("/Homebrew/brew"), quarter_end_ref, "bob", "Bob")
       .and_return("2022-03-01")
+    allow(command).to receive(:previous_maintainer_reports).with("2025-12-01").and_return([
+      { "alice" => [true, true], "bob" => [true, false] },
+      { "alice" => [true, true], "bob" => [true, true] },
+      { "alice" => [true, true], "bob" => [true, true] },
+    ])
     csv = <<~CSV
-      username,name,since,tenure days,brew authored,brew merged,brew PRs,brew reviews,brew coauthored,brew total,core authored,core merged,core PRs,core reviews,core coauthored,core total,cask authored,cask merged,cask PRs,cask reviews,cask coauthored,cask total,total,maintainer met,lead met,capped,role,new role
-      bob,Bob,2022-03-01,1461,25,1,25,0,0,25,24,0,24,1,0,25,0,0,0,0,451,451,501,true,true,false,Maintainer,Lead Maintainer
-      alice,Alice,2024-03-01,730,2,3,4,1,45,50,0,0,0,0,0,0,0,0,0,0,0,0,50,true,false,false,Lead Maintainer,Maintainer
+      username,name,since,tenure days,brew authored,brew merged,brew PRs,brew reviews,brew coauthored,brew total,core authored,core merged,core PRs,core reviews,core coauthored,core total,cask authored,cask merged,cask PRs,cask reviews,cask coauthored,cask total,total,maintainer met,lead met,capped,role,potential new role
+      bob,Bob,2022-03-01,1461,25,1,25,0,0,25,24,0,24,1,0,25,0,0,0,0,451,451,501,true,true,false,Maintainer,Maintainer
+      alice,Alice,2024-03-01,730,2,3,4,1,45,50,0,0,0,0,0,0,0,0,0,0,0,0,50,true,false,false,Lead Maintainer,Lead Maintainer
     CSV
     expect(File).to receive(:write).with("brew-contributions-2025-12-01-to-2026-03-01.csv", csv)
 
@@ -231,6 +235,82 @@ RSpec.describe Homebrew::DevCmd::Contributions do
       Maintainer report dates: 2025-12-01-to-2026-03-01
       Scanning contributions for 2 maintainers...
     EOS
+
+    allow(command).to receive(:previous_maintainer_reports).with("2025-12-01").and_return([])
+    csv_without_history = "#{csv.lines(chomp: true).map { |line| line.rpartition(",").first }.join("\n")}\n"
+    expect(File).to receive(:write).with("brew-contributions-2025-12-01-to-2026-03-01.csv", csv_without_history)
+
+    expect do
+      command.run
+    end.to output(csv_without_history).to_stdout.and output(<<~EOS).to_stderr
+      Maintainer report dates: 2025-12-01-to-2026-03-01
+      Scanning contributions for 2 maintainers...
+    EOS
+  end
+
+  it "reads contiguous full reports for the three preceding quarters" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+
+    reports = Dir.chdir(mktmpdir) do
+      {
+        "2025-09-01-to-2025-12-01" => [true, true],
+        "2025-06-01-to-2025-09-01" => [true, false],
+        "2025-03-01-to-2025-06-01" => [false, false],
+      }.each do |dates, activity|
+        Pathname("brew-contributions-#{dates}.csv")
+          .write("username,maintainer met,lead met\nAlice,#{activity.join(",")}\n")
+      end
+
+      command.previous_maintainer_reports("2025-12-01")
+    end
+
+    expect(reports).to eq([
+      { "alice" => [true, true] },
+      { "alice" => [true, false] },
+      { "alice" => [false, false] },
+    ])
+  end
+
+  it "warns when the immediately preceding report is unavailable" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+
+    expect do
+      expect(Dir.chdir(mktmpdir) { command.previous_maintainer_reports("2025-12-01") }).to be_empty
+    end.to output(<<~EOS).to_stderr
+      Warning: Could not find brew-contributions-2025-09-01-to-2025-12-01.csv; omitting the potential new role column.
+    EOS
+  end
+
+  it "applies multi-quarter activity requirements to potential roles" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+    period_end = Date.new(2026, 3, 1)
+    maintainer_since = Date.new(2022, 3, 1)
+    previous_reports = [
+      {
+        "promoted" => [true, true], "not_promoted" => [true, true],
+        "demoted" => [true, false], "removed" => [false, false], "incomplete" => [true, true]
+      },
+      { "promoted" => [true, true], "not_promoted" => [true, false], "incomplete" => [true, true] },
+      { "promoted" => [true, true], "not_promoted" => [true, true] },
+    ]
+
+    expect({
+      "promoted"     => ["Maintainer", [true, true]],
+      "not_promoted" => ["Maintainer", [true, true]],
+      "demoted"      => ["Lead Maintainer", [true, false]],
+      "removed"      => ["Maintainer", [false, false]],
+      "incomplete"   => ["Maintainer", [true, true]],
+    }.to_h do |user, (role, activity)|
+      [user.to_sym, command.potential_maintainer_role(
+        user, role, maintainer_since, period_end, activity, previous_reports
+      )]
+    end).to eq(
+      promoted:     "Lead Maintainer",
+      not_promoted: "Maintainer",
+      demoted:      "Maintainer",
+      removed:      "None",
+      incomplete:   nil,
+    )
   end
 
   it "writes filtered maintainer reports without overwriting the full report" do

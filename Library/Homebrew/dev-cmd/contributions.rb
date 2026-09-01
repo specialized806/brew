@@ -74,8 +74,6 @@ module Homebrew
                             "Also write it in the current directory as `brew-contributions-FROM-to-TO.csv`, or " \
                             "`brew-contributions-FROM-to-TO-USER.csv` when filtered with `--user`. " \
                             "Only Maintainers listed at the end of that quarter are included. " \
-                            "The `new role` value must show a downgrade for two consecutive " \
-                            "quarters before a downgrade is applied. " \
                             "Review searches return at most 100 results and other counts are capped at 500 per " \
                             "repository and contribution type. Repository-scoped follow-up searches ensure " \
                             "role activity checks remain accurate when a count is capped. Completed-period " \
@@ -182,7 +180,7 @@ module Homebrew
 
         if maintainer_report_csv
           csv = generate_maintainer_report_csv(
-            results, grand_totals, user_names, lead_maintainers, maintainer_since_dates, to
+            results, grand_totals, user_names, lead_maintainers, maintainer_since_dates, from, to
           )
           filename = "brew-contributions-#{from}-to-#{to}"
           filename += "-#{user_names.keys.map(&:downcase).sort.join("-")}" if requested_users.present?
@@ -605,6 +603,74 @@ module Homebrew
         counts
       end
 
+      sig {
+        params(from: String)
+          .returns(T::Array[T::Hash[String, [T::Boolean, T::Boolean]]])
+      }
+      def previous_maintainer_reports(from)
+        require "csv"
+
+        reports = T.let([], T::Array[T::Hash[String, [T::Boolean, T::Boolean]]])
+        period_end = Date.iso8601(from)
+        3.times do
+          period_start = period_end.prev_month(3)
+          path = Pathname("brew-contributions-#{period_start.iso8601}-to-#{period_end.iso8601}.csv")
+          unless path.file?
+            if reports.empty?
+              opoo "Could not find #{path}; omitting the potential new role column."
+            else
+              opoo "Could not find #{path}; Lead Maintainer promotion data is incomplete."
+            end
+            break
+          end
+
+          report = T.let({}, T::Hash[String, [T::Boolean, T::Boolean]])
+          CSV.foreach(path.to_s, headers: true) do |row|
+            next unless row.is_a?(CSV::Row)
+
+            username = row["username"]
+            next unless username.is_a?(String)
+
+            report[username.downcase] = [row["maintainer met"] == "true", row["lead met"] == "true"]
+          end
+          reports << report
+          period_end = period_start
+        end
+        reports
+      end
+
+      sig {
+        params(
+          user:                  String,
+          role:                  String,
+          maintainer_since_date: T.nilable(Date),
+          period_end:            Date,
+          activity:              [T::Boolean, T::Boolean],
+          previous_reports:      T::Array[T::Hash[String, [T::Boolean, T::Boolean]]],
+        ).returns(T.nilable(String))
+      }
+      def potential_maintainer_role(user, role, maintainer_since_date, period_end, activity, previous_reports)
+        maintainer_activity_met, lead_activity_met = activity
+        previous_activity = previous_reports.first&.[](user.downcase)
+        return if previous_activity.nil?
+
+        return "None" if !maintainer_activity_met && !previous_activity.fetch(0)
+
+        if role == "Lead Maintainer"
+          return "Maintainer" if !lead_activity_met && !previous_activity.fetch(1)
+
+          return role
+        end
+
+        return role if maintainer_since_date.nil? || maintainer_since_date > period_end.prev_year(3)
+        return role unless lead_activity_met
+
+        previous_lead_activity = previous_reports.map { |report| report[user.downcase]&.fetch(1) }
+        return if previous_lead_activity.length < 3 || previous_lead_activity.any?(&:nil?)
+
+        previous_lead_activity.all?(true) ? "Lead Maintainer" : role
+      end
+
       private
 
       sig {
@@ -614,13 +680,17 @@ module Homebrew
           user_names:             T::Hash[String, String],
           lead_maintainers:       T::Hash[String, T::Boolean],
           maintainer_since_dates: T::Hash[String, T.nilable(String)],
+          from:                   String,
           to:                     String,
         ).returns(String)
       }
       def generate_maintainer_report_csv(results, grand_totals, user_names, lead_maintainers, maintainer_since_dates,
-                                         to)
+                                         from, to)
         require "csv"
 
+        previous_reports = previous_maintainer_reports(from)
+        # Without previous-quarter data, a potential role would be an unsubstantiated suggestion.
+        include_potential_role = previous_reports.present?
         rows = results.sort_by do |user, _|
           qualifying_total = contribution_count(grand_totals.fetch(user).slice(*QUALIFYING_CONTRIBUTION_TYPES))
           [-qualifying_total, user.downcase]
@@ -637,15 +707,11 @@ module Homebrew
           period_end = Date.iso8601(to)
           lead_maintainer = lead_maintainers.key?(user.downcase)
           lead_activity_met = lead_activity_met?(user_repositories)
-          new_role = if lead_activity_met &&
-                        (lead_maintainer ||
-                         (maintainer_since_date && maintainer_since_date <= period_end.prev_year(3)))
-            "Lead Maintainer"
-          elsif maintainer_activity_met
-            "Maintainer"
-          else
-            "None"
-          end
+          role = lead_maintainer ? "Lead Maintainer" : "Maintainer"
+          potential_role = potential_maintainer_role(
+            user, role, maintainer_since_date, period_end, [maintainer_activity_met, lead_activity_met],
+            previous_reports
+          )
 
           capped = grand_total.fetch(:merged_pr_author_hit_cap, 0).positive? ||
                    grand_total.fetch(:approved_pr_review_hit_cap, 0).positive?
@@ -669,8 +735,8 @@ module Homebrew
             maintainer_activity_met,
             lead_activity_met,
             capped,
-            lead_maintainer ? "Lead Maintainer" : "Maintainer",
-            new_role,
+            role,
+            *(include_potential_role ? [potential_role] : []),
           ]
         end
         CSV.generate do |csv|
@@ -683,7 +749,8 @@ module Homebrew
                 "#{repository} reviews", "#{repository} coauthored", "#{repository} total"
               ]
             end,
-            "total", "maintainer met", "lead met", "capped", "role", "new role"
+            "total", "maintainer met", "lead met", "capped", "role",
+            *(include_potential_role ? ["potential new role"] : [])
           ]
           rows.each { |row| csv << row }
         end
