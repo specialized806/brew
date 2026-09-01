@@ -454,6 +454,50 @@ RSpec.describe Homebrew::Livecheck do
       HTML
     end
 
+    context "with terminal control characters" do
+      let(:terminal_control_version) { "0.0.2\e]0;changed-title\a" }
+      let(:f_terminal_control_version) do
+        formula("terminal_control_version") do
+          T.bind(self, T.class_of(Formula))
+          desc "Formula with terminal controls in an upstream version"
+          url "https://brew.sh/terminal-control-version-0.0.1.tgz"
+
+          livecheck do
+            url :stable
+            regex(/terminal-control-version-(.+)\.tgz/i)
+          end
+        end
+      end
+
+      before do
+        allow(Homebrew::Livecheck::Strategy).to receive(:page_content).and_return({
+          content: %Q(<a href="terminal-control-version-#{terminal_control_version}.tgz">Download</a>),
+        })
+      end
+
+      it "renders upstream terminal controls inert in human-readable output" do
+        expect { livecheck.run_checks([f_terminal_control_version], debug: true, verbose: true) }
+          .not_to output(/[\e\a\r]/).to_stdout
+      end
+
+      it "preserves upstream control characters as JSON data" do
+        expected = JSON.pretty_generate([
+          {
+            formula: "terminal_control_version",
+            version: {
+              current:             "0.0.1",
+              latest:              terminal_control_version,
+              outdated:            true,
+              newer_than_upstream: false,
+            },
+          },
+        ])
+
+        expect { livecheck.run_checks([f_terminal_control_version], json: true) }
+          .to output("#{expected}\n").to_stdout
+      end
+    end
+
     it "sets `latest_throttled` to the highest throttled version" do
       allow(Homebrew::Livecheck::Strategy).to receive(:page_content).and_return({
         content: <<~HTML,

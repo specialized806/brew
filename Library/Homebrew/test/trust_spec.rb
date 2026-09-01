@@ -420,6 +420,75 @@ RSpec.describe Homebrew::Trust, :trust_store do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "requires trust for a symlink outside the tap directory that resolves into an untrusted tap" do
+    tap = Tap.fetch("thirdparty", "linked-source")
+    formula_path = tap.formula_dir/"linked-formula.rb"
+    formula_path.dirname.mkpath
+    formula_path.write("class LinkedFormula < Formula; end\n")
+    linked_path = Pathname(TEST_TMPDIR)/"linked-formula.rb"
+    FileUtils.ln_s formula_path, linked_path
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { described_class.require_trusted_formula!("linked-formula", linked_path) }
+        .to raise_error(Homebrew::UntrustedTapError)
+    end
+  ensure
+    FileUtils.rm_f linked_path if linked_path
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "uses the canonical tap identity when a symlink crosses between taps" do
+    trusted_tap = Tap.fetch("thirdparty", "trusted-links")
+    untrusted_tap = Tap.fetch("thirdparty", "untrusted-targets")
+    target_path = untrusted_tap.formula_dir/"linked-formula.rb"
+    target_path.dirname.mkpath
+    target_path.write("class LinkedFormula < Formula; end\n")
+    linked_path = trusted_tap.formula_dir/"linked-formula.rb"
+    linked_path.dirname.mkpath
+    FileUtils.ln_s target_path, linked_path
+    described_class.trust!(:tap, trusted_tap)
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { described_class.require_trusted_formula!("linked-formula", linked_path) }
+        .to raise_error(Homebrew::UntrustedTapError)
+    end
+  ensure
+    described_class.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "preserves the nominal tap identity for a symlinked whole-tap root" do
+    tap = Tap.fetch("thirdparty", "linked-root")
+    real_tap_path = mktmpdir/"linked-root"
+    (real_tap_path/"Formula").mkpath
+    tap.path.parent.mkpath
+    FileUtils.ln_s real_tap_path, tap.path
+    formula_path = tap.formula_dir/"linked-formula.rb"
+    formula_path.write("class LinkedFormula < Formula; end\n")
+    described_class.trust!(:tap, tap)
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { described_class.require_trusted_formula!("linked-formula", formula_path) }.not_to raise_error
+    end
+  ensure
+    described_class.clear!(:tap)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
+  it "falls back to the nominal tap identity for a symlink loop" do
+    tap = Tap.fetch("thirdparty", "looping-link")
+    formula_path = tap.formula_dir/"looping-formula.rb"
+    formula_path.dirname.mkpath
+    FileUtils.ln_s formula_path.basename, formula_path
+
+    with_env(HOMEBREW_REQUIRE_TAP_TRUST: "1") do
+      expect { described_class.require_trusted_formula!("looping-formula", formula_path) }
+        .to raise_error(Homebrew::UntrustedTapError)
+    end
+  ensure
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
   it "reads the invoking user's trust store for sudoed services" do
     root_home = Pathname(TEST_TMPDIR)/"root-home"
     sudo_home = Pathname(TEST_TMPDIR)/"sudo-home"

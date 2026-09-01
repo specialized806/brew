@@ -674,12 +674,17 @@ module Homebrew
       else
         []
       end
+      api_resource_files = %w[cask formula].flat_map do |resource_type|
+        directory = cache/"api"/resource_type
+        directory.directory? ? directory.children : []
+      end
       api_source_files = (cache/"api-source").glob("*/*/*/**/*").select { |path| path.file? || path.symlink? }
       gh_actions_artifacts = (cache/"gh-actions-artifact").directory? ? (cache/"gh-actions-artifact").children : []
 
       cache_entries(files, type: nil) +
         cache_entries(cask_files, type: :cask) +
         cache_entries(api_package_files, type: :api_package) +
+        cache_entries(api_resource_files, type: :api_package) +
         cache_entries(api_source_files, type: :api_source) +
         cache_entries(gh_actions_artifacts, type: :gh_actions_artifact)
     end

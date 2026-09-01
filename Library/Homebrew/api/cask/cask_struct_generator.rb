@@ -6,6 +6,9 @@ module Homebrew
     module Cask
       # Methods for generating CaskStruct instances from API data.
       module CaskStructGenerator
+        include ::Utils::Output::Mixin
+        extend ::Utils::Output::Mixin
+
         module_function
 
         # NOTE: this will be used to load installed cask JSON files,
@@ -144,8 +147,16 @@ module Homebrew
 
         sig { params(artifacts: T::Array[T::Hash[Symbol, T.untyped]]).returns(T::Array[CaskStruct::ArtifactArgs]) }
         def process_artifacts(artifacts)
-          artifacts.map do |artifact|
-            key = T.must(artifact.keys.find { |artifact_key| artifact_key != :target })
+          artifacts.filter_map do |artifact|
+            key = artifact.keys.find { |artifact_key| artifact_key != :target }
+            if key.nil?
+              odebug "Ignoring cask artifact without a stanza key: #{artifact.keys.inspect}"
+              next
+            end
+            unless ::Cask::DSL::ARTIFACT_DSL_METHODS.include?(key)
+              odebug "Ignoring unsupported cask artifact stanza: #{key}"
+              next
+            end
 
             # Pass an empty block to artifacts like postflight that can't be loaded from the API,
             # but need to be set to something.

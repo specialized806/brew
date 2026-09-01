@@ -87,6 +87,12 @@ module Cask
       Artifact::UninstallPostflightSteps,
     ].freeze
 
+    ARTIFACT_DSL_METHODS = T.let(Set.new([
+      *ORDINARY_ARTIFACT_CLASSES.map(&:dsl_key),
+      *ARTIFACT_BLOCK_CLASSES.flat_map { |klass| [klass.dsl_key, klass.uninstall_dsl_key] },
+      *INSTALL_STEP_ARTIFACT_CLASSES.map(&:dsl_key),
+    ]).freeze, T::Set[Symbol])
+
     DSL_METHODS = T.let(Set.new([
       :arch,
       :artifacts,
@@ -130,10 +136,7 @@ module Cask
       :on_os_blocks_exist?,
       :on_system_block_min_os,
       :depends_on_set_in_block?,
-      *ORDINARY_ARTIFACT_CLASSES.map(&:dsl_key),
-      *ACTIVATABLE_ARTIFACT_CLASSES.map(&:dsl_key),
-      *ARTIFACT_BLOCK_CLASSES.flat_map { |klass| [klass.dsl_key, klass.uninstall_dsl_key] },
-      *INSTALL_STEP_ARTIFACT_CLASSES.map(&:dsl_key),
+      *ARTIFACT_DSL_METHODS,
     ]).freeze, T::Set[Symbol])
 
     include OnSystem::MacOSAndLinux

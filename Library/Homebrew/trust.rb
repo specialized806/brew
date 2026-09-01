@@ -545,6 +545,8 @@ module Homebrew
 
     sig { params(path: Pathname).returns(T.nilable(Tap)) }
     def self.tap_from_path(path)
+      Tap.from_path(path.realpath) || Tap.from_path(path)
+    rescue SystemCallError
       Tap.from_path(path)
     end
     private_class_method :tap_from_path

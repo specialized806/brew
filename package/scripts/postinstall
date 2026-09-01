@@ -80,8 +80,47 @@ then
   cd /usr/local
 fi
 
+refuse_symlinked_directories() {
+  for dir in Caskroom Cellar Frameworks bin etc include lib opt sbin share var var/homebrew var/homebrew/linked
+  do
+    if [[ -L "${dir}" ]]
+    then
+      echo "Refusing to operate on symlinked ${dir} in ${homebrew_directory}." >&2
+      exit 1
+    fi
+  done
+}
+
+enter_managed_directory() {
+  local directory="$1"
+  local expected_path="$2"
+  local display_path="$3"
+
+  if [[ -L "${directory}" ]]
+  then
+    echo "Refusing to operate on symlinked ${display_path} in ${homebrew_directory}." >&2
+    exit 1
+  fi
+
+  cd -P "${directory}"
+  if [[ "$(pwd -P)" != "${expected_path}" ]]
+  then
+    echo "Refusing to operate on ${display_path} outside ${homebrew_directory}." >&2
+    exit 1
+  fi
+}
+
+prefix_directory="$(pwd -P)"
+
 # create missing directories
-mkdir -vp Caskroom Cellar Frameworks etc include lib opt sbin share var/homebrew/linked
+refuse_symlinked_directories
+mkdir -vp Caskroom Cellar Frameworks etc include lib opt sbin share var
+(
+  enter_managed_directory var "${prefix_directory}/var" var
+  mkdir -vp homebrew
+  enter_managed_directory homebrew "${prefix_directory}/var/homebrew" var/homebrew
+  mkdir -vp linked
+)
 
 # optionally define an install user at /var/tmp/.homebrew_pkg_user.plist
 # otherwise, get valid logged in user
@@ -92,7 +131,15 @@ homebrew_pkg_user="$(homebrew-package-user)" ||
   }
 
 # set permissions
-chmod ug=rwx Caskroom Cellar Frameworks bin etc include lib opt sbin share var var/homebrew var/homebrew/linked
+refuse_symlinked_directories
+chmod -h ug=rwx Caskroom Cellar Frameworks bin etc include lib opt sbin share var
+(
+  enter_managed_directory var "${prefix_directory}/var" var
+  enter_managed_directory homebrew "${prefix_directory}/var/homebrew" var/homebrew
+  chmod ug=rwx .
+  enter_managed_directory linked "${prefix_directory}/var/homebrew/linked" var/homebrew/linked
+  chmod ug=rwx .
+)
 if [[ "${homebrew_directory}" == "/usr/local/Homebrew" ]]
 then
   chown -h "${homebrew_pkg_user}:admin" bin bin/brew etc include lib opt sbin share var

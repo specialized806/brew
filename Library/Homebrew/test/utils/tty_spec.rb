@@ -6,6 +6,29 @@ RSpec.describe Tty do
     it "removes ANSI escape codes from a string" do
       expect(described_class.strip_ansi("\033[36;7mhello\033[0m")).to eq("hello")
     end
+
+    it "removes terminal control strings, C1 controls, bells, and carriage returns" do
+      string = [
+        "\e[31mred\e[0m",
+        "\e]0;title\a",
+        "\ePdevice-control\e\\",
+        "\e_application-command\e\\",
+        "\e^privacy-message\e\\",
+        "\u009B31mC1 red\u009B0m",
+        "\u009Dtitle\u009C",
+        "bell\a carriage\rreturn",
+        "lone escape\e",
+      ].join(" ")
+
+      expect(described_class.strip_ansi(string)).to eq("red     C1 red  bell carriagereturn lone escape")
+    end
+
+    it "sanitises binary strings without changing their encoding" do
+      string = "A\xFF\e[31mB".b
+      sanitised = described_class.strip_ansi(string)
+
+      expect([sanitised, sanitised.encoding]).to eq(["A\xFFB".b, Encoding::ASCII_8BIT])
+    end
   end
 
   describe "::collapse_carriage_returns" do
