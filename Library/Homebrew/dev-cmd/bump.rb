@@ -204,7 +204,7 @@ module Homebrew
             "Cask uses `version :latest` so `brew bump` cannot check it.\n"
           end
         end
-        if (tap = formula_or_cask.tap) && !tap.allow_bump?(name)
+        if !skip && (tap = formula_or_cask.tap) && !tap.allow_bump?(name)
           skip = true
           text = "#{text.split.first} is autobumped so will have bump PRs opened by BrewTestBot every ~3 hours.\n"
         end
