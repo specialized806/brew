@@ -757,6 +757,34 @@ RSpec.describe Homebrew::CLI::Parser do
       expect(parser.subcommands.last.usage_banner).to include("`test info` <service>:")
     end
 
+    it "hides only the subcommand when it is hidden from the man page", :aggregate_failures do
+      parser = described_class.new(Cmd) do
+        usage_banner "`test` [<subcommand>]"
+
+        subcommand "install", default: true do
+          usage_banner <<~EOS
+            `test install`:
+            Install dependencies.
+          EOS
+          named_args :none
+        end
+
+        subcommand "legacy" do
+          usage_banner <<~EOS
+            `test legacy`:
+            Do nothing.
+          EOS
+          named_args :none
+          hide_from_man_page!
+        end
+      end
+
+      expect(parser.hide_from_man_page).to be(false)
+      expect(parser.subcommands.map { |subcommand| [subcommand.name, subcommand.hidden] })
+        .to eq([["install", false], ["legacy", true]])
+      expect(parser.generate_help_text).not_to include("legacy")
+    end
+
     it "combines subcommand usage banners with the main usage banner" do
       expect(subcommand_parser.usage_banner_text).to include("`test install`:")
       expect(subcommand_parser.usage_banner_text).to include("Show service information.")

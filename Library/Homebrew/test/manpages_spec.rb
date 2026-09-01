@@ -48,6 +48,35 @@ RSpec.describe Homebrew::Manpages do
     expect(info_section).not_to include("`--force`")
   end
 
+  it "does not include subcommands hidden from the manpage", :aggregate_failures do
+    parser = Homebrew::CLI::Parser.new(Cmd) do
+      usage_banner "`test` [<subcommand>]"
+      description "Test command."
+
+      subcommand "install", default: true do
+        usage_banner <<~EOS
+          `test install`:
+          Install dependencies.
+        EOS
+        named_args :none
+      end
+
+      subcommand "legacy" do
+        usage_banner <<~EOS
+          `test legacy`:
+          Delete the legacy thing.
+        EOS
+        named_args :none
+        hide_from_man_page!
+      end
+    end
+
+    manpage = described_class.cmd_parser_manpage_lines(parser).join
+
+    expect(manpage).to include("`test install`:")
+    expect(manpage).not_to include("`test legacy`:")
+  end
+
   it "does not include commands hidden from the manpage" do
     hidden_commands = %w[
       dispatch-build-bottle
