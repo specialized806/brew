@@ -15,12 +15,68 @@ module Downloadable
   requires_ancestor { Kernel }
 
   # Remembers the SHA-256 digest of each file hashed in this process, keyed
-  # by its path, size and modification time, so a file is hashed at most
-  # once per on-disk state no matter how many download objects or
+  # by its resolved path, size and modification time, so a file is hashed
+  # at most once per on-disk state no matter how many download objects or
   # verifications reference it.
   class VerificationCache
     include Context
     include Utils::Output::Mixin
+
+    # Raised by the integration-test-only check in `Pathname#sha256` when an
+    # unchanged file is hashed again without this cache being involved.
+    class RepeatedHashingError < RuntimeError; end
+
+    CACHE_MEDIATED_HASHING_KEY = :homebrew_verification_cache_mediated_hashing
+
+    class << self
+      # The identity and change metadata that determine whether a file can
+      # be considered unchanged on disk: the device, inode, size and
+      # nanosecond modification and change times ensure a replaced or
+      # rewritten file is treated as new, even when its size and
+      # modification time are restored, as the change time cannot be set
+      # from userland.
+      sig { params(filename: Pathname).returns(T.nilable(String)) }
+      def on_disk_state(filename)
+        stat = filename.stat
+        "#{stat.dev}|#{stat.ino}|#{stat.size}|" \
+          "#{stat.mtime.to_i}.#{stat.mtime.nsec}|#{stat.ctime.to_i}.#{stat.ctime.nsec}"
+      rescue SystemCallError
+        nil
+      end
+
+      # Guards against repeated verification creeping in without this cache:
+      # every `Pathname#sha256` call reports here and, in `brew` commands
+      # run by integration tests only, rehashing an unchanged file outside
+      # the cache raises. Hashing is cheap there while a repeat in real use
+      # would rehash a download that can be hundreds of megabytes.
+      sig { params(filename: Pathname).void }
+      def check_repeated_hashing(filename)
+        return if ENV["HOMEBREW_CHECK_REPEATED_HASHING"].blank?
+
+        state = on_disk_state(filename)
+        return if state.nil?
+
+        require "concurrent/set"
+        @hashed_states ||= T.let(Concurrent::Set.new, T.nilable(Concurrent::Set))
+        # `add?` atomically records the state and reports whether it was new.
+        return unless @hashed_states.add?(state).nil?
+        return if Thread.current[CACHE_MEDIATED_HASHING_KEY]
+
+        raise RepeatedHashingError, <<~ERROR
+          Refusing to hash '#{filename}' again: its unchanged contents were already hashed in this process.
+          Verify downloads through `Downloadable#verify_download_integrity` so its digest cache reuses the existing hash.
+          This check only runs when `$HOMEBREW_CHECK_REPEATED_HASHING` is set, e.g. in Homebrew's integration tests.
+        ERROR
+      end
+
+      sig { type_parameters(:U).params(_block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U)) }
+      def while_hashing_through_cache(&_block)
+        Thread.current[CACHE_MEDIATED_HASHING_KEY] = true
+        yield
+      ensure
+        Thread.current[CACHE_MEDIATED_HASHING_KEY] = nil
+      end
+    end
 
     sig { void }
     def initialize
@@ -52,24 +108,34 @@ module Downloadable
         return digest
       end
 
-      digest = filename.sha256
+      digest = self.class.while_hashing_through_cache { filename.sha256 }
       # Only remember the digest when the file did not change while its
       # contents were being hashed.
       @digests[key] = digest if key && key == key_for(filename)
       digest
     end
 
+    # Forgets the remembered digest for the file's current on-disk state,
+    # for callers that suspect its contents changed without the metadata
+    # that keys this cache changing, e.g. in-place corruption suggested by
+    # a failed extraction.
+    sig { params(filename: Pathname).void }
+    def invalidate!(filename)
+      key = key_for(filename)
+      @digests.delete(key) if key
+    end
+
     private
 
-    # The device, inode, size and nanosecond modification and change times
-    # ensure a replaced or rewritten file is hashed again, even when its
-    # size and modification time are restored: the change time cannot be
-    # set from userland.
+    # The resolved path unifies verifications through a symlink with those
+    # through its target, e.g. a download verified once at its cache
+    # location and once through the cache's symlink to it.
     sig { params(filename: Pathname).returns(T.nilable(String)) }
     def key_for(filename)
-      stat = filename.stat
-      "#{filename.expand_path}|#{stat.dev}|#{stat.ino}|#{stat.size}|" \
-        "#{stat.mtime.to_i}.#{stat.mtime.nsec}|#{stat.ctime.to_i}.#{stat.ctime.nsec}"
+      state = self.class.on_disk_state(filename)
+      return if state.nil?
+
+      "#{filename.realpath}|#{state}"
     rescue SystemCallError
       nil
     end

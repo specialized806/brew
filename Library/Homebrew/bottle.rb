@@ -169,8 +169,11 @@ class Bottle
   sig { params(quiet: T::Boolean, _block: T.proc.void).void }
   def with_corrupt_download_retry(quiet: false, &_block)
     yield
-  rescue
-    discard_corrupt_cached_download
+  rescue => e
+    # A checksum mismatch has already hashed the file and proven it
+    # corrupt; only other failures, e.g. during extraction, need a fresh
+    # hash to decide whether the file can be kept.
+    discard_corrupt_cached_download(known_corrupt: e.is_a?(ChecksumMismatchError))
     raise if cached_download.exist?
 
     downloading!
@@ -179,14 +182,20 @@ class Bottle
     yield
   end
 
-  sig { void }
-  def discard_corrupt_cached_download
+  sig { params(known_corrupt: T::Boolean).void }
+  def discard_corrupt_cached_download(known_corrupt: false)
     expected_checksum = resource.checksum
     return if expected_checksum.nil?
     return unless cached_download.file?
-    # Hash directly, bypassing the digest cache: this must catch local
-    # corruption that kept the file's size and modification time.
-    return if cached_download.sha256 == expected_checksum.hexdigest
+
+    unless known_corrupt
+      # The remembered digest cannot be trusted here: the failed extraction
+      # may mean the file was corrupted in place without changing the
+      # metadata that keys the digest cache, so forget it and hash afresh.
+      verification_cache = Downloadable.verification_cache
+      verification_cache.invalidate!(cached_download)
+      return if verification_cache.sha256(cached_download) == expected_checksum.hexdigest
+    end
 
     opoo "Removing corrupt cached download: #{cached_download.basename}"
     clear_cache

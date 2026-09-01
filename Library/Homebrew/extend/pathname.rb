@@ -220,6 +220,9 @@ class Pathname
   sig { returns(String) }
   def sha256
     require "digest/sha2"
+    # In integration tests only, raise when an unchanged file is rehashed
+    # without the digest cache being involved.
+    ::Downloadable::VerificationCache.check_repeated_hashing(self) if defined?(::Downloadable::VerificationCache)
     Digest::SHA256.file(self).hexdigest
   end
 

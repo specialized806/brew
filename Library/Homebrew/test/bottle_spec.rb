@@ -67,6 +67,10 @@ RSpec.describe Bottle do
       bottle.cached_download.write("corrupt")
       allow(bottle.downloader).to receive(:stage)
       expect(bottle).to receive(:fetch) { bottle.cached_download.write(valid_content) }
+      # The mismatched verification has already hashed the corrupt file, so
+      # discarding it must not hash it a second time: once for the corrupt
+      # file and once for the fresh download.
+      expect(Digest::SHA256).to receive(:file).twice.and_call_original
 
       expect { bottle.stage }.to output(/Removing corrupt cached download/).to_stderr
     end
