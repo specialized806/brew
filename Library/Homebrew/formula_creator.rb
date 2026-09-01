@@ -217,12 +217,16 @@ module Homebrew
           # depends_on "cmake" => :build
         <% end %>
 
-        <% if @mode == :perl || :python || :ruby %>
+        <% if [:perl, :ruby].include? @mode %>
           # Additional dependency
           # resource "" do
           #   url ""
           #   sha256 ""
           # end
+
+        <% end %>
+        <% if [:autotools, :cmake, :meson, :perl, nil].include? @mode %>
+          deny_network_access!
 
         <% end %>
           def install
