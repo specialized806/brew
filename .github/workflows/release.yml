@@ -226,6 +226,7 @@ jobs:
       matrix:
         include:
           # Intel
+          # Keep building and testing the installer on Tier 3 Intel macOS for now.
           - runner: macos-15-intel
             name: macos-15-x86_64
           # Apple Silicon
@@ -272,7 +273,8 @@ jobs:
 
       - run: brew config
 
-      - run: brew doctor
+      - if: matrix.name != 'macos-15-x86_64'
+        run: brew doctor
 
       - name: Zero existing installer logs (again)
         run: echo | sudo tee /var/log/install.log
@@ -288,7 +290,8 @@ jobs:
 
       - run: brew config
 
-      - run: brew doctor
+      - if: matrix.name != 'macos-15-x86_64'
+        run: brew doctor
 
   upload:
     needs: [build, test]
