@@ -798,6 +798,62 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
+  it "loads reviewed candidate corrections from --overrides=<file>" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.31.0")
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "overrides.yml")
+      File.write(path, <<~YAML)
+        requests:
+          advisories:
+            CVE-2024-1234:
+              range_state: affected
+              upstream_fixed_in:
+      YAML
+
+      records = JSON.parse(capture_stdout do
+        cmd_for("requests", "--json", "--no-history", "--overrides", path).run
+      end)
+      affected = records.first.fetch("affected").first
+      expect(affected.dig("ranges", 0, "events")).to eq [{ "introduced" => "0" }]
+      expect(affected.fetch("ecosystem_specific")).to eq("fix" => nil, "range_state" => "affected")
+    end
+  end
+
+  it "uses an affected override before transition detection in --new-history mode" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.31.0")
+    expect(FormulaVersions).not_to receive(:new)
+
+    Dir.mktmpdir do |dir|
+      overrides_path = File.join(dir, "overrides.yml")
+      File.write(overrides_path, <<~YAML)
+        requests:
+          advisories:
+            CVE-2024-1234:
+              range_state: affected
+              upstream_fixed_in:
+      YAML
+      record_path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(record_path, JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "upstream"          => ["CVE-2024-1234"],
+        "affected"          => [{
+          "package" => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [{ "introduced" => "0" }] }],
+        }],
+        "database_specific" => { "source" => "matched" },
+      }))
+
+      expect do
+        cmd_for("requests", "--output", dir, "--new-history", "--overrides", overrides_path).run
+      end.to output(/0 history walks/).to_stdout
+
+      affected = JSON.parse(File.read(record_path)).fetch("affected").first
+      expect(affected.dig("ranges", 0, "events")).to eq [{ "introduced" => "0" }]
+      expect(affected.fetch("ecosystem_specific")).to eq("fix" => nil, "range_state" => "affected")
+    end
+  end
+
   it "raises on an unreadable --repology file" do
     expect { cmd_for("requests", "--json", "--repology", "/nonexistent/repology.json").run }
       .to raise_error(Errno::ENOENT)

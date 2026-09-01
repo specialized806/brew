@@ -463,6 +463,22 @@ RSpec.describe Homebrew::Vulns::Match do
 
       expect(yielded).to eq [["aa", ["CVE-2024-0001"]], ["bb", []]]
     end
+
+    it "does not identify or query a formula skipped by reviewed overrides" do
+      skipped = formula("aa") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/owner/aa/archive/refs/tags/v1.0.tar.gz"
+      end
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({ "aa" => { "skip" => true } })
+      bulk = described_class.new(repology:, cpan_sec:, overrides:, bulk: true)
+      expect(bulk).not_to receive(:identify)
+      expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+
+      yielded = []
+      bulk.each_advisory_batch([skipped]) { |formula, hits| yielded << [formula.name, hits] }
+
+      expect(yielded).to eq [["aa", []]]
+    end
   end
 
   describe "#advisories_for" do
@@ -586,6 +602,47 @@ RSpec.describe Homebrew::Vulns::Match do
       aff = record[:affected].first
       expect(aff[:ranges]).to eq [{ type: "ECOSYSTEM", events: [{ introduced: "0" }] }]
       expect(aff[:ecosystem_specific]).to eq(fix: nil, range_state: "affected", upstream_fixed_in: "2.32.0")
+    end
+
+    it "does not report last_affected as an upstream fix version" do
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "last_affected" => "2.0" }])
+
+      record = matcher.to_brew_record(requests, hit, now:)
+
+      expect(record.dig(:affected, 0, :ranges, 0, :events))
+        .to eq [{ introduced: "0" }, { fixed: requests.pkg_version.to_s }]
+      expect(record.dig(:affected, 0, :ecosystem_specific)).to eq(fix: "bump", range_state: "fixed")
+    end
+
+    it "applies a reviewed advisory override before emitting the range state and upstream fix" do
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({
+        "requests" => { "advisories" => {
+          "CVE-2024-1234" => { "range_state" => "affected", "upstream_fixed_in" => nil },
+        } },
+      })
+      overridden = described_class.new(repology:, cpan_sec:, overrides:)
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2.31.0" }])
+
+      record = overridden.to_brew_record(requests, hit, now:)
+
+      expect(record.dig(:affected, 0, :ranges, 0, :events)).to eq [{ introduced: "0" }]
+      expect(record.dig(:affected, 0, :ecosystem_specific)).to eq(fix: nil, range_state: "affected")
+    end
+
+    it "can supply a reviewed upstream fix after a last_affected boundary" do
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({
+        "requests" => { "advisories" => {
+          "CVE-2024-1234" => { "upstream_fixed_in" => "2.1" },
+        } },
+      })
+      overridden = described_class.new(repology:, cpan_sec:, overrides:)
+      hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "last_affected" => "2.0" }])
+
+      record = overridden.to_brew_record(requests, hit, now:)
+
+      expect(record.dig(:affected, 0, :ecosystem_specific, :upstream_fixed_in)).to eq "2.1"
+      expect(overridden.range_status(hit, formula_name: "other")&.first)
+        .to have_attributes(state: :fixed, fixed_in: nil)
     end
 
     it "emits fix: nil and demotes confidence when no comparable range exists (GIT-only)" do
