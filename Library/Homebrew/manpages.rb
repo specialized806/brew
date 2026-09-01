@@ -106,6 +106,8 @@ module Homebrew
         lines += option_manpage_lines(root_options)
 
         cmd_parser.subcommands.each do |subcommand|
+          next if subcommand.hidden
+
           usage_banner = subcommand.usage_banner
           next if usage_banner.blank?
 

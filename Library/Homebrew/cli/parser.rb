@@ -38,7 +38,7 @@ module Homebrew
         prop :max_named_args, T.nilable(Integer), default: nil
         prop :min_named_args, T.nilable(Integer), default: nil
         prop :named_args_without_api, T::Boolean, default: false
-        const :hidden, T::Boolean, default: false
+        prop :hidden, T::Boolean, default: false
         const :replacement, T.nilable(T.any(String, Symbol)), default: nil
         const :odeprecated, T::Boolean, default: false
         const :odisabled, T::Boolean, default: false
@@ -664,6 +664,16 @@ module Homebrew
 
       sig { void }
       def hide_from_man_page!
+        if @current_subcommands.present?
+          @current_subcommands.each do |subcommand_name|
+            subcommand = subcommand_for_name(subcommand_name)
+            raise ArgumentError, "unknown subcommand: #{subcommand_name}" if subcommand.nil?
+
+            subcommand.hidden = true
+          end
+          return
+        end
+
         @hide_from_man_page = true
       end
 
@@ -992,6 +1002,8 @@ module Homebrew
         parts = T.let([], T::Array[String])
         parts << @description if @description.present?
         @subcommands.each do |subcommand|
+          next if subcommand.hidden
+
           usage_banner = subcommand.usage_banner
           parts << usage_banner if usage_banner.present?
         end

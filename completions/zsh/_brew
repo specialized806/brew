@@ -165,6 +165,7 @@ __brew_internal_commands() {
     '--taps:Display the path to Homebrew’s Taps directory'
     '--version:Print the version numbers of Homebrew, Homebrew/homebrew-core and Homebrew/homebrew-cask (if tapped) to standard output'
     'alias:Show an alias'\''s command'
+    'analytics:Control Homebrew'\''s anonymous aggregate user behaviour analytics'
     'as-console-user:Run a Homebrew command as the active macOS console user'
     'audit:Check formula or cask for Homebrew coding style violations'
     'autoremove:Uninstall formulae that were only installed as a dependency of another formula and are now no longer needed'
@@ -274,7 +275,6 @@ __brew_internal_commands() {
   if [[ -n ${HOMEBREW_DEVELOPER:-} ]]; then
     commands+=(
       'advisory-match:Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
-      'analytics:Control Homebrew'\''s anonymous aggregate user behaviour analytics'
       'determine-test-runners:Determines the runners used to test formulae or their dependents'
       'dispatch-build-bottle:Build bottles for these formulae with GitHub Actions'
       'formula-analytics:Query Homebrew'\''s analytics'
