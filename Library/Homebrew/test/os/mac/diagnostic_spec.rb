@@ -6,50 +6,49 @@ require "diagnostic"
 RSpec.describe Homebrew::Diagnostic::Checks do
   subject(:checks) { described_class.new }
 
-  specify "#check_for_unsupported_macos" do
-    ENV.delete("HOMEBREW_DEVELOPER")
-
-    macos_version = MacOSVersion.new("30")
-    allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
-    allow(OS::Mac.version).to receive_messages(outdated_release?: false, prerelease?: true)
-
-    expect(checks.check_for_unsupported_macos&.to_s)
-      .to match("We do not provide support for this pre-release version.")
-  end
-
-  describe "#check_for_opencore" do
-    let(:macos_version) { MacOSVersion.new("13") }
-
+  describe "#check_for_unsupported_macos" do
     before do
+      ENV.delete("HOMEBREW_DEVELOPER")
+    end
+
+    it "reports Tier 2 for a pre-release macOS version on Apple Silicon" do
+      macos_version = MacOSVersion.new("30")
+      allow(Hardware::CPU).to receive(:intel?).and_return(false)
       allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
-      allow(Hardware::CPU).to receive(:physical_cpu_arm64?).and_return(false)
-      allow(Utils).to receive(:safe_popen_read)
-        .with("/usr/sbin/nvram", "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version")
-        .and_return("opencore-version\t1.0.0")
-      allow(Utils).to receive(:safe_popen_read)
-        .with("/usr/sbin/nvram", "4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:OCLP-Version")
-        .and_return("OCLP-Version\t2.0.0")
+      allow(OS::Mac.version).to receive_messages(outdated_release?: false, prerelease?: true)
+
+      finding = checks.check_for_unsupported_macos
+      expect(finding).to have_attributes(
+        tier: 2,
+        text: match("We do not provide support for this pre-release version."),
+      )
     end
 
-    it "reports Tier 2 on a modern CPU running a supported macOS" do
-      allow(Hardware::CPU).to receive(:features).and_return([:pclmulqdq])
-      allow(macos_version).to receive(:outdated_release?).and_return(false)
+    it "reports Tier 3 on Intel macOS" do
+      macos_version = MacOSVersion.new("26")
+      allow(Hardware::CPU).to receive(:intel?).and_return(true)
+      allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
+      allow(OS::Mac.version).to receive_messages(outdated_release?: false, prerelease?: false)
 
-      expect(checks.check_for_opencore&.tier).to eq 2
+      finding = checks.check_for_unsupported_macos
+      expect(finding).to have_attributes(
+        tier: 3,
+        text: match("We do not provide support for this platform"),
+      )
     end
 
-    it "reports Tier 3 on an old CPU" do
-      allow(Hardware::CPU).to receive(:features).and_return([])
-      allow(macos_version).to receive(:outdated_release?).and_return(false)
+    it "preserves the remediation for outdated macOS on Intel" do
+      macos_version = MacOSVersion.new("13")
+      allow(Hardware::CPU).to receive(:intel?).and_return(true)
+      allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
+      allow(OS::Mac.version).to receive_messages(outdated_release?: true, prerelease?: false)
 
-      expect(checks.check_for_opencore&.tier).to eq 3
-    end
-
-    it "reports Tier 3 on a modern CPU running an outdated macOS" do
-      allow(Hardware::CPU).to receive(:features).and_return([:pclmulqdq])
-      allow(macos_version).to receive(:outdated_release?).and_return(true)
-
-      expect(checks.check_for_opencore&.tier).to eq 3
+      finding = checks.check_for_unsupported_macos
+      expect(finding).to have_attributes(
+        tier:        3,
+        text:        include("We (and Apple) do not provide support for this old version."),
+        remediation: have_attributes(text: include("MacPorts")),
+      )
     end
   end
 

@@ -109,11 +109,11 @@ module OS
     # Don't tell people to report issues on non-Tier 1 configurations.
     if nix_managed_homebrew
       ISSUES_URL = OS.nix_managed_homebrew_issues_url.freeze
-    elsif !OS::Mac.version.prerelease? &&
+    elsif Hardware::CPU.arm? &&
+          !OS::Mac.version.prerelease? &&
           !OS::Mac.version.outdated_release? &&
           ARGV.none? { |v| v.start_with?("--cc=") } &&
-          (HOMEBREW_PREFIX.to_s == HOMEBREW_DEFAULT_PREFIX ||
-          (HOMEBREW_PREFIX.to_s == HOMEBREW_MACOS_ARM_DEFAULT_PREFIX && Hardware::CPU.arm?))
+          HOMEBREW_PREFIX.to_s == HOMEBREW_MACOS_ARM_DEFAULT_PREFIX
       ISSUES_URL = "https://docs.brew.sh/Troubleshooting"
     end
     PATH_OPEN = "/usr/bin/open"

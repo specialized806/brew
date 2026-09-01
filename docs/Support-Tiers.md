@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-04-03"
+last_review_date: "2026-08-27"
 ---
 
 # Support Tiers
@@ -27,12 +27,9 @@ Users can expect:
 
 To qualify as Tier 1, a macOS configuration must meet all of the following:
 
-- On official Apple hardware (not a Hackintosh or virtual machine)
+- On official Apple Silicon hardware (not a virtual machine)
 - Running the latest patch release of a macOS version supported by Apple for that hardware and included in Homebrew’s CI coverage (typically the latest stable or prerelease version and the two preceding versions)
-- Installed in the default prefix:
-  - `/opt/homebrew` on Apple Silicon
-  - `/usr/local` on Intel x86_64
-- Using a supported architecture (Apple Silicon or Intel x86_64)
+- Installed in the default prefix: `/opt/homebrew`
 - Not building official packages from source (i.e. using bottles)
 - Installed on the Mac’s internal storage (not external or removable drives)
 - Running with `sudo` access available
@@ -72,7 +69,6 @@ Tier 2 configurations include:
 - Linux systems with `glibc` versions between 2.13 and 2.38 (Homebrew’s own `glibc` formula will be installed automatically)
 - Homebrew installed outside the default prefix, requiring source builds for official packages (i.e. installing outside `/opt/homebrew`, `/usr/local` or `/home/linuxbrew/.linuxbrew`)
 - Architectures not yet officially supported by Homebrew
-- Macs using OpenCore Legacy Patcher with a Westmere or newer Intel CPU
 
 ## Tier 3
 
@@ -98,7 +94,7 @@ Tier 3 configurations include:
 - Homebrew installations managed by Nix (e.g. nix-darwin or nix-homebrew)
 - Installing formulae using `--HEAD`
 - Installing deprecated or disabled formulae
-- Macs using OpenCore Legacy Patcher with an Intel CPU older than Westmere
+- Intel x86_64 systems running macOS
 
 ## Unsupported
 
@@ -129,19 +125,18 @@ If you are using a Homebrew wrapper, get support from and file issues with that 
 
 ## Future macOS support
 
-Apple has announced that macOS Tahoe 26 will be the final version of macOS to support Intel x86_64 hardware. In alignment with this change, Homebrew plans to remove support for macOS on Intel in a future release after that point.
+macOS Tahoe 26 is the final version of macOS to run on Intel hardware. In alignment with this change, Homebrew has stopped building new bottles for Intel systems, and will remove the ability to run Homebrew on Intel systems in or after September 2027.
 
 The following timeline outlines expected Tier classifications based on Apple’s release cycle and Homebrew’s CI coverage.
 
-- As of November 2025:
+- As of September 2026:
 
   Apple Silicon:
   - Tier 1: macOS Tahoe 26, Sequoia 15, Sonoma 14
   - Tier 3: macOS Big Sur 11 through Ventura 13
 
   Intel x86_64:
-  - Tier 1: macOS Tahoe 26, Sequoia 15, Sonoma 14
-  - Tier 3: macOS Catalina 10.15 through Ventura 13
+  - Tier 3: macOS Catalina 10.15 through Tahoe 26
   - Unsupported: macOS Mojave 10.14 and earlier
 
 - Expected in or after September 2026:
