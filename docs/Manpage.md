@@ -112,6 +112,23 @@ Show an alias's command. If no alias is given, print the whole list.
 : Edit aliases in a text editor. Either one or all aliases may be opened at
   once. If the given alias doesn't exist it'll be pre-populated with a template.
 
+### `analytics` \[*`subcommand`*\]
+
+Control Homebrew's anonymous aggregate user behaviour analytics. Read more at
+<https://docs.brew.sh/Analytics>.
+
+`brew analytics` \[`state`\]
+
+: Display the current state of Homebrew's analytics.
+
+`brew analytics on`
+
+: Turn Homebrew's analytics on.
+
+`brew analytics off`
+
+: Turn Homebrew's analytics off.
+
 ### `as-console-user` *`command`* \[*`args`* ...\]
 
 Run a Homebrew command as the active macOS console user.
