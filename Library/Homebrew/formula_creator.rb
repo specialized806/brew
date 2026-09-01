@@ -225,11 +225,17 @@ module Homebrew
           # end
 
         <% end %>
-        <% if [:autotools, :cmake, :go, :meson, :perl, :rust, nil].include? @mode %>
+        <% if [:crystal, :node, :python, :ruby, :zig].exclude? @mode %>
           deny_network_access!
 
         <% end %>
-        <% if @mode == :go %>
+        <% if @mode == :cabal %>
+          def fetch
+            system "cabal", "v2-update"
+            system "cabal", "v2-install", "--only-download", *std_cabal_v2_args
+          end
+
+        <% elsif @mode == :go %>
           def fetch
             system "go", "mod", "download"
           end
@@ -242,7 +248,6 @@ module Homebrew
         <% end %>
           def install
         <% if @mode == :cabal %>
-            system "cabal", "v2-update"
             system "cabal", "v2-install", *std_cabal_v2_args
         <% elsif @mode == :cmake %>
             system "cmake", "-S", ".", "-B", "build", *std_cmake_args
