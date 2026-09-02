@@ -122,6 +122,10 @@ RSpec.describe Homebrew::FormulaCreator do
                     includes: ["deny_network_access!", "std_cargo_args", /"cargo".*"fetch"/],
                     excludes: ["unrecognized options", 'resource "']
 
+    it_behaves_like "expected", :zig,
+                    includes: ["deny_network_access!", "std_zig_args", "--fetch"],
+                    excludes: ["unrecognized options", 'resource "']
+
     it_behaves_like "expected", nil,
                     includes: ["deny_network_access!", "unrecognized options"],
                     excludes: ['resource "']

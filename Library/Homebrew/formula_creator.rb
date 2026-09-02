@@ -225,7 +225,7 @@ module Homebrew
           # end
 
         <% end %>
-        <% if [:crystal, :node, :python, :ruby, :zig].exclude? @mode %>
+        <% if [:crystal, :node, :python, :ruby].exclude? @mode %>
           deny_network_access!
 
         <% end %>
@@ -243,6 +243,11 @@ module Homebrew
         <% elsif @mode == :rust %>
           def fetch
             system "cargo", "fetch", "--locked", "--target", "host-tuple"
+          end
+
+        <% elsif @mode == :zig %>
+          def fetch
+            system "zig", "build", "--fetch"
           end
 
         <% end %>
