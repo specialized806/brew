@@ -9,6 +9,10 @@ RSpec.describe MacOS::FFI::LibProc, :needs_macos do
       expect(described_class.parent_pid(Process.pid)).to eq Process.ppid
     end
 
+    it "returns the parent of a process owned by another user" do
+      expect(described_class.parent_pid(1)).to eq 0
+    end
+
     it "returns nil for a process that does not exist" do
       expect(described_class.parent_pid(-1)).to be_nil
     end

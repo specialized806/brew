@@ -378,6 +378,7 @@ module Cask
         def ancestor_bundle_ids
           @ancestor_bundle_ids ||= begin
             pids = [Process.pid]
+            # `launchd` (PID 1) reports a parent of `0` rather than failing.
             while (ppid = parent_pid(pids.last)) && ppid > 1 && pids.exclude?(ppid)
               pids << ppid
             end
