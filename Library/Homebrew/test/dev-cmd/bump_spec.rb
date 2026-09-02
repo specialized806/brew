@@ -15,6 +15,23 @@ RSpec.describe Homebrew::DevCmd::Bump do
       url "https://brew.sh/test-1.2.3.tgz"
     end
   end
+  let(:f_disabled) do
+    formula("disabled_formula") do
+      T.bind(self, T.class_of(Formula))
+      desc "Disabled formula"
+      url "https://brew.sh/test-1.2.3.tgz"
+
+      disable! date: "2020-01-01", because: "Testing"
+    end
+  end
+  let(:f_head_only) do
+    formula("head_only_formula") do
+      T.bind(self, T.class_of(Formula))
+      desc "HEAD-only formula"
+      head "https://github.com/Homebrew/brew.git", branch: "main"
+    end
+  end
+
   let(:c_basic) do
     Cask::CaskLoader.load(+<<-RUBY)
       cask "basic_cask" do
@@ -22,6 +39,18 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
         name "Basic Cask"
         desc "Basic cask"
+      end
+    RUBY
+  end
+  let(:c_disabled) do
+    Cask::CaskLoader.load(+<<-RUBY)
+      cask "disabled_cask" do
+        version "1.2.3"
+
+        name "Disabled Cask"
+        desc "Disabled cask"
+
+        disable! date: "2020-01-01", because: "Testing"
       end
     RUBY
   end
@@ -64,10 +93,52 @@ RSpec.describe Homebrew::DevCmd::Bump do
       .to raise_error(UsageError, /`--tap` requires `--auto` for official taps/)
   end
 
-  describe "::skip_ineligible_formulae!" do
-    it "prints a legible message for casks using `version :latest`" do
-      expect { expect(bump.skip_ineligible_formulae!(c_latest)).to be(true) }
+  describe "::skip_ineligible_package!" do
+    it "prints a message for disabled formulae" do
+      expect { expect(bump.skip_ineligible_package!(f_disabled)).to be(true) }
+        .to output(/Formula is disabled so not accepting updates\./).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "prints a message for HEAD-only formulae" do
+      expect { expect(bump.skip_ineligible_package!(f_head_only)).to be(true) }
+        .to output(/Formula is HEAD-only so not accepting updates\./).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "prints a message for disabled casks" do
+      expect { expect(bump.skip_ineligible_package!(c_disabled)).to be(true) }
+        .to output(/Cask is disabled so not accepting updates\./).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "prints a message for casks using `version :latest`" do
+      expect { expect(bump.skip_ineligible_package!(c_latest)).to be(true) }
         .to output(/Cask uses `version :latest` so `brew bump` cannot check it\./).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "prints a message for autobumped packages" do
+      allow(f_basic).to receive(:tap).and_return(instance_double(Tap, allow_bump?: false))
+
+      expect { expect(bump.skip_ineligible_package!(f_basic)).to be(true) }
+        .to output(/Formula is autobumped so will have bump PRs opened by BrewTestBot/).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "doesn't overwrite an existing skip message with the autobump message" do
+      allow(f_disabled).to receive(:tap).and_return(instance_double(Tap, allow_bump?: false))
+
+      expect { expect(bump.skip_ineligible_package!(f_disabled)).to be(true) }
+        .to output(/Formula is disabled so not accepting updates\./).to_stdout
+        .and not_to_output.to_stderr
+    end
+
+    it "returns false for an eligible package" do
+      allow(f_basic).to receive(:tap).and_return(instance_double(Tap, allow_bump?: true))
+
+      expect { expect(bump.skip_ineligible_package!(f_basic)).to be(false) }
+        .to not_to_output.to_stdout
         .and not_to_output.to_stderr
     end
   end

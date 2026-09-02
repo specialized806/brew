@@ -190,7 +190,7 @@ module Homebrew
       sig {
         params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T::Boolean)
       }
-      def skip_ineligible_formulae!(formula_or_cask)
+      def skip_ineligible_package!(formula_or_cask)
         if formula_or_cask.is_a?(Formula)
           skip = formula_or_cask.disabled? || formula_or_cask.head_only?
           name = formula_or_cask.name
@@ -204,7 +204,7 @@ module Homebrew
             "Cask uses `version :latest` so `brew bump` cannot check it.\n"
           end
         end
-        if (tap = formula_or_cask.tap) && !tap.allow_bump?(name)
+        if !skip && (tap = formula_or_cask.tap) && !tap.allow_bump?(name)
           skip = true
           text = "#{text.split.first} is autobumped so will have bump PRs opened by BrewTestBot every ~3 hours.\n"
         end
@@ -887,7 +887,7 @@ module Homebrew
         consecutive_github_api_errors = 0
         formulae_and_casks.each_with_index do |formula_or_cask, i|
           puts if i.positive?
-          next if skip_ineligible_formulae!(formula_or_cask)
+          next if skip_ineligible_package!(formula_or_cask)
 
           use_full_name = args.full_name? || ambiguous_names.include?(formula_or_cask)
           name = Livecheck.package_or_resource_name(formula_or_cask, full_name: use_full_name)
