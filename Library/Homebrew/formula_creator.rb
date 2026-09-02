@@ -205,6 +205,12 @@ module Homebrew
           depends_on "node"
         <% elsif @mode == :perl %>
           uses_from_macos "perl"
+
+          # Add CPAN dependencies as resources
+          # resource "" do
+          #   url ""
+          #   sha256 ""
+          # end
         <% elsif @mode == :python %>
           depends_on "#{latest_versioned_formula("python")}"
         <% elsif @mode == :ruby %>
@@ -217,14 +223,6 @@ module Homebrew
           # depends_on "cmake" => :build
         <% end %>
 
-        <% if [:perl, :ruby].include? @mode %>
-          # Additional dependency
-          # resource "" do
-          #   url ""
-          #   sha256 ""
-          # end
-
-        <% end %>
         <% if [:crystal, :node, :python, :ruby].exclude? @mode %>
           deny_network_access!
 
@@ -326,8 +324,7 @@ module Homebrew
             #
             # This test will fail and we won't accept that! For Homebrew/homebrew-core
             # this will need to be a test that verifies the functionality of the
-            # software. Run the test with `brew test #{name}`. Options passed
-            # to `brew install` such as `--HEAD` also need to be provided to `brew test`.
+            # software. Run the test with `brew test #{name}`.
             #
             # The installed folder is not in the path, so use the entire path to any
             # executables being tested: `system bin/"program", "do", "something"`.
