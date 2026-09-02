@@ -342,6 +342,7 @@ __fish_brew_complete_arg 'advisory-match' -l json -d 'Output candidate records a
 __fish_brew_complete_arg 'advisory-match' -l new-history -d 'Walk `FormulaVersions` only for records whose reviewed ranges are not already in directory'
 __fish_brew_complete_arg 'advisory-match' -l no-history -d 'Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead'
 __fish_brew_complete_arg 'advisory-match' -l output -d 'Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields'
+__fish_brew_complete_arg 'advisory-match' -l overrides -d 'Load reviewed formula and advisory matching overrides from file'
 __fish_brew_complete_arg 'advisory-match' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'advisory-match' -l repology -d 'Load the formula to distro-package index from file instead of the published `data/repology.json`'
 __fish_brew_complete_arg 'advisory-match' -l verbose -d 'Make some output more verbose'

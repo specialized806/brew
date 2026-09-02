@@ -445,6 +445,7 @@ _brew_advisory_match() {
     '(--no-history)--new-history[Walk `FormulaVersions` only for records whose reviewed ranges are not already in directory]' \
     '(--new-history)--no-history[Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead]' \
     '(--index)--output[Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields]' \
+    '--overrides[Load reviewed formula and advisory matching overrides from file]' \
     '--quiet[Make some output more quiet]' \
     '--repology[Load the formula to distro-package index from file instead of the published `data/repology.json`]' \
     '--verbose[Make some output more verbose]' \

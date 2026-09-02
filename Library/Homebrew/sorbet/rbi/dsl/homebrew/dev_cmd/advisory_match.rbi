@@ -30,5 +30,8 @@ class Homebrew::DevCmd::AdvisoryMatch::Args < Homebrew::CLI::Args
   def output; end
 
   sig { returns(T.nilable(String)) }
+  def overrides; end
+
+  sig { returns(T.nilable(String)) }
   def repology; end
 end

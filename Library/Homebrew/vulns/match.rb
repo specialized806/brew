@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "formula_versions"
+require "vulns/advisory_overrides"
 require "vulns/cpan_sec"
 require "vulns/identify"
 require "vulns/osv"
@@ -115,10 +116,14 @@ module Homebrew
         end
       end
 
-      sig { params(repology: T.nilable(Repology), cpan_sec: T.nilable(CPANSec), bulk: T::Boolean).void }
-      def initialize(repology: nil, cpan_sec: nil, bulk: false)
+      sig {
+        params(repology: T.nilable(Repology), cpan_sec: T.nilable(CPANSec),
+               overrides: T.nilable(AdvisoryOverrides), bulk: T::Boolean).void
+      }
+      def initialize(repology: nil, cpan_sec: nil, overrides: nil, bulk: false)
         @repology = repology
         @cpan_sec = cpan_sec
+        @overrides = overrides
         @bulk = bulk
         @vuln_cache = T.let({}, T::Hash[String, T.nilable(Vulnerability)])
         @formula_versions = T.let({}, T::Hash[String, FormulaVersions])
@@ -179,7 +184,12 @@ module Homebrew
       }
       def each_advisory_batch(formulae, &_blk)
         formulae.each_slice(BULK_CHUNK) do |chunk|
-          identities = chunk.map { |f| [f, identify(f)] }
+          identities = T.let({}, T::Hash[Formula, Identity])
+          chunk.each do |formula|
+            next if @overrides&.skip_formula?(formula.name)
+
+            identities[formula] = identify(formula)
+          end
           labelled = T.let([], T::Array[[OSV::Package, [Formula, Evidence]]])
           identities.each do |f, identity|
             next unless identity.identifiable?
@@ -200,8 +210,9 @@ module Homebrew
 
           prefetch_vulnerabilities(by_formula.each_value.flat_map(&:keys))
 
-          identities.each do |f, identity|
-            next yield f, [] unless identity.identifiable?
+          chunk.each do |f|
+            identity = identities[f]
+            next yield f, [] unless identity&.identifiable?
 
             yield f, hits_from(by_formula[f] || {}, identity)
           end
@@ -450,17 +461,27 @@ module Homebrew
       # chosen (used by {#first_fixed_version} and for the emitted record's
       # resource attribution), or `nil` if no evidence produced a checkable
       # answer.
-      sig { params(hit: Hit).returns(T.nilable([Vulnerability::RangeStatus, Evidence])) }
-      def range_status(hit)
+      sig {
+        params(hit: Hit, formula_name: T.nilable(String))
+          .returns(T.nilable([Vulnerability::RangeStatus, Evidence]))
+      }
+      def range_status(hit, formula_name: nil)
         results = hit.evidence.filter_map do |ev|
           status = evidence_range_status(ev, ev.subject_version)
           [status, ev] if status
         end
-        return if results.empty?
+        selected = results.find { |s, _| s.affected? } ||
+                   results.find { |s, _| s.fixed? } ||
+                   results.first
+        override = @overrides&.advisory_override(formula_name, hit.identifiers) if formula_name
+        return selected unless override
 
-        results.find { |s, _| s.affected? } ||
-          results.find { |s, _| s.fixed? } ||
-          results.first
+        status, evidence = selected || [nil, hit.primary_evidence]
+        state = override.state || status&.state
+        return selected unless state
+
+        fixed_in = override.fixed_in_overridden ? override.fixed_in : status&.fixed_in
+        [Vulnerability::RangeStatus.new(state:, fixed_in:).freeze, evidence]
       end
 
       sig {
@@ -498,7 +519,7 @@ module Homebrew
       def to_brew_record(formula, hit, first_fixed: nil, first_reintroduced: nil, now: Time.now.utc)
         vuln = hit.vulnerability
         timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        status, status_evidence = range_status(hit)
+        status, status_evidence = range_status(hit, formula_name: formula.name)
 
         fixed = first_fixed
         fixed ||= formula.pkg_version.to_s if status&.fixed?
@@ -601,7 +622,7 @@ module Homebrew
       # The rev-list and per-revision loads are cached per formula.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
       def first_fixed_version(formula, hit)
-        return unless range_status(hit)&.first&.fixed?
+        return unless range_status(hit, formula_name: formula.name)&.first&.fixed?
 
         fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
         revs = @formula_rev_lists[formula.name] ||=
@@ -636,7 +657,7 @@ module Homebrew
       # revision could not be loaded or compared safely.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
       def first_reintroduced_version(formula, hit)
-        return unless range_status(hit)&.first&.affected?
+        return unless range_status(hit, formula_name: formula.name)&.first&.affected?
 
         fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
         revs = @formula_rev_lists[formula.name] ||=
