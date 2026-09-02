@@ -317,6 +317,38 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
       end
     end
 
+    it "loads cask contents with a leading comment when calculating the checksum" do
+      contents = <<~RUBY
+        # leading comment
+        cask "foo" do
+          version "1.0"
+          sha256 "#{old_hash}"
+
+          url "https://brew.sh/foo-\#{version}.dmg"
+          name "Foo"
+        end
+      RUBY
+      cask = cask_from_contents(contents)
+      new_version = Homebrew::BumpVersionParser.new(general: "2.0")
+      download = mktmpdir/"foo.dmg"
+      download.write("download")
+      allow(Cask::Download).to receive(:new)
+        .and_return(instance_double(Cask::Download, fetch: download))
+      allow(Utils::Tar).to receive(:validate_file).with(download)
+
+      expect(bump_cask_pr.replace_version_and_checksum(cask, nil, new_version, contents))
+        .to eq <<~RUBY
+          # leading comment
+          cask "foo" do
+            version "2.0"
+            sha256 "#{download.sha256}"
+
+            url "https://brew.sh/foo-\#{version}.dmg"
+            name "Foo"
+          end
+        RUBY
+    end
+
     it "splits a root version and single checksum before replacing the ARM values" do
       contents = <<~RUBY
         cask "foo" do

@@ -353,7 +353,8 @@ module Homebrew
                 cask.languages
               end
               languages.each do |language|
-                new_cask        = Cask::CaskLoader.load(contents)
+                new_cask        = Cask::CaskLoader::FromContentLoader.new(contents)
+                                                                     .load(config: nil)
                 next unless new_cask.url
 
                 new_cask.config = if language.blank?
