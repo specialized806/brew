@@ -24,12 +24,12 @@ RSpec.describe Homebrew::Services::Cli do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
       allow(Utils).to receive(:popen_read).and_return <<~EOS
         77513   50  homebrew.mxcl.php
-        495     0   homebrew.mxcl.node_exporter
+        495     0   sh.brew.node_exporter
         1234    34  homebrew.mxcl.postgresql@14
       EOS
       expect(services_cli.running).to eq([
         "homebrew.mxcl.php",
-        "homebrew.mxcl.node_exporter",
+        "sh.brew.node_exporter",
         "homebrew.mxcl.postgresql@14",
       ])
     end
@@ -73,11 +73,12 @@ RSpec.describe Homebrew::Services::Cli do
     it "tries but is unable to kill a non existing service" do
       service = instance_double(
         service_string,
-        name:         "example_service",
-        service_name: "homebrew.example_service",
-        pid?:         true,
-        dest:         Pathname("this_path_does_not_exist"),
-        keep_alive?:  false,
+        name:                 "example_service",
+        service_name:         "homebrew.example_service",
+        pid?:                 true,
+        dest:                 Pathname("this_path_does_not_exist"),
+        keep_alive?:          false,
+        loaded_service_names: [],
       )
       allow(service).to receive(:reset_cache!)
       allow(Homebrew::Services::FormulaWrapper).to receive(:from).and_return(service)
@@ -104,6 +105,22 @@ RSpec.describe Homebrew::Services::Cli do
       expect(active_timer).to exist
       expect(stale_timer).not_to exist
     end
+
+    it "removes unused canonical macOS service files" do
+      path = mktmpdir
+      active_service = path/"sh.brew.name.plist"
+      stale_service = path/"sh.brew.stale.plist"
+      active_service.write("service")
+      stale_service.write("service")
+      allow(Homebrew::Services::System).to receive(:path).and_return(path)
+      allow(services_cli).to receive(:running).and_return(["sh.brew.name"])
+
+      expect do
+        expect(services_cli.remove_unused_service_files).to eq([stale_service.to_s])
+      end.to output("Removing unused service file: #{stale_service}\n").to_stdout
+      expect(active_service).to exist
+      expect(stale_service).not_to exist
+    end
   end
 
   describe "#run" do
@@ -127,6 +144,22 @@ RSpec.describe Homebrew::Services::Cli do
       expect do
         services_cli.run([service])
       end.to output(expected_output).to_stdout
+    end
+
+    it "does not run a service already loaded with the compatible macOS label" do
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      service = instance_double(
+        service_string,
+        name:                 "name",
+        service_name:         "homebrew.mxcl.name",
+        loaded_service_names: ["sh.brew.name"],
+        pid?:                 false,
+      )
+      expect(services_cli).not_to receive(:service_load)
+
+      expect do
+        services_cli.run([service])
+      end.to output(/already loaded as `sh.brew.name`/).to_stdout
     end
   end
 
@@ -157,15 +190,28 @@ RSpec.describe Homebrew::Services::Cli do
       let(:service) do
         instance_double(
           Homebrew::Services::FormulaWrapper,
-          name:         "name",
-          pid?:         false,
-          installed?:   true,
-          service_file: instance_double(Pathname, exist?: true),
+          name:                 "name",
+          service_name:         "homebrew.mxcl.name",
+          loaded_service_names: [],
+          pid?:                 false,
+          installed?:           true,
+          service_file:         instance_double(Pathname, exist?: true),
+          source_service_file:  instance_double(Pathname, exist?: true),
         )
       end
 
       before do
         allow(services_cli).to receive(:install_service_file)
+      end
+
+      it "does not load a service already loaded under the compatible label" do
+        allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+        allow(service).to receive(:loaded_service_names).and_return(["sh.brew.name"])
+        expect(services_cli).not_to receive(:install_service_file)
+
+        expect do
+          services_cli.start([service])
+        end.to output(/already loaded as `sh.brew.name`/).to_stdout
       end
 
       it "loads service for root" do
@@ -261,6 +307,43 @@ RSpec.describe Homebrew::Services::Cli do
       end.to output(/Successfully stopped `name`/).to_stdout
       expect(timer_dest).not_to exist
     end
+
+    it "stops and removes both compatible macOS service labels" do
+      allow(Homebrew::Services::System).to receive_messages(
+        launchctl?:               true,
+        systemctl?:               false,
+        launchctl:                Pathname("/bin/launchctl"),
+        candidate_domain_targets: ["gui/501"],
+      )
+      allow(Homebrew::Services::System).to receive(:launchctl_service_running?)
+        .with("homebrew.mxcl.name").and_return(true, false)
+      allow(Homebrew::Services::System).to receive(:launchctl_service_running?)
+        .with("sh.brew.name").and_return(true, false)
+      expect(services_cli).to receive(:quiet_system)
+        .with(Pathname("/bin/launchctl"), "bootout", "gui/501/homebrew.mxcl.name")
+      expect(services_cli).to receive(:quiet_system)
+        .with(Pathname("/bin/launchctl"), "bootout", "gui/501/sh.brew.name")
+
+      dest_dir = mktmpdir
+      destinations = [dest_dir/"homebrew.mxcl.name.plist", dest_dir/"sh.brew.name.plist"]
+      destinations.each { |destination| destination.write("service") }
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                 "name",
+        service_name:         "homebrew.mxcl.name",
+        service_names:        ["homebrew.mxcl.name", "sh.brew.name"],
+        loaded_service_names: ["homebrew.mxcl.name", "sh.brew.name"],
+        destinations:,
+        pid?:                 false,
+      )
+      allow(service).to receive(:loaded?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
+
+      expect do
+        services_cli.stop([service], no_wait: true)
+      end.to output(/Successfully stopped `name`/).to_stdout
+      expect(destinations).not_to include(an_object_satisfying(&:exist?))
+    end
   end
 
   describe "#kill" do
@@ -283,6 +366,31 @@ RSpec.describe Homebrew::Services::Cli do
       expect do
         services_cli.kill([service])
       end.to output(expected_output).to_stdout
+    end
+
+    it "reports the compatible macOS label that was killed and stops after success" do
+      service = instance_double(
+        service_string,
+        name:                 "name",
+        service_name:         "homebrew.mxcl.name",
+        keep_alive?:          false,
+        loaded_service_names: ["sh.brew.name"],
+      )
+      allow(service).to receive(:pid?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
+      allow(Homebrew::Services::System).to receive_messages(
+        candidate_domain_targets:   ["gui/501", "user/501"],
+        launchctl:                  "/bin/launchctl",
+        launchctl?:                 true,
+        launchctl_service_running?: true,
+        systemctl?:                 false,
+      )
+      expect(services_cli).to receive(:quiet_system)
+        .with("/bin/launchctl", "stop", "gui/501/sh.brew.name").once.and_return(true)
+
+      expect do
+        services_cli.kill([service])
+      end.to output(/Successfully killed `name` \(label: sh\.brew\.name\)/).to_stdout
     end
   end
 
@@ -312,9 +420,10 @@ RSpec.describe Homebrew::Services::Cli do
     it "checks service file exists" do
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
-        name:         "name",
-        installed?:   true,
-        service_file: instance_double(Pathname, exist?: false),
+        name:                "name",
+        installed?:          true,
+        service_file:        instance_double(Pathname, exist?: false),
+        source_service_file: instance_double(Pathname, exist?: false),
       )
       expect do
         services_cli.install_service_file(service, nil)
@@ -322,6 +431,34 @@ RSpec.describe Homebrew::Services::Cli do
         UsageError,
         "Invalid usage: Formula `name` has not implemented #plist, #service or provided a locatable service file.",
       )
+    end
+
+    it "removes compatible macOS service files before installing" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
+
+      source_dir = mktmpdir
+      dest_dir = mktmpdir
+      service_file = source_dir/"homebrew.mxcl.name.plist"
+      primary_dest = dest_dir/"homebrew.mxcl.name.plist"
+      compatible_dest = dest_dir/"sh.brew.name.plist"
+      service_file.write("service")
+      primary_dest.write("old service")
+      compatible_dest.write("compatible service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                "name",
+        service_name:        "homebrew.mxcl.name",
+        installed?:          true,
+        source_service_file: service_file,
+        service_contents:    "service",
+        dest:                primary_dest,
+        destinations:        [primary_dest, compatible_dest],
+        dest_dir:,
+      )
+
+      services_cli.install_service_file(service, nil)
+
+      expect([primary_dest.read, compatible_dest.exist?]).to eq(["service", false])
     end
 
     it "installs timed systemd timer files" do
@@ -336,16 +473,18 @@ RSpec.describe Homebrew::Services::Cli do
       timer_file.write("timer")
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
-        name:             "name",
-        service_name:     "homebrew.name",
-        installed?:       true,
+        name:                "name",
+        service_name:        "homebrew.name",
+        installed?:          true,
         service_file:,
-        service_contents: "service",
-        dest:             dest_dir/service_file.basename,
+        source_service_file: service_file,
+        service_contents:    "service",
+        dest:                dest_dir/service_file.basename,
+        destinations:        [dest_dir/service_file.basename],
         dest_dir:,
-        timed?:           true,
+        timed?:              true,
         timer_file:,
-        timer_dest:       dest_dir/timer_file.basename,
+        timer_dest:          dest_dir/timer_file.basename,
       )
 
       services_cli.install_service_file(service, nil)
@@ -377,12 +516,14 @@ RSpec.describe Homebrew::Services::Cli do
         service_file.write(plist_xml)
         instance_double(
           Homebrew::Services::FormulaWrapper,
-          name:             "name",
-          service_name:     "homebrew.test",
-          installed?:       true,
+          name:                "name",
+          service_name:        "homebrew.test",
+          installed?:          true,
           service_file:,
-          service_contents: plist_xml,
-          dest:             dest_dir/"homebrew.test.plist",
+          source_service_file: service_file,
+          service_contents:    plist_xml,
+          dest:                dest_dir/"homebrew.test.plist",
+          destinations:        [dest_dir/"homebrew.test.plist"],
           dest_dir:,
         )
       end
@@ -603,11 +744,11 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.service_load(
           instance_double(
             Homebrew::Services::FormulaWrapper,
-            name:             "name",
-            service_name:     "service.name",
-            service_startup?: false,
-            service_file:     instance_double(Pathname, exist?: false),
-            path_dirs:        [],
+            name:                "name",
+            service_name:        "service.name",
+            service_startup?:    false,
+            source_service_file: instance_double(Pathname, exist?: false),
+            path_dirs:           [],
           ),
           nil,
           enable: true,
@@ -624,16 +765,39 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.service_load(
           instance_double(
             Homebrew::Services::FormulaWrapper,
-            name:             "name",
-            service_name:     "service.name",
-            service_startup?: false,
-            service_file:     instance_double(Pathname, exist?: false),
-            path_dirs:        [],
+            name:                "name",
+            service_name:        "service.name",
+            service_startup?:    false,
+            source_service_file: instance_double(Pathname, exist?: false),
+            path_dirs:           [],
           ),
           nil,
           enable: false,
         )
       end.to output("==> Successfully ran `name` (label: service.name)\n").to_stdout
+    end
+
+    it "runs a compatible macOS source service file" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, root?: false, systemctl?: false)
+
+      service_file = mktmpdir/"homebrew.mxcl.name.plist"
+      source_service_file = mktmpdir/"sh.brew.name.plist"
+      source_service_file.write("service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                "name",
+        service_name:        "homebrew.mxcl.name",
+        service_startup?:    false,
+        service_file:,
+        source_service_file:,
+        path_dirs:           [],
+      )
+      expect(services_cli).to receive(:launchctl_load)
+        .with(service, file: source_service_file, enable: false)
+
+      expect do
+        services_cli.service_load(service, nil, enable: false)
+      end.to output("==> Successfully ran `name` (label: homebrew.mxcl.name)\n").to_stdout
     end
 
     it "creates service path directories before loading" do
@@ -653,10 +817,10 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.service_load(
           instance_double(
             Homebrew::Services::FormulaWrapper,
-            name:             "name",
-            service_name:     "service.name",
-            service_startup?: false,
-            service_file:     instance_double(Pathname, exist?: false),
+            name:                "name",
+            service_name:        "service.name",
+            service_startup?:    false,
+            source_service_file: instance_double(Pathname, exist?: false),
             path_dirs:,
           ),
           nil,

@@ -11,9 +11,11 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   let(:formula) do
     instance_double(Formula,
                     name:                   "mysql",
-                    plist_name:             "plist-mysql-test",
-                    service_name:           "plist-mysql-test",
-                    launchd_service_path:   Pathname.new("/usr/local/opt/mysql/homebrew.mysql.plist"),
+                    plist_name:             "sh.brew.mysql",
+                    plist_names:            ["sh.brew.mysql"],
+                    service_name:           "homebrew.mysql",
+                    launchd_service_path:   Pathname.new("/usr/local/opt/mysql/sh.brew.mysql.plist"),
+                    launchd_service_paths:  [Pathname.new("/usr/local/opt/mysql/sh.brew.mysql.plist")],
                     systemd_service_path:   Pathname.new("/usr/local/opt/mysql/homebrew.mysql.service"),
                     systemd_timer_path:     Pathname.new("/usr/local/opt/mysql/homebrew.mysql.timer"),
                     opt_prefix:             Pathname.new("/usr/local/opt/mysql"),
@@ -43,7 +45,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   describe "#service_file" do
     it "macOS - outputs the full service file path" do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
-      expect(service.service_file.to_s).to eq("/usr/local/opt/mysql/homebrew.mysql.plist")
+      expect(service.service_file.to_s).to eq("/usr/local/opt/mysql/sh.brew.mysql.plist")
     end
 
     it "systemD - outputs the full service file path" do
@@ -57,6 +59,30 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         service.service_file
       end.to raise_error(UsageError,
                          "Invalid usage: `brew services` is supported only on macOS or Linux (with systemd)!")
+    end
+  end
+
+  describe "#source_service_file" do
+    before do
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+    end
+
+    it "uses the compatible macOS service file when it is the only one present" do
+      source_dir = mktmpdir
+      service_files = [source_dir/"homebrew.mxcl.mysql.plist", source_dir/"sh.brew.mysql.plist"]
+      service_files.last.write("service")
+      allow(formula).to receive(:launchd_service_paths).and_return(service_files)
+
+      expect(service.source_service_file).to eq(service_files.last)
+    end
+
+    it "prefers the legacy macOS service file while it remains the write default" do
+      source_dir = mktmpdir
+      service_files = [source_dir/"homebrew.mxcl.mysql.plist", source_dir/"sh.brew.mysql.plist"]
+      service_files.each { |file| file.write("service") }
+      allow(formula).to receive(:launchd_service_paths).and_return(service_files)
+
+      expect(service.source_service_file).to eq(service_files.first)
     end
   end
 
@@ -104,12 +130,12 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   describe "#service_name" do
     it "macOS - outputs the service name" do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
-      expect(service.service_name).to eq("plist-mysql-test")
+      expect(service.service_name).to eq("sh.brew.mysql")
     end
 
     it "systemD - outputs the service name" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
-      expect(service.service_name).to eq("plist-mysql-test")
+      expect(service.service_name).to eq("homebrew.mysql")
     end
 
     it "Other - raises an error" do
@@ -118,6 +144,15 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         service.service_name
       end.to raise_error(UsageError,
                          "Invalid usage: `brew services` is supported only on macOS or Linux (with systemd)!")
+    end
+  end
+
+  describe "#service_names" do
+    it "includes both compatible default macOS labels" do
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+
+      expect(service.service_names).to eq(["homebrew.mxcl.mysql", "sh.brew.mysql"])
     end
   end
 
@@ -157,7 +192,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
 
     it "macOS - outputs the destination for the service file" do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
-      expect(service.dest.to_s).to eq("/tmp_home/Library/LaunchAgents/homebrew.mysql.plist")
+      expect(service.dest.to_s).to eq("/tmp_home/Library/LaunchAgents/sh.brew.mysql.plist")
     end
 
     it "systemD - outputs the destination for the service file" do
@@ -177,6 +212,40 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
       allow(Utils).to receive(:safe_popen_read)
       expect(service.loaded?).to be(false)
+    end
+
+    it "finds a service loaded with the compatible macOS label" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
+      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("homebrew.mxcl.mysql").and_return(["", false, :launchctl_list])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+
+      expect(service.loaded?).to be(true)
+      expect(service.pid).to eq(123)
+      expect(service.active_service_name).to eq("sh.brew.mysql")
+    end
+
+    it "stops probing compatible labels after finding a running service" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
+      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      expect(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("homebrew.mxcl.mysql").and_return(["pid = 123", true, :launchctl_print])
+      expect(Homebrew::Services::System).not_to receive(:launchctl_find_service).with("sh.brew.mysql")
+
+      expect(service.active_service_name).to eq("homebrew.mxcl.mysql")
+    end
+
+    it "prefers a running compatible label over an earlier loaded label" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
+      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("homebrew.mxcl.mysql").and_return(["last exit code = 0", true, :launchctl_print])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+
+      expect(service.active_service_name).to eq("sh.brew.mysql")
     end
 
     it "systemD - outputs if the service is loaded" do
@@ -256,6 +325,34 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
     it "macOS - outputs if the service file is present for user" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
       expect(service.service_file_present?(type: :user)).to be(false)
+    end
+  end
+
+  describe "#registered_destination" do
+    it "prefers the service file matching the active compatible label" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, root?: false, systemctl?: false)
+      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("homebrew.mxcl.mysql").and_return(["", false, :launchctl_list])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+      allow(service).to receive(:dest_dir).and_return(mktmpdir)
+      service.destinations.each { |destination| destination.write("service") }
+
+      expect(service.registered_destination.basename.to_s).to eq("sh.brew.mysql.plist")
+    end
+  end
+
+  describe ".from" do
+    it "keeps the exact compatible label it discovers" do
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      allow(Formulary).to receive(:factory).with("mysql").and_return(formula)
+
+      discovered_service = described_class.from("/tmp/sh.brew.mysql.plist")
+      raise "Expected service to be discovered" unless discovered_service
+
+      expect(discovered_service.service_names).to eq(["sh.brew.mysql"])
+      expect(discovered_service.dest).to eq(Pathname("/tmp_home/Library/LaunchAgents/sh.brew.mysql.plist"))
     end
   end
 
@@ -417,7 +514,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
                                                                  service_file_present?: false)
       expected = {
         exit_code:    nil,
-        file:         Pathname.new("/usr/local/opt/mysql/homebrew.mysql.plist"),
+        file:         Pathname.new("/usr/local/opt/mysql/sh.brew.mysql.plist"),
         loaded:       false,
         loaded_file:  nil,
         name:         "mysql",
@@ -425,7 +522,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         registered:   false,
         running:      false,
         schedulable:  false,
-        service_name: "plist-mysql-test",
+        service_name: "sh.brew.mysql",
         status:       :none,
         user:         nil,
       }
@@ -439,7 +536,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
       expect(service).to receive(:service_file_present?).twice.and_return(true)
       expected = {
         exit_code:    nil,
-        file:         Pathname.new("/tmp_home/Library/LaunchAgents/homebrew.mysql.plist"),
+        file:         Pathname.new("/tmp_home/Library/LaunchAgents/sh.brew.mysql.plist"),
         loaded:       false,
         loaded_file:  nil,
         name:         "mysql",
@@ -447,7 +544,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         registered:   true,
         running:      false,
         schedulable:  false,
-        service_name: "plist-mysql-test",
+        service_name: "sh.brew.mysql",
         status:       :none,
         user:         nil,
       }
@@ -465,7 +562,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         cron:           nil,
         error_log_path: nil,
         exit_code:      nil,
-        file:           Pathname.new("/tmp_home/Library/LaunchAgents/homebrew.mysql.plist"),
+        file:           Pathname.new("/tmp_home/Library/LaunchAgents/sh.brew.mysql.plist"),
         interval:       nil,
         loaded:         false,
         loaded_file:    nil,
@@ -476,7 +573,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         root_dir:       nil,
         running:        false,
         schedulable:    false,
-        service_name:   "plist-mysql-test",
+        service_name:   "sh.brew.mysql",
         status:         :none,
         user:           nil,
         working_dir:    nil,
