@@ -90,6 +90,17 @@ module Homebrew
             )
           end
 
+          sig { params(formula: Formula, prefix: Pathname).returns(T.nilable(Pathname)) }
+          def service_file_for(formula, prefix)
+            service_files = if Homebrew::Services::System.launchctl?
+              formula.plist_names.map { |name| prefix/"#{name}.plist" }
+            else
+              [prefix/"#{formula.service_name}.service"]
+            end
+
+            service_files.find(&:file?)
+          end
+
           sig { params(name: String).returns(T.nilable(Pathname)) }
           def versioned_service_file(name)
             env_version = Bundle.formula_versions_from_env(name)
@@ -99,13 +110,7 @@ module Homebrew
             prefix = formula.rack/env_version
             return unless prefix.directory?
 
-            service_file = if Homebrew::Services::System.launchctl?
-              prefix/"#{formula.plist_name}.plist"
-            else
-              prefix/"#{formula.service_name}.service"
-            end
-
-            service_file if service_file.file?
+            service_file_for(formula, prefix)
           end
         end
 
