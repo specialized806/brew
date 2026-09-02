@@ -101,6 +101,48 @@ RSpec.describe Homebrew::DevCmd::PrPull do
     end
   end
 
+  describe "#run" do
+    let(:third_party_tap) { Tap.fetch("someone", "foo") }
+
+    after { FileUtils.rm_rf(third_party_tap.path.parent) }
+
+    it "reports an invalid changed formula in a third-party tap" do
+      third_party_formula = third_party_tap.formula_dir/"foo.rb"
+      third_party_formula.dirname.mkpath
+      third_party_formula.write(formula)
+
+      cd third_party_tap.path do
+        safe_system Utils::Git.git, "init"
+        safe_system Utils::Git.git, "add", third_party_formula
+        safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
+        original_hash = Utils.safe_popen_read("git", "rev-parse", "HEAD").chomp
+        third_party_formula.write <<~RUBY
+          class Foo < Formula
+            url "https://brew.sh/foo-2.0.tgz"
+            no_autobump! because: "some reason"
+          end
+        RUBY
+        safe_system Utils::Git.git, "commit", third_party_formula, "-m", "foo 2.0"
+        Formulary.clear_cache
+
+        allow(Homebrew::Trust).to receive(:trusted_tap?).with(third_party_tap).and_return(true)
+        allow(Tap).to receive(:from_path).and_return(third_party_tap)
+        allow(Utils::Git).to receive(:set_name_email!)
+        allow(Utils::Git).to receive(:setup_gpg!)
+        allow(GitHub).to receive_messages(pull_request_labels: [], issues: [], get_workflow_run: [],
+                                          get_artifact_urls: [])
+        ENV["GITHUB_SHA"] = original_hash
+
+        expect do
+          described_class.new([
+            "1", "--tap=#{third_party_tap.name}", "--head-sha=#{third_party_tap.git_head}",
+            "--no-commit", "--no-upload"
+          ]).run
+        end.to raise_error(TapFormulaUnreadableError, /no_autobump! can only be used in official Homebrew taps/)
+      end
+    end
+  end
+
   describe "#autosquash!" do
     it "squashes a formula or cask correctly" do
       secondary_author = "Someone Else <me@example.com>"
