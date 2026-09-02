@@ -1524,7 +1524,7 @@ Details of software names and brands will inevitably be lost in the conversion t
 
 * If the result of this process is a generic term, such as “Macintosh Installer”, try prepending the name of the vendor or developer, followed by a hyphen. If that doesn’t work, then just create the best name you can, based on the vendor’s web page.
 
-* If the result conflicts with the name of an existing cask or Homebrew/homebrew-core formula, make yours unique by prepending the name of the vendor or developer, followed by a hyphen. Example: [unison.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/u/unison.rb) and [panic-unison.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/p/panic-unison.rb).
+* If the result conflicts with the name of an existing cask or Homebrew/homebrew-core formula, make yours unique by prepending the name of the vendor or developer, followed by a hyphen. Example: [caffeine.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/c/caffeine.rb) and [domzilla-caffeine.rb](https://github.com/Homebrew/homebrew-cask/blob/HEAD/Casks/d/domzilla-caffeine.rb).
 
 * If the result still conflicts with the name of an existing Homebrew/homebrew-core formula, adjust the name to better describe the difference by e.g. appending `-app`. Example: `appium` formula and `appium-desktop` cask, `angband` formula and `angband-app` cask.
 
