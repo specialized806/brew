@@ -555,7 +555,7 @@ RSpec.describe Homebrew::Service do
         \t<key>KeepAlive</key>
         \t<true/>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LaunchOnlyOnce</key>
         \t<true/>
         \t<key>LegacyTimers</key>
@@ -606,7 +606,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -662,7 +662,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -721,7 +721,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -759,7 +759,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -797,7 +797,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -837,7 +837,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -886,7 +886,7 @@ RSpec.describe Homebrew::Service do
         \t\t<false/>
         \t</dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -928,7 +928,7 @@ RSpec.describe Homebrew::Service do
         \t\t<true/>
         \t</dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -970,7 +970,7 @@ RSpec.describe Homebrew::Service do
         \t\t<string>#{HOMEBREW_PREFIX}/opt/formula_name/share/formula_name/test-path</string>
         \t</dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>
@@ -1007,7 +1007,7 @@ RSpec.describe Homebrew::Service do
         <plist version="1.0">
         <dict>
         \t<key>Label</key>
-        \t<string>homebrew.mxcl.formula_name</string>
+        \t<string>sh.brew.formula_name</string>
         \t<key>LimitLoadToSessionType</key>
         \t<array>
         \t\t<string>Aqua</string>

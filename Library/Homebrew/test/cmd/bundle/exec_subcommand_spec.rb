@@ -190,7 +190,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         allow(nginx).to receive_messages(
           any_version_installed?:   true,
           any_installed_prefix:     HOMEBREW_PREFIX/"opt/nginx",
-          plist_name:               "homebrew.mxcl.nginx",
+          plist_name:               "sh.brew.nginx",
           service_name:             "nginx",
           versioned_formulae_names: [],
           conflicts:                [instance_double(Formula::FormulaConflict, name: "httpd")],
@@ -207,7 +207,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         allow(redis).to receive_messages(
           any_version_installed?:   true,
           any_installed_prefix:     HOMEBREW_PREFIX/"opt/redis",
-          plist_name:               "homebrew.mxcl.redis",
+          plist_name:               "sh.brew.redis",
           service_name:             "redis",
           versioned_formulae_names: ["redis@6.2"],
           conflicts:                [],

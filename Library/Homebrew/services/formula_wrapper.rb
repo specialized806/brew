@@ -32,6 +32,31 @@ module Homebrew
         end
       end
 
+      sig { params(file: T.nilable(T.any(Pathname, String))).returns(T.nilable(String)) }
+      def self.service_file_label(file)
+        return if file.nil? || !File.file?(file)
+
+        require "plist"
+        plist = begin
+          Plist.parse_xml(file, marshal: false)
+        rescue
+          nil
+        end
+        if plist.nil? && File.binread(file, 8) == "bplist00"
+          require "system_command"
+          result = SystemCommand.run(
+            "/usr/bin/plutil",
+            args:         ["-convert", "xml1", "-o", "-", file],
+            print_stderr: false,
+          )
+          plist = result.plist if result.success?
+        end
+        label = plist["Label"] if plist
+        label if label.is_a?(String) && label.present?
+      rescue
+        nil
+      end
+
       # Initialize a new `Service` instance with supplied formula.
       sig { params(formula: Formula, service_name: T.nilable(String)).void }
       def initialize(formula, service_name: nil)
@@ -79,6 +104,11 @@ module Homebrew
         return [] unless service?
 
         load_service.path_dirs
+      end
+
+      sig { returns(T::Boolean) }
+      def service_file_generated?
+        service? && load_service.command?
       end
 
       # service_name delegates with formula.plist_name or formula.service_name
@@ -214,7 +244,7 @@ module Homebrew
         return [service_name] if System.systemctl? && loaded?
         return [] unless System.launchctl?
 
-        service_names.select { |name| System.launchctl_service_running?(name) }
+        launchctl_service_names.select { |name| System.launchctl_service_running?(name) }
       end
 
       sig { returns(String) }
@@ -330,7 +360,7 @@ module Homebrew
       # service block does not define a command.
       sig { returns(String) }
       def service_contents
-        if !service? || !load_service.command?
+        if !service_file_generated?
           source_service_file.read
         elsif System.launchctl?
           load_service.to_plist
@@ -351,11 +381,26 @@ module Homebrew
         formula.service
       end
 
+      sig { returns(T::Array[String]) }
+      def launchctl_service_names
+        return service_names if @service_name_override
+
+        source_files = service_files
+        files = source_files + destinations
+        source_dir = service_file.dirname
+        if source_files.none?(&:exist?) && source_dir.directory? && (package_file = source_dir.glob("*.plist").first)
+          files << package_file
+        end
+        file_labels = files.uniq.filter_map { |file| self.class.service_file_label(file) }
+
+        (service_names + file_labels).uniq
+      end
+
       sig { returns(StatusOutputSuccessType) }
       def status_output_success_type
         @status_output_success_type ||= if System.launchctl?
           result = T.let(nil, T.nilable(StatusOutputSuccessType))
-          service_names.each do |name|
+          launchctl_service_names.each do |name|
             output, success, type = System.launchctl_find_service(name)
             next unless success
 

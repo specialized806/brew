@@ -42,6 +42,25 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
     ENV["HOME"] = "/tmp_home"
   end
 
+  describe ".service_file_label" do
+    it "reads the label from a binary plist", :needs_macos do
+      service_file = mktmpdir/"binary.plist"
+      service_file.write <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>Label</key>
+          <string>org.example.binary</string>
+        </dict>
+        </plist>
+      XML
+      safe_system "/usr/bin/plutil", "-convert", "binary1", service_file
+
+      expect(described_class.service_file_label(service_file)).to eq("org.example.binary")
+    end
+  end
+
   describe "#service_file" do
     it "macOS - outputs the full service file path" do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
@@ -69,16 +88,16 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
 
     it "uses the compatible macOS service file when it is the only one present" do
       source_dir = mktmpdir
-      service_files = [source_dir/"homebrew.mxcl.mysql.plist", source_dir/"sh.brew.mysql.plist"]
+      service_files = [source_dir/"sh.brew.mysql.plist", source_dir/"homebrew.mxcl.mysql.plist"]
       service_files.last.write("service")
       allow(formula).to receive(:launchd_service_paths).and_return(service_files)
 
       expect(service.source_service_file).to eq(service_files.last)
     end
 
-    it "prefers the legacy macOS service file while it remains the write default" do
+    it "prefers the canonical macOS service file" do
       source_dir = mktmpdir
-      service_files = [source_dir/"homebrew.mxcl.mysql.plist", source_dir/"sh.brew.mysql.plist"]
+      service_files = [source_dir/"sh.brew.mysql.plist", source_dir/"homebrew.mxcl.mysql.plist"]
       service_files.each { |file| file.write("service") }
       allow(formula).to receive(:launchd_service_paths).and_return(service_files)
 
@@ -150,9 +169,9 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   describe "#service_names" do
     it "includes both compatible default macOS labels" do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
-      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(formula).to receive(:plist_names).and_return(["sh.brew.mysql", "homebrew.mxcl.mysql"])
 
-      expect(service.service_names).to eq(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      expect(service.service_names).to eq(["sh.brew.mysql", "homebrew.mxcl.mysql"])
     end
   end
 
@@ -216,36 +235,62 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
 
     it "finds a service loaded with the compatible macOS label" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
-      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(formula).to receive(:plist_names).and_return(["sh.brew.mysql", "homebrew.mxcl.mysql"])
       allow(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("homebrew.mxcl.mysql").and_return(["", false, :launchctl_list])
+        .with("sh.brew.mysql").and_return(["", false, :launchctl_list])
       allow(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+        .with("homebrew.mxcl.mysql").and_return(["pid = 123", true, :launchctl_print])
 
       expect(service.loaded?).to be(true)
       expect(service.pid).to eq(123)
-      expect(service.active_service_name).to eq("sh.brew.mysql")
+      expect(service.active_service_name).to eq("homebrew.mxcl.mysql")
+    end
+
+    it "finds a service loaded with a package-provided plist label" do
+      source_dir = mktmpdir
+      service_files = [source_dir/"sh.brew.mysql.plist", source_dir/"homebrew.mxcl.mysql.plist"]
+      package_file = source_dir/"vendor.mysql.plist"
+      package_file.write <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>Label</key>
+          <string>org.example.mysql</string>
+        </dict>
+        </plist>
+      XML
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
+      allow(formula).to receive(:launchd_service_paths).and_return(service_files)
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("sh.brew.mysql").and_return(["", false, :launchctl_list])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("homebrew.mxcl.mysql").and_return(["", false, :launchctl_list])
+      allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+        .with("org.example.mysql").and_return(["pid = 123", true, :launchctl_print])
+
+      expect([service.loaded?, service.active_service_name]).to eq([true, "org.example.mysql"])
     end
 
     it "stops probing compatible labels after finding a running service" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
-      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(formula).to receive(:plist_names).and_return(["sh.brew.mysql", "homebrew.mxcl.mysql"])
       expect(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("homebrew.mxcl.mysql").and_return(["pid = 123", true, :launchctl_print])
-      expect(Homebrew::Services::System).not_to receive(:launchctl_find_service).with("sh.brew.mysql")
+        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+      expect(Homebrew::Services::System).not_to receive(:launchctl_find_service).with("homebrew.mxcl.mysql")
 
-      expect(service.active_service_name).to eq("homebrew.mxcl.mysql")
+      expect(service.active_service_name).to eq("sh.brew.mysql")
     end
 
     it "prefers a running compatible label over an earlier loaded label" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, systemctl?: false)
-      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(formula).to receive(:plist_names).and_return(["sh.brew.mysql", "homebrew.mxcl.mysql"])
       allow(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("homebrew.mxcl.mysql").and_return(["last exit code = 0", true, :launchctl_print])
+        .with("sh.brew.mysql").and_return(["last exit code = 0", true, :launchctl_print])
       allow(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+        .with("homebrew.mxcl.mysql").and_return(["pid = 123", true, :launchctl_print])
 
-      expect(service.active_service_name).to eq("sh.brew.mysql")
+      expect(service.active_service_name).to eq("homebrew.mxcl.mysql")
     end
 
     it "systemD - outputs if the service is loaded" do
@@ -331,15 +376,15 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
   describe "#registered_destination" do
     it "prefers the service file matching the active compatible label" do
       allow(Homebrew::Services::System).to receive_messages(launchctl?: true, root?: false, systemctl?: false)
-      allow(formula).to receive(:plist_names).and_return(["homebrew.mxcl.mysql", "sh.brew.mysql"])
+      allow(formula).to receive(:plist_names).and_return(["sh.brew.mysql", "homebrew.mxcl.mysql"])
       allow(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("homebrew.mxcl.mysql").and_return(["", false, :launchctl_list])
+        .with("sh.brew.mysql").and_return(["", false, :launchctl_list])
       allow(Homebrew::Services::System).to receive(:launchctl_find_service)
-        .with("sh.brew.mysql").and_return(["pid = 123", true, :launchctl_print])
+        .with("homebrew.mxcl.mysql").and_return(["pid = 123", true, :launchctl_print])
       allow(service).to receive(:dest_dir).and_return(mktmpdir)
       service.destinations.each { |destination| destination.write("service") }
 
-      expect(service.registered_destination.basename.to_s).to eq("sh.brew.mysql.plist")
+      expect(service.registered_destination.basename.to_s).to eq("homebrew.mxcl.mysql.plist")
     end
   end
 
@@ -353,6 +398,35 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
 
       expect(discovered_service.service_names).to eq(["sh.brew.mysql"])
       expect(discovered_service.dest).to eq(Pathname("/tmp_home/Library/LaunchAgents/sh.brew.mysql.plist"))
+    end
+
+    it "keeps status discovery scoped to the exact label it discovers" do
+      source_dir = mktmpdir
+      service_files = [source_dir/"sh.brew.mysql.plist", source_dir/"homebrew.mxcl.mysql.plist"]
+      service_files.zip(["sh.brew.mysql", "homebrew.mxcl.mysql"]).each do |file, label|
+        file.write <<~XML
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>Label</key>
+            <string>#{label}</string>
+          </dict>
+          </plist>
+        XML
+      end
+      allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
+      allow(formula).to receive(:launchd_service_paths).and_return(service_files)
+      allow(Formulary).to receive(:factory).with("mysql").and_return(formula)
+      expect(Homebrew::Services::System).to receive(:launchctl_service_running?)
+        .with("sh.brew.mysql").and_return(false)
+      expect(Homebrew::Services::System).not_to receive(:launchctl_service_running?)
+        .with("homebrew.mxcl.mysql")
+
+      discovered_service = described_class.from("sh.brew.mysql")
+      raise "Expected service to be discovered" unless discovered_service
+
+      expect(discovered_service.loaded_service_names).to be_empty
     end
   end
 
