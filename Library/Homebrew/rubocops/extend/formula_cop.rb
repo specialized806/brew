@@ -85,7 +85,6 @@ module RuboCop
       end
 
       # Returns true if given dependency name and dependency type exist in given dependency method call node.
-      # TODO: Add case where key of hash is an array
       sig {
         params(
           node: RuboCop::AST::Node, name: T.nilable(T.any(String, Symbol)), type: Symbol,
@@ -124,7 +123,7 @@ module RuboCop
       EOS
 
       def_node_search :dependency_type_hash_match?, <<~EOS
-        (hash (pair ({str sym} _) ({str sym} %1)))
+        (hash (pair ({str sym} _) {({str sym} %1) (array <({str sym} %1) ...>)}))
       EOS
 
       def_node_search :dependency_name_hash_match?, <<~EOS

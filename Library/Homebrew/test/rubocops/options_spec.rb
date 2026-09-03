@@ -27,6 +27,16 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Options do
       RUBY
     end
 
+    it "does not report an offense when `check` is an optional dependency given as an array value" do
+      expect_no_offenses(<<~RUBY)
+        class Foo < Formula
+          url 'https://brew.sh/foo-1.0.tgz'
+          depends_on "check" => [:optional, :test]
+          option "with-check"
+        end
+      RUBY
+    end
+
     it "reports an offense when using `deprecated_option` in homebrew/core" do
       expect_offense(<<~RUBY, "/homebrew-core/")
         class Foo < Formula
