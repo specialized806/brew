@@ -158,7 +158,7 @@ class AbstractTab
       "full_name"             => formula.full_name,
       "version"               => formula.version.to_s,
       "revision"              => formula.revision,
-      "bottle_rebuild"        => formula.bottle&.rebuild,
+      "bottle_rebuild"        => formula.bottle_for_tag(Utils::Bottles.tag)&.rebuild,
       "pkg_version"           => formula.pkg_version.to_s,
       "declared_directly"     => declared_deps.include?(formula.full_name),
       "compatibility_version" => formula.compatibility_version,

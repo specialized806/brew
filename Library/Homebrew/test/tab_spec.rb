@@ -444,6 +444,35 @@ RSpec.describe Tab do
       expect(tab.source["scm_revision"]).to be_nil
     end
 
+    it "records a dependency's bottle rebuild without checking its bottle locations" do
+      # don't try to load gcc/glibc
+      allow(DevelopmentTools).to receive_messages(needs_libc_formula?: false, needs_compiler_formula?: false)
+
+      tag = Utils::Bottles.tag
+      bar = formula("bar") do
+        T.bind(self, T.class_of(Formula))
+        url "bar-2.0"
+
+        bottle do
+          rebuild 1
+          sha256 tag.to_sym => "deadbeef" * 8
+        end
+      end
+      stub_formula_loader bar
+      bottle = bar.bottle_for_tag(tag)
+      allow(bar).to receive(:bottle_for_tag).with(tag).and_return(bottle)
+      expect(bottle).not_to receive(:compatible_locations?)
+
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "file:///foo-1.0"
+        depends_on "bar"
+      end
+
+      expect(described_class.create(f, DevelopmentTools.default_compiler, :libcxx).runtime_dependencies)
+        .to include(hash_including("full_name" => "bar", "bottle_rebuild" => 1))
+    end
+
     it "records a non-default bottle build prefix" do
       f.build = BuildOptions.new(Options.create(["--build-bottle"]), f.options)
       allow(Homebrew).to receive(:default_prefix?).and_return(false)
