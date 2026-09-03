@@ -3452,6 +3452,27 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_cargo_args" do
+    before { allow(ENV).to receive(:make_jobs).and_return(10) }
+
+    it "excludes `--offline` by default" do
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      expect(f.std_cargo_args).not_to include("--offline")
+    end
+
+    it "includes `--offline` when formula has fetch phase" do
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+        def fetch; end
+      end
+      expect(f.std_cargo_args).to include("--offline")
+    end
+  end
+
   describe "#std_go_args" do
     let(:f) do
       formula do
