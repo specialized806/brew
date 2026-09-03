@@ -44,7 +44,7 @@ git_no_hooks() {
 
 # reset Git repository
 cd "${homebrew_directory}"
-rm -rf "${homebrew_directory}/.git/hooks"
+rm -rf "${homebrew_directory}/.git/hooks" "${homebrew_directory}/.gitconfig" "${homebrew_directory}/.config/git"
 git config --global --add safe.directory "${homebrew_directory}"
 latest_tag="$(git_no_hooks -C "${homebrew_directory}" tag --list --sort="-version:refname" | head -n1)"
 git_no_hooks -C "${homebrew_directory}" checkout --force -B stable
@@ -61,7 +61,7 @@ then
     mv "${homebrew_directory}/cache_api" "/usr/local/Homebrew/"
 
     export HOME="/usr/local/Homebrew"
-    rm -rf "/usr/local/Homebrew/.git/hooks"
+    rm -rf "/usr/local/Homebrew/.git/hooks" "/usr/local/Homebrew/.gitconfig" "/usr/local/Homebrew/.config/git"
     git config --global --add safe.directory "/usr/local/Homebrew"
     git_no_hooks -C "/usr/local/Homebrew" checkout --force -B stable
     git_no_hooks -C "/usr/local/Homebrew" reset --hard
