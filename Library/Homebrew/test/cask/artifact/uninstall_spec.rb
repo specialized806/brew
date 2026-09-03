@@ -4,6 +4,8 @@
 require_relative "shared_examples/uninstall_zap"
 
 RSpec.describe Cask::Artifact::Uninstall, :cask do
+  before { allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return([]) }
+
   describe "#uninstall_phase" do
     let(:fake_system_command) { NeverSudoSystemCommand }
 
@@ -146,6 +148,18 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
       allow(artifact).to receive(:quit).and_return(instance_double(SystemCommand::Result, success?: true))
     end
 
+    it "does not quit the application hosting the `brew` process" do
+      allow(artifact).to receive(:running?).with("com.example.app").and_return(true)
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return(["com.Example.App"])
+
+      expect(artifact).not_to receive(:quit)
+      expect do
+        artifact.uninstall_quit("com.example.app", upgrade: true, command: fake_system_command)
+      end.to output(/Skipping quitting application 'com.example.app'/).to_stderr
+
+      expect(artifact.bundle_ids_to_reopen).to be_empty
+    end
+
     it "quits every running application matching a wildcard" do
       allow(artifact).to receive(:running_bundle_ids)
         .and_return(["com.example.app", "com.example.app.helper", "com.other.app"])
@@ -198,7 +212,21 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     let(:fake_system_command) { NeverSudoSystemCommand }
     let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-signal-wildcard")) }
 
-    before { allow(artifact).to receive(:sleep).with(3) }
+    before do
+      allow(artifact).to receive(:sleep).with(3)
+    end
+
+    it "does not signal the application hosting the `brew` process" do
+      allow(artifact).to receive(:running_processes).with("my.fancy.package")
+                                                    .and_return([[123, 0, "my.fancy.package"]])
+      allow(artifact).to receive(:running_bundle_ids).and_return(["my.fancy.package"])
+      allow(Cask::Artifact::AbstractUninstall).to receive(:ancestor_bundle_ids).and_return(["my.fancy.package"])
+
+      expect(Process).not_to receive(:kill)
+
+      expect { artifact.uninstall_phase(command: fake_system_command) }
+        .to output(/Skipping signalling application 'my.fancy.package'/).to_stderr
+    end
 
     it "signals the running processes of every application matching a wildcard" do
       allow(artifact).to receive(:running_bundle_ids)
@@ -220,6 +248,57 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
       expect(artifact).not_to receive(:running_processes)
 
       artifact.uninstall_phase(command: fake_system_command)
+    end
+  end
+
+  describe ".ancestor_bundle_ids" do
+    let(:klass) { Cask::Artifact::AbstractUninstall }
+    let(:pid) { Process.pid }
+
+    before do
+      allow(klass).to receive(:ancestor_bundle_ids).and_call_original
+      klass.ancestor_bundle_ids = nil
+    end
+
+    after { klass.ancestor_bundle_ids = nil }
+
+    def stub_process_tree(tree)
+      allow(klass).to receive(:parent_pid) { |child| tree[child] }
+    end
+
+    it "resolves the bundle IDs of the processes between brew and launchd" do
+      stub_process_tree({ pid => 300, 300 => 200, 200 => 1 })
+      expect(klass).to receive(:bundle_identifier_for_pid).with(pid).ordered.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).with(300).ordered.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).with(200).ordered.and_return("com.example.terminal")
+
+      expect(klass.ancestor_bundle_ids).to eq ["com.example.terminal"]
+    end
+
+    it "stops walking when a parent cannot be resolved" do
+      stub_process_tree({ pid => 300 })
+      expect(klass).to receive(:bundle_identifier_for_pid).with(pid).ordered.and_return(nil)
+      expect(klass).to receive(:bundle_identifier_for_pid).with(300).ordered.and_return("com.example.terminal")
+
+      expect(klass.ancestor_bundle_ids).to eq ["com.example.terminal"]
+    end
+
+    it "stops walking when the process tree loops back on itself" do
+      stub_process_tree({ pid => 300, 300 => 200, 200 => 300 })
+      expect(klass).to receive(:bundle_identifier_for_pid).exactly(3).times.and_return(nil)
+
+      expect(klass.ancestor_bundle_ids).to be_empty
+    end
+
+    it "looks up the ancestry once for each brew invocation" do
+      stub_process_tree({ pid => 300, 300 => 1 })
+      allow(klass).to receive(:bundle_identifier_for_pid).and_return("com.example.terminal")
+
+      klass.ancestor_bundle_ids
+      expect(klass).not_to receive(:parent_pid)
+      expect(klass).not_to receive(:bundle_identifier_for_pid)
+
+      expect(klass.ancestor_bundle_ids).to eq %w[com.example.terminal com.example.terminal]
     end
   end
 

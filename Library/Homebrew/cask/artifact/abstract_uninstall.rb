@@ -97,6 +97,11 @@ module Cask
             next
           end
 
+          if hosting_brew?(bundle_id)
+            opoo "Skipping quitting application '#{bundle_id}' as `brew` is running inside it."
+            next
+          end
+
           ohai "Quitting application '#{bundle_id}'..."
 
           quit_succeeded = T.let(false, T::Boolean)
@@ -357,6 +362,41 @@ module Cask
         Regexp.escape(search).gsub("\\*", ".*")
       end
 
+      # Whether the application with the given bundle ID is an ancestor of this
+      # `brew` process, e.g. the terminal emulator the shell is running in.
+      # Quitting or signalling it would take down `brew` itself.
+      sig { params(bundle_id: String).returns(T::Boolean) }
+      def hosting_brew?(bundle_id)
+        AbstractUninstall.ancestor_bundle_ids.any? { |id| id.casecmp?(bundle_id) }
+      end
+
+      class << self
+        # Bundle IDs of the applications this `brew` process is running inside.
+        # The ancestry of the `brew` process cannot change while it runs, so the
+        # lookup is shared by every artifact of every cask in the same invocation.
+        sig { returns(T::Array[String]) }
+        def ancestor_bundle_ids
+          @ancestor_bundle_ids ||= begin
+            pids = [Process.pid]
+            # `launchd` (PID 1) reports a parent of `0` rather than failing.
+            while (ppid = parent_pid(pids.last)) && ppid > 1 && pids.exclude?(ppid)
+              pids << ppid
+            end
+
+            pids.filter_map { |pid| bundle_identifier_for_pid(pid) }
+          end
+        end
+
+        sig { params(ancestor_bundle_ids: T.nilable(T::Array[String])).returns(T.nilable(T::Array[String])) }
+        attr_writer :ancestor_bundle_ids
+
+        sig { params(_pid: Integer).returns(T.nilable(Integer)) }
+        def parent_pid(_pid) = nil
+
+        sig { params(_pid: Integer).returns(T.nilable(String)) }
+        def bundle_identifier_for_pid(_pid) = nil
+      end
+
       sig { returns(T::Array[String]) }
       def running_bundle_ids
         @running_bundle_ids ||= T.let(
@@ -408,9 +448,15 @@ module Cask
 
         signals.each do |pair|
           signal, bundle_id = pair
-          ohai "Signalling '#{signal}' to application ID '#{bundle_id}'"
           pids = running_processes(bundle_id).map(&:first)
           next if pids.none?
+
+          if hosting_brew?(bundle_id)
+            opoo "Skipping signalling application '#{bundle_id}' as `brew` is running inside it."
+            next
+          end
+
+          ohai "Signalling '#{signal}' to application ID '#{bundle_id}'"
 
           # Note that unlike :quit, signals are sent from the current user (not
           # upgraded to the superuser). This is a todo item for the future, but
