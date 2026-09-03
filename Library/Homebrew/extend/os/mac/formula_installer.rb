@@ -8,7 +8,7 @@ module OS
 
       requires_ancestor { ::FormulaInstaller }
 
-      sig { params(formula: Formula).returns(T.nilable(T::Boolean)) }
+      sig { params(formula: Formula).returns(T::Boolean) }
       def fresh_install?(formula)
         ::Hardware::CPU.arm? &&
           !::Homebrew::EnvConfig.developer? &&
