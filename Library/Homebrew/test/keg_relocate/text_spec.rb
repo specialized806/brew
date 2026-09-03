@@ -6,12 +6,12 @@ require "keg_relocate"
 RSpec.describe Keg do
   subject(:keg) { described_class.new(HOMEBREW_CELLAR/"foo/1.0.0") }
 
-  let(:dir) { mktmpdir }
+  let(:dir) { HOMEBREW_CELLAR/"foo/1.0.0" }
   let(:file) { dir/"file.txt" }
   let(:placeholder) { "@@PLACEHOLDER@@" }
 
   before do
-    (HOMEBREW_CELLAR/"foo/1.0.0").mkpath
+    dir.mkpath
   end
 
   def setup_file(placeholders: false)
@@ -78,6 +78,36 @@ RSpec.describe Keg do
         foo/bar:/foo#{dir}/file.txt
         #{dir}/bar.txt:#{dir}/baz.txt
       EOS
+    end
+
+    specify "ignores recorded paths that escape the keg" do
+      outside = dir.parent/"escape.txt"
+      outside.atomic_write "#{placeholder}/file.txt\n"
+
+      changed = keg.replace_text_in_files(setup_relocation(placeholders: true),
+                                          files: [Pathname("../escape.txt"), outside])
+
+      expect(outside.read).to eq "#{placeholder}/file.txt\n"
+      expect(changed).to be_empty
+    end
+
+    specify "ignores recorded paths that escape the keg through a symlinked parent" do
+      outside = dir.parent/"outside"
+      outside.mkpath
+      victim = outside/"victim.txt"
+      victim.atomic_write "#{placeholder}/file.txt\n"
+      FileUtils.ln_s outside, dir/"linked"
+
+      changed = keg.replace_text_in_files(setup_relocation(placeholders: true),
+                                          files: [Pathname("linked/victim.txt")])
+
+      expect(victim.read).to eq "#{placeholder}/file.txt\n"
+      expect(changed).to be_empty
+    end
+
+    specify "ignores recorded paths that do not exist" do
+      expect { keg.replace_text_in_files(setup_relocation, files: [Pathname("missing.txt")]) }
+        .not_to raise_error
     end
   end
 

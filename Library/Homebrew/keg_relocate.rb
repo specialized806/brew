@@ -235,7 +235,7 @@ class Keg
     files ||= text_files | libtool_files
 
     changed_files = T.let([], T::Array[Pathname])
-    files.map { path.join(it) }.group_by { |f| f.stat.ino }.each_value do |first, *rest|
+    keg_files(files).group_by { |f| f.stat.ino }.each_value do |first, *rest|
       first = T.must(first)
       s = first.open("rb", &:read)
 
@@ -428,13 +428,16 @@ class Keg
 
   # The regular files the keg-relative paths recorded in bottle metadata refer
   # to. Metadata may come from a mirror, so paths that would escape the keg
-  # (absolute or via `..`) are ignored rather than followed.
+  # (absolute, via `..` or through a symlinked parent) are ignored rather than
+  # followed.
   sig { params(relative_paths: T::Array[Pathname]).returns(T::Array[Pathname]) }
   def keg_files(relative_paths)
+    keg_realpath = path.realpath
     relative_paths.filter_map do |relative_path|
       file = (path/relative_path).cleanpath
       next unless file.to_s.start_with?("#{path}/")
       next if file.symlink? || !file.file?
+      next unless file.realpath.to_s.start_with?("#{keg_realpath}/")
 
       file
     end
