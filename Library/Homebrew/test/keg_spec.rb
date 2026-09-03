@@ -93,6 +93,7 @@ RSpec.describe Keg do
       ]
       related_records.each { |record| record.make_relative_symlink(HOMEBREW_CELLAR/"foo/1.0") }
       unrelated_records.each { |record| record.make_relative_symlink(HOMEBREW_CELLAR/"foo/2.0") }
+      allow(keg).to receive(:oldname_opt_records).and_return(unrelated_records + related_records)
 
       keg.remove_oldname_opt_records
 
