@@ -34,6 +34,25 @@ RSpec.describe Cask::Artifact::Zap, :cask do
         expect(ds_store).not_to exist
         expect(empty_directory).not_to exist
       end
+
+      context "when the directory is a symlink" do
+        let(:target) { Pathname.new("#{TEST_TMPDIR}/rmdir_symlink_target") }
+
+        before do
+          FileUtils.rm_rf empty_directory
+          target.join("nested").mkpath
+          FileUtils.ln_s target, empty_directory
+        end
+
+        after { FileUtils.rm_rf target }
+
+        it "leaves the link and its target alone" do
+          expect { artifact.zap_phase(command: fake_system_command) }.not_to raise_error
+
+          expect(empty_directory).to be_a_symlink
+          expect(target.join("nested")).to be_a_directory
+        end
+      end
     end
   end
 end
