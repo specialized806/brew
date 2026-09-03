@@ -65,7 +65,7 @@ module Homebrew
         gem_groups = ["ast"]
         gem_groups << "style" if !args.no_audit? || !args.no_style?
         gem_groups << "audit" unless args.no_audit?
-        Homebrew.install_bundler_gems!(groups: gem_groups)
+        Utils::GemSetup.install_bundler_gems!(groups: gem_groups)
         require "utils/ast"
 
         # As this command is simplifying user-run commands then let's just use a

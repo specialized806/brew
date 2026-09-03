@@ -30,7 +30,7 @@ module Homebrew
         # user path, too.
         ENV["PATH"] = PATH.new(ORIGINAL_PATHS).to_s
 
-        Homebrew.install_bundler_gems!(groups: ["ast"]) unless args.dry_run?
+        Utils::GemSetup.install_bundler_gems!(groups: ["ast"]) unless args.dry_run?
 
         args.named.to_formulae.each do |formula|
           current_compatibility_version = formula.compatibility_version || 0

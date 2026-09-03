@@ -105,7 +105,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["livecheck"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["livecheck"])
 
         Homebrew.with_no_api_env do
           eval_all = args.eval_all?

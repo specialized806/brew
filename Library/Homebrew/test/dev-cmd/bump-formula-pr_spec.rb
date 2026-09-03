@@ -53,7 +53,7 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       updated_mirror = "https://archive.apache.org/dist/couchdb/source/3.5.2/apache-couchdb-3.5.2.tar.gz"
       command = described_class.new(["--write-only", "--no-audit", "--version=3.5.2", "couchdb"])
 
-      allow(Homebrew).to receive(:install_bundler_gems!)
+      allow(Utils::GemSetup).to receive(:install_bundler_gems!)
       allow(CoreTap.instance).to receive_messages(allow_bump?: true, git?: true,
                                                   remote_repository: "Homebrew/homebrew-core")
       allow(command).to receive(:check_new_version)
@@ -98,7 +98,7 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       resource_path.write("versionball")
       command = described_class.new(["--write-only", "--no-audit", "--version=#{payload}", "versionball"])
 
-      allow(Homebrew).to receive(:install_bundler_gems!)
+      allow(Utils::GemSetup).to receive(:install_bundler_gems!)
       allow(CoreTap.instance).to receive_messages(allow_bump?: true, git?: true,
                                                   remote_repository: "Homebrew/homebrew-core")
       allow(command).to receive(:check_new_version)

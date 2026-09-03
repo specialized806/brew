@@ -115,7 +115,7 @@ module Homebrew
 
         gem_groups = ["audit", "ast"]
         gem_groups << "style" unless skip_style
-        Homebrew.install_bundler_gems!(groups: gem_groups)
+        Utils::GemSetup.install_bundler_gems!(groups: gem_groups)
         require "utils/ast"
 
         ENV.activate_extensions!

@@ -24,7 +24,7 @@ module Homebrew
       sig { override.void }
       def run
         # Needed for Manpages.regenerate_man_pages below
-        Homebrew.install_bundler_gems!(groups: ["man"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["man"])
 
         lead_maintainers = GitHub.members_by_team("Homebrew", "lead-maintainers")
         maintainers = GitHub.members_by_team("Homebrew", "maintainers")

@@ -31,7 +31,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["formula_test"], setup_path: false)
+        Utils::GemSetup.install_bundler_gems!(groups: ["formula_test"], setup_path: false)
 
         require "formula_assertions"
         require "formula_free_port"

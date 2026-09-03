@@ -59,7 +59,7 @@ module Homebrew
 
       sig { returns([String, T.nilable(String)]) }
       def setup_ruby_environment!
-        Homebrew.install_bundler_gems!(setup_path: true)
+        Utils::GemSetup.install_bundler_gems!(setup_path: true)
 
         notice = unless Homebrew::EnvConfig.no_env_hints?
           <<~EOS

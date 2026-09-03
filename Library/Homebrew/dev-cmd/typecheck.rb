@@ -51,8 +51,8 @@ module Homebrew
         end
 
         update = args.update? || args.update_all?
-        groups = update ? Homebrew.valid_gem_groups : ["typecheck"]
-        Homebrew.install_bundler_gems!(groups:)
+        groups = update ? Utils::GemSetup.valid_gem_groups : ["typecheck"]
+        Utils::GemSetup.install_bundler_gems!(groups:)
 
         # Sorbet doesn't use bash privileged mode so we align EUID and UID here.
         Process::UID.change_privilege(Process.euid) if Process.euid != Process.uid

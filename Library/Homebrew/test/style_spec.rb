@@ -15,7 +15,7 @@ RSpec.describe Homebrew::Style do
   end
 
   before do
-    allow(Homebrew).to receive(:install_bundler_gems!)
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!)
   end
 
   describe ".check_style_json" do

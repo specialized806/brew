@@ -97,7 +97,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["ast"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["ast"])
         require "utils/ast"
         require "utils/pypi"
 
@@ -150,7 +150,7 @@ module Homebrew
 
         # This will be run by `brew audit` later so run it first to not start
         # spamming during normal output.
-        Homebrew.install_bundler_gems!(groups: ["audit", "style"]) unless args.no_audit?
+        Utils::GemSetup.install_bundler_gems!(groups: ["audit", "style"]) unless args.no_audit?
 
         tap_remote_repo = tap.remote_repository
         odie "#{tap.name} tap does not have a remote repository!" if tap_remote_repo.nil?

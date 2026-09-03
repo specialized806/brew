@@ -50,7 +50,7 @@ RSpec.describe Homebrew::DevCmd::Bottle do
     keg = instance_double(Keg)
     bottle = described_class.new(["--no-rebuild", formula.name])
 
-    allow(Homebrew).to receive(:install_bundler_gems!)
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!)
     allow(bottle.args.named).to receive(:to_resolved_formulae).with(uniq: false).and_return([formula])
     allow(formula).to receive_messages(latest_version_installed?: true, tap:, runtime_dependencies: [])
     allow(Utils::Bottles).to receive(:built_as?).with(formula).and_return(true)

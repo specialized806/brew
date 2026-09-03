@@ -17,7 +17,7 @@ RSpec.describe Homebrew::DevCmd::Lgtm do
     let(:args) { [] }
 
     before do
-      allow(Homebrew).to receive(:install_bundler_gems!)
+      allow(Utils::GemSetup).to receive(:install_bundler_gems!)
       allow(lgtm).to receive(:ohai)
       allow(lgtm).to receive(:puts)
       allow(Utils).to receive(:popen_read).with("git", "ls-files", "--others", "--exclude-standard", "--full-name")

@@ -18,7 +18,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["doc"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["doc"])
 
         HOMEBREW_LIBRARY_PATH.cd do |dir|
           no_api_args = if args.only_public?

@@ -233,7 +233,7 @@ module Homebrew
         end
 
         if args.python?
-          Homebrew.install_bundler_gems!(groups: ["ast"])
+          Utils::GemSetup.install_bundler_gems!(groups: ["ast"])
           require "utils/pypi"
           PyPI.update_python_resources! formula, ignore_non_pypi_packages: true
         end

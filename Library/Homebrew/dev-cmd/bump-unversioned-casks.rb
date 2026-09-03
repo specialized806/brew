@@ -30,7 +30,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["bump_unversioned_casks"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["bump_unversioned_casks"])
 
         state_file = if args.state_file.present?
           Pathname(T.must(args.state_file)).expand_path

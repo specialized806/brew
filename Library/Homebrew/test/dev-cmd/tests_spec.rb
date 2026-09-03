@@ -15,7 +15,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
     let(:args) { [] }
 
     before do
-      allow(Homebrew).to receive_messages(valid_gem_groups: [], install_bundler_gems!: nil)
+      allow(Utils::GemSetup).to receive_messages(valid_gem_groups: [], install_bundler_gems!: nil)
       allow(tests).to receive_messages(setup_environment!: nil, check_test_environment!: nil)
     end
 

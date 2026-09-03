@@ -24,7 +24,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["man"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["man"])
 
         Commands.rebuild_internal_commands_completion_list
         Manpages.regenerate_man_pages(quiet: args.quiet?)

@@ -9,8 +9,8 @@ RSpec.describe Homebrew::DevCmd::Prof do
 
   describe "#run" do
     before do
-      allow(Homebrew).to receive(:install_bundler_gems!)
-      allow(Homebrew).to receive(:setup_gem_environment!)
+      allow(Utils::GemSetup).to receive(:install_bundler_gems!)
+      allow(Utils::GemSetup).to receive(:setup_gem_environment!)
     end
 
     it "does not open HTML profiles outside a TTY" do
@@ -51,8 +51,8 @@ RSpec.describe Homebrew::DevCmd::Prof do
     it "records phase timings without loading a sampling profiler" do
       prof = described_class.new(["--timings", "help"])
 
-      expect(Homebrew).not_to receive(:install_bundler_gems!)
-      expect(Homebrew).not_to receive(:setup_gem_environment!)
+      expect(Utils::GemSetup).not_to receive(:install_bundler_gems!)
+      expect(Utils::GemSetup).not_to receive(:setup_gem_environment!)
       expect(prof).to receive(:safe_system)
         .with(
           { "HOMEBREW_PHASE_TIMINGS" => "prof/timings.json" },

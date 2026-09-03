@@ -55,7 +55,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["livecheck"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["livecheck"])
 
         eval_all = args.eval_all?
         eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?

@@ -50,7 +50,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["style"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["style"])
 
         if args.changed? && !args.no_named?
           raise UsageError, "`--changed` and named arguments are mutually exclusive!"

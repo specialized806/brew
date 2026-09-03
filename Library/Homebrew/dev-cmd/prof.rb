@@ -25,7 +25,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["prof"], setup_path: false) unless args.timings?
+        Utils::GemSetup.install_bundler_gems!(groups: ["prof"], setup_path: false) unless args.timings?
 
         brew_rb = (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path
         FileUtils.mkdir_p "prof"
@@ -51,7 +51,7 @@ module Homebrew
           return
         end
 
-        Homebrew.setup_gem_environment!
+        Utils::GemSetup.setup_gem_environment!
 
         if args.stackprof?
           with_env HOMEBREW_STACKPROF: "1" do

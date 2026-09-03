@@ -13,8 +13,8 @@ RSpec.describe Homebrew::DevCmd::VendorGems do
     described_class.new(["--no-commit"]).tap do |command|
       allow(command).to receive(:run_bundle)
       allow(command).to receive(:ohai)
-      allow(Homebrew).to receive(:setup_gem_environment!)
-      allow(Homebrew).to receive(:valid_gem_groups).and_return([])
+      allow(Utils::GemSetup).to receive(:setup_gem_environment!)
+      allow(Utils::GemSetup).to receive(:valid_gem_groups).and_return([])
     end
   end
 

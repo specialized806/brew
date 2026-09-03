@@ -161,7 +161,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
   it "rejects empty maintainer report user values" do
     command = described_class.new(["--maintainer-report-csv=2025-3", "--user=alice,,bob"])
 
-    expect(Homebrew).not_to receive(:install_bundler_gems!)
+    expect(Utils::GemSetup).not_to receive(:install_bundler_gems!)
     expect { command.run }
       .to raise_error(SystemExit)
       .and output(/`--user` must not contain empty values/).to_stderr
@@ -191,7 +191,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
       "Homebrew/homebrew-cask" => no_contributions.merge(coauthor: 451),
     }
 
-    allow(Homebrew).to receive(:install_bundler_gems!).with(groups: ["contributions"])
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!).with(groups: ["contributions"])
     allow(command).to receive(:prepare_contribution_repositories)
       .with(Homebrew::DevCmd::Contributions::PRIMARY_REPOS, required: true)
       .and_return(repository_refs)
@@ -334,7 +334,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     }
     csv = "filtered maintainer report\n"
 
-    allow(Homebrew).to receive(:install_bundler_gems!).with(groups: ["contributions"])
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!).with(groups: ["contributions"])
     allow(command).to receive(:prepare_contribution_repositories)
       .with(Homebrew::DevCmd::Contributions::PRIMARY_REPOS, required: true)
       .and_return(repository_refs)
@@ -368,7 +368,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
       merged_pr_author: 1, merged_pr_merger: 0, merged_pr: 1, approved_pr_review: 2, coauthor: 3
     } } }
 
-    allow(Homebrew).to receive(:install_bundler_gems!).with(groups: ["contributions"])
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!).with(groups: ["contributions"])
     allow(command).to receive(:prepare_contribution_repositories)
       .with(["Homebrew/brew"], required: false)
       .and_return(repository_refs)
