@@ -55,6 +55,7 @@ module OS
       sig { void }
       def allow_write_xcode
         home_write_paths.each { |path| allow_write_path path }
+        allow_write path: "^/private/var/folders/[^/]+/[^/]+/T/xcrun_db(-[^/]+)?$", type: :regex
       end
 
       module ClassMethods
