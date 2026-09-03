@@ -288,7 +288,7 @@ module Homebrew
             if formula_ast.stable_stanza?(:version)
               formula_ast.replace_stable_stanza_value(:version, T.must(new_version))
             else
-              stanzas_to_add << [:version, T.must(new_version)]
+              stanzas_to_add << [:version, "version #{new_version.inspect}"]
             end
           elsif forced_version && new_version == "0"
             formula_ast.remove_stable_stanza(:version) if formula_ast.stable_stanza?(:version)
@@ -782,7 +782,7 @@ module Homebrew
           if formula_ast.resource_stanza?(resource_name, :version)
             formula_ast.replace_resource_stanza_value(resource_name, :version, new_version)
           else
-            formula_ast.add_stanzas_after(:sha256, [[:version, new_version]],
+            formula_ast.add_stanzas_after(:sha256, [[:version, "version #{new_version.inspect}"]],
                                           parent: formula_ast.resource(resource_name))
           end
         end

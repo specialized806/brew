@@ -75,6 +75,50 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       expect(formula_path.read).to include "  mirror #{updated_mirror.inspect}\n  " \
                                            "sha256 #{resource_path.sha256.inspect}\n"
     end
+
+    it "adds a forced version as a string literal" do
+      # An upstream version string shaped like a `version` stanza would otherwise
+      # be spliced into the formula as Ruby source rather than as data. The
+      # interpolation is escaped, and inert if it were ever evaluated.
+      payload = "version \"1.0\#{RUBY_VERSION}\""
+      formula_path = CoreTap.instance.new_formula_path("versionball")
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        class Versionball < Formula
+          url "https://brew.sh/versionball-1.0.tar.gz"
+          sha256 "#{"a" * 64}"
+        end
+      RUBY
+      CoreTap.instance.clear_cache
+      Formulary.clear_cache
+      Formula.clear_cache
+      formula = Formulary.from_contents("versionball", formula_path, formula_path.read)
+
+      resource_path = mktmpdir/"versionball-2.0.tar.gz"
+      resource_path.write("versionball")
+      command = described_class.new(["--write-only", "--no-audit", "--version=#{payload}", "versionball"])
+
+      allow(Homebrew).to receive(:install_bundler_gems!)
+      allow(CoreTap.instance).to receive_messages(allow_bump?: true, git?: true,
+                                                  remote_repository: "Homebrew/homebrew-core")
+      allow(command).to receive(:check_new_version)
+      allow(command).to receive(:fetch_resource_and_forced_version).and_return([resource_path, true])
+      allow(command).to receive_messages(run_audit: false, update_matching_version_resources!: {})
+      allow(PyPI).to receive(:update_python_resources!)
+      allow(Utils::Tar).to receive(:validate_file).with(resource_path)
+      allow(command.args.named).to receive(:to_formulae).and_return([formula])
+      allow(Formula).to receive(:[]).with("versionball").and_return(formula)
+
+      expect_any_instance_of(Utils::AST::FormulaAST)
+        .to receive(:add_stable_stanzas_after) do |_formula_ast, name, stanzas|
+        expect(name).to eq(:url)
+        expect(stanzas).to include([:version, "version #{payload.inspect}"])
+      end
+
+      # Substituting the version into the URL makes the formula invalid, so the
+      # run cannot finish; this example covers how the stanza value is rendered.
+      expect { command.run }.to raise_error(FormulaValidationError)
+    end
   end
 
   describe "::check_throttle" do
@@ -253,6 +297,38 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       resource_versions = { "foo" => { current_version: "1.2.3", latest_version: version } }
       expect(bump_formula_pr).to receive(:update_resource_block!).with(f, r, version).and_return(:success)
       expect(bump_formula_pr.update_resources!(f, resource_versions:)).to eq({ "foo" => :success })
+    end
+
+    it "adds a forced resource version as a string literal" do
+      # As for the formula stanza, a resource version shaped like a `version`
+      # stanza would otherwise be spliced in as Ruby source.
+      payload = "version \"1.0\#{RUBY_VERSION}\""
+      formula_path = CoreTap.instance.new_formula_path("resourceball")
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        class Resourceball < Formula
+          url "https://brew.sh/resourceball-1.0.tar.gz"
+
+          resource "foo" do
+            url "https://brew.sh/foo-1.2.3.tar.gz"
+            sha256 "#{"b" * 64}"
+          end
+        end
+      RUBY
+      CoreTap.instance.clear_cache
+      Formulary.clear_cache
+      Formula.clear_cache
+      formula = Formulary.from_contents("resourceball", formula_path, formula_path.read)
+
+      resource_path = mktmpdir/"foo.tar.gz"
+      resource_path.write("foo")
+      allow(bump_formula_pr).to receive(:fetch_resource_and_forced_version).and_return([resource_path, true])
+      allow(Utils::Tar).to receive(:validate_file).with(resource_path)
+
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: payload } }
+      bump_formula_pr.update_resources!(formula, resource_versions:)
+
+      expect(formula_path.read).to include("version #{payload.inspect}")
     end
 
     it "downgrades to requested version" do
