@@ -157,6 +157,61 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#python3" do
+    it "returns the stable executable for a direct Python dependency" do
+      f = formula "python-runtime-dependent" do
+        url "foo-1.0"
+        depends_on "python@3.14"
+      end
+
+      expect(f.python3).to eq HOMEBREW_PREFIX/"opt/python@3.14/bin/python3.14"
+    end
+
+    it "includes build and test dependencies" do
+      f = formula "python-build-test-dependent" do
+        url "foo-1.0"
+        depends_on "python@3.13" => [:build, :test]
+      end
+
+      expect(f.python3).to eq HOMEBREW_PREFIX/"opt/python@3.13/bin/python3.13"
+    end
+
+    it "de-duplicates the same Python dependency declared with separate tags" do
+      f = formula "python-split-tags" do
+        url "foo-1.0"
+        depends_on "python@3.14" => :build
+        depends_on "python@3.14" => :test
+      end
+
+      expect(f.python3).to eq HOMEBREW_PREFIX/"opt/python@3.14/bin/python3.14"
+    end
+
+    it "fails when there is no direct Python dependency" do
+      f = formula "no-python-dependency" do
+        url "foo-1.0"
+        depends_on "boost-python3"
+      end
+
+      expect { f.python3 }
+        .to raise_error(RuntimeError,
+                        "`no-python-dependency` must have exactly one `python@3.x` dependency to use `python3`; " \
+                        "found none.")
+    end
+
+    it "fails when there are multiple direct Python dependencies" do
+      f = formula "multiple-python-dependencies" do
+        url "foo-1.0"
+        depends_on "python@3.13" => [:build, :test]
+        depends_on "python@3.14" => [:build, :test]
+      end
+
+      expect { f.python3 }
+        .to raise_error(RuntimeError,
+                        "`multiple-python-dependencies` must have exactly one `python@3.x` dependency to use " \
+                        "`python3`; found python@3.13, python@3.14.")
+    end
+  end
+
   describe "#versioned_formulae" do
     let(:f) do
       formula "foo" do

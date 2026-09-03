@@ -910,6 +910,26 @@ class Formula
   # @api public
   delegate deps: :active_spec
 
+  # The stable path to the executable provided by this formula's direct Python 3 dependency.
+  #
+  # @raise [RuntimeError] if the formula does not have exactly one `python@3.x` dependency
+  # @api public
+  sig { returns(Pathname) }
+  def python3
+    python_deps = deps.filter_map do |dep|
+      name = Utils.name_from_full_name(dep.name)
+      name if name.match?(/\Apython@3\.\d+\z/)
+    end.uniq
+
+    if python_deps.length != 1
+      found = python_deps.empty? ? "none" : python_deps.join(", ")
+      raise "`#{full_name}` must have exactly one `python@3.x` dependency to use `python3`; found #{found}."
+    end
+
+    python_dep = python_deps.fetch(0)
+    formula_opt_bin(python_dep)/python_dep.delete("@")
+  end
+
   # The declared {Dependency}s for the currently active {SoftwareSpec} (i.e. including those provided by macOS).
   delegate declared_deps: :active_spec
 
