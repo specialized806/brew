@@ -308,7 +308,7 @@ module Homebrew
             bin.install libexec/"bin/\#{name}"
             bin.env_script_all_files(libexec/"bin", GEM_HOME: ENV["GEM_HOME"])
         <% elsif @mode == :rust %>
-            system "cargo", "install", "--offline", *std_cargo_args
+            system "cargo", "install", *std_cargo_args
         <% elsif @mode == :zig %>
             system "zig", "build", *std_zig_args
         <% else %>
