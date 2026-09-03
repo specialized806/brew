@@ -13,9 +13,12 @@ RSpec.describe Sandbox, :needs_macos do
 
   before do
     skip "Sandbox not implemented." unless described_class.available?
+    if described_class.nested_sandbox? && !RSpec.current_example&.metadata&.key?(:tests_nested_sandbox_detection)
+      skip "Nested sandboxing is not supported."
+    end
   end
 
-  describe ".avoid_nested_sandboxing?" do
+  describe ".avoid_nested_sandboxing?", :tests_nested_sandbox_detection do
     before do
       allow(Homebrew::EnvConfig).to receive(:avoid_nested_sandboxing?).and_return(true)
       allow(described_class).to receive(:nested_sandbox?).and_return(true)

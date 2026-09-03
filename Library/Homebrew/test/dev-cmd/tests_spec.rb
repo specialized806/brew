@@ -201,6 +201,13 @@ RSpec.describe Homebrew::DevCmd::Tests do
         ENV.fetch("HOMEBREW_SORBET_RECURSIVE", nil),
       ]).to eq(["1", nil, nil])
     end
+
+    it "preserves the nested sandbox opt-in" do
+      ENV["HOMEBREW_AVOID_NESTED_SANDBOXING"] = "1"
+      tests.setup_environment!
+
+      expect(ENV.fetch("HOMEBREW_AVOID_NESTED_SANDBOXING")).to eq("1")
+    end
   end
 
   describe "#changed_test_files" do

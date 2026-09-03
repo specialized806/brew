@@ -226,6 +226,7 @@ module Homebrew
       def setup_environment!
         # Cleanup any unwanted user configuration.
         allowed_test_env = %w[
+          HOMEBREW_AVOID_NESTED_SANDBOXING
           HOMEBREW_GITHUB_API_TOKEN
           HOMEBREW_CACHE
           HOMEBREW_LOGS
