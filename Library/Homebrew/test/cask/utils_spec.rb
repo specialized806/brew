@@ -77,4 +77,20 @@ RSpec.describe Cask::Utils do
       expect(path).not_to exist
     end
   end
+
+  describe "::gain_permissions_rmdir" do
+    it "changes the permissions of the symlink, not the directory it points to" do
+      path.mkpath
+      (path/"sub").mkpath
+      path.chmod(0500)
+      FileUtils.ln_s path, link
+
+      expect { described_class.gain_permissions_rmdir(link, command:) }.to raise_error(Errno::ENOTDIR)
+
+      expect(path.stat.mode & 0777).to eq 0500
+      expect(path/"sub").to be_a_directory
+
+      path.chmod(0700)
+    end
+  end
 end

@@ -649,6 +649,7 @@ module Cask
       def recursive_rmdir(*directories, command:, **_kwargs)
         directories.all? do |resolved_path|
           puts resolved_path.sub(Dir.home, "~")
+          next false if resolved_path.symlink?
 
           if resolved_path.readable?
             children = resolved_path.children

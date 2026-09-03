@@ -43,7 +43,9 @@ module Cask
 
     sig { params(path: Pathname, command: T.class_of(SystemCommand)).void }
     def self.gain_permissions_rmdir(path, command: SystemCommand)
-      gain_permissions(path, [], command) do |p|
+      # `-h` unconditionally: it is a no-op on a real directory and avoids
+      # deciding from a path that could be replaced before the recovery runs.
+      gain_permissions(path, ["-h"], command) do |p|
         if p.parent.writable?
           FileUtils.rmdir p
         else
