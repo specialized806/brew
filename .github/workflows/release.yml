@@ -155,6 +155,18 @@ jobs:
             echo "Privileged Git repository operations must use \`git_no_hooks\`."
             exit 1
           fi
+          # `core.hooksPath` does not cover config-specified programs such as
+          # `core.fsmonitor`, and Git reads both `.gitconfig` and, with
+          # `XDG_CONFIG_HOME` unset, `.config/git/config`, so a repository's Git
+          # configuration must go with its hooks.
+          if awk '/rm -rf .*\.git\/hooks/ && !(/\.gitconfig/ && /\.config\/git/) {
+                    print FILENAME ":" FNR ": " $0; found = 1
+                  }
+                  END { exit !found }' brew/package/scripts/postinstall
+          then
+            echo "Removing \`.git/hooks\` must also remove \`.gitconfig\` and \`.config/git\`."
+            exit 1
+          fi
 
       - name: Open macOS keychain
         run: security list-keychain -d user -s "${RUNNER_TEMP}/${TEMPORARY_KEYCHAIN_FILE}"
