@@ -26,9 +26,20 @@ module SharedAudits
   WHOIS_TIMEOUT_SECONDS = 5
   WHOIS_CREATION_DATE_REGEX = /^\s*(?:creation\s+date|created(?:\s+on)?|registered(?:\s+on)?|
                                 registration\s+(?:date|time))\s*:\s*(\S+)/ix
+  # RDAP is the IETF successor to WHOIS: ICANN requires every gTLD registry to serve it
+  # and IANA's bootstrap file lists the server for each TLD (gTLD or ccTLD) that does.
+  RDAP_BOOTSTRAP_URL = "https://data.iana.org/rdap/dns.json"
+  RDAP_TIMEOUT_SECONDS = 10
+  RdapServices = T.type_alias { T::Array[[T::Array[String], T::Array[String]]] }
   @pull_request_author = T.let(nil, T.nilable(String))
   @pull_request_author_computed = T.let(false, T::Boolean)
   @self_submission_cache = T.let({}, T::Hash[String, T::Boolean])
+  @rdap_services = T.let(nil, T.nilable(RdapServices))
+
+  class << self
+    sig { params(rdap_services: T.nilable(RdapServices)).returns(T.nilable(RdapServices)) }
+    attr_writer :rdap_services
+  end
 
   sig { params(browsed: T.nilable(Date)).returns(T::Boolean) }
   def self.homepage_browsed_recently?(browsed)
@@ -47,31 +58,85 @@ module SharedAudits
     end
     return if host.blank?
 
-    domain = host.delete_prefix("www.")
+    domain = host.downcase.delete_prefix("www.")
     return if GIT_FORGE_DOMAINS.any? { |forge| domain == forge || domain.end_with?(".#{forge}") }
-    return if which("whois").nil?
 
-    result = begin
-      SystemCommand.run("whois", args: [domain], print_stderr: false, timeout: WHOIS_TIMEOUT_SECONDS)
-    rescue Timeout::Error
-      nil
+    @rdap_services ||= begin
+      result = Utils::Curl.curl_output(RDAP_BOOTSTRAP_URL, max_time: RDAP_TIMEOUT_SECONDS)
+      (JSON.parse(result.stdout).fetch("services") if result.status.success?) || []
+    rescue JSON::ParserError, KeyError, TypeError
+      []
     end
-    return if result.nil? || !result.status.success?
 
-    # `whois` may concatenate the IANA record for the TLD (whose creation date is
-    # always ancient) with the registry record for the domain, so use the newest date.
-    registered_on = result.stdout.lines.filter_map do |line|
-      value = line[WHOIS_CREATION_DATE_REGEX, 1]
-      next if value.nil?
+    registered_domain = domain
+    registered_on = T.let(nil, T.nilable(Date))
+    tld = domain.split(".").last
+    rdap_urls = @rdap_services.find { |tlds, _| tlds.include?(tld) }&.fetch(1)
+    if rdap_urls.present?
+      rdap_base_url = (rdap_urls.find { |url| url.start_with?("https://") } || rdap_urls.fetch(0)).delete_suffix("/")
+      # Registries answer 4xx for subdomains, so walk up to the registered domain.
+      labels = domain.split(".")
+      while labels.length >= 2
+        candidate = labels.join(".")
+        result = Utils::Curl.curl_output(
+          "--include", "--location", "#{rdap_base_url}/domain/#{candidate}",
+          header: "Accept: application/rdap+json", max_time: RDAP_TIMEOUT_SECONDS
+        )
+        break unless result.status.success?
 
-      Date.parse(value)
-    rescue Date::Error
-      nil
-    end.max
+        parsed = Utils::Curl.parse_curl_output(result.stdout)
+        case parsed.fetch(:responses).last&.fetch(:status_code).to_i
+        when 200
+          registered_on = begin
+            events = JSON.parse(parsed.fetch(:body)).fetch("events", [])
+            registration = events.find { |event| event["eventAction"] == "registration" }
+            Date.parse(registration.fetch("eventDate")) unless registration.nil?
+          rescue JSON::ParserError, KeyError, TypeError, Date::Error
+            nil
+          end
+          registered_domain = candidate unless registered_on.nil?
+          break
+        when 400..499
+          labels.shift
+        else
+          break
+        end
+      end
+    end
+
+    if registered_on.nil? && which("whois")
+      whois = begin
+        SystemCommand.run("whois", args: [domain], print_stderr: false, timeout: WHOIS_TIMEOUT_SECONDS)
+      rescue Timeout::Error
+        nil
+      end
+      lines = if whois.nil? || !whois.status.success?
+        []
+      else
+        whois.stdout.scrub.lines
+      end
+      # `whois` may print the IANA record for the TLD (whose creation date is always ancient)
+      # before following its referral to the registry, so only look after the referral marker:
+      # `# whois.nic.sh` on macOS, `Found a referral to whois.nic.sh.` on Linux.
+      if lines.first&.start_with?("% IANA WHOIS server")
+        referral_index = lines.index { |line| line.start_with?("# whois.", "Found a referral to ") }
+        lines = referral_index ? lines.drop(referral_index + 1) : []
+      end
+
+      lines.each do |line|
+        value = line[WHOIS_CREATION_DATE_REGEX, 1]
+        next if value.nil?
+
+        registered_on = Date.parse(value)
+        break
+      rescue Date::Error
+        nil
+      end
+    end
     return if registered_on.nil?
     return if (Date.today - registered_on) >= NEW_DOMAIN_THRESHOLD_DAYS
 
-    "`homepage` domain `#{domain}` was registered on #{registered_on}: " \
+    "`homepage` domain `#{registered_domain}` was registered on #{registered_on}: " \
       "homepages should exist for at least #{NEW_DOMAIN_THRESHOLD_DAYS} days before inclusion"
   end
 

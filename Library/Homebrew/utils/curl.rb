@@ -816,8 +816,6 @@ module Utils
       base_url
     end
 
-    private
-
     # Parses HTTP response text from `curl` output into a hash containing the
     # information from the status line (status code and, optionally,
     # descriptive text) and headers.

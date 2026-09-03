@@ -30,10 +30,13 @@ RSpec.describe SharedAudits do
     JSON
   end
 
-  def mock_curl_output(stdout: "", success: true)
+  def command_result(stdout, success: true)
     status = instance_double(Process::Status, success?: success)
-    curl_output = instance_double(SystemCommand::Result, stdout:, status:)
-    allow(Utils::Curl).to receive(:curl_output).and_return curl_output
+    instance_double(SystemCommand::Result, stdout:, status:)
+  end
+
+  def mock_curl_output(stdout: "", success: true)
+    allow(Utils::Curl).to receive(:curl_output).and_return command_result(stdout, success:)
   end
 
   describe "::homepage_browsed_recently?" do
@@ -75,12 +78,17 @@ RSpec.describe SharedAudits do
   end
 
   describe "::new_domain_problem" do
+    let(:rdap_bootstrap) { { "services" => [[["dev"], ["https://rdap.example/"]]] } }
+    let(:rdap_registration) do
+      { "events" => [{ "eventAction" => "registration", "eventDate" => "2026-07-01T15:50:45Z" }] }
+    end
     let(:whois_output) do
       <<~WHOIS
         % IANA WHOIS server
         domain:       SH
         created:      1997-09-23
 
+        # whois.nic.sh
         Domain Name: brew.sh
         Creation Date: 2026-07-01T15:50:45Z
       WHOIS
@@ -89,26 +97,108 @@ RSpec.describe SharedAudits do
     before do
       allow(Date).to receive(:today).and_return(Date.new(2026, 7, 26))
       allow(described_class).to receive(:which).with("whois").and_return(Pathname("/usr/bin/whois"))
+      described_class.rdap_services = nil
+      mock_rdap
+    end
+
+    def mock_rdap(responses = {})
+      allow(Utils::Curl).to receive(:curl_output) do |*args, **_options|
+        url = args.fetch(-1)
+        if url == SharedAudits::RDAP_BOOTSTRAP_URL
+          command_result(rdap_bootstrap.to_json)
+        else
+          status, body = responses.fetch(url.delete_prefix("https://rdap.example/domain/"), [404, {}])
+          command_result("HTTP/2 #{status}\r\ncontent-type: application/rdap+json\r\n\r\n#{body.to_json}")
+        end
+      end
     end
 
     def mock_whois(stdout:, success: true)
-      status = instance_double(Process::Status, success?: success)
-      result = instance_double(SystemCommand::Result, stdout:, status:)
-      allow(SystemCommand).to receive(:run).and_return(result)
+      allow(SystemCommand).to receive(:run).and_return(command_result(stdout, success:))
     end
 
-    # The IANA record for the TLD is always ancient, so parsing must use the newest date.
-    it "reports domains registered less than 30 days ago, ignoring the IANA record for the TLD" do
+    it "reports domains registered less than 30 days ago according to RDAP" do
+      mock_rdap "brew.dev" => [200, rdap_registration]
+
+      expect(described_class.new_domain_problem("https://www.brew.dev/foo"))
+        .to include("`homepage` domain `brew.dev` was registered on 2026-07-01")
+    end
+
+    it "ignores domains registered at least 30 days ago according to RDAP" do
+      rdap_registration["events"].first["eventDate"] = "2026-06-26T15:50:45Z"
+      mock_rdap "brew.dev" => [200, rdap_registration]
+
+      expect(described_class.new_domain_problem("https://brew.dev")).to be_nil
+    end
+
+    it "walks up from a subdomain to the registered domain" do
+      mock_rdap "docs.brew.dev" => [400, {}], "brew.dev" => [200, rdap_registration]
+
+      expect(described_class.new_domain_problem("https://docs.brew.dev"))
+        .to include("`homepage` domain `brew.dev` was registered on 2026-07-01")
+    end
+
+    it "falls back to `whois` when the registry publishes no registration date over RDAP" do
+      mock_rdap "brew.dev" => [200, { "events" => [{ "eventAction" => "last changed" }] }]
+      mock_whois stdout: whois_output
+
+      expect(described_class.new_domain_problem("https://brew.dev"))
+        .to include("`homepage` domain `brew.dev` was registered on 2026-07-01")
+    end
+
+    it "falls back to `whois` when the RDAP server fails" do
+      mock_rdap "brew.dev" => [503, {}]
+      mock_whois stdout: whois_output
+
+      expect(described_class.new_domain_problem("https://brew.dev"))
+        .to include("`homepage` domain `brew.dev` was registered on 2026-07-01")
+    end
+
+    it "ignores domains neither the RDAP server nor `whois` knows" do
+      mock_whois stdout: "No match for domain \"BREW.DEV\".\n"
+
+      expect(described_class.new_domain_problem("https://brew.dev")).to be_nil
+    end
+
+    it "falls back to `whois` when the RDAP bootstrap cannot be fetched" do
+      mock_curl_output success: false
+      mock_whois stdout: whois_output
+
+      expect(described_class.new_domain_problem("https://brew.dev"))
+        .to include("`homepage` domain `brew.dev` was registered on 2026-07-01")
+    end
+
+    it "reports domains registered less than 30 days ago according to `whois`" do
       mock_whois stdout: whois_output
 
       expect(described_class.new_domain_problem("https://www.brew.sh/foo"))
         .to include("`homepage` domain `brew.sh` was registered on 2026-07-01")
     end
 
-    it "ignores domains registered at least 30 days ago" do
+    it "ignores domains registered at least 30 days ago according to `whois`" do
       mock_whois stdout: whois_output.sub("2026-07-01T15:50:45Z", "2026-06-26T15:50:45Z")
 
       expect(described_class.new_domain_problem("https://brew.sh")).to be_nil
+    end
+
+    it "reports domains registered less than 30 days ago according to Linux `whois`" do
+      mock_whois stdout: whois_output.sub("# whois.nic.sh", "Found a referral to whois.nic.sh.")
+
+      expect(described_class.new_domain_problem("https://brew.sh"))
+        .to include("`homepage` domain `brew.sh` was registered on 2026-07-01")
+    end
+
+    it "ignores the IANA record for the TLD when the registry publishes no date" do
+      mock_whois stdout: "#{whois_output.lines.take(5).join}Domain: brew.sh\nStatus: connect\n"
+
+      expect(described_class.new_domain_problem("https://brew.sh")).to be_nil
+    end
+
+    it "tolerates invalid UTF-8 in `whois` output" do
+      mock_whois stdout: "#{whois_output}Registrant: \xFF\n"
+
+      expect(described_class.new_domain_problem("https://brew.sh"))
+        .to include("`homepage` domain `brew.sh` was registered on 2026-07-01")
     end
 
     it "ignores domains with no parseable creation date" do
@@ -147,7 +237,8 @@ RSpec.describe SharedAudits do
       https://foo.github.io/bar
       https://sr.ht/~foo/bar
     ]) do |homepage|
-      it "does not run `whois` for the git forge homepage #{homepage}" do
+      it "does not look up the git forge homepage #{homepage}" do
+        expect(Utils::Curl).not_to receive(:curl_output)
         expect(SystemCommand).not_to receive(:run)
         expect(described_class.new_domain_problem(homepage)).to be_nil
       end
