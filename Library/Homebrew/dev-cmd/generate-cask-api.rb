@@ -41,7 +41,7 @@ module Homebrew
           FileUtils.mkdir_p directories
         end
 
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           tap_migrations_json = JSON.dump(tap.tap_migrations)
           File.write("api/cask_tap_migrations.json", tap_migrations_json) unless args.dry_run?
 

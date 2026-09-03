@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "abstract_command"
 require "bump_version_parser"
 require "livecheck/livecheck"
@@ -107,7 +108,7 @@ module Homebrew
       def run
         Utils::GemSetup.install_bundler_gems!(groups: ["livecheck"])
 
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           eval_all = args.eval_all?
           eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
 

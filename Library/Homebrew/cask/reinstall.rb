@@ -32,7 +32,7 @@ module Cask
       created_download_queue = T.let(false, T::Boolean)
       if download_queue.nil?
         if skip_prefetch
-          download_queue = Homebrew.default_download_queue
+          download_queue = Homebrew::DownloadQueue.default
         else
           download_queue = Homebrew::DownloadQueue.new(pour: true)
           created_download_queue = true

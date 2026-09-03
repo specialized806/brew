@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "abstract_command"
 require "readall"
 require "env_config"
@@ -35,7 +36,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           if args.syntax? && args.no_named?
             scan_files = "#{HOMEBREW_LIBRARY_PATH}/**/*.rb"
             ruby_files = Dir.glob(scan_files).grep_v(%r{/(vendor)/}).map { Pathname(it) }

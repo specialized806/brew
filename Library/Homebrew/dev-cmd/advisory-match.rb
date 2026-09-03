@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "abstract_command"
 require "extend/object/deep_dup"
 require "fileutils"
@@ -55,7 +56,7 @@ module Homebrew
       sig { override.void }
       def run
         Formulary.enable_factory_cache!
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           latest_macos = MacOSVersion.new((HOMEBREW_MACOS_NEWEST_UNSUPPORTED.to_i - 1).to_s).to_sym
           Homebrew::SimulateSystem.with(os: latest_macos, arch: :arm) do
             matcher = Homebrew::Vulns::Match.new(repology:  local_repology,

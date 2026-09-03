@@ -52,7 +52,7 @@ module Homebrew
         executables = ExecutablesDB.new(executables_path.to_s).to_hash
         advisories = load_advisory_database
 
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           tap_migrations_json = JSON.dump(tap.tap_migrations)
           File.write("api/formula_tap_migrations.json", tap_migrations_json) unless args.dry_run?
 

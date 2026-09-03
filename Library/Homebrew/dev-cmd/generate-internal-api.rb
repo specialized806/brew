@@ -45,7 +45,7 @@ module Homebrew
         end
         executables = ExecutablesDB.new(executables_path.to_s).to_hash
 
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           Formulary.enable_factory_cache!
           Formula.generating_hash!
           Cask::Cask.generating_hash!

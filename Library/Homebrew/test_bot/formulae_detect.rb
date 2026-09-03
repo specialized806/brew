@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
+
 module Homebrew
   module TestBot
     class FormulaeDetect < Test
@@ -228,7 +230,7 @@ module Homebrew
 
       sig { params(formula_name: String, args: Homebrew::Cmd::TestBotCmd::Args).returns(T.nilable(String)) }
       def safe_formula_canonical_name(formula_name, args:)
-        Homebrew.with_no_api_env do
+        Homebrew::API.with_no_api_env do
           Formulary.factory(formula_name).full_name
         end
       rescue FormulaUnavailableError, TapFormulaUnavailableError, TapFormulaAmbiguityError => e

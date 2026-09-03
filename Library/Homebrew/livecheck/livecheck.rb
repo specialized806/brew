@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "livecheck/constants"
 require "livecheck/error"
 require "livecheck/livecheck_version"
@@ -94,7 +95,7 @@ module Homebrew
       return [nil, references] if livecheck_formula.blank? && livecheck_cask.blank?
 
       # Load the referenced formula or cask
-      referenced_formula_or_cask = Homebrew.with_no_api_env do
+      referenced_formula_or_cask = Homebrew::API.with_no_api_env do
         if livecheck_formula
           Formulary.factory(livecheck_formula)
         elsif livecheck_cask

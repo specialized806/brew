@@ -87,7 +87,7 @@ class FormulaInstaller
   }
   def initialize(
     formula,
-    download_queue: Homebrew.default_download_queue,
+    download_queue: Homebrew::DownloadQueue.default,
     link_keg: false,
     installed_on_request: false,
     show_header: false,

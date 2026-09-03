@@ -682,7 +682,7 @@ module Homebrew
         end
 
         if prefetch_only
-          prefetch_download_queue = download_queue || Homebrew.default_download_queue
+          prefetch_download_queue = download_queue || Homebrew::DownloadQueue.default
           dependent_formulae_installer = Upgrade.dependent_formula_installers(
             context.dependants,
             context.formulae_installer.map(&:formula),

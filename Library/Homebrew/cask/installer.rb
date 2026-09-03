@@ -40,7 +40,7 @@ module Cask
                    zap: false, require_sha: false, upgrade: false, reinstall: false,
                    installed_on_request: true,
                    verify_download_integrity: true, quiet: false,
-                   download_queue: Homebrew.default_download_queue, defer_fetch: false,
+                   download_queue: Homebrew::DownloadQueue.default, defer_fetch: false,
                    default_uninstall_artifacts: nil)
       @cask = cask
       @command = command

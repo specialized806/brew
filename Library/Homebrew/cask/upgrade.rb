@@ -231,7 +231,7 @@ module Cask
       prefetched_cask_installers ||= []
 
       if !dry_run && !skip_prefetch
-        prefetch_download_queue = download_queue || Homebrew.default_download_queue
+        prefetch_download_queue = download_queue || Homebrew::DownloadQueue.default
         begin
           prefetched_cask_installers.clear
           upgradable_casks.select! do |(_, cask)|
@@ -278,7 +278,7 @@ module Cask
       show_upgrade_summary(cask_upgrades, dry_run:) if show_upgrade_summary
       return true if dry_run
 
-      download_queue ||= Homebrew.default_download_queue
+      download_queue ||= Homebrew::DownloadQueue.default
 
       upgradable_casks.each_with_index do |(old_cask, new_cask), index|
         new_cask_installer = prefetched_cask_installers.find { |installer| installer.cask.equal?(new_cask) }
