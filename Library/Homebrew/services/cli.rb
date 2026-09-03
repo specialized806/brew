@@ -53,11 +53,30 @@ module Homebrew
 
       sig { params(service: Services::FormulaWrapper, running_status: String).returns(T::Boolean) }
       def self.report_service_running_or_loaded?(service, running_status:)
-        status = if service.pid?
+        running = service.pid?
+        loaded_name = if System.launchctl?
+          if running
+            service.active_service_name
+          else
+            service.loaded_service_names.find { |name| name != service.service_name }
+          end
+        end
+
+        if loaded_name.present? && loaded_name != service.service_name
+          if service.service_file_generated? && service.service_names.include?(loaded_name)
+            puts "Service `#{service.name}` is already loaded as `#{loaded_name}`; " \
+                 "a service label migration is pending. Use `#{bin} restart #{service.name}` " \
+                 "to migrate to `#{service.service_name}`."
+          else
+            status = running ? running_status : "loaded"
+            puts "Service `#{service.name}` already #{status} " \
+                 "(label: #{loaded_name}), use `#{bin} restart #{service.name}` to restart."
+          end
+          return true
+        end
+
+        status = if running
           running_status
-        elsif System.launchctl? &&
-              (loaded_name = service.loaded_service_names.find { |name| name != service.service_name })
-          "loaded as `#{loaded_name}`"
         end
         return false if status.nil?
 
@@ -87,8 +106,12 @@ module Homebrew
       sig { returns(T::Array[String]) }
       def self.remove_unused_service_files
         cleaned = []
+        running_services = running
         System.path.glob("{homebrew.*,sh.brew.*}.{plist,service,timer}").each do |file|
-          next if running.include?(File.basename(file).sub(/\.(plist|service|timer)$/i, ""))
+          label = FormulaWrapper.service_file_label(file) if file.extname.casecmp?(".plist")
+          service_name = label || File.basename(file).sub(/\.(plist|service|timer)$/i, "")
+          next if running_services.include?(service_name)
+          next if label && System.launchctl? && System.launchctl_service_running?(label)
 
           puts "Removing unused service file: #{file}"
           rm file
@@ -208,6 +231,7 @@ module Homebrew
           end
 
           systemctl_args = []
+          loaded_service_names = T.let([], T::Array[String])
           if no_wait
             systemctl_args << "--no-block"
             puts "Stopping `#{service.name}`..."
@@ -251,17 +275,23 @@ module Homebrew
                     exit_status = $CHILD_STATUS.exitstatus
                   end
                 end
-                quiet_system System.launchctl, "stop", "#{domain_target}/#{service_name}" if
+                quiet_system System.launchctl, "stop", service_name if
                   System.launchctl_service_running?(service_name)
               end
             end
             service.reset_cache!
           end
 
+          service_still_loaded = if System.systemctl?
+            service.loaded? || service.pid?
+          else # System.launchctl?
+            loaded_service_names.any? { |service_name| System.launchctl_service_running?(service_name) }
+          end
+
           unless keep
             if System.systemctl?
               rm service.dest if service.dest.exist?
-            else # System.launchctl?
+            elsif !service_still_loaded # System.launchctl?
               service.destinations.each { |destination| rm destination if destination.exist? }
             end
             rm service.timer_dest if System.systemctl? && service.timed? && service.timer_dest.exist?
@@ -274,7 +304,7 @@ module Homebrew
           else # System.launchctl?
             loaded_service_names.presence || service.service_names
           end
-          if service.loaded? || service.pid?
+          if service_still_loaded
             opoo "Unable to stop `#{service.name}` (label: #{labels.join(", ")})"
           else
             ohai "Successfully stopped `#{service.name}` (label: #{labels.join(", ")})"
@@ -298,9 +328,7 @@ module Homebrew
             elsif System.launchctl?
               killed_service_names = service.loaded_service_names
               killed_service_names.each do |service_name|
-                System.candidate_domain_targets.each do |domain_target|
-                  break if quiet_system System.launchctl, "stop", "#{domain_target}/#{service_name}"
-                end
+                quiet_system System.launchctl, "stop", service_name
               end
               service.reset_cache!
             end
@@ -388,11 +416,13 @@ module Homebrew
           service: Services::FormulaWrapper,
           file:    T.nilable(T.any(String, Pathname)),
           enable:  T::Boolean,
-        ).void
+        ).returns(String)
       }
       def self.launchctl_load(service, file:, enable:)
-        safe_system System.launchctl, "enable", "#{System.domain_target}/#{service.service_name}" if enable
+        service_name = FormulaWrapper.service_file_label(file) || service.service_name
+        safe_system System.launchctl, "enable", "#{System.domain_target}/#{service_name}" if enable
         safe_system System.launchctl, "bootstrap", System.domain_target, file
+        service_name
       end
 
       sig { params(service: Services::FormulaWrapper, enable: T::Boolean).void }
@@ -419,10 +449,11 @@ module Homebrew
           odie "Cannot #{function} `#{service.name}` as `#{service_user}` is not a user!"
         end
 
+        loaded_service_name = service.service_name
         if System.launchctl?
           file ||= enable ? service.dest : service.source_service_file
           service.path_dirs.each(&:mkpath)
-          launchctl_load(service, file:, enable:)
+          loaded_service_name = launchctl_load(service, file:, enable:)
         elsif System.systemctl?
           # Systemctl loads based upon location so only install service
           # file when it is not installed. Used with the `run` command.
@@ -432,7 +463,7 @@ module Homebrew
         end
 
         function = enable ? "started" : "ran"
-        ohai("Successfully #{function} `#{service.name}` (label: #{service.service_name})")
+        ohai("Successfully #{function} `#{service.name}` (label: #{loaded_service_name})")
       end
 
       sig { params(service: Services::FormulaWrapper, file: T.nilable(Pathname)).void }

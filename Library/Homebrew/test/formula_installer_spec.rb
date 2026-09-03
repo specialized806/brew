@@ -1656,8 +1656,11 @@ RSpec.describe FormulaInstaller do
         installer.install_service
       end.not_to output(/Error: Failed to install service files/).to_stderr
 
-      expect(launchd_service_path).to exist
-      expect(service_path).to exist
+      expect([
+        launchd_service_path.basename.to_s,
+        launchd_service_path.exist?,
+        service_path.exist?,
+      ]).to eq(["sh.brew.testball.plist", true, true])
     end
 
     it "works if timed service is set" do

@@ -80,7 +80,7 @@ module Homebrew
 
     sig { returns(String) }
     def default_plist_name
-      legacy_plist_name
+      canonical_plist_name
     end
 
     sig { returns(String) }
@@ -735,7 +735,7 @@ module Homebrew
     sig { returns(T::Hash[Symbol, T.untyped]) }
     def to_hash
       name_params = {
-        macos: (plist_name if plist_name != default_plist_name),
+        macos: (plist_name if @plist_name_explicitly_set),
         linux: (service_name if service_name != default_service_name),
       }.compact
 

@@ -1501,6 +1501,33 @@ RSpec.describe Formula do
       expect(f.service.to_hash.keys).to contain_exactly(:name)
     end
 
+    specify "explicit default and compatible macOS service names remain explicit when serialized" do
+      canonical_formula = formula "canonical_name" do
+        url "https://brew.sh/canonical-1.0.tbz"
+        service do
+          name macos: "sh.brew.canonical_name"
+        end
+      end
+      legacy_formula = formula "legacy_name" do
+        url "https://brew.sh/legacy-1.0.tbz"
+        service do
+          name macos: "homebrew.mxcl.legacy_name"
+        end
+      end
+
+      expect([
+        canonical_formula.service.to_hash,
+        canonical_formula.plist_names,
+        legacy_formula.service.to_hash,
+        legacy_formula.plist_names,
+      ]).to eq([
+        { name: { macos: "sh.brew.canonical_name" } },
+        ["sh.brew.canonical_name"],
+        { name: { macos: "homebrew.mxcl.legacy_name" } },
+        ["homebrew.mxcl.legacy_name"],
+      ])
+    end
+
     specify "service with an overridden plist_name" do
       f = formula do
         T.bind(self, T.class_of(Formula))
@@ -1520,13 +1547,13 @@ RSpec.describe Formula do
         url "https://brew.sh/test-1.0.tbz"
       end
 
-      expect(f.plist_name).to eq("homebrew.mxcl.formula_name")
-      expect(f.plist_names).to eq(["homebrew.mxcl.formula_name", "sh.brew.formula_name"])
+      expect(f.plist_name).to eq("sh.brew.formula_name")
+      expect(f.plist_names).to eq(["sh.brew.formula_name", "homebrew.mxcl.formula_name"])
       expect(f.service_name).to eq("homebrew.formula_name")
-      expect(f.launchd_service_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/homebrew.mxcl.formula_name.plist")
+      expect(f.launchd_service_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/sh.brew.formula_name.plist")
       expect(f.launchd_service_paths).to eq([
-        HOMEBREW_PREFIX/"opt/formula_name/homebrew.mxcl.formula_name.plist",
         HOMEBREW_PREFIX/"opt/formula_name/sh.brew.formula_name.plist",
+        HOMEBREW_PREFIX/"opt/formula_name/homebrew.mxcl.formula_name.plist",
       ])
       expect(f.systemd_service_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/homebrew.formula_name.service")
       expect(f.systemd_timer_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/homebrew.formula_name.timer")
