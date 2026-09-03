@@ -118,6 +118,10 @@ RSpec.describe Homebrew::FormulaCreator do
                     includes: ["deny_network_access!", "PERL5LIB", 'resource "'],
                     excludes: ["unrecognized options"]
 
+    it_behaves_like "expected", :ruby,
+                    includes: ["deny_network_access!", /"cache".*"--no-install"/, /"install".*"--local"/],
+                    excludes: ["unrecognized options", 'resource "']
+
     it_behaves_like "expected", :rust,
                     includes: ["deny_network_access!", "std_cargo_args", /"cargo".*"fetch"/],
                     excludes: ["unrecognized options", 'resource "']
