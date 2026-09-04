@@ -125,6 +125,10 @@ module Superenv
     self["HIDAPI_SYSTEM_HIDAPI"] = "1"
     self["PYZMQ_NO_BUNDLE"] = "1"
     self["SODIUM_INSTALL"] = "system"
+    # Set defaults for Bundler installs
+    self["BUNDLE_FORCE_RUBY_PLATFORM"] = "true"
+    self["BUNDLE_VERSION"] = "system"
+    self["BUNDLE_WITHOUT"] = "development:test"
 
     set_debug_symbols if debug_symbols
 
