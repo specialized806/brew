@@ -640,7 +640,11 @@ module Cask
       return if url.nil?
 
       return if !cask.tap&.official? && !signing?
-      return if cask.deprecated? && cask.deprecation_reason != :fails_gatekeeper_check
+
+      deprecated_or_disabled = cask.deprecated? || cask.disabled?
+      deprecate_disable_reason = cask.disabled? ? cask.disable_reason : cask.deprecation_reason
+      gatekeeper_failure_expected = deprecate_disable_reason == :fails_gatekeeper_check
+      return if deprecated_or_disabled && !gatekeeper_failure_expected
 
       unless Quarantine.available?
         odebug "Quarantine support is not available, skipping signing audit"
@@ -705,7 +709,7 @@ module Cask
           end
 
           next false if result.success?
-          next true if cask.deprecated? && cask.deprecation_reason == :fails_gatekeeper_check
+          next true if gatekeeper_failure_expected
           next true if is_in_skiplist
 
           signing_failure_message = <<~EOS
@@ -729,11 +733,10 @@ module Cask
 
         add_error "Cask is in the signing audit skiplist, but does not need to be skipped!" if is_in_skiplist
 
-        return unless cask.deprecated?
-        return if cask.deprecation_reason != :fails_gatekeeper_check
+        return unless gatekeeper_failure_expected
 
         add_error <<~EOS
-          Cask is deprecated because it failed Gatekeeper checks but all artifacts now pass!
+          Cask is deprecated/disabled because it failed Gatekeeper checks but all artifacts now pass!
           Remove the deprecate/disable stanza or update the deprecate/disable reason.
         EOS
       end
