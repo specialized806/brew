@@ -162,6 +162,21 @@ module Utils
           exit!(true)
         end
 
+        data = T.let(+"", String)
+        reader = Thread.new do
+          Thread.current.report_on_exception = false
+          # Lines the handler answers are responded to on the response pipe;
+          # anything else (e.g. a child error report) stays error data.
+          error_read.each_line do |line|
+            if child_message_handler && response_write && (response = child_message_handler.call(line))
+              response_write.puts response
+              response_write.flush
+            else
+              data << line
+            end
+          end
+        end
+
         child_reaped = T.let(false, T::Boolean)
         begin
           yield(nil) if yield_parent
@@ -179,17 +194,7 @@ module Utils
           end
           error_write.close
           response_read&.close
-          data = +""
-          # Lines the handler answers are responded to on the response pipe;
-          # anything else (e.g. a child error report) stays error data.
-          error_read.each_line do |line|
-            if child_message_handler && response_write && (response = child_message_handler.call(line))
-              response_write.puts response
-              response_write.flush
-            else
-              data << line
-            end
-          end
+          reader.value
           error_read.close
           response_write&.close
           unless socket.nil?
@@ -207,6 +212,7 @@ module Utils
           rescue Errno::ECHILD
             nil
           end
+          reader.join
         end
 
         # 130 is the exit status for a process interrupted via Ctrl-C.
