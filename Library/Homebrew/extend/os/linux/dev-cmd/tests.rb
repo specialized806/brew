@@ -17,9 +17,18 @@ module OS
           return unless Homebrew::EnvConfig.sandbox_linux?
 
           require "sandbox"
-          return if !::Sandbox.available? && GitHub::Actions.env_set?
+          return if ::Sandbox.available?
 
-          ::Sandbox.ensure_sandbox_available!
+          # On CI the sandbox must work, so fail loudly
+          # to ensure `brew tests` really runs sandboxed.
+          # On a developer's machine the sandbox may be unavailable
+          # (e.g. a Ruby without Fiddle, which the Landlock sandbox needs),
+          # so warn and run the tests unsandboxed rather than aborting.
+          if GitHub::Actions.env_set?
+            ::Sandbox.ensure_sandbox_available!
+          else
+            opoo ::Sandbox.failure_reason || "The sandbox is not available."
+          end
         end
 
         private
