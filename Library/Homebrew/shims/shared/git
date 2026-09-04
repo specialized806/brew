@@ -17,8 +17,9 @@ fi
 
 source "${HOMEBREW_LIBRARY}/Homebrew/shims/utils.sh"
 
+tool="$(lowercase "${SHIM_FILE}")"
 # shellcheck disable=SC2249
-case "$(lowercase "${SHIM_FILE}")" in
+case "${tool}" in
   git)
     if [[ -n "${HOMEBREW_GIT}" && "${HOMEBREW_GIT}" != git ]]
     then
@@ -38,7 +39,8 @@ safe_exec "${brew_prefix_version}" "$@"
 
 try_exec_non_system "${SHIM_FILE}" "$@"
 
-if executable "/usr/bin/xcode-select"
+# Xcode has not shipped svn since 11.4, so only git can be found by xcrun.
+if [[ "${tool}" == "git" ]] && executable "/usr/bin/xcode-select"
 then
   # xcode-select will return empty on no Xcode/CLT configuration.
   #   /usr/bin/<tool> will be a popup stub under such configuration.
@@ -50,7 +52,9 @@ then
   fi
   if [[ -z "${popup_stub}" && "${xcode_path}" != "/" ]]
   then
-    path="$(/usr/bin/xcrun -find "${SHIM_FILE}" 2>/dev/null)"
+    # xcrun falls back to searching PATH (already searched above) and caches
+    # what it finds there, even a Homebrew shim, for every later xcrun -find.
+    path="$(PATH=/usr/bin:/bin /usr/bin/xcrun -find "${SHIM_FILE}" 2>/dev/null)"
     safe_exec "${path}" "$@"
   fi
 fi
