@@ -59,9 +59,9 @@ module Homebrew
       sig { override.void }
       def run
         # Given we might be testing various commands, we probably want everything (except sorbet-static)
-        groups = Homebrew.valid_gem_groups - ["sorbet"]
+        groups = Utils::GemSetup.valid_gem_groups - ["sorbet"]
         groups << "prof" if args.stackprof? || args.vernier? || args.ruby_prof?
-        Homebrew.install_bundler_gems!(groups:)
+        Utils::GemSetup.install_bundler_gems!(groups:)
         require "parallel_tests/rspec/runner"
 
         HOMEBREW_LIBRARY_PATH.cd do
@@ -226,6 +226,7 @@ module Homebrew
       def setup_environment!
         # Cleanup any unwanted user configuration.
         allowed_test_env = %w[
+          HOMEBREW_AVOID_NESTED_SANDBOXING
           HOMEBREW_GITHUB_API_TOKEN
           HOMEBREW_CACHE
           HOMEBREW_LOGS

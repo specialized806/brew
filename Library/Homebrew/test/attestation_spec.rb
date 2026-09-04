@@ -76,7 +76,7 @@ RSpec.describe Homebrew::Attestation do
 
   describe "::gh_executable" do
     it "calls ensure_executable" do
-      expect(described_class).to receive(:ensure_executable!)
+      expect(Utils::Executable).to receive(:ensure!)
         .with("gh", reason: "verifying attestations", latest: true)
         .and_return(fake_gh)
 

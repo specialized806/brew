@@ -5,7 +5,7 @@ require "json"
 
 require "lazy_object"
 require "locale"
-require "extend/hash/keys"
+require "utils/data"
 require "utils/output"
 
 module Cask
@@ -152,8 +152,8 @@ module Cask
         return
       end
 
-      @env&.assert_valid_keys(*self.class.defaults.keys)
-      @explicit.assert_valid_keys(*self.class.defaults.keys)
+      ::Utils::Data.assert_valid_keys(@env, *self.class.defaults.keys) if @env
+      ::Utils::Data.assert_valid_keys(@explicit, *self.class.defaults.keys)
     end
 
     # runtime recursive evaluation forces the LazyObject to be evaluated

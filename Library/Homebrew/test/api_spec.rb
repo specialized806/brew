@@ -21,6 +21,21 @@ RSpec.describe Homebrew::API do
     end
   end
 
+  describe "::with_no_api_env" do
+    it "sets the API environment for the duration of the block" do
+      ENV.delete("HOMEBREW_NO_INSTALL_FROM_API")
+      ENV.delete("HOMEBREW_AUTOMATICALLY_SET_NO_INSTALL_FROM_API")
+
+      values = described_class.with_no_api_env do
+        [ENV.fetch("HOMEBREW_NO_INSTALL_FROM_API", nil),
+         ENV.fetch("HOMEBREW_AUTOMATICALLY_SET_NO_INSTALL_FROM_API", nil)]
+      end
+
+      expect(values).to eq(["1", "1"])
+      expect(ENV.fetch("HOMEBREW_NO_INSTALL_FROM_API", nil)).to be_nil
+    end
+  end
+
   describe "::fetch" do
     it "fetches a JSON file" do
       mock_curl_output stdout: json

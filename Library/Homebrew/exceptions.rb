@@ -134,9 +134,10 @@ class FormulaOrCaskUnavailableError < RuntimeError
 
   sig { returns(String) }
   def did_you_mean
+    require "api/env"
     require "formula"
 
-    similar_formula_names = Homebrew.with_no_api_env_if_needed(@without_api) { Formula.fuzzy_search(name) }
+    similar_formula_names = Homebrew::API.with_no_api_env_if_needed(@without_api) { Formula.fuzzy_search(name) }
     return "" if similar_formula_names.blank?
 
     "Did you mean #{similar_formula_names.to_sentence two_words_connector: " or ", last_word_connector: " or "}?"
@@ -829,7 +830,7 @@ class HomebrewCurlDownloadStrategyError < CurlDownloadStrategyError
   end
 end
 
-# Raised by {Kernel#safe_system} in `utils.rb`.
+# Raised when a system command fails.
 class ErrorDuringExecution < RuntimeError
   sig { returns(T::Array[T.nilable(T.any(Pathname, String, T::Array[String], T::Hash[String, T.nilable(String)]))]) }
   attr_reader :cmd

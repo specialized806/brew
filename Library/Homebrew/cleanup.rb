@@ -4,6 +4,7 @@
 require "find"
 require "utils/bottles"
 require "utils/output"
+require "utils/path"
 require "installed_dependents"
 require "package_manager_cache"
 require "stringio"
@@ -14,7 +15,9 @@ module Homebrew
   # Helper class for cleaning up the Homebrew cache.
   class Cleanup
     extend Utils::Output::Mixin
+    extend Utils::Path
     include Utils::Output::Mixin
+    include Utils::Path
 
     CLEANUP_DEFAULT_DAYS = T.let(Homebrew::EnvConfig.cleanup_periodic_full_days.to_i.freeze, Integer)
     GH_ACTIONS_ARTIFACT_CLEANUP_DAYS = 3

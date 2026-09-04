@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/shell"
+
 RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
   let(:staged_path) { Pathname(Dir.mktmpdir) }
 
@@ -21,6 +23,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
   end
 
   before do
+    allow(Sandbox).to receive(:avoid_nested_sandboxing?).and_return(false)
     allow(Sandbox).to receive(:with_preserved_brew_file).and_yield
     allow(cask).to receive(:staged_path).and_return(staged_path)
     (staged_path/"bin").mkpath

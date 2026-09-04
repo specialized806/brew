@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "abstract_command"
 require "formula"
 require "livecheck/livecheck"
@@ -55,7 +56,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["livecheck"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["livecheck"])
 
         eval_all = args.eval_all?
         eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
@@ -66,7 +67,7 @@ module Homebrew
         end
 
         formulae_and_casks_to_check = T.let(
-          Homebrew.with_no_api_env do
+          Homebrew::API.with_no_api_env do
             if args.tap
               tap = Tap.fetch(args.tap)
               formulae = args.cask? ? [] : tap.formula_files.map { |path| Formulary.factory(path) }

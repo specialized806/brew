@@ -23,6 +23,7 @@ std_trap = trap("INT") { exit! 130 } # no backtrace thanks
 
 require_relative "global"
 require "utils/output"
+require "utils/ruby"
 
 require "utils/phase_timings"
 if phase_timings_output
@@ -157,7 +158,7 @@ begin
     end
   elsif external_ruby_cmd_path
     Homebrew.running_command = cmd
-    Homebrew.require?(external_ruby_cmd_path)
+    Utils::Ruby.require?(external_ruby_cmd_path)
     exit Homebrew.failed? ? 1 : 0
   elsif external_cmd_path
     ENV["HOMEBREW_CACHE"] = HOMEBREW_CACHE.to_s

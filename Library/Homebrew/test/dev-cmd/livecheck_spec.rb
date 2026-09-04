@@ -26,7 +26,7 @@ RSpec.describe Homebrew::DevCmd::LivecheckCmd do
   end
 
   it "gives an error when no arguments are given and there's no watchlist" do
-    allow(Homebrew).to receive(:install_bundler_gems!)
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!)
 
     with_env("HOMEBREW_LIVECHECK_WATCHLIST" => ".this_should_not_exist") do
       expect { described_class.new([]).run }

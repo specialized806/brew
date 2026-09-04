@@ -4,6 +4,13 @@
 require "utils/path"
 
 RSpec.describe Utils::Path do
+  describe "inclusion" do
+    it "provides private path helpers and public Formula helpers" do
+      expect(described_class.private_instance_methods).to include(:resolved_path)
+      expect(described_class.public_instance_methods).to include(:formula_opt_bin)
+    end
+  end
+
   describe "::child_of?" do
     it "recognizes a path as its own child" do
       expect(described_class.child_of?("/foo/bar", "/foo/bar")).to be(true)

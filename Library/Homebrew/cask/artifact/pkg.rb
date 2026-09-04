@@ -2,8 +2,8 @@
 # frozen_string_literal: true
 
 require "utils/user"
+require "utils/data"
 require "cask/artifact/abstract_artifact"
-require "extend/hash/keys"
 
 module Cask
   module Artifact
@@ -18,7 +18,7 @@ module Cask
       sig { params(cask: Cask, path: T.any(String, Pathname), stanza_options: T.untyped).returns(T.attached_class) }
       def self.from_args(cask, path, **stanza_options)
         # odeprecated: `allow_untrusted` disables certificate verification and is being removed.
-        stanza_options.assert_valid_keys(:allow_untrusted, :choices)
+        ::Utils::Data.assert_valid_keys(stanza_options, :allow_untrusted, :choices)
         new(cask, path, **stanza_options)
       end
 

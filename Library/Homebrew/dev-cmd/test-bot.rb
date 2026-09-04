@@ -128,7 +128,7 @@ module Homebrew
         end
         ENV["HOMEBREW_TEST_BOT"] = "1"
 
-        Homebrew.install_bundler_gems!(groups: ["ast"]) if args.only_formulae? || [
+        Utils::GemSetup.install_bundler_gems!(groups: ["ast"]) if args.only_formulae? || [
           args.only_cleanup_before?,
           args.only_setup?,
           args.only_tap_syntax?,

@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "formula"
 require "formula_creator"
 require "missing_formula"
@@ -238,7 +239,7 @@ module Homebrew
             EOS
           end
 
-          Homebrew.with_no_api_env do
+          Homebrew::API.with_no_api_env do
             if Formula.aliases.include?(formula_creator.name)
               realname = Formulary.canonical_name(formula_creator.name)
               odie <<~EOS
@@ -252,13 +253,13 @@ module Homebrew
 
         path = formula_creator.write_formula!
 
-        formula = Homebrew.with_no_api_env do
+        formula = Homebrew::API.with_no_api_env do
           CoreTap.instance.clear_cache
           Formula[formula_creator.name]
         end
 
         if args.python?
-          Homebrew.install_bundler_gems!(groups: ["ast"])
+          Utils::GemSetup.install_bundler_gems!(groups: ["ast"])
           require "utils/pypi"
           PyPI.update_python_resources! formula, ignore_non_pypi_packages: true
         end

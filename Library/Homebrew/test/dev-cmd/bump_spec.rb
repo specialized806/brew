@@ -87,7 +87,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
   end
 
   it "gives an error for `--tap` with official taps" do
-    allow(Homebrew).to receive(:install_bundler_gems!)
+    allow(Utils::GemSetup).to receive(:install_bundler_gems!)
 
     expect { described_class.new(["--tap", "Homebrew/core"]).run }
       .to raise_error(UsageError, /`--tap` requires `--auto` for official taps/)

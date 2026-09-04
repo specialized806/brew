@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "api/analytics"
+require "api/env"
 require "utils/output"
 
 # Runtime signature checks happen before lazy method-body requires run.
@@ -102,7 +103,7 @@ module Homebrew
         unless skip_download
           require "download_queue"
           require "api/json_download"
-          download_queue ||= Homebrew.default_download_queue
+          download_queue ||= Homebrew::DownloadQueue.default
           download = Homebrew::API::JSONDownload.new(endpoint, target:, stale_seconds:)
           download_queue.enqueue(download)
         end
@@ -611,24 +612,5 @@ module Homebrew
     def self.cached_cask_json_file_path
       Homebrew::API::Internal.cached_packages_json_file_path
     end
-  end
-
-  sig { type_parameters(:U).params(block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U)) }
-  def self.with_no_api_env(&block)
-    return yield if Homebrew::EnvConfig.no_install_from_api?
-
-    with_env(HOMEBREW_NO_INSTALL_FROM_API: "1", HOMEBREW_AUTOMATICALLY_SET_NO_INSTALL_FROM_API: "1", &block)
-  end
-
-  sig {
-    type_parameters(:U).params(
-      condition: T::Boolean,
-      block:     T.proc.returns(T.type_parameter(:U)),
-    ).returns(T.type_parameter(:U))
-  }
-  def self.with_no_api_env_if_needed(condition, &block)
-    return yield unless condition
-
-    with_no_api_env(&block)
   end
 end

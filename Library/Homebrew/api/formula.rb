@@ -68,7 +68,7 @@ module Homebrew
 
         if enqueue
           require "download_queue"
-          download_queue ||= Homebrew.default_download_queue
+          download_queue ||= Homebrew::DownloadQueue.default
           download_queue.enqueue(download)
         else
           begin

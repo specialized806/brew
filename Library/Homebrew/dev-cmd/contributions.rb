@@ -99,7 +99,7 @@ module Homebrew
         odie "`--user` must not contain empty values." if requested_users.compact.length != requested_users.length
 
         odie "Cannot get contributions as `$HOMEBREW_NO_GITHUB_API` is set!" if Homebrew::EnvConfig.no_github_api?
-        Homebrew.install_bundler_gems!(groups: ["contributions"]) if args.csv? || maintainer_report_csv
+        Utils::GemSetup.install_bundler_gems!(groups: ["contributions"]) if args.csv? || maintainer_report_csv
 
         if maintainer_report_csv
           odie "`--maintainer-report-csv` must be in YEAR-QUARTER format." unless maintainer_report_csv.match?(

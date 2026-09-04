@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "abstract_command"
 require "formula"
 require "utils/bottles"
@@ -23,7 +24,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        formula = Homebrew.with_no_api_env { Formulary.factory("portable-ruby") }
+        formula = Homebrew::API.with_no_api_env { Formulary.factory("portable-ruby") }
         version = formula.version.to_s
         pkg_version = formula.pkg_version.to_s
         vendor_dir = HOMEBREW_LIBRARY_PATH/"vendor"

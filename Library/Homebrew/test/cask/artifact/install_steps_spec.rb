@@ -3,7 +3,7 @@
 
 RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
   before do
-    allow(Sandbox).to receive(:available?).and_return(false)
+    allow(Sandbox).to receive_messages(available?: false, avoid_nested_sandboxing?: false)
   end
 
   let(:cask) do

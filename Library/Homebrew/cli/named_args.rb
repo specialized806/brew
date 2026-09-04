@@ -187,8 +187,10 @@ module Homebrew
       # unless `only` is specified.
       sig { params(only: T.nilable(Symbol), recurse_tap: T::Boolean).returns(T::Array[Pathname]) }
       def to_paths(only: parent.only_formula_or_cask, recurse_tap: false)
+        require "api/env"
+
         @to_paths ||= T.let({}, T.nilable(T::Hash[T.nilable(Symbol), T::Array[Pathname]]))
-        @to_paths[only] ||= Homebrew.with_no_api_env_if_needed(@without_api) do
+        @to_paths[only] ||= Homebrew::API.with_no_api_env_if_needed(@without_api) do
           downcased_unique_named.flat_map do |name|
             path = Pathname(name).expand_path
             if only.nil? && name.match?(LOCAL_PATH_REGEX) && path.exist?
@@ -339,7 +341,9 @@ module Homebrew
           .returns(T.any(Formula, Keg, Cask::Cask, T::Array[Keg]))
       }
       def load_formula_or_cask(name, only: nil, method: nil, warn: false)
-        Homebrew.with_no_api_env_if_needed(@without_api) do
+        require "api/env"
+
+        Homebrew::API.with_no_api_env_if_needed(@without_api) do
           unreadable_error = nil
 
           formula_or_kegs = if only != :cask

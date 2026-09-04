@@ -4,6 +4,7 @@
 require "cask/artifact/binary"
 require "extend/pathname"
 require "shellwords"
+require "utils/data"
 
 module Cask
   module Artifact
@@ -24,7 +25,7 @@ module Cask
       }
       def self.from_args(cask, name, options = nil)
         options ||= {}
-        options.assert_valid_keys(:content, :executable, :args, :env)
+        ::Utils::Data.assert_valid_keys(options, :content, :executable, :args, :env)
 
         new(cask, name, **options)
       end

@@ -79,7 +79,9 @@ RSpec.describe FormulaInstaller do
   end
 
   specify "offline installation" do
-    expect { temporary_install(FailballOfflineInstall.new) }.to raise_error(BuildError) if Sandbox.available?
+    skip "Sandbox not in use." unless Sandbox.use_for?("testing offline installation", warn_without_sandbox: false)
+
+    expect { temporary_install(FailballOfflineInstall.new) }.to raise_error(BuildError)
   end
 
   it "releases its formula locks when installation raises" do
@@ -1791,7 +1793,7 @@ RSpec.describe FormulaInstaller do
       sandbox = instance_double(Sandbox)
 
       allow(installer).to receive(:build_argv).and_return([])
-      allow(Sandbox).to receive_messages(available?: true, new: sandbox)
+      allow(Sandbox).to receive_messages(available?: true, avoid_nested_sandboxing?: false, new: sandbox)
       allow(sandbox).to receive_messages(record_log: nil, allow_read_if_exists: nil, allow_write_temp_and_cache: nil,
                                          allow_write_log: nil, allow_cvs: nil, allow_fossil: nil,
                                          allow_write_xcode: nil, allow_write_cellar: nil, deny_read_home: nil,

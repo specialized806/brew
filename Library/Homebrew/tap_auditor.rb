@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "utils"
 
 module Homebrew
@@ -55,7 +56,7 @@ module Homebrew
       @cask_renames                                   = T.let({}, T::Hash[String, String])
       @formula_names                                  = T.let([], T::Array[String])
 
-      Homebrew.with_no_api_env do
+      Homebrew::API.with_no_api_env do
         tap.clear_cache if Homebrew::EnvConfig.automatically_set_no_install_from_api?
 
         @formula_renames = tap.formula_renames

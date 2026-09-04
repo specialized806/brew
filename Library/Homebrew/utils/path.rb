@@ -1,105 +1,197 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "utils"
 
 module Utils
   # Helpers for Homebrew path handling and package path validation.
   module Path
-    sig { params(parent: T.any(Pathname, String), child: T.any(Pathname, String)).returns(T::Boolean) }
-    def self.child_of?(parent, child)
-      parent_pathname = Pathname(parent).expand_path
-      child_pathname = Pathname(child).expand_path
-      child_pathname.ascend { |p| return true if p == parent_pathname }
-      false
+    @install_info_executable = T.let(nil, T.nilable(String))
+
+    # Path helpers available as private methods when this module is included.
+    module Helpers
+      extend T::Helpers
+
+      requires_ancestor { Kernel }
+
+      sig { params(parent: T.any(Pathname, String), child: T.any(Pathname, String)).returns(T::Boolean) }
+      def child_of?(parent, child)
+        parent_pathname = Pathname(parent).expand_path
+        child_pathname = Pathname(child).expand_path
+        child_pathname.ascend { |p| return true if p == parent_pathname }
+        false
+      end
+
+      sig { params(parent: T.any(Pathname, String), child: T.any(Pathname, String), message: String).void }
+      def ensure_child_of!(parent, child, message:)
+        return if child_of?(parent, child)
+
+        raise message
+      end
+
+      sig {
+        params(
+          path:        Pathname,
+          pattern:     T.any(Pathname, String, Regexp),
+          replacement: T.any(Pathname, String),
+          _block:      T.nilable(T.proc.params(src: Pathname, dst: Pathname).returns(Pathname)),
+        ).void
+      }
+      def cp_path_sub(path, pattern, replacement, &_block)
+        raise "#{path} does not exist" unless path.exist?
+
+        pattern = pattern.to_s if pattern.is_a?(Pathname)
+        replacement = replacement.to_s if replacement.is_a?(Pathname)
+        dst = path.sub(pattern, replacement)
+
+        raise "#{path} is the same file as #{dst}" if path == dst
+
+        if path.directory?
+          dst.mkpath
+        else
+          dst.dirname.mkpath
+          dst = yield(path, dst) if block_given?
+          FileUtils.cp(path, dst)
+        end
+      end
+
+      sig { params(path: Pathname).returns(T::Boolean) }
+      def rmdir_if_possible(path)
+        path.rmdir
+        true
+      rescue Errno::ENOTEMPTY
+        if (ds_store = path/".DS_Store").exist? && path.children.one?
+          ds_store.unlink
+          retry
+        else
+          false
+        end
+      rescue Errno::EACCES, Errno::ENOENT, Errno::EBUSY, Errno::EPERM
+        false
+      end
+
+      sig { params(path: Pathname).returns(T::Boolean) }
+      def text_executable?(path)
+        /\A#!\s*\S+/.match?(path.open("r") { |file| file.read(1024) })
+      end
+
+      sig { params(path: Pathname).returns(Pathname) }
+      def resolved_path(path)
+        path.symlink? ? path.dirname.join(path.readlink) : path
+      end
+
+      sig { params(path: Pathname).returns(T::Boolean) }
+      def resolved_path_exists?(path)
+        link = path.readlink
+      rescue ArgumentError
+        false
+      else
+        path.dirname.join(link).exist?
+      end
+
+      sig { params(path: T.any(Pathname, String), _block: T.proc.void).void }
+      def ensure_writable(path, &_block)
+        path = Pathname(path)
+        saved_perms = nil
+        unless path.writable?
+          saved_perms = path.stat.mode
+          FileUtils.chmod "u+rw", path.to_path
+        end
+        yield
+      ensure
+        path.chmod saved_perms if saved_perms
+      end
     end
 
-    sig { params(parent: T.any(Pathname, String), child: T.any(Pathname, String), message: String).void }
-    def self.ensure_child_of!(parent, child, message:)
-      return if child_of?(parent, child)
+    include Helpers
+    extend Helpers
 
-      raise message
+    private :child_of?, :ensure_child_of!, :cp_path_sub, :rmdir_if_possible, :text_executable?, :resolved_path,
+            :resolved_path_exists?, :ensure_writable
+
+    class << self
+      public :child_of?, :ensure_child_of!, :cp_path_sub, :rmdir_if_possible, :text_executable?, :resolved_path,
+             :resolved_path_exists?, :ensure_writable
     end
 
-    # The stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def self.formula_opt_prefix(formula_name)
-      HOMEBREW_PREFIX/"opt/#{Utils.name_from_full_name(formula_name)}"
+    sig { params(path: Pathname, verbose: T::Boolean).void }
+    def self.install_info(path, verbose: false)
+      SystemCommand.quiet_system(install_info_executable, "--quiet", path.to_s, (path.dirname/"dir").to_s)
+      puts "info #{path}" if verbose
     end
 
-    # The stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def formula_opt_prefix(formula_name)
-      Utils::Path.formula_opt_prefix(formula_name)
+    sig { params(path: Pathname, verbose: T::Boolean).void }
+    def self.uninstall_info(path, verbose: false)
+      SystemCommand.quiet_system(install_info_executable, "--delete", "--quiet", path.to_s, (path.dirname/"dir").to_s)
+      puts "uninfo #{path}" if verbose
     end
 
-    # The `bin` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def self.formula_opt_bin(formula_name)
-      formula_opt_prefix(formula_name)/"bin"
+    sig { returns(T.nilable(String)) }
+    private_class_method def self.install_info_executable
+      @install_info_executable ||= if File.executable?("/usr/bin/install-info")
+        "/usr/bin/install-info"
+      elsif (texinfo_formula = Formula["texinfo"]).any_version_installed?
+        (texinfo_formula.opt_bin/"install-info").to_s
+      end
     end
 
-    # The `bin` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def formula_opt_bin(formula_name)
-      Utils::Path.formula_opt_bin(formula_name)
+    # Public Formula and Cask DSL path helpers.
+    module FormulaHelpers
+      # The stable install path for a given formula name.
+      #
+      # @api public
+      sig { params(formula_name: String).returns(Pathname) }
+      def formula_opt_prefix(formula_name)
+        HOMEBREW_PREFIX/"opt/#{Utils.name_from_full_name(formula_name)}"
+      end
+
+      # The `bin` directory under the stable install path for a given formula name.
+      #
+      # @api public
+      sig { params(formula_name: String).returns(Pathname) }
+      def formula_opt_bin(formula_name)
+        formula_opt_prefix(formula_name)/"bin"
+      end
+
+      # The `lib` directory under the stable install path for a given formula name.
+      #
+      # @api public
+      sig { params(formula_name: String).returns(Pathname) }
+      def formula_opt_lib(formula_name)
+        formula_opt_prefix(formula_name)/"lib"
+      end
+
+      # The `libexec` directory under the stable install path for a given formula name.
+      #
+      # @api public
+      sig { params(formula_name: String).returns(Pathname) }
+      def formula_opt_libexec(formula_name)
+        formula_opt_prefix(formula_name)/"libexec"
+      end
+
+      # The `include` directory under the stable install path for a given formula name.
+      #
+      # @api public
+      sig { params(formula_name: String).returns(Pathname) }
+      def formula_opt_include(formula_name)
+        formula_opt_prefix(formula_name)/"include"
+      end
+
+      # Whether any installed keg for one or more formula names has an install receipt.
+      #
+      # @api public
+      sig { params(formula_names: T.any(String, T::Array[String])).returns(T::Boolean) }
+      def formula_any_version_installed?(formula_names)
+        Utils::Path.formula_installed_prefixes(formula_names).any? do |keg|
+          (keg/"INSTALL_RECEIPT.json").file?
+        end
+      end
     end
 
-    # The `lib` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def self.formula_opt_lib(formula_name)
-      formula_opt_prefix(formula_name)/"lib"
-    end
-
-    # The `lib` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def formula_opt_lib(formula_name)
-      Utils::Path.formula_opt_lib(formula_name)
-    end
-
-    # The `libexec` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def self.formula_opt_libexec(formula_name)
-      formula_opt_prefix(formula_name)/"libexec"
-    end
-
-    # The `libexec` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def formula_opt_libexec(formula_name)
-      Utils::Path.formula_opt_libexec(formula_name)
-    end
-
-    # The `include` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def self.formula_opt_include(formula_name)
-      formula_opt_prefix(formula_name)/"include"
-    end
-
-    # The `include` directory under the stable install path for a given formula name.
-    #
-    # @api public
-    sig { params(formula_name: String).returns(Pathname) }
-    def formula_opt_include(formula_name)
-      Utils::Path.formula_opt_include(formula_name)
-    end
+    include FormulaHelpers
+    extend FormulaHelpers
 
     # The installed prefix directories for one or more formula names.
     #
@@ -111,22 +203,6 @@ module Utils
                           .uniq(&:realpath)
                           .flat_map(&:subdirs)
                           .sort_by(&:basename)
-    end
-
-    # Whether any installed keg for one or more formula names has an install receipt.
-    #
-    # @api public
-    sig { params(formula_names: T.any(String, T::Array[String])).returns(T::Boolean) }
-    def self.formula_any_version_installed?(formula_names)
-      formula_installed_prefixes(formula_names).any? { |keg| (keg/"INSTALL_RECEIPT.json").file? }
-    end
-
-    # Whether any installed keg for one or more formula names has an install receipt.
-    #
-    # @api public
-    sig { params(formula_names: T.any(String, T::Array[String])).returns(T::Boolean) }
-    def formula_any_version_installed?(formula_names)
-      Utils::Path.formula_any_version_installed?(formula_names)
     end
 
     # The current `PATH` with a formula's stable `bin` directory prepended.

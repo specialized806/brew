@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/output"
+
 require "utils"
 require "cask/info"
 

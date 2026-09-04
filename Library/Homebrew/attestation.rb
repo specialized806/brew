@@ -7,6 +7,7 @@ require "utils/popen"
 require "utils/github/api"
 require "exceptions"
 require "system_command"
+require "utils/executable"
 require "utils/output"
 
 module Homebrew
@@ -72,7 +73,7 @@ module Homebrew
       #       to prevent a cycle during bootstrapping. This can eventually be resolved
       #       by vendoring a pure-Ruby Sigstore verifier client.
       @gh_executable = with_env(HOMEBREW_NO_VERIFY_ATTESTATIONS: "1") do
-        ensure_executable!("gh", reason: "verifying attestations", latest: true)
+        Utils::Executable.ensure!("gh", reason: "verifying attestations", latest: true)
       end
     end
 

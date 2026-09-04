@@ -213,6 +213,7 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-signal-wildcard")) }
 
     before do
+      allow(User.current).to receive(:gui?).and_return(true)
       allow(artifact).to receive(:sleep).with(3)
     end
 

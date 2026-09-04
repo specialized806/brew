@@ -48,7 +48,7 @@ module Homebrew
         json_files = Dir["*.bottle.json"]
         odie "No bottle JSON files found in the current working directory" if json_files.blank?
 
-        Homebrew.install_bundler_gems!(groups: ["pr_upload"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["pr_upload"])
 
         bottles_hash = bottles_hash_from_json_files(json_files, args)
 

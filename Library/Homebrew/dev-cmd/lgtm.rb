@@ -21,7 +21,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: Homebrew.valid_gem_groups - ["sorbet"])
+        Utils::GemSetup.install_bundler_gems!(groups: Utils::GemSetup.valid_gem_groups - ["sorbet"])
 
         tap = Tap.from_path(Dir.pwd)
 

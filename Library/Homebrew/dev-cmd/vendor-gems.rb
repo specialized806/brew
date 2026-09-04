@@ -26,9 +26,9 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.setup_gem_environment!
+        Utils::GemSetup.setup_gem_environment!
         ENV["PATH"] = (ENV.fetch("PATH").split(":") | ENV.fetch("HOMEBREW_PATH", "").split(":")).join(":")
-        ENV["BUNDLE_WITH"] = Homebrew.valid_gem_groups.join(":")
+        ENV["BUNDLE_WITH"] = Utils::GemSetup.valid_gem_groups.join(":")
 
         ohai "cd #{HOMEBREW_LIBRARY_PATH}"
         HOMEBREW_LIBRARY_PATH.cd do

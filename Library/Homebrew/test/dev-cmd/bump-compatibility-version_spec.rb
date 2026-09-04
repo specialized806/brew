@@ -18,7 +18,7 @@ RSpec.describe Homebrew::DevCmd::BumpCompatibilityVersion do
 
   describe "#run" do
     before do
-      allow(Homebrew).to receive(:install_bundler_gems!)
+      allow(Utils::GemSetup).to receive(:install_bundler_gems!)
     end
 
     it "adds compatibility_version 1 with --write-only" do

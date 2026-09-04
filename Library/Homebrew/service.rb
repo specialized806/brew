@@ -1,6 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+require "utils/shell"
+
 require "ipaddr"
 require "on_system"
 require "utils/path"

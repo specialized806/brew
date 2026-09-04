@@ -397,7 +397,7 @@ RSpec.configure do |config|
       # Shut down and drop any memoized download queue so an example that
       # stubbed `DownloadQueue.new` cannot leak a double into later examples
       # or the `at_exit` shutdown hook.
-      Homebrew.reset_default_download_queue if Homebrew.respond_to?(:reset_default_download_queue)
+      Homebrew::DownloadQueue.reset_default if defined?(Homebrew::DownloadQueue)
 
       $stdout.reopen(@__stdout)
       $stderr.reopen(@__stderr)

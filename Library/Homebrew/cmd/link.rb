@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/shell"
+
 require "abstract_command"
 require "caveats"
 require "unlink"

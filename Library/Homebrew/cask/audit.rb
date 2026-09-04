@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "cask/cask_loader"
 require "cask/denylist"
 require "cask/download"
@@ -572,7 +573,7 @@ module Cask
 
     sig { void }
     def audit_token_conflicts
-      Homebrew.with_no_api_env do
+      Homebrew::API.with_no_api_env do
         return unless core_formula_names.include?(cask.token)
 
         add_error("cask token conflicts with an existing homebrew/core formula: #{Formatter.url(core_formula_url)}")
@@ -1137,7 +1138,7 @@ module Cask
     def audit_conflicts_with
       return if !cask.tap&.official? || cask.conflicts_with.nil?
 
-      Homebrew.with_no_api_env do
+      Homebrew::API.with_no_api_env do
         nonexisting_conflicting_casks = cask.conflicts_with.fetch(:cask, Set.new) - core_cask_tokens
         nonexisting_conflicting_casks.each do |c|
           add_error("cask conflicts with non-existing cask `#{c}`")

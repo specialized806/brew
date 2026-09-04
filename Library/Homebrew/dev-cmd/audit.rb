@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "api/env"
 require "abstract_command"
 require "formula"
 require "utils/curl"
@@ -115,13 +116,13 @@ module Homebrew
 
         gem_groups = ["audit", "ast"]
         gem_groups << "style" unless skip_style
-        Homebrew.install_bundler_gems!(groups: gem_groups)
+        Utils::GemSetup.install_bundler_gems!(groups: gem_groups)
         require "utils/ast"
 
         ENV.activate_extensions!
         ENV.setup_build_environment
 
-        audit_formulae, audit_casks = Homebrew.with_no_api_env do # audit requires full Ruby source
+        audit_formulae, audit_casks = Homebrew::API.with_no_api_env do # audit requires full Ruby source
           if args.changed?
             tap = Tap.from_path(Dir.pwd)
             odie "`brew audit --changed` must be run inside a tap!" if tap.blank?
@@ -247,7 +248,7 @@ module Homebrew
               # Audit requires full Ruby source so disable API. We shouldn't do this for taps however so that we
               # don't unnecessarily require a full Homebrew/core clone.
               fa = if f.core_formula?
-                Homebrew.with_no_api_env(&audit_proc)
+                Homebrew::API.with_no_api_env(&audit_proc)
               elsif Homebrew::EnvConfig.automatically_set_no_install_from_api?
                 with_env(
                   HOMEBREW_NO_INSTALL_FROM_API:                   nil,

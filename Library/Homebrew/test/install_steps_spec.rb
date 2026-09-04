@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/output"
+
 require "install_steps"
 require "api/formula_struct"
 require "cask/quarantine"

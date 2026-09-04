@@ -42,7 +42,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.install_bundler_gems!(groups: ["ast"])
+        Utils::GemSetup.install_bundler_gems!(groups: ["ast"])
         require "utils/pypi"
 
         args.named.to_formulae.each do |formula|

@@ -282,7 +282,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     end
 
     before do
-      Homebrew.install_bundler_gems!(groups: ["ast"])
+      Utils::GemSetup.install_bundler_gems!(groups: ["ast"])
       require "utils/ast"
     end
 
@@ -305,7 +305,7 @@ RSpec.describe Homebrew::DevCmd::BumpCaskPr do
     let(:intel_hash) { "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }
 
     before do
-      Homebrew.install_bundler_gems!(groups: ["ast"])
+      Utils::GemSetup.install_bundler_gems!(groups: ["ast"])
       require "utils/ast"
     end
 

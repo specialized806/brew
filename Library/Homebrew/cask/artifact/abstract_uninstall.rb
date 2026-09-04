@@ -9,7 +9,7 @@ require "cask/artifact/abstract_artifact"
 require "cask/pkg"
 require "cask/utils"
 require "cask/utils/trash"
-require "extend/hash/keys"
+require "utils/data"
 require "system_command"
 
 module Cask
@@ -46,7 +46,7 @@ module Cask
 
       sig { params(cask: Cask, directives: DirectivesType).void }
       def initialize(cask, **directives)
-        directives.assert_valid_keys(*ORDERED_DIRECTIVES, *METADATA_KEYS)
+        ::Utils::Data.assert_valid_keys(directives, *ORDERED_DIRECTIVES, *METADATA_KEYS)
 
         super
         directives[:signal] = Array(directives[:signal]).flatten.each_slice(2).to_a

@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 class ReporterHub
   include Utils::Output::Mixin
 

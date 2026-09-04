@@ -15,7 +15,7 @@ RSpec.describe Homebrew::DevCmd::Tests do
     let(:args) { [] }
 
     before do
-      allow(Homebrew).to receive_messages(valid_gem_groups: [], install_bundler_gems!: nil)
+      allow(Utils::GemSetup).to receive_messages(valid_gem_groups: [], install_bundler_gems!: nil)
       allow(tests).to receive_messages(setup_environment!: nil, check_test_environment!: nil)
     end
 
@@ -200,6 +200,13 @@ RSpec.describe Homebrew::DevCmd::Tests do
         ENV.fetch("HOMEBREW_SORBET_RUNTIME", nil),
         ENV.fetch("HOMEBREW_SORBET_RECURSIVE", nil),
       ]).to eq(["1", nil, nil])
+    end
+
+    it "preserves the nested sandbox opt-in" do
+      ENV["HOMEBREW_AVOID_NESTED_SANDBOXING"] = "1"
+      tests.setup_environment!
+
+      expect(ENV.fetch("HOMEBREW_AVOID_NESTED_SANDBOXING")).to eq("1")
     end
   end
 

@@ -6,6 +6,7 @@ require "unpack_strategy"
 require "utils/topological_hash"
 require "utils/analytics"
 require "utils/output"
+require "utils/path"
 
 require "api/cask_download"
 require "cask/config"
@@ -21,6 +22,7 @@ module Cask
   class Installer
     extend ::Utils::Output::Mixin
     include ::Utils::Output::Mixin
+    include ::Utils::Path
 
     sig { returns(::Cask::Cask) }
     attr_reader :cask
@@ -40,7 +42,7 @@ module Cask
                    zap: false, require_sha: false, upgrade: false, reinstall: false,
                    installed_on_request: true,
                    verify_download_integrity: true, quiet: false,
-                   download_queue: Homebrew.default_download_queue, defer_fetch: false,
+                   download_queue: Homebrew::DownloadQueue.default, defer_fetch: false,
                    default_uninstall_artifacts: nil)
       @cask = cask
       @command = command
