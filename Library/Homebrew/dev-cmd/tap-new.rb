@@ -28,8 +28,6 @@ module Homebrew
                             "specified branch name (default: `main`)."
         switch "--github-packages",
                description: "Upload bottles to GitHub Packages."
-        switch "--no-attestations",
-               description: "Do not include GitHub Artifact Attestations in generated workflows."
 
         named_args :tap, number: 1
       end
@@ -89,8 +87,7 @@ module Homebrew
           "tap-new-tests.yml", branch:, github_packages: args.github_packages?, root_url:
         )
         publish_yml = render_workflow_template(
-          "tap-new-publish.yml", branch:, github_packages: args.github_packages?,
-                                 attestations: !args.no_attestations?
+          "tap-new-publish.yml", branch:, github_packages: args.github_packages?
         )
         autobump_yml = render_workflow_template(
           "tap-new-autobump.yml", branch:, github_packages: args.github_packages?
@@ -147,11 +144,10 @@ module Homebrew
           filename:        String,
           branch:          String,
           github_packages: T::Boolean,
-          attestations:    T::Boolean,
           root_url:        T.nilable(String),
         ).returns(String)
       }
-      def render_workflow_template(filename, branch:, github_packages:, attestations: true, root_url: nil)
+      def render_workflow_template(filename, branch:, github_packages:, root_url: nil)
         workflow = (HOMEBREW_LIBRARY_PATH.parent.parent/".github/workflows"/filename).read
         workflow.sub!("name: tap-new tests template", "name: brew test-bot")
         workflow.sub!("name: tap-new publish template", "name: brew pr-pull")
@@ -183,13 +179,6 @@ module Homebrew
           )
         end
         workflow.gsub!(/^[ \t]*# tap-new-github-packages-(?:start|end)\n/, "")
-        unless attestations
-          workflow.gsub!(
-            /^[ \t]*# tap-new-attestations-start\n.*?^[ \t]*# tap-new-attestations-end\n/m,
-            "",
-          )
-        end
-        workflow.gsub!(/^[ \t]*# tap-new-attestations-(?:start|end)\n/, "")
         workflow
       end
 

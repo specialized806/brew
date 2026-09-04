@@ -11,7 +11,8 @@ module Homebrew
         description <<~EOS
           Verify the build provenance of bottles using GitHub's attestation tools.
           This is done by first fetching the given bottles and then verifying
-          their provenance for `homebrew/core` and supported third-party taps.
+          their provenance for `homebrew/core` and third-party taps that provide
+          attestations.
 
           Note that this command depends on the GitHub CLI. Run `brew install gh`.
         EOS

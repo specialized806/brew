@@ -49,20 +49,4 @@ RSpec.describe Homebrew::DevCmd::TapNew do
     expect(autobump_yml).to include("- main")
     expect(autobump_yml).to include('brew bump --no-fork --open-pr --formulae --bump-synced --tap="$TAP_NAME"')
   end
-
-  it "omits attestation workflow configuration when requested", :integration_test do
-    setup_test_formula "gnupg"
-
-    expect { brew "tap-new", "--no-git", "--no-attestations", "--verbose", "homebrew/bar" }
-      .to be_a_success
-      .and output(%r{homebrew/bar}).to_stdout
-      .and not_to_output.to_stderr
-
-    publish_yml = (HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-bar/.github/workflows/publish.yml").read
-    YAML.parse(publish_yml)
-    expect(publish_yml).not_to include("attestations: write")
-    expect(publish_yml).not_to include("id-token: write")
-    expect(publish_yml).not_to include("name: Generate build provenance")
-    expect(publish_yml).not_to include("steps.pull_bottles.outputs.bottle_path")
-  end
 end

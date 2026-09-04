@@ -1905,7 +1905,6 @@ __fish_brew_complete_arg 'tap-new' -l branch -d 'Initialise a Git repository and
 __fish_brew_complete_arg 'tap-new' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'tap-new' -l github-packages -d 'Upload bottles to GitHub Packages'
 __fish_brew_complete_arg 'tap-new' -l help -d 'Show this message'
-__fish_brew_complete_arg 'tap-new' -l no-attestations -d 'Do not include GitHub Artifact Attestations in generated workflows'
 __fish_brew_complete_arg 'tap-new' -l no-git -d 'Don\'t initialise a Git repository for the tap'
 __fish_brew_complete_arg 'tap-new' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'tap-new' -l verbose -d 'Make some output more verbose'

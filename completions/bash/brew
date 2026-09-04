@@ -2998,7 +2998,6 @@ _brew_tap_new() {
       --debug
       --github-packages
       --help
-      --no-attestations
       --no-git
       --quiet
       --verbose

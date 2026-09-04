@@ -2318,9 +2318,6 @@ Initialise a Git repository and set up GitHub Actions workflows with the specifi
 .TP
 \fB\-\-github\-packages\fP
 Upload bottles to GitHub Packages\.
-.TP
-\fB\-\-no\-attestations\fP
-Do not include GitHub Artifact Attestations in generated workflows\.
 .SS "\fBtest\fP \fR[\fIoptions\fP] \fIinstalled_formula\fP \fR[\.\.\.]"
 Run the test method provided by an installed formula\. There is no standard output or return code, but generally it should notify the user if something is wrong with the installed formula\.
 .P
@@ -2631,7 +2628,7 @@ Update the specified list of vendored gems to the latest version\.
 \fB\-\-no\-commit\fP
 Do not generate a new commit upon completion\.
 .SS "\fBverify\fP \fR[\fIoptions\fP] \fIformula\fP \fR[\.\.\.]"
-Verify the build provenance of bottles using GitHub\[u2019]s attestation tools\. This is done by first fetching the given bottles and then verifying their provenance for \fBhomebrew/core\fP and supported third\-party taps\.
+Verify the build provenance of bottles using GitHub\[u2019]s attestation tools\. This is done by first fetching the given bottles and then verifying their provenance for \fBhomebrew/core\fP and third\-party taps that provide attestations\.
 .P
 Note that this command depends on the GitHub CLI\. Run \fBbrew install gh\fP\&\.
 .TP

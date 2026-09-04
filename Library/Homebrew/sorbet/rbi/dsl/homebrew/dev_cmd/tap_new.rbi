@@ -18,9 +18,6 @@ class Homebrew::DevCmd::TapNew::Args < Homebrew::CLI::Args
   def github_packages?; end
 
   sig { returns(T::Boolean) }
-  def no_attestations?; end
-
-  sig { returns(T::Boolean) }
   def no_git?; end
 
   sig { returns(T.nilable(String)) }
