@@ -211,6 +211,43 @@ RSpec.describe Utils do
     end
   end
 
+  describe ".safe_filename?" do
+    specify(:aggregate_failures) do
+      expect(described_class.safe_filename?("formula-1.2.3.tar.gz")).to be(true)
+      expect(described_class.safe_filename?("")).to be(true)
+
+      expect(described_class.safe_filename?("etc/passwd")).to be(false)
+      expect(described_class.safe_filename?("with\nnewline")).to be(false)
+      expect(described_class.safe_filename?("with\0null")).to be(false)
+      expect(described_class.safe_filename?("with\ttab")).to be(false)
+    end
+
+    # A basename is only unsafe here if it can escape its directory or smuggle a
+    # control character; a relative traversal has to survive as a separate
+    # component to matter, and the separator is what this rejects.
+    specify "relative components are not separators", :aggregate_failures do
+      expect(described_class.safe_filename?("..")).to be(true)
+      expect(described_class.safe_filename?("../etc")).to be(false)
+    end
+  end
+
+  describe ".safe_filename" do
+    specify(:aggregate_failures) do
+      expect(described_class.safe_filename("formula-1.2.3.tar.gz")).to eq("formula-1.2.3.tar.gz")
+
+      expect(described_class.safe_filename("etc/passwd")).to eq("etcpasswd")
+      expect(described_class.safe_filename("../../etc/passwd")).to eq("....etcpasswd")
+      expect(described_class.safe_filename("with\nnewline")).to eq("withnewline")
+      expect(described_class.safe_filename("with\0null")).to eq("withnull")
+    end
+
+    specify "the result is always safe", :aggregate_failures do
+      ["a/b", "a\nb", "..", "", "\0"].each do |basename|
+        expect(described_class.safe_filename?(described_class.safe_filename(basename))).to be(true)
+      end
+    end
+  end
+
   describe ".convert_to_string_or_symbol" do
     specify(:aggregate_failures) do
       expect(described_class.convert_to_string_or_symbol(":example")).to eq(:example)
