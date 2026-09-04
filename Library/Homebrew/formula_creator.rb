@@ -242,9 +242,6 @@ module Homebrew
           def fetch
             ENV["BUNDLE_PATH"] = ".bundle"
 
-            system "bundle", "config", "set", "force_ruby_platform", "true"
-            system "bundle", "config", "set", "version", "system" # Avoid installing Bundler into the keg
-            system "bundle", "config", "set", "without", "development test"
             system "bundle", "cache", "--no-install"
           end
 
