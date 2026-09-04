@@ -43,10 +43,6 @@ module Homebrew
         def generate_formula_struct_hash(hash, bottle_tag: Homebrew::SimulateSystem.current_tag)
           hash = Homebrew::API.merge_variations(hash, bottle_tag:).dup.deep_stringify_keys
 
-          if (caveats = hash["caveats"])
-            hash["caveats"] = Formulary.replace_placeholders(caveats)
-          end
-
           hash["bottle_checksums"] = begin
             files = hash.dig("bottle", "stable", "files") || {}
             files.map do |tag, bottle_spec|
