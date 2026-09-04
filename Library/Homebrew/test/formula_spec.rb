@@ -3574,6 +3574,28 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_shards_args" do
+    subject(:args) { f.std_shards_args }
+
+    let(:f) do
+      formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+    end
+
+    it "sets expected defaults" do
+      expect(args).to include("--production", "--release", "--no-debug")
+      expect(args).not_to include("--debug")
+    end
+
+    it "allows enabling debug symbols" do
+      allow(ENV).to receive(:debug_symbols?).and_return(true)
+      expect(args).to include("--debug")
+      expect(args).not_to include("--no-debug")
+    end
+  end
+
   describe "#std_swift_args" do
     let(:f) do
       formula do
