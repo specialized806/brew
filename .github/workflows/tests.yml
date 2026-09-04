@@ -225,8 +225,6 @@ jobs:
             load-only: false
             shard: 1
             shard-count: 2
-            runtime-cache: tests-online-linux
-            runtime-log: parallel_runtime_rspec.online.log
           - name: tests (online, 2/2)
             test-flags: --online --coverage --profile 3
             runs-on: ubuntu-latest
@@ -234,8 +232,6 @@ jobs:
             load-only: false
             shard: 2
             shard-count: 2
-            runtime-cache: tests-online-linux
-            runtime-log: parallel_runtime_rspec.online.log
           - name: tests (generic OS, 1/2)
             test-flags: --generic --coverage --profile 3
             runs-on: ubuntu-latest
@@ -243,8 +239,6 @@ jobs:
             load-only: false
             shard: 1
             shard-count: 2
-            runtime-cache: tests-generic-linux
-            runtime-log: parallel_runtime_rspec.generic.log
           - name: tests (generic OS, 2/2)
             test-flags: --generic --coverage --profile 3
             runs-on: ubuntu-latest
@@ -252,8 +246,6 @@ jobs:
             load-only: false
             shard: 2
             shard-count: 2
-            runtime-cache: tests-generic-linux
-            runtime-log: parallel_runtime_rspec.generic.log
           - name: tests (Linux, 1/2)
             test-flags: --coverage --profile 3
             runs-on: ubuntu-24.04
@@ -261,8 +253,6 @@ jobs:
             load-only: false
             shard: 1
             shard-count: 2
-            runtime-cache: tests-linux
-            runtime-log: parallel_runtime_rspec.log
           - name: tests (Linux, 2/2)
             test-flags: --coverage --profile 3
             runs-on: ubuntu-24.04
@@ -270,8 +260,6 @@ jobs:
             load-only: false
             shard: 2
             shard-count: 2
-            runtime-cache: tests-linux
-            runtime-log: parallel_runtime_rspec.log
           - name: tests (macOS, 1/2)
             test-flags: --coverage --profile 3
             runs-on: macos-26
@@ -279,8 +267,6 @@ jobs:
             load-only: false
             shard: 1
             shard-count: 2
-            runtime-cache: tests-macos
-            runtime-log: parallel_runtime_rspec.log
           - name: tests (macOS, 2/2)
             test-flags: --coverage --profile 3
             runs-on: macos-26
@@ -288,8 +274,6 @@ jobs:
             load-only: false
             shard: 2
             shard-count: 2
-            runtime-cache: tests-macos
-            runtime-log: parallel_runtime_rspec.log
           - name: tests (no Sorbet)
             test-flags: --coverage --profile 3
             runs-on: ubuntu-24.04
@@ -356,7 +340,7 @@ jobs:
         run: mkdir tests
 
       - name: Restore parallel tests log
-        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true)
+        if: matrix.shard-count == 0 && matrix.load-only != true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tests/${{ matrix.runtime-log }}
@@ -366,7 +350,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-
 
       - name: Stage parallel tests log
-        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true)
+        if: matrix.shard-count == 0 && matrix.load-only != true
         run: |
           mkdir -p "$TEST_RUNTIME_PATH"
           if [[ -f "tests/$RUNTIME_LOG" ]]; then
@@ -403,27 +387,11 @@ jobs:
           SHARD_COUNT: ${{ matrix.shard-count }}
 
       - name: Collect parallel tests log
-        if: matrix.load-only != true && (github.event_name == 'pull_request' || matrix.online != true) && success()
-        run: |
-          cache_path="tests/$RUNTIME_LOG"
-          if (( SHARD_COUNT > 0 )); then
-            cache_path+=".$SHARD_INDEX"
-          fi
-          cp "$TEST_RUNTIME_PATH/$RUNTIME_LOG" "$cache_path"
+        if: matrix.shard-count == 0 && matrix.load-only != true && success()
+        run: cp "$TEST_RUNTIME_PATH/$RUNTIME_LOG" "tests/$RUNTIME_LOG"
         env:
           RUNTIME_LOG: ${{ matrix.runtime-log }}
-          SHARD_INDEX: ${{ matrix.shard }}
-          SHARD_COUNT: ${{ matrix.shard-count }}
           TEST_RUNTIME_PATH: ${{ steps.set-up-homebrew.outputs.repository-path }}/Library/Homebrew/tests
-
-      - name: Upload parallel tests log
-        if: matrix.shard-count > 0 && (github.event_name == 'pull_request' || matrix.online != true) && success()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ matrix.runtime-cache }}-parallel-runtime-${{ matrix.shard }}
-          path: tests/${{ matrix.runtime-log }}.${{ matrix.shard }}
-          retention-days: 1
-          overwrite: true
 
       - name: Save parallel tests log
         if: matrix.shard-count == 0 && matrix.load-only != true && success()
@@ -457,84 +425,6 @@ jobs:
           files: Library/Homebrew/test/coverage/coverage.xml
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Store test result
-        if: always() && matrix.shard-count > 0
-        run: |
-          mkdir -p test-results
-          printf '%s\n' "$TEST_RESULT" > "test-results/$SHARD_INDEX"
-        env:
-          TEST_RESULT: ${{ job.status }}
-          SHARD_INDEX: ${{ matrix.shard }}
-
-      - name: Upload test result
-        if: always() && matrix.shard-count > 0
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ${{ matrix.runtime-cache }}-test-result-${{ matrix.shard }}
-          path: test-results/${{ matrix.shard }}
-          retention-days: 1
-          overwrite: true
-
-  tests_result:
-    name: ${{ matrix.name }}
-    needs: tests
-    if: always()
-    runs-on: ubuntu-slim
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: tests (online)
-            online: true
-            runtime-cache: tests-online-linux
-            runtime-log: parallel_runtime_rspec.online.log
-          - name: tests (generic OS)
-            online: false
-            runtime-cache: tests-generic-linux
-            runtime-log: parallel_runtime_rspec.generic.log
-          - name: tests (Linux)
-            online: false
-            runtime-cache: tests-linux
-            runtime-log: parallel_runtime_rspec.log
-          - name: tests (macOS)
-            online: false
-            runtime-cache: tests-macos
-            runtime-log: parallel_runtime_rspec.log
-    steps:
-      - name: Download test results
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: ${{ matrix.runtime-cache }}-test-result-*
-          path: test-results
-          merge-multiple: true
-
-      - name: Check test results
-        run: |
-          test "$(cat test-results/1)" = success
-          test "$(cat test-results/2)" = success
-
-      - name: Download parallel tests logs
-        if: success() && (github.event_name == 'pull_request' || matrix.online != true)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: ${{ matrix.runtime-cache }}-parallel-runtime-*
-          path: tests
-          merge-multiple: true
-
-      - name: Combine parallel tests logs
-        if: success() && (github.event_name == 'pull_request' || matrix.online != true)
-        run: |
-          cat "tests/$RUNTIME_LOG.1" "tests/$RUNTIME_LOG.2" > "tests/$RUNTIME_LOG"
-        env:
-          RUNTIME_LOG: ${{ matrix.runtime-log }}
-
-      - name: Save parallel tests log
-        if: success() && (github.event_name == 'pull_request' || matrix.online != true)
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: tests/${{ matrix.runtime-log }}
-          key: ${{ matrix.runtime-cache }}-parallel-runtime-${{ github.run_id }}-${{ github.run_attempt }}
 
   test-bot:
     name: ${{ matrix.name }}
