@@ -211,6 +211,95 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "app_image versioned target" do
+      let(:only) { ["appimage_versioned_target"] }
+      let(:error) { /app_image target .* should not embed a version/ }
+
+      context "when the target embeds an X.Y.Z version via the source basename" do
+        let(:cask) do
+          Cask::Cask.new("appimage-versioned-source") do
+            version "1.2.3"
+            sha256 :no_check
+            url "https://brew.sh/foo"
+            name "AppImage Versioned Source"
+            homepage "https://brew.sh/"
+            app_image "foo_#{version}_linux.AppImage"
+          end
+        end
+
+        it { is_expected.to error_with(error) }
+      end
+
+      context "when an explicit target embeds an X.Y.Z version" do
+        let(:cask) do
+          Cask::Cask.new("appimage-versioned-target") do
+            version "1.2.3"
+            sha256 :no_check
+            url "https://brew.sh/foo"
+            name "AppImage Versioned Target"
+            homepage "https://brew.sh/"
+            app_image "foo.AppImage", target: "Foo-#{version}.AppImage"
+          end
+        end
+
+        it { is_expected.to error_with(error) }
+      end
+
+      context "when the target is version-less" do
+        let(:cask) do
+          Cask::Cask.new("appimage-versionless-target") do
+            version "1.2.3"
+            sha256 :no_check
+            url "https://brew.sh/foo"
+            name "AppImage Version-less Target"
+            homepage "https://brew.sh/"
+            app_image "foo_#{version}.AppImage", target: "Foo.AppImage"
+          end
+        end
+
+        it { is_expected.not_to error_with(error) }
+      end
+
+      context "when the target embeds only the major version" do
+        let(:cask) do
+          Cask::Cask.new("appimage-major-version-target") do
+            version "2.1.0"
+            sha256 :no_check
+            url "https://brew.sh/foo"
+            name "AppImage Major Version Target"
+            homepage "https://brew.sh/"
+            app_image "foo.AppImage", target: "Foo#{version.major}.AppImage"
+          end
+        end
+
+        it { is_expected.not_to error_with(error) }
+      end
+
+      context "when a versioned AppImage is scoped to on_linux and audited on macOS" do
+        let(:cask) do
+          Homebrew::SimulateSystem.with(os: :sequoia, arch: :arm) do
+            Cask::Cask.new("appimage-on-linux") do
+              version "1.2.3"
+              sha256 :no_check
+              url "https://brew.sh/foo"
+              name "AppImage On Linux"
+              homepage "https://brew.sh/"
+
+              on_macos do
+                app "Foo.app"
+              end
+
+              on_linux do
+                app_image "foo_#{version}_linux.AppImage"
+              end
+            end
+          end
+        end
+
+        it { is_expected.to error_with(error) }
+      end
+    end
+
     describe "checking homepage availability" do
       let(:online) { true }
       let(:only) { ["homepage_https_availability"] }

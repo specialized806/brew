@@ -388,6 +388,36 @@ module Cask
     end
 
     sig { void }
+    def audit_appimage_versioned_target
+      # `app_image` artifacts live inside `on_linux` blocks,
+      # so an audit running on another OS would not materialize them.
+      # Evaluate every tag (restoring the default afterwards)
+      # so the check runs regardless of the audit host.
+      basenames = if cask.on_system_blocks_exist?
+        begin
+          OnSystem::VALID_OS_ARCH_TAGS.flat_map do |tag|
+            cask.refresh_for_tag(tag) { appimage_target_basenames } || []
+          end
+        ensure
+          cask.refresh
+        end
+      else
+        appimage_target_basenames
+      end
+
+      basenames.uniq.each do |basename|
+        # electron-updater renames the AppImage on self-update
+        # if its basename contains an `X.Y.Z` version,
+        # which leaves the Caskroom back-symlink dangling.
+        # A version-less target is overwritten in place instead.
+        next unless basename.match?(/\d+\.\d+\.\d+/)
+
+        add_error "app_image target '#{basename}' should not embed a version; " \
+                  "use a version-less `target:` so self-updaters overwrite it in place"
+      end
+    end
+
+    sig { void }
     def audit_no_string_version_latest
       return unless cask.version
 
@@ -1219,6 +1249,15 @@ module Cask
     end
 
     private
+
+    sig { returns(T::Array[String]) }
+    def appimage_target_basenames
+      cask.artifacts.filter_map do |artifact|
+        next unless artifact.is_a?(Artifact::AppImage)
+
+        artifact.target.basename.to_s
+      end
+    end
 
     # Rewrites the cask's source file when `--fix` was passed, restoring it if
     # the rewrite doesn't load. Returns whether the problem was corrected.
