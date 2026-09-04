@@ -337,6 +337,46 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
       expect(service.owner).to eq("_serviced")
     end
 
+    it "prefers the active user service when a compatible root service also exists" do
+      plist = mktmpdir/"sh.brew.mysql.plist"
+      plist.write <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+          <dict>
+            <key>Label</key>
+            <string>sh.brew.mysql</string>
+          </dict>
+        </plist>
+      XML
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, user: "user", user_path: plist.dirname)
+      allow(service).to receive_messages(registered_destination:          plist,
+                                         boot_path_service_file_present?: true,
+                                         user_path_service_file_present?: true)
+
+      expect(service.owner).to eq("user")
+    end
+
+    it "prefers the active root service when a compatible user service also exists" do
+      plist = mktmpdir/"sh.brew.mysql.plist"
+      plist.write <<~XML
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+          <dict>
+            <key>Label</key>
+            <string>sh.brew.mysql</string>
+          </dict>
+        </plist>
+      XML
+      allow(Homebrew::Services::System).to receive_messages(boot_path: plist.dirname, launchctl?: true)
+      allow(service).to receive_messages(registered_destination:          plist,
+                                         boot_path_service_file_present?: true,
+                                         user_path_service_file_present?: true)
+
+      expect(service.owner).to eq("root")
+    end
+
     it "root if file present" do
       allow(service).to receive(:boot_path_service_file_present?).and_return(true)
       expect(service.owner).to eq("root")
