@@ -52,34 +52,6 @@ git_no_hooks -C "${homebrew_directory}" reset --hard "${latest_tag}"
 git_no_hooks -C "${homebrew_directory}" clean -f -d
 rm -f "${homebrew_directory}/.gitconfig"
 
-# move to /usr/local if on x86_64
-if [[ $(uname -m) == "x86_64" ]]
-then
-  if [[ -f "/usr/local/bin/brew" && -d "/usr/local/Homebrew" ]]
-  then
-    cp -pRL "${homebrew_directory}/.git" "/usr/local/Homebrew/"
-    mv "${homebrew_directory}/cache_api" "/usr/local/Homebrew/"
-
-    export HOME="/usr/local/Homebrew"
-    rm -rf "/usr/local/Homebrew/.git/hooks" "/usr/local/Homebrew/.gitconfig" "/usr/local/Homebrew/.config/git"
-    git config --global --add safe.directory "/usr/local/Homebrew"
-    git_no_hooks -C "/usr/local/Homebrew" checkout --force -B stable
-    git_no_hooks -C "/usr/local/Homebrew" reset --hard
-    git_no_hooks -C "/usr/local/Homebrew" clean -f -d
-    rm -f "/usr/local/Homebrew/.gitconfig"
-  else
-    mkdir -vp /usr/local/bin
-    mv "${homebrew_directory}" "/usr/local/Homebrew/"
-
-    # create symlink to /usr/local/bin/brew
-    ln -svf "../Homebrew/bin/brew" "/usr/local/bin/brew"
-  fi
-
-  rm -rf "${homebrew_directory}"
-  homebrew_directory="/usr/local/Homebrew"
-  cd /usr/local
-fi
-
 refuse_symlinked_directories() {
   for dir in Caskroom Cellar Frameworks bin etc include lib opt sbin share var var/homebrew var/homebrew/linked
   do
@@ -140,14 +112,7 @@ chmod -h ug=rwx Caskroom Cellar Frameworks bin etc include lib opt sbin share va
   enter_managed_directory linked "${prefix_directory}/var/homebrew/linked" var/homebrew/linked
   chmod ug=rwx .
 )
-if [[ "${homebrew_directory}" == "/usr/local/Homebrew" ]]
-then
-  chown -h "${homebrew_pkg_user}:admin" bin bin/brew etc include lib opt sbin share var
-  chown -h -R "${homebrew_pkg_user}:admin" Caskroom Cellar Frameworks Homebrew var/homebrew
-  chown -h -R "${homebrew_pkg_user}" etc include share var
-else
-  chown -R "${homebrew_pkg_user}:admin" .
-fi
+chown -R "${homebrew_pkg_user}:admin" .
 
 # move API cache to ~/Library/Caches/Homebrew
 user_home_dir="$(homebrew-user-home "${homebrew_pkg_user}")" ||
@@ -162,11 +127,9 @@ cp -vpR "${homebrew_directory}/cache_api/." "${user_api_cache_dir}"
 chown -R "${homebrew_pkg_user}:staff" "${user_cache_dir}"
 rm -vrf "${homebrew_directory}/cache_api"
 
-# create paths.d file for /opt/homebrew installs
-# (/usr/local/bin is already in the PATH)
-if [[ -d "/etc/paths.d" && "${homebrew_directory}" == "/opt/homebrew" ]]
+# add Homebrew to the default PATH
+if [[ -d "/etc/paths.d" ]]
 then
-  mkdir -vp /etc/paths.d
-  echo "/opt/homebrew/bin" >/etc/paths.d/homebrew
+  echo "${homebrew_directory}/bin" >/etc/paths.d/homebrew
   chown root:wheel /etc/paths.d/homebrew
 fi

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <installer-gui-script minSpecVersion="2">
   <pkg-ref id="sh.brew.homebrew"/>
-  <options customize="never" hostArchitectures="x86_64,arm64" rootVolumeOnly="true"/>
+  <options customize="never" hostArchitectures="arm64" rootVolumeOnly="true"/>
   <volume-check>
     <allowed-os-versions>
         <os-version min="14.0.0"/>
@@ -32,33 +32,15 @@
 
   <script>
     // See https://developer.apple.com/documentation/installer_js
-    function is_intel() {
-      try {
-        // `hw.machine` exists on both architectures. An unavailable lookup can
-        // return a falsey value instead of throwing, so compare positively.
-        return system.sysctl("hw.machine") == "x86_64";
-      } catch (error) {
-        // Never warn a Tier 1 Mac just because the probe failed.
-        return false;
-      }
-    }
-
     function installation_check() {
-      if (!system.files.fileExistsAtPath("/Library/Developer/CommandLineTools/usr/bin/git")) {
+      if (system.files.fileExistsAtPath("/Library/Developer/CommandLineTools/usr/bin/git")) {
+        return true;
+      } else {
         my.result.title = "Command Line Tools (CLT) are missing";
         my.result.message = "You must install the Command Line Tools (CLT) before installing Homebrew by running `xcode-select --install` from a Terminal.";
         my.result.type = "Fatal";
         return false;
       }
-
-      if (is_intel()) {
-        my.result.title = "Intel Macs are a Tier 3 configuration";
-        my.result.message = "Homebrew no longer routinely builds bottles for Intel Macs, so packages will increasingly be built from source, and issues affecting only Intel may be closed without investigation. See https://docs.brew.sh/Support-Tiers#tier-3";
-        my.result.type = "Warning";
-        return false;
-      }
-
-      return true;
     }
   </script>
   <installation-check script="installation_check()" />
