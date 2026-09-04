@@ -254,11 +254,6 @@ RSpec.configure do |config|
 
     svn_paths = PATH.new(ENV.fetch("PATH"))
 
-    if OS.mac?
-      xcrun_svn = Utils.popen_read("xcrun", "-f", "svn")
-      svn_paths.append(File.dirname(xcrun_svn)) if $CHILD_STATUS.success? && xcrun_svn.present?
-    end
-
     svn_shim = HOMEBREW_SHIMS_PATH/"shared/svn"
     unless quiet_system svn_shim, "--version"
       svn_client_skip_reason = "Subversion is not installed."

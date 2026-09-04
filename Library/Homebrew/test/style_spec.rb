@@ -79,7 +79,9 @@ RSpec.describe Homebrew::Style do
                        "-ignore", "image: string; options: string",
                        "-ignore", "label .* is unknown",
                        workflow],
+        env:          {},
         print_stderr: false,
+        timeout:      30,
       ).and_return(actionlint_result)
 
       described_class.run_actionlint!([workflow])
@@ -99,7 +101,9 @@ RSpec.describe Homebrew::Style do
                        "-ignore", "image: string; options: string",
                        "-ignore", "label .* is unknown",
                        workflow],
+        env:          {},
         print_stderr: false,
+        timeout:      30,
       ).and_return(actionlint_result)
 
       described_class.run_actionlint!([workflow])
@@ -125,7 +129,9 @@ RSpec.describe Homebrew::Style do
                        "-ignore", "image: string; options: string",
                        "-ignore", "label .* is unknown",
                        workflow1, workflow2],
+        env:          {},
         print_stderr: false,
+        timeout:      30,
       ).and_return(actionlint_result)
 
       described_class.run_actionlint!([workflow1, workflow2])
@@ -178,6 +184,7 @@ RSpec.describe Homebrew::Style do
         args:         ["--language-dialect", "bash", "--indent", "2", "--case-indent", "--", shell_file],
         env:          { "HOMEBREW_SHFMT" => "/usr/bin/shfmt" },
         print_stderr: false,
+        timeout:      60,
       ).and_return(shfmt_result)
 
       expect(described_class.run_shfmt!([shell_file])).to be true
@@ -212,6 +219,19 @@ RSpec.describe Homebrew::Style do
       first_chunk = chunks.find { |chunk| chunk.include?("script1.sh") }
       expect(first_chunk).to include("script2.sh")
       expect(first_chunk).not_to include("script3.sh")
+    end
+
+    it "raises a descriptive error when shellcheck exceeds its timeout" do
+      stub_const("Homebrew::Style::SHELLCHECK_TIMEOUT", 1)
+      dir = mktmpdir
+      slow_shellcheck = dir/"shellcheck"
+      slow_shellcheck.write "#!/bin/bash\nsleep 30\n"
+      slow_shellcheck.chmod 0755
+      file = dir/"script.sh"
+      file.write "#!/bin/bash\n"
+
+      expect { described_class.run_shellcheck([file], :json, shellcheck_path: slow_shellcheck) }
+        .to raise_error(Timeout::Error, "shellcheck did not finish within 1s on 1 file(s).")
     end
   end
 

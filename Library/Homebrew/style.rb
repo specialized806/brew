@@ -382,9 +382,31 @@ module Homebrew
 
       files.each_slice((files.length.to_f / chunk_count).ceil).map do |chunk|
         Thread.new do
-          system_command shellcheck_path, args: [*args, "--", *chunk], print_stderr: false
+          run_linter(shellcheck_path, [*args, "--"], chunk, timeout: SHELLCHECK_TIMEOUT)
         end
       end.map(&:value)
+    end
+
+    # In CI `brew style` takes ~70s on Homebrew/brew and ~140s on the official
+    # taps, nearly all of it RuboCop; each of these linters needs a few seconds.
+    SHELLCHECK_TIMEOUT = 60
+    SHFMT_TIMEOUT = 60
+    ACTIONLINT_TIMEOUT = 30
+
+    sig {
+      params(
+        executable: T.any(String, Pathname),
+        args:       T::Array[T.any(String, Pathname)],
+        files:      T::Array[Pathname],
+        timeout:    Integer,
+        env:        T::Hash[String, String],
+      ).returns(SystemCommand::Result)
+    }
+    private_class_method def self.run_linter(executable, args, files, timeout:, env: {})
+      system_command executable, args: [*args, *files], env:, print_stderr: false, timeout:
+    rescue Timeout::Error
+      raise Timeout::Error, "#{Pathname(executable).basename} did not finish within #{timeout}s on " \
+                            "#{files.length} file(s)."
     end
 
     sig {
@@ -403,13 +425,10 @@ module Homebrew
       files.delete(HOMEBREW_REPOSITORY/"completions/bash/brew")
       files.delete(HOMEBREW_REPOSITORY/"Dockerfile")
 
-      args = ["--language-dialect", "bash", "--indent", "2", "--case-indent", "--", *files]
+      args = ["--language-dialect", "bash", "--indent", "2", "--case-indent", "--"]
       args.unshift("--write") if fix # need to add before "--"
 
-      result = system_command shfmt,
-                              args:,
-                              env:          { "HOMEBREW_SHFMT" => shfmt_path.to_s },
-                              print_stderr: false
+      result = run_linter(shfmt, args, files, timeout: SHFMT_TIMEOUT, env: { "HOMEBREW_SHFMT" => shfmt_path.to_s })
       out.print result.stdout
       err.print result.stderr
       result.success?
@@ -449,7 +468,7 @@ module Homebrew
               "-ignore", "image: string; options: string",
               "-ignore", "label .* is unknown"]
       args << "-color" if Tty.color?
-      result = system_command actionlint_path, args: [*args, *files], print_stderr: false
+      result = run_linter(actionlint_path, args, files, timeout: ACTIONLINT_TIMEOUT)
       out.print result.stdout
       err.print result.stderr
       result.success?
