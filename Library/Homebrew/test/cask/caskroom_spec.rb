@@ -341,10 +341,10 @@ RSpec.describe Cask::Caskroom do
           app "Old.app"
         end
       RUBY
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
-        "artifacts" => [{ "app" => ["Current.app"] }],
-      })
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).and_call_original
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(
+        Cask::CaskLoader::FromInstanceLoader.new(Cask::Cask.new(token) { app "Current.app" }),
+      )
 
       described_class.migrate_caskfile_to_json(caskfile)
 
@@ -364,10 +364,10 @@ RSpec.describe Cask::Caskroom do
       allow(Cask::CaskLoader).to receive(:load)
         .with(caskfile, warn: false)
         .and_raise(MethodDeprecatedError.new)
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
-        "artifacts" => [{ "app" => ["Current.app"] }],
-      })
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).and_call_original
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(
+        Cask::CaskLoader::FromInstanceLoader.new(Cask::Cask.new(token) { app "Current.app" }),
+      )
 
       described_class.migrate_caskfile_to_json(caskfile)
 
@@ -391,7 +391,6 @@ RSpec.describe Cask::Caskroom do
       Homebrew::Trust.trust!(:tap, tap.name)
       allow(Homebrew::EnvConfig).to receive(:no_install_from_api?).and_return(false)
       allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
-      allow(Homebrew::API::Cask).to receive(:cask_json).and_raise("unexpected official API lookup")
 
       described_class.migrate_caskfile_to_json(caskfile)
 
@@ -422,10 +421,10 @@ RSpec.describe Cask::Caskroom do
     it "replaces malformed installed JSON using API metadata" do
       token = "malformed-json"
       caskfile = write_installed_caskfile(token, "{", extension: "json")
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
-        "artifacts" => [{ "app" => ["Current.app"] }],
-      })
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).and_call_original
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(
+        Cask::CaskLoader::FromInstanceLoader.new(Cask::Cask.new(token) { app "Current.app" }),
+      )
 
       described_class.migrate_caskfile_to_json(caskfile)
 
@@ -437,10 +436,10 @@ RSpec.describe Cask::Caskroom do
     it "replaces invalid artifact data in installed JSON using API metadata" do
       token = "invalid-artifacts"
       caskfile = write_installed_caskfile(token, JSON.generate({ "artifacts" => ["invalid"] }), extension: "json")
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
-        "artifacts" => [{ "app" => ["Current.app"] }],
-      })
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).and_call_original
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(
+        Cask::CaskLoader::FromInstanceLoader.new(Cask::Cask.new(token) { app "Current.app" }),
+      )
 
       described_class.migrate_caskfile_to_json(caskfile)
 
@@ -451,7 +450,7 @@ RSpec.describe Cask::Caskroom do
 
     it "keeps intentional empty artifacts in installed JSON" do
       caskfile = write_installed_caskfile("stage-only", JSON.generate({ "artifacts" => [] }), extension: "json")
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+      expect(Cask::CaskLoader::FromAPILoader).not_to receive(:try_new)
 
       described_class.migrate_caskfile_to_json(caskfile)
 
@@ -461,10 +460,7 @@ RSpec.describe Cask::Caskroom do
     it "does not mark unavailable artifacts as intentionally empty" do
       token = "removed-cask"
       caskfile = write_installed_caskfile(token, "{}", extension: "json")
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(false)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(
-        ErrorDuringExecution.new(["curl"], status: 22),
-      )
+      allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
 
       described_class.migrate_caskfile_to_json(caskfile)
 

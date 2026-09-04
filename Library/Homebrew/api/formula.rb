@@ -19,25 +19,6 @@ module Homebrew
 
       private_class_method :cache
 
-      sig { params(name: String).returns(T::Hash[String, T.untyped]) }
-      def self.formula_json(name)
-        fetch_formula_json! name if !cache.key?("formula_json") || !cache.fetch("formula_json").key?(name)
-
-        cache.fetch("formula_json").fetch(name)
-      end
-
-      sig { params(name: String).void }
-      def self.fetch_formula_json!(name)
-        endpoint = "formula/#{name}.json"
-        json_formula, updated = Homebrew::API.fetch_json_api_file endpoint,
-                                                                  stale_seconds: Homebrew::API::UNSIGNED_API_STALE_SECONDS
-
-        json_formula = JSON.parse((HOMEBREW_CACHE_API/endpoint).read) unless updated
-
-        cache["formula_json"] ||= {}
-        cache["formula_json"][name] = json_formula
-      end
-
       sig {
         params(
           formula:        ::Formula,

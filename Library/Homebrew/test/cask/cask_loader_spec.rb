@@ -225,9 +225,9 @@ RSpec.describe Cask::CaskLoader, :cask do
     before { caskfile.write("{}") }
 
     it "falls back to the API for missing artifacts by default" do
-      allow(Homebrew::API).to receive(:cask_token?).with("stubbed").and_return(true)
-      expect(Homebrew::API::Cask).to receive(:cask_json).with("stubbed").and_return(
-        "artifacts" => [{ "app" => ["Stubbed.app"] }],
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).and_call_original
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with("stubbed").and_return(
+        Cask::CaskLoader::FromInstanceLoader.new(Cask::Cask.new("stubbed") { app "Stubbed.app" }),
       )
 
       expect(described_class.load_from_installed_caskfile(caskfile).artifacts_list(uninstall_only: true))
@@ -235,7 +235,7 @@ RSpec.describe Cask::CaskLoader, :cask do
     end
 
     it "does not consult the API when api_fallback is disabled" do
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+      expect(Homebrew::API).not_to receive(:cask_token?)
 
       expect(described_class.load_from_installed_caskfile(caskfile, api_fallback: false).artifacts_list)
         .to be_empty
@@ -567,170 +567,104 @@ RSpec.describe Cask::CaskLoader, :cask do
   end
 
   describe "::resolve_installed_artifacts" do
-    before do
-      allow(Homebrew::API).to receive(:cask_token?).and_return(true)
-      allow(Homebrew::API::Internal).to receive(:cask_renames).and_return({})
-    end
-
-    it "does not request API metadata for a removed cask" do
-      token = "removed-cask"
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(false)
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
-
-      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
-    end
-
-    context "when the signed API payload carries the token" do
-      let(:token) { "signed-cask" }
-      let(:verified_artifacts) { [{ "uninstall" => [{ "quit" => "com.example.app" }] }] }
-
-      before do
-        cask = instance_double(Cask::Cask)
-        allow(cask).to receive(:artifacts_list).with(uninstall_only: true).and_return(verified_artifacts)
-        loader = instance_double(Cask::CaskLoader::FromAPILoader)
-        allow(loader).to receive(:load).with(config: nil).and_return(cask)
-        allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(loader)
-        allow(Homebrew::API::Internal).to receive(:cask_hash).with(token).and_return({ "token" => token })
-      end
-
-      it "prefers it over the unsigned per-cask endpoint for an untapped cask" do
-        expect(Homebrew::API::Cask).not_to receive(:cask_json)
-
-        expect(described_class.resolve_installed_artifacts(token, nil)).to eq(verified_artifacts)
-      end
-
-      it "prefers it over the unsigned per-cask endpoint for a core tap cask" do
-        expect(Homebrew::API::Cask).not_to receive(:cask_json)
-
-        expect(described_class.resolve_installed_artifacts(token, nil, tap: CoreCaskTap.instance))
-          .to eq(verified_artifacts)
+    let(:api_cask) do
+      Cask::Cask.new("api-cask") do
+        app "API.app"
+        uninstall quit: "com.example.api"
       end
     end
+    let(:api_artifacts) { [{ uninstall: [{ quit: "com.example.api" }] }, { app: ["API.app"] }] }
 
-    it "recovers a cask installed under a token the signed payload has since renamed" do
-      old_token = "renamed-cask"
-      current_token = "current-cask"
-      verified_artifacts = [{ "uninstall" => [{ "quit" => "com.example.app" }] }]
-      cask = instance_double(Cask::Cask)
-      allow(cask).to receive(:artifacts_list).with(uninstall_only: true).and_return(verified_artifacts)
-      loader = instance_double(Cask::CaskLoader::FromAPILoader)
-      allow(loader).to receive(:load).with(config: nil).and_return(cask)
-      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(old_token).and_return(loader)
-      allow(Homebrew::API).to receive(:cask_token?).with(old_token).and_return(false)
-      allow(Homebrew::API::Internal).to receive(:cask_renames).and_return(old_token => current_token)
-      allow(Homebrew::API::Internal).to receive(:cask_hash).with(old_token).and_return(nil)
-      allow(Homebrew::API::Internal).to receive(:cask_hash)
-        .with(current_token).and_return({ "token" => current_token })
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
-
-      expect(described_class.resolve_installed_artifacts(old_token, nil)).to eq(verified_artifacts)
+    def stub_api_loader(token, loader = Cask::CaskLoader::FromInstanceLoader.new(api_cask))
+      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(loader)
     end
 
-    it "recovers from a recorded tap when the signed API is unavailable" do
+    it "uses uninstall artifacts from the signed API for an untapped cask" do
+      stub_api_loader("api-cask")
+
+      expect(described_class.resolve_installed_artifacts("api-cask", nil)).to eq(api_artifacts)
+    end
+
+    it "uses uninstall artifacts from the signed API for a core tap cask" do
+      stub_api_loader("api-cask")
+
+      expect(described_class.resolve_installed_artifacts("api-cask", nil, tap: CoreCaskTap.instance))
+        .to eq(api_artifacts)
+    end
+
+    it "recovers from a recorded tap without consulting the API" do
       token = "thirdparty-cask"
       tap = Tap.fetch("thirdparty", "present")
-      tap_artifacts = [{ "app" => ["Thirdparty.app"] }]
-      cask = instance_double(Cask::Cask)
-      allow(cask).to receive(:artifacts_list).with(uninstall_only: true).and_return(tap_artifacts)
-      allow(described_class).to receive(:load).with("#{tap}/#{token}", warn: false).and_return(cask)
-      unavailable = ErrorDuringExecution.new(["curl"], status: 22)
-      allow(Homebrew::API).to receive(:cask_token?).and_raise(unavailable)
-      allow(Homebrew::API::Internal).to receive(:cask_renames).and_raise(unavailable)
-      allow(Homebrew::API::Internal).to receive(:cask_hash).and_raise(unavailable)
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+      allow(described_class).to receive(:load).with("#{tap}/#{token}", warn: false).and_return(api_cask)
+      allow(Homebrew::API).to receive(:cask_token?).and_raise(ErrorDuringExecution.new(["curl"], status: 22))
 
-      expect(described_class.resolve_installed_artifacts(token, nil, tap:)).to eq(tap_artifacts)
+      expect(described_class.resolve_installed_artifacts(token, nil, tap:)).to eq(api_artifacts)
     end
 
     it "recovers from the local core tap when the API is opted out of", :no_api do
       token = "opted-out-cask"
-      tap_artifacts = [{ "app" => ["OptedOut.app"] }]
-      cask = instance_double(Cask::Cask)
-      allow(cask).to receive(:artifacts_list).with(uninstall_only: true).and_return(tap_artifacts)
-      loader = instance_double(Cask::CaskLoader::FromNameLoader)
-      allow(loader).to receive(:load).with(config: nil).and_return(cask)
-      allow(Cask::CaskLoader::FromNameLoader).to receive(:try_new).with(token, warn: false).and_return(loader)
-      unavailable = ErrorDuringExecution.new(["curl"], status: 22)
-      allow(Homebrew::API).to receive(:cask_token?).and_raise(unavailable)
-      allow(Homebrew::API::Internal).to receive(:cask_renames).and_raise(unavailable)
-      allow(Homebrew::API::Internal).to receive(:cask_hash).and_raise(unavailable)
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
-
-      expect(described_class.resolve_installed_artifacts(token, nil)).to eq(tap_artifacts)
-    end
-
-    it "does not request unsigned API metadata for a cask recorded in a non-core tap" do
-      token = "thirdparty-absent"
-      tap = Tap.fetch("thirdparty", "absent")
-      allow(described_class).to receive(:load)
-        .with("#{tap}/#{token}", warn: false)
-        .and_raise(Cask::TapCaskUnavailableError.new(tap, token))
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
-
-      expect(described_class.resolve_installed_artifacts(token, nil, tap:)).to eq([])
-    end
-
-    # `cask_hash` and `cask_token?` read the same signed index, so the reachable way to fall
-    # through to the endpoint for a core tap cask is a signed loader that fails, not a missing hash.
-    it "requests unsigned API metadata when the signed loader fails for a core tap cask" do
-      token = "core-tap-unsigned"
-      api_artifacts = [{ "app" => ["Unsigned.app"] }]
-      loader = instance_double(Cask::CaskLoader::FromAPILoader)
-      allow(loader).to receive(:load).with(config: nil).and_raise(Cask::CaskError.new("unreadable"))
-      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(loader)
-      allow(Homebrew::API::Internal).to receive(:cask_hash).with(token).and_return({ "token" => token })
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => api_artifacts })
+      allow(Cask::CaskLoader::FromNameLoader).to receive(:try_new).with(token, warn: false)
+                                                                  .and_return(Cask::CaskLoader::FromInstanceLoader.new(api_cask))
+      allow(Homebrew::API).to receive(:cask_token?).and_raise(ErrorDuringExecution.new(["curl"], status: 22))
 
       expect(described_class.resolve_installed_artifacts(token, nil, tap: CoreCaskTap.instance)).to eq(api_artifacts)
     end
 
-    it "does not request unsigned API metadata when the membership check fails" do
-      token = "unavailable-membership"
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_raise(
-        ErrorDuringExecution.new(["curl"], status: 22),
-      )
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+    it "returns empty artifacts for a removed cask" do
+      allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
+
+      expect(described_class.resolve_installed_artifacts("removed-cask", nil)).to eq([])
+    end
+
+    it "returns empty artifacts when the membership check fails" do
+      allow(Homebrew::API).to receive(:cask_token?).and_raise(ErrorDuringExecution.new(["curl"], status: 22))
+
+      expect(described_class.resolve_installed_artifacts("unavailable-membership", nil)).to eq([])
+    end
+
+    it "returns empty artifacts when the signed loader fails" do
+      token = "unreadable"
+      loader = Cask::CaskLoader::FromAPILoader.new(token)
+      allow(loader).to receive(:load).and_raise(Cask::CaskError.new("unreadable"))
+      stub_api_loader(token, loader)
 
       expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
     end
 
-    it "returns empty artifacts when the API download fails" do
-      token = "unavailable"
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(
-        ErrorDuringExecution.new(["curl"], status: 22),
-      )
+    it "returns empty artifacts when the signed index has no cask payload" do
+      token = "missing-payload"
+      loader = Cask::CaskLoader::FromAPILoader.new(token)
+      allow(loader).to receive(:load).and_raise(KeyError.new("key not found: #{token.inspect}"))
+      stub_api_loader(token, loader)
 
       expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
     end
 
     it "returns empty artifacts when the API cannot be loaded" do
-      allow(Homebrew::API).to receive(:cask_token?).with("unavailable").and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with("unavailable").and_raise(SystemExit.new(1))
+      token = "unavailable"
+      loader = Cask::CaskLoader::FromAPILoader.new(token)
+      allow(loader).to receive(:load).and_raise(SystemExit.new(1))
+      stub_api_loader(token, loader)
 
-      expect(described_class.resolve_installed_artifacts("unavailable", nil)).to eq([])
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
     end
 
-    it "falls back to API artifacts when tap lookup is ambiguous" do
+    it "returns empty artifacts when tap lookup is ambiguous" do
       token = "ambiguous"
-      api_artifacts = [{ "app" => ["API.app"] }]
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Cask::CaskLoader::FromAPILoader).to receive(:try_new).with(token).and_return(nil)
+      allow(Homebrew::API).to receive_messages(cask_token?: false, cask_renames: {})
       allow(Cask::CaskLoader::FromNameLoader).to receive(:try_new)
         .with(token, warn: false)
         .and_raise(Cask::TapCaskAmbiguityError.new(token, []))
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => api_artifacts })
 
-      expect(described_class.resolve_installed_artifacts(token, nil)).to eq(api_artifacts)
+      expect(described_class.resolve_installed_artifacts(token, nil)).to eq([])
     end
 
-    it "returns empty artifacts when the installed tap and API are unavailable" do
+    it "returns empty artifacts when the recorded tap is unavailable" do
       token = "unavailable-tap"
       tap = Tap.fetch("thirdparty", "missing")
       allow(described_class).to receive(:load)
         .with("#{tap}/#{token}", warn: false)
         .and_raise(Cask::TapCaskUnavailableError.new(tap, token))
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_raise(SystemExit.new(1))
 
       expect(described_class.resolve_installed_artifacts(token, nil, tap:)).to eq([])
     end
@@ -751,7 +685,7 @@ RSpec.describe Cask::CaskLoader, :cask do
         "uninstall_flight_blocks" => false,
         "uninstall_artifacts"     => [{ "app" => ["Recoverable.app"] }],
       })
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+      expect(Homebrew::API).not_to receive(:cask_token?)
 
       recovered_cask = described_class.recover_from_installed_caskfile(caskfile)
 
@@ -774,7 +708,7 @@ RSpec.describe Cask::CaskLoader, :cask do
         "uninstall_flight_blocks" => true,
         "uninstall_artifacts"     => [{ "uninstall_preflight" => nil }],
       })
-      expect(Homebrew::API::Cask).not_to receive(:cask_json)
+      expect(Homebrew::API).not_to receive(:cask_token?)
 
       expect(described_class.recover_from_installed_caskfile(caskfile)).to be_nil
     end
