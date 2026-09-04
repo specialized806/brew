@@ -5,6 +5,7 @@ require "api"
 require "commands"
 require "settings"
 require "utils/output"
+require "utils/path"
 
 # A {Tap} is used to encapsulate Homebrew formulae, casks and custom commands.
 # Usually, it's synced with a remote Git repository. And it's likely
@@ -17,6 +18,7 @@ class Tap
   extend Cachable
   extend Utils::Output::Mixin
   include Utils::Output::Mixin
+  include Utils::Path
 
   Cache = type_template { { fixed: T::Hash[T.any(String, Symbol), T.untyped] } }
 

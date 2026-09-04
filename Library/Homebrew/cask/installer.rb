@@ -6,6 +6,7 @@ require "unpack_strategy"
 require "utils/topological_hash"
 require "utils/analytics"
 require "utils/output"
+require "utils/path"
 
 require "api/cask_download"
 require "cask/config"
@@ -21,6 +22,7 @@ module Cask
   class Installer
     extend ::Utils::Output::Mixin
     include ::Utils::Output::Mixin
+    include ::Utils::Path
 
     sig { returns(::Cask::Cask) }
     attr_reader :cask

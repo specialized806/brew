@@ -7,12 +7,14 @@ require "language/python"
 require "lock_file"
 require "pkg_version"
 require "utils/output"
+require "utils/path"
 
 # Installation prefix of a formula.
 class Keg
   extend T::Generic
   extend Cachable
   include Utils::Output::Mixin
+  include Utils::Path
 
   Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
 

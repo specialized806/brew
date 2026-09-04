@@ -28,12 +28,14 @@ require "service"
 require "attestation"
 require "utils/fork"
 require "utils/output"
+require "utils/path"
 require "utils/attestation"
 
 # Installer for a formula.
 class FormulaInstaller
   include FormulaCellarChecks
   include Utils::Output::Mixin
+  include Utils::Path
 
   ETC_VAR_DIRS = T.let([HOMEBREW_PREFIX/"etc", HOMEBREW_PREFIX/"var"].freeze, T::Array[Pathname])
 
