@@ -33,10 +33,13 @@ RSpec.describe Homebrew::DevCmd::TapNew do
     expect(publish_yml).to include("attestations: write")
     expect(publish_yml).to include("id-token: write")
     expect(publish_yml).not_to include("gh pr view")
-    expect(publish_yml).to include('brew pr-pull --debug --tap="$GITHUB_REPOSITORY" --head-sha="$HEAD_SHA"')
-    expect(publish_yml).to include('brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"')
+    expect(publish_yml).to include("id: pull_bottles")
+    expect(publish_yml).to include('brew pr-pull --debug --retain-bottle-dir --tap="$GITHUB_REPOSITORY" ' \
+                                   '--head-sha="$HEAD_SHA"')
+    expect(publish_yml).to include('brew pr-pull --debug --retain-bottle-dir --tap="$GITHUB_REPOSITORY" ' \
+                                   '"$PULL_REQUEST"')
     expect(publish_yml).to include("name: Generate build provenance")
-    expect(publish_yml).to include('subject-path: "*.tar.gz"')
+    expect(publish_yml).to include('subject-path: "${{ steps.pull_bottles.outputs.bottle_path }}/*.tar.gz"')
     expect(autobump_yml).not_to include("HOMEBREW_DEVELOPER")
     expect(autobump_yml).not_to include("pull_request_target")
     expect(autobump_yml).not_to include("workflow_run")
@@ -60,6 +63,6 @@ RSpec.describe Homebrew::DevCmd::TapNew do
     expect(publish_yml).not_to include("attestations: write")
     expect(publish_yml).not_to include("id-token: write")
     expect(publish_yml).not_to include("name: Generate build provenance")
-    expect(publish_yml).not_to include('subject-path: "*.tar.gz"')
+    expect(publish_yml).not_to include("steps.pull_bottles.outputs.bottle_path")
   end
 end
