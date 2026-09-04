@@ -135,45 +135,69 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
     ).to eq [[], []]
   end
 
-  specify "::generate_formula_struct_hash falls back to stable deps when head_dependencies is absent" do
-    hash = {
-      "desc"                     => "Test formula",
-      "homepage"                 => "https://example.com",
-      "license"                  => "MIT",
-      "ruby_source_checksum"     => { "sha256" => "abc123" },
-      "versions"                 => { "stable" => "1.0.0" },
-      "urls"                     => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
-      "dependencies"             => ["foo"],
-      "recommended_dependencies" => [],
-      "optional_dependencies"    => [],
-      "uses_from_macos"          => [],
-      "uses_from_macos_bounds"   => [],
-    }
+  describe "::generate_formula_struct_hash" do
+    subject(:struct) { described_class.generate_formula_struct_hash(hash) }
 
-    struct = described_class.generate_formula_struct_hash(hash)
+    let(:hash) do
+      {
+        "desc"                 => "Test formula",
+        "homepage"             => "https://example.com",
+        "license"              => "MIT",
+        "ruby_source_checksum" => { "sha256" => "abc123" },
+        "versions"             => { "stable" => "1.0.0" },
+        "urls"                 => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
+      }
+    end
 
-    expect(struct.head_dependencies).not_to be_empty
-    expect(struct.head_dependencies).to eq struct.stable_dependencies
-  end
+    it "falls back to stable deps when head_dependencies is absent" do
+      hash.update({
+        "dependencies"             => ["foo"],
+        "recommended_dependencies" => [],
+        "optional_dependencies"    => [],
+        "uses_from_macos"          => [],
+        "uses_from_macos_bounds"   => [],
+      })
+      expect(struct.head_dependencies).not_to be_empty
+      expect(struct.head_dependencies).to eq struct.stable_dependencies
+    end
 
-  specify "::generate_formula_struct_hash preserves stable patches" do
-    hash = {
-      "desc"                 => "Test formula",
-      "homepage"             => "https://example.com",
-      "license"              => "MIT",
-      "ruby_source_checksum" => { "sha256" => "abc123" },
-      "versions"             => { "stable" => "1.0.0" },
-      "urls"                 => { "stable" => { "url" => "https://example.com/foo-1.0.tar.gz" } },
-      "patches"              => [
-        {
-          "strip"  => "p1",
-          "url"    => "https://example.com/foo.patch",
-          "sha256" => "def456",
-        },
-      ],
-    }
+    it "preserves stable patches" do
+      hash.update({
+        "patches" => [
+          {
+            "strip"  => "p1",
+            "url"    => "https://example.com/foo.patch",
+            "sha256" => "def456",
+          },
+        ],
+      })
+      expect(struct.stable_patches).to eq hash["patches"]
+    end
 
-    expect(described_class.generate_formula_struct_hash(hash).stable_patches).to eq hash["patches"]
+    context "when input contains placeholders" do
+      let(:caveats_with_placeholder) { "Message about $HOMEBREW_CELLAR/foo/1.0.0/bin/foo" }
+      let(:log_path_with_placeholder) { "$HOMEBREW_PREFIX/var/log/foo.log" }
+
+      before do
+        stub_const("HOMEBREW_PREFIX", "/tmp/homebrew")
+        stub_const("HOMEBREW_CELLAR", "/tmp/homebrew/Cellar")
+        hash.update({
+          "caveats"      => caveats_with_placeholder,
+          "service_args" => [[:log_path, log_path_with_placeholder]],
+        })
+      end
+
+      it "replaces them when not generating JSON" do
+        expect(struct.caveats).to eq "Message about /tmp/homebrew/Cellar/foo/1.0.0/bin/foo"
+        expect(struct.service_args).to eq [[:log_path, "/tmp/homebrew/var/log/foo.log"]]
+      end
+
+      it "preserves them when generating JSON" do
+        allow(Formula).to receive(:generating_hash?).and_return(true)
+        expect(struct.caveats).to eq caveats_with_placeholder
+        expect(struct.service_args).to eq [[:log_path, log_path_with_placeholder]]
+      end
+    end
   end
 
   specify "::symbolize_dependency_hash" do
