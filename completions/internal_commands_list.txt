@@ -40,8 +40,10 @@ edit
 exec
 extract
 fetch
+find-appcast
 formula
 formulae
+generate-cask-token
 generate-man-completions
 generate-zap
 gist-logs
