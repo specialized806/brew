@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 module Homebrew
   # Module containing diagnostic checks.
   module Diagnostic

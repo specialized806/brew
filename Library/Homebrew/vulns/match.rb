@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 require "formula_versions"
 require "vulns/advisory_overrides"
 require "vulns/cpan_sec"

@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/ruby"
+
 require "json"
 require "development_tools"
 require "utils/curl"
@@ -202,7 +204,7 @@ class SBOM
 
   sig { params(data: T.nilable(T::Hash[Symbol, T.anything]), bottling: T::Boolean).returns(T::Array[String]) }
   def schema_validation_errors(data = nil, bottling: false)
-    unless Homebrew.require? "json_schemer"
+    unless Utils::Ruby.require? "json_schemer"
       error_message = "Need json_schemer to validate SBOM, run `brew install-bundler-gems --add-groups=bottle`!"
       odie error_message if ENV["HOMEBREW_ENFORCE_SBOM"]
       return []

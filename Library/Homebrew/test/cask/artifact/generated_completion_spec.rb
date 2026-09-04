@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/shell"
+
 RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
   let(:staged_path) { Pathname(Dir.mktmpdir) }
 

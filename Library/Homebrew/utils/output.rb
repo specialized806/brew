@@ -4,6 +4,20 @@
 module Utils
   # Helper methods for outputting messages in Homebrew's formats.
   module Output
+    sig {
+      type_parameters(:U)
+        .params(file: T.any(IO, Pathname, String), _block: T.proc.returns(T.type_parameter(:U)))
+        .returns(T.type_parameter(:U))
+    }
+    def self.redirect_stdout(file, &_block)
+      out = $stdout.dup
+      $stdout.reopen(file)
+      yield
+    ensure
+      $stdout.reopen(out)
+      out.close
+    end
+
     # Mixin used to add these helpers to stdout and stderr.
     module Mixin
       extend T::Helpers

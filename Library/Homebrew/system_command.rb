@@ -5,6 +5,7 @@ require "shellwords"
 require "stringio"
 
 require "context"
+require "homebrew"
 require "readline_nonblock"
 require "utils/timer"
 require "utils/output"
@@ -77,6 +78,36 @@ class SystemCommand
     end
   end
 
+  # Positional command helpers used by the Formula DSL.
+  module Helpers
+    sig {
+      params(
+        cmd:     T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
+        argv0:   T.nilable(T.any(Pathname, String, [String, String])),
+        args:    T.nilable(T.any(Pathname, String)),
+        options: T.untyped,
+      ).void
+    }
+    def safe_system(cmd, argv0 = nil, *args, **options)
+      return SystemCommand.safe_system(cmd, *args, **options) if argv0.nil?
+
+      SystemCommand.safe_system(cmd, argv0, *args, **options)
+    end
+
+    sig {
+      params(
+        cmd:   T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
+        argv0: T.nilable(T.any(String, [String, String])),
+        args:  T.any(Pathname, String),
+      ).returns(T::Boolean)
+    }
+    def quiet_system(cmd, argv0 = nil, *args)
+      return SystemCommand.quiet_system(cmd, *args) if argv0.nil?
+
+      SystemCommand.quiet_system(cmd, argv0, *args)
+    end
+  end
+
   include Context
 
   sig {
@@ -133,6 +164,29 @@ class SystemCommand
         debug:, verbose:, secrets:, chdir:, reset_uid:, run_as_real_uid:, timeout:)
   end
 
+  sig {
+    params(
+      cmd:     T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
+      argv0:   T.nilable(T.any(Pathname, String, [String, String])),
+      args:    T.nilable(T.any(Pathname, String)),
+      options: T.untyped,
+    ).void
+  }
+  def self.safe_system(cmd, argv0 = nil, *args, **options)
+    Homebrew.safe_system(cmd, argv0, *args, **options)
+  end
+
+  # Preserve the existing Formula DSL method name.
+  sig {
+    params(
+      cmd:   T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
+      argv0: T.nilable(T.any(String, [String, String])),
+      args:  T.any(Pathname, String),
+    ).returns(T::Boolean)
+  }
+  def self.quiet_system(cmd, argv0 = nil, *args)
+    Homebrew.quiet_system(cmd, argv0, *args)
+  end
   sig { returns(SystemCommand::Result) }
   def run!
     $stderr.puts Formatter.redact_secrets(command.shelljoin.gsub('\=', "="), @secrets) if verbose? && debug?

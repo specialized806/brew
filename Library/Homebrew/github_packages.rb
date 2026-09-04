@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "utils/curl"
+require "utils/executable"
 require "utils/gzip"
 require "utils/output"
 require "json"
@@ -61,7 +62,7 @@ class GitHubPackages
     raise UsageError, "HOMEBREW_GITHUB_PACKAGES_USER is unset." if user.blank?
     raise UsageError, "HOMEBREW_GITHUB_PACKAGES_TOKEN is unset." if token.blank?
 
-    skopeo = ensure_executable!("skopeo", reason: "upload")
+    skopeo = Utils::Executable.ensure!("skopeo", reason: "upload")
 
     require "json_schemer"
 

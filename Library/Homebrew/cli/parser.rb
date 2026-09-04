@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/ruby"
+
 require "abstract_command"
 require "env_config"
 require "cask/config"
@@ -65,7 +67,7 @@ module Homebrew
         cmd_name = cmd_args_method_name.to_s.delete_suffix("_args").tr("_", "-")
 
         begin
-          if ENV.clear_sensitive_environment! { Homebrew.require?(cmd_path) }
+          if ENV.clear_sensitive_environment! { Utils::Ruby.require?(cmd_path) }
             cmd = Homebrew::AbstractCommand.command(cmd_name)
             if cmd
               cmd.parser

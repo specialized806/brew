@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 # @abstract Abstract superclass for all download strategies.
 class AbstractDownloadStrategy
   extend T::Helpers

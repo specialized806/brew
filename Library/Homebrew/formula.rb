@@ -20,6 +20,7 @@ require "build_environment"
 require "build_options"
 require "formulary"
 require "software_spec"
+require "system_command"
 require "bottle"
 require "pour_bottle_check"
 require "head_software_spec"
@@ -84,6 +85,7 @@ class Formula
   include FileUtils
   include Utils::Shebang
   include Utils::Shell
+  include SystemCommand::Helpers
   include Utils::Output::Mixin
   include Utils::Path
   include Context

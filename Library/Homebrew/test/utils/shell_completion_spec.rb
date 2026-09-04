@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/shell"
+
 require "utils/shell_completion"
 
 RSpec.describe Utils::ShellCompletion do

@@ -830,7 +830,7 @@ class HomebrewCurlDownloadStrategyError < CurlDownloadStrategyError
   end
 end
 
-# Raised by {Kernel#safe_system} in `utils.rb`.
+# Raised when a system command fails.
 class ErrorDuringExecution < RuntimeError
   sig { returns(T::Array[T.nilable(T.any(Pathname, String, T::Array[String], T::Hash[String, T.nilable(String)]))]) }
   attr_reader :cmd

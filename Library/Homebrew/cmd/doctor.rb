@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/profiling"
+
 require "abstract_command"
 require "diagnostic"
 require "diagnostic/finding"
@@ -33,7 +35,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        Homebrew.inject_dump_stats!(Diagnostic::Checks, /^check_*/) if args.audit_debug?
+        Utils::Profiling.inject_stats!(Diagnostic::Checks, /^check_*/) if args.audit_debug?
 
         checks = Diagnostic::Checks.new(verbose: args.verbose?)
 

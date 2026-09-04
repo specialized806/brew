@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 module OS
   module Mac
     # Helper module for querying Xcode information.

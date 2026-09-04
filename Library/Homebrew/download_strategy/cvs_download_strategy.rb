@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/timer"
+
 # Strategy for downloading a CVS repository.
 #
 # @api public

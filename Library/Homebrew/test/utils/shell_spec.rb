@@ -4,6 +4,22 @@
 require "utils/shell"
 
 RSpec.describe Utils::Shell do
+  describe "::interactive" do
+    it "starts an interactive shell session" do
+      dir = mktmpdir
+      shell = dir/"myshell"
+      File.write shell, <<~SH
+        #!/bin/sh
+        echo called > "#{dir}/called"
+      SH
+      FileUtils.chmod 0755, shell
+      ENV["SHELL"] = shell.to_s
+
+      expect { described_class.interactive }.not_to raise_error
+      expect(dir/"called").to exist
+    end
+  end
+
   describe "::profile" do
     it "returns ~/.profile by default" do
       ENV["SHELL"] = "/bin/another_shell"

@@ -55,7 +55,7 @@ RSpec.describe Homebrew::Services::FormulaWrapper, :needs_daemon_manager do
         </dict>
         </plist>
       XML
-      safe_system "/usr/bin/plutil", "-convert", "binary1", service_file
+      SystemCommand.safe_system "/usr/bin/plutil", "-convert", "binary1", service_file
 
       expect(described_class.service_file_label(service_file)).to eq("org.example.binary")
     end

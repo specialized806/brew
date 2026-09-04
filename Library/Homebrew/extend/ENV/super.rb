@@ -46,6 +46,13 @@ module Superenv
   sig { returns(T.nilable(Pathname)) }
   def self.bin; end
 
+  sig { params(env: T.nilable(String)).returns(T::Boolean) }
+  def self.enabled_for?(env)
+    return false if env == "std"
+
+    !bin.nil?
+  end
+
   sig { void }
   def initialize
     @keg_only_deps = T.let([], T::Array[Formula])

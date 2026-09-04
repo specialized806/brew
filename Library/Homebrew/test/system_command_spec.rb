@@ -4,6 +4,31 @@
 require "system_command"
 
 RSpec.describe SystemCommand do
+  describe ".safe_system" do
+    it "raises when the command fails" do
+      expect { described_class.safe_system("false") }.to raise_error(ErrorDuringExecution)
+    end
+  end
+
+  describe ".quiet_system" do
+    it "returns the command status" do
+      expect(described_class.quiet_system("true")).to be true
+      expect(described_class.quiet_system("false")).to be false
+    end
+  end
+
+  describe SystemCommand::Helpers do
+    subject(:helpers) { Class.new { include SystemCommand::Helpers }.new }
+
+    it "provides positional system helpers" do
+      expect(SystemCommand).to receive(:safe_system).with("true")
+      expect(SystemCommand).to receive(:quiet_system).with("true").and_return(true)
+
+      helpers.safe_system("true")
+      expect(helpers.quiet_system("true")).to be true
+    end
+  end
+
   describe "#initialize" do
     subject(:command) do
       described_class.new(

@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/path"
+
 module Utils
   module Shell
     extend T::Helpers
@@ -8,6 +10,69 @@ module Utils
     requires_ancestor { Kernel }
 
     module_function
+
+    sig { params(cmd: String, path: PATH::Elements).returns(T.nilable(Pathname)) }
+    def which(cmd, path = ENV.fetch("PATH"))
+      PATH.new(path).each do |entry|
+        begin
+          executable = File.expand_path(cmd, entry)
+        rescue ArgumentError
+          next
+        end
+        return Pathname.new(executable) if File.file?(executable) && File.executable?(executable)
+      end
+      nil
+    end
+
+    sig {
+      type_parameters(:U)
+        .params(
+          hash:   T::Hash[Object, T.nilable(T.any(PATH, Pathname, String))],
+          _block: T.proc.returns(T.type_parameter(:U)),
+        ).returns(T.type_parameter(:U))
+    }
+    def with_env(hash, &_block)
+      old_values = {}
+      begin
+        hash.each do |key, value|
+          key = key.to_s
+          old_values[key] = ENV.delete(key)
+          ENV[key] = value&.to_s
+        end
+
+        yield
+      ensure
+        ENV.update(old_values)
+      end
+    end
+
+    sig { type_parameters(:U).params(block: T.proc.returns(T.type_parameter(:U))).returns(T.type_parameter(:U)) }
+    def with_homebrew_path(&block)
+      with_env(PATH: PATH.new(ORIGINAL_PATHS).to_s, &block)
+    end
+
+    sig { params(formula: T.nilable(Formula)).void }
+    def interactive(formula = nil)
+      unless formula.nil?
+        ENV["HOMEBREW_DEBUG_PREFIX"] = formula.prefix.to_s
+        ENV["HOMEBREW_DEBUG_INSTALL"] = formula.full_name
+      end
+
+      if preferred == :zsh && (home = Dir.home).start_with?(HOMEBREW_TEMP.resolved_path.to_s)
+        FileUtils.mkdir_p home
+        FileUtils.touch "#{home}/.zshrc"
+      end
+
+      term = ENV.fetch("HOMEBREW_TERM", ENV.fetch("TERM", nil))
+      with_env(TERM: term) do
+        Process.wait fork { exec preferred_path(default: "/bin/bash") }
+      end
+
+      return if $CHILD_STATUS.success?
+      raise "Aborted due to non-zero exit status (#{$CHILD_STATUS.exitstatus})" if $CHILD_STATUS.exited?
+
+      raise $CHILD_STATUS.inspect
+    end
 
     # Take a path and heuristically convert it to a shell name,
     # return `nil` if there's no match.
