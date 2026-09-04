@@ -118,8 +118,10 @@ When you deviate from these supported paths, such as building from source or ins
 
 Checksums prove that the downloaded bytes match the reviewed metadata.
 Bottle provenance attestations add a different check: who built those bytes and from what source.
-Homebrew ships bottle attestation verification in `Library/Homebrew/attestation.rb`; when `HOMEBREW_VERIFY_ATTESTATIONS` is set, Homebrew uses GitHub's attestation tooling to verify `homebrew/core` bottle build provenance before installation. Homebrew can also verify bottles from supported third-party GitHub taps against that tap's own GitHub Actions identity.
-Homebrew CI also emits bottle attestations with `actions/attest`, binding bottle artifacts to the GitHub Actions identity and build context that produced them. Third-party taps can do the same for their own bottles.
+Homebrew ships bottle attestation verification in `Library/Homebrew/attestation.rb`; when `HOMEBREW_VERIFY_ATTESTATIONS` is set, Homebrew uses GitHub's attestation tooling to verify `homebrew/core` bottle build provenance before installation.
+Homebrew can also verify bottles from supported third-party GitHub taps against that tap's own GitHub Actions identity.
+Homebrew CI also emits bottle attestations with `actions/attest`, binding bottle artifacts to the GitHub Actions identity and build context that produced them.
+Third-party taps can do the same for their own bottles.
 We hope to make attestation verification the default in future once it can be implemented in pure Ruby rather than depending on the `gh` tool.
 
 These attestations are backed by Sigstore's transparency log, which is the one cross-check in this pipeline that is not hosted by GitHub.
