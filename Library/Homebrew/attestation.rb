@@ -42,6 +42,11 @@ module Homebrew
     # @api private
     class InvalidAttestationError < RuntimeError; end
 
+    # Raised when bottle attestation verification is unsupported for a tap.
+    #
+    # @api private
+    class UnsupportedTapError < RuntimeError; end
+
     # Raised if attestation verification cannot continue due to missing
     # credentials.
     #
@@ -188,6 +193,65 @@ module Homebrew
     end
 
     ATTESTATION_MAX_RETRIES = 5
+
+    sig { params(bottle: Bottle).returns(T.nilable(Formula)) }
+    def self.formula_for_bottle(bottle)
+      owner = bottle.resource.owner
+      owner = owner.owner if owner.is_a?(SoftwareSpec)
+      return owner if owner.is_a?(Formula)
+
+      nil
+    end
+
+    sig { params(formula: Formula).returns(String) }
+    def self.tap_attestation_repository(formula)
+      tap = formula.tap
+      if tap.nil?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is not from a tap with supported bottle attestations."
+      end
+      return HOMEBREW_CORE_REPO if tap.core_tap?
+
+      if tap.official?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is from #{tap.name}, but only `homebrew/core` " \
+              "and non-Homebrew taps currently support bottle attestation verification."
+      end
+
+      if tap.custom_remote?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is from #{tap.name}, which uses a non-default " \
+              "remote and cannot be attested safely."
+      end
+
+      remote_repository = tap.remote_repository
+      if remote_repository.blank?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is from #{tap.name}, which does not resolve " \
+              "to a GitHub repository for attestation verification."
+      end
+
+      remote_repository
+    end
+
+    # Verifies a bottle against the attestation model for the formula's tap.
+    #
+    # @return [Hash] the JSON-decoded response
+    # @raise [GhAuthNeeded] on any authentication failures
+    # @raise [InvalidAttestationError] on any verification failures
+    # @raise [UnsupportedTapError] when the bottle's tap cannot be attested safely
+    #
+    # @api private
+    sig { params(bottle: Bottle).returns(T::Hash[String, T.untyped]) }
+    def self.check_formula_attestation(bottle)
+      formula = formula_for_bottle(bottle)
+      raise UnsupportedTapError, "bottle is not associated with a formula tap." if formula.nil?
+
+      signing_repo = tap_attestation_repository(formula)
+      return check_core_attestation(bottle) if signing_repo == HOMEBREW_CORE_REPO
+
+      check_attestation(bottle, signing_repo)
+    end
 
     # Verifies the given bottle against a cryptographic attestation of build provenance
     # from homebrew-core's CI, falling back on a "backfill" attestation for older bottles.

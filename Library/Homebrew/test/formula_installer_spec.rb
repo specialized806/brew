@@ -620,6 +620,29 @@ RSpec.describe FormulaInstaller do
 
       installer.enqueue_fetch
     end
+
+    context "when verifying attestations for a third-party tap" do
+      let(:formula) do
+        tap = Tap.fetch("thirdparty", "tap")
+        path = Formulary.find_formula_in_tap("fformula-name", tap)
+        Class.new(Formula) do
+          url "https://brew.sh/fformula-name-1.0.tar.gz"
+        end.new("fformula-name", path, :stable, tap:)
+      end
+
+      before do
+        allow(Homebrew::EnvConfig).to receive(:verify_attestations?).and_return(true)
+      end
+
+      it "enqueues bottle attestation verification" do
+        expect(installer).to receive(:fetch_dependencies).ordered
+        expect(installer).to receive(:fetch_bottle_tab).with(enqueue: true).ordered
+        expect(download_queue).to receive(:enqueue)
+          .with(bottle, check_attestation: true).ordered
+
+        installer.enqueue_fetch
+      end
+    end
   end
 
   describe "linking defaults" do

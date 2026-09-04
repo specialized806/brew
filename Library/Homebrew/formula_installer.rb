@@ -1620,7 +1620,7 @@ on_request: installed_on_request?, options:)
     # We skip `gh` to avoid a bootstrapping cycle, in the off-chance a user attempts
     # to explicitly `brew install gh` without already having a version for bootstrapping.
     Homebrew::EnvConfig.verify_attestations? &&
-      (formula.tap&.core_tap? || false) &&
+      ((formula.tap&.core_tap? || false) || (formula.tap.present? && !formula.tap&.official?)) &&
       formula.name != "gh"
   end
 

@@ -22,8 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
+      # tap-new-attestations-start
+      attestations: write
+      # tap-new-attestations-end
       checks: read
       contents: write
+      # tap-new-attestations-start
+      id-token: write
+      # tap-new-attestations-end
       issues: read
       # tap-new-github-packages-start
       packages: write
@@ -57,6 +63,13 @@ jobs:
           else
             brew pr-pull --debug --tap="$GITHUB_REPOSITORY" "$PULL_REQUEST"
           fi
+
+      # tap-new-attestations-start
+      - name: Generate build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: "*.tar.gz"
+      # tap-new-attestations-end
 
       - name: Push commits
         uses: Homebrew/actions/git-try-push@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1

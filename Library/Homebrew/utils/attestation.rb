@@ -13,7 +13,7 @@ module Utils
     def self.check_attestation(bottle, quiet: false)
       ohai "Verifying attestation for #{bottle.name}" unless quiet
       begin
-        Homebrew::Attestation.check_core_attestation bottle
+        Homebrew::Attestation.check_formula_attestation bottle
       rescue Homebrew::Attestation::GhIncompatible
         # A small but significant number of users have developer mode enabled
         # but *also* haven't upgraded in a long time, meaning that their `gh`
@@ -54,6 +54,12 @@ module Utils
           by running:
 
             gh auth login
+        EOS
+      rescue Homebrew::Attestation::UnsupportedTapError => e
+        opoo <<~EOS
+          Skipping attestation verification for #{bottle.name}.
+
+          #{e}
         EOS
       rescue Homebrew::Attestation::MissingAttestationError, Homebrew::Attestation::InvalidAttestationError => e
         raise CannotInstallFormulaError, <<~EOS
