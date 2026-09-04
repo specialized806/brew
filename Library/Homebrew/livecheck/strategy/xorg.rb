@@ -92,12 +92,15 @@ module Homebrew
           match = file_name.match(FILENAME_REGEX)
           return values if match.blank?
 
+          module_name = match[:module_name]
+          return values if module_name.blank?
+
           # /pub/ URLs redirect to the same URL with /archive/, so we replace
           # it to avoid the redirection. Removing the filename from the end of
           # the URL gives us the relevant directory listing page.
           values[:url] = url.sub("x.org/pub/", "x.org/archive/").delete_suffix(file_name)
 
-          regex_name = Regexp.escape(T.must(match[:module_name])).gsub("\\-", "-")
+          regex_name = Regexp.escape(module_name).gsub("\\-", "-")
 
           # Example regex: `/href=.*?example[._-]v?(\d+(?:\.\d+)+)\.t/i`
           values[:regex] = /href=.*?#{regex_name}[._-]v?(\d+(?:\.\d+)+)\.t/i

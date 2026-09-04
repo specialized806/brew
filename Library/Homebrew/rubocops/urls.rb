@@ -40,7 +40,7 @@ module RuboCop
           binary_package_pattern = /(darwin|macos|osx)/i
           github_pattern = %r{^https://github\.com/[\w-]+/[\w.-]+/(.*)$}i
           audit_urls(urls, binary_package_pattern) do |match, url|
-            next if T.must(@formula_name).include?(match.to_s.downcase)
+            next if formula_name.include?(match.to_s.downcase)
             next if url.match?(/.(patch|diff)(\?full_index=1)?$/)
             next if url.match(github_pattern)&.then do |match_data|
               # For GitHub URLs, the username and repository name have no
@@ -125,7 +125,7 @@ module RuboCop
         sig { params(url: String).returns(String) }
         def get_pypi_url(url)
           package_file = File.basename(url)
-          package_name = T.must(package_file.match(/^(.+)-[a-z0-9.]+$/))[1]
+          package_name = package_file[/^(.+)-[a-z0-9.]+$/, 1] || package_file
           "https://pypi.org/project/#{package_name}/#files"
         end
       end

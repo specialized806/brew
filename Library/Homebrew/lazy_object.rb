@@ -7,7 +7,10 @@ require "delegate"
 class LazyObject < Delegator
   sig { params(callable: T.nilable(Proc)).void }
   def initialize(&callable)
-    @__callable__ = T.let(nil, T.nilable(Proc))
+    # `Delegator` undefines `Kernel#raise` for instances.
+    ::Kernel.raise ArgumentError, "LazyObject requires a block to evaluate lazily" if callable.nil?
+
+    @__callable__ = T.let(callable, Proc)
     @getobj_set = T.let(false, T::Boolean)
     @__getobj__ = T.let(nil, T.untyped)
     super(callable)
@@ -17,12 +20,12 @@ class LazyObject < Delegator
   def __getobj__(&_blk)
     return @__getobj__ if @getobj_set
 
-    @__getobj__ = T.must(@__callable__).call
+    @__getobj__ = @__callable__.call
     @getobj_set = true
     @__getobj__
   end
 
-  sig { params(callable: T.nilable(Proc)).void }
+  sig { params(callable: Proc).void }
   def __setobj__(callable)
     @__callable__ = callable
     @getobj_set = false

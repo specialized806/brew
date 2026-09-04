@@ -57,7 +57,7 @@ module Repology
     nil
   end
 
-  sig { params(repositories: T::Array[String]).returns(T.any(String, Version)) }
+  sig { params(repositories: T::Array[T::Hash[String, T.untyped]]).returns(T.any(String, Version)) }
   def self.latest_version(repositories)
     # The status is "unique" when the package is present only in Homebrew, so
     # Repology has no way of knowing if the package is up-to-date.
@@ -75,6 +75,6 @@ module Repology
     # scheme
     return "no latest version" if latest_version.blank?
 
-    Version.new(T.must(latest_version["version"]))
+    Version.new(latest_version.fetch("version"))
   end
 end

@@ -258,17 +258,23 @@ module Downloadable
 
   sig { overridable.returns(T::Class[AbstractDownloadStrategy]) }
   def download_strategy
-    @download_strategy ||= T.must(determine_url).download_strategy
+    @download_strategy ||= begin
+      url = determine_url
+      raise ArgumentError, "attempted to use a `Downloadable` without a URL!" if url.nil?
+
+      url.download_strategy
+    end
   end
 
   sig { overridable.returns(AbstractDownloadStrategy) }
   def downloader
     @downloader ||= begin
       primary_url, *mirrors = determine_url_mirrors
-      raise ArgumentError, "attempted to use a `Downloadable` without a URL!" if primary_url.blank?
+      url = determine_url
+      raise ArgumentError, "attempted to use a `Downloadable` without a URL!" if url.nil? || primary_url.blank?
 
       download_strategy.new(primary_url, download_name, version,
-                            mirrors:, cache:, **T.must(@url).specs).tap do |downloader|
+                            mirrors:, cache:, **url.specs).tap do |downloader|
         if downloader.is_a?(CurlDownloadStrategy) &&
            AbstractDownloadStrategy.expand_deferred_environment_for?(downloader)
           downloader.allow_deferred_environment_expansion!

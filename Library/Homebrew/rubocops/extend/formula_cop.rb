@@ -23,7 +23,7 @@ module RuboCop
         prop :node, RuboCop::AST::ClassNode
         prop :class_node, RuboCop::AST::ConstNode
         prop :parent_class_node, RuboCop::AST::ConstNode
-        prop :body_node, RuboCop::AST::Node
+        prop :body_node, T.nilable(RuboCop::AST::Node)
       end
 
       # This method is called by RuboCop and is the main entry point.
@@ -37,7 +37,7 @@ module RuboCop
         @body = T.let(body, T.nilable(RuboCop::AST::Node))
 
         @formula_name = T.let(Pathname.new(@file_path).basename(".rb").to_s, T.nilable(String))
-        audit_formula(FormulaNodes.new(node:, class_node:, parent_class_node:, body_node: T.must(@body)))
+        audit_formula(FormulaNodes.new(node:, class_node:, parent_class_node:, body_node: body))
       end
 
       sig { abstract.params(formula_nodes: FormulaNodes).void }
@@ -169,6 +169,12 @@ module RuboCop
           @offensive_node = comment_node
           yield comment_node.text
         end
+      end
+
+      # The name of the formula being audited.
+      sig { returns(String) }
+      def formula_name
+        @formula_name || raise("`formula_name` is only available inside `audit_formula`")
       end
 
       # Returns true if the formula is versioned.

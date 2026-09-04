@@ -29,7 +29,7 @@ module Homebrew
 
         brew_rb = (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path
         FileUtils.mkdir_p "prof"
-        cmd = T.must(args.named.first)
+        cmd = args.named.fetch(0)
 
         case Commands.path(cmd)&.extname
         when ".rb"

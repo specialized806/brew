@@ -184,10 +184,10 @@ class SoftwareSpec
   end
 
   sig {
-    params(name: String, klass: T.class_of(Resource), block: T.nilable(T.proc.bind(Resource).void))
+    params(name: T.nilable(String), klass: T.class_of(Resource), block: T.nilable(T.proc.bind(Resource).void))
       .returns(T.nilable(Resource))
   }
-  def resource(name = T.unsafe(nil), klass = Resource, &block)
+  def resource(name = nil, klass = Resource, &block)
     if block
       raise ArgumentError, "Resource must have a name." if name.nil?
       raise DuplicateResourceError, name if resource_defined?(name)
@@ -392,7 +392,7 @@ class SoftwareSpec
     params(strip: T.any(Symbol, String), src: T.nilable(T.any(String, Symbol)),
            block: T.nilable(T.proc.bind(Resource::Patch).void)).void
   }
-  def patch(strip = :p1, src = T.unsafe(nil), &block)
+  def patch(strip = :p1, src = nil, &block)
     p = Patch.create(strip, src, &block)
     return if p.is_a?(ExternalPatch) && p.url.blank?
 

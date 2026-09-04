@@ -63,7 +63,11 @@ module Homebrew
           match = url.match(URL_MATCH_REGEX)
           return values if match.blank?
 
-          regex_prefix = Regexp.escape(T.must(match[:prefix])).gsub("\\-", "-")
+          prefix = match[:prefix]
+          suffix = match[:suffix]
+          return values if prefix.nil? || suffix.nil?
+
+          regex_prefix = Regexp.escape(prefix).gsub("\\-", "-")
 
           # `/get/` archives are Git tag snapshots, so we need to check that tab
           # instead of the main `/downloads/` page
@@ -78,8 +82,7 @@ module Homebrew
             values[:url] = "https://bitbucket.org/#{match[:path]}/downloads/?iframe=true&spa=0"
 
             # Use `\.t` instead of specific tarball extensions (e.g. .tar.gz)
-            suffix = T.must(match[:suffix]).sub(Strategy::TARBALL_EXTENSION_REGEX, ".t")
-            regex_suffix = Regexp.escape(suffix).gsub("\\-", "-")
+            regex_suffix = Regexp.escape(suffix.sub(Strategy::TARBALL_EXTENSION_REGEX, ".t")).gsub("\\-", "-")
 
             # Example file regexes:
             # * `/href=.*?v?(\d+(?:\.\d+)+)\.t/i`

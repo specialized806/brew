@@ -12,14 +12,14 @@ RSpec.describe ErrorDuringExecution do
   describe "#initialize" do
     it "fails when only given a command" do
       expect do
-        # Intentionally using T.unsafe to check runtime behaviour rather than static analysis
-        T.unsafe(described_class).new(command)
+        # Intentionally bypassing static arity checking to check runtime behaviour.
+        T.unsafe(described_class).new(command) # rubocop:disable Sorbet/ForbidTUnsafe
       end.to raise_error(ArgumentError)
     end
 
     it "fails when only given a status" do
-      # Intentionally using T.unsafe to check runtime behaviour rather than static analysis
-      expect { T.unsafe(described_class).new(status:) }.to raise_error(ArgumentError)
+      # Intentionally bypassing static arity checking to check runtime behaviour.
+      expect { T.unsafe(described_class).new(status:) }.to raise_error(ArgumentError) # rubocop:disable Sorbet/ForbidTUnsafe
     end
 
     it "does not raise an error when given both a command and a status" do

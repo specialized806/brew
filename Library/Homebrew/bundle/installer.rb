@@ -331,7 +331,7 @@ module Homebrew
         ).returns([Integer, Integer])
       }
       def self.batch_install_package_type!(entries, no_upgrade:, verbose:, force:, quiet:)
-        cls = T.must(entries.first).cls
+        cls = entries.fetch(0).cls
         actionable = entries.select do |entry|
           if cls.preinstall!(entry.name, **entry.options, no_upgrade:, verbose:)
             puts Formatter.success("#{entry.verb} #{entry.name}")

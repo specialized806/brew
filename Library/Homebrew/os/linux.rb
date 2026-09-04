@@ -62,7 +62,8 @@ module OS
       return Version::NULL unless wsl?
 
       kernel = OS.kernel_version.to_s
-      if Version.new(T.must(kernel[/^([0-9.]*)-.*/, 1])) > Version.new("5.15")
+      kernel_version = kernel[/^([0-9.]*)-.*/, 1]
+      if kernel_version && Version.new(kernel_version) > Version.new("5.15")
         Version.new("2 (Microsoft Store)")
       elsif kernel.include?("-microsoft")
         Version.new("2")

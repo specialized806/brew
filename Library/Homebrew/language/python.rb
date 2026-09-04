@@ -253,7 +253,10 @@ module Language
         venv = virtualenv_create(libexec, python.delete("@"), system_site_packages:,
                                                               without_pip:)
         venv.pip_install venv_resources
-        venv.pip_install_and_link(T.must(buildpath), link_manpages:)
+        buildpath = self.buildpath
+        raise "#{name}: `virtualenv_install_with_resources` can only be called from `install`" if buildpath.nil?
+
+        venv.pip_install_and_link(buildpath, link_manpages:)
         venv
       end
 
@@ -354,8 +357,9 @@ module Language
           if (cfg_file = @venv_root/"pyvenv.cfg").exist?
             cfg = cfg_file.read
             framework = "Frameworks/Python.framework/Versions"
-            cfg.match(%r{= *(#{HOMEBREW_CELLAR}/(python@[\d.]+)/[^/]+(?:/#{framework}/[\d.]+)?/bin)}) do |match|
-              cfg.sub! match[1].to_s, Utils::Path.formula_opt_bin(T.must(match[2])).to_s
+            match = cfg.match(%r{= *(#{HOMEBREW_CELLAR}/(python@[\d.]+)/[^/]+(?:/#{framework}/[\d.]+)?/bin)})
+            if match && (python_formula = match[2])
+              cfg.sub! match[1].to_s, Utils::Path.formula_opt_bin(python_formula).to_s
               cfg_file.atomic_write cfg
             end
           end

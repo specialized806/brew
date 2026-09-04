@@ -69,10 +69,9 @@ RSpec.describe Dependency do
     baz2 = build_dep(:baz, ["option"])
     deps << foo2 << baz2
     deps = [foo2, bar, baz2, qux]
-    deps.zip(described_class.expand(formula)) do |expected, actual|
-      expect(expected.tags).to eq(T.must(actual).tags)
-      expect(expected).to eq(actual)
-    end
+    expanded = described_class.expand(formula)
+    expect(expanded.map(&:tags)).to eq(deps.map(&:tags))
+    expect(expanded).to eq(deps)
   end
 
   it "merges tags without duplicating them" do
@@ -80,7 +79,7 @@ RSpec.describe Dependency do
     foo3 = build_dep(:foo, ["option"])
     deps << foo2 << foo3
 
-    expect(T.must(described_class.expand(formula).first).tags).to eq(%w[option])
+    expect(described_class.expand(formula).fetch(0).tags).to eq(%w[option])
   end
 
   it "skips parent but yields children with SKIP" do

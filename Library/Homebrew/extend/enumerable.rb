@@ -29,6 +29,12 @@ module Enumerable
   # # => { b: 1, f: true }
   # ```
   sig { returns(T.self_type) }
-  def compact_blank = T.unsafe(self).reject(&:blank?)
+  def compact_blank
+    reject do |item|
+      case item
+      when Object then item.blank?
+      end
+    end
+  end
 end
 require "extend/enumerable/hash"

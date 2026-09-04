@@ -33,11 +33,7 @@ class SBOM
   # Instantiates a {SBOM} for a new installation of a formula.
   sig { params(formula: Formula, tab: Tab).returns(T.attached_class) }
   def self.create(formula, tab)
-    active_spec = if formula.stable?
-      T.must(formula.stable)
-    else
-      T.must(formula.head)
-    end
+    active_spec = formula.active_spec
     active_spec_sym = formula.active_spec_sym
 
     new(

@@ -544,13 +544,15 @@ module Homebrew
     sig { void }
     def audit_conflicts
       tap = formula.tap
+      return if tap.nil?
+
       formula.conflicts.each do |conflict|
         conflicting_formula = Formulary.factory(conflict.name)
         next if tap != conflicting_formula.tap
 
         problem "Formula should not conflict with itself" if formula == conflicting_formula
 
-        if T.must(tap).formula_renames.key?(conflict.name) || T.must(tap).aliases.include?(conflict.name)
+        if tap.formula_renames.key?(conflict.name) || tap.aliases.include?(conflict.name)
           problem "Formula conflict should be declared using " \
                   "canonical name (#{conflicting_formula.name}) instead of '#{conflict.name}'"
         end
@@ -558,8 +560,7 @@ module Homebrew
         reverse_conflict_found = T.let(false, T::Boolean)
         conflicting_formula.conflicts.each do |reverse_conflict|
           reverse_conflict_formula = Formulary.factory(reverse_conflict.name)
-          if T.must(tap).formula_renames.key?(reverse_conflict.name) ||
-             T.must(tap).aliases.include?(reverse_conflict.name)
+          if tap.formula_renames.key?(reverse_conflict.name) || tap.aliases.include?(reverse_conflict.name)
             problem "Formula #{conflicting_formula.name} conflict should be declared using " \
                     "canonical name (#{reverse_conflict_formula.name}) instead of '#{reverse_conflict.name}'"
           end
@@ -748,7 +749,7 @@ module Homebrew
       regex = %r{^https?://web\.archive\.org}
       problem_prefix = "Formula with a Internet Archive Wayback Machine"
 
-      if formula.stable && regex.match?(T.must(formula.stable).url)
+      if (stable = formula.stable) && regex.match?(stable.url)
         problem "#{problem_prefix} `url` should be deprecated with `:repo_removed`"
       end
 
@@ -756,9 +757,8 @@ module Homebrew
         problem "#{problem_prefix} `homepage` should find an alternative `homepage` or be deprecated."
       end
 
-      return unless formula.head
-
-      return unless regex.match?(T.must(formula.head).url)
+      return unless (head = formula.head)
+      return unless regex.match?(head.url)
 
       problem "Remove Internet Archive Wayback Machine `head` URL"
     end
@@ -856,9 +856,11 @@ module Homebrew
       return unless @core_tap
       return unless @online
 
-      _, user, repo = *regex.match(T.must(formula.stable).url) if formula.stable
+      stable = formula.stable
+      _, user, repo = *regex.match(stable.url) if stable
       _, user, repo = *regex.match(formula.homepage) unless user
-      _, user, repo = *regex.match(T.must(formula.head).url) if !user && formula.head
+      head = formula.head
+      _, user, repo = *regex.match(head.url) if !user && head
       return if !user || !repo
 
       repo.delete_suffix!(".git")
@@ -969,8 +971,9 @@ module Homebrew
         problem "Stable: version (#{stable.version}) is a development release"
 
       when %r{https?://gitlab\.com/([\w-]+)/([\w-]+)}
-        owner = T.must(Regexp.last_match(1))
-        repo = T.must(Regexp.last_match(2))
+        owner = Regexp.last_match(1)
+        repo = Regexp.last_match(2)
+        raise "Could not determine the GitLab owner and repository from #{url}" if owner.nil? || repo.nil?
 
         tag = SharedAudits.gitlab_tag_from_url(url)
         tag ||= stable.specs[:tag]
@@ -981,8 +984,10 @@ module Homebrew
           problem error if error
         end
       when %r{^https://github.com/([\w-]+)/([\w-]+)}
-        owner = T.must(Regexp.last_match(1))
-        repo = T.must(Regexp.last_match(2))
+        owner = Regexp.last_match(1)
+        repo = Regexp.last_match(2)
+        raise "Could not determine the GitHub owner and repository from #{url}" if owner.nil? || repo.nil?
+
         tag = SharedAudits.github_tag_from_url(url)
         tag ||= formula.stable&.specs&.[](:tag)
 
@@ -991,8 +996,10 @@ module Homebrew
           problem error if error
         end
       when %r{^https://codeberg\.org/([\w-]+)/([\w-]+)}
-        owner = T.must(Regexp.last_match(1))
-        repo = T.must(Regexp.last_match(2))
+        owner = Regexp.last_match(1)
+        repo = Regexp.last_match(2)
+        raise "Could not determine the Codeberg owner and repository from #{url}" if owner.nil? || repo.nil?
+
         tag = SharedAudits.forgejo_tag_from_url(url)
         tag ||= formula.stable&.specs&.[](:tag)
 
@@ -1008,9 +1015,9 @@ module Homebrew
       return unless @git
       return unless formula.tap # skip formula not from core or any taps
       return unless formula.tap!.git? # git log is required
-      return if formula.stable.blank?
+      return unless (stable = formula.stable)
 
-      current_version = T.must(formula.stable).version
+      current_version = stable.version
       current_version_scheme = formula.version_scheme
 
       previous_version_info, base_ref_version_info = committed_version_info
@@ -1032,9 +1039,9 @@ module Homebrew
       tap = formula.tap
       return if tap.nil?
       return unless tap.git?
-      return if formula.stable.blank?
+      return unless (stable = formula.stable)
 
-      current_version = T.must(formula.stable).version
+      current_version = stable.version
       current_revision = formula.revision
 
       previous_version_info, base_ref_version_info = committed_version_info

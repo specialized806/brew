@@ -5,20 +5,15 @@ module Utils
   module Data
     module_function
 
-    sig {
-      type_parameters(:Key, :Value).params(
-        hash:       T::Hash[T.type_parameter(:Key), T.type_parameter(:Value)],
-        valid_keys: T.any(T.type_parameter(:Key), T::Array[T.type_parameter(:Key)]),
-      ).void
-    }
+    sig { params(hash: T::Hash[Object, T.anything], valid_keys: Object).void }
     def assert_valid_keys(hash, *valid_keys)
       valid_keys.flatten!
       hash.each_key do |key|
         next if valid_keys.include?(key)
 
         Kernel.raise ArgumentError,
-                     "Unknown key: #{T.unsafe(key).inspect}. " \
-                     "Valid keys are: #{valid_keys.map { |valid_key| T.unsafe(valid_key).inspect }.join(", ")}"
+                     "Unknown key: #{key.inspect}. " \
+                     "Valid keys are: #{valid_keys.map(&:inspect).join(", ")}"
       end
     end
   end

@@ -419,8 +419,8 @@ module Formulary
         resolved_spec = spec || tab.spec
         f.active_spec = resolved_spec if f.public_send(resolved_spec)
         f.build = tab
-        if f.head? && tab.tabfile
-          k = Keg.new(T.must(tab.tabfile).parent)
+        if f.head? && (tabfile = tab.tabfile)
+          k = Keg.new(tabfile.parent)
           f.version.update_commit(k.version.version.commit) if k.version.head?
         end
       end
@@ -451,7 +451,7 @@ module Formulary
   sig { params(name: String).returns(String) }
   def self.class_s(name)
     class_name = name.capitalize
-    class_name.gsub!(/[-_.\s]([a-zA-Z0-9])/) { T.must(Regexp.last_match(1)).upcase }
+    class_name.gsub!(/[-_.\s][a-zA-Z0-9]/) { |matched| matched.chars.fetch(-1).upcase }
     class_name.tr!("+", "x")
     class_name.sub!(/(.)@(\d)/, "\\1AT\\2")
     class_name

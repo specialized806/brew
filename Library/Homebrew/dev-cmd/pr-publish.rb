@@ -63,7 +63,7 @@ module Homebrew
             inputs[:large_runner] = true
           end
 
-          if args.tap.present? && !T.must("#{user}/#{repo}".casecmp(tap.full_name)).zero?
+          if args.tap.present? && !"#{user}/#{repo}".casecmp?(tap.full_name)
             odie "Pull request URL is for #{user}/#{repo} but `--tap=#{tap.full_name}` was specified!"
           end
 

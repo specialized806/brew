@@ -10,20 +10,19 @@ module WriteMkpathExtension
   sig {
     params(
       content:           Object,
-      offset:            Integer,
-      external_encoding: T.any(String, Encoding),
-      internal_encoding: T.any(String, Encoding),
-      encoding:          T.any(String, Encoding),
+      offset:            T.nilable(Integer),
+      external_encoding: T.nilable(T.any(String, Encoding)),
+      internal_encoding: T.nilable(T.any(String, Encoding)),
+      encoding:          T.nilable(T.any(String, Encoding)),
       textmode:          BasicObject,
       binmode:           BasicObject,
       autoclose:         BasicObject,
-      mode:              String,
-      perm:              Integer,
+      mode:              T.nilable(String),
+      perm:              T.nilable(Integer),
     ).returns(Integer)
   }
-  def write(content, offset = T.unsafe(nil), external_encoding: T.unsafe(nil), internal_encoding: T.unsafe(nil),
-            encoding: T.unsafe(nil), textmode: T.unsafe(nil), binmode: T.unsafe(nil), autoclose: T.unsafe(nil),
-            mode: T.unsafe(nil), perm: T.unsafe(nil))
+  def write(content, offset = nil, external_encoding: nil, internal_encoding: nil, encoding: nil, textmode: nil,
+            binmode: nil, autoclose: nil, mode: nil, perm: nil)
     raise "Will not overwrite #{self}" if exist? && !offset && !mode&.match?(/^a\+?$/)
 
     dirname.mkpath

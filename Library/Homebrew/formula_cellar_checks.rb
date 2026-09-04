@@ -364,8 +364,9 @@ module FormulaCellarChecks
     keg = Keg.new(formula.prefix)
     mismatches = {}
     keg.binary_executable_or_library_files.each do |file|
-      # we know this has an `arch` method because it's a `MachOShim` or `ELFShim`
-      farch = T.unsafe(file).arch
+      next if !file.is_a?(MachOShim) && !file.is_a?(ELFShim)
+
+      farch = file.arch
       mismatches[file] = farch if farch != Hardware::CPU.arch
     end
     return if mismatches.empty?

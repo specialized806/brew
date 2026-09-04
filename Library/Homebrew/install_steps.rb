@@ -1373,7 +1373,7 @@ module Homebrew
       sig { params(content: String).returns(String) }
       def expand_template_tokens(content)
         content.gsub(/\{\{([A-Za-z_][\w.]*)\}\}/) do |match|
-          value = template_token_value(T.must(Regexp.last_match(1)))
+          value = template_token_value(match.delete_prefix("{{").delete_suffix("}}"))
           value.nil? ? match : value.to_s
         end
       end

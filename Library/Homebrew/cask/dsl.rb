@@ -482,12 +482,10 @@ module Cask
     # ```
     #
     # @api public
-    sig {
-      params(from: String,
-             to:   String).returns(T::Array[DSL::Rename])
-    }
-    def rename(from = T.unsafe(nil), to = T.unsafe(nil))
+    sig { params(from: T.nilable(String), to: T.nilable(String)).returns(T::Array[DSL::Rename]) }
+    def rename(from = nil, to = nil)
       return @rename if from.nil?
+      raise CaskInvalidError.new(cask, "`rename` requires both a `from` and a `to` filename") if to.nil?
 
       @rename << DSL::Rename.new(from, to)
     end

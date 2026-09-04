@@ -147,22 +147,20 @@ module UnpackStrategy
           retry
         end
 
-        Tempfile.open(["", ".bom"]) do |bomfile|
+        Tempfile.create(["", ".bom"]) do |bomfile|
           bomfile.close
 
-          Tempfile.open(["", ".list"]) do |filelist|
+          Tempfile.create(["", ".list"]) do |filelist|
             filelist.puts(bom)
             filelist.close
 
             system_command! "mkbom",
-                            args:    ["-s", "-i", T.must(filelist.path), "--", T.must(bomfile.path)],
+                            args:    ["-s", "-i", filelist.path, "--", bomfile.path],
                             verbose:
           end
 
-          bomfile_path = T.must(bomfile.path)
-
           system_command!("ditto",
-                          args:      ["--bom", bomfile_path, "--", path, unpack_dir],
+                          args:      ["--bom", bomfile.path, "--", path, unpack_dir],
                           verbose:,
                           reset_uid: true)
 

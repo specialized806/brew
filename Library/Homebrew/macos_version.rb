@@ -62,9 +62,9 @@ class MacOSVersion < Version
 
   sig { params(version: T.nilable(String)).void }
   def initialize(version)
-    raise MacOSVersion::Error, version unless /\A\d{2,}(?:\.\d+){0,2}\z/.match?(version)
+    raise MacOSVersion::Error, version if version.nil? || !/\A\d{2,}(?:\.\d+){0,2}\z/.match?(version)
 
-    super(T.must(version))
+    super
 
     @comparison_cache = T.let({}, T::Hash[T.untyped, T.nilable(Integer)])
     @pretty_name = T.let(nil, T.nilable(String))
@@ -97,7 +97,7 @@ class MacOSVersion < Version
     return self if null?
 
     # Big Sur is 11.x but Catalina is 10.15.x.
-    if T.must(major) >= 11
+    if major.to_i >= 11
       self.class.new(major.to_s)
     else
       major_minor

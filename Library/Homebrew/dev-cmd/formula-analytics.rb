@@ -61,6 +61,7 @@ module Homebrew
       end
 
       FIRST_INFLUXDB_ANALYTICS_DATE = Date.new(2023, 03, 27).freeze
+      STANDARD_PREFIXES = %w[/opt/homebrew /usr/local /home/linuxbrew/.linuxbrew].freeze
 
       sig { override.void }
       def run
@@ -206,7 +207,6 @@ module Homebrew
           when :homebrew_prefixes
             dimension_key = "prefix"
             groups = [:prefix, :os, :arch]
-            standard_prefixes = %w[/opt/homebrew /usr/local /home/linuxbrew/.linuxbrew]
           when :homebrew_versions
             dimension_key = "version"
             groups = [:version]
@@ -278,7 +278,7 @@ module Homebrew
               end
             when :homebrew_prefixes
               prefix = record["prefix"].to_s
-              if T.must(standard_prefixes).none? { |std| std.casecmp?(prefix) }
+              if STANDARD_PREFIXES.none? { |std| std.casecmp?(prefix) }
                 "custom-prefix (#{record["os"]} #{record["arch"]})"
               else
                 prefix

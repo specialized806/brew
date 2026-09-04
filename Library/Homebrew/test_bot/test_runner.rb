@@ -259,10 +259,10 @@ module Homebrew
               formulae_test.run!(args:)
 
               formulae_test.skipped_or_failed_formulae
-            elsif args.skipped_or_failed_formulae.present?
-              Array.new(T.must(args.skipped_or_failed_formulae))
-            elsif T.must(@skipped_or_failed_formulae_output_path).exist?
-              T.must(@skipped_or_failed_formulae_output_path).read.chomp.split(",")
+            elsif (skipped_or_failed_formulae_args = args.skipped_or_failed_formulae.presence)
+              Array.new(skipped_or_failed_formulae_args)
+            elsif (output_path = @skipped_or_failed_formulae_output_path)&.exist?
+              output_path.read.chomp.split(",")
             else
               []
             end

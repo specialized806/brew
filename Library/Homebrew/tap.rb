@@ -58,12 +58,9 @@ class Tap
   def self.fetch(user, repository = nil)
     user, repository = user.split("/", 2) if repository.nil?
 
-    if [user, repository].any? { |part| part.nil? || part.include?("/") }
+    if user.nil? || repository.nil? || [user, repository].any? { |part| part.include?("/") }
       raise InvalidNameError, "Invalid tap name: '#{[*user, *repository].join("/")}'"
     end
-
-    user = T.must(user)
-    repository = T.must(repository)
 
     # We special case homebrew and linuxbrew so that users don't have to shift in a terminal.
     user = user.capitalize if ["homebrew", "linuxbrew"].include?(user)
@@ -94,9 +91,8 @@ class Tap
   def self.with_formula_name(name)
     return unless (match = name.match(HOMEBREW_TAP_FORMULA_REGEX))
 
-    user = T.must(match[:user])
-    repository = T.must(match[:repository])
-    name = T.must(match[:name])
+    user, repository, name = match.values_at(:user, :repository, :name)
+    return if !user || !repository || !name
 
     # Relative paths are not taps.
     return if [user, repository].intersect?([".", ".."])
@@ -109,9 +105,8 @@ class Tap
   def self.with_cask_token(token)
     return unless (match = token.match(HOMEBREW_TAP_CASK_REGEX))
 
-    user = T.must(match[:user])
-    repository = T.must(match[:repository])
-    token = T.must(match[:token])
+    user, repository, token = match.values_at(:user, :repository, :token)
+    return if !user || !repository || !token
 
     # Relative paths are not taps.
     return if [user, repository].intersect?([".", ".."])
@@ -404,7 +399,7 @@ class Tap
     return unless (remote = self.remote)
     return unless (match = remote.match(HOMEBREW_TAP_REPOSITORY_REGEX))
 
-    @remote_repository ||= T.let(T.must(match[:remote_repository]), T.nilable(String))
+    @remote_repository ||= T.let(match[:remote_repository], T.nilable(String))
   end
 
   # The default remote path to this {Tap}.
@@ -485,21 +480,19 @@ class Tap
   def private?
     return @private unless @private.nil?
 
-    @private = T.let(
-      begin
-        if core_tap? || core_cask_tap?
-          false
-        elsif custom_remote? || (value = GitHub.private_repo?(full_name)).nil?
-          true
-        else
-          value
-        end
-      rescue GitHub::API::Error
+    private_repo = begin
+      if core_tap? || core_cask_tap?
+        false
+      elsif custom_remote? || (value = GitHub.private_repo?(full_name)).nil?
         true
-      end,
-      T.nilable(T::Boolean),
-    )
-    T.must(@private)
+      else
+        value
+      end
+    rescue GitHub::API::Error
+      true
+    end
+    @private = T.let(private_repo, T.nilable(T::Boolean))
+    private_repo
   end
 
   # {TapConfig} of this {Tap}.
@@ -540,8 +533,9 @@ class Tap
   def update_remote_from_git_redirect!(output, quiet: false)
     output.each_line do |line|
       next unless (match = line.match(GIT_REDIRECT_REMOTE_REGEX))
+      next unless (redirected_remote = match[:remote])
 
-      apply_redirected_remote!(T.must(match[:remote]), quiet:)
+      apply_redirected_remote!(redirected_remote, quiet:)
       break
     end
   end
@@ -852,9 +846,10 @@ class Tap
     update_remote_from_git_redirect!(result.stderr, quiet:)
     git_repository.set_head_origin_auto
 
-    current_upstream_head ||= T.must(git_repository.origin_branch_name)
+    new_upstream_head = git_repository.origin_branch_name
+    raise "Could not determine the default branch of #{name}" if new_upstream_head.nil?
 
-    new_upstream_head = T.must(git_repository.origin_branch_name)
+    current_upstream_head ||= new_upstream_head
     return if new_upstream_head == current_upstream_head
 
     safe_system "git", "-C", path, "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"
@@ -1305,6 +1300,8 @@ class Tap
   # Array with autobump names
   sig { overridable.returns(T::Array[String]) }
   def autobump
+    return @autobump if @autobump
+
     autobump_packages = if core_cask_tap?
       Homebrew::API::Cask.all_casks
     elsif core_tap?
@@ -1313,25 +1310,23 @@ class Tap
       {}
     end
 
-    @autobump ||= T.let(autobump_packages.select do |_, p|
+    autobump = autobump_packages.select do |_, p|
       next if p["disabled"]
       next if p["skip_livecheck"]
 
       p["autobump"] == true
-    end.keys, T.nilable(T::Array[String]))
+    end.keys
 
-    if @autobump.blank?
-      @autobump = T.let(
-        if (autobump_file = path/HOMEBREW_TAP_AUTOBUMP_FILE).file?
-          autobump_file.readlines(chomp: true)
-        else
-          []
-        end,
-        T.nilable(T::Array[String]),
-      )
+    if autobump.blank?
+      autobump = if (autobump_file = path/HOMEBREW_TAP_AUTOBUMP_FILE).file?
+        autobump_file.readlines(chomp: true)
+      else
+        []
+      end
     end
 
-    T.must(@autobump)
+    @autobump = T.let(autobump, T.nilable(T::Array[String]))
+    autobump
   end
 
   # Whether this {Tap} allows running bump commands on the given {Formula} or {Cask}.

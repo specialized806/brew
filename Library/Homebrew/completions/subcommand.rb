@@ -19,7 +19,9 @@ module Homebrew
                              .find do |candidate|
             candidate.subcommand_name == args.subcommand
           end
-          T.must(subcommand_class).new(args).run
+          raise UsageError, "Unknown `brew completions` subcommand: #{args.subcommand}" if subcommand_class.nil?
+
+          subcommand_class.new(args).run
         end
       end
     end

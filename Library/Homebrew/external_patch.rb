@@ -76,8 +76,8 @@ class ExternalPatch
 
         patch_files << children.fetch(0).basename
       end
-      dir = base_dir
-      dir /= T.must(resource.directory) if resource.directory.present?
+      resource_directory = resource.directory.presence
+      dir = resource_directory ? base_dir/resource_directory : base_dir
       dir.cd do
         patch_files.each do |patch_file|
           ohai "Applying #{patch_file}"
@@ -96,10 +96,11 @@ class ExternalPatch
     end
   rescue ErrorDuringExecution => e
     onoe e
-    spec_owner = T.cast(T.must(resource.owner), SoftwareSpec).owner
-    f = spec_owner.is_a?(::Formula) ? spec_owner : nil
+    resource_owner = resource.owner
+    spec_owner = resource_owner.owner if resource_owner.is_a?(SoftwareSpec)
+    formula = spec_owner if spec_owner.is_a?(::Formula)
     cmd, *args = e.cmd
-    raise BuildError.new(f, cmd, args, ENV.to_hash)
+    raise BuildError.new(formula, cmd, args, ENV.to_hash)
   end
 
   sig { returns(String) }

@@ -654,12 +654,10 @@ module OS
             [msg, nil]
           end
 
-          return unless messages.first.present?
+          message, remediation = messages
+          return if message.blank?
 
-          ::Homebrew::Diagnostic::Finding.new(
-            T.must(messages.first),
-            remediation: messages.last,
-          )
+          ::Homebrew::Diagnostic::Finding.new(message, remediation:)
         end
       end
     end

@@ -22,12 +22,12 @@ module Homebrew
 
       sig {
         type_parameters(:U).params(
-          os:     Symbol,
-          arch:   Symbol,
+          os:     T.nilable(Symbol),
+          arch:   T.nilable(Symbol),
           _block: T.proc.returns(T.type_parameter(:U)),
         ).returns(T.type_parameter(:U))
       }
-      def with(os: T.unsafe(nil), arch: T.unsafe(nil), &_block)
+      def with(os: nil, arch: nil, &_block)
         raise ArgumentError, "At least one of `os` or `arch` must be specified." if !os && !arch
 
         old_os = self.os

@@ -118,7 +118,7 @@ module Homebrew
         outdated_without_sbom = queryable.select { |f| stale_target?(f) }.map(&:name)
         return Results.new(findings: [], checked: 0, skipped_formulae:, outdated_without_sbom:) if queryable.empty?
 
-        targets = queryable.map { |f| T.must(target_for(f)) }
+        targets = queryable.filter_map { |f| target_for(f) }
         batch = OSV.query_batch(targets.map { |t| { ecosystem: "GIT", name: t.repo_url, version: t.tag } })
 
         findings = queryable.each_with_index.filter_map do |formula, index|

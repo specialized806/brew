@@ -19,11 +19,10 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy
   # @api public
   sig { returns(Pathname) }
   def symlink_location
-    return T.must(@symlink_location) if defined?(@symlink_location)
-
-    ext = Pathname(parse_basename(url)).extname
-    @symlink_location = T.let(@cache/Utils.safe_filename("#{name}--#{version}#{ext}"), T.nilable(Pathname))
-    T.must(@symlink_location)
+    @symlink_location ||= T.let(
+      @cache/Utils.safe_filename("#{name}--#{version}#{Pathname(parse_basename(url)).extname}"),
+      T.nilable(Pathname),
+    )
   end
 
   # Path for storing the completed download.
@@ -37,14 +36,11 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy
     downloads = Pathname.glob(HOMEBREW_CACHE/"downloads/#{url_sha256}--*")
                         .reject { |path| path.extname.end_with?(".incomplete") }
 
-    @cached_location = T.let(
-      if downloads.one?
-        downloads.fetch(0)
-      else
-        HOMEBREW_CACHE/"downloads/#{url_sha256}--#{Utils.safe_filename(resolved_basename)}"
-      end, T.nilable(Pathname)
-    )
-    T.must(@cached_location)
+    @cached_location = if downloads.one?
+      downloads.fetch(0)
+    else
+      HOMEBREW_CACHE/"downloads/#{url_sha256}--#{Utils.safe_filename(resolved_basename)}"
+    end
   end
 
   sig { override.returns(T.nilable(Integer)) }
@@ -121,8 +117,6 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy
 
   sig { returns([String, String]) }
   def resolved_url_and_basename
-    return T.must(@resolved_url_and_basename) if defined?(@resolved_url_and_basename)
-
-    T.must(@resolved_url_and_basename = T.let([url, parse_basename(url)], T.nilable([String, String])))
+    @resolved_url_and_basename ||= T.let([url, parse_basename(url)], T.nilable([String, String]))
   end
 end

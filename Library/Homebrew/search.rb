@@ -37,8 +37,8 @@ module Homebrew
 
     sig { params(query: String).returns(T.any(Regexp, String)) }
     def self.query_regexp(query)
-      if (m = query.match(QUERY_REGEX))
-        Regexp.new(T.must(m[1]))
+      if (regex = query[QUERY_REGEX, 1])
+        Regexp.new(regex)
       else
         query
       end

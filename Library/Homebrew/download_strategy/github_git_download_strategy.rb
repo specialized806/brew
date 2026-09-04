@@ -25,8 +25,8 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy
 
   sig { override.returns(String) }
   def last_commit
-    @last_commit ||= GitHub.last_commit(T.must(@user), T.must(@repo), @ref, T.cast(T.must(version), Version),
-                                        length: MINIMUM_COMMIT_HASH_LENGTH)
+    user, repo = github_user_and_repo
+    @last_commit ||= GitHub.last_commit(user, repo, @ref, head_version, length: MINIMUM_COMMIT_HASH_LENGTH)
     @last_commit || super
   end
 
@@ -36,10 +36,11 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy
     return super if last_commit.blank?
     return true unless last_commit.start_with?(commit)
 
-    if GitHub.multiple_short_commits_exist?(T.must(@user), T.must(@repo), commit)
+    user, repo = github_user_and_repo
+    if GitHub.multiple_short_commits_exist?(user, repo, commit)
       true
     else
-      T.must(@version).update_commit(commit)
+      head_version.update_commit(commit)
       false
     end
   end
@@ -66,5 +67,24 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy
                       chdir: cached_location
 
     @default_branch = T.let(result.stdout[%r{^refs/remotes/origin/(.*)$}, 1], T.nilable(String))
+  end
+
+  private
+
+  sig { returns([String, String]) }
+  def github_user_and_repo
+    user = @user
+    repo = @repo
+    raise ArgumentError, "#{url} is not a GitHub repository URL" if user.nil? || repo.nil?
+
+    [user, repo]
+  end
+
+  sig { returns(Version) }
+  def head_version
+    version = self.version
+    raise ArgumentError, "#{url} has no version" unless version.is_a?(Version)
+
+    version
   end
 end

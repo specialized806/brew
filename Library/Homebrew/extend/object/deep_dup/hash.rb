@@ -14,12 +14,17 @@ class Hash
   def deep_dup
     hash = dup
     each_pair do |key, value|
+      duplicated_value = case value
+      when ::Object then value.deep_dup
+      else value
+      end
+
       case key
       when ::String, ::Symbol
-        hash[key] = T.unsafe(value).deep_dup
-      else
+        hash[key] = duplicated_value
+      when ::Object
         hash.delete(key)
-        hash[T.unsafe(key).deep_dup] = T.unsafe(value).deep_dup
+        hash[key.deep_dup] = duplicated_value
       end
     end
     hash

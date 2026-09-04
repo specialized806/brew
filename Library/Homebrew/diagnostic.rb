@@ -518,13 +518,14 @@ module Homebrew
 
                   The following tools exist at both paths:
                 EOS
+                prepend_path = Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/bin")
                 remediation = Finding::Remediation.new(
                   text:     <<~EOS,
                     Consider setting your PATH so that
                     #{HOMEBREW_PREFIX}/bin occurs before /usr/bin. Here is a one-liner:
-                      #{Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/bin")}
+                      #{prepend_path}
                   EOS
-                  commands: [T.must(Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/bin"))],
+                  commands: [prepend_path].compact,
                 )
               end
             end
@@ -544,6 +545,7 @@ module Homebrew
         check_user_path_1 unless @user_path_1_done
         return if @seen_prefix_bin
 
+        prepend_path = Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/bin")
         Finding.new(
           <<~EOS,
             Homebrew's "bin" was not found in your PATH.
@@ -551,9 +553,9 @@ module Homebrew
           remediation: Finding::Remediation.new(
             text:     <<~EOS,
               Consider setting your PATH for example like so:
-                  #{Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/bin")}
+                  #{prepend_path}
             EOS
-            commands: [T.must(Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/bin"))],
+            commands: [prepend_path].compact,
           ),
         )
       end
@@ -569,6 +571,7 @@ module Homebrew
         return if sbin.children.empty?
         return if sbin.children.one? && sbin.children.first.basename.to_s == ".keepme"
 
+        prepend_path = Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/sbin")
         Finding.new(
           <<~EOS,
             Homebrew's "sbin" was not found in your PATH but you have installed
@@ -577,9 +580,9 @@ module Homebrew
           remediation: Finding::Remediation.new(
             text:     <<~EOS,
               Consider setting your PATH for example like so:
-                #{Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/sbin")}
+                #{prepend_path}
             EOS
-            commands: [T.must(Utils::Shell.prepend_path_in_profile("#{HOMEBREW_PREFIX}/sbin"))],
+            commands: [prepend_path].compact,
           ),
         )
       end
@@ -741,7 +744,8 @@ module Homebrew
         core_cask_tap = CoreCaskTap.instance
         return unless core_cask_tap.installed?
 
-        broken_tap(core_cask_tap) || examine_git_origin(core_cask_tap.git_repository, T.must(core_cask_tap.remote))
+        broken_tap(core_cask_tap) ||
+          examine_git_origin(core_cask_tap.git_repository, core_cask_tap.remote || core_cask_tap.default_remote)
       end
 
       sig { returns(T.nilable(Finding)) }

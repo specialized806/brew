@@ -69,8 +69,10 @@ module Homebrew
           Process::Sys.seteuid(uid)
         end
 
-        home = T.must(Etc.getpwuid(Process.uid)).dir
-        return_value = with_env("HOME" => home, &block)
+        passwd = Etc.getpwuid(uid)
+        raise "Could not find the home directory for UID #{uid}" if passwd.nil?
+
+        return_value = with_env("HOME" => passwd.dir, &block)
 
         if process_reexchangeable
           Process::UID.re_exchange

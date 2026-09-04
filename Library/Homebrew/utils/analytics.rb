@@ -416,9 +416,9 @@ module Utils
       sig { returns(T::Hash[Symbol, String]) }
       def default_package_fields
         cache[:default_package_fields] ||= begin
-          version = if (match_data = HOMEBREW_VERSION.match(/^[\d.]+/))
+          version = if (numeric_version = HOMEBREW_VERSION[/^[\d.]+/])
             suffix = "-dev" if HOMEBREW_VERSION.include?("-")
-            T.must(match_data[0]) + suffix.to_s
+            numeric_version + suffix.to_s
           else
             ">=4.1.22"
           end

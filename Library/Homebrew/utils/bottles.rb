@@ -183,11 +183,11 @@ module Utils
           /x
         end, T.nilable(Regexp))
         match = @all_archs_regex.match(value.to_s)
-        raise ArgumentError, "Invalid bottle tag symbol" unless match
+        system = match[:system] if match
+        raise ArgumentError, "Invalid bottle tag symbol" if match.nil? || system.nil?
 
-        system = T.must(match[:system]).to_sym
         arch = match[:arch]&.to_sym || :x86_64
-        new(system:, arch:)
+        new(system: system.to_sym, arch:)
       end
 
       sig { params(arg: T.nilable(Symbol), os: Symbol, arch: Symbol).returns(T.attached_class) }
@@ -283,13 +283,16 @@ module Utils
 
       sig { returns(String) }
       def default_prefix
-        if linux?
-          T.must(HOMEBREW_LINUX_DEFAULT_PREFIX)
+        prefix = if linux?
+          HOMEBREW_LINUX_DEFAULT_PREFIX
         elsif standardized_arch == :arm64
-          T.must(HOMEBREW_MACOS_ARM_DEFAULT_PREFIX)
+          HOMEBREW_MACOS_ARM_DEFAULT_PREFIX
         else
           HOMEBREW_DEFAULT_PREFIX
         end
+        raise "No default prefix is known for #{self}: HOMEBREW_*_DEFAULT_PREFIX is unset" if prefix.nil?
+
+        prefix
       end
 
       sig { returns(String) }

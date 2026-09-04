@@ -200,7 +200,7 @@ module Homebrew
           targets:  T::Array[Services::FormulaWrapper],
           verbose:  T::Boolean,
           no_wait:  T::Boolean,
-          max_wait: T.nilable(T.any(Integer, Float)),
+          max_wait: T.any(Integer, Float),
           keep:     T::Boolean,
         ).void
       }
@@ -263,7 +263,6 @@ module Homebrew
                 unless no_wait
                   time_slept = 0
                   sleep_time = 1
-                  max_wait = T.must(max_wait)
                   exit_status = $CHILD_STATUS.exitstatus
                   while dont_wait_statuses.exclude?(exit_status) &&
                         (exit_status == Errno::EINPROGRESS::Errno ||
@@ -496,7 +495,10 @@ module Homebrew
 
         service.destinations.each { |destination| rm destination if destination.exist? }
         service.dest_dir.mkpath unless service.dest_dir.directory?
-        cp T.must(temp.path), service.dest
+        temp_path = temp.path
+        raise "Could not create a temporary service file for `#{service.name}`." if temp_path.nil?
+
+        cp temp_path, service.dest
 
         # Clear tempfile.
         temp.close

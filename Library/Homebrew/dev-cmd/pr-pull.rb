@@ -225,7 +225,9 @@ module Homebrew
 
         if pull_request
           # This is a tap pull request and approving reviewers should also sign-off.
-          tap = T.must(Tap.from_path(git_repo.pathname))
+          tap = Tap.from_path(git_repo.pathname)
+          raise ArgumentError, "#{git_repo.pathname} is not in a tap" if tap.nil?
+
           review_trailers = GitHub.repository_approved_reviews(tap.user, tap.full_repository, pull_request).map do |r|
             "Signed-off-by: #{r["name"]} <#{r["email"]}>"
           end
@@ -270,7 +272,9 @@ module Homebrew
       }
       def determine_bump_subject(old_contents, new_contents, subject_path, reason: nil)
         subject_path = Pathname(subject_path)
-        tap          = T.must(Tap.from_path(subject_path))
+        tap          = Tap.from_path(subject_path)
+        raise ArgumentError, "#{subject_path} is not in a tap" if tap.nil?
+
         subject_name = subject_path.basename.to_s.chomp(".rb")
         is_cask      = subject_path.to_s.start_with?("#{tap.cask_dir}/")
         name         = is_cask ? "cask" : "formula"

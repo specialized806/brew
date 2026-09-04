@@ -15,7 +15,10 @@ module Tapioca
 
       sig { override.void }
       def decorate
-        root.create_class(T.must(constant.name)) do |klass|
+        class_name = constant.name
+        raise ArgumentError, "Cannot generate RBI for anonymous struct #{constant.inspect}" if class_name.nil?
+
+        root.create_class(class_name) do |klass|
           # `constant` is one of the gathered structs, resolved at runtime.
           # rubocop:disable Sorbet/ConstantsFromStrings
           constant.const_get(:PREDICATES).each do |predicate_name|

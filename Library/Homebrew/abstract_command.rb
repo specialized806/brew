@@ -32,7 +32,10 @@ module Homebrew
       def command_name
         require "utils"
 
-        Utils.underscore(T.must(name).split("::").fetch(-1))
+        class_name = name
+        raise TypeError, "anonymous commands do not have names" if class_name.nil?
+
+        Utils.underscore(class_name.split("::").fetch(-1))
              .tr("_", "-")
              .delete_suffix("-cmd")
       end
@@ -42,7 +45,7 @@ module Homebrew
       def command(name) = subclasses.find { it.command_name == name }
 
       sig { returns(T::Boolean) }
-      def dev_cmd? = T.must(name).start_with?("Homebrew::DevCmd")
+      def dev_cmd? = name.to_s.start_with?("Homebrew::DevCmd")
 
       sig { returns(T::Boolean) }
       def ruby_cmd? = !include?(Homebrew::ShellCommand)

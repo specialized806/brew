@@ -88,9 +88,10 @@ module Homebrew
       def self.satisfies?(target, conjunction)
         conjunction.split(",").all? do |term|
           match = term.match(CONSTRAINT)
-          next false unless match
+          bound_string = match[2] if match
+          next false if match.nil? || bound_string.nil?
 
-          bound = Version.new(T.must(match[2]))
+          bound = Version.new(bound_string)
           case match[1]
           when "<"  then target < bound
           when "<=" then target <= bound
@@ -105,7 +106,10 @@ module Homebrew
       def self.lower_bounds(conjunction)
         conjunction.split(",").filter_map do |term|
           match = term.match(CONSTRAINT)
-          Version.new(T.must(match[2])) if match && LOWER_BOUND_OPS.include?(match[1])
+          next if match.nil? || LOWER_BOUND_OPS.exclude?(match[1])
+
+          bound_string = match[2]
+          Version.new(bound_string) unless bound_string.nil?
         end
       end
 

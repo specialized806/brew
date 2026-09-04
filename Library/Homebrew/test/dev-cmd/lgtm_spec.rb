@@ -186,7 +186,7 @@ RSpec.describe Homebrew::DevCmd::Lgtm do
   end
 
   describe "cache fallback" do
-    let(:repository_root) { Pathname(T.must(__dir__)).parent.parent.parent.parent }
+    let(:repository_root) { HOMEBREW_LIBRARY_PATH.parent.parent }
     let(:test_root) do
       (repository_root/"tmp").mkpath
       Pathname(Dir.mktmpdir("brew-lgtm-cache-fallback-", repository_root/"tmp"))

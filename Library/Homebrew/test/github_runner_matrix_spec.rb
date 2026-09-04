@@ -79,8 +79,8 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
         name:         "macOS 11-cross arm64",
         timeout:      2160,
         target_macos: nil,
+        runner:       start_with("11-arm64-cross-"),
       )
-      expect(T.must(arm_runner).fetch(:runner)).to start_with("11-arm64-cross-")
     end
   end
 

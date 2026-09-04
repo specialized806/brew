@@ -79,7 +79,7 @@ class DependencyCollector
   def cache_key(spec)
     if spec.is_a?(Resource)
       if spec.download_strategy <= CurlDownloadStrategy
-        return "#{spec.download_strategy}#{File.extname(T.must(spec.url)).split("?").first}"
+        return "#{spec.download_strategy}#{File.extname(resource_url(spec)).split("?").first}"
       end
 
       return spec.download_strategy
@@ -225,11 +225,11 @@ class DependencyCollector
     return if strategy.nil?
 
     if strategy <= HomebrewCurlDownloadStrategy
-      [curl_dep_if_needed(tags), parse_url_spec(T.must(spec.url), tags)]
+      [curl_dep_if_needed(tags), parse_url_spec(resource_url(spec), tags)]
     elsif strategy <= NoUnzipCurlDownloadStrategy
       # ensure NoUnzip never adds any dependencies
     elsif strategy <= CurlDownloadStrategy
-      parse_url_spec(T.must(spec.url), tags)
+      parse_url_spec(resource_url(spec), tags)
     elsif strategy <= GitDownloadStrategy
       git_dep_if_needed(tags)
     elsif strategy <= SubversionDownloadStrategy
@@ -247,6 +247,14 @@ class DependencyCollector
     else
       raise TypeError, "#{strategy.inspect} is not an AbstractDownloadStrategy subclass"
     end
+  end
+
+  sig { params(spec: Resource).returns(String) }
+  def resource_url(spec)
+    url = spec.url
+    raise ArgumentError, "Resource #{spec.name} has no URL" if url.nil?
+
+    url
   end
 
   sig { params(url: String, tags: T::Array[T.any(String, Symbol)]).returns(T.nilable(Dependency)) }

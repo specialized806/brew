@@ -27,13 +27,7 @@ module Utils
       # Keep in sync with `ohai` in Library/Homebrew/utils.sh.
       sig { params(title: String).returns(String) }
       def ohai_title(title)
-        verbose = if respond_to?(:verbose?)
-          T.unsafe(self).verbose?
-        else
-          Context.current.verbose?
-        end
-
-        title = Tty.truncate(title.to_s) if $stdout.tty? && !verbose
+        title = Tty.truncate(title.to_s) if $stdout.tty? && !output_context?(:verbose?)
         Formatter.headline(title, color: :blue)
       end
 
@@ -45,13 +39,7 @@ module Utils
 
       sig { params(title: T.any(String, Exception), sput: T.anything, always_display: T::Boolean).void }
       def odebug(title, *sput, always_display: false)
-        debug = if respond_to?(:debug)
-          T.unsafe(self).debug?
-        else
-          Context.current.debug?
-        end
-
-        return if !debug && !always_display
+        return if !always_display && !output_context?(:debug?)
 
         $stderr.puts Formatter.headline(title.to_s, color: :magenta)
         $stderr.puts sput unless sput.empty?
@@ -59,13 +47,7 @@ module Utils
 
       sig { params(title: String, truncate: T.any(Symbol, T::Boolean)).returns(String) }
       def oh1_title(title, truncate: :auto)
-        verbose = if respond_to?(:verbose?)
-          T.unsafe(self).verbose?
-        else
-          Context.current.verbose?
-        end
-
-        title = Tty.truncate(title.to_s) if $stdout.tty? && !verbose && truncate == :auto
+        title = Tty.truncate(title.to_s) if $stdout.tty? && truncate == :auto && !output_context?(:verbose?)
         Formatter.headline(title, color: :green)
       end
 
@@ -396,6 +378,14 @@ module Utils
 
         res << Utils.pluralize("second", seconds, include_count: true)
         res.freeze
+      end
+
+      private
+
+      # `verbose?` and `debug?` are duck-typed on includers such as `FormulaInstaller`.
+      sig { params(flag: Symbol).returns(T::Boolean) }
+      def output_context?(flag)
+        respond_to?(flag) ? public_send(flag) : Context.current.public_send(flag)
       end
     end
 

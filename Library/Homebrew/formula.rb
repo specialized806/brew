@@ -110,6 +110,14 @@ class Formula
   DEFAULT_NETWORK_ACCESS_ALLOWED = true
   private_constant :DEFAULT_NETWORK_ACCESS_ALLOWED
 
+  # Ensure these are synced with `inherited`.
+  @conflicts = T.let([], T::Array[FormulaConflict])
+  @skip_clean_paths = T.let(Set.new, T::Set[T.any(String, Symbol)])
+  @link_overwrite_paths = T.let(Set.new, T::Set[String])
+  @network_access_allowed = T.let(SUPPORTED_NETWORK_ACCESS_PHASES.to_h do |phase|
+    [phase, DEFAULT_NETWORK_ACCESS_ALLOWED]
+  end, T::Hash[Symbol, T::Boolean])
+
   # The name of this {Formula}.
   # e.g. `this-formula`
   #
@@ -298,8 +306,8 @@ class Formula
 
     @pypi_packages_info = T.let(self.class.pypi_packages_info || PypiPackages.new, PypiPackages)
 
-    @full_name = T.let(T.must(full_name_with_optional_tap(name)), String)
-    @full_alias_name = T.let(full_name_with_optional_tap(@alias_name), T.nilable(String))
+    @full_name = T.let(full_name_with_optional_tap(name), String)
+    @full_alias_name = T.let((full_name_with_optional_tap(@alias_name) if @alias_name), T.nilable(String))
 
     self.class.spec_syms.each do |sym|
       spec_eval sym
@@ -407,9 +415,9 @@ class Formula
   private
 
   # Allow full name logic to be re-used between names, aliases and installed aliases.
-  sig { params(name: T.nilable(String)).returns(T.nilable(String)) }
+  sig { params(name: String).returns(String) }
   def full_name_with_optional_tap(name)
-    if name.nil? || @tap.nil? || @tap.core_tap?
+    if @tap.nil? || @tap.core_tap?
       name
     else
       "#{@tap}/#{name}"
@@ -472,7 +480,10 @@ class Formula
   def installed_alias_name = installed_alias_path&.basename&.to_s
 
   sig { returns(T.nilable(String)) }
-  def full_installed_alias_name = full_name_with_optional_tap(installed_alias_name)
+  def full_installed_alias_name
+    installed_alias_name = self.installed_alias_name
+    full_name_with_optional_tap(installed_alias_name) if installed_alias_name
+  end
 
   sig { returns(Tap) }
   def tap!
@@ -651,8 +662,7 @@ class Formula
   sig { void }
   def update_head_version
     return unless head?
-
-    head_spec = T.must(head)
+    return unless (head_spec = head)
     return unless head_spec.downloader.is_a?(VCSDownloadStrategy)
     return unless head_spec.downloader.cached_location.exist?
 
@@ -861,15 +871,13 @@ class Formula
   #
   # @api public
   sig {
-    params(name: String, klass: T.class_of(Resource), block: T.nilable(T.proc.bind(Resource).void))
+    params(name: T.nilable(String), klass: T.class_of(Resource), block: T.nilable(T.proc.bind(Resource).void))
       .returns(T.nilable(Resource))
   }
-  def resource(name = T.unsafe(nil), klass = T.unsafe(nil), &block)
-    if klass.nil?
-      active_spec.resource(*name, &block)
-    else
-      active_spec.resource(name, klass, &block)
-    end
+  def resource(name = nil, klass = Resource, &block)
+    return active_spec.resource(&block) if name.nil?
+
+    active_spec.resource(name, klass, &block)
   end
 
   # Old names for the formula.
@@ -1015,11 +1023,12 @@ class Formula
     return true if tab.version_scheme < version_scheme
 
     tab_stable_version = tab.stable_version
-    return true if stable && tab_stable_version && tab_stable_version < T.must(stable).version
+    stable_spec = stable
+    return true if stable_spec && tab_stable_version && tab_stable_version < stable_spec.version
     return false unless fetch_head
-    return false unless head&.downloader.is_a?(VCSDownloadStrategy)
 
-    downloader = T.must(head).downloader
+    downloader = head&.downloader
+    return false unless downloader.is_a?(VCSDownloadStrategy)
 
     with_context quiet: true do
       downloader.commit_outdated?(version.version.commit)
@@ -1031,7 +1040,10 @@ class Formula
     return pkg_version unless (latest_version = latest_head_version)
     return latest_version unless head_version_outdated?(latest_version, fetch_head:)
 
-    downloader = T.must(head).downloader
+    head_spec = head
+    raise FormulaSpecificationError, "#{full_name} has a HEAD version installed but no head spec" if head_spec.nil?
+
+    downloader = head_spec.downloader
     with_context quiet: true do
       PkgVersion.new(Version.new("HEAD-#{downloader.last_commit}"), revision)
     end
@@ -1041,8 +1053,8 @@ class Formula
   sig { returns(Pathname) }
   def latest_installed_prefix
     if head && (head_version = latest_head_version) && !head_version_outdated?(head_version)
-      T.must(latest_head_prefix)
-    elsif stable && (stable_prefix = prefix(PkgVersion.new(T.must(stable).version, revision))).directory?
+      prefix(head_version)
+    elsif (stable_spec = stable) && (stable_prefix = prefix(PkgVersion.new(stable_spec.version, revision))).directory?
       stable_prefix
     else
       prefix
@@ -1775,10 +1787,10 @@ class Formula
   # @see .skip_clean
   sig { params(path: Pathname).returns(T::Boolean) }
   def skip_clean?(path)
-    return true if path.extname == ".la" && T.must(self.class.skip_clean_paths).include?(:la)
+    return true if path.extname == ".la" && self.class.skip_clean_paths.include?(:la)
 
     to_check = path.relative_path_from(prefix).to_s
-    T.must(self.class.skip_clean_paths).include? to_check
+    self.class.skip_clean_paths.include? to_check
   end
 
   # @see .link_overwrite
@@ -1806,7 +1818,7 @@ class Formula
     end
 
     to_check = path.relative_path_from(HOMEBREW_PREFIX).to_s
-    return true if T.must(self.class.link_overwrite_paths).any? do |p|
+    return true if self.class.link_overwrite_paths.any? do |p|
       p.to_s == to_check ||
       to_check.start_with?("#{p.to_s.chomp("/")}/") ||
       /^#{Regexp.escape(p.to_s).gsub('\*', ".*?")}$/.match?(to_check)
@@ -1970,8 +1982,9 @@ class Formula
 
   sig { returns(T::Array[String]) }
   def lock
-    @lock = T.let(FormulaLock.new(name), T.nilable(FormulaLock))
-    T.must(@lock).lock
+    formula_lock = FormulaLock.new(name)
+    @lock = T.let(formula_lock, T.nilable(FormulaLock))
+    formula_lock.lock
 
     oldnames.each do |oldname|
       next unless (oldname_rack = HOMEBREW_CELLAR/oldname).exist?
@@ -2052,7 +2065,8 @@ class Formula
 
   sig { returns(T.nilable(Formula)) }
   def current_installed_alias_target
-    Formulary.factory(T.must(full_installed_alias_name)) if installed_alias_path
+    alias_name = full_installed_alias_name
+    Formulary.factory(alias_name) if alias_name
   end
 
   # Has the target of the alias used to install this formula changed?
@@ -2080,7 +2094,8 @@ class Formula
   # Otherwise, return the latest version of the current formula.
   sig { returns(Formula) }
   def latest_formula
-    installed_alias_target_changed? ? T.must(current_installed_alias_target) : self
+    target = current_installed_alias_target if installed_alias_target_changed?
+    target || self
   end
 
   sig { returns(T::Array[Formula]) }
@@ -2786,9 +2801,9 @@ class Formula
   # True if this formula is provided by an external {Tap}.
   sig { returns(T::Boolean) }
   def tap?
-    return false unless tap
+    return false unless (t = tap)
 
-    !T.must(tap).core_tap?
+    !t.core_tap?
   end
 
   # True if this formula can be installed on this platform.
@@ -2832,7 +2847,7 @@ class Formula
   #
   # @api internal
   sig { returns(T::Array[FormulaConflict]) }
-  def conflicts = T.must(self.class.conflicts)
+  def conflicts = self.class.conflicts
 
   # Returns a list of {Dependency} objects in an installable order, which
   # means if `a` depends on `b` then `b` will be ordered before `a` in this list.
@@ -3015,7 +3030,10 @@ class Formula
 
   sig { returns(T.nilable(String)) }
   def ruby_source_path
-    path.relative_path_from(T.must(tap).path).to_s if tap && path.exist?
+    return unless (t = tap)
+    return unless path.exist?
+
+    path.relative_path_from(t.path).to_s
   end
 
   sig { returns(T.nilable(Checksum)) }
@@ -3214,8 +3232,7 @@ class Formula
   def urls_hash
     hash = {}
 
-    if stable
-      stable_spec = T.must(stable)
+    if (stable_spec = stable)
       hash["stable"] = {
         "url"      => stable_spec.url,
         "tag"      => stable_spec.specs[:tag],
@@ -3225,11 +3242,11 @@ class Formula
       }
     end
 
-    if head
+    if (head_spec = head)
       hash["head"] = {
-        "url"    => T.must(head).url,
-        "branch" => T.must(head).specs[:branch],
-        "using"  => (T.must(head).using if T.must(head).using.is_a?(Symbol)),
+        "url"    => head_spec.url,
+        "branch" => head_spec.specs[:branch],
+        "using"  => (head_spec.using if head_spec.using.is_a?(Symbol)),
       }
     end
 
@@ -3709,9 +3726,11 @@ class Formula
     if latest_version_installed?
       eligible_kegs = if head? && (head_prefix = latest_head_prefix)
         head, stable = installed_kegs.partition { |keg| keg.version.head? }
+        stable = stable.sort_by(&:scheme_and_version)
 
         # Remove newest head and stable kegs.
-        head - [Keg.new(head_prefix)] + T.must(stable.sort_by(&:scheme_and_version).slice(0...-1))
+        stable.pop
+        head - [Keg.new(head_prefix)] + stable
       else
         installed_kegs.select do |keg|
           tab = keg.tab
@@ -3803,16 +3822,12 @@ class Formula
 
   sig { params(quiet: T::Boolean).void }
   def fetch_bottle_tab(quiet: false)
-    return unless bottled?
-
-    T.must(bottle).fetch_tab(quiet: quiet)
+    bottle&.fetch_tab(quiet:)
   end
 
   sig { returns(T::Hash[String, T.untyped]) }
   def bottle_tab_attributes
-    return {} unless bottled?
-
-    T.must(bottle).tab_attributes
+    bottle&.tab_attributes || {}
   end
 
   # Common environment variables used by sandboxed fetch, build, test and postinstall phases.
@@ -3889,8 +3904,9 @@ class Formula
   def stage(interactive: false, debug_symbols: false, staging_path: nil, staged: false, &_block)
     active_spec.stage(debug_symbols:, staging_path:, staged:) do |staging|
       @source_modified_time = T.let(active_spec.source_modified_time, T.nilable(Time))
-      @buildpath = T.let(Pathname.pwd, T.nilable(Pathname))
-      env_home = T.must(buildpath)/".brew_home"
+      buildpath = Pathname.pwd
+      @buildpath = T.let(buildpath, T.nilable(Pathname))
+      env_home = buildpath/".brew_home"
       mkdir_p env_home
 
       stage_env = {
@@ -3933,9 +3949,9 @@ class Formula
         @stable = T.let(SoftwareSpec.new(flags: build_flags), T.nilable(SoftwareSpec))
         @head = T.let(HeadSoftwareSpec.new(flags: build_flags), T.nilable(HeadSoftwareSpec))
         @livecheck = T.let(Livecheck.new(self), T.nilable(Livecheck))
-        @conflicts = T.let([], T.nilable(T::Array[FormulaConflict]))
-        @skip_clean_paths = T.let(Set.new, T.nilable(T::Set[T.any(String, Symbol)]))
-        @link_overwrite_paths = T.let(Set.new, T.nilable(T::Set[String]))
+        @conflicts = []
+        @skip_clean_paths = Set.new
+        @link_overwrite_paths = Set.new
         @post_install_steps = T.let([], T.nilable(Homebrew::InstallSteps::Steps))
         @post_install_steps_defined = T.let(false, T.nilable(T::Boolean))
         @loaded_from_api = T.let(false, T.nilable(T::Boolean))
@@ -3943,9 +3959,9 @@ class Formula
         @api_source = T.let(nil, T.nilable(T::Hash[String, T.untyped]))
         @on_system_blocks_exist = T.let(false, T.nilable(T::Boolean))
         @homepage_browsed = T.let(nil, T.nilable(Date))
-        @network_access_allowed = T.let(SUPPORTED_NETWORK_ACCESS_PHASES.to_h do |phase|
+        @network_access_allowed = SUPPORTED_NETWORK_ACCESS_PHASES.to_h do |phase|
           [phase, DEFAULT_NETWORK_ACCESS_ALLOWED]
-        end, T.nilable(T::Hash[Symbol, T::Boolean]))
+        end
         @preserve_rpath = T.let(false, T.nilable(T::Boolean))
         @pypi_packages_info = T.let(nil, T.nilable(PypiPackages))
       end
@@ -3964,7 +3980,7 @@ class Formula
     end
 
     sig { returns(T::Hash[Symbol, T::Boolean]) }
-    def network_access_allowed = T.must(@network_access_allowed)
+    attr_reader :network_access_allowed
 
     # Whether this formula was loaded using the formulae.brew.sh API.
     sig { returns(T::Boolean) }
@@ -4001,8 +4017,8 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(val: String).returns(T.nilable(String)) }
-    def desc(val = T.unsafe(nil))
+    sig { params(val: T.nilable(String)).returns(T.nilable(String)) }
+    def desc(val = nil)
       val.nil? ? @desc : @desc = T.let(val, T.nilable(String))
     end
 
@@ -4200,8 +4216,8 @@ class Formula
     # Automated homepage availability audits are skipped for one year.
     #
     # @api public
-    sig { params(val: String, browsed: T.nilable(String)).returns(T.nilable(String)) }
-    def homepage(val = T.unsafe(nil), browsed: nil)
+    sig { params(val: T.nilable(String), browsed: T.nilable(String)).returns(T.nilable(String)) }
+    def homepage(val = nil, browsed: nil)
       if val.nil?
         raise ArgumentError, "`browsed` requires a homepage URL" if browsed
 
@@ -4233,13 +4249,13 @@ class Formula
       @service_block.present?
     end
 
-    sig { returns(T.nilable(T::Array[FormulaConflict])) }
+    sig { returns(T::Array[FormulaConflict]) }
     attr_reader :conflicts
 
-    sig { returns(T.nilable(T::Set[T.any(String, Symbol)])) }
+    sig { returns(T::Set[T.any(String, Symbol)]) }
     attr_reader :skip_clean_paths
 
-    sig { returns(T.nilable(T::Set[String])) }
+    sig { returns(T::Set[String]) }
     attr_reader :link_overwrite_paths
 
     sig { returns(T.nilable(Symbol)) }
@@ -4263,8 +4279,8 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(val: Integer).returns(T.nilable(Integer)) }
-    def revision(val = T.unsafe(nil))
+    sig { params(val: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def revision(val = nil)
       val.nil? ? @revision : @revision = T.let(val, T.nilable(Integer))
     end
 
@@ -4283,8 +4299,8 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(val: Integer).returns(T.nilable(Integer)) }
-    def version_scheme(val = T.unsafe(nil))
+    sig { params(val: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def version_scheme(val = nil)
       val.nil? ? @version_scheme : @version_scheme = T.let(val, T.nilable(Integer))
     end
 
@@ -4301,8 +4317,8 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(val: Integer).returns(T.nilable(Integer)) }
-    def compatibility_version(val = T.unsafe(nil))
+    sig { params(val: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def compatibility_version(val = nil)
       val.nil? ? @compatibility_version : @compatibility_version = T.let(val, T.nilable(Integer))
     end
 
@@ -4341,8 +4357,8 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(val: String, specs: T::Hash[Symbol, T.anything]).returns(String) }
-    def url(val = T.unsafe(nil), specs = {}) = stable.url(val, specs)
+    sig { params(val: T.nilable(String), specs: T::Hash[Symbol, T.anything]).returns(String) }
+    def url(val = nil, specs = {}) = stable.url(val, specs)
 
     # The version string for the {.stable} version of the formula.
     # The version is autodetected from the URL and/or tag so only needs to be
@@ -4424,7 +4440,7 @@ class Formula
     # Get the `BUILD_FLAGS` from the formula's namespace set in `Formulary::load_formula`.
     sig { returns(T::Array[String]) }
     def build_flags
-      namespace = T.must(to_s.split("::")[0..-2]).join("::")
+      namespace = Utils.deconstantize(to_s)
       return [] if namespace.empty?
 
       # The namespace is derived dynamically from the formula's own name.
@@ -4453,9 +4469,11 @@ class Formula
     # @api public
     sig { params(block: T.nilable(T.proc.bind(SoftwareSpec).void)).returns(T.untyped) }
     def stable(&block)
-      return T.must(@stable) unless block
+      stable = @stable
+      raise ArgumentError, "#{self} has no stable spec" if stable.nil?
+      return stable unless block
 
-      T.must(@stable).instance_eval(&block)
+      stable.instance_eval(&block)
     end
 
     # Adds a {.head} {SoftwareSpec}.
@@ -4493,12 +4511,15 @@ class Formula
       )
     }
     def head(val = nil, specs = {}, &block)
+      return @head if block.nil? && val.nil?
+
+      head = @head
+      raise ArgumentError, "#{self} has no head spec" if head.nil?
+
       if block
-        T.must(@head).instance_eval(&block)
-      elsif val
-        T.must(@head).url(val, specs)
+        head.instance_eval(&block)
       else
-        @head
+        head.url(val, specs)
       end
     end
 
@@ -4767,7 +4788,7 @@ class Formula
     sig { params(names: T.untyped).void }
     def conflicts_with(*names)
       opts = T.let(names.last.is_a?(Hash) ? names.pop : {}, T::Hash[Symbol, T.untyped])
-      names.each { |name| T.must(conflicts) << FormulaConflict.new(name, opts[:because]) }
+      names.each { |name| conflicts << FormulaConflict.new(name, opts[:because]) }
     end
 
     # Skip cleaning paths in a formula.
@@ -4793,7 +4814,7 @@ class Formula
     def skip_clean(*paths)
       paths.flatten!
       # Specifying :all is deprecated and will become an error
-      T.must(skip_clean_paths).merge(paths)
+      skip_clean_paths.merge(paths)
     end
 
     # Preserve `@rpath` install names when fixing dynamic linkage on macOS.
@@ -5049,7 +5070,8 @@ class Formula
       ).void
     }
     def pour_bottle?(only_if: nil, &block)
-      @pour_bottle_check = T.let(PourBottleCheck.new(self), T.nilable(PourBottleCheck))
+      pour_bottle_check = PourBottleCheck.new(self)
+      @pour_bottle_check = T.let(pour_bottle_check, T.nilable(PourBottleCheck))
       @pour_bottle_only_if = T.let(only_if, T.nilable(Symbol))
 
       if only_if.present? && block.present?
@@ -5082,8 +5104,9 @@ class Formula
       else
         raise ArgumentError, "Invalid preset `pour_bottle?` condition" if only_if.present?
       end
+      raise ArgumentError, "`pour_bottle?` requires a preset condition or a block" if bottle_check_block.nil?
 
-      @pour_bottle_check.instance_eval(&T.unsafe(bottle_check_block))
+      pour_bottle_check.instance_exec(pour_bottle_check, &bottle_check_block)
     end
 
     # Deprecates a {Formula} (on the given date) so a warning is
@@ -5137,8 +5160,9 @@ class Formula
         T.nilable(T::Hash[Symbol, T.nilable(T.any(String, Symbol))]),
       )
 
-      @deprecation_date = T.let(Date.parse(date), T.nilable(Date))
-      @deprecated = T.let(T.must(@deprecation_date) <= Date.today, T.nilable(T::Boolean))
+      deprecation_date = Date.parse(date)
+      @deprecation_date = T.let(deprecation_date, T.nilable(Date))
+      @deprecated = T.let(deprecation_date <= Date.today, T.nilable(T::Boolean))
       if @deprecated
         @deprecation_reason = T.let(because, T.nilable(T.any(String, Symbol)))
         @deprecation_replacement_formula = T.let(replacement_formula.presence || replacement, T.nilable(String))
@@ -5247,9 +5271,10 @@ class Formula
         T.nilable(T::Hash[Symbol, T.nilable(T.any(String, Symbol))]),
       )
 
-      @disable_date = T.let(Date.parse(date), T.nilable(Date))
+      disable_date = Date.parse(date)
+      @disable_date = T.let(disable_date, T.nilable(Date))
 
-      if T.must(@disable_date) > Date.today
+      if disable_date > Date.today
         return if @deprecation_date.present?
 
         @deprecation_reason = T.let(because, T.nilable(T.any(String, Symbol)))
@@ -5327,7 +5352,7 @@ class Formula
     sig { params(paths: String).returns(T::Set[String]) }
     def link_overwrite(*paths)
       paths.flatten!
-      T.must(link_overwrite_paths).merge(paths)
+      link_overwrite_paths.merge(paths)
     end
 
     # Returns the major.minor {Version} for the given Python executable,

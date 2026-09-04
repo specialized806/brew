@@ -955,7 +955,7 @@ module Cask
                 app_min_os < cask_min_os
 
       min_os_definition = if cask_min_os && cask_min_os > HOMEBREW_MACOS_OLDEST_ALLOWED
-        definition = if T.must(on_system_block_min_os.to_s <=> depends_on_min_os.to_s).positive?
+        definition = if on_system_block_min_os.to_s > depends_on_min_os.to_s
           "an on_system block"
         else
           "a depends_on stanza"
@@ -964,7 +964,7 @@ module Cask
       else
         "no minimum macOS version"
       end
-      source = T.must(bundle_min_os.to_s <=> sparkle_min_os.to_s).positive? ? "Artifact" : "Upstream"
+      source = (bundle_min_os.to_s > sparkle_min_os.to_s) ? "Artifact" : "Upstream"
       message = "#{source} defined #{app_min_os.to_sym.inspect} as the minimum macOS version " \
                 "but the cask declared #{min_os_definition}"
 
@@ -1489,7 +1489,9 @@ module Cask
 
     sig { returns(T::Boolean) }
     def bad_osdn_url?
-      T.must(domain).match?(%r{^(?:\w+\.)*osdn\.jp(?=/|$)})
+      return false unless (host = domain)
+
+      host.match?(%r{^(?:\w+\.)*osdn\.jp(?=/|$)})
     end
 
     sig { returns(T.nilable(String)) }

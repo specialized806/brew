@@ -52,18 +52,13 @@ module OnSystem
     current_os == base_os
   end
 
-  sig { params(method_name: Symbol).returns(Symbol) }
-  def self.condition_from_method_name(method_name)
-    method_name.to_s.sub(/^on_/, "").to_sym
-  end
-
   sig { params(base: T::Class[T.anything]).void }
   def self.setup_arch_methods(base)
     ARCH_OPTIONS.each do |arch|
       base.define_method(:"on_#{arch}") do |&block|
         @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
 
-        return unless OnSystem.arch_condition_met? OnSystem.condition_from_method_name(T.must(__method__))
+        return unless OnSystem.arch_condition_met? arch
 
         @called_in_on_system_block = true
         result = block.call
@@ -91,7 +86,7 @@ module OnSystem
         @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
         @on_os_blocks_exist = T.let(true, T.nilable(TrueClass))
 
-        return unless OnSystem.os_condition_met? OnSystem.condition_from_method_name(T.must(__method__))
+        return unless OnSystem.os_condition_met? base_os
 
         @called_in_on_system_block = true
         @called_in_on_os_block = T.let(true, T.nilable(T::Boolean))
@@ -143,14 +138,13 @@ module OnSystem
         @on_system_blocks_exist = T.let(true, T.nilable(TrueClass))
         @on_os_blocks_exist = T.let(true, T.nilable(TrueClass))
 
-        os_condition = OnSystem.condition_from_method_name T.must(__method__)
-        return unless OnSystem.os_condition_met? os_condition, or_condition
+        return unless OnSystem.os_condition_met? os_name, or_condition
 
         @on_system_block_min_os = T.let(
           if or_condition == :or_older
             @called_in_on_system_block ? @on_system_block_min_os : MacOSVersion.new(HOMEBREW_MACOS_OLDEST_ALLOWED)
           else
-            MacOSVersion.from_symbol(os_condition)
+            MacOSVersion.from_symbol(os_name)
           end,
           T.nilable(MacOSVersion),
         )

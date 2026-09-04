@@ -92,12 +92,12 @@ module Cask
         new(content)
       end
 
-      sig { params(content: String, tap: Tap).void }
-      def initialize(content, tap: T.unsafe(nil))
+      sig { params(content: String, tap: T.nilable(Tap)).void }
+      def initialize(content, tap: nil)
         super()
 
         @content = T.let(content.dup.force_encoding("UTF-8"), String)
-        @tap = T.let(tap, T.nilable(Tap))
+        @tap = tap
       end
 
       sig { override.params(config: T.nilable(Config)).returns(Cask) }
@@ -150,8 +150,8 @@ module Cask
       sig { params(from_installed_caskfile: T::Boolean).void }
       attr_writer :from_installed_caskfile
 
-      sig { params(path: T.any(Pathname, String), token: String).void }
-      def initialize(path, token: T.unsafe(nil))
+      sig { params(path: T.any(Pathname, String), token: T.nilable(String)).void }
+      def initialize(path, token: nil)
         super()
 
         path = Pathname(path).expand_path
@@ -417,7 +417,7 @@ module Cask
           api_fallback:            T::Boolean,
         ).void
       }
-      def initialize(token, from_json: T.unsafe(nil), path: nil, from_installed_caskfile: false,
+      def initialize(token, from_json: nil, path: nil, from_installed_caskfile: false,
                      from_internal_json: false, api_fallback: true)
         @token = T.let(token.sub(%r{^homebrew/(?:homebrew-)?cask/}i, ""), String)
         @sourcefile_path = T.let(
@@ -571,12 +571,14 @@ module Cask
             public_send(key, *args, **kwargs, &block)
           end
 
-          caveats T.must(localised_cask_struct.caveats(appdir:)) if localised_cask_struct.caveats?
+          if (caveats_string = localised_cask_struct.caveats(appdir:).presence)
+            caveats caveats_string
+          end
 
           if localised_cask_struct.caveats_rosetta
             caveats do
-              # Dynamically defined via `caveat :requires_rosetta` — Sorbet can't resolve it.
-              T.unsafe(self).requires_rosetta
+              T.bind(self, DSL::Caveats)
+              requires_rosetta
             end
           end
         end

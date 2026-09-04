@@ -14,14 +14,6 @@ class AbstractCoreTap < Tap
 
   private_class_method :fetch
 
-  # Get the singleton instance for this {Tap}.
-  #
-  # @api internal
-  sig { returns(T.attached_class) }
-  def self.instance
-    @instance ||= T.let(T.unsafe(self).new, T.nilable(T.attached_class))
-  end
-
   sig { override.void }
   def ensure_installed!
     return unless Homebrew::EnvConfig.no_install_from_api?

@@ -24,10 +24,16 @@ module Cask
                             sudo: false)
     end
 
-    sig { params(paths: Paths, user: T.any(String, User), group: String).void }
-    def set_ownership(paths, user: T.must(User.current), group: "staff")
+    sig { params(paths: Paths, user: T.nilable(T.any(String, User)), group: String).void }
+    def set_ownership(paths, user: nil, group: "staff")
       full_paths = remove_nonexistent(paths)
       return if full_paths.empty?
+
+      user ||= User.current
+      unless user
+        raise CaskError,
+              "Cannot determine the current user to change the ownership of paths required by #{cask}."
+      end
 
       # On macOS Ventura or later, modifying the contents of an app bundle
       # requires App Management permissions, even when using `sudo`. Without

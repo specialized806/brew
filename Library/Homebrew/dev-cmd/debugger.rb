@@ -21,9 +21,8 @@ module Homebrew
       def run
         raise UsageError, "Debugger is only supported with portable Ruby!" unless HOMEBREW_USING_PORTABLE_RUBY
 
-        unless Commands.valid_ruby_cmd?(T.must(args.named.first))
-          raise UsageError, "`#{args.named.first}` is not a valid Ruby command!"
-        end
+        command = args.named.fetch(0)
+        raise UsageError, "`#{command}` is not a valid Ruby command!" unless Commands.valid_ruby_cmd?(command)
 
         brew_rb = (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path
         debugger_method = if args.open?

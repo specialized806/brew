@@ -49,7 +49,7 @@ RSpec.shared_examples "a documented command" do |command, shell: false|
 
   it "shows its help", :integration_test,
      documented_command: T.cast(command, String), documented_command_shell: T.cast(shell, T::Boolean) do
-    T.bind(self, RSpec::Core::ExampleGroup)
+    T.bind(self, T.all(RSpec::Core::ExampleGroup, Test::Helper::IntegrationTest))
     example = RSpec.current_example
     raise "Current RSpec example is unavailable" if example.nil?
 
@@ -58,9 +58,9 @@ RSpec.shared_examples "a documented command" do |command, shell: false|
 
     expect do
       if documented_command_shell
-        T.unsafe(self).brew_sh("help", documented_command)
+        brew_sh("help", documented_command)
       else
-        T.unsafe(self).brew("help", documented_command)
+        brew("help", documented_command)
       end
     end.to be_a_success
   end

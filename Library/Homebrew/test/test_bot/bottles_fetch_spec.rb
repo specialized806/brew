@@ -17,7 +17,7 @@ RSpec.describe Homebrew::TestBot::BottlesFetch do
 
       fetch.run!(args: instance_double(Homebrew::Cmd::TestBotCmd::Args))
 
-      last_step = T.must(fetch.steps.last)
+      last_step = fetch.steps.fetch(-1)
       expect(last_step).to be_passed
       expect(last_step.command).to include("--bottle-tag=#{tag}")
     end

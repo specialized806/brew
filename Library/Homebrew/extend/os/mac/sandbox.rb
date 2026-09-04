@@ -122,14 +122,18 @@ module OS
 
       sig { void }
       def record_sandbox_log
+        start_time = start
+        raise "Cannot record the sandbox log before the sandbox has started" if start_time.nil?
+
         sleep 0.1 # wait for a bit to let syslog catch up the latest events.
+        since = start_time.to_i.to_s
         syslog_args = [
           "-F", "$((Time)(local)) $(Sender)[$(PID)]: $(Message)",
-          "-k", "Time", "ge", T.must(start).to_i.to_s,
+          "-k", "Time", "ge", since,
           "-k", "Message", "S", "deny",
           "-k", "Sender", "kernel",
           "-o",
-          "-k", "Time", "ge", T.must(start).to_i.to_s,
+          "-k", "Time", "ge", since,
           "-k", "Message", "S", "deny",
           "-k", "Sender", "sandboxd"
         ]

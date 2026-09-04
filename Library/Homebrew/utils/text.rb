@@ -16,11 +16,11 @@ module Utils
       when 0
         +""
       when 1
-        +T.unsafe(values[0]).to_s
+        values.join
       when 2
         "#{values[0]} #{conjunction} #{values[1]}"
       else
-        "#{T.must(values[0...-1]).join(", ")} #{conjunction} #{values[-1]}"
+        "#{values.first(values.length - 1).join(", ")} #{conjunction} #{values[-1]}"
       end
     end
   end

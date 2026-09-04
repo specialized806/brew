@@ -448,7 +448,9 @@ module Homebrew
         hits.group_by(&:canonical_id).map do |_, group|
           next group.fetch(0) if group.one?
 
-          primary = T.must(group.max_by { |h| STRATEGY_PRECISION.fetch(h.strategy) })
+          primary = group.max_by { |h| STRATEGY_PRECISION.fetch(h.strategy) }
+          raise ArgumentError, "Cannot pick a primary hit from an empty group" if primary.nil?
+
           Hit.new(vulnerability: primary.vulnerability,
                   evidence:      group.flat_map(&:evidence).uniq)
         end

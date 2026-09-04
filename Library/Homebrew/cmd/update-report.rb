@@ -352,8 +352,9 @@ module Homebrew
           [CoreTap.instance, CoreCaskTap.instance].each do |tap|
             next unless tap.installed?
 
-            if default_branches.include?(tap.git_branch) &&
-               (Date.parse(T.must(tap.git_repository.last_commit_date)) <= Date.today.prev_month)
+            last_commit_date = tap.git_repository.last_commit_date
+            if default_branches.include?(tap.git_branch) && last_commit_date &&
+               (Date.parse(last_commit_date) <= Date.today.prev_month)
               ohai "#{tap.name} is old and unneeded, untapping to save space..."
               tap.uninstall
             else

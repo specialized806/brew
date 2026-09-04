@@ -47,7 +47,7 @@ module Utils
     sig { params(node: Node).returns(T.untyped) }
     def literal_value(node)
       return node.str_content if node.str_type?
-      return T.unsafe(node).value if node.sym_type? || node.numeric_type?
+      return node.value if node.is_a?(RuboCop::AST::BasicLiteralNode) && (node.sym_type? || node.numeric_type?)
 
       nil
     end

@@ -6,8 +6,8 @@ class CompilerFailure
   sig { returns(Symbol) }
   attr_reader :type
 
-  sig { params(val: T.any(Integer, String)).returns(Version) }
-  def version(val = T.unsafe(nil))
+  sig { params(val: T.nilable(T.any(Integer, String))).returns(Version) }
+  def version(val = nil)
     @version = Version.parse(val.to_s) if val
     @version
   end

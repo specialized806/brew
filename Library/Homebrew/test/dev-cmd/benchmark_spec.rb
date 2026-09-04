@@ -63,9 +63,8 @@ RSpec.describe Homebrew::DevCmd::Benchmark do
         Pathname(args.fetch(args.index("--export-json") + 1))
           .write(JSON.generate("results" => [{ "mean" => 0.25 }]))
         command = Shellwords.split(args.last)
-        Pathname(T.must(command.find { |part| part.start_with?("HOMEBREW_PHASE_TIMINGS=") })
-                     .delete_prefix("HOMEBREW_PHASE_TIMINGS="))
-          .write(JSON.generate("events" => [{ "phase" => "startup", "duration" => 250_000 }]))
+        timings_path = command.grep(/^HOMEBREW_PHASE_TIMINGS=/).fetch(0).delete_prefix("HOMEBREW_PHASE_TIMINGS=")
+        Pathname(timings_path).write(JSON.generate("events" => [{ "phase" => "startup", "duration" => 250_000 }]))
         instance_double(SystemCommand::Result, stdout: "")
       elsif args.first(2) == ["--cache", "--formula"]
         instance_double(

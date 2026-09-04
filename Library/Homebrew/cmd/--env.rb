@@ -34,14 +34,15 @@ module Homebrew
         ENV.deps = args.named.to_formulae if superenv?(nil)
         ENV.setup_build_environment
 
+        shell_arg = args.shell
         shell = if args.plain?
           nil
-        elsif args.shell.nil?
+        elsif shell_arg.nil?
           :bash unless $stdout.tty?
-        elsif args.shell == "auto"
+        elsif shell_arg == "auto"
           Utils::Shell.parent || Utils::Shell.preferred
-        elsif args.shell
-          Utils::Shell.from_path(T.must(args.shell))
+        else
+          Utils::Shell.from_path(shell_arg)
         end
 
         if shell.nil?

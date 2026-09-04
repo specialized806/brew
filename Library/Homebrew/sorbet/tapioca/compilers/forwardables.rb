@@ -25,8 +25,11 @@ module Tapioca
       sig { override.returns(T::Enumerable[T::Module[T.anything]]) }
       def self.gather_constants
         Homebrew::Tapioca::Utils.named_objects_with_module(Forwardable).reject do |obj|
+          name = obj.name
+          next false if name.nil?
+
           # Avoid duplicate stubs for forwardables that are defined in vendored gems
-          Object.const_source_location(T.must(obj.name))&.first&.include?("vendor/bundle/ruby")
+          Object.const_source_location(name)&.first&.include?("vendor/bundle/ruby")
         end
       end
 

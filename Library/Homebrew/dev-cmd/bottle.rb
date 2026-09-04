@@ -433,7 +433,9 @@ module Homebrew
 
         bottle_tag, rebuild = if local_bottle_json
           _, tag_string, rebuild_string = Utils::Bottles.extname_tag_rebuild(formula.local_bottle_path.to_s)
-          [T.must(tag_string).to_sym, rebuild_string.to_i]
+          raise "Cannot determine the bottle tag from #{formula.local_bottle_path}" if tag_string.nil?
+
+          [tag_string.to_sym, rebuild_string.to_i]
         end
 
         bottle_tag = if bottle_tag
@@ -460,6 +462,7 @@ module Homebrew
         filename = ::Bottle::Filename.create(formula, bottle_tag, rebuild)
         local_filename = filename.to_s
         bottle_path = Pathname.pwd/local_filename
+        tar_path = Pathname.pwd/local_filename.sub(/.gz$/, "")
 
         tab = nil
         keg = nil
@@ -500,8 +503,6 @@ module Homebrew
             prefix = tab.built_prefix || Pathname(cellar).parent.to_s
           end
         else
-          tar_filename = filename.to_s.sub(/.gz$/, "")
-          tar_path = Pathname.pwd/tar_filename
           return if tar_path.blank?
 
           keg = Keg.new(formula.prefix)
@@ -635,7 +636,7 @@ module Homebrew
               sudo_purge
               # Set filename as it affects the tarball checksum.
               relocatable_tar_path = "#{formula}-bottle.tar"
-              mv T.must(tar_path), relocatable_tar_path
+              mv tar_path, relocatable_tar_path
               # Use gzip, faster to compress than bzip2, faster to uncompress than bzip2
               # or an uncompressed tarball (and more bandwidth friendly).
               Utils::Gzip.compress_with_options(relocatable_tar_path,

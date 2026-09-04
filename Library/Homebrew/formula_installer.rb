@@ -157,7 +157,8 @@ class FormulaInstaller
     @enqueued_bottle_download = T.let(nil, T.nilable(Downloadable))
 
     # Take the original formula instance, which might have been swapped from an API instance to a source instance
-    @formula = T.let(T.must(previously_fetched_formula), Formula) if previously_fetched_formula
+    previously_fetched_formula = self.previously_fetched_formula
+    @formula = previously_fetched_formula if previously_fetched_formula
 
     @ran_prelude_fetch_metadata = T.let(false, T::Boolean)
     @ran_prelude_fetch = T.let(false, T::Boolean)
@@ -1156,7 +1157,6 @@ on_request: installed_on_request?, options:)
     # load. See: https://github.com/orgs/Homebrew/discussions/6455
     @formula = Homebrew::API::Formula.source_download_formula(formula) if formula.loaded_from_api?
 
-    formula_path = T.must(formula.specified_path)
     staging_path = (create_staging_path if formula.fetch_defined?)
     run_fetch(staging_path:) if staging_path
 
@@ -1217,7 +1217,6 @@ on_request: installed_on_request?, options:)
   def run_fetch(staging_path: nil)
     @formula = Homebrew::API::Formula.source_download_formula(formula) if formula.loaded_from_api?
 
-    formula_path = T.must(formula.specified_path)
     with_env(HOMEBREW_BUILD_FETCH_PHASE: "1", HOMEBREW_BUILD_STAGING_PATH: staging_path) do
       Sandbox.run_or_fork(*build_args(formula_path), step: "fetching") do |sandbox|
         add_build_sandbox_rules(sandbox, formula_path, log_name: "fetch")
@@ -1226,6 +1225,14 @@ on_request: installed_on_request?, options:)
         sandbox.allow_write_path(staging_path) if staging_path
       end
     end
+  end
+
+  sig { returns(Pathname) }
+  def formula_path
+    formula_path = formula.specified_path
+    raise ArgumentError, "#{formula.full_name} has no formula path" if formula_path.nil?
+
+    formula_path
   end
 
   sig { params(formula_path: Pathname).returns(T::Array[T.any(String, Pathname)]) }
@@ -1260,7 +1267,10 @@ on_request: installed_on_request?, options:)
   def create_staging_path
     staging = Mktemp.new(formula.name, retain: true, retain_in_cache: debug_symbols?)
     staging.quiet!
-    staging.run(chdir: false) { |mktemp| T.must(mktemp.tmpdir) }
+    staging_path = staging.run(chdir: false, &:tmpdir)
+    raise "Failed to create a staging directory for #{formula.name}" if staging_path.nil?
+
+    staging_path
   end
 
   sig { params(keg: Keg).void }
@@ -1432,7 +1442,7 @@ on_request: installed_on_request?, options:)
     # (third-party taps may `require` some of their own libraries) or if there
     # is no formula present in the keg (as is the case with very old bottles),
     # use the formula from the tap.
-    tap_formula_path = T.must(formula.specified_path)
+    tap_formula_path = formula_path
     installed_prefix = formula.any_installed_prefix
     return tap_formula_path if installed_prefix.nil?
 
@@ -1703,7 +1713,7 @@ on_request: installed_on_request?, options:)
     tab.time = Time.now.to_i
     tab.aliases = formula.aliases
     tab.arch = Hardware::CPU.arch
-    tab.source["versions"]["stable"] = T.must(formula.stable).version&.to_s
+    tab.source["versions"]["stable"] = formula.stable&.version&.to_s
     tab.source["versions"]["version_scheme"] = formula.version_scheme
     tab.source["path"] = formula.specified_path.to_s
     tab.source["tap_git_head"] = formula.tap&.installed? ? formula.tap&.git_head : nil

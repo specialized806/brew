@@ -14,7 +14,7 @@ module Tapioca
 
       sig { override.void }
       def decorate
-        root.create_module(T.must(constant.name)) do |mod|
+        root.create_path(constant) do |mod|
           dynamic_methods = {}
           Homebrew::EnvConfig::ENVS.each do |env, hash|
             next if Homebrew::EnvConfig::CUSTOM_IMPLEMENTATIONS.include?(env)

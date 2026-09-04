@@ -185,9 +185,9 @@ module OS
         # if return is used in the middle, which we do many times in here.
         return if !MacOS::Xcode.installed? && !MacOS::CLT.installed?
 
-        if MacOS::Xcode.installed?
+        if (xcode_prefix = prefix)
           # Fast path that will probably almost always work unless `xcode-select -p` is misconfigured
-          version_plist = T.must(prefix).parent/"version.plist"
+          version_plist = xcode_prefix.parent/"version.plist"
           if version_plist.file?
             require "plist"
             data = Plist.parse_xml(version_plist, marshal: false)

@@ -63,15 +63,15 @@ module Homebrew
         def self.generate_input_values(url)
           values = {}
 
-          match = url.match(URL_MATCH_REGEX)
-          return values if match.blank?
+          project_name = url[URL_MATCH_REGEX, :project_name]
+          return values if project_name.blank?
 
           # Don't generate a URL if the URL already points to the RSS feed
           unless url.match?(%r{/rss(?:/?$|\?)})
-            values[:url] = "https://sourceforge.net/projects/#{match[:project_name]}/rss"
+            values[:url] = "https://sourceforge.net/projects/#{project_name}/rss"
           end
 
-          regex_name = Regexp.escape(T.must(match[:project_name])).gsub("\\-", "-")
+          regex_name = Regexp.escape(project_name).gsub("\\-", "-")
 
           # It may be possible to improve the generated regex but there's quite
           # a bit of variation between projects and it can be challenging to

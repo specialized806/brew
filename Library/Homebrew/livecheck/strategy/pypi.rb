@@ -67,9 +67,10 @@ module Homebrew
           values = {}
 
           match = File.basename(url).match(FILENAME_REGEX)
-          return values if match.blank?
+          package_name = match[:package_name] if match
+          return values if package_name.nil?
 
-          values[:url] = "https://pypi.org/pypi/#{T.must(match[:package_name]).gsub(/%20|_/, "-")}/json"
+          values[:url] = "https://pypi.org/pypi/#{package_name.gsub(/%20|_/, "-")}/json"
 
           values
         end

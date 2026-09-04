@@ -24,7 +24,10 @@ module OS
         args = super
 
         # Ensure CMake is using the same SDK we are using.
-        args << "-DCMAKE_OSX_SYSROOT=#{T.must(MacOS.sdk_for_formula(self)).path}"
+        sdk = MacOS.sdk_for_formula(self)
+        raise "No macOS SDK found. Install Xcode or the Command Line Tools." if sdk.nil?
+
+        args << "-DCMAKE_OSX_SYSROOT=#{sdk.path}"
 
         args
       end

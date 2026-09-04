@@ -275,8 +275,8 @@ module Homebrew
         current_str = current.to_s
         current = LivecheckVersion.create(formula_or_cask, current)
 
-        latest = if formula&.head_only?
-          Version.new(T.must(formula.head).downloader.fetch_last_commit)
+        latest = if formula&.head_only? && (head = formula.head)
+          Version.new(head.downloader.fetch_last_commit)
         else
           version_info = latest_version(
             formula_or_cask,
@@ -558,11 +558,12 @@ module Homebrew
 
       case package_or_resource
       when Formula
-        if package_or_resource.stable
-          urls << T.must(package_or_resource.stable).url
-          urls.concat(T.must(package_or_resource.stable).mirrors)
+        if (stable = package_or_resource.stable)
+          urls << stable.url
+          urls.concat(stable.mirrors)
         end
-        urls << T.must(package_or_resource.head).url if package_or_resource.head
+        head = package_or_resource.head
+        urls << head.url if head
         urls << package_or_resource.homepage if package_or_resource.homepage
       when Cask::Cask
         urls << package_or_resource.url.to_s if package_or_resource.url
@@ -1060,7 +1061,9 @@ module Homebrew
           end
         end
 
-        res_current = T.must(resource.version)
+        res_current = resource.version
+        return status_hash(resource, "error", [NO_CURRENT_VERSION_MSG], verbose:) if res_current.nil?
+
         res_latest = Version.new(match_version_map.values.max_by { |v| LivecheckVersion.create(resource, v) })
 
         return status_hash(resource, "error", [NO_VERSIONS_MSG], verbose:) if res_latest.blank?

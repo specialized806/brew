@@ -5,9 +5,7 @@ class String
   BLANK_RE = /\A[[:space:]]*\z/
   # This is a cache that is intentionally mutable
   # rubocop:disable Style/MutableConstant
-  ENCODED_BLANKS_ = T.let(Hash.new do |h, enc|
-    h[enc] = Regexp.new(BLANK_RE.source.encode(enc), BLANK_RE.options | Regexp::FIXEDENCODING)
-  end, T::Hash[Encoding, Regexp])
+  ENCODED_BLANKS_ = T.let({}, T::Hash[Encoding, Regexp])
   # rubocop:enable Style/MutableConstant
 
   # A string is blank if it's empty or contains whitespaces only:
@@ -33,7 +31,9 @@ class String
       begin
         BLANK_RE.match?(self)
       rescue Encoding::CompatibilityError
-        T.must(ENCODED_BLANKS_[encoding]).match?(self)
+        encoded_blank_re = ENCODED_BLANKS_[encoding] ||=
+          Regexp.new(BLANK_RE.source.encode(encoding), BLANK_RE.options | Regexp::FIXEDENCODING)
+        encoded_blank_re.match?(self)
       end
   end
 

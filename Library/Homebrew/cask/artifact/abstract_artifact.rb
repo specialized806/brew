@@ -26,7 +26,7 @@ module Cask
       DirectivesType = T.type_alias { Object }
       sig { overridable.returns(String) }
       def self.english_name
-        @english_name ||= T.let(T.must(name).sub(/^.*:/, "").gsub(/(.)([A-Z])/, '\1 \2'), T.nilable(String))
+        @english_name ||= T.let(to_s.sub(/^.*:/, "").gsub(/(.)([A-Z])/, '\1 \2'), T.nilable(String))
       end
 
       sig { returns(String) }
@@ -36,8 +36,7 @@ module Cask
 
       sig { overridable.returns(Symbol) }
       def self.dsl_key
-        @dsl_key ||= T.let(T.must(name).sub(/^.*:/, "").gsub(/(.)([A-Z])/, '\1_\2').downcase.to_sym,
-                           T.nilable(Symbol))
+        @dsl_key ||= T.let(to_s.sub(/^.*:/, "").gsub(/(.)([A-Z])/, '\1_\2').downcase.to_sym, T.nilable(Symbol))
       end
 
       sig { overridable.returns(Symbol) }

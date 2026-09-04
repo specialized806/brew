@@ -96,7 +96,9 @@ class Requirement
 
     @satisfied_result = T.let(
       satisfy.yielder(env:, cc:, build_bottle:, bottle_arch:) do |p|
-        instance_eval(&T.must(p))
+        raise ArgumentError, "#{self.class} `satisfy` requires a block when given options" if p.nil?
+
+        instance_eval(&p)
       end,
       Object,
     )
@@ -134,7 +136,8 @@ class Requirement
   }
   def modify_build_environment(env: nil, cc: nil, build_bottle: false, bottle_arch: nil)
     satisfied?(env:, cc:, build_bottle:, bottle_arch:)
-    instance_eval(&T.must(env_proc)) if env_proc
+    env_block = env_proc
+    instance_eval(&env_block) if env_block
 
     # XXX If the satisfy block returns a Pathname, then make sure that it
     # remains available on the PATH. This makes requirements like
@@ -231,18 +234,18 @@ class Requirement
     sig { returns(T.nilable(T::Boolean)) }
     attr_reader :build
 
-    sig { params(val: String).returns(T.nilable(String)) }
-    def cask(val = T.unsafe(nil))
+    sig { params(val: T.nilable(String)).returns(T.nilable(String)) }
+    def cask(val = nil)
       val.nil? ? @cask : @cask = val
     end
 
-    sig { params(val: String).returns(T.nilable(String)) }
-    def download(val = T.unsafe(nil))
+    sig { params(val: T.nilable(String)).returns(T.nilable(String)) }
+    def download(val = nil)
       val.nil? ? @download : @download = val
     end
 
-    sig { params(val: T::Boolean).returns(T.nilable(T::Boolean)) }
-    def fatal(val = T.unsafe(nil))
+    sig { params(val: T.nilable(T::Boolean)).returns(T.nilable(T::Boolean)) }
+    def fatal(val = nil)
       val.nil? ? @fatal : @fatal = val
     end
 
@@ -276,8 +279,7 @@ class Requirement
     def initialize(options, &block)
       case options
       when Hash
-        @options = T.let({ build_env: true }, T.nilable(T::Hash[Symbol, T.anything]))
-        T.must(@options).merge!(options)
+        @options = T.let({ build_env: true }.merge(options), T.nilable(T::Hash[Symbol, T.anything]))
       else
         @satisfied = T.let(options, T.anything)
       end

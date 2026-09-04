@@ -15,7 +15,7 @@ module Utils
   #   `ActiveSupport::Inflector.deconstantize`
   sig { params(path: String).returns(String) }
   def self.deconstantize(path)
-    T.must(path[0, path.rindex("::") || 0]) # implementation based on the one in facets' Module#spacename
+    path.rpartition("::").first
   end
 
   # Removes the module part from the expression in the string.
@@ -33,11 +33,7 @@ module Utils
   def self.demodulize(path)
     raise ArgumentError, "No constant path provided" if path.nil?
 
-    if (i = path.rindex("::"))
-      T.must(path[(i + 2)..])
-    else
-      path
-    end
+    path.rpartition("::").last
   end
 
   sig { params(full_name: String).returns(String) }
@@ -128,9 +124,9 @@ module Utils
       name = match_data[:name]
       email = match_data[:email]
     end
-    raise UsageError, "Unable to parse name and email." if name.blank? && email.blank?
+    raise UsageError, "Unable to parse name and email." if name.nil? || email.nil?
 
-    { name: T.must(name), email: T.must(email) }
+    { name:, email: }
   end
 
   # Makes an underscored, lowercase form from the expression in the string.
@@ -147,9 +143,7 @@ module Utils
     return camel_cased_word.to_s unless /[A-Z-]|::/.match?(camel_cased_word)
 
     word = camel_cased_word.to_s.gsub("::", "/")
-    word.gsub!(/([A-Z])(?=[A-Z][a-z])|([a-z\d])(?=[A-Z])/) do
-      T.must(::Regexp.last_match(1) || ::Regexp.last_match(2)) << "_"
-    end
+    word.gsub!(/[A-Z](?=[A-Z][a-z])|[a-z\d](?=[A-Z])/, '\0_')
     word.tr!("-", "_")
     word.downcase!
     word
@@ -175,7 +169,7 @@ module Utils
   #   convert_to_string_or_symbol("example")  # => "example"
   sig { params(string: String).returns(T.any(String, Symbol)) }
   def self.convert_to_string_or_symbol(string)
-    return T.must(string[1..]).to_sym if string.start_with?(":")
+    return string.delete_prefix(":").to_sym if string.start_with?(":")
 
     string
   end
@@ -210,7 +204,7 @@ module Utils
       if obj.start_with?("\\")
         obj[1..]
       elsif obj.start_with?(":")
-        T.must(obj[1..]).to_sym
+        obj.delete_prefix(":").to_sym
       else
         obj
       end

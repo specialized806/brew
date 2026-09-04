@@ -165,7 +165,8 @@ module UnpackStrategy
   }
   def extract_nestedly(to: nil, basename: nil, verbose: false, prioritize_extension: false)
     Mktemp.new("homebrew-unpack").run(chdir: false) do |unpack_dir|
-      tmp_unpack_dir = T.must(unpack_dir.tmpdir)
+      tmp_unpack_dir = unpack_dir.tmpdir
+      raise "Failed to create a temporary directory to unpack #{path}" if tmp_unpack_dir.nil?
 
       extract(to: tmp_unpack_dir, basename:, verbose:)
 

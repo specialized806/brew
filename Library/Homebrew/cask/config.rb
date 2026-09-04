@@ -48,28 +48,12 @@ module Cask
 
     sig { params(args: Homebrew::CLI::Args).returns(T.attached_class) }
     def self.from_args(args)
-      # FIXME: T.unsafe is a workaround for methods that are only defined when `cask_options`
-      # is invoked on the parser. (These could be captured by a DSL compiler instead.)
-      args = T.unsafe(args)
-      new(explicit: {
-        appdir:               args.appdir,
-        appimagedir:          args.appimagedir,
-        keyboard_layoutdir:   args.keyboard_layoutdir,
-        colorpickerdir:       args.colorpickerdir,
-        prefpanedir:          args.prefpanedir,
-        qlplugindir:          args.qlplugindir,
-        mdimporterdir:        args.mdimporterdir,
-        dictionarydir:        args.dictionarydir,
-        fontdir:              args.fontdir,
-        servicedir:           args.servicedir,
-        input_methoddir:      args.input_methoddir,
-        internet_plugindir:   args.internet_plugindir,
-        audio_unit_plugindir: args.audio_unit_plugindir,
-        vst_plugindir:        args.vst_plugindir,
-        vst3_plugindir:       args.vst3_plugindir,
-        screen_saverdir:      args.screen_saverdir,
-        languages:            args.language,
-      }.compact)
+      # The option methods are only defined on `args` when `cask_options` is invoked on the parser.
+      explicit = [*DEFAULT_DIRS.keys, :language].to_h do |option|
+        [option, (args.public_send(option) if args.respond_to?(option))]
+      end
+      explicit[:languages] = explicit.delete(:language)
+      new(explicit: explicit.compact)
     end
 
     sig { params(json: String, ignore_invalid_keys: T::Boolean).returns(T.attached_class) }

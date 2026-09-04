@@ -19,7 +19,10 @@ class FossilDownloadStrategy < VCSDownloadStrategy
   sig { override.returns(Time) }
   def source_modified_time
     out = silent_command("fossil", args: ["info", "tip", "-R", cached_location]).stdout
-    Time.parse(T.must(out[/^(hash|uuid): +\h+ (.+)$/, 1]))
+    modified_time = out[/^(?:hash|uuid): +\h+ (.+)$/, 1]
+    raise "Could not parse the modification time from `fossil info tip` for #{cached_location}" if modified_time.nil?
+
+    Time.parse(modified_time)
   end
 
   sig { override.returns(T.nilable(String)) }
@@ -31,7 +34,10 @@ class FossilDownloadStrategy < VCSDownloadStrategy
   sig { override.returns(String) }
   def last_commit
     out = silent_command("fossil", args: ["info", "tip", "-R", cached_location]).stdout
-    T.must(out[/^(hash|uuid): +(\h+) .+$/, 1])
+    commit = out[/^(?:hash|uuid): +(\h+) .+$/, 1]
+    raise "Could not parse the commit hash from `fossil info tip` for #{cached_location}" if commit.nil?
+
+    commit
   end
 
   sig { override.returns(T::Boolean) }

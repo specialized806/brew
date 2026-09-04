@@ -10,7 +10,7 @@ module OS
         extend T::Helpers
         include ::Utils::Output::Mixin
 
-        requires_ancestor { ::Homebrew::Reinstall }
+        requires_ancestor { T.class_of(::Homebrew::Reinstall) }
 
         sig { params(dry_run: T::Boolean).void }
         def reinstall_pkgconf_if_needed!(dry_run: false)
@@ -26,11 +26,11 @@ module OS
 
           pkgconf = ::Formula["pkgconf"]
 
-          context = T.unsafe(self).build_install_context(pkgconf, flags: [])
+          context = build_install_context(pkgconf, flags: [])
 
           begin
             Homebrew::Install.fetch_formulae([context.formula_installer])
-            T.unsafe(self).reinstall_formula(context)
+            reinstall_formula(context)
             ohai "Reinstalled pkgconf due to macOS version mismatch"
           rescue
             ofail Homebrew::Pkgconf.mismatch_warning_message(mismatch).to_s

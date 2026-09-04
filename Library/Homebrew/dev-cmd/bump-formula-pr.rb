@@ -201,7 +201,8 @@ module Homebrew
           new_hash = args.sha256
           new_tag = args.tag
           new_revision = args.revision
-          old_url = T.must(commit_formula_spec.url)
+          old_url = commit_formula_spec.url
+          odie "#{commit_formula}: no stable URL found!" if old_url.nil?
           old_tag = commit_formula_spec.specs[:tag]
           old_formula_version = formula_version(commit_formula)
           old_version = old_formula_version.to_s
@@ -270,23 +271,26 @@ module Homebrew
           formula_ast.remove_stable_stanzas(:mirror) if commit_formula_spec.mirrors.present?
 
           if new_url_hash.present?
-            formula_ast.replace_stable_stanza_value(:url, T.must(new_url))
-            formula_ast.replace_stable_stanza_value(:sha256, new_hash)
-          elsif new_tag.present?
-            formula_ast.replace_stable_stanza_hash_value(:url, :tag, new_tag)
-            formula_ast.replace_stable_stanza_hash_value(:url, :revision, T.must(new_revision))
-          elsif new_url.present?
+            odie "#{commit_formula}: no new URL found!" if new_url.nil?
+
             formula_ast.replace_stable_stanza_value(:url, new_url)
-            formula_ast.replace_stable_stanza_hash_value(:url, :revision, T.must(new_revision))
+            formula_ast.replace_stable_stanza_value(:sha256, new_hash)
           else
-            formula_ast.replace_stable_stanza_hash_value(:url, :revision, T.must(new_revision))
+            odie "#{commit_formula}: no new revision found!" if new_revision.nil?
+
+            if new_tag.present?
+              formula_ast.replace_stable_stanza_hash_value(:url, :tag, new_tag)
+            elsif new_url.present?
+              formula_ast.replace_stable_stanza_value(:url, new_url)
+            end
+            formula_ast.replace_stable_stanza_hash_value(:url, :revision, new_revision)
           end
 
           stanzas_to_add = []
           new_mirrors&.each { |mirror| stanzas_to_add << [:mirror, "mirror #{mirror.inspect}"] } if new_url.present?
-          if forced_version && new_version != "0"
+          if forced_version && new_version && new_version != "0"
             if formula_ast.stable_stanza?(:version)
-              formula_ast.replace_stable_stanza_value(:version, T.must(new_version))
+              formula_ast.replace_stable_stanza_value(:version, new_version)
             else
               stanzas_to_add << [:version, "version #{new_version.inspect}"]
             end
@@ -744,7 +748,9 @@ module Homebrew
       def update_resource_block!(formula, resource, new_version)
         ohai "Updating resource \"#{resource.name}\" from #{resource.version} to #{new_version}"
 
-        old_url = T.must(resource.url)
+        old_url = resource.url
+        raise ArgumentError, "resource \"#{resource.name}\" has no URL" if old_url.nil?
+
         new_url = update_url(old_url, resource.version.to_s, new_version)
 
         if new_url == old_url

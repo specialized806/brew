@@ -156,8 +156,8 @@ module Homebrew
     # Directory to operate from.
     #
     # @api public
-    sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
-    def working_dir(path = T.unsafe(nil))
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def working_dir(path = nil)
       if path
         @working_dir = path.to_s
       else
@@ -168,8 +168,8 @@ module Homebrew
     # Directory to use as a chroot for the process.
     #
     # @api public
-    sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
-    def root_dir(path = T.unsafe(nil))
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def root_dir(path = nil)
       if path
         @root_dir = path.to_s
       else
@@ -180,8 +180,8 @@ module Homebrew
     # Path to use as input for the process.
     #
     # @api public
-    sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
-    def input_path(path = T.unsafe(nil))
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def input_path(path = nil)
       if path
         @input_path = path.to_s
       else
@@ -192,8 +192,8 @@ module Homebrew
     # Path to write `stdout` to.
     #
     # @api public
-    sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
-    def log_path(path = T.unsafe(nil))
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def log_path(path = nil)
       if path
         @log_path = path.to_s
       else
@@ -204,8 +204,8 @@ module Homebrew
     # Path to write `stderr` to.
     #
     # @api public
-    sig { params(path: T.any(String, Pathname)).returns(T.nilable(String)) }
-    def error_log_path(path = T.unsafe(nil))
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def error_log_path(path = nil)
       if path
         @error_log_path = path.to_s
       else
@@ -217,10 +217,10 @@ module Homebrew
     #
     # @api public
     sig {
-      params(value: T.any(T::Boolean, T::Hash[Symbol, T.untyped]))
+      params(value: T.nilable(T.any(T::Boolean, T::Hash[Symbol, T.untyped])))
         .returns(T.nilable(T::Hash[Symbol, T.untyped]))
     }
-    def keep_alive(value = T.unsafe(nil))
+    def keep_alive(value = nil)
       case value
       when nil
         @keep_alive
@@ -239,8 +239,8 @@ module Homebrew
     # `sudo` on various occasions, but does not enforce it.
     #
     # @api public
-    sig { params(value: T::Boolean).returns(T::Boolean) }
-    def require_root(value = T.unsafe(nil))
+    sig { params(value: T.nilable(T::Boolean)).returns(T::Boolean) }
+    def require_root(value = nil)
       if value.nil?
         @require_root
       else
@@ -257,8 +257,8 @@ module Homebrew
     # Whether the command should run when the service is loaded.
     #
     # @api public
-    sig { params(value: T::Boolean).returns(T.nilable(T::Boolean)) }
-    def run_at_load(value = T.unsafe(nil))
+    sig { params(value: T.nilable(T::Boolean)).returns(T.nilable(T::Boolean)) }
+    def run_at_load(value = nil)
       if value.nil?
         @run_at_load
       else
@@ -270,30 +270,28 @@ module Homebrew
     #
     # @api public
     sig {
-      params(value: T.any(String, T::Hash[Symbol, String]))
+      params(value: T.nilable(T.any(String, T::Hash[Symbol, String])))
         .returns(T::Hash[Symbol, T::Hash[Symbol, String]])
     }
-    def sockets(value = T.unsafe(nil))
+    def sockets(value = nil)
       return @sockets if value.nil?
 
-      value_hash = case value
-      when String
-        { listeners: value }
-      when Hash
-        value
-      end
+      value_hash = value.is_a?(String) ? { listeners: value } : value
 
-      @sockets = T.must(value_hash).transform_values do |socket_string|
+      @sockets = value_hash.transform_values do |socket_string|
         match = socket_string.match(SOCKET_STRING_REGEX)
-        raise TypeError, "Service#sockets a formatted socket definition as <type>://<host>:<port>" unless match
+        host, port, type = match.values_at(:host, :port, :type) if match
+        if host.nil? || port.nil? || type.nil?
+          raise TypeError, "Service#sockets a formatted socket definition as <type>://<host>:<port>"
+        end
 
         begin
-          IPAddr.new(match[:host])
+          IPAddr.new(host)
         rescue IPAddr::InvalidAddressError
           raise TypeError, "Service#sockets expects a valid ipv4 or ipv6 host address"
         end
 
-        { host: match[:host], port: match[:port], type: match[:type] }
+        { host:, port:, type: }
       end
     end
 
@@ -306,8 +304,8 @@ module Homebrew
     # Whether the command should only run once.
     #
     # @api public
-    sig { params(value: T::Boolean).returns(T::Boolean) }
-    def launch_only_once(value = T.unsafe(nil))
+    sig { params(value: T.nilable(T::Boolean)).returns(T::Boolean) }
+    def launch_only_once(value = nil)
       if value.nil?
         @launch_only_once
       else
@@ -318,8 +316,8 @@ module Homebrew
     # Number of seconds to delay before restarting a process.
     #
     # @api public
-    sig { params(value: Integer).returns(T.nilable(Integer)) }
-    def restart_delay(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def restart_delay(value = nil)
       if value
         @restart_delay = value
       else
@@ -330,8 +328,8 @@ module Homebrew
     # Minimum seconds to wait before invocations (macOS default is `10`).
     #
     # @api public
-    sig { params(value: Integer).returns(T.nilable(Integer)) }
-    def throttle_interval(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def throttle_interval(value = nil)
       return @throttle_interval if value.nil?
 
       @throttle_interval = value
@@ -340,8 +338,8 @@ module Homebrew
     # Number of seconds to wait before forcibly stopping a process.
     #
     # @api public
-    sig { params(value: Integer).returns(T.nilable(Integer)) }
-    def stop_timeout(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def stop_timeout(value = nil)
       return @stop_timeout if value.nil?
 
       raise TypeError, "Service#stop_timeout must be a non-negative integer" if value.negative?
@@ -353,8 +351,8 @@ module Homebrew
     # `:adaptive`.
     #
     # @api public
-    sig { params(value: Symbol).returns(T.nilable(Symbol)) }
-    def process_type(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Symbol)).returns(T.nilable(Symbol)) }
+    def process_type(value = nil)
       case value
       when nil
         @process_type
@@ -370,8 +368,8 @@ module Homebrew
     # The type of service: `:immediate`, `:interval` or `:cron`.
     #
     # @api public
-    sig { params(value: Symbol).returns(T.nilable(Symbol)) }
-    def run_type(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Symbol)).returns(T.nilable(Symbol)) }
+    def run_type(value = nil)
       case value
       when nil
         @run_type
@@ -385,8 +383,8 @@ module Homebrew
     # Controls the start interval, required for the `:interval` type.
     #
     # @api public
-    sig { params(value: Integer).returns(T.nilable(Integer)) }
-    def interval(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def interval(value = nil)
       if value
         @interval = value
       else
@@ -397,8 +395,8 @@ module Homebrew
     # Controls the trigger times, required for the `:cron` type.
     #
     # @api public
-    sig { params(value: String).returns(T::Hash[Symbol, T.any(Integer, String)]) }
-    def cron(value = T.unsafe(nil))
+    sig { params(value: T.nilable(String)).returns(T::Hash[Symbol, T.any(Integer, String)]) }
+    def cron(value = nil)
       if value
         @cron = parse_cron(value)
       else
@@ -514,8 +512,8 @@ module Homebrew
     # Timers created by `launchd` jobs are coalesced unless this is set.
     #
     # @api public
-    sig { params(value: T::Boolean).returns(T::Boolean) }
-    def macos_legacy_timers(value = T.unsafe(nil))
+    sig { params(value: T.nilable(T::Boolean)).returns(T::Boolean) }
+    def macos_legacy_timers(value = nil)
       if value.nil?
         @macos_legacy_timers
       else
@@ -528,8 +526,8 @@ module Homebrew
     # `require_root: true` to be set.
     #
     # @api public
-    sig { params(value: Integer).returns(T.nilable(Integer)) }
-    def nice(value = T.unsafe(nil))
+    sig { params(value: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def nice(value = nil)
       return @nice if value.nil?
 
       raise TypeError, "Service#nice value should be in #{NICE_RANGE}" unless NICE_RANGE.cover?(value)

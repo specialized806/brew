@@ -77,7 +77,8 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
       end
 
       begin
-        url = T.must(urls.shift)
+        url = urls.shift
+        raise "No URLs left to download #{name} from" if url.nil?
 
         ohai "Downloading #{url}"
 
@@ -121,8 +122,10 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
         if cached_location_valid
           puts "Already downloaded: #{cached_location}"
         else
+          raise "Could not resolve #{url}" if resolved_url.nil?
+
           begin
-            _fetch(url:, resolved_url: T.must(resolved_url), timeout: Utils::Timer.remaining!(end_time))
+            _fetch(url:, resolved_url:, timeout: Utils::Timer.remaining!(end_time))
           rescue ErrorDuringExecution => e
             clean_stderr = strip_progress_bar(Tty.collapse_carriage_returns(e.stderr)).strip
             raise CurlDownloadStrategyError.new(url, clean_stderr)
@@ -159,7 +162,9 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   sig { params(timeout: T.nilable(T.any(Float, Integer))).returns([T.nilable(Time), Integer]) }
   def resolved_time_file_size(timeout: nil)
     _, _, time, file_size, = resolve_url_basename_time_file_size(url, timeout:)
-    [time, T.must(file_size)]
+    raise "Could not determine the file size of #{url}" if file_size.nil?
+
+    [time, file_size]
   end
 
   sig { void }

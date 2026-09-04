@@ -40,10 +40,8 @@ module Homebrew
         odie "Invalid tap name '#{tap}'" unless tap.path.to_s.match?(HOMEBREW_TAP_PATH_REGEX)
         odie "Tap is already installed!" if tap.installed?
 
-        titleized_user = tap.user.dup
-        titleized_repository = tap.repository.dup
-        titleized_user[0] = T.must(titleized_user[0]).upcase
-        titleized_repository[0] = T.must(titleized_repository[0]).upcase
+        titleized_user = tap.user.sub(/\A./, &:upcase)
+        titleized_repository = tap.repository.sub(/\A./, &:upcase)
         root_url = GitHubPackages.root_url(tap.user, "homebrew-#{tap.repository}") if args.github_packages?
 
         (tap.path/"Formula").mkpath

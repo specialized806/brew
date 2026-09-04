@@ -56,9 +56,10 @@ module Homebrew
         def self.generate_input_values(url)
           values = {}
           return values unless (match = url.match(URL_MATCH_REGEX))
+          return values unless (gem_name = match[:gem_name])
 
           values[:url] = "https://rubygems.org/api/v1/versions/" \
-                         "#{URI.encode_www_form_component(T.must(match[:gem_name]))}/latest.json"
+                         "#{URI.encode_www_form_component(gem_name)}/latest.json"
 
           values
         end

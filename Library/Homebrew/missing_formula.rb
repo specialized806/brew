@@ -140,7 +140,7 @@ module Homebrew
           else
             <<~EOS
               You can access it again by running:
-                brew tap #{T.must(new_tap_name)}
+                brew tap #{new_tap_name}
               And then you can install it by running:
             EOS
           end

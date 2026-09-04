@@ -18,7 +18,10 @@ module OS
 
         sig { returns(Fiddle::Handle) }
         def handle
-          @handle ||= T.let(Fiddle.dlopen(T.must(@library_path)), T.nilable(Fiddle::Handle))
+          library_path = @library_path
+          Kernel.raise "No library path set: call `use_library` first" if library_path.nil?
+
+          @handle ||= T.let(Fiddle.dlopen(library_path), T.nilable(Fiddle::Handle))
         end
 
         sig { params(name: String, argument_types: T::Array[Integer], return_type: Integer).returns(Fiddle::Function) }

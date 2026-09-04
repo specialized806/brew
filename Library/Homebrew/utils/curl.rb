@@ -528,17 +528,15 @@ module Utils
         # Strategy:
         # If the `:homepage` 404s, it's a GitHub link and we have a token then
         # check the API (which does use tokens) for the repository
-        repo_details = url.match(%r{https?://github\.com/(?<user>[^/]+)/(?<repo>[^/]+)/?.*})
-        check_github_api = url_type == SharedAudits::URL_TYPE_HOMEPAGE &&
-                           details[:status_code] == "404" &&
-                           repo_details &&
-                           Homebrew::EnvConfig.github_api_token.present?
-
-        unless check_github_api
+        github_repo_regex = %r{https?://github\.com/(?<user>[^/]+)/(?<repo>[^/]+)/?.*}
+        user = url[github_repo_regex, :user]
+        repo = url[github_repo_regex, :repo]
+        if url_type != SharedAudits::URL_TYPE_HOMEPAGE || details[:status_code] != "404" ||
+           user.nil? || repo.nil? || Homebrew::EnvConfig.github_api_token.blank?
           return "The #{url_type} #{url} is not reachable (HTTP status code #{details[:status_code]})"
         end
 
-        if SharedAudits.github_repo_data(T.must(repo_details[:user]), T.must(repo_details[:repo])).nil?
+        if SharedAudits.github_repo_data(user, repo).nil?
           "Unable to find homepage"
         end
       end
@@ -691,7 +689,7 @@ module Utils
         responses:,
       }
     ensure
-      T.must(file).unlink
+      file&.unlink
     end
 
     sig { returns(Version) }
