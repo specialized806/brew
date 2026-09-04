@@ -15,17 +15,17 @@ module Homebrew
         description <<~EOS
           Database update for `brew which-formula`.
         EOS
-        flag   "--bottle-json-dir=",
-               description: "Use generated bottle JSON files in the given directory to update formula entries."
-        flag   "--removed-formulae-file=",
-               description: "Remove database entries for formulae listed in the given file."
-        flag   "--pull-request=",
-               description: "Update entries for formula changes in the given pull request number."
-        flag   "--repository=",
-               depends_on:  "--pull-request",
-               description: "GitHub repository for `--pull-request` (default: `$GITHUB_REPOSITORY`)."
-        flag   "--summary-file=",
-               description: "Output a summary of the changes to a file."
+        flag "--bottle-json-dir=",
+             description: "Use generated bottle JSON files in the given directory to update formula entries."
+        flag "--removed-formulae-file=",
+             description: "Remove database entries for formulae listed in the given file."
+        flag "--pull-request=",
+             description: "Update entries for formula changes in the given pull request number."
+        flag "--repository=",
+             depends_on:  "--pull-request",
+             description: "GitHub repository for `--pull-request` (default: `$GITHUB_REPOSITORY`)."
+        flag "--summary-file=",
+             description: "Output a summary of the changes to a file."
         named_args :database, number: 1
       end
 

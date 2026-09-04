@@ -206,6 +206,12 @@ Layout/SpaceBeforeBrackets:
 Lint/AmbiguousBlockAssociation:
   Enabled: false
 
+# The project index models a `Hash` or `Array` constant as a `Rubydex::Todo`
+# placeholder rather than a namespace, so every `CONSTANT.fetch(key)` call
+# matches an unrelated zero-argument `fetch` defined elsewhere in the project.
+Lint/ArgumentMismatch:
+  Enabled: false
+
 Lint/DuplicateBranch:
   Exclude:
     - "Taps/*/*/*.rb"
@@ -408,6 +414,11 @@ Style/ClassAndModuleChildren:
 # Use consistent style for better readability.
 Style/CollectionMethods:
   Enabled: true
+
+# `disable-next` is only understood by RuboCop 1.90 and newer, so keep the
+# `disable`/`enable` pairs that every version reads.
+Style/DirectiveScope:
+  Enabled: false
 
 # Don't allow cops to be disabled in casks and formulae.
 Style/DisableCopsWithinSourceCodeDirective:
