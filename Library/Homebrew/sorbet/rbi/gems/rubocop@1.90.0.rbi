@@ -141,6 +141,10 @@ class RuboCop::CLI::Command::ExecuteRunner < ::RuboCop::CLI::Command::Base
   def display_warning_summary(warnings); end
   def execute_runner(paths); end
   def maybe_print_corrected_source; end
+  def merge_todo_audit_status(status); end
+  def print_unused_todo_entries(todo_file, unused); end
+  def report_unused_todo_entries; end
+  def runner_status(runner, all_pass_or_excluded); end
   def with_redirect; end
 end
 
@@ -322,6 +326,7 @@ class RuboCop::Config
   def merge(*_arg0, **_arg1, &_arg2); end
   def parser_engine; end
   def path_relative_to_config(path); end
+  def path_sourced_gems_in_target; end
   def patterns_to_exclude; end
   def patterns_to_include; end
   def pending_cops; end
@@ -350,6 +355,7 @@ class RuboCop::Config
   def new_cops_setting_for(qualified_cop_name); end
   def new_cops_version_covers?(new_cops_version, qualified_cop_name); end
   def read_gem_versions_from_target_lockfile; end
+  def read_path_sourced_gems_from_target_lockfile; end
   def read_rails_version_from_bundler_lock_file; end
   def target_rails_version_from_bundler_lock_file; end
 
@@ -770,6 +776,7 @@ module RuboCop::Cop::AutocorrectLogic
   def correctable?; end
   def disable_uncorrectable?; end
   def safe_autocorrect?; end
+  def skipped_unsafe_correction_with_disable_uncorrectable?; end
 
   private
 
@@ -844,6 +851,7 @@ class RuboCop::Cop::Base
   def callback_argument(range); end
   def complete_investigation; end
   def correct(range); end
+  def covering_disabled_range(range); end
   def current_corrector; end
   def current_offense_locations; end
   def current_offenses; end
@@ -852,6 +860,7 @@ class RuboCop::Cop::Base
   def default_severity; end
   def disable_uncorrectable(range); end
   def enabled_line?(line_number); end
+  def enabled_lines?(range); end
   def file_name_matches_any?(file, parameter, default_result); end
   def find_message(range, message); end
   def find_severity(_range, severity); end
@@ -859,6 +868,7 @@ class RuboCop::Cop::Base
   def range_for_original(range); end
   def range_from_node_or_range(node_or_range); end
   def reset_investigation; end
+  def suppression_reason(range); end
   def target_satisfies_all_gem_version_requirements?; end
   def use_corrector(range, corrector); end
 
@@ -1457,6 +1467,8 @@ RuboCop::Cop::Lint::AmbiguousRange::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::AmbiguousRegexpLiteral::MSG = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Lint::ArgumentMismatch::MSG = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Lint::ArrayLiteralInRegexp::LITERAL_TYPES = T.let(T.unsafe(nil), Array)
 
 RuboCop::Cop::Lint::ArrayLiteralInRegexp::MSG_ALTERNATION = T.let(T.unsafe(nil), String)
@@ -1497,6 +1509,8 @@ RuboCop::Cop::Lint::ConstantResolution::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::COMMON_MSG = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Lint::CopDirectiveSyntax::INVALID_KEYWORD_MSG = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Lint::CopDirectiveSyntax::INVALID_MODE_NAME_MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::MALFORMED_COP_NAMES_MSG = T.let(T.unsafe(nil), String)
@@ -1504,6 +1518,12 @@ RuboCop::Cop::Lint::CopDirectiveSyntax::MALFORMED_COP_NAMES_MSG = T.let(T.unsafe
 RuboCop::Cop::Lint::CopDirectiveSyntax::MISSING_COP_NAME_MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::MISSING_MODE_NAME_MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::CopDirectiveSyntax::NEAR_MISS_KEYWORD_REGEXP = T.let(T.unsafe(nil), Regexp)
+
+RuboCop::Cop::Lint::CopDirectiveSyntax::NEXT_DIRECTIVE_AT_EOL_MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::CopDirectiveSyntax::UNKNOWN_COP_MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::DataDefineOverride::DATA_METHOD_NAMES = T.let(T.unsafe(nil), Array)
 
@@ -1829,6 +1849,8 @@ RuboCop::Cop::Lint::RedundantCopDisableDirective::SIMILAR_COP_NAMES_CACHE = T.le
 
 RuboCop::Cop::Lint::RedundantCopEnableDirective::MSG = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Lint::RedundantCopEnableDirective::MSG_ORPHAN_POP = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Lint::RedundantDirGlobSort::GLOB_METHODS = T.let(T.unsafe(nil), Array)
 
 RuboCop::Cop::Lint::RedundantDirGlobSort::MSG = T.let(T.unsafe(nil), String)
@@ -1965,6 +1987,12 @@ RuboCop::Cop::Lint::StructNewOverride::STRUCT_MEMBER_NAME_TYPES = T.let(T.unsafe
 
 RuboCop::Cop::Lint::StructNewOverride::STRUCT_METHOD_NAMES = T.let(T.unsafe(nil), Array)
 
+RuboCop::Cop::Lint::SuperArgumentMismatch::BUILTIN_ROOTS = T.let(T.unsafe(nil), Array)
+
+RuboCop::Cop::Lint::SuperArgumentMismatch::CONTEXT_CHANGING_BLOCKS = T.let(T.unsafe(nil), Array)
+
+RuboCop::Cop::Lint::SuperArgumentMismatch::MSG = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Lint::SuppressedException::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::SuppressedExceptionInNumberConversion::EXPECTED_EXCEPTION_CLASSES = T.let(T.unsafe(nil), Array)
@@ -2022,6 +2050,8 @@ RuboCop::Cop::Lint::UnusedPrivateMethod::IDENTIFIER_PATTERN = T.let(T.unsafe(nil
 RuboCop::Cop::Lint::UnusedPrivateMethod::IMPLICITLY_INVOKED_METHODS = T.let(T.unsafe(nil), Set)
 
 RuboCop::Cop::Lint::UnusedPrivateMethod::MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::UnusedPrivateMethod::NAME_PREFIX_PATTERN = T.let(T.unsafe(nil), Regexp)
 
 RuboCop::Cop::Lint::UriEscapeUnescape::ALTERNATE_METHODS_OF_URI_ESCAPE = T.let(T.unsafe(nil), Array)
 
@@ -2221,6 +2251,8 @@ RuboCop::Cop::Naming::MethodName::MSG_FORBIDDEN = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Naming::MethodName::OPERATOR_METHODS = T.let(T.unsafe(nil), Set)
 
+RuboCop::Cop::Naming::MethodName::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
+
 RuboCop::Cop::Naming::PredicateMethod::MSG_NON_PREDICATE = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Naming::PredicateMethod::MSG_PREDICATE = T.let(T.unsafe(nil), String)
@@ -2238,7 +2270,7 @@ RuboCop::Cop::NegativeConditional::MSG = T.let(T.unsafe(nil), String)
 class RuboCop::Cop::Offense
   include ::Comparable
 
-  def initialize(severity, location, message, cop_name, status = T.unsafe(nil), corrector = T.unsafe(nil)); end
+  def initialize(severity, location, message, cop_name, status = T.unsafe(nil), corrector = T.unsafe(nil), justification: T.unsafe(nil)); end
 
   def <=>(other); end
   def ==(other); end
@@ -2255,6 +2287,7 @@ class RuboCop::Cop::Offense
   def first_line; end
   def hash; end
   def highlighted_area; end
+  def justification; end
   def last_column; end
   def last_line; end
   def line; end
@@ -2263,6 +2296,7 @@ class RuboCop::Cop::Offense
   def marshal_load(array); end
   def message; end
   def real_column; end
+  def real_last_column; end
   def severity; end
   def source_line; end
   def status; end
@@ -2364,12 +2398,14 @@ class RuboCop::Cop::Registry
   def freeze; end
   def lazy_load(badge, constant_name); end
   def length; end
+  def load_all_lazy_cops; end
   def names; end
   def names_for_department(department); end
   def options; end
   def print_department_missing_warning(name, path); end
-  def qualified_cop_name(name, path, warn: T.unsafe(nil)); end
+  def qualified_cop_name(name, path, warn: T.unsafe(nil), correct_namespace: T.unsafe(nil)); end
   def qualify_badge(badge); end
+  def resolve_cop_name(badge, name, path, warn); end
   def select(&block); end
   def sort!; end
   def to_h; end
@@ -2389,7 +2425,6 @@ class RuboCop::Cop::Registry
   def emit_warning(path, message); end
   def enabled_cop_name?(cop_name, config); end
   def initialize_copy(reg); end
-  def load_all_lazy_cops; end
   def load_lazy_cop(badge); end
   def registered?(badge); end
   def registered_badges; end
@@ -2399,7 +2434,7 @@ class RuboCop::Cop::Registry
     def all; end
     def global; end
     def qualified_cop?(name); end
-    def qualified_cop_name(name, origin, warn: T.unsafe(nil)); end
+    def qualified_cop_name(name, origin, warn: T.unsafe(nil), correct_namespace: T.unsafe(nil)); end
     def reset!; end
     def with_temporary_global(temp_global = T.unsafe(nil)); end
   end
@@ -2687,9 +2722,15 @@ RuboCop::Cop::Style::DirEmpty::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DirEmpty::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
 
+RuboCop::Cop::Style::DirectiveScope::MSG_PAIR = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Style::DirectiveScope::MSG_PUSH_POP = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Style::DisableCopsWithinSourceCodeDirective::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DisableCopsWithinSourceCodeDirective::MSG_FOR_COPS = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Style::DisableCopsWithinSourceCodeDirective::MSG_MISSING_REASON = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DocumentDynamicEvalDefinition::BLOCK_COMMENT_REGEXP = T.let(T.unsafe(nil), Regexp)
 
@@ -3607,6 +3648,8 @@ RuboCop::Cop::Style::StabbyLambdaParentheses::MSG_NO_REQUIRE = T.let(T.unsafe(ni
 
 RuboCop::Cop::Style::StabbyLambdaParentheses::MSG_REQUIRE = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Style::StabbyLambdaParentheses::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
+
 RuboCop::Cop::Style::StaticClass::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::StderrPuts::MSG = T.let(T.unsafe(nil), String)
@@ -3680,6 +3723,10 @@ RuboCop::Cop::Style::TernaryParentheses::MSG_COMPLEX = T.let(T.unsafe(nil), Stri
 RuboCop::Cop::Style::TernaryParentheses::NON_COMPLEX_TYPES = T.let(T.unsafe(nil), Array)
 
 RuboCop::Cop::Style::TernaryParentheses::VARIABLE_TYPES = T.let(T.unsafe(nil), Set)
+
+RuboCop::Cop::Style::TimeNow::MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Style::TimeNow::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
 
 RuboCop::Cop::Style::TopLevelMethodDefinition::MSG = T.let(T.unsafe(nil), String)
 
@@ -3952,6 +3999,7 @@ class RuboCop::DirectiveComment
   def cops; end
   def department_names; end
   def directive_count; end
+  def disable_next?; end
   def disabled?; end
   def disabled_all?; end
   def enabled?; end
@@ -3968,7 +4016,9 @@ class RuboCop::DirectiveComment
   def push?; end
   def push_args; end
   def range; end
+  def range_with_reason; end
   def raw_cop_names; end
+  def reason; end
   def single_line?; end
   def start_with_marker?; end
 
@@ -4013,6 +4063,8 @@ RuboCop::DirectiveComment::LINT_REDUNDANT_DIRECTIVE_COP = T.let(T.unsafe(nil), S
 RuboCop::DirectiveComment::LINT_SYNTAX_COP = T.let(T.unsafe(nil), String)
 
 RuboCop::DirectiveComment::MALFORMED_DIRECTIVE_WITHOUT_COP_NAME_REGEXP = T.let(T.unsafe(nil), Regexp)
+
+RuboCop::DirectiveComment::MODES_PATTERN = T.let(T.unsafe(nil), String)
 
 RuboCop::DirectiveComment::PUSH_POP_ARGS_PATTERN = T.let(T.unsafe(nil), String)
 
@@ -4342,6 +4394,7 @@ class RuboCop::Runner
   private
 
   def add_redundant_disables(file, offenses, source); end
+  def assemble_team(config); end
   def build_project_index(target_files); end
   def bundled_gem_files; end
   def cached_result(file, team); end
