@@ -18,25 +18,6 @@ module Homebrew
 
       private_class_method :cache
 
-      sig { params(name: String).returns(T::Hash[String, T.untyped]) }
-      def self.cask_json(name)
-        fetch_cask_json! name if !cache.key?("cask_json") || !cache.fetch("cask_json").key?(name)
-
-        cache.fetch("cask_json").fetch(name)
-      end
-
-      sig { params(name: String).void }
-      def self.fetch_cask_json!(name)
-        endpoint = "cask/#{name}.json"
-        json_cask, updated = Homebrew::API.fetch_json_api_file endpoint,
-                                                               stale_seconds: Homebrew::API::UNSIGNED_API_STALE_SECONDS
-
-        json_cask = JSON.parse((HOMEBREW_CACHE_API/endpoint).read) unless updated
-
-        cache["cask_json"] ||= {}
-        cache["cask_json"][name] = json_cask
-      end
-
       sig { returns(Pathname) }
       def self.cached_json_file_path
         HOMEBREW_CACHE_API/DEFAULT_API_FILENAME

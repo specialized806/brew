@@ -45,16 +45,4 @@ RSpec.describe Homebrew::API::Cask do
       expect(casks_output).to eq casks_hash
     end
   end
-
-  describe "::cask_json" do
-    it "revalidates a stale per-cask response" do
-      target = cache_dir/"cask/foo.json"
-      target.dirname.mkpath
-      target.write('{"version":"old"}')
-      FileUtils.touch(target, mtime: Time.now - (2 * 60 * 60))
-      mock_curl_download stdout: '{"version":"new"}'
-
-      expect(described_class.cask_json("foo")).to eq("version" => "new")
-    end
-  end
 end

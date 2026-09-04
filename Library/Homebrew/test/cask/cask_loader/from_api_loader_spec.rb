@@ -233,8 +233,10 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       token = "url-less-installed-cask"
       caskroom = mktmpdir
       allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({ "artifacts" => [] })
+      allow(described_class).to receive(:try_new).and_call_original
+      allow(described_class).to receive(:try_new).with(token).and_return(
+        Cask::CaskLoader::FromInstanceLoader.new(Cask::Cask.new(token)),
+      )
       path = caskroom/token/".metadata/latest/20260713000000.000/Casks/#{token}.json"
       cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)
       allow(cask).to receive(:installed_version).and_return("latest")
@@ -248,14 +250,14 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       token = "receipt-less-installed-cask"
       caskroom = mktmpdir
       allow(Cask::Caskroom).to receive(:path).and_return(caskroom)
-      allow(Homebrew::API).to receive(:cask_token?).with(token).and_return(true)
-      allow(Homebrew::API::Cask).to receive(:cask_json).with(token).and_return({
-        "artifacts" => [
-          { "app" => ["Receipt-less.app"] },
-          { "uninstall" => [{ "quit" => "com.example.receipt-less" }] },
-          { "zap" => [{ "trash" => "~/Library/Preferences/com.example.receipt-less.plist" }] },
-        ],
-      })
+      api_cask = Cask::Cask.new(token) do
+        app "Receipt-less.app"
+        uninstall quit: "com.example.receipt-less"
+        zap trash: "~/Library/Preferences/com.example.receipt-less.plist"
+      end
+      allow(described_class).to receive(:try_new).and_call_original
+      allow(described_class).to receive(:try_new).with(token)
+                                                 .and_return(Cask::CaskLoader::FromInstanceLoader.new(api_cask))
       path = caskroom/token/".metadata/1.0/20260713000000.000/Casks/#{token}.json"
 
       cask = described_class.new(token, from_json: {}, path:, from_installed_caskfile: true).load(config: nil)

@@ -853,49 +853,16 @@ module Cask
       return artifacts if artifacts
       return [] unless api_fallback
 
-      artifacts ||= begin
-        # Only consult the signed payload for a cask that could come from it, and never when the
-        # API is opted out of, so a failure fetching it cannot stop a tap below from being loaded.
-        # `FromAPILoader.try_new` refuses the same way, but only after these lookups would run.
-        api_loader = if !Homebrew::EnvConfig.no_install_from_api? && (tap.nil? || tap.core_cask_tap?)
-          # Use the API loader only once the payload is known to hold this token, since loading
-          # it otherwise raises rather than returning nil. An installed cask can predate a
-          # rename, which the loader itself resolves, so check the current token for it.
-          current_token = Homebrew::API::Internal.cask_renames.fetch(token, token)
-          FromAPILoader.try_new(token) if Homebrew::API::Internal.cask_hash(current_token).present?
+      begin
+        cask = if tap && !tap.core_cask_tap?
+          load("#{tap}/#{token}", warn: false)
+        elsif (loader = FromAPILoader.try_new(token) || FromNameLoader.try_new(token, warn: false))
+          loader.load(config: nil)
         end
-        tap_loader = (FromNameLoader.try_new(token, warn: false) if tap.nil? && api_loader.nil?)
-
-        if tap && !tap.core_cask_tap?
-          load("#{tap}/#{token}", warn: false).artifacts_list(uninstall_only: true)
-        elsif tap_loader
-          tap_loader.load(config: nil).artifacts_list(uninstall_only: true)
-        elsif api_loader
-          # Prefer the JWS-verified internal payload, which carries the same
-          # uninstall directives as the unsigned per-cask endpoint below.
-          api_loader.load(config: nil).artifacts_list(uninstall_only: true)
-        end
+        cask&.artifacts_list(uninstall_only: true) || []
       rescue CaskError, MethodDeprecatedError, JSON::ParserError, KeyError, ErrorDuringExecution, SystemExit
-        nil
+        []
       end
-
-      # API fetch failures must not abort best-effort installed metadata recovery. Reach the
-      # unsigned per-cask endpoint only for a cask that could come from the core tap, and only
-      # once the signed payload has confirmed the token, so neither an absent token nor a failed
-      # membership check can downgrade recovery to it. The endpoint stays available when the API
-      # is opted out of, which `brew update`'s metadata repair relies on.
-      artifacts ||= begin
-        signed_payload_has_token = begin
-          (tap.nil? || tap.core_cask_tap?) && Homebrew::API.cask_token?(token)
-        rescue ErrorDuringExecution, SystemExit
-          false
-        end
-        Homebrew::API::Cask.cask_json(token)["artifacts"] if signed_payload_has_token
-      rescue ErrorDuringExecution, SystemExit
-        nil
-      end
-      artifacts ||= []
-      artifacts
     end
 
     sig {

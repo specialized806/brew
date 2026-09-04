@@ -318,7 +318,7 @@ RSpec.describe Utils::Analytics do
   end
 
   describe "::output_github_packages_downloads" do
-    let(:json) { { "analytics" => { "install" => { "30d" => { "wget" => 750_000, "wget --HEAD" => 500 } } } } }
+    let(:analytics) { { "install" => { "30d" => { "wget" => 750_000, "wget --HEAD" => 500 } } } }
     let(:args) { Homebrew::Cmd::Info.new(["--github-packages-downloads", "wget"]).args }
     let(:wget) { instance_double(Formula, name: "wget", core_formula?: true) }
 
@@ -346,7 +346,7 @@ RSpec.describe Utils::Analytics do
     it "outputs downloads per tag, a total and the difference from analytics install events" do
       stub_github_packages_pages("1.25.0-2" => "1,000", "1.25.0-1" => "1.5M")
 
-      expect { described_class.output_github_packages_downloads(wget, json, args:) }
+      expect { described_class.output_github_packages_downloads(wget, analytics, args:) }
         .to output(
           match(/^1 +\| 1\.25\.0-1 +\| 1,500,000 \| +99\.93%$/)
             .and(match(/^2 +\| 1\.25\.0-2 +\| +1,000 \| +0\.07%$/))
@@ -358,7 +358,7 @@ RSpec.describe Utils::Analytics do
     it "warns instead of outputting a partial total when a tag's downloads cannot be fetched" do
       stub_github_packages_pages("1.25.0-2" => "1,000")
 
-      expect { described_class.output_github_packages_downloads(wget, json, args:) }
+      expect { described_class.output_github_packages_downloads(wget, analytics, args:) }
         .to output(/Failed to fetch GitHub Packages downloads for: 1\.25\.0-1$/).to_stderr
         .and not_to_output.to_stdout
     end

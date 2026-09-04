@@ -126,18 +126,6 @@ RSpec.describe Homebrew::API::Formula do
     end
   end
 
-  describe "::formula_json" do
-    it "revalidates a stale per-formula response" do
-      target = cache_dir/"formula/foo.json"
-      target.dirname.mkpath
-      target.write('{"versions":{"stable":"old"}}')
-      FileUtils.touch(target, mtime: Time.now - (2 * 60 * 60))
-      mock_curl_download stdout: '{"versions":{"stable":"new"}}'
-
-      expect(described_class.formula_json("foo")).to eq("versions" => { "stable" => "new" })
-    end
-  end
-
   describe "::source_download" do
     let(:f) { Testball.new }
 

@@ -264,14 +264,14 @@ module Utils
         table_output(category, days, results, os_version:, cask_install:)
       end
 
-      sig { params(json: T::Hash[String, T.untyped], args: Homebrew::Cmd::Info::Args).void }
-      def output_analytics(json, args:)
+      sig { params(analytics: T::Hash[String, T.untyped], args: Homebrew::Cmd::Info::Args).void }
+      def output_analytics(analytics, args:)
         full_analytics = args.analytics? || verbose?
 
         ohai "Analytics"
-        json["analytics"].each do |category, value|
+        analytics.each do |category, value|
           category = category.tr("_", "-")
-          analytics = []
+          summaries = []
 
           value.each do |days, results|
             days = days.to_i
@@ -282,11 +282,11 @@ module Utils
               table_output(category, days.to_s, results)
             else
               total_count = results.values.sum
-              analytics << "#{Formatter.number_readable(total_count)} (#{days} days)"
+              summaries << "#{Formatter.number_readable(total_count)} (#{days} days)"
             end
           end
 
-          puts "#{category}: #{analytics.join(", ")}" unless full_analytics
+          puts "#{category}: #{summaries.join(", ")}" unless full_analytics
         end
       end
 
@@ -294,8 +294,8 @@ module Utils
       # It relies on screen scraping some GitHub HTML that's not available as an API.
       # This seems very likely to break in the future.
       # That said, it's the only way to get the data we want right now.
-      sig { params(formula: Formula, json: T::Hash[String, T.untyped], args: Homebrew::Cmd::Info::Args).void }
-      def output_github_packages_downloads(formula, json, args:)
+      sig { params(formula: Formula, analytics: T::Hash[String, T.untyped], args: Homebrew::Cmd::Info::Args).void }
+      def output_github_packages_downloads(formula, analytics, args:)
         return unless args.github_packages_downloads?
         return unless formula.core_formula?
 
@@ -342,7 +342,7 @@ module Utils
         table_output("github-packages-downloads", "30", downloads_by_tag.sort_by { |_, count| -count }.to_h,
                      name_header: "Tag")
 
-        install_count = json.dig("analytics", "install", "30d")&.values&.sum
+        install_count = analytics.dig("install", "30d")&.values&.sum
         return unless install_count&.positive?
 
         difference = ((downloads_by_tag.sum { |_, count| count } - install_count) * 100.0) / install_count
@@ -358,11 +358,11 @@ module Utils
 
         return unless Homebrew::API.formula_name? formula.name
 
-        json = Homebrew::API::Formula.formula_json formula.name
-        return if json.blank? || json["analytics"].blank?
+        analytics = Homebrew::API::Analytics.formula_analytics formula.name
+        return if analytics.blank?
 
-        output_analytics(json, args:)
-        output_github_packages_downloads(formula, json, args:)
+        output_analytics(analytics, args:)
+        output_github_packages_downloads(formula, analytics, args:)
       rescue ArgumentError
         # Ignore failed API requests
         nil
@@ -376,10 +376,10 @@ module Utils
 
         return unless Homebrew::API.cask_token?(cask.token)
 
-        json = Homebrew::API::Cask.cask_json cask.token
-        return if json.blank? || json["analytics"].blank?
+        analytics = Homebrew::API::Analytics.cask_analytics cask.token
+        return if analytics.blank?
 
-        output_analytics(json, args:)
+        output_analytics(analytics, args:)
       rescue ArgumentError
         # Ignore failed API requests
         nil

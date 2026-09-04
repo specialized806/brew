@@ -5,15 +5,9 @@ require "api"
 require "openssl"
 
 RSpec.describe Homebrew::API do
-  let(:text) { "foo" }
   let(:json) { '{"foo":"bar"}' }
   let(:json_hash) { JSON.parse(json) }
   let(:json_invalid) { '{"foo":"bar"' }
-
-  def mock_curl_output(stdout: "", success: true)
-    curl_output = instance_double(SystemCommand::Result, stdout:, success?: success)
-    allow(Utils::Curl).to receive(:curl_output).and_return curl_output
-  end
 
   def mock_curl_download(stdout:)
     allow(Utils::Curl).to receive(:curl_download) do |*_args, **kwargs|
@@ -33,24 +27,6 @@ RSpec.describe Homebrew::API do
 
       expect(values).to eq(["1", "1"])
       expect(ENV.fetch("HOMEBREW_NO_INSTALL_FROM_API", nil)).to be_nil
-    end
-  end
-
-  describe "::fetch" do
-    it "fetches a JSON file" do
-      mock_curl_output stdout: json
-      fetched_json = described_class.fetch("foo.json")
-      expect(fetched_json).to eq json_hash
-    end
-
-    it "raises an error if the file does not exist" do
-      mock_curl_output success: false
-      expect { described_class.fetch("bar.txt") }.to raise_error(ArgumentError, /No file found/)
-    end
-
-    it "raises an error if the JSON file is invalid" do
-      mock_curl_output stdout: text
-      expect { described_class.fetch("baz.txt") }.to raise_error(ArgumentError, /Invalid JSON file/)
     end
   end
 

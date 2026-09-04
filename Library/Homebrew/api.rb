@@ -22,35 +22,12 @@ module Homebrew
 
     extend Utils::Output::Mixin
 
-    extend T::Generic
-    extend Cachable
-
-    Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
-
     HOMEBREW_CACHE_API = T.let((HOMEBREW_CACHE/"api").freeze, Pathname)
     HOMEBREW_CACHE_API_SOURCE = T.let((HOMEBREW_CACHE/"api-source").freeze, Pathname)
     DEFAULT_API_STALE_SECONDS = T.let(7 * 24 * 60 * 60, Integer) # 7 days
     # Revalidate unsigned per-resource responses hourly to limit how long a
     # poisoned cache can persist without requiring a request for every command.
     UNSIGNED_API_STALE_SECONDS = T.let(60 * 60, Integer)
-
-    sig { params(endpoint: String).returns(T::Hash[String, T.untyped]) }
-    def self.fetch(endpoint)
-      return cache[endpoint] if cache.present? && cache.key?(endpoint)
-
-      api_url = "#{Homebrew::EnvConfig.api_domain}/#{endpoint}"
-      output = Utils::Curl.curl_output("--fail", api_url)
-      if !output.success? && Homebrew::EnvConfig.api_domain != HOMEBREW_API_DEFAULT_DOMAIN
-        # Fall back to the default API domain and try again
-        api_url = "#{HOMEBREW_API_DEFAULT_DOMAIN}/#{endpoint}"
-        output = Utils::Curl.curl_output("--fail", api_url)
-      end
-      raise ArgumentError, "No file found at: #{Tty.underline}#{api_url}#{Tty.reset}" unless output.success?
-
-      cache[endpoint] = JSON.parse(output.stdout, freeze: true)
-    rescue JSON::ParserError
-      raise ArgumentError, "Invalid JSON file: #{Tty.underline}#{api_url}#{Tty.reset}"
-    end
 
     sig { params(target: Pathname, stale_seconds: T.nilable(Integer)).returns(T::Boolean) }
     def self.skip_download?(target:, stale_seconds:)
