@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "cask/artifact/abstract_artifact"
+require "utils/data"
 
 module Cask
   module Artifact
@@ -16,7 +17,7 @@ module Cask
       }
       def self.from_args(cask, path, options = nil)
         options ||= {}
-        options.assert_valid_keys(:content)
+        ::Utils::Data.assert_valid_keys(options, :content)
         new(cask, path, **options)
       end
 

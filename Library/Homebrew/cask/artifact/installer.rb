@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 require "cask/artifact/abstract_artifact"
-require "extend/hash/keys"
+require "utils/data"
 
 module Cask
   module Artifact
@@ -57,7 +57,7 @@ module Cask
           )
         end
 
-        args.assert_valid_keys(*VALID_KEYS)
+        ::Utils::Data.assert_valid_keys(args, *VALID_KEYS)
         new(cask, **args)
       end
 
