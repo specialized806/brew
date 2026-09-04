@@ -1097,6 +1097,13 @@ __fish_brew_complete_arg 'fetch; and not __fish_seen_argument -l cask -l casks' 
 __fish_brew_complete_arg 'fetch; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
+__fish_brew_complete_cmd 'find-appcast' 'Find the appcast of the app bundle at app_path, for use in a cask `livecheck` block'
+__fish_brew_complete_arg 'find-appcast' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'find-appcast' -l help -d 'Show this message'
+__fish_brew_complete_arg 'find-appcast' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'find-appcast' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'formula' 'Display the path where formula is located'
 __fish_brew_complete_arg 'formula' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'formula' -l help -d 'Show this message'
@@ -1169,6 +1176,13 @@ __fish_brew_complete_arg 'generate-cask-ci-matrix' -l syntax-only -d 'Only run s
 __fish_brew_complete_arg 'generate-cask-ci-matrix' -l url -d 'Treat named argument as a pull request URL'
 __fish_brew_complete_arg 'generate-cask-ci-matrix' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'generate-cask-ci-matrix' -a '(__fish_brew_suggest_casks_all)'
+
+
+__fish_brew_complete_cmd 'generate-cask-token' 'Generate a cask token, filename and header line for an application, following the token conventions described in the Cask Cookbook'
+__fish_brew_complete_arg 'generate-cask-token' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'generate-cask-token' -l help -d 'Show this message'
+__fish_brew_complete_arg 'generate-cask-token' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'generate-cask-token' -l verbose -d 'Make some output more verbose'
 
 
 complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'generate-formula-api' -d 'Generate `homebrew/core` API data files for https://formulae.brew.sh'

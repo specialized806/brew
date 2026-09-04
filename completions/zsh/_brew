@@ -198,8 +198,10 @@ __brew_internal_commands() {
     'exec:Run command in an environment populated by Homebrew formulae'
     'extract:Look through repository history to find the most recent version of formula and create a copy in tap'
     'fetch:Download a bottle (if available) or source packages for formulae and binaries for casks'
+    'find-appcast:Find the appcast of the app bundle at app_path, for use in a cask `livecheck` block'
     'formula:Display the path where formula is located'
     'formulae:List all locally installable formulae including short names'
+    'generate-cask-token:Generate a cask token, filename and header line for an application, following the token conventions described in the Cask Cookbook'
     'generate-man-completions:Generate Homebrew'\''s manpages and shell completions'
     'generate-zap:Generate a `zap` stanza for a cask by scanning the system for associated files and directories'
     'gist-logs:Upload logs for a failed build of formula to a new Gist'
@@ -1442,6 +1444,15 @@ _brew_fetch() {
     '*:cask:__brew_casks'
 }
 
+# brew find-appcast
+_brew_find_appcast() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
+}
+
 # brew formula
 _brew_formula() {
   _arguments \
@@ -1530,6 +1541,15 @@ _brew_generate_cask_ci_matrix() {
     - cask \
     '(--url)--cask[Treat all named arguments as cask tokens]' \
     '*:cask:__brew_casks'
+}
+
+# brew generate-cask-token
+_brew_generate_cask_token() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
 }
 
 # brew generate-formula-api

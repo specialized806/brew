@@ -4,7 +4,9 @@
 require "formula"
 require "formula_creator"
 require "missing_formula"
+require "cask/appcast"
 require "cask/cask_loader"
+require "cask/token_generator"
 require "downloadable"
 
 module Homebrew
@@ -86,14 +88,16 @@ module Homebrew
       sig { returns(Pathname) }
       def create_cask
         url = args.named.fetch(0)
-        name = if args.set_name.blank?
+        set_name = args.set_name&.strip
+        name = if set_name.blank?
           stem = Pathname.new(url).stem.rpartition("=").last
           print "Cask name [#{stem}]: "
           __gets || stem
         else
-          args.set_name
+          set_name
         end
-        token = Cask::Utils.token_from(T.must(name))
+        token = Cask::Utils.token_from(name)
+        Cask::TokenGenerator.warnings(token).each { |warning| opoo warning }
 
         cask_tap = Tap.fetch(args.tap || "homebrew/cask")
         raise TapUnavailableError, cask_tap.name unless cask_tap.installed?
@@ -102,8 +106,9 @@ module Homebrew
         cask_path.dirname.mkpath unless cask_path.dirname.exist?
         raise Cask::CaskAlreadyCreatedError, token if cask_path.exist?
 
-        version = if args.set_version
-          Version.new(T.must(args.set_version))
+        set_version = args.set_version
+        version = if set_version
+          Version.new(set_version)
         else
           Version.detect(url.gsub(token, "").gsub(/x86(_64)?/, ""))
         end
@@ -123,6 +128,10 @@ module Homebrew
           [url.gsub(version.to_s, "\#{version}"), sha256]
         end
 
+        appcast = find_appcast_for(name)
+        livecheck_url = appcast ? appcast.url.inspect : "\"\""
+        livecheck_strategy = appcast ? appcast.strategy.inspect : "\"\""
+
         cask_path.atomic_write <<~RUBY
           # Documentation: https://docs.brew.sh/Cask-Cookbook
           # PLEASE REMOVE ALL GENERATED COMMENTS BEFORE SUBMITTING YOUR PULL REQUEST!
@@ -137,8 +146,8 @@ module Homebrew
 
             # Documentation: https://docs.brew.sh/Brew-Livecheck
             livecheck do
-              url ""
-              strategy ""
+              url #{livecheck_url}
+              strategy #{livecheck_strategy}
             end
 
             depends_on macos: ""
@@ -153,6 +162,22 @@ module Homebrew
         puts "Please run `brew audit --cask --new #{token}` before submitting, thanks."
         cask_path
       end
+
+      public
+
+      # Scan an already-installed copy of the app for an appcast to prefill
+      # the `livecheck` block.
+      sig { params(name: String).returns(T.nilable(Cask::Appcast::Result)) }
+      def find_appcast_for(name)
+        app_path = Pathname("/Applications/#{name}.app")
+        return unless app_path.directory?
+
+        appcast = Cask::Appcast.find(app_path)
+        ohai "Found #{appcast.strategy.inspect} appcast: #{appcast.url}" if appcast
+        appcast
+      end
+
+      private
 
       sig { returns(Pathname) }
       def create_formula

@@ -1617,6 +1617,22 @@ _brew_fetch() {
   __brew_complete_casks
 }
 
+_brew_find_appcast() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+}
+
 _brew_formula() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -1752,6 +1768,22 @@ _brew_generate_cask_ci_matrix() {
     *) ;;
   esac
   __brew_complete_casks
+}
+
+_brew_generate_cask_token() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
 }
 
 _brew_generate_formula_api() {
@@ -3819,6 +3851,7 @@ _brew() {
     exec) _brew_exec ;;
     extract) _brew_extract ;;
     fetch) _brew_fetch ;;
+    find-appcast) _brew_find_appcast ;;
     formula) _brew_formula ;;
     formula-analytics) _brew_formula_analytics ;;
     formulae) _brew_formulae ;;
@@ -3826,6 +3859,7 @@ _brew() {
     generate-analytics-api) _brew_generate_analytics_api ;;
     generate-cask-api) _brew_generate_cask_api ;;
     generate-cask-ci-matrix) _brew_generate_cask_ci_matrix ;;
+    generate-cask-token) _brew_generate_cask_token ;;
     generate-formula-api) _brew_generate_formula_api ;;
     generate-internal-api) _brew_generate_internal_api ;;
     generate-man-completions) _brew_generate_man_completions ;;
