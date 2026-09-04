@@ -279,6 +279,8 @@ module Homebrew
           plist_username = plist["UserName"] if plist
 
           return plist_username if plist_username.present?
+          return "root" if registered_destination.dirname == System.boot_path
+          return System.user if registered_destination.dirname == System.user_path
         end
         return "root" if boot_path_service_file_present?
         return System.user if user_path_service_file_present?
