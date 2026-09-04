@@ -1628,7 +1628,7 @@ class Formula
   # end
   #
   # def install
-  #   system "cargo", "install", "--offline", *std_cargo_args
+  #   system "cargo", "install", *std_cargo_args
   # end
   # ```
   #
@@ -2171,6 +2171,7 @@ class Formula
   def std_cargo_args(root: prefix, path: ".", features: nil)
     args = ["--jobs", ENV.make_jobs.to_s, "--locked", "--root=#{root}", "--path=#{path}"]
     args += ["--features=#{Array(features).join(",")}"] if features
+    args << "--offline" if fetch_defined?
     args
   end
 
