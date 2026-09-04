@@ -326,7 +326,7 @@ module FormulaCellarChecks
     # macOS `objdump` is a bit slow, so we prioritise llvm's `llvm-objdump` (~5.7x faster)
     # or binutils' `objdump` (~1.8x faster) if they are installed.
     if Utils::Path.formula_any_version_installed?("llvm")
-      objdump   = Utils::Path.formula_opt_bin("llvm")/"llvm-objdump"
+      objdump = Utils::Path.formula_opt_bin("llvm")/"llvm-objdump"
     end
     if Utils::Path.formula_any_version_installed?("binutils")
       objdump ||= Utils::Path.formula_opt_bin("binutils")/"objdump"

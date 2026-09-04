@@ -403,7 +403,7 @@ module Homebrew
         return if (deps | reqs).none? { |d| d.name == "mercurial" && d.build? }
 
         test "brew", "install", "mercurial",
-             env:  { "HOMEBREW_DEVELOPER" => nil }
+             env: { "HOMEBREW_DEVELOPER" => nil }
       end
 
       sig { params(deps: T::Array[Dependency], reqs: T::Array[Requirement]).void }
@@ -411,7 +411,7 @@ module Homebrew
         return if (deps | reqs).none? { |d| d.name == "subversion" && d.build? }
 
         test "brew", "install", "subversion",
-             env:  { "HOMEBREW_DEVELOPER" => nil }
+             env: { "HOMEBREW_DEVELOPER" => nil }
       end
 
       sig { params(formula_name: String, reason: String).void }

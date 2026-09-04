@@ -229,9 +229,9 @@ RSpec.describe Homebrew::CLI::Parser do
   describe "test constraints for flag options" do
     subject(:parser) do
       described_class.new(Cmd) do
-        flag      "--flag1="
-        flag      "--flag2=", depends_on: "--flag1="
-        flag      "--flag3="
+        flag "--flag1="
+        flag "--flag2=", depends_on: "--flag1="
+        flag "--flag3="
 
         conflicts "--flag1", "--flag3"
       end
@@ -260,8 +260,8 @@ RSpec.describe Homebrew::CLI::Parser do
   describe "test invalid constraints" do
     subject(:parser) do
       described_class.new(Cmd) do
-        flag      "--flag1="
-        flag      "--flag2=", depends_on: "--flag1="
+        flag "--flag1="
+        flag "--flag2=", depends_on: "--flag1="
 
         conflicts "--flag1", "--flag2"
       end
@@ -275,9 +275,9 @@ RSpec.describe Homebrew::CLI::Parser do
   describe "test constraints for switch options" do
     subject(:parser) do
       described_class.new(Cmd) do
-        switch      "-a", "--switch-a", env: "switch_a"
-        switch      "-b", "--switch-b", env: "switch_b"
-        switch      "--switch-c", depends_on: "--switch-a"
+        switch "-a", "--switch-a", env: "switch_a"
+        switch "-b", "--switch-b", env: "switch_b"
+        switch "--switch-c", depends_on: "--switch-a"
 
         conflicts "--switch-a", "--switch-b"
       end
