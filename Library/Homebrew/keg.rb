@@ -641,14 +641,16 @@ class Keg
     # leaves its intermediate objects and static archives behind; they embed
     # build paths that pin bottles and are never needed at run time (addons
     # load the linked `.node` files, not the objects they were linked from).
+    # It always writes them into the package's `build` directory, so anything
+    # matching elsewhere under `node_modules` is shipped by the package.
     path.find do |pn|
       next unless pn.to_s.include?("/node_modules/")
+      next unless pn.to_s.include?("/build/")
 
       if pn.directory? && pn.basename.to_s == "obj.target"
         FileUtils.rm_rf pn
         Find.prune
-      elsif %w[.o .d].include?(pn.extname) ||
-            (pn.extname == ".a" && pn.to_s.include?("/build/"))
+      elsif %w[.o .d .a].include?(pn.extname) && pn.file?
         pn.delete
       end
     end

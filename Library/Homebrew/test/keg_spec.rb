@@ -455,6 +455,9 @@ RSpec.describe Keg do
       touch build_dir/"leveldb.a"
       (keg_path/"libexec/lib/node_modules/foo/lib").mkpath
       touch keg_path/"libexec/lib/node_modules/foo/lib/shipped.a"
+      touch keg_path/"libexec/lib/node_modules/foo/lib/shipped.o"
+      (keg_path/"libexec/lib/node_modules/foo/test/obj.target").mkpath
+      touch keg_path/"libexec/lib/node_modules/foo/test/obj.target/fixture.txt"
       (keg_path/"lib").mkpath
       touch keg_path/"lib/crt1.o"
 
@@ -465,7 +468,19 @@ RSpec.describe Keg do
       expect(build_dir/"leveldb.a").not_to exist
       expect(build_dir/"addon.node").to exist
       expect(keg_path/"libexec/lib/node_modules/foo/lib/shipped.a").to exist
+      expect(keg_path/"libexec/lib/node_modules/foo/lib/shipped.o").to exist
+      expect(keg_path/"libexec/lib/node_modules/foo/test/obj.target").to exist
       expect(keg_path/"lib/crt1.o").to exist
+    end
+
+    it "keeps directories that share an intermediate object's extension" do
+      fixture = HOMEBREW_CELLAR/"foo/1.0/libexec/lib/node_modules/foo/build/Release/name.d"
+      fixture.mkpath
+      touch fixture/"name.txt"
+
+      keg.delete_node_gyp_debris!
+
+      expect(fixture).to exist
     end
   end
 
