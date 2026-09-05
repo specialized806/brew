@@ -24,7 +24,7 @@ module Homebrew
         command = args.named.fetch(0)
         raise UsageError, "`#{command}` is not a valid Ruby command!" unless Commands.valid_ruby_cmd?(command)
 
-        brew_rb = (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path
+        brew_rb = Utils::Path.resolved_path(HOMEBREW_LIBRARY_PATH/"brew.rb")
         debugger_method = if args.open?
           "open"
         else

@@ -37,7 +37,7 @@ module Homebrew
         taps_to_untap = Homebrew::Trust.untrusted_taps.reject { |untrusted_tap| untrusted_tap.name == tap&.name }
         return if taps_to_untap.empty?
 
-        test "brew", "untap", *taps_to_untap.map(&:name)
+        test "brew", "untap", "--force", *taps_to_untap.map(&:name)
       end
     end
   end

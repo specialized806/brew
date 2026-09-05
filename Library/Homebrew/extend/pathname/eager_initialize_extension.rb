@@ -24,7 +24,6 @@ module EagerInitializeExtension
     @magic_number = T.let(nil, NilableString)
     @file_type = T.let(nil, NilableString)
     @zipinfo = T.let(nil, NilableStringArray)
-    @which_install_info = T.let(nil, NilableString)
     @disk_usage = T.let(nil, NilableInteger)
     @file_count = T.let(nil, NilableInteger)
     super

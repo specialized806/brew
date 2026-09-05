@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/interrupts"
+
 require "fcntl"
 require "utils/output"
 
@@ -27,7 +29,7 @@ class LockFile
 
   sig { void }
   def lock
-    ignore_interrupts do
+    Utils::Interrupts.ignore do
       next if @lockfile.present?
 
       path.dirname.mkpath
@@ -72,7 +74,7 @@ class LockFile
 
   sig { params(unlink: T::Boolean).void }
   def unlock(unlink: false)
-    ignore_interrupts do
+    Utils::Interrupts.ignore do
       next if @lockfile.nil?
 
       @path.unlink if unlink

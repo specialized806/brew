@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "abstract_command"
 require "fileutils"
 
@@ -60,13 +62,13 @@ module Homebrew
         HOMEBREW_LIBRARY_PATH.cd do
           if update
             workers = args.debug? ? ["--workers=1"] : []
-            safe_system "bundle", "exec", "tapioca", "annotations"
-            safe_system "bundle", "exec", "tapioca", "dsl", *workers
+            SystemCommand.safe_system "bundle", "exec", "tapioca", "annotations"
+            SystemCommand.safe_system "bundle", "exec", "tapioca", "dsl", *workers
             # Prefer adding args here: Library/Homebrew/sorbet/tapioca/config.yml
             tapioca_args = args.update_all? ? ["--all"] : []
 
             ohai "Updating Tapioca RBI files..."
-            safe_system "bundle", "exec", "tapioca", "gem", *tapioca_args
+            SystemCommand.safe_system "bundle", "exec", "tapioca", "gem", *tapioca_args
 
             ohai "Trimming RuboCop RBI because by default it's massive..."
             trim_rubocop_rbi

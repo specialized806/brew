@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "utils/output"
 
 class DependentsMessage
@@ -22,7 +24,7 @@ class DependentsMessage
   sig { void }
   def output
     ofail <<~EOS
-      Refusing to uninstall #{reqs.to_sentence}
+      Refusing to uninstall #{Utils::Text.to_sentence(reqs)}
       because #{reqs.one? ? "it" : "they"} #{are_required_by_deps}.
       You can override this and force removal with:
         #{sample_command}
@@ -38,7 +40,7 @@ class DependentsMessage
 
   sig { returns(String) }
   def are_required_by_deps
-    "#{reqs.one? ? "is" : "are"} required by #{deps.to_sentence}, " \
+    "#{reqs.one? ? "is" : "are"} required by #{Utils::Text.to_sentence(deps)}, " \
       "which #{deps.one? ? "is" : "are"} currently installed"
   end
 end

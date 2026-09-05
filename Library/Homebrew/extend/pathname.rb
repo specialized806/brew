@@ -7,6 +7,7 @@ require "extend/pathname/eager_initialize_extension"
 require "extend/pathname/observer_pathname_extension"
 require "extend/pathname/write_mkpath_extension"
 require "utils/output"
+require "utils/path"
 
 # Stubs needed to keep Sorbet happy.
 # rubocop:disable Style/OneClassPerFile
@@ -141,24 +142,11 @@ class Pathname
 
   sig {
     params(pattern: T.any(Pathname, String, Regexp), replacement: T.any(Pathname, String),
-           _block: T.nilable(T.proc.params(src: Pathname, dst: Pathname).returns(Pathname))).void
+           block: T.nilable(T.proc.params(src: Pathname, dst: Pathname).returns(Pathname))).void
   }
-  def cp_path_sub(pattern, replacement, &_block)
-    raise "#{self} does not exist" unless exist?
-
-    pattern = pattern.to_s if pattern.is_a?(Pathname)
-    replacement = replacement.to_s if replacement.is_a?(Pathname)
-    dst = sub(pattern, replacement)
-
-    raise "#{self} is the same file as #{dst}" if self == dst
-
-    if directory?
-      dst.mkpath
-    else
-      dst.dirname.mkpath
-      dst = yield(self, dst) if block_given?
-      FileUtils.cp(self, dst)
-    end
+  def cp_path_sub(pattern, replacement, &block)
+    Utils::Output.odeprecated "Pathname#cp_path_sub", "Utils::Path.cp_path_sub"
+    Utils::Path.cp_path_sub(self, pattern, replacement, &block)
   end
 
   # Extended to support common double extensions.
@@ -188,22 +176,10 @@ class Pathname
     File.basename(self, extname)
   end
 
-  # I don't trust the children.length == 0 check particularly, not to mention
-  # it is slow to enumerate the whole directory just to see if it is empty,
-  # instead rely on good ol' libc and the filesystem
   sig { returns(T::Boolean) }
   def rmdir_if_possible
-    rmdir
-    true
-  rescue Errno::ENOTEMPTY
-    if (ds_store = join(".DS_Store")).exist? && children.length == 1
-      ds_store.unlink
-      retry
-    else
-      false
-    end
-  rescue Errno::EACCES, Errno::ENOENT, Errno::EBUSY, Errno::EPERM
-    false
+    Utils::Output.odeprecated "Pathname#rmdir_if_possible", "Utils::Path.rmdir_if_possible"
+    Utils::Path.rmdir_if_possible(self)
   end
 
   sig { returns(Version) }
@@ -214,7 +190,8 @@ class Pathname
 
   sig { returns(T::Boolean) }
   def text_executable?
-    /\A#!\s*\S+/.match?(open("r") { |f| f.read(1024) })
+    Utils::Output.odeprecated "Pathname#text_executable?", "Utils::Path.text_executable?"
+    Utils::Path.text_executable?(self)
   end
 
   sig { returns(String) }
@@ -258,17 +235,14 @@ class Pathname
 
   sig { returns(Pathname) }
   def resolved_path
-    symlink? ? dirname.join(readlink) : self
+    Utils::Output.odeprecated "Pathname#resolved_path", "Utils::Path.resolved_path"
+    Utils::Path.resolved_path(self)
   end
 
   sig { returns(T::Boolean) }
   def resolved_path_exists?
-    link = readlink
-  rescue ArgumentError
-    # The link target contains NUL bytes
-    false
-  else
-    dirname.join(link).exist?
+    Utils::Output.odeprecated "Pathname#resolved_path_exists?", "Utils::Path.resolved_path_exists?"
+    Utils::Path.resolved_path_exists?(self)
   end
 
   sig { params(src: Pathname).void }
@@ -277,26 +251,22 @@ class Pathname
     File.symlink(src.relative_path_from(dirname), self)
   end
 
-  sig { params(_block: T.proc.void).void }
-  def ensure_writable(&_block)
-    saved_perms = nil
-    unless writable?
-      saved_perms = stat.mode
-      FileUtils.chmod "u+rw", to_path
-    end
-    yield
-  ensure
-    chmod saved_perms if saved_perms
+  sig { params(block: T.proc.void).void }
+  def ensure_writable(&block)
+    Utils::Output.odeprecated "Pathname#ensure_writable", "Utils::Path.ensure_writable"
+    Utils::Path.ensure_writable(self, &block)
   end
 
   sig { void }
   def install_info
-    quiet_system(which_install_info, "--quiet", to_s, "#{dirname}/dir")
+    Utils::Output.odeprecated "Pathname#install_info", "Utils::Path.install_info"
+    Utils::Path.install_info(self)
   end
 
   sig { void }
   def uninstall_info
-    quiet_system(which_install_info, "--delete", "--quiet", to_s, "#{dirname}/dir")
+    Utils::Output.odeprecated "Pathname#uninstall_info", "Utils::Path.uninstall_info"
+    Utils::Path.uninstall_info(self)
   end
 
   # Writes an exec script in this folder for each target pathname.
@@ -404,7 +374,7 @@ class Pathname
       next unless Metafiles.copy?(p.basename.to_s)
 
       # Some software symlinks these files (see help2man.rb)
-      filename = p.resolved_path
+      filename = Utils::Path.resolved_path(p)
       # Some software links metafiles together, so by the time we iterate to one of them
       # we may have already moved it. libxml2's COPYING and Copyright are affected by this.
       next unless filename.exist?
@@ -509,17 +479,6 @@ class Pathname
     src = Pathname(src).expand_path(dstdir)
     src = src.dirname.realpath/src.basename if src.dirname.exist?
     FileUtils.ln_sf(src.relative_path_from(dstdir), dstdir/new_basename)
-  end
-
-  sig { returns(T.nilable(String)) }
-  def which_install_info
-    @which_install_info ||= T.let(nil, T.nilable(String))
-    @which_install_info ||=
-      if File.executable?("/usr/bin/install-info")
-        "/usr/bin/install-info"
-      elsif (texinfo_formula = Formula["texinfo"]).any_version_installed?
-        (texinfo_formula.opt_bin/"install-info").to_s
-      end
   end
 end
 # rubocop:enable Style/OneClassPerFile

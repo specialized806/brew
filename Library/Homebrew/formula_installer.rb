@@ -1,6 +1,10 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/interrupts"
+
+require "utils/text"
+
 require "formula"
 require "api/formula_bottle"
 require "keg"
@@ -556,7 +560,7 @@ class FormulaInstaller
     (etc_var_postinstall - @etc_var_preinstall).each do |file|
       # Keep new `etc`/`var` files in `.bottle` so `Formula#install_etc_var`
       # can restore them later with `InstallRenamed` config handling.
-      Pathname.new(file).cp_path_sub(HOMEBREW_PREFIX, formula.bottle_prefix)
+      cp_path_sub(Pathname.new(file), HOMEBREW_PREFIX, formula.bottle_prefix)
     end
   end
 
@@ -860,7 +864,7 @@ on_request: installed_on_request?, options:)
                                 outdated: installed && dep_formula.outdated?, mark_uninstalled: false,
                                 bold: false)
         end
-        oh1 "Installing dependencies for #{formula.full_name}:#{Tty.reset} #{names.to_sentence}",
+        oh1 "Installing dependencies for #{formula.full_name}:#{Tty.reset} #{Utils::Text.to_sentence(names)}",
             truncate: false
       end
       deps_with_formulae.each { |dep, dep_formula| install_dependency(dep, dep_formula) }
@@ -897,7 +901,7 @@ on_request: installed_on_request?, options:)
   sig { params(dep: Dependency, dep_formula: Formula).void }
   def install_dependency(dep, dep_formula = dep.to_formula)
     if dep_formula.linked_keg.directory?
-      linked_keg = Keg.new(dep_formula.linked_keg.resolved_path)
+      linked_keg = Keg.new(resolved_path(dep_formula.linked_keg))
       tab = linked_keg.tab
       keg_had_linked_keg = true
       keg_was_linked = linked_keg.linked?
@@ -952,7 +956,7 @@ on_request: installed_on_request?, options:)
     fi.finish
   # Handle all possible exceptions installing deps.
   rescue Exception => e # rubocop:disable Lint/RescueException
-    ignore_interrupts do
+    Utils::Interrupts.ignore do
       tmp_keg.rename(installed_keg.to_path) if tmp_keg && !installed_keg.directory?
       linked_keg.link(verbose: verbose?) if keg_was_linked
     end
@@ -962,7 +966,7 @@ on_request: installed_on_request?, options:)
     # dependency tree. In that case, don't generate an error, just move on.
     nil
   else
-    ignore_interrupts { FileUtils.rm_r(tmp_keg) if tmp_keg&.directory? }
+    Utils::Interrupts.ignore { FileUtils.rm_r(tmp_keg) if tmp_keg&.directory? }
   end
 
   sig { void }
@@ -1099,7 +1103,7 @@ on_request: installed_on_request?, options:)
   def summary
     s = +""
     s << "#{Homebrew::EnvConfig.install_badge}  " unless Homebrew::EnvConfig.no_emoji?
-    s << "#{formula.prefix.resolved_path}: #{formula.prefix.abv}"
+    s << "#{resolved_path(formula.prefix)}: #{formula.prefix.abv}"
     s << ", built in #{pretty_duration build_time}" if build_time
     s.freeze
   end
@@ -1198,11 +1202,11 @@ on_request: installed_on_request?, options:)
       e.options = display_options(formula)
     end
 
-    ignore_interrupts do
+    Utils::Interrupts.ignore do
       # any exceptions must leave us with nothing installed
       formula.update_head_version
       FileUtils.rm_r(formula.prefix) if formula.prefix.directory?
-      formula.rack.rmdir_if_possible
+      rmdir_if_possible(formula.rack)
     end
     raise e
   ensure
@@ -1250,10 +1254,8 @@ on_request: installed_on_request?, options:)
   sig { params(sandbox: Sandbox, formula_path: Pathname, log_name: String).void }
   def add_build_sandbox_rules(sandbox, formula_path, log_name:)
     sandbox.allow_read_if_exists path: formula_path
-    if Homebrew::EnvConfig.require_tap_trust?
-      require "trust"
-      sandbox.allow_read_if_exists path: Homebrew::Trust.trust_file
-    end
+    require "trust"
+    sandbox.allow_read_if_exists path: Homebrew::Trust.trust_file
     formula.logs.mkpath
     sandbox.record_log(formula.logs/"#{log_name}.sandbox.log")
     sandbox.allow_write_log(formula)
@@ -1347,7 +1349,7 @@ on_request: installed_on_request?, options:)
       end
 
       @show_summary_heading = true
-      ignore_interrupts do
+      Utils::Interrupts.ignore do
         keg.unlink
         link_overwrite_backup.each do |origin, backup|
           origin.parent.mkpath
@@ -1687,7 +1689,7 @@ on_request: installed_on_request?, options:)
         bottle_tmp_keg = downloadable_object.staged_path_from_download_queue
         FileUtils.rm(bottle_poured_file)
         FileUtils.mv(bottle_tmp_keg, formula.prefix)
-        bottle_tmp_keg.parent.rmdir_if_possible
+        rmdir_if_possible(bottle_tmp_keg.parent)
       elsif downloadable_object.is_a?(Bottle)
         # Retries with a fresh download if the cached bottle turns out corrupt.
         downloadable_object.stage
@@ -1808,7 +1810,7 @@ on_request: installed_on_request?, options:)
 
     if invalid_licenses.present?
       opoo <<~EOS
-        `$HOMEBREW_FORBIDDEN_LICENSES` contains invalid license identifiers: #{invalid_licenses.to_sentence}
+        `$HOMEBREW_FORBIDDEN_LICENSES` contains invalid license identifiers: #{Utils::Text.to_sentence(invalid_licenses)}
         These licenses will not be forbidden. See the valid SPDX license identifiers at:
           #{Formatter.url("https://spdx.org/licenses/")}
         And the licenses for a formula with:

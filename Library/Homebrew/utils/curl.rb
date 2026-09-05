@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 require "open3"
 
 require "utils/timer"
@@ -714,7 +716,7 @@ module Utils
     sig { returns(T::Boolean) }
     def curl_supports_tls13?
       @curl_supports_tls13 ||= T.let(Hash.new do |h, key|
-        h[key] = quiet_system(curl_executable, "--tlsv1.3", "--head", "https://brew.sh/")
+        h[key] = SystemCommand.quiet_system(curl_executable, "--tlsv1.3", "--head", "https://brew.sh/")
       end, T.nilable(T::Hash[T.any(Pathname, String), T::Boolean]))
       @curl_supports_tls13[curl_path]
     end

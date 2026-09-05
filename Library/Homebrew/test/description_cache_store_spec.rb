@@ -11,7 +11,23 @@ RSpec.describe DescriptionCacheStore do
   let(:formula_name) { "test_name" }
   let(:description) { "test_description" }
 
-  before { allow(Homebrew::EnvConfig).to receive(:tap_trust_configured?).and_return(true) }
+  def expect_untrusted_cached_description_removed(cache_store, database, type)
+    trusted_name = "thirdparty/tap/trusted"
+    untrusted_name = "thirdparty/tap/untrusted"
+    allow(Homebrew::EnvConfig).to receive(:no_require_tap_trust?).and_return(false)
+    allow(database).to receive(:each_key).and_yield("core-item").and_yield(trusted_name).and_yield(untrusted_name)
+    allow(database).to receive(:empty?).and_return(false)
+    allow(Homebrew::Trust).to receive(:trusted?).with(type, trusted_name).and_return(true)
+    allow(Homebrew::Trust).to receive(:trusted?).with(type, untrusted_name).and_return(false)
+    expect(database).to receive(:delete).with(untrusted_name)
+    expect(database).to receive(:select).and_return({})
+
+    cache_store.select { true }
+  end
+
+  it "removes untrusted cached formula descriptions before selecting" do
+    expect_untrusted_cached_description_removed(cache_store, database, :formula)
+  end
 
   describe "#update!" do
     it "sets the formula description" do
@@ -70,6 +86,10 @@ RSpec.describe DescriptionCacheStore do
     subject(:cache_store) { described_class.new(database) }
 
     let(:database) { instance_double(CacheStoreDatabase, "database") }
+
+    it "removes untrusted cached cask descriptions before selecting" do
+      expect_untrusted_cached_description_removed(cache_store, database, :cask)
+    end
 
     describe "#update_from_report!" do
       let(:report) { instance_double(ReporterHub, select_formula_or_cask: [], empty?: false) }

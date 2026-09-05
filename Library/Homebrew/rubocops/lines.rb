@@ -90,6 +90,13 @@ module RuboCop
             end
           end
 
+          find_every_method_call_by_name(body_node, :assert_equal).each do |method|
+            next unless parameters(method).first&.nil_type?
+
+            offending_node(method)
+            problem "Use `assert_nil` instead of `assert_equal` with a nil expected value"
+          end
+
           find_every_method_call_by_name(body_node, :assert_predicate).each do |method|
             args = parameters(method)
             next if args.fetch(1).source != ":exist?"

@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "services/system"
 
 module Utils
@@ -15,7 +17,7 @@ module Utils
         end
       elsif systemctl?
         formula.service_names.any? do |name|
-          quiet_system(systemctl, "is-active", "--quiet", name)
+          SystemCommand.quiet_system(systemctl, "is-active", "--quiet", name)
         end
       else
         false

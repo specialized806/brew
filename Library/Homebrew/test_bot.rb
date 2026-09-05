@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "test_bot/step"
 require "test_bot/test_runner"
 
@@ -46,25 +48,6 @@ module Homebrew
       action = Homebrew::Trust.trust!(:tap, tap) ? "Trusted" : "Already trusted"
       Homebrew::TestBot.ohai "#{action} tap: #{tap.name}"
     end
-
-    sig { void }
-    def setup_github_actions_sandbox!
-      return unless GitHub::Actions.env_set?
-
-      # TODO: odeprecated: make Linux sandbox support mandatory when using `test-bot`.
-      return unless Homebrew::EnvConfig.sandbox_linux?
-
-      return if configure_sandbox!
-
-      require "sandbox"
-      Sandbox.ensure_sandbox_available! if ENV["GITHUB_REPOSITORY_OWNER"] == "Homebrew"
-
-      ENV["HOMEBREW_NO_SANDBOX_LINUX"] = "1"
-      Sandbox.reset_state!
-    end
-
-    sig { returns(T::Boolean) }
-    def configure_sandbox! = true
 
     sig { params(tap: T.nilable(String)).returns(T.nilable(Tap)) }
     def resolve_test_tap(tap = nil)
@@ -125,14 +108,6 @@ module Homebrew
         FileUtils.cp trust_file, ENV.fetch("HOMEBREW_USER_CONFIG_HOME") if trust_file.exist?
       end
 
-      if !args.only_cleanup_before? &&
-         !args.only_tap_syntax? &&
-         !args.only_formulae_detect? &&
-         !args.only_bottles_fetch? &&
-         !args.only_cleanup_after?
-        setup_github_actions_sandbox!
-      end
-
       tap = resolve_test_tap(args.tap)
 
       if tap&.core_tap?
@@ -146,9 +121,9 @@ module Homebrew
       # bottle rebuild and bottle upload rely on full clone.
       if tap
         if !tap.path.exist?
-          safe_system "brew", "tap", tap.name
+          SystemCommand.safe_system "brew", "tap", tap.name
         elsif (tap.path/".git/shallow").exist?
-          raise unless quiet_system GIT, "-C", tap.path, "fetch", "--unshallow"
+          raise unless SystemCommand.quiet_system GIT, "-C", tap.path, "fetch", "--unshallow"
         end
 
         trust_test_tap!(tap)

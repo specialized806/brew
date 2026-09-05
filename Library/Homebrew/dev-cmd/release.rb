@@ -1,6 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+require "utils/browser"
+
 require "abstract_command"
 
 module Homebrew
@@ -37,7 +40,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        safe_system "git", "-C", HOMEBREW_REPOSITORY, "fetch", "origin" if Homebrew::EnvConfig.no_auto_update?
+        SystemCommand.safe_system "git", "-C", HOMEBREW_REPOSITORY, "fetch", "origin" if Homebrew::EnvConfig.no_auto_update?
 
         require "utils/github"
 
@@ -226,7 +229,7 @@ module Homebrew
           releases_page_url
         end
         puts "  #{Formatter.url(release_url)}"
-        exec_browser release_url
+        Utils::Browser.open release_url
       end
 
       sig { params(name: String).returns(T::Array[T::Hash[String, T.untyped]]) }

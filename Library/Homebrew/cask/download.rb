@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/interrupts"
+
 require "downloadable"
 require "fileutils"
 require "unpack_strategy"
@@ -8,6 +10,7 @@ require "cask/cache"
 require "cask/caskroom"
 require "cask/quarantine"
 require "cask/utils"
+require "utils/path"
 
 module Cask
   # A download corresponding to a {Cask}.
@@ -158,8 +161,8 @@ module Cask
       staged_path = staged_path_from_download_queue
       Utils.gain_permissions_remove(staged_path, command:) if staged_path.exist?
 
-      staged_path.parent.rmdir_if_possible
-      staged_path.parent.parent.rmdir_if_possible
+      ::Utils::Path.rmdir_if_possible(staged_path.parent)
+      ::Utils::Path.rmdir_if_possible(staged_path.parent.parent)
     end
 
     sig { override.params(download: Pathname, pour: T::Boolean).returns(T::Boolean) }
@@ -197,7 +200,7 @@ module Cask
       FileUtils.ln_s(staged_path_from_download_queue, staged_path_from_download_queue_marker)
     # Catch any exception type here to clean up partial queued extractions.
     rescue Exception # rubocop:disable Lint/RescueException
-      ignore_interrupts do
+      ::Utils::Interrupts.ignore do
         purge_staged_from_download_queue
       end
       raise

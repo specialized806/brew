@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/shell"
+
 require "ignorable"
 
 # Helper module for debugging formulae.
@@ -22,10 +24,7 @@ module Debrew
       Debrew.debrew { super }
     end
 
-    sig {
-      # TODO: replace `returns(BasicObject)` with `void` after dropping `return false` handling in test
-      returns(BasicObject)
-    }
+    sig { void }
     def test
       Debrew.debrew { super }
     end
@@ -143,7 +142,7 @@ module Debrew
 
           menu.choice(:shell) do
             puts "When you exit this shell, you will return to the menu."
-            interactive_shell
+            Utils::Shell.interactive
           end
         end
       end

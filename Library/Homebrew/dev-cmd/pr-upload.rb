@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/brew_command"
+
 require "abstract_command"
 require "formula"
 require "github_packages"
@@ -29,7 +31,7 @@ module Homebrew
                description: "Skip running `brew bottle` before uploading."
         flag   "--committer=",
                description: "Specify a committer name and email in `git`'s standard author format.",
-               odeprecated: true
+               odisabled:   true
         flag   "--root-url=",
                description: "Use the specified <URL> as the root of the bottle's URL instead of Homebrew's default."
         flag   "--root-url-using=",
@@ -53,12 +55,6 @@ module Homebrew
         bottles_hash = bottles_hash_from_json_files(json_files, args)
 
         unless args.upload_only?
-          if (committer = args.committer)
-            committer = Utils.parse_author!(committer)
-            ENV["GIT_COMMITTER_NAME"] = committer[:name]
-            ENV["GIT_COMMITTER_EMAIL"] = committer[:email]
-          end
-
           bottle_args = ["bottle", "--merge", "--write"]
           bottle_args << "--verbose" if args.verbose?
           bottle_args << "--debug" if args.debug?
@@ -90,7 +86,7 @@ module Homebrew
 
           check_bottled_formulae!(bottles_hash)
 
-          safe_system HOMEBREW_BREW_FILE, *bottle_args
+          Utils::BrewCommand.run!(*bottle_args)
 
           json_files = Dir["*.bottle.json"]
           if json_files.blank?
@@ -108,7 +104,7 @@ module Homebrew
             audit_args << "--verbose" if args.verbose?
             audit_args << "--debug" if args.debug?
             audit_args += bottles_hash.keys
-            safe_system HOMEBREW_BREW_FILE, *audit_args
+            Utils::BrewCommand.run!(*audit_args)
           end
         end
 

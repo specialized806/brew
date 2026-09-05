@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "api/env"
+require "utils/output"
+
 require "abstract_command"
 require "extend/object/deep_dup"
 require "fileutils"

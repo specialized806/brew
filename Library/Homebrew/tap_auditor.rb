@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "api/env"
+require "utils/text"
+
 require "utils"
 
 module Homebrew
@@ -107,7 +109,7 @@ module Homebrew
       duplicates = formula_aliases & formula_renames.keys
       return if duplicates.none?
 
-      problem "The following should either be an alias or a rename, not both: #{duplicates.to_sentence}"
+      problem "The following should either be an alias or a rename, not both: #{Utils::Text.to_sentence(duplicates)}"
     end
 
     sig { params(message: String).void }

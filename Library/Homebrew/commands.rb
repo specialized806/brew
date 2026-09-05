@@ -1,6 +1,10 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/ruby"
+
+require "utils/text"
+
 require "homebrew"
 require "cli/parser"
 require "extend/ENV/sensitive"
@@ -40,12 +44,12 @@ module Commands
 
   sig { params(cmd: String).returns(T::Boolean) }
   def self.valid_internal_cmd?(cmd)
-    Homebrew.require?(HOMEBREW_CMD_PATH/cmd)
+    Utils::Ruby.require?(HOMEBREW_CMD_PATH/cmd)
   end
 
   sig { params(cmd: String).returns(T::Boolean) }
   def self.valid_internal_dev_cmd?(cmd)
-    Homebrew.require?(HOMEBREW_DEV_CMD_PATH/cmd)
+    Utils::Ruby.require?(HOMEBREW_DEV_CMD_PATH/cmd)
   end
 
   sig { params(cmd: String).returns(T::Boolean) }
@@ -90,7 +94,7 @@ module Commands
   def self.external_ruby_v2_cmd_path(cmd)
     path = which("#{cmd}.rb", tap_cmd_directories)
     require_trusted_command!(path, cmd)
-    path if ENV.clear_sensitive_environment! { Homebrew.require?(path) }
+    path if ENV.clear_sensitive_environment! { Utils::Ruby.require?(path) }
   end
 
   # Ruby commands which are run by being `require`d.
@@ -145,7 +149,7 @@ module Commands
     suggestions = DidYouMean::SpellChecker.new(dictionary: commands(aliases: true)).correct(cmd) if suggestions.empty?
     return "" if suggestions.empty?
 
-    "\nDid you mean #{suggestions.to_sentence(two_words_connector: " or ", last_word_connector: " or ")}?"
+    "\nDid you mean #{Utils::Text.to_sentence(suggestions, conjunction: "or")}?"
   end
 
   # An array of all tap cmd directory {Pathname}s.

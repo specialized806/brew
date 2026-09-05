@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "abstract_command"
 require "fileutils"
 
@@ -57,7 +59,7 @@ module Homebrew
             return
           end
 
-          safe_system pager, *args.named.to_paths
+          SystemCommand.safe_system pager, *args.named.to_paths
         end
       end
     end

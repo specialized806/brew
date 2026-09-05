@@ -9,10 +9,10 @@ cask "with-uninstall-script-user-relative" do
 
   app "MyFancyApp/MyFancyApp.app", target: "~/MyFancyApp.app"
 
-  postflight do
-    File.write "#{Dir.home}/MyFancyApp.app/uninstall.sh", <<~SH
+  postflight_steps do
+    write_file "MyFancyApp.app/uninstall.sh", <<~SH, base: :home
       #!/bin/sh
-      /bin/rm -r "#{Dir.home}/MyFancyApp.app"
+      /bin/rm -r "$HOME/MyFancyApp.app"
     SH
   end
 

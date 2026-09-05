@@ -21,6 +21,30 @@ RSpec.describe Homebrew::Cmd::ReadallCmd do
       .and not_to_output.to_stderr
   end
 
+  it "validates only trusted items from installed taps" do
+    trusted_formula = Pathname("trusted-formula.rb")
+    untrusted_formula = Pathname("untrusted-formula.rb")
+    trusted_cask = Pathname("trusted-cask.rb")
+    untrusted_cask = Pathname("untrusted-cask.rb")
+    tap = instance_double(
+      Tap,
+      formula_files: [trusted_formula, untrusted_formula],
+      cask_files:    [trusted_cask, untrusted_cask],
+    )
+    allow(Tap).to receive(:installed).and_return([tap])
+    allow(Homebrew::Trust).to receive_messages(trusted_formula_files: [trusted_formula],
+                                               trusted_cask_files:    [trusted_cask])
+    expect(Readall).to receive(:valid_tap?).with(
+      tap,
+      aliases:       false,
+      no_simulate:   false,
+      formula_files: [trusted_formula],
+      cask_files:    [trusted_cask],
+    ).and_return(true)
+
+    described_class.new([]).run
+  end
+
   it "skips macOS-only casks when loading tap casks on Linux" do
     tap_path = mktmpdir
     macos_only_cask_file = tap_path/"Casks/macos-only-example.rb"

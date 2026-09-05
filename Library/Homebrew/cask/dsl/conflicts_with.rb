@@ -1,8 +1,10 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "delegate"
 require "utils/data"
+
+require "delegate"
+require "extend/hash/keys"
 require "utils/output"
 
 module Cask

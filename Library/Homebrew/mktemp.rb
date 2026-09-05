@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/interrupts"
+
 require "utils/output"
 
 # Performs {Formula#mktemp}'s functionality and tracks the results.
@@ -70,7 +72,7 @@ class Mktemp
         yield self
       end
     ensure
-      ignore_interrupts { chmod_rm_rf(@tmpdir) } unless retain?
+      Utils::Interrupts.ignore { chmod_rm_rf(@tmpdir) } unless retain?
     end
   ensure
     if retain? && @tmpdir.present? && !@quiet

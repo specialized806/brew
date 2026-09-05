@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/interrupts"
+
 require "lock_file"
 require "keg"
 require "tab"
@@ -253,7 +255,7 @@ class Migrator
         brew upgrade #{newname}
     EOS
   rescue Interrupt
-    ignore_interrupts { backup_oldname }
+    Utils::Interrupts.ignore { backup_oldname }
   # Any exception means the migration did not complete.
   rescue Exception => e # rubocop:disable Lint/RescueException
     onoe "The migration did not complete successfully."
@@ -263,7 +265,7 @@ class Migrator
       puts Utils::Backtrace.clean(e)
     end
     puts "Backing up..."
-    ignore_interrupts { backup_oldname }
+    Utils::Interrupts.ignore { backup_oldname }
   ensure
     unlock
   end
@@ -410,7 +412,7 @@ class Migrator
         require "utils/backtrace"
         puts Utils::Backtrace.clean(e)
       end
-      ignore_interrupts { new_keg.unlink(verbose: verbose?) }
+      Utils::Interrupts.ignore { new_keg.unlink(verbose: verbose?) }
       raise
     end
   end
@@ -450,7 +452,7 @@ class Migrator
       next if new_linked_keg_record.realpath != old_opt_record.realpath
 
       old_opt_record.unlink
-      old_opt_record.parent.rmdir_if_possible
+      Utils::Path.rmdir_if_possible(old_opt_record.parent)
     end
   end
 

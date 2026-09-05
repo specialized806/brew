@@ -1,8 +1,10 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "cask/artifact/abstract_artifact"
 require "utils/data"
+
+require "cask/artifact/abstract_artifact"
+require "extend/hash/keys"
 
 module Cask
   module Artifact

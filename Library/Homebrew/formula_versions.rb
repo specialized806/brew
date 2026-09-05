@@ -95,7 +95,7 @@ class FormulaVersions
     if verbose?
       yield
     else
-      redirect_stdout(File::NULL, &block)
+      Utils::Output.redirect_stdout(File::NULL, &block)
     end
   end
 end

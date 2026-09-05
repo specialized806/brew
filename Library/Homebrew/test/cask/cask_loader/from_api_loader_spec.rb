@@ -354,6 +354,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
           cask.config_path.dirname.mkpath
           (cask.staged_path/"container").write "app"
           (cask.staged_path/"move-source").write "moved"
+          allow(Sandbox).to receive(:use_for?).and_return(false)
 
           Cask::Installer.new(cask, command: NeverSudoSystemCommand).install_artifacts
 
@@ -365,20 +366,13 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
       end
     end
 
-    context "with a preflight stanza" do
-      include_examples "loads from API", "with-preflight"
-    end
+    context "with legacy flight stanzas" do
+      before do
+        ENV["HOMEBREW_DEVELOPER"] = nil
+        Homebrew.raise_deprecation_exceptions = false
+      end
 
-    context "with an uninstall-preflight stanza" do
-      include_examples "loads from API", "with-uninstall-preflight"
-    end
-
-    context "with a postflight stanza" do
-      include_examples "loads from API", "with-postflight"
-    end
-
-    context "with an uninstall-postflight stanza" do
-      include_examples "loads from API", "with-uninstall-postflight"
+      include_examples "loads from API", "many-artifacts"
     end
 
     context "with a language stanza" do

@@ -40,6 +40,8 @@ require_relative "support/extend/cachable"
 
 require_relative "../global"
 
+require "system_command"
+
 require "debug" if ENV["HOMEBREW_DEBUG"]
 
 require "test/support/quiet_progress_formatter"
@@ -255,7 +257,7 @@ RSpec.configure do |config|
     svn_paths = PATH.new(ENV.fetch("PATH"))
 
     svn_shim = HOMEBREW_SHIMS_PATH/"shared/svn"
-    unless quiet_system svn_shim, "--version"
+    unless SystemCommand.quiet_system svn_shim, "--version"
       svn_client_skip_reason = "Subversion is not installed."
       ensure_test_dependency!(false, svn_client_skip_reason)
     end

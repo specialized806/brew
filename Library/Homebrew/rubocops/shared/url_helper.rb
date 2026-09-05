@@ -92,7 +92,11 @@ module RuboCop
 
         version_control_pattern = %r{^(cvs|bzr|hg|fossil)://}
         audit_urls(urls, version_control_pattern) do |match, _|
-          problem "Use of the \"#{match[1]}://\" scheme is deprecated, pass `using: :#{match[1]}` instead"
+          if match[1] == "bzr"
+            problem "Use of the \"bzr://\" scheme is deprecated, use Git or a stable archive URL instead"
+          else
+            problem "Use of the \"#{match[1]}://\" scheme is deprecated, pass `using: :#{match[1]}` instead"
+          end
         end
 
         svn_pattern = %r{^svn\+http://}

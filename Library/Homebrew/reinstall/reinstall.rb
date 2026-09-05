@@ -1,6 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/interrupts"
+require "utils/output"
+
 module Homebrew
   module Reinstall
     extend Utils::Output::Mixin
@@ -37,7 +40,7 @@ module Homebrew
         git: false
       )
         if formula.opt_prefix.directory?
-          keg = Keg.new(formula.opt_prefix.resolved_path)
+          keg = Keg.new(Utils::Path.resolved_path(formula.opt_prefix))
           tab = keg.tab
           link_keg = keg.linked?
           installed_on_request = tab.installed_on_request == true
@@ -95,7 +98,7 @@ module Homebrew
         nil
         # Any other exceptions we want to restore the previous keg and report the error.
       rescue Exception # rubocop:disable Lint/RescueException
-        ignore_interrupts { restore_backup(keg, link_keg, verbose:) if keg }
+        Utils::Interrupts.ignore { restore_backup(keg, link_keg, verbose:) if keg }
         raise
       else
         if keg

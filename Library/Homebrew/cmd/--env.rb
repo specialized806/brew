@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "extend/ENV/super"
+
 require "abstract_command"
 require "extend/ENV"
 require "build_environment"
@@ -31,7 +33,7 @@ module Homebrew
       sig { override.void }
       def run
         ENV.activate_extensions!
-        ENV.deps = args.named.to_formulae if superenv?(nil)
+        ENV.deps = args.named.to_formulae if Superenv.enabled_for?(nil)
         ENV.setup_build_environment
 
         shell_arg = args.shell

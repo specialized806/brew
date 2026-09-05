@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/editor"
+
 require "fileutils"
 require "utils/output"
 
@@ -113,7 +115,7 @@ module Homebrew
       sig { void }
       def edit
         write(override: false)
-        exec_editor script.to_s
+        Utils::Editor.open script.to_s
       end
     end
   end

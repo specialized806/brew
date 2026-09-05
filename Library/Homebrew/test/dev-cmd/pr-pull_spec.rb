@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "system_command"
+
 require "dev-cmd/pr-pull"
 require "utils/git"
 require "tap"
@@ -112,9 +114,9 @@ RSpec.describe Homebrew::DevCmd::PrPull do
       third_party_formula.write(formula)
 
       cd third_party_tap.path do
-        safe_system Utils::Git.git, "init"
-        safe_system Utils::Git.git, "add", third_party_formula
-        safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
+        SystemCommand.safe_system Utils::Git.git, "init"
+        SystemCommand.safe_system Utils::Git.git, "add", third_party_formula
+        SystemCommand.safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
         original_hash = Utils.safe_popen_read("git", "rev-parse", "HEAD").chomp
         third_party_formula.write <<~RUBY
           class Foo < Formula
@@ -122,7 +124,7 @@ RSpec.describe Homebrew::DevCmd::PrPull do
             no_autobump! because: "some reason"
           end
         RUBY
-        safe_system Utils::Git.git, "commit", third_party_formula, "-m", "foo 2.0"
+        SystemCommand.safe_system Utils::Git.git, "commit", third_party_formula, "-m", "foo 2.0"
         Formulary.clear_cache
 
         allow(Homebrew::Trust).to receive(:trusted_tap?).with(third_party_tap).and_return(true)
@@ -149,14 +151,15 @@ RSpec.describe Homebrew::DevCmd::PrPull do
       (tap.path/"Formula").mkpath
       formula_file.write(formula)
       cd tap.path do
-        safe_system Utils::Git.git, "init"
-        safe_system Utils::Git.git, "add", formula_file
-        safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
+        SystemCommand.safe_system Utils::Git.git, "init"
+        SystemCommand.safe_system Utils::Git.git, "add", formula_file
+        SystemCommand.safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
         original_hash = `git rev-parse HEAD`.chomp
         File.write(formula_file, formula_revision)
-        safe_system Utils::Git.git, "commit", formula_file, "-m", "revision"
+        SystemCommand.safe_system Utils::Git.git, "commit", formula_file, "-m", "revision"
         File.write(formula_file, formula_version)
-        safe_system Utils::Git.git, "commit", formula_file, "-m", "version", "--author=#{secondary_author}"
+        SystemCommand.safe_system Utils::Git.git, "commit", formula_file, "-m", "version",
+                                  "--author=#{secondary_author}"
         pr_pull.autosquash!(original_hash, tap:)
         expect(tap.git_repository.commit_message).to include("foo 2.0")
         expect(tap.git_repository.commit_message).to include("Co-authored-by: #{secondary_author}")
@@ -165,13 +168,13 @@ RSpec.describe Homebrew::DevCmd::PrPull do
       (path/"Casks").mkpath
       cask_file.write(cask)
       cd path do
-        safe_system Utils::Git.git, "add", cask_file
-        safe_system Utils::Git.git, "commit", "-m", "food 1.0 (new cask)"
+        SystemCommand.safe_system Utils::Git.git, "add", cask_file
+        SystemCommand.safe_system Utils::Git.git, "commit", "-m", "food 1.0 (new cask)"
         original_hash = `git rev-parse HEAD`.chomp
         File.write(cask_file, cask_rebuild)
-        safe_system Utils::Git.git, "commit", cask_file, "-m", "rebuild"
+        SystemCommand.safe_system Utils::Git.git, "commit", cask_file, "-m", "rebuild"
         File.write(cask_file, cask_version)
-        safe_system Utils::Git.git, "commit", cask_file, "-m", "version", "--author=#{secondary_author}"
+        SystemCommand.safe_system Utils::Git.git, "commit", cask_file, "-m", "version", "--author=#{secondary_author}"
         pr_pull.autosquash!(original_hash, tap:)
         git_repo = GitRepository.new(path)
         expect(git_repo.commit_message).to include("food 2.0")
@@ -184,9 +187,9 @@ RSpec.describe Homebrew::DevCmd::PrPull do
         (tap.path/"Formula").mkpath
         formula_file.write(formula)
         cd(tap.path) do
-          safe_system Utils::Git.git, "init"
-          safe_system Utils::Git.git, "add", formula_file
-          safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
+          SystemCommand.safe_system Utils::Git.git, "init"
+          SystemCommand.safe_system Utils::Git.git, "add", formula_file
+          SystemCommand.safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
           `git rev-parse HEAD`.chomp
         end
       end
@@ -194,7 +197,7 @@ RSpec.describe Homebrew::DevCmd::PrPull do
       before do
         cd tap.path do
           File.write(formula_file, formula_revision)
-          safe_system Utils::Git.git, "commit", formula_file, "-m", "revision"
+          SystemCommand.safe_system Utils::Git.git, "commit", formula_file, "-m", "revision"
         end
         allow(Utils::Git).to receive(:cherry_pick!).and_raise(
           ErrorDuringExecution.new(["git", "cherry-pick"], status: 1),
@@ -228,9 +231,9 @@ RSpec.describe Homebrew::DevCmd::PrPull do
       (tap.path/"Formula").mkpath
       formula_file.write(formula)
       cd tap.path do
-        safe_system Utils::Git.git, "init"
-        safe_system Utils::Git.git, "add", formula_file
-        safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
+        SystemCommand.safe_system Utils::Git.git, "init"
+        SystemCommand.safe_system Utils::Git.git, "add", formula_file
+        SystemCommand.safe_system Utils::Git.git, "commit", "-m", "foo 1.0 (new formula)"
       end
       pr_pull.signoff!(tap.git_repository)
       expect(tap.git_repository.commit_message).to include("Signed-off-by:")
@@ -238,8 +241,8 @@ RSpec.describe Homebrew::DevCmd::PrPull do
       (path/"Casks").mkpath
       cask_file.write(cask)
       cd path do
-        safe_system Utils::Git.git, "add", cask_file
-        safe_system Utils::Git.git, "commit", "-m", "food 1.0 (new cask)"
+        SystemCommand.safe_system Utils::Git.git, "add", cask_file
+        SystemCommand.safe_system Utils::Git.git, "commit", "-m", "food 1.0 (new cask)"
       end
       pr_pull.signoff!(tap.git_repository)
       expect(tap.git_repository.commit_message).to include("Signed-off-by:")

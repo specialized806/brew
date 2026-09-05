@@ -253,7 +253,7 @@ class Keg
       begin
         first.atomic_write(s)
       rescue SystemCallError
-        first.ensure_writable do
+        Utils::Path.ensure_writable(first) do
           first.open("wb") { |f| f.write(s) }
         end
       else
@@ -305,11 +305,11 @@ class Keg
       next unless keg.binary_file?(file)
 
       # Skip sharballs, which appear to break if patched.
-      next if file.text_executable?
+      next if Utils::Path.text_executable?(file)
 
       # Split binary by null characters into array and substitute new prefix for old prefix.
       # Null padding is added if the new string is too short.
-      file.ensure_writable do
+      Utils::Path.ensure_writable(file) do
         binary = File.binread file
         binary_strings = binary.split(/#{NULL_BYTE}/o, -1)
         match_indices = binary_strings.each_index.select { |i| binary_strings.fetch(i).include?(old_prefix) }
@@ -500,7 +500,7 @@ class Keg
       require "metafiles"
       next true if Metafiles::EXTENSIONS.include?(pn.extname)
 
-      if pn.text_executable?
+      if Utils::Path.text_executable?(pn)
         text_files << pn
         next true
       end

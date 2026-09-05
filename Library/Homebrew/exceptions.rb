@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 # We intentionally want to have many exceptions in this file.
 # rubocop:disable Style/OneClassPerFile
 
@@ -140,7 +142,7 @@ class FormulaOrCaskUnavailableError < RuntimeError
     similar_formula_names = Homebrew::API.with_no_api_env_if_needed(@without_api) { Formula.fuzzy_search(name) }
     return "" if similar_formula_names.blank?
 
-    "Did you mean #{similar_formula_names.to_sentence two_words_connector: " or ", last_word_connector: " or "}?"
+    "Did you mean #{Utils::Text.to_sentence(similar_formula_names, conjunction: "or")}?"
   end
 
   sig { returns(String) }
@@ -741,7 +743,7 @@ class UnbottledError < RuntimeError
     msg = <<~EOS
       The following #{Utils.pluralize("formula", formulae.count)} cannot be installed from #{Utils.pluralize("bottle", formulae.count)} and must be
       built from source.
-        #{formulae.to_sentence}
+        #{Utils::Text.to_sentence(formulae)}
     EOS
     msg += "#{DevelopmentTools.installation_instructions}\n" unless DevelopmentTools.installed?
     msg.freeze
@@ -1030,7 +1032,8 @@ class CyclicDependencyError < RuntimeError
   def initialize(strongly_connected_components)
     super <<~EOS
       The following packages contain cyclic dependencies:
-        #{strongly_connected_components.select { |packages| packages.count > 1 }.map(&:to_sentence).join("\n  ")}
+        #{strongly_connected_components.select { |packages| packages.count > 1 }
+                                                .map { |packages| Utils::Text.to_sentence(packages) }.join("\n  ")}
     EOS
   end
 end

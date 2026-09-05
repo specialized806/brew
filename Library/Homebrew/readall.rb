@@ -178,11 +178,16 @@ module Readall
 
   sig {
     params(
-      tap: Tap, aliases: T::Boolean, no_simulate: T::Boolean, os_arch_combinations: T::Array[[Symbol, Symbol]],
+      tap:                  Tap,
+      aliases:              T::Boolean,
+      no_simulate:          T::Boolean,
+      os_arch_combinations: T::Array[[Symbol, Symbol]],
+      formula_files:        T.nilable(T::Array[Pathname]),
+      cask_files:           T.nilable(T::Array[Pathname]),
     ).returns(T::Boolean)
   }
   def self.valid_tap?(tap, aliases: false, no_simulate: false,
-                      os_arch_combinations: OnSystem::ALL_OS_ARCH_COMBINATIONS)
+                      os_arch_combinations: OnSystem::ALL_OS_ARCH_COMBINATIONS, formula_files: nil, cask_files: nil)
     success = true
 
     if aliases
@@ -190,8 +195,8 @@ module Readall
       success = false unless valid_aliases
     end
 
-    items = tap.formula_files.map { |file| [:formula, file] } +
-            tap.cask_files.map { |file| [:cask, file] }
+    items = (formula_files || tap.formula_files).map { |file| [:formula, file] } +
+            (cask_files || tap.cask_files).map { |file| [:cask, file] }
 
     all_files_valid = parallel_slices_valid?(items) do |slice|
       formula_files = slice.filter_map { |type, file| file if type == :formula }

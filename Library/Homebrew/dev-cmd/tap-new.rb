@@ -22,7 +22,7 @@ module Homebrew
                description: "Don't initialise a Git repository for the tap."
         flag   "--pull-label=",
                description: "Ignored; publishing pull requests is now manually dispatched.",
-               odeprecated: true
+               odisabled:   true
         flag   "--branch=",
                description: "Initialise a Git repository and set up GitHub Actions workflows with the " \
                             "specified branch name (default: `main`)."
@@ -101,7 +101,7 @@ module Homebrew
             Utils::Git.set_name_email!
             Utils::Git.setup_gpg!
 
-            safe_system "git", "init", "--initial-branch=#{branch}"
+            SystemCommand.safe_system "git", "init", "--initial-branch=#{branch}"
 
             args = []
             git_owner = File.stat(File.join(path, ".git")).uid

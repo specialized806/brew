@@ -36,6 +36,15 @@ RSpec.describe DownloadStrategyDetector do
       it { is_expected.to eq(PyPIDownloadStrategy) }
     end
 
+    context "when given a Bazaar strategy" do
+      let(:strategy) { :bzr }
+
+      it "is deprecated in favour of Git or a stable archive" do
+        expect { strategy_detector }
+          .to raise_error(MethodDeprecatedError, /GitDownloadStrategy or CurlDownloadStrategy/)
+      end
+    end
+
     it "defaults to curl" do
       expect(strategy_detector).to eq(CurlDownloadStrategy)
     end

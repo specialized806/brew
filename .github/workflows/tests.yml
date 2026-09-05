@@ -313,6 +313,15 @@ jobs:
           core: ${{ runner.os == 'macOS' && matrix.load-only != true }}
           cask: false
 
+      - name: Untap untrusted preinstalled taps
+        if: runner.os == 'macOS' && matrix.load-only != true
+        run: |
+          while IFS= read -r tap; do
+            if [[ "$tap" != homebrew/* ]]; then
+              brew untap --force "$tap"
+            fi
+          done < <(brew tap)
+
       - name: Cache Bundler RubyGems
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -324,13 +333,6 @@ jobs:
 
       - name: Install Bundler RubyGems
         run: brew install-bundler-gems --groups=all
-
-      - name: Untap untrusted preinstalled tap
-        if: runner.os == 'macOS' && matrix.load-only != true
-        run: |
-          if brew tap | grep -qx aws/tap; then
-            brew untap --force aws/tap
-          fi
 
       - name: Install Subversion
         if: matrix.online || (runner.os == 'macOS' && matrix.load-only != true)
@@ -524,6 +526,8 @@ jobs:
           test "$("${padded_prefix}/bin/brew" --prefix)" = "${padded_prefix}"
           echo "${padded_prefix}/bin" >> "${GITHUB_PATH}"
 
+      - run: brew test-bot --only-cleanup-before
+
       - run: brew install gnu-tar
         if: matrix.system-tar != true
 
@@ -538,8 +542,6 @@ jobs:
           # recursive Sorbet runtime checks for speed on Tier >=2 configurations
           echo "HOMEBREW_GLIBC_TESTING=1" >> "$GITHUB_ENV"
           echo "HOMEBREW_SORBET_RECURSIVE=0" >> "$GITHUB_ENV"
-
-      - run: brew test-bot --only-cleanup-before
 
       - run: brew test-bot --only-setup
         env:

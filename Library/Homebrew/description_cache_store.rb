@@ -3,6 +3,7 @@
 
 require "cache_store"
 require "formula_versions"
+require "trust"
 
 #
 # {DescriptionCacheStore} provides methods to fetch and mutate formula descriptions used
@@ -35,12 +36,11 @@ class DescriptionCacheStore < CacheStore
   # If the database is empty `update!` it with all known formulae.
   #
   # @return [nil]
-  sig { params(eval_all: T::Boolean).void }
-  def populate_if_empty!(eval_all: Homebrew::EnvConfig.tap_trust_configured?)
-    return unless eval_all
+  sig { void }
+  def populate_if_empty!
     return unless database.empty?
 
-    Formula.all(eval_all:).each { |f| update!(f.full_name, f.desc) }
+    Formula.all.each { |formula| update!(formula.full_name, formula.desc) }
   end
 
   # Use an update report to update the {DescriptionCacheStore}.
@@ -49,10 +49,6 @@ class DescriptionCacheStore < CacheStore
   # @return [nil]
   sig { params(report: ReporterHub).void }
   def update_from_report!(report)
-    unless Homebrew::EnvConfig.tap_trust_configured?
-      database.clear!
-      return
-    end
     return populate_if_empty! if database.empty?
     return if report.empty?
 
@@ -78,10 +74,6 @@ class DescriptionCacheStore < CacheStore
   # @return [nil]
   sig { params(formula_names: T::Array[String]).void }
   def update_from_formula_names!(formula_names)
-    unless Homebrew::EnvConfig.tap_trust_configured?
-      database.clear!
-      return
-    end
     return populate_if_empty! if database.empty?
 
     formula_names.each do |name|
@@ -103,10 +95,26 @@ class DescriptionCacheStore < CacheStore
   end
   alias delete_from_cask_tokens! delete_from_formula_names!
 
-  # `select` from the underlying database.
+  # `select` trusted entries from the underlying database.
   sig { params(block: T.proc.params(arg0: Key, arg1: Value).returns(BasicObject)).returns(T::Hash[Key, Value]) }
   def select(&block)
+    unless Homebrew::EnvConfig.no_require_tap_trust?
+      untrusted_names = []
+      database.each_key do |name|
+        next unless Utils.full_name?(name)
+        next if Homebrew::Trust.trusted?(trust_type, name)
+
+        untrusted_names << name
+      end
+      delete_from_formula_names!(untrusted_names) if untrusted_names.present?
+    end
+
     database.select(&block)
   end
+
+  private
+
+  sig { overridable.returns(Symbol) }
+  def trust_type = :formula
 end
 require "description_cache_store/cask_description_cache_store"

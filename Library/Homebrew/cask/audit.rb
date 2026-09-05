@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "api/env"
+require "utils/text"
+
 require "cask/cask_loader"
 require "cask/denylist"
 require "cask/download"
@@ -16,6 +18,7 @@ require "formula_name_cask_token_auditor"
 require "utils/curl"
 require "utils/shared_audits"
 require "utils/output"
+require "utils/path"
 
 module Cask
   # Audit a cask for various problems.
@@ -281,21 +284,6 @@ module Cask
     end
 
     sig { void }
-    def audit_untrusted_pkg
-      odebug "Auditing pkg stanza: allow_untrusted"
-
-      return if @cask.sourcefile_path.nil?
-
-      tap = @cask.tap
-      return if tap.nil?
-      return if tap.user != "Homebrew"
-
-      return if cask.artifacts.none? { |k| k.is_a?(Artifact::Pkg) && k.stanza_options.key?(:allow_untrusted) }
-
-      add_error "allow_untrusted is not permitted in the official homebrew/cask tap"
-    end
-
-    sig { void }
     def audit_stanza_requires_uninstall
       odebug "Auditing stanzas which require an uninstall"
 
@@ -306,40 +294,8 @@ module Cask
     end
 
     sig { void }
-    def audit_single_pre_postflight
-      odebug "Auditing preflight and postflight stanzas"
-
-      if cask.artifacts.count { |k| k.is_a?(Artifact::PreflightBlock) && k.directives.key?(:preflight) } > 1
-        add_error "only a single preflight stanza is allowed"
-      end
-
-      count = cask.artifacts.count do |k|
-        k.is_a?(Artifact::PostflightBlock) &&
-          k.directives.key?(:postflight)
-      end
-      return if count <= 1
-
-      add_error "only a single postflight stanza is allowed"
-    end
-
-    sig { void }
-    def audit_single_uninstall_zap
-      odebug "Auditing single uninstall_* and zap stanzas"
-
-      count = cask.artifacts.count do |k|
-        k.is_a?(Artifact::PreflightBlock) &&
-          k.directives.key?(:uninstall_preflight)
-      end
-
-      add_error "only a single uninstall_preflight stanza is allowed" if count > 1
-
-      count = cask.artifacts.count do |k|
-        k.is_a?(Artifact::PostflightBlock) &&
-          k.directives.key?(:uninstall_postflight)
-      end
-
-      add_error "only a single uninstall_postflight stanza is allowed" if count > 1
-
+    def audit_single_zap
+      odebug "Auditing single zap stanzas"
       return if cask.artifacts.count { |k| k.is_a?(Artifact::Zap) } <= 1
 
       add_error "only a single zap stanza is allowed"
@@ -537,14 +493,6 @@ module Cask
     end
 
     sig { void }
-    def audit_unnecessary_verified
-      return unless cask.url
-      return unless verified_present?
-
-      add_error "the `verified` parameter has been deprecated; use the `url` stanza without it"
-    end
-
-    sig { void }
     def audit_generic_artifacts
       cask.artifacts.grep(Artifact::Artifact).each do |artifact|
         unless artifact.target.absolute?
@@ -567,8 +515,8 @@ module Cask
       token_auditor = Homebrew::FormulaNameCaskTokenAuditor.new(cask.token)
       return if (errors = token_auditor.errors).none?
 
-      add_error "Cask token '#{cask.token}' must not contain #{errors.to_sentence(two_words_connector: " or ",
-                                                                                  last_word_connector: " or ")}."
+      add_error "Cask token '#{cask.token}' must not contain " \
+                "#{::Utils::Text.to_sentence(errors, conjunction: "or")}."
     end
 
     sig { void }
@@ -699,7 +647,7 @@ module Cask
             end
           when Artifact::Binary
             # Shell scripts cannot be signed, so we skip them
-            next false if path.text_executable?
+            next false if ::Utils::Path.text_executable?(path)
 
             system_command("codesign", args:         ["--verify", "-R=notarized", "--check-notarization", path],
                                        print_stderr: false)
@@ -1500,11 +1448,6 @@ module Cask
     sig { returns(T.nilable(String)) }
     def domain
       URI(cask.url.to_s).host
-    end
-
-    sig { returns(T::Boolean) }
-    def verified_present?
-      cask.url&.verified.present?
     end
 
     sig { returns(Tap) }

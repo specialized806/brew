@@ -1,6 +1,8 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/output"
+
 RSpec.describe Tap do
   subject(:homebrew_foo_tap) { described_class.fetch("Homebrew", "foo") }
 
@@ -714,8 +716,8 @@ RSpec.describe Tap do
       tap = described_class.fetch("dashy", "foo")
       tap.path.mkpath
       allow(tap).to receive(:remote)
-      allow(tap).to receive(:safe_system)
-      expect(tap).to receive(:safe_system)
+      allow(SystemCommand).to receive(:safe_system)
+      expect(SystemCommand).to receive(:safe_system)
         .with("git", "remote", "set-url", "origin", "--end-of-options", "-u:evil")
 
       tap.fix_remote_configuration(requested_remote: "-u:evil")
@@ -886,7 +888,7 @@ RSpec.describe Tap do
 
         allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
                                        formula_names: [], cask_tokens: [], link_completions_and_manpages: nil)
-        expect(tap).to receive(:safe_system)
+        expect(SystemCommand).to receive(:safe_system)
           .with("git", "-c", "core.hooksPath=#{File::NULL}", "-C", source_tap,
                 "worktree", "add", "--detach", tap.path, "HEAD")
           .and_wrap_original do
@@ -938,7 +940,7 @@ RSpec.describe Tap do
         .and_call_original
       allow(tap).to receive_messages(command_files: [], formula_files: [], cask_files: [],
                                      formula_names: [], cask_tokens: [], link_completions_and_manpages: nil)
-      expect(tap).to receive(:safe_system)
+      expect(SystemCommand).to receive(:safe_system)
         .with("git", "-c", "core.hooksPath=#{File::NULL}", "-C", source_tap,
               "worktree", "add", "--detach", tap.path, "HEAD")
         .and_wrap_original do
@@ -1036,7 +1038,7 @@ RSpec.describe Tap do
       (tap.path/".git").write "gitdir: #{source_tap}/.git/worktrees/#{tap.full_repository.downcase}\n"
 
       allow(tap).to receive_messages(contents: [], formula_names: [], cask_tokens: [])
-      expect(tap).to receive(:safe_system)
+      expect(SystemCommand).to receive(:safe_system)
         .with("git", "-C", source_tap, "worktree", "remove", "--force", tap.path)
 
       tap.uninstall
