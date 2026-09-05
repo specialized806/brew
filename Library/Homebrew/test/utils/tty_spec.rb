@@ -79,6 +79,27 @@ RSpec.describe Tty do
       expect(described_class.size).to be_nil
       expect(described_class.size).to be_nil
     end
+
+    it "does not expose an unfinished size to another thread" do
+      probe_started = Queue.new
+      release_probe = Queue.new
+      allow(described_class).to receive(:`).with("/bin/stty size 2>/dev/null").and_invoke(
+        lambda { |_command|
+          probe_started << true
+          release_probe.pop
+          "40 160"
+        },
+        ->(_command) { "40 160" },
+      )
+
+      probing_thread = Thread.new { described_class.size }
+      probe_started.pop
+
+      expect(described_class.size).to eq([40, 160])
+    ensure
+      release_probe&.push(true)
+      probing_thread&.value
+    end
   end
 
   describe "::width" do
