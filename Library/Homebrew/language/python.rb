@@ -12,6 +12,26 @@ module Language
   module Python
     extend ::Utils::Output::Mixin
 
+    # Returns stable executable paths keyed by direct Python dependency name.
+    # @api private
+    sig {
+      params(
+        formula:  Formula,
+        pattern:  Regexp,
+        required: T::Boolean,
+      ).returns(T::Hash[String, Pathname])
+    }
+    def self.direct_dependency_paths(formula, pattern: /\Apython(?:@.+)?\z/, required: false)
+      formula.deps.filter_map do |dependency|
+        next if required && !dependency.required?
+
+        name = Utils.name_from_full_name(dependency.name)
+        next unless name.match?(pattern)
+
+        [name, Utils::Path.formula_opt_bin(name)/name.delete("@")]
+      end.to_h
+    end
+
     sig { params(python: T.any(String, Pathname)).returns(T.nilable(Version)) }
     def self.major_minor_version(python)
       version = `#{python} --version 2>&1`.chomp[/(\d\.\d+)/, 1]
@@ -117,14 +137,13 @@ module Language
         python_path = if use_python_from_path
           "/usr/bin/env python3"
         else
-          python_deps = formula.deps.select(&:required?).map(&:name).grep(/^python(@.+)?$/)
+          python_deps = Language::Python.direct_dependency_paths(formula, required: true)
           raise ShebangDetectionError.new("Python", "formula does not depend on Python") if python_deps.empty?
           if python_deps.length > 1
             raise ShebangDetectionError.new("Python", "formula has multiple Python dependencies")
           end
 
-          python_dep = python_deps.first
-          Utils::Path.formula_opt_bin(python_dep)/python_dep.sub("@", "")
+          python_deps.values.fetch(0)
         end
 
         python_shebang_rewrite_info(python_path)
