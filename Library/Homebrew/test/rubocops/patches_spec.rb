@@ -60,7 +60,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
             FormulaAudit/Patches: MacPorts patches should specify a revision instead of trunk: #{patch_url}
           EOS
         elsif patch_url.match?(%r{
-          https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)
+          https?://patch-diff\.githubusercontent\.com/raw/.+/.+/pull/.+\.(?:diff|patch)
         }x)
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 4, source:)
             FormulaAudit/Patches: Use a commit hash URL rather than patch-diff: #{patch_url}
@@ -211,7 +211,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Patches do
             FormulaAudit/Patches: Use a commit hash URL rather than an unstable merge request URL: #{patch_url}
           EOS
         elsif patch_url.match?(%r{
-          https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)
+          https?://patch-diff\.githubusercontent\.com/raw/.+/.+/pull/.+\.(?:diff|patch)
         }x)
           expect_offense_hash(message: <<~EOS.chomp, severity: :convention, line: 5, column: 8, source:)
             FormulaAudit/Patches: Use a commit hash URL rather than patch-diff: #{patch_url}

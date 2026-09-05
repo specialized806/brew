@@ -24,8 +24,8 @@ class FormulaVersions
     @repository = T.let(formula.tap!.path, Pathname)
     @relative_path = T.let(@path.relative_path_from(repository).to_s, String)
     # Also look at e.g. older homebrew-core paths before sharding.
-    if (match = @relative_path.match(%r{^(HomebrewFormula|Formula)/([a-z]|lib)/(.+)}))
-      @old_relative_path = T.let("#{match[1]}/#{match[3]}", T.nilable(String))
+    if (match = @relative_path.match(%r{^(HomebrewFormula|Formula)/(?:[a-z]|lib)/(.+)}))
+      @old_relative_path = T.let("#{match[1]}/#{match[2]}", T.nilable(String))
     end
     @formula_at_revision = T.let({}, T::Hash[String, Formula])
   end

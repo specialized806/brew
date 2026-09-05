@@ -101,7 +101,7 @@ class Keg
   }
   def relocate_dynamic_linkage(_relocation, with_placeholders: false, files: nil) = []
 
-  JAVA_REGEX = %r{#{HOMEBREW_PREFIX}/opt/openjdk(@\d+(\.\d+)*)?/libexec(/openjdk\.jdk/Contents/Home)?}
+  JAVA_REGEX = %r{#{HOMEBREW_PREFIX}/opt/openjdk(?:@\d+(?:\.\d+)*)?/libexec(?:/openjdk\.jdk/Contents/Home)?}
 
   sig { returns(T::Hash[Symbol, T::Hash[Symbol, String]]) }
   def new_usr_local_replacement_pairs

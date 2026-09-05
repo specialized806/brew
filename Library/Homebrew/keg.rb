@@ -93,8 +93,8 @@ class Keg
   end
 
   # Locale-specific directories have the form `language[_territory][.codeset][@modifier]`
-  LOCALEDIR_RX = %r{(locale|man)/([a-z]{2}|C|POSIX)(_[A-Z]{2})?(\.[a-zA-Z\-0-9]+(@.+)?)?}
-  INFOFILE_RX = %r{info/([^.].*?\.info(\.gz)?|dir)$}
+  LOCALEDIR_RX = %r{(?:locale|man)/(?:[a-z]{2}|C|POSIX)(?:_[A-Z]{2})?(?:\.[a-zA-Z\-0-9]+(?:@.+)?)?}
+  INFOFILE_RX = %r{info/(?:[^.].*?\.info(?:\.gz)?|dir)$}
 
   # These paths relative to the keg's share directory should always be real
   # directories in the prefix, never symlinks.

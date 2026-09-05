@@ -171,10 +171,10 @@ module Stdenv
   def set_cpu_flags(flags, map = Hardware::CPU.optimization_flags)
     cflags =~ /(-Xarch_#{Hardware::CPU.arch_32_bit} )-march=/
     xarch = Regexp.last_match(1).to_s
-    remove flags, /(-Xarch_#{Hardware::CPU.arch_32_bit} )?-march=\S*/
-    remove flags, /( -Xclang \S+)+/
+    remove flags, /(?:-Xarch_#{Hardware::CPU.arch_32_bit} )?-march=\S*/
+    remove flags, /(?: -Xclang \S+)+/
     remove flags, /-mssse3/
-    remove flags, /-msse4(\.\d)?/
+    remove flags, /-msse4(?:\.\d)?/
     append flags, xarch unless xarch.empty?
     append flags, map.fetch(effective_arch)
   end

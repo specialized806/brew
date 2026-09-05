@@ -9,7 +9,7 @@ class Version
 
   sig { params(name: T.any(String, Symbol), full: T::Boolean).returns(Regexp) }
   def self.formula_optionally_versioned_regex(name, full: true)
-    /#{"^" if full}#{Regexp.escape(name)}(@\d[\d.]*)?#{"$" if full}/
+    /#{"^" if full}#{Regexp.escape(name)}(?:@\d[\d.]*)?#{"$" if full}/
   end
 
   # A part of a {Version}.
@@ -428,7 +428,7 @@ class Version
     StemParser.new(/-(#{NUMERIC_WITH_OPTIONAL_DOTS})$/),
 
     # e.g. `foobar-4.5.1.post1`
-    StemParser.new(/-(#{NUMERIC_WITH_OPTIONAL_DOTS}(.post\d+)?)$/),
+    StemParser.new(/-(#{NUMERIC_WITH_OPTIONAL_DOTS}(?:.post\d+)?)$/),
 
     # e.g. `foobar-4.5.1b`
     StemParser.new(/-(#{NUMERIC_WITH_OPTIONAL_DOTS}(?:[abc]|rc|RC)\d*)$/),

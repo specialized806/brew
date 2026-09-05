@@ -25,7 +25,7 @@ class CompilerSelector
       deps = formula.deps.filter_map do |dep|
         dep.name if dep.required? || (testing_formula && dep.test?) || (!testing_formula && dep.build?)
       end
-      compilers = [:clang, :gnu, :llvm_clang] if deps.none?("llvm") && deps.any?(/^gcc(@\d+)?$/)
+      compilers = [:clang, :gnu, :llvm_clang] if deps.none?("llvm") && deps.any?(/^gcc(?:@\d+)?$/)
     end
     new(formula, DevelopmentTools, compilers || self.compilers).compiler
   end

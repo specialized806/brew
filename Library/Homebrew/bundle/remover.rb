@@ -26,11 +26,11 @@ module Homebrew
           names.uniq.map { |a| Regexp.escape(a) }
         end
 
-        entry_regex = /#{entry_type}(\s+|\(\s*)"(#{escaped_args.join("|")})"/
+        entry_regex = /#{entry_type}(?:\s+|\(\s*)"(#{escaped_args.join("|")})"/
         new_lines = T.let([], T::Array[String])
 
         content.split("\n").compact.each do |line|
-          if (name = line[entry_regex, 2])
+          if (name = line[entry_regex, 1])
             remove_package_description_comment(new_lines, name)
           else
             new_lines << line

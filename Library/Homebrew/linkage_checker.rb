@@ -122,8 +122,8 @@ class LinkageChecker
 
   sig { params(dylib: String).returns(T.nilable(String)) }
   def dylib_to_dep(dylib)
-    dylib =~ %r{#{Regexp.escape(HOMEBREW_PREFIX)}/(opt|Cellar)/([\w+-.@]+)/}o
-    Regexp.last_match(2)
+    dylib =~ %r{#{Regexp.escape(HOMEBREW_PREFIX)}/(?:opt|Cellar)/([\w+-.@]+)/}o
+    Regexp.last_match(1)
   end
 
   sig { params(file: String).returns(T::Boolean) }

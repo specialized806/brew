@@ -119,7 +119,7 @@ module Homebrew
                                 .gsub(/\D+/, ".")
 
         # Remove any existing version suffixes, as a new one will be added later.
-        name.sub!(/\b@(.*)\z\b/i, "")
+        name.sub!(/\b@.*\z\b/i, "")
         versioned_name = Formulary.class_s("#{name}@#{version_string}")
         result.sub!("class #{class_name} < Formula", "class #{versioned_name} < Formula")
 

@@ -10,7 +10,7 @@ class Options
 
   sig { params(array: T.nilable(T::Array[String])).returns(Options) }
   def self.create(array)
-    new Array(array).map { |e| Option.new(e[/^--([^=]+=?)(.+)?$/, 1] || e) }
+    new Array(array).map { |e| Option.new(e[/^--([^=]+=?).*$/, 1] || e) }
   end
 
   sig { params(options: T.nilable(T::Enumerable[Option])).void }

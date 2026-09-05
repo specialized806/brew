@@ -91,7 +91,7 @@ class DevelopmentTools
     sig { returns(Version) }
     def clang_build_version
       @clang_build_version ||= T.let(
-        if (build_version = clang_version_output&.[](%r{clang(-| version [^ ]+ \(tags/RELEASE_)(\d{2,})}, 2))
+        if (build_version = clang_version_output&.[](%r{clang(?:-| version [^ ]+ \(tags/RELEASE_)(\d{2,})}, 1))
           Version.new(build_version)
         else
           Version::NULL

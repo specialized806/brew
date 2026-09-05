@@ -74,7 +74,7 @@ module Utils
           tap = Tab.from_file_content(receipt_file, "#{bottle_file}/#{receipt_file_path}").tap
           "#{tap}/#{name}" if tap.present? && !tap.core_tap?
         else
-          bottle_json_path = Pathname(bottle_file.sub(/\.(\d+\.)?tar\.gz$/, ".json"))
+          bottle_json_path = Pathname(bottle_file.sub(/\.(?:\d+\.)?tar\.gz$/, ".json"))
           if bottle_json_path.exist? &&
              (bottle_json_path_contents = bottle_json_path.read.presence) &&
              (bottle_json = JSON.parse(bottle_json_path_contents).presence) &&
@@ -120,7 +120,7 @@ module Utils
       def load_tab(formula)
         keg = Keg.new(formula.prefix)
         tabfile = keg/AbstractTab::FILENAME
-        bottle_json_path = formula.local_bottle_path&.sub(/\.(\d+\.)?tar\.gz$/, ".json")
+        bottle_json_path = formula.local_bottle_path&.sub(/\.(?:\d+\.)?tar\.gz$/, ".json")
 
         if bottle_json_path.nil? && (tab_attributes = formula.bottle_tab_attributes.presence)
           tab = Tab.from_file_content(tab_attributes.to_json, tabfile)
@@ -178,7 +178,7 @@ module Utils
         @all_archs_regex ||= T.let(begin
           all_archs = Hardware::CPU::ALL_ARCHS.map(&:to_s)
           /
-            ^((?<arch>#{Regexp.union(all_archs)})_)?
+            ^(?:(?<arch>#{Regexp.union(all_archs)})_)?
             (?<system>[\w.]+)$
           /x
         end, T.nilable(Regexp))

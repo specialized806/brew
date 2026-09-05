@@ -88,7 +88,7 @@ module Homebrew
         "/Library/Preferences",
       ].freeze
 
-      UUID_PATTERN = /[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}/i
+      UUID_PATTERN = /[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}/i
 
       # Keep in sync with `RuboCop::Cop::Cask::SharedFilelistGlob`.
       SHARED_FILELIST_PATTERN = /\.sfl\d\z/

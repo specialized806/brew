@@ -44,13 +44,13 @@ module RuboCop
         desc_problem "Description shouldn't have trailing spaces." if regex_match_group(desc, /\s+$/)
 
         # Check if "command-line" is spelled incorrectly in the desc.
-        if (match = regex_match_group(desc, /(command ?line)/i))
+        if (match = regex_match_group(desc, /command ?line/i))
           c = match.to_s[0]
           desc_problem "Description should use \"#{c}ommand-line\" instead of \"#{match}\"."
         end
 
         # Check if the desc starts with an article.
-        desc_problem "Description shouldn't start with an article." if regex_match_group(desc, /^(the|an?)(?=\s)/i)
+        desc_problem "Description shouldn't start with an article." if regex_match_group(desc, /^(?:the|an?)(?=\s)/i)
 
         # Check if invalid lowercase words are at the start of a desc.
         if !VALID_LOWERCASE_WORDS.include?(string_content(desc).split.first) && regex_match_group(desc, /^[a-z]/)
@@ -63,7 +63,7 @@ module RuboCop
         end
 
         if type == :cask &&
-           (match = regex_match_group(desc, /\b(macOS|Mac( ?OS( ?X)?)?|OS ?X)(?! virtual machines?)\b/i)) &&
+           (match = regex_match_group(desc, /\b(macOS|Mac(?: ?OS(?: ?X)?)?|OS ?X)(?! virtual machines?)\b/i)) &&
            match[1] != "MAC"
           add_offense(@offensive_source_range, message: "Description shouldn't contain the platform.")
         end
@@ -99,7 +99,7 @@ module RuboCop
           correction.gsub!(/^\s+/, "")
           correction.gsub!(/\s+$/, "")
 
-          correction.sub!(/^(the|an?)\s+/i, "")
+          correction.sub!(/^(?:the|an?)\s+/i, "")
 
           first_word = correction.split.first
           unless VALID_LOWERCASE_WORDS.include?(first_word)
@@ -107,7 +107,7 @@ module RuboCop
             correction[0] = first_char.upcase if first_char
           end
 
-          correction.gsub!(/(ommand ?line)/i, "ommand-line")
+          correction.gsub!(/ommand ?line/i, "ommand-line")
           correction.gsub!(/(^|[^a-z])#{@name}([^a-z]|$)/i, "\\1\\2")
           correction.gsub!(/\s?\p{So}/, "")
           correction.gsub!(/^\s+/, "")

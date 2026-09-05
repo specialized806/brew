@@ -140,7 +140,7 @@ module Cask
         return enum_for(:each_resolved_path, action, paths) unless block_given?
 
         paths.each do |path|
-          resolved_path = Pathname.new(path.to_s.sub(%r{^~(?=(/|$))}, Dir.home))
+          resolved_path = Pathname.new(path.to_s.sub(%r{^~(?=(?:/|$))}, Dir.home))
 
           if resolved_path.relative?
             opoo "Skipping #{Formatter.identifier(action)} for relative path '#{path}'."

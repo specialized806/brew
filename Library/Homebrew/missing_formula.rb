@@ -36,7 +36,7 @@ module Homebrew
           MacRuby has been discontinued. Consider RubyMotion:
             brew install --cask rubymotion
         EOS
-        when /(lib)?lzma/ then <<~EOS
+        when /(?:lib)?lzma/ then <<~EOS
           lzma is now part of the xz formula:
             brew install xz
         EOS

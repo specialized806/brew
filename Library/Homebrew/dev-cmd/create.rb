@@ -113,7 +113,7 @@ module Homebrew
         version = if set_version
           Version.new(set_version)
         else
-          Version.detect(url.gsub(token, "").gsub(/x86(_64)?/, ""))
+          Version.detect(url.gsub(token, "").gsub(/x86(?:_64)?/, ""))
         end
 
         interpolated_url, sha256 = if version.null?

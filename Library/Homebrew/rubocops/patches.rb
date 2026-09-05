@@ -115,7 +115,7 @@ module RuboCop
           end
 
           gh_patch_diff_pattern =
-            %r{https?://patch-diff\.githubusercontent\.com/raw/(.+)/(.+)/pull/(.+)\.(?:diff|patch)}
+            %r{https?://patch-diff\.githubusercontent\.com/raw/.+/.+/pull/.+\.(?:diff|patch)}
           if regex_match_group(patch_url_node, gh_patch_diff_pattern)
             problem "Use a commit hash URL rather than patch-diff: #{patch_url}"
           end

@@ -17,7 +17,7 @@ module Homebrew
       # Create a new `Service` instance from either a path or label.
       sig { params(path_or_label: T.any(Pathname, String)).returns(T.nilable(FormulaWrapper)) }
       def self.from(path_or_label)
-        label = path_or_label.to_s.sub(/\.(plist|service)\z/, "")
+        label = path_or_label.to_s.sub(/\.(?:plist|service)\z/, "")
         match = label.match(path_or_label_regex)
         return unless match
 

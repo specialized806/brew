@@ -66,7 +66,7 @@ module Homebrew
     sig { params(path: Pathname).returns(String) }
     def self.sort_key_for_path(path)
       # Options after regular commands (`~` comes after `z` in ASCII table).
-      path.basename.to_s.sub(/\.(rb|sh)$/, "").sub(/^--/, "~~")
+      path.basename.to_s.sub(/\.(?:rb|sh)$/, "").sub(/^--/, "~~")
     end
 
     sig { params(cmd_paths: T::Array[Pathname]).returns(String) }
@@ -234,7 +234,7 @@ module Homebrew
 
     sig { params(usage_banner: String).returns(String) }
     def self.format_usage_banner(usage_banner)
-      format_usage_text(usage_banner).sub(/^(#: *\* )?/, "### ")
+      format_usage_text(usage_banner).sub(/^(?:#: *\* )?/, "### ")
     end
 
     sig { params(usage_banner: String).returns(String) }

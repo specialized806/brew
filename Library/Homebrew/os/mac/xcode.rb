@@ -202,7 +202,7 @@ module OS
             xcodebuild_output = Utils.popen_read(xcodebuild_path, "-version")
             next unless $CHILD_STATUS.success?
 
-            xcode_version = xcodebuild_output[/Xcode (\d+(\.\d+)*)/, 1]
+            xcode_version = xcodebuild_output[/Xcode (\d+(?:\.\d+)*)/, 1]
             return xcode_version if xcode_version
           end
         end
@@ -367,7 +367,7 @@ module OS
       sig { returns(T.nilable(String)) }
       def self.detect_clang_version
         version_output = Utils.popen_read("#{PKG_PATH}/usr/bin/clang", "--version")
-        version_output[/clang-(\d+(\.\d+)+)/, 1]
+        version_output[/clang-(\d+(?:\.\d+)+)/, 1]
       end
 
       sig { returns(T.nilable(String)) }

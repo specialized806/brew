@@ -24,11 +24,11 @@ module Homebrew
       sig { params(content: T.nilable(String)).returns(String) }
       def parse_content(content)
         # Convert plain text to tags.
-        content = content&.gsub(/^\s*(TODO|FIXME):\s*/i, "@todo ")
+        content = content&.gsub(/^\s*(?:TODO|FIXME):\s*/i, "@todo ")
         content = content&.gsub(/^\s*NOTE:\s*/i, "@note ")
 
         # Ignore non-documentation comments.
-        content = content&.sub(/\A(typed|.*rubocop):.*/m, "")
+        content = content&.sub(/\A(?:typed|.*rubocop):.*/m, "")
 
         content = super
 
@@ -38,9 +38,9 @@ module Homebrew
            (match = source&.match(/\so(deprecated|disabled)\s+"((?:\\"|[^"])*)"(?:\s*,\s*"((?:\\"|[^"])*))?"/m))
           type = match[1]
           method = match[2]
-          method = method.sub(/\#{self(\.class)?}/, object.namespace.to_s)
+          method = method.sub(/\#{self(?:\.class)?}/, object.namespace.to_s)
           replacement = match[3]
-          replacement = replacement.sub(/\#{self(\.class)?}/, object.namespace.to_s)
+          replacement = replacement.sub(/\#{self(?:\.class)?}/, object.namespace.to_s)
 
           # Only match `odeprecated`/`odisabled` for this method.
           if method.match?(/(.|#|`)#{Regexp.escape(object.name.to_s)}`/)

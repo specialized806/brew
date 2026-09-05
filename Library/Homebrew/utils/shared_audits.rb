@@ -466,7 +466,7 @@ module SharedAudits
 
   sig { params(url: String).returns(T.nilable(String)) }
   def self.github_tag_from_url(url)
-    tag = url[%r{^https://github\.com/[\w-]+/[\w.-]+/archive/refs/tags/(.+)\.(tar\.gz|zip)$}, 1]
+    tag = url[%r{^https://github\.com/[\w-]+/[\w.-]+/archive/refs/tags/(.+)\.(?:tar\.gz|zip)$}, 1]
     tag || url[%r{^https://github\.com/[\w-]+/[\w.-]+/releases/download/([^/]+)/}, 1]
   end
 
@@ -477,7 +477,7 @@ module SharedAudits
 
   sig { params(url: String).returns(T.nilable(String)) }
   def self.forgejo_tag_from_url(url)
-    url[%r{^https://codeberg\.org/[\w-]+/[\w.-]+/archive/(.+)\.(tar\.gz|zip)$}, 1]
+    url[%r{^https://codeberg\.org/[\w-]+/[\w.-]+/archive/(.+)\.(?:tar\.gz|zip)$}, 1]
   end
 
   sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(T.nilable(String)) }

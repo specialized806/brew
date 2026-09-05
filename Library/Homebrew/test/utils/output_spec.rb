@@ -6,7 +6,7 @@ require "utils/github/actions"
 
 RSpec.describe Utils::Output do
   def esc(code)
-    /(\e\[\d+m)*\e\[#{code}m/
+    /(?:\e\[\d+m)*\e\[#{code}m/
   end
 
   describe "#pretty_installed" do

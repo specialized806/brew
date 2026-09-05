@@ -29,8 +29,8 @@ HOMEBREW_TAP_DIR_REGEX =
 HOMEBREW_TAP_PATH_REGEX = Regexp.new(HOMEBREW_TAP_DIR_REGEX.source + %r{(?:/.*)?\Z}.source).freeze
 # Match official cask taps, e.g `homebrew/cask`.
 HOMEBREW_CASK_TAP_REGEX =
-  %r{(?:([Cc]askroom)/(cask)|([Hh]omebrew)/(?:homebrew-)?(cask|cask-[\w-]+))}
+  %r{(?:[Cc]askroom/cask|[Hh]omebrew/(?:homebrew-)?(?:cask|cask-[\w-]+))}
 # Match official taps' casks, e.g. `homebrew/cask/somecask`.
 HOMEBREW_CASK_TAP_CASK_REGEX =
   %r{\A#{HOMEBREW_CASK_TAP_REGEX.source}/#{HOMEBREW_TAP_CASK_TOKEN_REGEX.source}\Z}
-HOMEBREW_OFFICIAL_REPO_PREFIXES_REGEX = /\A(home|linux)brew-/
+HOMEBREW_OFFICIAL_REPO_PREFIXES_REGEX = /\A(?:home|linux)brew-/
