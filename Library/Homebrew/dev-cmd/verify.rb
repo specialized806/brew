@@ -11,7 +11,8 @@ module Homebrew
         description <<~EOS
           Verify the build provenance of bottles using GitHub's attestation tools.
           This is done by first fetching the given bottles and then verifying
-          their provenance.
+          their provenance for `homebrew/core` and third-party taps that provide
+          attestations.
 
           Note that this command depends on the GitHub CLI. Run `brew install gh`.
         EOS
@@ -48,6 +49,7 @@ module Homebrew
 
         os_arch_combinations = args.os_arch_combinations
         json_results = []
+        verification_failed = T.let(false, T::Boolean)
         bucket.each do |formula|
           os_arch_combinations.each do |os, arch|
             SimulateSystem.with(os:, arch:) do
@@ -59,10 +61,13 @@ module Homebrew
                 bottle.clear_cache if args.force?
                 bottle.fetch
                 begin
-                  attestation = Homebrew::Attestation.check_core_attestation bottle
+                  attestation = Homebrew::Attestation.check_formula_attestation bottle
                   oh1 "#{bottle.filename} has a valid attestation"
                   json_results.push(attestation)
-                rescue Homebrew::Attestation::InvalidAttestationError => e
+                rescue Homebrew::Attestation::UnsupportedTapError,
+                       Homebrew::Attestation::MissingAttestationError,
+                       Homebrew::Attestation::InvalidAttestationError => e
+                  verification_failed = true
                   ofail <<~ERR
                     Failed to verify #{bottle.filename} with tag #{bottle_tag} due to error:
 
@@ -77,6 +82,7 @@ module Homebrew
         end
 
         puts json_results.to_json if args.json?
+        Homebrew.failed = true if verification_failed
       end
     end
   end

@@ -43,6 +43,11 @@ module Homebrew
     # @api private
     class InvalidAttestationError < RuntimeError; end
 
+    # Raised when bottle attestation verification is unsupported for a tap.
+    #
+    # @api private
+    class UnsupportedTapError < RuntimeError; end
+
     # Raised if attestation verification cannot continue due to missing
     # credentials.
     #
@@ -189,6 +194,47 @@ module Homebrew
     end
 
     ATTESTATION_MAX_RETRIES = 5
+
+    # Verifies a bottle against the attestation model for the formula's tap.
+    #
+    # @return [Hash] the JSON-decoded response
+    # @raise [GhAuthNeeded] on any authentication failures
+    # @raise [InvalidAttestationError] on any verification failures
+    # @raise [UnsupportedTapError] when the bottle's tap cannot be attested safely
+    #
+    # @api private
+    sig { params(bottle: Bottle).returns(T::Hash[String, T.untyped]) }
+    def self.check_formula_attestation(bottle)
+      formula = bottle.resource.owner
+      formula = formula.owner if formula.is_a?(SoftwareSpec)
+      unless formula.is_a?(Formula)
+        raise UnsupportedTapError, "bottle is not associated with a formula tap."
+      end
+
+      tap = formula.tap
+      if tap.nil?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is not from a tap with supported bottle attestations."
+      end
+      return check_core_attestation(bottle) if tap.core_tap?
+
+      if tap.custom_remote?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is from #{tap.name}, which uses a non-default " \
+              "remote and cannot be attested safely."
+      end
+
+      signing_repo = tap.remote_repository
+      if signing_repo.blank?
+        raise UnsupportedTapError,
+              "#{formula.full_name} is from #{tap.name}, which does not resolve " \
+              "to a GitHub repository for attestation verification."
+      end
+
+      return check_core_attestation(bottle) if signing_repo == HOMEBREW_CORE_REPO
+
+      check_attestation(bottle, signing_repo)
+    end
 
     # Verifies the given bottle against a cryptographic attestation of build provenance
     # from homebrew-core's CI, falling back on a "backfill" attestation for older bottles.

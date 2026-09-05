@@ -2636,7 +2636,7 @@ Update the specified list of vendored gems to the latest version\.
 \fB\-\-no\-commit\fP
 Do not generate a new commit upon completion\.
 .SS "\fBverify\fP \fR[\fIoptions\fP] \fIformula\fP \fR[\.\.\.]"
-Verify the build provenance of bottles using GitHub\[u2019]s attestation tools\. This is done by first fetching the given bottles and then verifying their provenance\.
+Verify the build provenance of bottles using GitHub\[u2019]s attestation tools\. This is done by first fetching the given bottles and then verifying their provenance for \fBhomebrew/core\fP and third\-party taps that provide attestations\.
 .P
 Note that this command depends on the GitHub CLI\. Run \fBbrew install gh\fP\&\.
 .TP
@@ -3262,7 +3262,7 @@ If set, \fBbrew upgrade\fP will not automatically upgrade casks with \fBauto_upd
 If set, \fBbrew upgrade\fP will not quit running applications for casks during upgrades\.
 .TP
 \fBHOMEBREW_NO_VERIFY_ATTESTATIONS\fP
-If set, Homebrew will not verify cryptographic attestations of build provenance for bottles from homebrew\-core\.
+If set, Homebrew will not verify cryptographic attestations of build provenance for bottles from \fBhomebrew/core\fP or supported third\-party taps\.
 .TP
 \fBHOMEBREW_PIP_INDEX_URL\fP
 If set, \fBbrew install\fP \fIformula\fP will use this URL to download PyPI package resources\.
@@ -3333,7 +3333,7 @@ If set, always assume \fB\-\-verbose\fP when running commands\.
 If set, verbose output will print a \fB\&\.\fP no more than once a minute\. This can be useful to avoid long\-running Homebrew commands being killed due to no output\.
 .TP
 \fBHOMEBREW_VERIFY_ATTESTATIONS\fP
-If set, Homebrew will use the \fBgh\fP tool to verify cryptographic attestations of build provenance for bottles from homebrew\-core\.
+If set, Homebrew will use the \fBgh\fP tool to verify cryptographic attestations of build provenance for bottles from \fBhomebrew/core\fP or supported third\-party taps\.
 .TP
 \fBSUDO_ASKPASS\fP
 If set, pass the \fB\-A\fP option when calling \fBsudo\fP(8)\.

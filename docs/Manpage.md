@@ -4157,7 +4157,8 @@ Install and commit Homebrew's vendored gems.
 ### `verify` \[*`options`*\] *`formula`* \[...\]
 
 Verify the build provenance of bottles using GitHub's attestation tools. This is
-done by first fetching the given bottles and then verifying their provenance.
+done by first fetching the given bottles and then verifying their provenance for
+`homebrew/core` and third-party taps that provide attestations.
 
 Note that this command depends on the GitHub CLI. Run `brew install gh`.
 
@@ -5049,7 +5050,7 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_NO_VERIFY_ATTESTATIONS`
 
 : If set, Homebrew will not verify cryptographic attestations of build
-  provenance for bottles from homebrew-core.
+  provenance for bottles from `homebrew/core` or supported third-party taps.
 
 `HOMEBREW_PIP_INDEX_URL`
 
@@ -5149,7 +5150,8 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_VERIFY_ATTESTATIONS`
 
 : If set, Homebrew will use the `gh` tool to verify cryptographic attestations
-  of build provenance for bottles from homebrew-core.
+  of build provenance for bottles from `homebrew/core` or supported third-party
+  taps.
 
 `SUDO_ASKPASS`
 

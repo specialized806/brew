@@ -649,7 +649,7 @@ module Homebrew
       },
       HOMEBREW_NO_VERIFY_ATTESTATIONS:           {
         description: "If set, Homebrew will not verify cryptographic attestations of build provenance for bottles " \
-                     "from homebrew-core.",
+                     "from `homebrew/core` or supported third-party taps.",
         boolean:     :set,
       },
       HOMEBREW_PIP_INDEX_URL:                    {
@@ -777,7 +777,7 @@ module Homebrew
       },
       HOMEBREW_VERIFY_ATTESTATIONS:              {
         description: "If set, Homebrew will use the `gh` tool to verify cryptographic attestations " \
-                     "of build provenance for bottles from homebrew-core.",
+                     "of build provenance for bottles from `homebrew/core` or supported third-party taps.",
         boolean:     :set,
         disabled_by: :HOMEBREW_NO_VERIFY_ATTESTATIONS,
       },
