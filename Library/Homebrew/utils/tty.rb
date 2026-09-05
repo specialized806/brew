@@ -140,7 +140,8 @@ module Tty
       return @size if defined?(@size)
 
       height, width = `/bin/stty size 2>/dev/null`.presence&.split&.map(&:to_i)
-      @size = T.let((height && width) ? [height, width] : nil, T.nilable([Integer, Integer]))
+      size = [height, width] if height && width
+      @size = T.let(size, T.nilable([Integer, Integer]))
     end
 
     sig { returns(Integer) }
