@@ -127,7 +127,7 @@ class BottleSpecification
   # Example bottle block syntax:
   # bottle do
   #  sha256 cellar: :any_skip_relocation, big_sur: "69489ae397e4645..."
-  #  sha256 cellar: :any, catalina: "449de5ea35d0e94..."
+  #  sha256 cellar: :any, monterey: "449de5ea35d0e94..."
   # end
   sig { params(hash: T::Hash[T.any(Symbol, String), T.any(String, Symbol)]).void }
   def sha256(hash)

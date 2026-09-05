@@ -19,9 +19,9 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       ],
       "uses_from_macos_bounds" => [
         {},
-        { "since" => "catalina" },
+        { "since" => "big_sur" },
         {},
-        { "since" => "catalina" },
+        { "since" => "big_sur" },
       ],
     }
   end
@@ -41,9 +41,9 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
       ],
       "uses_from_macos_bounds" => [
         {},
-        { since: :catalina },
+        { since: :big_sur },
         {},
-        { since: :catalina },
+        { since: :big_sur },
       ],
     }
   end
@@ -59,9 +59,9 @@ RSpec.describe Homebrew::API::Formula::FormulaStructGenerator do
   let(:uses_from_macos_args) do
     [
       ["abc", {}],
-      [{ "def" => :build, since: :catalina }, {}],
+      [{ "def" => :build, since: :big_sur }, {}],
       [{ "ghi" => [:build, :test] }, {}],
-      ["jkl", { since: :catalina }],
+      ["jkl", { since: :big_sur }],
     ]
   end
 

@@ -4783,7 +4783,7 @@ command execution (e.g. `$(cat file)`).
 `HOMEBREW_FORCE_BREWED_CA_CERTIFICATES`
 
 : If set, always use a Homebrew-installed `ca-certificates` rather than the
-  system version. Automatically set if the system version is too old.
+  system version.
 
 `HOMEBREW_FORCE_BREWED_CURL`
 

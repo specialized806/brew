@@ -444,7 +444,7 @@ RSpec.describe RuboCop::Cop::Cask::UninstallMethodsOrder, :config do
     it "detects and corrects offenses within OS-specific blocks" do
       expect_offense <<~CASK
         cask "foo" do
-          on_catalina do
+          on_big_sur do
             uninstall trash:     "com.example.foo",
                       ^^^^^ `trash` method out of order
                       launchctl: "com.example.foo"
@@ -461,7 +461,7 @@ RSpec.describe RuboCop::Cop::Cask::UninstallMethodsOrder, :config do
 
       expect_correction <<~CASK
         cask "foo" do
-          on_catalina do
+          on_big_sur do
             uninstall launchctl: "com.example.foo",
                       trash:     "com.example.foo"
           end

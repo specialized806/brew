@@ -9,7 +9,7 @@ cask "with-depends-on-cask-multiple" do
 
   depends_on cask: "local-caffeine"
   depends_on cask: "local-transmission-zip"
-  depends_on macos: :catalina
+  depends_on macos: :big_sur
 
   app "Caffeine.app"
 end

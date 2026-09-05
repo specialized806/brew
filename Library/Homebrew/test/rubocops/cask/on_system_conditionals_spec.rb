@@ -557,8 +557,8 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
     it "reports an offense when `MacOS.version ==` is used" do
       expect_offense <<~CASK
         cask 'foo' do
-          if MacOS.version == :catalina
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instead of `if MacOS.version == :catalina`, use `on_catalina do`.
+          if MacOS.version == :big_sur
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instead of `if MacOS.version == :big_sur`, use `on_big_sur do`.
             version "1.0.0"
           else
             version "2.0.0"
@@ -570,8 +570,8 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
     it "reports an offense when `MacOS.version <=` is used" do
       expect_offense <<~CASK
         cask 'foo' do
-          if MacOS.version <= :catalina
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instead of `if MacOS.version <= :catalina`, use `on_catalina :or_older do`.
+          if MacOS.version <= :big_sur
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instead of `if MacOS.version <= :big_sur`, use `on_big_sur :or_older do`.
             version "1.0.0"
           else
             version "2.0.0"
@@ -583,8 +583,8 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
     it "reports an offense when `MacOS.version >=` is used" do
       expect_offense <<~CASK
         cask 'foo' do
-          if MacOS.version >= :catalina
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instead of `if MacOS.version >= :catalina`, use `on_catalina :or_newer do`.
+          if MacOS.version >= :big_sur
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instead of `if MacOS.version >= :big_sur`, use `on_big_sur :or_newer do`.
             version "1.0.0"
           else
             version "2.0.0"

@@ -120,37 +120,6 @@ RSpec.describe Homebrew::Diagnostic::Checks do
     end
   end
 
-  describe "#check_broken_sdks" do
-    it "doesn't trigger when SDK versions are as expected" do
-      allow(OS::Mac).to receive(:sdk_locator).and_return(OS::Mac::CLT.sdk_locator)
-      allow_any_instance_of(OS::Mac::CLTSDKLocator).to receive(:all_sdks).and_return([
-        OS::Mac::SDK.new(MacOSVersion.new("11"), "/some/path/MacOSX.sdk", :clt),
-        OS::Mac::SDK.new(MacOSVersion.new("10.15"), "/some/path/MacOSX10.15.sdk", :clt),
-      ])
-
-      expect(checks.check_broken_sdks&.to_s).to be_nil
-    end
-
-    it "triggers when the CLT SDK version doesn't match the folder name" do
-      allow_any_instance_of(OS::Mac::CLTSDKLocator).to receive(:all_sdks).and_return([
-        OS::Mac::SDK.new(MacOSVersion.new("10.14"), "/some/path/MacOSX10.15.sdk", :clt),
-      ])
-
-      expect(checks.check_broken_sdks&.to_s)
-        .to include("SDKs in your Command Line Tools (CLT) installation do not match the SDK folder names")
-    end
-
-    it "triggers when the Xcode SDK version doesn't match the folder name" do
-      allow(OS::Mac).to receive(:sdk_locator).and_return(OS::Mac::Xcode.sdk_locator)
-      allow_any_instance_of(OS::Mac::XcodeSDKLocator).to receive(:all_sdks).and_return([
-        OS::Mac::SDK.new(MacOSVersion.new("10.14"), "/some/path/MacOSX10.15.sdk", :xcode),
-      ])
-
-      expect(checks.check_broken_sdks&.to_s)
-        .to include("The contents of the SDKs in your Xcode installation do not match the SDK folder names")
-    end
-  end
-
   describe "#check_pkgconf_macos_sdk_mismatch" do
     let(:pkg_config_formula) { instance_double(Formula, any_version_installed?: true) }
     let(:tab) { instance_double(Tab, built_on: { "os_version" => "13" }) }

@@ -272,15 +272,6 @@ module Utils
         MacOSVersion::SYMBOLS.key?(system)
       end
 
-      sig { returns(T::Boolean) }
-      def valid_combination?
-        return true unless [:arm64, :arm, :aarch64].include? arch
-        return true unless macos?
-
-        # Big Sur is the first version of macOS that runs on ARM
-        to_macos_version >= :big_sur
-      end
-
       sig { returns(String) }
       def default_prefix
         prefix = if linux?

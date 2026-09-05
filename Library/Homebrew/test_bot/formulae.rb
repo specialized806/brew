@@ -342,7 +342,7 @@ module Homebrew
 
       sig { void }
       def install_ca_certificates_if_needed
-        return if DevelopmentTools.ca_file_handles_most_https_certificates?
+        return unless DevelopmentTools.ca_file_substitution_required?
 
         test "brew", "install", "--formulae", "ca-certificates",
              env: { "HOMEBREW_DEVELOPER" => nil }

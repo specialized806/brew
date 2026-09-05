@@ -339,7 +339,7 @@ HOMEBREW_MACOS_NEWEST_SUPPORTED="26"
 # - `os-version min` in package/Distribution.xml
 # - https://github.com/Homebrew/install/blob/HEAD/install.sh
 HOMEBREW_MACOS_OLDEST_SUPPORTED="14"
-HOMEBREW_MACOS_OLDEST_ALLOWED="10.15"
+HOMEBREW_MACOS_OLDEST_ALLOWED="11"
 
 setup-os-details
 check-curl-version
@@ -383,7 +383,6 @@ export HOMEBREW_TEMP
 export HOMEBREW_CELLAR
 export HOMEBREW_CASKROOM
 export HOMEBREW_SYSTEM
-export HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD
 export HOMEBREW_CURL
 export HOMEBREW_BREWED_CURL_PATH
 export HOMEBREW_CURL_WARNING

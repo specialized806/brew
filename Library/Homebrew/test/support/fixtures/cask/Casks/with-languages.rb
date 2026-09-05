@@ -19,5 +19,5 @@ cask "with-languages" do
   name "Caffeine"
   homepage "https://brew.sh/"
 
-  depends_on macos: :catalina
+  depends_on macos: :big_sur
 end

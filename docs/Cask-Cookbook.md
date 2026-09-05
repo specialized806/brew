@@ -457,8 +457,8 @@ Use `==` in the string form only when a cask must run on one exact macOS release
 
 ```ruby
 depends_on macos: [
-  :catalina,
   :big_sur,
+  :monterey,
 ]
 ```
 

@@ -847,7 +847,7 @@ RSpec.describe Formulary do
 
       it "raises an error when given a bottle URL" do
         expect do
-          described_class.factory("https://brew.sh/foo-1.0.arm64_catalina.bottle.tar.gz")
+          described_class.factory("https://brew.sh/foo-1.0.arm64_big_sur.bottle.tar.gz")
         end.to raise_error(UnsupportedInstallationMethod)
       end
 

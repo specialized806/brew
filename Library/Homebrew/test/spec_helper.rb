@@ -360,8 +360,6 @@ RSpec.configure do |config|
     if package_path
       [:generic, :linux, :macos, *MacOSVersion::SYMBOLS.keys].product([:arm, :intel]).each do |system, arch|
         tag = Utils::Bottles::Tag.new(system:, arch:)
-        next unless tag.valid_combination?
-
         target = target_api_internal_cache/"packages.#{tag}.jws.json"
         FileUtils.ln package_path, target unless target.exist?
       end

@@ -213,9 +213,9 @@ class Cmd
     when "-Xpreprocessor", "-Xclang"
       # used for -Xpreprocessor -fopenmp
       args << arg << enum.next
-    when /-mmacosx-version-min=(\d+)\.(\d+)/
-      if Regexp.last_match(1) == "10" && Regexp.last_match(2).to_i < 9
-        arg = "-mmacosx-version-min=10.9"
+    when /-mmacosx-version-min=(\d+)(?:\.\d+)*/
+      if Regexp.last_match(1).to_i < ENV.fetch("HOMEBREW_MACOS_OLDEST_ALLOWED").to_i
+        arg = "-mmacosx-version-min=#{ENV.fetch("HOMEBREW_MACOS_OLDEST_ALLOWED")}"
       end
       args << arg
     when "--fast-math"

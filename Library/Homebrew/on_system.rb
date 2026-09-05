@@ -9,11 +9,8 @@ module OnSystem
   ALL_OS_OPTIONS = T.let([*MacOSVersion::SYMBOLS.keys, :linux].freeze, T::Array[Symbol])
   ALL_OS_ARCH_COMBINATIONS = T.let(ALL_OS_OPTIONS.product(ARCH_OPTIONS).freeze, T::Array[[Symbol, Symbol]])
 
-  VALID_OS_ARCH_TAGS = T.let(ALL_OS_ARCH_COMBINATIONS.filter_map do |os, arch|
-    tag = Utils::Bottles::Tag.new(system: os, arch:)
-    next unless tag.valid_combination?
-
-    tag
+  VALID_OS_ARCH_TAGS = T.let(ALL_OS_ARCH_COMBINATIONS.map do |os, arch|
+    Utils::Bottles::Tag.new(system: os, arch:)
   end.freeze, T::Array[Utils::Bottles::Tag])
 
   sig { params(arch: Symbol).returns(T::Boolean) }

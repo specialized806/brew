@@ -28,7 +28,7 @@ module Homebrew
                   String,
                   T.any(Symbol, T::Array[Symbol]),
                 ],
-                # Hash like { since: :catalina } for uses_from_macos_bounds
+                # Hash like { since: :big_sur } for uses_from_macos_bounds
                 T::Hash[Symbol, Symbol],
               ),
             ],

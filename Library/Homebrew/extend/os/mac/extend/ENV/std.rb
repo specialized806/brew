@@ -105,7 +105,7 @@ module OS
       end
 
       # Some configure scripts won't find libxml2 without help.
-      # This is a no-op with macOS SDK 10.15.4 and later.
+      # This is a no-op with all supported macOS SDKs.
       sig { void }
       def libxml2
         sdk = self["SDKROOT"] || MacOS.sdk_path

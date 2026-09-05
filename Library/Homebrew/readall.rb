@@ -209,8 +209,6 @@ module Readall
       else
         os_arch_combinations.each do |os, arch|
           bottle_tag = Utils::Bottles::Tag.new(system: os, arch:)
-          next unless bottle_tag.valid_combination?
-
           Homebrew::SimulateSystem.with(os:, arch:) do
             slice_success = false unless valid_formulae?(tap, bottle_tag:, files: formula_files)
             slice_success = false unless valid_casks?(tap, os_name: os, arch:, files: cask_files)

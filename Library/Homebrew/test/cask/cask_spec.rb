@@ -760,11 +760,6 @@ RSpec.describe Cask::Cask, :cask do
             "version": "1.2.0",
             "sha256": "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
           },
-          "catalina": {
-            "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine/darwin/1.0.0/intel.zip",
-            "version": "1.0.0",
-            "sha256": "1866dfa833b123bb8fe7fa7185ebf24d28d300d0643d75798bc23730af734216"
-          },
           "x86_64_linux": {
             "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine/darwin//intel.zip",
             "version": null,
@@ -809,10 +804,6 @@ RSpec.describe Cask::Cask, :cask do
             "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine-intel.zip",
             "sha256": "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
           },
-          "catalina": {
-            "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine-intel.zip",
-            "sha256": "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
-          },
           "x86_64_linux": {
             "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine-intel.zip",
             "sha256": null
@@ -851,10 +842,6 @@ RSpec.describe Cask::Cask, :cask do
             "sha256": "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
           },
           "big_sur": {
-            "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine-intel-darwin.zip",
-            "sha256": "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
-          },
-          "catalina": {
             "url": "file://#{TEST_FIXTURE_DIR}/cask/caffeine-intel-darwin.zip",
             "sha256": "8c62a2b791cf5f0da6066a0a4b6e85f62949cd60975da062df44adf887f4370b"
           },
@@ -993,12 +980,13 @@ RSpec.describe Cask::Cask, :cask do
           Utils::Bottles::Tag.new(system: :sonoma, arch: :arm),
           Utils::Bottles::Tag.new(system: :monterey, arch: :intel),
           Utils::Bottles::Tag.new(system: :monterey, arch: :arm),
-          Utils::Bottles::Tag.new(system: :catalina, arch: :intel),
+          Utils::Bottles::Tag.new(system: :big_sur, arch: :intel),
+          Utils::Bottles::Tag.new(system: :big_sur, arch: :arm),
           Utils::Bottles::Tag.new(system: :linux, arch: :intel),
           Utils::Bottles::Tag.new(system: :linux, arch: :arm),
         ]
       end
-      let(:macos_platforms) { [:sonoma, :arm64_sonoma, :monterey, :arm64_monterey, :catalina] }
+      let(:macos_platforms) { [:sonoma, :arm64_sonoma, :monterey, :arm64_monterey, :big_sur, :arm64_big_sur] }
 
       before do
         stub_const("OnSystem::VALID_OS_ARCH_TAGS", platform_tags)
@@ -1144,9 +1132,8 @@ RSpec.describe Cask::Cask, :cask do
       end
 
       it "serializes architecture-varying and universal casks with the same macOS requirement" do
-        tags = OnSystem::ALL_OS_ARCH_COMBINATIONS.filter_map do |os, arch|
-          tag = Utils::Bottles::Tag.new(system: os, arch:)
-          tag if tag.valid_combination?
+        tags = OnSystem::ALL_OS_ARCH_COMBINATIONS.map do |os, arch|
+          Utils::Bottles::Tag.new(system: os, arch:)
         end
         stub_const("OnSystem::VALID_OS_ARCH_TAGS", tags)
 
@@ -1172,9 +1159,7 @@ RSpec.describe Cask::Cask, :cask do
           universal.to_hash_with_variations["supported_platforms"]
         end
 
-        expected_platforms = tags.filter_map do |tag|
-          tag.to_sym if tag.macos? && tag.system != :catalina
-        end
+        expected_platforms = tags.filter_map { |tag| tag.to_sym if tag.macos? }
         expect(supported_platforms).to eq(expected_platforms)
       end
 

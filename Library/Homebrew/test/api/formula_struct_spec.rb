@@ -85,10 +85,10 @@ RSpec.describe Homebrew::API::FormulaStruct do
       expect(described_class.format_arg_pair(["foo"], last: {})).to eq ["foo", {}]
       expect(described_class.format_arg_pair([{ "foo" => :build }], last: {}))
         .to eq [{ "foo" => :build }, {}]
-      expect(described_class.format_arg_pair([{ "foo" => :build, since: :catalina }], last: {}))
-        .to eq [{ "foo" => :build, since: :catalina }, {}]
-      expect(described_class.format_arg_pair(["foo", { since: :catalina }], last: {}))
-        .to eq ["foo", { since: :catalina }]
+      expect(described_class.format_arg_pair([{ "foo" => :build, since: :big_sur }], last: {}))
+        .to eq [{ "foo" => :build, since: :big_sur }, {}]
+      expect(described_class.format_arg_pair(["foo", { since: :big_sur }], last: {}))
+        .to eq ["foo", { since: :big_sur }]
 
       expect(described_class.format_arg_pair([:foo], last: nil)).to eq [:foo, nil]
       expect(described_class.format_arg_pair([:foo, :bar], last: nil)).to eq [:foo, :bar]

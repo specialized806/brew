@@ -160,39 +160,16 @@ setup-os-details() {
     IFS=. read -r -a MACOS_VERSION_ARRAY < <(printf '%s' "${HOMEBREW_MACOS_OLDEST_ALLOWED}")
     printf -v HOMEBREW_MACOS_OLDEST_ALLOWED_NUMERIC "%02d%02d%02d" "${MACOS_VERSION_ARRAY[@]}"
 
-    # Don't include minor versions for Big Sur and later.
-    if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -gt "110000" ]]
-    then
-      HOMEBREW_OS_VERSION="macOS ${HOMEBREW_MACOS_VERSION%.*}"
-    else
-      HOMEBREW_OS_VERSION="macOS ${HOMEBREW_MACOS_VERSION}"
-    fi
+    HOMEBREW_OS_VERSION="macOS ${HOMEBREW_MACOS_VERSION%.*}"
 
-    # Refuse to run on pre-Catalina
-    # odisabled: remove support for Catalina September (or later) 2026
+    # Refuse to run on pre-Big Sur
     if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "${HOMEBREW_MACOS_OLDEST_ALLOWED_NUMERIC}" ]]
     then
       printf "ERROR: Your version of macOS (%s) is too old to run Homebrew!\\n" "${HOMEBREW_MACOS_VERSION}" >&2
-      if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "100700" ]]
-      then
-        printf "         For 10.4 - 10.6 support see: https://github.com/mistydemeo/tigerbrew\\n" >&2
-      else
-        printf "         For 10.5 - %s support see: https://www.macports.org\\n" "${HOMEBREW_MACOS_VERSION}" >&2
-      fi
+      printf "         For this macOS version see: https://www.macports.org\\n" >&2
       printf "\\n" >&2
     fi
 
-    # The system libressl has a bug before macOS 10.15.6 where it incorrectly handles expired roots.
-    if [[ -z "${HOMEBREW_SYSTEM_CURL_TOO_OLD}" && "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "101506" ]]
-    then
-      HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD="1"
-      HOMEBREW_FORCE_BREWED_CA_CERTIFICATES="1"
-    fi
-
-    if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "110000" ]]
-    then
-      HOMEBREW_FORCE_BREWED_GIT="1"
-    fi
   else
     if [[ -r "/proc/cpuinfo" ]] &&
        [[ "${HOMEBREW_PROCESSOR}" == "x86_64" ]]

@@ -106,8 +106,6 @@ module OS
 
       sig { params(file: String).void }
       def codesign_patched_binary(file)
-        return if MacOS.version < :big_sur
-
         unless ::Hardware::CPU.arm?
           # Intel macOS rejects ruby-macho's ad-hoc signatures on larger
           # binaries and does not require unsigned binaries to be signed,
