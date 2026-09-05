@@ -278,7 +278,7 @@ module RuboCop
         # Don't use GitHub .zip files
         zip_gh_pattern = %r{https://.*github.*/(archive|releases)/.*\.zip$}
         audit_urls(urls, zip_gh_pattern) do |_, url|
-          next if url.match? %r{raw.githubusercontent.com/.*/.*/(main|master|HEAD)/}
+          next if url.match? %r{raw\.githubusercontent\.com/.*/.*/(main|master|HEAD)/}
           next if url.include?("releases/download")
           next if url.include?("desktop.githubusercontent.com/releases/")
 
