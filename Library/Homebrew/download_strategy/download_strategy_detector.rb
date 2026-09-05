@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 # Helper class for detecting a download strategy from a URL.
 class DownloadStrategyDetector
   sig {
@@ -8,7 +10,7 @@ class DownloadStrategyDetector
       .returns(T::Class[AbstractDownloadStrategy])
   }
   def self.detect(url, using = nil)
-    if using.nil?
+    strategy = if using.nil?
       detect_from_url(url)
     elsif using.is_a?(Class) && using < AbstractDownloadStrategy
       using
@@ -18,6 +20,12 @@ class DownloadStrategyDetector
       raise TypeError,
             "Unknown download strategy specification: #{using.inspect}"
     end
+
+    if strategy == BazaarDownloadStrategy
+      Utils::Output.odeprecated "BazaarDownloadStrategy", "GitDownloadStrategy or CurlDownloadStrategy"
+    end
+
+    strategy
   end
 
   sig { params(url: String).returns(T::Class[AbstractDownloadStrategy]) }

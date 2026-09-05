@@ -538,9 +538,9 @@ RSpec.describe Homebrew::Services::Cli do
         .with("sh.brew.name").and_return(true, false)
       allow(Homebrew::Services::System).to receive(:launchctl_service_running?)
         .with("homebrew.mxcl.name").and_return(true, false)
-      expect(services_cli).to receive(:quiet_system)
+      expect(SystemCommand).to receive(:quiet_system)
         .with(Pathname("/bin/launchctl"), "bootout", "gui/501/sh.brew.name")
-      expect(services_cli).to receive(:quiet_system)
+      expect(SystemCommand).to receive(:quiet_system)
         .with(Pathname("/bin/launchctl"), "bootout", "gui/501/homebrew.mxcl.name")
 
       dest_dir = mktmpdir
@@ -572,7 +572,7 @@ RSpec.describe Homebrew::Services::Cli do
         candidate_domain_targets:   ["gui/501"],
         launchctl_service_running?: true,
       )
-      allow(services_cli).to receive(:quiet_system).and_return(false)
+      allow(SystemCommand).to receive(:quiet_system).and_return(false)
 
       destination = mktmpdir/"sh.brew.name.plist"
       destination.write("service")
@@ -633,7 +633,7 @@ RSpec.describe Homebrew::Services::Cli do
         launchctl_service_running?: true,
         systemctl?:                 false,
       )
-      expect(services_cli).to receive(:quiet_system)
+      expect(SystemCommand).to receive(:quiet_system)
         .with("/bin/launchctl", "stop", "homebrew.mxcl.name").once.and_return(true)
 
       expect do

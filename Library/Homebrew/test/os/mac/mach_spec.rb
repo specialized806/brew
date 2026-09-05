@@ -33,7 +33,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn.arch).to eq(:universal)
     end
 
@@ -46,7 +46,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).not_to be_mach_o_bundle
     end
 
@@ -59,7 +59,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).not_to be_mach_o_bundle
     end
 
@@ -72,7 +72,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).not_to be_mach_o_bundle
     end
 
@@ -85,7 +85,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).to be_mach_o_bundle
     end
 
@@ -98,7 +98,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).to be_mach_o_bundle
     end
 
@@ -111,7 +111,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).to be_mach_o_bundle
     end
 
@@ -124,7 +124,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn).not_to be_mach_o_bundle
       expect(pn.arch).to eq(:dunno)
     end
@@ -153,7 +153,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(true)
       expect(pn.archs).to eq([])
       expect(pn.arch).to eq(:dunno)
     end
@@ -167,7 +167,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(true)
       expect(pn.archs).to eq([])
       expect(pn.arch).to eq(:dunno)
     end
@@ -181,7 +181,7 @@ RSpec.describe MachOShim do
       expect(pn).not_to be_ppc64
       expect(pn).not_to be_dylib
       expect(pn).not_to be_mach_o_executable
-      expect(pn).not_to be_text_executable
+      expect(Utils::Path.text_executable?(Pathname(pn.to_path))).to be(false)
       expect(pn.archs).to eq([])
       expect(pn.arch).to eq(:dunno)
     end

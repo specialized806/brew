@@ -17,10 +17,10 @@ RSpec.describe Homebrew::DevCmd::Prof do
       prof = described_class.new(["help"])
 
       allow($stdout).to receive(:tty?).and_return(false)
-      expect(prof).to receive(:safe_system)
+      expect(SystemCommand).to receive(:safe_system)
         .with("ruby-prof", "--printer=call_stack", "--file=prof/call_stack.html",
-              (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path, "--", "help")
-      expect(prof).not_to receive(:exec_browser)
+              Utils::Path.resolved_path(HOMEBREW_LIBRARY_PATH/"brew.rb"), "--", "help")
+      expect(Utils::Browser).not_to receive(:open)
 
       prof.run
     end
@@ -28,10 +28,8 @@ RSpec.describe Homebrew::DevCmd::Prof do
     it "runs Vernier without passing it to child Ruby processes" do
       prof = described_class.new(["--vernier", "commands"])
 
-      expect(prof).to receive(:safe_system)
+      expect(SystemCommand).to receive(:safe_system)
         .with(
-          { "HOMEBREW_SPAWN_SYSTEM" => "1",
-            "VERNIER_ALLOCATION_INTERVAL" => "500", "VERNIER_OUTPUT" => "prof/vernier.json" },
           RUBY_PATH,
           "-I",
           (Pathname(Gem::Specification.find_by_name("vernier").full_gem_path)/"lib").to_s,
@@ -39,8 +37,13 @@ RSpec.describe Homebrew::DevCmd::Prof do
           "vernier/autorun",
           "-r",
           (HOMEBREW_LIBRARY_PATH/"prof/vernier_fork_guard").to_s,
-          (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path,
+          Utils::Path.resolved_path(HOMEBREW_LIBRARY_PATH/"brew.rb"),
           "commands",
+          env: {
+            "HOMEBREW_SPAWN_SYSTEM"       => "1",
+            "VERNIER_ALLOCATION_INTERVAL" => "500",
+            "VERNIER_OUTPUT"              => "prof/vernier.json",
+          },
         )
       allow(prof).to receive(:ohai)
       allow(prof).to receive(:puts)
@@ -53,12 +56,12 @@ RSpec.describe Homebrew::DevCmd::Prof do
 
       expect(Utils::GemSetup).not_to receive(:install_bundler_gems!)
       expect(Utils::GemSetup).not_to receive(:setup_gem_environment!)
-      expect(prof).to receive(:safe_system)
+      expect(SystemCommand).to receive(:safe_system)
         .with(
-          { "HOMEBREW_PHASE_TIMINGS" => "prof/timings.json" },
           *HOMEBREW_RUBY_EXEC_ARGS,
-          (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path,
+          Utils::Path.resolved_path(HOMEBREW_LIBRARY_PATH/"brew.rb"),
           "help",
+          env: { "HOMEBREW_PHASE_TIMINGS" => "prof/timings.json" },
         )
       allow(prof).to receive(:ohai)
 

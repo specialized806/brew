@@ -58,7 +58,7 @@ module Utils
         ENV["HOMEBREW_DEBUG_INSTALL"] = formula.full_name
       end
 
-      if preferred == :zsh && (home = Dir.home).start_with?(HOMEBREW_TEMP.resolved_path.to_s)
+      if preferred == :zsh && (home = Dir.home).start_with?(Utils::Path.resolved_path(HOMEBREW_TEMP).to_s)
         FileUtils.mkdir_p home
         FileUtils.touch "#{home}/.zshrc"
       end

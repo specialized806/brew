@@ -171,7 +171,7 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Urls do
       "col" => 2,
     }, {
       "url" => "bzr://brew.sh/foo/bar",
-      "msg" => "Use of the \"bzr://\" scheme is deprecated, pass `using: :bzr` instead",
+      "msg" => "Use of the \"bzr://\" scheme is deprecated, use Git or a stable archive URL instead",
       "col" => 2,
     }, {
       "url" => "hg://brew.sh/foo/bar",

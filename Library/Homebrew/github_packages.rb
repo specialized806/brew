@@ -1,8 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "utils/curl"
 require "utils/executable"
+
+require "utils/curl"
 require "utils/gzip"
 require "utils/output"
 require "json"

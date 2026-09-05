@@ -1,13 +1,14 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/executable"
+
 require "date"
 require "json"
 require "utils/popen"
 require "utils/github/api"
 require "exceptions"
 require "system_command"
-require "utils/executable"
 require "utils/output"
 
 module Homebrew

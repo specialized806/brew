@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "utils/output"
 
 module Utils
@@ -75,7 +77,7 @@ module Utils
         end
       else
         paths.map do |path|
-          safe_system "gzip", path
+          SystemCommand.safe_system "gzip", path
           Pathname.new("#{path}.gz")
         end
       end

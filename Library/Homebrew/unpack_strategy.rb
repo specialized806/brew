@@ -19,6 +19,19 @@ module UnpackStrategy
 
   UnpackStrategyType = T.type_alias { T.all(T::Class[UnpackStrategy], UnpackStrategy::ClassMethods) }
 
+  DEPRECATED_STRATEGY_REPLACEMENTS = T.let({
+    "UnpackStrategy::Air"    => "an `app` or `pkg` Cask artifact",
+    "UnpackStrategy::Bazaar" => "UnpackStrategy::Git or a stable archive URL",
+    "UnpackStrategy::Cab"    => "UnpackStrategy::GenericUnar",
+    "UnpackStrategy::Lha"    => "UnpackStrategy::GenericUnar",
+    "UnpackStrategy::Lzma"   => "UnpackStrategy::Xz",
+    "UnpackStrategy::Pax"    => "UnpackStrategy::Tar",
+    "UnpackStrategy::Rar"    => "UnpackStrategy::GenericUnar",
+    "UnpackStrategy::Sit"    => "UnpackStrategy::GenericUnar",
+    "UnpackStrategy::Xar"    => "UnpackStrategy::GenericUnar",
+  }.freeze, T::Hash[String, String])
+  private_constant :DEPRECATED_STRATEGY_REPLACEMENTS
+
   module ClassMethods
     extend T::Helpers
 
@@ -118,6 +131,9 @@ module UnpackStrategy
     end
 
     strategy ||= Uncompressed
+    if (replacement = DEPRECATED_STRATEGY_REPLACEMENTS[strategy.to_s])
+      odeprecated strategy.to_s, replacement
+    end
 
     strategy.new(path, ref_type:, ref:, merge_xattrs:)
   end

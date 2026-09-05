@@ -90,16 +90,4 @@ module ObserverPathnameExtension
     puts "ln -s #{src.relative_path_from(dirname)} #{basename}" if ObserverPathnameExtension.verbose?
     ObserverPathnameExtension.n += 1
   end
-
-  sig { void }
-  def install_info
-    super
-    puts "info #{self}" if ObserverPathnameExtension.verbose?
-  end
-
-  sig { void }
-  def uninstall_info
-    super
-    puts "uninfo #{self}" if ObserverPathnameExtension.verbose?
-  end
 end

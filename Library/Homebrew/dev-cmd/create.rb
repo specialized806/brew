@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "api/env"
+require "utils/editor"
+
 require "formula"
 require "formula_creator"
 require "missing_formula"
@@ -81,7 +83,7 @@ module Homebrew
           create_formula
         end
 
-        exec_editor path
+        Utils::Editor.open path
       end
 
       private

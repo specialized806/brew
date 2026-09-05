@@ -5,7 +5,6 @@ require "shellwords"
 require "stringio"
 
 require "context"
-require "homebrew"
 require "readline_nonblock"
 require "utils/timer"
 require "utils/output"
@@ -80,31 +79,14 @@ class SystemCommand
 
   # Positional command helpers used by the Formula DSL.
   module Helpers
-    sig {
-      params(
-        cmd:     T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
-        argv0:   T.nilable(T.any(Pathname, String, [String, String])),
-        args:    T.nilable(T.any(Pathname, String)),
-        options: T.untyped,
-      ).void
-    }
-    def safe_system(cmd, argv0 = nil, *args, **options)
-      return SystemCommand.safe_system(cmd, *args, **options) if argv0.nil?
-
-      SystemCommand.safe_system(cmd, argv0, *args, **options)
+    sig { params(executable: T.any(String, Pathname), args: T.any(String, Pathname)).void }
+    def safe_system(executable, *args)
+      SystemCommand.safe_system(executable, *args)
     end
 
-    sig {
-      params(
-        cmd:   T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
-        argv0: T.nilable(T.any(String, [String, String])),
-        args:  T.any(Pathname, String),
-      ).returns(T::Boolean)
-    }
-    def quiet_system(cmd, argv0 = nil, *args)
-      return SystemCommand.quiet_system(cmd, *args) if argv0.nil?
-
-      SystemCommand.quiet_system(cmd, argv0, *args)
+    sig { params(executable: T.any(String, Pathname), args: T.any(String, Pathname)).returns(T::Boolean) }
+    def quiet_system(executable, *args)
+      SystemCommand.quiet_system(executable, *args)
     end
   end
 
@@ -166,27 +148,44 @@ class SystemCommand
 
   sig {
     params(
-      cmd:     T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
-      argv0:   T.nilable(T.any(Pathname, String, [String, String])),
-      args:    T.nilable(T.any(Pathname, String)),
-      options: T.untyped,
+      executable: T.nilable(T.any(String, Pathname)),
+      args:       T.nilable(T.any(String, Pathname)),
+      env:        T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
+      out:        T.nilable(Symbol),
     ).void
   }
-  def self.safe_system(cmd, argv0 = nil, *args, **options)
-    Homebrew.safe_system(cmd, argv0, *args, **options)
+  def self.safe_system(executable, *args, env: {}, out: nil)
+    raise ArgumentError, "Missing executable" if executable.nil?
+    raise ArgumentError, "Invalid nil command argument" if args.any?(&:nil?)
+
+    run = proc do
+      run!(executable, args: args.compact, env:, print_stdout: true, print_stderr: true, debug: true)
+    end
+
+    if out == :err
+      Utils::Output.redirect_stdout($stderr, &run)
+    else
+      run.call
+    end
   end
 
   # Preserve the existing Formula DSL method name.
+  # rubocop:disable Naming/PredicateMethod
   sig {
     params(
-      cmd:   T.nilable(T.any(Pathname, String, [String, String], T::Hash[String, T.nilable(String)])),
-      argv0: T.nilable(T.any(String, [String, String])),
-      args:  T.any(Pathname, String),
+      executable: T.nilable(T.any(String, Pathname)),
+      args:       T.nilable(T.any(String, Pathname)),
+      env:        T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))],
     ).returns(T::Boolean)
   }
-  def self.quiet_system(cmd, argv0 = nil, *args)
-    Homebrew.quiet_system(cmd, argv0, *args)
+  def self.quiet_system(executable, *args, env: {})
+    return false if executable.nil? || args.any?(&:nil?)
+
+    run(executable, args: args.compact, env:, print_stdout: false, print_stderr: false, debug: false,
+                    verbose: false).success?
   end
+  # rubocop:enable Naming/PredicateMethod
+
   sig { returns(SystemCommand::Result) }
   def run!
     $stderr.puts Formatter.redact_secrets(command.shelljoin.gsub('\=', "="), @secrets) if verbose? && debug?

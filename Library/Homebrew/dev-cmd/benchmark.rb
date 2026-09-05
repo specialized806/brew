@@ -75,7 +75,7 @@ module Homebrew
         hyperfine = which("hyperfine", ENV.fetch("HOMEBREW_PATH")) || (HOMEBREW_PREFIX/"bin/hyperfine")
         unless hyperfine.executable?
           ohai "Installing hyperfine..."
-          safe_system BENCHMARK_ENV, HOMEBREW_BREW_FILE, "install", "--formula", "hyperfine"
+          SystemCommand.safe_system HOMEBREW_BREW_FILE, "install", "--formula", "hyperfine", env: BENCHMARK_ENV
           # An already-installed but unlinked `hyperfine` makes the install a no-op.
           raise "`#{hyperfine}` is missing: try `brew link hyperfine`." unless hyperfine.executable?
         end

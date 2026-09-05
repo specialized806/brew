@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "deprecate_disable"
 require "formula_versions"
 require "formula_name_cask_token_auditor"
@@ -206,8 +208,8 @@ module Homebrew
 
       name_auditor = Homebrew::FormulaNameCaskTokenAuditor.new(name)
       if (errors = name_auditor.errors).any?
-        problem "Formula name '#{name}' must not contain #{errors.to_sentence(two_words_connector: " or ",
-                                                                              last_word_connector: " or ")}."
+        problem "Formula name '#{name}' must not contain " \
+                "#{Utils::Text.to_sentence(errors, conjunction: "or")}."
       end
 
       return unless @core_tap

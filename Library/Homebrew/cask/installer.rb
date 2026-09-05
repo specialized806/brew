@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "formula_installer"
 require "unpack_strategy"
 require "utils/topological_hash"
@@ -445,7 +447,7 @@ on_request: true)
 
       @cask_and_formula_dependencies = graph.tsort_with_cycles do |cycles|
         cyclic_dependencies = cycles.sort_by(&:count).fetch(-1) - [@cask]
-        raise CaskCyclicDependencyError.new(@cask.token, cyclic_dependencies.to_sentence)
+        raise CaskCyclicDependencyError.new(@cask.token, ::Utils::Text.to_sentence(cyclic_dependencies))
       end - [@cask]
     end
 
@@ -635,19 +637,19 @@ on_request: true)
     def remove_tabfile
       tabfile = @cask.tab.tabfile
       FileUtils.rm_f tabfile if tabfile
-      @cask.config_path.parent.rmdir_if_possible
+      rmdir_if_possible(@cask.config_path.parent)
     end
 
     sig { void }
     def remove_config_file
       FileUtils.rm_f @cask.config_path
-      @cask.config_path.parent.rmdir_if_possible
+      rmdir_if_possible(@cask.config_path.parent)
     end
 
     sig { void }
     def remove_download_sha
       FileUtils.rm_f @cask.download_sha_path
-      @cask.download_sha_path.parent.rmdir_if_possible
+      rmdir_if_possible(@cask.download_sha_path.parent)
     end
 
     sig { params(successor: T.nilable(Cask), quit: T::Boolean).void }
@@ -804,7 +806,7 @@ on_request: true)
       bmp.children.each do |subdir|
         gain_permissions_remove(subdir)
       end
-      bmp.rmdir_if_possible
+      rmdir_if_possible(bmp)
     end
 
     sig { void }
@@ -820,12 +822,12 @@ on_request: true)
           gain_permissions_remove(subdir)
         end
 
-        @cask.metadata_versioned_path.rmdir_if_possible
+        rmdir_if_possible(@cask.metadata_versioned_path)
       end
-      @cask.metadata_main_container_path.rmdir_if_possible unless upgrade?
+      rmdir_if_possible(@cask.metadata_main_container_path) unless upgrade?
 
       # toplevel staged distribution
-      @cask.caskroom_path.rmdir_if_possible unless upgrade?
+      rmdir_if_possible(@cask.caskroom_path) unless upgrade?
 
       remove_broken_caskroom_symlinks
     end

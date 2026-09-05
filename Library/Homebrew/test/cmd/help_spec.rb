@@ -50,15 +50,18 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
         end
       RUBY
       cmd_path.chmod(0755)
+      trust_home = Pathname(TEST_TMPDIR)/"help-tap-trust"
+      trust_env = { "HOMEBREW_USER_CONFIG_HOME" => trust_home.to_s }
+      with_env(trust_env) { Homebrew::Trust.trust!(:tap, Tap.fetch("trusthelp/foo")) }
 
       expect do
-        brew "help", "hello-trust-tap", "SECRET_TOKEN" => "password", "HOMEBREW_NO_REQUIRE_TAP_TRUST" => "1"
+        brew "help", "hello-trust-tap", trust_env.merge("SECRET_TOKEN" => "password")
       end
         .to output(%r{^From tap: trusthelp/foo$}).to_stdout
         .and not_to_output.to_stderr
         .and be_a_success
     ensure
-      Homebrew::Trust.clear!(:tap)
+      FileUtils.rm_rf trust_home if trust_home
       FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"trusthelp"
     end
 
@@ -96,17 +99,14 @@ RSpec.describe Homebrew::Cmd::HelpCmd, :integration_test do
       cmd_path.chmod(0755)
       trust_home = Pathname(TEST_TMPDIR)/"help-command-trust"
       trust_env = { "HOMEBREW_USER_CONFIG_HOME" => trust_home.to_s }
-      require_trust_env = trust_env.merge(
-        "HOMEBREW_REQUIRE_TAP_TRUST" => "1",
-      )
 
-      expect { brew "help", "hello-trust-tap", require_trust_env.dup }
+      expect { brew "help", "hello-trust-tap", trust_env.dup }
         .to output(%r{trusthelp/foo}).to_stderr
         .and be_a_failure
 
       with_env(trust_env) { Homebrew::Trust.trust!(:command, "trusthelp/foo/hello-trust-tap") }
 
-      expect { brew "help", "hello-trust-tap", require_trust_env.dup }
+      expect { brew "help", "hello-trust-tap", trust_env.dup }
         .to output(%r{^From tap: trusthelp/foo$}).to_stdout
         .and be_a_success
     ensure

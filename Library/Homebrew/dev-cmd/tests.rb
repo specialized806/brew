@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/browser"
+
 require "abstract_command"
 require "fileutils"
 require "hardware"
@@ -212,9 +214,12 @@ module Homebrew
           end
           success = $CHILD_STATUS.success?
 
-          safe_system "stackprof --d3-flamegraph #{prof_input_filename} > #{prof_filename}" if args.stackprof?
+          if args.stackprof?
+            SystemCommand.safe_system "/bin/sh", "-c",
+                                      "stackprof --d3-flamegraph #{prof_input_filename} > #{prof_filename}"
+          end
 
-          exec_browser prof_filename if prof_filename
+          Utils::Browser.open prof_filename if prof_filename
 
           return if success
 

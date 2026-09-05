@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "abstract_command"
 require "digest"
 require "json"
@@ -216,7 +218,7 @@ module Homebrew
 
           contributions_string = [
             "#{username} contributed",
-            *contributions.to_sentence,
+            Utils::Text.to_sentence(contributions),
             "#{time_period(from:, to:)}.",
           ].join(" ")
           if args.csv?
@@ -269,7 +271,8 @@ module Homebrew
             [user, github_username_for(user, to:)&.downcase]
           end
           unresolved_users = requested_usernames.filter_map { |user, username| user if username.nil? }
-          odie "Could not resolve GitHub usernames for: #{unresolved_users.to_sentence}." if unresolved_users.present?
+          odie "Could not resolve GitHub usernames for: #{Utils::Text.to_sentence(unresolved_users)}." \
+            if unresolved_users.present?
 
           maintainer_usernames = user_names.keys.map(&:downcase)
           non_maintainers = requested_usernames.filter_map do |user, username|
@@ -277,7 +280,7 @@ module Homebrew
           end
           unless non_maintainers.empty?
             odie "Not listed as #{Utils.pluralize("Maintainer", non_maintainers.length)} at the end of the " \
-                 "reporting quarter: #{non_maintainers.to_sentence}."
+                 "reporting quarter: #{Utils::Text.to_sentence(non_maintainers)}."
           end
 
           selected_usernames = requested_usernames.values.compact

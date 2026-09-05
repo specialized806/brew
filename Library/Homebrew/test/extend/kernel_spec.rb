@@ -1,26 +1,10 @@
 # typed: true
 # frozen_string_literal: true
 
+require "utils/shell"
+
 RSpec.describe Kernel do
   let(:dir) { mktmpdir }
-
-  describe "#interactive_shell" do
-    let(:shell) { dir/"myshell" }
-
-    it "starts an interactive shell session" do
-      File.write shell, <<~SH
-        #!/bin/sh
-        echo called > "#{dir}/called"
-      SH
-
-      FileUtils.chmod 0755, shell
-
-      ENV["SHELL"] = shell
-
-      expect { interactive_shell }.not_to raise_error
-      expect(dir/"called").to exist
-    end
-  end
 
   describe "#which" do
     let(:cmd) { dir/"foo" }
@@ -45,17 +29,6 @@ RSpec.describe Kernel do
       path = ["~~", File.dirname(cmd)].join(File::PATH_SEPARATOR)
       expect(which(File.basename(cmd), path)).to eq(cmd)
     end
-  end
-
-  specify "#which_editor" do
-    ENV["HOMEBREW_EDITOR"] = "vemate -w"
-    ENV["HOMEBREW_PATH"] = dir
-
-    editor = "#{dir}/vemate"
-    FileUtils.touch editor
-    FileUtils.chmod 0755, editor
-
-    expect(which_editor).to eq("vemate -w")
   end
 
   describe "#with_env" do
@@ -85,20 +58,6 @@ RSpec.describe Kernel do
       path = ENV.fetch("PATH", nil)
       expect(path).not_to be_nil
       expect(path).not_to eq("/bin")
-    end
-  end
-
-  describe "#quiet_system" do
-    it "delegates to Homebrew.quiet_system" do
-      expect(Homebrew).to receive(:quiet_system).with("true", nil).and_return(true)
-      expect(quiet_system("true")).to be true
-    end
-  end
-
-  describe "#safe_system" do
-    it "delegates to Homebrew.safe_system" do
-      expect(Homebrew).to receive(:safe_system).with("true", nil)
-      safe_system("true")
     end
   end
 end

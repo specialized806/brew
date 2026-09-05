@@ -4,6 +4,11 @@ inherit_from:
 Homebrew/MoveToExtendOS:
   Enabled: true
 
+# This fixture intentionally exercises the deprecated flight-block DSL.
+Cask/InstallSteps:
+  Exclude:
+    - "test/support/fixtures/cask/Casks/many-artifacts.rb"
+
 # The project index does not model explicit removal or isolated entry points.
 Lint/ConstantReassignment:
   Exclude:

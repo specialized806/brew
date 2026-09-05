@@ -1,6 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+require "utils/shell"
+
 require "utils"
 require "utils/output"
 require "utils/path"
@@ -88,7 +91,9 @@ module Language
       probe_file = homebrew_site_packages(python)/"homebrew-pth-probe.pth"
       begin
         probe_file.atomic_write("import site; site.homebrew_was_here = True")
-        with_homebrew_path { quiet_system python, "-c", "import site; assert(site.homebrew_was_here)" }
+        Utils::Shell.with_homebrew_path do
+          SystemCommand.quiet_system python, "-c", "import site; assert(site.homebrew_was_here)"
+        end
       ensure
         probe_file.unlink if probe_file.exist?
       end
@@ -105,7 +110,7 @@ module Language
         import os, sys
         [os.path.realpath(p) for p in sys.path].index(os.path.realpath("#{path}"))
       PYTHON
-      quiet_system python, "-c", script
+      SystemCommand.quiet_system python, "-c", script
     end
 
     # Mixin module for {Formula} adding shebang rewrite features.

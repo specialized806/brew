@@ -799,7 +799,7 @@ Homebrew offers these anonymous download strategies.
 
 | `using:` value   | download strategy                | requirements |
 | ---------------- | -------------------------------- | ------------ |
-| `:bzr`           | fetch from Bazaar repository     | `breezy` installed |
+| `:bzr`           | fetch from Bazaar repository (deprecated) | migrate to `:git` or a stable archive URL |
 | `:curl`          | download using `curl` (default)  | |
 | `:cvs`           | fetch from CVS repository        | `cvs` installed |
 | `:fossil`        | fetch from Fossil repository     | `fossil` installed |
@@ -1067,9 +1067,9 @@ end
 
 ### Running commands after installation
 
-Formulae in official Homebrew taps must represent post-install work with [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method); new `post_install` methods are rejected. These steps can be re-run separately with `brew postinstall <formula>`, are stored in the JSON API and do not require downloading source formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code. Homebrew executes the steps with the same post-install sandbox policy.
+Formulae in all taps must represent post-install work with [`post_install_steps`](/rubydoc/Formula.html#post_install_steps-class_method); new `post_install` methods are rejected. These steps can be re-run separately with `brew postinstall <formula>`, are stored in the JSON API and do not require downloading source formula Ruby. A `post_install_steps` block may only contain the supported step calls with literal arguments. It cannot call the wider formula DSL or arbitrary Ruby code. Homebrew executes the steps with the same post-install sandbox policy.
 
-The legacy `post_install` method remains available temporarily for third-party tap compatibility, but is not an authoring interface for official formulae. A formula cannot define both `post_install` and `post_install_steps`.
+The legacy `post_install` method remains temporarily loadable while third-party taps migrate, but is deprecated and rejected by formula audits. A formula cannot define both `post_install` and `post_install_steps`.
 
 ```ruby
 class Foo < Formula

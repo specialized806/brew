@@ -5,6 +5,7 @@ require "api/env"
 require "abstract_command"
 require "readall"
 require "env_config"
+require "trust"
 
 module Homebrew
   module Cmd
@@ -27,7 +28,8 @@ module Homebrew
         switch "--eval-all",
                description: "Evaluate all available formulae and casks, whether installed or not.",
                env:         :eval_all,
-               odeprecated: true
+               replacement: "the default trusted-tap behaviour",
+               odisabled:   true
         switch "--no-simulate",
                description: "Don't simulate other system configurations when checking formulae and casks."
 
@@ -50,22 +52,19 @@ module Homebrew
           }
           options[:os_arch_combinations] = args.os_arch_combinations if args.os || args.arch
 
-          eval_all = args.eval_all?
-          eval_all ||= args.no_named? && Homebrew::EnvConfig.tap_trust_configured?
           taps = if args.no_named?
-            unless eval_all
-              raise UsageError,
-                    "`brew readall` needs a tap, `HOMEBREW_REQUIRE_TAP_TRUST=1` or " \
-                    "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
-            end
-
             Tap.installed
           else
             args.named.to_installed_taps
           end
 
           taps.each do |tap|
-            Homebrew.failed = true unless Readall.valid_tap?(tap, **options)
+            Homebrew.failed = true unless Readall.valid_tap?(
+              tap,
+              **options,
+              formula_files: Homebrew::Trust.trusted_formula_files(tap.formula_files),
+              cask_files:    Homebrew::Trust.trusted_cask_files(tap.cask_files),
+            )
           end
         end
       end

@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/brew_command"
+
 require "abstract_command"
 require "tap"
 require "utils/github"
@@ -73,7 +75,7 @@ module Homebrew
         publish_args << "--workflow=#{args.workflow}" if args.workflow
         publish_args << "--autosquash" if args.autosquash?
         if args.publish?
-          safe_system HOMEBREW_BREW_FILE, *publish_args, *pr_urls
+          Utils::BrewCommand.run!(*publish_args, *pr_urls)
         else
           ohai "Now run:", "  brew #{publish_args.join " "} \\\n    #{pr_urls.join " \\\n    "}"
         end

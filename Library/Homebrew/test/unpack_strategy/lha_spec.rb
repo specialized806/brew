@@ -6,5 +6,5 @@ require_relative "shared_examples"
 RSpec.describe UnpackStrategy::Lha do
   subject(:path) { TEST_FIXTURE_DIR/"test.lha" }
 
-  include_examples "UnpackStrategy::detect"
+  include_examples "UnpackStrategy::detect", deprecated: true
 end

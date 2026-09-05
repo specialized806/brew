@@ -298,9 +298,6 @@ module RSpec::Matchers
   def be_test_defined(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
-  def be_text_executable(*args, &block); end
-
-  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_the_chinese_version(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }

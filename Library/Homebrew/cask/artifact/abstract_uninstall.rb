@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/data"
+
 require "timeout"
 
 require "services/system"
@@ -9,7 +11,7 @@ require "cask/artifact/abstract_artifact"
 require "cask/pkg"
 require "cask/utils"
 require "cask/utils/trash"
-require "utils/data"
+require "extend/hash/keys"
 require "system_command"
 
 module Cask

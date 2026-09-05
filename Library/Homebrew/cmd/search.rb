@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/browser"
+
 require "abstract_command"
 require "formula"
 require "missing_formula"
@@ -41,7 +43,8 @@ module Homebrew
                description: "Evaluate all available formulae and casks, whether installed or not, to search their " \
                             "descriptions.",
                env:         :eval_all,
-               odeprecated: true
+               replacement: "the default trusted-tap behaviour",
+               odisabled:   true
         switch "--pull-request",
                description: "Search for GitHub pull requests containing <text>."
         switch "--open",
@@ -71,12 +74,6 @@ module Homebrew
         string_or_regex = Search.query_regexp(query)
 
         if args.desc?
-          if !args.eval_all? && !Homebrew::EnvConfig.tap_trust_configured? && Homebrew::EnvConfig.no_install_from_api?
-            raise UsageError,
-                  "`brew search --desc` needs `HOMEBREW_REQUIRE_TAP_TRUST=1` or " \
-                  "`HOMEBREW_NO_REQUIRE_TAP_TRUST=1` set!"
-          end
-
           Search.search_descriptions(string_or_regex, args, show_missing: true)
         elsif args.pull_request?
           search_pull_requests(query)
@@ -130,7 +127,7 @@ module Homebrew
         return false if package_manager.nil?
 
         _, url = package_manager
-        exec_browser url.call(URI.encode_www_form_component(args.named.join(" ")))
+        Utils::Browser.open url.call(URI.encode_www_form_component(args.named.join(" ")))
         true
       end
 

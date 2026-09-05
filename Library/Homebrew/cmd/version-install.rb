@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/brew_command"
+
 require "abstract_command"
 require "formula"
 require "formulary"
@@ -117,11 +119,11 @@ module Homebrew
           tap = Tap.fetch("#{username}/homebrew-#{DEFAULT_TAP_REPOSITORY}")
           unless tap.installed?
             ohai "Creating #{tap.name} tap for storing versioned formulae..."
-            safe_system HOMEBREW_BREW_FILE, "tap-new", "--no-git", tap.name
+            Utils::BrewCommand.run! "tap-new", "--no-git", tap.name
           end
 
           ohai "Extracting #{formula_input}@#{version_input} into #{tap.name}..."
-          safe_system HOMEBREW_BREW_FILE, "extract", formula_input, tap.name, "--version=#{version_input}"
+          Utils::BrewCommand.run! "extract", formula_input, tap.name, "--version=#{version_input}"
 
           install_target = "#{tap}/#{versioned_name}"
 
@@ -134,7 +136,7 @@ module Homebrew
         end
 
         ohai "Installing #{install_target}..."
-        safe_system HOMEBREW_BREW_FILE, "install", install_target
+        Utils::BrewCommand.run! "install", install_target
       end
     end
   end

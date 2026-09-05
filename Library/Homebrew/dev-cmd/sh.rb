@@ -1,6 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "extend/ENV/super"
+require "system_command"
+
 require "abstract_command"
 require "extend/ENV"
 require "formula"
@@ -47,9 +50,9 @@ module Homebrew
         preferred_path = Utils::Shell.preferred_path(default: "/bin/bash")
 
         if args.cmd.present?
-          safe_system(preferred_path, "-c", args.cmd)
+          SystemCommand.safe_system(preferred_path, "-c", args.cmd)
         elsif args.named.present?
-          safe_system(preferred_path, args.named.first)
+          SystemCommand.safe_system(preferred_path, args.named.first)
         else
           system Utils::Shell.shell_with_prompt(prompt, preferred_path:, notice:)
         end
@@ -78,13 +81,13 @@ module Homebrew
       def setup_build_environment!
         ENV.activate_extensions!(env: args.env)
 
-        if superenv?(args.env)
+        if Superenv.enabled_for?(args.env)
           ENV.deps = Formula.installed.select do |f|
             f.keg_only? && f.opt_prefix.directory?
           end
         end
         ENV.setup_build_environment
-        if superenv?(args.env)
+        if Superenv.enabled_for?(args.env)
           # superenv stopped adding brew's bin but generally users will want it
           ENV["PATH"] = PATH.new(ENV.fetch("PATH")).insert(1, HOMEBREW_PREFIX/"bin").to_s
         end

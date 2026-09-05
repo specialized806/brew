@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "abstract_command"
 require "formula"
 
@@ -66,8 +68,8 @@ module Homebrew
             ohai "git commit --no-edit --verbose --message=#{message} -- #{formula.path}"
           elsif !args.write_only?
             formula.path.parent.cd do
-              safe_system "git", "commit", "--no-edit", "--verbose",
-                          "--message=#{message}", "--", formula.path
+              SystemCommand.safe_system "git", "commit", "--no-edit", "--verbose",
+                                        "--message=#{message}", "--", formula.path
             end
           end
         end

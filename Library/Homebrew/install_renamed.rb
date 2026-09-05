@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/path"
+
 # Helper module for installing default files.
 module InstallRenamed
   sig {
@@ -13,8 +15,17 @@ module InstallRenamed
         dst.install(src.children)
         next
       else
-        append_default_if_different(src, dst)
+        InstallRenamed.destination_for(src, dst)
       end
+    end
+  end
+
+  sig {
+    params(path: Pathname, pattern: T.any(Pathname, String, Regexp), replacement: T.any(Pathname, String)).void
+  }
+  def self.cp_path_sub(path, pattern, replacement)
+    Utils::Path.cp_path_sub(path, pattern, replacement) do |src, dst|
+      destination_for(src, dst)
     end
   end
 
@@ -24,7 +35,7 @@ module InstallRenamed
   }
   def cp_path_sub(pattern, replacement, &_block)
     super do |src, dst|
-      append_default_if_different(src, dst)
+      InstallRenamed.destination_for(src, dst)
     end
   end
 
@@ -38,10 +49,8 @@ module InstallRenamed
     super.extend(InstallRenamed)
   end
 
-  private
-
   sig { params(src: Pathname, dst: Pathname).returns(Pathname) }
-  def append_default_if_different(src, dst)
+  def self.destination_for(src, dst)
     return dst if !dst.file? || FileUtils.identical?(src, dst)
 
     # Bottle installs restore config from `<keg>/.bottle/etc` through this

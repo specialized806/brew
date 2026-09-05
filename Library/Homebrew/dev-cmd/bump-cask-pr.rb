@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/browser"
+
 require "abstract_command"
 require "bump"
 require "bump_version_parser"
@@ -215,7 +217,7 @@ module Homebrew
         if args.no_browse?
           puts url
         else
-          exec_browser url
+          Utils::Browser.open url
         end
       end
 

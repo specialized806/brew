@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 module OS
   module Linux
     module Cleanup
@@ -18,8 +20,8 @@ module OS
 
         check_ruby_version = HOMEBREW_LIBRARY_PATH/"utils/ruby_check_version_script.rb"
         rubies.uniq.any? do |ruby|
-          quiet_system ruby, "--enable-frozen-string-literal", "--disable=gems,did_you_mean,rubyopt",
-                       check_ruby_version, RUBY_VERSION
+          SystemCommand.quiet_system ruby, "--enable-frozen-string-literal", "--disable=gems,did_you_mean,rubyopt",
+                                     check_ruby_version, RUBY_VERSION
         end
       end
     end

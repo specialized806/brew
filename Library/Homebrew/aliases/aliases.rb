@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/editor"
+
 require "aliases/alias"
 require "utils/output"
 
@@ -81,7 +83,7 @@ module Homebrew
 
     sig { void }
     def self.edit_all
-      exec_editor(*Dir[HOMEBREW_ALIASES])
+      Utils::Editor.open(*Dir[HOMEBREW_ALIASES])
     end
   end
 end

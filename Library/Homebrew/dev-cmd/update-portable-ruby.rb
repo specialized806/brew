@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "api/env"
+require "utils/brew_command"
+
 require "abstract_command"
 require "formula"
 require "utils/bottles"
@@ -40,12 +42,12 @@ module Homebrew
           path.atomic_write("ruby_TAG=#{tag_symbol}\nruby_SHA=#{checksum.fetch("digest")}\n")
         end
 
-        safe_system HOMEBREW_BREW_FILE, "vendor-install", "ruby"
+        Utils::BrewCommand.run! "vendor-install", "ruby"
 
         bundler_version = Utils::PortableRuby.sync_bundler_version!(pkg_version)
-        safe_system HOMEBREW_BREW_FILE, "vendor-gems", "--no-commit",
-                    "--update=--ruby,--bundler=#{bundler_version}"
-        safe_system HOMEBREW_BREW_FILE, "typecheck", "--update"
+        Utils::BrewCommand.run! "vendor-gems", "--no-commit",
+                                "--update=--ruby,--bundler=#{bundler_version}"
+        Utils::BrewCommand.run! "typecheck", "--update"
       end
     end
   end

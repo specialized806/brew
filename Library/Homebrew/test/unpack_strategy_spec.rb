@@ -2,6 +2,25 @@
 # frozen_string_literal: true
 
 RSpec.describe UnpackStrategy do
+  describe ".detect" do
+    {
+      air:    "an `app` or `pkg` Cask artifact",
+      bazaar: "UnpackStrategy::Git or a stable archive URL",
+      cab:    "UnpackStrategy::GenericUnar",
+      lha:    "UnpackStrategy::GenericUnar",
+      lzma:   "UnpackStrategy::Xz",
+      pax:    "UnpackStrategy::Tar",
+      rar:    "UnpackStrategy::GenericUnar",
+      sit:    "UnpackStrategy::GenericUnar",
+      xar:    "UnpackStrategy::GenericUnar",
+    }.each do |type, replacement|
+      it "deprecates the #{type} strategy" do
+        expect { described_class.detect(Pathname("archive"), type:) }
+          .to raise_error(MethodDeprecatedError, /#{Regexp.escape(replacement)}/)
+      end
+    end
+  end
+
   describe "#extract_nestedly" do
     subject(:strategy) { described_class.detect(path) }
 

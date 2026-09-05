@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "abstract_command"
 require "cask"
 require "system_command"
@@ -320,7 +322,7 @@ module Homebrew
 
       sig { params(patterns: T::Array[String]).returns(String) }
       def format_patterns(patterns)
-        patterns.map { |pattern| "\"#{pattern}\"" }.to_sentence
+        Utils::Text.to_sentence(patterns.map { |pattern| "\"#{pattern}\"" })
       end
 
       sig { params(basenames: T::Array[String]).returns(T::Array[String]) }

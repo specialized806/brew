@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "abstract_subcommand"
 require "bundle/extensions/extension"
 
@@ -13,7 +15,7 @@ module Homebrew
           extensions = Homebrew::Bundle.extensions
           usage_banner <<~EOS
             `brew bundle remove` <name> [...]:
-            Remove entries that match `name` from your `Brewfile`. Use #{["`--formula`", "`--cask`", "`--tap`", *extensions.select(&:remove_supported?).map { |extension| "`--#{extension.flag}`" }].to_sentence} to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names.
+            Remove entries that match `name` from your `Brewfile`. Use #{Utils::Text.to_sentence(["`--formula`", "`--cask`", "`--tap`", *extensions.select(&:remove_supported?).map { |extension| "`--#{extension.flag}`" }])} to remove only entries of the corresponding type. Passing `--formula` also removes matches against formula aliases and old formula names.
           EOS
           named_args min: 1
           switch "--install",

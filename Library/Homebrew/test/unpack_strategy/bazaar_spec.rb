@@ -13,6 +13,6 @@ RSpec.describe UnpackStrategy::Bazaar do
     end
   end
 
-  include_examples "UnpackStrategy::detect"
+  include_examples "UnpackStrategy::detect", deprecated: true
   include_examples "#extract", children: ["test"]
 end

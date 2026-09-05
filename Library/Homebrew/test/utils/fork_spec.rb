@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "system_command"
+
 require "utils/fork"
 require "timeout"
 
@@ -85,7 +87,7 @@ RSpec.describe Utils do
     it "raises an ErrorDuringExecution on one in the child" do
       expect do
         described_class.safe_fork do
-          safe_system "/usr/bin/false"
+          SystemCommand.safe_system "/usr/bin/false"
         end
       end.to raise_error(ErrorDuringExecution)
     end

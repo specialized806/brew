@@ -50,5 +50,16 @@ RSpec.describe RuboCop::Cop::FormulaAudit::AssertStatements do
         end
       RUBY
     end
+
+    it "reports an offense when assert_equal is used with a nil expected value" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+          desc "foo"
+          url 'https://brew.sh/foo-1.0.tgz'
+          assert_equal nil, output
+          ^^^^^^^^^^^^^^^^^^^^^^^^ FormulaAudit/AssertStatements: Use `assert_nil` instead of `assert_equal` with a nil expected value
+        end
+      RUBY
+    end
   end
 end

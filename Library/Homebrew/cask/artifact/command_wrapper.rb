@@ -1,10 +1,11 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/data"
+
 require "cask/artifact/binary"
 require "extend/pathname"
 require "shellwords"
-require "utils/data"
 
 module Cask
   module Artifact

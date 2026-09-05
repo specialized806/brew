@@ -968,8 +968,7 @@ module Homebrew
              "--include-build",
              "--include-optional",
              "--include-test",
-             formula_name,
-             env: require_current_tap_trust_env
+             formula_name
       end
 
       sig { returns(T::Boolean) }

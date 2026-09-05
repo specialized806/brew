@@ -4,8 +4,13 @@
 require "mktemp"
 require "unpack_strategy"
 
-RSpec.shared_examples "UnpackStrategy::detect" do
+RSpec.shared_examples "UnpackStrategy::detect" do |deprecated: false|
   it "is correctly detected" do
+    if deprecated
+      ENV["HOMEBREW_DEVELOPER"] = nil
+      Homebrew.raise_deprecation_exceptions = false
+    end
+
     expect(UnpackStrategy.detect(subject)).to be_a described_class
   end
 end

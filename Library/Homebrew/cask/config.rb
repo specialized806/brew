@@ -1,11 +1,13 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/data"
+
 require "json"
 
 require "lazy_object"
 require "locale"
-require "utils/data"
+require "extend/hash/keys"
 require "utils/output"
 
 module Cask

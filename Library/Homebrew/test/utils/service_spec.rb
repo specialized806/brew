@@ -46,7 +46,7 @@ RSpec.describe Utils::Service do
       end
       allow(described_class).to receive_messages(launchctl: nil, systemctl?: true,
                                                  systemctl: Pathname("/bin/systemctl"))
-      expect(described_class).to receive(:quiet_system)
+      expect(SystemCommand).to receive(:quiet_system)
         .with(instance_of(Pathname), "is-active", "--quiet", f.service_name)
         .and_return(true)
       expect(described_class.running?(f)).to be true
@@ -59,9 +59,9 @@ RSpec.describe Utils::Service do
       end
       systemctl = Pathname("/bin/systemctl")
       allow(described_class).to receive_messages(launchctl: nil, systemctl?: true, systemctl:)
-      expect(described_class).to receive(:quiet_system)
+      expect(SystemCommand).to receive(:quiet_system)
         .with(systemctl, "is-active", "--quiet", "homebrew.formula_name").and_return(false)
-      expect(described_class).to receive(:quiet_system)
+      expect(SystemCommand).to receive(:quiet_system)
         .with(systemctl, "is-active", "--quiet", "sh.brew.formula_name").and_return(true)
 
       expect(described_class.running?(f)).to be true

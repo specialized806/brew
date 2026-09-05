@@ -68,7 +68,13 @@ RSpec.describe Cask::Installer, :cask do
     end
 
     it "strips legacy install flight blocks and records empty artifacts in JSON metadata" do
-      cask = Cask::CaskLoader.load(cask_path("with-preflight"))
+      ENV["HOMEBREW_DEVELOPER"] = nil
+      Homebrew.raise_deprecation_exceptions = false
+      cask = Cask::CaskLoader.load(cask_path("many-artifacts"))
+      cask.artifacts.keep_if do |artifact|
+        artifact.respond_to?(:directives) &&
+          artifact.directives.keys.intersect?([:preflight, :postflight])
+      end
 
       described_class.new(cask).save_caskfile
 
@@ -84,19 +90,16 @@ RSpec.describe Cask::Installer, :cask do
     end
 
     it "stores legacy uninstall flight block casks as Ruby metadata" do
-      expect(%w[with-uninstall-preflight with-uninstall-postflight].map do |token|
-        cask = Cask::CaskLoader.load(cask_path(token))
+      ENV["HOMEBREW_DEVELOPER"] = nil
+      Homebrew.raise_deprecation_exceptions = false
+      cask = Cask::CaskLoader.load(cask_path("many-artifacts"))
 
-        described_class.new(cask).save_caskfile
+      described_class.new(cask).save_caskfile
 
-        [
-          cask.installed_caskfile&.basename&.to_s,
-          Cask::CaskLoader.load_from_installed_caskfile(cask.installed_caskfile).uninstall_flight_blocks?,
-        ]
-      end).to eq([
-        ["with-uninstall-preflight.rb", true],
-        ["with-uninstall-postflight.rb", true],
-      ])
+      expect([
+        cask.installed_caskfile&.basename&.to_s,
+        Cask::CaskLoader.load_from_installed_caskfile(cask.installed_caskfile).uninstall_flight_blocks?,
+      ]).to eq(["many-artifacts.rb", true])
     end
 
     it "stores casks loaded from the internal API as JSON metadata" do
@@ -200,6 +203,8 @@ RSpec.describe Cask::Installer, :cask do
     end
 
     it "works with xar-based Casks" do
+      ENV["HOMEBREW_DEVELOPER"] = nil
+      Homebrew.raise_deprecation_exceptions = false
       asset = Cask::CaskLoader.load(cask_path("container-xar"))
 
       described_class.new(asset).install
@@ -473,7 +478,7 @@ RSpec.describe Cask::Installer, :cask do
     end
 
     context "when loaded from the api with unsupported requirements" do
-      let(:cask) { Cask::CaskLoader.load(cask_path("with-preflight")) }
+      let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-macos-symbol")) }
       let(:download_queue) { instance_double(Homebrew::DownloadQueue, enqueue: nil) }
       let(:macos_requirement) { cask.depends_on.macos }
 
@@ -486,13 +491,13 @@ RSpec.describe Cask::Installer, :cask do
       it "checks requirements before enqueueing downloads" do
         expect do
           described_class.new(cask, download_queue:).enqueue_downloads
-        end.to raise_error(Cask::CaskError, "with-preflight: macOS is required")
+        end.to raise_error(Cask::CaskError, "with-depends-on-macos-symbol: macOS is required")
       end
 
       it "checks requirements before downloading during fetch" do
         expect do
           described_class.new(cask).fetch
-        end.to raise_error(Cask::CaskError, "with-preflight: macOS is required")
+        end.to raise_error(Cask::CaskError, "with-depends-on-macos-symbol: macOS is required")
       end
     end
 

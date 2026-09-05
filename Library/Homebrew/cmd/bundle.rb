@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/text"
+
 require "abstract_command"
 require "bundle/dsl"
 require "bundle/extensions"
@@ -12,11 +14,11 @@ module Homebrew
 
       BUNDLE_EXTENSIONS = T.let(Homebrew::Bundle.extensions.dup.freeze, T::Array[T.class_of(Homebrew::Bundle::Extension)])
       BUNDLE_SOURCES_DESCRIPTION = T.let(
-        [
+        Utils::Text.to_sentence([
           "Homebrew formulae",
           "Homebrew casks",
           *BUNDLE_EXTENSIONS.map(&:banner_name),
-        ].to_sentence.freeze,
+        ]).freeze,
         String,
       )
 
