@@ -184,6 +184,18 @@ module Utils
         replace_stanza_value(resource_stanza(resource_name, name, old_value:), value)
       end
 
+      sig {
+        params(
+          resource_name: String,
+          name:          Symbol,
+          key:           Symbol,
+          value:         T.any(Numeric, String, Symbol),
+        ).void
+      }
+      def replace_resource_stanza_hash_value(resource_name, name, key, value)
+        replace_stanza_hash_value(resource_stanza(resource_name, name), key, value)
+      end
+
       sig { params(resource_name: String, name: Symbol).returns(T::Boolean) }
       def resource_stanza?(resource_name, name)
         matching_stanzas(body_children(resource(resource_name).body), name).present?

@@ -637,10 +637,13 @@ module Homebrew
 
       sig {
         params(formula_or_resource: T.any(Formula, Resource), new_version: T.nilable(String), url: String,
-               specs: String).returns(T::Array[T.untyped])
+               specs: T.any(String, Symbol, T::Class[AbstractDownloadStrategy]))
+          .returns(T::Array[T.untyped])
       }
       def fetch_resource_and_forced_version(formula_or_resource, new_version, url, **specs)
-        resource = Resource.new
+        # Name it so each resource gets a distinct download cache path
+        resource_name = formula_or_resource.name if formula_or_resource.is_a?(Resource)
+        resource = Resource.new(resource_name)
         resource.url(url, **specs)
         resource.owner = if formula_or_resource.is_a?(Formula)
           Resource.new(formula_or_resource.name)
@@ -735,9 +738,8 @@ module Homebrew
         nil
       end
 
-      # TODO: Add support for resources using `tag` and/or `revision` instead of
-      # `url`+`sha256`, resource URLs with options, and resources inside `on_os`
-      # or `on_arch` blocks.
+      # TODO: Add support for resource URLs with options and resources inside
+      # `on_os` or `on_arch` blocks.
       sig {
         params(
           formula:     Formula,
@@ -750,6 +752,52 @@ module Homebrew
 
         old_url = resource.url
         raise ArgumentError, "resource \"#{resource.name}\" has no URL" if old_url.nil?
+
+        if (old_tag = resource.specs[:tag].presence) && resource.download_strategy <= GitDownloadStrategy
+          tag = update_url(old_tag, resource.version.to_s, new_version)
+          if tag == old_tag
+            opoo <<~EOS
+              You need to bump resource "#{resource.name}" manually since the new tag
+              and old tag are both:
+                #{tag}
+            EOS
+            return :tag_unchanged
+          end
+
+          # `specs` omits `using:`, so pass it through to keep an explicit strategy
+          git_specs = { tag: }
+          if (using = resource.using.presence)
+            git_specs[:using] = using
+          end
+          resource_path, forced_version = fetch_resource_and_forced_version(resource, new_version, old_url,
+                                                                            **git_specs)
+          new_revision = Utils.popen_read("git", "-C", resource_path.to_s, "rev-parse", "-q", "--verify",
+                                          "HEAD").strip
+          if new_revision.blank?
+            opoo "Could not resolve a revision for resource \"#{resource.name}\" tag #{tag}."
+            return :revision_unresolved
+          end
+
+          resource_name = resource.name.to_s
+          formula_ast = Utils::AST::FormulaAST.new(formula.path.read)
+          formula_ast.replace_resource_stanza_hash_value(resource_name, :url, :tag, tag)
+          if resource.specs[:revision].present?
+            formula_ast.replace_resource_stanza_hash_value(resource_name, :url, :revision, new_revision)
+          end
+
+          if forced_version
+            if formula_ast.resource_stanza?(resource_name, :version)
+              formula_ast.replace_resource_stanza_value(resource_name, :version, new_version)
+            else
+              formula_ast.add_stanzas_after(:url, [[:version, "version #{new_version.inspect}"]],
+                                            parent: formula_ast.resource(resource_name))
+            end
+          end
+
+          formula.path.atomic_write(formula_ast.process)
+
+          return :success
+        end
 
         new_url = update_url(old_url, resource.version.to_s, new_version)
 
