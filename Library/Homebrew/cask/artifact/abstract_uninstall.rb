@@ -92,7 +92,7 @@ module Cask
         bundle_ids.each do |bundle_id|
           next unless running?(bundle_id)
 
-          unless T.must(User.current).gui?
+          unless User.current&.gui?
             opoo "Not logged into a GUI; skipping quitting application ID '#{bundle_id}'."
             next
           end
@@ -174,7 +174,7 @@ module Cask
           .stdout.lines.drop(1) # skip stdout column headers
           .filter_map do |line|
             pid, _state, id = line.chomp.split(/\s+/)
-            id if pid.to_i.nonzero? && T.must(id).match?(regex)
+            id if pid.to_i.nonzero? && id&.match?(regex)
           end
       end
 
@@ -345,7 +345,7 @@ module Cask
 
         # Listing running applications needs a GUI session, so warn once for the
         # pattern rather than enumerating and matching nothing.
-        unless T.must(User.current).gui?
+        unless User.current&.gui?
           opoo "Not logged into a GUI; skipping applications matching '#{bundle_id}'."
           return []
         end

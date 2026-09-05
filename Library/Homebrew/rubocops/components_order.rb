@@ -215,8 +215,9 @@ module RuboCop
         # Returns precedence index and component's index to properly reorder and group during autocorrect.
         sig { params(node1: RuboCop::AST::Node).returns([Integer, Integer, T::Array[RuboCop::AST::Node]]) }
         def get_state(node1)
-          T.must(@present_components).each_with_index do |comp, idx|
-            return [idx, T.must(comp.index(node1)), comp] if comp.member?(node1)
+          @present_components&.each_with_index do |comp, idx|
+            index = comp.index(node1)
+            return [idx, index, comp] if index
           end
           raise "Could not find node1 in present_components"
         end

@@ -219,7 +219,10 @@ class Build
             tab.write
 
             # Find and link metafiles
-            formula.prefix.install_metafiles T.must(formula.buildpath)
+            buildpath = formula.buildpath
+            raise "#{formula.full_name} has no build path" if buildpath.nil?
+
+            formula.prefix.install_metafiles buildpath
             if formula.libexec.exist?
               require "metafiles"
               no_metafiles = formula.prefix.children.none? { |p| p.file? && Metafiles.copy?(p.basename.to_s) }

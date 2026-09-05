@@ -55,10 +55,14 @@ module Homebrew
           # The directory listing page where the archive files are found
           values[:url] = "https://www.cpan.org#{match[:path]}"
 
-          regex_prefix = Regexp.escape(T.must(match[:prefix])).gsub("\\-", "-")
+          prefix = match[:prefix]
+          suffix = match[:suffix]
+          return values if prefix.nil? || suffix.nil?
+
+          regex_prefix = Regexp.escape(prefix).gsub("\\-", "-")
 
           # Use `\.t` instead of specific tarball extensions (e.g. .tar.gz)
-          suffix = T.must(match[:suffix]).sub(Strategy::TARBALL_EXTENSION_REGEX, ".t")
+          suffix = suffix.sub(Strategy::TARBALL_EXTENSION_REGEX, ".t")
           regex_suffix = Regexp.escape(suffix).gsub("\\-", "-")
 
           # Example regex: `/href=.*?Brew[._-]v?(\d+(?:\.\d+)*)\.t/i`

@@ -520,11 +520,11 @@ RSpec.describe Homebrew::Vulns::Match do
       hits = matcher.advisories_for(exiftool)
 
       expect(hits.map(&:canonical_id).sort).to eq ["CVE-2021-22204", "CVE-2021-99999"]
-      merged = hits.find { |h| h.canonical_id == "CVE-2021-22204" }
-      expect(T.must(merged).strategy).to eq :git
-      expect(T.must(merged).identifiers).to include("CVE-2021-22204", "GHSA-xxxx")
-      expect(T.must(merged).evidence.map(&:strategy).uniq.sort).to eq [:cpansa, :distro, :git]
-      expect(T.must(merged).evidence.find { |e| e.strategy == :cpansa }&.advisory).not_to be_nil
+      merged = hits.to_h { |h| [h.canonical_id, h] }.fetch("CVE-2021-22204")
+      expect(merged.strategy).to eq :git
+      expect(merged.identifiers).to include("CVE-2021-22204", "GHSA-xxxx")
+      expect(merged.evidence.map(&:strategy).uniq.sort).to eq [:cpansa, :distro, :git]
+      expect(merged.evidence.find { |e| e.strategy == :cpansa }&.advisory).not_to be_nil
     end
 
     it "returns [] without hitting OSV when nothing is identifiable" do

@@ -66,6 +66,8 @@ class Reporter
 
     diff.each_line do |line|
       status, *paths = line.split
+      next if status.nil?
+
       src = Pathname.new paths.first
       dst = Pathname.new paths.last
 
@@ -105,7 +107,7 @@ class Reporter
         name = Utils.name_from_full_name(full_name)
         new_tap = tap.tap_migrations[name]
         if new_tap.blank?
-          @report[T.must(status).to_sym] << full_name
+          @report[status.to_sym] << full_name
         elsif status == "D"
           # Retain deleted formulae for tap migrations separately to avoid reporting as deleted
           @report[:T] << full_name
@@ -395,7 +397,10 @@ class Reporter
       header_regex = /^(---|\+\+\+) /
       add_delete_characters = ["+", "-"].freeze
 
-      api_dir_prefix_basename = T.must(api_dir_prefix).basename
+      api_dir_prefix = self.api_dir_prefix
+      raise ArgumentError, "#{tap} needs an API directory prefix to diff" if api_dir_prefix.nil?
+
+      api_dir_prefix_basename = api_dir_prefix.basename
 
       diff_hash = diff_output.lines.each_with_object({}) do |line, hash|
         next if line.match?(header_regex)

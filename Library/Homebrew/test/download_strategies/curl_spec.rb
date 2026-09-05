@@ -448,7 +448,7 @@ RSpec.describe CurlDownloadStrategy do
       end
 
       it "raises when size cannot be determined" do
-        expect { strategy.resolved_time_file_size }.to raise_error(TypeError)
+        expect { strategy.resolved_time_file_size }.to raise_error(RuntimeError, /Could not determine the file size/)
       end
     end
 
@@ -462,7 +462,9 @@ RSpec.describe CurlDownloadStrategy do
           end
 
           it "raises when size cannot be parsed" do
-            expect { strategy.resolved_time_file_size }.to raise_error(TypeError)
+            expect do
+              strategy.resolved_time_file_size
+            end.to raise_error(RuntimeError, /Could not determine the file size/)
           end
         end
       end

@@ -447,8 +447,8 @@ module Homebrew
         root_url = args.root_url
 
         # GitHub Releases url
-        root_url ||= if tap.present? && !T.must(tap).core_tap? && !args.test_default_formula?
-          "#{T.must(tap).default_remote}/releases/download/#{formula.name}-#{formula.pkg_version}"
+        root_url ||= if (tap = self.tap) && !tap.core_tap? && !args.test_default_formula?
+          "#{tap.default_remote}/releases/download/#{formula.name}-#{formula.pkg_version}"
         end
 
         setup_bottle_sudo_purge!(args:)
@@ -463,15 +463,15 @@ module Homebrew
         verify_local_bottles
         test "brew", "bottle", *bottle_args
         bottle_step = steps.fetch(-1)
+        bottle_output = bottle_step.output
 
-        if !bottle_step.passed? || !bottle_step.output?
+        if !bottle_step.passed? || bottle_output.blank?
           failed formula.full_name, "bottling failed" unless args.dry_run?
           return
         end
 
         @bottle_filename = Pathname.new(
-          T.must(bottle_step.output)
-           .gsub(%r{.*(\./\S+#{HOMEBREW_BOTTLES_EXTNAME_REGEX}).*}om, '\1'),
+          bottle_output.gsub(%r{.*(\./\S+#{HOMEBREW_BOTTLES_EXTNAME_REGEX}).*}om, '\1'),
         )
         @bottle_json_filename = Pathname.new(
           @bottle_filename.to_s.gsub(/\.(\d+\.)?tar\.gz$/, ".json"),
@@ -567,9 +567,11 @@ module Homebrew
                               "--json", "--full-name", formula.full_name
 
         return if livecheck_step.failed?
-        return unless livecheck_step.output?
 
-        livecheck_info = JSON.parse(T.must(livecheck_step.output)).first
+        livecheck_output = livecheck_step.output
+        return if livecheck_output.blank?
+
+        livecheck_info = JSON.parse(livecheck_output).first
 
         if livecheck_info["status"] == "error"
           error_msg = if livecheck_info["messages"].present? && livecheck_info["messages"].length.positive?
@@ -822,9 +824,9 @@ module Homebrew
 
           # Move bottle and don't test dependents if the formula linkage or test failed.
           if failed_linkage_or_test_messages.present?
-            if @bottle_filename
+            if @bottle_filename && @bottle_json_filename
               failed_dir = @bottle_filename.dirname/"failed"
-              moved_artifacts = [@bottle_filename, T.must(@bottle_json_filename)].map(&:realpath)
+              moved_artifacts = [@bottle_filename, @bottle_json_filename].map(&:realpath)
               failed_dir.install moved_artifacts
 
               moved_artifacts.each do |old_location|

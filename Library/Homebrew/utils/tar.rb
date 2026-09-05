@@ -29,13 +29,13 @@ module Utils
 
       sig { params(path: T.any(Pathname, String)).void }
       def validate_file(path)
-        return unless available?
+        return unless (tar = executable)
 
         path = Pathname.new(path)
         return unless TAR_FILE_EXTENSIONS.include? path.extname
 
-        stdout, _, status = system_command(T.must(executable), args:         ["--list", "--file", path],
-                                                               print_stderr: false).to_a
+        stdout, _, status = system_command(tar, args:         ["--list", "--file", path],
+                                                print_stderr: false).to_a
         odie "#{path} is not a valid tar file!" if !status.success? || stdout.blank?
       end
     end

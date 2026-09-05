@@ -14,7 +14,10 @@ module Tapioca
 
       sig { override.void }
       def decorate
-        root.create_module(T.must(constant.name)) do |mod|
+        name = constant.name
+        raise ArgumentError, "Cannot generate an RBI for anonymous module #{constant.inspect}" if name.nil?
+
+        root.create_module(name) do |mod|
           ::RuboCop::Cask::Constants::STANZA_ORDER.each do |stanza|
             mod.create_method("#{stanza}?", return_type: "T::Boolean", class_method: false)
           end

@@ -235,8 +235,9 @@ class Keg
     files ||= text_files | libtool_files
 
     changed_files = T.let([], T::Array[Pathname])
-    keg_files(files).group_by { |f| f.stat.ino }.each_value do |first, *rest|
-      first = T.must(first)
+    keg_files(files).group_by { |f| f.stat.ino }.each_value do |hardlinks|
+      first = hardlinks.fetch(0)
+      rest = hardlinks.drop(1)
       s = first.open("rb", &:read)
 
       # Use full prefix replacement for Homebrew-created files when using selective relocation
@@ -247,7 +248,7 @@ class Keg
       end
       next unless file_relocation.replace_text!(s)
 
-      changed_files += [first, *rest].map { |file| file.relative_path_from(path) }
+      changed_files += hardlinks.map { |file| file.relative_path_from(path) }
 
       begin
         first.atomic_write(s)

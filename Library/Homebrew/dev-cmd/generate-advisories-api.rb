@@ -22,7 +22,7 @@ module Homebrew
 
       sig { override.void }
       def run
-        repository = Pathname(T.must(args.named.first))
+        repository = Pathname(args.named.fetch(0))
         result = build(repository/"advisories")
         FileUtils.mkdir_p "api"
         File.write("api/advisories.json", "#{JSON.generate(result)}\n")

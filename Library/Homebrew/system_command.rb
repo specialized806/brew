@@ -35,7 +35,7 @@ class SystemCommand
         debug:           T.nilable(T::Boolean),
         verbose:         T.nilable(T::Boolean),
         secrets:         T.any(String, T::Array[String]),
-        chdir:           T.any(String, Pathname),
+        chdir:           T.nilable(T.any(String, Pathname)),
         reset_uid:       T::Boolean,
         run_as_real_uid: T::Boolean,
         timeout:         T.nilable(T.any(Integer, Float)),
@@ -43,7 +43,7 @@ class SystemCommand
     }
     def system_command(executable, args: [], sudo: false, sudo_as_root: false, env: {}, input: [],
                        must_succeed: false, print_stdout: false, print_stderr: true, debug: nil, verbose: nil,
-                       secrets: [], chdir: T.unsafe(nil), reset_uid: false, run_as_real_uid: false, timeout: nil)
+                       secrets: [], chdir: nil, reset_uid: false, run_as_real_uid: false, timeout: nil)
       SystemCommand.run(executable, args:, sudo:, sudo_as_root:, env:, input:, must_succeed:, print_stdout:,
                         print_stderr:, debug:, verbose:, secrets:, chdir:, reset_uid:, run_as_real_uid:, timeout:)
     end
@@ -64,7 +64,7 @@ class SystemCommand
         debug:           T.nilable(T::Boolean),
         verbose:         T.nilable(T::Boolean),
         secrets:         T.any(String, T::Array[String]),
-        chdir:           T.any(String, Pathname),
+        chdir:           T.nilable(T.any(String, Pathname)),
         reset_uid:       T::Boolean,
         run_as_real_uid: T::Boolean,
         timeout:         T.nilable(T.any(Integer, Float)),
@@ -72,7 +72,7 @@ class SystemCommand
     }
     def system_command!(executable, args: [], sudo: false, sudo_as_root: false, env: {}, input: [],
                         print_stdout: false, print_stderr: true, debug: nil, verbose: nil, secrets: [],
-                        chdir: T.unsafe(nil), reset_uid: false, run_as_real_uid: false, timeout: nil)
+                        chdir: nil, reset_uid: false, run_as_real_uid: false, timeout: nil)
       SystemCommand.run!(executable, args:, sudo:, sudo_as_root:, env:, input:, print_stdout:,
                          print_stderr:, debug:, verbose:, secrets:, chdir:, reset_uid:, run_as_real_uid:, timeout:)
     end
@@ -191,10 +191,9 @@ class SystemCommand
   def run!
     $stderr.puts Formatter.redact_secrets(command.shelljoin.gsub('\=', "="), @secrets) if verbose? && debug?
 
-    @output = T.let([], T.nilable(T::Array[[Symbol, String]]))
-    @output = T.must(@output)
+    output = T.let([], T::Array[[Symbol, String]])
 
-    each_output_line do |type, line|
+    status = each_output_line do |type, line|
       case type
       when :stdout
         case @print_stdout
@@ -203,7 +202,7 @@ class SystemCommand
         when :debug
           $stderr << Formatter.redact_secrets(line, @secrets) if debug?
         end
-        @output << [:stdout, line]
+        output << [:stdout, line]
       when :stderr
         case @print_stderr
         when true
@@ -211,11 +210,11 @@ class SystemCommand
         when :debug
           $stderr << Formatter.redact_secrets(line, @secrets) if debug?
         end
-        @output << [:stderr, line]
+        output << [:stderr, line]
       end
     end
 
-    result = Result.new(command, @output, T.must(@status), secrets: @secrets)
+    result = Result.new(command, output, status, secrets: @secrets)
     result.assert_success! if must_succeed?
     result
   end
@@ -389,7 +388,7 @@ class SystemCommand
   class ProcessTerminatedInterrupt < StandardError; end
   private_constant :ProcessTerminatedInterrupt
 
-  sig { params(block: T.proc.params(type: Symbol, line: String).void).void }
+  sig { params(block: T.proc.params(type: Symbol, line: String).void).returns(Process::Status) }
   def each_output_line(&block)
     executable, *args = command
     options = {
@@ -440,7 +439,7 @@ class SystemCommand
       raise Timeout::Error
     end
 
-    @status = T.let(raw_wait_thr.value, T.nilable(Process::Status))
+    raw_wait_thr.value
   rescue Interrupt
     Process.kill("INT", raw_wait_thr.pid) if raw_wait_thr && !sudo?
     raise Interrupt
@@ -535,7 +534,10 @@ class SystemCommand
       readable_sources = T.let([], T::Array[IO])
       begin
         Thread.handle_interrupt(ProcessTerminatedInterrupt => :on_blocking) do
-          readable_sources = T.must(IO.select(sources.keys)).fetch(0)
+          selected = IO.select(sources.keys)
+          raise IOError, "No readable output streams for #{command.first}" if selected.nil?
+
+          readable_sources = selected.fetch(0)
         end
       rescue ProcessTerminatedInterrupt
         readable_sources = sources.keys
@@ -635,12 +637,12 @@ class SystemCommand
         output = stdout
 
         output = output.sub(/\A(.*?)(\s*<\?\s*xml)/m) do
-          warn_plist_garbage(T.must(Regexp.last_match(1)))
+          warn_plist_garbage(Regexp.last_match(1))
           Regexp.last_match(2)
         end
 
         output = output.sub(%r{(<\s*/\s*plist\s*>\s*)(.*?)\Z}m) do
-          warn_plist_garbage(T.must(Regexp.last_match(2)))
+          warn_plist_garbage(Regexp.last_match(2))
           Regexp.last_match(1)
         end
 
@@ -648,10 +650,10 @@ class SystemCommand
       end, T.untyped)
     end
 
-    sig { params(garbage: String).void }
+    sig { params(garbage: T.nilable(String)).void }
     def warn_plist_garbage(garbage)
       return unless verbose?
-      return unless garbage.match?(/\S/)
+      return unless garbage&.match?(/\S/)
 
       opoo "Received non-XML output from #{Formatter.identifier(command.first)}:"
       $stderr.puts garbage.strip

@@ -31,7 +31,7 @@ module Homebrew
         tap = CoreTap.instance
         raise TapUnavailableError, tap.name unless tap.installed?
 
-        dir = args.named.first
+        dir = args.named.fetch(0)
 
         Formulary.enable_factory_cache!
         Homebrew::API.with_no_api_env do
@@ -57,7 +57,7 @@ module Homebrew
             end
 
             written = Homebrew::Vulns::OsvExport.run(
-              annotated, T.must(dir),
+              annotated, dir,
               first_fixed: ->(formula, vuln_id) { first_fixed_version(formula, vuln_id) }
             )
             written.each { |p| puts "  wrote #{p}" } if args.verbose?

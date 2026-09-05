@@ -99,7 +99,7 @@ class Pathname
   def append_lines(content, **open_args)
     raise "Cannot append file that doesn't exist: #{self}" unless exist?
 
-    T.unsafe(self).open("a", **open_args) { |f| f.puts(content) }
+    File.open(self, "a", **open_args) { |f| f.puts(content) }
   end
 
   # Write to a file atomically.
@@ -330,18 +330,19 @@ class Pathname
         T::Array[T.any(String, Pathname)],
         T::Hash[T.any(String, Symbol), T.any(String, Pathname)]
       ),
-      env:         T::Hash[T.any(String, Symbol), T.any(String, Pathname)],
+      env:         T.nilable(T::Hash[T.any(String, Symbol), T.any(String, Pathname)]),
     ).void
   }
-  def write_env_script(target, args_or_env, env = T.unsafe(nil))
+  def write_env_script(target, args_or_env, env = nil)
     args = if env.nil?
-      env = args_or_env if args_or_env.is_a?(Hash)
+      raise ArgumentError, "#{args_or_env.inspect} is not a Hash" unless args_or_env.is_a?(Hash)
 
+      env = args_or_env
       nil
     elsif args_or_env.is_a?(Array)
       args_or_env.join(" ")
     else
-      T.cast(args_or_env, T.nilable(T.any(String, Pathname)))
+      args_or_env
     end
 
     env_export = +""

@@ -57,11 +57,12 @@ module Homebrew
           values = {}
 
           match = url.match(URL_MATCH_REGEX)
-          return values if match.blank?
+          package_name = match[:package_name] if match
+          return values if package_name.nil?
 
-          values[:url] = "https://download.gnome.org/sources/#{match[:package_name]}/cache.json"
+          values[:url] = "https://download.gnome.org/sources/#{package_name}/cache.json"
 
-          regex_name = Regexp.escape(T.must(match[:package_name])).gsub("\\-", "-")
+          regex_name = Regexp.escape(package_name).gsub("\\-", "-")
 
           # GNOME archive files seem to use a standard filename format, so we
           # count on the delimiter between the package name and numeric

@@ -90,7 +90,9 @@ class CVSDownloadStrategy < VCSDownloadStrategy
   sig { params(in_url: String).returns([String, String]) }
   def split_url(in_url)
     parts = in_url.split(":")
-    mod = T.must(parts.pop)
+    mod = parts.pop
+    raise ArgumentError, "CVS URL #{in_url.inspect} does not end with a module name" if mod.nil?
+
     url = parts.join(":")
     [mod, url]
   end

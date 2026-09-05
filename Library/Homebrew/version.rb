@@ -162,8 +162,13 @@ class Version
       case other
       when StringToken
         value <=> other.value
-      when NumericToken, NullToken
-        -T.must(other <=> self)
+      when NumericToken
+        -1
+      when NullToken
+        comparison = other <=> self
+        raise ArgumentError, "Cannot compare #{inspect} with #{other.inspect}" if comparison.nil?
+
+        -comparison
       end
     end
   end
@@ -190,7 +195,7 @@ class Version
       when StringToken
         1
       when NullToken
-        -T.must(other <=> self)
+        value.zero? ? 0 : 1
       end
     end
 
@@ -686,7 +691,7 @@ class Version
   def major_minor
     return self if null?
 
-    major_minor = T.must(tokens[0..1])
+    major_minor = tokens.first(2)
     major_minor.empty? ? NULL : self.class.new(major_minor.join("."))
   end
 
@@ -697,7 +702,7 @@ class Version
   def major_minor_patch
     return self if null?
 
-    major_minor_patch = T.must(tokens[0..2])
+    major_minor_patch = tokens.first(3)
     major_minor_patch.empty? ? NULL : self.class.new(major_minor_patch.join("."))
   end
 
@@ -730,9 +735,10 @@ class Version
   # @api public
   sig { returns(String) }
   def to_str
-    raise NoMethodError, "undefined method `to_str` for #{self.class}:NULL" if null?
+    version = self.version
+    raise NoMethodError, "undefined method `to_str` for #{self.class}:NULL" if version.nil?
 
-    T.must(version).to_str
+    version
   end
 
   # The string representation of this {Version}.

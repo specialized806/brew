@@ -121,7 +121,7 @@ class Resource
 
   sig { void }
   def prepare_patches
-    patches.grep(DATAPatch) { |p| p.path = T.cast(T.cast(T.must(owner), SoftwareSpec).owner, ::Formula).path }
+    patches.grep(DATAPatch) { |p| p.path = T.cast(T.cast(owner, SoftwareSpec).owner, ::Formula).path }
   end
 
   sig { params(skip_downloaded: T::Boolean).void }
@@ -336,8 +336,10 @@ class Resource
 
   sig { override.returns(T::Array[String]) }
   def determine_url_mirrors
+    url = self.url
+    return super if url.nil?
+
     extra_urls = []
-    url = T.must(self.url)
 
     # glibc-bootstrap
     if url.start_with?("https://github.com/Homebrew/glibc-bootstrap/releases/download")
@@ -381,7 +383,7 @@ class Resource
     def download_queue_type = "Formula"
 
     sig { override.returns(String) }
-    def download_queue_name = "#{T.must(owner).name} (#{version})"
+    def download_queue_name = "#{owner&.name} (#{version})"
   end
 
   # A resource for a bottle manifest.

@@ -362,6 +362,22 @@ Sorbet/FalseSigil:
 Sorbet/ForbidRBIOutsideOfAllowedPaths:
   Enabled: false
 
+Sorbet/ForbidTMust:
+  Enabled: true
+  Exclude:
+    - "Taps/**/*"
+    - "/**/{Formula,Casks}/**/*.rb"
+    - "**/{Formula,Casks}/**/*.rb"
+    - "Homebrew/test/support/fixtures/**/*"
+
+Sorbet/ForbidTUnsafe:
+  Enabled: true
+  Exclude:
+    - "Taps/**/*"
+    - "/**/{Formula,Casks}/**/*.rb"
+    - "**/{Formula,Casks}/**/*.rb"
+    - "Homebrew/test/support/fixtures/**/*"
+
 # T::Sig is monkey-patched into Module
 Sorbet/RedundantExtendTSig:
   Enabled: true

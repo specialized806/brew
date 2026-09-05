@@ -126,11 +126,7 @@ class Tab < AbstractTab
     tab.stdlib = stdlib
     tab.aliases = formula.aliases
     tab.runtime_dependencies = Tab.runtime_deps_hash(formula, runtime_deps)
-    active_spec = if formula.active_spec_sym == :head
-      T.must(formula.head)
-    else
-      T.must(formula.stable)
-    end
+    active_spec = formula.active_spec
 
     tab.source["spec"] = formula.active_spec_sym.to_s
     tab.source["path"] = formula.specified_path.to_s

@@ -29,7 +29,7 @@ module Homebrew
 
           testsuite = testsuites.add_element "testsuite"
           testsuite.add_attribute "name", "brew-test-bot.#{Utils::Bottles.tag}"
-          testsuite.add_attribute "timestamp", T.must(test.steps.fetch(0).start_time).iso8601
+          testsuite.add_attribute "timestamp", start_time(test.steps.fetch(0)).iso8601
 
           test.steps.each do |step|
             next unless filters.any? { |filter| step.command_short.start_with? filter }
@@ -38,7 +38,7 @@ module Homebrew
             testcase.add_attribute "name", step.command_short
             testcase.add_attribute "status", step.status
             testcase.add_attribute "time", step.time
-            testcase.add_attribute "timestamp", T.must(step.start_time).iso8601
+            testcase.add_attribute "timestamp", start_time(step).iso8601
 
             next if step.passed?
 
@@ -50,12 +50,22 @@ module Homebrew
 
       sig { params(filename: String).void }
       def write(filename)
+        xml_document = @xml_document
+        raise "The JUnit report has not been built yet" if xml_document.nil?
+
         output_path = Pathname(filename)
         output_path.unlink if output_path.exist?
         output_path.open("w") do |xml_file|
           pretty_print_indent = 2
-          T.must(@xml_document).write(xml_file, pretty_print_indent)
+          xml_document.write(xml_file, pretty_print_indent)
         end
+      end
+
+      private
+
+      sig { params(step: Step).returns(Time) }
+      def start_time(step)
+        step.start_time || raise("Step `#{step.command_short}` has not been run")
       end
     end
   end

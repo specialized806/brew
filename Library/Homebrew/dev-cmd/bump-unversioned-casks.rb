@@ -32,8 +32,8 @@ module Homebrew
       def run
         Utils::GemSetup.install_bundler_gems!(groups: ["bump_unversioned_casks"])
 
-        state_file = if args.state_file.present?
-          Pathname(T.must(args.state_file)).expand_path
+        state_file = if (state_file_path = args.state_file.presence)
+          Pathname(state_file_path).expand_path
         else
           HOMEBREW_CACHE/"bump_unversioned_casks.json"
         end

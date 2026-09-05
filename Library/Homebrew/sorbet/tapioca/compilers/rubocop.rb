@@ -15,7 +15,10 @@ module Tapioca
         all_modules.select do |klass|
           next unless klass.singleton_class < ::RuboCop::AST::NodePattern::Macros
 
-          path = T.must(Object.const_source_location(klass.to_s)).fetch(0).to_s
+          source_location = Object.const_source_location(klass.to_s)
+          next if source_location.nil?
+
+          path = source_location.fetch(0).to_s
           # exclude vendored code, to avoid contradicting their RBI files
           !path.include?("/vendor/bundle/ruby/") &&
             # exclude source code that already has an RBI file

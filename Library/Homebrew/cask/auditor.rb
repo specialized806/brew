@@ -77,7 +77,7 @@ module Cask
 
       if !language && !(blocks = language_blocks).empty?
         sample_languages = if blocks.length > LANGUAGE_BLOCK_LIMIT && !@audit_new_cask
-          sample_keys = T.must(blocks.keys.sample(LANGUAGE_BLOCK_LIMIT))
+          sample_keys = blocks.keys.shuffle.take(LANGUAGE_BLOCK_LIMIT)
           ohai "Auditing a sample of available languages for #{cask}: " \
                "#{sample_keys.map { |lang| lang[0].to_s }.to_sentence}"
           blocks.select { |k| sample_keys.include?(k) }

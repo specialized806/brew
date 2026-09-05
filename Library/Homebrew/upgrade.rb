@@ -674,10 +674,13 @@ module Homebrew
         if one.any_installed_keg
               &.runtime_dependencies
               &.any? { |dependency| dependency["full_name"] == two.full_name }
-          1
-        else
-          T.must(one <=> two)
+          return 1
         end
+
+        comparison = one <=> two
+        raise ArgumentError, "Cannot compare #{one.full_name} with #{two.full_name}" if comparison.nil?
+
+        comparison
       end
     end
   end

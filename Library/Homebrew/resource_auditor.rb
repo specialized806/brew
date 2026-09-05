@@ -166,13 +166,13 @@ module Homebrew
         path = URI(url!).path
         return unless path.present?
 
-        pypi_package_name, = File.basename(path).split("-", 2)
+        pypi_package_name = File.basename(path).split("-", 2).fetch(0)
       else
         url =~ %r{/(?<package_name>[^/]+)-}
         pypi_package_name = Regexp.last_match(:package_name).to_s
       end
 
-      T.must(pypi_package_name).gsub!(/[_.]/, "-")
+      pypi_package_name = pypi_package_name.gsub(/[_.]/, "-")
 
       return if name.to_s.casecmp(pypi_package_name.to_s)&.zero?
 

@@ -112,8 +112,7 @@ module PyPI
 
     sig { returns(String) }
     def to_s
-      if valid_pypi_package?
-        out = T.must(name)
+      if valid_pypi_package? && (out = name)
         if (pypi_extras = extras.presence)
           out += "[#{pypi_extras.join(",")}]"
         end
@@ -158,12 +157,15 @@ module PyPI
     sig { returns(T.nilable(T.any(String, T::Array[String]))) }
     def basic_metadata
       if @is_pypi_url
-        match = File.basename(@package_string).match(/^(.+)-([a-z\d.]+?)(?:.tar.gz|.zip)$/)
-        raise ArgumentError, "Package should be a valid PyPI URL" if match.blank?
+        if (match = File.basename(@package_string).match(/^(.+)-([a-z\d.]+?)(?:.tar.gz|.zip)$/))
+          name = match[1]
+          version = match[2]
+        end
+        raise ArgumentError, "Package should be a valid PyPI URL" if name.nil? || version.nil?
 
-        @name ||= T.let(PyPI.normalize_python_package(T.must(match[1])), T.nilable(String))
+        @name ||= T.let(PyPI.normalize_python_package(name), T.nilable(String))
         @extras ||= T.let([], T.nilable(T::Array[String]))
-        @version ||= T.let(match[2], T.nilable(String))
+        @version ||= T.let(version, T.nilable(String))
       elsif @is_url
         require "formula"
         Formula[@python_name].ensure_installed!
@@ -191,23 +193,13 @@ module PyPI
         @extras ||= T.let([], T.nilable(T::Array[String]))
         @version ||= T.let(metadata["version"], T.nilable(String))
       else
-        if @package_string.include? "=="
-          name, version = @package_string.split("==")
-        else
-          name = @package_string
-          version = nil
-        end
+        name, _, version = @package_string.partition("==")
+        extras = name[/\[(.+)\]$/, 1]&.split(",") || []
+        name = name.sub(/\[.+\]$/, "")
 
-        if (match = T.must(name).match(/^(.*?)\[(.+)\]$/))
-          name = match[1]
-          extras = T.must(match[2]).split ","
-        else
-          extras = []
-        end
-
-        @name ||= T.let(PyPI.normalize_python_package(T.must(name)), T.nilable(String))
+        @name ||= T.let(PyPI.normalize_python_package(name), T.nilable(String))
         @extras ||= extras
-        @version ||= version
+        @version ||= version.presence
       end
     end
   end
@@ -287,11 +279,16 @@ module PyPI
     elsif package_name == ""
       nil
     else
-      stable = T.must(formula.stable)
+      stable = formula.stable
+      stable_url = stable&.url
+      if stable.nil? || stable_url.nil?
+        odie "#{formula.full_name} has no stable URL to determine the main Python package from."
+      end
+
       url = if stable.specs[:tag].present?
-        "git+#{stable.url}@#{stable.specs[:tag]}"
+        "git+#{stable_url}@#{stable.specs[:tag]}"
       else
-        T.must(stable.url)
+        stable_url
       end
       Package.new(url, is_url: true, python_name:)
     end
@@ -378,7 +375,7 @@ module PyPI
         exclude_packages.delete package
         next
       end
-      next if existing_resources_by_name[T.must(package.name)]&.livecheck_defined?
+      next if (package_name = package.name) && existing_resources_by_name[package_name]&.livecheck_defined?
 
       ohai "Getting PyPI info for \"#{package}\"" if show_info
       name, url, checksum, version, package_error = package.pypi_info(ignore_errors: ignore_errors)

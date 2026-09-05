@@ -8,6 +8,14 @@ class CoreCaskTap < AbstractCoreTap
     Elem = type_member(:out) { { fixed: Tap } }
   end
 
+  # Get the singleton instance for this {Tap}.
+  #
+  # @api internal
+  sig { returns(CoreCaskTap) }
+  def self.instance
+    @instance ||= T.let(new, T.nilable(CoreCaskTap))
+  end
+
   sig { void }
   def initialize
     super "Homebrew", "cask"

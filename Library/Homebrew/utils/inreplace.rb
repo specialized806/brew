@@ -69,10 +69,12 @@ module Utils
           raise ArgumentError, "Must supply a block or before/after params" unless block
 
           yield s
+        elsif before.nil? || after.nil?
+          raise ArgumentError, "Must supply both before and after params"
         elsif global
-          s.gsub!(T.must(before), T.must(after), audit_result:)
+          s.gsub!(before, after, audit_result:)
         else
-          s.sub!(T.must(before), T.must(after), audit_result:)
+          s.sub!(before, after, audit_result:)
         end
 
         errors[path] = s.errors unless s.errors.empty?

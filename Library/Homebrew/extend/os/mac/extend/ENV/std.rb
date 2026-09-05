@@ -86,7 +86,9 @@ module OS
         end
 
         Homebrew::Diagnostic.checks(:fatal_setup_build_environment_checks)
-        sdk = T.must(sdk).path
+        raise "No macOS SDK found. Install Xcode or the Command Line Tools." if sdk.nil?
+
+        sdk = sdk.path
 
         # Extra setup to support Xcode 4.3+ without CLT.
         self["SDKROOT"] = sdk.to_s

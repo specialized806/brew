@@ -35,8 +35,9 @@ module OS
             ""
           end
         else
-          if version.respond_to?(:to_ary) || version.is_a?(Array)
-            *versions, last = T.unsafe(version).map(&:pretty_name)
+          all_versions = version
+          if all_versions.is_a?(Array)
+            *versions, last = all_versions.map(&:pretty_name)
             return "#{subject} does not run on macOS versions other than #{versions.join(", ")} and #{last}."
           end
 

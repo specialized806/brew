@@ -151,7 +151,7 @@ module RuboCop
       end
 
       # Returns method_node matching method_name.
-      sig { params(node: RuboCop::AST::Node, method_name: Symbol).returns(T.nilable(RuboCop::AST::Node)) }
+      sig { params(node: T.nilable(RuboCop::AST::Node), method_name: Symbol).returns(T.nilable(RuboCop::AST::Node)) }
       def find_node_method_by_name(node, method_name)
         return if node.nil?
 

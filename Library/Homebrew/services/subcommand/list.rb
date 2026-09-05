@@ -57,7 +57,7 @@ module Homebrew
         sig { params(formulae: T::Array[T::Hash[Symbol, T.untyped]]).void }
         def self.print_table(formulae)
           services = formulae.map do |formula|
-            status = T.must(get_status_string(formula[:status]))
+            status = get_status_string(formula[:status])
             status += formula[:exit_code].to_s if formula[:status] == :error
             file    = formula[:file].to_s.gsub(Dir.home, "~").presence if formula[:loaded]
 
@@ -85,7 +85,7 @@ module Homebrew
 
         # Get formula status output
         # @private
-        sig { params(status: Symbol).returns(T.nilable(String)) }
+        sig { params(status: Symbol).returns(String) }
         def self.get_status_string(status)
           case status
           when :started, :scheduled then "#{Tty.green}#{status}#{Tty.reset}"
@@ -93,6 +93,7 @@ module Homebrew
           when :error   then "#{Tty.red}error  #{Tty.reset}"
           when :unknown then "#{Tty.yellow}unknown#{Tty.reset}"
           when :other then "#{Tty.yellow}other#{Tty.reset}"
+          else raise ArgumentError, "Unknown service status: #{status.inspect}"
           end
         end
       end

@@ -559,7 +559,9 @@ module Homebrew
         else
           stable_kegs.max_by(&:scheme_and_version)
         end
-        T.must(latest_keg)
+        raise NoSuchKegError, name if latest_keg.nil?
+
+        latest_keg
       end
 
       sig { params(name: String).returns(Keg) }

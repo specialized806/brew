@@ -149,7 +149,11 @@ module Homebrew
       # @return execution time in seconds
       sig { returns(Float) }
       def time
-        T.must(end_time) - T.must(start_time)
+        started_at = start_time
+        finished_at = end_time
+        raise "#{command_short} has not finished running" if started_at.nil? || finished_at.nil?
+
+        finished_at - started_at
       end
 
       sig { void }
@@ -200,7 +204,7 @@ module Homebrew
         else
           start = [first_error_index - context_lines, 0].max
           # Let GitHub Actions truncate us to 4KB if needed.
-          T.must(output_lines[start..]).join
+          output_lines.drop(start).join
         end
       end
 
@@ -217,12 +221,10 @@ module Homebrew
 
         raise "git should always be called with -C!" if command[0] == "git" && %w[-C clone].exclude?(command[1])
 
-        executable, *args = command
-
-        result = system_command T.must(executable), args:,
-                                                    print_stdout: @verbose,
-                                                    print_stderr: @verbose,
-                                                    env:          @env
+        result = system_command command.fetch(0), args:         command.drop(1),
+                                                  print_stdout: @verbose,
+                                                  print_stderr: @verbose,
+                                                  env:          @env
 
         @end_time = T.let(Time.now, T.nilable(Time))
 

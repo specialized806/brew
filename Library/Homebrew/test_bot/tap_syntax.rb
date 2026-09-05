@@ -7,8 +7,8 @@ module Homebrew
       sig { params(args: Homebrew::Cmd::TestBotCmd::Args).void }
       def run!(args:)
         test_header(:TapSyntax)
-        tapped = T.must(tap)
-        return unless tapped.installed?
+        tapped = tap
+        return if tapped.nil? || !tapped.installed?
 
         unless args.stable?
           # Run `brew typecheck` if this tap is typed.

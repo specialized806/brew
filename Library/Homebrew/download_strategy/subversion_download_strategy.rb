@@ -31,12 +31,15 @@ class SubversionDownloadStrategy < VCSDownloadStrategy
   def source_modified_time
     require "utils/svn"
 
-    time = if Version.new(T.must(Utils::Svn.version)) >= Version.new("1.9")
+    svn_version = Utils::Svn.version
+    time = if svn_version && Version.new(svn_version) >= Version.new("1.9")
       silent_command("svn", args: ["info", "--show-item", "last-changed-date"], chdir: cached_location).stdout
     else
       silent_command("svn", args: ["info"], chdir: cached_location).stdout[/^Last Changed Date: (.+)$/, 1]
     end
-    Time.parse T.must(time)
+    raise "Cannot determine the last changed date of the Subversion checkout in #{cached_location}" if time.nil?
+
+    Time.parse time
   end
 
   sig { override.returns(T.nilable(String)) }
@@ -62,7 +65,9 @@ class SubversionDownloadStrategy < VCSDownloadStrategy
     out = silent_command("svn", args: ["propget", "svn:externals", @url]).stdout
     out.chomp.split("\n").each do |line|
       name, url = line.split(/\s+/)
-      yield T.must(name), T.must(url)
+      raise "Invalid svn:externals definition: #{line.inspect}" if name.nil? || url.nil?
+
+      yield name, url
     end
   end
 

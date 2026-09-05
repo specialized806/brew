@@ -58,8 +58,7 @@ module RuboCop
         end
 
         # Check if the desc starts with the formula's or cask's name.
-        name_regex = T.must(name).delete("-").chars.join('[\s\-]?')
-        if regex_match_group(desc, /^#{name_regex}\b/i)
+        if name && regex_match_group(desc, /^#{name.delete("-").chars.join('[\s\-]?')}\b/i)
           desc_problem "Description shouldn't start with the #{type} name."
         end
 
@@ -88,7 +87,10 @@ module RuboCop
       sig { params(message: String).void }
       def desc_problem(message)
         add_offense(@offensive_source_range, message:) do |corrector|
-          match_data = T.must(@offensive_node).source.match(/\A(?<quote>["'])(?<correction>.*)(?:\k<quote>)\Z/)
+          offensive_node = @offensive_node
+          next if offensive_node.nil?
+
+          match_data = offensive_node.source.match(/\A(?<quote>["'])(?<correction>.*)(?:\k<quote>)\Z/)
           correction = match_data[:correction]
           quote = match_data[:quote]
 
@@ -114,7 +116,7 @@ module RuboCop
 
           next if correction == match_data[:correction]
 
-          corrector.replace(@offensive_node&.source_range, "#{quote}#{correction}#{quote}")
+          corrector.replace(offensive_node.source_range, "#{quote}#{correction}#{quote}")
         end
       end
     end

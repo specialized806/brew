@@ -170,9 +170,9 @@ module Homebrew
 
     sig {
       params(json:       T::Hash[String, T.untyped],
-             bottle_tag: ::Utils::Bottles::Tag).returns(T::Hash[String, T.untyped])
+             bottle_tag: T.nilable(::Utils::Bottles::Tag)).returns(T::Hash[String, T.untyped])
     }
-    def self.merge_variations(json, bottle_tag: T.unsafe(nil))
+    def self.merge_variations(json, bottle_tag: nil)
       return json unless json.key?("variations")
 
       bottle_tag ||= Homebrew::SimulateSystem.current_tag

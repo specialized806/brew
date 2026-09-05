@@ -54,9 +54,9 @@ module GitHub
     class Error < RuntimeError
       include Utils::Output::Mixin
 
-      sig { params(message: T.nilable(String), github_message: String).void }
-      def initialize(message = nil, github_message = T.unsafe(nil))
-        @github_message = T.let(github_message, T.nilable(String))
+      sig { params(message: T.nilable(String), github_message: T.nilable(String)).void }
+      def initialize(message = nil, github_message = nil)
+        @github_message = github_message
         super(message)
       end
     end
@@ -278,15 +278,15 @@ module GitHub
     T::Sig::WithoutRuntime.sig {
       params(
         url:              T.any(String, URI::Generic),
-        data:             T::Hash[Symbol, T.untyped],
-        data_binary_path: String,
-        request_method:   Symbol,
+        data:             T.nilable(T::Hash[Symbol, T.untyped]),
+        data_binary_path: T.nilable(String),
+        request_method:   T.nilable(Symbol),
         scopes:           T::Array[String],
         parse_json:       T::Boolean,
         _block:           T.nilable(T.proc.params(data: T::Hash[String, T.untyped]).returns(T.untyped)),
       ).returns(T.untyped)
     }
-    def self.open_rest(url, data: T.unsafe(nil), data_binary_path: T.unsafe(nil), request_method: T.unsafe(nil),
+    def self.open_rest(url, data: nil, data_binary_path: nil, request_method: nil,
                        scopes: [].freeze, parse_json: true, &_block)
       # This is a no-op if the user is opting out of using the GitHub API.
       return block_given? ? yield({}) : {} if Homebrew::EnvConfig.no_github_api?
@@ -316,7 +316,7 @@ module GitHub
         args += ["--header", "Content-Type: application/gzip"]
       end
 
-      headers_tmpfile = Tempfile.new("github_api_headers", HOMEBREW_TEMP)
+      headers_tmpfile = Tempfile.create("github_api_headers", HOMEBREW_TEMP)
       begin
         if data_tmpfile
           data_tmpfile.write data
@@ -326,7 +326,7 @@ module GitHub
           args += ["--request", request_method.to_s] if request_method
         end
 
-        args += ["--dump-header", T.must(headers_tmpfile.path)]
+        args += ["--dump-header", headers_tmpfile.path]
 
         require "utils/curl"
         result = Utils::Curl.curl_output("--location", url.to_s, *args, secrets: token ? [token] : [])
@@ -339,12 +339,12 @@ module GitHub
           data_tmpfile.unlink
         end
         headers_tmpfile.close
-        headers_tmpfile.unlink
+        File.unlink(headers_tmpfile.path)
       end
 
       begin
         if !http_code.start_with?("2") || !result.status.success?
-          raise_error(output, result.stderr, http_code, headers || "", scopes)
+          raise_error(output, result.stderr, http_code, headers, scopes)
         end
 
         return if http_code == "204" # No Content
@@ -368,7 +368,7 @@ module GitHub
     T::Sig::WithoutRuntime.sig {
       params(
         url:                     T.any(String, URI::Generic),
-        additional_query_params: String,
+        additional_query_params: T.nilable(String),
         per_page:                Integer,
         scopes:                  T::Array[String],
         _block:                  T.proc
@@ -376,7 +376,7 @@ module GitHub
                                   .returns(T.untyped),
       ).void
     }
-    def self.paginate_rest(url, additional_query_params: T.unsafe(nil), per_page: 100, scopes: [].freeze, &_block)
+    def self.paginate_rest(url, additional_query_params: nil, per_page: 100, scopes: [].freeze, &_block)
       (1..API_MAX_PAGES).each do |page|
         retry_count = 1
         result = begin

@@ -29,13 +29,13 @@ module RuboCop
 
           reason = parameters(keg_only_node).fetch(0)
           @offensive_node = reason
-          name = Regexp.new(T.must(@formula_name), Regexp::IGNORECASE)
+          name = Regexp.new(formula_name, Regexp::IGNORECASE)
           reason = string_content(reason).sub(name, "")
           first_word = reason.split.fetch(0)
 
           if /\A[A-Z]/.match?(reason) && !reason.start_with?(*allowlist)
             problem "'#{first_word}' from the `keg_only` reason should be '#{first_word.downcase}'." do |corrector|
-              reason[0] = T.must(reason[0]).downcase # reason[0] must exist because of the regexp match
+              reason.sub!(/\A[A-Z]/, &:downcase)
               corrector.replace(@offensive_node.source_range, "\"#{reason}\"")
             end
           end
@@ -51,9 +51,9 @@ module RuboCop
         def autocorrect(node)
           lambda do |corrector|
             reason = string_content(node)
-            raise "unexpected empty reason" unless reason[0]
+            raise "unexpected empty reason" if reason.empty?
 
-            reason[0] = T.must(reason[0]).downcase # reason[0] must exist because of the previous line
+            reason[0] = reason.chr.downcase
             reason = reason.delete_suffix(".")
             corrector.replace(node.source_range, "\"#{reason}\"")
           end

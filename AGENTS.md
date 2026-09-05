@@ -35,7 +35,9 @@ This is a Ruby repository with Bash scripts for faster execution that provides t
 
 - Maintain existing code structure and organisation and document public APIs.
 - Use Sorbet `sig` type signatures and `typed: strict` for new files.
-- Never use `T.must` or `T.unsafe`. Avoid `T.cast`, `T.let`, `T.untyped` and `T.anything`: use explicit nil checks, precise types, APIs that return non-nil values and `requires_ancestor` for typed modules. If a generic top type is unavoidable, use `T.anything` rather than `T.untyped`.
+- Never use `T.must` (enforced by `Sorbet/ForbidTMust`): bind the value to a local and branch on `nil`, use `fetch` or `first(n)` on collections, or raise an exception with a helpful message where `nil` is impossible.
+- Never use `T.unsafe` (enforced by `Sorbet/ForbidTUnsafe`): give DSL parameters `= nil` defaults with nilable types, narrow with `is_a?` or `case`, use `requires_ancestor` for typed modules and `public_send` behind a `respond_to?` guard for duck typing.
+- Avoid `T.cast`, `T.let`, `T.untyped` and `T.anything`: use precise types and APIs that return non-nil values. If a generic top type is unavoidable, use `T.anything` rather than `T.untyped`.
 - Never use `.send`: call methods directly, use `.public_send` only for dynamically-named public methods and make private methods public in tests (enforced by `Homebrew/NoSendInTests`). In tests, read and write state through public `attr_*` accessors rather than `instance_variable_get`/`instance_variable_set` (enforced by `Homebrew/NoInstanceVariableAccessInTests`).
 - Shell out via `HOMEBREW_BREW_FILE` instead of requiring `cmd/` or `dev-cmd` when composing brew commands.
 - Keep `extend/os/*` prepends thin: put the `prepend` in the OS-specific `linux` or `macos` file rather than the shared loader with an inline `if`, and put substantive logic in shared code outside `extend/` so it is tested on all platforms rather than in `:needs_linux` or `:needs_macos` specs.

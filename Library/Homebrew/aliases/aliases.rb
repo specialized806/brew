@@ -46,7 +46,7 @@ module Homebrew
         next if File.directory?(path)
 
         _shebang, meta, *lines = File.readlines(path)
-        name = T.must(meta)[/alias: brew (\S+)/, 1] || File.basename(path)
+        name = meta.to_s[/alias: brew (\S+)/, 1] || File.basename(path)
         next if !only.empty? && only.exclude?(name)
 
         lines.reject! { |line| line.start_with?("#") || line =~ /^\s*$/ }

@@ -139,7 +139,7 @@ module RuboCop
             problem "`env :userpaths` in homebrew/core formulae is deprecated"
           end
 
-          share_path_starts_with(body_node, T.must(@formula_name)) do |share_node|
+          share_path_starts_with(body_node, formula_name) do |share_node|
             offending_node(share_node)
             problem "Use `pkgshare` instead of `share/\"#{@formula_name}\"`"
           end

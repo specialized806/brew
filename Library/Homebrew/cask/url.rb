@@ -115,10 +115,10 @@ module Cask
     def raw_url_line
       return @raw_url_line if defined?(@raw_url_line)
 
-      @raw_url_line = T.let(Pathname(T.must(@caller_location.path))
-                      .each_line
-                      .drop(@caller_location.lineno - 1)
-                      .first, T.nilable(String))
+      @raw_url_line = T.let(nil, T.nilable(String))
+      return unless (caller_path = @caller_location.path)
+
+      @raw_url_line = Pathname(caller_path).each_line.drop(@caller_location.lineno - 1).first
     end
   end
 end

@@ -54,11 +54,13 @@ module OS
 
         sig { returns(T.nilable(::Homebrew::Diagnostic::Finding)) }
         def check_tmpdir_executable
-          f = Tempfile.new(%w[homebrew_check_tmpdir_executable .sh], HOMEBREW_TEMP)
-          f.write "#!/bin/sh\n"
-          f.chmod 0700
-          f.close
-          return if system T.must(f.path)
+          executable = Tempfile.create(%w[homebrew_check_tmpdir_executable .sh], HOMEBREW_TEMP) do |f|
+            f.write "#!/bin/sh\n"
+            f.chmod 0700
+            f.close
+            system f.path
+          end
+          return if executable
 
           ::Homebrew::Diagnostic::Finding.new(
             <<~EOS,
@@ -75,8 +77,6 @@ module OS
               EOS
             ),
           )
-        ensure
-          f&.unlink
         end
 
         sig { returns(T.nilable(::Homebrew::Diagnostic::Finding)) }

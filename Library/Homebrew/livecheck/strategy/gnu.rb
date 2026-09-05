@@ -63,10 +63,13 @@ module Homebrew
           match = url.match(URL_MATCH_REGEX)
           return values if match.blank?
 
-          # The directory listing page for the project's files
-          values[:url] = "https://ftpmirror.gnu.org/gnu/#{match[:project_name]}/"
+          project_name = match[:project_name]
+          return values if project_name.blank?
 
-          regex_name = Regexp.escape(T.must(match[:project_name])).gsub("\\-", "-")
+          # The directory listing page for the project's files
+          values[:url] = "https://ftpmirror.gnu.org/gnu/#{project_name}/"
+
+          regex_name = Regexp.escape(project_name).gsub("\\-", "-")
 
           # The default regex consists of the following parts:
           # * `href=.*?`: restricts matching to URLs in `href` attributes

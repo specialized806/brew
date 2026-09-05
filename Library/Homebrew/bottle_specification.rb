@@ -37,8 +37,8 @@ class BottleSpecification
     @root_url = T.let(nil, T.nilable(String))
   end
 
-  sig { params(val: Integer).returns(Integer) }
-  def rebuild(val = T.unsafe(nil))
+  sig { params(val: T.nilable(Integer)).returns(Integer) }
+  def rebuild(val = nil)
     val.nil? ? @rebuild : @rebuild = val
   end
 

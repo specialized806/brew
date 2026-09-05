@@ -30,7 +30,9 @@ module Tapioca
         # This is a dummy class to make the `brew` command parsable
         return if cmd == Homebrew::Cmd::Brew
 
-        args_class_name = T.must(T.must(cmd.args_class).name)
+        args_class_name = cmd.args_class&.name
+        raise "#{cmd} has no `Args` class; does it call `cmd_args`?" if args_class_name.nil?
+
         root.create_class(args_class_name, superclass_name: "Homebrew::CLI::Args") do |klass|
           create_args_methods(klass, cmd.parser)
         end

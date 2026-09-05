@@ -794,7 +794,8 @@ on_request: true)
     sig { void }
     def purge_backed_up_versioned_files
       # versioned staged distribution
-      gain_permissions_remove(T.must(backup_path)) if backup_path&.exist?
+      backup = backup_path
+      gain_permissions_remove(backup) if backup&.exist?
 
       # Cask metadata
       bmp = backup_metadata_path

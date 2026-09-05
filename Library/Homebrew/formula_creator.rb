@@ -41,9 +41,8 @@ module Homebrew
       end
       @tap = T.let(tap, Tap)
 
-      if (match_github = url.match %r{github\.com/(?<user>[^/]+)/(?<repo>[^/]+).*})
-        user = T.must(match_github[:user])
-        repository = T.must(match_github[:repo])
+      if (match_github = url.match(%r{github\.com/(?<user>[^/]+)/(?<repo>[^/]+).*})) &&
+         (user = match_github[:user]) && (repository = match_github[:repo])
         if repository.end_with?(".git")
           # e.g. https://github.com/Homebrew/brew.git
           repository.delete_suffix!(".git")

@@ -16,6 +16,14 @@ RSpec.describe RuboCop::Cop::FormulaAudit::Desc do
       RUBY
     end
 
+    it "reports an offense when the formula class body is empty" do
+      expect_offense(<<~RUBY)
+        class Foo < Formula
+              ^^^ FormulaAudit/Desc: Formula should have a `desc` (description).
+        end
+      RUBY
+    end
+
     it "reports an offense when `desc` is an empty string" do
       expect_offense(<<~RUBY, "/homebrew-core/Formula/foo.rb")
         class Foo < Formula

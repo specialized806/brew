@@ -12,6 +12,11 @@ class Array
   #   dup[1][2]   # => 4
   sig { returns(T.self_type) }
   def deep_dup
-    T.unsafe(self).map(&:deep_dup)
+    dup.map! do |element|
+      case element
+      when Object then element.deep_dup
+      else element
+      end
+    end
   end
 end

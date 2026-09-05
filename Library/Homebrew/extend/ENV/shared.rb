@@ -311,7 +311,8 @@ module SharedEnvExtension
     gcc_version_name = "gcc@#{version}"
 
     gcc = Formulary.factory("gcc")
-    if gcc.respond_to?(:version_suffix) && T.unsafe(gcc).version_suffix == version
+    # `version_suffix` is only defined by the `gcc` formula itself.
+    if gcc.respond_to?(:version_suffix) && gcc.public_send(:version_suffix) == version # rubocop:disable Style/SendWithLiteralMethodName
       gcc
     else
       Formulary.factory(gcc_version_name)

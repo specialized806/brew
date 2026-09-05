@@ -109,9 +109,11 @@ module Homebrew
           # We can only get here if `used_formulae_missing` is false, thus there are no UnavailableFormula.
           used_formulae = T.cast(used_formulae, T::Array[Formula])
           if show_formulae_and_casks || args.formula?
-            deps += T.must(used_formulae.map(&:runtime_installed_formula_dependents)
-                     .reduce(&:&))
-                     .select(&:any_version_installed?)
+            all_dependents = used_formulae.map(&:runtime_installed_formula_dependents)
+            common_dependents = all_dependents.drop(1).reduce(all_dependents.fetch(0)) do |common, dependents|
+              common & dependents
+            end
+            deps += common_dependents.select(&:any_version_installed?)
           end
           if show_formulae_and_casks || args.cask?
             deps += select_used_dependents(

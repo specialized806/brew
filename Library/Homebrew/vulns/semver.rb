@@ -77,11 +77,12 @@ module Homebrew
         return -1 if lhs_numeric && !rhs_numeric
         return 1 if !lhs_numeric && rhs_numeric
 
-        if lhs_numeric
-          lhs.to_i <=> rhs.to_i
-        else
-          T.must(lhs <=> rhs)
-        end
+        return lhs.to_i <=> rhs.to_i if lhs_numeric
+
+        comparison = lhs <=> rhs
+        raise ArgumentError, "Cannot compare #{lhs.inspect} with #{rhs.inspect}" if comparison.nil?
+
+        comparison
       end
     end
   end

@@ -56,12 +56,13 @@ module Homebrew
           values = {}
 
           match = File.basename(url).match(FILENAME_REGEX)
-          return values if match.blank?
+          package_name = match[:package_name] if match
+          return values if package_name.nil?
 
           # A page containing a directory listing of the latest source tarball
-          values[:url] = "https://hackage.haskell.org/package/#{match[:package_name]}/src/"
+          values[:url] = "https://hackage.haskell.org/package/#{package_name}/src/"
 
-          regex_name = Regexp.escape(T.must(match[:package_name])).gsub("\\-", "-")
+          regex_name = Regexp.escape(package_name).gsub("\\-", "-")
 
           # Example regex: `%r{<h3>example-(.*?)/?</h3>}i`
           values[:regex] = %r{<h3>#{regex_name}-(.*?)/?</h3>}i

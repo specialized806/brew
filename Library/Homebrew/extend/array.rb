@@ -95,12 +95,11 @@ class Array
     when 0
       +""
     when 1
-      # This is not typesafe, if the array contains a BasicObject
-      +T.unsafe(self[0]).to_s
+      join
     when 2
       "#{self[0]}#{two_words_connector}#{self[1]}"
     else
-      "#{T.must(self[0...-1]).join(words_connector)}#{last_word_connector}#{self[-1]}"
+      "#{first(length - 1).join(words_connector)}#{last_word_connector}#{self[-1]}"
     end
   end
 end

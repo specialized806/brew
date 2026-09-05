@@ -66,7 +66,9 @@ module Homebrew
           subcommand_class = Homebrew::AbstractSubcommand.subcommands_for(Homebrew::Cmd::Services).find do |candidate|
             candidate.subcommand_name == subcommand
           end
-          T.must(subcommand_class).new(args, targets:).run
+          raise UsageError, "Unknown `brew services` subcommand: #{subcommand}" if subcommand_class.nil?
+
+          subcommand_class.new(args, targets:).run
         end
 
         sig {

@@ -219,7 +219,7 @@ module Homebrew
       sig {
         params(
           formula_or_cask: T.any(Formula, Cask::Cask),
-          repositories:    T::Array[String],
+          repositories:    T::Array[T::Hash[String, T.untyped]],
           name:            String,
         ).returns(VersionBumpInfo)
       }
@@ -407,7 +407,7 @@ module Homebrew
         params(
           formula_or_cask: T.any(Formula, Cask::Cask),
           name:            String,
-          repositories:    T::Array[String],
+          repositories:    T::Array[T::Hash[String, T.untyped]],
           ambiguous_cask:  T::Boolean,
         ).void
       }

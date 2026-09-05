@@ -140,7 +140,7 @@ module Homebrew
           return nil if location.nil?
 
           value_start, value_bytesize = location
-          T.must(data["top_level"])[key] = [value_start, value_bytesize]
+          data.fetch("top_level")[key] = [value_start, value_bytesize]
 
           if SECTION_KEYS.include?(key) && value.is_a?(Hash)
             entry_position = value_start
@@ -160,7 +160,7 @@ module Homebrew
               end
 
               entry_start, entry_bytesize = entry_location
-              T.must(data[key])[name] = [entry_start, entry_bytesize]
+              data.fetch(key)[name] = [entry_start, entry_bytesize]
               entry_position = entry_start + entry_bytesize
             end
           end
@@ -278,8 +278,11 @@ module Homebrew
           raise Invalid, "index location for #{name} does not match the payload"
         end
 
+        slice = payload.byteslice(offset, bytesize)
+        raise Invalid, "index slice for #{name} is outside the payload" if slice.nil?
+
         begin
-          JSON.parse(T.must(payload.byteslice(offset, bytesize)), freeze: true)
+          JSON.parse(slice, freeze: true)
         rescue JSON::ParserError
           raise Invalid, "index slice for #{name} does not parse"
         end

@@ -102,8 +102,8 @@ module Homebrew
               formula_or_cask.outdated?(fetch_head: args.fetch_HEAD?)
             end
           else
-            if minimum_version.present?
-              next MinimumVersion.cask_installed_below?(formula_or_cask, T.must(minimum_version))
+            if (minimum_version = self.minimum_version.presence)
+              next MinimumVersion.cask_installed_below?(formula_or_cask, minimum_version)
             end
 
             cask_greedy = upgrade_greedy_cask?(args.greedy?, formula_or_cask)
@@ -201,10 +201,13 @@ module Homebrew
           else
             c = formula_or_cask
 
-            if minimum_version.present?
+            if (minimum_version = self.minimum_version.presence)
+              installed_version = c.installed_version
+              raise Cask::CaskNotInstalledError, c if installed_version.nil?
+
               { name:               c.token,
-                installed_versions: [T.must(c.installed_version)],
-                current_version:    T.must(minimum_version),
+                installed_versions: [installed_version],
+                current_version:    minimum_version,
                 pinned:             c.pinned?,
                 pinned_version:     c.pinned_version }
             else
