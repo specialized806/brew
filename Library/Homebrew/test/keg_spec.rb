@@ -496,6 +496,25 @@ RSpec.describe Keg do
 
       expect(addon.read).to eq "unstripped"
     end
+
+    it "re-signs addons that were stripped" do
+      allow(keg).to receive(:quiet_system) do |*command|
+        File.write(command.fetch(3), "stripped")
+        true
+      end
+
+      expect(keg).to receive(:codesign_patched_binaries).with([addon])
+
+      keg.strip_node_gyp_addons!
+    end
+
+    it "does not re-sign addons when strip fails" do
+      allow(keg).to receive(:quiet_system).and_return(false)
+
+      expect(keg).to receive(:codesign_patched_binaries).with([])
+
+      keg.strip_node_gyp_addons!
+    end
   end
 
   describe "#homebrew_created_file?" do

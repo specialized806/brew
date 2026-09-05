@@ -654,12 +654,12 @@ class Keg
     strip = which("strip")
     return if strip.nil?
 
+    stripped_files = []
     path.find do |pn|
       next if pn.symlink? || pn.extname != ".node" || pn.to_s.exclude?("/node_modules/")
 
       # node-gyp addons' `N_OSO`/`N_SO` stab strings embed keg build paths,
-      # which pin bottles; stripping debug entries removes them and Apple
-      # `strip` re-signs ad hoc, so no separate codesign step is needed.
+      # which pin bottles; stripping debug entries removes them.
       # Strip to a temporary file so a failure (e.g. an addon `strip` cannot
       # parse) leaves the addon untouched.
       stripped = Pathname("#{pn}.stripped")
@@ -667,10 +667,14 @@ class Keg
         mode = pn.stat.mode
         FileUtils.mv stripped, pn
         pn.chmod mode
+        stripped_files << pn
       else
         FileUtils.rm_f stripped
       end
     end
+
+    # `strip -o` writes a new file instead of editing in place, so it never re-signs: reapply the ad-hoc signature.
+    codesign_patched_binaries(stripped_files)
   end
 
   sig { void }
