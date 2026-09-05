@@ -186,15 +186,16 @@ RSpec.describe Formula do
       expect(f.python3).to eq HOMEBREW_PREFIX/"opt/python@3.14/bin/python3.14"
     end
 
-    it "fails when there is no direct Python dependency" do
-      f = formula "no-python-dependency" do
+    it "fails without a direct versioned Python 3 dependency" do
+      f = formula "unversioned-python" do
         url "foo-1.0"
+        depends_on "python"
         depends_on "boost-python3"
       end
 
       expect { f.python3 }
         .to raise_error(RuntimeError,
-                        "`no-python-dependency` must have exactly one `python@3.x` dependency to use `python3`; " \
+                        "`unversioned-python` must have exactly one `python@3.x` dependency to use `python3`; " \
                         "found none.")
     end
 
