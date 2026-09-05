@@ -124,6 +124,14 @@ module Utils
 
         if bottle_json_path.nil? && (tab_attributes = formula.bottle_tab_attributes.presence)
           tab = Tab.from_file_content(tab_attributes.to_json, tabfile)
+          # Annotations are not covered by the bottle checksum, so derive the build prefix from
+          # trusted sources: this tag's padded prefix, or the prefix the formula's cellar implies.
+          tab.built_prefix = if tab.padded_prefix
+            Utils::Bottles.tag.padded_prefix
+          else
+            cellar = formula.bottle_specification.tag_to_cellar
+            Pathname(cellar.to_s).parent.to_s if cellar.is_a?(String)
+          end
           return tab if tab.built_on&.[]("os") == HOMEBREW_SYSTEM
         elsif !tabfile.exist? && bottle_json_path&.exist?
           _, tag, = Utils::Bottles.extname_tag_rebuild(formula.local_bottle_path.to_s)
