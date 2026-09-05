@@ -148,14 +148,18 @@ module Homebrew
           end
         end
 
-        return filtered_runners unless cask.supports_linux?
-
-        linux_archs = architectures(cask:, os: :linux)
-        linux_runners = LINUX_RUNNERS.select do |runner, _|
-          linux_archs.include?(runner.fetch(:arch))
+        if cask.supports_linux?
+          linux_archs = architectures(cask:, os: :linux)
+          filtered_runners.merge!(LINUX_RUNNERS.select do |runner, _|
+            linux_archs.include?(runner.fetch(:arch))
+          end)
         end
 
-        filtered_runners.merge(linux_runners)
+        # A cask that is disabled doesn't need to be tested
+        filtered_runners.reject do |runner, _|
+          tag = Utils::Bottles::Tag.new(system: runner.fetch(:symbol).to_sym, arch: runner.fetch(:arch).to_sym)
+          cask.refresh_for_tag(tag) { cask.disabled? }
+        end
       end
 
       sig { params(cask: Cask::Cask).returns(T::Array[T::Hash[Symbol, T.any(Symbol, String)]]) }

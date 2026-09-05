@@ -683,6 +683,55 @@ RSpec.describe Cask::Audit, :cask do
           expect(run).not_to error_with(/Signature verification failed/)
         end
       end
+
+      context "when cask is disabled because it fails Gatekeeper checks" do
+        let(:cask) do
+          tmp_cask "signing-cask-test", <<~RUBY
+            cask 'signing-cask-test' do
+              version '1.0'
+              url "https://brew.sh/"
+              pkg 'Audit.pkg'
+              disable! date: '2020-01-01', because: :fails_gatekeeper_check
+            end
+          RUBY
+        end
+        let(:failed_result) do
+          instance_double(SystemCommand::Result, success?: false, merged_output: "not notarized")
+        end
+
+        before do
+          allow(cask).to receive(:tap).and_return(tap)
+          allow(Cask::Quarantine).to receive_messages(available?: true, detect: true)
+          allow(audit).to receive(:system_command).and_return(failed_result)
+          allow(audit).to receive(:extract_artifacts).and_yield(cask.artifacts.to_a, mktmpdir)
+        end
+
+        it "tolerates the signature verification failure" do
+          expect(run).not_to error_with(/Signature verification failed/)
+        end
+      end
+
+      context "when cask is disabled for a reason other than Gatekeeper" do
+        let(:cask) do
+          tmp_cask "signing-cask-test", <<~RUBY
+            cask 'signing-cask-test' do
+              version '1.0'
+              url "https://brew.sh/"
+              app 'Audit.app'
+              disable! date: '2020-01-01', because: :discontinued
+            end
+          RUBY
+        end
+
+        before do
+          allow(cask).to receive(:tap).and_return(tap)
+        end
+
+        it "skips the signing audit" do
+          expect(Cask::Quarantine).not_to receive(:available?)
+          run
+        end
+      end
     end
 
     describe "homepage domain age" do
