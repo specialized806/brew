@@ -150,6 +150,15 @@ RSpec.describe Cask::Caskroom do
       })
     end
 
+    it "does not load the cask loader when no casks are installed" do
+      Dir.mktmpdir do |dir|
+        allow(described_class).to receive(:path).and_return(Pathname(dir))
+        expect(described_class).not_to receive(:require)
+
+        described_class.casks
+      end
+    end
+
     it "includes casks installed from untrusted taps without loading cask files" do
       token = "untrusted-cask"
       tap = Tap.fetch("thirdparty", "foo")
