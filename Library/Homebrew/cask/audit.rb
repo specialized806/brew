@@ -1460,7 +1460,7 @@ module Cask
       _, user, repo = *regex.match(cask.homepage) unless user
       return if !user || !repo
 
-      repo.gsub!(/.git$/, "")
+      repo.delete_suffix!(".git")
 
       [user, repo]
     end

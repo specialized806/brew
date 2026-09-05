@@ -1412,6 +1412,22 @@ RSpec.describe Cask::Audit, :cask do
       end
     end
 
+    describe "GitHub repository archived check" do
+      let(:online) { true }
+      let(:only) { ["github_repository_archived"] }
+      let(:cask) do
+        Cask::Cask.new("sourcegit") do
+          url "https://github.com/sourcegit-scm/sourcegit/releases/download/v1.0/sourcegit.zip"
+        end
+      end
+
+      it "keeps a repository name ending in git intact" do
+        allow(SharedAudits).to receive(:github_repo_data).with("sourcegit-scm", "sourcegit")
+                                                         .and_return({ "archived" => true })
+        expect(run).to error_with("GitHub repo is archived")
+      end
+    end
+
     describe "Rosetta checks" do
       let(:online) { true }
       let(:only) { ["rosetta"] }
