@@ -1553,6 +1553,7 @@ RSpec.describe Formula do
       expect(f.plist_name).to eq("custom.macos.beanstalkd")
       expect(f.plist_names).to eq(["custom.macos.beanstalkd"])
       expect(f.service_name).to eq("custom.linux.beanstalkd")
+      expect(f.service_names).to eq(["custom.linux.beanstalkd"])
       expect(f.service.to_hash.keys).to contain_exactly(:name)
     end
 
@@ -1583,6 +1584,33 @@ RSpec.describe Formula do
       ])
     end
 
+    specify "explicit default and compatible systemd service names remain explicit when serialized" do
+      legacy_formula = formula "legacy_name" do
+        url "https://brew.sh/legacy-1.0.tbz"
+        service do
+          name linux: "homebrew.legacy_name"
+        end
+      end
+      canonical_formula = formula "canonical_name" do
+        url "https://brew.sh/canonical-1.0.tbz"
+        service do
+          name linux: "sh.brew.canonical_name"
+        end
+      end
+
+      expect([
+        legacy_formula.service.to_hash,
+        legacy_formula.service_names,
+        canonical_formula.service.to_hash,
+        canonical_formula.service_names,
+      ]).to eq([
+        { name: { linux: "homebrew.legacy_name" } },
+        ["homebrew.legacy_name"],
+        { name: { linux: "sh.brew.canonical_name" } },
+        ["sh.brew.canonical_name"],
+      ])
+    end
+
     specify "service with an overridden plist_name" do
       f = formula do
         T.bind(self, T.class_of(Formula))
@@ -1596,6 +1624,19 @@ RSpec.describe Formula do
       expect(f.launchd_service_paths).to eq([HOMEBREW_PREFIX/"opt/formula_name/custom.override.name.plist"])
     end
 
+    specify "service with an overridden service_name" do
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/test-1.0.tbz"
+
+        def service_name = "custom.override.name"
+      end
+
+      expect(f.service_name).to eq("custom.override.name")
+      expect(f.service_names).to eq(["custom.override.name"])
+      expect(f.systemd_service_paths).to eq([HOMEBREW_PREFIX/"opt/formula_name/custom.override.name.service"])
+    end
+
     specify "service helpers return data" do
       f = formula do
         T.bind(self, T.class_of(Formula))
@@ -1605,13 +1646,22 @@ RSpec.describe Formula do
       expect(f.plist_name).to eq("sh.brew.formula_name")
       expect(f.plist_names).to eq(["sh.brew.formula_name", "homebrew.mxcl.formula_name"])
       expect(f.service_name).to eq("homebrew.formula_name")
+      expect(f.service_names).to eq(["homebrew.formula_name", "sh.brew.formula_name"])
       expect(f.launchd_service_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/sh.brew.formula_name.plist")
       expect(f.launchd_service_paths).to eq([
         HOMEBREW_PREFIX/"opt/formula_name/sh.brew.formula_name.plist",
         HOMEBREW_PREFIX/"opt/formula_name/homebrew.mxcl.formula_name.plist",
       ])
       expect(f.systemd_service_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/homebrew.formula_name.service")
+      expect(f.systemd_service_paths).to eq([
+        HOMEBREW_PREFIX/"opt/formula_name/homebrew.formula_name.service",
+        HOMEBREW_PREFIX/"opt/formula_name/sh.brew.formula_name.service",
+      ])
       expect(f.systemd_timer_path).to eq(HOMEBREW_PREFIX/"opt/formula_name/homebrew.formula_name.timer")
+      expect(f.systemd_timer_paths).to eq([
+        HOMEBREW_PREFIX/"opt/formula_name/homebrew.formula_name.timer",
+        HOMEBREW_PREFIX/"opt/formula_name/sh.brew.formula_name.timer",
+      ])
     end
   end
 

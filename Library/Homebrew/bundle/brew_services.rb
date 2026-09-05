@@ -95,7 +95,7 @@ module Homebrew
             service_files = if Homebrew::Services::System.launchctl?
               formula.plist_names.map { |name| prefix/"#{name}.plist" }
             else
-              [prefix/"#{formula.service_name}.service"]
+              formula.service_names.map { |name| prefix/"#{name}.service" }
             end
 
             service_files.find(&:file?)

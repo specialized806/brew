@@ -75,12 +75,16 @@ RSpec.describe Homebrew::Services::Cli do
         service_string,
         name:                 "example_service",
         service_name:         "homebrew.example_service",
+        active_service_name:  "homebrew.example_service",
         pid?:                 true,
         dest:                 Pathname("this_path_does_not_exist"),
         keep_alive?:          false,
         loaded_service_names: [],
       )
       allow(service).to receive(:reset_cache!)
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "homebrew.example_service")
       allow(Homebrew::Services::FormulaWrapper).to receive(:from).and_return(service)
       allow(services_cli).to receive(:running).and_return(["example_service"])
       expect do
@@ -183,7 +187,13 @@ RSpec.describe Homebrew::Services::Cli do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(false)
       expected_output = "Service `example_service` already running, " \
                         "use `brew services restart example_service` to restart.\n"
-      service = instance_double(service_string, name: "example_service", pid?: true)
+      service = instance_double(
+        service_string,
+        name:                "example_service",
+        service_name:        "homebrew.example_service",
+        active_service_name: "homebrew.example_service",
+        pid?:                true,
+      )
       expect do
         services_cli.run([service])
       end.to output(expected_output).to_stdout
@@ -206,6 +216,23 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.run([service])
       end.to output(/already loaded as `homebrew.mxcl.name`/).to_stdout
     end
+
+    it "does not run a service already loaded with the compatible systemd label" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      service = instance_double(
+        service_string,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        active_service_name:  "sh.brew.name",
+        loaded_service_names: ["sh.brew.name"],
+        pid?:                 true,
+      )
+      expect(services_cli).not_to receive(:service_load)
+
+      expect do
+        services_cli.run([service])
+      end.to output(/already running \(label: sh\.brew\.name\)/).to_stdout
+    end
   end
 
   describe "#start" do
@@ -226,7 +253,13 @@ RSpec.describe Homebrew::Services::Cli do
       allow(Homebrew::Services::System).to receive(:launchctl?).and_return(false)
       expected_output = "Service `example_service` already started, " \
                         "use `brew services restart example_service` to restart.\n"
-      service = instance_double(service_string, name: "example_service", pid?: true)
+      service = instance_double(
+        service_string,
+        name:                "example_service",
+        service_name:        "homebrew.example_service",
+        active_service_name: "homebrew.example_service",
+        pid?:                true,
+      )
       expect do
         services_cli.start([service])
       end.to output(expected_output).to_stdout
@@ -323,25 +356,27 @@ RSpec.describe Homebrew::Services::Cli do
       services_cli.stop([])
     end
 
-    it "stops timed systemd timers before services when kept" do
+    it "stops compatible systemd timers before services when kept" do
       allow(Homebrew::Services::System).to receive(:systemctl?).and_return(true)
       expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
-        .with("stop", "homebrew.name.timer")
+        .with("stop", "sh.brew.name.timer")
         .ordered
         .and_return(true)
       expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
-        .with("stop", "homebrew.name")
+        .with("stop", "sh.brew.name")
         .ordered
         .and_return(true)
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
-        name:         "name",
-        service_name: "homebrew.name",
-        timed?:       true,
-        timer_name:   "homebrew.name.timer",
-        pid?:         false,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        service_names:        ["homebrew.name", "sh.brew.name"],
+        loaded_service_names: ["sh.brew.name"],
+        timed?:               true,
+        pid?:                 false,
       )
       allow(service).to receive(:loaded?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
 
       expect do
         services_cli.stop([service], keep: true)
@@ -365,20 +400,131 @@ RSpec.describe Homebrew::Services::Cli do
       timer_dest.write("timer")
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
-        name:         "name",
-        service_name: "homebrew.name",
-        dest:         service_dest,
-        timed?:       true,
-        timer_name:   "homebrew.name.timer",
-        timer_dest:,
-        pid?:         false,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        service_names:        ["homebrew.name", "sh.brew.name"],
+        loaded_service_names: ["homebrew.name"],
+        destinations:         [service_dest],
+        timed?:               true,
+        timer_destinations:   [timer_dest],
+        pid?:                 false,
       )
       allow(service).to receive(:loaded?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
 
       expect do
         services_cli.stop([service])
       end.to output(/Successfully stopped `name`/).to_stdout
       expect(timer_dest).not_to exist
+    end
+
+    it "stops and removes the compatible systemd service label" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "--now", "sh.brew.name").and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "homebrew.name.service").and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:run).with("daemon-reload")
+
+      dest_dir = mktmpdir
+      destinations = [dest_dir/"homebrew.name.service", dest_dir/"sh.brew.name.service"]
+      destinations.each { |destination| destination.write("service") }
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        service_names:        ["homebrew.name", "sh.brew.name"],
+        loaded_service_names: ["sh.brew.name"],
+        destinations:,
+        timed?:               false,
+        pid?:                 false,
+      )
+      allow(service).to receive(:loaded?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
+
+      expect do
+        services_cli.stop([service])
+      end.to output(/Successfully stopped `name` \(label: sh\.brew\.name\)/).to_stdout
+      expect(destinations).not_to include(an_object_satisfying(&:exist?))
+    end
+
+    it "preserves a compatible systemd service file when stopping fails" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "--now", "sh.brew.name").and_return(false)
+      expect(Homebrew::Services::System::Systemctl).not_to receive(:run)
+
+      destination = mktmpdir/"sh.brew.name.service"
+      destination.write("service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        service_names:        ["homebrew.name", "sh.brew.name"],
+        loaded_service_names: ["sh.brew.name"],
+        destinations:         [destination],
+        timed?:               false,
+        pid?:                 false,
+      )
+      allow(service).to receive(:loaded?).and_return(true)
+      allow(service).to receive(:reset_cache!)
+
+      expect do
+        services_cli.stop([service])
+      end.to output(/Unable to stop `name` \(label: sh\.brew\.name\)/).to_stderr
+      expect(destination).to exist
+    end
+
+    it "cleans up after an accepted asynchronous systemd stop" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("--no-block", "disable", "--now", "sh.brew.name").and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:run).with("--no-block", "daemon-reload")
+
+      destination = mktmpdir/"sh.brew.name.service"
+      destination.write("service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        service_names:        ["homebrew.name", "sh.brew.name"],
+        loaded_service_names: ["sh.brew.name"],
+        destinations:         [destination],
+        timed?:               false,
+        pid?:                 true,
+      )
+      allow(service).to receive(:loaded?).and_return(true)
+      allow(service).to receive(:reset_cache!)
+
+      expect do
+        services_cli.stop([service], no_wait: true)
+      end.to output(/Successfully stopped `name` \(label: sh\.brew\.name\)/).to_stdout
+      expect(destination).not_to exist
+    end
+
+    it "stops a compatible systemd service whose timer is inactive" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "sh.brew.name.timer").ordered.and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "sh.brew.name").ordered.and_return(true)
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                  "name",
+        service_name:          "homebrew.name",
+        service_names:         ["homebrew.name", "sh.brew.name"],
+        active_service_name:   "sh.brew.name",
+        loaded_service_names:  [],
+        service_file_present?: false,
+        timed?:                true,
+      )
+      allow(service).to receive(:loaded?).and_return(false)
+      allow(service).to receive(:pid?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
+
+      expect do
+        services_cli.stop([service], keep: true)
+      end.to output(/Successfully stopped `name` \(label: sh\.brew\.name\)/).to_stdout
     end
 
     it "stops and removes both compatible macOS service labels" do
@@ -494,6 +640,45 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.kill([service])
       end.to output(/Successfully killed `name` \(label: homebrew\.mxcl\.name\)/).to_stdout
     end
+
+    it "reports the compatible systemd label that was killed" do
+      service = instance_double(
+        service_string,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        keep_alive?:          false,
+        loaded_service_names: ["sh.brew.name"],
+      )
+      allow(service).to receive(:pid?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "sh.brew.name").and_return(true)
+
+      expect do
+        services_cli.kill([service])
+      end.to output(/Successfully killed `name` \(label: sh\.brew\.name\)/).to_stdout
+    end
+
+    it "kills a compatible systemd service whose timer is inactive" do
+      service = instance_double(
+        service_string,
+        name:                 "name",
+        service_name:         "homebrew.name",
+        active_service_name:  "sh.brew.name",
+        keep_alive?:          false,
+        loaded_service_names: [],
+      )
+      allow(service).to receive(:pid?).and_return(true, false)
+      allow(service).to receive(:reset_cache!)
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("stop", "sh.brew.name").and_return(true)
+
+      expect do
+        services_cli.kill([service])
+      end.to output(/Successfully killed `name` \(label: sh\.brew\.name\)/).to_stdout
+    end
   end
 
   describe "#take_root_ownership?" do
@@ -563,16 +748,53 @@ RSpec.describe Homebrew::Services::Cli do
       expect([primary_dest.read, compatible_dest.exist?]).to eq(["service", false])
     end
 
+    it "disables compatible systemd service files before replacing them" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: false, systemctl?: true)
+      allow(Homebrew::Services::System::Systemctl).to receive(:quiet_run).and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "sh.brew.name.service")
+      allow(Homebrew::Services::System::Systemctl).to receive(:run).with("daemon-reload")
+
+      source_dir = mktmpdir
+      dest_dir = mktmpdir
+      service_file = source_dir/"homebrew.name.service"
+      primary_dest = dest_dir/"homebrew.name.service"
+      compatible_dest = dest_dir/"sh.brew.name.service"
+      service_file.write("service")
+      primary_dest.write("old service")
+      compatible_dest.write("compatible service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                "name",
+        service_name:        "homebrew.name",
+        installed?:          true,
+        source_service_file: service_file,
+        service_contents:    "service",
+        dest:                primary_dest,
+        destinations:        [primary_dest, compatible_dest],
+        dest_dir:,
+        timed?:              false,
+      )
+
+      services_cli.install_service_file(service, nil)
+
+      expect([primary_dest.read, compatible_dest.exist?]).to eq(["service", false])
+    end
+
     it "installs timed systemd timer files" do
       allow(Homebrew::Services::System).to receive(:systemctl?).and_return(true)
+      expect(Homebrew::Services::System::Systemctl).to receive(:quiet_run)
+        .with("disable", "sh.brew.name.timer").and_return(true)
       allow(Homebrew::Services::System::Systemctl).to receive(:run).with("daemon-reload")
 
       source_dir = mktmpdir
       dest_dir = mktmpdir
       service_file = source_dir/"homebrew.name.service"
       timer_file = source_dir/"homebrew.name.timer"
+      compatible_timer_dest = dest_dir/"sh.brew.name.timer"
       service_file.write("service")
-      timer_file.write("timer")
+      timer_file.write("legacy timer")
+      compatible_timer_dest.write("old timer")
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
         name:                "name",
@@ -586,12 +808,14 @@ RSpec.describe Homebrew::Services::Cli do
         dest_dir:,
         timed?:              true,
         timer_file:,
+        timer_contents:      "timer",
         timer_dest:          dest_dir/timer_file.basename,
+        timer_destinations:  [dest_dir/timer_file.basename, compatible_timer_dest],
       )
 
       services_cli.install_service_file(service, nil)
 
-      expect(service.timer_dest.read).to eq("timer")
+      expect([service.timer_dest.read, compatible_timer_dest.exist?]).to eq(["timer", false])
     end
 
     context "when given `--sudo-service-user`" do
