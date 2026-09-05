@@ -216,6 +216,33 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
       end
     end
   end
+  let(:c_disabled_on_macos) do
+    Cask::Cask.new("test-disabled-on-macos") do
+      os macos: "darwin", linux: "linux"
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      on_macos do
+        disable! date: "2020-01-01", because: :fails_gatekeeper_check
+      end
+    end
+  end
+  let(:c_disabled) do
+    Cask::Cask.new("test-disabled") do
+      version "0.0.1,2"
+
+      url "https://brew.sh/test-0.0.1.dmg"
+      name "Test"
+      desc "Test cask"
+      homepage "https://brew.sh"
+
+      disable! date: "2020-01-01", because: :discontinued
+    end
+  end
   let(:c) do
     Cask::Cask.new("test-font") do
       version "0.0.1,2"
@@ -325,6 +352,20 @@ RSpec.describe Homebrew::DevCmd::GenerateCaskCiMatrix do
             { arch: :arm, name: arm_linux_runner, symbol: :linux }  => 1.0,
             { arch: :intel, name: "ubuntu-latest", symbol: :linux } => 1.0,
           })
+      end
+    end
+
+    context "when cask is disabled" do
+      it "excludes the runners the cask is disabled on" do
+        expect(generate_matrix.filter_runners(c_disabled_on_macos))
+          .to eq({
+            { arch: :arm, name: arm_linux_runner, symbol: :linux }  => 1.0,
+            { arch: :intel, name: "ubuntu-latest", symbol: :linux } => 1.0,
+          })
+      end
+
+      it "excludes every runner for a cask disabled everywhere" do
+        expect(generate_matrix.filter_runners(c_disabled)).to eq({})
       end
     end
 
