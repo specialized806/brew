@@ -3585,14 +3585,12 @@ RSpec.describe Formula do
     end
 
     it "sets expected defaults" do
-      expect(args).to include("--production", "--release", "--no-debug")
-      expect(args).not_to include("--debug")
+      expect(args).to contain_exactly("--production", "--release", "--no-debug")
     end
 
     it "allows enabling debug symbols" do
       allow(ENV).to receive(:debug_symbols?).and_return(true)
-      expect(args).to include("--debug")
-      expect(args).not_to include("--no-debug")
+      expect(args).to contain_exactly("--production", "--release", "--debug")
     end
   end
 

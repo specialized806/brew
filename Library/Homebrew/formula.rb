@@ -2312,8 +2312,11 @@ class Formula
   # @api public
   sig { returns(T::Array[String]) }
   def std_shards_args
-    debug_or_no_debug = ENV.debug_symbols? ? "--debug" : "--no-debug"
-    ["--production", "--release", debug_or_no_debug]
+    [
+      "--production",
+      "--release",
+      ENV.debug_symbols? ? "--debug" : "--no-debug",
+    ]
   end
 
   # Standard parameters for Swift builds.
