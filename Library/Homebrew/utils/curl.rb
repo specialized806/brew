@@ -831,7 +831,7 @@ module Utils
       # Parse the status line and remove it
       response[:status_code] = match["code"]
       response[:status_text] = match["text"] if match["text"].present?
-      response_text = response_text.sub(%r{^HTTP/.* (?:\d+).*$\s*}, "")
+      response_text = response_text.sub(%r{^HTTP/.* \d+.*$\s*}, "")
 
       # Create a hash from the header lines
       response[:headers] = {}

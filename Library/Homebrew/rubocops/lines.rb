@@ -949,7 +949,7 @@ module RuboCop
             if (match = regex_match_group(p, %r{^(/share/(info|man))$}))
               problem ["`#", "{prefix}", match[1], '` should be `#{', match[2], "}`"].join
             end
-            if (match = regex_match_group(p, %r{^((?:/share/man/)(man[1-8]))}))
+            if (match = regex_match_group(p, %r{^(/share/man/(man[1-8]))}))
               problem ["`#", "{prefix}", match[1], '` should be `#{', match[2], "}`"].join
             end
             if (match = regex_match_group(p, %r{^(/(bin|include|libexec|lib|sbin|share|Frameworks))}i)) &&
@@ -961,7 +961,7 @@ module RuboCop
           find_every_method_call_by_name(body_node, :depends_on).each do |method|
             key, value = destructure_hash(parameters(method).fetch(0))
             next if key.nil? || value.nil?
-            next unless (match = regex_match_group(value, /^(lua|perl|python|ruby)(?:\d*)/))
+            next unless (match = regex_match_group(value, /^(lua|perl|python|ruby)\d*/))
 
             problem "#{match[1]} modules should be vendored rather than using deprecated `#{method.source}`"
           end

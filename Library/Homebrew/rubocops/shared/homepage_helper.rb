@@ -83,7 +83,7 @@ module RuboCop
                %r{^http://[^/]*\.apache\.org},
                %r{^http://packages\.debian\.org},
                %r{^http://wiki\.freedesktop\.org/},
-               %r{^http://(?:(?:www)\.)?gnupg\.org/},
+               %r{^http://(?:www\.)?gnupg\.org/},
                %r{^http://ietf\.org},
                %r{^http://[^/.]+\.ietf\.org},
                %r{^http://[^/.]+\.tools\.ietf\.org},

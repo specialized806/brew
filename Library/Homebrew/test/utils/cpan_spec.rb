@@ -198,7 +198,7 @@ RSpec.describe CPAN do
           url resource_url
           sha256 "c" * 64
           livecheck do
-            regex(/Scalar-List-Utils[._-]v?(?:\d+(?:\.\d+)+)\.t/i)
+            regex(/Scalar-List-Utils[._-]v?\d+(?:\.\d+)+\.t/i)
           end
         end
       end

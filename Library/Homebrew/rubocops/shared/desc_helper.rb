@@ -44,7 +44,7 @@ module RuboCop
         desc_problem "Description shouldn't have trailing spaces." if regex_match_group(desc, /\s+$/)
 
         # Check if "command-line" is spelled incorrectly in the desc.
-        if (match = regex_match_group(desc, /(?:command ?line)/i))
+        if (match = regex_match_group(desc, /command ?line/i))
           c = match.to_s[0]
           desc_problem "Description should use \"#{c}ommand-line\" instead of \"#{match}\"."
         end
@@ -107,7 +107,7 @@ module RuboCop
             correction[0] = first_char.upcase if first_char
           end
 
-          correction.gsub!(/(?:ommand ?line)/i, "ommand-line")
+          correction.gsub!(/ommand ?line/i, "ommand-line")
           correction.gsub!(/(^|[^a-z])#{@name}([^a-z]|$)/i, "\\1\\2")
           correction.gsub!(/\s?\p{So}/, "")
           correction.gsub!(/^\s+/, "")

@@ -594,8 +594,8 @@ module Homebrew
                  .gsub(/\n.*?@@HIDDEN@@.*?(?=\n)/, "")
                  .sub(/^/, "#{Tty.bold}Usage: brew#{Tty.reset} ")
                  .gsub(/`(.*?)`/m, "#{Tty.bold}\\1#{Tty.reset}")
-                 .gsub(%r{<(?:[^\s]+?://[^\s]+?)>}) { |url| Formatter.url(url) }
-                 .gsub(/\*(?:.*?)\*|<(?:.*?)>/m) do |underlined|
+                 .gsub(%r{<[^\s]+?://[^\s]+?>}) { |url| Formatter.url(url) }
+                 .gsub(/\*.*?\*|<.*?>/m) do |underlined|
                    underlined[1...-1].to_s.gsub(/^(\s*)(.*?)$/, "\\1#{Tty.underline}\\2#{Tty.reset}")
                  end
       end
