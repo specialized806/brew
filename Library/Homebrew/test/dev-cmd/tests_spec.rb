@@ -188,6 +188,13 @@ RSpec.describe Homebrew::DevCmd::Tests do
       expect(ENV.fetch("XDG_CACHE_HOME")).not_to start_with("#{Dir.home}/")
     end
 
+    it "keeps generic tool state out of the sandboxed test home" do
+      tests.setup_environment!
+
+      expect(ENV.fetch("XDG_STATE_HOME")).to eq("#{HOMEBREW_CACHE}/tests-state")
+      expect(ENV.fetch("XDG_STATE_HOME")).not_to start_with("#{Dir.home}/")
+    end
+
     it "can disable Sorbet runtime" do
       ENV["HOMEBREW_TESTS_NO_SORBET_RUNTIME"] = "1"
       tests.setup_environment!
