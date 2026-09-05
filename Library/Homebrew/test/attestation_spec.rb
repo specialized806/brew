@@ -255,18 +255,6 @@ RSpec.describe Homebrew::Attestation do
       described_class.check_formula_attestation(core_bottle)
     end
 
-    it "raises for Homebrew taps outside homebrew/core" do
-      official_formula = formula("official-attested", tap: Tap.fetch("Homebrew", "foo")) do
-        T.bind(self, T.class_of(Formula))
-        url "https://brew.sh/official-attested-1.0.tar.gz"
-      end
-      official_bottle = instance_double(Bottle, resource: instance_double(Resource, owner: official_formula))
-
-      expect do
-        described_class.check_formula_attestation(official_bottle)
-      end.to raise_error(Homebrew::Attestation::UnsupportedTapError, %r{only `homebrew/core` and non-Homebrew taps})
-    end
-
     it "raises for third-party taps with custom remotes" do
       custom_tap = instance_double(
         Tap,

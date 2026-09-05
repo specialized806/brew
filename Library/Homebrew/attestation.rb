@@ -217,12 +217,6 @@ module Homebrew
       end
       return check_core_attestation(bottle) if tap.core_tap?
 
-      if tap.official?
-        raise UnsupportedTapError,
-              "#{formula.full_name} is from #{tap.name}, but only `homebrew/core` " \
-              "and non-Homebrew taps currently support bottle attestation verification."
-      end
-
       if tap.custom_remote?
         raise UnsupportedTapError,
               "#{formula.full_name} is from #{tap.name}, which uses a non-default " \
