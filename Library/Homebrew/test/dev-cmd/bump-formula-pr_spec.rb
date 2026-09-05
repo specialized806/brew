@@ -331,6 +331,88 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       expect(formula_path.read).to include("version #{payload.inspect}")
     end
 
+    it "updates tag and revision for a git resource" do
+      formula_path = CoreTap.instance.new_formula_path("gitresourceball")
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        class Gitresourceball < Formula
+          url "https://brew.sh/gitresourceball-1.0.tar.gz"
+
+          resource "foo" do
+            url "https://brew.sh/foo.git",
+                tag:      "v1.2.3",
+                revision: "#{"a" * 40}"
+          end
+        end
+      RUBY
+      CoreTap.instance.clear_cache
+      Formulary.clear_cache
+      Formula.clear_cache
+      formula = Formulary.from_contents("gitresourceball", formula_path, formula_path.read)
+
+      allow(bump_formula_pr).to receive(:fetch_resource_and_forced_version).and_return([mktmpdir, false])
+      allow(Utils).to receive(:popen_read).and_return("#{"b" * 40}\n")
+
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: "2.0.0" } }
+
+      expect(bump_formula_pr.update_resources!(formula, resource_versions:)).to eq({ "foo" => :success })
+      expect(formula_path.read).to include('tag:      "v2.0.0"')
+      expect(formula_path.read).to include("revision: \"#{"b" * 40}\"")
+    end
+
+    it "updates the URL for a non-git resource carrying a tag" do
+      formula_path = CoreTap.instance.new_formula_path("tarballwithtag")
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        class Tarballwithtag < Formula
+          url "https://brew.sh/tarballwithtag-1.0.tar.gz"
+
+          resource "foo" do
+            url "https://brew.sh/foo-1.2.3.tar.gz", tag: "v1.2.3"
+            sha256 "#{"a" * 64}"
+          end
+        end
+      RUBY
+      CoreTap.instance.clear_cache
+      Formulary.clear_cache
+      Formula.clear_cache
+      formula = Formulary.from_contents("tarballwithtag", formula_path, formula_path.read)
+
+      resource_path = mktmpdir/"foo-2.0.0.tar.gz"
+      resource_path.write "test"
+      allow(bump_formula_pr).to receive(:fetch_resource_and_forced_version).and_return([resource_path, false])
+
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: "2.0.0" } }
+
+      expect(bump_formula_pr.update_resources!(formula, resource_versions:)).to eq({ "foo" => :success })
+      expect(formula_path.read).to include("https://brew.sh/foo-2.0.0.tar.gz")
+      expect(formula_path.read).to include(%Q(sha256 "#{resource_path.sha256}"))
+    end
+
+    it "reports git resources whose tag does not change" do
+      formula_path = CoreTap.instance.new_formula_path("sametagball")
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        class Sametagball < Formula
+          url "https://brew.sh/sametagball-1.0.tar.gz"
+
+          resource "foo" do
+            url "https://brew.sh/foo.git",
+                tag:      "stable",
+                revision: "#{"a" * 40}"
+          end
+        end
+      RUBY
+      CoreTap.instance.clear_cache
+      Formulary.clear_cache
+      Formula.clear_cache
+      formula = Formulary.from_contents("sametagball", formula_path, formula_path.read)
+
+      resource_versions = { "foo" => { current_version: "1.2.3", latest_version: "2.0.0" } }
+
+      expect(bump_formula_pr.update_resources!(formula, resource_versions:)).to eq({ "foo" => :tag_unchanged })
+    end
+
     it "downgrades to requested version" do
       version = "0.1.2"
       resource_versions = { "foo" => { current_version: "1.2.3", latest_version: version } }

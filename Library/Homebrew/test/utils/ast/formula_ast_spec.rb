@@ -214,6 +214,44 @@ RSpec.describe Utils::AST::FormulaAST do
     end
   end
 
+  describe "#replace_resource_stanza_hash_value" do
+    subject(:formula_ast) do
+      described_class.new <<~RUBY
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tar.gz"
+
+          resource "bar" do
+            url "https://brew.sh/bar.git",
+                tag:      "v1.0",
+                revision: "#{"a" * 40}"
+          end
+        end
+      RUBY
+    end
+
+    it "replaces keyword arguments of a resource stanza" do
+      formula_ast.replace_resource_stanza_hash_value("bar", :url, :tag, "v2.0")
+      formula_ast.replace_resource_stanza_hash_value("bar", :url, :revision, "b" * 40)
+
+      expect(formula_ast.process).to eq <<~RUBY
+        class Foo < Formula
+          url "https://brew.sh/foo-1.0.tar.gz"
+
+          resource "bar" do
+            url "https://brew.sh/bar.git",
+                tag:      "v2.0",
+                revision: "#{"b" * 40}"
+          end
+        end
+      RUBY
+    end
+
+    it "raises when the keyword is missing" do
+      expect { formula_ast.replace_resource_stanza_hash_value("bar", :url, :branch, "main") }
+        .to raise_error(/Could not find 'branch' value/)
+    end
+  end
+
   describe "#replace_resource_stanzas" do
     it "inserts resource stanzas before the install method" do
       formula_ast = described_class.new <<~RUBY
