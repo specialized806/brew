@@ -51,6 +51,21 @@ RSpec.describe Utils::Service do
         .and_return(true)
       expect(described_class.running?(f)).to be true
     end
+
+    it "checks the compatible systemd label when the current label is not running" do
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      systemctl = Pathname("/bin/systemctl")
+      allow(described_class).to receive_messages(launchctl: nil, systemctl?: true, systemctl:)
+      expect(described_class).to receive(:quiet_system)
+        .with(systemctl, "is-active", "--quiet", "homebrew.formula_name").and_return(false)
+      expect(described_class).to receive(:quiet_system)
+        .with(systemctl, "is-active", "--quiet", "sh.brew.formula_name").and_return(true)
+
+      expect(described_class.running?(f)).to be true
+    end
   end
 
   describe "::installed?" do
@@ -61,6 +76,20 @@ RSpec.describe Utils::Service do
       end
       allow(described_class).to receive(:launchctl?).and_return(true)
       allow(f).to receive(:launchd_service_paths).and_return([
+        instance_double(Pathname, exist?: false),
+        instance_double(Pathname, exist?: true),
+      ])
+
+      expect(described_class.installed?(f)).to be(true)
+    end
+
+    it "finds a compatible systemd service file" do
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      allow(described_class).to receive_messages(launchctl?: false, systemctl?: true)
+      allow(f).to receive(:systemd_service_paths).and_return([
         instance_double(Pathname, exist?: false),
         instance_double(Pathname, exist?: true),
       ])

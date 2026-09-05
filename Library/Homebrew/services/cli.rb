@@ -54,16 +54,14 @@ module Homebrew
       sig { params(service: Services::FormulaWrapper, running_status: String).returns(T::Boolean) }
       def self.report_service_running_or_loaded?(service, running_status:)
         running = service.pid?
-        loaded_name = if System.launchctl?
-          if running
-            service.active_service_name
-          else
-            service.loaded_service_names.find { |name| name != service.service_name }
-          end
+        loaded_name = if running
+          service.active_service_name
+        else
+          service.loaded_service_names.find { |name| name != service.service_name }
         end
 
         if loaded_name.present? && loaded_name != service.service_name
-          if service.service_file_generated? && service.service_names.include?(loaded_name)
+          if System.launchctl? && service.service_file_generated? && service.service_names.include?(loaded_name)
             puts "Service `#{service.name}` is already loaded as `#{loaded_name}`; " \
                  "a service label migration is pending. Use `#{bin} restart #{service.name}` " \
                  "to migrate to `#{service.service_name}`."
@@ -119,6 +117,26 @@ module Homebrew
         end
 
         cleaned
+      end
+
+      sig {
+        params(
+          service:        Services::FormulaWrapper,
+          disabled_units: T::Array[String],
+        ).void
+      }
+      private_class_method def self.remove_service_files(service, disabled_units: [])
+        files = service.destinations
+        files += service.timer_destinations if System.systemctl? && service.timed?
+        files.each do |file|
+          next unless file.exist?
+
+          unit_name = file.basename.to_s
+          if System.systemctl? && disabled_units.exclude?(unit_name)
+            System::Systemctl.quiet_run("disable", unit_name)
+          end
+          rm file
+        end
       end
 
       # Run a service as defined in the formula. This does not clean the service file like `start` does.
@@ -206,15 +224,10 @@ module Homebrew
       }
       def self.stop(targets, verbose: false, no_wait: false, max_wait: 0, keep: false)
         targets.each do |service|
-          unless service.loaded?
-            unless keep
-              if System.systemctl?
-                rm service.dest if service.dest.exist?
-              else # System.launchctl?
-                service.destinations.each { |destination| rm destination if destination.exist? }
-              end
-              rm service.timer_dest if System.systemctl? && service.timed? && service.timer_dest.exist?
-            end
+          loaded = service.loaded?
+          running = !loaded && service.pid?
+          if !loaded && !running
+            remove_service_files(service) unless keep
             if service.service_file_present?
               odie <<~EOS
                 Service `#{service.name}` is started as `#{service.owner}`. Try:
@@ -231,7 +244,10 @@ module Homebrew
           end
 
           systemctl_args = []
-          loaded_service_names = T.let([], T::Array[String])
+          systemctl_stop_results = T.let([], T::Array[T::Boolean])
+          disabled_units = T.let([], T::Array[String])
+          loaded_service_names = service.loaded_service_names
+          loaded_service_names = [service.active_service_name] if loaded_service_names.empty? && running
           if no_wait
             systemctl_args << "--no-block"
             puts "Stopping `#{service.name}`..."
@@ -240,17 +256,30 @@ module Homebrew
           end
 
           if System.systemctl?
-            if keep
-              System::Systemctl.quiet_run(*systemctl_args, "stop", service.timer_name) if service.timed?
-              System::Systemctl.quiet_run(*systemctl_args, "stop", service.service_name)
-            elsif service.timed?
-              System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service.timer_name)
-              System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service.service_name)
-            else
-              System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service.service_name)
+            loaded_service_names.each do |service_name|
+              if keep
+                if service.timed?
+                  systemctl_stop_results << System::Systemctl.quiet_run(
+                    *systemctl_args, "stop", "#{service_name}.timer"
+                  )
+                end
+                systemctl_stop_results << System::Systemctl.quiet_run(*systemctl_args, "stop", service_name)
+              elsif service.timed?
+                timer_name = "#{service_name}.timer"
+                result = System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", timer_name)
+                systemctl_stop_results << result
+                disabled_units << timer_name if result
+
+                result = System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service_name)
+                systemctl_stop_results << result
+                disabled_units << "#{service_name}.service" if result
+              else
+                result = System::Systemctl.quiet_run(*systemctl_args, "disable", "--now", service_name)
+                systemctl_stop_results << result
+                disabled_units << "#{service_name}.service" if result
+              end
             end
           elsif System.launchctl?
-            loaded_service_names = service.loaded_service_names
             dont_wait_statuses = [
               Errno::ESRCH::Errno,
               System::LAUNCHCTL_DOMAIN_ACTION_NOT_SUPPORTED,
@@ -279,31 +308,27 @@ module Homebrew
                   System.launchctl_service_running?(service_name)
               end
             end
-            service.reset_cache!
           end
 
+          service.reset_cache!
+
           service_still_loaded = if System.systemctl?
-            service.loaded? || service.pid?
+            if no_wait && systemctl_stop_results.present? && systemctl_stop_results.all?
+              false
+            else
+              service.loaded? || service.pid?
+            end
           else # System.launchctl?
             loaded_service_names.any? { |service_name| System.launchctl_service_running?(service_name) }
           end
 
-          unless keep
-            if System.systemctl?
-              rm service.dest if service.dest.exist?
-            elsif !service_still_loaded # System.launchctl?
-              service.destinations.each { |destination| rm destination if destination.exist? }
-            end
-            rm service.timer_dest if System.systemctl? && service.timed? && service.timer_dest.exist?
+          if !keep && !service_still_loaded
+            remove_service_files(service, disabled_units:)
             # Run daemon-reload on systemctl to finish unloading stopped and deleted service.
             System::Systemctl.run(*systemctl_args, "daemon-reload") if System.systemctl?
           end
 
-          labels = if System.systemctl?
-            [service.service_name]
-          else # System.launchctl?
-            loaded_service_names.presence || service.service_names
-          end
+          labels = loaded_service_names.presence || service.service_names
           if service_still_loaded
             opoo "Unable to stop `#{service.name}` (label: #{labels.join(", ")})"
           else
@@ -322,22 +347,20 @@ module Homebrew
             puts "Service `#{service.name}` is set to automatically restart and can't be killed."
           else
             puts "Killing `#{service.name}`... (might take a while)"
-            killed_service_names = [service.service_name]
+            killed_service_names = service.loaded_service_names.presence || [service.active_service_name]
             if System.systemctl?
-              System::Systemctl.quiet_run("stop", service.service_name)
+              killed_service_names.each { |service_name| System::Systemctl.quiet_run("stop", service_name) }
             elsif System.launchctl?
-              killed_service_names = service.loaded_service_names
               killed_service_names.each do |service_name|
                 quiet_system System.launchctl, "stop", service_name
               end
-              service.reset_cache!
             end
+            service.reset_cache!
 
-            labels = killed_service_names.presence || [service.service_name]
             if service.pid?
-              opoo "Unable to kill `#{service.name}` (label: #{labels.join(", ")})"
+              opoo "Unable to kill `#{service.name}` (label: #{killed_service_names.join(", ")})"
             else
-              ohai "Successfully killed `#{service.name}` (label: #{labels.join(", ")})"
+              ohai "Successfully killed `#{service.name}` (label: #{killed_service_names.join(", ")})"
             end
           end
         end
@@ -494,7 +517,7 @@ module Homebrew
         end
         temp.flush
 
-        service.destinations.each { |destination| rm destination if destination.exist? }
+        remove_service_files(service)
         service.dest_dir.mkpath unless service.dest_dir.directory?
         cp T.must(temp.path), service.dest
 
@@ -503,8 +526,7 @@ module Homebrew
 
         chmod 0644, service.dest
         if System.systemctl? && service.timed?
-          rm service.timer_dest if service.timer_dest.exist?
-          cp service.timer_file, service.timer_dest
+          service.timer_dest.atomic_write(service.timer_contents)
           chmod 0644, service.timer_dest
         end
 

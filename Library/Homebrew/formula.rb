@@ -1502,6 +1502,14 @@ class Formula
   sig { returns(String) }
   def service_name = service.service_name
 
+  # The generated systemd service names, including compatible defaults.
+  sig { returns(T::Array[String]) }
+  def service_names
+    return [service_name] if service_name != service.service_name
+
+    service.service_names
+  end
+
   # The generated launchd {.plist} file path.
   sig { returns(Pathname) }
   def launchd_service_path = launchd_service_paths.fetch(0)
@@ -1515,11 +1523,25 @@ class Formula
 
   # The generated systemd {.service} file path.
   sig { returns(Pathname) }
-  def systemd_service_path = (any_installed_prefix || opt_prefix)/"#{service_name}.service"
+  def systemd_service_path = systemd_service_paths.fetch(0)
+
+  # The generated systemd {.service} file paths, including compatible defaults.
+  sig { returns(T::Array[Pathname]) }
+  def systemd_service_paths
+    prefix = any_installed_prefix || opt_prefix
+    service_names.map { |name| prefix/"#{name}.service" }
+  end
 
   # The generated systemd {.timer} file path.
   sig { returns(Pathname) }
-  def systemd_timer_path = (any_installed_prefix || opt_prefix)/"#{service_name}.timer"
+  def systemd_timer_path = systemd_timer_paths.fetch(0)
+
+  # The generated systemd {.timer} file paths, including compatible defaults.
+  sig { returns(T::Array[Pathname]) }
+  def systemd_timer_paths
+    prefix = any_installed_prefix || opt_prefix
+    service_names.map { |name| prefix/"#{name}.timer" }
+  end
 
   # The service specification for the software.
   #

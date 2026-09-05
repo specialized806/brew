@@ -14,7 +14,9 @@ module Utils
           Homebrew::Services::System.launchctl_service_running?(name)
         end
       elsif systemctl?
-        quiet_system(systemctl, "is-active", "--quiet", formula.service_name)
+        formula.service_names.any? do |name|
+          quiet_system(systemctl, "is-active", "--quiet", name)
+        end
       else
         false
       end
@@ -24,7 +26,7 @@ module Utils
     sig { params(formula: Formula).returns(T::Boolean) }
     def self.installed?(formula)
       (launchctl? && formula.launchd_service_paths.any?(&:exist?)) ||
-        (systemctl? && formula.systemd_service_path.exist?)
+        (systemctl? && formula.systemd_service_paths.any?(&:exist?))
     end
 
     # Path to launchctl binary.

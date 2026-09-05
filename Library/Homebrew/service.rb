@@ -63,6 +63,7 @@ module Homebrew
       @run_params = T.let(nil, T.any(RunParam, T::Hash[Symbol, RunParam]))
       @run_type = T.let(RUN_TYPE_IMMEDIATE, Symbol)
       @service_name = T.let(default_service_name, String)
+      @service_name_explicitly_set = T.let(false, T::Boolean)
       @sockets = T.let({}, Sockets)
       @stop_timeout = T.let(nil, T.nilable(Integer))
       @working_dir = T.let(nil, T.nilable(String))
@@ -105,7 +106,24 @@ module Homebrew
 
     sig { returns(String) }
     def default_service_name
+      legacy_service_name
+    end
+
+    sig { returns(String) }
+    def legacy_service_name
       "homebrew.#{@formula.name}"
+    end
+
+    sig { returns(String) }
+    def canonical_service_name
+      "sh.brew.#{@formula.name}"
+    end
+
+    sig { returns(T::Array[String]) }
+    def service_names
+      return [service_name] if @service_name_explicitly_set
+
+      [service_name, canonical_service_name, legacy_service_name].uniq
     end
 
     # A hash with the `launchd` service name on macOS and/or the `systemd`
@@ -121,7 +139,10 @@ module Homebrew
         @plist_name = macos
         @plist_name_explicitly_set = true
       end
-      @service_name = linux if linux
+      return unless linux
+
+      @service_name = linux
+      @service_name_explicitly_set = true
     end
 
     # The command to execute: an array with arguments or a path.
@@ -739,7 +760,7 @@ module Homebrew
     def to_hash
       name_params = {
         macos: (plist_name if @plist_name_explicitly_set),
-        linux: (service_name if service_name != default_service_name),
+        linux: (service_name if @service_name_explicitly_set),
       }.compact
 
       return { name: name_params }.compact_blank if @run_params.blank?

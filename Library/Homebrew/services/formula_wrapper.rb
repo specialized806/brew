@@ -63,6 +63,7 @@ module Homebrew
         @formula = formula
         @service_name_override = service_name
         @status_output_success_type = T.let(nil, T.nilable(StatusOutputSuccessType))
+        @loaded_service_names = T.let(nil, T.nilable(T::Array[String]))
 
         return if System.launchctl? || System.systemctl?
 
@@ -132,7 +133,7 @@ module Homebrew
           elsif System.launchctl?
             formula.plist_names
           else # System.systemctl?
-            [formula.service_name]
+            formula.service_names
           end, T.nilable(T::Array[String])
         )
       end
@@ -149,7 +150,7 @@ module Homebrew
           if System.launchctl?
             formula.launchd_service_paths
           else # System.systemctl?
-            [formula.systemd_service_path]
+            formula.systemd_service_paths
           end, T.nilable(T::Array[Pathname])
         )
       end
@@ -161,17 +162,23 @@ module Homebrew
 
       sig { returns(Pathname) }
       def timer_file
-        @timer_file ||= T.let(formula.systemd_timer_path, T.nilable(Pathname))
+        files = formula.systemd_timer_paths
+        files.find(&:exist?) || files.fetch(0)
       end
 
       sig { returns(String) }
       def timer_name
-        @timer_name ||= T.let(timer_file.basename.to_s, T.nilable(String))
+        "#{service_name}.timer"
       end
 
       sig { returns(Pathname) }
       def timer_dest
-        dest_dir + timer_file.basename
+        timer_destinations.fetch(0)
+      end
+
+      sig { returns(T::Array[Pathname]) }
+      def timer_destinations
+        service_names.map { |name| dest_dir/"#{name}.timer" }
       end
 
       # Whether the service should be launched at startup
@@ -200,19 +207,13 @@ module Homebrew
 
       sig { returns(T::Array[Pathname]) }
       def destinations
-        if System.launchctl?
-          service_names.map { |name| dest_dir/service_file_basename(name) }
-        else
-          [dest_dir/service_file.basename]
-        end
+        service_names.map { |name| dest_dir/service_file_basename(name) }
       end
 
       sig { returns(Pathname) }
       def registered_destination
-        if System.launchctl?
-          active_destination = dest_dir/service_file_basename(active_service_name)
-          return active_destination if active_destination.exist?
-        end
+        active_destination = dest_dir/service_file_basename(active_service_name)
+        return active_destination if active_destination.exist?
 
         destinations.find(&:exist?) || dest
       end
@@ -226,25 +227,33 @@ module Homebrew
       sig { void }
       def reset_cache!
         @status_output_success_type = nil
+        @loaded_service_names = nil
       end
 
       # Returns `true` if the service is loaded, else false.
       sig { params(cached: T::Boolean).returns(T::Boolean) }
       def loaded?(cached: false)
+        reset_cache! unless cached
+
         if System.launchctl?
-          reset_cache! unless cached
           status_success
         else # System.systemctl?
-          System::Systemctl.quiet_run("status", timed? ? timer_name : service_file.basename)
+          loaded_service_names.present?
         end
       end
 
       sig { returns(T::Array[String]) }
       def loaded_service_names
-        return [service_name] if System.systemctl? && loaded?
-        return [] unless System.launchctl?
-
-        launchctl_service_names.select { |name| System.launchctl_service_running?(name) }
+        @loaded_service_names ||= if System.systemctl?
+          service_names.select do |name|
+            (timed? && System::Systemctl.quiet_run("status", "#{name}.timer")) ||
+              System::Systemctl.quiet_run("status", "#{name}.service")
+          end
+        elsif System.launchctl?
+          launchctl_service_names.select { |name| System.launchctl_service_running?(name) }
+        else
+          []
+        end
       end
 
       sig { returns(String) }
@@ -371,6 +380,19 @@ module Homebrew
         end
       end
 
+      sig { returns(String) }
+      def timer_contents
+        if service_file_generated?
+          load_service.to_systemd_timer
+        else
+          timer_file.read.sub(
+            /^([ \t]*Unit[ \t]*=[ \t]*)#{Regexp.union(service_names.map { |name| "#{name}.service" })}([ \t]*)$/,
+          ) do
+            "#{Regexp.last_match(1)}#{service_name}.service#{Regexp.last_match(2)}"
+          end
+        end
+      end
+
       private
 
       # The purpose of this function is to lazy load the Homebrew::Service class
@@ -400,8 +422,8 @@ module Homebrew
 
       sig { returns(StatusOutputSuccessType) }
       def status_output_success_type
+        result = T.let(nil, T.nilable(StatusOutputSuccessType))
         @status_output_success_type ||= if System.launchctl?
-          result = T.let(nil, T.nilable(StatusOutputSuccessType))
           launchctl_service_names.each do |name|
             output, success, type = System.launchctl_find_service(name)
             next unless success
@@ -415,11 +437,19 @@ module Homebrew
           end
           result || StatusOutputSuccessType.new("", false, :launchctl_list, service_name)
         else # System.systemctl?
-          cmd = ["status", service_name]
-          output = System::Systemctl.popen_read(*cmd).chomp
-          success = T.cast($CHILD_STATUS.present? && $CHILD_STATUS.success? && output.present?, T::Boolean)
-          odebug [System::Systemctl.executable, System::Systemctl.scope, *cmd].join(" "), output
-          StatusOutputSuccessType.new(output, success, :systemctl, service_name)
+          (loaded_service_names + service_names).uniq.each do |name|
+            cmd = ["status", service_file_basename(name)]
+            output = System::Systemctl.popen_read(*cmd).chomp
+            success = ($CHILD_STATUS&.success? || false) && output.present?
+            odebug [System::Systemctl.executable, System::Systemctl.scope, *cmd].join(" "), output
+            candidate = StatusOutputSuccessType.new(output, success, :systemctl, name)
+            result ||= candidate
+            if status_pid(candidate)&.positive?
+              result = candidate
+              break
+            end
+          end
+          result || StatusOutputSuccessType.new("", false, :systemctl, service_name)
         end
       end
 
