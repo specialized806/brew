@@ -58,7 +58,7 @@ module RuboCop
         def patch_problems(patch_url_node, sha256_node)
           patch_url = string_content(patch_url_node)
 
-          if regex_match_group(patch_url_node, %r{https://github.com/[^/]*/[^/]*/pull})
+          if regex_match_group(patch_url_node, %r{https://github\.com/[^/]*/[^/]*/pull})
             problem "Use a commit hash URL rather than an unstable pull request URL: #{patch_url}"
           end
 
@@ -66,7 +66,7 @@ module RuboCop
             problem "Use a commit hash URL rather than an unstable merge request URL: #{patch_url}"
           end
 
-          if regex_match_group(patch_url_node, %r{https://github.com/[^/]*/[^/]*/commit/[a-fA-F0-9]*\.diff})
+          if regex_match_group(patch_url_node, %r{https://github\.com/[^/]*/[^/]*/commit/[a-fA-F0-9]*\.diff})
             problem "GitHub patches should end with .patch, not .diff: #{patch_url}" do |corrector|
               # Replace .diff with .patch, keeping either the closing quote or query parameter start
               correct = patch_url_node.source.sub(/\.diff(["?])/, '.patch\1')

@@ -692,7 +692,7 @@ module Formulary
       Utils::Curl.curl_download url.to_s, to: path
       super
     rescue MethodDeprecatedError => e
-      if (match_data = url.to_s.match(%r{github.com/(?<user>[\w-]+)/(?<repo>[\w-]+)/}).presence)
+      if (match_data = url.to_s.match(%r{github\.com/(?<user>[\w-]+)/(?<repo>[\w-]+)/}).presence)
         e.issues_url = "https://github.com/#{match_data[:user]}/#{match_data[:repo]}/issues/new"
       end
       raise
