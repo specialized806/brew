@@ -148,24 +148,21 @@ RSpec.describe Homebrew::DevCmd::Tests do
     it "does not require the Linux sandbox when Linux sandboxing is disabled" do
       allow(Homebrew::EnvConfig).to receive(:sandbox_linux?).and_return(false)
       allow(Sandbox).to receive_messages(available?: false, failure_reason: "sandbox unavailable")
-      expect(Sandbox).not_to receive(:ensure_sandbox_available!)
 
-      expect { tests.check_test_environment! }.not_to raise_error
+      expect { tests.check_test_environment! }.not_to output.to_stderr
     end
 
-    it "does not fail on GitHub Actions when the Linux sandbox is unavailable" do
-      allow(Sandbox).to receive(:available?).and_return(false)
+    it "raises on GitHub Actions when the Linux sandbox is unavailable" do
+      allow(Sandbox).to receive_messages(available?: false, failure_reason: "Landlock is not available.")
       allow(GitHub::Actions).to receive(:env_set?).and_return(true)
-      expect(Sandbox).not_to receive(:ensure_sandbox_available!)
 
-      expect { tests.check_test_environment! }.not_to raise_error
+      expect { tests.check_test_environment! }.to raise_error(RuntimeError, "Landlock is not available.")
     end
 
-    it "fails outside GitHub Actions when the Linux sandbox is unavailable" do
+    it "warns instead of failing outside GitHub Actions when the Linux sandbox is unavailable" do
       allow(Sandbox).to receive_messages(available?: false, failure_reason: "Landlock is not available.")
 
-      expect { tests.check_test_environment! }
-        .to raise_error(RuntimeError, "Landlock is not available.")
+      expect { tests.check_test_environment! }.to output(/Landlock is not available\./).to_stderr
     end
 
     it "passes when the Linux sandbox is available" do
