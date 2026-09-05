@@ -30,10 +30,13 @@ RSpec.describe Homebrew::Diagnostic::Checks do
       allow(OS::Mac).to receive_messages(version: macos_version, full_version: macos_version)
       allow(OS::Mac.version).to receive_messages(outdated_release?: false, prerelease?: false)
 
-      finding = checks.check_for_unsupported_macos
-      expect(finding).to have_attributes(
-        tier: 3,
-        text: match("We do not provide support for this platform"),
+      expect(checks.check_for_unsupported_macos).to have_attributes(
+        tier:        3,
+        text:        match("We do not provide support for this platform"),
+        remediation: have_attributes(text: <<~EOS),
+          Homebrew no longer builds bottles for this configuration.
+          Existing bottles may still work, but updated formulae may build from source.
+        EOS
       )
     end
 

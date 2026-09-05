@@ -134,24 +134,14 @@ module OS
 
           tier = 2
           who = +"We"
-          remediation = nil
           version = MacOS.version
-          macports_url = Formatter.url("https://www.macports.org")
           what = if OS::Mac.version.outdated_release?
             tier = 3
             who << " (and Apple)"
-            remediation = <<~EOS
-              You will have better luck with MacPorts which still supports older versions of macOS:
-                #{macports_url}
-            EOS
             "old version."
           elsif ::Hardware::CPU.intel?
             tier = 3
             version = "on Intel x86_64"
-            remediation = <<~EOS
-              You will have better luck with MacPorts which still supports macOS Intel x86_64:
-                #{macports_url}
-            EOS
             <<~EOS
               platform (as-of September 2026, announced August 2025).
 
@@ -173,7 +163,7 @@ module OS
               You are using macOS #{version}.
               #{who} do not provide support for this #{what.chomp}
             EOS
-            remediation:,
+            remediation: macos_bottle_remediation(MacOS.version, intel: ::Hardware::CPU.intel?),
             tier:,
           )
         end

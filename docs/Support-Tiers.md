@@ -127,6 +127,10 @@ If you are using a Homebrew wrapper, get support from and file issues with that 
 
 macOS Tahoe 26 is the final version of macOS to run on Intel hardware. In alignment with this change, Homebrew has stopped building new bottles for Intel systems, and will remove the ability to run Homebrew on Intel systems in or after September 2027.
 
+Where Homebrew no longer builds bottles, `brew doctor` suggests [MacPorts](https://www.macports.org) for Intel macOS Sequoia 15 and earlier or older Apple Silicon macOS versions.
+At the time of writing, MacPorts does not provide a full set of binary packages for Intel Tahoe ([builder status](https://build.macports.org/builders/ports-26_x86_64-builder)).
+On Intel Tahoe, `brew doctor` explains that existing bottles may still work, but updated formulae may build from source.
+
 The following timeline outlines expected Tier classifications based on Apple’s release cycle and Homebrew’s CI coverage.
 
 - As of September 2026:

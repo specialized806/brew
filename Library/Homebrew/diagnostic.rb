@@ -93,6 +93,27 @@ module Homebrew
       def add_info(*args)
         ohai(*args) if @verbose
       end
+
+      sig { params(version: MacOSVersion, intel: T::Boolean).returns(T.nilable(String)) }
+      def macos_bottle_remediation(version, intel:)
+        return if !intel && !version.outdated_release?
+        return if version > :tahoe
+
+        remediation = +"Homebrew no longer builds bottles for this configuration.\n"
+        # At the time of writing, MacPorts does not provide a full set of binary packages
+        # for Intel Tahoe:
+        # https://build.macports.org/builders/ports-26_x86_64-builder
+        remediation << if intel && version >= :tahoe
+          <<~EOS
+            Existing bottles may still work, but updated formulae may build from source.
+          EOS
+        else
+          <<~EOS
+            Consider MacPorts, which provides binary packages for this macOS version:
+              #{Formatter.url("https://www.macports.org")}
+          EOS
+        end
+      end
       ############# @!endgroup END HELPERS
 
       sig { returns(T::Array[String]) }
