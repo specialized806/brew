@@ -274,6 +274,8 @@ module Homebrew
         ENV["HOME"] = "#{HOMEBREW_LIBRARY_PATH}/test"
         # Keep generic tool caches (e.g. RuboCop) out of the sandboxed test home.
         ENV["XDG_CACHE_HOME"] = "#{HOMEBREW_CACHE}/tests"
+        # Same for tool state, e.g. `mise` writes `.local/state/mise` under `$HOME`.
+        ENV["XDG_STATE_HOME"] = "#{HOMEBREW_CACHE}/tests-state"
         # Sandbox the config home too, so the spec teardown can't delete the real `trust.json`.
         ENV["HOMEBREW_USER_CONFIG_HOME"] = "#{Dir.home}/.homebrew"
 
