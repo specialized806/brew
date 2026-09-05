@@ -227,6 +227,8 @@ module Cask
     # @api internal
     sig { params(config: T.nilable(Config)).returns(T::Array[Cask]) }
     def self.casks(config: nil)
+      return [] unless any_casks_installed?
+
       require "cask/cask_loader"
 
       tokens.sort.filter_map do |token|
