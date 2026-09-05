@@ -2340,6 +2340,18 @@ class Formula
     args
   end
 
+  # Standard parameters for Shards builds.
+  #
+  # @api public
+  sig { returns(T::Array[String]) }
+  def std_shards_args
+    [
+      "--production",
+      "--release",
+      ENV.debug_symbols? ? "--debug" : "--no-debug",
+    ]
+  end
+
   # Standard parameters for Swift builds.
   #
   # @api public

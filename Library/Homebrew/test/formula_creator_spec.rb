@@ -106,6 +106,12 @@ RSpec.describe Homebrew::FormulaCreator do
                     includes: ["deny_network_access!", "std_cmake_args"],
                     excludes: ["unrecognized options", 'resource "']
 
+    it_behaves_like "expected", :crystal,
+                    includes: ["deny_network_access!",
+                               '"shards", "install", "--production", "--skip-postinstall"',
+                               '"shards", "build", *std_shards_args'],
+                    excludes: ["unrecognized options", 'resource "']
+
     it_behaves_like "expected", :go,
                     includes: ["deny_network_access!", "std_go_args", /"go".*"download"/],
                     excludes: ["unrecognized options", 'resource "']

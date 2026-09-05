@@ -222,7 +222,7 @@ module Homebrew
           # depends_on "cmake" => :build
         <% end %>
 
-        <% if [:crystal, :node, :python].exclude? @mode %>
+        <% if [:node, :python].exclude? @mode %>
           deny_network_access!
 
         <% end %>
@@ -230,6 +230,11 @@ module Homebrew
           def fetch
             system "cabal", "v2-update"
             system "cabal", "v2-install", "--only-download", *std_cabal_v2_args
+          end
+
+        <% elsif @mode == :crystal %>
+          def fetch
+            system "shards", "install", "--production", "--skip-postinstall"
           end
 
         <% elsif @mode == :go %>
@@ -268,7 +273,7 @@ module Homebrew
             system "./configure", "--disable-silent-rules", *std_configure_args
             system "make", "install" # if this fails, try separate make/make install steps
         <% elsif @mode == :crystal %>
-            system "shards", "build", "--release"
+            system "shards", "build", *std_shards_args
             bin.install "bin/#{name}"
         <% elsif @mode == :go %>
             system "go", "build", *std_go_args
