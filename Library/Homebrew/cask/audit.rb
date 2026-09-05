@@ -457,13 +457,13 @@ module Cask
       add_livecheck = "please add a livecheck. See #{Formatter.url(LIVECHECK_REFERENCE_URL)}"
 
       case url.to_s
-      when %r{sourceforge\.net/(\S+)}
+      when %r{sourceforge\.net/(?:\S+)}
         return unless online?
 
         add_error "Download is hosted on SourceForge, #{add_livecheck}", location: url.location
-      when %r{dl\.devmate\.com/(\S+)}
+      when %r{dl\.devmate\.com/(?:\S+)}
         add_error "Download is hosted on DevMate, #{add_livecheck}", location: url.location
-      when %r{rink\.hockeyapp\.net/(\S+)}
+      when %r{rink\.hockeyapp\.net/(?:\S+)}
         add_error "Download is hosted on HockeyApp, #{add_livecheck}", location: url.location
       end
     end
@@ -1429,10 +1429,10 @@ module Cask
 
     sig { returns(T::Boolean) }
     def bad_sourceforge_url?
-      bad_url_format?(%r{((downloads|\.dl)\.|//)sourceforge},
+      bad_url_format?(%r{(?:(?:downloads|\.dl)\.|//)sourceforge},
                       [
                         %r{\Ahttps://sourceforge\.net/projects/[^/]+/files/latest/download\Z},
-                        %r{\Ahttps://downloads\.sourceforge\.net/(?!(project|sourceforge)/)},
+                        %r{\Ahttps://downloads\.sourceforge\.net/(?!(?:project|sourceforge)/)},
                       ])
     end
 

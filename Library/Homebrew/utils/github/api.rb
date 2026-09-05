@@ -102,7 +102,7 @@ module GitHub
 
     GITHUB_IP_ALLOWLIST_ERROR = Regexp.new(
       "Although you appear to have the correct authorization credentials, " \
-      "the `(.+)` organization has an IP allow list enabled, " \
+      "the `.+` organization has an IP allow list enabled, " \
       "and your IP address is not permitted to access this resource",
     ).freeze
 

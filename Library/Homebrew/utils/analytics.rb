@@ -116,7 +116,7 @@ module Utils
         options_array.map! { |option| option.sub(/=.*/m, "=") }
 
         # Strip out --with-* and --without-* options
-        options_array.reject! { |option| option.match(/^--with(out)?-/) }
+        options_array.reject! { |option| option.match(/^--with(?:out)?-/) }
 
         options = options_array.sort.uniq.join(" ")
 

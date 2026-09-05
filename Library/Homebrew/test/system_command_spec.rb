@@ -71,7 +71,7 @@ RSpec.describe SystemCommand do
       it "unsets them" do
         expect do
           command.run!
-        end.to raise_error(/C: parameter (null or )?not set/)
+        end.to raise_error(/C: parameter (?:null or )?not set/)
       end
     end
 

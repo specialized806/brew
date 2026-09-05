@@ -44,9 +44,9 @@ module Homebrew
         readme = HOMEBREW_REPOSITORY/"README.md"
 
         content = readme.read
-        content.gsub!(/(Homebrew's \[Lead Maintainers.* (are|is)) .*\./,
+        content.gsub!(/(Homebrew's \[Lead Maintainers.* (?:are|is)) .*\./,
                       "\\1 #{sentences[:lead_maintainers]}.")
-        content.gsub!(/(Homebrew's other Maintainers (are|is)) .*\./,
+        content.gsub!(/(Homebrew's other Maintainers (?:are|is)) .*\./,
                       "\\1 #{sentences[:maintainers]}.")
 
         File.write(readme, content)

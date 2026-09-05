@@ -37,7 +37,7 @@ module RuboCop
           return if formula_tap != "homebrew-core"
 
           # Check for binary URLs
-          binary_package_pattern = /(darwin|macos|osx)/i
+          binary_package_pattern = /(?:darwin|macos|osx)/i
           github_pattern = %r{^https://github\.com/[\w-]+/[\w.-]+/(.*)$}i
           audit_urls(urls, binary_package_pattern) do |match, url|
             next if formula_name.include?(match.to_s.downcase)

@@ -373,7 +373,7 @@ module OS
       "~/Library/Widgets",
       "~/Library/Workflows",
     ]
-                        .to_set { |path| ::Pathname.new(path.sub(%r{^~(?=(/|$))}, Dir.home)).expand_path }
+                        .to_set { |path| ::Pathname.new(path.sub(%r{^~(?=(?:/|$))}, Dir.home)).expand_path }
                         .union(SYSTEM_DIRS)
                         .freeze, T::Set[::Pathname])
     private_constant :UNDELETABLE_PATHS

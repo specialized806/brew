@@ -41,7 +41,7 @@ module Homebrew
                                        "--no-pager",
                                        "--no-legend")
         end.chomp.split("\n").filter_map do |svc|
-          svc[/(?:homebrew(?>\.mxcl)?|sh\.brew)\.([\w+-.@]+)/]&.delete_suffix(".service")
+          svc[/(?:homebrew(?>\.mxcl)?|sh\.brew)\.(?:[\w+-.@]+)/]&.delete_suffix(".service")
         end
       end
 
@@ -109,7 +109,7 @@ module Homebrew
         running_services = running
         System.path.glob("{homebrew.*,sh.brew.*}.{plist,service,timer}").each do |file|
           label = FormulaWrapper.service_file_label(file) if file.extname.casecmp?(".plist")
-          service_name = label || File.basename(file).sub(/\.(plist|service|timer)$/i, "")
+          service_name = label || File.basename(file).sub(/\.(?:plist|service|timer)$/i, "")
           next if running_services.include?(service_name)
           next if label && System.launchctl? && System.launchctl_service_running?(label)
 

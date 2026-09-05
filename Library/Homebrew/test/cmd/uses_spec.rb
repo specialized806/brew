@@ -45,7 +45,7 @@ RSpec.describe Homebrew::Cmd::Uses do
     allow(Homebrew::Trust).to receive(:trusted?).and_return(true)
 
     expect { cmd.run }
-      .to output(/^(bar\noptional|optional\nbar)$/).to_stdout
+      .to output(/^(?:bar\noptional|optional\nbar)$/).to_stdout
       .and output(/Error: Missing formulae should not have dependents!\n/).to_stderr
       .and raise_error SystemExit
   end

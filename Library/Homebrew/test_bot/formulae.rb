@@ -363,7 +363,7 @@ module Homebrew
           alternative_versions = dependency.versioned_formulae
 
           begin
-            unversioned_name = dependency.name.sub(/@\d+(\.\d+)*$/, "")
+            unversioned_name = dependency.name.sub(/@\d+(?:\.\d+)*$/, "")
             alternative_versions << Formula[unversioned_name]
           rescue FormulaUnavailableError
             nil
@@ -474,7 +474,7 @@ module Homebrew
           bottle_output.gsub(%r{.*(\./\S+#{HOMEBREW_BOTTLES_EXTNAME_REGEX}).*}om, '\1'),
         )
         @bottle_json_filename = Pathname.new(
-          @bottle_filename.to_s.gsub(/\.(\d+\.)?tar\.gz$/, ".json"),
+          @bottle_filename.to_s.gsub(/\.(?:\d+\.)?tar\.gz$/, ".json"),
         )
 
         @bottle_checksums[@bottle_filename.realpath] = @bottle_filename.sha256

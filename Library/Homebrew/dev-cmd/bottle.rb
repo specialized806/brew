@@ -44,7 +44,7 @@ module Homebrew
       MAXIMUM_STRING_MATCHES = 100
 
       ALLOWABLE_HOMEBREW_REPOSITORY_LINKS = T.let([
-        %r{#{Regexp.escape(HOMEBREW_LIBRARY)}/Homebrew/os/(mac|linux)/pkgconfig},
+        %r{#{Regexp.escape(HOMEBREW_LIBRARY)}/Homebrew/os/(?:mac|linux)/pkgconfig},
       ].freeze, T::Array[Regexp])
 
       cmd_args do
@@ -559,7 +559,7 @@ module Homebrew
 
             # Ignore matches to source code, which is not required at run time.
             # These matches may be caused by debugging symbols.
-            ignores = [%r{/include/|\.(c|cc|cpp|h|hpp)$}]
+            ignores = [%r{/include/|\.(?:c|cc|cpp|h|hpp)$}]
 
             # Add additional workarounds to ignore
             ignores += formula_ignores(formula)

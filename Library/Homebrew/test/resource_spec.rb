@@ -16,7 +16,7 @@ RSpec.describe Resource do
 
       livecheck do
         url "https://brew.sh/test/releases"
-        regex(/foo[._-]v?(\d+(?:\.\d+)+)\.t/i)
+        regex(/foo[._-]v?(?:\d+(?:\.\d+)+)\.t/i)
       end
     end
   end
@@ -70,7 +70,7 @@ RSpec.describe Resource do
   describe "#livecheck" do
     specify "when `livecheck` block is set" do
       expect(livecheck_resource.livecheck.url).to eq("https://brew.sh/test/releases")
-      expect(livecheck_resource.livecheck.regex).to eq(/foo[._-]v?(\d+(?:\.\d+)+)\.t/i)
+      expect(livecheck_resource.livecheck.regex).to eq(/foo[._-]v?(?:\d+(?:\.\d+)+)\.t/i)
     end
   end
 

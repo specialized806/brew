@@ -158,9 +158,9 @@ module RuboCop
           problem "#{url} should be: https://cpan.metacpan.org/#{match[1]}"
         end
 
-        gnome_pattern = %r{^(http|ftp)://ftp\.gnome\.org/pub/gnome/(.*)}i
+        gnome_pattern = %r{^(?:http|ftp)://ftp\.gnome\.org/pub/gnome/(.*)}i
         audit_urls(urls, gnome_pattern) do |match, url|
-          problem "#{url} should be: https://download.gnome.org/#{match[2]}"
+          problem "#{url} should be: https://download.gnome.org/#{match[1]}"
         end
 
         debian_pattern = %r{^git://anonscm\.debian\.org/users/(.*)}i
@@ -180,7 +180,7 @@ module RuboCop
         end
 
         # SourceForge url patterns
-        sourceforge_patterns = %r{^https?://.*\b(sourceforge|sf)\.(com|net)}
+        sourceforge_patterns = %r{^https?://.*\b(?:sourceforge|sf)\.(?:com|net)}
         audit_urls(urls, sourceforge_patterns) do |_, url|
           # Skip if the URL looks like a SVN repository.
           next if url.include? "/svnroot/"
@@ -258,7 +258,7 @@ module RuboCop
 
         # Check for default branch GitHub archives.
         if type == :formula
-          tarball_gh_pattern = %r{^https://github\.com/.*archive/(main|master)\.(tar\.gz|zip)$}
+          tarball_gh_pattern = %r{^https://github\.com/.*archive/(?:main|master)\.(?:tar\.gz|zip)$}
           audit_urls(urls, tarball_gh_pattern) do
             problem "Use versioned rather than branch tarballs for stable checksums."
           end
@@ -272,15 +272,15 @@ module RuboCop
           problem "Use /archive/ URLs for GitHub tarballs (`url` is #{url})."
         end
 
-        archive_refs_gh_pattern = %r{https://.*github.+/archive/(?![a-fA-F0-9]{40})(?!refs/(tags|heads)/)(.*)\.tar\.gz$}
+        archive_refs_gh_pattern = %r{https://.*github.+/archive/(?![a-fA-F0-9]{40})(?!refs/(?:tags|heads)/)(.*)\.tar\.gz$}
         audit_urls(urls, archive_refs_gh_pattern) do |match, url|
           next if url.end_with?(".git")
 
-          problem %Q(Use "refs/tags/#{match[2]}" or "refs/heads/#{match[2]}" for GitHub references (`url` is #{url}).)
+          problem %Q(Use "refs/tags/#{match[1]}" or "refs/heads/#{match[1]}" for GitHub references (`url` is #{url}).)
         end
 
         # Don't use GitHub .zip files
-        zip_gh_pattern = %r{https://.*github.*/(archive|releases)/.*\.zip$}
+        zip_gh_pattern = %r{https://.*github.*/(?:archive|releases)/.*\.zip$}
         audit_urls(urls, zip_gh_pattern) do |_, url|
           next if url.match? %r{raw\.githubusercontent\.com/.*/.*/(main|master|HEAD)/}
           next if url.include?("releases/download")

@@ -257,7 +257,7 @@ module Homebrew
 
             $stderr.puts Pathname.glob(extract_dir/"**/*")
                                  .map { |path|
-                                   regex = %r{\A(.*?\.(app|qlgenerator|saver|plugin|kext|bundle|osax))/.*\Z}
+                                   regex = %r{\A(.*?\.(?:app|qlgenerator|saver|plugin|kext|bundle|osax))/.*\Z}
                                    path.to_s.sub(regex, '\1')
                                  }.uniq
           ensure

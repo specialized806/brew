@@ -50,7 +50,7 @@ module Homebrew
         tap_with_name = Tap.with_formula_name(formula_input)
         tap, base_name = tap_with_name || [nil, formula_input]
         base_name = base_name.downcase
-                             .sub(/\b@(.*)\z\b/i, "")
+                             .sub(/\b@(?:.*)\z\b/i, "")
         normalized_version = version_input.to_s
                                           .sub(/\D*(.+?)\D*$/, "\\1")
                                           .gsub(/\D+/, ".")

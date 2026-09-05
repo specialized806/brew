@@ -512,9 +512,9 @@ module GitHub
 
   sig { params(name: String, version: T.nilable(String)).returns(Regexp) }
   def self.pull_request_title_regex(name, version = nil)
-    return /(^|\s)#{Regexp.quote(name)}(:|,|\s|$)/i if version.blank?
+    return /(?:^|\s)#{Regexp.quote(name)}(?::|,|\s|$)/i if version.blank?
 
-    /(^|\s)#{Regexp.quote(name)}(:|,|\s)(.*\s)?#{Regexp.quote(version)}(:|,|\s|$)/i
+    /(?:^|\s)#{Regexp.quote(name)}(?::|,|\s)(?:.*\s)?#{Regexp.quote(version)}(?::|,|\s|$)/i
   end
 
   sig {

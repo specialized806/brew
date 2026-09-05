@@ -27,7 +27,7 @@ RSpec.describe Homebrew::Cmd::Cache do
           #{HOMEBREW_CACHE}/downloads/[\da-f]{64}--caffeine\.zip
         }xo,
       ).to_stdout
-      .and output(/(Treating .* as a formula).*(Treating .* as a cask)/m).to_stderr
+      .and output(/(?:Treating .* as a formula).*(?:Treating .* as a cask)/m).to_stderr
       .and be_a_success
   end
 end

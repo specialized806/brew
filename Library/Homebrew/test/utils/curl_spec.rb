@@ -568,7 +568,7 @@ RSpec.describe "Utils::Curl" do
 
   describe "::curl_version" do
     it "returns a curl version string" do
-      expect(curl_version).to match(/^v?(\d+(?:\.\d+)+)$/)
+      expect(curl_version).to match(/^v?(?:\d+(?:\.\d+)+)$/)
     end
 
     it "only runs the curl subprocess on the first call" do

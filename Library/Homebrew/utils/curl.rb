@@ -280,7 +280,7 @@ module Utils
         return result unless out.include?("HTTP2")
 
         # The bug is fixed in `curl` >= 7.60.0.
-        curl_version = out[/curl (\d+(\.\d+)+)/, 1]
+        curl_version = out[/curl (\d+(?:\.\d+)+)/, 1]
         return result if Gem::Version.new(curl_version) >= Gem::Version.new("7.60.0")
 
         return curl_with_workarounds(*args, "--http1.1", **command_options, **options)
@@ -831,7 +831,7 @@ module Utils
       # Parse the status line and remove it
       response[:status_code] = match["code"]
       response[:status_text] = match["text"] if match["text"].present?
-      response_text = response_text.sub(%r{^HTTP/.* (\d+).*$\s*}, "")
+      response_text = response_text.sub(%r{^HTTP/.* (?:\d+).*$\s*}, "")
 
       # Create a hash from the header lines
       response[:headers] = {}

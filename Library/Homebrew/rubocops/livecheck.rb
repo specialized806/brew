@@ -150,7 +150,7 @@ module RuboCop
       class LivecheckRegexExtension < FormulaCop
         extend AutoCorrector
 
-        TAR_PATTERN = /\\?\.t(ar|(g|l|x)z$|[bz2]{2,4}$)(\\?\.((g|l|x)z)|[bz2]{2,4}|Z)?$/i
+        TAR_PATTERN = /\\?\.t(?:ar|(?:g|l|x)z$|[bz2]{2,4}$)(?:\\?\.(?:(?:g|l|x)z)|[bz2]{2,4}|Z)?$/i
 
         sig { override.params(formula_nodes: FormulaNodes).void }
         def audit_formula(formula_nodes)

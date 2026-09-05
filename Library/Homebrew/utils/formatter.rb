@@ -96,9 +96,9 @@ module Formatter
     indent = width - desc
     string.gsub(/(?<=\S) *\n(?=\S)/, " ")
           .gsub(/([`>)\]]:) /, "\\1\n    ")
-          .gsub(/^( +-.+  +(?=\S.{#{desc}}))(.{1,#{desc}})( +|$)(?!-)\n?/, "\\1\\2\n#{" " * indent}")
-          .gsub(/^( {#{indent}}(?=\S.{#{desc}}))(.{1,#{desc}})( +|$)(?!-)\n?/, "\\1\\2\n#{" " * indent}")
-          .gsub(/(.{1,#{width}})( +|$)(?!-)\n?/, "\\1\n")
+          .gsub(/^( +-.+  +(?=\S.{#{desc}}))(.{1,#{desc}})(?: +|$)(?!-)\n?/, "\\1\\2\n#{" " * indent}")
+          .gsub(/^( {#{indent}}(?=\S.{#{desc}}))(.{1,#{desc}})(?: +|$)(?!-)\n?/, "\\1\\2\n#{" " * indent}")
+          .gsub(/(.{1,#{width}})(?: +|$)(?!-)\n?/, "\\1\n")
   end
 
   T::Sig::WithoutRuntime.sig { params(string: T.nilable(T.any(String, URI::Generic))).returns(String) }
@@ -205,7 +205,7 @@ module Formatter
 
   sig { params(number: Integer).returns(String) }
   def self.number_readable(number)
-    number.to_i.to_s.gsub(/(\d)(?=(\d{3})+\z)/, "\\1,")
+    number.to_i.to_s.gsub(/(\d)(?=(?:\d{3})+\z)/, "\\1,")
   end
 
   sig { params(input: String, secrets: T::Array[String]).returns(String) }
