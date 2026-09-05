@@ -126,8 +126,6 @@ module Cask
         container.extract_nestedly(to:, basename:, verbose:)
       end
 
-      return unless Quarantine.available?
-
       Quarantine.propagate(from: container.path, to:)
     end
 
@@ -254,8 +252,6 @@ module Cask
 
     sig { params(path: Pathname).void }
     def quarantine(path)
-      return unless Quarantine.available?
-
       Quarantine.cask!(cask: @cask, download_path: path)
     end
 

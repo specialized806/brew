@@ -776,7 +776,7 @@ RSpec.describe Cask::Audit, :cask do
         end
       end
 
-      it "skips quarantine detection when quarantine support is unavailable" do
+      it "does not read quarantine metadata when quarantine support is unavailable" do
         downloaded_path = Pathname("/tmp/artifact-extraction.tar.gz")
         container = instance_double(UnpackStrategy, dependencies: [], extract_nestedly: nil)
         allow(audit.download).to receive(:fetch).and_return(downloaded_path)
@@ -785,7 +785,7 @@ RSpec.describe Cask::Audit, :cask do
         allow(Cask::Installer).to receive(:new)
           .and_return(instance_double(Cask::Installer, process_rename_operations: nil))
         allow(Cask::Quarantine).to receive(:available?).and_return(false)
-        expect(Cask::Quarantine).not_to receive(:detect)
+        expect(Cask::Quarantine).not_to receive(:system_command)
 
         audit.extract_artifacts
       end
