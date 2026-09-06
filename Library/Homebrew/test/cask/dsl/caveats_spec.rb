@@ -7,7 +7,6 @@ RSpec.describe Cask::DSL::Caveats, :cask do
   subject(:caveats) { described_class.new(cask) }
 
   let(:cask) { Cask::CaskLoader.load(cask_path("with-caveats-everything")) }
-  let(:dsl) { caveats }
 
   it_behaves_like Cask::DSL::Base
 

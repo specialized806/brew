@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "commands"
@@ -23,17 +23,15 @@ RSpec.shared_context "custom internal commands" do # rubocop:disable RSpec/Conte
   before do
     stub_const("Commands::HOMEBREW_CMD_PATH", cmd_path)
     stub_const("Commands::HOMEBREW_DEV_CMD_PATH", dev_cmd_path)
-  end
 
-  around do |example|
     cmd_path.mkpath
     dev_cmd_path.mkpath
     cmds.each do |f|
       FileUtils.touch f
     end
+  end
 
-    example.run
-  ensure
+  after do
     FileUtils.rm_f cmds
   end
 end
