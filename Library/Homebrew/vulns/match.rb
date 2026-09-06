@@ -6,6 +6,7 @@ require "utils/output"
 require "formula_versions"
 require "vulns/advisory_overrides"
 require "vulns/cpan_sec"
+require "vulns/history"
 require "vulns/identify"
 require "vulns/osv"
 require "vulns/osv_export"
@@ -128,8 +129,7 @@ module Homebrew
         @overrides = overrides
         @bulk = bulk
         @vuln_cache = T.let({}, T::Hash[String, T.nilable(Vulnerability)])
-        @formula_versions = T.let({}, T::Hash[String, FormulaVersions])
-        @formula_rev_lists = T.let({}, T::Hash[String, T::Array[[String, String]]])
+        @history = T.let(History.new, History)
       end
 
       sig { returns(Repology) }
@@ -609,13 +609,13 @@ module Homebrew
         }
       end
 
-      # Walk homebrew-core git history (newest first) via {FormulaVersions} and
-      # return the `pkg_version` at the oldest revision where the aggregate of
-      # every checkable subject is still `:fixed`. Re-running the full
-      # per-evidence range check with each revision's subject versions keeps
-      # `last_affected` and exclusive-bound semantics intact and stops as soon
-      # as any subject (primary or a resource) drops back into `:affected`, so
-      # a primary fixed at 2.0 with a resource fixed at 3.0 yields 3.0.
+      # Walk homebrew-core git history (newest first) via {History} and return
+      # the `pkg_version` at the oldest revision where the aggregate of every
+      # checkable subject is still `:fixed`. Re-running the full per-evidence
+      # range check with each revision's subject versions keeps `last_affected`
+      # and exclusive-bound semantics intact and stops as soon as any subject
+      # (primary or a resource) drops back into `:affected`, so a primary fixed
+      # at 2.0 with a resource fixed at 3.0 yields 3.0.
       #
       # Returns:
       # - `nil` when the current aggregate is not `:fixed`.
@@ -624,41 +624,28 @@ module Homebrew
       #   i.e. Homebrew jumped from a version below `introduced` straight past
       #   `fixed` and never shipped an affected build. The caller drops the
       #   candidate rather than emitting `{introduced: "0", fixed: <first>}`.
-      # - `:history_unavailable` when a revision cannot be loaded or compared,
-      #   so the caller can skip the candidate rather than inventing a boundary.
+      # - `:history_unavailable` when the tap is a shallow clone, the formula
+      #   has no git history or a revision cannot be loaded or compared, so the
+      #   caller can skip the candidate rather than inventing a boundary.
       # - a `pkg_version` String when the walk hits `:affected`.
-      #
-      # The rev-list and per-revision loads are cached per formula.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
       def first_fixed_version(formula, hit)
         return unless range_status(hit, formula_name: formula.name)&.first&.fixed?
 
-        fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
-        revs = @formula_rev_lists[formula.name] ||=
-          [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
-
         last_fixed = T.let(formula.pkg_version.to_s, String)
-        revs.each do |rev, entry|
-          state = fv.formula_at_revision(rev, entry) do |old|
-            [aggregate_state_at(old, hit), old.pkg_version.to_s]
-          end
-          return :history_unavailable if state.nil?
-
-          aggregate, pkg_version = state
+        result = @history.walk(formula) do |old|
+          aggregate = aggregate_state_at(old, hit)
           case aggregate
           when :fixed
-            last_fixed = pkg_version
-          when :affected
-            return last_fixed
-          when :not_applicable
-            return :never_affected
-          when nil
-            return :history_unavailable
-          else
-            raise TypeError, "unexpected historical aggregate: #{aggregate.inspect}"
+            last_fixed = old.pkg_version.to_s
+            nil
+          when :affected then last_fixed
+          when :not_applicable then :never_affected
+          when nil then :history_unavailable
+          else raise TypeError, "unexpected historical aggregate: #{aggregate.inspect}"
           end
         end
-        :never_affected
+        result || :never_affected
       end
 
       # Return the lowest representable formula `pkg_version` in the newest
@@ -669,43 +656,41 @@ module Homebrew
       # history is checked so the new interval cannot cover a known
       # non-affected formula version.
       # `:not_reintroduced` means no prior non-affected revision was verified,
-      # either because all loadable history remained affected or because a
-      # revision could not be loaded or compared safely.
+      # either because all loadable history remained affected, the tap is a
+      # shallow clone, the formula has no git history or a revision could not
+      # be loaded or compared safely.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
       def first_reintroduced_version(formula, hit)
         return unless range_status(hit, formula_name: formula.name)&.first&.affected?
 
-        fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
-        revs = @formula_rev_lists[formula.name] ||=
-          [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
-
         first_affected = T.let(formula.pkg_version.to_s, String)
         transition_found = T.let(false, T::Boolean)
-        revs.each do |rev, entry|
-          state = fv.formula_at_revision(rev, entry) do |old|
-            [aggregate_state_at(old, hit), old.pkg_version.to_s]
-          end
-          return :not_reintroduced if state.nil?
+        result = @history.walk(formula) do |old|
+          aggregate = aggregate_state_at(old, hit)
+          next :not_reintroduced if aggregate.nil?
 
-          aggregate, pkg_version = state
-          return :not_reintroduced if aggregate.nil?
-
+          pkg_version = old.pkg_version.to_s
           begin
             historical = PkgVersion.parse(pkg_version)
             boundary = PkgVersion.parse(first_affected)
             if transition_found
-              return :not_reintroduced if aggregate != :affected && historical >= boundary
+              next :not_reintroduced if aggregate != :affected && historical >= boundary
             elsif aggregate == :affected
               first_affected = pkg_version if historical < boundary
             else
-              return :not_reintroduced if historical >= boundary
+              next :not_reintroduced if historical >= boundary
 
               transition_found = true
             end
           rescue ArgumentError
-            return :not_reintroduced
+            next :not_reintroduced
           end
+          nil
         end
+        # Every early result is fail-closed: untrusted history, an uncomparable
+        # revision or a known non-affected version above the boundary.
+        return :not_reintroduced unless result.nil?
+
         transition_found ? first_affected : :not_reintroduced
       end
 
@@ -765,11 +750,17 @@ module Homebrew
         end
 
         exact_resource = formula.resources.find { |resource| resource.name == evidence.resource }
+        exact_identity_unknown = T.let(false, T::Boolean)
         if exact_resource
           exact_package = Identify.registry_package(exact_resource.url)
-          return [true, exact_resource.version&.to_s] unless exact_package
-          return [true, exact_package.version] if exact_package.ecosystem == evidence.ecosystem &&
-                                                  exact_package.name == evidence.name
+          if exact_package.nil?
+            # A reused resource label is not enough to prove package identity.
+            # Search the remaining resources in case the package was renamed,
+            # then leave this revision uncheckable if no identity can be found.
+            exact_identity_unknown = true
+          elsif exact_package.ecosystem == evidence.ecosystem && exact_package.name == evidence.name
+            return [true, exact_package.version]
+          end
         end
 
         formula.resources.each do |resource|
@@ -781,6 +772,8 @@ module Homebrew
 
           return [true, package.version]
         end
+
+        return [true, nil] if exact_identity_unknown
 
         [false, nil]
       end

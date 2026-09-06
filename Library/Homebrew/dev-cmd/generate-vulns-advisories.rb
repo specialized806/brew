@@ -4,7 +4,7 @@
 require "api/env"
 require "abstract_command"
 require "formula"
-require "formula_versions"
+require "vulns/history"
 require "vulns/osv_export"
 
 module Homebrew
@@ -80,12 +80,14 @@ module Homebrew
         (base + variation_patches.flatten(1)).uniq
       end
 
-      # Walk homebrew-core git history (newest first) via {FormulaVersions} and
-      # return the `pkg_version` at the oldest revision where `vuln_id` still
-      # appears in the formula's resolved patch ids: the version at which the
-      # fix first shipped. Revisions that fail to load (older DSL) end the walk
-      # early. Only invoked for records with no existing file, so the cost is
-      # bounded to newly annotated (formula, CVE) pairs.
+      # Walk homebrew-core git history (newest first) via
+      # {Homebrew::Vulns::History} and return the `pkg_version` at the oldest
+      # revision where `vuln_id` still appears in the formula's resolved patch
+      # ids: the version at which the fix first shipped. Untrusted history (a
+      # shallow clone, no git history or a revision that fails to load) returns
+      # `:history_unavailable` so the caller skips the record rather than
+      # inventing a boundary. Only invoked for records with no existing file,
+      # so the cost is bounded to newly annotated (formula, CVE) pairs.
       #
       # Because `resolved_ids` includes CVEs inferred from patch URLs and
       # `apply` file paths, this finds the true fix version when the CVE is
@@ -100,30 +102,28 @@ module Homebrew
       # {FormulaVersions} caches by revision alone, so per-variation historical
       # loading would need separate instances; deferred until a variation-only
       # security annotation actually exists in core.
-      sig { params(formula: Formula, vuln_id: String).returns(T.nilable(String)) }
+      sig { params(formula: Formula, vuln_id: String).returns(T.any(String, Symbol)) }
       def first_fixed_version(formula, vuln_id)
-        # `FormulaVersions#rev_list` shells out to path-filtered `git rev-list`
-        # over the whole homebrew-core history and dominates runtime; cache it
-        # (and the instance, for its per-revision formula memoisation) per
-        # formula so subsequent CVEs for the same formula reuse both.
-        @formula_versions ||= T.let({}, T.nilable(T::Hash[String, FormulaVersions]))
-        @formula_rev_lists ||= T.let({}, T.nilable(T::Hash[String, T::Array[[String, String]]]))
-        fv = @formula_versions[formula.name] ||= FormulaVersions.new(formula)
-        revs = @formula_rev_lists[formula.name] ||=
-          [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
+        # The path-filtered `git rev-list` over the whole homebrew-core history
+        # dominates runtime; {Homebrew::Vulns::History} caches it per formula
+        # so subsequent CVEs for the same formula reuse it.
+        @history ||= T.let(Homebrew::Vulns::History.new, T.nilable(Homebrew::Vulns::History))
 
-        last_fixed = T.let(nil, T.nilable(String))
-        revs.each do |rev, entry|
-          resolved_here = fv.formula_at_revision(rev, entry) do |old|
-            Homebrew::Vulns::Scanner.resolved_ids(old.serialized_patches).include?(vuln_id)
-          end
-          # `nil` means the revision failed to load; stop rather than guess.
-          return last_fixed if resolved_here.nil?
-          return last_fixed unless resolved_here
+        last_fixed = T.let(formula.pkg_version.to_s, String)
+        result = @history.walk(formula) do |old|
+          next last_fixed unless Homebrew::Vulns::Scanner.resolved_ids(old.serialized_patches).include?(vuln_id)
 
-          last_fixed = fv.formula_at_revision(rev, entry) { |old| old.pkg_version.to_s }
+          last_fixed = old.pkg_version.to_s
+          nil
         end
-        last_fixed
+        if result == :history_unavailable
+          record_id = Homebrew::Vulns::OsvExport.record_id(formula, vuln_id)
+          opoo "#{record_id}: formula history is unavailable; skipping automatic generation"
+          return :history_unavailable
+        end
+
+        # An exhausted walk means every revision resolved the CVE.
+        result || last_fixed
       end
     end
   end
