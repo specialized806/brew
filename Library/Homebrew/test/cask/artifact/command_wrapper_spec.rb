@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::CommandWrapper, :cask do
@@ -18,11 +18,12 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
   let(:target) { cask.config.binarydir/"example" }
   let(:custom_target) { cask.config.binarydir/"custom" }
 
-  around do |example|
+  before do
     cask.staged_path.mkpath
     target.dirname.mkpath
-    example.run
-  ensure
+  end
+
+  after do
     FileUtils.rm_f target
     FileUtils.rm_f custom_target
     FileUtils.rm_rf cask.staged_path

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "utils/git"
@@ -203,20 +203,19 @@ RSpec.describe Utils::Git do
         expect { described_class.ensure_installed! }.to raise_error("Git is unavailable")
       end
 
-      unless ENV["HOMEBREW_TEST_GENERIC_OS"]
-        it "keeps using the git shim after the formula install helper" do
-          expect(described_class).to receive(:available?).and_return(false)
-          allow(CoreTap.instance).to receive(:installed?).and_return(true)
-          formula_double = instance_double(Formula)
-          allow(Formula).to receive(:[]).with("git").and_return(formula_double)
-          allow(formula_double).to receive(:ensure_installed!).with(executable: "git")
-                                                              .and_return(Pathname.new("/usr/bin/git"))
-          expect(described_class).to receive(:available?).and_return(true)
+      it "keeps using the git shim after the formula install helper",
+         unless: ENV.fetch("HOMEBREW_TEST_GENERIC_OS", nil) do
+        expect(described_class).to receive(:available?).and_return(false)
+        allow(CoreTap.instance).to receive(:installed?).and_return(true)
+        formula_double = instance_double(Formula)
+        allow(Formula).to receive(:[]).with("git").and_return(formula_double)
+        allow(formula_double).to receive(:ensure_installed!).with(executable: "git")
+                                                            .and_return(Pathname.new("/usr/bin/git"))
+        expect(described_class).to receive(:available?).and_return(true)
 
-          described_class.ensure_installed!
+        described_class.ensure_installed!
 
-          expect(described_class.git).to eq(HOMEBREW_SHIMS_PATH/"shared/git")
-        end
+        expect(described_class.git).to eq(HOMEBREW_SHIMS_PATH/"shared/git")
       end
     end
   end
