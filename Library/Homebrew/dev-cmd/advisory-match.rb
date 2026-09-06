@@ -114,6 +114,7 @@ module Homebrew
                   when :never_affected
                     next
                   when :history_unavailable
+                    emitter.record_history_unavailable(formula.name)
                     opoo "#{record_id}: formula history is unavailable; skipping automatic update"
                     next
                   else
@@ -240,6 +241,9 @@ module Homebrew
         sig { void }
         def record_history_walk; end
 
+        sig { params(_formula_name: String).void }
+        def record_history_unavailable(_formula_name); end
+
         sig { params(_record_id: String).returns(T.nilable(Symbol)) }
         def reviewed_range_state(_record_id); end
 
@@ -265,6 +269,7 @@ module Homebrew
           @unchanged = T.let(0, Integer)
           @skipped_generated = T.let(0, Integer)
           @history_walks = T.let(0, Integer)
+          @history_unavailable_by_formula = T.let({}, T::Hash[String, Integer])
           @alias_targets = T.let({}, T::Hash[String, T::Array[String]])
           @protected_aliases = T.let({}, T::Hash[String, T::Boolean])
           @alias_records = T.let({}, T::Hash[String, T.untyped])
@@ -466,6 +471,12 @@ module Homebrew
           puts "  #{@history_walks} history walks" if @verbose && (@history_walks % 100).zero?
         end
 
+        sig { override.params(formula_name: String).void }
+        def record_history_unavailable(formula_name)
+          count = @history_unavailable_by_formula.fetch(formula_name, 0)
+          @history_unavailable_by_formula[formula_name] = count + 1
+        end
+
         sig { params(record_id: String).returns(String) }
         def record_path(record_id)
           File.join(@dir, "#{record_id}.json")
@@ -574,9 +585,14 @@ module Homebrew
 
         sig { override.void }
         def finish
+          history_unavailable = @history_unavailable_by_formula.values.sum
           Utils::Output.ohai "#{@written} records written to #{@dir} " \
                              "(#{@unchanged} unchanged, #{@skipped_generated} generated left as-is, " \
-                             "#{@history_walks} history walks)"
+                             "#{@history_walks} history walks, #{history_unavailable} history-unavailable skips)"
+          return if @history_unavailable_by_formula.empty?
+
+          puts "  Unavailable history by formula:"
+          @history_unavailable_by_formula.sort.each { |formula, count| puts "    #{formula}: #{count}" }
         end
       end
 
