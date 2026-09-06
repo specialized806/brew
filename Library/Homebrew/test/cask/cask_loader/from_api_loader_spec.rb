@@ -1,10 +1,10 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
   shared_context "with API setup" do |local_token|
     let(:api_token) { "#{local_token}-api" }
-    let(:cask_from_source) { Cask::CaskLoader.load(local_token) }
+    let(:cask_from_source) { Cask::CaskLoader.load(local_token.to_s) }
     let(:cask_json) do
       hash = cask_from_source.to_hash_with_variations
       # This value will always be present in the json API, but is skipped in tests
@@ -27,7 +27,7 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
 
   shared_context "with internal API setup" do |local_token|
     # Load the cask and generate its hash first before we enable internal API mode for the test body
-    let!(:cask_from_internal_source) { Cask::CaskLoader.load(local_token) }
+    let!(:cask_from_internal_source) { Cask::CaskLoader.load(local_token.to_s) }
     let!(:cask_internal_struct) do
       hash_with_variations = cask_from_internal_source.to_hash_with_variations
       Homebrew::API::Cask::CaskStructGenerator.generate_cask_struct_hash(hash_with_variations)
@@ -105,8 +105,8 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
 
           loader = Cask::CaskLoader::FromNameLoader.try_new(old_token)
           expect(loader).to be_a(described_class)
-          expect(loader.token).to eq api_token
-          expect(loader.path).not_to exist
+          expect(loader&.token).to eq api_token
+          expect(loader&.path).not_to exist
         end
 
         it "returns the tap migration rename by old full name" do
@@ -117,8 +117,8 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
 
           loader = Cask::CaskLoader::FromTapLoader.try_new("#{foo_tap}/#{old_token}")
           expect(loader).to be_a(described_class)
-          expect(loader.token).to eq api_token
-          expect(loader.path).not_to exist
+          expect(loader&.token).to eq api_token
+          expect(loader&.path).not_to exist
         end
       end
     end
@@ -157,8 +157,8 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
 
           loader = Cask::CaskLoader::FromNameLoader.try_new(old_token)
           expect(loader).to be_a(described_class)
-          expect(loader.token).to eq internal_api_token
-          expect(loader.path).not_to exist
+          expect(loader&.token).to eq internal_api_token
+          expect(loader&.path).not_to exist
         end
 
         it "returns the tap migration rename by old full name" do
@@ -169,8 +169,8 @@ RSpec.describe Cask::CaskLoader::FromAPILoader, :cask do
 
           loader = Cask::CaskLoader::FromTapLoader.try_new("#{foo_tap}/#{old_token}")
           expect(loader).to be_a(described_class)
-          expect(loader.token).to eq internal_api_token
-          expect(loader.path).not_to exist
+          expect(loader&.token).to eq internal_api_token
+          expect(loader&.path).not_to exist
         end
       end
     end
