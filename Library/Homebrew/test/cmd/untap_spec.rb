@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cmd/shared_examples/args_parse"
@@ -154,17 +154,17 @@ RSpec.describe Homebrew::Cmd::Untap do
     shared_examples "finds installed formulae in tap", :no_api do
       def load_formula(name:, with_formula_file: false, mock_install: false)
         formula = if with_formula_file
-          path = Formulary.find_formula_in_tap(name, tap)
+          path = Formulary.find_formula_in_tap(name, subject)
           path.dirname.mkpath
           path.write <<~RUBY
             class #{Formulary.class_s(name)} < Formula
               url "https://brew.sh/#{name}-1.0.tgz"
             end
           RUBY
-          tap.clear_cache
+          subject.clear_cache
           Formulary.factory(path)
         else
-          formula(name, tap:) do
+          formula(name, tap: subject) do
             T.bind(self, T.class_of(Formula))
             url "https://brew.sh/#{name}-1.0.tgz"
           end
@@ -178,7 +178,7 @@ RSpec.describe Homebrew::Cmd::Untap do
           tab_path.write <<~JSON
             {
               "source": {
-                "tap": "#{tap}"
+                "tap": "#{subject}"
               }
             }
           JSON
@@ -192,22 +192,22 @@ RSpec.describe Homebrew::Cmd::Untap do
       end
 
       before do
-        # Formula that is available from a tap but not installed.
+        # Formula that is available from a subject but not installed.
         load_formula(name: "no_install", with_formula_file: true)
 
-        # Formula that was installed from a tap but is no longer available from that tap.
+        # Formula that was installed from a subject but is no longer available from that subject.
         load_formula(name: "legacy_install", mock_install: true)
 
-        tap.clear_cache
+        subject.clear_cache
       end
 
       it "returns the expected formulae" do
-        expect(class_instance.installed_formulae_for(tap:).map(&:full_name))
+        expect(described_class.new(%w[arg1]).installed_formulae_for(tap: subject).map(&:full_name))
           .to eq([currently_installed_formula.full_name])
       end
 
       it "ignores formulae with invalid specs" do
-        path = Formulary.find_formula_in_tap("invalid-spec", tap)
+        path = Formulary.find_formula_in_tap("invalid-spec", subject)
         path.dirname.mkpath
         path.write <<~RUBY
           class InvalidSpec < Formula
@@ -219,25 +219,25 @@ RSpec.describe Homebrew::Cmd::Untap do
         (keg_path/AbstractTab::FILENAME).write <<~JSON
           {
             "source": {
-              "tap": "#{tap}"
+              "tap": "#{subject}"
             }
           }
         JSON
-        tap.clear_cache
+        subject.clear_cache
 
-        expect(class_instance.installed_formulae_for(tap:).map(&:full_name))
+        expect(described_class.new(%w[arg1]).installed_formulae_for(tap: subject).map(&:full_name))
           .to eq([currently_installed_formula.full_name])
       end
     end
 
     context "with core tap" do
-      let(:tap) { CoreTap.instance }
+      subject(:tap) { CoreTap.instance }
 
       include_examples "finds installed formulae in tap"
     end
 
     context "with non-core tap" do
-      let(:tap) { Tap.fetch("homebrew", "foo") }
+      subject(:tap) { Tap.fetch("homebrew", "foo") }
 
       before do
         tap.formula_dir.mkpath
@@ -262,14 +262,14 @@ RSpec.describe Homebrew::Cmd::Untap do
         RUBY
 
         if with_cask_file
-          cask_path = tap.cask_dir/"#{token}.rb"
+          cask_path = subject.cask_dir/"#{token}.rb"
           cask_path.parent.mkpath
           cask_path.write cask_source
         end
 
         return if deprecated
 
-        cask_loader = Cask::CaskLoader::FromContentLoader.new(cask_source, tap:)
+        cask_loader = Cask::CaskLoader::FromContentLoader.new(cask_source, tap: subject)
         cask = cask_loader.load(config: nil)
 
         InstallHelper.install_with_caskfile(cask) if mock_install
@@ -282,10 +282,10 @@ RSpec.describe Homebrew::Cmd::Untap do
       end
 
       before do
-        # Cask that is available from a tap but not installed.
+        # Cask that is available from a subject but not installed.
         load_cask(token: "no_install", with_cask_file: true)
 
-        # Cask that was installed from a tap but is no longer available from that tap.
+        # Cask that was installed from a subject but is no longer available from that subject.
         load_cask(token: "legacy_install", mock_install: true)
 
         # Cask that uses deprecated method.
@@ -293,18 +293,18 @@ RSpec.describe Homebrew::Cmd::Untap do
       end
 
       it "returns the expected casks" do
-        expect(class_instance.installed_casks_for(tap:)).to eq([currently_installed_cask])
+        expect(described_class.new(%w[arg1]).installed_casks_for(tap: subject)).to eq([currently_installed_cask])
       end
     end
 
     context "with core cask tap" do
-      let(:tap) { CoreCaskTap.instance }
+      subject(:tap) { CoreCaskTap.instance }
 
       include_examples "finds installed casks in tap"
     end
 
     context "with non-core cask tap" do
-      let(:tap) { Tap.fetch("homebrew", "foo") }
+      subject(:tap) { Tap.fetch("homebrew", "foo") }
 
       include_examples "finds installed casks in tap"
     end
