@@ -36,6 +36,42 @@ RSpec.describe Homebrew::Cmd::Update do
     end
   end
 
+  it "detects shallow clones and their linked worktrees but not full clones" do
+    setup_update_utils
+    FileUtils.ln_s repository_root/"Library/Homebrew/shims", test_root/"Library/Homebrew/shims"
+    repositories = test_root/"repositories"
+
+    stdout, stderr, status = run_update_shell(
+      <<~SH,
+        source "#{update_script}"
+        git() {
+          "#{Utils::Git.git}" -c init.defaultBranch=main -c user.name=Homebrew \\
+            -c user.email=homebrew@example.com "$@"
+        }
+        mkdir -p "#{repositories}" && cd "#{repositories}"
+        git init -q remote
+        git -C remote commit -q --allow-empty -m init
+        git clone -q remote full
+        git clone -q --depth 1 "file://#{repositories}/remote" shallow
+        git -C shallow worktree add -q --detach "#{repositories}/shallow-worktree"
+        for repository in full shallow shallow-worktree missing
+        do
+          if shallow_repository "#{repositories}/${repository}"
+          then
+            echo "${repository}: shallow"
+          else
+            echo "${repository}: full"
+          fi
+        done
+      SH
+      { "HOMEBREW_LIBRARY" => (test_root/"Library").to_s },
+    )
+
+    expect([status.success?, stdout]).to eq(
+      [true, "full: full\nshallow: shallow\nshallow-worktree: shallow\nmissing: full\n"],
+    ), stderr
+  end
+
   it "retries a failed conditional API download without the time condition" do
     cache_path = test_root/"cache/api/formula.jws.json"
     requests_file = test_root/"requests.txt"

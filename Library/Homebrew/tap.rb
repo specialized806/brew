@@ -521,7 +521,7 @@ class Tap
   # Check whether this {Tap} is a shallow clone.
   sig { returns(T::Boolean) }
   def shallow?
-    (path/".git/shallow").exist?
+    git_repository.shallow?
   end
 
   sig { overridable.returns(T::Boolean) }

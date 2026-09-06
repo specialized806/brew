@@ -20,6 +20,15 @@ class GitRepository
     pathname.join(".git").exist?
   end
 
+  # Check whether this repository is a shallow clone. A linked worktree keeps
+  # the shallow marker in the shared Git directory, so ask Git rather than
+  # looking for `.git/shallow`.
+  # Keep in sync with `shallow_repository` in `cmd/update.sh`.
+  sig { returns(T::Boolean) }
+  def shallow?
+    popen_git("rev-parse", "--is-shallow-repository") == "true"
+  end
+
   # Gets the URL of the Git origin remote.
   sig { returns(T.nilable(String)) }
   def origin_url
