@@ -12,7 +12,11 @@ RSpec.describe Cask::Info, :cask do
   include Utils::Output::Mixin
 
   def uninstalled(string)
-    "#{Tty.bold}#{string} #{Formatter.error("✘")}#{Tty.reset}"
+    "#{Tty.bold}#{string}#{Tty.reset}"
+  end
+
+  def cannot_install(string)
+    "#{Tty.bold}#{string} #{Formatter.error("⊘")}#{Tty.reset}"
   end
 
   def installed(string)
@@ -88,7 +92,7 @@ RSpec.describe Cask::Info, :cask do
     expect do
       described_class.info(Cask::CaskLoader.load(cask_path("livecheck/livecheck-disabled")), args:)
     end.to output(
-      /#{Regexp.escape(uninstalled("livecheck-disabled"))} #{Regexp.escape(Formatter.error("(disabled)"))}/,
+      /#{Regexp.escape(cannot_install("livecheck-disabled"))} #{Regexp.escape(Formatter.error("(disabled)"))}/,
     ).to_stdout
   end
 

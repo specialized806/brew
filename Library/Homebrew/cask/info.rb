@@ -54,10 +54,11 @@ module Cask
       name_with_status = pretty_install_status(
         cask.token,
         installed:,
-        outdated:   installed && cask.outdated?,
-        deprecated: cask.deprecated?,
-        disabled:   cask.disabled?,
-        bold:       true,
+        outdated:    installed && cask.outdated?,
+        deprecated:  cask.deprecated?,
+        disabled:    cask.disabled?,
+        can_install: cask.valid_platform? && !cask.disabled?,
+        bold:        true,
       )
       title = oh1_title(name_with_status).to_s
       title += " (#{cask.name.join(", ")})" unless cask.name.empty?

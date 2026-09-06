@@ -288,6 +288,18 @@ module Utils
         end
       end
 
+      sig { params(string: String, bold: T::Boolean).returns(String) }
+      def pretty_cannot_install(string, bold: true)
+        weight = bold ? Tty.bold.to_s : ""
+        if !$stdout.tty?
+          string
+        elsif Homebrew::EnvConfig.no_emoji?
+          Formatter.error("#{weight}#{string} (can't be installed)#{Tty.reset}")
+        else
+          "#{weight}#{string} #{Formatter.error("⊘")}#{Tty.reset}"
+        end
+      end
+
       # Keep status labels, colours and emoji in sync with
       # `pretty_uninstalled` in Library/Homebrew/utils.sh.
       sig { params(string: String, bold: T::Boolean).returns(String) }
@@ -325,11 +337,12 @@ module Utils
 
       sig {
         params(string: String, installed: T::Boolean, warning: T::Boolean, outdated: T::Boolean,
-               deprecated: T::Boolean, disabled: T::Boolean, mark_uninstalled: T::Boolean,
-               bold: T.nilable(T::Boolean)).returns(String)
+               deprecated: T::Boolean, disabled: T::Boolean, can_install: T::Boolean,
+               mark_uninstalled: T::Boolean, bold: T.nilable(T::Boolean)).returns(String)
       }
       def pretty_install_status(string, installed:, warning: false, outdated: false, deprecated: false,
-                                disabled: false, mark_uninstalled: true, bold: nil)
+                                disabled: false, can_install: true, mark_uninstalled: false,
+                                bold: nil)
         bold = installed if bold.nil?
         status = if warning
           pretty_warning(string, bold:)
@@ -337,6 +350,8 @@ module Utils
           pretty_upgradable(string, bold:)
         elsif installed
           pretty_installed(string)
+        elsif !can_install
+          pretty_cannot_install(string, bold:)
         elsif mark_uninstalled
           pretty_uninstalled(string, bold:)
         else
