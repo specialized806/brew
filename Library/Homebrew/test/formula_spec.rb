@@ -3330,6 +3330,31 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#conflicts_with" do
+    it "can be given multiple formulae" do
+      klass = Class.new(Formula) do
+        conflicts_with "foo", "bar", "baz", because: "some reason"
+      end
+      expect(klass.conflicts.map(&:name)).to eq %w[foo bar baz]
+      expect(klass.conflicts.map(&:reason)).to eq(["some reason"] * 3)
+    end
+
+    it "can be given a cask and ignores it" do
+      klass = Class.new(Formula) do
+        conflicts_with cask: "foo"
+      end
+      expect(klass.conflicts).to be_empty
+    end
+
+    it "raises an error when not given a formula or cask" do
+      expect do
+        Class.new(Formula) do
+          conflicts_with because: "some reason"
+        end
+      end.to raise_error(ArgumentError, /needs at least one formula or cask/)
+    end
+  end
+
   describe "#preserve_rpath" do
     it "defaults to false" do
       f = formula do

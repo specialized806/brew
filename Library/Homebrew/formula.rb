@@ -107,7 +107,10 @@ class Formula
   abstract!
 
   # Used to track formulae that cannot be installed at the same time.
-  FormulaConflict = Struct.new(:name, :reason)
+  class FormulaConflict < T::Struct
+    const :name, String
+    const :reason, T.nilable(String)
+  end
 
   SUPPORTED_NETWORK_ACCESS_PHASES = [:build, :test, :postinstall].freeze
   private_constant :SUPPORTED_NETWORK_ACCESS_PHASES
@@ -4811,10 +4814,14 @@ class Formula
     # ```
     #
     # @api public
-    sig { params(names: T.untyped).void }
-    def conflicts_with(*names)
-      opts = T.let(names.last.is_a?(Hash) ? names.pop : {}, T::Hash[Symbol, T.untyped])
-      names.each { |name| conflicts << FormulaConflict.new(name, opts[:because]) }
+    # @param names formulae that conflict
+    # @param because reason for conflict
+    # @param cask token of cask that conflicts. Not implemented.
+    sig { params(names: String, because: T.nilable(String), cask: T.nilable(String)).void }
+    def conflicts_with(*names, because: nil, cask: nil)
+      raise ArgumentError, "`conflicts_with` needs at least one formula or cask" if names.empty? && cask.nil?
+
+      names.each { |name| conflicts << FormulaConflict.new(name:, reason: because) }
     end
 
     # Skip cleaning paths in a formula.
