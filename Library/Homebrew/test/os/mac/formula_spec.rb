@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "test/support/fixtures/testball"
@@ -8,6 +8,7 @@ RSpec.describe Formula do
   describe "#change_dylib_id" do
     subject(:f) do
       formula "dylib-id-test" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
       end
     end

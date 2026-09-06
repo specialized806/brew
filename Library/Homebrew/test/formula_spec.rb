@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "test/support/fixtures/testball"
@@ -3014,6 +3014,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_macos do
             @test = 1
@@ -3037,6 +3038,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_macos do
             @test = 1
@@ -3061,6 +3063,7 @@ RSpec.describe Formula do
         attr_reader :bar
 
         def install
+          T.bind(self, Formula)
           @foo = 0
           @bar = 0
           on_system :linux, macos: :tahoe do
@@ -3120,6 +3123,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_sequoia :or_newer do
             @test = 1
@@ -3180,6 +3184,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_arm do
             @test = 1
@@ -3207,6 +3212,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_arm do
             @test = 1
