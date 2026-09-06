@@ -3335,8 +3335,7 @@ RSpec.describe Formula do
       klass = Class.new(Formula) do
         conflicts_with "foo", "bar", "baz", because: "some reason"
       end
-      expect(klass.conflicts.map(&:name)).to eq %w[foo bar baz]
-      expect(klass.conflicts.map(&:reason)).to eq(["some reason"] * 3)
+      expect(klass.conflicts.map { |c| [c.name, c.reason] }).to eq(%w[foo bar baz].zip(["some reason"] * 3))
     end
 
     it "can be given a cask and ignores it" do

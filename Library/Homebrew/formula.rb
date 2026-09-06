@@ -4816,7 +4816,7 @@ class Formula
     # @api public
     # @param names formulae that conflict
     # @param because reason for conflict
-    # @param cask token of cask that conflicts. Not implemented.
+    # @param cask token of cask that conflicts. Accepted but currently ignored.
     sig { params(names: String, because: T.nilable(String), cask: T.nilable(String)).void }
     def conflicts_with(*names, because: nil, cask: nil)
       raise ArgumentError, "`conflicts_with` needs at least one formula or cask" if names.empty? && cask.nil?
