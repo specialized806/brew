@@ -529,9 +529,24 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
 
     Dir.mktmpdir do |dir|
-      expect { cmd_for("requests", "--output", dir, "--new-history").run }
-        .to output(/formula history is unavailable; skipping automatic update/).to_stderr
+      expect do
+        expect { cmd_for("requests", "--output", dir, "--new-history").run }
+          .to output(/formula history is unavailable; skipping automatic update/).to_stderr
+      end.to output(/1 history-unavailable skips.*Unavailable history by formula:\n    requests: 1/m).to_stdout
       expect(Dir.glob(File.join(dir, "*.json"))).to be_empty
+    end
+  end
+
+  it "summarises unavailable history deterministically by formula" do
+    Dir.mktmpdir do |dir|
+      emitter = Homebrew::DevCmd::AdvisoryMatch::DirEmitter.new(dir, verbose: false, close_open_ranges: false)
+      emitter.record_history_unavailable("requests")
+      emitter.record_history_unavailable("curl")
+      emitter.record_history_unavailable("requests")
+
+      expect { emitter.finish }
+        .to output(/3 history-unavailable skips.*Unavailable history by formula:\n    curl: 1\n    requests: 2/m)
+        .to_stdout
     end
   end
 

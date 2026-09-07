@@ -34,7 +34,10 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
     allow(Formulary).to receive(:factory).with("nvi").and_return(nvi)
     allow(Formulary).to receive(:factory).with("plain").and_return(plain)
     allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
-    allow(FormulaVersions).to receive(:new).and_return(instance_double(FormulaVersions, rev_list: nil))
+    fv = instance_double(FormulaVersions)
+    allow(fv).to receive(:rev_list).and_yield("r1", "Formula/n/nvi.rb")
+    allow(fv).to receive(:formula_at_revision).and_yield(nvi)
+    allow(FormulaVersions).to receive(:new).and_return(fv)
 
     Dir.mktmpdir do |dir|
       out = "#{dir}/advisories"
@@ -152,24 +155,36 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
       expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq "1.0"
     end
 
-    it "stops at an unloadable revision and returns the last known resolved version" do
+    it "returns :history_unavailable when a revision cannot be loaded" do
       with_history(
         "r3" => old_formula(pkg_version: "1.2", resolves_ids: ["CVE-2024-1"]),
         "r2" => nil,
         "r1" => old_formula(pkg_version: "1.0", resolves_ids: ["CVE-2024-1"]),
       )
 
-      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq "1.2"
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq :history_unavailable
     end
 
-    it "returns nil when the CVE is not resolved at the newest revision" do
+    it "returns the current pkg_version when the CVE is not resolved at the newest revision" do
       with_history(
         "r2" => old_formula(pkg_version: "1.2", resolves_ids: []),
         # Trap: if the walk continued past r2 it would wrongly return 1.0.
         "r1" => old_formula(pkg_version: "1.0", resolves_ids: ["CVE-2024-1"]),
       )
 
-      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to be_nil
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq "1.2"
+    end
+
+    it "returns :history_unavailable for a shallow tap" do
+      allow(current.tap!).to receive(:shallow?).and_return(true)
+
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq :history_unavailable
+    end
+
+    it "returns :history_unavailable when the formula has no git history" do
+      with_history({})
+
+      expect(cmd.first_fixed_version(current, "CVE-2024-1")).to eq :history_unavailable
     end
   end
 end

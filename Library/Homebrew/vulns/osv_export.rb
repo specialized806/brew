@@ -46,12 +46,14 @@ module Homebrew
       #
       # `first_fixed`, when given, is called `(formula, vuln_id) -> String?` for
       # records with no existing file to derive an accurate `fixed` boundary
-      # (e.g. via {FormulaVersions} git history); existing records preserve
-      # their on-disk `ranges` regardless.
+      # (e.g. via {FormulaVersions} git history). It may return
+      # `:history_unavailable` to skip a new record when no boundary can be
+      # verified; existing records preserve their on-disk `ranges` regardless.
       sig {
         params(annotated:   T::Array[[Formula, T::Array[T::Hash[String, T.untyped]]]],
                dir:         T.any(String, Pathname),
-               first_fixed: T.nilable(T.proc.params(formula: Formula, vuln_id: String).returns(T.nilable(String))),
+               first_fixed: T.nilable(T.proc.params(formula: Formula, vuln_id: String)
+                                         .returns(T.nilable(T.any(String, Symbol)))),
                now:         Time)
           .returns(T::Array[String])
       }
@@ -69,7 +71,18 @@ module Homebrew
             # from an existing enriched record; leave it untouched instead.
             next if upstream == :failed && existing
 
-            fixed = (first_fixed&.call(formula, vuln_id) unless existing) || formula.pkg_version.to_s
+            fixed_result = T.let(nil, T.nilable(T.any(String, Symbol)))
+            fixed_result = first_fixed.call(formula, vuln_id) if first_fixed && !existing
+            fixed = case fixed_result
+            when String
+              fixed_result
+            when nil
+              formula.pkg_version.to_s
+            when :history_unavailable
+              next
+            else
+              raise TypeError, "unexpected first-fixed result: #{fixed_result.inspect}"
+            end
             record = record_for(formula, vuln_id, patches:, fixed:,
                                 upstream: upstream.is_a?(Hash) ? upstream : nil, now:)
             merged = merge_existing(path, record)

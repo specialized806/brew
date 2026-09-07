@@ -812,6 +812,27 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :never_affected
     end
 
+    it "returns :history_unavailable for a shallow formula repository" do
+      allow(requests.tap!).to receive(:shallow?).and_return(true)
+      stub_history(["2.31.0"])
+
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :history_unavailable
+    end
+
+    it "does not derive a reintroduction from a shallow formula repository" do
+      allow(requests.tap!).to receive(:shallow?).and_return(true)
+      stub_history(["2.31.0", "2.30.0"])
+      allow(matcher).to receive(:aggregate_state_at).and_return(:affected, :fixed)
+
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+    end
+
+    it "returns :history_unavailable when the formula has no git history" do
+      stub_history([])
+
+      expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :history_unavailable
+    end
+
     it "keeps Git history uncheckable across repository URL changes" do
       current = formula("requests") do
         T.bind(self, T.class_of(Formula))
@@ -940,6 +961,68 @@ RSpec.describe Homebrew::Vulns::Match do
       )
 
       expect(matcher.first_fixed_version(current, hit)).to eq "2.0"
+    end
+
+    it "does not inherit the formula version when a verified package URL has no version" do
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-3.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-2.0.tar.gz"
+        end
+      end
+      historical = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-.tar.gz"
+        end
+      end
+      fv = instance_double(FormulaVersions)
+      allow(fv).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+      allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(historical)
+      allow(FormulaVersions).to receive(:new).and_return(fv)
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "1.5" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "2.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_fixed_version(current, hit)).to eq :history_unavailable
+    end
+
+    it "does not inherit package identity from a matching resource label" do
+      current = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-3.0.tar.gz"
+        resource("certifi") do
+          url "https://files.pythonhosted.org/packages/11/22/33/certifi-2.0.tar.gz"
+        end
+      end
+      historical = formula("requests") do
+        T.bind(self, T.class_of(Formula))
+        url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.0.tar.gz"
+        resource("certifi") do
+          url "https://example.com/certifi-1.0.tar.gz"
+        end
+      end
+      fv = instance_double(FormulaVersions)
+      allow(fv).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+      allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(historical)
+      allow(FormulaVersions).to receive(:new).and_return(fv)
+      hit = make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "1.5" }] }] },
+        ]),
+        ev(:registry, ecosystem: "PyPI", name: "certifi", subject_version: "2.0", resource: "certifi"),
+      )
+
+      expect(matcher.first_fixed_version(current, hit)).to eq :history_unavailable
     end
 
     it "keeps versionless (distro) evidence uncheckable at historical revisions too" do

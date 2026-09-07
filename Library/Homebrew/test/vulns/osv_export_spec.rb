@@ -491,6 +491,32 @@ RSpec.describe Homebrew::Vulns::OsvExport do
       end
     end
 
+    it "skips a new record when formula history is unavailable" do
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
+
+      Dir.mktmpdir do |dir|
+        written = described_class.run(
+          [[nvi, nvi.serialized_patches]], dir,
+          first_fixed: ->(_f, _id) { :history_unavailable }, now:
+        )
+
+        expect([written, Dir.children(dir)]).to eq [[], []]
+      end
+    end
+
+    it "rejects an unknown first-fixed result" do
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_return({})
+
+      Dir.mktmpdir do |dir|
+        expect do
+          described_class.run(
+            [[nvi, nvi.serialized_patches]], dir,
+            first_fixed: ->(_f, _id) { :future_result }, now:
+          )
+        end.to raise_error(TypeError, /unexpected first-fixed result: :future_result/)
+      end
+    end
+
     it "fetches each upstream vuln id once, even when shared across formulae" do
       shared = [{ "url"      => "https://example.com/fix.patch",
                   "resolves" => [{ "type" => "security", "id" => "CVE-2024-9999" }] }]
