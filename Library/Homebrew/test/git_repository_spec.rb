@@ -50,6 +50,24 @@ RSpec.describe GitRepository do
     end
   end
 
+  describe "#shallow?" do
+    let(:shallow_path) { repo_root/"shallow" }
+    let(:worktree_path) { repo_root/"shallow-worktree" }
+
+    before do
+      SystemCommand.safe_system Utils::Git.git, "clone", "--depth", "1", "file://#{remote_path}", shallow_path
+      SystemCommand.safe_system Utils::Git.git, "-C", shallow_path, "worktree", "add", "--detach", worktree_path
+    end
+
+    it "detects a shallow clone through its linked worktree but not a full clone" do
+      expect([
+        described_class.new(shallow_path).shallow?,
+        described_class.new(worktree_path).shallow?,
+        git_repo.shallow?,
+      ]).to eq [true, true, false]
+    end
+  end
+
   describe "#origin_url" do
     it "reads the origin URL from .git/config without spawning Git" do
       allow(git_repo).to receive(:popen_git).and_raise("Git should not be spawned")

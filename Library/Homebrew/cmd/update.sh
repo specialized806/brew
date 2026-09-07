@@ -165,6 +165,11 @@ read_current_revision() {
   git rev-parse -q --verify HEAD
 }
 
+# Keep in sync with `GitRepository#shallow?` in `git_repository.rb`.
+shallow_repository() {
+  [[ -d "$1" && "$(git -C "$1" rev-parse --is-shallow-repository 2>/dev/null)" == "true" ]]
+}
+
 pop_stash() {
   [[ -z "${STASHED}" ]] && return
   if [[ -n "${HOMEBREW_VERBOSE}" ]]
@@ -611,8 +616,8 @@ EOS
     setup_git
   fi
 
-  [[ -f "${HOMEBREW_CORE_REPOSITORY}/.git/shallow" ]] && HOMEBREW_CORE_SHALLOW=1
-  [[ -f "${HOMEBREW_CASK_REPOSITORY}/.git/shallow" ]] && HOMEBREW_CASK_SHALLOW=1
+  shallow_repository "${HOMEBREW_CORE_REPOSITORY}" && HOMEBREW_CORE_SHALLOW=1
+  shallow_repository "${HOMEBREW_CASK_REPOSITORY}" && HOMEBREW_CASK_SHALLOW=1
   if [[ -n "${HOMEBREW_CORE_SHALLOW}" && -n "${HOMEBREW_CASK_SHALLOW}" ]]
   then
     SHALLOW_COMMAND_PHRASE="These commands"
