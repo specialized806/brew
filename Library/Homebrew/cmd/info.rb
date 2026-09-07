@@ -349,11 +349,9 @@ module Homebrew
       def formula_qualified_by_user?(formula_or_cask, qualified_inputs)
         return false if qualified_inputs.empty?
 
-        names = T.let([formula_or_cask.full_name.downcase], T::Array[String])
-        if (tap = formula_or_cask.tap)
-          names << "#{tap.name.downcase}/#{Utils.name_or_token(formula_or_cask).downcase}"
+        [formula_or_cask.full_name, Utils.fully_qualified_name(formula_or_cask)].any? do |name|
+          qualified_inputs.include?(name.downcase)
         end
-        names.any? { |n| qualified_inputs.include?(n) }
       end
 
       sig { params(formula: Formula).returns([Formula, T.nilable(Tap)]) }
@@ -451,8 +449,8 @@ module Homebrew
                               kegs.max_by(&:scheme_and_version)&.version
           specs[0] = "#{installed_version} → #{upgrade_version}"
         end
-        title_name = if shadowing_formula && (formula_tap = formula.tap)
-          "#{formula_tap}/#{formula.name}"
+        title_name = if shadowing_formula && formula.tap
+          Utils.fully_qualified_name(formula)
         elsif shadowed_by
           formula.name
         else

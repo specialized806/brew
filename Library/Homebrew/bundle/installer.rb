@@ -252,14 +252,23 @@ module Homebrew
         end
         return false if tap_dependencies(entry, entries:, installed_taps:).present?
 
-        if entry.cls == Brew
+        package = if entry.cls == Brew
           require "formula"
           Formula[entry.full_name]
         else
           require "cask/cask_loader"
-          entry.install_name = ::Cask::CaskLoader.load(entry.full_name).full_name
+          ::Cask::CaskLoader.load(entry.full_name)
         end
-        true
+        return false unless (tap = package.tap)
+
+        entry.install_name = ::Utils.fully_qualified_name(package)
+        return true if tap.core_tap? || tap.core_cask_tap?
+
+        if entry.cls == Brew
+          tap.cask_tokens.exclude?(entry.install_name)
+        else
+          tap.formula_names.exclude?(entry.install_name) && tap.aliases.exclude?(entry.install_name)
+        end
       rescue
         false
       end
@@ -285,26 +294,11 @@ module Homebrew
           end
         end
 
-        # A bare `brew install` resolves an ambiguous name to the formula, and the type
-        # flags conflict with each other, so each type needs its own invocation.
-        formulae, casks = actionable.partition { |entry| entry.cls == Brew }
-        batches = []
-        if formulae.any?
-          batches << [
-            "--formula",
-            *(["--force", "--overwrite"] if force),
-            *formulae.map(&:install_name),
-          ]
-        end
-        if casks.any?
-          batches << [
-            "--cask",
-            force ? "--force" : "--adopt",
-            *casks.map(&:install_name),
-          ]
-        end
-        batch_succeeded = with_env("HOMEBREW_NO_INSTALL_UPGRADE" => nil) do
-          batches.map { |batch_args| Bundle.brew("install", *batch_args, verbose:) }.all?
+        install_args = []
+        install_args << "--adopt" if !force && actionable.any? { |entry| entry.cls == Cask }
+        install_args.push("--force", "--overwrite") if force
+        batch_succeeded = actionable.empty? || with_env("HOMEBREW_NO_INSTALL_UPGRADE" => nil) do
+          Bundle.brew("install", *install_args, *actionable.map(&:install_name), verbose:)
         end
 
         # The batch changed what is installed, so the memoised views of it are stale.

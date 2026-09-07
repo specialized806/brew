@@ -6,6 +6,7 @@ require "attestation"
 require "bundle/dsl"
 require "bundle/installer"
 require "trust"
+require "formulary"
 
 RSpec.describe Homebrew::Bundle::Installer do
   let(:formula_entry) { Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql") }
@@ -27,10 +28,11 @@ RSpec.describe Homebrew::Bundle::Installer do
                                                       installable_or_upgradable?:     true,
                                                       preinstall!:                    true)
     allow(Homebrew::Bundle::Tap).to receive_messages(preinstall!: true, install!: true, installed_taps: [])
-    allow(Formula).to receive(:[]).and_return(instance_double(Formula))
+    allow(Formula).to receive(:[]) { |name| instance_double(Formula, full_name: name, tap: CoreTap.instance) }
     allow(::Cask::CaskLoader).to receive(:load)
-      .and_return(instance_double(::Cask::Cask, full_name: "homebrew/cask/google-chrome"))
-    # Entries are installed by one batched `brew install` per type, so specs asserting a
+      .and_return(instance_double(::Cask::Cask, full_name: "google-chrome",
+                                                tap:       CoreCaskTap.instance))
+    # Formula and cask entries share one batched `brew install`, so specs asserting a
     # specific `Bundle.brew` call need the others to fall through to a stub.
     allow(Homebrew::Bundle).to receive(:brew).and_return(true)
     # Entries can name a tap the Brewfile does not, which is otherwise cloned for real.
@@ -49,27 +51,12 @@ RSpec.describe Homebrew::Bundle::Installer do
     described_class.install!([cask_entry], verbose: false, force: false, quiet: true)
   end
 
-  it "fetches and installs formulae and casks in one `brew install` per type" do
-    allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["homebrew/cask"])
-
-    expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
-      .with("mysql", no_upgrade: false, verbose: false)
-      .ordered
-      .and_return(true)
-    expect(Homebrew::Bundle::Cask).to receive(:preinstall!)
-      .with("google-chrome", **cask_options, no_upgrade: false, verbose: false)
-      .ordered
-      .and_return(true)
+  it "fetches and installs formulae and casks in one `brew install`" do
     expect(Homebrew::Bundle).to receive(:brew)
-      .with("install", "--formula", "mysql", verbose: false)
-      .ordered
-      .and_return(true)
-    expect(Homebrew::Bundle).to receive(:brew)
-      .with("install", "--cask", "--adopt", "homebrew/cask/google-chrome", verbose: false)
-      .ordered
-      .and_return(true)
+      .with("install", "--adopt", "homebrew/core/mysql", "homebrew/cask/google-chrome", verbose: false)
+      .once.and_return(true)
 
-    described_class.install!([formula_entry, cask_entry], verbose: false, force: false, quiet: true)
+    described_class.install!([formula_entry, cask_entry], quiet: true)
   end
 
   it "does not run a separate fetch" do
@@ -103,7 +90,9 @@ RSpec.describe Homebrew::Bundle::Installer do
     allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["thirdparty/tap"])
 
     expect(Homebrew::Trust).to receive(:trust!).with(:formula, "thirdparty/tap/bar").ordered.and_return(true)
-    expect(Formula).to receive(:[]).with("thirdparty/tap/bar").ordered.and_return(instance_double(Formula))
+    expect(Formula).to receive(:[]).with("thirdparty/tap/bar").ordered
+                                   .and_return(instance_double(Formula, full_name: "thirdparty/tap/bar",
+                                                                        tap:       Tap.fetch("thirdparty/tap")))
 
     described_class.install!([trusted_formula_entry], quiet: true)
   end
@@ -117,7 +106,8 @@ RSpec.describe Homebrew::Bundle::Installer do
     expect(Homebrew::Trust).to receive(:trust!).with(:cask, "thirdparty/tap/baz").ordered.and_return(true)
     expect(::Cask::CaskLoader).to receive(:load).with("thirdparty/tap/baz").ordered
                                                 .and_return(instance_double(::Cask::Cask,
-                                                                            full_name: "thirdparty/tap/baz"))
+                                                                            full_name: "thirdparty/tap/baz",
+                                                                            tap:       Tap.fetch("thirdparty/tap")))
 
     described_class.install!([trusted_cask_entry], quiet: true)
   end
@@ -185,7 +175,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     it "installs formulae needing installation in a single `brew install`" do
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--formula", "mysql", "redis", verbose: false)
+        .with("install", "homebrew/core/mysql", "homebrew/core/redis", verbose: false)
         .and_return(true)
 
       described_class.install!([formula_entry, second_formula_entry], quiet: true)
@@ -196,7 +186,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       allow(Homebrew::Bundle::Brew).to receive(:formula_installed?).with("redis").and_return(true)
 
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--formula", "mysql", "redis", verbose: false)
+        .with("install", "homebrew/core/mysql", "homebrew/core/redis", verbose: false)
         .and_return(true)
 
       described_class.install!([formula_entry, second_formula_entry], quiet: true)
@@ -232,7 +222,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       service_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "redis", { restart_service: :changed })
 
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--formula", "mysql", verbose: false)
+        .with("install", "homebrew/core/mysql", verbose: false)
         .and_return(true)
       expect(Homebrew::Bundle::Brew).to receive(:install!)
         .with("redis", restart_service: :changed, preinstall: true, no_upgrade: false, verbose: false, force: false)
@@ -265,7 +255,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     it "batches casks with Homebrew's native download queue" do
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--cask", "--adopt", "homebrew/cask/google-chrome", verbose: false)
+        .with("install", "--adopt", "homebrew/cask/google-chrome", verbose: false)
         .and_return(true)
       expect(Homebrew::Bundle::Cask).to receive(:install!)
         .with("google-chrome", **cask_options, preinstall: false, no_upgrade: false, verbose: false, force: false)
@@ -277,35 +267,147 @@ RSpec.describe Homebrew::Bundle::Installer do
     it "installs a cask sharing a token with a formula as a cask" do
       options = { args: {}, full_name: "ambiguous" }
       entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "ambiguous", options)
-      # `Cask#full_token` leaves core cask tokens unqualified, so only `--cask` stops
-      # `brew install` resolving the name to a formula of the same name.
-      allow(::Cask::CaskLoader).to receive(:load).with("ambiguous")
-                                                 .and_return(instance_double(::Cask::Cask, full_name: "ambiguous"))
+      allow(::Cask::CaskLoader).to receive(:load)
+        .with("ambiguous")
+        .and_return(instance_double(::Cask::Cask, full_name: "ambiguous", tap: CoreCaskTap.instance))
 
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--cask", "--adopt", "ambiguous", verbose: false)
+        .with("install", "--adopt", "homebrew/cask/ambiguous", verbose: false)
         .and_return(true)
 
       described_class.install!([entry], quiet: true)
     end
 
-    it "keeps `--overwrite` out of the cask batch when forcing" do
+    it "uses the resolved formula name when batching an alias" do
+      allow(Formula).to receive(:[]).with("mysql").and_return(instance_double(Formula, full_name: "mysql@9.7",
+                                                                                       tap:       CoreTap.instance))
+
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--formula", "--force", "--overwrite", "mysql", verbose: false)
+        .with("install", "homebrew/core/mysql@9.7", verbose: false)
         .and_return(true)
+
+      described_class.install!([formula_entry], quiet: true)
+    end
+
+    it "preserves third-party tap names in a mixed batch" do
+      allow(Formula).to receive(:[]).with("mysql")
+                                    .and_return(instance_double(Formula, full_name: "thirdparty/tap/mysql",
+                                                                         tap:       Tap.fetch("thirdparty/tap")))
+      allow(::Cask::CaskLoader).to receive(:load)
+        .and_return(instance_double(::Cask::Cask, full_name: "thirdparty/tap/google-chrome",
+                                                  tap:       Tap.fetch("thirdparty/tap")))
+
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--cask", "--force", "homebrew/cask/google-chrome", verbose: false)
+        .with("install", "--adopt", "thirdparty/tap/mysql", "thirdparty/tap/google-chrome", verbose: false)
+        .once.and_return(true)
+
+      described_class.install!([formula_entry, cask_entry], quiet: true)
+    end
+
+    [:brew, :cask].each do |type|
+      it "preserves a tapless #{type} name" do
+        T.bind(self, RSpec::Core::ExampleGroup)
+
+        entry = Homebrew::Bundle::Dsl::Entry.new(type, "local")
+        if type == :brew
+          allow(Formula).to receive(:[]).with("local")
+                                        .and_return(instance_double(Formula, full_name: "local", tap: nil))
+        else
+          allow(::Cask::CaskLoader).to receive(:load).with("local")
+                                                     .and_return(instance_double(::Cask::Cask, full_name: "local",
+                                                                                               tap:       nil))
+        end
+
+        expect(Homebrew::Bundle.installable(type)).to receive(:install!)
+          .with("local", preinstall: true, no_upgrade: false, verbose: false, force: false).and_return(true)
+
+        described_class.install!([entry], quiet: true)
+      end
+    end
+
+    ["thirdparty/tap/collision", "collision"].product([false, true], [false, true]).each do |name, force, success|
+      it "installs the colliding #{name} cask with an explicit type (force: #{force}, success: #{success})" do
+        T.bind(self, RSpec::Core::ExampleGroup)
+
+        tap = Tap.fetch("thirdparty/tap") if name.include?("/")
+        if tap
+          allow(tap).to receive(:formula_dir).and_return(mktmpdir)
+          (tap.formula_dir/"collision.rb").write("class WrongClass < Formula; end")
+        end
+        allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["thirdparty/tap"])
+        allow(::Cask::CaskLoader).to receive(:load).with(name)
+                                                   .and_return(instance_double(Cask::Cask, full_name: name, tap:))
+        expect(Formulary).not_to receive(:factory)
+        allow(Homebrew::Bundle::Cask).to receive(:install!).and_call_original
+        allow(Homebrew::Bundle::Cask).to receive(:cask_installed?).and_return(false)
+
+        expect(Homebrew::Bundle).to receive(:brew)
+          .with("install", *(["--force", "--overwrite"] if force), "homebrew/core/mysql", verbose: false)
+          .ordered.and_return(true)
+        expect(Homebrew::Bundle).to receive(:brew)
+          .with("install", "--cask", name, force ? "--force" : "--adopt", verbose: false)
+          .ordered.and_return(success)
+
+        expect do
+          expect(described_class.install!([
+            Homebrew::Bundle::Dsl::Entry.new(:brew, "mysql"),
+            Homebrew::Bundle::Dsl::Entry.new(:cask, name),
+          ], force:, quiet: true)).to be(success)
+        end.to output(success ? "" : /Installing #{name} has failed!/).to_stderr
+      end
+    end
+
+    it "keeps a cask matching a formula alias out of the batch without loading the formula" do
+      tap = Tap.fetch("thirdparty/tap")
+      allow(tap).to receive_messages(formula_dir: mktmpdir, alias_dir: mktmpdir)
+      (tap.formula_dir/"foo.rb").write("class WrongClass < Formula; end")
+      (tap.alias_dir/"google-chrome").make_symlink(tap.formula_dir/"foo.rb")
+      allow(::Cask::CaskLoader).to receive(:load)
+        .and_return(instance_double(Cask::Cask, full_name: "thirdparty/tap/google-chrome", tap:))
+
+      expect(Formulary).not_to receive(:factory)
+      expect(Homebrew::Bundle::Cask).to receive(:install!)
+        .with("google-chrome", **cask_options, preinstall: true, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
+
+      described_class.install!([cask_entry], quiet: true)
+    end
+
+    it "installs a formula sharing a cask token with an explicit type" do
+      tap = Tap.fetch("thirdparty/tap")
+      allow(tap).to receive(:cask_dir).and_return(mktmpdir)
+      (tap.cask_dir/"collision.rb").write('raise "Do not load this cask"')
+      allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return([tap.name])
+      allow(Formula).to receive(:[]).with("thirdparty/tap/collision")
+                                    .and_return(instance_double(Formula, full_name: "thirdparty/tap/collision", tap:))
+      allow(Homebrew::Bundle::Brew).to receive(:install!).and_call_original
+      allow(Homebrew::Bundle::Brew).to receive_messages(formula_installed?: false, formulae_by_full_name: nil,
+                                                        installed_formulae: [])
+
+      expect(::Cask::CaskLoader).not_to receive(:load)
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--formula", "thirdparty/tap/collision", verbose: false).and_return(true)
+
+      expect do
+        described_class.install!([Homebrew::Bundle::Dsl::Entry.new(:brew, "thirdparty/tap/collision")], quiet: true)
+      end.not_to output.to_stderr
+    end
+
+    it "forces formulae and casks in one batch" do
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--force", "--overwrite", "homebrew/core/mysql",
+              "homebrew/cask/google-chrome", verbose: false)
+        .once.and_return(true)
 
       described_class.install!([formula_entry, cask_entry], force: true, quiet: true)
     end
 
-    it "still installs the casks when the formula batch fails" do
-      allow(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--formula", any_args).and_return(false)
+    it "finishes installed casks when a mixed batch fails" do
+      allow(Homebrew::Bundle).to receive(:brew).with("install", any_args).and_return(false)
+      allow(Homebrew::Bundle::Cask).to receive(:cask_installed_and_up_to_date?).and_return(true)
 
-      expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--cask", "--adopt", "homebrew/cask/google-chrome", verbose: false)
+      expect(Homebrew::Bundle::Cask).to receive(:install!)
+        .with("google-chrome", **cask_options, preinstall: false, no_upgrade: false, verbose: false, force: false)
         .and_return(true)
 
       described_class.install!([formula_entry, cask_entry], quiet: true)
@@ -347,7 +449,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       ENV["HOMEBREW_NO_INSTALL_UPGRADE"] = "1"
 
       expect(Homebrew::Bundle).to receive(:brew) do |*args, **options|
-        expect(args).to eq(["install", "--formula", "mysql"])
+        expect(args).to eq(["install", "homebrew/core/mysql"])
         expect(options).to eq(verbose: false)
         expect(ENV.fetch("HOMEBREW_NO_INSTALL_UPGRADE", nil)).to be_nil
         true
