@@ -262,7 +262,7 @@ RSpec.describe Homebrew::Vulns::Match do
           "ranges"  => [{ "type"   => "ECOSYSTEM",
                           "events" => [{ "introduced" => "0" }, { "fixed" => "2.32.4" }] }] },
       ])
-      merged = matcher.dedup_by_cve([
+      merged = matcher.dedup_by_aliases([
         make_hit(cve, ev(:git, ecosystem: "GIT", name: "https://github.com/psf/requests",
                                subject_version: "2.31.0")),
         make_hit(ghsa, ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0")),
@@ -377,6 +377,79 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(hits.first.vulnerability.references).to eq [{ "type" => "WEB", "url" => "https://x" }]
       expect(matcher.range_status(hits.first)&.first)
         .to have_attributes(state: :affected, fixed_in: "1.0")
+    end
+  end
+
+  describe "#dedup_by_aliases" do
+    it "coalesces mutually aliased records without a CVE deterministically" do
+      ghsa = make_hit(vuln("id" => "GHSA-9ppg-jx86-fqw7", "aliases" => ["MAL-2026-1380"]),
+                      ev(:registry, key: "ghsa"))
+      malware = make_hit(vuln("id" => "MAL-2026-1380", "aliases" => ["GHSA-9ppg-jx86-fqw7"]),
+                         ev(:registry, key: "malware"))
+
+      results = [[ghsa, malware], [malware, ghsa]].map do |hits|
+        merged = matcher.dedup_by_aliases(hits)
+        hit = merged.fetch(0)
+        [merged.length, hit.canonical_id, hit.identifiers.sort, hit.evidence.map(&:key).sort]
+      end
+
+      expect(results).to eq Array.new(2, [
+        1,
+        "GHSA-9ppg-jx86-fqw7",
+        ["GHSA-9ppg-jx86-fqw7", "MAL-2026-1380"],
+        %w[ghsa malware],
+      ])
+    end
+
+    it "merges a one-sided alias chain through its intermediate record" do
+      hits = [
+        make_hit(vuln("id" => "GHSA-a", "aliases" => ["GHSA-b"]), ev(:registry, key: "a")),
+        make_hit(vuln("id" => "GHSA-b", "aliases" => ["GHSA-c"]), ev(:registry, key: "b")),
+        make_hit(vuln("id" => "GHSA-c"), ev(:registry, key: "c")),
+      ]
+
+      merged = matcher.dedup_by_aliases(hits)
+
+      expect(merged.map { |hit| [hit.canonical_id, hit.identifiers, hit.evidence.map(&:key)] })
+        .to eq [["GHSA-a", %w[GHSA-a GHSA-b GHSA-c], %w[a b c]]]
+    end
+
+    it "picks the same record in either order when a group ties on strategy and canonical id" do
+      ghsa = make_hit(vuln("id"       => "GHSA-5v8v-66v8-mwm7",
+                           "aliases"  => ["CVE-2020-36846", "CVE-2020-8927"],
+                           "summary"  => "brotli buffer overflow",
+                           "severity" => [{ "type" => "CVSS_V3", "score" => "..." }]),
+                      ev(:registry, key: "ghsa"))
+      pysec = make_hit(vuln("id"      => "PYSEC-2020-29",
+                            "aliases" => ["CVE-2020-36846", "CVE-2020-8927"],
+                            "summary" => "brotli integer overflow"),
+                       ev(:registry, key: "pysec"))
+
+      selected = [[ghsa, pysec], [pysec, ghsa]].map do |hits|
+        hit = matcher.dedup_by_aliases(hits).fetch(0)
+        [hit.canonical_id, hit.vulnerability.id, hit.vulnerability.summary,
+         hit.vulnerability.severity_entries, hit.evidence.map(&:key)]
+      end
+
+      expect(selected).to eq Array.new(2, [
+        "CVE-2020-36846",
+        "GHSA-5v8v-66v8-mwm7",
+        "brotli buffer overflow",
+        [{ "type" => "CVSS_V3", "score" => "..." }],
+        %w[ghsa pysec],
+      ])
+    end
+
+    it "keeps distinct vulnerabilities reached through the same upstream record" do
+      upstream = vuln("id" => "DSA-1")
+      evidence = Homebrew::Vulns::Match::Evidence.new(strategy: :distro, key: "Debian/pkg",
+                                                      source_record: upstream)
+      hits = [
+        make_hit(vuln("id" => "CVE-2026-1"), evidence),
+        make_hit(vuln("id" => "CVE-2026-2"), evidence),
+      ]
+
+      expect(matcher.dedup_by_aliases(hits).map(&:canonical_id)).to eq %w[CVE-2026-1 CVE-2026-2]
     end
   end
 
@@ -1039,7 +1112,7 @@ RSpec.describe Homebrew::Vulns::Match do
           "ranges"  => [{ "type"   => "ECOSYSTEM",
                           "events" => [{ "introduced" => "0" }, { "fixed" => "2.28.1" }] }] },
       ])
-      hit = matcher.dedup_by_cve([
+      hit = matcher.dedup_by_aliases([
         make_hit(registry_record,
                  ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0")),
         make_hit(distro_record,

@@ -62,7 +62,7 @@ module Homebrew
       # `:cpansa` evidence so its constraint strings survive to
       # {#range_status}. `source_record` is the {Vulnerability} this evidence
       # was matched against (attached at hit-construction time), so after
-      # {#dedup_by_cve} merges hits each evidence still points at the record
+      # {#dedup_by_aliases} merges hits each evidence still points at the record
       # whose `affected[]` it should be checked against.
       Evidence = Struct.new(:strategy, :ecosystem, :name, :subject_version, :key, :resource,
                             :advisory, :source_record, keyword_init: true) do
@@ -158,11 +158,11 @@ module Homebrew
         ).freeze
       end
 
-      # Returns one {Hit} per distinct vulnerability (grouped by CVE alias)
-      # reached by any strategy. Distro-ecosystem records are resolved to their
-      # `upstream` CVE(s) so multi-CVE advisories split into per-CVE hits and
-      # collapse onto the same CVE reached via GIT/registry. All queries are
-      # versionless so historic bump-fixed advisories are returned;
+      # Returns one {Hit} per distinct vulnerability reached by any strategy,
+      # grouped by its connected id/alias family. Distro-ecosystem records are
+      # resolved to their `upstream` CVE(s), so multi-CVE advisories split into
+      # per-CVE hits and collapse onto the same CVE reached via GIT/registry.
+      # All queries are versionless so historic bump-fixed advisories are returned;
       # {#range_status} evaluates each hit against the shipped version.
       sig { params(formula: Formula).returns(T::Array[Hit]) }
       def advisories_for(formula)
@@ -240,7 +240,7 @@ module Homebrew
             end
           end
         end
-        dedup_by_cve(hits)
+        dedup_by_aliases(hits)
       end
 
       # Synthesise a {Vulnerability} for a CPANSA advisory when OSV has no
@@ -444,15 +444,42 @@ module Homebrew
       end
 
       sig { params(hits: T::Array[Hit]).returns(T::Array[Hit]) }
-      def dedup_by_cve(hits)
-        hits.group_by(&:canonical_id).map do |_, group|
+      def dedup_by_aliases(hits)
+        groups = T.let([], T::Array[T::Array[Hit]])
+        pending = hits.dup
+        until pending.empty?
+          first = pending.shift
+          raise ArgumentError, "Cannot start an empty alias group" if first.nil?
+
+          # Evidence provenance can legitimately lead to several vulnerabilities,
+          # so only the vulnerability's own identifiers connect hits.
+          identifiers = T.let({}, T::Hash[String, T::Boolean])
+          first.vulnerability.identifiers.each { |identifier| identifiers[identifier] = true }
+          group = T.let([first], T::Array[Hit])
+          loop do
+            connected, remaining = pending.partition do |hit|
+              hit.vulnerability.identifiers.any? { |identifier| identifiers.key?(identifier) }
+            end
+            break if connected.empty?
+
+            connected.each do |hit|
+              hit.vulnerability.identifiers.each { |identifier| identifiers[identifier] = true }
+            end
+            group.concat(connected)
+            pending = remaining
+          end
+          groups << group
+        end
+
+        groups.map do |group|
           next group.fetch(0) if group.one?
 
-          primary = group.max_by { |h| STRATEGY_PRECISION.fetch(h.strategy) }
-          raise ArgumentError, "Cannot pick a primary hit from an empty group" if primary.nil?
-
-          Hit.new(vulnerability: primary.vulnerability,
-                  evidence:      group.flat_map(&:evidence).uniq)
+          # Members of one alias family usually share a `canonical_id`, so the
+          # record id is what actually settles the order for most groups. Rank
+          # once so the merged evidence order is fixed too, not just the primary.
+          ranked = group.sort_by { |h| [-STRATEGY_PRECISION.fetch(h.strategy), h.canonical_id, h.vulnerability.id] }
+          Hit.new(vulnerability: ranked.fetch(0).vulnerability,
+                  evidence:      ranked.flat_map(&:evidence).uniq)
         end
       end
 
