@@ -87,6 +87,8 @@ module UnpackStrategy
 
   sig { params(type: Symbol).returns(T.nilable(UnpackStrategyType)) }
   def self.from_type(type)
+    odeprecated "the `:seven_zip` container type", ":p7zip" if type == :seven_zip
+
     type = {
       naked:     :uncompressed,
       nounzip:   :uncompressed,
