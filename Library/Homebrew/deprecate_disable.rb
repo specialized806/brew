@@ -33,6 +33,8 @@ module DeprecateDisable
   }.freeze, T::Hash[Symbol, String])
 
   # One year when << or >> to Date.today.
+  # Keep in sync with RemoveDisabledPackages::REMOVE_DISABLED_MONTHS in
+  # Homebrew/actions/remove-disabled-packages/main.rb.
   REMOVE_DISABLED_TIME_WINDOW = 12
   REMOVE_DISABLED_BEFORE = T.let((Date.today << REMOVE_DISABLED_TIME_WINDOW).freeze, Date)
 
