@@ -224,18 +224,20 @@ module Homebrew
 
           if args.dry_run?
             Install.print_dry_run_casks(casks, skip_cask_deps: args.skip_cask_deps?, include_installed: false)
-            return
-          end
-
-          installed_casks, new_casks = casks.partition(&:installed?)
-
-          fetch_casks = if Homebrew::EnvConfig.no_install_upgrade?
-            new_casks
+            # Only a mixed invocation has formulae left to report. The formula
+            # path below runs preinstall checks that are not dry-run guarded.
+            return if formulae.empty?
           else
-            upgrade_casks = Cask::Upgrade.outdated_casks(casks, args:, force: true, quiet: true)
-            new_casks | upgrade_casks
+            installed_casks, new_casks = casks.partition(&:installed?)
+
+            fetch_casks = if Homebrew::EnvConfig.no_install_upgrade?
+              new_casks
+            else
+              upgrade_casks = Cask::Upgrade.outdated_casks(casks, args:, force: true, quiet: true)
+              new_casks | upgrade_casks
+            end
+            Install.ask_casks fetch_casks, skip_cask_deps: args.skip_cask_deps? if ask
           end
-          Install.ask_casks fetch_casks, skip_cask_deps: args.skip_cask_deps? if ask
         end
 
         if Homebrew::EnvConfig.verify_attestations?
