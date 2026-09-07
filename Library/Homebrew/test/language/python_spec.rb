@@ -64,6 +64,15 @@ RSpec.describe Language::Python, :needs_python do
     end
   end
 
+  describe ".in_sys_path?", needs_python: false do
+    it "deprecates the Python path probe" do
+      allow(SystemCommand).to receive(:quiet_system).and_return(true)
+
+      expect { described_class.in_sys_path?("python3", Pathname("/tmp/site-packages")) }
+        .to raise_error(MethodDeprecatedError, /Language::Python.in_sys_path\?.*sys.path/)
+    end
+  end
+
   describe ".user_site_packages", needs_python: false do
     it "deprecates the user site packages helper" do
       allow(Utils).to receive(:popen_read_text).and_return("/tmp/site-packages\n")

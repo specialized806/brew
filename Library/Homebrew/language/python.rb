@@ -114,6 +114,8 @@ module Language
 
     sig { params(python: T.any(String, Pathname), path: T.any(String, Pathname)).returns(T::Boolean) }
     def self.in_sys_path?(python, path)
+      odeprecated "Language::Python.in_sys_path?", "querying `sys.path` with the Python interpreter"
+
       script = <<~PYTHON
         import os, sys
         [os.path.realpath(p) for p in sys.path].index(os.path.realpath("#{path}"))
