@@ -57,10 +57,20 @@ RSpec.describe Language::Python, :needs_python do
     end
   end
 
-  describe "#homebrew_site_packages" do
-    it "returns the Homebrew site packages location" do
-      expect(described_class).to receive(:site_packages).and_return(Pathname)
-      described_class.site_packages("python")
+  describe ".homebrew_site_packages", needs_python: false do
+    before do
+      allow(described_class).to receive(:major_minor_version).and_return(Version.new("3.14"))
+    end
+
+    it "deprecates the Homebrew site packages helper" do
+      expect { described_class.homebrew_site_packages("python3") }
+        .to raise_error(MethodDeprecatedError, %r{Language::Python.homebrew_site_packages.*HOMEBREW_PREFIX/})
+    end
+
+    it "still returns the Homebrew site packages location" do
+      allow(described_class).to receive(:odeprecated)
+
+      expect(described_class.homebrew_site_packages("python3")).to eq(HOMEBREW_PREFIX/"lib/python3.14/site-packages")
     end
   end
 

@@ -186,7 +186,7 @@ class Keg
       HOMEBREW_LOCKS,
       HOMEBREW_LOGS,
       HOMEBREW_REPOSITORY,
-      Language::Python.homebrew_site_packages,
+      *HOMEBREW_PREFIX.glob("lib/python*/site-packages"),
     ]).sort.uniq.freeze, T.nilable(T::Array[Pathname]))
   end
 

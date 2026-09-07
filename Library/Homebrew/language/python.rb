@@ -46,6 +46,8 @@ module Language
 
     sig { params(python: T.any(String, Pathname)).returns(Pathname) }
     def self.homebrew_site_packages(python = "python3.7")
+      odeprecated "Language::Python.homebrew_site_packages", "HOMEBREW_PREFIX/Language::Python.site_packages(python)"
+
       HOMEBREW_PREFIX/site_packages(python)
     end
 
@@ -79,7 +81,7 @@ module Language
         ENV["PYTHONPATH"] = if python_formula.latest_version_installed?
           nil
         else
-          homebrew_site_packages(python).to_s
+          (HOMEBREW_PREFIX/site_packages(python)).to_s
         end
         block&.call python, version
       end
@@ -90,10 +92,11 @@ module Language
     def self.reads_brewed_pth_files?(python)
       odeprecated "Language::Python.reads_brewed_pth_files?", "an isolated Python virtualenv"
 
-      return false unless homebrew_site_packages(python).directory?
-      return false unless homebrew_site_packages(python).writable?
+      site_packages = HOMEBREW_PREFIX/site_packages(python)
+      return false unless site_packages.directory?
+      return false unless site_packages.writable?
 
-      probe_file = homebrew_site_packages(python)/"homebrew-pth-probe.pth"
+      probe_file = site_packages/"homebrew-pth-probe.pth"
       begin
         probe_file.atomic_write("import site; site.homebrew_was_here = True")
         Utils::Shell.with_homebrew_path do
