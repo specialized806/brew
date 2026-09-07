@@ -1,10 +1,12 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "benchmark"
 require "services/system"
 
 RSpec.shared_examples "#uninstall_phase or #zap_phase" do
+  extend Test::Helper::TestEach
+
   subject { artifact }
 
   let(:artifact_dsl_key) { described_class.dsl_key }
@@ -267,7 +269,7 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
     end
 
     it "does not send signal when upgrading or reinstalling" do
-      next if artifact_dsl_key == :zap
+      skip "only uninstall has upgrade and reinstall phases" if artifact_dsl_key == :zap
 
       allow(subject).to receive(:running_processes).with(bundle_id)
                                                    .and_return(unix_pids.map { |pid| [pid, 0, bundle_id] })
@@ -281,9 +283,7 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
     end
   end
 
-  [:delete, :trash].each do |directive|
-    next if directive == :trash && ENV["HOMEBREW_TESTS_COVERAGE"].nil?
-
+  test_each([:delete, *(:trash unless ENV["HOMEBREW_TESTS_COVERAGE"].nil?)]) do |directive|
     context "when using :#{directive}" do
       let(:dir) { TEST_TMPDIR }
       let(:absolute_path) { Pathname.new("#{dir}/absolute_path") }
@@ -294,23 +294,20 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
       let(:fake_system_command) { NeverSudoSystemCommand }
       let(:cask) { Cask::CaskLoader.load(cask_path("with-#{artifact_dsl_key}-#{directive}")) }
 
-      around do |example|
+      before do
         ENV["HOME"] = dir
-
         FileUtils.touch paths
 
-        example.run
-      ensure
-        FileUtils.rm_f paths
-      end
-
-      before do
         allow_any_instance_of(Cask::Artifact::AbstractUninstall).to receive(:trash_paths)
           .and_wrap_original do |method, *args, **kwargs|
             method.call(*args, **kwargs).tap do |trashed, _|
               FileUtils.rm_r trashed
             end
           end
+      end
+
+      after do
+        FileUtils.rm_f paths
       end
 
       it "is supported" do

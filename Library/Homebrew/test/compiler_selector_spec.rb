@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "compilers"
@@ -67,7 +67,10 @@ RSpec.describe CompilerSelector do
 
     it "returns gcc-12 if gcc formula offers gcc-11 and fails with gcc <= 11 on linux", :needs_linux do
       software_spec.fails_with(:clang)
-      software_spec.fails_with(:gcc) { version "11" }
+      software_spec.fails_with(:gcc) do
+        T.bind(self, CompilerFailure)
+        version "11"
+      end
       allow(Formulary).to receive(:factory)
         .with(OS::LINUX_PREFERRED_GCC_COMPILER_FORMULA)
         .and_return(instance_double(Formula, version: Version.new("11.0")))
@@ -76,13 +79,19 @@ RSpec.describe CompilerSelector do
 
     it "returns gcc-12 if gcc-12 is version 12.1 but spec fails with gcc-12 <= 12.0" do
       software_spec.fails_with(:clang)
-      software_spec.fails_with(gcc: "12") { version "12.0" }
+      software_spec.fails_with(gcc: "12") do
+        T.bind(self, CompilerFailure)
+        version "12.0"
+      end
       expect(selector.compiler).to eq("gcc-12")
     end
 
     it "returns gcc-11 if gcc-12 is version 12.1 but spec fails with gcc-12 <= 12.1" do
       software_spec.fails_with(:clang)
-      software_spec.fails_with(gcc: "12") { version "12.1" }
+      software_spec.fails_with(gcc: "12") do
+        T.bind(self, CompilerFailure)
+        version "12.1"
+      end
       expect(selector.compiler).to eq("gcc-11")
     end
 

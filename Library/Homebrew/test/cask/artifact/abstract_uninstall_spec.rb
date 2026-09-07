@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::AbstractUninstall, :cask do
@@ -11,12 +11,8 @@ RSpec.describe Cask::Artifact::AbstractUninstall, :cask do
 
       let(:cask) { Cask::CaskLoader.load(cask_path("with-#{artifact_dsl_key}-delete")) }
 
-      around do |example|
-        old_home = Dir.home
+      before do
         ENV["HOME"] = TEST_TMPDIR
-        example.run
-      ensure
-        ENV["HOME"] = old_home
       end
 
       it "skips relative paths" do
@@ -42,7 +38,7 @@ RSpec.describe Cask::Artifact::AbstractUninstall, :cask do
           ).to_stderr
         end
       ensure
-        FileUtils.rm_f valid_path
+        FileUtils.rm_f(valid_path) if valid_path
       end
 
       it "skips tilde paths containing relative segments" do
@@ -72,7 +68,7 @@ RSpec.describe Cask::Artifact::AbstractUninstall, :cask do
           /Skipping delete for undeletable path '#{Regexp.escape(undeletable_path.to_s)}'\./,
         ).to_stderr
       ensure
-        FileUtils.rm_rf glob_dir
+        FileUtils.rm_rf(glob_dir) if glob_dir
       end
 
       it "surfaces Full Disk Access guidance when globbing raises EPERM" do

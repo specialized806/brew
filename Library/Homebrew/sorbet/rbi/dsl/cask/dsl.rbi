@@ -63,11 +63,128 @@ class Cask::DSL
   sig { params(args: T.anything, kwargs: T.anything).void }
   def mdimporter(*args, **kwargs); end
 
-  sig { params(block: T.proc.bind(Cask::DSL).returns(T.anything)).returns(T.anything) }
+  sig do
+    type_parameters(:U)
+      .params(
+        arm: T.nilable(T.type_parameter(:U)),
+        intel: T.nilable(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_arch_conditional(arm: nil, intel: nil); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
   def on_arm(&block); end
 
-  sig { params(block: T.proc.bind(Cask::DSL).returns(T.anything)).returns(T.anything) }
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_big_sur(or_condition = nil, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_golden_gate(or_condition = nil, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
   def on_intel(&block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_linux(&block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_macos(&block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_monterey(or_condition = nil, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_sequoia(or_condition = nil, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_sonoma(or_condition = nil, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        linux: Symbol,
+        macos: Symbol,
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_system(linux, macos:, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        macos: T.nilable(T.type_parameter(:U)),
+        linux: T.nilable(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_system_conditional(macos: nil, linux: nil); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_tahoe(or_condition = nil, &block); end
+
+  sig do
+    type_parameters(:U)
+      .params(
+        or_condition: T.nilable(Symbol),
+        block: T.proc.returns(T.type_parameter(:U))
+      ).returns(T.nilable(T.type_parameter(:U)))
+  end
+  def on_ventura(or_condition = nil, &block); end
 
   sig { params(args: T.anything, kwargs: T.anything).void }
   def pkg(*args, **kwargs); end

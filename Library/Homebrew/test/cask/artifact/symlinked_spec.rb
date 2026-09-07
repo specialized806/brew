@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::Symlinked, :cask do
@@ -14,11 +14,11 @@ RSpec.describe Cask::Artifact::Symlinked, :cask do
     let(:binarydir) { cask.config.binarydir }
     let(:target_path) { binarydir.join("binary") }
 
-    around do |example|
+    before do
       binarydir.mkpath
+    end
 
-      example.run
-    ensure
+    after do
       FileUtils.rm_f target_path
       FileUtils.rmdir binarydir
       # Clean up the fake formula directory

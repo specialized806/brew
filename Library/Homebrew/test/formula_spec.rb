@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "test/support/fixtures/testball"
@@ -36,6 +36,7 @@ RSpec.describe Formula do
   describe "::new" do
     let(:klass) do
       Class.new(described_class) do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/foo-1.0.tar.gz"
       end
     end
@@ -171,6 +172,7 @@ RSpec.describe Formula do
   describe "#python3" do
     it "returns the stable executable for a direct Python dependency" do
       f = formula "python-runtime-dependent" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         depends_on "python@3.14"
       end
@@ -180,6 +182,7 @@ RSpec.describe Formula do
 
     it "memoises the executable" do
       f = formula "memoized-python-dependent" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         depends_on "python@3.14"
       end
@@ -189,6 +192,7 @@ RSpec.describe Formula do
 
     it "clears the memoised executable when the active spec changes" do
       f = formula "python-stable-and-head-dependent" do
+        T.bind(self, T.class_of(Formula))
         stable do
           url "foo-1.0"
           depends_on "python@3.13"
@@ -207,6 +211,7 @@ RSpec.describe Formula do
 
     it "includes build and test dependencies" do
       f = formula "python-build-test-dependent" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         depends_on "python@3.13" => [:build, :test]
       end
@@ -216,6 +221,7 @@ RSpec.describe Formula do
 
     it "de-duplicates the same Python dependency declared with separate tags" do
       f = formula "python-split-tags" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         depends_on "python@3.14" => :build
         depends_on "python@3.14" => :test
@@ -226,6 +232,7 @@ RSpec.describe Formula do
 
     it "fails without a direct versioned Python 3 dependency" do
       f = formula "unversioned-python" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         depends_on "python"
         depends_on "boost-python3"
@@ -239,6 +246,7 @@ RSpec.describe Formula do
 
     it "fails when there are multiple direct Python dependencies" do
       f = formula "multiple-python-dependencies" do
+        T.bind(self, T.class_of(Formula))
         url "foo-1.0"
         depends_on "python@3.13" => [:build, :test]
         depends_on "python@3.14" => [:build, :test]
@@ -754,7 +762,7 @@ RSpec.describe Formula do
 
     expect(f).not_to need_migration
 
-    oldname_tab.tabfile.unlink
+    (oldname_prefix/AbstractTab::FILENAME).unlink
     oldname_tab.source["tap"] = "homebrew/core"
     oldname_tab.write
 
@@ -953,8 +961,8 @@ RSpec.describe Formula do
     end
 
     specify "replaces text in file" do
-      file = Tempfile.new("test")
-      File.binwrite(file, <<~EOS)
+      file = mktmpdir/"test"
+      file.binwrite(<<~EOS)
         ab
         bc
         cd
@@ -963,10 +971,10 @@ RSpec.describe Formula do
         T.bind(self, T.class_of(Formula))
         url "https://brew.sh/test-1.0.tbz"
       end
-      f.inreplace(file.path) do |s|
+      f.inreplace(file) do |s|
         s.gsub!("bc", "yz")
       end
-      expect(File.binread(file)).to eq <<~EOS
+      expect(file.binread).to eq <<~EOS
         ab
         yz
         cd
@@ -1097,8 +1105,8 @@ RSpec.describe Formula do
     f = Testball.new
     f2 = Testball.new
 
-    expect(f.stable.owner).to equal(f)
-    expect(f2.stable.owner).to equal(f2)
+    expect(f.stable&.owner).to equal(f)
+    expect(f2.stable&.owner).to equal(f2)
   end
 
   specify "incomplete instance specs are not accessible" do
@@ -1283,7 +1291,7 @@ RSpec.describe Formula do
 
     allow(Tab).to receive(:for_formula).with(f).and_return(f.build)
     allow(f).to receive(:odeprecated)
-    allow(f).to receive(:post_install) { env = ENV.to_hash }
+    allow(f).to receive(:post_install) { env.replace(ENV.to_hash) }
     expect(Dir).to receive(:mktmpdir).with("#{f.name}-postinstall-", HOMEBREW_TEMP).and_call_original
 
     f.run_post_install
@@ -1593,14 +1601,18 @@ RSpec.describe Formula do
 
     specify "explicit default and compatible macOS service names remain explicit when serialized" do
       canonical_formula = formula "canonical_name" do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/canonical-1.0.tbz"
         service do
+          T.bind(self, Homebrew::Service)
           name macos: "sh.brew.canonical_name"
         end
       end
       legacy_formula = formula "legacy_name" do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/legacy-1.0.tbz"
         service do
+          T.bind(self, Homebrew::Service)
           name macos: "homebrew.mxcl.legacy_name"
         end
       end
@@ -1620,14 +1632,18 @@ RSpec.describe Formula do
 
     specify "explicit default and compatible systemd service names remain explicit when serialized" do
       legacy_formula = formula "legacy_name" do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/legacy-1.0.tbz"
         service do
+          T.bind(self, Homebrew::Service)
           name linux: "homebrew.legacy_name"
         end
       end
       canonical_formula = formula "canonical_name" do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/canonical-1.0.tbz"
         service do
+          T.bind(self, Homebrew::Service)
           name linux: "sh.brew.canonical_name"
         end
       end
@@ -2998,6 +3014,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_macos do
             @test = 1
@@ -3021,6 +3038,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_macos do
             @test = 1
@@ -3045,6 +3063,7 @@ RSpec.describe Formula do
         attr_reader :bar
 
         def install
+          T.bind(self, Formula)
           @foo = 0
           @bar = 0
           on_system :linux, macos: :tahoe do
@@ -3104,6 +3123,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_sequoia :or_newer do
             @test = 1
@@ -3164,6 +3184,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_arm do
             @test = 1
@@ -3191,6 +3212,7 @@ RSpec.describe Formula do
         attr_reader :test
 
         def install
+          T.bind(self, Formula)
           @test = 0
           on_arm do
             @test = 1
@@ -3212,6 +3234,7 @@ RSpec.describe Formula do
     let(:f) do
       Class.new(Testball) do
         def install
+          T.bind(self, Formula)
           bin.mkpath
           (bin/"foo").write <<-EOF
             echo completion
@@ -3234,15 +3257,13 @@ RSpec.describe Formula do
 
   describe "{allow,deny}_network_access" do
     actions = %w[allow deny].freeze
-    PHASES.each do |phase|
-      actions.each do |action|
-        it "can #{action} network access for #{phase}" do
-          f = Class.new(Testball) do
-            public_send(:"#{action}_network_access!", phase)
-          end
-
-          expect(f.network_access_allowed?(phase)).to be(action == "allow")
+    test_each(PHASES.product(actions)) do |(phase, action)|
+      it "can #{action} network access for #{phase}" do
+        f = Class.new(Testball) do
+          public_send(:"#{action}_network_access!", phase)
         end
+
+        expect(f.network_access_allowed?(phase)).to be(action == "allow")
       end
     end
 
@@ -3285,6 +3306,7 @@ RSpec.describe Formula do
   describe "#specified_path" do
     let(:klass) do
       Class.new(described_class) do
+        T.bind(self, T.class_of(Formula))
         url "https://brew.sh/foo-1.0.tar.gz"
       end
     end
@@ -3597,15 +3619,14 @@ RSpec.describe Formula do
         let(:buildpath) { mktmpdir }
         let(:commit) { Utils.popen_read("git", "-C", buildpath, "rev-parse", "HEAD").chomp }
 
-        before { allow(f).to receive(:buildpath).and_return(buildpath) }
+        before do
+          allow(f).to receive(:buildpath).and_return(buildpath)
 
-        around do |example|
           buildpath.cd do
             FileUtils.touch "LICENSE"
             system "git", "init"
             system "git", "add", "--all"
             system "git", "commit", "-m", "Initial commit"
-            example.run
           end
         end
 

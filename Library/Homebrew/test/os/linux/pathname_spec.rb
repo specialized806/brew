@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "extend/pathname"
@@ -52,7 +52,7 @@ RSpec.describe Pathname do
           elf.patch!(interpreter:)
 
           modified_elf = ELFPathname.wrap(elf.dirname/"mod.#{elf.basename}")
-          FileUtils.cp(elf, modified_elf)
+          FileUtils.cp(elf, modified_elf.to_path)
           expect(modified_elf.interpreter).to eq interpreter
           expect(modified_elf.rpath).to eq "@@HOMEBREW_PREFIX@@/lib"
         end
@@ -66,7 +66,7 @@ RSpec.describe Pathname do
           elf.patch!(rpath:)
 
           modified_elf = ELFPathname.wrap(elf.dirname/"mod.#{elf.basename}")
-          FileUtils.cp(elf, modified_elf)
+          FileUtils.cp(elf, modified_elf.to_path)
           expect(modified_elf.interpreter).to eq "@@HOMEBREW_PREFIX@@/lib/ld.so"
           expect(modified_elf.rpath).to eq rpath
         end
@@ -81,7 +81,7 @@ RSpec.describe Pathname do
           elf.patch!(interpreter:, rpath:)
 
           modified_elf = ELFPathname.wrap(elf.dirname/"mod.#{elf.basename}")
-          FileUtils.cp(elf, modified_elf)
+          FileUtils.cp(elf, modified_elf.to_path)
           expect(modified_elf.interpreter).to eq interpreter
           expect(modified_elf.rpath).to eq rpath
         end

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -216,24 +216,6 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         redis
       end
 
-      let(:services_info_pre) do
-        [
-          { "name" => "nginx", "running" => true, "loaded" => true },
-          { "name" => "httpd", "running" => true, "loaded" => true },
-          { "name" => "redis", "running" => false, "loaded" => false },
-          { "name" => "redis@6.2", "running" => true, "loaded" => true, "registered" => true },
-        ]
-      end
-
-      let(:services_info_post) do
-        [
-          { "name" => "nginx", "running" => true, "loaded" => true },
-          { "name" => "httpd", "running" => false, "loaded" => false },
-          { "name" => "redis", "running" => true, "loaded" => true },
-          { "name" => "redis@6.2", "running" => false, "loaded" => false, "registered" => true },
-        ]
-      end
-
       before do
         stub_formula_loader(nginx_formula, "nginx")
         stub_formula_loader(redis_formula, "redis")
@@ -251,7 +233,25 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         allow(described_class).to receive(:exit!).and_return(nil)
       end
 
-      shared_examples "handles service lifecycle correctly" do
+      shared_examples "handles service lifecycle correctly" do |nginx_service_file:, redis_service_file:|
+        let(:services_info_pre) do
+          [
+            { "name" => "nginx", "running" => true, "loaded" => true },
+            { "name" => "httpd", "running" => true, "loaded" => true },
+            { "name" => "redis", "running" => false, "loaded" => false },
+            { "name" => "redis@6.2", "running" => true, "loaded" => true, "registered" => true },
+          ]
+        end
+
+        let(:services_info_post) do
+          [
+            { "name" => "nginx", "running" => true, "loaded" => true },
+            { "name" => "httpd", "running" => false, "loaded" => false },
+            { "name" => "redis", "running" => true, "loaded" => true },
+            { "name" => "redis@6.2", "running" => false, "loaded" => false, "registered" => true },
+          ]
+        end
+
         it "handles service lifecycle correctly" do
           # The order of operations is important. This unweildly looking test is so it tests that.
 
@@ -308,10 +308,9 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
           allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
         end
 
-        let(:nginx_service_file) { nginx_formula.any_installed_prefix/"#{nginx_formula.plist_name}.plist" }
-        let(:redis_service_file) { redis_formula.any_installed_prefix/"#{redis_formula.plist_name}.plist" }
-
-        include_examples "handles service lifecycle correctly"
+        include_examples "handles service lifecycle correctly",
+                         nginx_service_file: HOMEBREW_PREFIX/"opt/nginx/sh.brew.nginx.plist",
+                         redis_service_file: HOMEBREW_PREFIX/"opt/redis/sh.brew.redis.plist"
       end
 
       context "with systemd" do
@@ -319,10 +318,9 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
           allow(Homebrew::Services::System).to receive(:launchctl?).and_return(false)
         end
 
-        let(:nginx_service_file) { nginx_formula.any_installed_prefix/"#{nginx_formula.service_name}.service" }
-        let(:redis_service_file) { redis_formula.any_installed_prefix/"#{redis_formula.service_name}.service" }
-
-        include_examples "handles service lifecycle correctly"
+        include_examples "handles service lifecycle correctly",
+                         nginx_service_file: HOMEBREW_PREFIX/"opt/nginx/nginx.service",
+                         redis_service_file: HOMEBREW_PREFIX/"opt/redis/redis.service"
       end
     end
   end

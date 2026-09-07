@@ -28,10 +28,16 @@ module Cask
         @invoked_caveats = T.let(Set.new, T::Set[Symbol])
       end
 
+      sig { returns(T::Array[Symbol]) }
+      def self.caveat_names
+        @caveat_names ||= T.let([], T.nilable(T::Array[Symbol]))
+      end
+
       sig {
         params(name: Symbol, block: T.proc.bind(Caveats).void).void
       }
       def self.caveat(name, &block)
+        caveat_names << name
         define_method(name) do |*args|
           T.bind(self, Caveats)
           key = [name, *args]

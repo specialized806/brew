@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "vulns/scanner"
@@ -87,9 +87,9 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       target = described_class.new([curl]).build_target(curl)
 
-      expect(target.repo_url).to eq "https://github.com/curl/curl"
-      expect(target.tag).to eq "8.5.0"
-      expect(target.version).to eq "8.5.0"
+      expect(target).to have_attributes(repo_url: "https://github.com/curl/curl",
+                                        tag:      "8.5.0",
+                                        version:  "8.5.0")
     end
 
     it "queries a non-forge head URL verbatim when no candidate is a supported forge" do
@@ -102,8 +102,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       target = described_class.new([bash]).build_target(bash)
 
-      expect(target.repo_url).to eq "https://git.savannah.gnu.org/git/bash.git"
-      expect(target.tag).to eq "5.3"
+      expect(target).to have_attributes(repo_url: "https://git.savannah.gnu.org/git/bash.git",
+                                        tag:      "5.3")
     end
 
     it "queries a non-forge stable URL verbatim when its path yields a tag" do
@@ -114,8 +114,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       target = described_class.new([thing]).build_target(thing)
 
-      expect(target.repo_url).to eq "https://gitea.example.com/owner/thing/archive/v1.2.3.tar.gz"
-      expect(target.tag).to eq "v1.2.3"
+      expect(target).to have_attributes(repo_url: "https://gitea.example.com/owner/thing/archive/v1.2.3.tar.gz",
+                                        tag:      "v1.2.3")
     end
 
     it "prefers an explicit stable tag over the derived version" do
@@ -127,8 +127,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       target = described_class.new([aom]).build_target(aom)
 
-      expect(target.repo_url).to eq "https://github.com/aomediaorg/aom"
-      expect(target.tag).to eq "v3.13.1"
+      expect(target).to have_attributes(repo_url: "https://github.com/aomediaorg/aom",
+                                        tag:      "v3.13.1")
     end
 
     it "queries the SBOM versionInfo when the SBOM downloadLocation has no extractable tag" do
@@ -151,9 +151,9 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         target = described_class.new([curl]).build_target(curl)
 
-        expect(target.repo_url).to eq "https://github.com/curl/curl"
-        expect(target.tag).to eq "8.4.0"
-        expect(target.from_installed_sbom).to be true
+        expect(target).to have_attributes(repo_url:            "https://github.com/curl/curl",
+                                          tag:                 "8.4.0",
+                                          from_installed_sbom: true)
       end
     end
 
@@ -178,9 +178,9 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         target = described_class.new([bash]).build_target(bash)
 
-        expect(target.repo_url).to eq "https://git.savannah.gnu.org/git/bash.git"
-        expect(target.tag).to eq "5.2"
-        expect(target.from_installed_sbom).to be true
+        expect(target).to have_attributes(repo_url:            "https://git.savannah.gnu.org/git/bash.git",
+                                          tag:                 "5.2",
+                                          from_installed_sbom: true)
       end
     end
   end
@@ -238,7 +238,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
       expect(results.skipped).to eq 0
       expect(results.any_open?).to be true
       expect(results.findings.size).to eq 1
-      f = results.findings.first
+      f = results.findings.fetch(0)
       expect(f.name).to eq "act"
       expect(f.version).to eq "0.2.84"
       expect(f.tag).to eq "v0.2.84"
@@ -285,7 +285,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([act]).scan
 
-      expect(results.findings.first.open.map(&:id)).to contain_exactly("CVE-2024-1111", "CVE-2024-2222")
+      expect(results.findings.fetch(0).open.map(&:id)).to contain_exactly("CVE-2024-1111", "CVE-2024-2222")
     end
 
     it "drops vulnerabilities that do not affect the queried tag" do
@@ -312,7 +312,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([act], min_severity: :high).scan
 
-      expect(results.findings.first.open.map(&:id)).to eq ["CVE-CRIT"]
+      expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-CRIT"]
     end
 
     it "moves vulnerabilities resolved by formula patches into patched" do
@@ -325,7 +325,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime]).scan
 
-      finding = results.findings.first
+      finding = results.findings.fetch(0)
       expect(finding.open.map(&:id)).to eq ["CVE-2024-9999"]
       expect(finding.patched.map(&:id)).to eq ["CVE-2016-2399"]
       expect(results.any_open?).to be true
@@ -339,8 +339,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime]).scan
 
-      expect(results.findings.first.open).to eq []
-      expect(results.findings.first.patched.map(&:id)).to eq ["GHSA-x"]
+      expect(results.findings.fetch(0).open).to eq []
+      expect(results.findings.fetch(0).patched.map(&:id)).to eq ["GHSA-x"]
       expect(results.any_open?).to be false
     end
 
@@ -355,9 +355,9 @@ RSpec.describe Homebrew::Vulns::Scanner do
       end
       expect(core_thing.name).to eq tap_thing.name
 
-      queried = nil
+      queried = []
       allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
-        queried = packages
+        queried.replace(packages)
         Array.new(packages.size) { [] }
       end
 
@@ -374,8 +374,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime], ignore_patches: false).scan
 
-      expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
-      expect(results.findings.first.patched).to eq []
+      expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.fetch(0).patched).to eq []
     end
 
     it "does not suppress via patches when the scanned keg predates the current recipe" do
@@ -388,8 +388,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime]).scan
 
-      expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
-      expect(results.findings.first.patched).to eq []
+      expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.fetch(0).patched).to eq []
     end
 
     it "does not suppress when the opt-linked keg is old even if the current version is also installed" do
@@ -404,8 +404,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime]).scan
 
-      expect(results.findings.first.open.map(&:id)).to eq ["CVE-2016-2399"]
-      expect(results.findings.first.patched).to eq []
+      expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.fetch(0).patched).to eq []
       expect(results.outdated_without_sbom).to eq ["libquicktime"]
     end
 
@@ -419,7 +419,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime]).scan
 
-      expect(results.findings.first.patched.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.fetch(0).patched.map(&:id)).to eq ["CVE-2016-2399"]
     end
 
     it "suppresses via patches when the formula is not installed at all" do
@@ -428,7 +428,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
       results = described_class.new([libquicktime]).scan
 
-      expect(results.findings.first.patched.map(&:id)).to eq ["CVE-2016-2399"]
+      expect(results.findings.fetch(0).patched.map(&:id)).to eq ["CVE-2016-2399"]
     end
 
     context "when an outdated keg is installed" do
@@ -443,9 +443,9 @@ RSpec.describe Homebrew::Vulns::Scanner do
       end
 
       it "queries OSV using the installed keg's SBOM source URL, not the current formula" do
-        queried = nil
+        queried = []
         allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
-          queried = packages
+          queried.replace(packages)
           Array.new(packages.size) { [] }
         end
 
@@ -459,8 +459,8 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         results = described_class.new([act]).scan
 
-        expect(results.findings.first.version).to eq "0.2.80"
-        expect(results.findings.first.tag).to eq "v0.2.80"
+        expect(results.findings.fetch(0).version).to eq "0.2.80"
+        expect(results.findings.fetch(0).tag).to eq "v0.2.80"
       end
 
       it "filters affects_version? against the installed tag" do
@@ -474,14 +474,14 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         results = described_class.new([act]).scan
 
-        expect(results.findings.first.open.map(&:id)).to eq ["CVE-2024-1111"]
+        expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-2024-1111"]
       end
 
       it "falls back to the current formula URL when the keg has no SBOM" do
         allow(act).to receive(:any_installed_prefix).and_return(Pathname("/nonexistent"))
-        queried = nil
+        queried = []
         allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
-          queried = packages
+          queried.replace(packages)
           Array.new(packages.size) { [] }
         end
 
@@ -512,7 +512,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         results = described_class.new([act], fix_type: :any).scan
 
-        expect(results.findings.first.open.map(&:id)).to eq ["CVE-WITH-FIX"]
+        expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-WITH-FIX"]
       end
 
       it "filters out vulnerabilities that do have a fix available when except_fixed is true" do
@@ -536,7 +536,7 @@ RSpec.describe Homebrew::Vulns::Scanner do
 
         results = described_class.new([act], fix_type: :none).scan
 
-        expect(results.findings.first.open.map(&:id)).to eq ["CVE-NO-FIX"]
+        expect(results.findings.fetch(0).open.map(&:id)).to eq ["CVE-NO-FIX"]
       end
 
       it "filters out vulnerabilities that are matched in an open-ended interval when only_fixed is true" do
@@ -599,13 +599,13 @@ RSpec.describe Homebrew::Vulns::Scanner do
         allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-PATCH").and_return(patch_fix_vuln)
 
         r_only = described_class.new([act], fix_type: :released).scan
-        expect(r_only.findings.first.open.map(&:id)).to eq ["CVE-RELEASED"]
+        expect(r_only.findings.fetch(0).open.map(&:id)).to eq ["CVE-RELEASED"]
 
         r_except = described_class.new([act], fix_type: :unreleased).scan
-        expect(r_except.findings.first.open.map(&:id)).to eq ["CVE-PATCH"]
+        expect(r_except.findings.fetch(0).open.map(&:id)).to eq ["CVE-PATCH"]
 
         p_only = described_class.new([act], fix_type: :patch).scan
-        expect(p_only.findings.first.open.map(&:id)).to eq ["CVE-PATCH"]
+        expect(p_only.findings.fetch(0).open.map(&:id)).to eq ["CVE-PATCH"]
       end
     end
   end

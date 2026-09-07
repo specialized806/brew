@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bundle"
@@ -132,7 +132,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
   end
 
   describe ".versioned_service_file" do
-    let(:foo) do
+    subject(:foo) do
       instance_double(
         Formula,
         name:          "fooformula",
@@ -145,17 +145,17 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
       )
     end
 
-    shared_examples "returns the versioned service file" do
+    shared_examples "returns the versioned service file" do |name, extension|
       it "returns the versioned service file" do
-        expect(Formula).to receive(:[]).with(foo.name).and_return(foo)
-        expect(Homebrew::Bundle).to receive(:formula_versions_from_env).with(foo.name).and_return(foo.version)
+        expect(Formula).to receive(:[]).with(subject.name).and_return(subject)
+        expect(Homebrew::Bundle).to receive(:formula_versions_from_env).with(subject.name).and_return(subject.version)
 
-        prefix = foo.rack/"1.0"
+        prefix = subject.rack/"1.0"
         prefix.mkpath
-        service_file = prefix/service_basename
+        service_file = prefix/"#{subject.public_send(name)}.#{extension}"
         service_file.write("service")
 
-        expect(described_class.versioned_service_file(foo.name)).to eq(service_file)
+        expect(described_class.versioned_service_file(subject.name)).to eq(service_file)
       end
     end
 
@@ -164,9 +164,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
         allow(Homebrew::Services::System).to receive(:launchctl?).and_return(true)
       end
 
-      let(:service_basename) { "#{foo.plist_name}.plist" }
-
-      include_examples "returns the versioned service file"
+      include_examples "returns the versioned service file", :plist_name, "plist"
 
       it "returns the compatible versioned service file" do
         expect(Formula).to receive(:[]).with(foo.name).and_return(foo)
@@ -187,9 +185,7 @@ RSpec.describe Homebrew::Bundle::Brew::Services do
         allow(Homebrew::Services::System).to receive(:launchctl?).and_return(false)
       end
 
-      let(:service_basename) { "#{foo.service_name}.service" }
-
-      include_examples "returns the versioned service file"
+      include_examples "returns the versioned service file", :service_name, "service"
 
       it "returns the compatible versioned service file" do
         expect(Formula).to receive(:[]).with(foo.name).and_return(foo)
