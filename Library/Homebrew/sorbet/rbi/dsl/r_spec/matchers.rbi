@@ -91,9 +91,6 @@ module RSpec::Matchers
   def be_directory(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
-  def be_ds_store(*args, &block); end
-
-  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def be_dylib(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }

@@ -336,9 +336,8 @@ RSpec.describe Pathname do
   end
 
   describe "#ds_store?" do
-    it "returns whether a file is .DS_Store or not" do
-      expect(file).not_to be_ds_store
-      expect(file/".DS_Store").to be_ds_store
+    it "does not extend Pathname with a Finder metadata predicate" do
+      expect(file).not_to respond_to(:ds_store?)
     end
   end
 end

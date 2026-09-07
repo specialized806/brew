@@ -245,7 +245,7 @@ class Keg
   sig { returns(T::Boolean) }
   def empty_installation?
     Pathname.glob("#{path}/*") do |file|
-      return false if file.directory? && !file.children.reject(&:ds_store?).empty?
+      return false if file.directory? && file.children.any? { |child| child.basename.to_s != ".DS_Store" }
 
       basename = file.basename.to_s
 

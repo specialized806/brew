@@ -385,11 +385,6 @@ class Pathname
   end
 
   sig { returns(T::Boolean) }
-  def ds_store?
-    basename.to_s == ".DS_Store"
-  end
-
-  sig { returns(T::Boolean) }
   def binary_executable?
     false
   end
