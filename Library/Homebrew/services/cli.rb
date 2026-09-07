@@ -495,9 +495,18 @@ module Homebrew
 
         loaded_service_name = service.service_name
         if System.launchctl?
-          file ||= enable ? service.dest : service.source_service_file
           service.path_dirs.each(&:mkpath)
-          loaded_service_name = launchctl_load(service, file:, enable:)
+          if file.nil? && !enable && service.service_file_generated? &&
+             (contents = service.service_contents) != service.source_service_file.read
+            Tempfile.create(service.service_name) do |tempfile|
+              tempfile.write(contents)
+              tempfile.flush
+              loaded_service_name = launchctl_load(service, file: Pathname(tempfile.path), enable:)
+            end
+          else
+            file ||= enable ? service.dest : service.source_service_file
+            loaded_service_name = launchctl_load(service, file:, enable:)
+          end
         elsif System.systemctl?
           # Systemctl loads based upon location so only install service
           # file when it is not installed. Used with the `run` command.
