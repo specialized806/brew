@@ -285,11 +285,26 @@ module Homebrew
           end
         end
 
-        install_args = []
-        install_args << "--adopt" if !force && actionable.any? { |entry| entry.cls == Cask }
-        install_args.push("--force", "--overwrite") if force
-        batch_succeeded = actionable.empty? || with_env("HOMEBREW_NO_INSTALL_UPGRADE" => nil) do
-          Bundle.brew("install", *install_args, *actionable.map(&:install_name), verbose:)
+        # A bare `brew install` resolves an ambiguous name to the formula, and the type
+        # flags conflict with each other, so each type needs its own invocation.
+        formulae, casks = actionable.partition { |entry| entry.cls == Brew }
+        batches = []
+        if formulae.any?
+          batches << [
+            "--formula",
+            *(["--force", "--overwrite"] if force),
+            *formulae.map(&:install_name),
+          ]
+        end
+        if casks.any?
+          batches << [
+            "--cask",
+            force ? "--force" : "--adopt",
+            *casks.map(&:install_name),
+          ]
+        end
+        batch_succeeded = with_env("HOMEBREW_NO_INSTALL_UPGRADE" => nil) do
+          batches.map { |batch_args| Bundle.brew("install", *batch_args, verbose:) }.all?
         end
 
         # The batch changed what is installed, so the memoised views of it are stale.
