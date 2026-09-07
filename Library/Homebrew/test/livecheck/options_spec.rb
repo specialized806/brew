@@ -117,6 +117,14 @@ RSpec.describe Homebrew::Livecheck::Options do
         .to eq(options.new(**args, user_agent: :curl))
     end
 
+    it "doesn't share a merged collection value with `other`" do
+      o1 = options.new(**args)
+      o1.merge!(other_options)
+      o1.post_form = nil
+
+      expect(other_options.post_form).to eq(other_args[:post_form])
+    end
+
     it "raises an error if `other` sets both `post_form` and `post_json`" do
       o1 = options.new(**args)
       expect { o1.merge!(options.new(post_form: post_hash, post_json: post_hash)) }

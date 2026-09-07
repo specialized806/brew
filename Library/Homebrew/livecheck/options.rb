@@ -90,7 +90,7 @@ module Homebrew
         other.instance_variables.each do |ivar|
           next if (val = T.let(other.instance_variable_get(ivar), Object)).nil?
 
-          public_send(:"#{ivar.to_s.delete_prefix("@")}=", val)
+          public_send(:"#{ivar.to_s.delete_prefix("@")}=", val.deep_dup)
         end
 
         # Merging one of these options should unset the opposite value in `self`
