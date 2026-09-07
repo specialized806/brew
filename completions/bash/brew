@@ -104,7 +104,7 @@ __brew_complete_commands() {
   fi
   if [[ -n ${HOMEBREW_DEVELOPER:-} ]]
   then
-    maintainer_cmds="advisory-match determine-test-runners dispatch-build-bottle formula-analytics generate-advisories-api generate-analytics-api generate-bottle-ci-matrix generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api generate-vulns-advisories pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
+    maintainer_cmds="advisory-match bump-python-resources-pr determine-test-runners dispatch-build-bottle formula-analytics formula-python-resources generate-advisories-api generate-analytics-api generate-bottle-ci-matrix generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api generate-vulns-advisories pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
   fi
   user_aliases="$(__brew_list_aliases)"
   while IFS= read -r line
@@ -660,6 +660,30 @@ _brew_bump_formula_pr() {
       --verbose
       --version
       --write-only
+      "
+      return
+      ;;
+    *) ;;
+  esac
+  __brew_complete_formulae
+}
+
+_brew_bump_python_resources_pr() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --branch
+      --debug
+      --dry-run
+      --help
+      --install-dependencies
+      --message
+      --no-fork
+      --output
+      --packages
+      --quiet
+      --verbose
       "
       return
       ;;
@@ -1659,6 +1683,25 @@ _brew_formula_analytics() {
       ;;
     *) ;;
   esac
+}
+
+_brew_formula_python_resources() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --all
+      --debug
+      --help
+      --quiet
+      --tap
+      --verbose
+      "
+      return
+      ;;
+    *) ;;
+  esac
+  __brew_complete_formulae
 }
 
 _brew_formulae() {
@@ -3823,6 +3866,7 @@ _brew() {
     bump-cask-pr) _brew_bump_cask_pr ;;
     bump-compatibility-version) _brew_bump_compatibility_version ;;
     bump-formula-pr) _brew_bump_formula_pr ;;
+    bump-python-resources-pr) _brew_bump_python_resources_pr ;;
     bump-revision) _brew_bump_revision ;;
     bump-unversioned-casks) _brew_bump_unversioned_casks ;;
     bundle) _brew_bundle ;;
@@ -3851,6 +3895,7 @@ _brew() {
     find-appcast) _brew_find_appcast ;;
     formula) _brew_formula ;;
     formula-analytics) _brew_formula_analytics ;;
+    formula-python-resources) _brew_formula_python_resources ;;
     formulae) _brew_formulae ;;
     generate-advisories-api) _brew_generate_advisories_api ;;
     generate-analytics-api) _brew_generate_analytics_api ;;

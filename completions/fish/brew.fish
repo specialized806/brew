@@ -535,6 +535,21 @@ __fish_brew_complete_arg 'bump-formula-pr' -l write-only -d 'Make the expected f
 __fish_brew_complete_arg 'bump-formula-pr' -a '(__fish_brew_suggest_formulae_all)'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'bump-python-resources-pr' -d 'Update vulnerable PyPI resources in formula, bump its revision, and create a pull request'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l branch -d 'Branch name to use for the pull request'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l dry-run -d 'Print what would be done rather than creating a pull request'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l help -d 'Show this message'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l install-dependencies -d 'Install missing dependencies required to update resources'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l message -d 'Message to prepend to the pull request body'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l no-fork -d 'Don\'t try to fork the repository'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l output -d 'Write the JSON result to this file instead of standard output. Use this when parsing the result, as progress is also printed to standard output'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l packages -d 'Names of vulnerable Python packages that must be updated'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'bump-python-resources-pr' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'bump-python-resources-pr' -a '(__fish_brew_suggest_formulae_all)'
+
+
 __fish_brew_complete_cmd 'bump-revision' 'Create a commit to increment the revision of formula'
 __fish_brew_complete_arg 'bump-revision' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'bump-revision' -l dry-run -d 'Print what would be done rather than doing it'
@@ -1129,6 +1144,16 @@ __fish_brew_complete_arg 'formula-analytics' -l os-version -d 'Output the number
 __fish_brew_complete_arg 'formula-analytics' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'formula-analytics' -l setup -d 'Install the necessary Python dependencies and exit without running a query'
 __fish_brew_complete_arg 'formula-analytics' -l verbose -d 'Make some output more verbose'
+
+
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'formula-python-resources' -d 'Print JSON describing the PyPI resources used by formula'
+__fish_brew_complete_arg 'formula-python-resources' -l all -d 'Include all available formulae'
+__fish_brew_complete_arg 'formula-python-resources' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'formula-python-resources' -l help -d 'Show this message'
+__fish_brew_complete_arg 'formula-python-resources' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'formula-python-resources' -l tap -d 'Only include formulae from the named tap. Requires `--all`'
+__fish_brew_complete_arg 'formula-python-resources' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'formula-python-resources' -a '(__fish_brew_suggest_formulae_all)'
 
 
 __fish_brew_complete_cmd 'formulae' 'List all locally installable formulae including short names'

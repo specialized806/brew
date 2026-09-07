@@ -277,9 +277,11 @@ __brew_internal_commands() {
   if [[ -n ${HOMEBREW_DEVELOPER:-} ]]; then
     commands+=(
       'advisory-match:Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
+      'bump-python-resources-pr:Update vulnerable PyPI resources in formula, bump its revision, and create a pull request'
       'determine-test-runners:Determines the runners used to test formulae or their dependents'
       'dispatch-build-bottle:Build bottles for these formulae with GitHub Actions'
       'formula-analytics:Query Homebrew'\''s analytics'
+      'formula-python-resources:Print JSON describing the PyPI resources used by formula'
       'generate-advisories-api:Generate advisory API data for https://formulae.brew.sh from a checkout of https://github.com/Homebrew/advisory-database'
       'generate-analytics-api:Generates analytics API data files for https://formulae.brew.sh'
       'generate-bottle-ci-matrix:Generate a GitHub Actions runner matrix for a dispatched bottle build'
@@ -698,6 +700,24 @@ _brew_bump_formula_pr() {
     '--verbose[Make some output more verbose]' \
     '--version[Use the specified version to override the value parsed from the URL or tag. Note that `--version=0` can be used to delete an existing version override from a formula if it has become redundant]' \
     '(--dry-run)--write-only[Make the expected file modifications without taking any Git actions]' \
+    - formula \
+    '*:formula:__brew_formulae'
+}
+
+# brew bump-python-resources-pr
+_brew_bump_python_resources_pr() {
+  _arguments \
+    '--branch[Branch name to use for the pull request]' \
+    '--debug[Display any debugging information]' \
+    '--dry-run[Print what would be done rather than creating a pull request]' \
+    '--help[Show this message]' \
+    '--install-dependencies[Install missing dependencies required to update resources]' \
+    '--message[Message to prepend to the pull request body]' \
+    '--no-fork[Don'\''t try to fork the repository]' \
+    '--output[Write the JSON result to this file instead of standard output. Use this when parsing the result, as progress is also printed to standard output]' \
+    '--packages[Names of vulnerable Python packages that must be updated]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]' \
     - formula \
     '*:formula:__brew_formulae'
 }
@@ -1481,6 +1501,19 @@ _brew_formula_analytics() {
     '--quiet[Make some output more quiet]' \
     '(--json --all-core-formulae-json)--setup[Install the necessary Python dependencies and exit without running a query]' \
     '--verbose[Make some output more verbose]'
+}
+
+# brew formula-python-resources
+_brew_formula_python_resources() {
+  _arguments \
+    '--all[Include all available formulae]' \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--tap[Only include formulae from the named tap. Requires `--all`]' \
+    '--verbose[Make some output more verbose]' \
+    - formula \
+    '*:formula:__brew_formulae'
 }
 
 # brew formulae
