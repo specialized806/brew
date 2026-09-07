@@ -572,7 +572,6 @@ module Homebrew
       downcased_full_name = full_name.downcase
       tap_name = tap.name.downcase
       downcased_args.include?(downcased_full_name) ||
-        downcased_args.include?(tap_name) ||
         downcased_args.include?("--tap=#{tap_name}") ||
         downcased_args.each_cons(2).any? { |option, value| option == "--tap" && value == tap_name }
     end

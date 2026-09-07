@@ -625,6 +625,21 @@ RSpec.describe Homebrew::Trust, :trust_store do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "does not allow files from a tap named as a bare argument when trust checks are enabled" do
+    old_argv = ARGV.dup
+    tap = Tap.fetch("thirdparty", "foo")
+    formula_path = tap.formula_dir/"default-trust.rb"
+    formula_path.dirname.mkpath
+
+    ARGV.replace(["info", "thirdparty/foo"])
+    expect(described_class.trusted_formula_file?(formula_path)).to be(false)
+  ensure
+    ARGV.replace(old_argv) if old_argv
+    described_class.clear!(:tap)
+    described_class.clear!(:formula)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
   it "does not allow explicitly named command files when trust checks are enabled" do
     old_argv = ARGV.dup
     tap = Tap.fetch("thirdparty", "foo")
