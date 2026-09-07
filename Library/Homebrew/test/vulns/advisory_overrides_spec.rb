@@ -4,6 +4,64 @@
 require "vulns/advisory_overrides"
 
 RSpec.describe Homebrew::Vulns::AdvisoryOverrides do
+  it "loads an explicit primary registry package identity" do
+    overrides = described_class.new({
+      "pnpm" => { "registry_package" => {
+        "ecosystem" => "npm",
+        "name"      => "pnpm",
+      } },
+    })
+
+    expect(overrides.registry_package_override("pnpm"))
+      .to have_attributes(ecosystem: "npm", name: "pnpm")
+  end
+
+  it "rejects unknown registry package fields" do
+    data = { "pnpm" => { "registry_package" => {
+      "ecosystem" => "npm",
+      "name"      => "pnpm",
+      "purl"      => "pkg:npm/pnpm",
+    } } }
+
+    expect { described_class.new(data) }
+      .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /unknown key.*purl/)
+  end
+
+  it "rejects missing registry package fields" do
+    data = { "pnpm" => { "registry_package" => { "ecosystem" => "npm" } } }
+
+    expect { described_class.new(data) }
+      .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /missing key.*name/)
+  end
+
+  it "rejects unsupported registry package ecosystems" do
+    data = { "pnpm" => { "registry_package" => { "ecosystem" => "GIT", "name" => "pnpm" } } }
+
+    expect { described_class.new(data) }
+      .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /supported registry package/)
+  end
+
+  it "rejects blank registry package fields" do
+    data = { "pnpm" => { "registry_package" => { "ecosystem" => "npm", "name" => " \n" } } }
+
+    expect { described_class.new(data) }
+      .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /name must be a non-blank string/)
+  end
+
+  it "rejects non-string registry package fields" do
+    data = { "pnpm" => { "registry_package" => { "ecosystem" => "npm", "name" => 12 } } }
+
+    expect { described_class.new(data) }
+      .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /name must be a non-blank string/)
+  end
+
+  it "rejects a non-mapping registry package" do
+    data = { "pnpm" => { "registry_package" => "npm/pnpm" } }
+
+    expect { described_class.new(data) }
+      .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /registry_package must be a mapping/)
+  end
+
   it "loads formula skips and candidate-specific state and fix corrections" do
     overrides = described_class.new({
       "linux-headers" => { "skip" => true },

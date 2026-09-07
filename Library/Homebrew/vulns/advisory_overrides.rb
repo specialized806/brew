@@ -1,15 +1,22 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "vulns/identify"
 require "yaml"
 
 module Homebrew
   module Vulns
-    # Reviewed, candidate-specific corrections for advisory matching. These are
-    # intentionally keyed by formula and upstream advisory identifier so a bad
-    # upstream range cannot silently change unrelated matches.
+    # Reviewed formula identity and candidate-specific corrections for advisory
+    # matching. These are intentionally keyed by formula, and range corrections
+    # are further keyed by upstream advisory identifier, so a bad upstream range
+    # cannot silently change unrelated matches.
     class AdvisoryOverrides
       class Error < RuntimeError; end
+
+      class RegistryPackageOverride < T::Struct
+        const :ecosystem, String
+        const :name, String
+      end
 
       class Entry < T::Struct
         const :state, T.nilable(Symbol)
@@ -19,6 +26,10 @@ module Homebrew
 
       VALID_STATES = [:affected, :fixed, :not_applicable].freeze
       private_constant :VALID_STATES
+
+      # Mirrored by Homebrew/advisory-database spec/overrides_spec.rb.
+      REGISTRY_PACKAGE_KEYS = %w[ecosystem name].freeze
+      private_constant :REGISTRY_PACKAGE_KEYS
 
       sig { params(path: Pathname).returns(AdvisoryOverrides) }
       def self.from_file(path)
@@ -30,6 +41,7 @@ module Homebrew
       sig { params(data: T.untyped).void }
       def initialize(data)
         @skipped_formulae = T.let({}, T::Hash[String, T::Boolean])
+        @registry_packages = T.let({}, T::Hash[String, RegistryPackageOverride])
         @advisories = T.let({}, T::Hash[String, T::Hash[String, Entry]])
 
         root = hash(data, "top level")
@@ -37,12 +49,28 @@ module Homebrew
           raise Error, "Formula names must be strings" unless formula_name.is_a?(String)
 
           formula = hash(raw_formula, formula_name)
-          reject_unknown_keys(formula, %w[skip advisories], formula_name)
+          reject_unknown_keys(formula, %w[skip advisories registry_package], formula_name)
 
           skip = formula.fetch("skip", false)
           raise Error, "#{formula_name}.skip must be true or false" unless [true, false].include?(skip)
 
           @skipped_formulae[formula_name] = true if skip
+
+          if formula.key?("registry_package")
+            location = "#{formula_name}.registry_package"
+            package = hash(formula.fetch("registry_package"), location)
+            reject_unknown_keys(package, REGISTRY_PACKAGE_KEYS, location)
+            missing = REGISTRY_PACKAGE_KEYS - package.keys
+            raise Error, "#{location} is missing key(s): #{missing.join(", ")}" if missing.any?
+
+            ecosystem = nonblank_string(package.fetch("ecosystem"), "#{location}.ecosystem")
+            name = nonblank_string(package.fetch("name"), "#{location}.name")
+            unless Identify.registry_package_for(ecosystem:, name:)
+              raise Error, "#{location} must identify a supported registry package with a canonical OSV name"
+            end
+
+            @registry_packages[formula_name] = RegistryPackageOverride.new(ecosystem:, name:)
+          end
           next unless formula.key?("advisories")
 
           raw_advisories = hash(formula.fetch("advisories"), "#{formula_name}.advisories")
@@ -78,12 +106,18 @@ module Homebrew
           @advisories[formula_name] = parsed.freeze
         end
         @skipped_formulae.freeze
+        @registry_packages.freeze
         @advisories.freeze
       end
 
       sig { params(formula_name: String).returns(T::Boolean) }
       def skip_formula?(formula_name)
         @skipped_formulae.key?(formula_name)
+      end
+
+      sig { params(formula_name: String).returns(T.nilable(RegistryPackageOverride)) }
+      def registry_package_override(formula_name)
+        @registry_packages[formula_name]
       end
 
       sig { params(formula_name: String, identifiers: T::Array[String]).returns(T.nilable(Entry)) }
@@ -105,6 +139,16 @@ module Homebrew
         return value if value.is_a?(Hash)
 
         raise Error, "#{location} must be a mapping"
+      end
+
+      sig { params(value: T.anything, location: String).returns(String) }
+      def nonblank_string(value, location)
+        case value
+        when String
+          return value if value.match?(/\S/)
+        end
+
+        raise Error, "#{location} must be a non-blank string"
       end
 
       sig {

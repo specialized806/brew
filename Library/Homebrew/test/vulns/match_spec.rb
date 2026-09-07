@@ -36,7 +36,55 @@ RSpec.describe Homebrew::Vulns::Match do
     Homebrew::Vulns::Match::Hit.new(vulnerability:, evidence:)
   end
 
+  def pnpm_overrides
+    Homebrew::Vulns::AdvisoryOverrides.new({
+      "pnpm" => { "registry_package" => {
+        "ecosystem" => "npm",
+        "name"      => "pnpm",
+      } },
+    })
+  end
+
   describe "#identify" do
+    it "uses an explicit registry package when the source URL is not a registry archive" do
+      overridden = described_class.new(repology:, cpan_sec:, overrides: pnpm_overrides)
+      pnpm = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/pnpm/pnpm/archive/refs/tags/v12.3.4.tar.gz"
+      end
+
+      expect(overridden.identify(pnpm).primary_package.to_h).to eq(
+        ecosystem: "npm",
+        name:      "pnpm",
+        version:   "12.3.4",
+        purl:      "pkg:npm/pnpm@12.3.4",
+      )
+    end
+
+    it "rejects an explicit registry package that conflicts with the source URL" do
+      overridden = described_class.new(repology:, cpan_sec:, overrides: pnpm_overrides)
+      pnpm = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://registry.npmjs.org/not-pnpm/-/not-pnpm-12.3.4.tgz"
+      end
+
+      expect { overridden.identify(pnpm) }
+        .to raise_error(Homebrew::Vulns::AdvisoryOverrides::Error, /conflicts with its source URL/)
+    end
+
+    it "keeps the source-derived package when the formula has no stable version" do
+      overridden = described_class.new(repology:, cpan_sec:, overrides: pnpm_overrides)
+      pnpm = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://registry.npmjs.org/pnpm/-/pnpm-12.3.4.tgz"
+      end
+      stable = pnpm.stable
+      allow(stable).to receive(:version).and_return(nil)
+      allow(pnpm).to receive(:stable).and_return(stable)
+
+      expect(overridden.identify(pnpm).primary_package&.name).to eq "pnpm"
+    end
+
     it "derives git repo/tag, primary registry package, resources and distro packages" do
       f = formula("requests") do
         T.bind(self, T.class_of(Formula))
@@ -851,6 +899,57 @@ RSpec.describe Homebrew::Vulns::Match do
     it "returns the pkg_version at the oldest revision still at or past upstream fixed_in" do
       stub_history(["2.31.0", "2.30.0", "2.28.1", "2.28.0", "2.27.0"])
       expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq "2.28.1"
+    end
+
+    def stub_pnpm_history(*formulae)
+      fv = instance_double(FormulaVersions)
+      revisions = formulae.each_index.map { |index| ["r#{index}", "Formula/p/pnpm.rb"] }
+      allow(fv).to receive(:rev_list) { |_, &block| revisions.each { |revision| block.call(*revision) } }
+      formulae.each_with_index do |old, index|
+        allow(fv).to receive(:formula_at_revision).with("r#{index}", anything).and_yield(old)
+      end
+      allow(FormulaVersions).to receive(:new).and_return(fv)
+    end
+
+    def pnpm_hit
+      make_hit(
+        vuln("id" => "CVE-1", "affected" => [
+          { "package" => { "ecosystem" => "npm", "name" => "pnpm" },
+            "ranges"  => [{ "type"   => "ECOSYSTEM",
+                            "events" => [{ "introduced" => "0" }, { "fixed" => "11.11.0" }] }] },
+        ]),
+        ev(:registry, ecosystem: "npm", name: "pnpm", subject_version: "12.3.4"),
+      )
+    end
+
+    it "uses an explicit registry identity across a source transition in history" do
+      overridden = described_class.new(repology:, cpan_sec:, overrides: pnpm_overrides)
+      current = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/pnpm/pnpm/archive/refs/tags/v12.3.4.tar.gz"
+      end
+      previous = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://registry.npmjs.org/pnpm/-/pnpm-11.10.0.tgz"
+      end
+      stub_pnpm_history(current, previous)
+
+      expect(overridden.first_fixed_version(current, pnpm_hit)).to eq "12.3.4"
+    end
+
+    it "fails a history walk closed when the declared registry identity conflicts" do
+      overridden = described_class.new(repology:, cpan_sec:, overrides: pnpm_overrides)
+      current = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://github.com/pnpm/pnpm/archive/refs/tags/v12.3.4.tar.gz"
+      end
+      conflicting = formula("pnpm") do
+        T.bind(self, T.class_of(Formula))
+        url "https://registry.npmjs.org/not-pnpm/-/not-pnpm-11.10.0.tgz"
+      end
+      stub_pnpm_history(conflicting)
+
+      expect(overridden.first_fixed_version(current, pnpm_hit)).to eq :history_unavailable
     end
 
     it "honours last_affected inclusivity by re-running the range per revision" do
