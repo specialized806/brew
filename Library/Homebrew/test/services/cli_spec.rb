@@ -1161,11 +1161,12 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.service_load(
           instance_double(
             Homebrew::Services::FormulaWrapper,
-            name:                "name",
-            service_name:        "service.name",
-            service_startup?:    false,
-            source_service_file: instance_double(Pathname, exist?: false),
-            path_dirs:           [],
+            name:                    "name",
+            service_name:            "service.name",
+            service_startup?:        false,
+            service_file_generated?: false,
+            source_service_file:     instance_double(Pathname, exist?: false),
+            path_dirs:               [],
           ),
           nil,
           enable: false,
@@ -1181,12 +1182,13 @@ RSpec.describe Homebrew::Services::Cli do
       source_service_file.write("service")
       service = instance_double(
         Homebrew::Services::FormulaWrapper,
-        name:                "name",
-        service_name:        "sh.brew.name",
-        service_startup?:    false,
+        name:                    "name",
+        service_name:            "sh.brew.name",
+        service_startup?:        false,
+        service_file_generated?: false,
         service_file:,
         source_service_file:,
-        path_dirs:           [],
+        path_dirs:               [],
       )
       expect(services_cli).to receive(:launchctl_load)
         .with(service, file: source_service_file, enable: false)
@@ -1195,6 +1197,60 @@ RSpec.describe Homebrew::Services::Cli do
       expect do
         services_cli.service_load(service, nil, enable: false)
       end.to output("==> Successfully ran `name` (label: sh.brew.name)\n").to_stdout
+    end
+
+    it "runs an unchanged generated macOS service from its source file" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, root?: false, systemctl?: false)
+
+      source_service_file = mktmpdir/"sh.brew.name.plist"
+      source_service_file.write("generated service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                    "name",
+        service_name:            "sh.brew.name",
+        service_startup?:        false,
+        service_file_generated?: true,
+        service_contents:        "generated service",
+        source_service_file:,
+        path_dirs:               [],
+      )
+      loaded_file = mktmpdir/"not-loaded"
+      allow(services_cli).to receive(:launchctl_load) do |_target, file:, **_options|
+        loaded_file = Pathname(file)
+        "sh.brew.name"
+      end
+
+      services_cli.service_load(service, nil, enable: false)
+
+      expect(loaded_file).to eq(source_service_file)
+    end
+
+    it "runs a generated macOS service with user environment overrides" do
+      allow(Homebrew::Services::System).to receive_messages(launchctl?: true, root?: false, systemctl?: false)
+
+      source_service_file = mktmpdir/"sh.brew.name.plist"
+      source_service_file.write("source service")
+      service = instance_double(
+        Homebrew::Services::FormulaWrapper,
+        name:                    "name",
+        service_name:            "sh.brew.name",
+        service_startup?:        false,
+        service_file_generated?: true,
+        service_contents:        "generated service with overrides",
+        source_service_file:,
+        path_dirs:               [],
+      )
+      loaded_contents = ""
+      loaded_file = mktmpdir/"not-loaded"
+      allow(services_cli).to receive(:launchctl_load) do |_target, file:, **_options|
+        loaded_file = Pathname(file)
+        loaded_contents = loaded_file.read
+        "sh.brew.name"
+      end
+
+      services_cli.service_load(service, nil, enable: false)
+
+      expect([loaded_contents, loaded_file.exist?]).to eq(["generated service with overrides", false])
     end
 
     it "creates service path directories before loading" do
@@ -1215,10 +1271,11 @@ RSpec.describe Homebrew::Services::Cli do
         services_cli.service_load(
           instance_double(
             Homebrew::Services::FormulaWrapper,
-            name:                "name",
-            service_name:        "service.name",
-            service_startup?:    false,
-            source_service_file: instance_double(Pathname, exist?: false),
+            name:                    "name",
+            service_name:            "service.name",
+            service_startup?:        false,
+            service_file_generated?: false,
+            source_service_file:     instance_double(Pathname, exist?: false),
             path_dirs:,
           ),
           nil,
