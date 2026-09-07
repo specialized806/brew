@@ -1250,7 +1250,8 @@ RSpec.describe Homebrew::Services::Cli do
 
       services_cli.service_load(service, nil, enable: false)
 
-      expect([loaded_contents, loaded_file.exist?]).to eq(["generated service with overrides", false])
+      expect([loaded_contents, loaded_file.extname, loaded_file.exist?])
+        .to eq(["generated service with overrides", ".plist", false])
     end
 
     it "creates service path directories before loading" do

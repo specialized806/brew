@@ -498,7 +498,7 @@ module Homebrew
           service.path_dirs.each(&:mkpath)
           if file.nil? && !enable && service.service_file_generated? &&
              (contents = service.service_contents) != service.source_service_file.read
-            Tempfile.create(service.service_name) do |tempfile|
+            Tempfile.create([service.service_name, ".plist"]) do |tempfile|
               tempfile.write(contents)
               tempfile.flush
               loaded_service_name = launchctl_load(service, file: Pathname(tempfile.path), enable:)
