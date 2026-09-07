@@ -612,14 +612,14 @@ module Homebrew
         case package
         when Formula, Keg, Array
           message += " For the formula, "
-          if package.is_a?(Formula) && (tap = package.tap)
-            message += "use #{tap.name}/#{package.name} or "
+          if package.is_a?(Formula) && package.tap
+            message += "use #{Utils.fully_qualified_name(package)} or "
           end
           message += "specify the `--formula` flag. To silence this message, use the `--cask` flag."
         when Cask::Cask
           message += " For the cask, "
-          if (tap = package.tap)
-            message += "use #{tap.name}/#{package.token} or "
+          if package.tap
+            message += "use #{Utils.fully_qualified_name(package)} or "
           end
           message += "specify the `--cask` flag. To silence this message, use the `--formula` flag."
         end

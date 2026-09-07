@@ -48,6 +48,17 @@ module Utils
     formula_or_cask.is_a?(Cask::Cask) ? formula_or_cask.token : formula_or_cask.name
   end
 
+  # Returns the package name with its tap, including core taps, or its full name if tapless.
+  sig { params(formula_or_cask: T.any(Formula, Cask::Cask)).returns(String) }
+  def self.fully_qualified_name(formula_or_cask)
+    tap = formula_or_cask.tap
+    if tap && (tap.core_tap? || tap.core_cask_tap?)
+      "#{tap.name}/#{formula_or_cask.full_name}"
+    else
+      formula_or_cask.full_name
+    end
+  end
+
   sig { params(full_name: String).returns(T.nilable(String)) }
   def self.tap_from_full_name(full_name)
     user, repository, name = full_name.split("/", 3)

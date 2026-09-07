@@ -5,6 +5,25 @@ require "timeout"
 require "utils"
 
 RSpec.describe Utils do
+  describe ".fully_qualified_name" do
+    [
+      [Formula, "homebrew/core", "foo", "homebrew/core/foo"],
+      [Cask::Cask, "homebrew/cask", "foo", "homebrew/cask/foo"],
+      [Formula, "thirdparty/tap", "thirdparty/tap/foo", "thirdparty/tap/foo"],
+      [Cask::Cask, "thirdparty/tap", "thirdparty/tap/foo", "thirdparty/tap/foo"],
+      [Formula, nil, "foo", "foo"],
+      [Cask::Cask, nil, "foo", "foo"],
+    ].each do |klass, tap_name, full_name, expected|
+      it "qualifies #{klass} from #{tap_name || "no tap"}" do
+        T.bind(self, RSpec::Core::ExampleGroup)
+
+        package = instance_double(klass, full_name:, tap: tap_name ? Tap.fetch(tap_name) : nil)
+
+        expect(described_class.fully_qualified_name(package)).to eq(expected)
+      end
+    end
+  end
+
   describe ".parallel_map" do
     it "runs all blocks concurrently" do
       # A barrier no block passes until every block has started: this
