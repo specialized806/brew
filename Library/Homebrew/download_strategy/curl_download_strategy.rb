@@ -313,8 +313,28 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   def expand_deferred_environment_args(args)
     return args unless @expand_deferred_environment
 
+    # Variables the formula or cask actually named. A server can put a
+    # placeholder in a `Location:` target, and expanding one it never declared
+    # would send it a secret it was never given.
+    declared = [url, *@mirrors, *meta.fetch(:headers, [])]
+    placeholder_pattern = /#{Regexp.escape(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)}\w+
+                           #{Regexp.escape(EnvSensitive::DEFERRED_PLACEHOLDER_SUFFIX)}/xo
+
     with_context(deferred_environment_expansion: true) do
-      args.map { |arg| ENV.expand_deferred_environment(arg) }
+      args.map do |arg|
+        next arg unless arg.include?(EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX)
+
+        undeclared = arg.gsub(placeholder_pattern) do |placeholder|
+          (declared.any? { |value| value.include?(placeholder) }) ? "" : placeholder
+        end
+        next ENV.expand_deferred_environment(arg) if undeclared.exclude?(
+          EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX,
+        )
+
+        raise CurlDownloadStrategyError.new(
+          url, "Refusing to expand a deferred secret the download did not declare."
+        )
+      end
     end
   end
 

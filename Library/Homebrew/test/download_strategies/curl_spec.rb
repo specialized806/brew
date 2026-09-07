@@ -231,6 +231,56 @@ RSpec.describe CurlDownloadStrategy do
       end
     end
 
+    context "when a redirect target names a variable the download did not declare" do
+      let(:redirect_url) do
+        "https://example.com/elsewhere/foo.tar.gz?leak=" \
+          "#{EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX}HOMEBREW_GITHUB_API_TOKEN" \
+          "#{EnvSensitive::DEFERRED_PLACEHOLDER_SUFFIX}"
+      end
+
+      before do
+        ENV["HOMEBREW_GITHUB_API_TOKEN"] = "ghp-victim-token"
+        strategy.allow_deferred_environment_expansion!
+        allow(strategy).to receive(:resolve_url_basename_time_file_size)
+          .and_return([redirect_url, "foo.tar.gz", nil, 0, nil, true])
+      end
+
+      it "refuses to send a secret the download never named" do
+        expect { strategy.fetch }.to raise_error(CurlDownloadStrategyError, /did not declare/)
+      end
+    end
+
+    context "when a redirect target carries a secret the download declared" do
+      let(:url) do
+        "https://example.com/foo.tar.gz?t=" \
+          "#{EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX}HOMEBREW_PRIVATE_TOKEN" \
+          "#{EnvSensitive::DEFERRED_PLACEHOLDER_SUFFIX}"
+      end
+      let(:redirect_url) do
+        "https://cdn.example.org/foo.tar.gz?t=" \
+          "#{EnvSensitive::DEFERRED_PLACEHOLDER_PREFIX}HOMEBREW_PRIVATE_TOKEN" \
+          "#{EnvSensitive::DEFERRED_PLACEHOLDER_SUFFIX}"
+      end
+
+      before do
+        ENV["HOMEBREW_PRIVATE_TOKEN"] = "glpat-secret"
+        strategy.allow_deferred_environment_expansion!
+        allow(strategy).to receive(:resolve_url_basename_time_file_size)
+          .and_return([redirect_url, "foo.tar.gz", nil, 0, nil, true])
+      end
+
+      it "still expands it, as redirects carrying declared secrets are supported" do
+        seen = []
+        allow(strategy).to receive(:system_command) do |_command, options|
+          seen.concat(options[:args])
+          instance_double(SystemCommand::Result, success?: true, stdout: "", assert_success!: nil)
+        end
+        strategy.fetch
+
+        expect(seen).to include(a_string_including("t=glpat-secret"))
+      end
+    end
+
     context "with artifact_domain set" do
       let(:artifact_domain) { "https://mirror.example.com/oci" }
 
