@@ -24,12 +24,17 @@ jobs:
           core: false
           cask: false
 
+      - name: Set up Ruby
+        uses: Homebrew/actions/setup-ruby@3cdb78d0f62ad29dd32de765782654f4eedea607 # 2026.08.31.1
+        with:
+          portable-ruby: true
+
       - name: Install Bundler RubyGems
         run: brew install-bundler-gems --groups=all
 
       - name: Get Ruby ABI version
         id: ruby-abi
-        run: echo "version=$(brew ruby -e "puts Gem.ruby_api_version")" >> "${GITHUB_OUTPUT}"
+        run: echo "version=$(ruby -e 'puts Gem.ruby_api_version')" >> "${GITHUB_OUTPUT}"
 
       - name: Get gem info
         id: gem-info
@@ -52,7 +57,8 @@ jobs:
           git checkout "origin/${GITHUB_BASE_REF}"
           rm .homebrew_vendor_version
           brew install-bundler-gems --groups=all
-          if [[ "$(brew ruby -e "puts Gem.ruby_api_version")" == "${ABI_VERSION}" && \
+          # The install above re-points portable-ruby/current to the base ref's Ruby.
+          if [[ "$(ruby -e 'puts Gem.ruby_api_version')" == "${ABI_VERSION}" && \
                 "$(<.homebrew_vendor_version)" == "${VENDOR_VERSION}" ]]
           then
             while IFS= read -r gem; do
