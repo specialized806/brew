@@ -57,6 +57,21 @@ RSpec.describe Homebrew::Cmd::Untrust, :trust_store do
     FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
   end
 
+  it "untrusts items stored under a custom remote whose case differs" do
+    tap = Tap.fetch("thirdparty", "custom")
+    tap.path.mkpath
+    system "git", "-C", tap.path.to_s, "init"
+    system "git", "-C", tap.path.to_s, "remote", "add", "origin", "https://GitLab.com/Other/Repo"
+    Homebrew::Trust.trust!(*Homebrew::Trust.target("thirdparty/custom/bar", type: :formula))
+
+    expect { described_class.new(["thirdparty/custom"]).run }
+      .to output("Untrusted tap: https://gitlab.com/other/repo\n").to_stdout
+    expect(Homebrew::Trust.trusted?(:formula, "thirdparty/custom/bar")).to be(false)
+  ensure
+    Homebrew::Trust.clear!(:formula)
+    FileUtils.rm_rf HOMEBREW_TAP_DIRECTORY/"thirdparty"
+  end
+
   it "untrusts trusted items from a tap" do
     expect(Homebrew::Trust).to receive(:untrust!).with(:tap, "thirdparty/foo").and_return(false)
     allow(Homebrew::Trust).to receive(:trusted_entries).with(:formula).and_return(["thirdparty/foo/bar"])

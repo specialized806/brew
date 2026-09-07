@@ -376,7 +376,7 @@ module Homebrew
 
           reference
         else
-          Tap.fetch(name).reference(remote: tap_remote)
+          normalise_name(Tap.fetch(name).reference(remote: tap_remote))
         end
       when :formula
         tap, formula_name = fully_qualified_package_name(name, "Formulae")
