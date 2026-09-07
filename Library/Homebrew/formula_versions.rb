@@ -11,6 +11,49 @@ class FormulaVersions
   include Context
   include Utils::Output::Mixin
 
+  # Parses bottle syntax that was removed in February 2021 without exposing it
+  # to normal formula loading.
+  class LegacyBottleSpecification < BottleSpecification
+    sig { override.void }
+    def initialize
+      super
+      @legacy_cellar = T.let(nil, T.nilable(T.any(Symbol, String)))
+    end
+
+    sig { override.params(hash: T::Hash[T.any(Symbol, String), T.any(String, Symbol)]).void }
+    def sha256(hash)
+      legacy = hash.find do |key, value|
+        key.is_a?(String) && key.match?(/^[a-f0-9]{64}$/i) && value.is_a?(Symbol)
+      end
+      return super if legacy.nil?
+
+      digest, tag = legacy
+      converted = T.let({ tag => digest }, T::Hash[T.any(Symbol, String), T.any(String, Symbol)])
+      cellar = hash[:cellar] || @legacy_cellar
+      converted[:cellar] = cellar unless cellar.nil?
+      super(converted)
+    end
+
+    sig { params(value: T.any(Symbol, String)).returns(T.any(Symbol, String)) }
+    def cellar(value)
+      @legacy_cellar = value
+    end
+  end
+
+  @legacy_formula_class = T.let(nil, T.nilable(T.class_of(Formula)))
+
+  sig { returns(T.class_of(Formula)) }
+  def self.legacy_formula_class
+    @legacy_formula_class ||= Class.new(Formula) do
+      class << self
+        define_method(:inherited) do |child|
+          super(child)
+          child.stable&.instance_variable_set(:@bottle_specification, LegacyBottleSpecification.new)
+        end
+      end
+    end
+  end
+
   IGNORED_EXCEPTIONS = [
     ArgumentError, NameError, SyntaxError, TypeError, LegacyDSLError,
     FormulaSpecificationError, FormulaValidationError,
@@ -54,12 +97,16 @@ class FormulaVersions
     Homebrew.raise_deprecation_exceptions = true
 
     formula = @formula_at_revision[revision] || begin
-      BottleSpecification.with_legacy_syntax do
-        nostdout do
-          Formulary.from_contents(
-            name, path, file_contents_at_revision(revision, formula_relative_path), ignore_errors: true
-          )
-        end
+      nostdout do
+        Formulary.from_contents(
+          name,
+          path,
+          file_contents_at_revision(revision, formula_relative_path)
+            .sub(/\A(?:(?:[ \t]*#[^\n]*\n|[ \t]*\n)|(?:=begin[^\n]*(?:\n|\z).*?^=end[^\n]*(?:\n|\z)))*/m) do |header|
+              "#{header}Formula = ::FormulaVersions.legacy_formula_class;"
+            end,
+          ignore_errors: true,
+        )
       end
     rescue FormulaUnavailableError
       nil
