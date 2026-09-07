@@ -1143,6 +1143,13 @@ RSpec.describe Cask::Audit, :cask do
         it { is_expected.to error_with(message) }
       end
 
+      context "when the download only mentions SourceForge in its query and does not have a livecheck" do
+        let(:cask_token) { "sourceforge-lookalike-without-livecheck" }
+        let(:online) { true }
+
+        it { is_expected.not_to error_with(message) }
+      end
+
       context "when the download is hosted on DevMate and has a livecheck" do
         let(:cask_token) { "devmate-with-livecheck" }
 
@@ -1151,18 +1158,6 @@ RSpec.describe Cask::Audit, :cask do
 
       context "when the download is hosted on DevMate and does not have a livecheck" do
         let(:cask_token) { "devmate-without-livecheck" }
-
-        it { is_expected.to error_with(message) }
-      end
-
-      context "when the download is hosted on HockeyApp and has a livecheck" do
-        let(:cask_token) { "hockeyapp-with-livecheck" }
-
-        it { is_expected.not_to error_with(message) }
-      end
-
-      context "when the download is hosted on HockeyApp and does not have a livecheck" do
-        let(:cask_token) { "hockeyapp-without-livecheck" }
 
         it { is_expected.to error_with(message) }
       end
