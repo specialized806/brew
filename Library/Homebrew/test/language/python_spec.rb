@@ -64,10 +64,21 @@ RSpec.describe Language::Python, :needs_python do
     end
   end
 
-  describe "#user_site_packages" do
-    it "can determine user site packages location" do
-      expect(described_class).to receive(:user_site_packages).and_return(Pathname)
-      described_class.user_site_packages("python")
+  describe ".user_site_packages", needs_python: false do
+    it "deprecates the user site packages helper" do
+      allow(Utils).to receive(:popen_read_text).and_return("/tmp/site-packages\n")
+
+      expect { described_class.user_site_packages("python3") }
+        .to raise_error(MethodDeprecatedError, /Language::Python.user_site_packages.*site.getusersitepackages/)
+    end
+
+    it "still returns the user site packages path" do
+      allow(described_class).to receive(:odeprecated)
+      allow(Utils).to receive(:popen_read_text)
+        .with("python3", "-c", "import site; print(site.getusersitepackages())", err: :err)
+        .and_return("/tmp/site-packages\n")
+
+      expect(described_class.user_site_packages("python3")).to eq(Pathname("/tmp/site-packages"))
     end
   end
 end

@@ -104,6 +104,9 @@ module Language
 
     sig { params(python: T.any(String, Pathname)).returns(Pathname) }
     def self.user_site_packages(python)
+      odeprecated "Language::Python.user_site_packages",
+                  "querying `site.getusersitepackages()` with the Python interpreter"
+
       Pathname.new(
         Utils.popen_read_text(python, "-c", "import site; print(site.getusersitepackages())", err: :err).chomp,
       )
