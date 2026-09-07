@@ -64,6 +64,15 @@ RSpec.describe Language::Python, :needs_python do
     end
   end
 
+  describe ".reads_brewed_pth_files?", needs_python: false do
+    it "deprecates the brewed pth file probe" do
+      allow(described_class).to receive(:major_minor_version).and_return(Version.new("3.14"))
+
+      expect { described_class.reads_brewed_pth_files?("python3") }
+        .to raise_error(MethodDeprecatedError, /Language::Python.reads_brewed_pth_files\?.*virtualenv/)
+    end
+  end
+
   describe ".in_sys_path?", needs_python: false do
     it "deprecates the Python path probe" do
       allow(SystemCommand).to receive(:quiet_system).and_return(true)

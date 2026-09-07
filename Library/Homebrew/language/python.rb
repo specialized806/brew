@@ -88,6 +88,8 @@ module Language
 
     sig { params(python: T.any(String, Pathname)).returns(T::Boolean) }
     def self.reads_brewed_pth_files?(python)
+      odeprecated "Language::Python.reads_brewed_pth_files?", "an isolated Python virtualenv"
+
       return false unless homebrew_site_packages(python).directory?
       return false unless homebrew_site_packages(python).writable?
 
