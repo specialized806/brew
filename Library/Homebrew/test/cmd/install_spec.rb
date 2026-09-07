@@ -579,6 +579,14 @@ RSpec.describe Homebrew::Cmd::InstallCmd do
       RUBY
       appdir = mktmpdir
 
+      expect do
+        brew "install", "--dry-run", "--no-ask", "--appdir=#{appdir}", source_formula_name,
+             cask_path("local-caffeine"),
+             "HOMEBREW_NO_INSTALL_FROM_API" => "1", "HOMEBREW_TEST_GENERIC_OS" => "1"
+      end
+        .to output(/Would install 1 cask:.*Would install 1 formula:/m).to_stdout
+        .and be_a_success
+
       with_env(HOMEBREW_NO_INSTALL_FROM_API: "1") do
         expect do
           brew "install", "--yes", "--no-ask", "--appdir=#{appdir}", source_formula_name, bottle_formula_name,
