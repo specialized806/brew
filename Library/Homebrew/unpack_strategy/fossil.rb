@@ -14,7 +14,7 @@ module UnpackStrategy
       []
     end
 
-    sig { override.params(path: Pathname).returns(T::Boolean) }
+    sig { override.params(path: Path).returns(T::Boolean) }
     def self.can_extract?(path)
       return false unless path.magic_number.match?(/\ASQLite format 3\000/n)
 

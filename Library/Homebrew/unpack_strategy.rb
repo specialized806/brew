@@ -3,6 +3,7 @@
 
 require "mktemp"
 require "system_command"
+require "unpack_strategy/path"
 require "utils/output"
 require "utils/path"
 
@@ -40,7 +41,7 @@ module UnpackStrategy
     sig { abstract.returns(T::Array[String]) }
     def extensions; end
 
-    sig { abstract.params(path: Pathname).returns(T::Boolean) }
+    sig { abstract.params(path: Path).returns(T::Boolean) }
     def can_extract?(path); end
   end
 
@@ -111,7 +112,7 @@ module UnpackStrategy
               .find { |s| extension.end_with?(*s.extensions) }
   end
 
-  sig { params(path: Pathname).returns(T.nilable(UnpackStrategyType)) }
+  sig { params(path: Path).returns(T.nilable(UnpackStrategyType)) }
   def self.from_magic(path)
     strategies.find { |s| s.can_extract?(path) }
   end
@@ -122,6 +123,7 @@ module UnpackStrategy
   }
   def self.detect(path, prioritize_extension: false, type: nil, ref_type: nil, ref: nil, merge_xattrs: false,
                   temporary_directory: HOMEBREW_TEMP)
+    path = Path.new(path)
     strategy = from_type(type) if type
 
     if prioritize_extension && path.extname.present?
@@ -141,7 +143,7 @@ module UnpackStrategy
     strategy.new(path, ref_type:, ref:, merge_xattrs:, temporary_directory:)
   end
 
-  sig { returns(Pathname) }
+  sig { returns(Path) }
   attr_reader :path
 
   sig { returns(T::Boolean) }
@@ -156,7 +158,7 @@ module UnpackStrategy
            merge_xattrs: T::Boolean, temporary_directory: Pathname).void
   }
   def initialize(path, ref_type: nil, ref: nil, merge_xattrs: false, temporary_directory: HOMEBREW_TEMP)
-    @path = T.let(Pathname(path).expand_path, Pathname)
+    @path = T.let(Path.new(Pathname(path).expand_path), Path)
     @ref_type = ref_type
     @ref = ref
     @merge_xattrs = merge_xattrs

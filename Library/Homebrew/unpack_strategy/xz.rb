@@ -11,7 +11,7 @@ module UnpackStrategy
       [".xz"]
     end
 
-    sig { override.params(path: Pathname).returns(T::Boolean) }
+    sig { override.params(path: Path).returns(T::Boolean) }
     def self.can_extract?(path)
       path.magic_number.match?(/\A\xFD7zXZ\x00/n)
     end

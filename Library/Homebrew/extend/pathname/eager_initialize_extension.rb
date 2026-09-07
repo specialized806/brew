@@ -11,19 +11,14 @@ module EagerInitializeExtension
 
   requires_ancestor { Pathname }
 
-  # These aliases hoist the `T.nilable(...)` type objects out of the hot path.
+  # This alias hoists the `T.nilable(...)` type object out of the hot path.
   # `#initialize` runs on every {Pathname} allocation, and with runtime
   # checks disabled `T.let` discards its type argument, so evaluating
   # `T.nilable(...)` inline would rebuild the same type objects each time.
-  NilableString = T.type_alias { T.nilable(String) }
   NilableInteger = T.type_alias { T.nilable(Integer) }
-  NilableStringArray = T.type_alias { T.nilable(T::Array[String]) }
 
   sig { params(args: T.untyped).void }
   def initialize(*args)
-    @magic_number = T.let(nil, NilableString)
-    @file_type = T.let(nil, NilableString)
-    @zipinfo = T.let(nil, NilableStringArray)
     @disk_usage = T.let(nil, NilableInteger)
     @file_count = T.let(nil, NilableInteger)
     super

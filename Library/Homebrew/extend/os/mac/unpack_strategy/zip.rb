@@ -70,7 +70,7 @@ module UnpackStrategy
         end
       end
 
-      sig { params(path: Pathname).returns(T::Boolean) }
+      sig { params(path: UnpackStrategy::Path).returns(T::Boolean) }
       def contains_extended_attributes?(path)
         path.zipinfo.grep(/(^__MACOSX|\._)/).any?
       end

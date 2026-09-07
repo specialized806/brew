@@ -409,36 +409,6 @@ class Pathname
     []
   end
 
-  sig { returns(String) }
-  def magic_number
-    @magic_number ||= T.let(nil, T.nilable(String))
-    @magic_number ||= if directory?
-      ""
-    else
-      # Length of the longest regex (currently Tar).
-      max_magic_number_length = 262
-      binread(max_magic_number_length) || ""
-    end
-  end
-
-  sig { returns(String) }
-  def file_type
-    @file_type ||= T.let(nil, T.nilable(String))
-    @file_type ||= system_command("file", args: ["-b", self], print_stderr: false)
-                   .stdout.chomp
-  end
-
-  sig { returns(T::Array[String]) }
-  def zipinfo
-    @zipinfo ||= T.let(
-      system_command("zipinfo", args: ["-1", self], print_stderr: false)
-      .stdout
-      .encode(Encoding::UTF_8, invalid: :replace)
-      .split("\n"),
-      T.nilable(T::Array[String]),
-    )
-  end
-
   private
 
   sig {
