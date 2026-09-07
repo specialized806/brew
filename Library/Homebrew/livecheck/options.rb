@@ -62,42 +62,35 @@ module Homebrew
       # Returns a new object formed by merging `other` values with a copy of
       # `self`.
       #
-      # `nil` values are removed from `other` before merging if it is an
-      # `Options` object, as these are unitiailized values. This ensures that
-      # existing values in `self` aren't unexpectedly overwritten with defaults.
-      sig { params(other: T.any(Options, T::Hash[Symbol, T.untyped])).returns(Options) }
-      def merge(other) = dup.merge!(other)
+      # `nil` values from `other` are skipped, as these are uninitialized. This
+      # ensures that existing values in `self` aren't unexpectedly overwritten
+      # by defaults.
+      sig { params(other: Options).returns(Options) }
+      def merge(other) = deep_dup.merge!(other)
 
       # Merges values from `other` into `self` and returns `self`.
       #
-      # `nil` values are removed from `other` before merging if it is an
-      # `Options` object, as these are unitiailized values. This ensures that
-      # existing values in `self` aren't unexpectedly overwritten with defaults.
-      sig { params(other: T.any(Options, T::Hash[Symbol, T.untyped])).returns(Options) }
+      # `nil` values from `other` are skipped, as these are uninitialized. This
+      # ensures that existing values in `self` aren't unexpectedly overwritten
+      # by defaults.
+      sig { params(other: Options).returns(Options) }
       def merge!(other)
         return self if other.empty?
 
         # These options are mutually exclusive, so we can't know which should be
         # used when `other` has both
-        other_post_form = T.let(other.is_a?(Options) ? other.post_form : other[:post_form], Object)
-        other_post_json = T.let(other.is_a?(Options) ? other.post_json : other[:post_json], Object)
+        other_post_form = other.post_form
+        other_post_json = other.post_json
         if other_post_form && other_post_json
           raise ArgumentError, "Cannot merge provided options using both `post_form` and `post_json`"
         end
 
-        if other.is_a?(Options)
-          return self if self == other
+        return self if self == other
 
-          other.instance_variables.each do |ivar|
-            next if (v = T.let(other.instance_variable_get(ivar), Object)).nil?
+        other.instance_variables.each do |ivar|
+          next if (v = T.let(other.instance_variable_get(ivar), Object)).nil?
 
-            instance_variable_set(ivar, v)
-          end
-        else
-          other.each do |k, v|
-            cmd = :"#{k}="
-            send(cmd, v) if respond_to?(cmd)
-          end
+          instance_variable_set(ivar, v)
         end
 
         # Merging one of these options should unset the opposite value in `self`
