@@ -341,6 +341,7 @@ on_request: true)
           T.any(
             Artifact::AbstractFlightBlock,
             Artifact::GeneratedCompletion,
+            Artifact::GeneratedScript,
             Artifact::Installer,
             Artifact::KeyboardLayout,
             Artifact::Mdimporter,
