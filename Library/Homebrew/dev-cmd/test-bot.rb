@@ -3,6 +3,7 @@
 
 require "abstract_command"
 require "test_bot"
+require "utils/bottles"
 
 module Homebrew
   module Cmd
@@ -108,6 +109,9 @@ module Homebrew
                                  "formulae dependents step."
         comma_array "--tested-formulae=",
                     description: "Use these tested formulae from formulae steps for a formulae dependents step."
+        switch "--print-padded-prefix",
+               description: "Print the padded bottle prefix for the current platform.",
+               hidden:      true
         flag   "--formulae-dependents-shard=",
                description: "Only test the formulae dependents in the given <SHARD/TOTAL>.",
                hidden:      true
@@ -122,6 +126,15 @@ module Homebrew
 
       sig { override.void }
       def run
+        if args.print_padded_prefix?
+          tag = Utils::Bottles.tag
+          padded_prefix = tag.padded_prefix
+          odie "No padded bottle prefix is available for #{tag}." if padded_prefix.nil?
+
+          puts padded_prefix
+          return
+        end
+
         if GitHub::Actions.env_set?
           ENV["HOMEBREW_COLOR"] = "1"
           ENV["HOMEBREW_GITHUB_ACTIONS"] = "1"
