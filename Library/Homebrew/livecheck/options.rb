@@ -88,16 +88,16 @@ module Homebrew
         return self if self == other
 
         other.instance_variables.each do |ivar|
-          next if (v = T.let(other.instance_variable_get(ivar), Object)).nil?
+          next if (val = T.let(other.instance_variable_get(ivar), Object)).nil?
 
-          instance_variable_set(ivar, v)
+          public_send(:"#{ivar.to_s.delete_prefix("@")}=", val)
         end
 
         # Merging one of these options should unset the opposite value in `self`
         if !other_post_form.nil?
-          @post_json = nil
+          self.post_json = nil
         elsif !other_post_json.nil?
-          @post_form = nil
+          self.post_form = nil
         end
 
         self
