@@ -30,8 +30,8 @@ RSpec.describe Homebrew::Bundle::Installer do
     allow(Formula).to receive(:[]).and_return(instance_double(Formula))
     allow(::Cask::CaskLoader).to receive(:load)
       .and_return(instance_double(::Cask::Cask, full_name: "homebrew/cask/google-chrome"))
-    # Formula and cask entries are installed in one batched `brew install`, so specs
-    # asserting a specific `Bundle.brew` call need the others to fall through to a stub.
+    # Entries are installed by one batched `brew install` per type, so specs asserting a
+    # specific `Bundle.brew` call need the others to fall through to a stub.
     allow(Homebrew::Bundle).to receive(:brew).and_return(true)
     # Entries can name a tap the Brewfile does not, which is otherwise cloned for real.
     allow_any_instance_of(::Tap).to receive(:ensure_installed!)
@@ -49,7 +49,7 @@ RSpec.describe Homebrew::Bundle::Installer do
     described_class.install!([cask_entry], verbose: false, force: false, quiet: true)
   end
 
-  it "fetches and installs formulae and casks in one `brew install`" do
+  it "fetches and installs formulae and casks in one `brew install` per type" do
     allow(Homebrew::Bundle::Tap).to receive(:installed_taps).and_return(["homebrew/cask"])
 
     expect(Homebrew::Bundle::Brew).to receive(:preinstall!)
@@ -61,7 +61,11 @@ RSpec.describe Homebrew::Bundle::Installer do
       .ordered
       .and_return(true)
     expect(Homebrew::Bundle).to receive(:brew)
-      .with("install", "--adopt", "mysql", "homebrew/cask/google-chrome", verbose: false)
+      .with("install", "--formula", "mysql", verbose: false)
+      .ordered
+      .and_return(true)
+    expect(Homebrew::Bundle).to receive(:brew)
+      .with("install", "--cask", "--adopt", "homebrew/cask/google-chrome", verbose: false)
       .ordered
       .and_return(true)
 
@@ -181,7 +185,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     it "installs formulae needing installation in a single `brew install`" do
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "mysql", "redis", verbose: false)
+        .with("install", "--formula", "mysql", "redis", verbose: false)
         .and_return(true)
 
       described_class.install!([formula_entry, second_formula_entry], quiet: true)
@@ -192,7 +196,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       allow(Homebrew::Bundle::Brew).to receive(:formula_installed?).with("redis").and_return(true)
 
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "mysql", "redis", verbose: false)
+        .with("install", "--formula", "mysql", "redis", verbose: false)
         .and_return(true)
 
       described_class.install!([formula_entry, second_formula_entry], quiet: true)
@@ -228,7 +232,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       service_entry = Homebrew::Bundle::Dsl::Entry.new(:brew, "redis", { restart_service: :changed })
 
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "mysql", verbose: false)
+        .with("install", "--formula", "mysql", verbose: false)
         .and_return(true)
       expect(Homebrew::Bundle::Brew).to receive(:install!)
         .with("redis", restart_service: :changed, preinstall: true, no_upgrade: false, verbose: false, force: false)
@@ -261,7 +265,7 @@ RSpec.describe Homebrew::Bundle::Installer do
 
     it "batches casks with Homebrew's native download queue" do
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--adopt", "homebrew/cask/google-chrome", verbose: false)
+        .with("install", "--cask", "--adopt", "homebrew/cask/google-chrome", verbose: false)
         .and_return(true)
       expect(Homebrew::Bundle::Cask).to receive(:install!)
         .with("google-chrome", **cask_options, preinstall: false, no_upgrade: false, verbose: false, force: false)
@@ -270,18 +274,41 @@ RSpec.describe Homebrew::Bundle::Installer do
       described_class.install!([cask_entry], quiet: true)
     end
 
-    it "fully qualifies cask names before batching them" do
+    it "installs a cask sharing a token with a formula as a cask" do
       options = { args: {}, full_name: "ambiguous" }
       entry = Homebrew::Bundle::Dsl::Entry.new(:cask, "ambiguous", options)
+      # `Cask#full_token` leaves core cask tokens unqualified, so only `--cask` stops
+      # `brew install` resolving the name to a formula of the same name.
       allow(::Cask::CaskLoader).to receive(:load).with("ambiguous")
-                                                 .and_return(instance_double(::Cask::Cask,
-                                                                             full_name: "homebrew/cask/ambiguous"))
+                                                 .and_return(instance_double(::Cask::Cask, full_name: "ambiguous"))
 
       expect(Homebrew::Bundle).to receive(:brew)
-        .with("install", "--adopt", "homebrew/cask/ambiguous", verbose: false)
+        .with("install", "--cask", "--adopt", "ambiguous", verbose: false)
         .and_return(true)
 
       described_class.install!([entry], quiet: true)
+    end
+
+    it "keeps `--overwrite` out of the cask batch when forcing" do
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--formula", "--force", "--overwrite", "mysql", verbose: false)
+        .and_return(true)
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--cask", "--force", "homebrew/cask/google-chrome", verbose: false)
+        .and_return(true)
+
+      described_class.install!([formula_entry, cask_entry], force: true, quiet: true)
+    end
+
+    it "still installs the casks when the formula batch fails" do
+      allow(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--formula", any_args).and_return(false)
+
+      expect(Homebrew::Bundle).to receive(:brew)
+        .with("install", "--cask", "--adopt", "homebrew/cask/google-chrome", verbose: false)
+        .and_return(true)
+
+      described_class.install!([formula_entry, cask_entry], quiet: true)
     end
 
     it "attributes a failed batch to casks that are not installed afterwards" do
@@ -320,7 +347,7 @@ RSpec.describe Homebrew::Bundle::Installer do
       ENV["HOMEBREW_NO_INSTALL_UPGRADE"] = "1"
 
       expect(Homebrew::Bundle).to receive(:brew) do |*args, **options|
-        expect(args).to eq(["install", "mysql"])
+        expect(args).to eq(["install", "--formula", "mysql"])
         expect(options).to eq(verbose: false)
         expect(ENV.fetch("HOMEBREW_NO_INSTALL_UPGRADE", nil)).to be_nil
         true
