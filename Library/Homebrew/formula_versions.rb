@@ -53,21 +53,33 @@ class FormulaVersions
   def formula_at_revision(revision, formula_relative_path = relative_path, &_block)
     Homebrew.raise_deprecation_exceptions = true
 
-    yield @formula_at_revision[revision] ||= begin
-      contents = file_contents_at_revision(revision, formula_relative_path)
+    formula = @formula_at_revision[revision] || begin
       BottleSpecification.with_legacy_syntax do
-        nostdout { Formulary.from_contents(name, path, contents, ignore_errors: true) }
+        nostdout do
+          Formulary.from_contents(
+            name, path, file_contents_at_revision(revision, formula_relative_path), ignore_errors: true
+          )
+        end
       end
-    end
-  rescue *IGNORED_EXCEPTIONS => e
-    require "utils/backtrace"
+    rescue FormulaUnavailableError
+      nil
+    rescue Homebrew::UntrustedTapError, MacOSVersion::Error
+      raise
+    rescue StandardError, ScriptError => e
+      raise if Homebrew::EnvConfig.disable_load_formula?
 
-    # We rescue these so that we can skip bad versions and
-    # continue walking the history
-    odebug "#{e} in #{name} at revision #{revision}", Utils::Backtrace.clean(e)
-    nil
-  rescue FormulaUnavailableError
-    nil
+      require "utils/backtrace"
+
+      # We rescue these so that we can skip bad versions and
+      # continue walking the history
+      odebug "#{e} in #{name} at revision #{revision}", Utils::Backtrace.clean(e)
+      nil
+    end
+
+    return if formula.nil?
+
+    @formula_at_revision[revision] = formula
+    yield formula
   ensure
     Homebrew.raise_deprecation_exceptions = false
   end
