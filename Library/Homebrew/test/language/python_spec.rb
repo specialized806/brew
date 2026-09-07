@@ -42,6 +42,15 @@ RSpec.describe Language::Python, :needs_python do
     end
   end
 
+  describe ".each_python", needs_python: false do
+    it "deprecates implicit Python dependency iteration" do
+      allow(Formulary).to receive(:factory).and_return(instance_double(Formula, to_s: "python"))
+
+      expect { described_class.each_python(instance_double(BuildOptions, without?: true)) }
+        .to raise_error(MethodDeprecatedError, /Language::Python.each_python.*Formula#python3/)
+    end
+  end
+
   describe "#site_packages" do
     it "gives a different location between PyPy and Python 2" do
       expect(described_class.site_packages("python")).not_to eql(described_class.site_packages("pypy"))

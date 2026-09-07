@@ -65,6 +65,8 @@ module Language
       ).void
     }
     def self.each_python(build, &block)
+      odeprecated "Language::Python.each_python", "Formula#python3 or explicit Python dependency iteration"
+
       original_pythonpath = ENV.fetch("PYTHONPATH", nil)
       pythons = { "python@3" => "python3",
                   "pypy"     => "pypy",
