@@ -87,6 +87,103 @@ RSpec.describe Homebrew::DevCmd::Tests do
       end
     end
 
+    context "when grouping parallel tests" do
+      def invoked_arguments
+        captured = T.let([], T::Array[String])
+        allow(tests).to receive(:system) do |*arguments|
+          captured = arguments
+          system "/usr/bin/true"
+        end
+        tests.run
+        captured
+      end
+
+      let(:log_path) { "#{HOMEBREW_CACHE}/parallel_runtime_rspec.log" }
+
+      before do
+        # The log lives in `HOMEBREW_CACHE` locally and in `tests/` on CI, so pin
+        # the local path rather than inheriting whichever the runner happens to be.
+        ENV.delete("CI")
+        allow(Dir).to receive(:glob).with("test/**/*_spec.rb")
+                                    .and_return(%w[test/a_spec.rb test/b_spec.rb])
+      end
+
+      it "groups by recorded runtime rather than file size" do
+        expect(invoked_arguments).to array_including_cons("--runtime-log", log_path)
+      end
+
+      it "records the runtimes of a full run" do
+        invoked_arguments
+
+        expect(ENV.fetch("PARALLEL_RSPEC_LOG_PATH")).to eq(log_path)
+      end
+
+      it "groups by the cached log on CI" do
+        ENV["CI"] = "1"
+
+        expect(invoked_arguments).to array_including_cons("--runtime-log", "tests/parallel_runtime_rspec.log")
+      end
+
+      context "when exiting on the first failure" do
+        let(:args) { ["--fail-fast"] }
+
+        it "does not replace the recorded runtimes" do
+          invoked_arguments
+
+          expect(ENV.fetch("PARALLEL_RSPEC_LOG_PATH")).to eq("#{log_path}.partial")
+        end
+      end
+
+      context "when only one shard is selected" do
+        let(:args) { ["--shard=1/2"] }
+
+        before do
+          allow(ParallelTests::RSpec::Runner).to receive(:tests_in_groups)
+            .and_return([%w[test/a_spec.rb], %w[test/b_spec.rb]])
+        end
+
+        it "does not replace the recorded runtimes" do
+          invoked_arguments
+
+          expect(ENV.fetch("PARALLEL_RSPEC_LOG_PATH")).to eq("#{log_path}.partial")
+        end
+      end
+
+      context "when only changed files are selected" do
+        let(:args) { ["--changed"] }
+
+        before do
+          allow(Utils::Git).to receive(:changed_files)
+            .and_return(["Library/Homebrew/test/warnings_spec.rb"])
+        end
+
+        it "does not replace the recorded runtimes" do
+          invoked_arguments
+
+          expect(ENV.fetch("PARALLEL_RSPEC_LOG_PATH")).to eq("#{log_path}.partial")
+        end
+      end
+
+      context "when only some files are selected" do
+        let(:args) { ["--only=warnings"] }
+
+        before do
+          allow(Dir).to receive(:glob).with("test/{warnings,warnings/**/*}_spec.rb")
+                                      .and_return(%w[test/warnings_spec.rb])
+        end
+
+        it "still groups by the recorded runtimes" do
+          expect(invoked_arguments).to array_including_cons("--runtime-log", log_path)
+        end
+
+        it "does not replace the recorded runtimes" do
+          invoked_arguments
+
+          expect(ENV.fetch("PARALLEL_RSPEC_LOG_PATH")).to eq("#{log_path}.partial")
+        end
+      end
+    end
+
     context "when sharding tests" do
       let(:args) { ["--shard=2/2"] }
 

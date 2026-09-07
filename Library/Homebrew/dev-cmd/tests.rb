@@ -117,19 +117,28 @@ module Homebrew
           else
             "#{HOMEBREW_CACHE}/#{parallel_rspec_log_name}"
           end
-          ENV["PARALLEL_RSPEC_LOG_PATH"] = parallel_rspec_log_path
+          # A run that may not record every file must not replace the log a full run
+          # reads: `--only`, `--changed` and `--shard` cover a subset by design, and
+          # `--fail-fast` stops its workers early.
+          ENV["PARALLEL_RSPEC_LOG_PATH"] = if only || args.changed? || args.shard || args.fail_fast?
+            "#{parallel_rspec_log_path}.partial"
+          else
+            parallel_rspec_log_path
+          end
 
           parallel_args = if ENV["CI"]
-            %W[
+            %w[
               --combine-stderr
               --serialize-stdout
-              --runtime-log #{parallel_rspec_log_path}
             ]
           else
             %w[
               --nice
             ]
           end
+          # Group by recorded runtime rather than source file size, which barely
+          # correlates with how long a file takes.
+          parallel_args += ["--runtime-log", parallel_rspec_log_path]
 
           # Generate seed ourselves and output later to avoid multiple different
           # seeds being output when running parallel tests.
