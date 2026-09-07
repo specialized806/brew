@@ -55,6 +55,13 @@ RSpec.describe Language::Python, :needs_python do
     it "gives a different location between PyPy and Python 2" do
       expect(described_class.site_packages("python")).not_to eql(described_class.site_packages("pypy"))
     end
+
+    it "deprecates the implicit Python interpreter", needs_python: false do
+      allow(described_class).to receive(:major_minor_version).and_return(Version.new("3.7"))
+
+      expect { described_class.site_packages }
+        .to raise_error(MethodDeprecatedError, /Language::Python.site_packages.*explicit Python interpreter/)
+    end
   end
 
   describe ".homebrew_site_packages", needs_python: false do

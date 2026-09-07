@@ -51,8 +51,13 @@ module Language
       HOMEBREW_PREFIX/site_packages(python)
     end
 
-    sig { params(python: T.any(String, Pathname)).returns(String) }
-    def self.site_packages(python = "python3.7")
+    sig { params(python: T.nilable(T.any(String, Pathname))).returns(String) }
+    def self.site_packages(python = nil)
+      if python.nil?
+        odeprecated "Language::Python.site_packages without an interpreter", "an explicit Python interpreter argument"
+        python = "python3.7"
+      end
+
       if (python == "pypy") || (python == "pypy3")
         "site-packages"
       else
