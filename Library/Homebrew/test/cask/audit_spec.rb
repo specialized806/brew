@@ -63,6 +63,12 @@ RSpec.describe Cask::Audit, :cask do
     end
   end
 
+  describe "loading" do
+    it "loads the installation checks" do
+      expect(Homebrew::Install).to respond_to(:perform_preinstall_checks_once)
+    end
+  end
+
   describe "#new" do
     context "when `new_cask` is specified" do
       let(:new_cask) { true }
