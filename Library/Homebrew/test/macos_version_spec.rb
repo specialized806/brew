@@ -31,6 +31,12 @@ RSpec.describe MacOSVersion do
       end.to raise_error(MacOSVersion::Error, "unknown or unsupported macOS version: :foo")
     end
 
+    it "raises an error if the macOS release is retired" do
+      expect do
+        described_class.from_symbol(:catalina)
+      end.to raise_error(MacOSVersion::Error, "unknown or unsupported macOS version: :catalina")
+    end
+
     it "creates a new version from a valid macOS version" do
       symbol_version = described_class.from_symbol(:big_sur)
       expect(symbol_version).to eq(version)
@@ -99,9 +105,62 @@ RSpec.describe MacOSVersion do
   end
 
   describe "#strip_patch" do
-    specify do
-      expect(big_sur_update.strip_patch).to eq(described_class.new("11"))
-      expect(MacOSVersion::NULL.strip_patch).to be MacOSVersion::NULL
+    context "when the release is before Big Sur" do
+      it "preserves the minor version" do
+        expect(described_class.new("10.15.7").strip_patch).to eq(described_class.new("10.15"))
+      end
+    end
+
+    context "when the release is Big Sur or newer" do
+      it "returns the major version" do
+        expect(big_sur_update.strip_patch).to eq(described_class.new("11"))
+      end
+    end
+
+    context "when the version is null" do
+      it "returns itself" do
+        expect(MacOSVersion::NULL.strip_patch).to be MacOSVersion::NULL
+      end
+    end
+  end
+
+  describe "#release_name" do
+    context "when the release is known" do
+      it "returns the name of a retired release" do
+        expect(described_class.new("10.15.7").release_name).to eq("Catalina")
+      end
+    end
+
+    context "when the release is unknown" do
+      it "returns nil" do
+        expect(described_class.new("10.10").release_name).to be_nil
+      end
+    end
+  end
+
+  describe "#release_version" do
+    context "when the release has a compatibility version" do
+      it "returns the canonical release version" do
+        expect(described_class.new("10.16.0").release_version).to eq("11")
+      end
+    end
+
+    context "when the release has no compatibility version" do
+      it "returns the version without the patch" do
+        expect(described_class.new("10.15.7").release_version).to eq("10.15")
+      end
+    end
+  end
+
+  describe "#to_sym with a retired release" do
+    it "returns dunno" do
+      expect(described_class.new("10.15").to_sym).to eq(:dunno)
+    end
+  end
+
+  describe "#to_sym with a compatibility version" do
+    it "returns dunno" do
+      expect(described_class.new("10.16").to_sym).to eq(:dunno)
     end
   end
 
@@ -136,6 +195,12 @@ RSpec.describe MacOSVersion do
     # rubocop:disable Homebrew/NoInstanceVariableAccessInTests
     expect(frozen_version.instance_variable_get(:@pretty_name)).to be_nil
     # rubocop:enable Homebrew/NoInstanceVariableAccessInTests
+  end
+
+  describe "#pretty_name with a retired release" do
+    it "returns the release name" do
+      expect(described_class.new("10.15").pretty_name).to eq("Catalina")
+    end
   end
 
   describe "#requires_nehalem_cpu?", :needs_macos do

@@ -10,6 +10,41 @@ RSpec.describe Homebrew::DevCmd::FormulaAnalytics do
   it_behaves_like "parseable arguments"
 
   describe "#format_os_version_dimension" do
+    it "formats retired macOS versions" do
+      expect(described_class.new([]).format_os_version_dimension("10.15.7"))
+        .to eq("macOS Catalina (10.15)")
+    end
+
+    it "normalizes Big Sur compatibility versions" do
+      expect(described_class.new([]).format_os_version_dimension("10.16.0"))
+        .to eq("macOS Big Sur (11)")
+    end
+
+    it "formats retired OS X versions" do
+      expect(described_class.new([]).format_os_version_dimension("10.11.6"))
+        .to eq("OS X El Capitan (10.11)")
+    end
+
+    it "formats unknown legacy macOS versions" do
+      expect(described_class.new([]).format_os_version_dimension("10.10.5")).to eq("OS X 10.10")
+    end
+
+    it "formats unknown future macOS versions" do
+      expect(described_class.new([]).format_os_version_dimension("28.0")).to eq("macOS 28")
+    end
+
+    it "does not format malformed macOS versions" do
+      expect(described_class.new([]).format_os_version_dimension("10.15.invalid")).to eq("10.15.invalid")
+    end
+
+    it "formats Debian point releases as major releases" do
+      expect(described_class.new([]).format_os_version_dimension("Debian GNU/Linux 12.11")).to eq("Debian 12")
+    end
+
+    it "formats Debian major releases" do
+      expect(described_class.new([]).format_os_version_dimension("Debian GNU/Linux 12")).to eq("Debian 12")
+    end
+
     it "preserves WSL in formatted Linux versions" do
       expect(described_class.new([]).format_os_version_dimension(
                "Ubuntu 24.04.3 LTS#{Utils::Analytics::WSL_SUFFIX}",
