@@ -51,6 +51,15 @@ RSpec.describe Utils::Tar do
         expect { described_class.validate_file invalid_resource }.to raise_error SystemExit
         FileUtils.rm_f invalid_resource
       end
+
+      it "raises an error if a file with a compound extension is an invalid tar file" do
+        %w[.tar.bz2 .tar.gz .tar.lz .tar.xz .tar.Z].each do |extension|
+          invalid_compound_resource = "#{TEST_TMPDIR}/invalid#{extension}"
+          FileUtils.touch invalid_compound_resource
+          expect { described_class.validate_file invalid_compound_resource }.to raise_error SystemExit
+          FileUtils.rm_f invalid_compound_resource
+        end
+      end
     end
   end
 end
