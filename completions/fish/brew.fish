@@ -803,6 +803,13 @@ __fish_brew_complete_sub_arg 'bundle' 'add' -l verbose -d 'Make some output more
 __fish_brew_complete_sub_arg 'bundle' 'add' -l vscode -d 'Add entries for VSCode (and forks/variants) extensions'
 
 
+complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'cask-ci' -d 'Run Homebrew Cask\'s internal CI helpers'
+__fish_brew_complete_arg 'cask-ci' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'cask-ci' -l help -d 'Show this message'
+__fish_brew_complete_arg 'cask-ci' -l quiet -d 'Make some output more quiet'
+__fish_brew_complete_arg 'cask-ci' -l verbose -d 'Make some output more verbose'
+
+
 __fish_brew_complete_cmd 'casks' 'List all locally installable casks including short names'
 __fish_brew_complete_arg 'casks' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'casks' -l help -d 'Show this message'
