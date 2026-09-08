@@ -4,6 +4,9 @@
 module Homebrew
   module TestBot
     class FormulaeDependents < TestFormulae
+      MAX_DEPENDENTS_FROM_SOURCE = 10
+      private_constant :MAX_DEPENDENTS_FROM_SOURCE
+
       DependentWithDependencies = T.type_alias { [Formula, T::Array[Dependency]] }
       private_constant :DependentWithDependencies
 
@@ -30,6 +33,7 @@ module Homebrew
         @tested_dependents = T.let([], T::Array[String])
         @formulae_dependents_filter = T.let(nil, T.nilable(T::Array[String]))
         @dependent_pairs_by_formula = T.let({}, T::Hash[String, T::Array[DependentWithDependencies]])
+        @tested_source_dependents_count = T.let(0, Integer)
       end
 
       sig { params(args: Homebrew::Cmd::TestBotCmd::Args).void }
@@ -49,6 +53,7 @@ module Homebrew
 
         @testing_formulae_with_tested_dependents = []
         @tested_dependents_list = Pathname("tested-dependents-#{Utils::Bottles.tag}.txt")
+        @tested_source_dependents_count = 0
 
         @dependent_testing_formulae = sorted_formulae - skipped_or_failed_formulae
 
@@ -162,7 +167,55 @@ module Homebrew
         shards.fetch(shard_index - 1).sort_by { |dependent, _| dependent.full_name }
       end
 
+      sig {
+        params(
+          dependents: T::Array[DependentWithDependencies],
+          max:        Integer,
+        ).returns([T::Array[DependentWithDependencies], T::Array[DependentWithDependencies]])
+      }
+      def split_source_dependents(dependents, max = MAX_DEPENDENTS_FROM_SOURCE)
+        source_dependents, dependents = dependents.partition do |dependent, deps|
+          next false unless build_dependent_from_source?(dependent)
+
+          deps.all? do |d|
+            bottled_or_built?(d.to_formula, @dependent_testing_formulae)
+          end
+        end
+
+        return [source_dependents, dependents] if source_dependents.count <= max
+
+        ohai "Only source building #{max} of #{source_dependents.count} dependents"
+
+        if (ranks = formula_install_ranks).present?
+          last = ranks.each_value.max.to_i + 1
+          source_dependents.sort_by! do |dependent, _|
+            [ranks.fetch(dependent.full_name, last), dependent.full_name]
+          end
+        end
+        dependents.concat(source_dependents.slice!(max..).to_a)
+        [source_dependents, dependents]
+      end
+
       private
+
+      sig { returns(T::Hash[String, Integer]) }
+      def formula_install_ranks
+        @formula_install_ranks ||= T.let(begin
+          analytics = begin
+            require "api/analytics"
+            Homebrew::API::Analytics.fetch "install", 90
+          rescue ArgumentError
+            {}
+          end
+          analytics["items"].to_a.each_with_object({}) do |item, hash|
+            formula = item["formula"]
+            number = item["number"]
+            next if formula.blank? || number.blank?
+
+            hash[formula.to_s] = number.to_i
+          end
+        end, T.nilable(T::Hash[String, Integer]))
+      end
 
       sig { params(installable_bottles: T::Array[String], args: Homebrew::Cmd::TestBotCmd::Args).void }
       def install_formulae_if_needed_from_bottles!(installable_bottles, args:)
@@ -224,6 +277,7 @@ module Homebrew
         source_dependents.each do |dependent|
           install_dependent(dependent, testable_dependents, build_from_source: true, args:)
           install_dependent(dependent, testable_dependents, args:) if bottled?(dependent)
+          @tested_source_dependents_count += 1
         end
 
         bottled_dependents.each do |dependent|
@@ -249,16 +303,12 @@ module Homebrew
         dependents.reject! { |dependent, _| @tested_dependents.include?(dependent.full_name) }
 
         # Split into dependents that we could potentially be building from source and those
-        # we should not. The criteria is that a dependent must have bottled dependencies, and
-        # either the `--build-dependents-from-source` flag was passed or a dependent has no
-        # bottle on the current OS.
-        source_dependents, dependents = dependents.partition do |dependent, deps|
-          next false unless build_dependent_from_source?(dependent)
-
-          all_deps_bottled_or_built = deps.all? do |d|
-            bottled_or_built?(d.to_formula, @dependent_testing_formulae)
-          end
-          args.build_dependents_from_source? && all_deps_bottled_or_built
+        # we should not. The criteria is that a dependent must have bottled dependencies and
+        # the `--build-dependents-from-source` flag was passed
+        max = MAX_DEPENDENTS_FROM_SOURCE - @tested_source_dependents_count
+        source_dependents = []
+        if args.build_dependents_from_source? && max.positive?
+          source_dependents, dependents = split_source_dependents(dependents, max)
         end
 
         # From the non-source list, get rid of any dependents we are only a build dependency to
