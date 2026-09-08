@@ -33,6 +33,38 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
   end
 
   describe "#run" do
+    it "updates a formula disabled only on the current arch" do
+      formula_path = CoreTap.instance.new_formula_path("test")
+      formula_path.dirname.mkpath
+      formula_path.write <<~RUBY
+        class Test < Formula
+          url "https://brew.sh/test-1.2.3.tgz"
+          sha256 "#{"a" * 64}"
+
+          on_#{Hardware::CPU.arm? ? "arm" : "intel"} do
+            disable! date: "2020-01-01", because: :unmaintained
+          end
+        end
+      RUBY
+      formula = Formulary.factory(formula_path)
+      command = described_class.new([
+        "--write-only", "--no-audit", "--url=https://brew.sh/test-1.2.4.tgz", "--sha256=#{"b" * 64}", "test"
+      ])
+
+      allow(Utils::GemSetup).to receive(:install_bundler_gems!)
+      allow(CoreTap.instance).to receive_messages(allow_bump?: true, git?: true,
+                                                  remote_repository: "Homebrew/homebrew-core", install: nil)
+      allow(command).to receive_messages(check_new_version: nil, run_audit: false,
+                                         update_matching_version_resources!: {})
+      allow(PyPI).to receive(:update_python_resources!)
+      allow(command.args.named).to receive(:to_formulae).and_return([formula])
+      allow(Formula).to receive(:[]).with("test").and_return(formula)
+
+      command.run
+
+      expect(formula_path.read).to include('url "https://brew.sh/test-1.2.4.tgz"')
+    end
+
     it "updates a formula disabled only on the current OS" do
       formula_path = CoreTap.instance.new_formula_path("test")
       formula_path.dirname.mkpath
