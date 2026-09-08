@@ -101,7 +101,8 @@ RSpec.describe Homebrew::InstallSteps do
     expect((root/"stage/linked-target").readlink).to eq(Pathname("move-target"))
   end
 
-  specify "allows directory creation through parent sandbox paths" do
+  specify "limits directory creation to targets whose parent exists" do
+    (root/"prefix").mkpath
     steps = Homebrew::InstallSteps::DSL.build(default_base: :prefix) do
       mkdir_p "one"
       mkdir_p "two/three"
@@ -109,7 +110,7 @@ RSpec.describe Homebrew::InstallSteps do
 
     paths = Homebrew::InstallSteps::Runner.new(context:).sandbox_write_paths(steps)
 
-    expect(paths).to contain_exactly(root/"prefix", root/"prefix/two")
+    expect(paths).to contain_exactly(root/"prefix/one", root/"prefix/two")
   end
 
   specify "resolves formula configuration paths without loading formula source" do

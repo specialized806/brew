@@ -953,7 +953,10 @@ module Homebrew
           end
 
           case step.fetch("type")
-          when "mkdir", "mkdir_p", "touch", "write"
+          when "mkdir_p"
+            path = resolve_path(step_path(step, "path"))
+            [path.parent.directory? ? path : path.parent]
+          when "mkdir", "touch", "write"
             [resolve_path(step_path(step, "path")).parent]
           when "move"
             [resolve_path(step_path(step, "source")).parent, resolve_path(step_path(step, "target")).parent]
