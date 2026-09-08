@@ -267,15 +267,8 @@ module Cask
       return if min_os.nil?
       return if min_os.is_a?(String) && min_os.blank?
 
-      # Big Sur is sometimes identified as 10.16, so normalize it before
-      # stripping the patch version.
-      return MacOSVersion.from_symbol(:big_sur) if /\A10\.16(?:\.\d+)?\z/.match?(min_os.to_s)
-
-      if min_os.is_a?(MacOSVersion)
-        min_os.strip_patch
-      else
-        MacOSVersion.new(min_os).strip_patch
-      end
+      min_os = MacOSVersion.new(min_os) unless min_os.is_a?(MacOSVersion)
+      MacOSVersion.new(min_os.release_version)
     rescue MacOSVersion::Error
       nil
     end
