@@ -459,4 +459,73 @@ RSpec.describe Homebrew::Vulns::Identify do
       expect(result(nil)).to be_nil
     end
   end
+
+  describe ".registry_package_for" do
+    it "round-trips every source-derived registry ecosystem supported by overrides" do
+      urls = [
+        "https://files.pythonhosted.org/packages/00/2a/e8/jmespath-1.0.1.tar.gz",
+        "https://registry.npmjs.org/@angular/cli/-/cli-22.0.3.tgz",
+        "https://static.crates.io/crates/cargo-llvm-cov/cargo-llvm-cov-0.8.7.crate",
+        "https://rubygems.org/downloads/activesupport-8.1.1.gem",
+        "https://hackage.haskell.org/package/Allure-0.11.0.0/Allure-0.11.0.0.tar.gz",
+        "https://repo.hex.pm/tarballs/phoenix-1.7.0-rc.0.tar",
+        "https://cpan.metacpan.org/authors/id/A/AB/ABIGAIL/Regexp-Common-2024080801.tar.gz",
+        "https://repo.maven.apache.org/maven2/com/github/spotbugs/spotbugs/4.10.2/spotbugs-4.10.2.tgz",
+        "https://cran.r-project.org/src/contrib/data.table_1.15.4.tar.gz",
+        "https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg",
+      ]
+
+      round_tripped = urls.map do |url|
+        package = described_class.registry_package(url)
+        next false if package.nil?
+
+        rebuilt = described_class.registry_package_for(
+          ecosystem: package.ecosystem,
+          name:      package.name,
+          version:   package.version,
+        )
+        # `purl` is excluded because CPAN purls carry the author as a
+        # namespace, which an OSV `ecosystem`/`name` identity cannot supply.
+        rebuilt&.to_h&.slice(:ecosystem, :name, :version) == package.to_h.slice(:ecosystem, :name, :version)
+      end
+
+      expect(round_tripped).to all(be(true))
+    end
+
+    it "builds a canonical scoped npm package from an OSV identity" do
+      package = described_class.registry_package_for(ecosystem: "npm", name: "@babel/core", version: "7.0.0")
+
+      expect(package&.to_h).to eq(
+        ecosystem: "npm",
+        name:      "@babel/core",
+        version:   "7.0.0",
+        purl:      "pkg:npm/%40babel/core@7.0.0",
+      )
+    end
+
+    it "builds a canonical Maven package from an OSV identity" do
+      package = described_class.registry_package_for(
+        ecosystem: "Maven", name: "com.github.spotbugs:spotbugs", version: "4.10.2",
+      )
+
+      expect(package&.purl).to eq "pkg:maven/com.github.spotbugs/spotbugs@4.10.2"
+    end
+
+    it "rejects an unsupported OSV ecosystem" do
+      expect(described_class.registry_package_for(ecosystem: "GIT", name: "example", version: "1.0")).to be_nil
+    end
+
+    it "rejects non-canonical registry package names" do
+      invalid = [
+        { ecosystem: "PyPI", name: "Foo_Bar" },
+        { ecosystem: "Hex", name: "Foo" },
+        { ecosystem: "npm", name: "foo/bar" },
+        { ecosystem: "Maven", name: "spotbugs" },
+      ]
+
+      expect(invalid).to all(satisfy do |package|
+        described_class.registry_package_for(**package, version: "1.0").nil?
+      end)
+    end
+  end
 end

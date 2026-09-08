@@ -149,13 +149,40 @@ module Homebrew
         Identity.new(
           git_repo:          Identify.repo_url(stable_url, formula.head&.url, formula.homepage),
           git_tag:           Identify.tag(stable_url) || stable&.specs&.dig(:tag) || stable&.version&.to_s,
-          primary_package:   Identify.registry_package(stable_url),
+          primary_package:   primary_registry_package(formula),
           resource_packages: formula.resources.filter_map do |r|
             pkg = Identify.registry_package(r.url)
             [r.name, pkg] if pkg
           end.to_h.freeze,
           distro_packages:   distro_packages_for(formula.name),
         ).freeze
+      end
+
+      # Return the formula's source-derived registry package, unless a reviewed
+      # override supplies an identity for formulae built from non-registry URLs.
+      # Historical conflicts are uncheckable so one stale override cannot abort
+      # matching every formula.
+      sig {
+        params(formula: Formula, strict: T::Boolean).returns(T.nilable(Identify::RegistryPackage))
+      }
+      def primary_registry_package(formula, strict: true)
+        derived = Identify.registry_package(formula.stable&.url)
+        override = @overrides&.registry_package_override(formula.name)
+        return derived unless override
+
+        if derived
+          if derived.ecosystem != override.ecosystem || derived.name != override.name
+            raise AdvisoryOverrides::Error, "#{formula.name}.registry_package conflicts with its source URL" if strict
+
+            return
+          end
+          return derived
+        end
+
+        version = formula.stable&.version&.to_s
+        return if version.nil?
+
+        Identify.registry_package_for(ecosystem: override.ecosystem, name: override.name, version:)
       end
 
       # Returns one {Hit} per distinct vulnerability reached by any strategy,
@@ -769,7 +796,7 @@ module Homebrew
             return [true, version]
           end
 
-          primary_package = Identify.registry_package(stable_url)
+          primary_package = primary_registry_package(formula, strict: false)
           return [true, nil] if primary_package.nil?
           if primary_package.ecosystem != evidence.ecosystem || primary_package.name != evidence.name
             return [false, nil]

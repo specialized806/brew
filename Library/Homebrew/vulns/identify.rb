@@ -87,6 +87,23 @@ module Homebrew
       # for CPAN distributions (queried via CPANSA, not OSV).
       RegistryPackage = Struct.new(:ecosystem, :name, :version, :purl, keyword_init: true)
 
+      REGISTRY_PURL_TYPES = T.let(
+        {
+          "CPAN"      => "cpan",
+          "CRAN"      => "cran",
+          "Hackage"   => "hackage",
+          "Hex"       => "hex",
+          "Maven"     => "maven",
+          "NuGet"     => "nuget",
+          "PyPI"      => "pypi",
+          "RubyGems"  => "gem",
+          "crates.io" => "cargo",
+          "npm"       => "npm",
+        }.freeze,
+        T::Hash[String, String],
+      )
+      private_constant :REGISTRY_PURL_TYPES
+
       ARCHIVE_EXTENSIONS = /\.(?:tar\.gz|tar\.bz2|tar\.xz|tgz|zip|gem|crate|tar|nupkg)\z/i
       private_constant :ARCHIVE_EXTENSIONS
 
@@ -118,9 +135,43 @@ module Homebrew
       def self.registry_package(url)
         return if url.nil?
 
-        ecosystem, purl = registry_purl(url)
-        return if purl.nil?
+        result = registry_purl(url)
+        return if result.nil?
 
+        ecosystem, purl = result
+        registry_package_from_purl(ecosystem, purl)
+      end
+
+      # Build a canonical registry package from reviewed OSV package fields.
+      # Returns nil for unsupported ecosystems or non-canonical package names.
+      sig {
+        params(ecosystem: String, name: String, version: T.nilable(String)).returns(T.nilable(RegistryPackage))
+      }
+      def self.registry_package_for(ecosystem:, name:, version: nil)
+        return unless REGISTRY_PURL_TYPES.key?(ecosystem)
+        return if name.empty? || name.match?(/\s/)
+
+        namespace = T.let(nil, T.nilable(String))
+        purl_name = T.let(name, String)
+        case ecosystem
+        when "npm"
+          if name.start_with?("@")
+            namespace, separator, purl_name = name.partition("/")
+            return if namespace == "@" || separator.empty? || purl_name.empty? || purl_name.include?("/")
+          elsif name.include?("/")
+            return
+          end
+        when "Maven"
+          namespace, separator, purl_name = name.rpartition(":")
+          return if separator.empty? || namespace.empty? || purl_name.empty? || namespace.include?(":")
+        end
+
+        package = registry_package_from_purl(ecosystem, purl_for(ecosystem, namespace:, name: purl_name, version:))
+        package if package.name == name
+      end
+
+      sig { params(ecosystem: String, purl: Purl).returns(RegistryPackage) }
+      def self.registry_package_from_purl(ecosystem, purl)
         name = case purl.type
         when "maven" then "#{purl.namespace}:#{purl.name}"
         # OSV keys PyPI packages by their PEP 503 normalised name.
@@ -131,6 +182,16 @@ module Homebrew
         end
         RegistryPackage.new(ecosystem:, name:, version: purl.version, purl: purl.to_s).freeze
       end
+      private_class_method :registry_package_from_purl
+
+      sig {
+        params(ecosystem: String, name: String, namespace: T.nilable(String),
+               version: T.nilable(String)).returns(Purl)
+      }
+      def self.purl_for(ecosystem, name:, namespace: nil, version: nil)
+        Purl.new(type: REGISTRY_PURL_TYPES.fetch(ecosystem), namespace:, name:, version:)
+      end
+      private_class_method :purl_for
 
       sig { params(url: String).returns(T.nilable([String, Purl])) }
       def self.registry_purl(url)
@@ -142,7 +203,7 @@ module Homebrew
           name, _, version = basename.rpartition("-")
           return if name.empty?
 
-          ["PyPI", Purl.new(type: "pypi", name:, version:)]
+          ["PyPI", purl_for("PyPI", name:, version:)]
         when %r{\Ahttps://registry\.npmjs\.org/(?:((?:@|%40)[^/]+)/)?([^/@%][^/]*)/-/}
           namespace = Regexp.last_match(1)
           name = Regexp.last_match(2)
@@ -152,7 +213,7 @@ module Homebrew
           name = decode(name)
           return unless (version = version_after_prefix(basename, name))
 
-          ["npm", Purl.new(type: "npm", namespace:, name:, version:)]
+          ["npm", purl_for("npm", namespace:, name:, version:)]
         when %r{\Ahttps://static\.crates\.io/crates/([^/]+)/}
           name = Regexp.last_match(1)
           return if name.nil?
@@ -160,12 +221,12 @@ module Homebrew
           name = decode(name)
           return unless (version = version_after_prefix(basename, name))
 
-          ["crates.io", Purl.new(type: "cargo", name:, version:)]
+          ["crates.io", purl_for("crates.io", name:, version:)]
         when %r{\Ahttps://rubygems\.org/(?:downloads|gems)/}
           name, version = gem_name_version(basename)
           return if name.nil?
 
-          ["RubyGems", Purl.new(type: "gem", name:, version:)]
+          ["RubyGems", purl_for("RubyGems", name:, version:)]
         when %r{\Ahttps://hackage\.haskell\.org/package/([^/]+)}
           match = Regexp.last_match(1)&.match(HACKAGE_PKGID)
           return if match.nil?
@@ -173,13 +234,13 @@ module Homebrew
           name, version = match.captures
           return if name.nil?
 
-          ["Hackage", Purl.new(type: "hackage", name:, version:)]
+          ["Hackage", purl_for("Hackage", name:, version:)]
         when %r{\Ahttps://repo\.hex\.pm/tarballs/}
           # Hex package names are `[a-z][a-z0-9_]*` so the first hyphen delimits.
           name, sep, version = basename.partition("-")
           return if sep.empty?
 
-          ["Hex", Purl.new(type: "hex", name:, version:)]
+          ["Hex", purl_for("Hex", name:, version:)]
         when %r{/authors/id/[A-Z]/[A-Z]{2}/([A-Z][A-Z0-9-]+)/}
           author = Regexp.last_match(1)
           match = basename.match(CPAN_DISTNAME)
@@ -188,7 +249,7 @@ module Homebrew
           name, version = match.captures
           return if name.nil?
 
-          ["CPAN", Purl.new(type: "cpan", namespace: author, name:, version:)]
+          ["CPAN", purl_for("CPAN", namespace: author, name:, version:)]
         # Maven Central only: OSV's bare `Maven` ecosystem is Central-scoped,
         # so third-party repositories (Google, fabricmc, jfrog, ...) are skipped.
         when %r{\Ahttps://repo1?\.maven\.(?:apache\.)?org/maven2/(.+)/([^/]+)/([^/]+)/\2-\3[.-][^/]+\z},
@@ -198,17 +259,17 @@ module Homebrew
           version = Regexp.last_match(3)
           return if group_id.nil? || artifact_id.nil?
 
-          ["Maven", Purl.new(type: "maven", namespace: group_id.tr("/", "."), name: artifact_id, version:)]
+          ["Maven", purl_for("Maven", namespace: group_id.tr("/", "."), name: artifact_id, version:)]
         when %r{\Ahttps://(?:cran|cloud)\.r-project\.org/src/contrib/(?:Archive/[^/]+/)?([^/_]+)_([^/]+)\.tar\.gz\z}
           name = Regexp.last_match(1)
           return if name.nil?
 
-          ["CRAN", Purl.new(type: "cran", name:, version: Regexp.last_match(2))]
+          ["CRAN", purl_for("CRAN", name:, version: Regexp.last_match(2))]
         when %r{\Ahttps://(?:api|www)\.nuget\.org/(?:v3-flatcontainer|api/v2/package)/([^/]+)/([^/]+)(?:/|\z)}
           name = Regexp.last_match(1)
           return if name.nil?
 
-          ["NuGet", Purl.new(type: "nuget", name:, version: Regexp.last_match(2))]
+          ["NuGet", purl_for("NuGet", name:, version: Regexp.last_match(2))]
         end
       end
 
