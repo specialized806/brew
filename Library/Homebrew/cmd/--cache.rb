@@ -70,11 +70,23 @@ module Homebrew
               end
             end
           when Cask::Cask
-            os_arch_combinations.each do |os, arch|
-              next if os == :linux
-
-              SimulateSystem.with(os:, arch:) do
-                print_cask_cache(Cask::CaskLoader.load(ref))
+            combinations = os_arch_combinations
+            host = [SimulateSystem.current_os, SimulateSystem.current_arch]
+            if formula_or_cask.loaded_from_api? && combinations != [host]
+              opoo "Cask #{formula_or_cask} was loaded from the API; only showing the cache file for the " \
+                   "current platform. Set `HOMEBREW_NO_INSTALL_FROM_API=1` to show others."
+              combinations &= [host]
+            end
+            combinations.each do |os, arch|
+              tag = Utils::Bottles::Tag.new(system: os, arch:)
+              # Source loads may lack an installable artifact, e.g. naked containers.
+              supported = formula_or_cask.refresh_for_tag(tag) do
+                formula_or_cask.platform_supported?(tag, installable: formula_or_cask.loaded_from_api?)
+              end
+              if supported
+                print_cask_cache(formula_or_cask)
+              else
+                opoo "Cask #{formula_or_cask} is not supported on os #{os} and arch #{arch}"
               end
             end
           end
