@@ -11,7 +11,10 @@ module Utils
       include SystemCommand::Mixin
       include Utils::Output::Mixin
 
-      TAR_FILE_EXTENSIONS = %w[.tar .tb2 .tbz .tbz2 .tgz .tlz .txz .tZ].freeze
+      TAR_FILE_EXTENSIONS = %w[
+        .tar .tb2 .tbz .tbz2 .tgz .tlz .txz .tZ
+        .tar.bz2 .tar.gz .tar.lz .tar.xz .tar.Z
+      ].freeze
 
       sig { returns(T::Boolean) }
       def available?

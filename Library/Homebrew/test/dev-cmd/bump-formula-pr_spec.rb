@@ -413,6 +413,7 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       resource_path = mktmpdir/"foo-2.0.0.tar.gz"
       resource_path.write "test"
       allow(bump_formula_pr).to receive(:fetch_resource_and_forced_version).and_return([resource_path, false])
+      allow(Utils::Tar).to receive(:validate_file).with(resource_path)
 
       resource_versions = { "foo" => { current_version: "1.2.3", latest_version: "2.0.0" } }
 
