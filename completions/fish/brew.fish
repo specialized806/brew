@@ -1943,7 +1943,7 @@ __fish_brew_complete_arg 'test' -a '(__fish_brew_suggest_formulae_installed)'
 
 __fish_brew_complete_cmd 'test-bot' 'Tests the full lifecycle of a Homebrew change to a tap (Git repository)'
 __fish_brew_complete_arg 'test-bot' -l added-formulae -d 'Use these added formulae rather than running the formulae detection steps'
-__fish_brew_complete_arg 'test-bot' -l build-dependents-from-source -d 'Build dependents from source rather than testing bottles'
+__fish_brew_complete_arg 'test-bot' -l build-dependents-from-source -d 'Build a limited set of dependents from source in addition to testing bottles. Up to 10 per formula per shard, prioritising popular dependents in a sharded group'
 __fish_brew_complete_arg 'test-bot' -l build-from-source -d 'Build from source rather than building bottles'
 __fish_brew_complete_arg 'test-bot' -l cleanup -d 'Clean all state from the Homebrew directory. Use with care!'
 __fish_brew_complete_arg 'test-bot' -l debug -d 'Display any debugging information'

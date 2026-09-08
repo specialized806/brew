@@ -302,7 +302,7 @@ module Homebrew
         # Split into dependents that we could potentially be building from source and those
         # we should not. The criteria is that a dependent must have bottled dependencies and
         # the `--build-dependents-from-source` flag was passed. Total source build dependents
-        # are limited per formula to avoid overly long CI runtime.
+        # are limited per formula per shard to avoid overly long CI runtime.
         source_dependents = []
         if args.build_dependents_from_source?
           source_dependents, dependents = split_source_dependents(dependents)
