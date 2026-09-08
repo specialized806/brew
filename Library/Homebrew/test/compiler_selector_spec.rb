@@ -111,5 +111,35 @@ RSpec.describe CompilerSelector do
 
       expect { selector.compiler }.to raise_error(CompilerSelectionError)
     end
+
+    context "when selecting LLVM Clang" do
+      let(:compilers) { [:llvm_clang, :clang] }
+      let(:versions) { Class.new(DevelopmentTools) }
+
+      before do
+        allow(versions).to receive(:clang_build_version).and_return(Version.new("600"))
+      end
+
+      it "selects LLVM Clang without calling deprecated APIs" do
+        llvm_prefix = mktmpdir
+        clang = llvm_prefix/"bin/clang"
+        clang.dirname.mkpath
+        clang.write "#!/bin/sh\n"
+        clang.chmod 0755
+
+        allow(Formula).to receive(:[]).with("llvm")
+                                      .and_return(instance_double(Formula, opt_prefix: llvm_prefix))
+        allow(Utils).to receive(:popen_read_text)
+          .with(clang, "--version", err: :err).and_return("clang version 21.1.0\n")
+
+        expect(selector.compiler).to eq(:llvm_clang)
+      end
+
+      it "falls back to Clang without calling deprecated APIs when LLVM is unavailable" do
+        allow(Formula).to receive(:[]).with("llvm").and_raise(FormulaUnavailableError.new("llvm"))
+
+        expect(selector.compiler).to eq(:clang)
+      end
+    end
   end
 end

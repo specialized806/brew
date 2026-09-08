@@ -2,12 +2,15 @@
 # frozen_string_literal: true
 
 require "version"
+require "utils/output"
 require "utils/popen"
 
 # Helper class for gathering information about development tools.
 #
 # @api public
 class DevelopmentTools
+  extend Utils::Output::Mixin
+
   class << self
     # Locate a development tool.
     #
@@ -102,10 +105,19 @@ class DevelopmentTools
 
     # Get the LLVM Clang build version.
     #
+    # @deprecated Query the required LLVM compiler with `--version` instead.
     # @api public
     sig { returns(Version) }
     def llvm_clang_build_version
-      @llvm_clang_build_version ||= T.let(begin
+      odeprecated "DevelopmentTools.llvm_clang_build_version", "the required LLVM compiler's `--version` output"
+
+      llvm_clang_version
+    end
+
+    # @api private
+    sig { returns(Version) }
+    def llvm_clang_version
+      @llvm_clang_version ||= T.let(begin
         path = Formula["llvm"].opt_prefix/"bin/clang"
         if path.executable? &&
            (build_version = Utils.popen_read_text(path, "--version", err: :err)[/clang version (\d+\.\d\.\d)/, 1])
@@ -146,7 +158,7 @@ class DevelopmentTools
     sig { void }
     def clear_version_cache
       @clang_version_output = T.let(nil, T.nilable(String))
-      @clang_version = @clang_build_version = T.let(nil, T.nilable(Version))
+      @clang_version = @clang_build_version = @llvm_clang_version = T.let(nil, T.nilable(Version))
       @gcc_version = T.let({}, T.nilable(T::Hash[String, Version]))
     end
 
