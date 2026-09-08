@@ -184,20 +184,6 @@ module Homebrew
 
         ohai "Only source building #{max} of #{source_dependents.count} dependents"
 
-        if (ranks = formula_install_ranks).present?
-          last = ranks.each_value.max.to_i + 1
-          source_dependents.sort_by! do |dependent, _|
-            [ranks.fetch(dependent.full_name, last), dependent.full_name]
-          end
-        end
-        dependents.concat(source_dependents.slice!(max..).to_a)
-        [source_dependents, dependents]
-      end
-
-      private
-
-      sig { returns(T::Hash[String, Integer]) }
-      def formula_install_ranks
         @formula_install_ranks ||= T.let(begin
           analytics = begin
             require "api/analytics"
@@ -213,7 +199,18 @@ module Homebrew
             hash[formula.to_s] = number.to_i
           end
         end, T.nilable(T::Hash[String, Integer]))
+
+        if @formula_install_ranks.present?
+          last = @formula_install_ranks.each_value.max.to_i + 1
+          source_dependents.sort_by! do |dependent, _|
+            [@formula_install_ranks.fetch(dependent.full_name, last), dependent.full_name]
+          end
+        end
+        dependents.concat(source_dependents.slice!(max..).to_a)
+        [source_dependents, dependents]
       end
+
+      private
 
       sig { params(installable_bottles: T::Array[String], args: Homebrew::Cmd::TestBotCmd::Args).void }
       def install_formulae_if_needed_from_bottles!(installable_bottles, args:)
