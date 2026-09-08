@@ -41,6 +41,8 @@ The [token reference](#token-reference) describes the current naming rules and e
 
 Having a common order for stanzas makes casks easier to update and parse. Below is the complete stanza sequence (no cask will have all stanzas). The empty lines shown here are also important, as they help to visually delimit information.
 
+When multiple `depends_on` stanzas are present, order them alphabetically by dependency type and then value.
+
     arch
     on_arch_conditional # additional custom-defined substitutions
     os
