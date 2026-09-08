@@ -165,6 +165,60 @@ RSpec.describe PyPI do
   end
 
   describe ".pip_report" do
+    context "with sandbox execution stubbed" do
+      before do
+        allow(Sandbox).to receive_messages(available?: true, avoid_nested_sandboxing?: false,
+                                           full_write_isolation?: true)
+        sandbox = instance_double(Sandbox, allow_write_path: nil, deny_write_homebrew_repository: nil,
+                                          deny_read_home: nil)
+        allow(Sandbox).to receive(:new).and_return(sandbox)
+        allow(sandbox).to receive(:run) do |*command, **_options|
+          system(*command)
+        end
+      end
+
+      it "runs the Git shim with the configured Git executable" do
+        git = mktmpdir/"custom-git"
+        git.write <<~SH
+          #!/bin/sh
+          printf 'git version 2.50.1'
+        SH
+        git.chmod 0755
+        ENV["HOMEBREW_GIT"] = git.to_s
+
+        expect(described_class.pip_output([HOMEBREW_SHIMS_PATH/"shared/git", "--version"]))
+          .to eq("git version 2.50.1")
+      end
+
+      it "fetches SSH resources with their download settings before inspecting local metadata" do
+        source = mktmpdir
+        source.cd do
+          system "git", "init", "--quiet"
+          (source/"pyproject.toml").write("[project]\nname = 'tool'\n")
+          system "git", "add", "pyproject.toml"
+          system "git", "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Initial commit"
+          system "git", "tag", "v0.20.1"
+          (source/"pyproject.toml").write("[project]\nname = 'newer-tool'\n")
+          system "git", "-c", "commit.gpgsign=false", "commit", "--quiet", "-am", "Newer commit"
+        end
+        ssh = mktmpdir/"ssh"
+        ssh.write <<~SH
+          #!/bin/sh
+          exec git-upload-pack #{source.to_s.shellescape}
+        SH
+        ssh.chmod 0755
+        ENV["GIT_SSH_COMMAND"] = ssh.to_s.shellescape
+        ENV["GIT_SSH_VARIANT"] = "ssh"
+        resource = Resource.new("tool")
+        resource.url "ssh://user@gitlab.example/tool", using: :git, tag: "v0.20.1",
+                     revision: Utils.popen_read("git", "-C", source, "rev-parse", "v0.20.1").chomp
+
+        expect(described_class.pip_output(["/bin/sh", "-c", 'cat "$1/pyproject.toml"', "brew-pypi",
+                                           resource]))
+          .to eq("[project]\nname = 'tool'\n")
+      end
+    end
+
     it "captures metadata with a minimal sandbox environment" do
       skip Sandbox.failure_reason unless Sandbox.available?
       skip "Homebrew is running inside another sandbox" if Sandbox.avoid_nested_sandboxing?
@@ -272,6 +326,26 @@ RSpec.describe PyPI do
   end
 
   describe ".update_python_resources!" do
+    it "uses the stable resource for dependency and package metadata resolution" do
+      path = mktmpdir/"foo.rb"
+      path.write <<~RUBY
+        class Foo < Formula
+          url "ssh://git@gitlab.example/foo.git", tag: "v1.0"
+
+          def install
+            bin.install "foo"
+          end
+        end
+      RUBY
+      formula = Formulary.from_contents("foo", path, path.read)
+      allow(Formula).to receive(:[]).with("python").and_return(instance_double(Formula, ensure_installed!: true))
+      allow(described_class).to receive(:pip_output)
+        .with(array_including(formula.resource), any_args)
+        .and_return('{"install":[{"metadata":{"name":"foo","version":"1.0"}}]}')
+
+      expect(described_class.update_python_resources!(formula, quiet: true)).to be true
+    end
+
     it "keeps resources with livecheck blocks" do
       path = mktmpdir/"foo.rb"
       livecheck_resource = <<~RUBY
@@ -371,6 +445,31 @@ RSpec.describe PyPI do
                                                ignore_main_package_cooldown: true)
 
       expect(exempted&.name).to eq "foo"
+    end
+  end
+
+  describe "resolver failures" do
+    let(:resource) do
+      Resource.new("foo") do
+        url "ssh://git@gitlab.example/foo.git", tag: "v1.0"
+      end
+    end
+    let(:package) { PyPI::Package.new(resource.url, is_url: true, resource:) }
+
+    before do
+      allow(Formula).to receive(:[]).with("python").and_return(instance_double(Formula, ensure_installed!: true))
+      allow(described_class).to receive(:pip_output).and_raise(ErrorDuringExecution.new(["pip"], status: 1))
+    end
+
+    it "renders resource URLs in failed metadata commands" do
+      expect { package.name }
+        .to raise_error(ArgumentError, %r{--report /dev/stdout ssh://git@gitlab\.example/foo\.git`})
+    end
+
+    it "renders resource URLs in failed dependency commands" do
+      expect { described_class.pip_report([package]) }
+        .to output(%r{--report=/dev/stdout ssh://git@gitlab\.example/foo\.git`}).to_stderr
+        .and raise_error(SystemExit)
     end
   end
 
