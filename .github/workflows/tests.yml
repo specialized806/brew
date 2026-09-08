@@ -445,7 +445,7 @@ jobs:
           - name: test-bot (Linux arm64, padded prefix)
             runs-on: ubuntu-24.04-arm
             container: ghcr.io/homebrew/ubuntu24.04:latest
-            prefix-constant: LINUX_ARM64_BOTTLE_PREFIX
+            padded-prefix: true
             system-tar: true
           - name: test-bot (Linux x86_64)
             runs-on: ubuntu-latest
@@ -453,7 +453,7 @@ jobs:
           - name: test-bot (Linux x86_64, padded prefix)
             runs-on: ubuntu-latest
             container: ghcr.io/homebrew/ubuntu24.04:main
-            prefix-constant: LINUX_X86_64_BOTTLE_PREFIX
+            padded-prefix: true
             system-tar: true
           - name: test-bot (no Sorbet)
             runs-on: ubuntu-latest
@@ -468,7 +468,7 @@ jobs:
             runs-on: macos-26
           - name: test-bot (macOS arm64, padded prefix)
             runs-on: macos-26
-            prefix-constant: MACOS_ARM64_BOTTLE_PREFIX
+            padded-prefix: true
     env:
       HOMEBREW_TEST_BOT_ANALYTICS: 1
     steps:
@@ -515,11 +515,9 @@ jobs:
           cask: false
 
       - name: Set up padded bottle prefix
-        if: matrix.prefix-constant
-        env:
-          PREFIX_CONSTANT: ${{ matrix.prefix-constant }}
+        if: matrix.padded-prefix
         run: |
-          padded_prefix="$(brew ruby -- -e 'puts Homebrew.const_get(ARGV.fetch(0))' "${PREFIX_CONSTANT}")"
+          padded_prefix="$(brew test-bot --print-padded-prefix)"
           test "${#padded_prefix}" -eq 64
           mkdir -p "${padded_prefix}/bin"
           ln -s "$(brew --repository)/bin/brew" "${padded_prefix}/bin/brew"
@@ -545,7 +543,7 @@ jobs:
 
       - run: brew test-bot --only-setup
         env:
-          HOMEBREW_TEST_BOT_IGNORE_DOCTOR_FAILURE: ${{ matrix.prefix-constant && '1' || null }}
+          HOMEBREW_TEST_BOT_IGNORE_DOCTOR_FAILURE: ${{ matrix.padded-prefix && '1' || null }}
 
       - name: Run brew test-bot formulae
         run: |

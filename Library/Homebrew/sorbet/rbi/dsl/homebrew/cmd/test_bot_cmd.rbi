@@ -78,6 +78,9 @@ class Homebrew::Cmd::TestBotCmd::Args < Homebrew::CLI::Args
   def only_tap_syntax?; end
 
   sig { returns(T::Boolean) }
+  def print_padded_prefix?; end
+
+  sig { returns(T::Boolean) }
   def publish?; end
 
   sig { returns(T.nilable(String)) }
