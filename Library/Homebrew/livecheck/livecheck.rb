@@ -641,7 +641,7 @@ module Homebrew
       livecheck = formula_or_cask.livecheck
       referenced_livecheck = referenced_formula_or_cask&.livecheck
 
-      livecheck_options = referenced_livecheck&.options&.merge(livecheck.options) || livecheck.options
+      livecheck_options = referenced_livecheck&.options&.merge(livecheck.options) || livecheck.options.deep_dup
       livecheck_url_options = livecheck_options.url_options.compact
       livecheck_url = livecheck.url || referenced_livecheck&.url
       livecheck_regex = livecheck.regex || referenced_livecheck&.regex
@@ -742,7 +742,7 @@ module Homebrew
           case strategy_name
           when "PageMatch", "HeaderMatch"
             if (homebrew_curl = use_homebrew_curl?(referenced_package, url))
-              livecheck_options = livecheck_options.merge({ homebrew_curl: })
+              livecheck_options.homebrew_curl = homebrew_curl
               livecheck_homebrew_curl = homebrew_curl
             end
           end
@@ -923,7 +923,7 @@ module Homebrew
       resource_version_info = {}
 
       livecheck = resource.livecheck
-      livecheck_options = livecheck.options
+      livecheck_options = livecheck.options.deep_dup
       livecheck_url_options = livecheck_options.url_options.compact
       livecheck_reference = livecheck.formula
       livecheck_url = livecheck.url

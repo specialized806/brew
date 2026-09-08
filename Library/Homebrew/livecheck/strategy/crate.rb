@@ -95,7 +95,10 @@ module Homebrew
           match_data[:url] = generated[:url]
 
           unless match_data[:cached]
-            options = options.merge(user_agent: :browser) unless options.user_agent
+            unless options.user_agent
+              options = options.deep_dup
+              options.user_agent = :browser
+            end
             match_data.merge!(Strategy.page_content(match_data[:url], options:))
             content = match_data[:content]
           end
