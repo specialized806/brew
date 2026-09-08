@@ -231,6 +231,28 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
       CASK
     end
 
+    it "accepts identical macOS values when Linux checksums are also present" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          sha256 arm:          "macos",
+                 intel:        "macos",
+                 x86_64_linux: "linux"
+        end
+      CASK
+    end
+
+    it "reports an offense when every architecture value is identical" do
+      expect_offense <<~CASK
+        cask "foo" do
+          sha256 arm:          "same",
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ sha256 values for different architectures should not be identical.
+                 intel:        "same",
+                 arm64_linux:  "same",
+                 x86_64_linux: "same"
+        end
+      CASK
+    end
+
     it "accepts when there is only one `on_arch` block" do
       expect_no_offenses <<~CASK
         cask 'foo' do

@@ -185,23 +185,22 @@ module RuboCop
             next unless sha256_node.arguments.first.hash_type?
 
             hash_node = sha256_node.arguments.first
-            arm_sha = T.let(nil, T.nilable(String))
-            intel_sha = T.let(nil, T.nilable(String))
+            values = hash_node.pairs.filter_map do |pair|
+              next unless pair.key.sym_type?
+              next unless pair.value.str_type?
 
-            hash_node.pairs.each do |pair|
-              key = pair.key
-              next unless key.sym_type?
+              [pair.key.value, pair.value.value]
+            end.to_h
 
-              value = pair.value
-              next unless value.str_type?
+            # A scalar `sha256` covers every architecture, so it is only a shorter spelling of this
+            # stanza when all four are present and identical.
+            every_architecture = [values[:arm], values[:intel] || values[:x86_64],
+                                  values[:arm64_linux], values[:x86_64_linux]]
+            next if values.keys.intersect?([:arm64_linux, :x86_64_linux]) &&
+                    !(every_architecture.all? && every_architecture.uniq.one?)
 
-              case key.value
-              when :arm
-                arm_sha = value.value
-              when :intel
-                intel_sha = value.value
-              end
-            end
+            arm_sha = values[:arm]
+            intel_sha = values[:intel] || values[:x86_64]
 
             next unless arm_sha
             next unless intel_sha
