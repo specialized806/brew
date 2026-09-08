@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "release_cooldown"
+require "resource"
 require "utils/output"
 require "utils/ast"
 require "utils/path"
@@ -21,13 +22,14 @@ module PyPI
   class Package
     include Utils::Output::Mixin
 
-    sig { params(package_string: String, is_url: T::Boolean, python_name: String).void }
-    def initialize(package_string, is_url: false, python_name: "python")
+    sig { params(package_string: String, is_url: T::Boolean, python_name: String, resource: T.nilable(Resource)).void }
+    def initialize(package_string, is_url: false, python_name: "python", resource: nil)
       @pypi_info = T.let(nil, T.nilable(T::Array[String]))
       @package_string = package_string
       @is_url = is_url
       @is_pypi_url = T.let(package_string.start_with?(PYTHONHOSTED_URL_PREFIX), T::Boolean)
       @python_name = python_name
+      @resource = resource
     end
 
     sig { returns(T.nilable(String)) }
@@ -124,6 +126,14 @@ module PyPI
       end
     end
 
+    # The source resource or package requirement to inspect with pip.
+    sig { returns(T.any(String, Resource)) }
+    def requirement
+      return to_s if valid_pypi_package?
+
+      @resource || @package_string
+    end
+
     sig { params(other: Package).returns(T::Boolean) }
     def same_package?(other)
       # These names are pre-normalized, so we can compare them directly.
@@ -179,13 +189,13 @@ module PyPI
         # this specific URL's project metadata.
         command =
           [Utils::Path.formula_opt_libexec(@python_name)/"bin/python", "-m", "pip", "install", "-q", "--no-deps",
-           "--dry-run", "--ignore-installed", "--report", "/dev/stdout", @package_string]
+           "--dry-run", "--ignore-installed", "--report", "/dev/stdout", requirement]
         pip_output = begin
           PyPI.pip_output(command)
         rescue ErrorDuringExecution
           raise ArgumentError, <<~EOS
             Unable to determine metadata for "#{@package_string}" because of a failure when running
-            `#{command.join(" ")}`.
+            `#{PyPI.format_pip_command(command)}`.
           EOS
         end
 
@@ -287,12 +297,8 @@ module PyPI
         odie "#{formula.full_name} has no stable URL to determine the main Python package from."
       end
 
-      url = if stable.specs[:tag].present?
-        "git+#{stable_url}@#{stable.specs[:tag]}"
-      else
-        stable_url
-      end
-      Package.new(url, is_url: true, python_name:)
+      Package.new(stable_url, is_url: true, python_name:,
+                  resource: (stable.resource if stable.downloader.is_a?(VCSDownloadStrategy)))
     end
 
     if main_package.nil?
@@ -488,7 +494,13 @@ module PyPI
     name.gsub(/[-_.]+/, "-").downcase
   end
 
-  sig { params(command: T::Array[T.any(String, Pathname)], print_stderr: T::Boolean).returns(String) }
+  # Render source resources as URLs in pip command diagnostics.
+  sig { params(command: T::Array[T.any(String, Pathname, Resource)]).returns(String) }
+  def self.format_pip_command(command)
+    command.map { |argument| argument.is_a?(Resource) ? argument.url : argument }.join(" ")
+  end
+
+  sig { params(command: T::Array[T.any(String, Pathname, Resource)], print_stderr: T::Boolean).returns(String) }
   def self.pip_output(command, print_stderr: false)
     Sandbox.ensure_sandbox_available!
     if Sandbox.avoid_nested_sandboxing?
@@ -503,15 +515,25 @@ module PyPI
     end
 
     Dir.mktmpdir("homebrew-pypi", HOMEBREW_TEMP) do |directory|
+      command = command.each_with_index.map do |argument, index|
+        next argument unless argument.is_a?(Resource)
+
+        argument.fetch(quiet: !print_stderr, skip_patches: true)
+        source = Pathname(directory)/"source-#{index}"
+        source.mkpath
+        source.cd { argument.downloader.stage { source = Pathname.pwd } }
+        source
+      end
+
       sandbox = Sandbox.new
       sandbox.allow_write_path(directory)
       sandbox.deny_write_homebrew_repository
       sandbox.deny_read_home
       Tempfile.create("report", directory) do |report|
-        proxy_env = ENV.to_h.filter_map do |key, value|
-          "#{key}=#{value}" if key.match?(/\A(?:https?|all|no)_proxy\z/i)
+        sandbox_env = ENV.to_h.filter_map do |key, value|
+          "#{key}=#{value}" if key.match?(/\A(?:HOMEBREW_(?:LIBRARY|PREFIX|GIT)|(?:https?|all|no)_proxy)\z/i)
         end
-        sandbox.run "/usr/bin/env", "-i", "PATH=#{ENV.fetch("PATH")}", *proxy_env, "HOME=#{directory}",
+        sandbox.run "/usr/bin/env", "-i", "PATH=#{ENV.fetch("PATH")}", *sandbox_env, "HOME=#{directory}",
                     "TMPDIR=#{directory}", "PIP_CACHE_DIR=#{directory}/cache", "PIP_CONFIG_FILE=#{File::NULL}",
                     "PIP_REQUIRE_VIRTUALENV=false", "/bin/sh", "-c",
                     "report=$1; shift; exec \"$@\" > \"$report\"#{" 2>/dev/null" unless print_stderr}",
@@ -538,7 +560,7 @@ module PyPI
     # dependencies stay index-resolved and cooled.
     requirements = packages.map do |package|
       exempt = ignore_cooldown_package && package == ignore_cooldown_package && package.valid_pypi_package?
-      next package.to_s unless exempt
+      next package.requirement unless exempt
 
       name, sdist_url = package.pypi_info
       next package.to_s if sdist_url.blank?
@@ -563,7 +585,7 @@ module PyPI
     rescue ErrorDuringExecution
       odie <<~EOS
         Unable to determine dependencies for "#{packages.join(" ")}" because of a failure when running
-        `#{command.join(" ")}`.
+        `#{format_pip_command(command)}`.
         Please update the resources manually.
       EOS
     end
