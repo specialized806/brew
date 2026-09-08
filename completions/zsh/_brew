@@ -278,6 +278,7 @@ __brew_internal_commands() {
     commands+=(
       'advisory-match:Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
       'bump-python-resources-pr:Update vulnerable PyPI resources in formula, bump its revision, and create a pull request'
+      'cask-ci:Run Homebrew Cask'\''s internal CI helpers'
       'determine-test-runners:Determines the runners used to test formulae or their dependents'
       'dispatch-build-bottle:Build bottles for these formulae with GitHub Actions'
       'formula-analytics:Query Homebrew'\''s analytics'
@@ -1034,6 +1035,15 @@ add)
       esac
       ;;
   esac
+}
+
+# brew cask-ci
+_brew_cask_ci() {
+  _arguments \
+    '--debug[Display any debugging information]' \
+    '--help[Show this message]' \
+    '--quiet[Make some output more quiet]' \
+    '--verbose[Make some output more verbose]'
 }
 
 # brew casks

@@ -104,7 +104,7 @@ __brew_complete_commands() {
   fi
   if [[ -n ${HOMEBREW_DEVELOPER:-} ]]
   then
-    maintainer_cmds="advisory-match bump-python-resources-pr determine-test-runners dispatch-build-bottle formula-analytics formula-python-resources generate-advisories-api generate-analytics-api generate-bottle-ci-matrix generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api generate-vulns-advisories pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
+    maintainer_cmds="advisory-match bump-python-resources-pr cask-ci determine-test-runners dispatch-build-bottle formula-analytics formula-python-resources generate-advisories-api generate-analytics-api generate-bottle-ci-matrix generate-cask-api generate-cask-ci-matrix generate-formula-api generate-internal-api generate-vulns-advisories pr-automerge pr-publish pr-pull pr-upload release update-license-data update-maintainers update-portable-ruby update-report update-sponsors vendor-install"
   fi
   user_aliases="$(__brew_list_aliases)"
   while IFS= read -r line
@@ -1043,6 +1043,22 @@ add)
 exec)
   __brew_complete_commands
         ;;
+    *) ;;
+  esac
+}
+
+_brew_cask_ci() {
+  local cur="${COMP_WORDS[COMP_CWORD]}"
+  case "${cur}" in
+    -*)
+      __brewcomp "
+      --debug
+      --help
+      --quiet
+      --verbose
+      "
+      return
+      ;;
     *) ;;
   esac
 }
@@ -3870,6 +3886,7 @@ _brew() {
     bump-revision) _brew_bump_revision ;;
     bump-unversioned-casks) _brew_bump_unversioned_casks ;;
     bundle) _brew_bundle ;;
+    cask-ci) _brew_cask_ci ;;
     casks) _brew_casks ;;
     cat) _brew_cat ;;
     cleanup) _brew_cleanup ;;
