@@ -33,7 +33,6 @@ module Homebrew
         @tested_dependents = T.let([], T::Array[String])
         @formulae_dependents_filter = T.let(nil, T.nilable(T::Array[String]))
         @dependent_pairs_by_formula = T.let({}, T::Hash[String, T::Array[DependentWithDependencies]])
-        @tested_source_dependents_count = T.let(0, Integer)
       end
 
       sig { params(args: Homebrew::Cmd::TestBotCmd::Args).void }
@@ -53,7 +52,6 @@ module Homebrew
 
         @testing_formulae_with_tested_dependents = []
         @tested_dependents_list = Pathname("tested-dependents-#{Utils::Bottles.tag}.txt")
-        @tested_source_dependents_count = 0
 
         @dependent_testing_formulae = sorted_formulae - skipped_or_failed_formulae
 
@@ -277,7 +275,6 @@ module Homebrew
         source_dependents.each do |dependent|
           install_dependent(dependent, testable_dependents, build_from_source: true, args:)
           install_dependent(dependent, testable_dependents, args:) if bottled?(dependent)
-          @tested_source_dependents_count += 1
         end
 
         bottled_dependents.each do |dependent|
@@ -304,11 +301,11 @@ module Homebrew
 
         # Split into dependents that we could potentially be building from source and those
         # we should not. The criteria is that a dependent must have bottled dependencies and
-        # the `--build-dependents-from-source` flag was passed
-        max = MAX_DEPENDENTS_FROM_SOURCE - @tested_source_dependents_count
+        # the `--build-dependents-from-source` flag was passed. Total source build dependents
+        # are limited per formula to avoid overly long CI runtime.
         source_dependents = []
-        if args.build_dependents_from_source? && max.positive?
-          source_dependents, dependents = split_source_dependents(dependents, max)
+        if args.build_dependents_from_source?
+          source_dependents, dependents = split_source_dependents(dependents)
         end
 
         # From the non-source list, get rid of any dependents we are only a build dependency to
