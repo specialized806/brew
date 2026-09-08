@@ -92,6 +92,11 @@ RSpec.describe Homebrew::Search do
       expect(described_class.search_formulae(/testball/)).to contain_exactly(include("(disabled)"))
     end
 
+    it "does not show a red cross for disabled formulae" do
+      allow(formula).to receive(:disabled?).and_return(true)
+      expect(described_class.search_formulae(/testball/).join(" ")).not_to include("#{Tty.red}✘")
+    end
+
     it "does not annotate normal formulae" do
       expect(described_class.search_formulae(/testball/)).to eq(["testball"])
     end
@@ -127,6 +132,11 @@ RSpec.describe Homebrew::Search do
     it "annotates disabled casks", :needs_macos do
       allow(cask).to receive(:disabled?).and_return(true)
       expect(described_class.search_casks(/testball/)).to contain_exactly(include("(disabled)"))
+    end
+
+    it "does not show a red cross for disabled casks", :needs_macos do
+      allow(cask).to receive(:disabled?).and_return(true)
+      expect(described_class.search_casks(/testball/).join(" ")).not_to include("#{Tty.red}✘")
     end
 
     it "does not annotate normal casks", :needs_macos do

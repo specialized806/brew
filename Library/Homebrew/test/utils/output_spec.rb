@@ -70,7 +70,7 @@ RSpec.describe Utils::Output do
       before { allow($stdout).to receive(:tty?).and_return(true) }
 
       context "with HOMEBREW_NO_EMOJI unset" do
-        it "returns a string with a colored checkmark" do
+        it "returns a string with a red cross" do
           expect(pretty_uninstalled_output)
             .to match(/#{esc 1}foo #{esc 31}✘#{esc 0}/)
         end
@@ -91,6 +91,38 @@ RSpec.describe Utils::Output do
 
       it "returns plain text" do
         expect(pretty_uninstalled_output).to eq("foo")
+      end
+    end
+  end
+
+  describe "#pretty_cannot_install" do
+    subject(:pretty_cannot_install_output) { described_class.pretty_cannot_install("foo") }
+
+    context "when $stdout is a TTY" do
+      before { allow($stdout).to receive(:tty?).and_return(true) }
+
+      context "with HOMEBREW_NO_EMOJI unset" do
+        it "returns a string with a red ⊘ symbol" do
+          expect(pretty_cannot_install_output)
+            .to match(/#{esc 1}foo #{esc 31}⊘#{esc 0}/)
+        end
+      end
+
+      context "with HOMEBREW_NO_EMOJI set" do
+        before { ENV["HOMEBREW_NO_EMOJI"] = "1" }
+
+        it "returns a string with colored info" do
+          expect(pretty_cannot_install_output)
+            .to match(/#{esc 1}foo \(can't be installed\)#{esc 0}/)
+        end
+      end
+    end
+
+    context "when $stdout is not a TTY" do
+      before { allow($stdout).to receive(:tty?).and_return(false) }
+
+      it "returns plain text" do
+        expect(pretty_cannot_install_output).to eq("foo")
       end
     end
   end
@@ -133,6 +165,36 @@ RSpec.describe Utils::Output do
     it "omits the bold escape on every entry when bold is false" do
       expect(described_class.pretty_install_status("foo", installed: true, outdated: true, bold: false))
         .to match(/\Afoo #{esc 32}↑#{esc 0}/)
+    end
+
+    it "marks an uninstalled entry expected to be installed with a red cross" do
+      expect(described_class.pretty_install_status("foo", installed: false, mark_uninstalled: true))
+        .to match(/\Afoo #{esc 31}✘#{esc 0}\z/)
+    end
+
+    it "annotates an uninstalled disabled entry with `(disabled)`" do
+      expect(described_class.pretty_install_status("foo", installed: false, disabled: true, mark_uninstalled: false))
+        .to match(/\Afoo #{esc 31}\(disabled\)#{esc 0}\z/)
+    end
+
+    it "marks an uninstalled entry that cannot be installed with a red ⊘" do
+      expect(described_class.pretty_install_status("foo", installed: false, can_install: false))
+        .to match(/\Afoo #{esc 31}⊘#{esc 0}\z/)
+    end
+
+    it "marks a disabled uninstalled entry that cannot be installed with ⊘ and (disabled)" do
+      status = described_class.pretty_install_status(
+        "foo",
+        installed:   false,
+        disabled:    true,
+        can_install: false,
+      )
+      expect(status).to match(/\Afoo #{esc 31}⊘#{esc 0} #{esc 31}\(disabled\)#{esc 0}\z/)
+    end
+
+    it "keeps a disabled installed entry marked as installed" do
+      expect(described_class.pretty_install_status("foo", installed: true, disabled: true))
+        .to match(/foo #{esc 32}✔#{esc 0} #{esc 31}\(disabled\)#{esc 0}\z/)
     end
   end
 

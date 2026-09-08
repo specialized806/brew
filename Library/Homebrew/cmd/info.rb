@@ -458,12 +458,13 @@ module Homebrew
         end
         name_with_status = pretty_install_status(
           title_name,
-          warning:    missing_libraries.present?,
+          warning:     missing_libraries.present?,
           installed:,
           outdated:,
-          deprecated: formula.deprecated?,
-          disabled:   formula.disabled?,
-          bold:       true,
+          deprecated:  formula.deprecated?,
+          disabled:    formula.disabled?,
+          can_install: formula.valid_platform? && !formula.disabled?,
+          bold:        true,
         )
 
         puts "#{oh1_title(name_with_status)}: #{specs * ", "}#{" [#{attrs * ", "}]" unless attrs.empty?}"
@@ -873,11 +874,11 @@ module Homebrew
         end.join(", ")
       end
 
-      sig { params(requirements: T::Array[Requirement], mark_uninstalled: T::Boolean).returns(String) }
-      def decorate_requirements(requirements, mark_uninstalled: true)
+      sig { params(requirements: T::Array[Requirement]).returns(String) }
+      def decorate_requirements(requirements)
         req_status = requirements.map do |req|
           req_s = req.display_s
-          pretty_install_status(req_s, installed: req.satisfied?, mark_uninstalled:, bold: true)
+          pretty_install_status(req_s, installed: req.satisfied?, mark_uninstalled: true, bold: true)
         end
         req_status.join(", ")
       end

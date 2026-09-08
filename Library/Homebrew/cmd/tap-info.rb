@@ -128,6 +128,7 @@ module Homebrew
           outdated:         installed && formula.outdated?,
           deprecated:       formula.deprecated?,
           disabled:         formula.disabled?,
+          can_install:      formula.valid_platform? && !formula.disabled?,
           mark_uninstalled: false,
         )
       rescue
@@ -143,6 +144,7 @@ module Homebrew
           outdated:         installed && cask.outdated?,
           deprecated:       cask.deprecated?,
           disabled:         cask.disabled?,
+          can_install:      cask.valid_platform? && !cask.disabled?,
           mark_uninstalled: false,
         )
       rescue

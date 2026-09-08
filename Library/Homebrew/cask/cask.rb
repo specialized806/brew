@@ -268,6 +268,16 @@ module Cask
       !depends_on.requires_linux?
     end
 
+    # True if this cask can be installed on this platform.
+    sig { returns(T::Boolean) }
+    def valid_platform?
+      if Homebrew::SimulateSystem.simulating_or_running_on_macos?
+        supports_macos?
+      else
+        supports_linux?
+      end
+    end
+
     sig { returns(T::Boolean) }
     def uninstall_flight_blocks?
       artifacts.any? do |artifact|
