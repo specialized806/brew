@@ -17,7 +17,7 @@ RSpec.describe Pathname do
   describe EagerInitializeExtension do
     it "defines the lazy memoised ivars on every new Pathname" do
       pathname = Pathname.new(file.to_s)
-      [:@magic_number, :@file_type, :@zipinfo, :@disk_usage, :@file_count].each do |ivar|
+      [:@disk_usage, :@file_count].each do |ivar|
         expect(pathname.instance_variable_defined?(ivar)).to be(true), "expected #{ivar} to be defined"
         # Read the raw ivars: the names are dynamic and eager raw definition is under test.
         # rubocop:disable Homebrew/NoInstanceVariableAccessInTests
@@ -336,9 +336,12 @@ RSpec.describe Pathname do
   end
 
   describe "#ds_store?" do
-    it "returns whether a file is .DS_Store or not" do
-      expect(file).not_to be_ds_store
-      expect(file/".DS_Store").to be_ds_store
+    it "does not extend Pathname with a Finder metadata predicate" do
+      expect(file).not_to respond_to(:ds_store?)
     end
+  end
+
+  it "does not extend Pathname with archive inspection methods" do
+    expect([:magic_number, :file_type, :zipinfo].select { |method| file.respond_to?(method) }).to be_empty
   end
 end

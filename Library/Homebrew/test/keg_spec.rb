@@ -39,6 +39,14 @@ RSpec.describe Keg do
     expect(described_class.all).to eq([keg])
   end
 
+  it "checks existing Python site-packages directories without running Python" do
+    site_packages = HOMEBREW_PREFIX/"lib/python3.14/site-packages"
+    site_packages.mkpath
+    allow(Language::Python).to receive(:major_minor_version).and_raise("must not run Python")
+
+    expect(Class.new(described_class).must_be_writable_directories).to include(site_packages)
+  end
+
   specify "#empty_installation?" do
     %w[.DS_Store INSTALL_RECEIPT.json LICENSE.txt].each do |file|
       touch keg/file

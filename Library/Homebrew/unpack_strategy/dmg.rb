@@ -130,7 +130,7 @@ module UnpackStrategy
       sig { override.returns(T::Array[String]) }
       def self.extensions = []
 
-      sig { override.params(_path: Pathname).returns(T::Boolean) }
+      sig { override.params(_path: Path).returns(T::Boolean) }
       def self.can_extract?(_path) = false
 
       private
@@ -175,7 +175,7 @@ module UnpackStrategy
       [".dmg"]
     end
 
-    sig { override.params(path: Pathname).returns(T::Boolean) }
+    sig { override.params(path: Path).returns(T::Boolean) }
     def self.can_extract?(path)
       stdout, _, status = system_command("hdiutil", args: ["imageinfo", "-format", path], print_stderr: false).to_a
       (status.success? && !stdout.empty?) || false
