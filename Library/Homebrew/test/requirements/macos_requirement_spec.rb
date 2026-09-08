@@ -20,6 +20,13 @@ RSpec.describe MacOSRequirement do
       .to raise_error(MethodDeprecatedError, /`depends_on macos: :catalina`.*disabled/)
   end
 
+  it "tracks every retired macOS release" do
+    expect(MacOSVersion::RELEASES.keys - MacOSVersion::SYMBOLS.keys).to contain_exactly(
+      *MacOSRequirement::DISABLED_MACOS_VERSIONS,
+      *MacOSRequirement::DEPRECATED_MACOS_VERSIONS,
+    )
+  end
+
   describe "#satisfied?" do
     context "when running on macOS", :needs_macos do
       it "returns true" do

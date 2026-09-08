@@ -17,10 +17,8 @@ class MacOSVersion < Version
     end
   end
 
-  # NOTE: When removing symbols here, ensure that they are added
-  #       to `DISABLED_MACOS_VERSIONS` in `MacOSRequirement`.
-  # NOTE: Changes to this list must match `macos_version_name` in `cmd/update.sh`.
-  SYMBOLS = T.let({
+  # Retain named releases after support ends so historical data can still be labelled.
+  RELEASES = T.let({
     golden_gate: "27",
     tahoe:       "26",
     sequoia:     "15",
@@ -29,7 +27,28 @@ class MacOSVersion < Version
     monterey:    "12",
     # odisabled: remove support for Big Sur and macOS x86_64 September (or later) 2027
     big_sur:     "11",
+    catalina:    "10.15",
+    mojave:      "10.14",
+    high_sierra: "10.13",
+    sierra:      "10.12",
+    el_capitan:  "10.11",
   }.freeze, T::Hash[Symbol, String])
+
+  # Big Sur reports 10.16 under SYSTEM_VERSION_COMPAT.
+  RELEASE_ALIASES = T.let({
+    "10.16" => "11",
+  }.freeze, T::Hash[String, String])
+
+  # NOTE: When removing support, exclude the symbol here and add it to
+  #       `DISABLED_MACOS_VERSIONS` in `MacOSRequirement`.
+  # NOTE: Active symbols must match `macos_version_name` in `cmd/update.sh`.
+  SYMBOLS = T.let(RELEASES.except(
+    :catalina,
+    :mojave,
+    :high_sierra,
+    :sierra,
+    :el_capitan,
+  ).freeze, T::Hash[Symbol, String])
 
   sig { params(macos_version: MacOSVersion).returns(Version) }
   def self.kernel_major_version(macos_version)
@@ -91,13 +110,33 @@ class MacOSVersion < Version
   def strip_patch
     return self if null?
 
-    self.class.new(major.to_s)
+    # Releases before Big Sur are all 10.x.
+    if major.to_i >= 11
+      self.class.new(major.to_s)
+    else
+      major_minor
+    end
+  end
+
+  sig { returns(String) }
+  def release_version
+    version = strip_patch.to_s
+    RELEASE_ALIASES.fetch(version, version)
+  end
+
+  sig { returns(T.nilable(String)) }
+  def release_name
+    symbol = RELEASES.key(release_version)
+    return if symbol.nil?
+
+    symbol.to_s.split("_").map(&:capitalize).join(" ")
   end
 
   sig { returns(Symbol) }
   def to_sym
     return @sym if @sym
 
+    # Compatibility aliases are display-only and must not become supported bottle tags.
     sym = SYMBOLS.invert.fetch(strip_patch.to_s, :dunno)
 
     @sym = sym unless frozen?
@@ -109,7 +148,7 @@ class MacOSVersion < Version
   def pretty_name
     return @pretty_name if @pretty_name
 
-    pretty_name = to_sym.to_s.split("_").map(&:capitalize).join(" ").freeze
+    pretty_name = (release_name || "Dunno").freeze
 
     @pretty_name = pretty_name unless frozen?
 
