@@ -34,6 +34,8 @@ module OS
         (deny file-write*) ; deny non-allowlist file write operations
         (deny file-write-setugid) ; deny non-allowlist file write SUID/SGID operations
         (deny file-write-mode) ; deny non-allowlist file write mode operations
+        (deny lsopen)
+        (deny appleevent-send)
         (allow process-exec
             (literal "/bin/ps")
             (with no-sandbox)
