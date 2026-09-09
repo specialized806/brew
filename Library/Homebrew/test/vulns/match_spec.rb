@@ -753,6 +753,47 @@ RSpec.describe Homebrew::Vulns::Match do
       expect(record.dig(:database_specific, :confidence)).to eq "high"
     end
 
+    it "deduplicates exported evidence after removing internal provenance" do
+      records = ["CVE-2024-1234", "GHSA-abcd"].map do |id|
+        vulnerability = vuln(
+          "id"       => id,
+          "aliases"  => [(id == "CVE-2024-1234") ? "GHSA-abcd" : "CVE-2024-1234"],
+          "affected" => [{
+            "package" => { "ecosystem" => "PyPI", "name" => "requests" },
+            "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [
+              { "introduced" => "0" }, { "fixed" => "2.28.1" }
+            ] }],
+          }],
+        )
+        make_hit(vulnerability, ev(:registry, ecosystem: "PyPI", name: "requests",
+                                              subject_version: "2.31.0", key: "pkg:pypi/requests@2.31.0"))
+      end
+      hit = matcher.dedup_by_aliases(records).fetch(0)
+
+      evidence = matcher.to_brew_record(requests, hit, now:)
+                        .dig(:database_specific, :upstream_evidence)
+      expect(evidence).to eq [{
+        strategy:        :registry,
+        ecosystem:       "PyPI",
+        name:            "requests",
+        subject_version: "2.31.0",
+        key:             "pkg:pypi/requests@2.31.0",
+      }]
+    end
+
+    it "keeps exported evidence for separate resources of the same package" do
+      vulnerability = vuln("id" => "CVE-2024-1234")
+      evidence = ["first", "second"].map do |resource|
+        ev(:registry, ecosystem: "PyPI", name: "requests", subject_version: "2.31.0",
+                      key: "pkg:pypi/requests@2.31.0", resource:)
+      end
+      hit = make_hit(vulnerability, *evidence)
+
+      expect(matcher.to_brew_record(requests, hit, now:)
+                    .dig(:database_specific, :upstream_evidence).map { |row| row[:resource] })
+        .to eq ["first", "second"]
+    end
+
     it "emits no fixed event and fix: nil when the range says the shipped version is still affected" do
       hit = registry_hit(affected_events: [{ "introduced" => "0" }, { "fixed" => "2.32.0" }])
 
