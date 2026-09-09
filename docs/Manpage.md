@@ -3750,7 +3750,9 @@ and Linux workers.
 
 `--build-dependents-from-source`
 
-: Build dependents from source rather than testing bottles.
+: Build a limited set of dependents from source in addition to testing bottles.
+  Up to 10 per formula per shard, prioritising popular dependents in a sharded
+  group.
 
 `--junit`
 

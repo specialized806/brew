@@ -2554,7 +2554,7 @@ _brew_test() {
 _brew_test_bot() {
   _arguments \
     '(--only-formulae-detect)--added-formulae[Use these added formulae rather than running the formulae detection steps]' \
-    '--build-dependents-from-source[Build dependents from source rather than testing bottles]' \
+    '--build-dependents-from-source[Build a limited set of dependents from source in addition to testing bottles. Up to 10 per formula per shard, prioritising popular dependents in a sharded group]' \
     '--build-from-source[Build from source rather than building bottles]' \
     '--cleanup[Clean all state from the Homebrew directory. Use with care!]' \
     '--debug[Display any debugging information]' \
