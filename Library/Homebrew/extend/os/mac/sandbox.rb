@@ -34,6 +34,19 @@ module OS
         (deny file-write*) ; deny non-allowlist file write operations
         (deny file-write-setugid) ; deny non-allowlist file write SUID/SGID operations
         (deny file-write-mode) ; deny non-allowlist file write mode operations
+        (deny mach-lookup)
+        (allow mach-lookup
+            (global-name "com.apple.bsd.dirhelper")
+            (global-name "com.apple.system.opendirectoryd.libinfo")
+            (global-name "com.apple.system.opendirectoryd.membership")
+            (global-name "com.apple.PowerManagement.control")
+            (global-name "com.apple.SecurityServer")
+            (global-name "com.apple.networkd")
+            (global-name "com.apple.ocspd")
+            (global-name "com.apple.trustd.agent")
+            (global-name "com.apple.SystemConfiguration.DNSConfiguration")
+            (global-name "com.apple.SystemConfiguration.configd")
+            )
         (deny lsopen)
         (deny appleevent-send)
         (allow process-exec

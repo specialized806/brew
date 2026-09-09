@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "sandbox"
+require "securerandom"
 
 RSpec.describe Sandbox, :needs_macos do
   subject(:sandbox) { described_class.new }
@@ -26,8 +27,8 @@ RSpec.describe Sandbox, :needs_macos do
       end.new
     end
 
-    it "denies LaunchServices and Apple Events even when network access is allowed" do
-      expect(sandbox.seatbelt_profile).to include("(deny lsopen)", "(deny appleevent-send)")
+    it "restricts Mach services, LaunchServices and Apple Events even when network access is allowed" do
+      expect(sandbox.seatbelt_profile).to include("(deny mach-lookup)", "(deny lsopen)", "(deny appleevent-send)")
     end
   end
 
@@ -82,6 +83,25 @@ RSpec.describe Sandbox, :needs_macos do
   end
 
   describe "#run" do
+    let(:handlers_for_scheme) do
+      lambda do |scheme|
+        SystemCommand.run!("/usr/bin/osascript", args: ["-l", "JavaScript", "-e", <<~JS, scheme]).stdout
+          ObjC.import('CoreServices');
+          function run(argv) {
+            return JSON.stringify(ObjC.deepUnwrap(ObjC.castRefToObject($.LSCopyAllHandlersForURLScheme($(argv[0])))) || []);
+          }
+        JS
+      end
+    end
+
+    it "reports an empty array for an unregistered URL scheme" do
+      expect(handlers_for_scheme.call("org.homebrew.sandbox-#{SecureRandom.uuid}")).to eq("[]\n")
+    end
+
+    it "reports registered HTTP URL handlers" do
+      expect(JSON.parse(handlers_for_scheme.call("http"))).not_to be_empty
+    end
+
     it "prevents LaunchServices from launching an application outside the sandbox" do
       app = dir/"SandboxTest.app"
       SystemCommand.run!("/usr/bin/osacompile", args: ["-o", app, "-e", "return"])
@@ -89,6 +109,36 @@ RSpec.describe Sandbox, :needs_macos do
       sandbox.allow_write_temp_and_cache
 
       expect { sandbox.run "/usr/bin/open", "-W", "-n", app }.to raise_error(ErrorDuringExecution)
+    end
+
+    it "prevents LaunchServices from registering a URL handler" do
+      lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/" \
+                   "LaunchServices.framework/Support/lsregister"
+      identifier = "org.homebrew.sandbox-#{SecureRandom.uuid}"
+
+      # LaunchServices does not register applications under /private/tmp.
+      Dir.mktmpdir("homebrew-sandbox", "#{Dir.home(ENV.fetch("USER"))}/Library/Caches") do |cache|
+        app = Pathname(cache)/"SandboxTest.app"
+        SystemCommand.run!("/usr/bin/osacompile", args: ["-o", app, "-e", "return"])
+        SystemCommand.run!("/usr/bin/plutil", args: [
+          "-replace", "CFBundleIdentifier", "-string", identifier, app/"Contents/Info.plist"
+        ])
+        SystemCommand.run!("/usr/bin/plutil", args: [
+          "-insert", "CFBundleURLTypes", "-json", [{ CFBundleURLSchemes: [identifier] }].to_json,
+          app/"Contents/Info.plist"
+        ])
+        sandbox.allow_write_temp_and_cache
+        sandbox.allow_write_path(cache)
+
+        # lsregister's exit status does not indicate whether registration succeeded.
+        sandbox.run "/bin/sh", "-c", '"$@"; exit 0', "--", lsregister, "-f", app
+        expect(handlers_for_scheme.call(identifier)).to eq("[]\n")
+
+        SystemCommand.run!(lsregister, args: ["-f", app])
+        expect(handlers_for_scheme.call(identifier)).to include(identifier)
+      ensure
+        SystemCommand.run(lsregister, args: ["-u", app]) if app
+      end
     end
 
     it "fails when writing to file not specified with ##allow_write" do
