@@ -448,7 +448,7 @@ _brew_advisory_match() {
     '--help[Show this message]' \
     '(--all --json --output)--index[Emit the formula-identity index as JSON and exit]' \
     '(--all --index)--json[Output candidate records as a JSON array]' \
-    '(--no-history)--new-history[Walk `FormulaVersions` only for records whose reviewed ranges are not already in directory]' \
+    '(--no-history)--new-history[Skip `FormulaVersions` for existing terminal ranges unless their matching provenance changes]' \
     '(--new-history)--no-history[Skip the `FormulaVersions` walk for the `fixed` boundary; use the current `pkg_version` instead]' \
     '(--index)--output[Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields]' \
     '--overrides[Load reviewed formula and advisory matching overrides from file]' \

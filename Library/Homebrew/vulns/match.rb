@@ -602,7 +602,7 @@ module Homebrew
             source:            "matched",
             strategy:          hit.strategy.to_s,
             confidence:        confidence_for(hit, status),
-            upstream_evidence: hit.evidence.map { |e| e.to_h.except(:advisory, :source_record).compact },
+            upstream_evidence: hit.evidence.map { |e| e.to_h.except(:advisory, :source_record).compact }.uniq,
           },
         }, T::Hash[Symbol, T.untyped])
 
