@@ -190,7 +190,8 @@ Official macOS casks must also meet the [Gatekeeper requirement](Acceptable-Cask
 
 Generated completion artifacts are different: `generate_completions_from_executable` runs an installed executable only to produce shell completion text. The complete generation operation, including writing the completion, runs in an isolated Ruby subprocess where Homebrew has an available sandbox. The sandbox allows reading the staged cask, writing the completion and temporary/cache files and blocks network access. This limits side effects from commands that should only print completion data.
 
-On macOS, sandboxed operations cannot launch applications through LaunchServices (including `open`) or send Apple Events to other applications.
+On macOS, sandboxed operations can only look up explicitly allowed Mach services for directory information, power management, networking and certificates.
+They cannot register or launch applications through LaunchServices (including `lsregister` and `open`) or send Apple Events to other applications.
 These restrictions also apply to steps with `network_access: true`.
 
 `installer script:` is not sandboxed. Many installer scripts are vendor installers that require broad filesystem writes, macOS services or `sudo`; macOS sandboxing does not work for root processes, and narrowing the write allowlist to the Caskroom plus uninstall or zap paths would break installers that legitimately write elsewhere. It would also change documented `SystemCommand` behaviours such as `sudo:`, `must_succeed:` and output handling.
