@@ -192,19 +192,37 @@ module RuboCop
               [pair.key.value, pair.value.value]
             end.to_h
 
-            # A scalar `sha256` covers every architecture, so it is only a shorter spelling of this
-            # stanza when all four are present and identical.
-            every_architecture = [values[:arm], values[:intel] || values[:x86_64],
-                                  values[:arm64_linux], values[:x86_64_linux]]
-            next if values.keys.intersect?([:arm64_linux, :x86_64_linux]) &&
-                    !(every_architecture.all? && every_architecture.uniq.one?)
-
             arm_sha = values[:arm]
             intel_sha = values[:intel] || values[:x86_64]
 
             next unless arm_sha
             next unless intel_sha
             next if arm_sha != intel_sha
+
+            if values.keys.intersect?([:arm64_linux, :x86_64_linux])
+              next unless values.values.uniq.one?
+
+              # A scalar also covers omitted Linux architectures, unless dependencies exclude them.
+              linux_arches = cask_body.each_node(:send).filter_map do |node|
+                next if node.method_name != :depends_on || !node.receiver.nil?
+                next unless (argument = node.first_argument)&.hash_type?
+
+                arch_pair = argument.pairs.find { |pair| pair.key.sym_type? && pair.key.value == :arch }
+                next unless arch_pair
+
+                scope = node.each_ancestor(:block).take_while { |block| !block.cask_block? }
+                next if scope.any? { |block| block.method_name == :on_macos }
+                next :unknown unless scope.all? { |block| block.method_name == :on_linux }
+
+                arch_pair.value.sym_type? ? arch_pair.value.value : :unknown
+              end
+              if linux_arches.empty? || (linux_arches - [:arm64, :intel, :x86_64]).any?
+                linux_arches = [:arm64, :intel]
+              end
+              next unless linux_arches.all? do |arch|
+                values.key?((arch == :arm64) ? :arm64_linux : :x86_64_linux)
+              end
+            end
 
             offending_node(sha256_node)
             problem "sha256 values for different architectures should not be identical."

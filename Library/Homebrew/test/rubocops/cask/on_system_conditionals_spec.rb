@@ -253,6 +253,83 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
       CASK
     end
 
+    it "reports identical checksums when Linux is restricted to Intel" do
+      expect_offense <<~CASK
+        cask "foo" do
+          sha256 arm: "same",
+          ^^^^^^^^^^^^^^^^^^^ sha256 values for different architectures should not be identical.
+                 intel: "same",
+                 x86_64_linux: "same"
+
+          on_linux do
+            depends_on arch: :x86_64
+          end
+        end
+      CASK
+    end
+
+    it "reports identical checksums when Linux is restricted to ARM" do
+      expect_offense <<~CASK
+        cask "foo" do
+          sha256 arm: "same",
+          ^^^^^^^^^^^^^^^^^^^ sha256 values for different architectures should not be identical.
+                 intel: "same",
+                 arm64_linux: "same"
+
+          on_linux do
+            depends_on arch: :arm64
+          end
+        end
+      CASK
+    end
+
+    it "reports identical checksums with a top-level architecture restriction" do
+      expect_offense <<~CASK
+        cask "foo" do
+          sha256 arm: "same",
+          ^^^^^^^^^^^^^^^^^^^ sha256 values for different architectures should not be identical.
+                 intel: "same",
+                 x86_64_linux: "same"
+
+          depends_on arch: :intel
+        end
+      CASK
+    end
+
+    it "accepts identical checksums when an unrestricted Linux architecture is missing" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          sha256 arm: "same",
+                 intel: "same",
+                 x86_64_linux: "same"
+        end
+      CASK
+    end
+
+    it "does not apply a macOS architecture restriction to Linux checksums" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          sha256 arm: "same",
+                 intel: "same",
+                 x86_64_linux: "same"
+
+          on_macos do
+            depends_on arch: :x86_64
+          end
+        end
+      CASK
+    end
+
+    it "accepts a single architecture checksum" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          sha256 arm: "same"
+
+          depends_on arch: :arm64
+        end
+      CASK
+    end
+
     it "accepts when there is only one `on_arch` block" do
       expect_no_offenses <<~CASK
         cask 'foo' do
