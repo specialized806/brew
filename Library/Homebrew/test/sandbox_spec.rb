@@ -13,12 +13,25 @@ RSpec.describe Sandbox, :needs_macos do
 
   before do
     skip "Sandbox not implemented." unless described_class.available?
-    if described_class.nested_sandbox? && !RSpec.current_example&.metadata&.key?(:tests_nested_sandbox_detection)
+    if described_class.nested_sandbox? && !RSpec.current_example&.metadata&.key?(:no_sandbox_run)
       skip "Nested sandboxing is not supported."
     end
   end
 
-  describe ".avoid_nested_sandboxing?", :tests_nested_sandbox_detection do
+  describe "#seatbelt_profile", :no_sandbox_run do
+    subject(:sandbox) do
+      Class.new(described_class) do
+        T.bind(self, T.class_of(Sandbox))
+        public :seatbelt_profile
+      end.new
+    end
+
+    it "denies LaunchServices and Apple Events even when network access is allowed" do
+      expect(sandbox.seatbelt_profile).to include("(deny lsopen)", "(deny appleevent-send)")
+    end
+  end
+
+  describe ".avoid_nested_sandboxing?", :no_sandbox_run do
     before do
       allow(Homebrew::EnvConfig).to receive(:avoid_nested_sandboxing?).and_return(true)
       allow(described_class).to receive(:nested_sandbox?).and_return(true)
@@ -69,6 +82,15 @@ RSpec.describe Sandbox, :needs_macos do
   end
 
   describe "#run" do
+    it "prevents LaunchServices from launching an application outside the sandbox" do
+      app = dir/"SandboxTest.app"
+      SystemCommand.run!("/usr/bin/osacompile", args: ["-o", app, "-e", "return"])
+      SystemCommand.run!("/usr/bin/open", args: ["-W", "-n", app])
+      sandbox.allow_write_temp_and_cache
+
+      expect { sandbox.run "/usr/bin/open", "-W", "-n", app }.to raise_error(ErrorDuringExecution)
+    end
+
     it "fails when writing to file not specified with ##allow_write" do
       expect do
         sandbox.run "touch", file
