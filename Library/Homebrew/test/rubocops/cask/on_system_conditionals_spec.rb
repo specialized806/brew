@@ -407,6 +407,609 @@ RSpec.describe RuboCop::Cop::Cask::OnSystemConditionals, :config do
     end
   end
 
+  context "when auditing `sha256` stanzas inside `on_os` blocks" do
+    it "moves architecture-specific checksums to the top level" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 arm:   "arm",
+                   intel: "intel"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            depends_on arch: :x86_64
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 arm:          "arm",
+                 intel:        "intel",
+                 x86_64_linux: "linux"
+
+          on_macos do
+            app "Foo.app"
+          end
+          on_linux do
+            depends_on arch: :x86_64
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "duplicates a universal macOS checksum across macOS architectures" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 arm64_linux:  "arm-linux",
+                   x86_64_linux: "intel-linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 arm:          "macos",
+                 intel:        "macos",
+                 arm64_linux:  "arm-linux",
+                 x86_64_linux: "intel-linux"
+
+          on_macos do
+            app "Foo.app"
+          end
+          on_linux do
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "combines every architecture dependency in an OS block" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos"
+
+            depends_on arch: :x86_64
+            depends_on arch: :arm64
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            depends_on arch: [:intel, :arm64]
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 arm:          "macos",
+                 intel:        "macos",
+                 arm64_linux:  "linux",
+                 x86_64_linux: "linux"
+
+          on_macos do
+            depends_on arch: :x86_64
+            depends_on arch: :arm64
+          end
+          on_linux do
+            depends_on arch: [:intel, :arm64]
+          end
+        end
+      CASK
+    end
+
+    it "combines top-level and OS-scoped architecture dependencies" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos"
+
+            depends_on arch: :x86_64
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+
+          depends_on arch: :arm64
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 arm:         "macos",
+                 intel:       "macos",
+                 arm64_linux: "linux"
+
+          on_macos do
+            depends_on arch: :x86_64
+
+            app "Foo.app"
+          end
+          on_linux do
+            app_image "Foo.AppImage"
+          end
+
+          depends_on arch: :arm64
+        end
+      CASK
+    end
+
+    it "handles bare Intel dependencies and the macOS x86_64 checksum alias" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 x86_64: "macos"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            depends_on arch: :intel
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 x86_64:       "macos",
+                 x86_64_linux: "linux"
+
+          on_linux do
+            depends_on arch: :intel
+          end
+        end
+      CASK
+    end
+
+    it "uses one checksum when the OS checksums are identical" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "checksum"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "checksum"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 "checksum"
+
+          on_macos do
+            app "Foo.app"
+          end
+          on_linux do
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "uses one `no_check` checksum when both OS blocks skip verification" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version :latest
+
+          on_macos do
+            sha256 :no_check
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 :no_check
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version :latest
+          sha256 :no_check
+
+          on_macos do
+            app "Foo.app"
+          end
+          on_linux do
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "does not add a second top-level `sha256` stanza" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 "top-level"
+
+          on_macos do
+            sha256 "macos"
+          end
+          on_linux do
+            sha256 "linux"
+          end
+        end
+      CASK
+    end
+
+    it "removes OS blocks that contain only a checksum" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 arm:          "macos",
+                 intel:        "macos",
+                 arm64_linux:  "linux",
+                 x86_64_linux: "linux"
+        end
+      CASK
+    end
+
+    it "preserves a trailing comment on the `version` stanza" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3" # Keep this version note.
+
+          on_macos do
+            sha256 "macos"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3" # Keep this version note.
+          sha256 arm:          "macos",
+                 intel:        "macos",
+                 arm64_linux:  "linux",
+                 x86_64_linux: "linux"
+
+          on_macos do
+            app "Foo.app"
+          end
+          on_linux do
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "reports but does not correct when the OS blocks need reordering" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+          end
+          on_macos do
+            sha256 "macos"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "reports but does not correct when an OS block's stanzas need reordering" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            app "Foo.app"
+
+            sha256 "macos"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "reports but does not correct when the `version` stanza needs reordering" do
+      expect_offense <<~CASK
+        cask "foo" do
+          on_macos do
+            sha256 "macos"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+          end
+
+          version "1.2.3"
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "reports but does not correct when stanza grouping must edit after a nested checksum" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos"
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "preserves grouping after removing a non-leading nested checksum" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            version "1.2.3-macos"
+            sha256 "macos"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_correction <<~CASK
+        cask "foo" do
+          version "1.2.3"
+          sha256 arm:          "macos",
+                 intel:        "macos",
+                 arm64_linux:  "linux",
+                 x86_64_linux: "linux"
+
+          on_macos do
+            version "1.2.3-macos"
+
+            app "Foo.app"
+          end
+          on_linux do
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "accepts OS blocks with different versions" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          on_macos do
+            version "1.2.3"
+            sha256 "macos"
+
+            app "Foo.app"
+          end
+          on_linux do
+            version "1.2.4"
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+    end
+
+    it "does not remove comments within a `sha256` stanza" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 arm: "arm", # Keep this architecture note.
+                   intel: "intel"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            depends_on arch: :x86_64
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "does not remove a trailing comment on a `sha256` stanza" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos" # Keep this checksum note.
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "does not detach a comment immediately above a `sha256` stanza" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            # Keep this checksum note.
+            sha256 "macos"
+
+            app "Foo.app"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+
+            app_image "Foo.AppImage"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "does not detach a comment immediately above a removable OS block" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          # macOS ships a universal build.
+          on_macos do
+            sha256 "macos"
+          end
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "does not remove a trailing comment on an OS block" do
+      expect_offense <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "macos"
+          end # macOS ships a universal build.
+          on_linux do
+          ^^^^^^^^^^^ Don't nest `sha256` stanzas in `on_macos` and `on_linux` blocks
+            sha256 "linux"
+          end
+        end
+      CASK
+
+      expect_no_corrections
+    end
+
+    it "ignores repeated OS blocks" do
+      expect_no_offenses <<~CASK
+        cask "foo" do
+          version "1.2.3"
+
+          on_macos do
+            sha256 "first"
+          end
+          on_macos do
+            sha256 "second"
+          end
+          on_linux do
+            sha256 "linux"
+          end
+        end
+      CASK
+    end
+  end
+
   context "when auditing identical `version` stanzas inside `on_arch` blocks" do
     it "reports an offense when `version` is identical in both arch blocks but `sha256` differs" do
       expect_offense <<~CASK
