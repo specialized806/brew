@@ -1391,16 +1391,19 @@ __fish_brew_complete_arg 'lgtm' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'lgtm' -l verbose -d 'Make some output more verbose'
 
 
-__fish_brew_complete_cmd 'link' 'Symlink all of formula\'s installed files into Homebrew\'s prefix'
+__fish_brew_complete_cmd 'link' 'Symlink all of formula\'s installed files or cask\'s binaries, manpages and shell completions into Homebrew\'s prefix'
 __fish_brew_complete_arg 'link' -l HEAD -d 'Link the HEAD version of the formula if it is installed'
+__fish_brew_complete_arg 'link' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'link' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'link' -l dry-run -d 'List files which would be linked or deleted by `brew link --overwrite` without actually linking or deleting any files'
-__fish_brew_complete_arg 'link' -l force -d 'Allow keg-only formulae to be linked'
+__fish_brew_complete_arg 'link' -l force -d 'Allow keg-only formulae to be linked. When linking casks, overwrite existing symlinks originally from the same cask'
+__fish_brew_complete_arg 'link' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'link' -l help -d 'Show this message'
 __fish_brew_complete_arg 'link' -l overwrite -d 'Delete files that already exist in the prefix while linking'
 __fish_brew_complete_arg 'link' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'link' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'link' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'link; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'link; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
 __fish_brew_complete_cmd 'linkage' 'Check the library links from the given formula kegs'
@@ -2101,13 +2104,16 @@ __fish_brew_complete_arg 'uninstall; and not __fish_seen_argument -l cask -l cas
 __fish_brew_complete_arg 'uninstall; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
-__fish_brew_complete_cmd 'unlink' 'Remove symlinks for formula from Homebrew\'s prefix'
+__fish_brew_complete_cmd 'unlink' 'Remove symlinks for formula or cask from Homebrew\'s prefix'
+__fish_brew_complete_arg 'unlink' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'unlink' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'unlink' -l dry-run -d 'List files which would be unlinked without actually unlinking or deleting any files'
+__fish_brew_complete_arg 'unlink' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'unlink' -l help -d 'Show this message'
 __fish_brew_complete_arg 'unlink' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'unlink' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'unlink' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'unlink; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_installed)'
+__fish_brew_complete_arg 'unlink; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_installed)'
 
 
 __fish_brew_complete_cmd 'unpack' 'Unpack the files for the formula or cask into subdirectories of the current working directory'
