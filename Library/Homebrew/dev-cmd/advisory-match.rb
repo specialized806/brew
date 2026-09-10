@@ -38,8 +38,8 @@ module Homebrew
         flag   "--overrides=",
                description: "Load reviewed formula and advisory matching overrides from <file>."
         switch "--no-history",
-               description: "Skip the `FormulaVersions` walk for the `fixed` " \
-                            "boundary; use the current `pkg_version` instead."
+               description: "Skip `FormulaVersions` walks for new ranges; use " \
+                            "zero/current `pkg_version` as unverified boundaries."
         switch "--new-history",
                depends_on:  "--output=",
                description: "Skip `FormulaVersions` for existing terminal ranges " \
@@ -92,14 +92,29 @@ module Homebrew
                   record_id = matcher.record_id(formula, hit)
                   next if emitter.alias_protected?(record_id)
 
+                  reviewed_state = emitter.reviewed_range_state(record_id)
+                  initial_introduction = false
+                  initial_introduction = true if !args.no_history? && status && reviewed_state.nil?
                   candidate = matcher.to_brew_record(formula, hit)
                   basis_changed = emitter.range_basis_changed?(candidate)
-                  if basis_changed && (args.no_history? || !status&.fixed?)
+                  if basis_changed && !initial_introduction && (args.no_history? || !status&.fixed?)
                     emitter.emit(candidate)
                     next
                   end
 
-                  reviewed_state = emitter.reviewed_range_state(record_id)
+                  override = overrides&.advisory_override(formula.name, hit.identifiers)
+                  if initial_introduction && override&.state
+                    upstream_state = matcher.aggregate_state_at(formula, hit)
+                    if override.state != upstream_state
+                      emitter.record_history_unavailable(formula.name)
+                      opoo "#{record_id}: reviewed state override " \
+                           "#{upstream_state.nil? ? "cannot be checked against" : "disagrees with"} " \
+                           "upstream history; " \
+                           "skipping automatic update. Review its ranges and provenance together."
+                      next
+                    end
+                  end
+
                   has_open_range = reviewed_state == :open
                   has_terminal_range = reviewed_state == :terminal
                   transition = (status&.fixed? && has_open_range) ||
@@ -135,7 +150,21 @@ module Homebrew
                     next
                   end
 
-                  first_reintroduced = T.let(nil, T.nilable(String))
+                  first_introduced = T.let(nil, T.nilable(String))
+                  if initial_introduction
+                    emitter.record_history_walk
+                    introduced = matcher.first_introduced_version(formula, hit, first_fixed: fixed_boundary)
+                    case introduced
+                    when String
+                      first_introduced = introduced
+                    when :history_unavailable
+                      emitter.record_history_unavailable(formula.name)
+                      opoo "#{record_id}: affected introduction cannot be established; skipping automatic update"
+                      next
+                    else
+                      raise TypeError, "unexpected introduction-history result: #{introduced.inspect}"
+                    end
+                  end
                   if status&.affected? && has_terminal_range
                     emitter.record_history_walk
                     reintroduced = matcher.first_reintroduced_version(formula, hit)
@@ -149,16 +178,15 @@ module Homebrew
                       Homebrew.failed = true
                       next
                     end
-                    first_reintroduced = reintroduced
+                    first_introduced = reintroduced
                   end
 
-                  candidate = matcher.to_brew_record(formula, hit, first_fixed: fixed_boundary, first_reintroduced:)
+                  candidate = matcher.to_brew_record(formula, hit, first_fixed: fixed_boundary, first_introduced:)
                   # A metadata override does not replace the upstream constraints
                   # used by the history walk. Correct its reviewed ranges and
                   # provenance together instead of automatically certifying them.
-                  override = overrides&.advisory_override(formula.name, hit.identifiers)
                   revalidated = !fixed_boundary.nil? && !override&.fixed_in_overridden
-                  emitter.emit(candidate, revalidated:)
+                  emitter.emit(candidate, revalidated:, initial_introduction:)
                 end
               end
             rescue Homebrew::Vulns::OSV::Error => e
@@ -266,8 +294,10 @@ module Homebrew
         sig { params(_record_id: String, _boundary: String).returns(T::Boolean) }
         def reintroduction_boundary_valid?(_record_id, _boundary) = true
 
-        sig { params(record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean).void }
-        def emit(record, revalidated: false); end
+        sig {
+          params(record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean, initial_introduction: T::Boolean).void
+        }
+        def emit(record, revalidated: false, initial_introduction: false); end
 
         sig { void }
         def finish; end
@@ -407,8 +437,10 @@ module Homebrew
           end
         end
 
-        sig { override.params(record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean).void }
-        def emit(record, revalidated: false)
+        sig {
+          override.params(record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean, initial_introduction: T::Boolean).void
+        }
+        def emit(record, revalidated: false, initial_introduction: false)
           updates = alias_target_paths(record.fetch(:id)).filter_map do |path|
             candidate = record.deep_dup
             existing = alias_record(path) if File.file?(path)
@@ -442,7 +474,7 @@ module Homebrew
               candidate[:id] = File.basename(path, ".json")
             end
             merged = Homebrew::Vulns::OsvExport.merge_existing(
-              path, candidate, close_open_ranges: @close_open_ranges
+              path, candidate, close_open_ranges: @close_open_ranges, initial_introduction:
             )
             [path, merged]
           end
@@ -721,8 +753,10 @@ module Homebrew
           @records = T.let([], T::Array[T::Hash[Symbol, T.untyped]])
         end
 
-        sig { override.params(record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean).void }
-        def emit(record, revalidated: false)
+        sig {
+          override.params(record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean, initial_introduction: T::Boolean).void
+        }
+        def emit(record, revalidated: false, initial_introduction: false)
           @records << record
         end
 
@@ -739,8 +773,10 @@ module Homebrew
           @count = T.let(0, Integer)
         end
 
-        sig { override.params(_record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean).void }
-        def emit(_record, revalidated: false)
+        sig {
+          override.params(_record: T::Hash[Symbol, T.untyped], revalidated: T::Boolean, initial_introduction: T::Boolean).void
+        }
+        def emit(_record, revalidated: false, initial_introduction: false)
           @count += 1
         end
 
