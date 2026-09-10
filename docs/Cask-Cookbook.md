@@ -193,6 +193,8 @@ Generated completion artifacts are different: `generate_completions_from_executa
 On macOS, sandboxed operations can only look up explicitly allowed Mach services for directory information, power management, networking and certificates.
 They cannot register or launch applications through LaunchServices (including `lsregister` and `open`) or send Apple Events to other applications.
 These restrictions also apply to steps with `network_access: true`.
+Outbound Unix socket connections are denied except for Homebrew's internal communication and, when network access is allowed, macOS DNS resolution.
+Allowing writes to a directory does not allow connections to sockets in it.
 
 `installer script:` is not sandboxed. Many installer scripts are vendor installers that require broad filesystem writes, macOS services or `sudo`; macOS sandboxing does not work for root processes, and narrowing the write allowlist to the Caskroom plus uninstall or zap paths would break installers that legitimately write elsewhere. It would also change documented `SystemCommand` behaviours such as `sudo:`, `must_succeed:` and output handling.
 
