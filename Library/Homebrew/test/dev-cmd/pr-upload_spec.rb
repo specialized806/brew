@@ -131,6 +131,7 @@ RSpec.describe Homebrew::DevCmd::PrUpload do
 
     context "when the formula belongs to another tap" do
       it "does not apply the core transition policy" do
+        stub_const("HOMEBREW_MACOS_NEWEST_SUPPORTED", "26")
         allow(current).to receive(:tap).and_return(Tap.fetch("user/test"))
         allow(Formulary).to receive(:factory).with(current.path).and_return(current)
         allow_any_instance_of(BottleTransition).to receive(:required?).and_call_original

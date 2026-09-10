@@ -22,7 +22,7 @@ class BottleTransition
 
   sig { params(base_ref: T.nilable(String)).void }
   def initialize(base_ref: nil)
-    if ENV.fetch("GITHUB_EVENT_NAME", nil) == "merge_group"
+    if self.class.active? && ENV.fetch("GITHUB_EVENT_NAME", nil) == "merge_group"
       event = JSON.parse(File.read(ENV.fetch("GITHUB_EVENT_PATH")))
       base_ref = event.dig("merge_group", "base_sha")
       if !base_ref.is_a?(String) || !/\A[0-9a-f]{40}\z/.match?(base_ref)

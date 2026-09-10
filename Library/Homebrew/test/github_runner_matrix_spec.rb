@@ -45,6 +45,27 @@ RSpec.describe GitHubRunnerMatrix, :no_api do
   end
 
   describe "#active_runner_specs_hash" do
+    it "builds bottles for Golden Gate, Tahoe and Sequoia" do
+      runners = described_class.new([], [], all_supported: true, dependent_matrix: false)
+                               .active_runner_specs_hash
+
+      expect(runners.map { |runner| runner.fetch(:name) })
+        .to eq(["macOS 27-arm64", "macOS 26-arm64", "macOS 15-arm64"])
+    end
+
+    it "uses a self-hosted runner for Golden Gate dependents with a two-hour timeout" do
+      ENV["GITHUB_RUN_ID"] = "12345"
+      allow(Formula).to receive(:all).and_return([testball, testball_depender].map(&:formula))
+      runners = described_class.new([testball], [], all_supported: false, dependent_matrix: true)
+                               .active_runner_specs_hash
+
+      expect(runners).to include(
+        include(name: "macOS 27-arm64", runner: "27-arm64-12345-deps", timeout: 120),
+        include(name: "macOS 26-arm64", runner: "macos-26", timeout: 360),
+        include(name: "macOS 15-arm64", runner: "macos-15", timeout: 360),
+      )
+    end
+
     context "when bootstrapping a macOS release" do
       before do
         stub_const("GitHubRunnerMatrix::NEWEST_HOMEBREW_CORE_MACOS_RUNNER", :tahoe)
