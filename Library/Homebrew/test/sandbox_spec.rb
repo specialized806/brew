@@ -27,8 +27,44 @@ RSpec.describe Sandbox, :needs_macos do
       end.new
     end
 
-    it "restricts Mach services, LaunchServices and Apple Events even when network access is allowed" do
-      expect(sandbox.seatbelt_profile).to include("(deny mach-lookup)", "(deny lsopen)", "(deny appleevent-send)")
+    it "restricts macOS services even when network access is allowed" do
+      expect(sandbox.seatbelt_profile).to include(
+        "(deny mach-lookup)", "(deny lsopen)", "(deny appleevent-send)",
+        "(deny network-outbound (to unix-socket))",
+        '(allow network-outbound (to unix-socket (path-literal "/private/var/run/mDNSResponder")))'
+      )
+    end
+
+    it "does not allow the DNS socket when network access is denied" do
+      sandbox.deny_all_network
+      sandbox.allow_network path: dir, type: :subpath
+      expect(sandbox.seatbelt_profile).not_to include("mDNSResponder")
+    end
+
+    it "explicitly allows outbound access to a permitted socket" do
+      sandbox.deny_all_network
+      sandbox.allow_network path: file
+
+      expect(sandbox.seatbelt_profile).to include("(allow network* network-outbound (literal \"#{file}\"))")
+    end
+
+    it "explicitly allows outbound access within a permitted socket directory" do
+      sandbox.deny_all_network
+      sandbox.allow_network path: dir, type: :subpath
+
+      expect(sandbox.seatbelt_profile).to include("(allow network* network-outbound (subpath \"#{dir}\"))")
+    end
+
+    it "allows installed Metal Toolchain discovery when network access is denied" do
+      sandbox.deny_all_network
+
+      expect(sandbox.seatbelt_profile).to include('(global-name "com.apple.mobileassetd.v2")')
+    end
+
+    it "allows process discovery when network access is denied" do
+      sandbox.deny_all_network
+
+      expect(sandbox.seatbelt_profile).to include('(global-name "com.apple.sysmond")')
     end
   end
 
@@ -92,6 +128,262 @@ RSpec.describe Sandbox, :needs_macos do
           }
         JS
       end
+    end
+
+    it "denies connections to Unix sockets in writable directories" do
+      UNIXServer.open(file) do
+        UNIXSocket.open(file, &:close)
+        sandbox.allow_write_path(dir)
+
+        expect do
+          sandbox.run RbConfig.ruby, "-rsocket", "-e", "UNIXSocket.open(ARGV.fetch(0), &:close)", file
+        end.to raise_error(ErrorDuringExecution)
+      end
+    end
+
+    it "denies datagrams to Unix sockets in writable directories" do
+      server = Socket.new(Socket::AF_UNIX, Socket::SOCK_DGRAM)
+      server.bind(Socket.sockaddr_un(file.to_s))
+      sandbox.allow_write_path(dir)
+
+      expect do
+        sandbox.run RbConfig.ruby, "-rsocket", "-e", <<~RUBY, file
+          Socket.open(:UNIX, :DGRAM) { |socket| socket.send("test", 0, Socket.sockaddr_un(ARGV.fetch(0))) }
+        RUBY
+      end.to raise_error(ErrorDuringExecution)
+    ensure
+      server&.close
+    end
+
+    it "allows explicitly permitted Unix sockets when network access is denied" do
+      UNIXServer.open(file) do
+        sandbox.deny_all_network
+        sandbox.allow_network path: file
+
+        expect do
+          sandbox.run RbConfig.ruby, "-rsocket", "-e", "UNIXSocket.open(ARGV.fetch(0), &:close)", file
+        end.not_to raise_error
+      end
+    end
+
+    it "allows the child error socket when network access is denied" do
+      sandbox.deny_all_network
+
+      expect do
+        sandbox.run RbConfig.ruby, "-rsocket", "-e", <<~RUBY
+          UNIXSocket.open(ENV.fetch("HOMEBREW_ERROR_PIPE")) { |socket| socket.recv_io.close }
+        RUBY
+      end.not_to raise_error
+    end
+
+    it "allows Unix sockets in a permitted directory when network access is denied" do
+      (dir/"sockets").mkpath
+      UNIXServer.open(dir/"sockets/test.sock") do
+        sandbox.deny_all_network
+        sandbox.allow_network path: dir, type: :subpath
+
+        expect do
+          sandbox.run RbConfig.ruby, "-rsocket", "-e", "UNIXSocket.open(ARGV.fetch(0), &:close)",
+                      dir/"sockets/test.sock"
+        end.not_to raise_error
+      end
+    end
+
+    it "runs a private Unix socket service online and offline" do
+      sandbox.allow_write_path(dir)
+
+      expect do
+        [true, false].each do |network_access_allowed|
+          sandbox.deny_all_network unless network_access_allowed
+          sandbox.allow_network path: dir, type: :subpath
+          sandbox.run RbConfig.ruby, "-rsocket", "-rtimeout", "-e", <<~'RUBY', dir
+            Dir.chdir(ARGV.fetch(0))
+            Dir.mkdir("sockets")
+            UNIXServer.open("sockets/database.sock") do |server|
+              pid = fork do
+                Timeout.timeout(5) do
+                  client = server.accept
+                  client.write(client.gets.upcase)
+                  client.close
+                end
+              end
+              begin
+                Timeout.timeout(5) do
+                  UNIXSocket.open("sockets/database.sock") do |client|
+                    client.sendmsg("query\n")
+                    abort "Unexpected service response" unless client.gets == "QUERY\n"
+                  end
+                end
+              ensure
+                Process.wait(pid)
+              end
+              abort "Service failed" unless $?.success?
+            end
+            File.unlink("sockets/database.sock")
+            Dir.rmdir("sockets")
+          RUBY
+        end
+      end.not_to raise_error
+    end
+
+    it "allows a private datagram service when network access is denied" do
+      sandbox.allow_write_path(dir)
+      sandbox.deny_all_network
+      sandbox.allow_network path: dir, type: :subpath
+
+      expect do
+        sandbox.run RbConfig.ruby, "-rsocket", "-rtimeout", "-e", <<~RUBY, file
+          Socket.open(:UNIX, :DGRAM) do |server|
+            server.bind(Socket.sockaddr_un(ARGV.fetch(0)))
+            Socket.open(:UNIX, :DGRAM) do |client|
+              client.connect(Socket.sockaddr_un(ARGV.fetch(0)))
+              client.send("message", 0)
+              Timeout.timeout(5) { abort "Unexpected datagram" unless server.recv(64) == "message" }
+            end
+          end
+          File.unlink(ARGV.fetch(0))
+        RUBY
+      end.not_to raise_error
+    end
+
+    it "allows HTTP over a private Unix socket when network access is denied" do
+      sandbox.allow_write_path(dir)
+      sandbox.deny_all_network
+      sandbox.allow_network path: dir, type: :subpath
+
+      expect do
+        sandbox.run RbConfig.ruby, "-rsocket", "-rtimeout", "-e", <<~'RUBY', file
+          UNIXServer.open(ARGV.fetch(0)) do |server|
+            pid = fork do
+              Timeout.timeout(10) do
+                client = server.accept
+                loop { break if client.gets == "\r\n" }
+                client.write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+                client.close
+              end
+            end
+            begin
+              response = IO.popen(["/usr/bin/curl", "--fail", "--silent", "--show-error", "--max-time", "5",
+                                   "--noproxy", "*", "--unix-socket", ARGV.fetch(0), "http://localhost/"], &:read)
+              abort "Unexpected HTTP response" unless $?.success? && response == "OK"
+            ensure
+              Process.wait(pid)
+            end
+            abort "HTTP service failed" unless $?.success?
+          end
+          File.unlink(ARGV.fetch(0))
+        RUBY
+      end.not_to raise_error
+    end
+
+    it "denies Unix sockets outside a permitted directory" do
+      (dir/"sockets").mkpath
+      UNIXServer.open(file) do
+        sandbox.allow_network path: dir/"sockets", type: :subpath
+
+        expect do
+          sandbox.run RbConfig.ruby, "-rsocket", "-e", "UNIXSocket.open(ARGV.fetch(0), &:close)", file
+        end.to raise_error(ErrorDuringExecution)
+      end
+    end
+
+    it "denies symlinks to Unix sockets outside a permitted directory" do
+      (dir/"sockets").mkpath
+      UNIXServer.open(file) do
+        (dir/"sockets/test.sock").make_symlink(file)
+        UNIXSocket.open(dir/"sockets/test.sock", &:close)
+        sandbox.allow_network path: dir/"sockets", type: :subpath
+
+        expect do
+          sandbox.run RbConfig.ruby, "-rsocket", "-e", "UNIXSocket.open(ARGV.fetch(0), &:close)",
+                      dir/"sockets/test.sock"
+        end.to raise_error(ErrorDuringExecution)
+      end
+    end
+
+    it "denies hard links to Unix sockets outside a permitted directory" do
+      (dir/"sockets").mkpath
+      UNIXServer.open(file) do
+        File.link(file, dir/"sockets/test.sock")
+        UNIXSocket.open(dir/"sockets/test.sock", &:close)
+        sandbox.allow_network path: dir/"sockets", type: :subpath
+
+        expect do
+          sandbox.run RbConfig.ruby, "-rsocket", "-e", "UNIXSocket.open(ARGV.fetch(0), &:close)",
+                      dir/"sockets/test.sock"
+        end.to raise_error(ErrorDuringExecution)
+      end
+    end
+
+    it "allows TCP connections when network access is allowed" do
+      server = TCPServer.new("127.0.0.1", 0)
+      expect do
+        sandbox.run RbConfig.ruby, "-rsocket", "-e", <<~RUBY, server.addr[1].to_s
+          TCPSocket.open("127.0.0.1", ARGV.fetch(0).to_i, &:close)
+        RUBY
+      end.not_to raise_error
+    ensure
+      server&.close
+    end
+
+    it "allows DNS resolution when network access is allowed", :needs_network do
+      expect do
+        sandbox.run RbConfig.ruby, "-rsocket", "-e", 'Socket.getaddrinfo("formulae.brew.sh", 443)'
+      end.not_to raise_error
+    end
+
+    it "allows HTTPS downloads in network-enabled install hooks", :needs_network do
+      sandbox.add_install_hook_rules(network_access_allowed: true)
+
+      expect do
+        sandbox.run "/usr/bin/curl", "--fail", "--silent", "--show-error", "--max-time", "15",
+                    "--output", file, "https://formulae.brew.sh/api/formula/hello.json"
+      end.not_to raise_error
+    end
+
+    it "allows extended attribute changes in offline install hooks" do
+      file.write("test")
+      sandbox.add_install_hook_rules(network_access_allowed: false)
+
+      expect do
+        sandbox.run "/bin/sh", "-ec", <<~SH, "--", file
+          /usr/bin/xattr -wx com.apple.FinderInfo 5445535400000000000000000000000000000000000000000000000000000000 "$1"
+          /usr/bin/xattr -d com.apple.FinderInfo "$1"
+        SH
+      end.not_to raise_error
+    end
+
+    it "discovers the installed Metal compiler without using the xcrun cache" do
+      unless SystemCommand.run("/usr/bin/xcrun",
+                               args: ["--no-cache", "--sdk", "macosx", "metal", "--version"]).success?
+        skip "Metal Toolchain not installed."
+      end
+
+      sandbox.allow_write_temp_and_cache
+      sandbox.allow_write_xcode
+      sandbox.deny_read_home
+      sandbox.deny_all_network
+
+      expect do
+        sandbox.run "/usr/bin/xcrun", "--no-cache", "--sdk", "macosx", "metal", "--version"
+      end.not_to raise_error
+    end
+
+    it "allows pgrep to find a child process when network access is denied" do
+      sandbox.deny_all_network
+
+      expect do
+        sandbox.run RbConfig.ruby, "-e", <<~RUBY
+          pid = spawn "/bin/sleep", "10"
+          begin
+            output = IO.popen(["/usr/bin/pgrep", "-P", Process.pid.to_s], &:read)
+            abort "Child process not found" unless $?.success? && output.lines.map(&:to_i).include?(pid)
+          ensure
+            Process.kill("TERM", pid)
+            Process.wait(pid)
+          end
+        RUBY
+      end.not_to raise_error
     end
 
     it "reports an empty array for an unregistered URL scheme" do
