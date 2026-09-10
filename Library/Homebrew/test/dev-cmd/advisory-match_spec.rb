@@ -483,7 +483,7 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
     it "repairs legacy missing, empty or invalid ranges after verifying history" do
       matcher = Homebrew::Vulns::Match.new
-      allow(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+      allow(matcher).to receive_messages(first_fixed_version: "2.28.1", first_introduced_version: "2.27.0")
       allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
       cases = [nil, [], [{ type: "ECOSYSTEM", events: [] }]]
       outcomes = cases.map do |ranges|
@@ -493,11 +493,56 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
         cmd_for("requests", "--output", dir, "--new-history").run
 
-        JSON.parse(File.read(path)).dig("affected", 0, "ranges") ==
-          JSON.parse(JSON.generate(existing.dig(:affected, 0, :ranges)))
+        JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events") ==
+          [{ "introduced" => "2.27.0" }, { "fixed" => "2.28.1" }]
       end
 
       expect(outcomes).to eq [true, true, true]
+    end
+
+    it "derives introductions before repairing affected records with changed provenance" do
+      stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
+      matcher = Homebrew::Vulns::Match.new
+      allow(matcher).to receive(:first_introduced_version).and_return("2.30.0")
+      allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+      outcomes = [nil, [], [{ type: "ECOSYSTEM", events: [] }]].map do |ranges|
+        record = existing.deep_dup
+        if ranges
+          record[:affected].first[:ranges] = ranges
+        else
+          record[:affected].first.delete(:ranges)
+        end
+        File.write(path, JSON.generate(record))
+
+        output = capture_stdout { cmd_for("requests", "--output", dir, "--new-history").run }
+        refreshed = JSON.parse(File.read(path))
+        [refreshed.dig("affected", 0, "ranges", 0, "events"),
+         refreshed.dig("database_specific", "upstream_evidence"), output.include?("1 history walks")]
+      end
+
+      expect(outcomes).to all(eq([[{ "introduced" => "2.30.0" }], reviewed_git_evidence, true]))
+    end
+
+    it "preserves affected records with changed provenance when introduction history is unavailable" do
+      stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
+      matcher = Homebrew::Vulns::Match.new
+      allow(matcher).to receive(:first_introduced_version).and_return(:history_unavailable)
+      allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+      outcomes = [nil, [], [{ type: "ECOSYSTEM", events: [] }]].map do |ranges|
+        record = existing.deep_dup
+        if ranges
+          record[:affected].first[:ranges] = ranges
+        else
+          record[:affected].first.delete(:ranges)
+        end
+        File.write(path, JSON.generate(record))
+        original = File.read(path)
+
+        output = capture_stdout { cmd_for("requests", "--output", dir, "--new-history").run }
+        [File.read(path) == original, output.include?("1 history walks, 1 history-unavailable skips")]
+      end
+
+      expect(outcomes).to all(eq([true, true]))
     end
 
     it "leaves a legacy terminal record unchanged when recomputed ranges disagree" do
@@ -801,18 +846,51 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
-  it "uses the historical boundary for a new record with --new-history" do
+  it "uses both historical boundaries for a new record with --new-history" do
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
     matcher = Homebrew::Vulns::Match.new
     expect(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+    expect(matcher).to receive(:first_introduced_version).with(requests, anything, first_fixed: "2.28.1")
+                                                         .and_return("2.27.0")
     allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
 
     Dir.mktmpdir do |dir|
       expect { cmd_for("requests", "--output", dir, "--new-history").run }
-        .to output(/1 history walks/).to_stdout
+        .to output(/2 history walks/).to_stdout
       path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
-      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events", 1))
-        .to eq("fixed" => "2.28.1")
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+        .to eq([{ "introduced" => "2.27.0" }, { "fixed" => "2.28.1" }])
+    end
+  end
+
+  it "repairs mixed ranges using an initial interval without reopening reviewed terminal ranges" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    allow(matcher).to receive_messages(first_fixed_version: "2.28.1", first_introduced_version: "2.27.0")
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      reviewed = [{ "introduced" => "2.20.0" }, { "fixed" => "2.26.0" }]
+      File.write(path, JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "affected"          => [{
+          "package"            => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"             => [
+            { "type" => "ECOSYSTEM", "events" => reviewed },
+            { "type" => "ECOSYSTEM", "events" => [] },
+          ],
+          "ecosystem_specific" => { "upstream_fixed_in" => "2.28.1" },
+        }],
+        "database_specific" => { "source" => "matched", "upstream_evidence" => reviewed_git_evidence },
+      }))
+
+      cmd_for("requests", "--output", dir, "--new-history").run
+
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges")).to eq [
+        { "type" => "ECOSYSTEM", "events" => reviewed },
+        { "type" => "ECOSYSTEM", "events" => [{ "introduced" => "2.27.0" }, { "fixed" => "2.28.1" }] },
+      ]
     end
   end
 
@@ -828,6 +906,55 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
           .to output(/formula history is unavailable; skipping automatic update/).to_stderr
       end.to output(/1 history-unavailable skips.*Unavailable history by formula:\n    requests: 1/m).to_stdout
       expect(Dir.glob(File.join(dir, "*.json"))).to be_empty
+    end
+  end
+
+  it "does not emit a fixed record when its introduction cannot be established" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+    matcher = Homebrew::Vulns::Match.new
+    allow(matcher).to receive_messages(first_fixed_version: "2.28.1", first_introduced_version: :history_unavailable)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      expect do
+        expect { cmd_for("requests", "--output", dir, "--new-history").run }
+          .to output(/affected introduction cannot be established; skipping automatic update/).to_stderr
+      end.to output(/2 history walks, 1 history-unavailable skips/).to_stdout
+      expect(Dir.glob(File.join(dir, "*.json"))).to be_empty
+    end
+  end
+
+  it "does not emit an affected JSON record when its introduction cannot be established" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
+    matcher = Homebrew::Vulns::Match.new
+    allow(matcher).to receive(:first_introduced_version).and_return(:history_unavailable)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    expect(JSON.parse(capture_stdout { cmd_for("requests", "--json").run })).to eq []
+  end
+
+  it "preserves the reviewed introduction of an existing affected record" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
+    matcher = Homebrew::Vulns::Match.new
+    expect(matcher).not_to receive(:first_introduced_version)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      File.write(path, JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "affected"          => [{
+          "package"            => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"             => [{ "type" => "ECOSYSTEM", "events" => [{ "introduced" => "2.29.0" }] }],
+          "ecosystem_specific" => { "upstream_fixed_in" => "2.32.0" },
+        }],
+        "database_specific" => { "source" => "matched", "upstream_evidence" => reviewed_git_evidence },
+      }))
+
+      cmd_for("requests", "--output", dir, "--new-history").run
+
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+        .to eq([{ "introduced" => "2.29.0" }])
     end
   end
 
@@ -884,6 +1011,7 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
     matcher = Homebrew::Vulns::Match.new
     expect(matcher).to receive(:first_fixed_version).and_return("2.28.1")
+    expect(matcher).to receive(:first_introduced_version).and_return("2.27.0")
     allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
 
     Dir.mktmpdir do |dir|
@@ -901,8 +1029,8 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       }))
 
       cmd_for("requests", "--output", dir, "--new-history").run
-      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events", 1))
-        .to eq("fixed" => "2.28.1")
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+        .to eq([{ "introduced" => "2.27.0" }, { "fixed" => "2.28.1" }])
     end
   end
 
@@ -1098,15 +1226,20 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
-  it "does not count a history walk for a new record that is still affected" do
+  it "derives the introduction for a new record that is still affected" do
     stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
     matcher = Homebrew::Vulns::Match.new
     expect(matcher).not_to receive(:first_fixed_version)
+    expect(matcher).to receive(:first_introduced_version).with(requests, anything, first_fixed: nil)
+                                                         .and_return("2.30.0")
     allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
 
     Dir.mktmpdir do |dir|
       expect { cmd_for("requests", "--output", dir, "--new-history").run }
-        .to output(/0 history walks/).to_stdout
+        .to output(/1 history walks/).to_stdout
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+        .to eq([{ "introduced" => "2.30.0" }])
     end
   end
 
@@ -1196,6 +1329,62 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       affected = records.first.fetch("affected").first
       expect(affected.dig("ranges", 0, "events")).to eq [{ "introduced" => "0" }]
       expect(affected.fetch("ecosystem_specific")).to eq("fix" => nil, "range_state" => "affected")
+    end
+  end
+
+  it "requires manual ranges for a new record when state overrides conflict with upstream history" do
+    %w[affected fixed].each do |state|
+      stub_osv_hit("CVE-2024-1234", fixed: (state == "affected") ? "2.28.1" : "2.32.0")
+      expect(FormulaVersions).not_to receive(:new)
+
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "overrides.yml")
+        File.write(path, <<~YAML)
+          requests:
+            advisories:
+              CVE-2024-1234:
+                range_state: #{state}
+        YAML
+
+        expect do
+          records = JSON.parse(capture_stdout do
+            cmd_for("requests", "--json", "--overrides", path).run
+          end)
+          expect(records).to eq []
+        end.to output(/state override disagrees with upstream history.*Review its ranges and provenance together/m)
+          .to_stderr
+      end
+    end
+  end
+
+  it "distinguishes uncheckable evidence from a state override conflicting with upstream history" do
+    allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2024-1234" }], []])
+    allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1234").and_return(
+      { "id" => "CVE-2024-1234", "affected" => [{
+        "package" => { "ecosystem" => "GIT", "name" => "https://github.com/psf/requests" },
+        "ranges"  => [{ "type"   => "GIT",
+                        "events" => [{ "introduced" => "0" }, { "fixed" => "f" * 40 }] }],
+      }] },
+    )
+    expect(FormulaVersions).not_to receive(:new)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "overrides.yml")
+      File.write(path, <<~YAML)
+        requests:
+          advisories:
+            CVE-2024-1234:
+              range_state: affected
+      YAML
+
+      expect do
+        records = JSON.parse(capture_stdout do
+          cmd_for("requests", "--json", "--overrides", path).run
+        end)
+        expect(records).to eq []
+      end.to output(
+        /state override cannot be checked against upstream history.*Review its ranges and provenance together/m,
+      ).to_stderr
     end
   end
 
