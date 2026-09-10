@@ -980,7 +980,7 @@ Note that in the context of Homebrew, [`libexec`](/rubydoc/Formula.html#libexec-
 
 ### File-level operations
 
-You can use the file utilities provided by Ruby's [`FileUtils`](https://ruby-doc.org/current/stdlibs/fileutils/FileUtils.html). These are included in the [`Formula` class](/rubydoc/Formula.html), so you do not need the `FileUtils.` prefix to use them.
+You can use the file utilities provided by Ruby's [`FileUtils`](https://ruby-doc.org/core/FileUtils.html). These are included in the [`Formula` class](/rubydoc/Formula.html), so you do not need the `FileUtils.` prefix to use them.
 
 When creating symlinks, take special care to ensure they are *relative* symlinks. This makes it easier to create a relocatable bottle. For example, to create a symlink in `bin` to an executable in `libexec`, use:
 
