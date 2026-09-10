@@ -155,10 +155,17 @@ RSpec.describe BottleTransition do
   end
 
   context "when the transition OS is fully supported" do
-    it "ends the transition policy" do
-      stub_const("HOMEBREW_MACOS_NEWEST_SUPPORTED", "27")
+    before { stub_const("HOMEBREW_MACOS_NEWEST_SUPPORTED", "27") }
 
+    it "ends the transition policy" do
       expect(transition.required?(current)).to be false
+    end
+
+    it "does not require a merge-group event payload" do
+      ENV["GITHUB_EVENT_NAME"] = "merge_group"
+      ENV.delete("GITHUB_EVENT_PATH")
+
+      expect { transition.check!(current, tags: []) }.not_to raise_error
     end
   end
 
