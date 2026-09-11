@@ -450,13 +450,8 @@ class FormulaInstaller
 
       if message
         message += <<~EOS
-          If you're feeling brave, you can try to install from source with:
+          If no compatible bottle is available, you can try to install from source with:
             brew install --build-from-source #{formula}
-
-          This is a Tier 3 configuration:
-            #{Formatter.url("https://docs.brew.sh/Support-Tiers#tier-3")}
-          #{Formatter.bold("Do not report any issues to Homebrew/* repositories!")}
-          Read the above document instead before opening any issues or PRs.
         EOS
         raise CannotInstallFormulaError, message
       end

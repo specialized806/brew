@@ -1188,6 +1188,30 @@ RSpec.describe FormulaInstaller do
   end
 
   describe "#check_install_sanity" do
+    it "does not assign a support tier when a bottle is unavailable" do
+      installer = described_class.new(Testball.new, ignore_deps: true)
+      allow(Homebrew).to receive(:default_prefix?).and_return(true)
+      allow(installer.formula).to receive(:tap).and_return(CoreTap.instance)
+      allow(installer).to receive_messages(pour_bottle?: false, fresh_install?: true)
+
+      expect { installer.check_install_sanity }.to raise_error(CannotInstallFormulaError, <<~EOS)
+        testball: no bottle available!
+        If no compatible bottle is available, you can try to install from source with:
+          brew install --build-from-source testball
+      EOS
+    end
+
+    it "allows reinstalling an explicitly requested formula without a bottle" do
+      installer = described_class.new(Testball.new, installed_on_request: true, ignore_deps: true)
+      allow(Homebrew).to receive(:default_prefix?).and_return(true)
+      allow(Homebrew::EnvConfig).to receive(:developer?).and_return(false)
+      allow(Hardware::CPU).to receive(:arm?).and_return(true)
+      allow(installer.formula).to receive_messages(tap: CoreTap.instance, any_version_installed?: true)
+      allow(installer).to receive(:pour_bottle?).and_return(false)
+
+      expect { installer.check_install_sanity }.not_to raise_error
+    end
+
     it "raises on direct cyclic dependency" do
       ENV["HOMEBREW_DEVELOPER"] = "1"
 

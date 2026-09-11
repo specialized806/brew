@@ -24,19 +24,33 @@ module Homebrew
   module Diagnostic
     extend Utils::Output::Mixin
 
+    sig { returns(T::Array[T.any(Integer, Symbol)]) }
+    def self.support_tiers
+      @support_tiers ||= T.let([], T.nilable(T::Array[T.any(Integer, Symbol)]))
+    end
+
+    sig { void }
+    def self.report_support_tier
+      message = Finding.support_tier_message(tier: Finding.support_tier(support_tiers))
+      support_tiers.clear
+      $stderr.puts "\n", message if message
+    end
+
+    at_exit { Homebrew::Diagnostic.report_support_tier }
+
     sig { params(type: Symbol, fatal: T::Boolean).void }
     def self.checks(type, fatal: true)
-      @checks ||= T.let(Checks.new, T.nilable(Checks))
+      checks = Checks.new
       failed = T.let(false, T::Boolean)
-      @checks.public_send(type).each do |check|
-        out = @checks.public_send(check)
-        next if out.nil?
-
-        if fatal
-          failed ||= true
-          ofail out.to_s
-        else
-          opoo out.to_s
+      checks.public_send(type).each do |check|
+        Array(checks.public_send(check)).each do |finding|
+          support_tiers << finding.tier
+          if fatal
+            failed = true
+            ofail finding.to_s
+          else
+            opoo finding.to_s
+          end
         end
       end
       exit 1 if failed && fatal
@@ -137,7 +151,10 @@ module Homebrew
 
       sig { returns(T::Array[String]) }
       def supported_configuration_checks
-        [].freeze
+        %w[
+          check_homebrew_prefix
+          check_for_nix_homebrew
+        ].freeze
       end
 
       sig { returns(T::Array[String]) }
@@ -1234,6 +1251,7 @@ module Homebrew
       sig { returns(T.nilable(Finding)) }
       def check_homebrew_prefix
         return if Homebrew.default_prefix?
+        return if ENV["HOMEBREW_INTEGRATION_TEST"]
 
         Finding.new(
           <<~EOS,
