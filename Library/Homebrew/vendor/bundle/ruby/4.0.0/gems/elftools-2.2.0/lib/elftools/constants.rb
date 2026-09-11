@@ -288,6 +288,23 @@ module ELFTools
     end
     include EM
 
+    # Flags of a version, recorded in the +vd_flags+ of a definition and the
+    # +vna_flags+ of a requirement.
+    module VER_FLG
+      VER_FLG_BASE = 0x1 # The version the file itself is, rather than one of the versions it defines
+      VER_FLG_WEAK = 0x2 # A version no symbol is bound to
+      VER_FLG_INFO = 0x4 # A version recorded for information rather than to be matched
+    end
+    include VER_FLG
+
+    # The indices a symbol names a version with that name no version.
+    module VER_NDX
+      VER_NDX_LOCAL = 0 # A symbol of the file itself, which nothing outside it binds to
+      VER_NDX_GLOBAL = 1 # A symbol of no version at all
+      VER_NDX_HIDDEN = 0x8000 # Not an index but a bit of one, marking a version that is not the default
+    end
+    include VER_NDX
+
     # Relocation types, see +elftools/constants/relocation+ for the constants.
     module R
       # Return the name of a relocation type.
@@ -308,6 +325,33 @@ module ELFTools
         architecture = MACHINES[machine]
         names = architecture && names_of(const_get(architecture))
         names&.fetch(type, nil) || format('<unknown>: 0x%x', type)
+      end
+
+      # The type a machine calls a relocation that only adds the load bias,
+      # which every architecture defining one spells +R_<arch>_RELATIVE+.
+      #
+      # A table of them recorded as +DT_RELR+ names no type, because the
+      # format holds nothing but addresses and every one of them relocates
+      # this way, so the type is asked of the machine instead.
+      # @param [Integer?] machine Value of +e_machine+.
+      # @return [Integer, nil]
+      #   The type, +nil+ if the machine names no such relocation.
+      # @example
+      #   relative(Constants::EM_X86_64)
+      #   #=> 8 # R_X86_64_RELATIVE
+      #   relative(Constants::EM_AARCH64)
+      #   #=> 1027 # R_AARCH64_RELATIVE, not the R_AARCH64_P32_RELATIVE of ILP32
+      def self.relative(machine)
+        architecture = MACHINES[machine]
+        return if architecture.nil?
+
+        @relative ||= {}
+        @relative.fetch(architecture) do
+          names = const_get(architecture).constants.grep(/_RELATIVE\z/)
+          # An architecture naming more than one names the other for a second
+          # data model, which spells it out in the name and so is longer.
+          @relative[architecture] = names.min_by(&:length)&.then { |name| const_get(architecture).const_get(name) }
+        end
       end
 
       # Names of every relocation type an architecture defines.
@@ -421,6 +465,15 @@ module ELFTools
       SHN_HIRESERVE       = 0xffff # end of reserved indices
     end
     include SHN
+
+    # The escape value the ELF header records where it cannot hold a count of
+    # the program headers, which is then recorded in the first section header.
+    module PN
+      extend Naming
+
+      PN_XNUM = 0xffff # the number of program headers is too large for the header to hold
+    end
+    include PN
 
     # Section flag mask types, records in +sh_flag+.
     module SHF

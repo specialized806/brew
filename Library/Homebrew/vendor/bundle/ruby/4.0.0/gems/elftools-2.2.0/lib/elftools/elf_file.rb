@@ -105,12 +105,19 @@ module ELFTools
     #========= method about sections
 
     # Number of sections in this file.
+    #
+    # A file with more sections than the ELF header can count records a zero
+    # there and states the number in the first section header instead, which a
+    # file with no section headers at all records as well.
     # @return [Integer] The desired number.
     # @example
     #   elf.num_sections
     #   #=> 29
     def num_sections
-      header.e_shnum
+      count = header.e_shnum.to_i
+      return count unless count.zero? && !header.e_shoff.to_i.zero?
+
+      first_section_header.sh_size.to_i
     end
 
     # Acquire the section named as +name+.
@@ -197,15 +204,25 @@ module ELFTools
     #   elf.section_name_table.name
     #   #=> '.shstrtab'
     def section_name_table
-      section_at(header.e_shstrndx)
+      index = header.e_shstrndx.to_i
+      # An index too large for the ELF header is stated in the first section
+      # header instead.
+      index = first_section_header.sh_link.to_i if index == Constants::SHN_XINDEX
+      section_at(index)
     end
 
     #========= method about segments
 
     # Number of segments in this file.
+    #
+    # A file with more segments than the ELF header can count states the number
+    # in the first section header instead, as it does for the sections.
     # @return [Integer] The desited number.
     def num_segments
-      header.e_phnum
+      count = header.e_phnum.to_i
+      return count unless count == Constants::PN_XNUM
+
+      first_section_header.sh_info.to_i
     end
 
     # Iterate all segments.
@@ -373,15 +390,35 @@ module ELFTools
 
     # bad idea..
     def loaded_headers
-      explore = lambda do |obj|
-        return obj if obj.is_a?(::ELFTools::Structs::ELFStruct)
-        return obj.map(&explore) if obj.is_a?(Array)
+      # By identity, so that a graph that reaches the same thing by many paths,
+      # or leads round in circles, is walked once rather than over and over.
+      headers_in(self, {}.compare_by_identity).flatten
+    end
 
-        obj.instance_variables.map do |s|
-          explore.call(obj.instance_variable_get(s))
-        end
-      end
-      explore.call(self).flatten
+    # The structures reachable from an object, whatever holds them.
+    # @param [Object] obj The object.
+    # @param [Hash] seen What has been reached already.
+    # @return [Array] The structures, nested.
+    def headers_in(obj, seen)
+      # A class is not one of the things a file records.
+      return [] if seen[obj] || obj.is_a?(Module)
+
+      seen[obj] = true
+      return obj if obj.is_a?(::ELFTools::Structs::ELFStruct)
+
+      held_by(obj).map { |held| headers_in(held, seen) }
+    end
+
+    # What an object holds, which a walk of it goes on to.
+    # @param [Object] obj The object.
+    # @return [Enumerable] What it holds.
+    def held_by(obj)
+      return obj if obj.is_a?(Array)
+      # A hash is held by its values, which is where the tags and the symbols
+      # read through the tags are remembered.
+      return obj.each_value if obj.is_a?(Hash)
+
+      obj.instance_variables.map { |name| obj.instance_variable_get(name) }
     end
 
     def identify
@@ -404,6 +441,18 @@ module ELFTools
       raise ELFDataError, format('Invalid EI_DATA "\x%02x"', ei_data) if endian.nil?
     end
 
+    # The first section header, which is where a file too large for the counts
+    # the ELF header records states them.
+    # @return [ELFTools::Structs::ELF_Shdr] The header.
+    def first_section_header
+      @first_section_header ||= begin
+        stream.pos = header.e_shoff.to_i
+        shdr = Structs::ELF_Shdr.new(endian:, offset: stream.pos)
+        shdr.elf_class = elf_class
+        shdr.read(stream)
+      end
+    end
+
     def create_section(n)
       stream.pos = header.e_shoff + n * header.e_shentsize
       shdr = Structs::ELF_Shdr.new(endian:, offset: stream.pos)
@@ -413,6 +462,7 @@ module ELFTools
                                offset_from_vma: method(:offset_from_vma),
                                section_name_table: method(:section_name_table),
                                section_at: method(:section_at),
+                               sections: method(:sections),
                                machine: header.e_machine.to_i)
     end
 

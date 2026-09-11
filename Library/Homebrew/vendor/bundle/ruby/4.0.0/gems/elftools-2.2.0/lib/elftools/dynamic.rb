@@ -3,8 +3,10 @@
 require 'elftools/constants'
 require 'elftools/dynamic/string_table'
 require 'elftools/dynamic/symbols'
+require 'elftools/dynamic/versions'
 require 'elftools/dynamic/tag'
 require 'elftools/exceptions'
+require 'elftools/relative_relocations'
 require 'elftools/relocation'
 require 'elftools/structs'
 
@@ -17,6 +19,7 @@ module ELFTools
   #   attributes exist.
   module Dynamic
     include Symbols
+    include Versions
 
     # Iterate all tags.
     #
@@ -35,7 +38,7 @@ module ELFTools
       0.step do |i|
         tag = tag_at(i).tap(&block)
         arr << tag
-        break if tag.header.d_tag == ELFTools::Constants::DT_NULL
+        break if tag.type == ELFTools::Constants::DT_NULL
       end
       arr
     end
@@ -76,7 +79,7 @@ module ELFTools
     #   #=> #<ELFTools::Dynamic::Tag:0x0055d3d2d91b28 @header={:d_tag=>3, :d_val=>6295552}>
     def tag_by_type(type)
       type = Util.to_constant(Constants::DT, type)
-      each_tag.find { |tag| tag.header.d_tag == type }
+      each_tag.find { |tag| tag.type == type }
     end
 
     # Get tags of specific type.
@@ -88,7 +91,7 @@ module ELFTools
     # @see #tag_by_type
     def tags_by_type(type)
       type = Util.to_constant(Constants::DT, type)
-      each_tag.select { |tag| tag.header.d_tag == type }
+      each_tag.select { |tag| tag.type == type }
     end
 
     # Get the +n+-th tag.
@@ -109,26 +112,28 @@ module ELFTools
       @tag_at_map ||= {}
       return @tag_at_map[n] if @tag_at_map[n]
 
-      dyn = Structs::ELF_Dyn.new(endian:)
-      dyn.elf_class = header.elf_class
-      stream.pos = tag_start + n * dyn.num_bytes
-      dyn.offset = stream.pos
-      @tag_at_map[n] = Tag.new(dyn.read(stream), stream, string_table)
+      elf_class = header.elf_class
+      offset = tag_start + (n * Structs::ELF_Dyn.num_bytes(elf_class: elf_class, endian: endian))
+      fields = Structs::Fields.new(Structs::ELF_Dyn, stream, offset, elf_class: elf_class, endian: endian)
+      @tag_at_map[n] = Tag.new(fields, stream, string_table)
     end
 
     # The relocations the tags point at.
     #
-    # Two tables record them: the one +DT_REL+ or +DT_RELA+ names, and the one
-    # +DT_JMPREL+ names, whose entries are of the kind +DT_PLTREL+ names.
+    # Three tables record them: the one +DT_REL+ or +DT_RELA+ names, the one
+    # +DT_JMPREL+ names, whose entries are of the kind +DT_PLTREL+ names, and
+    # the one +DT_RELR+ names, which packs the relocations that only add the
+    # load bias into a bitmap and so records no type of its own.
     # @return [Array<ELFTools::Relocation>] The relocations, in the order the
-    #   tags record them.
+    #   tags record them, the packed ones last.
     # @raise [ELFTools::ELFError]
     #   If a table is not in any loadable segment.
     # @example
     #   elf.dynamic.relocations.map(&:type_name).uniq
     #   #=> ['R_X86_64_GLOB_DAT', 'R_X86_64_JUMP_SLOT']
     def relocations
-      @relocations ||= relocation_tables.flat_map { |start, size, rela| read_relocations(start, size, rela) }
+      @relocations ||= relocation_tables.flat_map { |start, size, rela| read_relocations(start, size, rela) } +
+                       packed_relocations
     end
 
     private
@@ -151,6 +156,17 @@ module ELFTools
       tables << [jmprel, tag_by_type(:pltrelsz), tag_by_type(:pltrel).header.d_val.to_i == Constants::DT_RELA]
     end
 
+    # Reads the table +DT_RELR+ names, which is absent from most files.
+    # @return [Array<ELFTools::Relocation>] The relocations, empty without it.
+    def packed_relocations
+      start = tag_by_type(:relr)
+      return [] if start.nil?
+
+      offset = offset_of(start)
+      RelativeRelocations.new(stream, offset...(offset + tag_by_type(:relrsz).header.d_val.to_i),
+                              elf_class: header.elf_class, endian:, machine: @machine).to_a
+    end
+
     # Reads one table of relocations.
     # @return [Array<ELFTools::Relocation>] The relocations.
     def read_relocations(start, size, rela)
@@ -159,30 +175,12 @@ module ELFTools
       # An entry takes what its structure takes. DT_RELAENT and DT_RELENT
       # record the same number, which a file has no way of disagreeing with
       # and every file here agrees with.
-      entsize = struct(klass).num_bytes
+      elf_class = header.elf_class
+      entsize = klass.num_bytes(elf_class: elf_class, endian: endian)
       Array.new(size.header.d_val.to_i / entsize) do |i|
-        Relocation.new(read_struct(klass, offset + (i * entsize)), stream, machine: @machine)
+        fields = Structs::Fields.new(klass, stream, offset + (i * entsize), elf_class: elf_class, endian: endian)
+        Relocation.new(fields, stream, machine: @machine)
       end
-    end
-
-    # A structure of the endianness and the class the file records it in.
-    # @param [Class] klass The structure class.
-    # @return [ELFTools::Structs::ELFStruct] The structure, before it is read.
-    def struct(klass)
-      struct = klass.new(endian:)
-      struct.elf_class = header.elf_class
-      struct
-    end
-
-    # Reads a structure the file records at a file offset.
-    # @param [Class] klass The structure class.
-    # @param [Integer] offset The file offset.
-    # @return [ELFTools::Structs::ELFStruct] The structure.
-    def read_struct(klass, offset)
-      struct = struct(klass)
-      struct.offset = offset
-      stream.pos = offset
-      struct.read(stream)
     end
 
     # The file offset the address a tag records points at.
@@ -193,7 +191,7 @@ module ELFTools
     def offset_of(tag)
       vma = tag.header.d_val.to_i
       @offset_from_vma.call(vma) ||
-        raise(ELFError, format('Invalid %s address 0x%x', Constants::DT.mapping(@machine, tag.header.d_tag.to_i), vma))
+        raise(ELFError, format('Invalid %s address 0x%x', Constants::DT.mapping(@machine, tag.type), vma))
     end
 
     # The names the tags and the symbols point at.

@@ -24,6 +24,9 @@ class Rubydex::ClassDefinition < ::Rubydex::Definition
   sig { returns(T::Array[Rubydex::Mixin]) }
   def mixins; end
 
+  sig { returns(String) }
+  def raw_name; end
+
   sig { returns(T.nilable(Rubydex::ConstantReference)) }
   def superclass; end
 end
@@ -88,8 +91,15 @@ class Rubydex::ConstantAlias < ::Rubydex::Declaration
   def visibility; end
 end
 
-class Rubydex::ConstantAliasDefinition < ::Rubydex::Definition; end
-class Rubydex::ConstantDefinition < ::Rubydex::Definition; end
+class Rubydex::ConstantAliasDefinition < ::Rubydex::Definition
+  sig { returns(String) }
+  def raw_name; end
+end
+
+class Rubydex::ConstantDefinition < ::Rubydex::Definition
+  sig { returns(String) }
+  def raw_name; end
+end
 
 class Rubydex::ConstantReference < ::Rubydex::Reference
   abstract!
@@ -269,6 +279,9 @@ class Rubydex::Graph
   def constant_references; end
 
   sig { returns(T::Enumerable[Rubydex::Declaration]) }
+  def dead_code_candidates; end
+
+  sig { returns(T::Enumerable[Rubydex::Declaration]) }
   def declarations; end
 
   sig { params(uri: String).returns(T.nilable(Rubydex::Document)) }
@@ -322,8 +335,18 @@ class Rubydex::Graph
   sig { returns(T.self_type) }
   def resolve; end
 
-  sig { params(name: String, nesting: T::Array[String]).returns(T.nilable(Rubydex::Declaration)) }
-  def resolve_constant(name, nesting); end
+  sig do
+    params(
+      name: String,
+      context: T.any(
+        T::Array[String],
+        Rubydex::ClassDefinition,
+        Rubydex::SingletonClassDefinition,
+        Rubydex::ModuleDefinition,
+      )
+    ).returns(T.nilable(Rubydex::Declaration))
+  end
+  def resolve_constant(name, context); end
 
   sig { params(require_path: String, load_paths: T::Array[String]).returns(T.nilable(Rubydex::Document)) }
   def resolve_require_path(require_path, load_paths); end
@@ -504,58 +527,6 @@ class Rubydex::Linter::RuleLoader
   RULE_GLOB = T.let(T.unsafe(nil), String)
 end
 
-class Rubydex::Linter::RuleTestCase < Minitest::Test
-  sig { params(name: String).void }
-  def initialize(name); end
-
-  sig { params(sources: T::Hash[String, String]).void }
-  def add_shared_source(sources); end
-
-  sig do
-    params(
-      args: T.any(String, T::Hash[T.any(String, Symbol), String]),
-      rule_builder: T.nilable(T.proc.params(graph: Rubydex::Graph).returns(Rubydex::Linter::CustomRule))
-    ).returns(T::Array[Rubydex::Diagnostic])
-  end
-  def assert_diagnostics(*args, &rule_builder); end
-
-  sig do
-    params(
-      dependency: String,
-      args: T.any(String, T::Hash[T.any(String, Symbol), String]),
-      after_excluding: T::Array[String],
-      rule_builder: T.nilable(T.proc.params(graph: Rubydex::Graph).returns(Rubydex::Linter::CustomRule))
-    ).void
-  end
-  def assert_handles_missing_required_dependency(dependency, *args, after_excluding: [], &rule_builder); end
-
-  sig do
-    params(
-      args: T.any(String, T::Hash[T.any(String, Symbol), String]),
-      rule_builder: T.nilable(T.proc.params(graph: Rubydex::Graph).returns(Rubydex::Linter::CustomRule))
-    ).returns(T::Array[Rubydex::Diagnostic])
-  end
-  def assert_no_diagnostics(*args, &rule_builder); end
-
-  sig { returns(T::Array[String]) }
-  def ignored_diagnostic_files; end
-
-  sig { returns(T.class_of(Rubydex::Linter::CustomRule)) }
-  def rule_class; end
-
-  sig { returns(Rubydex::LinterConfig) }
-  def rule_config; end
-
-  sig { void }
-  def teardown; end
-
-  sig { returns(String) }
-  def workspace_path; end
-
-  ANNOTATION_PATTERN = T.let(T.unsafe(nil), Regexp)
-  DEFAULT_FILE = T.let(T.unsafe(nil), String)
-end
-
 module Rubydex::Linter::Rules; end
 
 class Rubydex::Linter::Rules::RuleStructure < Rubydex::Linter::CustomRule
@@ -714,6 +685,9 @@ end
 class Rubydex::ModuleDefinition < ::Rubydex::Definition
   sig { returns(T::Array[Rubydex::Mixin]) }
   def mixins; end
+
+  sig { returns(String) }
+  def raw_name; end
 end
 
 class Rubydex::Namespace < ::Rubydex::Declaration
@@ -865,7 +839,6 @@ class Rubydex::RuleConfig
 end
 
 module Rubydex::Rules; end
-Rubydex::Rules::ALL = T.let(T.unsafe(nil), Array)
 
 class Rubydex::Rules::DynamicAncestor < ::Rubydex::Rule
   class << self
