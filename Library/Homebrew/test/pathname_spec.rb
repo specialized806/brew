@@ -290,8 +290,9 @@ RSpec.describe Pathname do
     end
 
     it "can install relative paths as symlinks" do
-      dst.install_symlink "foo" => Pathname("bar")
+      dst.install_symlink "foo" => Pathname("bar"), "baz" => "qux"
       expect((dst/"bar").readlink).to eq(described_class.new("foo"))
+      expect((dst/"qux").readlink).to eq(described_class.new("baz"))
     end
 
     it "can install relative symlinks in a symlinked directory" do
