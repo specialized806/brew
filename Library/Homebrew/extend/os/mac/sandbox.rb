@@ -128,11 +128,6 @@ module OS
         [SANDBOX_EXEC, "-f", seatbelt.path, *args]
       end
 
-      sig { returns(T::Boolean) }
-      def allow_network_for_error_pipe?
-        true
-      end
-
       sig { void }
       def ensure_child_tty_available
         # We're opening and immediately closing so this is safe.

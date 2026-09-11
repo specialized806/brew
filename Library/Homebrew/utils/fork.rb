@@ -214,6 +214,8 @@ module Utils
             child_reaped = true
           end
         ensure
+          # Stop the reader so closing its pipe cannot mask the original exception.
+          reader.kill if $ERROR_INFO
           # Close the pipes before reaping: a child blocked waiting for a
           # response must see EOF and exit or `waitpid` would deadlock.
           [error_read, error_write, response_read, response_write].compact.each do |pipe|

@@ -189,17 +189,14 @@ RSpec.describe Sandbox, :needs_macos do
       end
     end
 
-    it "runs a private Unix socket service online and offline" do
-      sandbox.allow_write_path(dir)
-
+    it "runs a private Unix socket task host online and offline" do
       expect do
         [true, false].each do |network_access_allowed|
           sandbox.deny_all_network unless network_access_allowed
-          sandbox.allow_network path: dir, type: :subpath
-          sandbox.run RbConfig.ruby, "-rsocket", "-rtimeout", "-e", <<~'RUBY', dir
-            Dir.chdir(ARGV.fetch(0))
+          sandbox.run RbConfig.ruby, "-rsocket", "-rtimeout", "-e", <<~'RUBY'
+            Dir.chdir(ENV.fetch("TMPDIR"))
             Dir.mkdir("sockets")
-            UNIXServer.open("sockets/database.sock") do |server|
+            UNIXServer.open("sockets/CoreFxPipe_task") do |server|
               pid = fork do
                 Timeout.timeout(5) do
                   client = server.accept
@@ -209,7 +206,7 @@ RSpec.describe Sandbox, :needs_macos do
               end
               begin
                 Timeout.timeout(5) do
-                  UNIXSocket.open("sockets/database.sock") do |client|
+                  UNIXSocket.open("sockets/CoreFxPipe_task") do |client|
                     client.sendmsg("query\n")
                     abort "Unexpected service response" unless client.gets == "QUERY\n"
                   end
@@ -219,10 +216,32 @@ RSpec.describe Sandbox, :needs_macos do
               end
               abort "Service failed" unless $?.success?
             end
-            File.unlink("sockets/database.sock")
+            File.unlink("sockets/CoreFxPipe_task")
             Dir.rmdir("sockets")
           RUBY
         end
+      end.not_to raise_error
+    end
+
+    it "connects to a private GnuPG agent when network access is denied" do
+      gpgconf = which("gpgconf", ENV.fetch("HOMEBREW_PATH"))
+      gpg_connect_agent = which("gpg-connect-agent", ENV.fetch("HOMEBREW_PATH"))
+      skip "GnuPG not installed." if !gpgconf || !gpg_connect_agent
+
+      # GnuPG uses absolute socket paths, which must fit macOS's 104-byte limit.
+      stub_const("HOMEBREW_TEMP", Pathname("/private/tmp"))
+      sandbox.deny_all_network
+
+      expect do
+        sandbox.run RbConfig.ruby, "-e", <<~RUBY, gpgconf, gpg_connect_agent
+          ENV["GNUPGHOME"] = File.join(ENV.fetch("TMPDIR"), "gnupg")
+          Dir.mkdir(ENV.fetch("GNUPGHOME"), 0700)
+          begin
+            abort "Agent connection failed" unless system(ARGV.fetch(1), "GETINFO pid", "/bye")
+          ensure
+            system(ARGV.fetch(0), "--kill", "all")
+          end
+        RUBY
       end.not_to raise_error
     end
 
