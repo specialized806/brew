@@ -11,10 +11,13 @@ module ELFTools::Constants
   include ::ELFTools::Constants::DF
   include ::ELFTools::Constants::DT
   include ::ELFTools::Constants::EM
+  include ::ELFTools::Constants::VER_FLG
+  include ::ELFTools::Constants::VER_NDX
   include ::ELFTools::Constants::ET
   include ::ELFTools::Constants::PF
   include ::ELFTools::Constants::PT
   include ::ELFTools::Constants::SHN
+  include ::ELFTools::Constants::PN
   include ::ELFTools::Constants::SHF
   include ::ELFTools::Constants::SHT
   include ::ELFTools::Constants::STB
@@ -459,6 +462,12 @@ module ELFTools::Constants::PF; end
 ELFTools::Constants::PF::PF_R = T.let(T.unsafe(nil), Integer)
 ELFTools::Constants::PF::PF_W = T.let(T.unsafe(nil), Integer)
 ELFTools::Constants::PF::PF_X = T.let(T.unsafe(nil), Integer)
+
+module ELFTools::Constants::PN
+  extend ::ELFTools::Constants::Naming
+end
+
+ELFTools::Constants::PN::PN_XNUM = T.let(T.unsafe(nil), Integer)
 module ELFTools::Constants::PT; end
 ELFTools::Constants::PT::PT_AARCH64_ARCHEXT = T.let(T.unsafe(nil), Integer)
 ELFTools::Constants::PT::PT_AARCH64_UNWIND = T.let(T.unsafe(nil), Integer)
@@ -495,6 +504,7 @@ module ELFTools::Constants::R
   class << self
     def mapping(machine, type); end
     def names_of(architecture); end
+    def relative(machine); end
   end
 end
 
@@ -4328,9 +4338,18 @@ ELFTools::Constants::STV::STV_DEFAULT = T.let(T.unsafe(nil), Integer)
 ELFTools::Constants::STV::STV_HIDDEN = T.let(T.unsafe(nil), Integer)
 ELFTools::Constants::STV::STV_INTERNAL = T.let(T.unsafe(nil), Integer)
 ELFTools::Constants::STV::STV_PROTECTED = T.let(T.unsafe(nil), Integer)
+module ELFTools::Constants::VER_FLG; end
+ELFTools::Constants::VER_FLG::VER_FLG_BASE = T.let(T.unsafe(nil), Integer)
+ELFTools::Constants::VER_FLG::VER_FLG_INFO = T.let(T.unsafe(nil), Integer)
+ELFTools::Constants::VER_FLG::VER_FLG_WEAK = T.let(T.unsafe(nil), Integer)
+module ELFTools::Constants::VER_NDX; end
+ELFTools::Constants::VER_NDX::VER_NDX_GLOBAL = T.let(T.unsafe(nil), Integer)
+ELFTools::Constants::VER_NDX::VER_NDX_HIDDEN = T.let(T.unsafe(nil), Integer)
+ELFTools::Constants::VER_NDX::VER_NDX_LOCAL = T.let(T.unsafe(nil), Integer)
 
 module ELFTools::Dynamic
   include ::ELFTools::Dynamic::Symbols
+  include ::ELFTools::Dynamic::Versions
 
   def each_tag(&block); end
   def each_tags(&block); end
@@ -4344,16 +4363,17 @@ module ELFTools::Dynamic
 
   def endian; end
   def offset_of(tag); end
+  def packed_relocations; end
   def read_relocations(start, size, rela); end
-  def read_struct(klass, offset); end
   def relocation_tables; end
   def str_offset; end
   def string_table; end
-  def struct(klass); end
 end
 
 class ELFTools::Dynamic::HashTable
   def initialize(stream, offset, elf_class:, endian:); end
+
+  def covers_every_symbol?; end
 
   private
 
@@ -4379,6 +4399,7 @@ end
 ELFTools::Dynamic::HashTable::Gnu::HEADER = ELFTools::Structs::ELF_GnuHash
 
 class ELFTools::Dynamic::HashTable::SysV < ::ELFTools::Dynamic::HashTable
+  def covers_every_symbol?; end
   def index_of(name); end
   def num_symbols; end
 
@@ -4407,8 +4428,12 @@ module ELFTools::Dynamic::Symbols
 
   private
 
+  def bounded_num_symbols; end
   def count_from_relocations; end
+  def counted_num_symbols; end
   def hash_tables; end
+  def string_table_reader; end
+  def sym_entsize; end
   def sym_offset; end
 end
 
@@ -4419,10 +4444,25 @@ class ELFTools::Dynamic::Tag
   def name; end
   def name?; end
   def stream; end
+  def type; end
   def value; end
 end
 
 ELFTools::Dynamic::Tag::TYPE_WITH_NAME = T.let(T.unsafe(nil), Array)
+
+module ELFTools::Dynamic::Versions
+  def version_definitions; end
+  def version_requirements; end
+
+  private
+
+  def read_table(address, count); end
+  def tables; end
+  def version_at(n); end
+  def versions_by_index; end
+  def versym_at(n); end
+end
+
 class ELFTools::ELFClassError < ::ELFTools::ELFError; end
 class ELFTools::ELFDataError < ::ELFTools::ELFError; end
 class ELFTools::ELFError < ::StandardError; end
@@ -4462,6 +4502,9 @@ class ELFTools::ELFFile
 
   def create_section(n); end
   def create_segment(n); end
+  def first_section_header; end
+  def headers_in(obj, seen); end
+  def held_by(obj); end
   def identify; end
   def loaded_headers; end
 end
@@ -4505,27 +4548,46 @@ end
 
 ELFTools::Note::SIZE_OF_NHDR = T.let(T.unsafe(nil), Integer)
 
+class ELFTools::RelativeRelocations
+  def initialize(stream, bytes, elf_class:, endian:, machine:); end
+
+  def to_a; end
+
+  private
+
+  def addresses; end
+  def entries; end
+  def width; end
+end
+
 class ELFTools::Relocation
   def initialize(header, stream, machine: T.unsafe(nil)); end
 
   def header; end
   def stream; end
   def symbol_index; end
+  def symbol_index=(index); end
   def type; end
+  def type=(type); end
   def type_name; end
 
   private
 
+  def index_bits; end
+  def info_of(index, type); end
   def mask_bit; end
   def mips64?; end
+  def mips64_info_of(index, type); end
   def mips64_sym_and_type; end
   def sym_and_type; end
+  def type_bits; end
 end
 
 module ELFTools::Sections; end
 
 class ELFTools::Sections::DynamicSection < ::ELFTools::Sections::Section
   include ::ELFTools::Dynamic::Symbols
+  include ::ELFTools::Dynamic::Versions
   include ::ELFTools::Dynamic
 
   def initialize(header, stream, machine: T.unsafe(nil), **_kwargs); end
@@ -4544,6 +4606,13 @@ class ELFTools::Sections::NullSection < ::ELFTools::Sections::Section
   def null?; end
 end
 
+class ELFTools::Sections::RelativeRelocationSection < ::ELFTools::Sections::Section
+  def initialize(header, stream, machine: T.unsafe(nil), **_kwargs); end
+
+  def num_relocations; end
+  def relocations; end
+end
+
 class ELFTools::Sections::RelocationSection < ::ELFTools::Sections::Section
   def initialize(header, stream, machine: T.unsafe(nil), **_kwargs); end
 
@@ -4557,17 +4626,22 @@ class ELFTools::Sections::RelocationSection < ::ELFTools::Sections::Section
   private
 
   def create_relocation(n); end
+  def entsize; end
+  def table_offset; end
 end
 
 class ELFTools::Sections::Section
   def initialize(header, stream, offset_from_vma: T.unsafe(nil), section_name_table: T.unsafe(nil), **_kwargs); end
 
+  def allocated?; end
   def data; end
+  def executable?; end
   def header; end
   def name; end
   def null?; end
   def stream; end
   def type; end
+  def writable?; end
 
   class << self
     def create(header, stream, *args, **kwargs); end
@@ -4579,7 +4653,7 @@ class ELFTools::Sections::StrTabSection < ::ELFTools::Sections::Section
 end
 
 class ELFTools::Sections::SymTabSection < ::ELFTools::Sections::Section
-  def initialize(header, stream, section_at: T.unsafe(nil), machine: T.unsafe(nil), **_kwargs); end
+  def initialize(header, stream, sections: T.unsafe(nil), machine: T.unsafe(nil), **_kwargs); end
 
   def each_symbol(&block); end
   def each_symbols(&block); end
@@ -4592,27 +4666,66 @@ class ELFTools::Sections::SymTabSection < ::ELFTools::Sections::Section
   private
 
   def create_symbol(n); end
+  def entsize; end
+  def symstr_reader; end
+  def table_offset; end
+  def version_at(n); end
+  def versions; end
+  def versions_by_index; end
 end
 
 class ELFTools::Sections::Symbol
-  def initialize(header, stream, symstr: T.unsafe(nil), machine: T.unsafe(nil)); end
+  def initialize(header, stream, symstr: T.unsafe(nil), machine: T.unsafe(nil), version: T.unsafe(nil)); end
 
   def bind; end
+  def bind=(bind); end
   def bind_name; end
   def header; end
   def name; end
   def section_index; end
+  def size; end
   def stream; end
   def type; end
+  def type=(type); end
   def type_name; end
+  def value; end
+  def version; end
+  def version_hidden?; end
   def visibility; end
+  def visibility=(visibility); end
   def visibility_name; end
+
+  private
+
+  def binding_version; end
+end
+
+class ELFTools::Sections::VersionDefinitionSection < ::ELFTools::Sections::Section
+  def initialize(header, stream, section_at: T.unsafe(nil), **_kwargs); end
+
+  def definitions; end
+end
+
+class ELFTools::Sections::VersionNeedSection < ::ELFTools::Sections::Section
+  def initialize(header, stream, section_at: T.unsafe(nil), **_kwargs); end
+
+  def requirements; end
+end
+
+class ELFTools::Sections::VersionSection < ::ELFTools::Sections::Section
+  def num_versions; end
+  def version_at(n); end
+
+  private
+
+  def entry_size; end
 end
 
 module ELFTools::Segments; end
 
 class ELFTools::Segments::DynamicSegment < ::ELFTools::Segments::Segment
   include ::ELFTools::Dynamic::Symbols
+  include ::ELFTools::Dynamic::Versions
   include ::ELFTools::Dynamic
 
   def tag_start; end
@@ -4708,17 +4821,34 @@ class ELFTools::Structs::ELFStruct < ::BinData::Record
   def offset; end
   def offset=(_arg0); end
   def patches; end
+  def read(io); end
   def to_h; end
+
+  private
+
+  def bytes_read(io, start); end
+  def changed_runs(before, after); end
 
   class << self
     def inherited(subclass); end
     def new(*args); end
+    def num_bytes(elf_class:, endian:); end
     def pack(val, bytes); end
     def self_endian; end
+    def unpack_fields(bytes, elf_class:, endian:); end
+
+    private
+
+    def field_names(elf_class, endian); end
+    def field_template(field, endian); end
+    def prototype(elf_class, endian); end
+    def unpack_template(elf_class, endian); end
   end
 end
 
 ELFTools::Structs::ELFStruct::CHOICE_SIZE_T = T.let(T.unsafe(nil), Proc)
+ELFTools::Structs::ELFStruct::SET_BITS = T.let(T.unsafe(nil), String)
+ELFTools::Structs::ELFStruct::UNPACK_TEMPLATES = T.let(T.unsafe(nil), Hash)
 
 class ELFTools::Structs::ELF_Dyn < ::ELFTools::Structs::ELFStruct
   class << self
@@ -4802,17 +4932,129 @@ end
 
 class ELFTools::Structs::ELF_ShdrBe < ::ELFTools::Structs::ELF_Shdr; end
 class ELFTools::Structs::ELF_ShdrLe < ::ELFTools::Structs::ELF_Shdr; end
+
+class ELFTools::Structs::ELF_Verdaux < ::ELFTools::Structs::ELFStruct
+  class << self
+    def inherited(subclass); end
+    def new(*args); end
+  end
+end
+
+class ELFTools::Structs::ELF_VerdauxBe < ::ELFTools::Structs::ELF_Verdaux; end
+class ELFTools::Structs::ELF_VerdauxLe < ::ELFTools::Structs::ELF_Verdaux; end
+
+class ELFTools::Structs::ELF_Verdef < ::ELFTools::Structs::ELFStruct
+  class << self
+    def inherited(subclass); end
+    def new(*args); end
+  end
+end
+
+class ELFTools::Structs::ELF_VerdefBe < ::ELFTools::Structs::ELF_Verdef; end
+class ELFTools::Structs::ELF_VerdefLe < ::ELFTools::Structs::ELF_Verdef; end
+
+class ELFTools::Structs::ELF_Vernaux < ::ELFTools::Structs::ELFStruct
+  class << self
+    def inherited(subclass); end
+    def new(*args); end
+  end
+end
+
+class ELFTools::Structs::ELF_VernauxBe < ::ELFTools::Structs::ELF_Vernaux; end
+class ELFTools::Structs::ELF_VernauxLe < ::ELFTools::Structs::ELF_Vernaux; end
+
+class ELFTools::Structs::ELF_Verneed < ::ELFTools::Structs::ELFStruct
+  class << self
+    def inherited(subclass); end
+    def new(*args); end
+  end
+end
+
+class ELFTools::Structs::ELF_VerneedBe < ::ELFTools::Structs::ELF_Verneed; end
+class ELFTools::Structs::ELF_VerneedLe < ::ELFTools::Structs::ELF_Verneed; end
 ELFTools::Structs::ELF_sym = T.let(T.unsafe(nil), Hash)
+
+class ELFTools::Structs::Fields
+  def initialize(klass, stream, offset, elf_class:, endian:); end
+
+  def [](name); end
+  def []=(name, value); end
+  def elf_class; end
+  def endian; end
+  def struct; end
+
+  private
+
+  def build; end
+  def built_from(struct); end
+  def made_of(klass, fields, elf_class, endian, offset); end
+  def new_struct; end
+  def read; end
+  def unpack; end
+
+  class << self
+    def from(klass, fields, elf_class:, endian:, offset:); end
+    def of(struct); end
+  end
+end
 
 module ELFTools::Util
   extend ::ELFTools::Util::ClassMethods
 end
 
+ELFTools::Util::CSTRING_CHUNK = T.let(T.unsafe(nil), Integer)
+
 module ELFTools::Util::ClassMethods
   def align(num, bit); end
   def cstring(stream, offset); end
+  def fits!(value, bits, name); end
   def select_by_type(enum, type); end
   def to_constant(mod, val); end
+
+  private
+
+  def constants_of(mod); end
+  def values_of(mod); end
 end
 
 ELFTools::VERSION = T.let(T.unsafe(nil), String)
+
+class ELFTools::VersionTables
+  def initialize(stream, strtab, endian:); end
+
+  def definitions(at, count); end
+  def requirements(at, count); end
+
+  private
+
+  def chain(at, count, klass, following); end
+
+  class << self
+    def names(requirements, definitions); end
+    def version(recorded, names); end
+  end
+end
+
+class ELFTools::VersionTables::Definition
+  def initialize(name, index, parents, base: T.unsafe(nil)); end
+
+  def base?; end
+  def index; end
+  def name; end
+  def parents; end
+end
+
+class ELFTools::VersionTables::Requirement
+  def initialize(file, versions); end
+
+  def file; end
+  def versions; end
+end
+
+class ELFTools::VersionTables::Version
+  def initialize(name, index, hidden: T.unsafe(nil)); end
+
+  def hidden?; end
+  def index; end
+  def name; end
+end
