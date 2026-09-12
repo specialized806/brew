@@ -128,6 +128,11 @@ RSpec.describe Cask::Utils do
       allow(Process).to receive(:euid).and_return(foreign_uid)
 
       expect(described_class.ownership_problem?(file, recursive: false)).to be false
+    end
+
+    it "is false when the path does not exist and the check is recursive" do
+      allow(Process).to receive(:euid).and_return(foreign_uid)
+
       expect(described_class.ownership_problem?(file, recursive: true)).to be false
     end
 
