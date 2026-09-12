@@ -570,7 +570,7 @@ class Sandbox
     ).void
   }
   def run(*args, passthrough_stdin: true, child_message_handler: nil, retain_tmp: false, debug: false)
-    Mktemp.new("sandbox", retain: retain_tmp).run(chdir: false) do |staging|
+    Mktemp.new("sandbox", retain: retain_tmp, compact: true).run(chdir: false) do |staging|
       temporary = staging.tmpdir
       raise "Sandbox temporary directory is unexpectedly unset." if temporary.nil?
 
