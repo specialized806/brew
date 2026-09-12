@@ -106,6 +106,9 @@ module Homebrew
             else
               srb_exec << "--disable-watchman"
             end
+          else
+            # Sorbet's LSP mode allows only one input directory.
+            cd("sorbet") { srb_exec << "--dir" << "../../.github/scripts" }
           end
 
           srb_exec += ["--ignore", args.ignore] if args.ignore.present?
