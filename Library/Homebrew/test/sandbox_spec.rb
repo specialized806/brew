@@ -61,6 +61,12 @@ RSpec.describe Sandbox, :needs_macos do
       expect(sandbox.seatbelt_profile).to include('(global-name "com.apple.mobileassetd.v2")')
     end
 
+    it "allows runtime Metal compilation when network access is denied" do
+      sandbox.deny_all_network
+
+      expect(sandbox.seatbelt_profile).to include('(xpc-service-name "com.apple.MTLCompilerService")')
+    end
+
     it "allows process discovery when network access is denied" do
       sandbox.deny_all_network
 
@@ -403,6 +409,21 @@ RSpec.describe Sandbox, :needs_macos do
       expect do
         sandbox.run "/usr/bin/xcrun", "--no-cache", "--sdk", "macosx", "metal", "--version"
       end.not_to raise_error
+    end
+
+    it "compiles a fresh Metal kernel when network access is denied" do
+      SystemCommand.run!("/usr/bin/clang", args: [
+        "-fobjc-arc", "-framework", "Foundation", "-framework", "Metal", fixture("metal.m"), "-o", file
+      ])
+      control = SystemCommand.run(file)
+      skip "Metal device not available." if control.exit_status == 77
+
+      control.assert_success!
+      sandbox.allow_write_temp_and_cache
+      sandbox.deny_read_home
+      sandbox.deny_all_network
+
+      expect { sandbox.run file }.not_to raise_error
     end
 
     it "allows pgrep to find a child process when network access is denied" do
