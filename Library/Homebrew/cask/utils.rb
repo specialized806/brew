@@ -118,7 +118,8 @@ module Cask
         end
 
         # in case of ownership problems
-        if !tried_ownership && ownership_problem?(path, recursive: command_args.include?("-R"))
+        recursive = command_args.include?("-R")
+        if !tried_ownership && ownership_problem?(path, recursive:)
           ohai "Using sudo to gain ownership of path '#{path}'"
           command.run("chown",
                       args: command_args + ["--", User.current.to_s, path],
