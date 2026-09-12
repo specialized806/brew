@@ -92,9 +92,6 @@ module Cask
       ).void
     }
     def self.gain_permissions(path, command_args, command, &_block)
-      # `T.let` because Sorbet does not model `retry` as a back edge, so it
-      # would otherwise narrow both to `FalseClass` and treat everything after
-      # the first `retry` as unreachable.
       tried_permissions = T.let(false, T::Boolean)
       tried_ownership = T.let(false, T::Boolean)
       begin
