@@ -1501,6 +1501,7 @@ If in your local Homebrew build of your new formula, you see `Operation not perm
 
 Each sandboxed command receives a private temporary directory under the configured `HOMEBREW_TEMP`, exposed through `TMPDIR`, `TEMP` and `TMP`.
 On macOS, the sandbox allows Unix socket connections within this directory, including when network access is disabled, so tools such as MSBuild can communicate with their task hosts.
+macOS limits Unix socket paths to 104 bytes; C clients that terminate the path get 103 bytes, and libassuan allows only 102 bytes.
 Connections to other Unix sockets remain restricted.
 
 ### Fortran
