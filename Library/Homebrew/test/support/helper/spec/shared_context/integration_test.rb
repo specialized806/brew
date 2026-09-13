@@ -142,7 +142,7 @@ module Test
         test_prefix_library.mkpath
         FileUtils.ln_sf HOMEBREW_LIBRARY_PATH, test_prefix_library/"Homebrew"
         # `cp` would keep the touched file's non-executable mode.
-        FileUtils.install HOMEBREW_ORIGINAL_BREW_FILE, HOMEBREW_PREFIX/"bin/brew", mode: 0755
+        FileUtils.install HOMEBREW_BREW_FILE, HOMEBREW_PREFIX/"bin/brew", mode: 0755
         (HOMEBREW_PREFIX/"bin/brew").to_s
       end
 
