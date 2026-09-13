@@ -35,6 +35,9 @@ module OS
         end
 
         sig { void }
+        def check_prefix; end
+
+        sig { void }
         def check_cpu
           return if ::Hardware::CPU.intel? && ::Hardware::CPU.is_64_bit?
           return if ::Hardware::CPU.arm?

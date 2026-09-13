@@ -25,6 +25,12 @@ RSpec.describe Homebrew::Install do
     described_class.perform_preinstall_checks
   end
 
+  describe "::check_prefix", :needs_linux do
+    it "does not error on Linux" do
+      expect { described_class.check_prefix }.not_to raise_error
+    end
+  end
+
   describe "::fetch_formulae" do
     it "skips formulae whose fetch steps raise and continues with the rest" do
       good_fi = FormulaInstaller.new(formula("good-bottle") do
