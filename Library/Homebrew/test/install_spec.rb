@@ -25,8 +25,14 @@ RSpec.describe Homebrew::Install do
     described_class.perform_preinstall_checks
   end
 
-  describe "::check_prefix", :needs_linux do
-    it "does not error on Linux" do
+  specify "::check_prefix enforces macOS prefixes only on macOS" do
+    stub_const("HOMEBREW_PREFIX", Pathname("/opt/homebrew"))
+    stub_const("HOMEBREW_MACOS_ARM_DEFAULT_PREFIX", "/opt/homebrew")
+    allow(Hardware::CPU).to receive_messages(intel?: true, in_rosetta2?: false)
+
+    if OS.mac?
+      expect { described_class.check_prefix }.to raise_error(SystemExit)
+    else
       expect { described_class.check_prefix }.not_to raise_error
     end
   end

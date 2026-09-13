@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-08-25"
+last_review_date: "2026-09-13"
 ---
 
 # FAQ (Frequently Asked Questions)
@@ -104,20 +104,20 @@ If available, bottled binaries will be used by default except under the followin
 
 * The `--build-from-source` option is invoked.
 * No bottle is available for the machine's currently running OS version. (Bottles for macOS are generated only for supported macOS versions.)
-* Homebrew is installed to a prefix other than the default (although some bottles support this).
+* The bottle cannot be relocated to Homebrew's prefix or Cellar.
 * Formula options were passed to the install command. For example, `brew install <formula>` will try to find a bottled binary, but `brew install --with-foo <formula>` will trigger a source build.
 
 We aim to bottle everything.
 
 ## Why should I install Homebrew in the default location?
 
-Homebrew's pre-built binary packages (known as [bottles](Bottles.md)) of many formulae can only be used if you install in the default installation prefix, otherwise they have to be built from source. Building from source takes a long time, is prone to failure, and is not supported. The default prefix is:
+Homebrew's default prefix supports its pre-built binary packages (known as [bottles](Bottles.md)) and is used by the installer:
 
 * `/opt/homebrew` for macOS on Apple Silicon,
 * `/usr/local` for macOS on Intel, and
 * `/home/linuxbrew/.linuxbrew` for Linux.
 
-Do yourself a favour and install to the default prefix so that you can use our pre-built binary packages. *Pick another prefix at your peril!*
+Compatible [custom prefixes](Support-Tiers.md#custom-prefixes) can also use bottles.
 
 ## Why is the default installation prefix `/opt/homebrew` on Apple Silicon?
 

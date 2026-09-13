@@ -254,6 +254,13 @@ RSpec.describe Homebrew::Diagnostic::Checks do
       .to match("Your Homebrew's prefix is not #{Homebrew::DEFAULT_PREFIX}")
   end
 
+  specify "#check_homebrew_prefix accepts relocatable prefixes without a finding" do
+    allow(Homebrew).to receive(:default_prefix?).and_return(false)
+    allow(BottleSpecification).to receive(:compatible_locations?).and_return(true)
+
+    expect(checks.check_homebrew_prefix).to be_nil
+  end
+
   specify "#check_for_unnecessary_core_tap" do
     ENV.delete("HOMEBREW_DEVELOPER")
 
