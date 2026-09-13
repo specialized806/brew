@@ -483,7 +483,8 @@ class FormulaInstaller
 
     recursive_deps = if pour_bottle?
       # Include implicit dependencies (except duplicates) in formulae to check
-      (formula.runtime_dependencies + formula.deps.select(&:implicit?)).uniq(&:name)
+      (formula.runtime_dependencies(read_from_tab: false, undeclared: false) + formula.deps.select(&:implicit?))
+        .uniq(&:name)
     else
       formula.recursive_dependencies
     end

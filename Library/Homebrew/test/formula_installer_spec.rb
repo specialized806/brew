@@ -1188,6 +1188,41 @@ RSpec.describe FormulaInstaller do
   end
 
   describe "#check_install_sanity" do
+    it "ignores removed dependencies from an installed version when pouring a bottle" do
+      f = TestballBottle.new
+      (f.prefix("0.0")/"bin").mkpath
+      tab = Tab.empty
+      tab.tabfile = f.prefix("0.0")/AbstractTab::FILENAME
+      tab.runtime_dependencies = [{ "full_name" => "removed-dependency" }]
+      tab.write
+      installer = described_class.new(f)
+      allow(installer).to receive(:pour_bottle?).and_return(true)
+
+      expect { installer.check_install_sanity }.not_to raise_error
+    end
+
+    it "checks current dependencies when the installed bottle had none" do
+      dependency = formula "current-dependency" do
+        url "https://brew.sh/current-dependency-1.0.tar.gz"
+      end
+      stub_formula_loader dependency
+      allow(dependency).to receive(:pinned?).and_return(true)
+      f = formula do
+        url "https://brew.sh/testball-1.0.tar.gz"
+        depends_on "current-dependency"
+      end
+      (f.prefix("0.0")/"bin").mkpath
+      tab = Tab.empty
+      tab.tabfile = f.prefix("0.0")/AbstractTab::FILENAME
+      tab.runtime_dependencies = []
+      tab.write
+      installer = described_class.new(f)
+      allow(installer).to receive(:pour_bottle?).and_return(true)
+
+      expect { installer.check_install_sanity }
+        .to raise_error(CannotInstallFormulaError, /brew unpin current-dependency/)
+    end
+
     it "does not assign a support tier when a bottle is unavailable" do
       installer = described_class.new(Testball.new, ignore_deps: true)
       allow(Homebrew).to receive(:default_prefix?).and_return(true)

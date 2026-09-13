@@ -4461,17 +4461,22 @@ class Formula
     def build = stable.build
 
     # Get the `BUILD_FLAGS` from the formula's namespace set in `Formulary::load_formula`.
+    # The namespace is derived dynamically from the formula's own name.
+    # rubocop:disable Sorbet/ConstantsFromStrings
     sig { returns(T::Array[String]) }
     def build_flags
-      namespace = Utils.deconstantize(to_s)
-      return [] if namespace.empty?
-
-      # The namespace is derived dynamically from the formula's own name.
-      # rubocop:disable Sorbet/ConstantsFromStrings
-      mod = const_get(namespace)
-      mod.const_get(:BUILD_FLAGS)
-      # rubocop:enable Sorbet/ConstantsFromStrings
+      formula_namespace&.const_get(:BUILD_FLAGS) || []
     end
+
+    sig { returns(T.nilable(T::Module[T.anything])) }
+    def formula_namespace
+      namespace = Utils.deconstantize(to_s)
+      return if namespace.empty?
+
+      const_get(namespace)
+    end
+    private :formula_namespace
+    # rubocop:enable Sorbet/ConstantsFromStrings
 
     # Allows adding {.depends_on} and {Patch}es just to the {.stable} {SoftwareSpec}.
     # This is required instead of using a conditional.
@@ -5011,7 +5016,8 @@ class Formula
         raise ArgumentError, "no_autobump! can only be used in official Homebrew taps." if tap && !tap.official?
       end
 
-      if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because)
+      if because.is_a?(Symbol) && !NO_AUTOBUMP_REASONS_LIST.key?(because) &&
+         !formula_namespace&.const_defined?(:LOADED_FROM_METADATA, false)
         raise ArgumentError, "'because' argument should use valid symbol or a string!"
       end
 
