@@ -5,12 +5,12 @@ require "cxxstdlib"
 require "options"
 require "json"
 require "development_tools"
-require "cachable"
+require "cacheable"
 
 # Rather than calling `new` directly, use one of the class methods like {Tab.create}.
 class AbstractTab
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   extend T::Helpers
 
   Cache = type_template { { fixed: T::Hash[T.any(Pathname, String), T.untyped] } }

@@ -3,7 +3,7 @@
 
 require "digest/sha2"
 require "uri"
-require "cachable"
+require "cacheable"
 require "tab"
 require "utils"
 require "utils/bottles"
@@ -22,7 +22,7 @@ require "tap"
 module Formulary
   extend Context
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   extend Utils::Output::Mixin
   include Utils::Output::Mixin
 

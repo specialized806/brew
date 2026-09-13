@@ -1,7 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "cachable"
+require "cacheable"
 require "api"
 require "api/source_download"
 require "api/formula/formula_struct_generator"
@@ -11,7 +11,7 @@ module Homebrew
     # Helper functions for using the formula JSON API.
     module Formula
       extend T::Generic
-      extend Cachable
+      extend Cacheable
 
       Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
 

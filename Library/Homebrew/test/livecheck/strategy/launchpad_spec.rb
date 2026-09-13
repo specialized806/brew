@@ -67,7 +67,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Launchpad do
   end
 
   describe "::generate_input_values" do
-    it "returns a hash containing url and regex for an Launchpad URL" do
+    it "returns a hash containing url and regex for a Launchpad URL" do
       expect(launchpad.generate_input_values(launchpad_urls[:version_dir])).to eq(generated)
       expect(launchpad.generate_input_values(launchpad_urls[:trunk])).to eq(generated)
       expect(launchpad.generate_input_values(launchpad_urls[:code_subdomain])).to eq(generated)

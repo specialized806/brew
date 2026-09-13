@@ -210,7 +210,7 @@ RSpec.describe Cask::DSL, :cask, :no_api do
     end
   end
 
-  describe "no_autobump! stanze" do
+  describe "no_autobump! stanza" do
     it "returns true if no_autobump! is not set" do
       expect(cask.autobump?).to be(true)
     end

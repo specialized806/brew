@@ -253,7 +253,7 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
         end
 
         it "handles service lifecycle correctly" do
-          # The order of operations is important. This unweildly looking test is so it tests that.
+          # The order of operations is important. This unwieldy looking test is so it tests that.
 
           # Return original service state
           expect(Utils).to receive(:safe_popen_read)

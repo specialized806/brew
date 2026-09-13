@@ -152,7 +152,7 @@ require "extend/kernel"
 require "os"
 
 require "extend/array"
-require "cachable"
+require "cacheable"
 require "extend/enumerable"
 require "extend/string"
 require "extend/pathname"

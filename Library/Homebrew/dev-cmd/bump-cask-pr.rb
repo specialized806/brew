@@ -51,7 +51,7 @@ module Homebrew
         flag   "--sha256=",
                description: "Specify the <SHA-256> checksum of the new download."
         flag   "--fork-org=",
-               description: "Use the specified GitHub organization for forking."
+               description: "Use the specified GitHub organisation for forking."
 
         conflicts "--dry-run", "--write"
         conflicts "--version", "--version-arm"

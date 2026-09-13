@@ -86,7 +86,7 @@ homepage "https://www.example.com", browsed: "2026-07-26"
 
 This skips automated homepage availability audits for one year. Do not use a future date.
 
-Try to summarise from the [`homepage`](/rubydoc/Formula.html#homepage-class_method) what the formula does in the [`desc`](/rubydoc/Formula.html#desc-class_method)ription. Note that the [`desc`](/rubydoc/Formula.html#desc-class_method)ription is automatically prepended with the formula name when printed.
+Try to summarise from the [`homepage`](/rubydoc/Formula.html#homepage-class_method) what the formula does in the [`desc`](/rubydoc/Formula.html#desc-class_method). Note that the [`desc`](/rubydoc/Formula.html#desc-class_method) is automatically prepended with the formula name when printed.
 
 ### Fill in the `license`
 
@@ -1288,7 +1288,7 @@ end
 
 #### Service block methods
 
-This table lists the options you can set within a `service` block. The `run` or `name` field must be defined inside the service block. If `name` is defined without `run`, then Homebrew makes no attempt to change the package-provided service file according these fields. The `run` field indicates what command to run, instructs Homebrew to create a service description file using options set in the block, and therefore is required before using fields other than `name` and `require_root`.
+This table lists the options you can set within a `service` block. The `run` or `name` field must be defined inside the service block. If `name` is defined without `run`, then Homebrew makes no attempt to change the package-provided service file according to these fields. The `run` field indicates what command to run, instructs Homebrew to create a service description file using options set in the block, and therefore is required before using fields other than `name` and `require_root`.
 
 | method                  | default      | macOS | Linux | description |
 | ----------------------- | ------------ | :---: | :---: | ----------- |

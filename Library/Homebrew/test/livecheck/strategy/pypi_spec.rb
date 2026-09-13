@@ -39,7 +39,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Pypi do
   end
 
   describe "::generate_input_values" do
-    it "returns a hash containing url and regex for an PyPI URL" do
+    it "returns a hash containing url and regex for a PyPI URL" do
       expect(pypi.generate_input_values(pypi_url)).to eq(generated)
     end
 

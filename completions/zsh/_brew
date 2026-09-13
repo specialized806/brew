@@ -640,7 +640,7 @@ _brew_bump_cask_pr() {
     '--commit[When passed with `--write-only`, generate a new commit after writing changes to the cask file]' \
     '--debug[Display any debugging information]' \
     '(--write)--dry-run[Print what would be done rather than doing it]' \
-    '--fork-org[Use the specified GitHub organization for forking]' \
+    '--fork-org[Use the specified GitHub organisation for forking]' \
     '--help[Show this message]' \
     '--message[Prepend message to the default pull request message]' \
     '--no-audit[Don'\''t run `brew audit` before opening the PR]' \
@@ -680,7 +680,7 @@ _brew_bump_formula_pr() {
     '--debug[Display any debugging information]' \
     '(--write-only)--dry-run[Print what would be done rather than doing it]' \
     '--force[Remove all mirrors if `--mirror` was not specified]' \
-    '--fork-org[Use the specified GitHub organization for forking]' \
+    '--fork-org[Use the specified GitHub organisation for forking]' \
     '--help[Show this message]' \
     '--install-dependencies[Install missing dependencies required to update resources]' \
     '--message[Prepend message to the default pull request message]' \
