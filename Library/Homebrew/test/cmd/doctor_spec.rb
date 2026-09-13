@@ -19,6 +19,32 @@ RSpec.describe Homebrew::Cmd::Doctor do
       .to output(/"tier": 1/).to_stdout
   end
 
+  context "with a relocatable custom prefix" do
+    before do
+      allow(Utils::Bottles).to receive(:tag).and_return(Utils::Bottles::Tag.from_symbol(:arm64_tahoe))
+      allow(Utils::Bottles.tag).to receive(:default_cellar).and_return(Homebrew::DEFAULT_CELLAR)
+      stub_const("HOMEBREW_PREFIX", Pathname("/brew"))
+      stub_const("HOMEBREW_CELLAR", HOMEBREW_PREFIX/"Cellar")
+    end
+
+    it "does not print a prefix warning or support tier" do
+      expect { described_class.new(["check_homebrew_prefix"]).run }
+        .to output("Your system is ready to brew.\n").to_stdout
+        .and output("").to_stderr
+    end
+
+    it "does not fail" do
+      described_class.new(["check_homebrew_prefix", "--quiet"]).run
+
+      expect(Homebrew).not_to be_failed
+    end
+
+    it "reports Tier 1 without findings in JSON" do
+      expect { described_class.new(["check_homebrew_prefix", "--json"]).run }
+        .to output("#{JSON.pretty_generate({ tier: 1, findings: [] })}\n").to_stdout
+    end
+  end
+
   [
     [[], 1],
     [[1, 2, 3, 2], 3],

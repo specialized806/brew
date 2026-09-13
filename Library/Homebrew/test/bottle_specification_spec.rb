@@ -45,11 +45,13 @@ RSpec.describe BottleSpecification do
     end
   end
 
-  describe "#compatible_locations?" do
-    it "checks if the bottle cellar is relocatable" do
-      expect(bottle_spec.compatible_locations?).to be false
+  describe ".compatible_locations?" do
+    it "checks if default bottles can be relocated" do
+      expect(described_class.compatible_locations?).to be false
     end
+  end
 
+  describe "#compatible_locations?" do
     it "accepts a longer bottle cellar by default" do
       bottle_spec.sha256(cellar: "#{HOMEBREW_CELLAR}-longer", Utils::Bottles.tag.to_sym => "deadbeef" * 8)
 

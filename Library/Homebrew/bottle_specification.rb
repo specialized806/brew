@@ -82,6 +82,10 @@ class BottleSpecification
     end
   end
 
+  # Whether bottles built in the default prefix can be installed here.
+  sig { returns(T::Boolean) }
+  def self.compatible_locations? = new.compatible_locations?
+
   sig {
     params(tag: Utils::Bottles::Tag, built_prefix: T.nilable(String), padded_prefix: T::Boolean)
       .returns(T::Boolean)

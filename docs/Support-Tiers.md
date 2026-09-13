@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-08-27"
+last_review_date: "2026-09-13"
 ---
 
 # Support Tiers
@@ -29,7 +29,7 @@ To qualify as Tier 1, a macOS configuration must meet all of the following:
 
 - On official Apple Silicon hardware (not a virtual machine)
 - Running the latest patch release of a macOS version supported by Apple for that hardware and included in Homebrew’s CI coverage (typically the latest stable or prerelease version and the two preceding versions)
-- Installed in the default prefix: `/opt/homebrew`
+- Installed in the default prefix (`/opt/homebrew`) or a [compatible custom prefix](#custom-prefixes)
 - Not building official packages from source (i.e. using bottles)
 - Installed on the Mac’s internal storage (not external or removable drives)
 - Running with `sudo` access available
@@ -44,10 +44,22 @@ To qualify as Tier 1, a Linux configuration must meet all of the following:
   - a Homebrew-provided Docker image
 - Using a system `glibc` version ≥ 2.39
 - Using a Linux kernel version ≥ 3.2
-- Installed in the default prefix: `/home/linuxbrew/.linuxbrew`
+- Installed in the default prefix (`/home/linuxbrew/.linuxbrew`) or a [compatible custom prefix](#custom-prefixes)
 - Using a supported architecture (ARM64/AArch64 or Intel x86_64 with SSSE3 support)
 - Not building official packages from source (i.e. using bottles)
 - Running with `sudo` access available
+
+### Custom prefixes
+
+A custom prefix must be equal to or shorter in bytes than the platform's default:
+
+- Apple Silicon macOS: `/opt/homebrew` (13 bytes); `/opt/brew` fits, but `/opt/homebrew-extra` is too long.
+- Intel macOS: `/usr/local` (10 bytes); `/opt/brew` fits, but `/opt/homebrew` is too long.
+- Linux: `/home/linuxbrew/.linuxbrew` (26 bytes); `/opt/homebrew` fits, but `/home/linuxbrew/.linuxbrew-extra` is too long.
+
+The Cellar path must also be equal to or shorter in bytes than the corresponding default prefix followed by `/Cellar`.
+With build prefix relocation enabled (the default), these installations qualify for Tier 1 when all other Tier 1 requirements are met; Intel macOS remains Tier 3.
+This support is new and may not yet be fully stable, even for Tier 1 configurations.
 
 ## Tier 2
 
@@ -67,7 +79,6 @@ Tier 2 configurations include:
 - macOS prerelease versions before they are promoted to Tier 1
 - macOS systems with outdated versions of Xcode Command Line Tools
 - Linux systems with `glibc` versions between 2.13 and 2.38 (Homebrew’s own `glibc` formula will be installed automatically)
-- Homebrew installed outside the default prefix, requiring source builds for official packages (i.e. installing outside `/opt/homebrew`, `/usr/local` or `/home/linuxbrew/.linuxbrew`)
 - Architectures not yet officially supported by Homebrew
 
 ## Tier 3
@@ -90,7 +101,7 @@ Tier 3 configurations include:
 
 - macOS versions no longer covered by CI and no longer receiving regular Apple security updates
 - Systems that build official packages from source despite available bottles
-- Homebrew installed outside the default prefix (e.g. `/opt/homebrew`, `/usr/local` or `/home/linuxbrew/.linuxbrew` used on mismatched architectures)
+- Homebrew installed outside the default prefix with a prefix or Cellar longer in bytes than the platform's defaults, or with build prefix relocation disabled
 - Homebrew installations managed by Nix (e.g. nix-darwin or nix-homebrew)
 - Homebrew invoked through a third-party wrapper
 - Installing formulae using `--HEAD`

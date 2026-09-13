@@ -25,6 +25,18 @@ RSpec.describe Homebrew::Install do
     described_class.perform_preinstall_checks
   end
 
+  specify "::check_prefix enforces macOS prefixes only on macOS" do
+    stub_const("HOMEBREW_PREFIX", Pathname("/opt/homebrew"))
+    stub_const("HOMEBREW_MACOS_ARM_DEFAULT_PREFIX", "/opt/homebrew")
+    allow(Hardware::CPU).to receive_messages(intel?: true, in_rosetta2?: false)
+
+    if OS.mac?
+      expect { described_class.check_prefix }.to raise_error(SystemExit)
+    else
+      expect { described_class.check_prefix }.not_to raise_error
+    end
+  end
+
   describe "::fetch_formulae" do
     it "skips formulae whose fetch steps raise and continues with the rest" do
       good_fi = FormulaInstaller.new(formula("good-bottle") do

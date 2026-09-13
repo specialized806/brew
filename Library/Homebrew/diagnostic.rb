@@ -1244,12 +1244,13 @@ module Homebrew
       def check_homebrew_prefix
         return if Homebrew.default_prefix?
         return if ENV["HOMEBREW_INTEGRATION_TEST"]
+        return if BottleSpecification.compatible_locations?
 
         Finding.new(
           <<~EOS,
             Your Homebrew's prefix is not #{Homebrew::DEFAULT_PREFIX}.
 
-            Most of Homebrew's bottles (binary packages) can only be used with the default prefix.
+            Some of Homebrew's bottles (binary packages) cannot be used with this prefix.
           EOS
           tier:        3,
           remediation: "Consider uninstalling Homebrew and reinstalling into the default prefix.",
