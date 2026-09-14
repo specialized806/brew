@@ -161,9 +161,10 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
    the defaults. Clients must understand the tab marker before the first
    padded bottles are published, so the brew release precedes the
    infrastructure cutover.
-   64 rather than conda's 255 because CI runs `brew test` at the padded
-   prefix, where Unix socket paths (`sun_path` is 104 bytes) and shebang
-   limits punish very long prefixes.
+   64 rather than conda's 255 because build-time Unix socket paths
+   (`sun_path` is 104 bytes) and shebang limits punish very long prefixes.
+   test-bot builds at the padded prefix but tests the resulting bottles
+   after pouring them into a shorter/default prefix.
 5. The cost profile is surgical: `:any` and `:any_skip_relocation` bottles
    (84 to 88% of the catalogue) are placeholder-based and prefix-independent,
    so they pour exactly as today. Only pinned bottles start patching (1 to 2
@@ -204,6 +205,16 @@ Replaying the exact `keg_contain?` logic over the contents of 17 pinned and
 
 ## Plan
 
+### Next step: test existing bottles at shorter prefixes
+
+Test as many formulae as possible, including their runtime dependency
+closures, in a fresh prefix shorter than the bottle's build prefix on each
+target platform. Use published bottles with relocation enabled, record
+source-build fallbacks as failures, run `brew linkage --test` and
+`brew test`, exercise installed executables and report per-formula results.
+Successful installation alone is insufficient: the Perl/ack failure only
+appeared at runtime. This validation precedes further padded-prefix rollout.
+
 ### Phase 1: maximise relocatable bottles now (helps every custom prefix, any length)
 
 Each pinned bottle flipped to `cellar :any` pours at any prefix with no
@@ -239,12 +250,15 @@ prefixes before Homebrew commits to padded production builds.
 During a soak of at least a few months, Homebrew/brew CI pairs its existing
 default-prefix test-bot jobs with padded-prefix jobs on x86_64 Linux, arm64
 Linux and arm64 macOS. Both variants run the same source-build, bottle,
-reinstall, linkage and formula-test workflow; the padded jobs neither
-publish nor upload their bottles.
+reinstall, linkage and formula-test workflow. Padded jobs build and bottle
+at the padded prefix, then pour the fresh bottles and runtime dependencies
+into a shorter/default prefix for linkage and formula tests. Make the build
+prefix unavailable during those tests so unrelocated paths cannot silently
+work. The padded jobs neither publish nor upload their bottles.
 
 All remaining homebrew/brew and individual-formula fixes (the brew side of
 Phase 3, the upstream hub track and the Completeness items) come before
-anything that touches homebrew/core CI or runs at catalogue scale.
+production changes to homebrew/core CI or catalogue-wide rebottling.
 
 ### Phase 3: migrate bottling to the 64-byte prefix (extends to long prefixes)
 
@@ -255,10 +269,12 @@ after Phase 2 has soaked for at least a few months.
 
 13. Extend the paired test-bot jobs to cover a pinned plus
     path-length-sensitive sample and representative pinned dependency
-    closures at the candidate 64-byte prefixes on all three target platforms.
+    closures built at the candidate 64-byte prefixes and tested after pouring
+    into shorter/default prefixes on all three target platforms.
 15. test-bot: build changed formulae at the padded prefix, pour each fresh
-    bottle into a scratch short prefix, then run `brew linkage --test` and
-    `brew test`.
+    bottle into a scratch shorter/default prefix, then run
+    `brew linkage --test` and `brew test` there with the build prefix
+    unavailable.
 Before cutover, version-gate symbolic cellar and `padded_prefix` metadata
 consumers, release supporting clients and ensure the marker remains
 per-platform rather than merging into `:all`. Resolve socket, shebang and
@@ -281,13 +297,13 @@ retire or justify `pour_bottle? only_if: :default_prefix` gates.
     Old pinned bottles keep pouring unchanged at default prefixes
     throughout.
 
-19. Validation sweep, in homebrew/core CI (`workflow_dispatch`) once the
-    stages above are done: pour every pinned bottle into a scratch prefix
-    shorter than the bottled one on each target platform with patching
-    enabled, confirm each tab records `relocated_build_prefix`, run
-    `brew linkage --test` and `brew test`, and report a per-formula table;
-    this is the functional catch-all for scanner blind spots. Not before:
-    it is a mass run whose results change with every rebottle.
+19. Repeat the shorter-prefix validation sweep in homebrew/core CI
+    (`workflow_dispatch`) after rebottling: pour every pinned bottle into a
+    scratch prefix shorter than the bottled one on each target platform
+    with patching enabled, confirm each tab records `relocated_build_prefix`,
+    run `brew linkage --test` and `brew test`, and report a per-formula table.
+    This catches scanner blind spots introduced by padded builds; the
+    initial broad sweep of existing bottles is the next step above.
 
 ### Phase 5: extend the default to 64 bytes
 

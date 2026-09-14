@@ -315,14 +315,13 @@ class Keg
     patched_groups = T.let([], T::Array[T::Array[Pathname]])
     inode_groups.each do |group|
       file = group.fetch(0)
-      # Skip files which are not binary, as they do not need null padding.
+      # Skip text files, which do not need length-preserving replacement.
       next unless keg.binary_file?(file)
 
       # Skip sharballs, which appear to break if patched.
       next if Utils::Path.text_executable?(file)
 
       # Split binary by null characters into array and substitute new prefix for old prefix.
-      # Null padding is added if the new string is too short.
       Utils::Path.ensure_writable(file) do
         binary = File.binread file
         binary_strings = binary.split(/#{NULL_BYTE}/o, -1)
@@ -342,23 +341,8 @@ class Keg
 
         odebug "Replacing build prefix in: #{file}"
 
-        # Linkers merge a string with the suffix of another, so a string in
-        # the dynamic string table can be referenced from its interior.
-        interior_references = Keg.elf_dynamic_string_references_in(file)
-        string_starts = T.let([], T::Array[Integer])
-        binary_strings.reduce(0) do |start, binary_string|
-          string_starts << start
-          start + binary_string.bytesize + 1
-        end
-
         match_indices.each do |i|
-          binary_string = binary_strings.fetch(i)
-          start = string_starts.fetch(i)
-          preserve_suffix_offsets = interior_references.any? do |reference|
-            reference > start && reference < start + binary_string.bytesize
-          end
-          binary_strings[i] = Keg.replace_prefix_preserving_length(binary_string, old_prefix, new_prefix,
-                                                                   preserve_suffix_offsets:)
+          binary_strings[i] = Keg.replace_prefix_preserving_length(binary_strings.fetch(i), old_prefix, new_prefix)
         end
 
         # Rejoin strings by null bytes.
@@ -388,41 +372,18 @@ class Keg
     patched_groups.flatten.map { |file| file.relative_path_from(path) }
   end
 
-  # Replaces the prefix in a NUL-terminated string without changing its
-  # length. Trailing NUL padding is invisible to C string readers but shifts
-  # any suffix-merged reference into the string, so when the string has such
-  # references pad each occurrence with extra path separators instead, which
-  # path resolution ignores (`//` is `/`, as is a trailing `/`). An
-  # occurrence followed by anything else is not a path under the prefix and
-  # cannot be padded that way, so such strings fall back to NUL padding with
-  # every occurrence replaced rather than being left partly relocated.
-  sig {
-    params(string: String, old_prefix: String, new_prefix: String, preserve_suffix_offsets: T::Boolean).returns(String)
-  }
-  def self.replace_prefix_preserving_length(string, old_prefix, new_prefix, preserve_suffix_offsets:)
-    if preserve_suffix_offsets
-      separators = "/" * (old_prefix.bytesize - new_prefix.bytesize)
-      padded = string.gsub(%r{#{Regexp.escape(old_prefix)}(?=/|\z)}) { "#{new_prefix}#{separators}" }
-      return padded unless padded.include?(old_prefix)
+  # Pads path prefixes with separators to preserve string lengths and suffix
+  # offsets. Perl's module paths use compiled-in lengths, so trailing NULs
+  # become part of the path. Non-path occurrences cannot use separators:
+  # fall back to NUL padding with every occurrence replaced.
+  sig { params(string: String, old_prefix: String, new_prefix: String).returns(String) }
+  def self.replace_prefix_preserving_length(string, old_prefix, new_prefix)
+    padded = string.gsub(%r{#{Regexp.escape(old_prefix)}(?=[:/]|\z)}) do
+      "#{new_prefix}#{"/" * (old_prefix.bytesize - new_prefix.bytesize)}"
     end
+    return padded unless padded.include?(old_prefix)
 
     string.gsub(old_prefix) { new_prefix }.ljust(string.bytesize, NULL_BYTE)
-  end
-
-  # Absolute file offsets of the strings the dynamic loader references in
-  # the file's dynamic string table, or none for files that are not ELF or
-  # cannot be parsed.
-  sig { params(file: Pathname).returns(T::Array[Integer]) }
-  def self.elf_dynamic_string_references_in(file)
-    require "os/linux/elf"
-    return [] unless T.cast(Pathname.new(file.to_s).extend(ELFShim), ELFShim).elf?
-
-    require "elftools"
-    file.open("rb") do |stream|
-      elf_dynamic_string_references(ELFTools::ELFFile.new(stream))&.offsets || []
-    end
-  rescue ELFTools::ELFError, IOError, SystemCallError
-    []
   end
 
   sig { params(_options: T::Hash[Symbol, T::Boolean]).returns(T::Array[Symbol]) }

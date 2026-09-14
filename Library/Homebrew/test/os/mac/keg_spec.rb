@@ -182,7 +182,7 @@ RSpec.describe Keg do
       keg.relocate_build_prefix(keg, "/old/pfx", "/new", files: [Pathname("lib/libfoo.dylib")])
 
       expect(MachOPathname.wrap(file).dynamically_linked_libraries(resolve_variable_references: false))
-        .to eq ["/new/libSys.B.dylib"]
+        .to eq ["/new/////libSys.B.dylib"]
     end
   end
 

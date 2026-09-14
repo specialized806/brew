@@ -8,6 +8,7 @@ RSpec.describe Keg do
 
   let(:dir) { HOMEBREW_CELLAR/"foo/1.0.0" }
   let(:newdir) { HOMEBREW_CELLAR/"foo" }
+  let(:padded_prefix) { "#{newdir}#{"/" * (dir.to_s.bytesize - newdir.to_s.bytesize)}" }
   let(:binary_file) { dir/"file.bin" }
 
   before do
@@ -48,8 +49,7 @@ RSpec.describe Keg do
       expect(keg).not_to receive(:each_unique_file_matching)
       keg.relocate_build_prefix(keg, dir, newdir, files: [Pathname("file.bin")])
 
-      null_padding = "\x00" * (dir.to_s.length - newdir.to_s.length)
-      expect(binary_file.binread).to eq "\x00#{newdir}#{null_padding}\x00\n"
+      expect(binary_file.binread).to eq "\x00#{padded_prefix}\x00\n"
     end
 
     specify "replaces every occurrence in every string" do
@@ -57,9 +57,28 @@ RSpec.describe Keg do
 
       keg.relocate_build_prefix(keg, dir, newdir)
 
-      null_padding = "\x00" * (dir.to_s.length - newdir.to_s.length)
       expect(binary_file.binread)
-        .to eq "\x00#{newdir}/a:#{newdir}/b#{null_padding * 2}\x00#{newdir}/c#{null_padding}\x00"
+        .to eq "\x00#{padded_prefix}/a:#{padded_prefix}/b\x00#{padded_prefix}/c\x00"
+    end
+
+    specify "keeps module paths read using compiled-in lengths usable" do
+      module_path = "#{dir}/opt/perl/lib/perl5/5.44"
+      binary_file.atomic_write "\x00#{module_path}\x00"
+      (newdir/"opt/perl/lib/perl5/5.44").mkpath
+      (newdir/"opt/perl/lib/perl5/5.44/strict.pm").write "1;\n"
+
+      keg.relocate_build_prefix(keg, dir, newdir)
+
+      expect(File.read("#{File.binread(binary_file, module_path.bytesize, 1)}/strict.pm")).to eq "1;\n"
+    end
+
+    specify "replaces an equal-length prefix without padding" do
+      binary_file.atomic_write "\x00#{dir}/lib\x00suffix\x00"
+      new_prefix = newdir.to_s.ljust(dir.to_s.bytesize, "x")
+
+      keg.relocate_build_prefix(keg, dir, new_prefix)
+
+      expect(binary_file.binread).to eq "\x00#{new_prefix}/lib\x00suffix\x00"
     end
 
     specify "patches hardlinks once and keeps them linked" do
@@ -148,12 +167,19 @@ RSpec.describe Keg do
       expect(File.binread(elf, 6, suffix_offset)).to eq "lib/x\x00"
     end
 
-    specify "pads every occurrence with separators when offsets must be kept" do
+    specify "keeps suffix offsets after exact-prefix path list entries" do
+      binary_file.atomic_write "\x00#{dir}:/lib\x00"
+
+      keg.relocate_build_prefix(keg, dir, newdir)
+
+      expect(binary_file.binread).to eq "\x00#{padded_prefix}:/lib\x00"
+    end
+
+    specify "pads every path occurrence with separators" do
       string = "#{dir}/lib:#{dir}"
       separators = "/" * (dir.to_s.length - newdir.to_s.length)
 
-      padded = described_class.replace_prefix_preserving_length(string, dir.to_s, newdir.to_s,
-                                                                preserve_suffix_offsets: true)
+      padded = described_class.replace_prefix_preserving_length(string, dir.to_s, newdir.to_s)
 
       expect(padded).to eq "#{newdir}#{separators}/lib:#{newdir}#{separators}"
     end
@@ -162,8 +188,7 @@ RSpec.describe Keg do
       string = "#{dir}-extra:#{dir}/lib"
       null_padding = "\x00" * ((dir.to_s.length - newdir.to_s.length) * 2)
 
-      padded = described_class.replace_prefix_preserving_length(string, dir.to_s, newdir.to_s,
-                                                                preserve_suffix_offsets: true)
+      padded = described_class.replace_prefix_preserving_length(string, dir.to_s, newdir.to_s)
 
       expect(padded).to eq "#{newdir}-extra:#{newdir}/lib#{null_padding}"
     end
@@ -174,8 +199,7 @@ RSpec.describe Keg do
 
       keg.relocate_build_prefix(keg, dir, newdir)
 
-      null_padding = "\x00" * (dir.to_s.length - newdir.to_s.length)
-      expect(binary_file.binread).to eq "\x00#{newdir}#{null_padding}\x00#{serialised}\x00"
+      expect(binary_file.binread).to eq "\x00#{padded_prefix}\x00#{serialised}\x00"
     end
 
     specify "replaces the prefix in strings of UTF-8 text" do
@@ -183,8 +207,7 @@ RSpec.describe Keg do
 
       keg.relocate_build_prefix(keg, dir, newdir)
 
-      null_padding = "\x00" * (dir.to_s.length - newdir.to_s.length)
-      expect(binary_file.binread).to eq "\x00Konfiguration „#{newdir}/etc“ fehlt#{null_padding}\x00".b
+      expect(binary_file.binread).to eq "\x00Konfiguration „#{padded_prefix}/etc“ fehlt\x00".b
     end
 
     specify "leaves prefix strings inside long length-prefixed text untouched" do
