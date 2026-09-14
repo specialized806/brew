@@ -9,7 +9,7 @@ require "utils/output"
 # Helper module for validating syntax in taps.
 module Readall
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   extend Utils::Output::Mixin
 
   Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }

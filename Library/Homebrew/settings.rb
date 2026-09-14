@@ -1,14 +1,14 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "cachable"
+require "cacheable"
 require "utils/popen"
 
 module Homebrew
   # Helper functions for reading and writing settings.
   module Settings
     extend T::Generic
-    extend Cachable
+    extend Cacheable
 
     Cache = type_template { { fixed: T::Hash[Pathname, T::Hash[String, String]] } }
 

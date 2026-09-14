@@ -288,7 +288,7 @@ RSpec.describe Cask::CaskLoader, :cask do
       expect(described_class.load_prefer_installed("user/foo/test-cask").tap).to eq(foo_tap)
     end
 
-    it "returns the correct cask when no tap is specified and the tab lists an tap that isn't installed" do
+    it "returns the correct cask when no tap is specified and the tab lists a tap that isn't installed" do
       allow_any_instance_of(Cask::Cask).to receive(:tab).and_return(installed_tab)
       expect(described_class).to receive(:load).with("user/bar/test-cask", load_args)
                                                .and_raise(Cask::CaskUnavailableError.new("test-cask", bar_tap))

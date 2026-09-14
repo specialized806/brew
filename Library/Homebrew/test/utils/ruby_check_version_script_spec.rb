@@ -41,7 +41,7 @@ RSpec.describe Utils do
       it { is_expected.to be true }
     end
 
-    describe "fails on on mismatched major/minor required Ruby version" do
+    describe "fails on mismatched major/minor required Ruby version" do
       let(:required_ruby_version) { "1.2.3" }
 
       it { is_expected.to be false }

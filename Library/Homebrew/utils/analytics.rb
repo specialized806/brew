@@ -4,7 +4,7 @@
 require "context"
 require "erb"
 require "settings"
-require "cachable"
+require "cacheable"
 require "utils/output"
 
 module Utils
@@ -18,7 +18,7 @@ module Utils
 
     extend Utils::Output::Mixin
     extend T::Generic
-    extend Cachable
+    extend Cacheable
 
     Cache = type_template { { fixed: T::Hash[Symbol, T.untyped] } }
 

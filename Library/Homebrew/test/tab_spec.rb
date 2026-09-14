@@ -544,7 +544,7 @@ RSpec.describe Tab do
       expect(tab.source["path"]).to eq(f.path.to_s)
     end
 
-    it "can create a Tab for for a Formula from an alias" do
+    it "can create a Tab for a Formula from an alias" do
       alias_path = CoreTap.instance.alias_dir/"bar"
       f = formula(alias_path:) do
         T.bind(self, T.class_of(Formula))

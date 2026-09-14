@@ -1,7 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
-module Cachable
+module Cacheable
   extend T::Generic
 
   # Sorbet type members are mutable by design and cannot be frozen.

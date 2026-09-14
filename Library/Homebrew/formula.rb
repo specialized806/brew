@@ -97,7 +97,7 @@ class Formula
   include Homebrew::Livecheck::Constants
   extend Forwardable
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   extend APIHashable
   extend T::Helpers
   extend Utils::Output::Mixin

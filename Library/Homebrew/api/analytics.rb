@@ -1,7 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "cachable"
+require "cacheable"
 
 module Homebrew
   module API
@@ -12,7 +12,7 @@ module Homebrew
     # anything else can observe or cache them.
     module Analytics
       extend T::Generic
-      extend Cachable
+      extend Cacheable
 
       Cache = type_template { { fixed: T::Hash[String, T.untyped] } }
 

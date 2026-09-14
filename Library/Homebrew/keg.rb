@@ -4,7 +4,7 @@
 require "system_command"
 require "utils/interrupts"
 
-require "cachable"
+require "cacheable"
 require "keg_relocate"
 require "language/python"
 require "lock_file"
@@ -15,7 +15,7 @@ require "utils/path"
 # Installation prefix of a formula.
 class Keg
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   include Utils::Output::Mixin
   include Utils::Path
 

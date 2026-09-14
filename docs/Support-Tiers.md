@@ -132,7 +132,7 @@ Unsupported configurations include:
 
 ## Unsupported software
 
-Packages installed from third-party taps outside the Homebrew GitHub organization are unsupported by default.
+Packages installed from third-party taps outside the Homebrew GitHub organisation are unsupported by default.
 
 While Homebrew may assist third-party maintainers in resolving issues related to the formula, cask or tap system itself, it does not provide support for the behaviour or operation of third-party software.
 

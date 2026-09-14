@@ -180,7 +180,7 @@ RSpec.describe RuboCop::Cop::Cask::EmptyConditionalArgument, :config do
         arch arm: "-arm64", intel: "-intel"
         file_arch = on_arch_conditional arm: "-aarch64", intel: "-x86_64"
         os macos: "-darwin", linux: "-linux"
-        fle_os = on_system_conditional macos: "-mac", linux: "-gnu"
+        file_os = on_system_conditional macos: "-mac", linux: "-gnu"
       end
     CASK
   end

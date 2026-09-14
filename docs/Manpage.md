@@ -3037,7 +3037,7 @@ supplied by the user.
 
 `--fork-org`
 
-: Use the specified GitHub organization for forking.
+: Use the specified GitHub organisation for forking.
 
 ### `bump-compatibility-version` \[*`options`*\] *`formula`* \[...\]
 
@@ -3117,7 +3117,7 @@ uses.
 
 `--fork-org`
 
-: Use the specified GitHub organization for forking.
+: Use the specified GitHub organisation for forking.
 
 `--version`
 

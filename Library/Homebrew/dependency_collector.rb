@@ -5,7 +5,7 @@ require "dependency"
 require "dependencies"
 require "requirement"
 require "requirements"
-require "cachable"
+require "cacheable"
 
 # A dependency is a formula that another formula needs to install.
 # A requirement is something other than a formula that another formula
@@ -19,7 +19,7 @@ require "cachable"
 # specifications into the proper kinds of dependencies and requirements.
 class DependencyCollector
   extend T::Generic
-  extend Cachable
+  extend Cacheable
 
   Cache = type_template { { fixed: T::Hash[T.untyped, T.untyped] } }
 

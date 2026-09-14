@@ -1625,7 +1625,7 @@ RSpec.describe Homebrew::FormulaAuditor do
         it { is_expected.to match("`revision 2` should be removed") }
       end
 
-      describe "should not warn on an newer version revision removal" do
+      describe "should not warn on a newer version revision removal" do
         before do
           formula_gsub_origin_commit "revision 2", ""
           formula_gsub_origin_commit "foo-1.0.tar.gz", "foo-1.1.tar.gz"

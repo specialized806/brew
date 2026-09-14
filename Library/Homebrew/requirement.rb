@@ -14,7 +14,7 @@ class Requirement
   include Dependable
   include Utils::Output::Mixin
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   extend T::Helpers
 
   Cache = type_template { { fixed: T::Hash[String, T.untyped] } }

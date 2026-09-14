@@ -1,7 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
-# Strategy for downloading a file from an GitHub Packages URL.
+# Strategy for downloading a file from a GitHub Packages URL.
 #
 # @api public
 class CurlGitHubPackagesDownloadStrategy < CurlDownloadStrategy

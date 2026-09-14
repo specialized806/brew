@@ -119,7 +119,7 @@ module OS
           size = Fiddle::SIZEOF_VOIDP * hash.size
           Fiddle::Pointer.malloc(size, Fiddle::RUBY_FREE) do |keys|
             Fiddle::Pointer.malloc(size, Fiddle::RUBY_FREE) do |values|
-              # Convert array of pointers to continous stream of pointers in the C buffer
+              # Convert array of pointers to continuous stream of pointers in the C buffer
               keys[0, size] = hash.keys.pack("J*")
               values[0, size] = hash.values.pack("J*")
               return function(

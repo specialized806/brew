@@ -19,7 +19,7 @@ require "utils/path"
 # repository name without the leading `homebrew-`.
 class Tap
   extend T::Generic
-  extend Cachable
+  extend Cacheable
   extend Utils::Output::Mixin
   include Utils::Output::Mixin
   include Utils::Path
