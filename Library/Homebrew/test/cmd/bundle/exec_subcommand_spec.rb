@@ -3,8 +3,10 @@
 
 require "bundle"
 require "bundle/subcommand/exec"
+require "bundle/subcommand/check"
 require "bundle/brewfile"
 require "bundle/brew_services"
+require "cmd/bundle"
 require "sandbox"
 
 RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
@@ -49,6 +51,19 @@ RSpec.describe Homebrew::Cmd::Bundle::ExecSubcommand do
       it "does not raise an error when HOMEBREW_BUNDLE_EXEC_ALL_KEG_ONLY_DEPS is set" do
         ENV["HOMEBREW_BUNDLE_EXEC_ALL_KEG_ONLY_DEPS"] = "1"
         expect { described_class.run_external_command("bundle", "install") }.not_to raise_error
+      end
+
+      it "runs the check subcommand with a real `Bundle::Args` extended with `CheckSubcommand::Args`" do
+        allow(Homebrew::Bundle::Checker).to receive(:check)
+          .and_return(Homebrew::Bundle::Checker::CheckResult.new(work_to_be_done: false, errors: []))
+        allow(Homebrew::Cmd::Bundle::CheckSubcommand).to receive(:new).and_wrap_original do |original, args, **kwargs|
+          expect(args).to be_a(Homebrew::Cmd::Bundle::Args)
+          instance = original.call(args, **kwargs)
+          expect(instance.args).to be_a(Homebrew::Cmd::Bundle::CheckSubcommand.args_module)
+          instance
+        end
+
+        described_class.run_external_command("bundle", "install", check: true)
       end
 
       it "uses the formula version from the environment variable" do
