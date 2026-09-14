@@ -46,13 +46,45 @@ RSpec.describe DescriptionCacheStore do
   describe "#update_from_report!" do
     let(:report) { instance_double(ReporterHub, select_formula_or_cask: [], empty?: false) }
 
-    it "reads from the report" do
-      expect(database).to receive(:empty?).at_least(:once).and_return(false)
+    it "does not load all formulae when the cache is empty" do
+      allow(database).to receive(:empty?).and_return(true)
+      expect(Formula).not_to receive(:all)
+
       cache_store.update_from_report!(report)
+    end
+
+    it "applies additions, updates, deletions and renames to a populated cache" do
+      database = CacheStoreDatabase.new(:descriptions)
+      %w[unchanged modified deleted old].each { |name| database.set(name, "Old #{name}") }
+      database.write_if_dirty!
+      allow(report).to receive(:select_formula_or_cask).with(:A).and_return(["added"])
+      allow(report).to receive(:select_formula_or_cask).with(:M).and_return(["modified"])
+      allow(report).to receive(:select_formula_or_cask).with(:D).and_return(["deleted"])
+      allow(report).to receive(:select_formula_or_cask).with(:R).and_return([["old", "renamed"]])
+      %w[added modified renamed].each do |name|
+        allow(Formulary).to receive(:factory).with(name).and_return(instance_double(Formula, desc: "New #{name}"))
+      end
+
+      described_class.new(database).update_from_report!(report)
+      database.write_if_dirty!
+
+      expect(CacheStoreDatabase.new(:descriptions).select { true }).to eq(
+        "unchanged" => "Old unchanged",
+        "added"     => "New added",
+        "modified"  => "New modified",
+        "renamed"   => "New renamed",
+      )
     end
   end
 
   describe "#update_from_formula_names!" do
+    it "does not load all formulae when the cache is empty" do
+      allow(database).to receive(:empty?).and_return(true)
+      expect(Formula).not_to receive(:all)
+
+      cache_store.update_from_formula_names!([formula_name])
+    end
+
     it "sets the formulae descriptions" do
       f = formula do
         T.bind(self, T.class_of(Formula))
@@ -94,13 +126,47 @@ RSpec.describe DescriptionCacheStore do
     describe "#update_from_report!" do
       let(:report) { instance_double(ReporterHub, select_formula_or_cask: [], empty?: false) }
 
-      it "reads from the report" do
-        expect(database).to receive(:empty?).at_least(:once).and_return(false)
+      it "does not load all casks when the cache is empty" do
+        allow(database).to receive(:empty?).and_return(true)
+        expect(Cask::Cask).not_to receive(:all)
+
         cache_store.update_from_report!(report)
+      end
+
+      it "applies additions, updates, deletions and renames to a populated cache" do
+        database = CacheStoreDatabase.new(:cask_descriptions)
+        %w[unchanged modified deleted old].each { |token| database.set(token, ["Name", "Old #{token}"]) }
+        database.write_if_dirty!
+        allow(report).to receive(:select_formula_or_cask).with(:AC).and_return(["added"])
+        allow(report).to receive(:select_formula_or_cask).with(:MC).and_return(["modified"])
+        allow(report).to receive(:select_formula_or_cask).with(:DC).and_return(["deleted"])
+        allow(report).to receive(:select_formula_or_cask).with(:RC).and_return([["old", "renamed"]])
+        %w[added modified renamed].each do |token|
+          allow(Cask::CaskLoader).to receive(:load).with(token).and_return(
+            instance_double(Cask::Cask, full_name: token, name: ["Name"], desc: "New #{token}"),
+          )
+        end
+
+        described_class.new(database).update_from_report!(report)
+        database.write_if_dirty!
+
+        expect(CacheStoreDatabase.new(:cask_descriptions).select { true }).to eq(
+          "unchanged" => ["Name", "Old unchanged"],
+          "added"     => ["Name", "New added"],
+          "modified"  => ["Name", "New modified"],
+          "renamed"   => ["Name", "New renamed"],
+        )
       end
     end
 
     describe "#update_from_cask_tokens!" do
+      it "does not load all casks when the cache is empty" do
+        allow(database).to receive(:empty?).and_return(true)
+        expect(Cask::Cask).not_to receive(:all)
+
+        cache_store.update_from_cask_tokens!(["test-cask"])
+      end
+
       it "sets the cask descriptions" do
         c = Cask::Cask.new("cask-names-desc") do
           url "url-1"
