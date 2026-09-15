@@ -159,16 +159,9 @@ module Homebrew
       def stale_formula?(pathname, scrub)
         return false unless HOMEBREW_CELLAR.directory?
 
-        version = if HOMEBREW_BOTTLES_EXTNAME_REGEX.match?(to_s)
-          begin
-            Utils::Bottles.resolve_version(pathname).to_s
-          rescue
-            nil
-          end
-        end
         basename_str = pathname.basename.to_s
 
-        version ||= basename_str[/\A.*(?:--.*?)*--(.*?)#{Regexp.escape(pathname.extname)}\Z/, 1]
+        version = basename_str[/\A.*(?:--.*?)*--(.*?)#{Regexp.escape(pathname.extname)}\Z/, 1]
         version ||= basename_str[/\A.*--?(.*?)#{Regexp.escape(pathname.extname)}\Z/, 1]
 
         return false if version.blank?
