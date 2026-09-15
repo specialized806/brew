@@ -1,7 +1,7 @@
 # typed: true
 # frozen_string_literal: true
 
-RSpec.describe Cask::Artifact::FishCompletion, :cask do
+RSpec.describe Cask::Artifact::PwshCompletion, :cask do
   let(:cask_token) { "basic-cask" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
@@ -14,10 +14,10 @@ RSpec.describe Cask::Artifact::FishCompletion, :cask do
       end
     end
 
-    let(:source_path) { cask.staged_path.join("test.fish") }
-    let(:target_path) { cask.config.fish_completion.join("test.fish") }
-    let(:full_source_path) { cask.staged_path.join("test.fish-completion") }
-    let(:full_target_path) { cask.config.fish_completion.join("test.fish") }
+    let(:source_path) { cask.staged_path.join("_test.ps1") }
+    let(:target_path) { cask.config.pwsh_completion.join("_test.ps1") }
+    let(:full_source_path) { cask.staged_path.join("test.pwsh-completion") }
+    let(:full_target_path) { cask.config.pwsh_completion.join("_test.ps1") }
 
     context "with completion" do
       let(:cask_token) { "with-shellcompletion" }

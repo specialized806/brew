@@ -373,7 +373,7 @@ module Homebrew
                      "`artifact`, `prefpane`, `qlplugin`, `dictionary`, `font`, `service`, `colorpicker`, " \
                      "`inputmethod`, `internetplugin`, `audiounitplugin`, `vstplugin`, `vst3plugin`, " \
                      "`screensaver`, `keyboardlayout`, `mdimporter`, `preflight`, `postflight`, " \
-                     "`manpage`, `bashcompletion`, `fishcompletion`, `zshcompletion`, `stageonly`.",
+                     "`manpage`, `bashcompletion`, `zshcompletion`, `fishcompletion`, `pwshcompletion`, `stageonly`.",
         odeprecated: true,
       },
       HOMEBREW_FORBIDDEN_FORMULAE:               {

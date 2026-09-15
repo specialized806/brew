@@ -3,8 +3,9 @@
 
 require "cask/artifact/abstract_artifact"
 require "cask/artifact/bashcompletion"
-require "cask/artifact/fishcompletion"
 require "cask/artifact/zshcompletion"
+require "cask/artifact/fishcompletion"
+require "cask/artifact/pwshcompletion"
 require "extend/hash/keys"
 require "utils/shell_completion"
 
@@ -172,7 +173,7 @@ module Cask
         when :fish
           FishCompletion.new(cask, resolved_base_name).resolve_target(resolved_base_name)
         when :pwsh
-          HOMEBREW_PREFIX/"share/pwsh/completions"/"_#{resolved_base_name}.ps1"
+          PwshCompletion.new(cask, resolved_base_name).resolve_target(resolved_base_name)
         else
           raise ArgumentError, "unsupported shell: #{shell}"
         end

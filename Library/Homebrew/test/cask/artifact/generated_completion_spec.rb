@@ -9,13 +9,15 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       version "1.0"
       sha256 :no_check
       url "file:///dev/null"
-      generate_completions_from_executable "bin/foo", "completions"
+      generate_completions_from_executable "bin/foo", "completions",
+                                           shells: [:bash, :zsh, :fish, :pwsh]
     end
   end
 
   let(:bash_dir) { cask.config.bash_completion }
   let(:zsh_dir) { cask.config.zsh_completion }
   let(:fish_dir) { cask.config.fish_completion }
+  let(:pwsh_dir) { cask.config.pwsh_completion }
   let(:run_sandboxed_payload) do
     proc { |args| Utils.safe_fork { exec(*args.map(&:to_s)) } }
   end
@@ -34,7 +36,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
   end
 
   describe "#install_phase" do
-    it "generates completion scripts for default shells" do
+    it "generates completion scripts for all supported shells" do
       artifact = cask.artifacts.grep(described_class).first
 
       allow(Sandbox).to receive(:available?).and_return(true)
@@ -57,6 +59,8 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       expect((zsh_dir/"_foo").read).to eq("zsh completion\n")
       expect(fish_dir/"foo.fish").to be_a_file
       expect((fish_dir/"foo.fish").read).to eq("fish completion\n")
+      expect(pwsh_dir/"_foo.ps1").to be_a_file
+      expect((pwsh_dir/"_foo.ps1").read).to eq("pwsh completion\n")
     end
 
     it "sandboxes completion generation without network access" do
@@ -116,7 +120,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       artifact = cask.artifacts.grep(described_class).first
 
       allow(Sandbox).to receive(:available?).and_return(false)
-      expect(Utils::ShellCompletion).to receive(:generate_completion_output).exactly(3).times do
+      expect(Utils::ShellCompletion).to receive(:generate_completion_output).exactly(4).times do
         |_commands, _shell_parameter, env, print_stderr:|
         expect(print_stderr).to be false
         "#{env.fetch("SHELL")} completion\n"
@@ -163,15 +167,18 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       bash_dir.mkpath
       zsh_dir.mkpath
       fish_dir.mkpath
+      pwsh_dir.mkpath
       (bash_dir/"foo").write("bash")
       (zsh_dir/"_foo").write("zsh")
       (fish_dir/"foo.fish").write("fish")
+      (pwsh_dir/"_foo.ps1").write("pwsh")
 
       artifact.uninstall_phase(command: NeverSudoSystemCommand)
 
       expect(bash_dir/"foo").not_to exist
       expect(zsh_dir/"_foo").not_to exist
       expect(fish_dir/"foo.fish").not_to exist
+      expect(pwsh_dir/"_foo.ps1").not_to exist
     end
   end
 
@@ -209,6 +216,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
       expect(zsh_dir/"_bar").to be_a_file
       expect(bash_dir/"bar").not_to exist
       expect(fish_dir/"bar.fish").not_to exist
+      expect(pwsh_dir/"_bar.ps1").not_to exist
     end
   end
 

@@ -114,6 +114,7 @@ module Cask
               BashCompletion,
               FishCompletion,
               ZshCompletion,
+              PwshCompletion,
             ],
             GeneratedCompletion,
             PostflightSteps,

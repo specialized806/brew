@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Cask::Artifact::ZshCompletion, :cask do
-  let(:cask_token) { "with-shellcompletion" }
+  let(:cask_token) { "basic-cask" }
   let(:cask) { Cask::CaskLoader.load(cask_token) }
 
   context "with install" do
@@ -20,6 +20,8 @@ RSpec.describe Cask::Artifact::ZshCompletion, :cask do
     let(:full_target_path) { cask.config.zsh_completion.join("_test") }
 
     context "with completion" do
+      let(:cask_token) { "with-shellcompletion" }
+
       it "links the completion to the proper directory" do
         source_path.dirname.mkpath
         source_path.write ""

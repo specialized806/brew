@@ -190,6 +190,9 @@ class Cask::Cask
   def prefpane(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
+  def pwsh_completion(*args, &block); end
+
+  sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }
   def qlplugin(*args, &block); end
 
   sig { params(args: T.untyped, block: T.untyped).returns(T.untyped) }

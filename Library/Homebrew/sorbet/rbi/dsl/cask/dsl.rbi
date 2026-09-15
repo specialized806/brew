@@ -217,6 +217,9 @@ class Cask::DSL
   def prefpane(*args, **kwargs); end
 
   sig { params(args: T.anything, kwargs: T.anything).void }
+  def pwsh_completion(*args, **kwargs); end
+
+  sig { params(args: T.anything, kwargs: T.anything).void }
   def qlplugin(*args, **kwargs); end
 
   sig { params(args: T.anything, kwargs: T.anything).void }

@@ -53,6 +53,7 @@ module RuboCop
             :bash_completion,
             :fish_completion,
             :zsh_completion,
+            :pwsh_completion,
             :generate_completions_from_executable,
             :colorpicker,
             :dictionary,

@@ -10,4 +10,5 @@ cask "with-shellcompletion-long" do
   bash_completion "test.bash-completion"
   fish_completion "test.fish-completion"
   zsh_completion "test.zsh-completion"
+  pwsh_completion "test.pwsh-completion"
 end
