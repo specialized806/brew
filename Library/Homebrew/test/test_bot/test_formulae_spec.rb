@@ -6,7 +6,76 @@ require "utils/github/artifacts"
 
 RSpec.describe Homebrew::TestBot::TestFormulae do
   subject(:test_formulae) do
-    described_class.new(tap: nil, git: nil, dry_run: false, fail_fast: false, verbose: false)
+    Class.new(described_class) do
+      T.bind(self, T.class_of(Homebrew::TestBot::TestFormulae))
+      public :bottled_or_built?
+    end.new(tap: nil, git: nil, dry_run: false, fail_fast: false, verbose: false)
+  end
+
+  describe "#bottled_or_built?" do
+    let(:dependent) do
+      formula("dependent") do
+        T.bind(self, T.class_of(Formula))
+        url "dependent-1.0"
+        depends_on "dependency"
+        bottle do
+          sha256 cellar: :any_skip_relocation, Utils::Bottles.tag.to_sym => TEST_SHA256
+        end
+      end
+    end
+    let(:dependency) do
+      formula("dependency") do
+        T.bind(self, T.class_of(Formula))
+        url "dependency-1.0"
+        depends_on "unbottled"
+        depends_on "build-only" => :build
+        depends_on "test-only" => :test
+        depends_on "optional" => :optional
+        bottle do
+          sha256 cellar: :any_skip_relocation, Utils::Bottles.tag.to_sym => TEST_SHA256
+        end
+      end
+    end
+    let(:unbottled) do
+      formula("unbottled") do
+        T.bind(self, T.class_of(Formula))
+        url "unbottled-1.0"
+      end
+    end
+
+    before do
+      [dependent, dependency, unbottled].each { |f| stub_formula_loader f }
+    end
+
+    it "rejects a bottled formula with an unbottled recursive runtime dependency" do
+      expect(test_formulae.bottled_or_built?(dependent, [])).to be(false)
+    end
+
+    it "rejects a built formula with an unbottled recursive runtime dependency" do
+      allow(dependent).to receive(:bottle_specification).and_return(BottleSpecification.new)
+
+      expect(test_formulae.bottled_or_built?(dependent, [dependent.full_name])).to be(false)
+    end
+
+    it "accepts a recursive runtime dependency built in this run" do
+      expect(test_formulae.bottled_or_built?(dependent, [unbottled.full_name])).to be(true)
+    end
+
+    context "with an older compatible bottle for a recursive runtime dependency" do
+      before do
+        allow(unbottled.bottle_specification).to receive(:tag?).and_return(false)
+        allow(unbottled.bottle_specification).to receive(:tag?)
+          .with(Utils::Bottles.tag, no_older_versions: false).and_return(true)
+      end
+
+      it "rejects older bottles when requested" do
+        expect(test_formulae.bottled_or_built?(dependent, [], no_older_versions: true)).to be(false)
+      end
+
+      it "accepts older compatible bottles" do
+        expect(test_formulae.bottled_or_built?(dependent, [])).to be(true)
+      end
+    end
   end
 
   describe "#cleanup_package_manager_caches" do
