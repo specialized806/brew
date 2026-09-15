@@ -15,6 +15,7 @@ module Utils
       ).returns(T.any(T.type_parameter(:U), String))
   }
   def self.popen_read(*args, safe: false, **options, &block)
+    options[:in] ||= File::NULL
     output = popen(args, "rb", options, &block)
     return output if !safe || $CHILD_STATUS.success?
 
