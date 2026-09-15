@@ -51,6 +51,7 @@ class Cmd
     @formula_prefix = ENV["HOMEBREW_FORMULA_PREFIX"]
     @formula_buildpath = ENV["HOMEBREW_FORMULA_BUILDPATH"]
     @self_dir = "#{canonical_path(formula_prefix)}/" if formula_prefix
+    @build_dir = canonical_path(formula_buildpath) if formula_buildpath
     @keg_dirs = [opt, cellar].map { canonical_path(it) }
     @prefix_dirs = [prefix, cachedir, tmpdir].map { canonical_path(it) if it }
     # matches opt or Cellar prefix and formula name
@@ -288,6 +289,8 @@ class Cmd
     # for unspecified dependencies
     elsif path.start_with?(*@keg_dirs)
       dependency_path?(path)
+    elsif @build_dir && (path == @build_dir || path.start_with?("#{@build_dir}/"))
+      true
     elsif path.start_with?(*@prefix_dirs)
       true
     elsif path.start_with?("/opt/local", "/opt/boxen/homebrew", "/opt/X11", "/sw", "/usr/X11")

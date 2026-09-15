@@ -80,6 +80,21 @@ RSpec.describe CcShim::Cmd do
     described_class.new("gcc", argv).args
   end
 
+  it "keeps build paths outside the sandbox temporary directory" do
+    setup_env(real_prefix)
+    buildpath = "#{root}/temp/build"
+    ENV["HOMEBREW_FORMULA_BUILDPATH"] = buildpath
+    ENV["HOMEBREW_TEMP"] = "#{root}/temp/sandbox"
+    FileUtils.mkdir_p(["#{buildpath}/include", "#{buildpath}/lib", "#{root}/temp/sandbox"])
+
+    Dir.chdir(buildpath) do
+      command = described_class.new("gcc", ["-Iinclude", "-Llib", "test.c"])
+      allow(command).to receive(:mac?).and_return(false)
+
+      expect(command.args).to include("-Iinclude", "-Llib")
+    end
+  end
+
   it "keeps an explicit dependency -L ahead of its own library paths" do
     setup_env(real_prefix)
     ENV["HOMEBREW_LIBRARY_PATHS"] = "#{real_prefix}/lib:#{real_prefix}/#{opt}/ocaml/lib"
