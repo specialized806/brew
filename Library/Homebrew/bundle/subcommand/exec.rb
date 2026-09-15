@@ -99,7 +99,7 @@ module Homebrew
         )
           if check
             require "bundle/subcommand/check"
-            CheckSubcommand.new(args, context: SubcommandContext.new(
+            CheckSubcommand.new(Homebrew::Cmd::Bundle.parser.args, context: SubcommandContext.new(
               subcommand:   "check",
               global:,
               file:,

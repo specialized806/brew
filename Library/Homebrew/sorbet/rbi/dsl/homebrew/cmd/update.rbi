@@ -19,4 +19,7 @@ class Homebrew::Cmd::Update::Args < Homebrew::CLI::Args
 
   sig { returns(T::Boolean) }
   def force?; end
+
+  sig { returns(T::Boolean) }
+  def merge?; end
 end

@@ -31,15 +31,34 @@ module Homebrew
       sig { params(command: T.class_of(Homebrew::AbstractCommand)).returns(T::Array[T.class_of(AbstractSubcommand)]) }
       def subcommands_for(command)
         namespace = "#{command.name}::"
-        subclasses.select do |subcommand|
+        # Qualified so this behaves the same whether called on `AbstractSubcommand`
+        # itself or (as `command` does below) on one of its subclasses.
+        Homebrew::AbstractSubcommand.subclasses.select do |subcommand|
           subcommand.name&.start_with?(namespace)
         end
+      end
+
+      sig { returns(T.class_of(Homebrew::AbstractCommand)) }
+      def command
+        found = Homebrew::AbstractCommand.subclasses.find { |candidate| subcommands_for(candidate).include?(self) }
+        raise TypeError, "#{self} is not nested under a `Homebrew::AbstractCommand`" if found.nil?
+
+        found
+      end
+
+      # A module `extend`ed onto this subcommand's `args` in `#initialize`, so `is_a?`
+      # genuinely holds for the type named in the generated RBI (see
+      # `Tapioca::Compilers::SubcommandArgs`) instead of only approximating it statically.
+      sig { returns(T::Module[T.anything]) }
+      def args_module
+        @args_module ||= T.let(const_set(:Args, Module.new), T.nilable(T::Module[T.anything]))
       end
 
       sig { params(parser: CLI::Parser, command: T.class_of(Homebrew::AbstractCommand)).void }
       def define_all(parser, command:)
         subcommands_for(command).each do |subcommand|
           subcommand.define(parser)
+          subcommand.args_module
         end
       end
 
@@ -79,12 +98,14 @@ module Homebrew
       end
     end
 
-    sig { returns(T.untyped) }
+    sig { returns(CLI::Args) }
     attr_reader :args
 
-    sig { params(args: T.untyped, context: T.untyped, targets: T.untyped, quiet: T::Boolean, cleanup: T::Boolean).void }
+    sig { params(args: CLI::Args, context: T.untyped, targets: T.untyped, quiet: T::Boolean, cleanup: T::Boolean).void }
     def initialize(args, context: nil, targets: nil, quiet: false, cleanup: true)
-      @args = args
+      # `args` is frozen by `CLI::Parser#parse`, so `extend` needs an unfrozen clone
+      # (which, unlike `dup`, keeps the singleton methods the parser defined on it).
+      @args = T.let(args.clone(freeze: false).extend(self.class.args_module).freeze, CLI::Args)
       @context = context
       @targets = targets
       @quiet = quiet

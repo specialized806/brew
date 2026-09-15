@@ -8,7 +8,7 @@ module Test
 
       requires_ancestor { Kernel }
 
-      class Args
+      class Args < Homebrew::CLI::Args
         attr_reader :named
 
         # Value flags that are unset unless a spec provides them.
@@ -82,6 +82,7 @@ module Test
         ].freeze
 
         def initialize(named:, **options)
+          super()
           @named = named
           @options = options
         end

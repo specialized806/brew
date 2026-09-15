@@ -44,10 +44,11 @@ RSpec.describe Homebrew::Cmd::Bundle do
     with_env("HOMEBREW_BUNDLE_NO_UPGRADE" => "1") do
       args = described_class.new(%w[upgrade -fq]).args
       context = described_class.context(args, extensions: Homebrew::Cmd::Bundle::BUNDLE_EXTENSIONS)
+      install_args = Homebrew::Cmd::Bundle::InstallSubcommand.new(args).args
 
       expect(args.subcommand).to eq("install")
-      expect(args.upgrade?).to be(true)
-      expect(args.force?).to be(true)
+      expect(install_args.upgrade?).to be(true)
+      expect(install_args.force?).to be(true)
       expect(args.quiet?).to be(true)
       expect(context.subcommand).to eq("install")
       expect(context.no_upgrade).to be(false)
@@ -116,7 +117,7 @@ RSpec.describe Homebrew::Cmd::Bundle do
 
   it "lets explicit dump type flags override environment disables", :aggregate_failures do
     with_env("HOMEBREW_BUNDLE_DUMP_NO_BREW" => "1", "HOMEBREW_BUNDLE_DUMP_NO_MAS" => "1") do
-      args = described_class.new(%w[dump --formula --mas]).args
+      args = Homebrew::Cmd::Bundle::DumpSubcommand.new(described_class.new(%w[dump --formula --mas]).args).args
 
       expect(args.formulae?).to be(true)
       expect(args.mas?).to be(true)
@@ -127,7 +128,7 @@ RSpec.describe Homebrew::Cmd::Bundle do
 
   it "lets explicit cleanup type flags override environment disables", :aggregate_failures do
     with_env("HOMEBREW_BUNDLE_CLEANUP_NO_BREW" => "1", "HOMEBREW_BUNDLE_CLEANUP_NO_MAS" => "1") do
-      args = described_class.new(%w[cleanup --formula --mas]).args
+      args = Homebrew::Cmd::Bundle::CleanupSubcommand.new(described_class.new(%w[cleanup --formula --mas]).args).args
 
       expect(args.formulae?).to be(true)
       expect(args.mas?).to be(true)

@@ -36,7 +36,8 @@ RSpec.describe Homebrew::AbstractSubcommand do
     end
 
     it "allows access to args" do
-      expect(TestSubcommand.new(:args).args).to eq(:args)
+      args = Homebrew::CLI::Args.new
+      expect(TestSubcommand.new(args).args).to be_a(Homebrew::CLI::Args)
     end
 
     it "finds subcommands nested under a command class" do
@@ -72,6 +73,43 @@ RSpec.describe Homebrew::AbstractSubcommand do
       end
 
       expect(parser.subcommand_names).to include("first", "second")
+    end
+
+    it "finds its owning command, even when called on the subcommand subclass itself" do
+      nested_subcommand = Class.new(Homebrew::AbstractSubcommand) do
+        subcommand_args { named_args :none }
+        def run; end
+      end
+      stub_const("SubcommandTestCmd::NestedSubcommand", nested_subcommand)
+
+      expect(nested_subcommand.command).to be(SubcommandTestCmd)
+    end
+
+    it "builds a real module and memoizes it" do
+      nested_subcommand = Class.new(Homebrew::AbstractSubcommand) do
+        subcommand_args { named_args :none }
+        def run; end
+      end
+      stub_const("SubcommandTestCmd::NestedSubcommand", nested_subcommand)
+
+      args_module = nested_subcommand.args_module
+
+      expect(args_module).to be_a(Module)
+      expect(nested_subcommand.args_module).to be(args_module)
+    end
+
+    it "extends the parsed args with its module, so `is_a?` genuinely holds" do
+      nested_subcommand = Class.new(Homebrew::AbstractSubcommand) do
+        subcommand_args { named_args :none }
+        def run; end
+      end
+      stub_const("SubcommandTestCmd::NestedSubcommand", nested_subcommand)
+
+      args = Homebrew::CLI::Args.new
+      wrapped_args = nested_subcommand.new(args).args
+
+      expect(wrapped_args).to be_a(nested_subcommand.args_module)
+      expect(wrapped_args).to be_a(Homebrew::CLI::Args)
     end
   end
 end

@@ -253,7 +253,7 @@ module Homebrew
           end
           description += " Enabled by default if `$HOMEBREW_#{env.upcase}` is set#{affix}"
         end
-        process_option(*names, description, type: :switch, hidden:, subcommands:) unless odisabled
+        process_option(*names, description, type: :switch, hidden:, subcommands:)
 
         @parser.public_send(method, *names, *wrap_option_desc(description)) do |value|
           # This odeprecated should stick around indefinitely.
