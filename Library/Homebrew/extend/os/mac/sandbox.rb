@@ -120,13 +120,9 @@ module OS
         ["#{home}/Library/Developer", "#{home}/Library/Caches/org.swift.swiftpm"]
       end
 
-      sig { params(args: T::Array[T.any(String, ::Pathname)], tmpdir: String).returns(T::Array[T.any(String, ::Pathname)]) }
-      def sandbox_command(args, tmpdir)
-        seatbelt = File.new(File.join(tmpdir, "homebrew.sb"), "wx")
-        seatbelt.write(seatbelt_profile)
-        seatbelt.close
-
-        [SANDBOX_EXEC, "-f", seatbelt.path, *args]
+      sig { params(args: T::Array[T.any(String, ::Pathname)], _tmpdir: String).returns(T::Array[T.any(String, ::Pathname)]) }
+      def sandbox_command(args, _tmpdir)
+        [SANDBOX_EXEC, "-p", seatbelt_profile, *args]
       end
 
       sig { void }

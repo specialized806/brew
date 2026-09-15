@@ -74,6 +74,20 @@ RSpec.describe Sandbox, :needs_macos do
     end
   end
 
+  describe "#sandbox_command", :no_sandbox_run do
+    subject(:sandbox) do
+      Class.new(described_class) do
+        T.bind(self, T.class_of(Sandbox))
+        public :sandbox_command, :seatbelt_profile
+      end.new
+    end
+
+    it "passes the profile directly to sandbox-exec" do
+      expect(sandbox.sandbox_command(["/bin/echo", "hello world"], dir.to_s))
+        .to eq(["/usr/bin/sandbox-exec", "-p", sandbox.seatbelt_profile, "/bin/echo", "hello world"])
+    end
+  end
+
   describe ".avoid_nested_sandboxing?", :no_sandbox_run do
     before do
       allow(Homebrew::EnvConfig).to receive(:avoid_nested_sandboxing?).and_return(true)

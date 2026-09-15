@@ -421,6 +421,7 @@ RSpec.configure do |config|
         HOMEBREW_PINNED_CASKS,
         user_config_home/"trust.json",
         HOMEBREW_PREFIX/"Caskroom",
+        HOMEBREW_PREFIX/"var/homebrew/sandbox",
         HOMEBREW_PREFIX/"Frameworks",
         HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-cask",
         HOMEBREW_LIBRARY/"Taps/homebrew/homebrew-bar",

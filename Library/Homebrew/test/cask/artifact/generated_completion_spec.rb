@@ -102,7 +102,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
           allow(sandbox).to receive(:add_install_hook_rules)
           allow(sandbox).to receive(:allow_write_path)
           allow(sandbox).to receive(:run) do |*args, **|
-            captured_payload = JSON.parse(Pathname(args.last).read)
+            captured_payload = JSON.parse(File.binread(args.fetch(-2)))
           end
         end
       end
@@ -197,7 +197,7 @@ RSpec.describe Cask::Artifact::GeneratedCompletion, :cask do
           allow(sandbox).to receive(:add_install_hook_rules)
           allow(sandbox).to receive(:allow_write_path)
           allow(sandbox).to receive(:run) do |*args, **|
-            captured_payload = JSON.parse(Pathname(args.last).read)
+            captured_payload = JSON.parse(File.binread(args.fetch(-2)))
             run_sandboxed_payload.call(args)
           end
         end
