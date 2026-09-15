@@ -350,9 +350,7 @@ module Homebrew
       sig { params(formula: Formula, no_older_versions: T::Boolean).returns(T::Boolean) }
       def bottled?(formula, no_older_versions: false)
         # If a formula has an `:all` bottle, then all its dependencies have
-        # to be bottled too for us to use it. We only need to recurse
-        # up the dep tree when we encounter an `:all` bottle because
-        # a formula is not bottled unless its dependencies are.
+        # to be bottled too for us to use it.
         if formula.bottle_specification.tag?(Utils::Bottles.tag(:all))
           formula.deps.all? do |dep|
             bottle_no_older_versions = no_older_versions && (!dep.test? || dep.build?)
@@ -371,7 +369,9 @@ module Homebrew
         ).returns(T::Boolean)
       }
       def bottled_or_built?(formula, built_formulae, no_older_versions: false)
-        bottled?(formula, no_older_versions:) || built_formulae.include?(formula.full_name)
+        [formula, *formula.runtime_formula_dependencies(read_from_tab: false, undeclared: false)].all? do |dependency|
+          bottled?(dependency, no_older_versions:) || built_formulae.include?(dependency.full_name)
+        end
       end
 
       sig { params(formula: Formula).returns(T::Boolean) }
