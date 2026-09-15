@@ -626,7 +626,7 @@ class Tap
   # @param clone_target If passed, it will be used as the clone remote.
   # @param quiet If set, suppress all output.
   # @param custom_remote If set, change the tap's remote if already installed.
-  # @param verify If set, verify all the formula, casks and aliases in the tap are valid.
+  # @param verify If set, verify trusted formulae and casks and all aliases in the tap are valid.
   # @param force If set, force core and cask taps to install even under API mode.
   #
   # @api public
@@ -643,6 +643,7 @@ class Tap
               custom_remote: false, verify: false, force: false)
     require "descriptions"
     require "readall"
+    require "trust"
 
     if official? && DEPRECATED_OFFICIAL_TAPS.include?(repository)
       odie "#{name} was deprecated. This tap is now empty and all its contents were either deleted or migrated."
@@ -751,7 +752,12 @@ class Tap
         update_remote_from_git_redirect!(result.stderr, quiet:)
       end
 
-      if verify && !Homebrew::EnvConfig.developer? && !Readall.valid_tap?(self, aliases: true)
+      if verify && !Homebrew::EnvConfig.developer? && !Readall.valid_tap?(
+        self,
+        aliases:       true,
+        formula_files: formula_files.select { Homebrew::Trust.trusted_formula_file?(it) },
+        cask_files:    cask_files.select { Homebrew::Trust.trusted_cask_file?(it) },
+      )
         raise "Cannot tap #{name}: invalid syntax in tap!"
       end
     rescue Interrupt, RuntimeError
