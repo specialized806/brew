@@ -898,7 +898,7 @@ RSpec.describe Homebrew::Cmd::Info do
       .and not_to_output.to_stderr
   end
 
-  it "marks a dep absent from the installed keg's tab as unsatisfied when its rack is also missing" do
+  it "does not mark a dep absent from the installed keg's tab as unsatisfied when the formula is outdated" do
     allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
 
     info = described_class.new([])
@@ -918,10 +918,65 @@ RSpec.describe Homebrew::Cmd::Info do
     tab.write
 
     allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
-    allow(formula).to receive_messages(core_formula?: false, missing_library_linkage: [[], Set.new])
+    allow(formula).to receive_messages(core_formula?: false, missing_library_linkage: [[], Set.new], outdated?: true)
+
+    expect { info.info_formula(formula) }
+      .to output(/Required \(1\): bar\n/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "marks a dep absent from the installed keg's tab as unsatisfied when the formula is up to date" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar"
+    end
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.runtime_dependencies = []
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive_messages(core_formula?: false, missing_library_linkage: [[], Set.new], outdated?: false)
 
     expect { info.info_formula(formula) }
       .to output(/Required \(1\): .*bar.*✘/).to_stdout
+      .and not_to_output.to_stderr
+  end
+
+  it "never marks a missing recommended or optional dependency with a red X" do
+    allow_any_instance_of(StringIO).to receive(:tty?).and_return(true)
+
+    info = described_class.new([])
+    formula = formula("testball") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/testball-0.1.tar.gz"
+      desc "Some test"
+
+      depends_on "bar" => :recommended
+      depends_on "baz" => :optional
+    end
+
+    keg_path = HOMEBREW_CELLAR/"testball/0.1"
+    keg_path.mkpath
+    tab = Tab.empty
+    tab.tabfile = keg_path/AbstractTab::FILENAME
+    tab.write
+
+    allow(info).to receive(:github_info).with(formula).and_return("https://example.com/testball.rb")
+    allow(formula).to receive_messages(core_formula?: false, missing_library_linkage: [[], Set.new], outdated?: false)
+
+    expect { info.info_formula(formula) }
+      .to output(/Recommended \(1\): bar\nOptional \(1\): baz\n/).to_stdout
+      .and not_to_output(/✘/).to_stdout
       .and not_to_output.to_stderr
   end
 

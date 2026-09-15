@@ -556,10 +556,12 @@ module Homebrew
           deps = formula.deps.public_send(type).uniq
           next if deps.empty?
 
-          tab_deps = (kegs.any? && type != "build") ? tab_runtime_deps : nil
+          optional_type = ["recommended", "optional"].include?(type)
+          tab_deps = tab_runtime_deps if kegs.any? && type == "required"
+          mark_uninstalled = kegs.any? && !optional_type
           "#{type.capitalize} (#{deps.count}): " \
-            "#{decorate_dependencies(deps, tab_runtime_deps: tab_deps, mark_uninstalled: kegs.any?,
-                                     missing_library_deps:)}"
+            "#{decorate_dependencies(deps, tab_runtime_deps: tab_deps, mark_uninstalled:,
+                                     formula_outdated: outdated, missing_library_deps:)}"
         end
         if dependency_lines.present? || tab_runtime_deps.present? || installed_dependents.any?
           ohai "Dependencies"
@@ -850,16 +852,18 @@ module Homebrew
         params(dependencies:         T::Array[Dependency],
                tab_runtime_deps:     T.nilable(T::Array[T::Hash[String, T.untyped]]),
                mark_uninstalled:     T::Boolean,
+               formula_outdated:     T::Boolean,
                missing_library_deps: T::Set[String]).returns(String)
       }
       def decorate_dependencies(dependencies, tab_runtime_deps: nil, mark_uninstalled: true,
-                                missing_library_deps: Set.new)
+                                formula_outdated: false, missing_library_deps: Set.new)
         dependencies.map do |dep|
           display = dep_display_s(dep)
-          full_name = tab_runtime_deps&.find do |d|
+          matching_tab_dep = tab_runtime_deps&.find do |d|
             name = d["full_name"]
             name == dep.name || name&.then { Utils.name_from_full_name(it) } == dep.name
-          end&.fetch("full_name") || dep.name
+          end
+          full_name = matching_tab_dep&.fetch("full_name") || dep.name
           rack = HOMEBREW_CELLAR/Utils.name_from_full_name(full_name)
           installed = T.let(rack.directory? && !rack.subdirs.empty?, T::Boolean)
           formula = begin
@@ -870,7 +874,13 @@ module Homebrew
           installed ||= formula.any_version_installed? if !installed && formula
           outdated = T.let(installed && formula&.outdated? == true, T::Boolean)
           warning = missing_library_deps.include?(Utils.name_from_full_name(dep.name))
-          pretty_install_status(display, warning:, installed:, outdated:, mark_uninstalled:, bold: true)
+          needed_by_installed_keg = if formula_outdated && tab_runtime_deps
+            matching_tab_dep.present?
+          else
+            mark_uninstalled
+          end
+          pretty_install_status(display, warning:, installed:, outdated:,
+                                 mark_uninstalled: needed_by_installed_keg, bold: true)
         end.join(", ")
       end
 
