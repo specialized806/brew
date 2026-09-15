@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "digest"
 require "extend/object/deep_dup"
 require "env_config"
 require "json"
@@ -223,12 +224,16 @@ module Cask
         # Formulae sandbox the complete `postinstall.rb` process. Do the same
         # for cask operations so Ruby file changes and every command share one
         # profile, instead of forwarding command input and output through files.
-        Dir.mktmpdir("homebrew-cask-sandbox", HOMEBREW_TEMP) do |temporary_directory|
+        sandbox_root = HOMEBREW_PREFIX/"var/homebrew/sandbox"
+        sandbox_root.mkpath
+        Dir.mktmpdir("cask-", sandbox_root) do |temporary_directory|
           temporary_path = Pathname(temporary_directory)
           home = temporary_path/"home"
-          payload_path = temporary_path/"payload.json"
           home.mkpath
-          payload_path.write(JSON.generate(payload))
+          sandbox.allow_write_path(home)
+          payload_json = JSON.generate(payload)
+          payload_path = temporary_path/"payload.json"
+          payload_path.write(payload_json, mode: "wx")
           sandbox.allow_read(path: payload_path)
 
           # The payload carries only structured data, not a cask `.rb` file.
@@ -244,6 +249,7 @@ module Cask
               "--",
               HOMEBREW_LIBRARY_PATH/"cask_artifact.rb",
               payload_path,
+              Digest::SHA256.hexdigest(payload_json),
               passthrough_stdin:,
               child_message_handler:
             )

@@ -104,7 +104,7 @@ RSpec.describe Cask::Artifact::AbstractInstallSteps, :cask do
     expect(sandbox).to receive(:run).once do |*args, **|
       expect(args).to include(HOMEBREW_LIBRARY_PATH/"cask_artifact.rb")
 
-      payload = JSON.parse(Pathname(args.last).read)
+      payload = JSON.parse(File.binread(args.fetch(-2)))
       expect(payload.fetch("action")).to eq("install_steps")
       expect(payload.fetch("steps").filter_map do |step|
         step.dig("command", "path") if step["type"] == "run"

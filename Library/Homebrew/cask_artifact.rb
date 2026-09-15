@@ -7,6 +7,7 @@ old_trap = trap("INT") { exit! 130 }
 
 require_relative "global"
 
+require "digest"
 require "json"
 require "cask/config"
 require "extend/ENV"
@@ -78,7 +79,12 @@ begin
   ENV.activate_extensions!
   Pathname.activate_extensions!
 
-  payload = T.cast(JSON.parse(Pathname(ARGV.fetch(0)).read), T::Hash[String, T.untyped])
+  payload_json = File.binread(ARGV.fetch(0))
+  if Digest::SHA256.hexdigest(payload_json) != ARGV.fetch(1)
+    raise "Cask sandbox payload checksum mismatch."
+  end
+
+  payload = T.cast(JSON.parse(payload_json), T::Hash[String, T.untyped])
   case payload.fetch("action")
   when "install_steps"
     context = Cask::InstallStepsContext.new(payload.fetch("context"))
