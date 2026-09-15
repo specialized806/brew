@@ -5,7 +5,7 @@
 # shellcheck disable=SC2154
 export HOMEBREW_REQUIRED_RUBY_VERSION="4.0"
 read -r HOMEBREW_PORTABLE_RUBY_VERSION <"${HOMEBREW_LIBRARY}/Homebrew/vendor/portable-ruby-version"
-export HOMEBREW_BUNDLER_VERSION="4.0.16"
+export HOMEBREW_BUNDLER_VERSION="4.0.20"
 
 # Disable Ruby options we don't need.
 export HOMEBREW_RUBY_DISABLE_OPTIONS="--disable=gems,rubyopt"
