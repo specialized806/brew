@@ -758,6 +758,85 @@ RSpec.describe Tap do
   end
 
   describe "#install" do
+    context "when verifying tap contents", :trust_store do
+      let(:tap) { described_class.fetch("thirdparty", "verification") }
+      let(:formula_loaded) { HOMEBREW_CACHE/"formula-loaded" }
+      let(:cask_loaded) { HOMEBREW_CACHE/"cask-loaded" }
+
+      before do
+        require "trust"
+
+        allow(Homebrew::EnvConfig).to receive_messages(developer?: false, no_require_tap_trust?: false)
+        allow(Commands).to receive(:rebuild_commands_completion_list)
+        setup_tap_files
+        formula_file.write "File.write(#{formula_loaded.to_s.dump}, 'loaded')\n#{formula_file.read}"
+        (path/"Casks").mkpath
+        (path/"Casks/foo.rb").write <<~RUBY
+          File.write(#{cask_loaded.to_s.dump}, "loaded")
+          cask "foo" do
+            version "1.0"
+            sha256 :no_check
+            url "https://example.com/foo-1.0.zip"
+            depends_on :macos
+            app "Foo.app"
+          end
+        RUBY
+      end
+
+      after do
+        FileUtils.rm_rf tap.path.parent
+      end
+
+      def install_verified_tap
+        setup_git_repo
+        tap.install clone_target: path, quiet: true, verify: true
+      end
+
+      it "clones an untrusted tap without evaluating its formulae or casks or granting trust" do
+        install_verified_tap
+
+        expect([tap.installed?, formula_loaded.exist?, cask_loaded.exist?, Homebrew::Trust.trusted_entries(:tap)])
+          .to eq([true, false, false, []])
+      end
+
+      it "does not warn that a successfully cloned untrusted tap was skipped" do
+        expect { install_verified_tap }.not_to output(/Skipping .* because it is not trusted/).to_stderr
+      end
+
+      it "verifies individually trusted formulae and casks while skipping untrusted files" do
+        Homebrew::Trust.trust!(:formula, "#{path}/foo")
+        Homebrew::Trust.trust!(:cask, "#{path}/foo")
+        (path/"Formula/untrusted.rb").write 'raise "Untrusted formula evaluated"'
+        (path/"Casks/untrusted.rb").write 'raise "Untrusted cask evaluated"'
+
+        install_verified_tap
+
+        expect([tap.installed?, formula_loaded.exist?, cask_loaded.exist?, Homebrew::Trust.trusted_entries(:tap)])
+          .to eq([true, true, true, []])
+      end
+
+      it "rejects invalid formulae in a trusted tap" do
+        Homebrew::Trust.trust!(:tap, path.to_s)
+        formula_file.write 'raise "Invalid formula"'
+
+        expect { install_verified_tap }.to raise_error(RuntimeError, /invalid syntax in tap/)
+      end
+
+      it "rejects invalid casks in a trusted tap" do
+        Homebrew::Trust.trust!(:tap, path.to_s)
+        (path/"Casks/foo.rb").write 'raise "Invalid cask"'
+
+        expect { install_verified_tap }.to raise_error(RuntimeError, /invalid syntax in tap/)
+      end
+
+      it "rejects invalid aliases even when the tap is untrusted" do
+        alias_file.unlink
+        FileUtils.ln_s "../Formula/missing.rb", alias_file
+
+        expect { install_verified_tap }.to raise_error(RuntimeError, /invalid syntax in tap/)
+      end
+    end
+
     it "disables terminal prompts for git commands" do
       require "system_command"
 
