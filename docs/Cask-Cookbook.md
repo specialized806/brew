@@ -84,8 +84,8 @@ When multiple `depends_on` stanzas are present, order them alphabetically by dep
     command_wrapper
     manpage
     bash_completion
-    fish_completion
     zsh_completion
+    fish_completion
     pwsh_completion
     generate_completions_from_executable
     colorpicker
@@ -165,8 +165,8 @@ Cross-platform casks should scope OS-specific artifact stanzas inside `on_macos`
 | [`command_wrapper`](#stanza-command_wrapper)                                           |              yes              | Generates a command wrapper and links it into the `$(brew --prefix)/bin` folder.                                                                                                                                                                                                                                                                                           |
 | `manpage`                                                                              |              yes              | Relative path to a Man Page that should be linked into the respective man page folder on installation, e.g. `/opt/homebrew/share/man/man3` for `my_app.3`.                                                                                                                                                                                                                 |
 | `bash_completion`                                                                      |              yes              | Relative path to a Bash completion file that should be linked into the `$(brew --prefix)/etc/bash_completion.d` folder on installation.                                                                                                                                                                                                                                    |
-| `fish_completion`                                                                      |              yes              | Relative path to a fish completion file that should be linked into the `$(brew --prefix)/share/fish/vendor_completions.d` folder on installation.                                                                                                                                                                                                                          |
 | `zsh_completion`                                                                       |              yes              | Relative path to a Zsh completion file that should be linked into the `$(brew --prefix)/share/zsh/site-functions` folder on installation.                                                                                                                                                                                                                                  |
+| `fish_completion`                                                                      |              yes              | Relative path to a fish completion file that should be linked into the `$(brew --prefix)/share/fish/vendor_completions.d` folder on installation.                                                                                                                                                                                                                          |
 | `pwsh_completion`                                                                      |              yes              | Relative path to a PowerShell completion file that should be linked into the `$(brew --prefix)/share/pwsh/completions` folder on installation.                                                                                                                                                                                                                             |
 | [`generate_completions_from_executable`](#stanza-generate_completions_from_executable) |              yes              | Command and arguments used to generate shell completions from an executable at installation time.                                                                                                                                                                                                                                                                          |
 | `colorpicker`                                                                          |              yes              | Relative path to a ColorPicker plugin that should be moved into the `~/Library/ColorPickers` folder on installation.                                                                                                                                                                                                                                                       |
@@ -265,7 +265,7 @@ artifact "sapmachine-jdk-#{version}.jdk", target: "/Library/Java/JavaVirtualMach
 
 #### *target* works on most artifact types
 
-The `target:` key works similarly for most cask artifacts, such as `app`, `binary`, `bash_completion`, `fish_completion`, `zsh_completion`, `pwsh_completion`, `colorpicker`, `dictionary`, `font`, `input_method`, `internet_plugin`, `keyboard_layout`, `prefpane`, `mdimporter`, `screen_saver`, `service`, `suite`, `audio_unit_plugin`, `vst_plugin`, `vst3_plugin`, and `artifact`.
+The `target:` key works similarly for most cask artifacts, such as `app`, `binary`, `bash_completion`, `zsh_completion`, `fish_completion`, `pwsh_completion`, `colorpicker`, `dictionary`, `font`, `input_method`, `internet_plugin`, `keyboard_layout`, `prefpane`, `mdimporter`, `screen_saver`, `service`, `suite`, `audio_unit_plugin`, `vst_plugin`, `vst3_plugin`, and `artifact`.
 
 #### *target* should only be used in select cases
 

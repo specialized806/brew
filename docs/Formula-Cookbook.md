@@ -952,10 +952,10 @@ Generally we'd rather you were specific about which files or directories need to
 | **`opt_frameworks`**  | `#{opt_prefix}/Frameworks`                     | `/opt/homebrew/opt/foo/Frameworks` |
 | **`kext_prefix`**     | `#{prefix}/Library/Extensions`                 | `/opt/homebrew/Cellar/foo/0.1/Library/Extensions` |
 | **`bash_completion`** | `#{prefix}/etc/bash_completion.d`              | `/opt/homebrew/Cellar/foo/0.1/etc/bash_completion.d` |
-| **`fish_completion`** | `#{prefix}/share/fish/vendor_completions.d`    | `/opt/homebrew/Cellar/foo/0.1/share/fish/vendor_completions.d` |
-| **`fish_function`**   | `#{prefix}/share/fish/vendor_functions.d`      | `/opt/homebrew/Cellar/foo/0.1/share/fish/vendor_functions.d` |
 | **`zsh_completion`**  | `#{prefix}/share/zsh/site-functions`           | `/opt/homebrew/Cellar/foo/0.1/share/zsh/site-functions` |
 | **`zsh_function`**    | `#{prefix}/share/zsh/site-functions`           | `/opt/homebrew/Cellar/foo/0.1/share/zsh/site-functions` |
+| **`fish_completion`** | `#{prefix}/share/fish/vendor_completions.d`    | `/opt/homebrew/Cellar/foo/0.1/share/fish/vendor_completions.d` |
+| **`fish_function`**   | `#{prefix}/share/fish/vendor_functions.d`      | `/opt/homebrew/Cellar/foo/0.1/share/fish/vendor_functions.d` |
 | **`pwsh_completion`** | `#{prefix}/share/pwsh/completions`             | `/opt/homebrew/Cellar/foo/0.1/share/pwsh/completions` |
 | **`buildpath`**       | temporary working directory during builds      | `/private/tmp/foo-20250205-69197-po5981/foo-0.1` |
 | **`testpath`**        | temporary working directory during tests       | `/private/tmp/foo-test-20250205-84567-4hfs9m` |

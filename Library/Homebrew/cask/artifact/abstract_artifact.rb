@@ -112,8 +112,8 @@ module Cask
             Manpage,
             [
               BashCompletion,
-              FishCompletion,
               ZshCompletion,
+              FishCompletion,
               PwshCompletion,
             ],
             GeneratedCompletion,
