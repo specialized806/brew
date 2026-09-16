@@ -4,6 +4,18 @@
 require "vulns/semver"
 
 RSpec.describe Homebrew::Vulns::Semver do
+  describe ".release_version" do
+    it "normalises a prerelease with a prefix and build metadata" do
+      expect(described_class.release_version("v2026.2.22-rc.1+build.2")).to eq "2026.2.22"
+    end
+
+    it "returns no alternative for releases, metadata-only suffixes or invalid versions" do
+      expect(["2026.2.22", "2026.2.22+build-2", "2026.2.22-02"].map do |version|
+        described_class.release_version(version)
+      end).to eq [nil, nil, nil]
+    end
+  end
+
   describe ".compare" do
     # From vers gem: basic numeric ordering
     it "orders major versions numerically" do

@@ -93,6 +93,10 @@ module Homebrew
                   next if emitter.alias_protected?(record_id)
 
                   reviewed_state = emitter.reviewed_range_state(record_id)
+                  if reviewed_state && !status && matcher.current_prerelease_boundary?(hit)
+                    opoo "#{record_id}: prerelease_boundary in current version; leaving reviewed record unchanged"
+                    next
+                  end
                   initial_introduction = false
                   initial_introduction = true if !args.no_history? && status && reviewed_state.nil?
                   candidate = matcher.to_brew_record(formula, hit)
@@ -168,6 +172,11 @@ module Homebrew
                   if status&.affected? && has_terminal_range
                     emitter.record_history_walk
                     reintroduced = matcher.first_reintroduced_version(formula, hit)
+                    if reintroduced == :history_unavailable
+                      emitter.record_history_unavailable(formula.name)
+                      opoo "#{record_id}: reintroduction history is unavailable; skipping automatic update"
+                      next
+                    end
                     unless reintroduced.is_a?(String)
                       onoe "#{record_id}: could not find a prior non-affected version for its reviewed fixed range"
                       Homebrew.failed = true

@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-09-10"
+last_review_date: "2026-09-14"
 ---
 
 # Advisory Matching
@@ -17,8 +17,14 @@ An `introduced: "0"` boundary asserts that every earlier version is affected; it
 Automatic matching deliberately favours range accuracy over coverage.
 Unreadable or uncomparable history, disjoint affected intervals and affected and unaffected builds sharing a `pkg_version` can prevent a new record from being emitted.
 The command warns and counts these as history-unavailable skips instead of inventing a boundary.
+This includes a historical subject whose prerelease suffix changes its `SEMVER` range state compared with its release version.
 A skip does not mean the formula is unaffected, so an ingest run can omit a currently affected formula and is not evidence of complete vulnerability coverage.
 Reviewers must establish the ranges and matching provenance together from upstream evidence and formula build history, then contribute the record manually.
+
+Current-version prerelease ambiguity produces an uncomparable review lead with no `range_state`, reduced confidence and `database_specific.review_reason: "prerelease_boundary"`.
+Ingest drops these leads and lists their IDs by reason in its run summary.
+An explicit `range_state` override for the formula and advisory resolves the current-state ambiguity; an `upstream_fixed_in` override alone does not.
+Without a reviewed state override, existing reviewed records stay unchanged.
 
 A reviewed state override does not establish historical boundaries.
 When its state disagrees with comparable upstream evidence, or the upstream evidence cannot be checked, a new range needs manual review.

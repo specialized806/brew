@@ -519,12 +519,15 @@ module Homebrew
       # `[status, evidence]` where `evidence` is the one whose result was
       # chosen (used by {#first_fixed_version} and for the emitted record's
       # resource attribution), or `nil` if no evidence produced a checkable
-      # answer.
+      # answer. A current prerelease ambiguity needs an explicit reviewed state.
       sig {
         params(hit: Hit, formula_name: T.nilable(String))
           .returns(T.nilable([Vulnerability::RangeStatus, Evidence]))
       }
       def range_status(hit, formula_name: nil)
+        override = @overrides&.advisory_override(formula_name, hit.identifiers) if formula_name
+        return if !override&.state && current_prerelease_boundary?(hit)
+
         subjects = hit.evidence.reject { |ev| ev.strategy == :distro && ev.subject_version.nil? }
                       .group_by(&:resource).map do |_, evidence|
           results = evidence.filter_map do |ev|
@@ -536,7 +539,6 @@ module Homebrew
         results = subjects.compact
         selected = results.find { |s, _| s.affected? }
         selected ||= results.find { |s, _| s.fixed? } || results.first unless subjects.include?(nil)
-        override = @overrides&.advisory_override(formula_name, hit.identifiers) if formula_name
         return selected unless override
 
         status, evidence = selected ||
@@ -547,6 +549,21 @@ module Homebrew
 
         fixed_in = override.fixed_in_overridden ? override.fixed_in : status&.fixed_in
         [Vulnerability::RangeStatus.new(state:, fixed_in:).freeze, evidence]
+      end
+
+      # Reuse the same ambiguity rule as historical observations for every
+      # current subject, including evidence retained from other aliases.
+      sig { params(hit: Hit).returns(T::Boolean) }
+      def current_prerelease_boundary?(hit)
+        hit.evidence.any? { |ev| evidence_prerelease_boundary?(ev, ev.subject_version) }
+      end
+
+      # CPANSA uses its own constraints rather than the attached OSV ranges.
+      sig { params(evidence: Evidence, version: T.nilable(String)).returns(T::Boolean) }
+      def evidence_prerelease_boundary?(evidence, version)
+        return false if evidence.strategy == :cpansa || version.nil?
+
+        evidence.source_record&.prerelease_boundary?(evidence.ecosystem, evidence.name, version) || false
       end
 
       sig {
@@ -605,6 +622,10 @@ module Homebrew
             upstream_evidence: hit.evidence.map { |e| e.to_h.except(:advisory, :source_record).compact }.uniq,
           },
         }, T::Hash[Symbol, T.untyped])
+
+        if status.nil? && current_prerelease_boundary?(hit)
+          record[:database_specific][:review_reason] = "prerelease_boundary"
+        end
 
         record[:summary] = vuln.summary if vuln.summary
         record[:details] = vuln.details if vuln.details
@@ -747,10 +768,9 @@ module Homebrew
       # a `version_scheme` change. After finding the transition, the remaining
       # history is checked so the new interval cannot cover a known
       # non-affected formula version.
-      # `:not_reintroduced` means no prior non-affected revision was verified,
-      # either because all loadable history remained affected, the tap is a
-      # shallow clone, the formula has no git history or a revision could not
-      # be loaded or compared safely.
+      # `:history_unavailable` means a revision could not be loaded or compared,
+      # or the formula's history is missing or shallow. `:not_reintroduced`
+      # means no representable transition was found in the available history.
       sig { params(formula: Formula, hit: Hit).returns(T.nilable(T.any(String, Symbol))) }
       def first_reintroduced_version(formula, hit)
         return unless range_status(hit, formula_name: formula.name)&.first&.affected?
@@ -759,7 +779,7 @@ module Homebrew
         transition_found = T.let(false, T::Boolean)
         result = @history.walk(formula) do |old|
           aggregate = aggregate_state_at(old, hit)
-          next :not_reintroduced if aggregate.nil?
+          next :history_unavailable if aggregate.nil?
 
           pkg_version = old.pkg_version.to_s
           begin
@@ -775,13 +795,11 @@ module Homebrew
               transition_found = true
             end
           rescue ArgumentError
-            next :not_reintroduced
+            next :history_unavailable
           end
           nil
         end
-        # Every early result is fail-closed: untrusted history, an uncomparable
-        # revision or a known non-affected version above the boundary.
-        return :not_reintroduced unless result.nil?
+        return result unless result.nil?
 
         transition_found ? first_affected : :not_reintroduced
       end
@@ -803,10 +821,11 @@ module Homebrew
           # find an older affected revision.
           next :fixed unless present
           next :unknown if subject.nil?
+          next :prerelease_boundary if evidence_prerelease_boundary?(ev, subject)
 
           evidence_range_status(ev, subject)&.state || :unknown
         end
-        return if results.empty?
+        return if results.empty? || results.include?(:prerelease_boundary)
         return :affected if results.include?(:affected)
         return if results.include?(:unknown)
         return :fixed if results.include?(:fixed)
