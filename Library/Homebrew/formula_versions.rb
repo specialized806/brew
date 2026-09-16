@@ -78,14 +78,18 @@ class FormulaVersions
     @formula_at_revision = T.let({}, T::Hash[String, Formula])
   end
 
-  sig { params(branch: String, _block: T.proc.params(revision: String, path: String).void).void }
-  def rev_list(branch, &_block)
+  # Full history includes earlier lifetimes of a deleted and re-added path.
+  # Vulns::History skips proven absent paths, which are not formula builds.
+  sig {
+    params(branch: String, all_history: T::Boolean, _block: T.proc.params(revision: String, path: String).void).void
+  }
+  def rev_list(branch, all_history: false, &_block)
     repository.cd do
-      rev_list_cmd = ["git", "rev-list", "--abbrev-commit", "--remove-empty"]
+      rev_list_cmd = ["git", "rev-list", "--abbrev-commit"]
+      rev_list_cmd << "--remove-empty" unless all_history
       [relative_path, old_relative_path].compact.each do |entry|
-        Utils.popen_read(*rev_list_cmd, branch, "--", entry) do |io|
-          yield io.readline.chomp, entry until io.eof?
-        end
+        Utils.popen_read(*rev_list_cmd, branch, "--", entry, safe: all_history)
+             .each_line(chomp: true) { |revision| yield revision, entry }
       end
     end
   end
@@ -136,6 +140,16 @@ class FormulaVersions
     yield formula
   ensure
     Homebrew.raise_deprecation_exceptions = false
+  end
+
+  # Only a successful tree lookup proves absence; a failed Git command must
+  # not turn unreadable history into a skipped revision.
+  sig { params(revision: String, relative_path: String).returns(T::Boolean) }
+  def path_absent_at_revision?(revision, relative_path)
+    repository.cd do
+      Utils.popen_read("git", "ls-tree", "--full-tree", "--name-only", "-z",
+                       revision, "--", relative_path, safe: true).empty?
+    end
   end
 
   private

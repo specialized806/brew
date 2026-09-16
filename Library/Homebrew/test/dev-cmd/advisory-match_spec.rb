@@ -53,6 +53,226 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     )
   end
 
+  context "with --reconcile-history" do
+    let(:matcher) { Homebrew::Vulns::Match.new(strict_upstream: true) }
+    let(:result) do
+      Homebrew::Vulns::Match::ReconciledHistory.new(state: :range, introduced: "2.20.0", fixed: "2.28.1", reasons: [])
+    end
+    let(:stored) do
+      hit = matcher.advisories_for(requests).fetch(0)
+      JSON.parse(JSON.generate(matcher.to_brew_record(requests, hit, now: Time.utc(2020))))
+    end
+
+    before do
+      stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+      allow(Formulary).to receive(:factory).with(requests.path).and_return(requests)
+      allow(matcher).to receive(:reconcile_history).and_return(result)
+      allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+    end
+
+    def reconcile_record
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "#{stored.fetch("id")}.json")
+        original = JSON.generate(stored)
+        File.write(path, original)
+        overrides = File.join(dir, "overrides.yml")
+        File.write(overrides, "{}\n")
+        cmd_for("requests", "--output", dir, "--overrides", overrides, "--reconcile-history").run
+        yield path, original
+      end
+    end
+
+    it "requires an explicit overrides file" do
+      expect { cmd_for("requests", "--output", "/unused", "--reconcile-history").run }
+        .to raise_error(UsageError, /explicit.*--overrides/)
+    end
+
+    it "loads a real preservation override before any history walk" do
+      stored
+      allow(Homebrew::Vulns::Match).to receive(:new).and_call_original
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "#{stored.fetch("id")}.json")
+        original = JSON.generate(stored)
+        File.write(path, original)
+        overrides = File.join(dir, "overrides.yml")
+        File.write(overrides, "requests:\n  advisories:\n    CVE-2024-1234:\n      preserve_homebrew_ranges: true\n")
+        expect { cmd_for("requests", "--output", dir, "--overrides", overrides, "--reconcile-history").run }
+          .to output(/0 history walks.*preserved: 1/m).to_stdout
+        expect(File.read(path)).to eq original
+      end
+    end
+
+    it "loads and walks distinct formula views under each platform" do
+      walked = []
+      allow(Formulary).to receive(:factory).with(requests.path) do
+        Formulary.from_contents("requests", requests.path, <<~RUBY)
+          class Requests < Formula
+            url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.31.0.tar.gz"
+            head "https://github.com/psf/requests.git"
+          end
+        RUBY
+      end
+      allow(matcher).to receive(:reconcile_history) do |view, _hit|
+        walked << [Homebrew::SimulateSystem.current_os, Homebrew::SimulateSystem.current_arch, view.object_id]
+        result
+      end
+      reconcile_record do |_path, _original|
+        expect([walked.map(&:last).uniq.length, walked.map { |os, arch, _| [os == :linux, arch] }]).to eq(
+          [4, [[false, :arm], [false, :intel], [true, :arm], [true, :intel]]],
+        )
+      end
+    end
+
+    it "holds failed upstream fetches instead of deleting a partially matched record" do
+      stored
+      allow(Homebrew::Vulns::Match).to receive(:new).and_call_original
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).and_raise(Homebrew::Vulns::OSV::ApiError, "unavailable")
+      expect do
+        reconcile_record do |path, original|
+          expect([File.read(path), Homebrew.failed?]).to eq [original, false]
+        end
+      end
+        .to output(/upstream_unavailable: 1/).to_stdout
+    end
+
+    it "holds the formula when a later platform cannot fetch upstream records" do
+      stored
+      allow(matcher).to receive(:advisories_for).and_raise(Homebrew::Vulns::OSV::ApiError, "503")
+      expect do
+        reconcile_record do |path, original|
+          expect([File.read(path), Homebrew.failed?]).to eq [original, false]
+        end
+      end
+        .to output(/upstream_unavailable: 1/).to_stdout
+    end
+
+    it "shrinks a matched terminal range while preserving every other field" do
+      reconcile_record do |path, _original|
+        updated = JSON.parse(File.read(path))
+        expected = stored.deep_dup
+        expected["modified"] = updated.fetch("modified")
+        expected.fetch("affected").fetch(0)["ranges"] = [{ "type" => "ECOSYSTEM", "events" => [
+          { "introduced" => "2.20.0" }, { "fixed" => "2.28.1" }
+        ] }]
+        expect(updated).to eq expected
+      end
+    end
+
+    it "deletes a matched record only after all platforms prove it was never affected" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(state: :never_affected))
+      reconcile_record { |path, _| expect(File).not_to exist(path) }
+    end
+
+    it "does not reconcile a generated record" do
+      stored.fetch("database_specific")["source"] = "generated"
+      expect(matcher).not_to receive(:reconcile_history)
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "does not reconcile a patch fix even if its source is matched" do
+      stored.fetch("affected").fetch(0).fetch("ecosystem_specific")["fix"] = "patch"
+      expect(matcher).not_to receive(:reconcile_history)
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "leaves a preserved record byte-identical" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(state: :preserved))
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "leaves unresolved history byte-identical" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(state:   :unresolved,
+                                                                           reasons: [:subject_changed]))
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "leaves a disappeared current match unchanged" do
+      stored
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[], []])
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "does not create new records" do
+      Dir.mktmpdir do |dir|
+        overrides = File.join(dir, "overrides.yml")
+        File.write(overrides, "{}\n")
+        cmd_for("requests", "--output", dir, "--overrides", overrides, "--reconcile-history").run
+        expect(Dir.glob(File.join(dir, "BREW-*.json"))).to be_empty
+      end
+    end
+
+    it "rejects changed stored provenance before walking history" do
+      stored.fetch("database_specific").fetch("upstream_evidence").fetch(0)["name"] = "another-package"
+      expect(matcher).not_to receive(:reconcile_history)
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "does not expand an existing affected interval" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(fixed: "2.32.0"))
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "classifies an open reconciliation result as reopened" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(fixed: nil))
+      expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+        .to output(/reopened: 1/).to_stdout
+    end
+
+    it "distinguishes an invalid interval from range expansion" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(introduced: "2.28.1"))
+      expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+        .to output(/invalid_interval: 1/).to_stdout
+    end
+
+    it "reports a generated alias as protected" do
+      stored.fetch("database_specific")["source"] = "generated"
+      expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+        .to output(/alias_protected: 1/).to_stdout
+    end
+
+    it "does not replace multiple intervals" do
+      stored.fetch("affected").fetch(0).fetch("ranges").fetch(0).fetch("events") << { "introduced" => "2.32.0" }
+      expect(matcher).not_to receive(:reconcile_history)
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "holds differing platform histories" do
+      allow(matcher).to receive(:reconcile_history) do
+        Homebrew::Vulns::Match::ReconciledHistory.new(state: :range, introduced: "2.20.0",
+                                                      fixed: if Homebrew::SimulateSystem.simulating_or_running_on_linux?
+                                                               "2.29.0"
+                                                             else
+                                                               "2.28.1"
+                                                      end, reasons: [])
+      end
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "holds a match missing from an alternate platform" do
+      stored
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch) do
+        Homebrew::SimulateSystem.simulating_or_running_on_linux? ? [[], []] : [[{ "id" => "CVE-2024-1234" }], []]
+      end
+      reconcile_record { |path, original| expect(File.read(path)).to eq original }
+    end
+
+    it "does not overwrite a record edited during the history walk" do
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "#{stored.fetch("id")}.json")
+        File.write(path, JSON.generate(stored))
+        overrides = File.join(dir, "overrides.yml")
+        File.write(overrides, "{}\n")
+        edited = stored.merge("summary" => "Reviewed concurrently")
+        allow(matcher).to receive(:reconcile_history) do
+          File.write(path, JSON.generate(edited))
+          result
+        end
+        cmd_for("requests", "--output", dir, "--overrides", overrides, "--reconcile-history").run
+        expect(JSON.parse(File.read(path))).to eq edited
+      end
+    end
+  end
+
   it "updates one existing matched alias without creating a canonical duplicate" do
     stub_osv_hit("GHSA-old", aliases: ["CVE-2024-1234"], fixed: "2.28.1")
 

@@ -44,6 +44,14 @@ module Homebrew
                depends_on:  "--output=",
                description: "Skip `FormulaVersions` for existing terminal ranges " \
                             "unless their matching provenance changes."
+        switch "--reconcile-history",
+               depends_on:  "--output=",
+               description: "Reconcile existing matched terminal ranges against complete history; " \
+                            "requires `--overrides`."
+        conflicts "--reconcile-history", "--new-history"
+        conflicts "--reconcile-history", "--no-history"
+        conflicts "--reconcile-history", "--json"
+        conflicts "--reconcile-history", "--index"
         conflicts "--all", "--index"
         conflicts "--all", "--json"
         conflicts "--index", "--json"
@@ -57,19 +65,37 @@ module Homebrew
 
       sig { override.void }
       def run
+        if args.reconcile_history? && !args.overrides
+          raise UsageError, "`--reconcile-history` requires an explicit `--overrides` file"
+        end
+
         Formulary.enable_factory_cache!
         Homebrew::API.with_no_api_env do
           latest_macos = MacOSVersion.new((HOMEBREW_MACOS_NEWEST_UNSUPPORTED.to_i - 1).to_s).to_sym
           Homebrew::SimulateSystem.with(os: latest_macos, arch: :arm) do
             overrides = local_overrides
-            matcher = Homebrew::Vulns::Match.new(repology:  local_repology,
+            matcher = Homebrew::Vulns::Match.new(repology:        local_repology,
                                                  overrides:,
-                                                 bulk:      args.all? || args.index?)
+                                                 bulk:            args.all? || args.index?,
+                                                 strict_upstream: args.reconcile_history?)
             next emit_index(matcher) if args.index?
 
             emitter = build_emitter
             begin
-              matcher.each_advisory_batch(each_formula) do |formula, hits|
+              on_error = if args.reconcile_history?
+                lambda do |formula, error|
+                  hold_upstream_formula(formula, error, emitter)
+                end
+              end
+              matcher.each_advisory_batch(
+                each_formula,
+                on_error:,
+              ) do |formula, hits|
+                if args.reconcile_history? && emitter.is_a?(DirEmitter)
+                  reconcile_formula(matcher, formula, hits, emitter, latest_macos:)
+                  next
+                end
+
                 report(matcher, formula, hits) if text_mode?
                 # A below-introduced hit would otherwise look open to OSV
                 # consumers; it must not participate in alias maintenance.
@@ -207,6 +233,105 @@ module Homebrew
         end
       end
 
+      sig {
+        params(matcher: Homebrew::Vulns::Match, formula: Formula,
+               hits: T::Array[Homebrew::Vulns::Match::Hit], emitter: DirEmitter, latest_macos: Symbol).void
+      }
+      def reconcile_formula(matcher, formula, hits, emitter, latest_macos:)
+        groups = hits.to_h do |hit|
+          ids = matcher.record_ids(formula, hit)
+          [ids.fetch(0), ids]
+        end
+        errors = emitter.prepare_aliases(formula.name, groups)
+        if errors.any?
+          errors.each { |error| onoe error }
+          Homebrew.failed = true
+          return
+        end
+
+        candidates = hits.to_h { |hit| [matcher.record_id(formula, hit), matcher.to_brew_record(formula, hit)] }
+        candidates.select! { |_, record| emitter.reconciliation_record(record) }
+        return if candidates.empty?
+
+        outcomes = T.let({}, T::Hash[String, T::Array[Homebrew::Vulns::Match::ReconciledHistory]])
+        candidates.each_key { |id| outcomes[id] = [] }
+        platforms = T.let([[latest_macos, :arm], [latest_macos, :intel], [:linux, :arm], [:linux, :intel]],
+                          T::Array[[Symbol, Symbol]])
+        platforms.each_with_index do |(os, arch), index|
+          pending = candidates.select do |id, _|
+            outcomes.fetch(id).all? { |result| [:range, :never_affected].include?(result.state) }
+          end
+          break if pending.empty?
+
+          Homebrew::SimulateSystem.with(os:, arch:) do
+            # Reload under each platform: resources and primary sources can differ.
+            begin
+              view = index.zero? ? formula : Formulary.factory(formula.path)
+              platform_hits = index.zero? ? hits : matcher.advisories_for(view)
+            rescue Homebrew::Vulns::OSV::Error
+              raise
+            rescue => e
+              pending.each_key do |id|
+                outcomes.fetch(id) << Homebrew::Vulns::Match::ReconciledHistory.new(
+                  state: :unresolved, introduced: nil, fixed: nil, reasons: [:platform_unavailable],
+                )
+              end
+              opoo "#{formula.name} (#{os}/#{arch}): #{e.message}"
+              next
+            end
+            pending.each do |id, record|
+              family = platform_hits.select { |hit| hit.identifiers.intersect?(record.fetch(:upstream)) }
+              if platform_provenance_changed?(matcher, emitter, record, view, family)
+                result = Homebrew::Vulns::Match::ReconciledHistory.new(
+                  state: :unresolved, introduced: nil, fixed: nil, reasons: [:platform_provenance_changed],
+                )
+              else
+                result = matcher.reconcile_history(view, family.fetch(0))
+                emitter.record_history_walk if result.state != :preserved
+              end
+              outcomes.fetch(id) << result
+            end
+          end
+        end
+        candidates.each do |id, record|
+          results = outcomes.fetch(id)
+          reasons = results.flat_map(&:reasons)
+          reasons << :preserved if results.any? { |result| result.state == :preserved }
+          decisions = results.map { |result| [result.state, result.introduced, result.fixed] }.uniq
+          if reasons.empty? && (results.length != platforms.length || !decisions.one?)
+            reasons << :platform_disagreement
+          end
+          if reasons.any?
+            emitter.skip_reconciliation(id, reasons.uniq)
+          else
+            emitter.reconcile(record, results.fetch(0))
+          end
+        end
+      rescue Homebrew::Vulns::OSV::Error => e
+        hold_upstream_formula(formula, e, emitter)
+      end
+
+      # A platform view must rediscover the record through exactly one hit
+      # carrying its stored upstream family with the same matching provenance;
+      # anything else means the stored ranges cannot be compared across views.
+      sig {
+        params(matcher: Homebrew::Vulns::Match, emitter: DirEmitter, record: T::Hash[Symbol, T.untyped],
+               view: Formula, family: T::Array[Homebrew::Vulns::Match::Hit]).returns(T::Boolean)
+      }
+      def platform_provenance_changed?(matcher, emitter, record, view, family)
+        hit = family.first
+        return true if !family.one? || hit.nil?
+        return true if emitter.range_basis(record) != emitter.range_basis(matcher.to_brew_record(view, hit))
+
+        (record.fetch(:upstream) - hit.identifiers).any?
+      end
+
+      sig { params(formula: Formula, error: Homebrew::Vulns::OSV::Error, emitter: Emitter).void }
+      def hold_upstream_formula(formula, error, emitter)
+        emitter.record_upstream_unavailable(formula.name) if emitter.is_a?(DirEmitter)
+        opoo "#{formula.name}: upstream unavailable; leaving its records unchanged: #{error.message}"
+      end
+
       # A CI run that has just built the index locally (advisory-database's
       # Ingest) reads it directly instead of fetching the published copy.
       sig { returns(T.nilable(Homebrew::Vulns::Repology)) }
@@ -313,13 +438,17 @@ module Homebrew
       end
 
       class DirEmitter < Emitter
-        sig { params(dir: String, verbose: T::Boolean, close_open_ranges: T::Boolean).void }
-        def initialize(dir, verbose:, close_open_ranges:)
+        sig { params(dir: String, verbose: T::Boolean, close_open_ranges: T::Boolean, reconcile_history: T::Boolean).void }
+        def initialize(dir, verbose:, close_open_ranges:, reconcile_history: false)
           super()
           FileUtils.mkdir_p(dir)
           @dir = dir
           @verbose = verbose
           @close_open_ranges = close_open_ranges
+          @reconcile_history = reconcile_history
+          @deleted = T.let(0, Integer)
+          @reconciliation_skips = T.let({}, T::Hash[Symbol, Integer])
+          @reconciliation_seen = T.let({}, T::Hash[String, T::Boolean])
           @written = T.let(0, Integer)
           @unchanged = T.let(0, Integer)
           @skipped_generated = T.let(0, Integer)
@@ -434,6 +563,141 @@ module Homebrew
         sig { override.params(record_id: String).returns(T::Boolean) }
         def alias_protected?(record_id)
           @protected_aliases.fetch(record_id, false)
+        end
+
+        # Reconciliation never creates a record or changes its matching provenance.
+        sig { params(record: T::Hash[Symbol, T.untyped]).returns(T.nilable(T::Hash[String, T.untyped])) }
+        def reconciliation_record(record)
+          id = record.fetch(:id)
+          if alias_protected?(id)
+            skip_reconciliation(id, [:alias_protected])
+            return
+          end
+
+          paths = alias_target_paths(id)
+          unless paths.one?
+            skip_reconciliation(id, [:ambiguous_alias_paths])
+            return
+          end
+          return unless File.file?(paths.fetch(0))
+
+          path = paths.fetch(0)
+          @reconciliation_seen[path] = true
+          existing = alias_record(path)
+          unless reconcilable_record?(existing)
+            skip_reconciliation(id, [:unsupported_record])
+            return
+          end
+          unless single_terminal_range?(existing)
+            skip_reconciliation(id, [:unsupported_range])
+            return
+          end
+          unless provenance_matches?(existing, record)
+            skip_reconciliation(id, [:provenance_changed])
+            return
+          end
+          existing
+        end
+
+        # Only matched, bump-fixed records are reconciled; generated patch
+        # fixes and withdrawn records keep their annotation-based ranges.
+        sig { params(existing: T.untyped).returns(T::Boolean) }
+        def reconcilable_record?(existing)
+          existing.is_a?(Hash) &&
+            existing.dig("database_specific", "source") == "matched" &&
+            existing["withdrawn"].blank? &&
+            existing.dig("affected", 0, "ecosystem_specific", "fix") == "bump"
+        end
+
+        # Exactly one ECOSYSTEM range holding an `introduced` and a `fixed`
+        # event, each a non-blank string.
+        sig { params(existing: T::Hash[String, T.untyped]).returns(T::Boolean) }
+        def single_terminal_range?(existing)
+          ranges = existing.dig("affected", 0, "ranges")
+          return false if !ranges.is_a?(Array) || !ranges.one?
+
+          range = ranges.fetch(0)
+          return false if !range.is_a?(Hash) || range["type"] != "ECOSYSTEM"
+
+          events = range["events"]
+          return false if !events.is_a?(Array) || events.length != 2
+
+          introduced, fixed = events
+          introduced.is_a?(Hash) && introduced.keys == ["introduced"] && introduced["introduced"].is_a?(String) &&
+            introduced["introduced"].present? &&
+            fixed.is_a?(Hash) && fixed.keys == ["fixed"] && fixed["fixed"].is_a?(String) && fixed["fixed"].present?
+        end
+
+        # The stored record must still be reached through the same upstream
+        # identifiers with evidence and a range basis the candidate reproduces.
+        sig { params(existing: T::Hash[String, T.untyped], record: T::Hash[Symbol, T.untyped]).returns(T::Boolean) }
+        def provenance_matches?(existing, record)
+          upstream = existing["upstream"]
+          return false if !upstream.is_a?(Array) || upstream.empty?
+          return false if (upstream - record.fetch(:upstream)).any?
+          return false if Array(existing.dig("database_specific", "upstream_evidence")).empty?
+
+          range_basis(existing) == range_basis(record)
+        end
+
+        sig { params(record_id: String, reasons: T::Array[Symbol]).void }
+        def skip_reconciliation(record_id, reasons)
+          reasons.each { |reason| @reconciliation_skips[reason] = @reconciliation_skips.fetch(reason, 0) + 1 }
+          Utils::Output.opoo "#{record_id}: #{reasons.join(", ")}; leaving it unchanged" if @verbose
+        end
+
+        sig { params(record: T::Hash[Symbol, T.untyped], result: Homebrew::Vulns::Match::ReconciledHistory).void }
+        def reconcile(record, result)
+          existing = reconciliation_record(record)
+          return unless existing
+
+          id = record.fetch(:id)
+          path = alias_target_paths(id).fetch(0)
+          updated = existing.deep_dup
+          if result.state == :range && (introduced = result.introduced) && (fixed = result.fixed)
+            events = existing.fetch("affected").fetch(0).fetch("ranges").fetch(0).fetch("events")
+            old_introduced = PkgVersion.parse(events.fetch(0).fetch("introduced"))
+            old_fixed = PkgVersion.parse(events.fetch(1).fetch("fixed"))
+            if PkgVersion.parse(introduced) >= PkgVersion.parse(fixed)
+              skip_reconciliation(id, [:invalid_interval])
+              return
+            end
+            if PkgVersion.parse(introduced) < old_introduced || PkgVersion.parse(fixed) > old_fixed
+              skip_reconciliation(id, [:range_expansion])
+              return
+            end
+            updated.fetch("affected").fetch(0).fetch("ranges").fetch(0)["events"] = [
+              { "introduced" => introduced }, { "fixed" => fixed }
+            ]
+            if updated == existing
+              @unchanged += 1
+              return
+            end
+            updated["modified"] = Time.now.utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+          elsif result.state == :range && result.fixed.nil?
+            skip_reconciliation(id, [:reopened])
+            return
+          elsif result.state != :never_affected
+            skip_reconciliation(id, result.reasons.presence || [:unsupported_result])
+            return
+          end
+
+          # A full walk can be slow. Do not overwrite an intervening review edit.
+          if !File.file?(path) || JSON.parse(File.read(path)) != existing
+            skip_reconciliation(id, [:record_changed])
+            return
+          end
+          if result.state == :never_affected
+            File.unlink(path)
+            @deleted += 1
+            puts "  deleted #{path}" if @verbose
+          else
+            File.write(path, "#{JSON.pretty_generate(updated)}\n")
+            @written += 1
+            puts "  reconciled #{path}" if @verbose
+          end
+        rescue JSON::ParserError
+          skip_reconciliation(record.fetch(:id), [:record_changed])
         end
 
         sig { override.params(record: T::Hash[Symbol, T.untyped]).returns(T::Boolean) }
@@ -635,6 +899,19 @@ module Homebrew
           @history_unavailable_by_formula[formula_name] = count + 1
         end
 
+        sig { params(formula_name: String).void }
+        def record_upstream_unavailable(formula_name)
+          ensure_alias_index
+          @alias_records.each do |path, record|
+            next unless record.is_a?(Hash)
+            next if record.dig("database_specific", "source") != "matched"
+            next unless affected_formula_names(record).include?(formula_name)
+
+            @reconciliation_seen[path] = true
+            skip_reconciliation(record.fetch("id"), [:upstream_unavailable])
+          end
+        end
+
         sig { params(record_id: String).returns(String) }
         def record_path(record_id)
           File.join(@dir, "#{record_id}.json")
@@ -748,6 +1025,15 @@ module Homebrew
                              "(#{@unchanged} unchanged, #{@skipped_generated} generated left as-is, " \
                              "#{@history_walks} history walks, #{history_unavailable} history-unavailable skips, " \
                              "#{@basis_changed} range-basis skips)"
+          if @reconcile_history
+            ensure_alias_index
+            unmatched = @alias_records.count do |path, record|
+              record.is_a?(Hash) && record.dig("database_specific", "source") == "matched" &&
+                !@reconciliation_seen[path]
+            end
+            puts "  Reconciliation: #{@deleted} deleted; #{unmatched} matched records not revisited"
+            @reconciliation_skips.sort.each { |reason, count| puts "    #{reason}: #{count}" }
+          end
           return if @history_unavailable_by_formula.empty?
 
           puts "  Unavailable history by formula:"
@@ -798,7 +1084,8 @@ module Homebrew
       sig { returns(Emitter) }
       def build_emitter
         if (dir = args.output)
-          DirEmitter.new(dir, verbose: args.verbose?, close_open_ranges: !args.no_history?)
+          DirEmitter.new(dir, verbose: args.verbose?, close_open_ranges: !args.no_history?,
+                         reconcile_history: args.reconcile_history?)
         elsif args.json?
           JsonEmitter.new
         else

@@ -446,13 +446,14 @@ _brew_advisory_match() {
     '(--index --json)--all[Match every formula in `homebrew/core`]' \
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
-    '(--all --json --output)--index[Emit the formula-identity index as JSON and exit]' \
-    '(--all --index)--json[Output candidate records as a JSON array]' \
-    '(--no-history)--new-history[Skip `FormulaVersions` for existing terminal ranges unless their matching provenance changes]' \
-    '(--new-history)--no-history[Skip `FormulaVersions` walks for new ranges; use zero/current `pkg_version` as unverified boundaries]' \
+    '(--reconcile-history --all --json --output)--index[Emit the formula-identity index as JSON and exit]' \
+    '(--reconcile-history --all --index)--json[Output candidate records as a JSON array]' \
+    '(--reconcile-history --no-history)--new-history[Skip `FormulaVersions` for existing terminal ranges unless their matching provenance changes]' \
+    '(--reconcile-history --new-history)--no-history[Skip `FormulaVersions` walks for new ranges; use zero/current `pkg_version` as unverified boundaries]' \
     '(--index)--output[Write each record to directory as `BREW-formula-id.json`, preserving existing `published`/`ranges` fields]' \
     '--overrides[Load reviewed formula and advisory matching overrides from file]' \
     '--quiet[Make some output more quiet]' \
+    '(--new-history --no-history --json --index)--reconcile-history[Reconcile existing matched terminal ranges against complete history; requires `--overrides`]' \
     '--repology[Load the formula to distro-package index from file instead of the published `data/repology.json`]' \
     '--verbose[Make some output more verbose]' \
     - formula \

@@ -32,6 +32,9 @@ class Homebrew::DevCmd::AdvisoryMatch::Args < Homebrew::CLI::Args
   sig { returns(T.nilable(String)) }
   def overrides; end
 
+  sig { returns(T::Boolean) }
+  def reconcile_history?; end
+
   sig { returns(T.nilable(String)) }
   def repology; end
 end
