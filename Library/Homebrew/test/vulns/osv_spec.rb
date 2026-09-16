@@ -1,11 +1,12 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "vulns/osv"
 
 RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
-  def curl_result(stdout:, success: true)
-    instance_double(SystemCommand::Result, stdout:, success?: success, exit_status: success ? 0 : 22, stderr: "")
+  def curl_result(stdout:, success: true, http_status: 200, exit_status: success ? 0 : 22)
+    instance_double(SystemCommand::Result, stdout: "#{stdout}\n#{http_status}", success?: success, exit_status:,
+                    stderr: "")
   end
 
   def stub_curl(*results)
@@ -34,9 +35,9 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       results = described_class.query_batch(packages)
 
       expect(results.size).to eq 3
-      expect(results[0].map { |v| v["id"] }).to eq ["CVE-2024-1111"]
-      expect(results[1]).to eq []
-      expect(results[2].map { |v| v["id"] }).to eq ["CVE-2024-2222", "CVE-2024-3333"]
+      expect(results.fetch(0).map { |v| v["id"] }).to eq ["CVE-2024-1111"]
+      expect(results.fetch(1)).to eq []
+      expect(results.fetch(2).map { |v| v["id"] }).to eq ["CVE-2024-2222", "CVE-2024-3333"]
     end
 
     it "posts each package under its given ecosystem, omitting version when nil" do
@@ -45,8 +46,8 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
         { ecosystem: "PyPI", name: "requests", version: "2.31.0" },
         { ecosystem: "Debian", name: "curl", version: nil },
       ]
-      posted = nil
-      expect(Utils::Curl).to receive(:curl_output) do |*args|
+      posted = T.let({}, T::Hash[String, T.untyped])
+      expect(Utils::Curl).to receive(:curl_output) do |*args, **_options|
         expect(args.last).to eq "https://api.osv.dev/v1/querybatch"
         posted = JSON.parse(args[args.index("--json") + 1])
         curl_result(stdout: { results: [{}, {}, {}] }.to_json)
@@ -59,6 +60,13 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
         { "package" => { "name" => "requests", "ecosystem" => "PyPI" }, "version" => "2.31.0" },
         { "package" => { "name" => "curl", "ecosystem" => "Debian" } },
       ]
+    end
+
+    it "does not classify a missing query endpoint as a missing vulnerability" do
+      stub_curl curl_result(stdout: "", success: false, http_status: 404)
+
+      expect { described_class.query_batch(packages) }
+        .to raise_error(an_instance_of(Homebrew::Vulns::OSV::ApiError))
     end
 
     it "returns empty for empty input without hitting the network" do
@@ -75,20 +83,20 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
 
       results = described_class.query_batch(packages)
 
-      expect(results.map { |r| r.first["id"] }).to eq %w[A B C]
+      expect(results.map { |r| r.fetch(0)["id"] }).to eq %w[A B C]
     end
 
     it "raises ApiError when the results key is missing" do
       stub_curl curl_result(stdout: "{}")
       expect { described_class.query_batch(packages) }
-        .to raise_error(described_class::ApiError, /expected 3 results/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /expected 3 results/)
     end
 
     it "raises ApiError when fewer results than queries are returned" do
       body = { results: [{ vulns: [] }, { vulns: [] }] }
       stub_curl curl_result(stdout: body.to_json)
       expect { described_class.query_batch(packages) }
-        .to raise_error(described_class::ApiError, /expected 3 results, got 2/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /expected 3 results, got 2/)
     end
 
     it "raises ApiError when a continuation response is truncated" do
@@ -102,7 +110,7 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       page2 = { results: [{ vulns: [{ id: "A2" }] }] }
       stub_curl(curl_result(stdout: page1.to_json), curl_result(stdout: page2.to_json))
       expect { described_class.query_batch(packages) }
-        .to raise_error(described_class::ApiError, /expected 2 results, got 1/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /expected 2 results, got 1/)
     end
 
     it "follows per-result next_page_token, resubmitting only paged queries" do
@@ -114,18 +122,18 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
         ],
       }
       page2 = { results: [{ vulns: [{ id: "B2" }, { id: "B3" }] }] }
-      posted = []
-      expect(Utils::Curl).to receive(:curl_output).twice do |*args|
+      posted = T.let([], T::Array[T::Hash[String, T.untyped]])
+      expect(Utils::Curl).to receive(:curl_output).twice do |*args, **_options|
         posted << JSON.parse(args[args.index("--json") + 1])
         curl_result(stdout: ((posted.size == 1) ? page1 : page2).to_json)
       end
 
       results = described_class.query_batch(packages)
 
-      expect(results[0].map { |v| v["id"] }).to eq %w[A1]
-      expect(results[1].map { |v| v["id"] }).to eq %w[B1 B2 B3]
-      expect(results[2].map { |v| v["id"] }).to eq %w[C1]
-      expect(posted[1]["queries"]).to eq [
+      expect(results.fetch(0).map { |v| v["id"] }).to eq %w[A1]
+      expect(results.fetch(1).map { |v| v["id"] }).to eq %w[B1 B2 B3]
+      expect(results.fetch(2).map { |v| v["id"] }).to eq %w[C1]
+      expect(posted.fetch(1)["queries"]).to eq [
         { "package"    => { "name" => "https://github.com/b/b", "ecosystem" => "GIT" },
           "version"    => "v2",
           "page_token" => "tok-b" },
@@ -138,20 +146,32 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       stub_curl curl_result(stdout: body.to_json)
 
       expect { described_class.query_batch([packages.first]) }
-        .to raise_error(described_class::ApiError, /more than 3 pages/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /more than 3 pages/)
     end
 
     it "raises ApiError when curl reports failure" do
       stub_curl curl_result(stdout: "server on fire", success: false)
       expect { described_class.query_batch(packages) }
-        .to raise_error(described_class::ApiError, /OSV API/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /OSV API/)
     end
 
     it "raises ApiError when the response is not valid JSON" do
       stub_curl curl_result(stdout: "<html>not json</html>")
       expect { described_class.query_batch(packages) }
-        .to raise_error(described_class::ApiError, /Invalid JSON/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /Invalid JSON/)
     end
+  end
+
+  it "bounds requests while retaining the curl wrapper's retry policy" do
+    options = T.let({}, T::Hash[Symbol, Integer])
+    allow(Utils::Curl).to receive(:curl_output) do |*_args, **kwargs|
+      options = kwargs
+      curl_result(stdout: '{"id":"CVE-2024-1234"}')
+    end
+
+    described_class.vulnerability("CVE-2024-1234")
+
+    expect(options).to eq(connect_timeout: 15, max_time: 60, retry_max_time: 120)
   end
 
   describe ".vulnerability" do
@@ -171,10 +191,31 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
       expect(vuln["details"]).to eq "Full details here"
     end
 
+    it "distinguishes a confirmed HTTP 404 from other request failures" do
+      stub_curl curl_result(stdout: "", success: false, http_status: 404)
+
+      expect { described_class.vulnerability("CVE-2024-0404") }
+        .to raise_error(Homebrew::Vulns::OSV::NotFoundError)
+    end
+
+    it "does not treat a timeout after HTTP 404 headers as a confirmed missing record" do
+      stub_curl curl_result(stdout: "", success: false, http_status: 404, exit_status: 28)
+
+      expect { described_class.vulnerability("CVE-2024-0404") }
+        .to raise_error(an_instance_of(Homebrew::Vulns::OSV::ApiError))
+    end
+
+    it "keeps server errors distinct from a missing record" do
+      stub_curl curl_result(stdout: "", success: false, http_status: 503)
+
+      expect { described_class.vulnerability("CVE-2024-0404") }
+        .to raise_error(an_instance_of(Homebrew::Vulns::OSV::ApiError))
+    end
+
     it "URL-encodes the id in the request path" do
-      requested = nil
-      expect(Utils::Curl).to receive(:curl_output) do |*args|
-        requested = args.last
+      requested = T.let("", String)
+      expect(Utils::Curl).to receive(:curl_output) do |*args, **_options|
+        requested = args.fetch(-1)
         curl_result(stdout: { id: "GO-2024-1/2" }.to_json)
       end
 
@@ -186,7 +227,7 @@ RSpec.describe Homebrew::Vulns::OSV, :needs_utils_curl do
     it "raises ApiError when curl reports failure" do
       stub_curl curl_result(stdout: "not found", success: false)
       expect { described_class.vulnerability("CVE-0000-0000") }
-        .to raise_error(described_class::ApiError, /OSV API/)
+        .to raise_error(Homebrew::Vulns::OSV::ApiError, /OSV API/)
     end
   end
 end

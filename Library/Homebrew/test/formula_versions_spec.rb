@@ -20,6 +20,7 @@ RSpec.describe FormulaVersions do
 
         bottle do
           cellar :any_skip_relocation
+          revision 1
           sha256 "#{digest}" => :big_sur
         end
       end
@@ -34,6 +35,33 @@ RSpec.describe FormulaVersions do
     end
 
     expect(result).to eq [FormulaVersions::LegacyBottleSpecification, "true", "1.0", digest, :any_skip_relocation]
+  end
+
+  it "ignores the removed devel spec while preserving the stable historical build" do
+    current = formula("legacy-devel") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/legacy-devel-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    contents = <<~RUBY
+      class LegacyDevel < Formula
+        url "https://brew.sh/legacy-devel-1.0.tar.gz"
+        revision 1
+
+        devel do
+          url "https://brew.sh/legacy-devel-1.5.tar.gz"
+          obsolete_devel_only_stanza
+        end
+      end
+    RUBY
+    allow(versions).to receive(:file_contents_at_revision).and_return(contents)
+
+    result = versions.formula_at_revision("abc123") do |historical|
+      [historical.stable&.url, historical.pkg_version.to_s]
+    end
+
+    expect([result, Formula.respond_to?(:devel)])
+      .to eq [["https://brew.sh/legacy-devel-1.0.tar.gz", "1.0_1"], false]
   end
 
   it "loads historical formulae that use current bottle syntax" do

@@ -14,6 +14,7 @@ module Homebrew
 
       class Error < RuntimeError; end
       class ApiError < Error; end
+      class NotFoundError < ApiError; end
 
       Package = T.type_alias { { ecosystem: String, name: String, version: T.nilable(String) } }
 
@@ -87,12 +88,26 @@ module Homebrew
 
       sig { params(url: String, extra_args: String).returns(T::Hash[String, T.untyped]) }
       private_class_method def self.request(url, *extra_args)
-        result = Utils::Curl.curl_output("--fail", "--location", "--silent", *extra_args, url)
+        # curl_args supplies Homebrew's retry count and curl's transient-error
+        # backoff. Bound each transfer and the retry window for long sweeps.
+        # This placeholder is interpreted by curl, not Ruby.
+        # rubocop:disable Style/FormatStringToken
+        result = Utils::Curl.curl_output("--fail", "--location", "--silent", "--write-out", "\n%{http_code}",
+                                         *extra_args, url, connect_timeout: 15, max_time: 60, retry_max_time: 120)
+        # rubocop:enable Style/FormatStringToken
+        body, _, status = result.stdout.rpartition("\n")
         unless result.success?
-          raise ApiError, "OSV API request to #{url} failed (curl exit #{result.exit_status}): #{result.stderr}"
+          raise(
+            if result.exit_status == 22 && status == "404" && url.start_with?("#{API_BASE}/vulns/")
+              NotFoundError
+            else
+              ApiError
+            end,
+            "OSV API request to #{url} failed (curl exit #{result.exit_status}): #{result.stderr}",
+          )
         end
 
-        JSON.parse(result.stdout)
+        JSON.parse(body)
       rescue JSON::ParserError => e
         raise ApiError, "Invalid JSON from OSV API at #{url}: #{e.message}"
       end
