@@ -43,6 +43,7 @@ module OS
             (xpc-service-name "com.apple.MTLCompilerService")
             (global-name "com.apple.mobileassetd.v2")
             (global-name "com.apple.sysmond")
+            (global-name "com.apple.lsd.mapdb")
             (global-name "com.apple.bsd.dirhelper")
             (global-name "com.apple.system.opendirectoryd.libinfo")
             (global-name "com.apple.system.opendirectoryd.membership")
