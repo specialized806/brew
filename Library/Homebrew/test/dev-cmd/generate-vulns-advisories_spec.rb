@@ -28,6 +28,8 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
         .and_return({ "patches" => f.serialized_patches, "variations" => {} })
     end
 
+    allow(nvi).to receive(:tap_path).and_return(nvi.path)
+
     core_tap = instance_double(CoreTap, installed?: true, name: "homebrew/core", formula_names: ["nvi", "plain"])
     allow(CoreTap).to receive(:instance).and_return(core_tap)
     allow(Formulary).to receive(:enable_factory_cache!)

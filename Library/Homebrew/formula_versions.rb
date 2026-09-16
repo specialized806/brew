@@ -34,6 +34,9 @@ class FormulaVersions
       super(converted)
     end
 
+    sig { params(_value: Integer).void }
+    def revision(_value); end
+
     sig { params(value: T.any(Symbol, String)).returns(T.any(Symbol, String)) }
     def cellar(value)
       @legacy_cellar = value
@@ -46,6 +49,8 @@ class FormulaVersions
   def self.legacy_formula_class
     @legacy_formula_class ||= Class.new(Formula) do
       class << self
+        define_method(:devel) { nil }
+
         define_method(:inherited) do |child|
           super(child)
           child.stable&.instance_variable_set(:@bottle_specification, LegacyBottleSpecification.new)
@@ -96,6 +101,8 @@ class FormulaVersions
   def formula_at_revision(revision, formula_relative_path = relative_path, &_block)
     Homebrew.raise_deprecation_exceptions = true
 
+    # rev_list visits the current path first. At a sharding rename, the old
+    # path is absent in the same commit; reuse the already-loaded new path.
     formula = @formula_at_revision[revision] || begin
       nostdout do
         Formulary.from_contents(
