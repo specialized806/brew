@@ -49,6 +49,14 @@ module OS
         args << "-fno-rosetta" if ::Hardware::CPU.arm?
         args
       end
+
+      # The sandbox denies `mach-lookup`, so AWT cannot reach the WindowServer and aborts
+      # the JVM. Headless AWT never connects to it and still renders images off-screen.
+      sig { params(home: ::Pathname).returns(T::Hash[Symbol, String]) }
+      def common_sandbox_env(home)
+        env = super
+        env.merge(_JAVA_OPTIONS: [env[:_JAVA_OPTIONS], "-Djava.awt.headless=true"].compact.join(" "))
+      end
     end
   end
 end
