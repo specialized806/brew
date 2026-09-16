@@ -77,6 +77,18 @@ RSpec.describe Utils::ShellCompletion do
   end
 
   describe ".generate_completion_output" do
+    it "gives completion generators EOF instead of inheriting standard input" do
+      IO.pipe do |reader, writer|
+        writer.write("parent input")
+        writer.close
+        $stdin.reopen(reader)
+
+        expect(described_class.generate_completion_output(
+                 [RbConfig.ruby, "-e", 'print $stdin.read.empty? ? "completion output" : "inherited input"'], nil, {}
+               )).to eq("completion output")
+      end
+    end
+
     it "calls safe_popen_read with commands and shell parameter" do
       expect(Utils).to receive(:safe_popen_read).with(
         {}, "/usr/bin/foo", "completions", "bash", err: :err
