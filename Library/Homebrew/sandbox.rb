@@ -278,7 +278,7 @@ class Sandbox
   # capture it once per process. `nil` when it cannot be captured.
   sig { returns(T.nilable(String)) }
   def self.tty_state
-    @tty_state ||= T.let(Utils.popen_read("stty", "-g").chomp, T.nilable(String))
+    @tty_state ||= T.let(Utils.popen_read("stty", "-g", in: :in).chomp, T.nilable(String))
     @tty_state.presence
   end
 
@@ -663,10 +663,10 @@ class Sandbox
               if (tty_state = Sandbox.tty_state)
                 begin
                   # `-echo` matches `IO#raw`; `stty raw` alone leaves echo on.
-                  Utils.popen_read("stty", "raw", "-echo", "opost")
+                  Utils.popen_read("stty", "raw", "-echo", "opost", in: :in)
                   write_to_pty.call
                 ensure
-                  Utils.popen_read("stty", tty_state)
+                  Utils.popen_read("stty", tty_state, in: :in)
                 end
               else
                 # Cannot get the terminal state, so don't change it either.
