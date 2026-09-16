@@ -1123,6 +1123,36 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     end
   end
 
+  it "holds unavailable reintroduction history without failing the run" do
+    stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
+    matcher = Homebrew::Vulns::Match.new
+    allow(matcher).to receive(:first_reintroduced_version).and_return(:history_unavailable)
+    allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "BREW-requests-CVE-2024-1234.json")
+      original = JSON.generate({
+        "id"                => "BREW-requests-CVE-2024-1234",
+        "affected"          => [{
+          "package"            => { "ecosystem" => "Homebrew", "name" => "requests" },
+          "ranges"             => [{ "type" => "ECOSYSTEM", "events" => [
+            { "introduced" => "0" }, { "fixed" => "2.30.0" }
+          ] }],
+          "ecosystem_specific" => { "upstream_fixed_in" => "2.32.0" },
+        }],
+        "database_specific" => {
+          "source"            => "matched",
+          "upstream_evidence" => reviewed_git_evidence,
+        },
+      })
+      File.write(path, original)
+      output = capture_stdout { cmd_for("requests", "--output", dir, "--new-history").run }
+
+      expect([File.read(path), Homebrew.failed?, output.include?("1 history-unavailable skips")])
+        .to eq [original, false, true]
+    end
+  end
+
   it "leaves a terminal range unchanged when the new boundary precedes the reviewed boundary" do
     stub_osv_hit("CVE-2024-1234", fixed: "2.32.0")
     matcher = Homebrew::Vulns::Match.new
@@ -1254,6 +1284,136 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
     )
 
     expect(JSON.parse(capture_stdout { cmd_for("requests", "--json", "--no-history").run })).to eq []
+  end
+
+  context "with an ambiguous current prerelease" do
+    let(:current) do
+      formula("openclaw-cli") do
+        T.bind(self, T.class_of(Formula))
+        url "https://registry.npmjs.org/openclaw/-/openclaw-2026.2.22-2.tgz"
+      end
+    end
+    let(:matcher) { Homebrew::Vulns::Match.new }
+
+    before do
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[{ "id" => "CVE-2026-22217" }]])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2026-22217").and_return({
+        "id" => "CVE-2026-22217", "summary" => "Current upstream summary", "affected" => [{
+          "package" => { "ecosystem" => "npm", "name" => "openclaw" },
+          "ranges"  => [{ "type" => "SEMVER", "events" => [{ "introduced" => "2026.2.22" }] }],
+        }]
+      })
+      allow(Homebrew::Vulns::Match).to receive(:new).and_return(matcher)
+    end
+
+    it "emits the current ambiguity as a JSON review lead instead of dropping the hit" do
+      expect(matcher).not_to receive(:first_fixed_version)
+      expect(matcher).not_to receive(:first_introduced_version)
+      records = JSON.parse(capture_stdout { cmd_for("openclaw-cli", "--json", formulae: [current]).run })
+
+      expect([records.length, records.dig(0, "database_specific", "confidence"),
+              records.dig(0, "affected", 0, "ecosystem_specific"),
+              records.dig(0, "database_specific", "review_reason")])
+        .to eq [1, "medium", { "fix" => nil }, "prerelease_boundary"]
+    end
+
+    it "writes an uncomparable lead for a new candidate under --new-history" do
+      expect(matcher).not_to receive(:first_fixed_version)
+      expect(matcher).not_to receive(:first_introduced_version)
+      Dir.mktmpdir do |dir|
+        cmd_for("openclaw-cli", "--output", dir, "--new-history", formulae: [current]).run
+        paths = Dir.glob(File.join(dir, "*.json"))
+        expect(paths.length).to eq 1
+        record = JSON.parse(File.read(paths.fetch(0)))
+        expect([record.dig("database_specific", "confidence"), record.dig("affected", 0, "ecosystem_specific"),
+                record.dig("database_specific", "review_reason")])
+          .to eq ["medium", { "fix" => nil }, "prerelease_boundary"]
+      end
+    end
+
+    it "refreshes a reviewed interval after a state override resolves current ambiguity" do
+      hit = matcher.advisories_for(current).fetch(0)
+      record = matcher.to_brew_record(current, hit)
+      record[:database_specific].delete(:review_reason)
+      record[:summary] = "Before review"
+      record[:affected].fetch(0)[:ranges].fetch(0)[:events] = [{ introduced: "2026.2.22-2" }]
+      record[:affected].fetch(0)[:ecosystem_specific] = { range_state: "affected", fix: nil }
+      expect(FormulaVersions).not_to receive(:new)
+      allow(Homebrew::Vulns::Match).to receive(:new).and_call_original
+
+      Dir.mktmpdir do |dir|
+        overrides_path = File.join(dir, "overrides.yml")
+        File.write(overrides_path, <<~YAML)
+          openclaw-cli:
+            advisories:
+              CVE-2026-22217:
+                range_state: affected
+        YAML
+        record_path = File.join(dir, "#{record.fetch(:id)}.json")
+        File.write(record_path, JSON.generate(record))
+        expect do
+          cmd_for("openclaw-cli", "--output", dir, "--new-history", "--overrides", overrides_path,
+                  formulae: [current]).run
+        end.to output(/1 records written.*0 history walks/).to_stdout.and output("").to_stderr
+        updated = JSON.parse(File.read(record_path))
+        expect([updated["summary"], updated.dig("affected", 0, "ranges", 0, "events"),
+                updated.dig("affected", 0, "ecosystem_specific", "range_state"),
+                updated.dig("database_specific", "review_reason"), Homebrew.failed?])
+          .to eq ["Current upstream summary", [{ "introduced" => "2026.2.22-2" }], "affected", nil, false]
+      end
+    end
+
+    it "still requires reviewed ranges for a new record with an ambiguous state override" do
+      expect(FormulaVersions).not_to receive(:new)
+      allow(Homebrew::Vulns::Match).to receive(:new).and_call_original
+      Dir.mktmpdir do |dir|
+        overrides_path = File.join(dir, "overrides.yml")
+        File.write(overrides_path, <<~YAML)
+          openclaw-cli:
+            advisories:
+              CVE-2026-22217:
+                range_state: affected
+        YAML
+        expect do
+          cmd_for("openclaw-cli", "--output", dir, "--new-history", "--overrides", overrides_path,
+                  formulae: [current]).run
+        end.to output(/state override cannot be checked against upstream history.*Review its ranges and provenance/m)
+          .to_stderr
+        expect(Dir.glob(File.join(dir, "*.json"))).to be_empty
+      end
+    end
+
+    def with_reviewed_prerelease_record(state)
+      expect(matcher).not_to receive(:first_fixed_version)
+      expect(matcher).not_to receive(:first_introduced_version)
+      hit = matcher.advisories_for(current).fetch(0)
+      record = matcher.to_brew_record(current, hit)
+      record[:affected].fetch(0)[:ecosystem_specific] = { range_state: "affected", fix: nil }
+      if state == :terminal
+        record[:affected].fetch(0)[:ranges].fetch(0)[:events] << { fixed: "2026.2.23" }
+        record[:affected].fetch(0)[:ecosystem_specific] = { range_state: "fixed", fix: "bump" }
+      end
+      original = JSON.generate(record)
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "#{record.fetch(:id)}.json")
+        File.write(path, original)
+        expect { cmd_for("openclaw-cli", "--output", dir, "--new-history", formulae: [current]).run }
+          .to output(/prerelease_boundary.*leaving.*unchanged/).to_stderr
+        yield path, original
+      end
+    end
+
+    it "leaves a reviewed open record intact when the current version becomes ambiguous" do
+      with_reviewed_prerelease_record(:open) do |path, original|
+        expect([File.read(path), Homebrew.failed?]).to eq [original, false]
+      end
+    end
+
+    it "leaves a reviewed terminal record intact when the current version becomes ambiguous" do
+      with_reviewed_prerelease_record(:terminal) do |path, original|
+        expect([File.read(path), Homebrew.failed?]).to eq [original, false]
+      end
+    end
   end
 
   it "does not overwrite an existing source: generated record" do

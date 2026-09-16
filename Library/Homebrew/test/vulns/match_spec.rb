@@ -891,6 +891,196 @@ RSpec.describe Homebrew::Vulns::Match do
     end
   end
 
+  describe "CPANSA prerelease subjects" do
+    let(:matcher) do
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({
+        "cpan-example" => { "registry_package" => { "ecosystem" => "CPAN", "name" => "Example" } },
+      })
+      described_class.new(repology:, cpan_sec:, overrides:)
+    end
+    let(:cpan_formula) do
+      formula("cpan-example") do
+        T.bind(self, T.class_of(Formula))
+        url "https://example.test/example-1.2.3-1.tar.gz"
+        version "1.2.3-1"
+      end
+    end
+    let(:hit) do
+      advisory = Homebrew::Vulns::CPANSec::Advisory.new(
+        id: "CPANSA-Example", cves: ["CVE-2026-1234"],
+        affected_versions: ["<2.0"], fixed_versions: [">=2.0"]
+      )
+      make_hit(
+        vuln("id" => "CVE-2026-1234", "affected" => [
+          { "package" => { "ecosystem" => "CPAN", "name" => "Example" },
+            "ranges"  => [{ "type"   => "SEMVER",
+                            "events" => [{ "introduced" => "1.2.3" }, { "fixed" => "2.0" }] }] },
+        ]),
+        ev(:cpansa, ecosystem: "CPAN", name: "Example", subject_version: "1.2.3-1", advisory:),
+      )
+    end
+
+    it "uses CPANSA constraints for a current subject at an OSV prerelease boundary" do
+      expect(matcher.range_status(hit)&.first).to have_attributes(state: :affected, fixed_in: "2.0")
+    end
+
+    it "keeps CPANSA history comparable at an OSV prerelease boundary" do
+      expect(matcher.aggregate_state_at(cpan_formula, hit)).to eq :affected
+    end
+
+    it "still holds independently ambiguous OSV evidence alongside CPANSA" do
+      mixed = make_hit(hit.vulnerability, *hit.evidence,
+                       ev(:distro, ecosystem: "CPAN", name: "Example", subject_version: "1.2.3-1"))
+
+      expect([matcher.range_status(mixed), matcher.aggregate_state_at(cpan_formula, mixed)]).to eq [nil, nil]
+    end
+  end
+
+  describe "prerelease reconciliation" do
+    def prerelease_formula(version)
+      formula("openclaw-cli") do
+        T.bind(self, T.class_of(Formula))
+        url "https://registry.npmjs.org/openclaw/-/openclaw-#{version}.tgz"
+        resource "dependency" do
+          url "https://registry.npmjs.org/dependency/-/dependency-#{version}.tgz"
+        end
+      end
+    end
+
+    def prerelease_hit(introduced: "2026.2.22", fixed: "2026.2.23", resource: nil, type: "SEMVER",
+                       subject_version: "2026.2.23")
+      name = resource || "openclaw"
+      make_hit(
+        vuln("id" => "CVE-2026-22217", "affected" => [
+          { "package" => { "ecosystem" => "npm", "name" => name },
+            "ranges"  => [{ "type" => type, "events" => [
+              { "introduced" => introduced }, { "fixed" => fixed }
+            ] }] },
+        ]),
+        ev(:registry, ecosystem: "npm", name:, subject_version:, resource:),
+      )
+    end
+
+    it "emits a review lead for an ambiguous current primary version" do
+      current = prerelease_formula("2026.2.22-2")
+      hit = prerelease_hit(subject_version: "2026.2.22-2")
+      record = matcher.to_brew_record(current, hit)
+
+      expect([record.dig(:affected, 0, :ecosystem_specific),
+              record.dig(:affected, 0, :ranges, 0, :events),
+              record.dig(:database_specific, :confidence), record.dig(:database_specific, :review_reason)])
+        .to eq [{ fix: nil }, [{ introduced: "0" }], "medium", "prerelease_boundary"]
+    end
+
+    it "holds an ambiguous current resource even when another subject is affected" do
+      affected = prerelease_hit(introduced: "0", subject_version: "2026.2.22")
+      ambiguous = prerelease_hit(resource: "dependency", subject_version: "2026.2.22-2")
+      hit = make_hit(affected.vulnerability, *(affected.evidence + ambiguous.evidence))
+
+      expect(matcher.range_status(hit)).to be_nil
+    end
+
+    it "checks an ambiguous current version against its own alias source record" do
+      fixed = prerelease_hit(introduced: "0", fixed: "2026.2.21", subject_version: "2026.2.22-2")
+      ambiguous = prerelease_hit(subject_version: "2026.2.22-2")
+      hit = make_hit(fixed.vulnerability, *(fixed.evidence + ambiguous.evidence))
+
+      expect(matcher.range_status(hit)).to be_nil
+    end
+
+    it "uses a reviewed state to resolve an ambiguous current version" do
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({
+        "openclaw-cli" => { "advisories" => { "CVE-2026-22217" => { "range_state" => "fixed" } } },
+      })
+      overridden = described_class.new(repology:, cpan_sec:, overrides:)
+
+      record = overridden.to_brew_record(prerelease_formula("2026.2.22-2"),
+                                         prerelease_hit(subject_version: "2026.2.22-2"))
+      expect([record.dig(:affected, 0, :ecosystem_specific, :range_state),
+              record.dig(:database_specific, :review_reason)]).to eq ["fixed", nil]
+    end
+
+    it "resolves current resource ambiguity through an alias state override" do
+      hit = prerelease_hit(resource: "dependency", subject_version: "2026.2.22-2")
+      allow(hit).to receive(:identifiers).and_return(["CVE-2026-22217", "GHSA-reviewed"])
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({
+        "openclaw-cli" => { "advisories" => { "GHSA-reviewed" => { "range_state" => "affected" } } },
+      })
+      overridden = described_class.new(repology:, cpan_sec:, overrides:)
+
+      expect(overridden.range_status(hit, formula_name: "openclaw-cli")&.first&.state).to eq :affected
+    end
+
+    it "keeps a threshold-only override from resolving current prerelease ambiguity" do
+      overrides = Homebrew::Vulns::AdvisoryOverrides.new({
+        "openclaw-cli" => { "advisories" => { "CVE-2026-22217" => { "upstream_fixed_in" => "2026.2.23" } } },
+      })
+      overridden = described_class.new(repology:, cpan_sec:, overrides:)
+
+      expect(overridden.range_status(prerelease_hit(subject_version: "2026.2.22-2"), formula_name: "openclaw-cli"))
+        .to be_nil
+    end
+
+    it "keeps a current prerelease below the introduced version not applicable" do
+      expect(matcher.range_status(prerelease_hit(subject_version: "2026.2.21-2"))&.first&.state)
+        .to eq :not_applicable
+    end
+
+    it "keeps a current prerelease affected when both interpretations agree" do
+      expect(matcher.range_status(prerelease_hit(subject_version: "2026.2.22-2", introduced: "0"))&.first&.state)
+        .to eq :affected
+    end
+
+    it "does not treat current build metadata as a prerelease" do
+      expect(matcher.range_status(prerelease_hit(subject_version: "2026.2.22+build-2"))&.first&.state)
+        .to eq :affected
+    end
+
+    it "keeps the current ecosystem-specific decision" do
+      expect(matcher.range_status(prerelease_hit(subject_version: "2026.2.22-2", type: "ECOSYSTEM"))&.first&.state)
+        .to eq :affected
+    end
+
+    it "holds daily fixed-history walks at an ambiguous introduction" do
+      current = prerelease_formula("2026.2.23")
+      history = instance_double(Homebrew::Vulns::History)
+      allow(Homebrew::Vulns::History).to receive(:new).and_return(history)
+      allow(history).to receive(:walk).with(current).and_yield(prerelease_formula("2026.2.22-2"))
+
+      expect(matcher.first_fixed_version(current, prerelease_hit)).to eq :history_unavailable
+    end
+
+    it "holds daily reintroduction history at an ambiguous introduction" do
+      current = prerelease_formula("2026.2.22")
+      history = instance_double(Homebrew::Vulns::History)
+      allow(Homebrew::Vulns::History).to receive(:new).and_return(history)
+      allow(history).to receive(:walk).with(current).and_yield(prerelease_formula("2026.2.22-2"))
+
+      expect(matcher.first_reintroduced_version(current, prerelease_hit(subject_version: "2026.2.22")))
+        .to eq :history_unavailable
+    end
+
+    it "holds daily resource history at an ambiguous fix" do
+      current = prerelease_formula("2026.2.23")
+      history = instance_double(Homebrew::Vulns::History)
+      allow(Homebrew::Vulns::History).to receive(:new).and_return(history)
+      allow(history).to receive(:walk).with(current).and_yield(prerelease_formula("2026.2.22-2"))
+
+      expect(matcher.first_fixed_version(current, prerelease_hit(introduced: "0", fixed: "2026.2.22",
+                                                                 resource: "dependency")))
+        .to eq :history_unavailable
+    end
+
+    it "holds ambiguous current subjects even when another subject is affected" do
+      current = prerelease_formula("2026.2.22-2")
+      ambiguous = prerelease_hit
+      affected = prerelease_hit(introduced: "0", resource: "dependency")
+      hit = make_hit(ambiguous.vulnerability, *(ambiguous.evidence + affected.evidence))
+
+      expect(matcher.aggregate_state_at(current, hit)).to be_nil
+    end
+  end
+
   describe "historical boundary walks" do
     let(:requests) do
       formula("requests") do
@@ -901,6 +1091,7 @@ RSpec.describe Homebrew::Vulns::Match do
 
     def stub_history(versions_newest_first)
       fv = instance_double(FormulaVersions)
+      formulae = []
       revs = versions_newest_first.each_with_index.map { |_, i| ["r#{i}", "Formula/r/requests.rb"] }
       allow(fv).to receive(:rev_list) { |_, &b| revs.each { |rev, entry| b.call(rev, entry) } }
       versions_newest_first.each_with_index do |entry, i|
@@ -919,8 +1110,10 @@ RSpec.describe Homebrew::Vulns::Match do
         allow(fv).to receive(:formula_at_revision).with("r#{i}", anything) do |&b|
           old && b.call(old)
         end
+        formulae << old if old
       end
       allow(FormulaVersions).to receive(:new).and_return(fv)
+      formulae
     end
 
     def hit_with_range(*events)
@@ -1133,7 +1326,7 @@ RSpec.describe Homebrew::Vulns::Match do
       stub_history(["2.31.0", "2.30.0"])
       allow(matcher).to receive(:aggregate_state_at).and_return(:affected, :fixed)
 
-      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :history_unavailable
     end
 
     it "returns :history_unavailable when the formula has no git history" do
@@ -1179,7 +1372,7 @@ RSpec.describe Homebrew::Vulns::Match do
       expect([
         matcher.first_fixed_version(current, git_hit.call("1.1")),
         matcher.first_reintroduced_version(current, git_hit.call("3.0")),
-      ]).to eq [:history_unavailable, :not_reintroduced]
+      ]).to eq [:history_unavailable, :history_unavailable]
     end
 
     it "returns :never_affected when a fixed resource was absent from earlier formula revisions" do
@@ -1481,7 +1674,7 @@ RSpec.describe Homebrew::Vulns::Match do
       allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(previous)
       allow(FormulaVersions).to receive(:new).and_return(fv)
 
-      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :history_unavailable
       expect(matcher.first_fixed_version(requests, hit_fixed_at("2.28.1"))).to eq :history_unavailable
     end
 
@@ -1508,13 +1701,13 @@ RSpec.describe Homebrew::Vulns::Match do
 
     it "does not invent a boundary when a historical revision cannot be loaded" do
       stub_history([nil])
-      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :history_unavailable
     end
 
     it "does not invent a boundary when a historical revision cannot be compared" do
       stub_history(["2.30.0"])
       allow(matcher).to receive(:aggregate_state_at).and_return(nil)
-      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :not_reintroduced
+      expect(matcher.first_reintroduced_version(requests, hit_fixed_at("2.32.0"))).to eq :history_unavailable
     end
 
     it "does not invent a reintroduction when every historical revision is affected" do

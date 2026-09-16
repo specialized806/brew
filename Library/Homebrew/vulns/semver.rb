@@ -42,6 +42,14 @@ module Homebrew
         compare_prerelease(a.fetch(:prerelease), b.fetch(:prerelease))
       end
 
+      sig { params(version: String).returns(T.nilable(String)) }
+      def self.release_version(version)
+        parsed = parse(version)
+        return if parsed.nil? || parsed.fetch(:prerelease).empty?
+
+        parsed.fetch(:core).join(".")
+      end
+
       sig { params(version: String).returns(T.nilable({ core: [Integer, Integer, Integer], prerelease: T::Array[String] })) }
       private_class_method def self.parse(version)
         match = version.strip.delete_prefix("v").delete_prefix("V").match(SEMVER_REGEX)
