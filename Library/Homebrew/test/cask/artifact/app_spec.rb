@@ -19,6 +19,10 @@ RSpec.describe Cask::Artifact::App, :cask do
 
   before do
     setup_cask
+    allow(command).to receive(:run).and_call_original
+    allow(SystemCommand).to receive(:run).and_call_original
+    allow(SystemCommand).to receive(:run).with("chgrp", any_args)
+                                         .and_return(instance_double(SystemCommand::Result, success?: true))
   end
 
   describe "install_phase" do
@@ -27,6 +31,69 @@ RSpec.describe Cask::Artifact::App, :cask do
 
       expect(target_path).to be_a_directory
       expect(source_path).to be_a_symlink
+    end
+
+    it "removes group and other write permissions from apps" do
+      modes = {
+        "."                       => 0777,
+        "Contents"                => 0770,
+        "Contents/MacOS/Caffeine" => 0777,
+        "Contents/Info.plist"     => 0666,
+        "Contents/PkgInfo"        => 0440,
+      }
+      modes.each { |path, mode| (source_path/path).chmod(mode) }
+
+      install_phase
+
+      expect(modes.keys.map { |path| (target_path/path).stat.mode & 0777 }).to eq([0755, 0755, 0755, 0644, 0444])
+    end
+
+    test_each(%w[admin root]) do |group|
+      it "changes the group recursively to the platform default of #{group}" do
+        allow(Cask::Caskroom).to receive(:expected_caskroom_group).and_return(group)
+
+        expect(command).to receive(:run)
+          .with("chgrp", args: ["-hR", group, target_path],
+                         sudo: false, must_succeed: false, print_stderr: false)
+
+        install_phase
+      end
+    end
+
+    it "retries changing the group with sudo when necessary" do
+      allow(command).to receive(:run).with("chgrp", hash_including(sudo: false))
+                                     .and_return(instance_double(SystemCommand::Result, success?: false))
+
+      expect(command).to receive(:run)
+        .with("chgrp", args: ["-hR", "admin", target_path],
+                       sudo: true, must_succeed: true, print_stderr: true)
+
+      install_phase
+    end
+
+    it "changes the app group in the home directory" do
+      allow(Dir).to receive(:home).and_return(target_path.parent.to_s)
+      expect(command).to receive(:run).with("chgrp", any_args)
+
+      install_phase
+    end
+
+    test_each_hash({
+      "/Applications/Caffeine.app"            => [0755, 0644],
+      "/Applications/Tools/Caffeine.app"      => [0755, 0644],
+      "/Caffeine.app"                         => [0755, 0644],
+      "/custom-apps/Caffeine.app"             => [0700, 0600],
+      "#{Dir.home}/Applications/Caffeine.app" => [0700, 0600],
+    }) do |path, modes|
+      it "sets permissions for #{path}" do
+        allow(app.target).to receive_messages(ascend: Pathname(path).ascend, parent: Pathname(path).parent)
+        source_path.chmod(0722)
+        (source_path/"Contents/Info.plist").chmod(0622)
+
+        install_phase
+
+        expect([target_path, target_path/"Contents/Info.plist"].map { it.stat.mode & 0777 }).to eq(modes)
+      end
     end
 
     describe "when app is in a subdirectory" do
