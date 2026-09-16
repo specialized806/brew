@@ -163,6 +163,33 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       reconcile_record { |path, _| expect(File).not_to exist(path) }
     end
 
+    it "leaves a corrected record byte-identical on a later reconciliation" do
+      allow(Time).to receive(:now).and_return(Time.utc(2025))
+      reconcile_record do |path, _original|
+        corrected = File.read(path)
+        dir = File.dirname(path)
+        allow(Time).to receive(:now).and_return(Time.utc(2026))
+
+        expect do
+          cmd_for("requests", "--output", dir, "--overrides", File.join(dir, "overrides.yml"),
+                  "--reconcile-history").run
+        end.to output(/0 records written.*1 unchanged/).to_stdout
+        expect(File.read(path)).to eq corrected
+      end
+    end
+
+    it "does not recreate a deleted record on a later reconciliation" do
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(state: :never_affected))
+      reconcile_record do |path, _original|
+        dir = File.dirname(path)
+        expect(matcher).not_to receive(:reconcile_history)
+
+        cmd_for("requests", "--output", dir, "--overrides", File.join(dir, "overrides.yml"),
+                "--reconcile-history").run
+        expect(File).not_to exist(path)
+      end
+    end
+
     it "does not reconcile a generated record" do
       stored.fetch("database_specific")["source"] = "generated"
       expect(matcher).not_to receive(:reconcile_history)
@@ -1833,6 +1860,72 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
         .to output(/1 records written/).to_stdout
         .and output(/Error loading formula 'broken': boom/).to_stderr
       expect(File).to exist(File.join(dir, "BREW-requests-CVE-2024-1234.json"))
+    end
+  end
+
+  context "with --formula-list" do
+    before do
+      requests
+      core_tap = instance_double(CoreTap, installed?: true, name: "homebrew/core",
+                                 formula_names: ["requests", "unselected"])
+      allow(CoreTap).to receive(:instance).and_return(core_tap)
+      allow(Formulary).to receive(:factory).with("requests").and_return(requests)
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[], []])
+    end
+
+    def run_formula_list(contents, *extra_args)
+      Dir.mktmpdir do |dir|
+        list = File.join(dir, "formulae.txt")
+        overrides = File.join(dir, "overrides.yml")
+        File.write(list, contents)
+        File.write(overrides, "{}\n")
+        described_class.new(["--formula-list", list, "--reconcile-history", "--output", dir,
+                             "--overrides", overrides, *extra_args]).run
+      end
+    end
+
+    it "loads only listed core formulae once and keeps live Repology lookups disabled" do
+      expect(Formulary).to receive(:factory).with("requests").once.and_return(requests)
+      expect(Formulary).not_to receive(:factory).with("unselected")
+      expect(Homebrew::Vulns::Repology).not_to receive(:lookup)
+      run_formula_list("requests\nrequests\n")
+    end
+
+    it "leaves removed formulae unqueried" do
+      expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+      expect { run_formula_list("removed\n") }.to output(%r{removed: no longer in homebrew/core}).to_stderr
+    end
+
+    it "does not expand an empty list to the whole tap" do
+      expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+      run_formula_list("")
+    end
+
+    it "rejects named formulae alongside a list" do
+      expect { run_formula_list("requests\n", "requests") }.to raise_error(UsageError, /does not take named/)
+    end
+
+    it "requires reconciliation mode" do
+      expect { described_class.new(["--formula-list", "/unused"]) }
+        .to raise_error(UsageError, /--formula-list.*--reconcile-history/)
+    end
+
+    it "rejects combining a list with --all" do
+      expect { run_formula_list("requests\n", "--all") }.to raise_error(UsageError, /mutually exclusive/)
+    end
+  end
+
+  it "counts only selected formulae in a reconciliation shard's unvisited summary" do
+    Dir.mktmpdir do |dir|
+      %w[requests unrelated].each do |name|
+        File.write(File.join(dir, "BREW-#{name}-CVE-1.json"), JSON.generate({
+          "id" => "BREW-#{name}-CVE-1", "database_specific" => { "source" => "matched" },
+          "affected" => [{ "package" => { "name" => name } }]
+        }))
+      end
+      emitter = Homebrew::DevCmd::AdvisoryMatch::DirEmitter.new(dir, verbose: false, close_open_ranges: false,
+                                                reconcile_history: true, formula_names: ["requests"])
+      expect { emitter.finish }.to output(/1 matched records not revisited/).to_stdout
     end
   end
 
