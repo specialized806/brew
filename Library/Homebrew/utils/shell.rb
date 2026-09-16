@@ -148,7 +148,7 @@ module Utils
       when :bash, :ksh, :mksh, :sh, :zsh, nil
         "echo 'export #{variable}=#{sh_quote(value)}' >> #{profile}"
       when :pwsh
-        "$env:#{variable}='#{value}' >> #{profile}"
+        "#{pwsh_quote("$env:#{variable} = #{pwsh_quote(value)}")} >> #{profile}"
       when :rc
         "echo '#{variable}=(#{sh_quote(value)})' >> #{profile}"
       when :csh, :tcsh
@@ -164,7 +164,7 @@ module Utils
       when :bash, :ksh, :mksh, :sh, :zsh, nil
         "echo 'export PATH=\"#{sh_quote(path)}:$PATH\"' >> #{profile}"
       when :pwsh
-        "$env:PATH = '#{path}' + \":${env:PATH}\" >> #{profile}"
+        "#{pwsh_quote("$env:PATH = #{pwsh_quote(path)} + \":$env:PATH\"")} >> #{profile}"
       when :rc
         "echo 'path=(#{sh_quote(path)} $path)' >> #{profile}"
       when :csh, :tcsh
@@ -204,6 +204,13 @@ module Utils
       # Newlines have to be specially quoted in `csh`.
       str.gsub!("\n", "'\\\n'")
       str
+    end
+
+    # PowerShell single-quoted strings take a literal `'` as `''` and expand
+    # nothing else, so one pass covers `$`, `"` and backticks too.
+    sig { params(str: String).returns(String) }
+    def pwsh_quote(str)
+      "'#{str.gsub("'", "''")}'"
     end
 
     sig { params(str: String).returns(String) }

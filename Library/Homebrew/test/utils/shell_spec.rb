@@ -121,6 +121,12 @@ RSpec.describe Utils::Shell do
       expect(described_class.prepend_path_in_profile(path))
         .to eq("fish_add_path #{path}")
     end
+
+    it "supports PowerShell" do
+      ENV["SHELL"] = "/usr/bin/pwsh"
+      expect(described_class.prepend_path_in_profile(path))
+        .to eq("'$env:PATH = ''#{path}'' + \":$env:PATH\"' >> #{described_class.profile}")
+    end
   end
 
   describe "::set_variable_in_profile" do
@@ -129,6 +135,20 @@ RSpec.describe Utils::Shell do
       expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "bar"))
         .to eq("echo 'export HOMEBREW_FOO=bar' >> #{described_class.profile}")
     end
+
+    it "supports PowerShell" do
+      ENV["SHELL"] = "/usr/bin/pwsh"
+      expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "bar"))
+        .to eq("'$env:HOMEBREW_FOO = ''bar''' >> #{described_class.profile}")
+    end
+  end
+
+  specify "::pwsh_quote" do
+    expect(described_class.pwsh_quote("")).to eq("''")
+    expect(described_class.pwsh_quote("word")).to eq("'word'")
+    # A literal single quote is doubled; nothing else is special.
+    expect(described_class.pwsh_quote("it's")).to eq("'it''s'")
+    expect(described_class.pwsh_quote("$env:PATH")).to eq("'$env:PATH'")
   end
 
   describe "::shell_with_prompt" do
