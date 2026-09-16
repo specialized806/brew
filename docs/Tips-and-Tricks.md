@@ -182,6 +182,16 @@ $ brew alias --edit
 
 - [Brew Services](https://marketplace.visualstudio.com/items?itemName=beauallison.brew-services) is an extension for starting and stopping Homebrew services.
 
+If you're developing `brew` itself, `.vscode/settings.json` sets `rubyLsp.rubyVersionManager`, `rubyLsp.customRubyCommand` and `rubyLsp.bundleGemfile` so the [Ruby LSP](https://marketplace.visualstudio.com/items?itemName=Shopify.ruby-lsp) extension activates using Homebrew's own vendored Ruby. All three are ["machine"-scoped](https://code.visualstudio.com/api/references/contribution-points#Configuration-property-schema) settings, so VS Code never actually applies them from a workspace's `settings.json`. Without them, Ruby LSP fails to start with an error like `zsh: parse error near '&&'`. Copy these three lines into your own User `settings.json`:
+
+```json
+"rubyLsp.rubyVersionManager": {
+  "identifier": "custom"
+},
+"rubyLsp.customRubyCommand": "source ../../.vscode/ruby-lsp-activate.sh",
+"rubyLsp.bundleGemfile": "Library/Homebrew/Gemfile",
+```
+
 ### Sublime Text
 
 - [Homebrew-formula-syntax](https://github.com/samueljohn/Homebrew-formula-syntax) can be installed with Package Control in Sublime Text 2/3, which adds highlighting for inline patches.
