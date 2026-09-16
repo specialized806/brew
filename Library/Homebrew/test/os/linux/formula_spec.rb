@@ -103,6 +103,15 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#common_sandbox_env" do
+    it "does not force Java headless" do
+      f = Testball.new
+      expect(f.common_sandbox_env(mktmpdir)[:_JAVA_OPTIONS]).to eq(
+        "-Duser.home=#{Homebrew::PackageManagerCache.path("java_cache")} -Djava.io.tmpdir=#{HOMEBREW_TEMP}",
+      )
+    end
+  end
+
   describe "#shared_library" do
     it "generates a shared library string" do
       f = Testball.new

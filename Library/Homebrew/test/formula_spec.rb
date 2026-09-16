@@ -3838,15 +3838,16 @@ RSpec.describe Formula do
         TMPDIR:        HOMEBREW_TEMP.to_s,
         TEMP:          HOMEBREW_TEMP.to_s,
         TMP:           HOMEBREW_TEMP.to_s,
-        _JAVA_OPTIONS: "-Duser.home=#{Homebrew::PackageManagerCache.path("java_cache")} " \
-                       "-Djava.io.tmpdir=#{HOMEBREW_TEMP}",
+        _JAVA_OPTIONS: a_string_starting_with(
+          "-Duser.home=#{Homebrew::PackageManagerCache.path("java_cache")} -Djava.io.tmpdir=#{HOMEBREW_TEMP}",
+        ),
       )
     end
 
     it "sets the Java temporary directory without cache options" do
       allow(Homebrew::PackageManagerCache).to receive(:env).and_return({})
 
-      expect(f.common_sandbox_env(mktmpdir)[:_JAVA_OPTIONS]).to eq("-Djava.io.tmpdir=#{HOMEBREW_TEMP}")
+      expect(f.common_sandbox_env(mktmpdir)[:_JAVA_OPTIONS]).to start_with("-Djava.io.tmpdir=#{HOMEBREW_TEMP}")
     end
 
     it "does not configure Cargo cooldown before stable support" do
