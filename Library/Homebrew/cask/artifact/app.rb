@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "cask/artifact/moved"
+require "cask/caskroom"
 
 module Cask
   module Artifact
@@ -31,12 +32,22 @@ module Cask
       )
         super
 
-        return if target.ascend.none? { OS::Mac.system_dir?(it) }
-
         odebug "Fixing up '#{target}' permissions for installation to '#{target.parent}'"
+        permissions = "go-w"
         # Ensure that globally installed applications can be accessed by all users.
+        if target.ascend
+                 .take_while { it.to_s != Dir.home && (it.to_s != "/" || it == target.parent) }
+                 .any? { OS::Mac.system_dir?(it) }
+          permissions = "a+rX,#{permissions}"
+        end
+
         # We shell out to `chmod` instead of using `FileUtils.chmod` so that using `+X` works correctly.
-        command.run!("chmod", args: ["-R", "a+rX", target], sudo: !target.writable?)
+        command.run!("chmod", args: ["-R", permissions, target], sudo: !target.writable?)
+
+        [false, true].each do |sudo|
+          break if command.run("chgrp", args: ["-hR", Caskroom.expected_caskroom_group, target],
+                                       sudo:, must_succeed: sudo, print_stderr: sudo).success?
+        end
       end
     end
   end
