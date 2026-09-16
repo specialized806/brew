@@ -72,6 +72,12 @@ RSpec.describe Sandbox, :needs_macos do
 
       expect(sandbox.seatbelt_profile).to include('(global-name "com.apple.sysmond")')
     end
+
+    it "allows icon type lookup when network access is denied" do
+      sandbox.deny_all_network
+
+      expect(sandbox.seatbelt_profile).to include('(global-name "com.apple.lsd.mapdb")')
+    end
   end
 
   describe "#sandbox_command", :no_sandbox_run do
@@ -455,6 +461,19 @@ RSpec.describe Sandbox, :needs_macos do
           end
         RUBY
       end.not_to raise_error
+    end
+
+    it "converts an iconset when network access is denied" do
+      SystemCommand.run!("/usr/bin/iconutil", args: [
+        "-c", "iconset",
+        "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns",
+        "-o", dir/"Test.iconset"
+      ])
+      sandbox.allow_write_temp_and_cache
+      sandbox.deny_all_network
+      sandbox.run "/usr/bin/iconutil", "-c", "icns", dir/"Test.iconset", "-o", dir/"Test.icns"
+
+      expect(dir/"Test.icns").to exist
     end
 
     it "reports an empty array for an unregistered URL scheme" do
