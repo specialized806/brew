@@ -158,6 +158,19 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#test_sandbox_env" do
+    it "tells the java launcher to skip jar splash screens" do
+      f = Testball.new
+      expect(f.test_sandbox_env(mktmpdir)[:JDK_JAVA_OPTIONS]).to eq("-Djava.awt.headless=true")
+    end
+
+    it "keeps the common sandbox environment" do
+      f = Testball.new
+      testpath = mktmpdir
+      expect(f.test_sandbox_env(testpath)).to include(f.common_sandbox_env(testpath))
+    end
+  end
+
   describe "#shared_library" do
     it "generates a shared library string" do
       f = Testball.new

@@ -8,6 +8,9 @@ module OS
 
       requires_ancestor { ::Formula }
 
+      JAVA_HEADLESS_OPTION = "-Djava.awt.headless=true"
+      private_constant :JAVA_HEADLESS_OPTION
+
       sig { returns(T::Boolean) }
       def valid_platform?
         supports_macos?
@@ -55,7 +58,16 @@ module OS
       sig { params(home: ::Pathname).returns(T::Hash[Symbol, String]) }
       def common_sandbox_env(home)
         env = super
-        env.merge(_JAVA_OPTIONS: [env[:_JAVA_OPTIONS], "-Djava.awt.headless=true"].compact.join(" "))
+        env.merge(_JAVA_OPTIONS: [env[:_JAVA_OPTIONS], JAVA_HEADLESS_OPTION].compact.join(" "))
+      end
+
+      # The `java` launcher decides from the options it parses itself, its arguments and
+      # `JDK_JAVA_OPTIONS`, whether to show a jar's `SplashScreen-Image`, which aborts under
+      # the sandbox like the rest of AWT. OpenJDK's `configure` rejects a boot JDK that reports
+      # picked-up options, so the build phase must not see this variable.
+      sig { params(testpath: ::Pathname).returns(T::Hash[Symbol, String]) }
+      def test_sandbox_env(testpath)
+        super.merge(JDK_JAVA_OPTIONS: JAVA_HEADLESS_OPTION)
       end
     end
   end

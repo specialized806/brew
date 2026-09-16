@@ -3850,6 +3850,10 @@ RSpec.describe Formula do
       expect(f.common_sandbox_env(mktmpdir)[:_JAVA_OPTIONS]).to start_with("-Djava.io.tmpdir=#{HOMEBREW_TEMP}")
     end
 
+    it "does not set options for the java launcher" do
+      expect(f.common_sandbox_env(mktmpdir)).not_to have_key(:JDK_JAVA_OPTIONS)
+    end
+
     it "does not configure Cargo cooldown before stable support" do
       expect(f.common_sandbox_env(mktmpdir).keys & [
         :CARGO_REGISTRY_GLOBAL_MIN_PUBLISH_AGE,
