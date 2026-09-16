@@ -11,6 +11,7 @@ require "vulns/identify"
 require "vulns/osv"
 require "vulns/osv_export"
 require "vulns/repology"
+require "vulns/scanner"
 require "vulns/vulnerability"
 
 module Homebrew
@@ -42,6 +43,22 @@ module Homebrew
         { git: "high", registry: "high", cpansa: "medium", distro: "low" }.freeze,
         T::Hash[Symbol, String],
       )
+
+      # A single-platform history decision, not permission to replace a stored
+      # record. Callers must also validate its provenance and other platforms.
+      class ReconciledHistory < T::Struct
+        const :state, Symbol
+        const :introduced, T.nilable(String)
+        const :fixed, T.nilable(String)
+        const :reasons, T::Array[Symbol]
+      end
+
+      class HistoricalObservation < T::Struct
+        const :version, PkgVersion
+        const :state, Symbol
+        const :patched, T::Boolean
+        const :reasons, T::Array[Symbol]
+      end
 
       Identity = Struct.new(
         :git_repo, :git_tag, :primary_package, :resource_packages, :distro_packages,
@@ -121,14 +138,16 @@ module Homebrew
 
       sig {
         params(repology: T.nilable(Repology), cpan_sec: T.nilable(CPANSec),
-               overrides: T.nilable(AdvisoryOverrides), bulk: T::Boolean).void
+               overrides: T.nilable(AdvisoryOverrides), bulk: T::Boolean, strict_upstream: T::Boolean).void
       }
-      def initialize(repology: nil, cpan_sec: nil, overrides: nil, bulk: false)
+      def initialize(repology: nil, cpan_sec: nil, overrides: nil, bulk: false, strict_upstream: false)
         @repology = repology
         @cpan_sec = cpan_sec
         @overrides = overrides
         @bulk = bulk
+        @strict_upstream = strict_upstream
         @vuln_cache = T.let({}, T::Hash[String, T.nilable(Vulnerability)])
+        @vuln_errors = T.let({}, T::Hash[String, OSV::Error])
         @history = T.let(History.new, History)
       end
 
@@ -209,9 +228,11 @@ module Homebrew
       # whole tap's queries or records; the `@vuln_cache` still spans chunks.
       sig {
         params(formulae: T::Enumerable[Formula],
+               on_error: T.nilable(T.proc.params(formula: Formula, error: OSV::Error).void),
                _blk:     T.proc.params(formula: Formula, hits: T::Array[Hit]).void).void
       }
-      def each_advisory_batch(formulae, &_blk)
+      def each_advisory_batch(formulae, on_error: nil, &_blk)
+        e = T.let(nil, T.nilable(OSV::Error))
         formulae.each_slice(BULK_CHUNK) do |chunk|
           identities = T.let({}, T::Hash[Formula, Identity])
           chunk.each do |formula|
@@ -230,7 +251,15 @@ module Homebrew
 
           by_formula = T.let({}, T::Hash[Formula, T::Hash[String, T::Array[Evidence]]])
           if labelled.any?
-            OSV.query_batch(labelled.map(&:first)).each_with_index do |stubs, i|
+            begin
+              responses = OSV.query_batch(labelled.map(&:first))
+            rescue OSV::Error => e
+              raise unless on_error
+
+              chunk.each { |formula| on_error.call(formula, e) }
+              next
+            end
+            responses.each_with_index do |stubs, i|
               formula, evidence = labelled.fetch(i).last
               id_evidence = by_formula[formula] ||= {}
               stubs.each { |stub| (id_evidence[stub.fetch("id")] ||= []) << evidence }
@@ -243,7 +272,15 @@ module Homebrew
             identity = identities[f]
             next yield f, [] unless identity&.identifiable?
 
-            yield f, hits_from(by_formula[f] || {}, identity)
+            begin
+              hits = hits_from(by_formula[f] || {}, identity)
+            rescue OSV::Error => e
+              raise unless on_error
+
+              on_error.call(f, e)
+              next
+            end
+            yield f, hits
           end
         end
       end
@@ -407,6 +444,10 @@ module Homebrew
 
           upstream = fetch_vulnerability(ref)
           upstream ? resolve_to_cves(upstream, seen, budget - 1) : []
+        rescue OSV::NotFoundError
+          # A dangling upstream link supplies no record. Keep the cached error
+          # so fetching this ID directly from query results still fails closed.
+          []
         end.uniq(&:id)
       end
 
@@ -450,22 +491,43 @@ module Homebrew
       # {#resolve_upstream} reads mostly from cache.
       sig { params(ids: T::Array[String]).void }
       def prefetch_vulnerabilities(ids)
-        missing = ids.uniq.reject { |id| @vuln_cache.key?(id) }
+        missing = ids.uniq.reject { |id| @vuln_cache.key?(id) || @vuln_errors.key?(id) }
         missing.each_slice(MAX_VULN_FETCH_THREADS) do |slice|
-          slice.map { |id| [id, Thread.new { load_vulnerability(id) }] }
-               .each { |id, t| @vuln_cache[id] = t.value }
+          threads = slice.map do |id|
+            [id, Thread.new do
+              load_vulnerability(id)
+            rescue OSV::Error => e
+              e
+            end]
+          end
+          threads.each do |id, thread|
+            result = thread.value
+            if result.is_a?(OSV::Error)
+              @vuln_errors[id] = result
+            else
+              @vuln_cache[id] = result
+            end
+          end
         end
       end
 
       sig { params(id: String).returns(T.nilable(Vulnerability)) }
       def fetch_vulnerability(id)
+        error = @vuln_errors[id]
+        raise error if error
+
         @vuln_cache.fetch(id) { @vuln_cache[id] = load_vulnerability(id) }
+      rescue OSV::Error => e
+        @vuln_errors[id] = e
+        raise
       end
 
       sig { params(id: String).returns(T.nilable(Vulnerability)) }
       def load_vulnerability(id)
         Vulnerability.new(OSV.vulnerability(id))
       rescue OSV::Error => e
+        raise if @strict_upstream
+
         odebug "OSV.vulnerability(#{id}) failed: #{e.message}"
         nil
       end
@@ -723,6 +785,101 @@ module Homebrew
           end
         end
         result || :never_affected
+      end
+
+      # Reconstruct one representable affected interval from complete history.
+      # Callers may only reconcile matched records; generated patch-fix records
+      # must retain their annotation-based ranges.
+      # Unlike first_fixed_version, this must visit builds before the first
+      # transition, including below-introduced versions and removed resources.
+      # An unresolved or protected result never supplies replacement boundaries.
+      sig { params(formula: Formula, hit: Hit).returns(ReconciledHistory) }
+      def reconcile_history(formula, hit)
+        if @overrides&.preserve_homebrew_ranges?(formula.name, hit.identifiers)
+          return ReconciledHistory.new(state: :preserved, reasons: [])
+        end
+
+        observations = [reconciliation_observation(formula, hit)]
+        result = @history.walk(formula, complete: true) do |old|
+          observations << reconciliation_observation(old, hit)
+          nil
+        end
+        reasons = observations.flat_map(&:reasons)
+        reasons << :history_unavailable unless result.nil?
+        if @overrides&.advisory_override(formula.name, hit.identifiers)
+          reasons << :upstream_override_requires_review
+        end
+
+        affected = observations.select { |row| row.state == :affected }.map(&:version)
+        unaffected = observations.select { |row| [:fixed, :not_applicable].include?(row.state) }.map(&:version)
+        introduced = affected.min
+        last_affected = affected.max
+        fixed = T.let(nil, T.nilable(PkgVersion))
+        if introduced && last_affected
+          fixed = unaffected.select { |version| version > last_affected }.min
+          if unaffected.any? { |version| version.between?(introduced, last_affected) }
+            reasons << :unrepresentable_interval
+          end
+          reasons << :unrepresentable_interval if fixed.nil? && observations.fetch(0).state != :affected
+        end
+
+        if observations.any? do |row|
+          row.patched && (!introduced ||
+            (row.version >= introduced && (!fixed || row.version <= fixed)))
+        end
+          reasons << :advisory_patch_requires_review
+        end
+
+        return ReconciledHistory.new(state: :unresolved, reasons: reasons.uniq.sort) if reasons.any?
+        return ReconciledHistory.new(state: :never_affected, reasons: []) unless introduced
+
+        ReconciledHistory.new(state: :range, introduced: introduced.to_s, fixed: fixed&.to_s, reasons: [])
+      end
+
+      # Preserve disagreements within an upstream alias family and unknown
+      # subjects even when another subject is affected. Both prevent a history
+      # rewrite, although ordinary matching can still report the affected hit.
+      sig { params(formula: Formula, hit: Hit).returns(HistoricalObservation) }
+      def reconciliation_observation(formula, hit)
+        reasons = T.let([], T::Array[Symbol])
+        subjects = hit.evidence.reject { |ev| ev.strategy == :distro && ev.subject_version.nil? }
+                      .group_by { |ev| [ev.ecosystem, ev.name, ev.resource] }.map do |_, evidence|
+          states = evidence.map do |ev|
+            next :unknown if ev.subject_version.nil?
+
+            present, version = subject_version_at(formula, ev)
+            next(ev.resource ? :fixed : :subject_changed) unless present
+            next :prerelease_boundary if evidence_prerelease_boundary?(ev, version)
+
+            evidence_range_status(ev, version)&.state || :unknown
+          end.uniq
+          reasons << :uncomparable_source if states.include?(:unknown)
+          reasons << :subject_changed if states.include?(:subject_changed)
+          reasons << :prerelease_boundary if states.include?(:prerelease_boundary)
+          if states.include?(:affected) && states.intersect?([:fixed, :not_applicable])
+            reasons << :conflicting_upstream
+          end
+          states
+        end.flatten
+        reasons << :uncomparable_source if subjects.empty?
+        state = if subjects.include?(:affected)
+          :affected
+        elsif subjects.intersect?([:unknown, :subject_changed, :prerelease_boundary]) || subjects.empty?
+          :unknown
+        elsif subjects.include?(:fixed)
+          :fixed
+        else
+          :not_applicable
+        end
+
+        resolved = Scanner.resolved_ids(formula.serialized_patches)
+        formula.resources.each do |resource|
+          resource.patches.each do |patch|
+            resolved.concat(patch.resolves.map(&:upcase)) if patch.is_a?(ExternalPatch) || patch.is_a?(LocalPatch)
+          end
+        end
+        HistoricalObservation.new(version: formula.pkg_version, state:,
+                                  patched: resolved.intersect?(hit.identifiers.map(&:upcase)), reasons:)
       end
 
       # Return the earliest affected `pkg_version` for a new record. Check all

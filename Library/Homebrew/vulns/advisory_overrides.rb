@@ -27,7 +27,6 @@ module Homebrew
       VALID_STATES = [:affected, :fixed, :not_applicable].freeze
       private_constant :VALID_STATES
 
-      # Mirrored by Homebrew/advisory-database spec/overrides_spec.rb.
       REGISTRY_PACKAGE_KEYS = %w[ecosystem name].freeze
       private_constant :REGISTRY_PACKAGE_KEYS
 
@@ -38,11 +37,14 @@ module Homebrew
         raise Error, "Failed to parse advisory overrides at #{path}: #{e.message}"
       end
 
+      # Keep formula and advisory entry validation, including the effective
+      # override requirement, in sync with advisory-database spec/overrides_spec.rb.
       sig { params(data: T.untyped).void }
       def initialize(data)
         @skipped_formulae = T.let({}, T::Hash[String, T::Boolean])
         @registry_packages = T.let({}, T::Hash[String, RegistryPackageOverride])
         @advisories = T.let({}, T::Hash[String, T::Hash[String, Entry]])
+        @preserved_homebrew_ranges = T.let({}, T::Hash[String, T::Array[String]])
 
         root = hash(data, "top level")
         root.each do |formula_name, raw_formula|
@@ -79,8 +81,15 @@ module Homebrew
             raise Error, "#{formula_name} advisory identifiers must be strings" unless identifier.is_a?(String)
 
             entry = hash(raw_entry, "#{formula_name}.advisories.#{identifier}")
-            reject_unknown_keys(entry, %w[range_state upstream_fixed_in],
+            reject_unknown_keys(entry, %w[range_state upstream_fixed_in preserve_homebrew_ranges],
                                 "#{formula_name}.advisories.#{identifier}")
+
+            preserve_ranges = entry.fetch("preserve_homebrew_ranges", false)
+            unless [true, false].include?(preserve_ranges)
+              raise Error, "#{formula_name}.advisories.#{identifier}.preserve_homebrew_ranges must be true or false"
+            end
+
+            (@preserved_homebrew_ranges[formula_name] ||= []) << identifier if preserve_ranges
 
             state = T.let(nil, T.nilable(Symbol))
             if entry.key?("range_state")
@@ -97,17 +106,21 @@ module Homebrew
             if !fixed_in.nil? && !fixed_in.is_a?(String)
               raise Error, "#{formula_name}.advisories.#{identifier}.upstream_fixed_in must be a string or null"
             end
-            if state.nil? && !fixed_in_overridden
+            if state.nil? && !fixed_in_overridden && !preserve_ranges
               raise Error, "#{formula_name}.advisories.#{identifier} must override at least one field"
             end
 
-            parsed[identifier] = Entry.new(state:, fixed_in:, fixed_in_overridden:)
+            if state || fixed_in_overridden
+              parsed[identifier] = Entry.new(state:, fixed_in:, fixed_in_overridden:)
+            end
           end
           @advisories[formula_name] = parsed.freeze
         end
         @skipped_formulae.freeze
         @registry_packages.freeze
         @advisories.freeze
+        @preserved_homebrew_ranges.each_value(&:freeze)
+        @preserved_homebrew_ranges.freeze
       end
 
       sig { params(formula_name: String).returns(T::Boolean) }
@@ -130,6 +143,13 @@ module Homebrew
           return override if override
         end
         nil
+      end
+
+      # A protection under any alias applies to the whole family, independently
+      # of whichever alias supplies the upstream state or version override.
+      sig { params(formula_name: String, identifiers: T::Array[String]).returns(T::Boolean) }
+      def preserve_homebrew_ranges?(formula_name, identifiers)
+        @preserved_homebrew_ranges.fetch(formula_name, []).intersect?(identifiers)
       end
 
       private

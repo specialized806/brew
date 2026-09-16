@@ -4,6 +4,38 @@
 require "formula_versions"
 
 RSpec.describe FormulaVersions do
+  it "includes an earlier lifetime of a deleted and re-added formula in complete history" do
+    current = formula("readded") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/readded-2.0.tar.gz"
+    end
+
+    Dir.mktmpdir do |dir|
+      repository = Pathname(dir)
+      path = repository/"Formula/readded.rb"
+      path.dirname.mkpath
+      allow(current).to receive(:tap_path).and_return(path)
+      allow(current.tap!).to receive(:path).and_return(repository)
+      git = ["git", "-C", dir, "-c", "user.name=Test", "-c", "user.email=test@example.test",
+             "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null"]
+      Utils.safe_popen_read(*git, "init", "--quiet")
+      path.write("first lifetime\n")
+      Utils.safe_popen_read(*git, "add", ".")
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-m", "Add formula")
+      first_revision = Utils.safe_popen_read(*git, "rev-parse", "--short", "HEAD").strip
+      path.unlink
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-am", "Remove formula")
+      path.write("second lifetime\n")
+      Utils.safe_popen_read(*git, "add", ".")
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-m", "Restore formula")
+      revisions = []
+
+      described_class.new(current).rev_list("HEAD", all_history: true) { |rev, _path| revisions << rev }
+
+      expect(revisions).to include(first_revision)
+    end
+  end
+
   it "loads historical formulae that use legacy bottle syntax" do
     current = formula("legacy-bottle") do
       T.bind(self, T.class_of(Formula))
@@ -62,6 +94,20 @@ RSpec.describe FormulaVersions do
 
     expect([result, Formula.respond_to?(:devel)])
       .to eq [["https://brew.sh/legacy-devel-1.0.tar.gz", "1.0_1"], false]
+  end
+
+  it "does not infer an absent path from an invalid revision" do
+    current = formula("invalid-revision") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/invalid-revision-1.0.tar.gz"
+    end
+    Dir.mktmpdir do |dir|
+      allow(current.tap!).to receive(:path).and_return(Pathname(dir))
+      Utils.safe_popen_read("git", "-C", dir, "init", "--quiet")
+
+      expect { described_class.new(current).path_absent_at_revision?("missing-revision", "Formula/missing.rb") }
+        .to raise_error(ErrorDuringExecution)
+    end
   end
 
   it "loads historical formulae that use current bottle syntax" do

@@ -84,6 +84,32 @@ RSpec.describe Homebrew::Vulns::History do
     end
   end
 
+  it "shares successful completeness checks across platform views" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
+    expect(Utils).to receive(:popen_read).once.with(
+      "git", "-C", requests.tap!.path.to_s, "diff-tree", "--root", "--no-commit-id",
+      "--name-only", "--find-renames", "--diff-filter=AR", "-r", "r0", safe: true
+    ).and_return("Formula/r/requests.rb\n")
+
+    [[:sequoia, :arm], [:sequoia, :intel], [:linux, :arm], [:linux, :intel]].each do |os, arch|
+      Homebrew::SimulateSystem.with(os:, arch:) { history.walk(requests, complete: true) { nil } }
+    end
+  end
+
+  it "keeps cached incomplete history unavailable on another platform" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    expect(Utils).to receive(:popen_read).once.with(
+      "git", "-C", requests.tap!.path.to_s, "diff-tree", "--root", "--no-commit-id",
+      "--name-only", "--find-renames", "--diff-filter=AR", "-r", "r0", safe: true
+    ).and_return("")
+    results = [:arm, :intel].map do |arch|
+      Homebrew::SimulateSystem.with(os: :linux, arch:) { history.walk(requests, complete: true) { :stop } }
+    end
+
+    expect(results).to eq [:history_unavailable, :history_unavailable]
+  end
+
   it "checks a full tap only once across formulae" do
     allow(other).to receive(:tap).and_return(requests.tap!)
     expect(requests.tap!).to receive(:shallow?).once.and_return(false)
@@ -130,6 +156,28 @@ RSpec.describe Homebrew::Vulns::History do
     [requests, other].each { |formula| history.walk(formula) { nil } }
   end
 
+  it "rejects history without an addition or rename into the formula name" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
+    allow(Utils).to receive(:popen_read).with(
+      "git", "-C", requests.tap!.path.to_s, "diff-tree", "--root", "--no-commit-id",
+      "--name-only", "--find-renames", "--diff-filter=AR", "-r", "r0", safe: true
+    ).and_return("")
+
+    expect(history.walk(requests, complete: true) { nil }).to eq :history_unavailable
+  end
+
+  it "accepts complete history ending at the formula's creation" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
+    allow(Utils).to receive(:popen_read).with(
+      "git", "-C", requests.tap!.path.to_s, "diff-tree", "--root", "--no-commit-id",
+      "--name-only", "--find-renames", "--diff-filter=AR", "-r", "r0", safe: true
+    ).and_return("Formula/r/requests.rb\n")
+
+    expect(history.walk(requests, complete: true) { nil }).to be_nil
+  end
+
   it "does not reuse historical formula loads across platforms" do
     allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
     allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
@@ -137,5 +185,141 @@ RSpec.describe Homebrew::Vulns::History do
 
     Homebrew::SimulateSystem.with(os: :linux, arch: :arm) { history.walk(requests) { nil } }
     Homebrew::SimulateSystem.with(os: :linux, arch: :intel) { history.walk(requests) { nil } }
+  end
+
+  it "leaves history unavailable when Git cannot verify the formula's creation" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(Utils).to receive(:popen_read).and_raise(ErrorDuringExecution.new(["git"], status: 128))
+
+    expect(history.walk(requests, complete: true) { nil }).to eq :history_unavailable
+  end
+
+  it "does not reuse a partial revision list for a complete walk" do
+    allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
+    allow(Utils).to receive(:popen_read).and_return("Formula/r/requests.rb\n")
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    history.walk(requests) { nil }
+    expect(formula_versions).to receive(:rev_list).with("HEAD", all_history: true)
+                                                  .and_yield("r0", "Formula/r/requests.rb")
+
+    history.walk(requests, complete: true) { nil }
+  end
+
+  it "starts the named lifetime at a rename without walking the old formula name" do
+    allow(FormulaVersions).to receive(:new).and_call_original
+
+    Dir.mktmpdir do |dir|
+      repository = Pathname(dir)
+      old_path = repository/"Formula/o/old-requests.rb"
+      path = repository/"Formula/r/requests.rb"
+      old_path.dirname.mkpath
+      path.dirname.mkpath
+      allow(requests).to receive(:tap_path).and_return(path)
+      allow(requests.tap!).to receive(:path).and_return(repository)
+      git = ["git", "-C", dir, "-c", "user.name=Test", "-c", "user.email=test@example.test",
+             "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null"]
+      Utils.safe_popen_read(*git, "init", "--quiet")
+      old_path.write(<<~RUBY)
+        class OldRequests < Formula
+          desc "A historical formula with an earlier name"
+          homepage "https://example.test/requests"
+          url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.27.0.tar.gz"
+          license "MIT"
+
+          def install
+            prefix.install "README"
+          end
+        end
+      RUBY
+      Utils.safe_popen_read(*git, "add", ".")
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-m", "Add old formula")
+      path.write(old_path.read.sub("OldRequests", "Requests").sub("2.27.0", "2.28.0"))
+      old_path.unlink
+      Utils.safe_popen_read(*git, "add", ".")
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-m", "Rename formula")
+      rename = Utils.safe_popen_read(*git, "diff-tree", "--no-commit-id", "--name-status",
+                                     "--find-renames", "-r", "HEAD")
+      path.atomic_write(path.read.sub("2.28.0", "2.31.0"))
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-am", "Update formula")
+      visited = []
+
+      result = history.walk(requests, complete: true) do |old|
+        visited << old.pkg_version.to_s
+        nil
+      end
+
+      expect(rename).to match(%r{\AR\d+\tFormula/o/old-requests.rb\tFormula/r/requests.rb})
+      expect([result, visited]).to eq [nil, ["2.31.0", "2.28.0"]]
+    end
+  end
+
+  it "walks both lifetimes across deletion and re-addition" do
+    allow(FormulaVersions).to receive(:new).and_call_original
+
+    Dir.mktmpdir do |dir|
+      repository = Pathname(dir)
+      path = repository/"Formula/r/requests.rb"
+      path.dirname.mkpath
+      allow(requests).to receive(:tap_path).and_return(path)
+      allow(requests.tap!).to receive(:path).and_return(repository)
+      git = ["git", "-C", dir, "-c", "user.name=Test", "-c", "user.email=test@example.test",
+             "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null"]
+      Utils.safe_popen_read(*git, "init", "--quiet")
+      path.write(<<~RUBY)
+        class Requests < Formula
+          url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.27.0.tar.gz"
+        end
+      RUBY
+      Utils.safe_popen_read(*git, "add", ".")
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-m", "Add formula")
+      path.unlink
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-am", "Remove formula")
+      path.write(<<~RUBY)
+        class Requests < Formula
+          url "https://files.pythonhosted.org/packages/aa/bb/cc/requests-2.31.0.tar.gz"
+        end
+      RUBY
+      Utils.safe_popen_read(*git, "add", ".")
+      Utils.safe_popen_read(*git, "commit", "--quiet", "-m", "Restore formula")
+      visited = []
+
+      result = history.walk(requests, complete: true) do |old|
+        visited << old.pkg_version.to_s
+        nil
+      end
+
+      expect([result, visited]).to eq [nil, ["2.31.0", "2.27.0"]]
+    end
+  end
+
+  it "does not skip an unreadable build whose path exists" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(Utils).to receive(:popen_read).and_return("Formula/r/requests.rb\n")
+    allow(formula_versions).to receive_messages(formula_at_revision: nil, path_absent_at_revision?: false)
+
+    expect(history.walk(requests, complete: true) { nil }).to eq :history_unavailable
+  end
+
+  it "does not treat a failed tree lookup as an absent path" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(Utils).to receive(:popen_read).and_return("Formula/r/requests.rb\n")
+    allow(formula_versions).to receive(:formula_at_revision).and_return(nil)
+    allow(formula_versions).to receive(:path_absent_at_revision?)
+      .and_raise(ErrorDuringExecution.new(["git"], status: 128))
+
+    expect(history.walk(requests, complete: true) { nil }).to eq :history_unavailable
+  end
+
+  it "leaves history unavailable when Git cannot enumerate the complete revision list" do
+    allow(FormulaVersions).to receive(:new).and_call_original
+
+    Dir.mktmpdir do |dir|
+      repository = Pathname(dir)
+      allow(requests).to receive(:tap_path).and_return(repository/"Formula/requests.rb")
+      allow(requests.tap!).to receive_messages(path: repository, shallow?: false)
+      Utils.safe_popen_read("git", "-C", dir, "init", "--quiet")
+
+      expect(history.walk(requests, complete: true) { nil }).to eq :history_unavailable
+    end
   end
 end

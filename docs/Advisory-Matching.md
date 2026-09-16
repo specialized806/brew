@@ -36,3 +36,26 @@ Existing reviewed ranges are preserved rather than replaced with guessed introdu
 `--json` without `--output` has no existing reviewed records to reuse, so history checks still apply to new comparable candidates.
 `--no-history` explicitly uses unverified zero/current-version boundaries for new ranges and cannot be combined with `--new-history`.
 It is an unchecked authoring mode, not a way to validate a skipped candidate.
+
+## Reconciling existing ranges
+
+`--reconcile-history --output advisories --overrides data/overrides.yml` explicitly revisits existing `source: matched`, bump-fixed records with one terminal interval.
+It requires complete formula history and matching provenance, with the same result on the latest supported macOS and Linux for both ARM and Intel.
+These simulations check declared formula and resource versions; they do not rebuild historical bottles or verify installation steps.
+It can narrow an affected interval or delete a record proven never affected; it preserves other fields and updates `modified` only for a range change.
+Generated records, patch fixes, open or multiple intervals and records no longer rediscovered by current matching are left unchanged.
+When a prerelease suffix changes a subject’s `SEMVER` range state compared with its release version, `prerelease_boundary` holds the record for review.
+The command reports skip reasons and the number of matched records it did not revisit; success does not establish complete coverage.
+
+Before running this mode, protect hand-reviewed Homebrew boundaries with `preserve_homebrew_ranges: true` under the formula and advisory in `overrides.yml`.
+The pin applies across advisory aliases and is separate from `upstream_fixed_in`, which describes the upstream fix.
+Unavailable history or upstream records, changed subjects, conflicting platform results and advisory-specific patches require review.
+A failed upstream lookup holds every record for that formula with `upstream_unavailable`; a failed batch query holds its entire formula batch.
+A confirmed HTTP 404 while following an upstream link is cached as a missing target; a record with no resolved targets keeps its original evidence.
+A 404 for an ID returned directly by a query still holds the formula, as do other request failures.
+Reconciliation continues with the remaining formulae, so a successful command can include these holds.
+Complete history includes earlier lifetimes of deleted and re-added formulae, skipping revisions where Git proves the formula path was absent.
+A rename into the current formula name starts that name’s history; the old formula name’s builds are excluded.
+Historical loading ignores obsolete `devel` blocks and uses the stable build.
+Unattributed patches and `inreplace` alone do not block reconciliation.
+This mode cannot be combined with `--new-history`, `--no-history`, `--json` or `--index` and does not enable reconciliation in ordinary ingest runs.

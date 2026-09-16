@@ -19,19 +19,25 @@ module Homebrew
       def initialize
         @formula_versions = T.let({}, T::Hash[String, FormulaVersions])
         @rev_lists = T.let({}, T::Hash[String, T::Array[[String, String]]])
+        @complete_history = T.let({}, T::Hash[String, T::Boolean])
         @shallow_taps = T.let({}, T::Hash[String, T::Boolean])
       end
 
       # Yield each loadable historical revision of `formula`, newest first,
       # until the block returns a result. Returns that result,
       # `:history_unavailable` when the history cannot be trusted or `nil` once
-      # every revision has been visited.
+      # every revision has been visited. With `complete`, also require the
+      # oldest revision to add or rename the formula into this name. History
+      # under a different formula name is outside this named lifetime.
+      # A proven absent path is not a build; skip it
+      # in complete walks so earlier lifetimes are still observed.
       sig {
-        params(formula: Formula,
-               _block:  T.proc.params(old: Formula).returns(T.nilable(T.any(String, Symbol))))
+        params(formula:  Formula,
+               complete: T::Boolean,
+               _block:   T.proc.params(old: Formula).returns(T.nilable(T.any(String, Symbol))))
           .returns(T.nilable(T.any(String, Symbol)))
       }
-      def walk(formula, &_block)
+      def walk(formula, complete: false, &_block)
         tap = formula.tap!
         tap_key = tap.path.to_s
         return :history_unavailable if @shallow_taps.fetch(tap_key) { @shallow_taps[tap_key] = tap.shallow? }
@@ -39,15 +45,39 @@ module Homebrew
         tap_path = formula.tap_path.to_s
         fv = @formula_versions["#{tap_path}:#{SimulateSystem.current_os}:#{SimulateSystem.current_arch}"] ||=
           FormulaVersions.new(formula)
-        revs = @rev_lists[tap_path] ||=
-          [].tap { |a| fv.rev_list("HEAD") { |rev, entry| a << [rev, entry] } }
+        begin
+          revs = @rev_lists["#{tap_path}:#{complete}"] ||=
+            [].tap { |a| fv.rev_list("HEAD", all_history: complete) { |rev, entry| a << [rev, entry] } }
+        rescue ErrorDuringExecution
+          return :history_unavailable
+        end
         return :history_unavailable if revs.empty?
+
+        if complete
+          complete_history = @complete_history.fetch(tap_path) do
+            oldest_rev, oldest_path = revs.fetch(-1)
+            additions = Utils.popen_read("git", "-C", tap_key, "diff-tree", "--root",
+                                         "--no-commit-id", "--name-only", "--find-renames", "--diff-filter=AR",
+                                         "-r", oldest_rev, safe: true).lines(chomp: true)
+            @complete_history[tap_path] = additions.include?(oldest_path)
+          rescue ErrorDuringExecution
+            @complete_history[tap_path] = false
+          end
+          return :history_unavailable unless complete_history
+        end
 
         revs.each do |rev, entry|
           # Wrap the verdict so keeping the walk going (`nil`) stays
           # distinguishable from a revision that failed to load.
           verdict = fv.formula_at_revision(rev, entry) { |old| [yield(old)] }
-          return :history_unavailable if verdict.nil?
+          if verdict.nil?
+            begin
+              next if complete && fv.path_absent_at_revision?(rev, entry)
+            rescue ErrorDuringExecution
+              return :history_unavailable
+            end
+            return :history_unavailable
+          end
 
           result = verdict.fetch(0)
           return result unless result.nil?
