@@ -108,15 +108,23 @@ module Homebrew
           ).returns(T::Boolean)
         }
         def install_package!(name, with: nil, source: nil, verbose: false)
-          uv = package_manager_executable!
+          require "formula"
+          require "utils/path"
 
           args = ["tool", "install", source.presence || name]
+          # Find the newest installed Homebrew Python from opt/bin filenames without loading formulae.
+          python = Formula.installed_formula_names.grep(/\Apython(?:@.+)?\z/)
+                          .flat_map { |formula_name| Utils::Path.formula_opt_bin(formula_name).glob("python[0-9]*") }
+                          .select { |path| path.file? && path.basename.to_s.match?(/\Apython\d+\.\d+\z/) }
+                          .max_by { |path| Version.new(path.basename.to_s.delete_prefix("python")) }
+          ENV["UV_PYTHON"] = python.to_s if python
+
           normalize_with(with || []).each do |requirement|
             args << "--with"
             args << requirement
           end
 
-          Bundle.system(uv.to_s, *args, verbose:)
+          Bundle.system(package_manager_executable!.to_s, *args, verbose:)
         end
 
         sig { override.returns(T::Array[Tool]) }
