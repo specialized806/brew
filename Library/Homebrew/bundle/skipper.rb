@@ -1,13 +1,22 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "utils/output"
+
 module Homebrew
   module Bundle
     module Skipper
+      extend Utils::Output::Mixin
+
       class << self
-        sig { params(entry: Dsl::Entry, silent: T::Boolean).returns(T::Boolean) }
-        def skip?(entry, silent: false)
+        sig { params(entry: Dsl::Entry).returns(T::Boolean) }
+        def skip?(entry)
           require "bundle/brew"
+
+          if (reason = unsupported_reason(entry))
+            opoo_without_github_actions_annotation "Skipping #{entry.type} #{entry.name} (#{reason})"
+            return true
+          end
 
           full_name = entry.options[:full_name]
           return true if @failed_taps&.any? do |tap|
@@ -24,7 +33,7 @@ module Homebrew
           entry_ids = [entry.name, entry.options[:id]&.to_s].compact
           return false unless entry_type_skips.intersect?(entry_ids)
 
-          puts Formatter.warning "Skipping #{entry.name}" unless silent
+          opoo_without_github_actions_annotation "Skipping #{entry.name}"
           true
         end
 
@@ -44,6 +53,9 @@ module Homebrew
         attr_writer :skipped_entries
 
         private
+
+        sig { params(_entry: Dsl::Entry).returns(T.nilable(String)) }
+        def unsupported_reason(_entry) = nil
 
         sig { returns(T::Hash[Symbol, T.nilable(T::Array[String])]) }
         def skipped_entries

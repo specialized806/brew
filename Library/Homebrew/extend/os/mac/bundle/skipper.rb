@@ -6,23 +6,12 @@ module OS
     module Bundle
       module Skipper
         module ClassMethods
-          sig { params(entry: Homebrew::Bundle::Dsl::Entry).returns(T::Boolean) }
-          def linux_only_entry?(entry)
-            entry.type == :flatpak
-          end
-
-          sig { params(entry: Homebrew::Bundle::Dsl::Entry, silent: T::Boolean).returns(T::Boolean) }
-          def skip?(entry, silent: false)
-            if entry.type == :winget
-              Kernel.puts Formatter.warning "Skipping #{entry.type} #{entry.name} (requires WSL)" unless silent
-              true
-            elsif linux_only_entry?(entry)
-              unless silent
-                Kernel.puts Formatter.warning "Skipping #{entry.type} #{entry.name} (unsupported on macOS)"
-              end
-              true
-            else
-              super
+          sig { params(entry: Homebrew::Bundle::Dsl::Entry).returns(T.nilable(String)) }
+          def unsupported_reason(entry)
+            case entry.type
+            when :winget then "requires WSL"
+            when :flatpak then "unsupported on macOS"
+            else super
             end
           end
         end

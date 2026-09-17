@@ -62,7 +62,7 @@ module Homebrew
                 bottle.fetch
                 begin
                   attestation = Homebrew::Attestation.check_formula_attestation bottle
-                  oh1 "#{bottle.filename} has a valid attestation"
+                  oh1 "#{bottle.filename} has a valid attestation" unless args.json?
                   json_results.push(attestation)
                 rescue Homebrew::Attestation::UnsupportedTapError,
                        Homebrew::Attestation::MissingAttestationError,
