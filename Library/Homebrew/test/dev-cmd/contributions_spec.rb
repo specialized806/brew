@@ -7,7 +7,10 @@ require "dev-cmd/contributions"
 require "utils/github"
 
 RSpec.describe Homebrew::DevCmd::Contributions do
-  before { stub_const("HOMEBREW_CACHE", mktmpdir) }
+  before do
+    stub_const("HOMEBREW_CACHE", mktmpdir)
+    allow(GitHub::API).to receive(:open_rest).and_return({})
+  end
 
   it_behaves_like "parseable arguments"
   it_behaves_like "a documented command", "contributions"
@@ -646,6 +649,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     counts = command.parse_git_log(
       "#{merge}#{record_separator}#{pull_request}#{record_separator}#{coauthored}#{record_separator}",
       { "alice" => "Alice Example", "bob" => "bob" },
+      github_identities: { "bob" => ["bob", "Bob Example"] },
     )
 
     expect(counts).to eq(
@@ -656,6 +660,85 @@ RSpec.describe Homebrew::DevCmd::Contributions do
         merged_pr_author: 1, merged_pr_merger: 0, merged_pr: 1, approved_pr_review: 0, coauthor: 1
       },
     )
+  end
+
+  it "matches commits under a GitHub profile's name and email for a username" do
+    command = described_class.new(["--user=alice", "--repositories=Homebrew/homebrew-core"])
+    repository = "Homebrew/homebrew-core"
+    commit = [
+      "commit", "base", "Someone Else", "someone@example.com",
+      "Change something\n\nCo-authored-by: Alice Example <a.example@example.com>"
+    ].join("\x1f")
+    allow(Utils).to receive(:safe_popen_read).and_return("#{commit}\x1e")
+    allow(GitHub::API).to receive(:open_rest)
+      .with(GitHub.url_to("users", "alice"))
+      .and_return({ "name" => "Alice Example", "email" => "a.example@example.com" })
+    allow(GitHub).to receive_messages(search_issues: [], search_approved_pull_requests_in_user_or_organisation: [])
+
+    results = command.scan_contributions(
+      "Homebrew",
+      [repository],
+      { repository => [Pathname("/Homebrew/homebrew-core"), "origin/HEAD"] },
+      { "alice" => "alice" },
+      from:                     "2026-01-01",
+      to:                       "2026-02-01",
+      skip_reviews_if_lead_met: false,
+      progress:                 false,
+    )
+
+    expect(results.fetch("alice").fetch(repository).fetch(:coauthor)).to eq(1)
+  end
+
+  it "skips GitHub profile names shared by multiple requested users" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+    ambiguous = [
+      "ambiguous", "base", "Someone Else", "someone@example.com",
+      "Change something\n\nCo-authored-by: Alex <unknown@example.com>"
+    ].join("\x1f")
+    by_email = [
+      "by-email", "base", "Someone Else", "someone@example.com",
+      "Change another thing\n\nCo-authored-by: Alex <bob@example.com>"
+    ].join("\x1f")
+
+    counts = command.parse_git_log(
+      "#{ambiguous}\x1e#{by_email}\x1e",
+      { "alice" => "alice", "bob" => "bob" },
+      github_identities: { "alice" => %w[alice Alex alice@example.com], "bob" => %w[bob Alex bob@example.com] },
+    )
+
+    expect(counts.transform_values { |user_counts| user_counts.fetch(:coauthor) }).to eq("alice" => 0, "bob" => 1)
+  end
+
+  it "prefers an exact email match over a GitHub profile name" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+    commit = [
+      "commit", "base", "Someone Else", "someone@example.com",
+      "Change something\n\nCo-authored-by: Alex <bob@example.com>"
+    ].join("\x1f")
+
+    counts = command.parse_git_log(
+      "#{commit}\x1e",
+      { "alice" => "alice", "bob" => "bob" },
+      github_identities: { "alice" => %w[alice Alex alice@example.com], "bob" => %w[bob bob@example.com] },
+    )
+
+    expect(counts.transform_values { |user_counts| user_counts.fetch(:coauthor) }).to eq("alice" => 0, "bob" => 1)
+  end
+
+  it "matches GitHub no-reply usernames but not other emails' local parts" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+    unrelated = [
+      "unrelated", "base", "Someone Else", "someone@example.com",
+      "Change something\n\nCo-authored-by: Other Alice <alice@unrelated.example.com>"
+    ].join("\x1f")
+    noreply = [
+      "noreply", "base", "Someone Else", "someone@example.com",
+      "Change another thing\n\nCo-authored-by: A. Example <123+alice@users.noreply.github.com>"
+    ].join("\x1f")
+
+    counts = command.parse_git_log("#{unrelated}\x1e#{noreply}\x1e", { "alice" => "Alice Example" })
+
+    expect(counts.fetch("alice").fetch(:coauthor)).to eq(1)
   end
 
   it "skips approval queries after Git meets the Lead repository thresholds" do
@@ -773,8 +856,7 @@ RSpec.describe Homebrew::DevCmd::Contributions do
     calls = 0
 
     2.times do
-      cache_key = %w[approved Homebrew alice 2026-1].join("\0")
-      expect(command.github_search_with_rate_limit(cache_key, to: "2026-03-01") do
+      expect(command.cached_github_request(Array, "approved", "Homebrew", "alice", "2026-1", to: "2026-03-01") do
         calls += 1
         results
       end).to eq(results)
@@ -789,5 +871,43 @@ RSpec.describe Homebrew::DevCmd::Contributions do
                        .cleanup_cache([{ path: cache_file, type: nil }], cleanup_unreferenced: false)
     end.to output(/Removing:/).to_stdout
     expect(cache_file).not_to exist
+  end
+
+  it "warns about unreadable cache files before deleting them" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+    command.cached_github_request(Array, "approved", to: "2026-03-01") { [] }
+    HOMEBREW_CACHE.children.fetch(0).write("not json")
+
+    expect do
+      command.cached_github_request(Array, "approved", to: "2026-03-01") { [] }
+    end.to output(/Deleting unreadable contributions cache/).to_stderr
+  end
+
+  it "warns about cached results of an unexpected type before deleting them" do
+    command = described_class.new(["--maintainer-report-csv=2026-1"])
+    command.cached_github_request(Hash, "user-profile", to: "2026-03-01") { {} }
+
+    expect do
+      command.cached_github_request(Array, "user-profile", to: "2026-03-01") { [] }
+    end.to output(/Deleting contributions cache .* containing Hash rather than Array/).to_stderr
+  end
+
+  it "caches GitHub profile lookups" do
+    command = described_class.new(["--user=alice"])
+    expect(GitHub::API).to receive(:open_rest)
+      .with(GitHub.url_to("users", "alice"))
+      .once
+      .and_return({ "name" => "Alice Example", "email" => "alice@example.com" })
+
+    identities = Array.new(2) { command.github_identities_for_username("alice", to: "2026-03-01") }
+
+    expect(identities).to eq([["alice", "Alice Example", "alice@example.com"]] * 2)
+  end
+
+  it "returns only the username for a missing GitHub profile" do
+    command = described_class.new(["--user=alice"])
+    allow(GitHub::API).to receive(:open_rest).and_raise(GitHub::API::HTTPNotFoundError, "Not Found")
+
+    expect(command.github_identities_for_username("alice", to: "2026-03-01")).to eq(["alice"])
   end
 end
