@@ -111,5 +111,88 @@ RSpec.describe Cask::DSL::Rename do
         expect(staged_path / "target.txt").not_to exist
       end
     end
+
+    context "when checking rename paths" do
+      let(:staged_path) { (tmpdir/"staged").tap(&:mkpath) }
+      let(:from) { "source.pkg" }
+      let(:to) { "target.pkg" }
+
+      before do
+        (staged_path/"source.pkg").write("staged content")
+        (tmpdir/"source.pkg").write("other content")
+      end
+
+      it "rejects an absolute source path" do
+        expect do
+          described_class.new((tmpdir/"source.pkg").to_s, to).perform_rename(staged_path)
+        end.to raise_error(ArgumentError, /within the staged cask/)
+      end
+
+      it "rejects an absolute target path" do
+        expect do
+          described_class.new(from, (tmpdir/"source.pkg").to_s).perform_rename(staged_path)
+        end.to raise_error(ArgumentError, /within the staged cask/)
+      end
+
+      it "rejects a source path with a parent component" do
+        expect do
+          described_class.new("../source.pkg", to).perform_rename(staged_path)
+        end.to raise_error(ArgumentError, /within the staged cask/)
+      end
+
+      it "rejects a target path with a parent component" do
+        expect do
+          described_class.new(from, "../source.pkg").perform_rename(staged_path)
+        end.to raise_error(ArgumentError, /within the staged cask/)
+      end
+
+      context "with a symlinked source directory" do
+        let(:from) { "linked/source.pkg" }
+
+        before { (staged_path/"linked").make_symlink(tmpdir) }
+
+        it "rejects the path" do
+          expect { rename.perform_rename(staged_path) }.to raise_error(ArgumentError, /symlink/)
+        end
+      end
+
+      context "with a symlinked target directory" do
+        let(:to) { "linked/source.pkg" }
+
+        before { (staged_path/"linked").make_symlink(tmpdir) }
+
+        it "rejects the path" do
+          expect { rename.perform_rename(staged_path) }.to raise_error(ArgumentError, /symlink/)
+        end
+      end
+
+      context "with a glob expanding to a parent directory" do
+        let(:from) { "{..,unused}/*.pkg" }
+
+        it "rejects the match" do
+          expect { rename.perform_rename(staged_path) }.to raise_error(ArgumentError, /within the staged cask/)
+        end
+      end
+
+      context "with a glob matching a symlinked directory" do
+        let(:from) { "link*/*.pkg" }
+
+        before { (staged_path/"linked").make_symlink(tmpdir) }
+
+        it "rejects the match" do
+          expect { rename.perform_rename(staged_path) }.to raise_error(ArgumentError, /symlink/)
+        end
+      end
+
+      context "with a symlink above a new target directory" do
+        let(:to) { "linked/new/target.pkg" }
+
+        before { (staged_path/"linked").make_symlink(tmpdir) }
+
+        it "rejects the path before creating the directory" do
+          expect { rename.perform_rename(staged_path) }.to raise_error(ArgumentError, /symlink/)
+        end
+      end
+    end
   end
 end
