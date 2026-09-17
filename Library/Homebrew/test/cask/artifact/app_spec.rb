@@ -71,9 +71,11 @@ RSpec.describe Cask::Artifact::App, :cask do
       install_phase
     end
 
-    it "changes the app group in the home directory" do
+    it "tries changing the app group in the home directory without sudo" do
       allow(Dir).to receive(:home).and_return(target_path.parent.to_s)
-      expect(command).to receive(:run).with("chgrp", any_args)
+      expect(command).to receive(:run)
+        .with("chgrp", args: ["-hR", "admin", target_path],
+                       sudo: false, must_succeed: false, print_stderr: false)
 
       install_phase
     end
@@ -436,6 +438,16 @@ RSpec.describe Cask::Artifact::App, :cask do
   describe "upgrade" do
     before do
       install_phase
+    end
+
+    it "upgrades apps in the home directory without sudo" do
+      allow(Dir).to receive(:home).and_return(target_path.parent.to_s)
+      allow(command).to receive(:run).with("chgrp", hash_including(sudo: false))
+                                     .and_return(instance_double(SystemCommand::Result, success?: false))
+      expect(command).not_to receive(:run).with(anything, hash_including(sudo: true))
+
+      app.uninstall_phase(command:, successor: cask)
+      app.install_phase(command:, predecessor: cask)
     end
 
     # Fix for https://github.com/Homebrew/homebrew-cask/issues/102721
