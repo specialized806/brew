@@ -48,9 +48,13 @@ module RuboCop
           method_nodes.select(&:block_type?).each do |node|
             node.child_nodes.each do |child|
               child.each_node(:send) do |send_node|
-                next unless (macos_pair = macos_dependency_pair(send_node))
+                next if send_node.receiver || send_node.method_name != :depends_on
 
-                macos_versions << macos_pair.value.source
+                if (macos_pair = macos_dependency_pair(send_node))
+                  macos_versions << macos_pair.value.source
+                elsif (argument = send_node.first_argument)&.sym_type? && argument.value == :macos
+                  macos_versions << ":any"
+                end
               end
             end
           end

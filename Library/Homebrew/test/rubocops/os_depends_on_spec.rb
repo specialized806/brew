@@ -4,10 +4,190 @@
 require "rubocops/os_depends_on"
 
 RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
-  it "autocorrects cask macOS comparison strings" do
+  it "autocorrects the oldest runnable macOS minimum" do
+    expect_offense(<<~RUBY)
+      depends_on macos: :big_sur
+                 ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_correction(<<~RUBY)
+      depends_on :macos
+    RUBY
+  end
+
+  it "autocorrects older macOS minima" do
+    expect_offense(<<~RUBY)
+      depends_on macos: :catalina
+                 ^^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_correction(<<~RUBY)
+      depends_on :macos
+    RUBY
+  end
+
+  it "autocorrects single-element minimum arrays" do
+    expect_offense(<<~RUBY)
+      depends_on(macos: [:big_sur])
+                 ^^^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_correction(<<~RUBY)
+      depends_on(:macos)
+    RUBY
+  end
+
+  it "reports redundant minima in formula OS blocks without inserting bare dependencies" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        on_macos do
+          depends_on macos: :big_sur
+                     ^^^^^^^^^^^^^^^ Remove the redundant minimum macOS dependency from this OS block.
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "preserves architecture-specific cask requirements" do
+    expect_offense(<<~RUBY)
+      cask "foo" do
+        on_arm do
+          depends_on macos: :monterey
+        end
+        on_intel do
+          depends_on macos: :big_sur
+                     ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+        end
+        depends_on :macos
+        app "Foo.app"
+      end
+    RUBY
+
+    expect_correction(<<~RUBY)
+      cask "foo" do
+        on_arm do
+          depends_on macos: :monterey
+        end
+        on_intel do
+          depends_on :macos
+        end
+        depends_on :macos
+        app "Foo.app"
+      end
+    RUBY
+  end
+
+  it "does not introduce a bare OS dependency inside a cask macOS block" do
+    expect_offense(<<~RUBY)
+      cask "foo" do
+        on_macos do
+          depends_on macos: :big_sur
+                     ^^^^^^^^^^^^^^^ Remove the redundant minimum macOS dependency from this OS block.
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not introduce a bare OS dependency inside a cask release block" do
+    expect_offense(<<~RUBY)
+      cask "foo" do
+        on_big_sur do
+          depends_on macos: :big_sur
+                     ^^^^^^^^^^^^^^^ Remove the redundant minimum macOS dependency from this OS block.
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not introduce a bare OS dependency inside a cask mixed OS block" do
+    expect_offense(<<~RUBY)
+      cask "foo" do
+        on_system :linux, macos: :big_sur do
+          depends_on macos: :big_sur
+                     ^^^^^^^^^^^^^^^ Remove the redundant minimum macOS dependency from this OS block.
+        end
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not orphan a redundant minimum comment next to a maximum" do
+    expect_offense(<<~RUBY)
+      depends_on macos: :big_sur # Keep this explanation.
+                 ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+      depends_on maximum_macos: :ventura
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not autocorrect a dependency hash with other requirements" do
+    expect_offense(<<~RUBY)
+      depends_on macos: :big_sur, arch: :arm64
+                 ^^^^^^^^^^^^^^^ Remove the redundant `macos:` pair and add a separate `depends_on :macos`.
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not discard comments inside a minimum array" do
+    expect_offense(<<~RUBY)
+      depends_on macos: [
+                 ^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+        # Keep this explanation.
+        :big_sur,
+      ]
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "allows meaningful version restrictions and dynamic values" do
+    expect_no_offenses(<<~RUBY)
+      depends_on macos: :monterey
+      depends_on maximum_macos: :big_sur
+      depends_on macos: [:big_sur, :monterey]
+      depends_on macos: minimum_macos
+      depends_on macos: :unknown
+      helper.depends_on macos: :big_sur
+    RUBY
+  end
+
+  it "follows changes to the runnable macOS releases" do
+    stub_const("MacOSVersion::SYMBOLS", { ventura: "13", monterey: "12" })
+
+    expect_offense(<<~RUBY)
+      depends_on macos: :monterey
+                 ^^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_correction(<<~RUBY)
+      depends_on :macos
+    RUBY
+  end
+
+  it "autocorrects legacy redundant minimum comparison strings" do
     expect_offense(<<~RUBY)
       depends_on macos: ">= :big_sur"
                         ^^^^^^^^^^^^^ Use `depends_on macos: :big_sur`.
+    RUBY
+
+    expect_correction(<<~RUBY)
+      depends_on :macos
+    RUBY
+  end
+
+  it "autocorrects cask macOS comparison strings" do
+    expect_offense(<<~RUBY)
+      depends_on macos: ">= :monterey"
+                        ^^^^^^^^^^^^^^ Use `depends_on macos: :monterey`.
       depends_on macos: "<= :sonoma"
                         ^^^^^^^^^^^^ Use `depends_on maximum_macos: :sonoma`.
       depends_on maximum_macos: "<= :tahoe"
@@ -15,7 +195,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
     RUBY
 
     expect_correction(<<~RUBY)
-      depends_on macos: :big_sur
+      depends_on macos: :monterey
       depends_on maximum_macos: :sonoma
       depends_on maximum_macos: :tahoe
     RUBY
@@ -25,12 +205,93 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
     expect_offense(<<~RUBY)
       depends_on :macos
       ^^^^^^^^^^^^^^^^^ Remove redundant `depends_on :macos`.
-      depends_on macos: :big_sur
+      depends_on macos: :monterey
     RUBY
 
     expect_correction(<<~RUBY)
-      depends_on macos: :big_sur
+      depends_on macos: :monterey
     RUBY
+  end
+
+  it "does not duplicate a commented bare macOS sibling before a redundant minimum" do
+    expect_offense(<<~RUBY)
+      depends_on :macos # Keep this explanation.
+      ^^^^^^^^^^^^^^^^^ Remove redundant `depends_on :macos`.
+      depends_on macos: :big_sur
+                 ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not duplicate a commented bare macOS sibling after a redundant minimum" do
+    expect_offense(<<~RUBY)
+      depends_on macos: :big_sur
+                 ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+      depends_on :macos # Keep this explanation.
+      ^^^^^^^^^^^^^^^^^ Remove redundant `depends_on :macos`.
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "converges when an uncommented bare macOS sibling accompanies a redundant minimum" do
+    expect_offense(<<~RUBY)
+      depends_on :macos
+      ^^^^^^^^^^^^^^^^^ Remove redundant `depends_on :macos`.
+      depends_on macos: :big_sur
+                 ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_correction(<<~RUBY)
+      depends_on :macos
+    RUBY
+  end
+
+  it "does not autocorrect a minimum with a trailing comment" do
+    expect_offense(<<~RUBY)
+      depends_on macos: :big_sur # Needs APIs introduced in Big Sur.
+                 ^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "does not orphan a redundant bare macOS dependency comment" do
+    expect_offense(<<~RUBY)
+      depends_on :macos # Keep this explanation.
+      ^^^^^^^^^^^^^^^^^ Remove redundant `depends_on :macos`.
+      depends_on maximum_macos: :ventura
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "reports tagged formula minima without suggesting a tag-only dependency" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        depends_on macos: [:big_sur, :build]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "treats additional macOS symbols as tags in formula arrays" do
+    expect_offense(<<~RUBY)
+      class Foo < Formula
+        depends_on macos: [:big_sur, :monterey]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Use `depends_on :macos` instead of a redundant minimum macOS version.
+      end
+    RUBY
+
+    expect_no_corrections
+  end
+
+  it "keeps the oldest runnable symbol aligned with the runtime floor" do
+    expect(MacOSVersion::SYMBOLS.values.map { |release| MacOSVersion.new(release) }.min)
+      .to eq(MacOSVersion.new(HOMEBREW_MACOS_OLDEST_ALLOWED))
   end
 
   it "ignores non-symbol dependency hash keys" do
@@ -45,8 +306,8 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
 
   it "reports conflicting macOS-only and Linux-only requirements" do
     expect_offense(<<~RUBY)
-      depends_on macos: :big_sur
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^ `depends_on` cannot be macOS-only and Linux-only.
+      depends_on macos: :monterey
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `depends_on` cannot be macOS-only and Linux-only.
       depends_on :linux
       ^^^^^^^^^^^^^^^^^ `depends_on` cannot be macOS-only and Linux-only.
     RUBY
@@ -55,7 +316,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
   it "allows scoped macOS requirements" do
     expect_no_offenses(<<~RUBY)
       on_macos do
-        depends_on macos: :big_sur
+        depends_on macos: :monterey
       end
 
       depends_on :linux
@@ -382,7 +643,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
         url "https://example.com/basic.zip"
         homepage "https://example.com"
 
-        depends_on macos: :big_sur
+        depends_on macos: :monterey
 
         app "Basic.app"
       end
@@ -398,7 +659,7 @@ RSpec.describe RuboCop::Cop::Homebrew::OSDependsOn, :config do
         homepage "https://example.com"
 
         on_arm do
-          depends_on macos: :big_sur
+          depends_on macos: :monterey
         end
 
         on_intel do
