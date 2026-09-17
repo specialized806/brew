@@ -132,8 +132,8 @@ __brew_complete_commands() {
 
 __brew_complete_services() {
   __brewcomp_lines "$(command find "$(brew --cellar)" -mindepth 3 -maxdepth 3 -name '*.service' \
-    | awk -F'homebrew.|.service' '{print $3}' \
-    | sort -d)"
+    | awk -F/ '{print $(NF-2)}' \
+    | sort -u)"
 }
 
 # compopt is only available in newer versions of bash

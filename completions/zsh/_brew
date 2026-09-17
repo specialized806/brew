@@ -337,8 +337,8 @@ __brew_services() {
 
   local -a services
   services=($(command find "$(brew --cellar)" -mindepth 3 -maxdepth 3 -name '*.service' \
-    | awk -F'homebrew.|.service' '{print $3}' \
-    | sort -d))
+    | awk -F/ '{print $(NF-2)}' \
+    | sort -u))
   _describe -t services 'services' services
 }
 

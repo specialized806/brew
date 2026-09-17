@@ -195,8 +195,8 @@ end
 
 function __fish_brew_suggest_services -d "Lists available services"
     command find (brew --cellar) -mindepth 3 -maxdepth 3 -name '*.service' \
-      | awk -F'homebrew.|.service' '{print $3}' \
-      | sort -d
+      | awk -F/ '{print $(NF-2)}' \
+      | sort -u
 end
 
 
