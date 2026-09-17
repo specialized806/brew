@@ -313,6 +313,12 @@ RSpec.describe Homebrew::Bundle::Uv do
   end
 
   describe "installing" do
+    before do
+      ENV.delete("UV_PYTHON")
+      allow(Formula).to receive(:installed_formula_names).and_return([])
+      allow(Formula).to receive(:[]).and_raise("Python selection must not load formulae")
+    end
+
     context "when uv is not installed" do
       before do
         described_class.reset!
@@ -458,6 +464,50 @@ RSpec.describe Homebrew::Bundle::Uv do
 
           expect(described_class.preinstall!("ruff")).to be(true)
           expect(described_class.install!("ruff")).to be(true)
+        end
+
+        it "uses the newest installed Homebrew Python" do
+          allow(Formula).to receive(:installed_formula_names)
+            .and_return(%w[python@3.9 python@3.14 python@3.15 python-tk@3.16])
+          %w[python@3.9/bin/python3.9 python@3.14/bin/python3.14 python@3.14/bin/python3.99-config
+             python-tk@3.16/bin/python3.16].each do |path|
+            python = HOMEBREW_PREFIX/"opt"/path
+            python.dirname.mkpath
+            python.write ""
+          end
+          allow(Homebrew::Bundle).to receive(:system) do
+            expect(ENV.fetch("UV_PYTHON", nil)).to eq("#{HOMEBREW_PREFIX}/opt/python@3.14/bin/python3.14")
+            true
+          end
+
+          described_class.install!("ruff")
+        end
+
+        it "uses an installed versioned Homebrew Python" do
+          allow(Formula).to receive(:installed_formula_names).and_return(["python@3"])
+          (HOMEBREW_PREFIX/"opt/python@3/bin").mkpath
+          (HOMEBREW_PREFIX/"opt/python@3/bin/python3.12").write ""
+          allow(Homebrew::Bundle).to receive(:system) do
+            expect(ENV.fetch("UV_PYTHON", nil)).to eq("#{HOMEBREW_PREFIX}/opt/python@3/bin/python3.12")
+            true
+          end
+
+          described_class.install!("ruff")
+        end
+
+        it "includes the unversioned Python formula" do
+          allow(Formula).to receive(:installed_formula_names).and_return(%w[python python@3.13])
+          %w[python/bin/python3.14 python@3.13/bin/python3.13].each do |path|
+            python = HOMEBREW_PREFIX/"opt"/path
+            python.dirname.mkpath
+            python.write ""
+          end
+          allow(Homebrew::Bundle).to receive(:system) do
+            expect(ENV.fetch("UV_PYTHON", nil)).to eq("#{HOMEBREW_PREFIX}/opt/python/bin/python3.14")
+            true
+          end
+
+          described_class.install!("ruff")
         end
 
         it "installs package with all supported options" do
