@@ -112,6 +112,13 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#test_sandbox_env" do
+    it "does not pass options to the java launcher" do
+      f = Testball.new
+      expect(f.test_sandbox_env(mktmpdir)).not_to have_key(:JDK_JAVA_OPTIONS)
+    end
+  end
+
   describe "#shared_library" do
     it "generates a shared library string" do
       f = Testball.new

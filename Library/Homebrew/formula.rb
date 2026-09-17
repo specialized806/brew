@@ -3431,7 +3431,7 @@ class Formula
       raise "Test path is unexpectedly unset." if testpath.nil?
 
       @testpath = T.let(testpath, T.nilable(Pathname))
-      test_env.merge!(common_sandbox_env(testpath))
+      test_env.merge!(test_sandbox_env(testpath))
       setup_home testpath
       begin
         with_logging("test") do
@@ -3875,6 +3875,12 @@ class Formula
       PYTHONDONTWRITEBYTECODE: "1",
       XDG_CONFIG_HOME:         "#{home}/.config",
     )
+  end
+
+  # Environment variables for the sandboxed test phase, on top of {#common_sandbox_env}.
+  sig { params(testpath: Pathname).returns(T::Hash[Symbol, String]) }
+  def test_sandbox_env(testpath)
+    common_sandbox_env(testpath)
   end
 
   private

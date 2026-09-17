@@ -48,6 +48,11 @@ module Homebrew
                depends_on:  "--output=",
                description: "Reconcile existing matched terminal ranges against complete history; " \
                             "requires `--overrides`."
+        flag   "--formula-list=",
+               depends_on:  "--reconcile-history",
+               description: "Reconcile only the core formula names in a newline-separated file, " \
+                            "using bulk queries without live Repology fallbacks."
+        conflicts "--formula-list", "--all"
         conflicts "--reconcile-history", "--new-history"
         conflicts "--reconcile-history", "--no-history"
         conflicts "--reconcile-history", "--json"
@@ -68,7 +73,13 @@ module Homebrew
         if args.reconcile_history? && !args.overrides
           raise UsageError, "`--reconcile-history` requires an explicit `--overrides` file"
         end
+        if args.formula_list && args.named.any?
+          raise UsageError, "`--formula-list` does not take named arguments"
+        end
 
+        formula_names = if (list = args.formula_list)
+          File.readlines(list, chomp: true).reject(&:empty?).uniq
+        end
         Formulary.enable_factory_cache!
         Homebrew::API.with_no_api_env do
           latest_macos = MacOSVersion.new((HOMEBREW_MACOS_NEWEST_UNSUPPORTED.to_i - 1).to_s).to_sym
@@ -76,11 +87,11 @@ module Homebrew
             overrides = local_overrides
             matcher = Homebrew::Vulns::Match.new(repology:        local_repology,
                                                  overrides:,
-                                                 bulk:            args.all? || args.index?,
+                                                 bulk:            args.all? || args.index? || !formula_names.nil?,
                                                  strict_upstream: args.reconcile_history?)
             next emit_index(matcher) if args.index?
 
-            emitter = build_emitter
+            emitter = build_emitter(formula_names:)
             begin
               on_error = if args.reconcile_history?
                 lambda do |formula, error|
@@ -88,7 +99,7 @@ module Homebrew
                 end
               end
               matcher.each_advisory_batch(
-                each_formula,
+                each_formula(formula_names:),
                 on_error:,
               ) do |formula, hits|
                 if args.reconcile_history? && emitter.is_a?(DirEmitter)
@@ -348,17 +359,25 @@ module Homebrew
         Homebrew::Vulns::AdvisoryOverrides.from_file(Pathname(path))
       end
 
-      sig { returns(T::Enumerator[Formula]) }
-      def each_formula
-        return args.named.to_resolved_formulae.each unless args.all?
+      sig { params(formula_names: T.nilable(T::Array[String])).returns(T::Enumerator[Formula]) }
+      def each_formula(formula_names: nil)
+        return args.named.to_resolved_formulae.each if !args.all? && !args.formula_list
 
         raise UsageError, "`--all` does not take named arguments" if args.named.any?
 
         tap = CoreTap.instance
         raise TapUnavailableError, tap.name unless tap.installed?
 
+        names = tap.formula_names
+        if formula_names
+          (formula_names - names).each do |name|
+            opoo "#{name}: no longer in homebrew/core; leaving its records unchanged"
+          end
+          names &= formula_names
+        end
+
         Enumerator.new do |y|
-          tap.formula_names.each do |name|
+          names.each do |name|
             y << Formulary.factory(name)
           rescue => e
             onoe "Error loading formula '#{name}': #{e}"
@@ -438,14 +457,18 @@ module Homebrew
       end
 
       class DirEmitter < Emitter
-        sig { params(dir: String, verbose: T::Boolean, close_open_ranges: T::Boolean, reconcile_history: T::Boolean).void }
-        def initialize(dir, verbose:, close_open_ranges:, reconcile_history: false)
+        sig {
+          params(dir: String, verbose: T::Boolean, close_open_ranges: T::Boolean, reconcile_history: T::Boolean,
+                 formula_names: T.nilable(T::Array[String])).void
+        }
+        def initialize(dir, verbose:, close_open_ranges:, reconcile_history: false, formula_names: nil)
           super()
           FileUtils.mkdir_p(dir)
           @dir = dir
           @verbose = verbose
           @close_open_ranges = close_open_ranges
           @reconcile_history = reconcile_history
+          @formula_names = formula_names
           @deleted = T.let(0, Integer)
           @reconciliation_skips = T.let({}, T::Hash[Symbol, Integer])
           @reconciliation_seen = T.let({}, T::Hash[String, T::Boolean])
@@ -1027,9 +1050,12 @@ module Homebrew
                              "#{@basis_changed} range-basis skips)"
           if @reconcile_history
             ensure_alias_index
+            formula_names = @formula_names
             unmatched = @alias_records.count do |path, record|
-              record.is_a?(Hash) && record.dig("database_specific", "source") == "matched" &&
-                !@reconciliation_seen[path]
+              next false unless record.is_a?(Hash)
+              next false if formula_names&.exclude?(record.dig("affected", 0, "package", "name"))
+
+              record.dig("database_specific", "source") == "matched" && !@reconciliation_seen[path]
             end
             puts "  Reconciliation: #{@deleted} deleted; #{unmatched} matched records not revisited"
             @reconciliation_skips.sort.each { |reason, count| puts "    #{reason}: #{count}" }
@@ -1081,11 +1107,11 @@ module Homebrew
         end
       end
 
-      sig { returns(Emitter) }
-      def build_emitter
+      sig { params(formula_names: T.nilable(T::Array[String])).returns(Emitter) }
+      def build_emitter(formula_names: nil)
         if (dir = args.output)
           DirEmitter.new(dir, verbose: args.verbose?, close_open_ranges: !args.no_history?,
-                         reconcile_history: args.reconcile_history?)
+                         reconcile_history: args.reconcile_history?, formula_names:)
         elsif args.json?
           JsonEmitter.new
         else
