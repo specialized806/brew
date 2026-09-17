@@ -40,7 +40,7 @@ To qualify as Tier 1, a macOS configuration must meet all of the following:
 To qualify as Tier 1, a Linux configuration must meet all of the following:
 
 - Running on:
-  - Ubuntu within its [standard support window](https://ubuntu.com/about/release-cycle) or
+  - Ubuntu within its [standard support window](https://ubuntu.com/project/docs/release-team/list-of-releases/) or
   - a Homebrew-provided Docker image
 - Using a system `glibc` version ≥ 2.39
 - Using a Linux kernel version ≥ 3.2
