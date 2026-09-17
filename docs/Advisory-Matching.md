@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-09-14"
+last_review_date: "2026-09-16"
 ---
 
 # Advisory Matching
@@ -59,3 +59,9 @@ A rename into the current formula name starts that name’s history; the old for
 Historical loading ignores obsolete `devel` blocks and uses the stable build.
 Unattributed patches and `inreplace` alone do not block reconciliation.
 This mode cannot be combined with `--new-history`, `--no-history`, `--json` or `--index` and does not enable reconciliation in ordinary ingest runs.
+
+For bounded reconciliation runs, `--formula-list=<file>` selects newline-separated core formula names instead of `--all` or named arguments.
+It retains bulk queries and uses the Repology index without live per-formula fallbacks.
+Only listed names still present in core are loaded; removed names are reported and their records remain unchanged.
+An empty list performs no matching, and the unvisited-record summary is scoped to the list.
+The advisory database partitions these lists by formula so each execution shard can be saved and retried independently.

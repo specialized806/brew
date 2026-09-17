@@ -336,6 +336,7 @@ __fish_brew_complete_arg '--version' -l verbose -d 'Make some output more verbos
 complete -f -c brew -n 'not __fish_brew_command; and set -q HOMEBREW_DEVELOPER' -a 'advisory-match' -d 'Match formula against OSV.dev (GIT, language-registry and distro ecosystems) and CPANSA to produce candidate `BREW-*` advisory records for https://github.com/Homebrew/advisory-database'
 __fish_brew_complete_arg 'advisory-match' -l all -d 'Match every formula in `homebrew/core`'
 __fish_brew_complete_arg 'advisory-match' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'advisory-match' -l formula-list -d 'Reconcile only the core formula names in a newline-separated file, using bulk queries without live Repology fallbacks'
 __fish_brew_complete_arg 'advisory-match' -l help -d 'Show this message'
 __fish_brew_complete_arg 'advisory-match' -l index -d 'Emit the formula-identity index as JSON and exit'
 __fish_brew_complete_arg 'advisory-match' -l json -d 'Output candidate records as a JSON array'

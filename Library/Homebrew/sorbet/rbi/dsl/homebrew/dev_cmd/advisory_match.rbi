@@ -14,6 +14,9 @@ class Homebrew::DevCmd::AdvisoryMatch::Args < Homebrew::CLI::Args
   sig { returns(T::Boolean) }
   def all?; end
 
+  sig { returns(T.nilable(String)) }
+  def formula_list; end
+
   sig { returns(T::Boolean) }
   def index?; end
 
