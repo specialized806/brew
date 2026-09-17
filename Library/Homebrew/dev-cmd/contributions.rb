@@ -344,16 +344,10 @@ module Homebrew
 
         require "utils/github"
         github_users = users.keys.to_h { |user| [user, github_username_for(user, to:)] }
-        # Real names/public emails, so commits under a maintainer's git identity are matched to their username.
-        github_identities = users.keys.to_h do |user|
-          github_user = github_users.fetch(user)
-          identity = if github_user
-            github_identity_for_username(github_user, to:)
-          else
-            [nil, nil]
-          end
-          [user, identity]
-        end
+        # Usernames, real names and public emails, so commits under a maintainer's Git identity are matched.
+        github_identities = github_users.filter_map do |user, github_user|
+          [user, github_identities_for_username(github_user, to:)] if github_user
+        end.to_h
         git_authored_pull_requests = users.keys.to_h do |user|
           [user, repositories.to_h { |repository| [repository, Set.new] }]
         end
@@ -381,8 +375,8 @@ module Homebrew
           github_user = github_users.fetch(user)
           next if github_user.nil?
 
-          cache_key = ["merged-at", organisation, github_user, merged_range].join("\0")
-          merged_pull_requests = github_search_with_rate_limit(cache_key, to:) do
+          merged_pull_requests = cached_github_request(Array, "merged-at", organisation, github_user, merged_range,
+                                                       to:) do
             GitHub.search_issues("", is: "merged", user: organisation, author: github_user, merged: merged_range)
           rescue GitHub::API::ValidationFailedError
             opoo "Couldn't search GitHub for PRs authored by #{github_user}. Their profile might be private. " \
@@ -422,8 +416,8 @@ module Homebrew
                     qualifying_total >= MAINTAINER_ACTIVITY_THRESHOLD
 
             $stderr.puts "Querying merged-PR search for #{user} in #{repository}..." if progress
-            cache_key = ["merged-at", repository, github_user, merged_range].join("\0")
-            repository_pull_requests = github_search_with_rate_limit(cache_key, to:) do
+            repository_pull_requests = cached_github_request(Array, "merged-at", repository, github_user,
+                                                             merged_range, to:) do
               GitHub.search_issues("", is: "merged", repo: repository, author: github_user, merged: merged_range)
             end
             authored_pull_requests = git_authored_pull_requests.fetch(user).fetch(repository)
@@ -441,8 +435,7 @@ module Homebrew
           if progress
             $stderr.puts "Querying approved-review search for #{user} (#{index + 1}/#{review_users.length})..."
           end
-          cache_key = ["approved", organisation, github_user, from, to].join("\0")
-          approved_reviews = github_search_with_rate_limit(cache_key, to:) do
+          approved_reviews = cached_github_request(Array, "approved", organisation, github_user, from, to, to:) do
             GitHub.search_approved_pull_requests_in_user_or_organisation(organisation, github_user, from:, to:)
           end
           capped_reviews = approved_reviews.length >= MAX_PR_SEARCH
@@ -467,8 +460,7 @@ module Homebrew
                     qualifying_total >= MAINTAINER_ACTIVITY_THRESHOLD
 
             $stderr.puts "Querying approved-review search for #{user} in #{repository}..." if progress
-            cache_key = ["approved", repository, github_user, from, to].join("\0")
-            repository_reviews = github_search_with_rate_limit(cache_key, to:) do
+            repository_reviews = cached_github_request(Array, "approved", repository, github_user, from, to, to:) do
               GitHub.search_issues("", is: "pr", review: "approved", repo: repository, reviewed_by: github_user,
                                    from:, to:)
             end
@@ -482,13 +474,11 @@ module Homebrew
       sig { params(user: String, to: String).returns(T.nilable(String)) }
       def github_username_for(user, to:)
         return user unless user.include?("@")
-        if user.end_with?("@users.noreply.github.com")
-          return user.delete_suffix("@users.noreply.github.com").sub(/\A\d+\+/,
-                                                                     "")
-        end
 
-        cache_key = ["public-email", user].join("\0")
-        matches = github_search_with_rate_limit(cache_key, to:) do
+        noreply_username = github_noreply_username(user)
+        return noreply_username if noreply_username
+
+        matches = cached_github_request(Array, "public-email", user, to, to:) do
           GitHub.search("users", "\"#{user}\" in:email").fetch("items", [])
         end
         if matches.one?
@@ -503,33 +493,40 @@ module Homebrew
         nil
       end
 
-      sig { params(username: String, to: String).returns([T.nilable(String), T.nilable(String)]) }
-      def github_identity_for_username(username, to:)
-        cache_key = ["user-profile", username].join("\0")
-        profile = github_search_with_rate_limit(cache_key, to:) do
+      sig { params(username: String, to: String).returns(T::Array[String]) }
+      def github_identities_for_username(username, to:)
+        profile = cached_github_request(Hash, "user-profile", username, to, to:) do
           GitHub::API.open_rest(GitHub.url_to("users", username))
         rescue GitHub::API::HTTPNotFoundError
           {}
         end
-        [profile["name"], profile["email"]]
+        [username, profile["name"], profile["email"]].compact
       end
 
+      # Returns the block's result, caching it as JSON for completed periods and waiting out rate limits.
+      # `type` is the JSON class the block returns so unexpected cached data is discarded rather than returned.
       sig {
         type_parameters(:U).params(
-          cache_key: String,
+          type:      T::Class[T.type_parameter(:U)],
+          key_parts: String,
           to:        String,
           block:     T.proc.returns(T.type_parameter(:U)),
         ).returns(T.type_parameter(:U))
       }
-      def github_search_with_rate_limit(cache_key, to:, &block)
+      def cached_github_request(type, *key_parts, to:, &block)
         cache_path = if Date.iso8601(to) <= Date.today
-          HOMEBREW_CACHE/"contributions--#{Digest::SHA256.hexdigest("1\0#{cache_key}")}.json"
+          # NUL cannot appear in usernames, repositories or dates so joining with it keeps key parts distinct.
+          cache_key = ["1", *key_parts].join("\0")
+          HOMEBREW_CACHE/"contributions--#{Digest::SHA256.hexdigest(cache_key)}.json"
         end
         if cache_path&.file?
           begin
-            return JSON.parse(cache_path.read)
-          rescue JSON::ParserError, Errno::ENOENT
-            nil
+            cached = JSON.parse(cache_path.read)
+            return cached if cached.is_a?(type)
+
+            opoo "Deleting contributions cache #{cache_path} containing #{cached.class} rather than #{type}."
+          rescue JSON::ParserError, Errno::ENOENT => e
+            opoo "Deleting unreadable contributions cache #{cache_path}: #{e}"
           end
           cache_path.unlink if cache_path.exist?
         end
@@ -549,7 +546,7 @@ module Homebrew
         params(
           output:                 String,
           users:                  T::Hash[String, String],
-          github_identities:      T.nilable(T::Hash[String, [T.nilable(String), T.nilable(String)]]),
+          github_identities:      T.nilable(T::Hash[String, T::Array[String]]),
           authored_pull_requests: T.nilable(T::Hash[String, T::Set[String]]),
           merged_pull_requests:   T.nilable(T::Hash[String, T::Set[String]]),
         )
@@ -563,14 +560,16 @@ module Homebrew
         users.each do |user, name|
           identity_users[user.downcase] = user
           identity_users[name.downcase] = user
-          identity_users[user.split("@").first.to_s.sub(/\A\d+\+/, "").downcase] = user
-
-          github_name, github_email = github_identities&.fetch(user, nil)
-          identity_users[github_name.downcase] ||= user if github_name
-          next unless github_email
-
-          identity_users[github_email.downcase] ||= user
-          identity_users[github_email.split("@").first.to_s.sub(/\A\d+\+/, "").downcase] ||= user
+        end
+        # GitHub profile names are not unique so only match those belonging to one requested user.
+        github_identity_users = T.let({}, T::Hash[String, T.nilable(String)])
+        github_identities&.each do |user, identities|
+          identities.map(&:downcase).uniq.each do |identity|
+            github_identity_users[identity] = github_identity_users.key?(identity) ? nil : user
+          end
+        end
+        github_identity_users.each do |identity, user|
+          identity_users[identity] ||= user if user
         end
         records = output.split("\x1e").filter_map do |record|
           fields = record.strip.split("\x1f", 5)
@@ -591,7 +590,6 @@ module Homebrew
           name, email = source_identity
           identity_users[name.strip.downcase] ||= user
           identity_users[email.downcase] ||= user
-          identity_users[email.split("@").first.to_s.sub(/\A\d+\+/, "").downcase] ||= user
         end
         commit_authors = T.let(records.to_h do |fields|
           sha = fields.fetch(0)
@@ -863,9 +861,16 @@ module Homebrew
         params(name: String, email: String, identity_users: T::Hash[String, String]).returns(T.nilable(String))
       }
       def user_for_git_identity(name, email, identity_users)
-        identity_users[name.strip.downcase] ||
-          identity_users[email.downcase] ||
-          identity_users[email.split("@").first.to_s.sub(/\A\d+\+/, "").downcase]
+        noreply_username = github_noreply_username(email)
+        identity_users[email.downcase] ||
+          (identity_users[noreply_username.downcase] if noreply_username) ||
+          identity_users[name.strip.downcase]
+      end
+
+      # Only GitHub no-reply addresses embed a username; other emails' local parts are not identities.
+      sig { params(email: String).returns(T.nilable(String)) }
+      def github_noreply_username(email)
+        email[/\A(?:\d+\+)?([^@]+)@users\.noreply\.github\.com\z/i, 1]
       end
 
       sig { params(counts: T::Hash[Symbol, Integer], type: Symbol).void }
