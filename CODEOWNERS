@@ -9,3 +9,9 @@
 # Note: teams without write-access to this repository cannot be listed in this file.
 
 docs/Support-Tiers.md  @Homebrew/lead-maintainers @MikeMcQuaid
+
+Library/Homebrew/sandbox.rb                            @Homebrew/security
+Library/Homebrew/extend/os/mac/sandbox.rb              @Homebrew/security
+Library/Homebrew/extend/os/linux/sandbox.rb            @Homebrew/security
+Library/Homebrew/extend/os/linux/sandbox/backend.rb    @Homebrew/security
+Library/Homebrew/extend/os/linux/sandbox/landlock.rb   @Homebrew/security
