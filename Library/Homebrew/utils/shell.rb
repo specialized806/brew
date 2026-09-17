@@ -112,6 +112,8 @@ module Utils
         # a single quote can be included in a single-quoted string via \'
         # and a literal \ can be included via \\
         "set -gx #{key} \"#{sh_quote(value)}\""
+      when :pwsh
+        "$env:#{key} = #{pwsh_quote(value)}"
       when :rc
         "#{key}=(#{sh_quote(value)})"
       when :csh, :tcsh

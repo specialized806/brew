@@ -100,6 +100,26 @@ RSpec.describe Utils::Shell do
     expect(described_class.csh_quote("word")).to eq("word")
   end
 
+  describe "::export_value" do
+    it "supports PowerShell" do
+      ENV["SHELL"] = "/usr/bin/pwsh"
+      expect(described_class.export_value("HOMEBREW_FOO", "bar"))
+        .to eq("$env:HOMEBREW_FOO = 'bar'")
+    end
+
+    it "quotes a PowerShell value that contains a single quote" do
+      ENV["SHELL"] = "/usr/bin/pwsh"
+      expect(described_class.export_value("HOMEBREW_FOO", "it's"))
+        .to eq("$env:HOMEBREW_FOO = 'it''s'")
+    end
+
+    it "supports Bash" do
+      ENV["SHELL"] = "/bin/bash"
+      expect(described_class.export_value("HOMEBREW_FOO", "bar"))
+        .to eq("export HOMEBREW_FOO=\"bar\"")
+    end
+  end
+
   describe "::prepend_path_in_profile" do
     let(:path) { "/my/path" }
 
