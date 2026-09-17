@@ -384,6 +384,34 @@ RSpec.describe Homebrew::Completions do
     end
 
     describe ".generate_bash_completion_file" do
+      it "completes unique service formula names" do
+        cellar = mktmpdir/"Cellar"
+        %w[
+          redis/1.0/homebrew.redis.service
+          redis/2.0/sh.brew.redis.service
+          memcached/1.0/homebrew.memcached.service
+          postgresql@18/18.0/sh.brew.postgresql@18.service
+          unbound/1.0/custom.dns.service
+          no-service/1.0/bin/no-service
+          nested/1.0/lib/nested.service
+        ].each do |file|
+          (cellar/file).dirname.mkpath
+          (cellar/file).write ""
+        end
+
+        script = described_class.generate_bash_completion_file(%w[services]) + <<~'BASH'
+          brew() { printf '%s\n' "$TEST_CELLAR"; }
+          COMP_WORDS=(brew services start '')
+          COMP_CWORD=3
+          COMPREPLY=()
+          __brew_complete_services
+          printf '%s\n' "${COMPREPLY[@]}"
+        BASH
+
+        stdout, stderr, status = Open3.capture3({ "TEST_CELLAR" => cellar.to_s }, "/bin/bash", "-c", script)
+        expect([stdout, stderr, status.exitstatus]).to eq(["memcached\npostgresql@18\nredis\nunbound\n", "", 0])
+      end
+
       it "completes literal package names without invoking an expanding wordlist" do
         script = described_class.generate_bash_completion_file(%w[install]) + <<~'BASH'
           compgen() { return 99; }
