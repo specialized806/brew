@@ -25,14 +25,15 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy
 
   sig { override.returns(String) }
   def last_commit
-    user, repo = github_user_and_repo
-    @last_commit ||= GitHub.last_commit(user, repo, @ref, head_version, length: MINIMUM_COMMIT_HASH_LENGTH)
-    @last_commit || super
+    github_last_commit || super
   end
 
   sig { override.params(commit: T.nilable(String)).returns(T::Boolean) }
   def commit_outdated?(commit)
     return true unless commit
+
+    # Fall back to fetching the repository if the GitHub API cannot tell us the latest commit.
+    last_commit = github_last_commit
     return super if last_commit.blank?
     return true unless last_commit.start_with?(commit)
 
@@ -70,6 +71,15 @@ class GitHubGitDownloadStrategy < GitDownloadStrategy
   end
 
   private
+
+  sig { returns(T.nilable(String)) }
+  def github_last_commit
+    user, repo = github_user_and_repo
+    @github_last_commit ||= T.let(
+      GitHub.last_commit(user, repo, @ref, head_version, length: MINIMUM_COMMIT_HASH_LENGTH),
+      T.nilable(String),
+    )
+  end
 
   sig { returns([String, String]) }
   def github_user_and_repo

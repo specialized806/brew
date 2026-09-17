@@ -740,7 +740,9 @@ module GitHub
     result = Utils::Curl.curl_output(
       "--silent", "--head", "--location",
       "--header", "Accept: application/vnd.github.sha",
-      url_to("repos", user, repo, "commits", ref).to_s
+      *API.credentials_curl_args,
+      url_to("repos", user, repo, "commits", ref).to_s,
+      secrets: [API.credentials].compact
     )
 
     return unless result.status.success?
@@ -773,12 +775,14 @@ module GitHub
     result = Utils::Curl.curl_output(
       "--silent", "--head", "--location",
       "--header", "Accept: application/vnd.github.sha",
+      *API.credentials_curl_args,
       "--output", File::NULL,
       # This is a Curl format token, not a Ruby one.
       # rubocop:disable Style/FormatStringToken
       "--write-out", "%{http_code}",
       # rubocop:enable Style/FormatStringToken
-      url_to("repos", user, repo, "commits", commit).to_s
+      url_to("repos", user, repo, "commits", commit).to_s,
+      secrets: [API.credentials].compact
     )
 
     return true unless result.status.success?

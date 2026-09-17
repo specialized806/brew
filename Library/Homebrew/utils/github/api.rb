@@ -221,6 +221,14 @@ module GitHub
       @credentials ||= keychain_username_password
     end
 
+    # `curl` arguments to authenticate a GitHub API request, if credentials are available.
+    sig { returns(T::Array[String]) }
+    def self.credentials_curl_args
+      return [] if credentials_type == :none
+
+      ["--header", "Authorization: token #{credentials}"]
+    end
+
     sig { returns(Symbol) }
     def self.credentials_type
       if Homebrew::EnvConfig.github_api_token.present?
@@ -291,7 +299,7 @@ module GitHub
       # rubocop:enable Style/FormatStringToken
 
       token = credentials
-      args += ["--header", "Authorization: token #{token}"] if credentials_type != :none
+      args += credentials_curl_args
       args += ["--header", "X-GitHub-Api-Version:2022-11-28"]
 
       require "tempfile"
