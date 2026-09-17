@@ -290,7 +290,7 @@ module Cask
         end
 
         begin
-          ohai "Downloading #{url}"
+          ohai "Downloading #{url}" if $stdout.tty?
           ::Utils::Curl.curl_download url.to_s, to: path
         rescue ErrorDuringExecution
           raise CaskUnavailableError.new(token, "Failed to download #{Formatter.url(url)}.")

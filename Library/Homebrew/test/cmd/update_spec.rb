@@ -184,6 +184,7 @@ RSpec.describe Homebrew::Cmd::Update do
         homebrew-update --auto-update
       SH
       {
+        "HOMEBREW_BREW_GIT_REMOTE"     => "https://github.com/Homebrew/brew",
         "HOMEBREW_CACHE"               => (test_root/"cache").to_s,
         "HOMEBREW_CELLAR"              => (test_root/"cellar").to_s,
         "HOMEBREW_LIBRARY"             => (test_root/"Library").to_s,

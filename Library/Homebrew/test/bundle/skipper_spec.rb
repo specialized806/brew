@@ -12,7 +12,6 @@ RSpec.describe Homebrew::Bundle::Skipper do
     allow(ENV).to receive(:[]).and_return(nil)
     allow(ENV).to receive(:[]).with("HOMEBREW_BUNDLE_BREW_SKIP").and_return("mysql")
     allow(ENV).to receive(:[]).with("HOMEBREW_BUNDLE_TAP_SKIP").and_return("org/repo")
-    allow(Formatter).to receive(:warning)
     skipper.skipped_entries = nil
     skipper.failed_taps = nil
   end
@@ -23,6 +22,16 @@ RSpec.describe Homebrew::Bundle::Skipper do
 
       it "returns true" do
         expect(skipper.skip?(entry)).to be true
+      end
+
+      it "warns on stderr" do
+        expect { skipper.skip?(entry) }.to output(/Skipping mysql/).to_stderr.and not_to_output.to_stdout
+      end
+
+      it "warns without a GitHub Actions annotation" do
+        ENV["GITHUB_ACTIONS"] = "1"
+        ENV.delete("HOMEBREW_TESTS")
+        expect { skipper.skip?(entry) }.to output(/^Warning: Skipping mysql/).to_stderr
       end
     end
 
@@ -53,15 +62,8 @@ RSpec.describe Homebrew::Bundle::Skipper do
       let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:flatpak, "org.gnome.Calculator") }
 
       it "skips on macOS with warning" do
-        expect($stdout).to receive(:puts).with(
-          Formatter.warning("Skipping flatpak org.gnome.Calculator (unsupported on macOS)"),
-        )
-        expect(skipper.skip?(entry)).to be true
-      end
-
-      it "skips silently when silent flag is set" do
-        expect($stdout).not_to receive(:puts)
-        expect(skipper.skip?(entry, silent: true)).to be true
+        expect { skipper.skip?(entry) }
+          .to output(/Skipping flatpak org\.gnome\.Calculator \(unsupported on macOS\)/).to_stderr
       end
     end
 
@@ -69,10 +71,7 @@ RSpec.describe Homebrew::Bundle::Skipper do
       let(:entry) { Homebrew::Bundle::Dsl::Entry.new(:winget, "Valve.Steam") }
 
       it "skips on macOS with warning" do
-        expect($stdout).to receive(:puts).with(
-          Formatter.warning("Skipping winget Valve.Steam (requires WSL)"),
-        )
-        expect(skipper.skip?(entry)).to be true
+        expect { skipper.skip?(entry) }.to output(/Skipping winget Valve\.Steam \(requires WSL\)/).to_stderr
       end
     end
 
@@ -89,10 +88,7 @@ RSpec.describe Homebrew::Bundle::Skipper do
 
       it "skips with warning" do
         allow(OS).to receive(:wsl?).and_return(false)
-        expect($stdout).to receive(:puts).with(
-          Formatter.warning("Skipping winget App Installer (requires WSL)"),
-        )
-        expect(skipper.skip?(entry)).to be true
+        expect { skipper.skip?(entry) }.to output(/Skipping winget App Installer \(requires WSL\)/).to_stderr
       end
     end
 
@@ -112,10 +108,7 @@ RSpec.describe Homebrew::Bundle::Skipper do
         allow(Cask::CaskLoader).to receive(:load).with("testball").and_return(
           instance_double(Cask::Cask, supports_linux?: false),
         )
-        expect($stdout).to receive(:puts).with(
-          Formatter.warning("Skipping cask testball (requires macOS)"),
-        )
-        expect(skipper.skip?(entry)).to be true
+        expect { skipper.skip?(entry) }.to output(/Skipping cask testball \(requires macOS\)/).to_stderr
       end
     end
 

@@ -65,6 +65,16 @@ RSpec.describe Homebrew::DevCmd::Verify do
         .to output(/has a valid attestation/).to_stdout
     end
 
+    it "prints only JSON to stdout with `--json`" do
+      allow(args).to receive(:json?).and_return(true)
+      expect(Homebrew::Attestation).to receive(:check_formula_attestation)
+        .with(bottle)
+        .and_return({})
+
+      expect { command.run }
+        .to output("[{}]\n").to_stdout
+    end
+
     it "marks the command as failed for unsupported taps" do
       expect(Homebrew::Attestation).to receive(:check_formula_attestation)
         .with(bottle)
