@@ -1,5 +1,5 @@
 ---
-last_review_date: "2026-09-13"
+last_review_date: "2026-09-17"
 ---
 
 # Installation
@@ -24,8 +24,12 @@ sudo chmod -N /var/tmp/.homebrew_pkg_user.plist
 ```
 
 The file must be a regular non-symlink file owned by `root`, have mode `0600` and have no access control list.
-The named user must also exist before installation.
 The installer ignores an override that does not meet these requirements and falls back to the active console user.
+The selected user must exist before installation and must not be `root`.
+The installer runs Git commands as this user.
+
+Homebrew provides no security guarantees for installations where users with write permissions to the Homebrew prefix are considered untrusted.
+This also applies to installations and upgrades performed with the macOS `.pkg` installer, including through MDM.
 
 ## macOS requirements
 
