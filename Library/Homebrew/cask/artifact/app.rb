@@ -33,13 +33,12 @@ module Cask
         super
 
         odebug "Fixing up '#{target}' permissions for installation to '#{target.parent}'"
+        system_dir = target.ascend
+                           .take_while { it.to_s != Dir.home && (it.to_s != "/" || it == target.parent) }
+                           .any? { OS::Mac.system_dir?(it) }
         permissions = "go-w"
         # Ensure that globally installed applications can be accessed by all users.
-        if target.ascend
-                 .take_while { it.to_s != Dir.home && (it.to_s != "/" || it == target.parent) }
-                 .any? { OS::Mac.system_dir?(it) }
-          permissions = "a+rX,#{permissions}"
-        end
+        permissions = "a+rX,#{permissions}" if system_dir
 
         # We shell out to `chmod` instead of using `FileUtils.chmod` so that using `+X` works correctly.
         command.run!("chmod", args: ["-R", permissions, target], sudo: !target.writable?)
@@ -47,6 +46,7 @@ module Cask
         [false, true].each do |sudo|
           break if command.run("chgrp", args: ["-hR", Caskroom.expected_caskroom_group, target],
                                        sudo:, must_succeed: sudo, print_stderr: sudo).success?
+          break unless system_dir
         end
       end
     end
