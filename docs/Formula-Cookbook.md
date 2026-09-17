@@ -169,7 +169,10 @@ A `Symbol` (e.g. `:xcode`) specifies a [`Requirement`](/rubydoc/Requirement.html
 * Top-level `depends_on maximum_macos: :ventura` marks a formula as macOS-only and declares the newest compatible macOS release.
 * Top-level `depends_on :linux` marks a formula as Linux-only.
 
+Use `depends_on :macos` when the minimum is no newer than the oldest macOS release Homebrew can run on (currently Big Sur). An explicit minimum at or below that release is redundant.
+
 For a formula that supports both macOS and Linux but needs a specific macOS version, put the macOS version requirement inside `on_macos`.
+Remove minimum requirements at or below Homebrew's runtime floor from `on_macos` blocks; replacing them with `depends_on :macos` adds no restriction.
 
 A `Hash` (e.g. `=>`) adds information to a dependency. Given a string or symbol, the value can be one or more of the following values:
 

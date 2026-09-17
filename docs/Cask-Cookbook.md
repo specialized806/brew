@@ -451,10 +451,12 @@ depends_on formula: "unar"
 
 Top-level `depends_on :macos` marks a cask as macOS-only. Top-level `depends_on macos:` marks a cask as macOS-only and declares the minimum compatible macOS release. The values for supported macOS releases can be found in the [`MacOSVersion` class](/rubydoc/MacOSVersion.html) documentation.
 
+Use `depends_on :macos` when the minimum is no newer than the oldest macOS release Homebrew can run on (currently Big Sur). An explicit minimum at or below that release is redundant.
+
 Only major releases are covered (10.x numbers containing a single dot or whole numbers since macOS 11). The symbol form is used for readability:
 
 ```ruby
-depends_on macos: :big_sur
+depends_on macos: :monterey
 ```
 
 An array of symbols is accepted when a cask must run on one of an exact set of macOS releases.
@@ -477,9 +479,24 @@ For a cask that supports both macOS and Linux but needs a specific macOS version
 
 ```ruby
 on_macos do
-  depends_on macos: :big_sur
+  depends_on macos: :monterey
 end
 ```
+
+Remove minimum requirements at or below Homebrew's runtime floor from OS blocks. A bare `depends_on :macos` is also redundant inside `on_macos`.
+
+When architectures require different minimum releases, declare each requirement in its architecture block. Use `depends_on :macos` for an architecture that needs no minimum newer than Homebrew's runtime floor:
+
+```ruby
+on_arm do
+  depends_on macos: :monterey
+end
+on_intel do
+  depends_on :macos
+end
+```
+
+The bare declaration makes the unrestricted minimum explicit to the style checks. Unlike an OS block, an architecture block runs on both macOS and Linux, so its `depends_on :macos` also restricts that architecture to macOS.
 
 ##### Choosing the minimum macOS release
 

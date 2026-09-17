@@ -289,6 +289,19 @@ RSpec.describe RuboCop::Cop::Cask::NoOverrides, :config do
     CASK
   end
 
+  it "accepts a bare macOS dependency opposite an architecture-specific minimum" do
+    expect_no_offenses <<~CASK
+      cask "foo" do
+        on_arm do
+          depends_on macos: :monterey
+        end
+        on_intel do
+          depends_on :macos
+        end
+      end
+    CASK
+  end
+
   it "accepts different `depends_on macos:` stanzas when one is `:any`" do
     expect_no_offenses <<~CASK
       cask "foo" do

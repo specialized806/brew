@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "macos_version"
 require "rubocops/cask/constants/stanza"
 
 module RuboCop
@@ -52,6 +53,52 @@ module RuboCop
           autocorrect_macos_comparison_strings(node)
           check_redundant_bare_macos(node)
           check_conflicting_os_requirements(node)
+
+          macos_pairs = depends_on_pairs(node).select { |pair| symbol_key(pair) == :macos }
+          return if node.receiver || macos_pairs.empty?
+
+          oldest_macos = MacOSVersion::SYMBOLS.values.map { |release| MacOSVersion.new(release) }.min
+          return unless oldest_macos
+
+          macos_pairs.each do |pair|
+            value = pair.value
+            if value.array_type? && (value.values.one? || node.each_ancestor(:class).any?)
+              value = value.values.first
+            end
+            next unless value&.sym_type?
+
+            version = MacOSVersion::RELEASES[value.value]
+            next unless version
+            next if MacOSVersion.new(version) > oldest_macos
+
+            hash = pair.parent
+            next unless hash&.hash_type?
+
+            os_block = node.each_ancestor(:block).any? do |ancestor|
+              method = ancestor.method_name
+              method == :on_system ||
+                (RuboCop::Cask::Constants::ON_SYSTEM_METHODS.include?(method) &&
+                 ![:on_arm, :on_intel].include?(method))
+            end
+            tagged_formula = pair.value.array_type? && !pair.value.values.one?
+            message = if os_block
+              "Remove the redundant minimum macOS dependency from this OS block."
+            elsif !hash.pairs.one?
+              "Remove the redundant `macos:` pair and add a separate `depends_on :macos`."
+            else
+              "Use `depends_on :macos` instead of a redundant minimum macOS version."
+            end
+            add_offense(pair, message:) do |corrector|
+              next if os_block || tagged_formula
+              next if !hash.pairs.one? || !node.arguments.one?
+              next if sibling_depends_on_calls(node).any? { |sibling| bare_os_depends_on?(sibling, :macos) }
+              next if processed_source.comments.any? do |comment|
+                comment.source_range.line.between?(node.first_line, node.last_line)
+              end
+
+              corrector.replace(hash.source_range, ":macos")
+            end
+          end
         end
 
         private
@@ -83,6 +130,10 @@ module RuboCop
 
           message = "Remove redundant `depends_on :macos`."
           add_offense(node.source_range, message:) do |corrector|
+            next if processed_source.comments.any? do |comment|
+              comment.source_range.line.between?(node.first_line, node.last_line)
+            end
+
             corrector.remove(range_by_whole_lines(node.source_range, include_final_newline: true))
           end
         end
