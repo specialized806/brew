@@ -146,25 +146,13 @@ jobs:
           HOMEBREW_DEVELOPER=1 HOMEBREW_UPDATE_SKIP_BREW=1 brew update --auto-update --verbose
           cp -vR ~/Library/Caches/Homebrew/api brew/cache_api
 
-      - name: Check installer Git safety
+      - name: Check installer Git commands
         run: |
-          # Keep any future privileged repository Git calls aligned with the hardening above.
+          # Keep repository Git calls using the install user's wrapper.
           if grep -nE 'git .* (checkout|reset|clean)\b|git .* tag --list\b' \
             brew/package/scripts/postinstall
           then
-            echo "Privileged Git repository operations must use \`git_no_hooks\`."
-            exit 1
-          fi
-          # `core.hooksPath` does not cover config-specified programs such as
-          # `core.fsmonitor`, and Git reads both `.gitconfig` and, with
-          # `XDG_CONFIG_HOME` unset, `.config/git/config`, so a repository's Git
-          # configuration must go with its hooks.
-          if awk '/rm -rf .*\.git\/hooks/ && !(/\.gitconfig/ && /\.config\/git/) {
-                    print FILENAME ":" FNR ": " $0; found = 1
-                  }
-                  END { exit !found }' brew/package/scripts/postinstall
-          then
-            echo "Removing \`.git/hooks\` must also remove \`.gitconfig\` and \`.config/git\`."
+            echo "Installer Git repository operations must use \`git_as_user\`."
             exit 1
           fi
 

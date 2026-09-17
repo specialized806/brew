@@ -2,7 +2,7 @@
 description: Homebrew security and supply chain defences, including formula and Cask trust models, checksums, signed metadata, bottles, Gatekeeper, sandboxing and tap trust.
 redirect_from:
   - /Supply-Chain-Security
-last_review_date: "2026-08-25"
+last_review_date: "2026-09-17"
 ---
 
 # Homebrew Security and Supply Chain
@@ -193,12 +193,15 @@ Homebrew builds run with a filtered, sanitised environment rather than your full
 Formulae and casks share Homebrew's reviewed package metadata and signed JSON API, but they do not share the same artefact security model.
 `homebrew/core` formulae are open source build recipes based on checksummed source.
 Homebrew builds bottles for formulae in its own controlled, ephemeral CI and checksums the result, so users normally trust Homebrew's reviewed source-to-bottle pipeline rather than a binary supplied and signed by the upstream developer.
+All formula installations run without `sudo`.
 
 [Casks](Cask-Cookbook.md) instead install prebuilt applications and installers supplied directly by the upstream developer.
 This is necessary for native macOS applications and proprietary software, but Homebrew usually cannot reproduce those binaries from source or compare them with an independently produced build.
 A cask's `sha256` proves that the downloaded bytes match the package metadata, but it does not prove who produced those bytes or whether the program inside is trustworthy.
 Some casks must use `sha256 :no_check` because their download URL changes contents in place, while self-updating applications can replace themselves outside Homebrew entirely.
 Cask installation artefacts are treated as trusted vendor installation actions once a cask is accepted, so users must still trust the vendor.
+Some cask installations run without `sudo`.
+Others require elevated privileges, such as those that use macOS `.pkg` installers.
 
 On macOS, code signing, notarisation and Gatekeeper provide independent checks that compensate for this weaker artefact model:
 
@@ -262,3 +265,10 @@ Being willing to break compatibility on that timescale is a large part of why Ho
 This is not a solved problem and we do not claim Homebrew is immune.
 We have taken steps to mitigate these risks for our users, some long-standing (macOS sandboxing, human review on all changes, environment filtering, all package maintainers being Homebrew maintainers) and some newer (Linux sandboxing, sandboxing reads of sensitive locations, cooldowns on riskier ecosystems).
 We will continue to monitor the supply-chain security landscape and take further steps as needed.
+
+## Local trust model
+
+Homebrew is designed for a single trusted administrator on macOS or Linux who owns the Homebrew installation.
+Homebrew provides no security guarantees when users with write permissions to the Homebrew prefix are considered untrusted.
+This also applies when Homebrew is installed or upgraded through MDM.
+See [Support Tiers](Support-Tiers.md#unsupported) for unsupported multi-user configurations.
