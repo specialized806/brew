@@ -332,6 +332,7 @@ installer script: "installer.sh"
 ### Stanza: `rename`
 
 The `rename` stanza provides a convenience method to rename files to provide more practical access to them.
+Both paths must be relative to the staged directory, without `..` components or symlinked parent directories.
 This stanza should be used sparingly, and is reserved for scenarios where the path of a file/directory is impossible to pre-determine.
 
 The example below can be used when the `pkg` path has a value such as timestamp that can't be detected without extracting the archive it is distributed within.

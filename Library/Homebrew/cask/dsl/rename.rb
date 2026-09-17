@@ -10,6 +10,13 @@ module Cask
 
       sig { params(from: String, to: String).void }
       def initialize(from, to)
+        [from, to].each do |path|
+          path = Pathname(path)
+          if path.absolute? || path.each_filename.any?("..")
+            raise ArgumentError, "'rename' requires paths within the staged cask"
+          end
+        end
+
         @from = from
         @to = to
       end
@@ -31,7 +38,19 @@ module Cask
         source_file = matching_files.first
         return if source_file.nil?
 
+        if source_file.relative_path_from(staged_path).each_filename.any?("..")
+          raise ArgumentError, "'rename' requires paths within the staged cask"
+        end
+
         target_file = staged_path.join(@to)
+
+        [source_file, target_file].each do |path|
+          path.dirname.ascend do |parent|
+            break if parent == staged_path
+
+            raise ArgumentError, "'rename' path contains a symlink" if parent.symlink?
+          end
+        end
 
         # Ensure target directory exists
         target_file.dirname.mkpath
