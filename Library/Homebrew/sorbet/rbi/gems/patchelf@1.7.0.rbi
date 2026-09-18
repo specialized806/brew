@@ -69,6 +69,7 @@ class PatchELF::MM
   def load_segments; end
   def mgap_method?; end
   def new_load_method; end
+  def page_size; end
   def shift_attributes; end
   def writable?(seg); end
 end
