@@ -87,6 +87,67 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
         .to raise_error(UsageError, /explicit.*--overrides/)
     end
 
+    it "reports distinct failed revisions separately from platform loads and held records" do
+      failures = [:arm, :intel].map do |arch|
+        Homebrew::Vulns::History::LoadFailure.new(
+          formula: "requests", revision: "abc123", path: "Formula/r/requests.rb",
+          platform: "linux/#{arch}", error_class: "NoMethodError", message: "missing DSL"
+        )
+      end
+      allow(matcher).to receive(:history_load_failures).and_return(failures)
+      command = cmd_for("--verbose")
+
+      expect { command.report_history_load_failures(matcher) }.to output(
+        "  History loads: 1 failed formula revisions across 1 formulae (2 platform loads)\n    " \
+        "requests: abc123:Formula/r/requests.rb [linux/arm] NoMethodError: missing DSL\n    " \
+        "requests: abc123:Formula/r/requests.rb [linux/intel] NoMethodError: missing DSL\n",
+      ).to_stdout
+    end
+
+    it "keeps failed-load details out of non-verbose summaries" do
+      allow(matcher).to receive(:history_load_failures).and_return([
+        Homebrew::Vulns::History::LoadFailure.new(
+          formula: "requests", revision: "abc123", path: "Formula/r/requests.rb",
+          platform: "linux/arm", error_class: "NoMethodError", message: "missing DSL"
+        ),
+      ])
+
+      expect { cmd_for.report_history_load_failures(matcher) }
+        .to output("  History loads: 1 failed formula revisions across 1 formulae (1 platform loads)\n").to_stdout
+    end
+
+    it "reconciles a CPANSA fallback without an upstream hold after a supplemental 404" do
+      perl = formula("perl-example") do
+        T.bind(self, T.class_of(Formula))
+        url "https://cpan.metacpan.org/authors/id/X/XY/XYZ/Example-2.0.tar.gz"
+      end
+      allow(Homebrew::Vulns::CPANSec).to receive(:load).and_return(
+        Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {
+          "Example" => { "advisories" => [{ "id" => "CPANSA-Example-1", "cves" => ["CVE-2022-4988"],
+            "affected_versions" => ["<1.0"], "fixed_versions" => [">=1.0"] }] },
+        } }),
+      )
+      allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[]])
+      allow(Homebrew::Vulns::OSV).to receive(:vulnerability)
+        .and_raise(Homebrew::Vulns::OSV::NotFoundError, "404")
+      allow(Formulary).to receive(:factory).with(perl.path).and_return(perl)
+      hit = matcher.advisories_for(perl).fetch(0)
+      record = matcher.to_brew_record(perl, hit, now: Time.utc(2020))
+      allow(matcher).to receive(:reconcile_history).and_return(result.with(state: :never_affected))
+
+      Dir.mktmpdir do |dir|
+        path = File.join(dir, "#{record.fetch(:id)}.json")
+        File.write(path, JSON.generate(record))
+        overrides = File.join(dir, "overrides.yml")
+        File.write(overrides, "{}\n")
+        expect do
+          cmd_for("perl-example", "--output", dir, "--overrides", overrides,
+                  "--reconcile-history", formulae: [perl]).run
+        end.to output(/Reconciliation: 1 deleted; 0 matched records not revisited\n\z/).to_stdout
+        expect([File.exist?(path), Homebrew.failed?]).to eq [false, false]
+      end
+    end
+
     it "loads a real preservation override before any history walk" do
       stored
       allow(Homebrew::Vulns::Match).to receive(:new).and_call_original

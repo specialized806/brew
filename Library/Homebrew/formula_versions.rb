@@ -11,9 +11,67 @@ class FormulaVersions
   include Context
   include Utils::Output::Mixin
 
+  # Historical metadata is inspected, never downloaded using these obsolete checksums.
+  module LegacyChecksums
+    sig { params(_value: T.any(String, T::Hash[String, Symbol])).void }
+    def sha1(_value); end
+
+    sig { params(_value: T.any(String, T::Hash[String, Symbol])).void }
+    def md5(_value); end
+  end
+
+  class LegacyResource < Resource
+    include LegacyChecksums
+
+    sig {
+      override.params(strip: T.any(Symbol, String), src: T.nilable(T.any(Symbol, String)),
+                      block: T.nilable(T.proc.bind(Resource::Patch).void))
+              .returns(T::Array[T.any(EmbeddedPatch, ExternalPatch)])
+    }
+    def patch(strip = :p1, src = nil, &block)
+      super(strip, src, &(FormulaVersions.legacy_patch_block(block) if block))
+    end
+  end
+
+  module LegacySoftwareSpec
+    extend T::Helpers
+    include LegacyChecksums
+
+    requires_ancestor { SoftwareSpec }
+
+    sig {
+      params(name: T.nilable(String), klass: T.class_of(Resource),
+             block: T.nilable(T.proc.bind(Resource).void)).returns(T.nilable(Resource))
+    }
+    def resource(name = nil, klass = Resource, &block)
+      super(name, (klass == Resource) ? LegacyResource : klass, &block)
+    end
+
+    sig {
+      params(strip: T.any(Symbol, String), src: T.nilable(T.any(Symbol, String)),
+             block: T.nilable(T.proc.bind(Resource::Patch).void)).void
+    }
+    def patch(strip = :p1, src = nil, &block)
+      super(strip, src, &(FormulaVersions.legacy_patch_block(block) if block))
+    end
+  end
+
+  # Extend each historical patch resource before evaluating its declarations.
+  sig { params(block: T.proc.void).returns(T.proc.void) }
+  def self.legacy_patch_block(block)
+    proc do
+      T.bind(self, Resource::Patch)
+      extend LegacyChecksums
+
+      instance_eval(&block)
+    end
+  end
+
   # Parses bottle syntax that was removed in February 2021 without exposing it
   # to normal formula loading.
   class LegacyBottleSpecification < BottleSpecification
+    include LegacyChecksums
+
     sig { override.void }
     def initialize
       super
@@ -48,12 +106,25 @@ class FormulaVersions
   sig { returns(T.class_of(Formula)) }
   def self.legacy_formula_class
     @legacy_formula_class ||= Class.new(Formula) do
+      extend LegacyChecksums
+
       class << self
         define_method(:devel) { nil }
+        define_method(:plist_options) { |**_options| nil }
+        # Historical option checks must fail the load, not exit the consumer.
+        define_method(:odie) { |error| raise FormulaSpecificationError, error.to_s }
+        define_method(:bottle) do |*args, &block|
+          next if args == [:unneeded] && block.nil?
+
+          super(*args, &block)
+        end
 
         define_method(:inherited) do |child|
           super(child)
-          child.stable&.instance_variable_set(:@bottle_specification, LegacyBottleSpecification.new)
+          [child.stable, child.head].compact.each do |spec|
+            spec.extend(LegacySoftwareSpec)
+            spec.instance_variable_set(:@bottle_specification, LegacyBottleSpecification.new)
+          end
         end
       end
     end
@@ -76,7 +147,12 @@ class FormulaVersions
       @old_relative_path = T.let("#{match[1]}/#{match[2]}", T.nilable(String))
     end
     @formula_at_revision = T.let({}, T::Hash[String, Formula])
+    @load_error = T.let(nil, T.nilable(Exception))
   end
+
+  # The original error from the most recent failed historical load.
+  sig { returns(T.nilable(Exception)) }
+  attr_reader :load_error
 
   # Full history includes earlier lifetimes of a deleted and re-added path.
   # Vulns::History skips proven absent paths, which are not formula builds.
@@ -103,6 +179,7 @@ class FormulaVersions
       ).returns(T.nilable(T.type_parameter(:U)))
   }
   def formula_at_revision(revision, formula_relative_path = relative_path, &_block)
+    @load_error = nil
     Homebrew.raise_deprecation_exceptions = true
 
     # rev_list visits the current path first. At a sharding rename, the old
@@ -119,11 +196,13 @@ class FormulaVersions
           ignore_errors: true,
         )
       end
-    rescue FormulaUnavailableError
+    rescue FormulaUnavailableError => e
+      @load_error = e.cause || e
       nil
     rescue Homebrew::UntrustedTapError, MacOSVersion::Error
       raise
     rescue StandardError, ScriptError => e
+      @load_error = e
       raise if Homebrew::EnvConfig.disable_load_formula?
 
       require "utils/backtrace"

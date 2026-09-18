@@ -22,6 +22,7 @@ RSpec.describe Homebrew::Vulns::History do
 
   before do
     allow(FormulaVersions).to receive(:new).and_return(formula_versions)
+    allow(formula_versions).to receive(:load_error).and_return(nil)
   end
 
   it "returns :history_unavailable for a shallow tap" do
@@ -41,6 +42,44 @@ RSpec.describe Homebrew::Vulns::History do
     allow(formula_versions).to receive(:formula_at_revision).and_return(nil)
 
     expect(history.walk(requests) { nil }).to eq :history_unavailable
+  end
+
+  it "deduplicates failed loads while retaining each platform and the original error" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(formula_versions).to receive_messages(formula_at_revision: nil,
+                                                load_error:          NoMethodError.new("missing DSL\nsource excerpt"))
+    2.times do
+      [:arm, :intel].each do |arch|
+        Homebrew::SimulateSystem.with(os: :linux, arch:) { history.walk(requests) { nil } }
+      end
+    end
+
+    expect(history.load_failures.map do |failure|
+      [failure.formula, failure.revision, failure.path, failure.platform, failure.error_class, failure.message]
+    end).to eq [:arm, :intel].map { |arch|
+      ["requests", "r0", "Formula/r/requests.rb", "linux/#{arch}", "NoMethodError", "missing DSL"]
+    }
+  end
+
+  it "does not report a proven absent path as a failed load" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(Utils).to receive(:popen_read).and_return("Formula/r/requests.rb\n")
+    allow(formula_versions).to receive_messages(formula_at_revision: nil, path_absent_at_revision?: true)
+    history.walk(requests, complete: true) { nil }
+
+    expect(history.load_failures).to be_empty
+  end
+
+  it "reports failed Git absence checks as load failures" do
+    allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
+    allow(Utils).to receive(:popen_read).and_return("Formula/r/requests.rb\n")
+    allow(formula_versions).to receive(:formula_at_revision).and_return(nil)
+    allow(formula_versions).to receive(:path_absent_at_revision?)
+      .and_raise(ErrorDuringExecution.new(["git"], status: 128))
+    result = history.walk(requests, complete: true) { nil }
+
+    expect([result, history.load_failures.map(&:error_class)])
+      .to eq [:history_unavailable, ["ErrorDuringExecution"]]
   end
 
   it "stops at the first result the block returns" do

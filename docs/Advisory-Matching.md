@@ -52,11 +52,20 @@ The pin applies across advisory aliases and is separate from `upstream_fixed_in`
 Unavailable history or upstream records, changed subjects, conflicting platform results and advisory-specific patches require review.
 A failed upstream lookup holds every record for that formula with `upstream_unavailable`; a failed batch query holds its entire formula batch.
 A confirmed HTTP 404 while following an upstream link is cached as a missing target; a record with no resolved targets keeps its original evidence.
+A 404 for a supplemental CPANSA CVE lookup uses the CPANSA evidence for that CVE, including on subsequent platform passes.
 A 404 for an ID returned directly by a query still holds the formula, as do other request failures.
 Reconciliation continues with the remaining formulae, so a successful command can include these holds.
 Complete history includes earlier lifetimes of deleted and re-added formulae, skipping revisions where Git proves the formula path was absent.
 A rename into the current formula name starts that name’s history; the old formula name’s builds are excluded.
 Historical loading ignores obsolete `devel` blocks and uses the stable build.
+It also accepts legacy `sha1` and `md5` declarations, `bottle :unneeded` and `plist_options` without fetching or building historical sources.
+This compatibility applies to all `FormulaVersions` callers, including daily matching; ordinary current-formula loading is unchanged.
+Any remaining unreadable build still holds the record, even when it appears before or after the affected interval.
+A historical formula's `odie` option check becomes a failed load rather than terminating the command.
+The reconciliation summary counts failed formula revisions and affected formulae separately from revision/platform failures and per-record hold reasons.
+Reason counts, such as `history_unavailable`, count held records and may overlap.
+With `--verbose`, each failed load includes its formula, revision, path, platform and original error, once per revision/path/platform for that formula.
+Proven absent paths are not load failures; failed Git absence checks remain failures.
 Unattributed patches and `inreplace` alone do not block reconciliation.
 This mode cannot be combined with `--new-history`, `--no-history`, `--json` or `--index` and does not enable reconciliation in ordinary ingest runs.
 

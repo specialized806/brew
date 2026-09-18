@@ -15,13 +15,27 @@ module Homebrew
     # walk with `:history_unavailable` so callers skip the candidate rather
     # than inventing a boundary.
     class History
+      class LoadFailure < T::Struct
+        const :formula, String
+        const :revision, String
+        const :path, String
+        const :platform, String
+        const :error_class, String
+        const :message, String
+      end
+
       sig { void }
       def initialize
         @formula_versions = T.let({}, T::Hash[String, FormulaVersions])
         @rev_lists = T.let({}, T::Hash[String, T::Array[[String, String]]])
         @complete_history = T.let({}, T::Hash[String, T::Boolean])
         @shallow_taps = T.let({}, T::Hash[String, T::Boolean])
+        @load_failures = T.let({}, T::Hash[[String, String, String, String], LoadFailure])
       end
+
+      # One diagnostic per formula, revision, path and simulated platform.
+      sig { returns(T::Array[LoadFailure]) }
+      def load_failures = @load_failures.values
 
       # Yield each loadable historical revision of `formula`, newest first,
       # until the block returns a result. Returns that result,
@@ -73,9 +87,11 @@ module Homebrew
           if verdict.nil?
             begin
               next if complete && fv.path_absent_at_revision?(rev, entry)
-            rescue ErrorDuringExecution
+            rescue ErrorDuringExecution => e
+              record_load_failure(formula, rev, entry, e)
               return :history_unavailable
             end
+            record_load_failure(formula, rev, entry, fv.load_error)
             return :history_unavailable
           end
 
@@ -83,6 +99,19 @@ module Homebrew
           return result unless result.nil?
         end
         nil
+      end
+
+      private
+
+      sig { params(formula: Formula, revision: String, path: String, error: T.nilable(Exception)).void }
+      def record_load_failure(formula, revision, path, error)
+        platform = "#{SimulateSystem.current_os}/#{SimulateSystem.current_arch}"
+        key = [formula.full_name, revision, path, platform]
+        @load_failures[key] ||= LoadFailure.new(
+          formula: formula.full_name, revision:, path:, platform:,
+          error_class: error&.class&.name || "FormulaUnavailableError",
+          message: error ? error.message.lines.first.to_s.strip : "Formula could not be loaded"
+        )
       end
     end
   end
