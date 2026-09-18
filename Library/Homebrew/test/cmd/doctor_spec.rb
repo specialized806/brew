@@ -64,6 +64,14 @@ RSpec.describe Homebrew::Cmd::Doctor do
     end
   end
 
+  specify "check_cask_deprecated_disabled loads installed casks once", :cask do
+    cask = instance_double(Cask::Cask, deprecated?: false, disabled?: false)
+
+    expect(Cask::Caskroom).to receive(:casks).once.and_return([cask])
+
+    Homebrew::Diagnostic::Checks.new.check_cask_deprecated_disabled
+  end
+
   specify "check_missing_deps reports formula and cask dependencies", :cask do
     formula = instance_double(Formula, full_name:            "needs-foo",
                                        missing_dependencies: [instance_double(Dependency, to_s: "foo")])
