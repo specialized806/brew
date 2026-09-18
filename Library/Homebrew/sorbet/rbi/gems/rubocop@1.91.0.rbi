@@ -53,6 +53,7 @@ class RuboCop::CLI
   def report_pending_cops; end
   def require_gem(name); end
   def run_command(name); end
+  def set_cop_selection_options_to_config_loader; end
   def set_options_to_config_loader; end
   def set_options_to_pending_cops_reporter; end
   def suggest_extensions; end
@@ -142,6 +143,7 @@ class RuboCop::CLI::Command::ExecuteRunner < ::RuboCop::CLI::Command::Base
   def execute_runner(paths); end
   def maybe_print_corrected_source; end
   def merge_todo_audit_status(status); end
+  def print_diffs(diffs); end
   def print_unused_todo_entries(todo_file, unused); end
   def report_unused_todo_entries; end
   def runner_status(runner, all_pass_or_excluded); end
@@ -278,6 +280,10 @@ RuboCop::CLI::STATUS_OFFENSES = T.let(T.unsafe(nil), Integer)
 
 RuboCop::CLI::STATUS_SUCCESS = T.let(T.unsafe(nil), Integer)
 
+RuboCop::ChangedFiles::DEFAULT_REVISION = T.let(T.unsafe(nil), String)
+
+RuboCop::ChangedFiles::FILESYSTEM_ENCODING = T.let(T.unsafe(nil), Encoding)
+
 RuboCop::CommentConfig::CONFIG_DISABLED_LINE_RANGE_MIN = T.let(T.unsafe(nil), Float)
 
 class RuboCop::Config
@@ -331,6 +337,7 @@ class RuboCop::Config
   def patterns_to_include; end
   def pending_cops; end
   def possibly_include_hidden?; end
+  def preview?(options = T.unsafe(nil)); end
   def replace(*_arg0, **_arg1, &_arg2); end
   def signature; end
   def smart_loaded_path; end
@@ -449,6 +456,8 @@ class RuboCop::ConfigLoader
     def loaded_plugins; end
     def merge(base_hash, derived_hash); end
     def merge_with_default(config, config_file, unset_nil: T.unsafe(nil)); end
+    def preview; end
+    def preview=(_arg0); end
     def project_root; end
 
     private
@@ -469,6 +478,7 @@ RuboCop::ConfigLoader::DOTFILE = T.let(T.unsafe(nil), String)
 RuboCop::ConfigLoader::RUBOCOP_HOME = T.let(T.unsafe(nil), String)
 
 class RuboCop::ConfigLoaderResolver
+  def apply_preview_defaults(default_configuration, preview); end
   def fix_include_paths(base_config_path, hash, path, key, value); end
   def merge(base_hash, derived_hash, **opts); end
   def merge_with_default(config, config_file, unset_nil:); end
@@ -487,9 +497,11 @@ class RuboCop::ConfigLoaderResolver
   def duplicate_setting?(base_hash, derived_hash, key, inherited_file); end
   def duplicate_setting_warning(opts, key); end
   def gem_config_path(gem_name, relative_config_path); end
-  def handle_disabled_by_default(config, new_default_configuration); end
+  def handle_disabled_by_default(config, new_default_configuration, base_defaults); end
+  def inherit_mode_for_default(config); end
   def inherited_file(path, inherit_from, file); end
   def merge_hashes?(base_hash, derived_hash, key); end
+  def preview?(config); end
   def remote_config?(file); end
   def resolve_default_overrides(config); end
   def should_merge?(mode, key); end
@@ -497,6 +509,7 @@ class RuboCop::ConfigLoaderResolver
   def should_union?(derived_hash, base_hash, root_mode, key); end
   def transform(config, &block); end
   def warn_on_duplicate_setting(base_hash, derived_hash, key, **opts); end
+  def with_preview_exclude_merge(mode, config); end
 end
 
 class RuboCop::ConfigNotFoundError < ::RuboCop::Error; end
@@ -604,11 +617,13 @@ class RuboCop::ConfigObsoletion::RemovedCop < ::RuboCop::ConfigObsoletion::CopRu
   def metadata; end
   def old_name; end
   def rule_message; end
+  def warning?; end
 
   private
 
   def alternatives; end
   def reason; end
+  def severity; end
 end
 
 RuboCop::ConfigObsoletion::RemovedCop::BASE_MESSAGE = T.let(T.unsafe(nil), String)
@@ -710,8 +725,10 @@ class RuboCop::ConfigValidator
   def suggestion(name); end
   def target_ruby; end
   def validate_all_cops_new_cops_parameter; end
+  def validate_all_cops_parameters; end
   def validate_department_new_cops_parameters; end
   def validate_enforced_styles(valid_cop_names); end
+  def validate_fail_level_parameter; end
   def validate_new_cops_parameter; end
   def validate_parameter_names(valid_cop_names); end
   def validate_parameter_shape(valid_cop_names); end
@@ -833,6 +850,7 @@ class RuboCop::Cop::Base
   def on_other_file; end
   def parse(source, path = T.unsafe(nil)); end
   def parser_engine; end
+  def preview?; end
   def processed_source; end
   def project_index; end
   def project_index=(_arg0); end
@@ -894,6 +912,8 @@ class RuboCop::Cop::Base
     def restrict_on_send; end
   end
 end
+
+RuboCop::Cop::Base::DEPARTMENT_SEVERITIES = T.let(T.unsafe(nil), Hash)
 
 RuboCop::Cop::Base::EMPTY_OFFENSES = T.let(T.unsafe(nil), Array)
 
@@ -1513,11 +1533,15 @@ RuboCop::Cop::Lint::CopDirectiveSyntax::INVALID_KEYWORD_MSG = T.let(T.unsafe(nil
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::INVALID_MODE_NAME_MSG = T.let(T.unsafe(nil), String)
 
+RuboCop::Cop::Lint::CopDirectiveSyntax::INVALID_SIGNED_ARGS_MSG = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Lint::CopDirectiveSyntax::MALFORMED_COP_NAMES_MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::MISSING_COP_NAME_MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::MISSING_MODE_NAME_MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::CopDirectiveSyntax::MULTIPLE_DIRECTIVES_MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::CopDirectiveSyntax::NEAR_MISS_KEYWORD_REGEXP = T.let(T.unsafe(nil), Regexp)
 
@@ -1718,6 +1742,12 @@ RuboCop::Cop::Lint::LiteralInInterpolation::COMPOSITE = T.let(T.unsafe(nil), Arr
 RuboCop::Cop::Lint::LiteralInInterpolation::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::Loop::MSG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::MisplacedMagicComment::MSG_ABOVE_SHEBANG = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::MisplacedMagicComment::MSG_AFTER_CODE = T.let(T.unsafe(nil), String)
+
+RuboCop::Cop::Lint::MisplacedMagicComment::MSG_ENCODING = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Lint::MissingCopEnableDirective::MSG = T.let(T.unsafe(nil), String)
 
@@ -2391,6 +2421,7 @@ class RuboCop::Cop::Registry
   def enabled(config); end
   def enabled?(cop, config); end
   def enabled_pending_cop?(cop_cfg, config, cop = T.unsafe(nil)); end
+  def enabled_preview_cop?(cop_cfg, config); end
   def enlist(cop); end
   def filter_by_badge(options = T.unsafe(nil)); end
   def find_by_cop_name(cop_name); end
@@ -2722,6 +2753,8 @@ RuboCop::Cop::Style::DirEmpty::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DirEmpty::RESTRICT_ON_SEND = T.let(T.unsafe(nil), Array)
 
+RuboCop::Cop::Style::DirectiveScope::MSG_ENABLE_PAIR = T.let(T.unsafe(nil), String)
+
 RuboCop::Cop::Style::DirectiveScope::MSG_PAIR = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DirectiveScope::MSG_PUSH_POP = T.let(T.unsafe(nil), String)
@@ -2745,8 +2778,6 @@ RuboCop::Cop::Style::Documentation::DIRECTIVE_COMMENT_REGEXP = T.let(T.unsafe(ni
 RuboCop::Cop::Style::Documentation::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DocumentationMethod::MSG = T.let(T.unsafe(nil), String)
-
-RuboCop::Cop::Style::DoubleCopDisableDirective::MSG = T.let(T.unsafe(nil), String)
 
 RuboCop::Cop::Style::DoubleNegation::MSG = T.let(T.unsafe(nil), String)
 
@@ -4002,15 +4033,18 @@ class RuboCop::DirectiveComment
   def disable_next?; end
   def disabled?; end
   def disabled_all?; end
+  def enable_next?; end
   def enabled?; end
   def enabled_all?; end
   def in_directive_department?(cop); end
+  def invalid_signed_args?; end
   def line_number; end
   def malformed?; end
   def match?(cop_names); end
   def match_captures; end
   def missing_cop_name?; end
   def mode; end
+  def next?; end
   def overridden_by_department?(cop); end
   def pop?; end
   def push?; end
@@ -4019,6 +4053,7 @@ class RuboCop::DirectiveComment
   def range_with_reason; end
   def raw_cop_names; end
   def reason; end
+  def signed_args; end
   def single_line?; end
   def start_with_marker?; end
 
@@ -4028,7 +4063,7 @@ class RuboCop::DirectiveComment
   def cop_names_for_department(department); end
   def department?(name); end
   def exclude_lint_department_cops(cops); end
-  def parse_push_args; end
+  def parse_signed_args; end
   def parsed_cop_names; end
 
   class << self
@@ -4067,6 +4102,8 @@ RuboCop::DirectiveComment::MALFORMED_DIRECTIVE_WITHOUT_COP_NAME_REGEXP = T.let(T
 RuboCop::DirectiveComment::MODES_PATTERN = T.let(T.unsafe(nil), String)
 
 RuboCop::DirectiveComment::PUSH_POP_ARGS_PATTERN = T.let(T.unsafe(nil), String)
+
+RuboCop::DirectiveComment::SIGNED_OPERATIONS = T.let(T.unsafe(nil), Array)
 
 RuboCop::DirectiveComment::STYLE_DISABLE_COPS_DIRECTIVE_COP = T.let(T.unsafe(nil), String)
 
@@ -4172,6 +4209,14 @@ RuboCop::Formatter::PacmanFormatter::PACMAN = T.let(T.unsafe(nil), Rainbow::Null
 
 RuboCop::Formatter::ProgressFormatter::DOT = T.let(T.unsafe(nil), String)
 
+RuboCop::Formatter::SARIFFormatter::INFORMATION_URI = T.let(T.unsafe(nil), String)
+
+RuboCop::Formatter::SARIFFormatter::SARIF_VERSION = T.let(T.unsafe(nil), String)
+
+RuboCop::Formatter::SARIFFormatter::SCHEMA_URI = T.let(T.unsafe(nil), String)
+
+RuboCop::Formatter::SARIFFormatter::SEVERITY_LEVELS = T.let(T.unsafe(nil), Hash)
+
 RuboCop::Formatter::SimpleTextFormatter::COLOR_FOR_SEVERITY = T.let(T.unsafe(nil), Hash)
 
 module RuboCop::Formatter::TextUtil
@@ -4232,6 +4277,7 @@ class RuboCop::Options
   def add_severity_option(opts); end
   def define_options; end
   def handle_deprecated_option(old_option, new_option); end
+  def imply_autocorrect_for_diff; end
   def long_opt_symbol(args); end
   def option(opts, *args); end
   def plugin_feature(file); end
@@ -4266,8 +4312,11 @@ class RuboCop::OptionsValidator
   def validate_auto_gen_config; end
   def validate_autocorrect; end
   def validate_cache_enabled_for_cache_root; end
+  def validate_changed_and_stdin; end
+  def validate_changed_revision(revision); end
   def validate_compatibility; end
   def validate_cop_options; end
+  def validate_diff; end
   def validate_display_only_correctable_and_autocorrect; end
   def validate_display_only_failed; end
   def validate_display_only_failed_and_display_only_correctable; end
@@ -4352,6 +4401,7 @@ class RuboCop::ResultCache
   def context_checksum(team, options); end
   def file_checksum(file, config_store); end
   def symlink_protection_triggered?(path); end
+  def unavailable_checksum; end
 
   class << self
     def allow_symlinks_in_cache_location?(config_store); end
@@ -4384,6 +4434,7 @@ class RuboCop::Runner
 
   def aborting=(_arg0); end
   def aborting?; end
+  def diffs; end
   def errors; end
   def file_finished(file, offenses, *_arg2, **_arg3, &_arg4); end
   def file_offense_cache(file, *_arg1, **_arg2, &_arg3); end
@@ -4410,10 +4461,12 @@ class RuboCop::Runner
   def file_iterator(files, &block); end
   def file_offenses(file); end
   def file_started(file); end
+  def finalize_corrections(file, original_source, corrected_source); end
   def find_target_files(paths); end
   def finished_report(file, index, offenses); end
   def formatter_set; end
   def in_memory_corrections_possible?; end
+  def inspect_and_correct(processed_source, offenses_by_iteration); end
   def inspect_file(processed_source, team = T.unsafe(nil)); end
   def inspect_files(files); end
   def inspect_iteration(processed_source); end
@@ -4426,7 +4479,9 @@ class RuboCop::Runner
   def mobilized_cop_classes(config); end
   def offense_displayed?(offense); end
   def offenses_to_report(offenses); end
+  def only_changed(target_files); end
   def parallel_file_iterator(files, on_start, on_finish, &block); end
+  def parallel_supported_by_options?; end
   def process_file(file); end
   def process_remaining_report_queue; end
   def process_report_queue_entry(index); end
@@ -4434,6 +4489,7 @@ class RuboCop::Runner
   def project_index_enabled?; end
   def project_index_files(target_files); end
   def qualify_option_cop_names; end
+  def record_diff(file, original_source, corrected_source); end
   def redundant_cop_disable_directive(file); end
   def run_in_parallel?(files); end
   def save_in_cache(cache, offenses); end
@@ -4512,6 +4568,12 @@ RuboCop::TargetRuby::OBSOLETE_RUBIES = T.let(T.unsafe(nil), Hash)
 RuboCop::TargetRuby::SOURCES = T.let(T.unsafe(nil), Array)
 
 RuboCop::Token = RuboCop::AST::Token
+
+RuboCop::UnifiedDiff::CONTEXT_LINES = T.let(T.unsafe(nil), Integer)
+
+RuboCop::UnifiedDiff::MAX_EDIT_DISTANCE = T.let(T.unsafe(nil), Integer)
+
+RuboCop::UnifiedDiff::NO_NEWLINE_MARKER = T.let(T.unsafe(nil), String)
 
 module RuboCop::Version
   class << self
