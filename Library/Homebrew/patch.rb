@@ -7,7 +7,7 @@ require "external_patch"
 require "string_patch"
 require "local_patch"
 require "utils/path"
-require "utils/popen"
+require "sandbox"
 
 # Helper module for creating patches.
 module Patch
@@ -49,11 +49,10 @@ module Patch
 
     # Resolve targets with `patch --dry-run` so containment matches what `patch`
     # actually writes, covering `Index:`/`====` and non-selected context headers.
-    output = with_env(LC_ALL: "C", LANG: "C", QUOTING_STYLE: "literal") do
-      base.cd do
-        Utils.popen_write("patch", "-g", "0", "-f", "-#{strip}", "--dry-run", err: :out) { |p| p.write(text) }
-      end
-    end
+    output = Sandbox.capture("patch", args: ["-g", "0", "-f", "-#{strip}", "--dry-run"],
+                                      input: text, read_paths: [base], chdir: base,
+                                      env: { "LC_ALL" => "C", "LANG" => "C", "QUOTING_STYLE" => "literal" },
+                                      must_succeed: false, print_stderr: false).merged_output
 
     # No output means `patch` named nothing, not that it will write nothing, so
     # fail closed. An ed-format patch reports nothing at all and lands here.
@@ -82,6 +81,13 @@ module Patch
         Utils::Path.ensure_child_of!(base, base/target, message:)
       end
     end
+  end
+
+  sig { params(text: String, strip: T.any(Symbol, String), base: Pathname).void }
+  def self.apply(text, strip:, base:)
+    ensure_targets_within!(text, strip:, base:)
+    Sandbox.capture("patch", args: ["-g", "0", "-f", "-#{strip}"], input: text,
+                             write_paths: [base], chdir: base, print_stdout: true)
   end
 
   sig {

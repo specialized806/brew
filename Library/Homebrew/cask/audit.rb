@@ -1282,7 +1282,8 @@ module Cask
           if artifact.is_a?(Artifact::Pkg)
             pkg_expanded_dir = tmpdir/"pkg-expanded"
             begin
-              system_command!("pkgutil", args: ["--expand", path.to_s, pkg_expanded_dir.to_s])
+              Sandbox.capture("pkgutil", args:        ["--expand", path, pkg_expanded_dir],
+                                         write_paths: [tmpdir])
 
               distribution_file = pkg_expanded_dir/"Distribution"
               if File.exist?(distribution_file)

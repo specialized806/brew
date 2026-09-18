@@ -74,17 +74,17 @@ module OS
         end
       end
 
-      sig {
-        params(
-          args:                  T.any(String, ::Pathname),
-          passthrough_stdin:     T::Boolean,
-          child_message_handler: T.nilable(T.proc.params(message: String).returns(T.nilable(String))),
-          retain_tmp:            T::Boolean,
-          debug:                 T::Boolean,
-        ).void
-      }
-      def run(*args, passthrough_stdin: true, child_message_handler: nil, retain_tmp: false, debug: false)
-        landlock.run { super }
+      sig { returns(T::Boolean) }
+      def apply_before_exec? = true
+
+      sig { void }
+      def cleanup_sandbox
+        landlock.cleanup
+      end
+
+      sig { void }
+      def apply!
+        landlock.apply!
       end
 
       private
@@ -92,11 +92,6 @@ module OS
       sig { params(args: T::Array[T.any(String, ::Pathname)], tmpdir: String).returns(T::Array[T.any(String, ::Pathname)]) }
       def sandbox_command(args, tmpdir)
         landlock.command(args, tmpdir)
-      end
-
-      sig { void }
-      def apply_sandbox
-        landlock.apply!
       end
 
       sig { returns(::Sandbox::Landlock) }

@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "utils/output"
+require "sandbox"
 
 class Keg
   extend Utils::Output::Mixin
@@ -209,6 +210,16 @@ class Keg
            linkage_files: T.nilable(T::Array[Pathname])).void
   }
   def replace_placeholders_with_locations(files, skip_linkage: false, linkage_files: nil)
+    if Sandbox.isolate_operation?
+      require_relocation! if JSON.parse(Sandbox.operation(
+                                          "relocate", JSON.generate(path: path.to_s, files: files&.map(&:to_s),
+                                                                    skip_linkage:,
+                                                                    linkage_files: linkage_files&.map(&:to_s)),
+                                          write_paths: [path]
+                                        ))
+      return
+    end
+
     relocation = prepare_relocation_to_locations.freeze
     relocate_dynamic_linkage(relocation, files: linkage_files) unless skip_linkage
     replace_text_in_files(relocation, files:)
@@ -283,6 +294,15 @@ class Keg
            files: T.nilable(T::Array[Pathname])).returns(T::Array[Pathname])
   }
   def relocate_build_prefix(keg, old_prefix, new_prefix, files: nil)
+    if Sandbox.isolate_operation?
+      return JSON.parse(
+        Sandbox.operation("relocate_prefix", JSON.generate(path: path.to_s, keg: keg.path.to_s,
+                                                           old_prefix: old_prefix.to_s, new_prefix: new_prefix.to_s,
+                                                           files: files&.map(&:to_s)),
+                          write_paths: [path, keg.path]),
+      ).map { |file| Pathname(file) }
+    end
+
     old_prefix = old_prefix.to_s
     new_prefix = new_prefix.to_s
     # A raw C string can only be replaced in place by an equal-or-shorter

@@ -169,12 +169,54 @@ RSpec.describe PyPI do
       before do
         allow(Sandbox).to receive_messages(available?: true, avoid_nested_sandboxing?: false,
                                            full_write_isolation?: true)
-        sandbox = instance_double(Sandbox, allow_write_path: nil, deny_write_homebrew_repository: nil,
-                                          deny_read_home: nil)
+        sandbox = Sandbox.new
         allow(Sandbox).to receive(:new).and_return(sandbox)
-        allow(sandbox).to receive(:run) do |*command, **_options|
-          system(*command)
+        allow(sandbox).to receive(:sandbox_command) { |args, _tmpdir| args }
+        allow(sandbox).to receive(:apply_before_exec?).and_return(false)
+      end
+
+      it "runs metadata inspection without a terminal" do
+        expect(described_class.pip_output(["/bin/sh", "-c",
+                                           "if [ -t 0 ]; then printf terminal; else printf pipe; fi"]))
+          .to eq("pipe")
+      end
+
+      it "redacts proxy authentication from command diagnostics" do
+        allow(Context).to receive(:current).and_return(Context::ContextStruct.new(debug: true, verbose: true))
+
+        %w[http_proxy HTTPS_PROXY all_proxy].each do |proxy|
+          ENV[proxy] = "http://user:#{proxy}p$a=ss@proxy.example:3128"
+          expect { described_class.pip_output(["/usr/bin/false"]) }
+            .to raise_error(ErrorDuringExecution, /#{proxy}=\*{6} /)
+            .and output(/#{proxy}=\*{6} /).to_stderr
         end
+      end
+
+      it "redacts authenticated proxies from printed output" do
+        ENV["HTTPS_PROXY"] = "http://user:p$a=ss@proxy.example:3128"
+        ENV["http_proxy"] = ""
+
+        expect { described_class.pip_output(["/bin/sh", "-c", 'printf %s "$HTTPS_PROXY" >&2'], print_stderr: true) }
+          .to output("******").to_stderr
+      end
+
+      it "preserves authenticated and empty proxy settings in the command environment" do
+        ENV["HTTPS_PROXY"] = "http://user:p$a=ss@proxy.example:3128"
+        ENV["http_proxy"] = ""
+
+        expect(described_class.pip_output(["/bin/sh", "-c", 'printf "%s|%s" "$HTTPS_PROXY" "${http_proxy-unset}"']))
+          .to eq("http://user:p$a=ss@proxy.example:3128|")
+      end
+
+      it "redacts authenticated proxies from failure output and serialised errors" do
+        ENV["HTTPS_PROXY"] = "http://user:p$a=ss@proxy.example:3128"
+
+        expect do
+          described_class.pip_output(["/bin/sh", "-c", 'printf %s "$HTTPS_PROXY"; exit 1'])
+        end.to raise_error(ErrorDuringExecution) { |error|
+          expect([error.message, error.output.to_s, Utils.child_error_hash(error).to_s].join)
+            .not_to include(ENV.fetch("HTTPS_PROXY"))
+        }
       end
 
       it "runs the Git shim with the configured Git executable" do

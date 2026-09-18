@@ -256,7 +256,7 @@ RSpec.describe Patch do
 
     it "rejects a patch that `patch` reports no targets for" do
       mktmpdir do |base|
-        allow(Utils).to receive(:popen_write).and_return("")
+        allow(Sandbox).to receive(:capture).and_return(instance_double(SystemCommand::Result, merged_output: ""))
 
         expect { described_class.ensure_targets_within!("--- a/src/foo.c\n", strip: :p1, base:) }
           .to raise_error(/no target paths to verify/)
@@ -281,7 +281,8 @@ RSpec.describe Patch do
 
     it "rejects an escaping symbolic link, which GNU patch names differently" do
       mktmpdir do |base|
-        allow(Utils).to receive(:popen_write).and_return("checking symbolic link ../escape.txt\n")
+        allow(Sandbox).to receive(:capture)
+          .and_return(instance_double(SystemCommand::Result, merged_output: "checking symbolic link ../escape.txt\n"))
 
         expect { described_class.ensure_targets_within!("--- a/link\n", strip: :p1, base:) }
           .to raise_error(/escapes the staged source tree/)
@@ -290,8 +291,10 @@ RSpec.describe Patch do
 
     it "rejects an escaping source named in a GNU patch copy diagnostic" do
       mktmpdir do |base|
-        allow(Utils).to receive(:popen_write)
-          .and_return("checking file src/bar.c (copied from ../escape.txt)\n")
+        allow(Sandbox).to receive(:capture).and_return(
+          instance_double(SystemCommand::Result,
+                          merged_output: "checking file src/bar.c (copied from ../escape.txt)\n"),
+        )
 
         expect { described_class.ensure_targets_within!("--- a/src/bar.c\n", strip: :p1, base:) }
           .to raise_error(/escapes the staged source tree/)

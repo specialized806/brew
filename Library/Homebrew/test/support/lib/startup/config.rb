@@ -35,7 +35,15 @@ HOMEBREW_LOCKS         = (HOMEBREW_PREFIX/"var/homebrew/locks").freeze
 HOMEBREW_TEMP_CELLAR   = (HOMEBREW_PREFIX/"var/homebrew/tmp/.cellar").freeze
 HOMEBREW_CELLAR        = (HOMEBREW_PREFIX/"Cellar").freeze
 HOMEBREW_LOGS          = (HOMEBREW_PREFIX.parent/"logs").freeze
-HOMEBREW_TEMP          = (HOMEBREW_PREFIX.parent/"temp").freeze
+HOMEBREW_TEMP          = Pathname(
+  # Match Sandbox::INHERITANCE_FD before sandbox.rb can be loaded during startup.
+  begin
+    ENV.fetch("HOMEBREW_TEMP") if File.identical?(IO.new(198, autoclose: false),
+                                                  HOMEBREW_LIBRARY_PATH/"sandbox.rb")
+  rescue Errno::EBADF
+    nil
+  end || (HOMEBREW_PREFIX.parent/"temp"),
+).freeze
 HOMEBREW_TAP_DIRECTORY = (HOMEBREW_LIBRARY/"Taps").freeze
 HOMEBREW_RUBY_EXEC_ARGS = [
   RUBY_PATH,

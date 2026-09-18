@@ -11,7 +11,12 @@ class FossilDownloadStrategy < VCSDownloadStrategy
   def initialize(url, name, version, **meta)
     super
     @url = T.let(@url.sub(%r{^fossil://}, ""), String)
+    # Keep SQLite journals writable without granting writes to the whole cache.
+    @cached_location = Pathname("#{cached_location}-sandbox")/"repository.fossil"
   end
+
+  sig { override.returns(Pathname) }
+  def sandbox_write_path = cached_location.dirname
 
   # Returns the most recent modified time for all files in the current working directory after stage.
   #
@@ -59,6 +64,7 @@ class FossilDownloadStrategy < VCSDownloadStrategy
 
   sig { override.params(timeout: T.nilable(Time)).void }
   def clone_repo(timeout: nil)
+    cached_location.dirname.mkpath
     command! "fossil", args: ["clone", @url, cached_location], timeout: Utils::Timer.remaining(timeout)
   end
 

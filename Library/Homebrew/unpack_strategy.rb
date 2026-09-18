@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "mktemp"
+require "sandbox"
 require "system_command"
 require "unpack_strategy/path"
 require "utils/output"
@@ -85,6 +86,12 @@ module UnpackStrategy
     ].freeze, T.nilable(T::Array[UnpackStrategyType]))
   end
   private_class_method :strategies
+
+  sig { params(name: String).returns(UnpackStrategyType) }
+  def self.from_name(name)
+    [*strategies, Directory, Dmg::Mount, Uncompressed].find { |strategy| strategy.name == name } ||
+      raise(ArgumentError, "Unknown unpack strategy: #{name}")
+  end
 
   sig { params(type: Symbol).returns(T.nilable(UnpackStrategyType)) }
   def self.from_type(type)
@@ -178,6 +185,18 @@ module UnpackStrategy
     basename ||= path.basename
     unpack_dir = Pathname(to || Dir.pwd).expand_path
     unpack_dir.mkpath
+    # Mount disk images outside the extraction sandbox; Dmg::Mount sandboxes the copy.
+    if !is_a?(Dmg) && Sandbox.isolate_operation?
+      move = is_a?(Directory) && move?
+      Sandbox.operation(
+        "extract",
+        JSON.generate(strategy: self.class.name, path: path.to_s, to: unpack_dir.to_s, basename: basename.to_s,
+                      verbose:, ref_type: @ref_type, ref: @ref, merge_xattrs:, move:),
+        read_paths: [path], write_paths: [unpack_dir, *(path if move)], temporary_directory:,
+      )
+      return
+    end
+
     extract_to_dir(unpack_dir, basename: Pathname(basename), verbose:)
   end
 
@@ -195,10 +214,11 @@ module UnpackStrategy
       raise "Failed to create a temporary directory to unpack #{path}" if tmp_unpack_dir.nil?
 
       extract(to: tmp_unpack_dir, basename:, verbose:)
+      raise "Extraction directory is a symlink: #{tmp_unpack_dir}" if tmp_unpack_dir.symlink?
 
       children = tmp_unpack_dir.children
 
-      if children.size == 1 && !children.fetch(0).directory?
+      if children.size == 1 && !children.fetch(0).directory? && !children.fetch(0).symlink?
         first_child = children.first
         next if first_child.nil?
 

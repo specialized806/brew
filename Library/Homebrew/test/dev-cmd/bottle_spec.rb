@@ -111,11 +111,27 @@ RSpec.describe Homebrew::DevCmd::Bottle do
     (formula.libexec/"raw-prefix").binwrite(
       "\0#{Array.new(Homebrew::DevCmd::Bottle::MAXIMUM_STRING_MATCHES + 1, formula.libexec.to_s).join("\0")}\0",
     )
+    stderr = if !Sandbox.available?
+      "Warning: Sandbox unavailable: processing downloaded files without sandboxing!\n"
+    elsif Sandbox.nested_sandbox?
+      "Warning: Processing downloaded files without Homebrew's sandbox; relying on the outer sandbox.\n"
+    elsif OS.linux? && (abi = Sandbox::Landlock.abi_version) && abi < 10
+      network_warning = if abi >= 4
+        "Applying the network restrictions supported by this kernel."
+      else
+        "This kernel cannot restrict network access."
+      end
+      "Warning: Landlock ABI 10 or later is required to deny all network access; found ABI #{abi}. " \
+        "#{network_warning}\n"
+    else
+      ""
+    end
+    stderr = "" if Sandbox.inherited_sandbox?
 
     begin
       expect { brew "bottle", "--no-rebuild", "--json", "testball" }
         .to output(/testball--0\.1.*\.bottle\.tar\.gz/).to_stdout
-        .and not_to_output.to_stderr
+        .and output(stderr).to_stderr
         .and be_a_success
       expect(HOMEBREW_CELLAR/"testball-bottle.tar").not_to exist
 

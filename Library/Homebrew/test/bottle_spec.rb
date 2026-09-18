@@ -5,6 +5,13 @@ require "bottle_specification"
 require "test/support/fixtures/testball_bottle"
 
 RSpec.describe Bottle do
+  sig { returns(UnpackStrategy::Tar) }
+  def bottle_extractor
+    instance_double(UnpackStrategy::Tar).tap do |strategy|
+      allow(strategy).to receive(:extract_nestedly) { |to:, **| (to/"foo/1.2.3").mkpath }
+    end
+  end
+
   describe "#compatible_locations?" do
     it "fetches tab metadata before rejecting a padded bottle" do
       tag = Utils::Bottles::Tag.from_symbol(:arm64_tahoe)
@@ -56,6 +63,27 @@ RSpec.describe Bottle do
   end
 
   describe "#stage" do
+    around do |example|
+      Dir.mktmpdir("bottle", HOMEBREW_TEMP) { |destination| Dir.chdir(destination) { example.run } }
+    end
+
+    it "rejects a bottle containing a neighbouring keg" do
+      source = mktmpdir
+      (source/"testball_bottle/0.1").mkpath
+      (source/"neighbour/1").mkpath
+      archive = mktmpdir/"bottle.tar.gz"
+      system "tar", "-czf", archive.to_s, "-C", source.to_s, "testball_bottle", "neighbour"
+      bottle_spec = BottleSpecification.new
+      bottle_spec.sha256(arm64_big_sur: Digest::SHA256.file(archive).hexdigest)
+      bottle = described_class.new(TestballBottle.new, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur))
+      bottle.cached_download.dirname.mkpath
+      FileUtils.cp(archive, bottle.cached_download)
+
+      expect { bottle.stage }.to raise_error(/Unexpected bottle contents/)
+    ensure
+      bottle&.clear_cache
+    end
+
     it "verifies a cached bottle against its checksum and refetches on mismatch", :aggregate_failures do
       valid_content = "valid"
       bottle_spec = BottleSpecification.new
@@ -66,7 +94,7 @@ RSpec.describe Bottle do
       bottle.cached_download.dirname.mkpath
       bottle.cached_download.write("corrupt")
       allow(UnpackStrategy).to receive(:detect)
-        .and_return(instance_double(UnpackStrategy::Tar, extract_nestedly: nil))
+        .and_return(bottle_extractor)
       expect(bottle).to receive(:fetch) { bottle.cached_download.write(valid_content) }
       # The mismatched verification has already hashed the corrupt file, so
       # discarding it must not hash it a second time: once for the corrupt
@@ -110,7 +138,7 @@ RSpec.describe Bottle do
       staged_content = []
       allow(UnpackStrategy).to receive(:detect) do |path, **|
         staged_content << path.read
-        instance_double(UnpackStrategy::Tar, extract_nestedly: nil)
+        bottle_extractor
       end
       expect(bottle).to receive(:fetch) do
         bottle.cached_download.write(valid_content)
@@ -136,7 +164,7 @@ RSpec.describe Bottle do
       extracted = []
       allow(UnpackStrategy).to receive(:detect) do |path, **|
         extracted << [path.ascend.include?(HOMEBREW_TEMP_CELLAR), path == bottle.cached_download, path.read]
-        instance_double(UnpackStrategy::Tar, extract_nestedly: nil)
+        bottle_extractor
       end
 
       bottle.stage
@@ -207,9 +235,7 @@ RSpec.describe Bottle do
       staged_path.mkpath
       (staged_path/"planted").write("planted")
       FileUtils.ln_s(staged_path, marker)
-      unpack_strategy = instance_double(UnpackStrategy::Tar)
-      allow(unpack_strategy).to receive(:extract_nestedly) { staged_path.mkpath }
-      allow(UnpackStrategy).to receive(:detect).and_return(unpack_strategy)
+      allow(UnpackStrategy).to receive(:detect).and_return(bottle_extractor)
 
       bottle.stage_from_download_queue(bottle.cached_download, pour: true)
 
@@ -249,13 +275,12 @@ RSpec.describe Bottle do
     it "does not queue-stage a cached bottle until its checksum is verified" do
       valid_content = "valid"
       bottle = cached_bottle(Digest::SHA256.hexdigest(valid_content), "mismatched")
-      unpack_strategy = instance_double(UnpackStrategy::Tar)
+      unpack_strategy = bottle_extractor
       staged_content = []
       allow(UnpackStrategy).to receive(:detect) do |path, **|
         staged_content << path.read
         unpack_strategy
       end
-      allow(unpack_strategy).to receive(:extract_nestedly) { bottle.staged_path_from_download_queue.mkpath }
       expect(bottle).to receive(:fetch) do
         bottle.cached_download.write(valid_content)
         bottle.verify_download_integrity(bottle.cached_download)
@@ -271,8 +296,7 @@ RSpec.describe Bottle do
     it "downloads a corrupt cached bottle again and extracts it", :aggregate_failures do
       valid_content = "valid"
       bottle = cached_bottle(Digest::SHA256.hexdigest(valid_content), "corrupt")
-      unpack_strategy = instance_double(UnpackStrategy::Tar)
-      allow(unpack_strategy).to receive(:extract_nestedly) { bottle.staged_path_from_download_queue.mkpath }
+      unpack_strategy = bottle_extractor
       extractions = 0
       allow(UnpackStrategy).to receive(:detect) do
         extractions += 1
