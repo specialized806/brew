@@ -1035,8 +1035,9 @@ module Homebrew
 
       sig { returns(T.nilable(Finding)) }
       def check_cask_deprecated_disabled
-        deprecated_or_disabled = Cask::Caskroom.casks.select(&:deprecated?)
-        deprecated_or_disabled += Cask::Caskroom.casks.select(&:disabled?)
+        casks = Cask::Caskroom.casks
+        deprecated_or_disabled = casks.select(&:deprecated?)
+        deprecated_or_disabled += casks.select(&:disabled?)
         return if deprecated_or_disabled.empty?
 
         Finding.new(
