@@ -151,6 +151,9 @@ module Homebrew
         @history = T.let(History.new, History)
       end
 
+      sig { returns(T::Array[History::LoadFailure]) }
+      def history_load_failures = @history.load_failures
+
       sig { returns(Repology) }
       def repology
         @repology ||= Repology.load
@@ -295,7 +298,12 @@ module Homebrew
             annotated = Evidence.new(**ev.to_h, advisory: adv).freeze
             if adv.cves.any?
               adv.cves.each do |cve|
-                record = fetch_vulnerability(cve) || cpansa_vulnerability(adv, id: cve)
+                record = begin
+                  fetch_vulnerability(cve)
+                rescue OSV::NotFoundError
+                  nil
+                end
+                record ||= cpansa_vulnerability(adv, id: cve)
                 hits << Hit.new(vulnerability: record, evidence: [annotated])
               end
             else

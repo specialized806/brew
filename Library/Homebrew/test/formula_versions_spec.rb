@@ -110,6 +110,169 @@ RSpec.describe FormulaVersions do
     end
   end
 
+  it "loads legacy checksums without changing historical sources or normal resource loading" do
+    current = formula("legacy-checksums") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/legacy-checksums-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    contents = <<~RUBY
+      class LegacyChecksums < Formula
+        url "https://brew.sh/legacy-checksums-1.0.tar.gz"
+        sha1 "#{"a" * 40}"
+        md5 "#{"a" * 32}"
+        revision 2
+
+        stable do
+          sha1 "#{"a" * 40}"
+          md5 "#{"a" * 32}"
+          resource "helper" do
+            url "https://brew.sh/helper-1.2.tar.gz"
+            sha1 "#{"b" * 40}"
+            md5 "#{"b" * 32}"
+          end
+        end
+
+        bottle do
+          revision 3
+          sha1 "#{"c" * 40}" => :yosemite
+          md5 "#{"c" * 32}" => :yosemite
+        end
+      end
+    RUBY
+    allow(versions).to receive(:file_contents_at_revision).and_return(contents)
+
+    result = versions.formula_at_revision("abc123") do |historical|
+      [historical.pkg_version.to_s, historical.stable&.url,
+       historical.resource("helper")&.version&.to_s, historical.resource("helper")&.url]
+    end
+
+    expect([result, Formula.respond_to?(:sha1), Resource.new.respond_to?(:sha1),
+            SoftwareSpec.new.respond_to?(:sha1), BottleSpecification.new.respond_to?(:sha1)]).to eq [
+              ["1.0_2", "https://brew.sh/legacy-checksums-1.0.tar.gz", "1.2", "https://brew.sh/helper-1.2.tar.gz"],
+              false, false, false, false
+            ]
+  end
+
+  it "ignores removed service and bottle metadata only in historical formulae" do
+    current = formula("legacy-metadata") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/legacy-metadata-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    allow(versions).to receive(:file_contents_at_revision).and_return(<<~RUBY)
+      class LegacyMetadata < Formula
+        url "https://brew.sh/legacy-metadata-1.0.tar.gz"
+        bottle :unneeded
+        plist_options startup: true
+      end
+    RUBY
+
+    result = versions.formula_at_revision("abc123") { |historical| historical.pkg_version.to_s }
+
+    expect([result, Formula.respond_to?(:plist_options)]).to eq ["1.0", false]
+  end
+
+  it "preserves historical patch URLs, apply paths and advisory references with legacy checksums" do
+    current = formula("legacy-patches") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/legacy-patches-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    allow(versions).to receive(:file_contents_at_revision).and_return(<<~RUBY)
+      class LegacyPatches < Formula
+        url "https://brew.sh/legacy-patches-1.0.tar.gz"
+        patch :p0 do
+          url "https://brew.sh/patches.tar.gz"
+          sha1 "#{"a" * 40}"
+          apply "CVE-2024-1234.patch"
+        end
+        resource "helper" do
+          url "https://brew.sh/helper-1.2.tar.gz"
+          patch do
+            url "https://brew.sh/CVE-2024-5678.patch"
+            md5 "#{"b" * 32}"
+          end
+        end
+      end
+    RUBY
+
+    result = versions.formula_at_revision("abc123") do |old|
+      resource = old.resource("helper")
+      raise "Expected historical resource" unless resource
+
+      patch = resource.patches.fetch(0)
+      [old.pkg_version.to_s, old.serialized_patches, patch.is_a?(ExternalPatch) && patch.resolves]
+    end
+
+    expect([result, Resource::Patch.new.respond_to?(:sha1)]).to eq [
+      ["1.0", [{ "strip" => "p0", "url" => "https://brew.sh/patches.tar.gz", "sha256" => nil,
+                  "apply" => ["CVE-2024-1234.patch"],
+                  "resolves" => [{ "type" => "security", "id" => "CVE-2024-1234" }] }], ["CVE-2024-5678"]], false
+    ]
+  end
+
+  it "retains the original load error and clears it after a successful or cached load" do
+    current = formula("broken-history") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/broken-history-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    contents = <<~RUBY
+      class BrokenHistory < Formula
+        url "https://brew.sh/broken-history-1.0.tar.gz"
+        unsupported_source_rewrite
+      end
+    RUBY
+    allow(versions).to receive(:file_contents_at_revision)
+      .and_return(contents, contents.sub("unsupported_source_rewrite", ""), contents)
+    results = []
+    %w[broken valid broken valid].each do |revision|
+      value = versions.formula_at_revision(revision) { |old| old.pkg_version.to_s }
+      results << [value, versions.load_error&.class, versions.load_error&.message]
+    end
+
+    expect(results).to match [
+      [nil, NameError, /unsupported_source_rewrite/], ["1.0", nil, nil],
+      [nil, NameError, /unsupported_source_rewrite/], ["1.0", nil, nil]
+    ]
+  end
+
+  it "holds a historical formula that calls odie without terminating the caller" do
+    current = formula("exiting-history") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/exiting-history-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    allow(versions).to receive(:file_contents_at_revision).and_return(<<~RUBY)
+      class ExitingHistory < Formula
+        url "https://brew.sh/exiting-history-1.0.tar.gz"
+        odie "historical option conflict"
+      end
+    RUBY
+
+    results = Array.new(2) do
+      value = versions.formula_at_revision("abc123") { |old| old.pkg_version.to_s }
+      [value, versions.load_error&.class, versions.load_error&.message]
+    end
+
+    expect([results, Homebrew.failed?]).to match [
+      Array.new(2) { [nil, FormulaSpecificationError, "historical option conflict"] }, false
+    ]
+  end
+
+  it "does not swallow an exit requested by a caller after a successful historical load" do
+    current = formula("caller-exit") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/caller-exit-1.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    allow(Formulary).to receive(:from_contents).and_return(current)
+    allow(versions).to receive(:file_contents_at_revision).and_return("")
+
+    expect { versions.formula_at_revision("abc123") { exit 1 } }.to raise_error(SystemExit)
+  end
+
   it "loads historical formulae that use current bottle syntax" do
     digest = "b" * 64
     current = formula("current-bottle") do

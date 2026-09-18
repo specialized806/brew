@@ -383,6 +383,62 @@ RSpec.describe Homebrew::Vulns::Match do
       } })
     end
 
+    context "with strict CPANSA fetching" do
+      let(:cpan_sec) do
+        Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {
+          "Multi" => { "advisories" => [
+            { "id" => "CPANSA-Multi-1", "cves" => ["CVE-2022-4988", "CVE-2022-4989"],
+              "affected_versions" => ["<1.0"], "fixed_versions" => [">=1.0"] },
+          ] },
+        } })
+      end
+      let(:matcher) { described_class.new(repology:, cpan_sec:, strict_upstream: true) }
+      let(:identity) do
+        Homebrew::Vulns::Match::Identity.new(
+          git_repo: nil, git_tag: nil,
+          primary_package: Homebrew::Vulns::Identify::RegistryPackage.new(
+            ecosystem: "CPAN", name: "Multi", version: "0.9", purl: "pkg:cpan/X/Multi@0.9",
+          ),
+          resource_packages: {}, distro_packages: {}
+        )
+      end
+
+      it "reuses CPANSA evidence for each CVE after a cached supplemental 404" do
+        fetched = []
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability) do |id|
+          fetched << id
+          raise Homebrew::Vulns::OSV::NotFoundError, "404"
+        end
+
+        results = Array.new(2) do
+          matcher.hits_from({}, identity).map do |hit|
+            [hit.canonical_id, matcher.range_status(hit)&.first&.state]
+          end
+        end
+
+        expect([results, fetched]).to eq [
+          Array.new(2) { [["CVE-2022-4988", :affected], ["CVE-2022-4989", :affected]] },
+          ["CVE-2022-4988", "CVE-2022-4989"],
+        ]
+      end
+
+      it "keeps a cached CPANSA supplemental 404 strict for direct query results" do
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability)
+          .and_raise(Homebrew::Vulns::OSV::NotFoundError, "404")
+        matcher.hits_from({}, identity)
+
+        expect { matcher.resolve_upstream({ "CVE-2022-4988" => [ev(:git)] }, identity) }
+          .to raise_error(Homebrew::Vulns::OSV::NotFoundError)
+      end
+
+      it "does not replace a transient upstream failure with CPANSA evidence" do
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability)
+          .and_raise(Homebrew::Vulns::OSV::ApiError, "503")
+
+        expect { matcher.hits_from({}, identity) }.to raise_error(Homebrew::Vulns::OSV::ApiError, "503")
+      end
+    end
+
     it "scopes a synthesised fallback to the CVE being handled when OSV lacks it" do
       cpan_sec = Homebrew::Vulns::CPANSec.new({ "meta" => {}, "dists" => {
         "Multi" => { "advisories" => [
@@ -1255,7 +1311,7 @@ RSpec.describe Homebrew::Vulns::Match do
     end
 
     def stub_history(versions_newest_first)
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       allow(fv).to receive(:path_absent_at_revision?).and_return(false)
       formulae = []
       revs = versions_newest_first.each_with_index.map { |_, i| ["r#{i}", "Formula/r/requests.rb"] }
@@ -1343,6 +1399,25 @@ RSpec.describe Homebrew::Vulns::Match do
 
         expect(matcher.reconcile_history(requests, hit_fixed_at("2.28.1")))
           .to have_attributes(state: :unresolved, introduced: nil, fixed: nil, reasons: [:history_unavailable])
+      end
+
+      it "holds unreadable history at every position, including a possible reintroduction or never-affected result" do
+        histories = {
+          "before the first affected build"        => ["2.31.0", "2.28.1", "2.28.0", nil, "2.20.0"],
+          "inside the affected span"               => ["2.31.0", "2.28.1", "2.28.0", nil, "2.27.0"],
+          "between the affected and fixed builds"  => ["2.31.0", "2.28.1", nil, "2.28.0", "2.27.0"],
+          "after an apparent fix"                  => ["2.31.0", nil, "2.28.1", "2.28.0", "2.27.0"],
+          "possibly hiding a later reintroduction" => [nil, "2.31.0", "2.28.1", "2.28.0", "2.27.0"],
+          "in apparently never-affected history"   => ["2.31.0", "2.30.0", nil, "2.29.0"],
+        }
+        hit = hit_with_range({ "introduced" => "2.25.0" }, { "fixed" => "2.28.1" })
+        results = histories.transform_values do |versions|
+          stub_history(versions)
+          result = described_class.new(repology:, cpan_sec:).reconcile_history(requests, hit)
+          [result.state, result.introduced, result.fixed, result.reasons.include?(:history_unavailable)]
+        end
+
+        expect(results).to eq histories.transform_values { [:unresolved, nil, nil, true] }
       end
 
       it "rejects a range covering an unaffected gap" do
@@ -1647,7 +1722,7 @@ RSpec.describe Homebrew::Vulns::Match do
     end
 
     def stub_pnpm_history(*formulae)
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       revisions = formulae.each_index.map { |index| ["r#{index}", "Formula/p/pnpm.rb"] }
       allow(fv).to receive(:rev_list) { |_, &block| revisions.each { |revision| block.call(*revision) } }
       formulae.each_with_index do |old, index|
@@ -1765,7 +1840,7 @@ RSpec.describe Homebrew::Vulns::Match do
           url "https://github.com/oldorg/requests/archive/refs/tags/1.0.tar.gz"
         end,
       ]
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       allow(fv).to receive(:rev_list) do |_, &block|
         historical.each_index { |index| block.call("r#{index}", "Formula/r/requests.rb") }
       end
@@ -1895,7 +1970,7 @@ RSpec.describe Homebrew::Vulns::Match do
           url "https://files.pythonhosted.org/packages/11/22/33/certifi-.tar.gz"
         end
       end
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       allow(fv).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
       allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(historical)
       allow(FormulaVersions).to receive(:new).and_return(fv)
@@ -1926,7 +2001,7 @@ RSpec.describe Homebrew::Vulns::Match do
           url "https://example.com/certifi-1.0.tar.gz"
         end
       end
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       allow(fv).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
       allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(historical)
       allow(FormulaVersions).to receive(:new).and_return(fv)
@@ -2063,7 +2138,7 @@ RSpec.describe Homebrew::Vulns::Match do
         T.bind(self, T.class_of(Formula))
         url "https://files.pythonhosted.org/packages/aa/bb/cc/oldpkg-1.0.tar.gz"
       end
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       allow(fv).to receive(:rev_list) { |_, &b| b.call("r0", "Formula/r/requests.rb") }
       allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(previous)
       allow(FormulaVersions).to receive(:new).and_return(fv)
@@ -2084,7 +2159,7 @@ RSpec.describe Homebrew::Vulns::Match do
         T.bind(self, T.class_of(Formula))
         url "https://example.test/downloads/requests-2.30.0.tar.gz"
       end
-      fv = instance_double(FormulaVersions)
+      fv = instance_double(FormulaVersions, load_error: nil)
       allow(fv).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
       allow(fv).to receive(:formula_at_revision).with("r0", anything).and_yield(previous)
       allow(FormulaVersions).to receive(:new).and_return(fv)

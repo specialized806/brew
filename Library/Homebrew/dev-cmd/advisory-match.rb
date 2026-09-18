@@ -240,7 +240,25 @@ module Homebrew
               Homebrew.failed = true
             end
             emitter.finish
+            report_history_load_failures(matcher) if args.reconcile_history?
           end
+        end
+      end
+
+      sig { params(matcher: Homebrew::Vulns::Match).void }
+      def report_history_load_failures(matcher)
+        failures = matcher.history_load_failures
+        return if failures.empty?
+
+        revisions = failures.map { |failure| [failure.formula, failure.revision, failure.path] }.uniq.length
+        formulae = failures.map(&:formula).uniq.length
+        puts "  History loads: #{revisions} failed formula revisions across #{formulae} formulae " \
+             "(#{failures.length} platform loads)"
+        return unless args.verbose?
+
+        failures.each do |failure|
+          puts "    #{failure.formula}: #{failure.revision}:#{failure.path} [#{failure.platform}] " \
+               "#{failure.error_class}: #{failure.message}"
         end
       end
 
