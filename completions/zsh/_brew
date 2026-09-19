@@ -445,7 +445,7 @@ _brew_advisory_match() {
   _arguments \
     '(--formula-list --index --json)--all[Match every formula in `homebrew/core`]' \
     '--debug[Display any debugging information]' \
-    '(--all)--formula-list[Reconcile only the core formula names in a newline-separated file, using bulk queries without live Repology fallbacks]' \
+    '(--all)--formula-list[Match only the core formula names in a newline-separated file with `--new-history` or `--reconcile-history`, using bulk queries]' \
     '--help[Show this message]' \
     '(--reconcile-history --all --json --output)--index[Emit the formula-identity index as JSON and exit]' \
     '(--reconcile-history --all --index)--json[Output candidate records as a JSON array]' \
