@@ -1934,13 +1934,13 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       allow(Homebrew::Vulns::OSV).to receive(:query_batch).and_return([[], []])
     end
 
-    def run_formula_list(contents, *extra_args)
+    def run_formula_list(contents, *extra_args, mode: "--reconcile-history")
       Dir.mktmpdir do |dir|
         list = File.join(dir, "formulae.txt")
         overrides = File.join(dir, "overrides.yml")
         File.write(list, contents)
         File.write(overrides, "{}\n")
-        described_class.new(["--formula-list", list, "--reconcile-history", "--output", dir,
+        described_class.new(["--formula-list", list, mode, "--output", dir,
                              "--overrides", overrides, *extra_args]).run
       end
     end
@@ -1966,13 +1966,48 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       expect { run_formula_list("requests\n", "requests") }.to raise_error(UsageError, /does not take named/)
     end
 
-    it "requires reconciliation mode" do
-      expect { described_class.new(["--formula-list", "/unused"]) }
+    it "requires a history mode" do
+      expect { described_class.new(["--formula-list", "/unused"]).run }
         .to raise_error(UsageError, /--formula-list.*--reconcile-history/)
     end
 
     it "rejects combining a list with --all" do
       expect { run_formula_list("requests\n", "--all") }.to raise_error(UsageError, /mutually exclusive/)
+    end
+
+    context "with --new-history" do
+      it "writes only the selected formula without overrides" do
+        stub_osv_hit("CVE-2024-1234", fixed: "2.28.1")
+        matcher = Homebrew::Vulns::Match.new(bulk: true)
+        allow(matcher).to receive_messages(first_fixed_version: "2.28.1", first_introduced_version: "2.20.0")
+        expect(Homebrew::Vulns::Match).to receive(:new)
+          .with(repology: nil, overrides: nil, bulk: true, strict_upstream: false).and_return(matcher)
+        expect(Formulary).to receive(:factory).with("requests").once.and_return(requests)
+        expect(Formulary).not_to receive(:factory).with("unselected")
+        expect(Homebrew::Vulns::Repology).not_to receive(:lookup)
+
+        Dir.mktmpdir do |dir|
+          list = File.join(dir, "formulae.txt")
+          File.write(list, "requests\nrequests\n")
+          unselected = File.join(dir, "BREW-unselected-CVE-2024-1234.json")
+          original = JSON.generate({
+            "id" => "BREW-unselected-CVE-2024-1234", "upstream" => ["CVE-2024-1234"],
+            "affected" => [{ "package" => { "ecosystem" => "Homebrew", "name" => "unselected" } }]
+          })
+          File.write(unselected, original)
+
+          described_class.new(["--formula-list", list, "--new-history", "--output", dir]).run
+
+          selected = JSON.parse(File.read(File.join(dir, "BREW-requests-CVE-2024-1234.json")))
+          expect([selected.dig("affected", 0, "ranges", 0, "events"), File.read(unselected)])
+            .to eq [[{ "introduced" => "2.20.0" }, { "fixed" => "2.28.1" }], original]
+        end
+      end
+
+      it "does not expand an empty daily list to the whole tap" do
+        expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+        run_formula_list("", mode: "--new-history")
+      end
     end
   end
 

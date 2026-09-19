@@ -49,9 +49,8 @@ module Homebrew
                description: "Reconcile existing matched terminal ranges against complete history; " \
                             "requires `--overrides`."
         flag   "--formula-list=",
-               depends_on:  "--reconcile-history",
-               description: "Reconcile only the core formula names in a newline-separated file, " \
-                            "using bulk queries without live Repology fallbacks."
+               description: "Match only the core formula names in a newline-separated file with " \
+                            "`--new-history` or `--reconcile-history`, using bulk queries."
         conflicts "--formula-list", "--all"
         conflicts "--reconcile-history", "--new-history"
         conflicts "--reconcile-history", "--no-history"
@@ -70,6 +69,9 @@ module Homebrew
 
       sig { override.void }
       def run
+        if args.formula_list && !args.reconcile_history? && !args.new_history?
+          raise UsageError, "`--formula-list` requires `--new-history` or `--reconcile-history`"
+        end
         if args.reconcile_history? && !args.overrides
           raise UsageError, "`--reconcile-history` requires an explicit `--overrides` file"
         end

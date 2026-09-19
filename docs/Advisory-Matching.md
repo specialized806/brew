@@ -69,8 +69,8 @@ Proven absent paths are not load failures; failed Git absence checks remain fail
 Unattributed patches and `inreplace` alone do not block reconciliation.
 This mode cannot be combined with `--new-history`, `--no-history`, `--json` or `--index` and does not enable reconciliation in ordinary ingest runs.
 
-For bounded reconciliation runs, `--formula-list=<file>` selects newline-separated core formula names instead of `--all` or named arguments.
-It retains bulk queries and uses the Repology index without live per-formula fallbacks.
+For bounded daily or reconciliation runs, `--formula-list=<file>` selects newline-separated core formula names instead of `--all` or named arguments.
+It requires `--new-history` or `--reconcile-history`, retains bulk queries and uses the Repology index without live per-formula fallbacks.
 Only listed names still present in core are loaded; removed names are reported and their records remain unchanged.
 An empty list performs no matching, and the unvisited-record summary is scoped to the list.
 The advisory database partitions these lists by formula so each execution shard can be saved and retried independently.
