@@ -1920,8 +1920,11 @@ RSpec.describe FormulaInstaller do
       expect(installer).to receive(:run_fetch) do |staging_path:|
         expect(staging_path).to be_a_directory
       end
-      expect(sandbox).to receive(:deny_all_network)
+      expect(sandbox).to receive(:allow_write_system_temp).ordered
       expect(sandbox).not_to receive(:allow_write_temp_and_cache)
+      expect(sandbox).not_to receive(:allow_write_path).with(HOMEBREW_CACHE)
+      expect(sandbox).to receive(:deny_all_network).ordered
+      expect(sandbox).to receive(:deny_write_temp_cellar).ordered
       expect(sandbox).to receive(:run) do
         staging_path = Pathname(ENV.fetch("HOMEBREW_BUILD_STAGING_PATH"))
         expect(staging_path).to be_a_directory

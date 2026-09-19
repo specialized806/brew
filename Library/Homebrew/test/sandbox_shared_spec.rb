@@ -78,6 +78,7 @@ RSpec.describe Sandbox do
     end
 
     it "gives the child a private writable socket directory and removes it afterwards" do
+      sandbox.allow_write_system_temp
       sandbox.deny_all_network
       expect(sandbox).to receive(:sandbox_command) do |args, tmpdir|
         expect(sandbox.profile.rules.select { |rule| rule.allow && rule.operation == "network*" }

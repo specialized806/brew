@@ -18,13 +18,7 @@ module OS
       def allow_write_system_temp
         allow_write_path "/tmp"
         allow_write_path "/var/tmp"
-        allow_write_path HOMEBREW_TEMP
-      end
-
-      sig { void }
-      def allow_write_temp_and_cache
-        allow_write_system_temp
-        allow_write_path HOMEBREW_CACHE
+        super
       end
 
       sig { void }

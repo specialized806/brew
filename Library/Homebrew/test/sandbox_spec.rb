@@ -29,10 +29,13 @@ RSpec.describe Sandbox, :needs_macos do
 
     it "keeps the per-user system temporary directories writable without the download cache" do
       sandbox.allow_write_system_temp
-      allow_paths = sandbox.profile.rules.select { |rule| rule.operation == "file-write*" }
-                           .map { |rule| rule.filter&.path }
-      expect(allow_paths).to include("^/private/var/folders/[^/]+/[^/]+/[C,T]/")
-      expect(allow_paths).not_to include(HOMEBREW_CACHE.to_s)
+      expect(sandbox.profile.rules.select { |rule| rule.allow && rule.operation == "file-write*" }
+        .map { |rule| [rule.filter&.path, rule.filter&.type] }).to contain_exactly(
+          ["/private/tmp", :subpath],
+          ["/private/var/tmp", :subpath],
+          ["^/private/var/folders/[^/]+/[^/]+/[C,T]/", :regex],
+          [HOMEBREW_TEMP.to_s, :subpath],
+        )
     end
 
     it "restricts macOS services even when network access is allowed" do
@@ -47,6 +50,18 @@ RSpec.describe Sandbox, :needs_macos do
       sandbox.deny_all_network
       sandbox.allow_network path: dir, type: :subpath
       expect(sandbox.seatbelt_profile).not_to include("mDNSResponder")
+    end
+
+    it "keeps offline socket access separate from system temporary writes" do
+      sandbox.allow_write_system_temp
+      sandbox.deny_all_network
+      sandbox.allow_network path: dir, type: :subpath
+
+      expect(sandbox.seatbelt_profile.lines.grep(/\A\((?:allow|deny) network/).map(&:chomp)).to eq([
+        "(deny network-outbound (to unix-socket))",
+        "(deny network*)",
+        "(allow network* network-outbound (subpath \"#{dir}\"))",
+      ])
     end
 
     it "explicitly allows outbound access to a permitted socket" do
