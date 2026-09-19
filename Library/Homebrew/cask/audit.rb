@@ -1237,15 +1237,17 @@ module Cask
     def cask_sparkle_min_os
       return unless online?
       return unless cask.livecheck_defined?
-      return if cask.livecheck.strategy != :sparkle
+      return if (livecheck = cask.livecheck).strategy != :sparkle
+      return unless (livecheck_url = livecheck.url)
 
       # `Sparkle` strategy blocks that use the `items` argument (instead of
       # `item`) contain arbitrary logic that ignores/overrides the strategy's
       # sorting, so we can't identify which item would be first/newest here.
-      return if cask.livecheck.strategy_block.present? &&
-                cask.livecheck.strategy_block.parameters[0] == [:opt, :items]
+      return if livecheck.strategy_block.present? &&
+                livecheck.strategy_block.parameters[0] == [:opt, :items]
 
-      content = Homebrew::Livecheck::Strategy.page_content(cask.livecheck.url)[:content]
+      url = Homebrew::Livecheck.livecheck_url_to_string(livecheck_url, cask)
+      content = Homebrew::Livecheck::Strategy.page_content(url, options: livecheck.options)[:content]
       return if content.blank?
 
       begin
