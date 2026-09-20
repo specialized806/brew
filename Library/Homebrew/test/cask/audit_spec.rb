@@ -13,6 +13,22 @@ RSpec.describe Cask::Audit, :cask do
   let(:strict) { nil }
   let(:signing) { nil }
   let(:fix) { nil }
+  let(:appcast) do
+    <<~XML
+      <?xml version="1.0" encoding="utf-8"?>
+      <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+        <channel>
+          <item>
+            <title>1.0</title>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://brew.sh/sparkle-min-os-1.0.zip"
+                       sparkle:shortVersionString="1.0"
+                       sparkle:version="100"/>
+          </item>
+        </channel>
+      </rss>
+    XML
+  end
   let(:audit) do
     described_class.new(cask, online:,
                               strict:,
@@ -151,6 +167,195 @@ RSpec.describe Cask::Audit, :cask do
       end
 
       it { is_expected.to include("failed") }
+    end
+  end
+
+  describe "#cask_sparkle_min_os" do
+    subject { audit.cask_sparkle_min_os }
+
+    let(:online) { true }
+    let(:cask) do
+      Cask::Cask.new("test-sparkle-livecheck-with-user-agent") do
+        version "1.0"
+        sha256 :no_check
+
+        url "https://brew.sh/test-sparkle-livecheck-with-user-agent.zip"
+        name "Test Sparkle min OS"
+        homepage "https://brew.sh/"
+
+        livecheck do
+          url "https://brew.sh/appcast.xml",
+              user_agent: :browser
+          strategy :sparkle
+        end
+
+        app "Test Sparkle livecheck with User Agent.app"
+      end
+    end
+
+    before do
+      allow(Homebrew::Livecheck::Strategy).to receive(:page_content).and_return({ content: appcast })
+    end
+
+    it { is_expected.to eq(MacOSVersion.from_symbol(:sequoia)) }
+
+    it "passes the `livecheck` block options to `page_content`" do
+      expect(Homebrew::Livecheck::Strategy).to receive(:page_content)
+        .with(
+          "https://brew.sh/appcast.xml",
+          options: an_object_having_attributes(user_agent: :browser),
+        ).and_return({ content: appcast })
+
+      audit.cask_sparkle_min_os
+    end
+
+    context "when not auditing online" do
+      let(:online) { false }
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the cask has no `livecheck` block" do
+      let(:cask) do
+        Cask::Cask.new("test-no-livecheck") do
+          version "1.0"
+          sha256 :no_check
+
+          url "https://brew.sh/test-no-livecheck.zip"
+          name "Test no livecheck"
+          homepage "https://brew.sh/"
+
+          app "Test No livecheck.app"
+        end
+      end
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the `livecheck` block doesn't use the `sparkle` strategy" do
+      let(:cask) do
+        Cask::Cask.new("test-non-sparkle-livecheck") do
+          version "1.0"
+          sha256 :no_check
+
+          url "https://brew.sh/test-non-sparkle-livecheck.zip"
+          name "Test non-Sparkle livecheck block"
+          homepage "https://brew.sh/"
+
+          livecheck do
+            url "https://brew.sh/appcast.xml"
+            regex(/v?(\d+(?:\.\d+)+)/i)
+          end
+
+          app "Test non-Sparkle livecheck.app"
+        end
+      end
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the `livecheck` block has no `url`" do
+      let(:cask) do
+        Cask::Cask.new("test-sparkle-livecheck-with-no-url") do
+          version "1.0"
+          sha256 :no_check
+
+          url "https://brew.sh/test-sparkle-livecheck-with-no-url.zip"
+          name "Test Sparkle livecheck block with no URL"
+          homepage "https://brew.sh/"
+
+          livecheck do
+            strategy :sparkle
+          end
+
+          app "Test Sparkle livecheck with No URL.app"
+        end
+      end
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the `livecheck` block `url` is a symbol" do
+      let(:cask) do
+        Cask::Cask.new("test-sparkle-livecheck-with-symbol-url") do
+          version "1.0"
+          sha256 :no_check
+
+          url "https://brew.sh/test-sparkle-livecheck-with-symbol-url.zip"
+          name "Test Sparkle livecheck block with a symbol URL"
+          homepage "https://brew.sh/"
+
+          livecheck do
+            url :url
+            strategy :sparkle
+          end
+
+          app "Test Sparkle livecheck with Symbol URL.app"
+        end
+      end
+
+      it "resolves the symbol to a URL string" do
+        expect(Homebrew::Livecheck::Strategy).to receive(:page_content)
+          .with(
+            "https://brew.sh/test-sparkle-livecheck-with-symbol-url.zip",
+            options: anything,
+          ).and_return({ content: appcast })
+
+        audit.cask_sparkle_min_os
+      end
+    end
+
+    context "when the `strategy` block uses the `items` argument" do
+      let(:cask) do
+        Cask::Cask.new("test-sparkle-livecheck-with-items") do
+          version "1.0"
+          sha256 :no_check
+
+          url "https://brew.sh/test-sparkle-livecheck-with-items.zip"
+          name "Test Sparkle livecheck block with an items strategy block"
+          homepage "https://brew.sh/"
+
+          livecheck do
+            url "https://brew.sh/appcast.xml"
+            strategy :sparkle do |items|
+              items.map(&:nice_version)
+            end
+          end
+
+          app "Test Sparkle livecheck with Items.app"
+        end
+      end
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the content can't be fetched" do
+      before do
+        allow(Homebrew::Livecheck::Strategy).to receive(:page_content)
+          .and_return({ messages: ["cURL failed without a detectable error"] })
+      end
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the appcast can't be parsed" do
+      let(:appcast) { "<rss><channel><item></channel></rss>" }
+
+      it { is_expected.to be_nil }
+    end
+
+    context "when the appcast has no items" do
+      let(:appcast) do
+        <<~XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+            </channel>
+          </rss>
+        XML
+      end
+
+      it { is_expected.to be_nil }
     end
   end
 
@@ -1674,6 +1879,39 @@ RSpec.describe Cask::Audit, :cask do
       it "normalizes 10.16.0 minimum macOS to Big Sur" do
         expect(audit.normalize_min_os("10.16.0")).to eq(MacOSVersion.from_symbol(:big_sur))
       end
+    end
+
+    describe "minimum OS from a Sparkle appcast" do
+      let(:online) { true }
+      let(:only) { ["min_os"] }
+      let(:cask) do
+        tmp_cask "sparkle-min-os", <<~RUBY
+          cask "sparkle-min-os" do
+            version "1.0"
+            sha256 :no_check
+
+            url "https://brew.sh/sparkle-min-os.zip"
+            name "Sparkle Min OS"
+            homepage "https://brew.sh/"
+
+            livecheck do
+              url "https://brew.sh/appcast.xml"
+              strategy :sparkle
+            end
+
+            depends_on macos: :ventura
+
+            app "Sparkle Min OS.app"
+          end
+        RUBY
+      end
+
+      before do
+        allow(audit).to receive(:cask_bundle_min_os).and_return(nil)
+        allow(Homebrew::Livecheck::Strategy).to receive(:page_content).and_return({ content: appcast })
+      end
+
+      it { is_expected.to error_with(/Upstream defined :sequoia as the minimum macOS version/) }
     end
 
     describe "preferred download URL formats" do

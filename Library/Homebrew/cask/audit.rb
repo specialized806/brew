@@ -273,6 +273,37 @@ module Cask
       nil
     end
 
+    sig { returns(T.nilable(MacOSVersion)) }
+    def cask_sparkle_min_os
+      return unless online?
+      return unless cask.livecheck_defined?
+      return if (livecheck = cask.livecheck).strategy != :sparkle
+      return unless (livecheck_url = livecheck.url)
+
+      # `Sparkle` strategy blocks that use the `items` argument (instead of
+      # `item`) contain arbitrary logic that ignores/overrides the strategy's
+      # sorting, so we can't identify which item would be first/newest here.
+      return if livecheck.strategy_block.present? &&
+                livecheck.strategy_block.parameters[0] == [:opt, :items]
+
+      url = Homebrew::Livecheck.livecheck_url_to_string(livecheck_url, cask)
+      content = Homebrew::Livecheck::Strategy.page_content(url, options: livecheck.options)[:content]
+      return if content.blank?
+
+      begin
+        items = Homebrew::Livecheck::Strategy::Sparkle.sort_items(
+          Homebrew::Livecheck::Strategy::Sparkle.filter_items(
+            Homebrew::Livecheck::Strategy::Sparkle.items_from_content(content),
+          ),
+        )
+      rescue
+        return
+      end
+      return if items.blank?
+
+      normalize_min_os(items.fetch(0).minimum_system_version)
+    end
+
     sig { void }
     def audit_stanza_requires_uninstall
       odebug "Auditing stanzas which require an uninstall"
@@ -1231,35 +1262,6 @@ module Cask
       opoo "Unable to fix #{cask}: #{e.message}"
       sourcefile_path.atomic_write(old_contents) if sourcefile_path && old_contents
       false
-    end
-
-    sig { returns(T.nilable(MacOSVersion)) }
-    def cask_sparkle_min_os
-      return unless online?
-      return unless cask.livecheck_defined?
-      return if cask.livecheck.strategy != :sparkle
-
-      # `Sparkle` strategy blocks that use the `items` argument (instead of
-      # `item`) contain arbitrary logic that ignores/overrides the strategy's
-      # sorting, so we can't identify which item would be first/newest here.
-      return if cask.livecheck.strategy_block.present? &&
-                cask.livecheck.strategy_block.parameters[0] == [:opt, :items]
-
-      content = Homebrew::Livecheck::Strategy.page_content(cask.livecheck.url)[:content]
-      return if content.blank?
-
-      begin
-        items = Homebrew::Livecheck::Strategy::Sparkle.sort_items(
-          Homebrew::Livecheck::Strategy::Sparkle.filter_items(
-            Homebrew::Livecheck::Strategy::Sparkle.items_from_content(content),
-          ),
-        )
-      rescue
-        return
-      end
-      return if items.blank?
-
-      normalize_min_os(items[0]&.minimum_system_version)
     end
 
     sig { returns(T.nilable(MacOSVersion)) }
