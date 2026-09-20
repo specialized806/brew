@@ -399,6 +399,25 @@ RSpec.describe Homebrew::Cmd::UpgradeCmd do
     expect(Homebrew).to have_failed
   end
 
+  it "does not rescan casks when prefetch finds no outdated casks" do
+    cmd = described_class.new(["--cask", "--yes"])
+    download_queue = instance_double(
+      Homebrew::DownloadQueue,
+      fetch:            nil,
+      failed_downloads: [],
+      shutdown:         nil,
+      print_heading:    nil,
+    )
+
+    allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+    expect(Cask::Upgrade).to receive(:outdated_casks).once.and_return([])
+    allow(Homebrew::Cleanup).to receive(:periodic_clean!)
+    allow(Homebrew::Reinstall).to receive(:reinstall_pkgconf_if_needed!)
+    allow(Homebrew.messages).to receive(:display_messages)
+
+    cmd.run
+  end
+
   it "does not ask again when upgrading discovered outdated casks" do
     cmd = described_class.new(["--cask"])
 
