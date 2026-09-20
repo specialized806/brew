@@ -326,7 +326,8 @@ module OS
       sig { returns(String) }
       def self.latest_clang_version
         case MacOS.version
-        when "27", "26" then "2100.3.34.2"
+        when "27" then "2100.3.34.2"
+        when "26" then ::Hardware::CPU.physical_cpu_arm64? ? "2100.3.34.2" : "2100.1.1.101"
         when "15" then "1700.6.4.2"
         when "14" then "1600.0.26.6"
         when "13" then "1500.1.0.2.5"
