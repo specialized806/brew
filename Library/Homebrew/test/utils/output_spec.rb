@@ -286,6 +286,35 @@ RSpec.describe Utils::Output do
   end
 
   describe "#odeprecated" do
+    it "annotates deprecations that are not ignored" do
+      ENV["GITHUB_ACTIONS"] = "true"
+      ENV.delete("HOMEBREW_TESTS")
+
+      expect do
+        described_class.odeprecated("method", "replacement", caller: ["formula.rb:12"])
+      end.to output(
+        /\A::error(?: [^\r\n]*)?::Calling method is deprecated! Use replacement instead\.\n\z/,
+      ).to_stderr.and raise_error(MethodDeprecatedError, "Calling method is deprecated! Use replacement instead.")
+    end
+
+    it "preserves the backtrace without consulting a rejecting handler twice" do
+      require "ignorable"
+
+      errors = []
+      raised = nil
+      begin
+        Ignorable.hook_raise(on_ignorable: lambda { |error|
+          errors << error
+          :raise
+        }) do
+          described_class.odeprecated("method", "replacement", caller: ["formula.rb:12"])
+        end
+      rescue MethodDeprecatedError => e
+        raised = e
+      end
+      expect([raised&.backtrace, errors]).to match [["formula.rb:12"], [equal(raised)]]
+    end
+
     it "raises a MethodDeprecatedError when `disable` is true" do
       ENV.delete("HOMEBREW_DEVELOPER")
       expect do

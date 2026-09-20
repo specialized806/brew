@@ -69,6 +69,36 @@ RSpec.describe FormulaVersions do
     expect(result).to eq [FormulaVersions::LegacyBottleSpecification, "true", "1.0", digest, :any_skip_relocation]
   end
 
+  it "loads deprecated install steps without emitting annotations or losing historical metadata" do
+    ENV["GITHUB_ACTIONS"] = "true"
+    ENV.delete("HOMEBREW_TESTS")
+    current = formula("legacy-install-steps") do
+      T.bind(self, T.class_of(Formula))
+      url "https://brew.sh/legacy-install-steps-2.0.tar.gz"
+    end
+    versions = described_class.new(current)
+    allow(versions).to receive(:file_contents_at_revision).and_return(<<~RUBY)
+      class LegacyInstallSteps < Formula
+        url "https://brew.sh/legacy-install-steps-1.0.tar.gz"
+        post_install_steps do
+          gtk_update_icon_cache
+        end
+        revision 2
+        resource "helper" do
+          url "https://brew.sh/helper-1.2.tar.gz"
+        end
+      end
+    RUBY
+    result = []
+
+    expect do
+      versions.formula_at_revision("abc123") do |historical|
+        result = [historical.pkg_version.to_s, historical.resource("helper")&.version&.to_s]
+      end
+    end.not_to output.to_stderr
+    expect(result).to eq ["1.0_2", "1.2"]
+  end
+
   it "ignores the removed devel spec while preserving the stable historical build" do
     current = formula("legacy-devel") do
       T.bind(self, T.class_of(Formula))
