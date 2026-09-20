@@ -19,27 +19,35 @@ module Cask
 
       sig {
         params(
-          force:     T::Boolean,
-          adopt:     T::Boolean,
-          overwrite: T::Boolean,
-          dry_run:   T::Boolean,
-          command:   T.class_of(SystemCommand),
-          options:   T.anything,
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          overwrite:    T::Boolean,
+          dry_run:      T::Boolean,
+          command:      T.class_of(SystemCommand),
         ).void
       }
-      def install_phase(force: false, adopt: false, overwrite: false, dry_run: false, command: SystemCommand,
-                        **options)
-        link(force:, adopt:, overwrite:, dry_run:, command:, **options)
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        overwrite: false, dry_run: false, command: SystemCommand)
+        link(force:, adopt:, overwrite:, dry_run:, command:)
       end
 
       sig {
         params(
-          dry_run:  T::Boolean,
-          command:  T.class_of(SystemCommand),
-          _options: T.anything,
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          dry_run:   T::Boolean,
+          command:   T.class_of(SystemCommand),
         ).void
       }
-      def uninstall_phase(dry_run: false, command: SystemCommand, **_options)
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, dry_run: false, command: SystemCommand)
         unlink(dry_run:, command:)
       end
 
@@ -95,10 +103,9 @@ module Cask
           overwrite: T::Boolean,
           dry_run:   T::Boolean,
           command:   T.class_of(SystemCommand),
-          _options:  T.anything,
         ).void
       }
-      def link(force: false, adopt: false, overwrite: false, dry_run: false, command: SystemCommand, **_options)
+      def link(force: false, adopt: false, overwrite: false, dry_run: false, command: SystemCommand)
         if !dry_run && !source.exist?
           raise CaskError,
                 "It seems the #{self.class.link_type_english_name.downcase} " \

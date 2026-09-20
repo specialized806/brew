@@ -7,9 +7,15 @@ module Cask
   module Artifact
     # Artifact corresponding to the `zap` stanza.
     class Zap < AbstractUninstall
-      sig { params(options: T.anything).void }
-      def zap_phase(**options)
-        dispatch_uninstall_directives(**options)
+      sig {
+        params(
+          command: T.class_of(SystemCommand),
+          force:   T::Boolean,
+          verbose: T::Boolean,
+        ).void
+      }
+      def zap_phase(command:, force: false, verbose: false)
+        dispatch_uninstall_directives(command:, force:)
       end
     end
   end

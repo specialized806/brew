@@ -28,13 +28,11 @@ module Homebrew
 
       sig { override.void }
       def run
-        options = { dry_run: args.dry_run?, verbose: args.verbose? }
-
         kegs, casks = args.named.to_kegs_to_casks
         kegs.each do |keg|
           if args.dry_run?
             puts "Would remove:"
-            keg.unlink(**options)
+            keg.unlink(dry_run: args.dry_run?, verbose: args.verbose?)
             next
           end
 
@@ -46,7 +44,7 @@ module Homebrew
 
           puts "Would remove:" if args.dry_run?
           cask.artifacts.grep(Cask::Artifact::Symlinked).select(&:target_links_to_source?).each do |artifact|
-            artifact.uninstall_phase(**options)
+            artifact.uninstall_phase(dry_run: args.dry_run?, verbose: args.verbose?)
           end
         end
       end

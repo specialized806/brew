@@ -14,10 +14,9 @@ module Cask
           overwrite: T::Boolean,
           dry_run:   T::Boolean,
           command:   T.class_of(SystemCommand),
-          _options:  T.anything,
         ).void
       }
-      def link(force: false, adopt: false, overwrite: false, dry_run: false, command: SystemCommand, **_options)
+      def link(force: false, adopt: false, overwrite: false, dry_run: false, command: SystemCommand)
         super
         return if dry_run || source.executable?
 

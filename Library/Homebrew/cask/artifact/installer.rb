@@ -15,8 +15,18 @@ module Cask
         :script,
       ]).freeze, T::Set[Symbol])
 
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def install_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          command:      T.class_of(SystemCommand),
+        ).void
+      }
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        command: SystemCommand)
         if manual_install
           puts <<~EOS
             Cask #{cask} only provides a manual installer. To run it and complete the installation:
@@ -37,7 +47,9 @@ module Cask
         end
       end
 
-      sig { params(cask: Cask, args: T.untyped).returns(T.attached_class) }
+      # The stanza arguments are validated below rather than typed as keywords so
+      # that an unknown key names itself in the error.
+      sig { params(cask: Cask, args: DirectivesType).returns(T.attached_class) }
       def self.from_args(cask, **args)
         raise CaskInvalidError.new(cask, "'installer' stanza requires an argument.") if args.empty?
 
@@ -74,12 +86,17 @@ module Cask
       sig { override.returns(T::Boolean) }
       def requires_sudo? = args[:sudo] == true
 
-      sig { params(cask: Cask, args: T.untyped).void }
+      sig { params(cask: Cask, args: DirectivesType).void }
       def initialize(cask, **args)
         super
 
         if args.key?(:manual)
-          @path = T.let(Pathname(args[:manual]), Pathname)
+          manual = args[:manual]
+          if !manual.is_a?(String) && !manual.is_a?(Pathname)
+            raise CaskInvalidError.new(cask, "#{self.class.dsl_key} requires a path for :manual")
+          end
+
+          @path = T.let(Pathname(manual), Pathname)
           @args = T.let({}, T::Hash[Symbol, T.untyped])
           @manual_install = T.let(true, T::Boolean)
         else

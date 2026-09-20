@@ -40,12 +40,6 @@ module Homebrew
 
       sig { override.void }
       def run
-        options = {
-          overwrite: args.overwrite?,
-          dry_run:   args.dry_run?,
-          verbose:   args.verbose?,
-        }
-
         kegs, casks = if args.HEAD?
           args.named.to_kegs_to_casks(only: :formula, method: :kegs)
         else
@@ -95,7 +89,7 @@ module Homebrew
             else
               puts "Would link:"
             end
-            keg.link(**options)
+            keg.link(overwrite: args.overwrite?, dry_run: args.dry_run?, verbose: args.verbose?)
             puts_keg_only_path_message(keg) if keg_only && !versioned_keg_only_formula
             next
           end
@@ -125,7 +119,7 @@ module Homebrew
             puts if args.verbose?
 
             begin
-              n = keg.link(**options)
+              n = keg.link(overwrite: args.overwrite?, dry_run: args.dry_run?, verbose: args.verbose?)
             rescue Keg::LinkError
               puts
               raise
@@ -155,7 +149,10 @@ module Homebrew
           end
 
           puts(args.overwrite? ? "Would remove:" : "Would link:") if args.dry_run?
-          artifacts.each { |artifact| artifact.install_phase(force: args.force?, **options) }
+          artifacts.each do |artifact|
+            artifact.install_phase(force: args.force?, overwrite: args.overwrite?, dry_run: args.dry_run?,
+                                   verbose: args.verbose?)
+          end
         end
       end
 

@@ -89,8 +89,18 @@ module Cask
         "#{commands.join(" ")} (base_name: #{resolved_base_name}, shells: #{shells.join(", ")})"
       end
 
-      sig { params(_options: T.untyped).void }
-      def install_phase(**_options)
+      sig {
+        params(
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          command:      T.class_of(SystemCommand),
+        ).void
+      }
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        command: SystemCommand)
         executable = staged_path_join_executable(commands.fetch(0))
         completion_commands = [executable, *commands[1..]]
         completions = shells.map do |shell|
@@ -122,8 +132,19 @@ module Cask
         completions.each { |completion| write_completion(completion, executable) }
       end
 
-      sig { params(command: T.class_of(SystemCommand), _options: T.untyped).void }
-      def uninstall_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+        ).void
+      }
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand)
         shells.each do |shell|
           path = completion_script_path(shell)
           next unless path.exist?
