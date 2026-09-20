@@ -148,15 +148,15 @@ module Utils
     def set_variable_in_profile(variable, value)
       case preferred
       when :bash, :ksh, :mksh, :sh, :zsh, nil
-        "echo 'export #{variable}=#{sh_quote(value)}' >> #{profile}"
+        "echo #{sh_single_quote("export #{variable}=#{sh_quote(value)}")} >> #{profile}"
       when :pwsh
         "#{pwsh_quote("$env:#{variable} = #{pwsh_quote(value)}")} >> #{profile}"
       when :rc
-        "echo '#{variable}=(#{sh_quote(value)})' >> #{profile}"
+        "echo #{sh_single_quote("#{variable}=(#{sh_quote(value)})")} >> #{profile}"
       when :csh, :tcsh
-        "echo 'setenv #{variable} #{csh_quote(value)}' >> #{profile}"
+        "echo #{sh_single_quote("setenv #{variable} #{csh_quote(value)}")} >> #{profile}"
       when :fish
-        "echo 'set -gx #{variable} #{sh_quote(value)}' >> #{profile}"
+        "echo #{sh_single_quote("set -gx #{variable} #{sh_quote(value)}")} >> #{profile}"
       end
     end
 
@@ -164,13 +164,13 @@ module Utils
     def prepend_path_in_profile(path)
       case preferred
       when :bash, :ksh, :mksh, :sh, :zsh, nil
-        "echo 'export PATH=#{sh_quote(path)}:$PATH' >> #{profile}"
+        "echo #{sh_single_quote("export PATH=#{sh_quote(path)}:$PATH")} >> #{profile}"
       when :pwsh
         "#{pwsh_quote("$env:PATH = #{pwsh_quote(path)} + \":$env:PATH\"")} >> #{profile}"
       when :rc
-        "echo 'path=(#{sh_quote(path)} $path)' >> #{profile}"
+        "echo #{sh_single_quote("path=(#{sh_quote(path)} $path)")} >> #{profile}"
       when :csh, :tcsh
-        "echo 'setenv PATH #{csh_quote(path)}:$PATH' >> #{profile}"
+        "echo #{sh_single_quote("setenv PATH #{csh_quote(path)}:$PATH")} >> #{profile}"
       when :fish
         "fish_add_path #{sh_quote(path)}"
       end
@@ -206,6 +206,14 @@ module Utils
       # Newlines have to be specially quoted in `csh`.
       str.gsub!("\n", "'\\\n'")
       str
+    end
+
+    # A single-quoted string ends at the first `'`, so an embedded one has to
+    # close the string, escape the quote and reopen it. Nothing else is special
+    # inside single quotes, so one pass is enough.
+    sig { params(str: String).returns(String) }
+    def sh_single_quote(str)
+      "'#{str.gsub("'", "'\\\\''")}'"
     end
 
     # PowerShell single-quoted strings take a literal `'` as `''` and expand
