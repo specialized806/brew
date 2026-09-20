@@ -823,7 +823,7 @@ module Homebrew
           greedy_latest:       args.greedy_latest?,
           greedy_auto_updates: args.greedy_auto_updates?,
         )
-        return false if outdated_casks.empty?
+        return true if outdated_casks.empty?
 
         manual_installer_casks = outdated_casks.select do |cask|
           cask.artifacts.any? do |artifact|
@@ -891,8 +891,8 @@ module Homebrew
         casks = minimum_version_casks(casks, quiet:)
         return false if minimum_version.present? && casks.empty?
 
-        if skip_prefetch && casks.empty? && prefetched_cask_errors.present?
-          prefetched_cask_errors.each { |error| ofail error }
+        if skip_prefetch && casks.empty?
+          prefetched_cask_errors&.each { |error| ofail error }
           return false
         end
 
