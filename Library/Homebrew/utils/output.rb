@@ -223,11 +223,16 @@ module Utils
 
         disable = true if disable_for_developers && Homebrew::EnvConfig.developer?
         if disable || Homebrew.raise_deprecation_exceptions?
-          require "utils/github/actions"
-          GitHub::Actions.puts_annotation_if_env_set!(:error, message, file:, line:)
           exception = MethodDeprecatedError.new(message)
           exception.set_backtrace(backtrace)
-          raise exception
+          begin
+            raise exception
+          rescue MethodDeprecatedError
+            require "utils/github/actions"
+            GitHub::Actions.puts_annotation_if_env_set!(:error, message, file:, line:)
+            # Do not offer an already-rejected exception to Ignorable again.
+            Kernel.raise
+          end
         elsif !Homebrew.auditing?
           opoo message
         end
