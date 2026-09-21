@@ -24,7 +24,7 @@ module Homebrew
       return unless built_on_os_version
 
       built_on_major = begin
-        Version.parse(built_on_os_version).major.to_s
+        Version.parse(built_on_os_version).major.to_s.presence
       rescue
         nil
       end
