@@ -178,6 +178,7 @@ class Keg
       share/man/man1 share/man/man2 share/man/man3 share/man/man4
       share/man/man5 share/man/man6 share/man/man7 share/man/man8
       share/cps share/zsh share/zsh/site-functions
+      share/fish share/fish/vendor_completions.d share/fish/vendor_functions.d
       share/pwsh share/pwsh/completions
       var/log
     ].map { |dir| HOMEBREW_PREFIX/dir } + must_exist_subdirectories + [

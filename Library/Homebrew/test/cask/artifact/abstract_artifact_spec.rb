@@ -118,7 +118,7 @@ RSpec.describe Cask::Artifact::AbstractArtifact, :cask do
       expect(sort_order.fetch(Cask::Artifact::AppImage)).to eq(sort_order.fetch(Cask::Artifact::App))
       expect(sort_order.fetch(Cask::Artifact::GeneratedCompletion))
         .to be_between(
-          sort_order.fetch(Cask::Artifact::ZshCompletion),
+          sort_order.fetch(Cask::Artifact::PwshCompletion),
           sort_order.fetch(Cask::Artifact::PostflightSteps),
         ).exclusive
     end

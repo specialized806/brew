@@ -3300,7 +3300,7 @@ RSpec.describe Formula do
 
           FileUtils.chmod "+x", bin/"foo"
 
-          generate_completions_from_executable(bin/"foo", "test")
+          generate_completions_from_executable(bin/"foo", "test", shells: [:bash, :zsh, :fish, :pwsh])
         end
       end.new
     end
@@ -3310,6 +3310,7 @@ RSpec.describe Formula do
       expect(f.bash_completion/"foo").to be_a_file
       expect(f.zsh_completion/"_foo").to be_a_file
       expect(f.fish_completion/"foo.fish").to be_a_file
+      expect(f.pwsh_completion/"_foo.ps1").to be_a_file
     end
   end
 

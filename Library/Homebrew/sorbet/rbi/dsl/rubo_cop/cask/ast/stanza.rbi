@@ -169,6 +169,9 @@ class RuboCop::Cask::AST::Stanza
   def prefpane?; end
 
   sig { returns(T::Boolean) }
+  def pwsh_completion?; end
+
+  sig { returns(T::Boolean) }
   def qlplugin?; end
 
   sig { returns(T::Boolean) }

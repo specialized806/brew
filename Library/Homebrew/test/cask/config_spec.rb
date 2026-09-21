@@ -20,6 +20,7 @@ RSpec.describe Cask::Config, :cask do
         :@bash_completion,
         :@zsh_completion,
         :@fish_completion,
+        :@pwsh_completion,
       ]))
     end
   end

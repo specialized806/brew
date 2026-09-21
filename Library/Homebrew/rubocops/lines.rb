@@ -722,7 +722,10 @@ module RuboCop
             # generate_completions_from_executable only applicable if shell is passed
             next unless shell_parameter.match?(/(bash|zsh|fish|pwsh)/)
 
-            base_name = base_name.delete_prefix("_").delete_suffix(".fish")
+            base_name = base_name
+                        .delete_prefix("_")
+                        .delete_suffix(".fish")
+                        .delete_suffix(".ps1")
             shell = shell.to_s.delete_suffix("_completion").to_sym
             shell_parameter_stripped = shell_parameter
                                        .delete_suffix("bash")
@@ -765,13 +768,13 @@ module RuboCop
           end
         end
 
-        # match ({bash,zsh,fish}_completion/"_?foo{.fish}?").write
+        # match ({bash,zsh,fish,pwsh}_completion/"_?foo{.fish,.ps1}?").write
         # Utils.safe_popen_read(foo, subcommand, shell_parameter)
         def_node_search :correctable_shell_completion_node, <<~EOS
           $(send
           (begin
             (send
-              (send nil? ${:bash_completion :zsh_completion :fish_completion}) :/
+              (send nil? ${:bash_completion :zsh_completion :fish_completion :pwsh_completion}) :/
               (str $_))) :write
           (send
             (const nil? :Utils) :safe_popen_read

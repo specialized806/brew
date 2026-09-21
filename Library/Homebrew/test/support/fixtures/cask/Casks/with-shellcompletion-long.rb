@@ -8,6 +8,7 @@ cask "with-shellcompletion-long" do
   homepage "https://brew.sh/with-autodetected-manpage-section"
 
   bash_completion "test.bash-completion"
-  fish_completion "test.fish-completion"
   zsh_completion "test.zsh-completion"
+  fish_completion "test.fish-completion"
+  pwsh_completion "test.pwsh-completion"
 end

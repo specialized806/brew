@@ -128,6 +128,7 @@ module Cask
       @bash_completion = T.let(nil, T.nilable(Pathname))
       @zsh_completion = T.let(nil, T.nilable(Pathname))
       @fish_completion = T.let(nil, T.nilable(Pathname))
+      @pwsh_completion = T.let(nil, T.nilable(Pathname))
 
       if ignore_invalid_keys &&
          (unknown_keys = ((Array(@env&.keys) + @explicit.keys).uniq - self.class.defaults.keys).presence)
@@ -191,6 +192,11 @@ module Cask
     sig { returns(Pathname) }
     def fish_completion
       @fish_completion ||= HOMEBREW_PREFIX/"share/fish/vendor_completions.d"
+    end
+
+    sig { returns(Pathname) }
+    def pwsh_completion
+      @pwsh_completion ||= HOMEBREW_PREFIX/"share/pwsh/completions"
     end
 
     sig { returns(T::Array[String]) }
