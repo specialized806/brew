@@ -645,7 +645,7 @@ module Utils
       else
         {}
       end
-      etag_header = last_header_value(headers["etag"])
+      etag_header = Array(headers["etag"]).last
       etag = etag_header[ETAG_VALUE_REGEX, 1] if etag_header.present?
       content_length = headers["content-length"]
 
@@ -657,7 +657,7 @@ module Utils
         max_read_size = 100 * 1024 * 1024
         if File.size(file_path) <= max_read_size
           open_args = {}
-          content_type = last_header_value(headers["content-type"])
+          content_type = Array(headers["content-type"]).last
 
           # Try to get encoding from Content-Type header
           # TODO: add guessing encoding by <meta http-equiv="Content-Type" ...> tag
@@ -759,14 +759,6 @@ module Utils
       { responses:, body: output }
     end
 
-    # `parse_curl_response` collects a repeated header into an array, which is
-    # correct for `Set-Cookie` but not for a header that can only have one
-    # meaningful value.
-    sig { params(value: T.untyped).returns(T.nilable(String)) }
-    def last_header_value(value)
-      value.is_a?(Array) ? value.last : value
-    end
-
     # Returns the URL from the last location header found in cURL responses,
     # if any.
     # @param responses [Array<Hash>] An array of hashes containing response
@@ -787,7 +779,7 @@ module Utils
       responses.reverse_each do |response|
         next if response[:headers].blank?
 
-        location = last_header_value(response[:headers]["location"])
+        location = Array(response[:headers]["location"]).last
         next if location.blank?
 
         absolute_url = URI.join(base_url, location).to_s if absolutize && base_url.present?
@@ -812,7 +804,7 @@ module Utils
       responses.each do |response|
         next if response[:headers].blank?
 
-        location = last_header_value(response[:headers]["location"])
+        location = Array(response[:headers]["location"]).last
         next if location.blank?
 
         base_url = URI.join(base_url, location).to_s
