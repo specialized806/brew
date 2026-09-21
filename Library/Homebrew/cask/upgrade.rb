@@ -356,7 +356,8 @@ module Cask
                                                               bundle_ids.count)} closed during upgrade:"
       bundle_ids.each do |bundle_id|
         puts bundle_id
-        system("open", "-b", bundle_id)
+        # Let Launch Services supply the user's environment.
+        system("open", "-b", bundle_id, unsetenv_others: true)
       end
     end
     private_class_method :reopen_apps_after_upgrade
