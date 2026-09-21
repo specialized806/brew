@@ -645,7 +645,8 @@ module Utils
       else
         {}
       end
-      etag = headers["etag"][ETAG_VALUE_REGEX, 1] if headers["etag"].present?
+      etag_header = last_header_value(headers["etag"])
+      etag = etag_header[ETAG_VALUE_REGEX, 1] if etag_header.present?
       content_length = headers["content-length"]
 
       if !head_only && status.success? && (file_path = file.path)
@@ -656,11 +657,7 @@ module Utils
         max_read_size = 100 * 1024 * 1024
         if File.size(file_path) <= max_read_size
           open_args = {}
-          content_type = headers["content-type"]
-
-          # Use the last `Content-Type` header if there is more than one instance
-          # in the response
-          content_type = content_type.last if content_type.is_a?(Array)
+          content_type = last_header_value(headers["content-type"])
 
           # Try to get encoding from Content-Type header
           # TODO: add guessing encoding by <meta http-equiv="Content-Type" ...> tag
@@ -762,6 +759,14 @@ module Utils
       { responses:, body: output }
     end
 
+    # `parse_curl_response` collects a repeated header into an array, which is
+    # correct for `Set-Cookie` but not for a header that can only have one
+    # meaningful value.
+    sig { params(value: T.untyped).returns(T.nilable(String)) }
+    def last_header_value(value)
+      value.is_a?(Array) ? value.last : value
+    end
+
     # Returns the URL from the last location header found in cURL responses,
     # if any.
     # @param responses [Array<Hash>] An array of hashes containing response
@@ -782,7 +787,7 @@ module Utils
       responses.reverse_each do |response|
         next if response[:headers].blank?
 
-        location = response[:headers]["location"]
+        location = last_header_value(response[:headers]["location"])
         next if location.blank?
 
         absolute_url = URI.join(base_url, location).to_s if absolutize && base_url.present?
@@ -807,7 +812,7 @@ module Utils
       responses.each do |response|
         next if response[:headers].blank?
 
-        location = response[:headers]["location"]
+        location = last_header_value(response[:headers]["location"])
         next if location.blank?
 
         base_url = URI.join(base_url, location).to_s

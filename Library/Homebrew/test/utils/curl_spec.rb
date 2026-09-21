@@ -687,6 +687,23 @@ RSpec.describe "Utils::Curl" do
     it "downloads the body when `head_only` is not set" do
       expect(curl_args_for(head_only: false)).to include("--output")
     end
+
+    it "uses the last value of a header that was sent more than once" do
+      output = "HTTP/1.1 301 Moved Permanently\r\n" \
+               "Location: https://brew.sh/a\r\n" \
+               "Location: https://brew.sh/b\r\n" \
+               "\r\n" \
+               "HTTP/1.1 200 OK\r\n" \
+               "ETag: \"aaa\"\r\n" \
+               "ETag: \"bbb\"\r\n" \
+               "\r\n"
+      allow(self).to receive(:curl_output)
+        .and_return([output, "", instance_double(Process::Status, success?: false, exitstatus: 0)])
+
+      response = curl_http_content_headers_and_checksum("https://brew.sh/", head_only: true)
+      expect(response[:etag]).to eq("bbb")
+      expect(response[:final_url]).to eq("https://brew.sh/b")
+    end
   end
 
   describe "::curl_check_http_content" do
@@ -932,6 +949,19 @@ RSpec.describe "Utils::Curl" do
     it "returns nil when the response hash doesn't contain a location header" do
       expect(curl_response_last_location([response_hash[:ok]])).to be_nil
     end
+
+    it "uses the last location when the header was sent more than once" do
+      duplicated = {
+        status_code: "301",
+        headers:     { "location" => ["https://brew.sh/a", "/b"] },
+      }
+
+      expect(curl_response_last_location([duplicated, response_hash[:ok]])).to eq("/b")
+      expect(
+        curl_response_last_location([duplicated, response_hash[:ok]], absolutize: true,
+                                                                      base_url:   "https://brew.sh/test"),
+      ).to eq("https://brew.sh/b")
+    end
   end
 
   describe "::curl_response_follow_redirections" do
@@ -942,6 +972,15 @@ RSpec.describe "Utils::Curl" do
           "https://brew.sh/test1/test2",
         ),
       ).to eq("https://brew.sh/test1/test2")
+    end
+
+    it "uses the last location when the header was sent more than once" do
+      expect(
+        curl_response_follow_redirections(
+          [{ status_code: "301", headers: { "location" => ["/a", "/b"] } }, response_hash[:ok]],
+          "https://brew.sh/test1/test2",
+        ),
+      ).to eq("https://brew.sh/b")
     end
 
     it "returns the URL relative to base when locations are relative" do
