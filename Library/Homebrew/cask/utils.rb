@@ -1,6 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "on_system"
 require "utils/user"
 require "open3"
 require "utils/output"
@@ -15,10 +16,10 @@ module Cask
 
     sig { params(access: String).returns(String) }
     def self.privacy_security_preference_pane(access)
-      navigation_path = if MacOS.version >= :ventura
-        "System Settings → Privacy & Security"
-      else
+      navigation_path = if OnSystem.os_condition_met?(:monterey, :or_older)
         "System Preferences → Security & Privacy → Privacy"
+      else
+        "System Settings → Privacy & Security"
       end
 
       "#{navigation_path} → #{access}"
