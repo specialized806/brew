@@ -62,7 +62,7 @@ module Utils
         args = Utils::Curl.curl_args(*args, "--silent", "--output", File::NULL, show_error: false)
         if ENV["HOMEBREW_ANALYTICS_DEBUG"]
           puts "#{curl} #{args.join(" ")} \"#{url}\""
-          puts Utils.popen_read(curl, *args, url)
+          puts Utils.safe_popen_read(curl, *args, url)
         else
           pid = spawn curl, *args, url, out: File::NULL, err: File::NULL
           Process.detach(pid)
