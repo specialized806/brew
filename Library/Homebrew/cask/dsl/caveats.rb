@@ -92,7 +92,7 @@ module Cask
       end
 
       caveat :kext do
-        next if MacOS.version < :sonoma
+        next unless OnSystem.os_condition_met?(:sonoma, :or_newer)
 
         <<~EOS
           #{cask} requires a kernel extension to work.
@@ -105,6 +105,8 @@ module Cask
       end
 
       caveat :unsigned_accessibility do |access = "Accessibility"|
+        next unless OnSystem.os_condition_met?(:macos)
+
         # access: the category in the privacy settings the app requires.
         access = "Accessibility" if access.nil?
 
@@ -165,6 +167,7 @@ module Cask
       end
 
       caveat :requires_rosetta do
+        next unless OnSystem.os_condition_met?(:macos)
         next if Homebrew::SimulateSystem.current_arch != :arm
         next if Hardware::CPU.rosetta_installed?
 

@@ -125,6 +125,17 @@ RSpec.describe Cask::DSL::Caveats, :cask do
       expect(caveats.to_s).to eq(expected_caveats_str)
     end
 
+    it "does not return kext caveat text on Linux" do
+      Homebrew::SimulateSystem.with(os: :linux) do
+        caveats.eval_caveats do
+          T.bind(self, Cask::DSL::Caveats)
+          kext
+        end
+      end
+
+      expect(caveats.to_s).to be_empty
+    end
+
     it "does not return kext caveat text on macOS Ventura and earlier" do
       allow(MacOS).to receive(:version).and_return(MacOSVersion.from_symbol(:ventura))
       caveats.eval_caveats do
@@ -173,6 +184,37 @@ RSpec.describe Cask::DSL::Caveats, :cask do
       end
 
       expect(caveats.to_s).to eq(expected_caveats_str)
+    end
+
+    it "returns text using default `access` value when the argument is `nil`" do
+      expected_caveats_str = <<~EOS
+        #{cask} is not signed and requires Accessibility access,
+        so you will need to re-grant Accessibility access every time the app is updated.
+
+        Enable or re-enable it in:
+          System Settings → Privacy & Security → Accessibility
+        To re-enable, untick and retick #{cask}.app.
+      EOS
+
+      Homebrew::SimulateSystem.with(os: :ventura) do
+        caveats.eval_caveats do
+          T.bind(self, Cask::DSL::Caveats)
+          unsigned_accessibility nil
+        end
+      end
+
+      expect(caveats.to_s).to eq(expected_caveats_str)
+    end
+
+    it "does not return unsigned_accessibility caveat text on Linux" do
+      Homebrew::SimulateSystem.with(os: :linux) do
+        caveats.eval_caveats do
+          T.bind(self, Cask::DSL::Caveats)
+          unsigned_accessibility
+        end
+      end
+
+      expect(caveats.to_s).to be_empty
     end
   end
 
@@ -332,6 +374,19 @@ RSpec.describe Cask::DSL::Caveats, :cask do
       caveats.eval_caveats do
         T.bind(self, Cask::DSL::Caveats)
         requires_rosetta
+      end
+
+      expect(caveats.to_s).to be_empty
+    end
+
+    it "does not return a caveat string on Linux" do
+      allow(Hardware::CPU).to receive(:rosetta_installed?).and_return(false)
+
+      Homebrew::SimulateSystem.with(os: :linux, arch: :arm) do
+        caveats.eval_caveats do
+          T.bind(self, Cask::DSL::Caveats)
+          requires_rosetta
+        end
       end
 
       expect(caveats.to_s).to be_empty
