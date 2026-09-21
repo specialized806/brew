@@ -100,6 +100,11 @@ module Homebrew
         when ".yml"
           actionlint_files << path if path.realpath.to_s.include?("/.github/workflows/")
         else
+          if shell_scripts.include?(path)
+            shell_files << path
+            next
+          end
+
           ruby_files << path
           shell_files += if [HOMEBREW_PREFIX, HOMEBREW_REPOSITORY].include?(path)
             shell_scripts

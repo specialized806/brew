@@ -51,6 +51,34 @@ RSpec.describe Homebrew::Style do
     end
   end
 
+  describe "extensionless shell scripts" do
+    let(:repository) { mktmpdir }
+    let(:script) { repository/"package/scripts/postinstall" }
+
+    before do
+      stub_const("HOMEBREW_REPOSITORY", repository)
+      script.dirname.mkpath
+      script.write "#!/bin/bash\n"
+      allow(described_class).to receive_messages(shellcheck: Pathname("shellcheck"),
+                                                 shfmt_executable: Pathname("shfmt"),
+                                                 run_rubocop: true, run_shellcheck: true, run_shfmt!: true)
+    end
+
+    it "includes package scripts in whole-repository shell checks" do
+      expect(described_class.shell_scripts).to include(script)
+    end
+
+    test_each([:run_shellcheck, :run_shfmt!]) do |linter|
+      it "reports failures from #{linter} when a package script is named explicitly" do
+        ENV["GITHUB_ACTIONS"] = "true"
+        allow(described_class).to receive(linter).with([script], any_args).and_return(false)
+        allow(described_class).to receive(:run_shellcheck).with([script], :json, any_args).and_return([])
+
+        expect(described_class.check_style_and_print([script])).to be false
+      end
+    end
+  end
+
   describe ".run_actionlint!" do
     let(:actionlint_result) do
       instance_double(SystemCommand::Result, success?: true, stdout: "", stderr: "")

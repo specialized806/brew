@@ -91,9 +91,10 @@ module Homebrew
         odie "`brew style --changed` must be run inside a git repository!" unless $CHILD_STATUS.success?
 
         Utils::Git.changed_files(repository).filter_map do |file|
-          next if !file.end_with?(".rb", ".sh", ".yml", ".rbi") && file != "bin/brew"
+          path = Pathname(file).expand_path(repository)
+          next if !file.end_with?(".rb", ".sh", ".yml", ".rbi") && Style.shell_scripts.exclude?(path)
 
-          Pathname(file).expand_path(repository)
+          path
         end.select(&:exist?)
       end
     end
