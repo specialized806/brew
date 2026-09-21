@@ -3634,6 +3634,16 @@ RSpec.describe Formula do
     end
   end
 
+  describe "#std_cargo_fetch_args" do
+    it "returns the standard dependency fetch arguments" do
+      f = formula do
+        T.bind(self, T.class_of(Formula))
+        url "foo-1.0"
+      end
+      expect(f.std_cargo_fetch_args).to eq(["--locked", "--target", "host-tuple"])
+    end
+  end
+
   describe "#std_cargo_args" do
     before { allow(ENV).to receive(:make_jobs).and_return(10) }
 

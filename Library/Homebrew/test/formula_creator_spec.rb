@@ -150,7 +150,7 @@ RSpec.describe Homebrew::FormulaCreator do
     it_behaves_like "expected", :rust,
                     includes: ["deny_network_access!",
                                '"cargo", "install", *std_cargo_args',
-                               '"cargo", "fetch"'],
+                               '"cargo", "fetch", *std_cargo_fetch_args'],
                     excludes: ["unrecognized options", 'resource "']
 
     it_behaves_like "expected", :zig,
