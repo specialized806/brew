@@ -5,6 +5,7 @@ require "etc"
 require "io/console"
 require "pty"
 require "tempfile"
+require "system_command"
 require "exceptions"
 require "mktemp"
 require "utils/fork"
@@ -17,6 +18,9 @@ class Sandbox
 
   # Privileged groups that are expected to be able to use a working sandbox.
   PRIVILEGED_GROUPS = %w[admin staff root wheel].freeze
+
+  # A read-only descriptor identifies Homebrew's sandbox across exec, without trusting ENV.
+  INHERITANCE_FD = 198
 
   class SandboxPathFilter
     sig { returns(String) }
@@ -123,6 +127,8 @@ class Sandbox
 
   sig { params(step: String, warn_without_sandbox: T::Boolean).returns(T::Boolean) }
   def self.use_for?(step, warn_without_sandbox: true)
+    return false if inherited_sandbox?
+
     unless available?
       opoo "Sandbox unavailable: #{step} without sandboxing!" if warn_without_sandbox
       return false
@@ -153,6 +159,84 @@ class Sandbox
       sandbox.run(*args, retain_tmp:, debug:)
     else
       Utils.safe_fork { exec(*args) }
+    end
+  end
+
+  sig { returns(T::Boolean) }
+  def self.isolate_operation? = use_for?("processing downloaded files")
+
+  # Only the sandbox launcher passes this descriptor to its child.
+  sig { returns(T::Boolean) }
+  def self.inherited_sandbox?
+    return false unless File.identical?(IO.new(INHERITANCE_FD, autoclose: false), __FILE__)
+
+    # Ordinary file permissions cannot establish sandbox confinement.
+    # When they already deny writes, rely on the inherited descriptor instead.
+    return true unless File.stat(HOMEBREW_BREW_FILE).writable?
+
+    # Probe without creating, truncating or modifying the executable.
+    File.open(HOMEBREW_BREW_FILE, File::WRONLY) do
+      raise "Inherited sandbox permits writes to #{HOMEBREW_BREW_FILE}"
+    end
+  rescue Errno::EBADF
+    false
+  rescue Errno::EACCES, Errno::EPERM, Errno::EROFS
+    true
+  end
+
+  # The child accepts structured arguments and returns JSON, never Ruby objects.
+  sig {
+    params(action: String, payload: String, read_paths: T::Array[Pathname], write_paths: T::Array[Pathname],
+           temporary_directory: Pathname).returns(String)
+  }
+  def self.operation(action, payload, read_paths: [], write_paths: [], temporary_directory: HOMEBREW_TEMP)
+    sandbox = for_operation(read_paths:, write_paths:)
+    command = ruby_command("sandbox_operation.rb", action)
+    sandbox.capture(
+      command.fetch(0),
+      args:                command.drop(1),
+      input:               payload,
+      env:                 { "HOMEBREW_NO_BOOTSNAP" => "1" },
+      temporary_directory:,
+    ).stdout
+  end
+
+  # Launch Homebrew's worker scripts with the same Ruby and library paths.
+  sig { params(file: String, args: T.any(String, Pathname)).returns(T::Array[T.any(String, Pathname)]) }
+  def self.ruby_command(file, *args)
+    [*HOMEBREW_RUBY_EXEC_ARGS, "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
+     "--", HOMEBREW_LIBRARY_PATH/file, *args]
+  end
+
+  sig {
+    params(read_paths: T::Array[Pathname], write_paths: T::Array[Pathname], network_access: T::Boolean).returns(Sandbox)
+  }
+  def self.for_operation(read_paths: [], write_paths: [], network_access: false)
+    new.tap do |sandbox|
+      sandbox.deny_read_home
+      sandbox.deny_all_network unless network_access
+      (read_paths | write_paths).each { |path| sandbox.allow_read(path:, type: :subpath) }
+      write_paths.each { |path| sandbox.allow_write_path(path) }
+      sandbox.deny_write_homebrew_repository
+    end
+  end
+
+  sig {
+    params(
+      executable: T.any(String, Pathname), args: T::Array[T.any(String, Integer, Float, Pathname)],
+      read_paths: T::Array[Pathname], write_paths: T::Array[Pathname],
+      env: T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))], input: T.any(String, T::Array[String]),
+      must_succeed: T::Boolean, print_stdout: T::Boolean, print_stderr: T::Boolean,
+      chdir: T.nilable(T.any(String, Pathname))
+    ).returns(SystemCommand::Result)
+  }
+  def self.capture(executable, args: [], read_paths: [], write_paths: [], env: {}, input: [],
+                   must_succeed: true, print_stdout: false, print_stderr: true, chdir: nil)
+    if isolate_operation?
+      for_operation(read_paths:, write_paths:).capture(executable, args:, env:, input:, must_succeed:,
+                                                      print_stdout:, print_stderr:, chdir:)
+    else
+      SystemCommand.run(executable, args:, env:, input:, must_succeed:, print_stdout:, print_stderr:, chdir:)
     end
   end
 
@@ -547,7 +631,7 @@ class Sandbox
   sig { void }
   def deny_write_homebrew_repository
     deny_write path: HOMEBREW_BREW_FILE
-    if HOMEBREW_PREFIX.to_s == HOMEBREW_REPOSITORY.to_s
+    if expand_realpath(HOMEBREW_PREFIX).ascend.include?(expand_realpath(HOMEBREW_REPOSITORY))
       deny_write_path HOMEBREW_LIBRARY
       deny_write_path HOMEBREW_REPOSITORY/".git"
     else
@@ -565,6 +649,50 @@ class Sandbox
     add_rule allow: false, operation: "network*"
   end
 
+  # Capture a non-interactive command without a PTY or process-wide signal handlers.
+  sig {
+    params(
+      executable: T.any(String, Pathname), args: T::Array[T.any(String, Integer, Float, Pathname)],
+      env: T::Hash[String, T.nilable(T.any(String, T::Boolean, PATH))], input: T.any(String, T::Array[String]),
+      must_succeed: T::Boolean, print_stdout: T.any(T::Boolean, Symbol), print_stderr: T.any(T::Boolean, Symbol),
+      debug: T.nilable(T::Boolean), verbose: T.nilable(T::Boolean), secrets: T.any(String, T::Array[String]),
+      chdir: T.nilable(T.any(String, Pathname)), timeout: T.nilable(T.any(Integer, Float)),
+      temporary_directory: Pathname
+    ).returns(SystemCommand::Result)
+  }
+  def capture(executable, args: [], env: {}, input: [], must_succeed: true, print_stdout: false, print_stderr: true,
+              debug: nil, verbose: nil, secrets: [], chdir: nil, timeout: nil, temporary_directory: HOMEBREW_TEMP)
+    require "extend/ENV"
+
+    Dir.mktmpdir("homebrew-sandbox", temporary_directory) do |tmpdir|
+      env = ENV.sensitive_environment.transform_values { nil }.merge("HOME" => tmpdir)
+               .merge(env).merge(sandbox_environment(tmpdir))
+      sandbox_executable, *sandbox_args = sandbox_command([executable, *args.map(&:to_s)], tmpdir)
+      raise "Missing sandbox command" unless sandbox_executable
+
+      command = SystemCommand.new(sandbox_executable, args: sandbox_args, env:, input:, must_succeed:,
+                                  print_stdout:, print_stderr:,
+                                  debug:, verbose:, secrets:, chdir:, timeout:)
+      command.sandbox = self if apply_before_exec?
+      File.open(__FILE__) do |inheritance|
+        command.sandbox_inheritance = inheritance
+        command.run!
+      end
+    end
+  ensure
+    cleanup_sandbox
+  end
+
+  # Only called in a forked child immediately before exec on Linux.
+  sig { void }
+  def apply!; end
+
+  sig { returns(T::Boolean) }
+  def apply_before_exec? = false
+
+  sig { void }
+  def cleanup_sandbox; end
+
   sig {
     params(
       args:                  T.any(String, Pathname),
@@ -580,13 +708,11 @@ class Sandbox
       raise "Sandbox temporary directory is unexpectedly unset." if temporary.nil?
 
       tmpdir = temporary.to_s
-      allow_write_path(tmpdir)
-      allow_network path: tmpdir, type: :subpath
+      env = sandbox_environment(tmpdir)
       @start = T.let(Time.now, T.nilable(Time))
 
       begin
         command = sandbox_command(args, tmpdir)
-        env = { "HOMEBREW_TEMP" => tmpdir, "TMPDIR" => tmpdir, "TEMP" => tmpdir, "TMP" => tmpdir }
         # Start sandbox in a pseudoterminal to prevent access of the parent terminal.
         PTY.open do |controller, worker|
           # Set the PTY's window size to match the parent terminal.
@@ -637,8 +763,11 @@ class Sandbox
                 Dir.chdir(tmpdir)
 
                 worker.close_on_exec = true
-                apply_sandbox
-                exec(env, *command, in: worker, out: worker, err: worker) # And map everything to the PTY.
+                apply!
+                # Map the terminal and inheritance descriptor into the sandboxed child.
+                File.open(__FILE__) do |inheritance|
+                  exec(env, *command, INHERITANCE_FD => inheritance, in: worker, out: worker, err: worker)
+                end
               else
                 # Parent side
                 worker.close
@@ -693,6 +822,8 @@ class Sandbox
         record_sandbox_log
       end
     end
+  ensure
+    cleanup_sandbox
   end
 
   # @api private
@@ -739,6 +870,13 @@ class Sandbox
   sig { returns(T::Array[String]) }
   def home_write_paths = []
 
+  sig { params(tmpdir: String).returns(T::Hash[String, String]) }
+  def sandbox_environment(tmpdir)
+    allow_write_path(tmpdir)
+    allow_network path: tmpdir, type: :subpath
+    { "HOMEBREW_TEMP" => tmpdir, "TMPDIR" => tmpdir, "TEMP" => tmpdir, "TMP" => tmpdir }
+  end
+
   sig { params(_args: T::Array[T.any(String, Pathname)], _tmpdir: String).returns(T::Array[T.any(String, Pathname)]) }
   def sandbox_command(_args, _tmpdir)
     raise NotImplementedError, "Sandbox is not implemented for this OS."
@@ -746,9 +884,6 @@ class Sandbox
 
   sig { void }
   def ensure_child_tty_available; end
-
-  sig { void }
-  def apply_sandbox; end
 
   sig { void }
   def record_sandbox_log; end

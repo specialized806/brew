@@ -16,10 +16,8 @@ class Sandbox
       @prepared_writable_paths = T.let([], T::Array[::Pathname])
     end
 
-    sig { params(block: T.proc.void).void }
-    def run(&block)
-      yield
-    ensure
+    sig { void }
+    def cleanup
       @prepared_writable_paths.reverse_each do |path|
         path.rmdir if path.directory?
       rescue Errno::ENOENT, Errno::ENOTEMPTY

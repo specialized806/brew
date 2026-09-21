@@ -1243,14 +1243,7 @@ on_request: installed_on_request?, options:)
 
   sig { params(formula_path: Pathname).returns(T::Array[T.any(String, Pathname)]) }
   def build_args(formula_path)
-    [
-      "nice",
-      *HOMEBREW_RUBY_EXEC_ARGS,
-      "--",
-      HOMEBREW_LIBRARY_PATH/"build.rb",
-      formula_path,
-      *build_argv,
-    ]
+    ["nice", *Sandbox.ruby_command("build.rb", formula_path, *build_argv)]
   end
 
   sig { params(sandbox: Sandbox, formula_path: Pathname, log_name: String).void }
@@ -1398,7 +1391,12 @@ on_request: installed_on_request?, options:)
 
   sig { params(keg: Keg).void }
   def fix_dynamic_linkage(keg)
-    keg.fix_dynamic_linkage
+    if Sandbox.isolate_operation?
+      keg.require_relocation! if JSON.parse(Sandbox.operation("fix_linkage", JSON.generate(path: keg.to_s),
+                                                              write_paths: [Pathname(keg.to_s)]))
+    else
+      keg.fix_dynamic_linkage
+    end
   # Rescue all possible exceptions when fixing linkage.
   rescue Exception => e # rubocop:disable Lint/RescueException
     ofail "Failed to fix install linkage"
@@ -1461,18 +1459,9 @@ on_request: installed_on_request?, options:)
 
   sig { void }
   def post_install
-    args = [
-      "nice",
-      *HOMEBREW_RUBY_EXEC_ARGS,
-      "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
-      "--",
-      HOMEBREW_LIBRARY_PATH/"postinstall.rb"
-    ]
-
-    args << post_install_formula_path
-
     Sandbox.with_preserved_brew_file do
-      Sandbox.run_or_fork(*args, step: "running post-install", debug: debug?) do |sandbox|
+      Sandbox.run_or_fork("nice", *Sandbox.ruby_command("postinstall.rb", post_install_formula_path),
+                          step: "running post-install", debug: debug?) do |sandbox|
         formula.logs.mkpath
         sandbox.record_log(formula.logs/"postinstall.sandbox.log")
         sandbox.allow_write_log(formula)

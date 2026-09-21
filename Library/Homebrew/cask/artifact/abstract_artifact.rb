@@ -245,14 +245,9 @@ module Cask
               "/usr/bin/env",
               "HOME=#{home}",
               "nice",
-              *HOMEBREW_RUBY_EXEC_ARGS,
-              "-I", $LOAD_PATH.join(File::PATH_SEPARATOR),
-              "--",
-              HOMEBREW_LIBRARY_PATH/"cask_artifact.rb",
-              payload_path,
-              Digest::SHA256.hexdigest(payload_json),
+              *Sandbox.ruby_command("cask_artifact.rb", payload_path, Digest::SHA256.hexdigest(payload_json)),
               passthrough_stdin:,
-              child_message_handler:
+              child_message_handler:,
             )
           end
         end

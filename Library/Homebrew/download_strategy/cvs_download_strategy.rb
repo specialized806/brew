@@ -45,9 +45,25 @@ class CVSDownloadStrategy < VCSDownloadStrategy
 
   private
 
+  sig { override.params(sandbox: Sandbox).void }
+  def allow_fetch_credentials(sandbox)
+    # Only pserver uses `cvs login`, which writes the password cache read by checkout/update.
+    return if @url.exclude?("pserver")
+
+    sandbox.allow_read(path: password_file)
+    sandbox.allow_write(path: password_file)
+  end
+
+  # Keep using the user's password cache when the sandbox replaces HOME.
+  sig { returns(Pathname) }
+  def password_file
+    Pathname(ENV.fetch("CVS_PASSFILE") { "#{Dir.home}/.cvspass" }).expand_path
+  end
+
   sig { override.returns(T::Hash[String, String]) }
   def env
-    { "PATH" => PATH.new("/usr/bin", Utils::Path.formula_opt_bin_path("cvs")).to_s }
+    { "PATH"         => PATH.new("/usr/bin", Utils::Path.formula_opt_bin_path("cvs")).to_s,
+      "CVS_PASSFILE" => password_file.to_s }
   end
 
   sig { override.returns(String) }

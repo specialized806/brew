@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "tempfile"
+require "cask/macos"
 require "system_command"
 require "utils/output"
 
@@ -167,7 +168,6 @@ module UnpackStrategy
         end
       end
     end
-    private_constant :Mount
 
     sig { override.returns(T::Array[String]) }
     def self.extensions

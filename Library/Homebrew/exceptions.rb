@@ -851,8 +851,18 @@ class ErrorDuringExecution < RuntimeError
     ).void
   }
   def initialize(cmd, status:, output: nil, secrets: [])
+    redacted_cmd = Formatter.redact_secrets(cmd.shelljoin.gsub('\=', "="), secrets)
+    cmd = cmd.map do |arg|
+      case arg
+      when String then Formatter.redact_secrets(arg, secrets)
+      when Array then arg.map { |value| Formatter.redact_secrets(value, secrets) }
+      when Hash then arg.transform_values { |value| Formatter.redact_secrets(value, secrets) if value }
+      else arg
+      end
+    end
     @cmd = cmd
     @status = status
+    output = output&.map { |type, line| [type, Formatter.redact_secrets(line, secrets)] }
     @output = output
 
     @exitstatus = T.let(
@@ -878,8 +888,6 @@ class ErrorDuringExecution < RuntimeError
       end,
       T.nilable(Integer),
     )
-
-    redacted_cmd = Formatter.redact_secrets(cmd.shelljoin.gsub('\=', "="), secrets)
 
     reason = if exitstatus
       "exited with #{exitstatus}"

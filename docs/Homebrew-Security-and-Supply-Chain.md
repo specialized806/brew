@@ -2,7 +2,7 @@
 description: Homebrew security and supply chain defences, including formula and Cask trust models, checksums, signed metadata, bottles, Gatekeeper, sandboxing and tap trust.
 redirect_from:
   - /Supply-Chain-Security
-last_review_date: "2026-09-17"
+last_review_date: "2026-09-19"
 ---
 
 # Homebrew Security and Supply Chain
@@ -172,21 +172,25 @@ That keeps AI useful as automation while preserving the human accountability and
 
 ### No arbitrary code execution on install by default
 
-Installing a bottle unpacks reviewed, prebuilt files.
-Builds from source run inside a sandbox (see below).
-Running a formula's `post_install` step, whether from a bottle or a source build, or its `fetch` step before a source build, may run upstream-supplied software, but this too runs inside the sandbox.
+Installing a bottle uses reviewed, prebuilt files, reducing the need to run upstream build scripts on your machine.
+Homebrew uses sandboxing to limit package-supplied code where supported, but some installations require trusting vendor code with broader access (see below).
 
 ### Sandboxing
 
-Builds, `fetch` steps, `post_install` steps and tests run inside a sandbox that restricts filesystem and network access:
+Homebrew uses sandboxing on macOS and Linux to limit what package processing, builds, supported installation steps and tests can access.
+The aim is least privilege: give each operation only the filesystem, network and credential access it needs.
+This reduces the risk that a malicious or faulty package can alter unrelated software, damage Homebrew or expose personal data.
 
-* **macOS sandboxing** has long confined formula builds.
-* **Linux sandboxing** extends the same protection to Homebrew on Linux.
-* **Sandboxing reads of sensitive locations** prevents build and test code from reading sensitive parts of your home directory (such as credentials and SSH keys), limiting what a malicious build could exfiltrate.
+Sandbox permissions are defined by Homebrew's reviewed code.
+Sandboxing complements maintainer review, download verification and explicit trust decisions; it does not make arbitrary third-party code safe to run.
+The separate trust requirements for taps and vendor-provided casks still apply.
+
+Available protections depend on the operating system and configuration.
+Some operations can continue with a warning when sandboxing is unavailable or Homebrew relies on an external sandbox.
 
 ### Environment filtering
 
-Homebrew builds run with a filtered, sanitised environment rather than your full shell environment, so secrets and unexpected configuration in your environment are not exposed to build and test code.
+Homebrew limits which environment settings reach package code, reducing accidental exposure of secrets and unexpected configuration.
 
 ### Casks have a different trust model
 
@@ -200,6 +204,7 @@ This is necessary for native macOS applications and proprietary software, but Ho
 A cask's `sha256` proves that the downloaded bytes match the package metadata, but it does not prove who produced those bytes or whether the program inside is trustworthy.
 Some casks must use `sha256 :no_check` because their download URL changes contents in place, while self-updating applications can replace themselves outside Homebrew entirely.
 Cask installation artefacts are treated as trusted vendor installation actions once a cask is accepted, so users must still trust the vendor.
+Vendor installer scripts and macOS package installers run outside Homebrew's sandbox and may change files beyond Homebrew's directories.
 Some cask installations run without `sudo`.
 Others require elevated privileges, such as those that use macOS `.pkg` installers.
 
@@ -249,21 +254,21 @@ Being willing to break compatibility on that timescale is a large part of why Ho
 
 ## Trust model comparison
 
-| Property                            | Homebrew                                                  | npm / PyPI                               |
-| ----------------------------------- | --------------------------------------------------------- | ---------------------------------------- |
-| Who can publish a change            | Homebrew maintainers, via pull request                    | Any package owner, directly              |
-| Human review of each release        | Always                                                    | None                                     |
-| Time from upstream release to users | Reviewed, plus a cooldown for riskier ecosystems          | Immediate                                |
-| Download integrity                  | Pinned `sha256` in reviewed metadata                      | Trust the registry at install time       |
-| What most users install             | Bottles built by Homebrew CI                              | Publisher-uploaded artifacts             |
-| Code execution on install           | Sandboxed `post_install` on a minority of packages        | `preinstall`/`postinstall` or `setup.py` |
-| Build and install isolation         | macOS and Linux sandbox, sensitive-path and env filtering | None by default                          |
-| Trust concentration                 | Vetted, 2FA-required maintainer team                      | Per-package owner credentials            |
+| Property                            | Homebrew                                                        | npm / PyPI                               |
+| ----------------------------------- | --------------------------------------------------------------- | ---------------------------------------- |
+| Who can publish a change            | Homebrew maintainers, via pull request                          | Any package owner, directly              |
+| Human review of each release        | Always                                                          | None                                     |
+| Time from upstream release to users | Reviewed, plus a cooldown for riskier ecosystems                | Immediate                                |
+| Download integrity                  | Pinned `sha256` in reviewed metadata                            | Trust the registry at install time       |
+| What most users install             | Bottles built by Homebrew CI                                    | Publisher-uploaded artifacts             |
+| Code execution on install           | Sandboxed installation steps where supported                    | `preinstall`/`postinstall` or `setup.py` |
+| Build and install isolation         | Filesystem, network and credential restrictions where supported | None by default                          |
+| Trust concentration                 | Vetted, 2FA-required maintainer team                            | Per-package owner credentials            |
 
 ## Looking ahead
 
 This is not a solved problem and we do not claim Homebrew is immune.
-We have taken steps to mitigate these risks for our users, some long-standing (macOS sandboxing, human review on all changes, environment filtering, all package maintainers being Homebrew maintainers) and some newer (Linux sandboxing, sandboxing reads of sensitive locations, cooldowns on riskier ecosystems).
+Homebrew combines human review, sandboxing, restricted access to sensitive data and cooldowns for riskier ecosystems to mitigate these risks.
 We will continue to monitor the supply-chain security landscape and take further steps as needed.
 
 ## Local trust model

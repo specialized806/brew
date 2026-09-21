@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "sandbox"
+
 # @abstract Abstract superclass for all download strategies downloading from a version control system.
 class VCSDownloadStrategy < AbstractDownloadStrategy
   abstract!
@@ -18,6 +20,7 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
     @ref = T.let(extracted_ref.fetch(1), T.untyped)
     @revision = T.let(meta[:revision], T.nilable(String))
     @cached_location = T.let(@cache/Utils.safe_filename("#{name}--#{cache_tag}"), Pathname)
+    @fetching = T.let(false, T::Boolean)
   end
 
   # Download and cache the repository at {#cached_location}.
@@ -25,6 +28,7 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
   # @api public
   sig { override.params(timeout: T.nilable(T.any(Float, Integer))).void }
   def fetch(timeout: nil)
+    @fetching = true
     end_time = Time.now + timeout if timeout
 
     ohai "Cloning #{url}"
@@ -49,6 +53,8 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
       #{@ref} tag should be #{@revision}
       but is actually #{current_revision}
     EOS
+  ensure
+    @fetching = false
   end
 
   sig { returns(String) }
@@ -69,6 +75,26 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
     v.is_a?(Version) ? v.head? : false
   end
 
+  sig { returns(T::Boolean) }
+  def fetching? = @fetching
+
+  sig { override.returns(T.nilable(Sandbox)) }
+  def command_sandbox
+    return unless Sandbox.isolate_operation?
+
+    # Reject symlinks before the sandbox resolves its writable paths.
+    if cached_location.symlink? || sandbox_write_path.symlink?
+      raise "VCS download path is a symlink: #{cached_location}"
+    end
+
+    Sandbox.for_operation(write_paths: [sandbox_write_path], network_access: fetching?).tap do |sandbox|
+      allow_fetch_credentials(sandbox) if fetching?
+    end
+  end
+
+  sig { overridable.returns(Pathname) }
+  def sandbox_write_path = cached_location
+
   # Return the most recent modified timestamp.
   #
   # @api public
@@ -78,6 +104,9 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
   end
 
   private
+
+  sig { overridable.params(sandbox: Sandbox).void }
+  def allow_fetch_credentials(sandbox); end
 
   sig { abstract.returns(String) }
   def cache_tag; end

@@ -522,32 +522,30 @@ module PyPI
     end
 
     Dir.mktmpdir("homebrew-pypi", HOMEBREW_TEMP) do |directory|
+      directory = Pathname(directory)
       command = command.each_with_index.map do |argument, index|
         next argument unless argument.is_a?(Resource)
 
         argument.fetch(quiet: !print_stderr, skip_patches: true)
-        source = Pathname(directory)/"source-#{index}"
+        source = directory/"source-#{index}"
         source.mkpath
         source.cd { argument.downloader.stage { source = Pathname.pwd } }
         source
       end
 
-      sandbox = Sandbox.new
-      sandbox.allow_write_path(directory)
-      sandbox.deny_write_homebrew_repository
-      sandbox.deny_read_home
-      Tempfile.create("report", directory) do |report|
-        sandbox_env = ENV.to_h.filter_map do |key, value|
-          "#{key}=#{value}" if key.match?(/\A(?:HOMEBREW_(?:LIBRARY|PREFIX|GIT)|(?:https?|all|no)_proxy)\z/i)
-        end
-        sandbox.run "/usr/bin/env", "-i", "PATH=#{ENV.fetch("PATH")}", *sandbox_env, "HOME=#{directory}",
-                    "TMPDIR=#{directory}", "PIP_CACHE_DIR=#{directory}/cache", "PIP_CONFIG_FILE=#{File::NULL}",
-                    "PIP_REQUIRE_VIRTUALENV=false", "/bin/sh", "-c",
-                    "report=$1; shift; exec \"$@\" > \"$report\"#{" 2>/dev/null" unless print_stderr}",
-                    "brew-pypi", report.path, *command, passthrough_stdin: false
-        report.rewind
-        report.read
+      sandbox_env = ENV.to_h.select do |key, _value|
+        key.match?(/\A(?:HOMEBREW_(?:LIBRARY|PREFIX|GIT)|(?:https?|all|no)_proxy)\z/i)
       end
+      secrets = sandbox_env.filter_map { |key, value| value.presence if key.match?(/\A(?:https?|all)_proxy\z/i) }
+      # Command diagnostics shell-escape URLs, but printed output can contain the original values.
+      secrets += secrets.map { |secret| secret.shellescape.gsub('\=', "=") }
+      sandbox_env = sandbox_env.map { |key, value| "#{key}=#{value}" }
+      Sandbox.for_operation(write_paths: [directory], network_access: true)
+             .capture("/usr/bin/env", args: ["-i", "PATH=#{ENV.fetch("PATH")}", *sandbox_env, "HOME=#{directory}",
+                                             "TMPDIR=#{directory}", "PIP_CACHE_DIR=#{directory}/cache",
+                                             "PIP_CONFIG_FILE=#{File::NULL}", "PIP_REQUIRE_VIRTUALENV=false",
+                                             *command],
+                                     chdir: directory, print_stderr:, secrets:).stdout
     end
   end
 

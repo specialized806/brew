@@ -32,6 +32,9 @@ module UnpackStrategy
       @move = move
     end
 
+    sig { returns(T::Boolean) }
+    def move? = @move
+
     private
 
     sig { override.params(unpack_dir: Pathname, basename: Pathname, verbose: T::Boolean).void }

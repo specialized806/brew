@@ -74,11 +74,7 @@ module Homebrew
           env = ENV.to_hash
 
           begin
-            exec_args = HOMEBREW_RUBY_EXEC_ARGS + %W[
-              --
-              #{HOMEBREW_LIBRARY_PATH}/test.rb
-              #{f.path}
-            ].concat(args.options_only)
+            exec_args = Sandbox.ruby_command("test.rb", f.path, *args.options_only)
 
             exec_args << "--HEAD" if f.head?
 

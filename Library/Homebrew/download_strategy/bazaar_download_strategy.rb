@@ -39,7 +39,10 @@ class BazaarDownloadStrategy < VCSDownloadStrategy
 
   sig { override.returns(T::Hash[String, String]) }
   def env
-    Utils::Path.formula_opt_bin_env("breezy").merge("BZR_HOME" => HOMEBREW_TEMP.to_s)
+    Utils::Path.formula_opt_bin_env("breezy").tap do |env|
+      # BZR_HOME takes precedence over the sandbox's private HOME.
+      env["BZR_HOME"] = HOMEBREW_TEMP.to_s unless Sandbox.isolate_operation?
+    end
   end
 
   sig { override.returns(String) }

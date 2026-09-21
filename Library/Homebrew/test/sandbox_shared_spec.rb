@@ -2,11 +2,300 @@
 # frozen_string_literal: true
 
 require "sandbox"
+require "unpack_strategy"
 
 RSpec.describe Sandbox do
   subject(:sandbox) { described_class.new }
 
+  describe "::isolate_operation?" do
+    before do
+      ENV.delete("HOMEBREW_SANDBOX")
+      allow(described_class).to receive(:isolate_operation?).and_call_original
+    end
+
+    it "ignores sandbox environment flags even when Homebrew is not writable" do
+      ENV["HOMEBREW_SANDBOX"] = "1"
+      ENV["HOMEBREW_AVOID_NESTED_SANDBOXING"] = "1"
+      allow(described_class).to receive_messages(available?: true, nested_sandbox?: false)
+      brew_file = mktmpdir/"brew"
+      brew_file.write("unchanged")
+      brew_file.chmod(0400)
+      stub_const("HOMEBREW_BREW_FILE", brew_file)
+
+      expect(described_class.isolate_operation?).to be(true)
+    end
+
+    it "inherits a sandbox only after checking that Homebrew is protected" do
+      allow(IO).to receive(:new).with(198, autoclose: false).and_return($stdin)
+      allow(File).to receive(:identical?).with($stdin, (HOMEBREW_LIBRARY_PATH/"sandbox.rb").to_s).and_return(true)
+      allow(File).to receive(:open).with(HOMEBREW_BREW_FILE, File::WRONLY).and_raise(Errno::EACCES)
+
+      expect(described_class.isolate_operation?).to be(false)
+    end
+
+    it "does not trust a worker's filename as evidence of sandboxing" do
+      program_name = $PROGRAM_NAME
+      $PROGRAM_NAME = (HOMEBREW_LIBRARY_PATH/"sandbox_operation.rb").to_s
+      allow(described_class).to receive(:use_for?).and_return(true)
+
+      expect(described_class.isolate_operation?).to be(true)
+    ensure
+      $PROGRAM_NAME = program_name
+    end
+
+    it "checks the opt-out policy inside an external sandbox" do
+      allow(described_class).to receive(:nested_sandbox?).and_return(true)
+      expect(described_class).to receive(:use_for?).with("processing downloaded files")
+                                                   .and_return(false)
+
+      described_class.isolate_operation?
+    end
+
+    it "runs commands with a warning when the sandbox is unavailable" do
+      allow(described_class).to receive(:available?).and_return(false)
+      warnings = []
+      allow(described_class).to receive(:opoo) { |message| warnings << message }
+
+      expect([described_class.capture("/bin/echo", args: ["completed"]).stdout, warnings])
+        .to eq(["completed\n", ["Sandbox unavailable: processing downloaded files without sandboxing!"]])
+    end
+
+    it "extracts archives with a warning when relying on an outer sandbox" do
+      allow(described_class).to receive_messages(available?: true, avoid_nested_sandboxing?: true)
+      directory = mktmpdir
+      warnings = []
+      allow(described_class).to receive(:opoo) { |message| warnings << message }
+      UnpackStrategy::Tar.new(TEST_FIXTURE_DIR/"cask/container.tar.gz").extract(to: directory)
+
+      expect([directory.children(false).map(&:to_s), warnings])
+        .to eq([["container"],
+                ["Processing downloaded files without Homebrew's sandbox; relying on the outer sandbox."]])
+    end
+  end
+
+  describe "::for_operation" do
+    it "allows reading its output directory" do
+      directory = mktmpdir
+
+      expect(described_class.for_operation(write_paths: [directory]).profile.rules)
+        .to include(have_attributes(allow: true, operation: "file-read*",
+                                    filter: have_attributes(path: directory.realpath.to_s)))
+    end
+
+    it "allows a prefix inside the repository while protecting Homebrew's code" do
+      repository = mktmpdir
+      stub_const("HOMEBREW_REPOSITORY", repository)
+      stub_const("HOMEBREW_PREFIX", repository/".brew-padded")
+      stub_const("HOMEBREW_LIBRARY", repository/"Library")
+      stub_const("HOMEBREW_BREW_FILE", repository/"bin/brew")
+
+      expect(described_class.for_operation(write_paths: [HOMEBREW_PREFIX]).profile.rules.filter_map do |rule|
+        rule.filter&.path if !rule.allow && rule.operation == "file-write*"
+      end).to contain_exactly((repository/"Library").to_s, (repository/".git").to_s, (repository/"bin/brew").to_s)
+    end
+  end
+
+  describe "#capture" do
+    before do
+      allow(sandbox).to receive(:sandbox_command) { |args, _tmpdir| args }
+      allow(sandbox).to receive(:apply_before_exec?).and_return(false)
+    end
+
+    it "captures binary output without a terminal, including from a worker thread" do
+      result = Thread.new do
+        sandbox.capture(RbConfig.ruby, args: ["-e", 'STDOUT.write "a\\x00b\\n"'])
+      end.value
+
+      expect(result.stdout).to eq("a\x00b\n")
+    end
+
+    it "passes sandbox inheritance to children through a descriptor, not the environment" do
+      [false, true].each do |apply_before_exec|
+        allow(sandbox).to receive(:apply_before_exec?).and_return(apply_before_exec)
+        allow(sandbox).to receive(:apply!)
+        result = sandbox.capture(RbConfig.ruby, args: ["-e", <<~RUBY, HOMEBREW_LIBRARY_PATH/"sandbox.rb"])
+          abort "Environment marker was passed" if ENV.key?("HOMEBREW_SANDBOX")
+          abort "Descriptor was not passed" unless File.identical?(IO.new(198, autoclose: false), ARGV.fetch(0))
+          system(RbConfig.ruby, "-e", 'exit File.identical?(IO.new(198, autoclose: false), ARGV.fetch(0))', ARGV.fetch(0)) || abort
+        RUBY
+
+        expect(result).to be_success
+      end
+    end
+
+    it "gives commands a private home and temporary directory without inherited secrets" do
+      ENV["HOMEBREW_GITHUB_API_TOKEN"] = "secret"
+      result = sandbox.capture(RbConfig.ruby, args: ["-rjson", "-e", <<~RUBY])
+        puts JSON.generate([
+          ENV["HOMEBREW_GITHUB_API_TOKEN"],
+          ENV.fetch("HOME") == ENV.fetch("TMPDIR"),
+          ENV.fetch("TEMP") == ENV.fetch("TMPDIR"),
+          ENV.fetch("TMP") == ENV.fetch("TMPDIR"),
+          File.stat(ENV.fetch("TMPDIR")).mode & 0777,
+        ])
+      RUBY
+
+      expect(JSON.parse(result.stdout)).to eq([nil, true, true, true, 0700])
+    end
+
+    it "does not grant write access to the shared cache or temporary directory" do
+      sandbox.capture(RbConfig.ruby, args: ["-e", "exit"])
+
+      expect(sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow }).not_to include(
+        HOMEBREW_CACHE.to_s, HOMEBREW_TEMP.to_s
+      )
+    end
+
+    it "preserves an explicitly supplied home and authentication environment" do
+      ENV["SSH_AUTH_SOCK"] = (mktmpdir/"agent.sock").to_s
+      env = { "HOME" => Dir.home(ENV.fetch("USER")), "SSH_AUTH_SOCK" => ENV.fetch("SSH_AUTH_SOCK") }
+      result = sandbox.capture(RbConfig.ruby, env:, args: ["-rjson", "-e", <<~RUBY])
+        puts JSON.generate(ENV.values_at("HOME", "SSH_AUTH_SOCK"))
+      RUBY
+
+      expect(JSON.parse(result.stdout)).to eq([Dir.home(ENV.fetch("USER")), ENV.fetch("SSH_AUTH_SOCK")])
+    end
+
+    it "preserves the working directory for relative command arguments" do
+      directory = mktmpdir
+      (directory/"input").write("content")
+      result = directory.cd { sandbox.capture("cat", args: ["input"]) }
+
+      expect(result.stdout).to eq("content")
+    end
+
+    it "drains command output while supplying a large input" do
+      input = "x" * 1_000_000
+      result = Timeout.timeout(5) do
+        sandbox.capture(RbConfig.ruby, input:, args: ["-e", <<~RUBY])
+          $stdout.sync = true
+          while (chunk = $stdin.read(4096))
+            $stdout.write(chunk)
+          end
+        RUBY
+      end
+
+      expect(result.stdout).to eq(input)
+    end
+
+    it "reports a sandbox setup failure without executing the command" do
+      allow(sandbox).to receive(:apply_before_exec?).and_return(true)
+      allow(sandbox).to receive(:apply!).and_raise("Sandbox setup failed")
+      result = sandbox.capture("echo", args: ["executed"], must_succeed: false, print_stderr: false)
+
+      expect([result.exit_status, result.stdout, result.stderr]).to eq([127, "", "Sandbox setup failed\n"])
+    end
+
+    it "captures setup warnings when the caller redirects standard error" do
+      allow(sandbox).to receive(:apply_before_exec?).and_return(true)
+      allow(sandbox).to receive(:apply!) { warn "Sandbox warning" }
+
+      expect { sandbox.capture("true") }.to output("Sandbox warning\n").to_stderr
+    end
+
+    it "interrupts helpers even after they close their output pipes" do
+      directory = mktmpdir
+      helper_pid = directory/"pid"
+      result = directory/"result"
+      caller = Thread.current
+      interrupter = Thread.new do
+        Timeout.timeout(10) { sleep 0.01 until helper_pid.exist? && helper_pid.size? }
+        caller.raise Interrupt
+      end
+
+      expect do
+        sandbox.capture(RbConfig.ruby, args: ["-e", <<~RUBY, helper_pid, result])
+          trap("INT") { exit! }
+          fork do
+            STDOUT.reopen(File::NULL, "w")
+            STDERR.reopen(File::NULL, "w")
+            trap("INT") do
+              File.write(ARGV.fetch(1), "interrupted")
+              exit!
+            end
+            File.write(ARGV.fetch(0), Process.pid)
+            sleep 5
+            File.write(ARGV.fetch(1), "survived cancellation")
+          end
+          Process.wait
+        RUBY
+      end.to raise_error(Interrupt)
+
+      Timeout.timeout(10) { sleep 0.01 until result.exist? && result.size? }
+      expect(result.read).to eq("interrupted")
+    ensure
+      interrupter&.kill
+      if helper_pid&.exist? && (pid = helper_pid.read.to_i).positive?
+        begin
+          Process.kill("KILL", pid)
+        rescue Errno::ESRCH
+          nil
+        end
+      end
+    end
+  end
+
+  describe "#capture confinement" do
+    before do
+      skip "Sandbox unavailable." unless described_class.available?
+      skip "Nested sandboxing is not supported." if described_class.nested_sandbox?
+      allow(described_class).to receive(:isolate_operation?).and_call_original
+    end
+
+    it "allows its output directory and denies writes through an escaping symlink" do
+      directory = mktmpdir
+      output = directory/"output"
+      output.mkpath
+      (output/"escape").make_symlink(directory/"outside")
+      sandbox = described_class.for_operation(read_paths: [directory], write_paths: [output])
+      sandbox.capture(RbConfig.ruby, args: ["-e", <<~RUBY, output])
+        File.write(File.join(ARGV.fetch(0), "allowed"), "written")
+        begin
+          File.write(File.join(ARGV.fetch(0), "escape"), "escaped")
+          abort "Write escaped the sandbox"
+        rescue Errno::EPERM, Errno::EACCES
+          nil
+        end
+      RUBY
+
+      expect((output/"allowed").read).to eq("written")
+    end
+
+    it "extracts a disk image in the sandbox", :needs_macos do
+      directory = mktmpdir
+      UnpackStrategy::Dmg.new(TEST_FIXTURE_DIR/"cask/container.dmg").extract_nestedly(to: directory)
+
+      expect(directory.children(false).map(&:to_s)).to eq(["container"])
+    end
+  end
+
   describe "::use_for?" do
+    before do
+      ENV.delete("HOMEBREW_SANDBOX")
+    end
+
+    it "quietly inherits a Homebrew sandbox after probing its write protection" do
+      allow(IO).to receive(:new).with(198, autoclose: false).and_return($stdin)
+      allow(File).to receive(:identical?).with($stdin, (HOMEBREW_LIBRARY_PATH/"sandbox.rb").to_s).and_return(true)
+      allow(described_class).to receive_messages(available?: true, avoid_nested_sandboxing?: true)
+      allow(File).to receive(:open).with(HOMEBREW_BREW_FILE, File::WRONLY).and_raise(Errno::EPERM)
+      warnings = []
+      allow(described_class).to receive(:opoo) { |message| warnings << message }
+
+      expect([described_class.use_for?("running post-install"), warnings]).to eq([false, []])
+    end
+
+    it "rejects an inherited descriptor without enforced write protection" do
+      allow(IO).to receive(:new).with(198, autoclose: false).and_return($stdin)
+      allow(File).to receive(:identical?).with($stdin, (HOMEBREW_LIBRARY_PATH/"sandbox.rb").to_s).and_return(true)
+      allow(described_class).to receive_messages(available?: true, avoid_nested_sandboxing?: true)
+      brew_file = mktmpdir/"brew"
+      brew_file.write("unchanged")
+      stub_const("HOMEBREW_BREW_FILE", brew_file)
+
+      expect { described_class.use_for?("building") }.to raise_error(/Inherited sandbox permits writes/)
+    end
+
     it "uses an available non-nested sandbox" do
       allow(described_class).to receive_messages(available?: true, avoid_nested_sandboxing?: false)
 
@@ -73,7 +362,7 @@ RSpec.describe Sandbox do
       end
       allow(sandbox).to receive(:sandbox_command) { |args, _tmpdir| args }
       allow(sandbox).to receive(:ensure_child_tty_available)
-      allow(sandbox).to receive(:apply_sandbox)
+      allow(sandbox).to receive(:apply!)
       allow(sandbox).to receive(:record_sandbox_log)
     end
 

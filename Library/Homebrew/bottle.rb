@@ -247,10 +247,7 @@ class Bottle
   def stage
     with_corrupt_download_retry do
       with_verified_snapshot(cached_download) do |snapshot|
-        UnpackStrategy.detect(snapshot, prioritize_extension: true, temporary_directory: snapshot.dirname)
-                      .extract_nestedly(basename:             downloader.basename,
-                                        prioritize_extension: true,
-                                        verbose:              verbose? && !downloader.quiet?)
+        extract_snapshot(snapshot, cellar: Pathname.pwd, verbose: verbose? && !downloader.quiet?)
       end
     end
   rescue ChecksumMismatchError
@@ -356,8 +353,7 @@ class Bottle
       purge_staged_from_download_queue
 
       with_verified_snapshot(download) do |snapshot|
-        UnpackStrategy.detect(snapshot, prioritize_extension: true, temporary_directory: snapshot.dirname)
-                      .extract_nestedly(to: HOMEBREW_TEMP_CELLAR)
+        extract_snapshot(snapshot, cellar: HOMEBREW_TEMP_CELLAR)
       end
 
       # Create a separate file to mark a completed extraction. This avoids
@@ -401,6 +397,29 @@ class Bottle
       verify_download_integrity(snapshot)
       yield snapshot
     end
+  end
+
+  sig { params(snapshot: Pathname, cellar: Pathname, verbose: T::Boolean).void }
+  def extract_snapshot(snapshot, cellar:, verbose: false)
+    staging = snapshot.dirname/"unpacked"
+    UnpackStrategy.detect(snapshot, prioritize_extension: true, temporary_directory: snapshot.dirname)
+                  .extract_nestedly(to: staging, basename: downloader.basename, prioritize_extension: true, verbose:)
+    bottle_filename = filename
+    rack = staging/bottle_filename.name
+    keg = rack/bottle_filename.version.to_s
+    if staging.children != [rack] || !rack.directory? || rack.symlink? ||
+       rack.children != [keg] || !keg.directory? || keg.symlink?
+      raise "Unexpected bottle contents: #{downloader.basename}"
+    end
+
+    destination = cellar/bottle_filename.name/bottle_filename.version.to_s
+    # Publication runs in the parent, outside the extraction sandbox.
+    Utils::Path.ensure_child_of!(cellar, destination,
+                                 message: "Bottle destination escapes the Cellar: #{destination}")
+    raise "Bottle destination already exists: #{destination}" if destination.exist? || destination.symlink?
+
+    destination.dirname.mkpath
+    FileUtils.mv(keg, destination)
   end
 
   sig { returns(T.nilable(Resource::BottleManifest)) }

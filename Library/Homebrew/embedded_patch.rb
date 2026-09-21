@@ -41,16 +41,14 @@ class EmbeddedPatch
   sig { void }
   def apply
     data = contents.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX)
-    args = %W[-g 0 -f -#{strip}]
     dir = Pathname.pwd
     if (subdirectory = directory.presence)
       dir /= subdirectory
     end
+    Utils::Path.ensure_child_of!(Pathname.pwd, dir,
+                                 message: "Patch directory escapes the staged source tree: #{dir}")
     ohai "Applying #{filename}"
-    Patch.ensure_targets_within!(data, strip:, base: dir)
-    dir.cd do
-      Utils.safe_popen_write("patch", *args) { |p| p.write(data) }
-    end
+    Patch.apply(data, strip:, base: dir)
   end
 
   sig { returns(String) }

@@ -5,6 +5,7 @@ require "bundle_version"
 require "cask/cask"
 require "cask/installer"
 require "system_command"
+require "sandbox"
 require "utils/output"
 
 module Homebrew
@@ -160,7 +161,8 @@ module Homebrew
             extract_dir = Pathname(extract_dir)
             FileUtils.rmdir extract_dir
 
-            system_command! "pkgutil", args: ["--expand-full", pkg_path, extract_dir]
+            Sandbox.capture("pkgutil", args: ["--expand-full", pkg_path, extract_dir],
+                                       read_paths: [dir], write_paths: [extract_dir])
 
             top_level_info_plist_paths = top_level_info_plists(Pathname.glob(extract_dir/"**/Contents/Info.plist"))
 
@@ -220,7 +222,8 @@ module Homebrew
             FileUtils.rmdir extract_dir
 
             begin
-              system_command! "pkgutil", args: ["--expand-full", pkg_path, extract_dir]
+              Sandbox.capture("pkgutil", args: ["--expand-full", pkg_path, extract_dir],
+                                         read_paths: [dir], write_paths: [extract_dir])
             rescue ErrorDuringExecution => e
               onoe "Failed to extract #{pkg_path.basename}: #{e}"
               next

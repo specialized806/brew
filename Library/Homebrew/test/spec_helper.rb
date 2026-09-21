@@ -41,6 +41,7 @@ require_relative "support/extend/cacheable"
 require_relative "../global"
 
 require "system_command"
+require "sandbox"
 
 require "debug" if ENV["HOMEBREW_DEBUG"]
 
@@ -232,6 +233,9 @@ RSpec.configure do |config|
 
   config.before do
     allow(Utils).to receive(:sleep)
+    allow(DevelopmentTools).to receive_messages(needs_build_formulae?: false, needs_libc_formula?: false)
+    # Worker boundaries are exercised separately in sandbox_operation_spec.rb.
+    allow(Sandbox).to receive(:isolate_operation?).and_return(false)
   end
 
   config.before(:each, :no_api) do

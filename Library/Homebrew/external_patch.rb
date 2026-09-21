@@ -78,20 +78,12 @@ class ExternalPatch
       end
       resource_directory = resource.directory.presence
       dir = resource_directory ? base_dir/resource_directory : base_dir
-      dir.cd do
-        patch_files.each do |patch_file|
-          ohai "Applying #{patch_file}"
-          patch_file = patch_dir/patch_file
-          Patch.ensure_targets_within!(
-            patch_file.read.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX), strip:, base: dir
-          )
-          Utils.safe_popen_write("patch", "-g", "0", "-f", "-#{strip}") do |p|
-            File.foreach(patch_file) do |line|
-              data = line.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX)
-              p.write(data)
-            end
-          end
-        end
+      Utils::Path.ensure_child_of!(base_dir, dir, message: "Patch directory escapes the staged source tree: #{dir}")
+      patch_files.each do |patch_file|
+        ohai "Applying #{patch_file}"
+        Patch.apply(
+          (patch_dir/patch_file).read.gsub("@@HOMEBREW_PREFIX@@", HOMEBREW_PREFIX), strip:, base: dir
+        )
       end
     end
   rescue ErrorDuringExecution => e
