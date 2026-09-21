@@ -6,6 +6,11 @@ module OS
     module Cask
       module Caskroom
         module ClassMethods
+          sig { returns(T.nilable(String)) }
+          def shared_caskroom_group
+            nil
+          end
+
           # Unlike macOS (which uses the `admin` group), Homebrew on Linux is run
           # in a variety of distributions, so use the current user's primary group
           # as the group of the `Caskroom` directory.
