@@ -47,6 +47,33 @@ RSpec.describe Cask::Upgrade, :cask do
     allow(Homebrew::EnvConfig).to receive(:upgrade_auto_updates_casks?).and_return(true)
   end
 
+  describe ".reopen_apps_after_upgrade" do
+    subject(:upgrade) do
+      Class.new(described_class) do
+        T.bind(self, T.class_of(Cask::Upgrade))
+        public_class_method :reopen_apps_after_upgrade
+      end
+    end
+
+    it "reopens apps without inheriting Homebrew's temporary directory" do
+      ENV["TMPDIR"] = ENV["HOMEBREW_TEMP"] = "/private/tmp"
+      environment = mktmpdir/"reopened-app-environment"
+      old_cask = Cask::CaskLoader.load(cask_path("with-uninstall-quit"))
+      old_cask.artifacts.grep(Cask::Artifact::Uninstall).fetch(0)
+              .bundle_ids_to_reopen << "my.fancy.package.app"
+
+      allow(upgrade).to receive(:system).with("open", "-b", "my.fancy.package.app", any_args)
+                                        .and_wrap_original do |system, *_, **options|
+        system.call(RbConfig.ruby, "-e", 'puts ENV.values_at("TMPDIR", "HOMEBREW_TEMP").compact',
+                    **options, out: environment.to_s)
+      end
+
+      upgrade.reopen_apps_after_upgrade(old_cask, local_caffeine)
+
+      expect(environment.read).to be_empty
+    end
+  end
+
   it "warns and excludes casks with no version for the current platform" do
     cask = Homebrew::SimulateSystem.with(os: :linux) do
       Cask::Cask.new("macos-only") do
