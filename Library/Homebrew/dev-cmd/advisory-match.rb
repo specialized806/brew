@@ -269,6 +269,25 @@ module Homebrew
                hits: T::Array[Homebrew::Vulns::Match::Hit], emitter: DirEmitter, latest_macos: Symbol).void
       }
       def reconcile_formula(matcher, formula, hits, emitter, latest_macos:)
+        return if matcher.skip_formula?(formula.name)
+
+        resource_records = emitter.reconciliation_resource_records(formula.name).reject do |record|
+          if hits.any? { |hit| record.upstream.intersect?(hit.identifiers) }
+            true
+          elsif matcher.preserve_homebrew_ranges?(formula.name, record.upstream)
+            emitter.skip_reconciliation(record.id, [:preserved])
+            true
+          else
+            false
+          end
+        end
+        resource_hits = matcher.resource_advisories_for(resource_records)
+        hits = matcher.dedup_by_aliases(hits + resource_hits)
+        resource_records.each do |record|
+          next if hits.any? { |hit| record.upstream.intersect?(hit.identifiers) }
+
+          emitter.skip_reconciliation(record.id, [:resource_not_rediscovered])
+        end
         groups = hits.to_h do |hit|
           ids = matcher.record_ids(formula, hit)
           [ids.fetch(0), ids]
@@ -298,7 +317,13 @@ module Homebrew
             # Reload under each platform: resources and primary sources can differ.
             begin
               view = index.zero? ? formula : Formulary.factory(formula.path)
-              platform_hits = index.zero? ? hits : matcher.advisories_for(view)
+              platform_hits = if index.zero?
+                hits
+              else
+                matcher.dedup_by_aliases(
+                  matcher.advisories_for(view) + resource_hits,
+                )
+              end
             rescue Homebrew::Vulns::OSV::Error
               raise
             rescue => e
@@ -317,7 +342,12 @@ module Homebrew
                   state: :unresolved, introduced: nil, fixed: nil, reasons: [:platform_provenance_changed],
                 )
               else
-                result = matcher.reconcile_history(view, family.fetch(0))
+                hit = family.fetch(0)
+                result = if resource_records.any? { |stored| stored.upstream.intersect?(hit.identifiers) }
+                  matcher.reconcile_history(view, hit, require_resource_presence: true)
+                else
+                  matcher.reconcile_history(view, hit)
+                end
                 emitter.record_history_walk if result.state != :preserved
               end
               outcomes.fetch(id) << result
@@ -606,6 +636,45 @@ module Homebrew
         sig { override.params(record_id: String).returns(T::Boolean) }
         def alias_protected?(record_id)
           @protected_aliases.fetch(record_id, false)
+        end
+
+        # Only pure registry-resource records can supply fallback query hints.
+        # Mixed or incomplete provenance retains the ordinary discovery guard.
+        sig { params(formula_name: String).returns(T::Array[Homebrew::Vulns::Match::ResourceRecord]) }
+        def reconciliation_resource_records(formula_name)
+          fields = %w[ecosystem name resource subject_version key]
+          Dir.glob(File.join(@dir, "BREW-#{formula_name}-*.json")).filter_map do |path|
+            record = alias_record(path)
+            next unless record.is_a?(Hash)
+            next unless reconcilable_record?(record)
+            next unless single_terminal_range?(record)
+            next if affected_formula_names(record) != [formula_name]
+            next if record["id"] != File.basename(path, ".json")
+
+            upstream = record["upstream"]
+            next unless upstream.is_a?(Array)
+            next if upstream.empty? || !upstream.all?(String)
+
+            rows = record.dig("database_specific", "upstream_evidence")
+            next unless rows.is_a?(Array)
+            next if rows.empty?
+
+            evidence = rows.filter_map do |row|
+              next unless row.is_a?(Hash)
+              next if row["strategy"] != "registry"
+              next unless fields.all? do |field|
+                row[field].is_a?(String) && row[field].present?
+              end
+
+              Homebrew::Vulns::Match::Evidence.new(
+                strategy: :registry, ecosystem: row.fetch("ecosystem"), name: row.fetch("name"),
+                resource: row.fetch("resource"), subject_version: row.fetch("subject_version"), key: row.fetch("key")
+              ).freeze
+            end
+            next if evidence.length != rows.length
+
+            Homebrew::Vulns::Match::ResourceRecord.new(id: record.fetch("id"), upstream:, evidence: evidence.uniq)
+          end
         end
 
         # Reconciliation never creates a record or changes its matching provenance.

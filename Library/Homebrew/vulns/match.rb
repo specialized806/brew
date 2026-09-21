@@ -89,6 +89,13 @@ module Homebrew
         end
       end
 
+      # Stored resource provenance is a query hint, never a historical verdict.
+      class ResourceRecord < T::Struct
+        const :id, String
+        const :upstream, T::Array[String]
+        const :evidence, T::Array[Evidence]
+      end
+
       class Hit
         sig { returns(Vulnerability) }
         attr_reader :vulnerability
@@ -239,7 +246,7 @@ module Homebrew
         formulae.each_slice(BULK_CHUNK) do |chunk|
           identities = T.let({}, T::Hash[Formula, Identity])
           chunk.each do |formula|
-            next if @overrides&.skip_formula?(formula.name)
+            next if skip_formula?(formula.name)
 
             identities[formula] = identify(formula)
           end
@@ -366,6 +373,42 @@ module Homebrew
         end
 
         queries
+      end
+
+      # Rediscover stored resource subjects using fresh versionless queries.
+      # Stored versions only reproduce the candidate's range basis. The history
+      # walk must establish every version and witness each resource's identity.
+      sig { params(records: T::Array[ResourceRecord]).returns(T::Array[Hit]) }
+      def resource_advisories_for(records)
+        evidence = records.flat_map(&:evidence).uniq
+        return [] if evidence.empty?
+
+        subjects = evidence.group_by { |ev| [ev.ecosystem, ev.name] }
+        packages = subjects.keys.map { |ecosystem, name| { ecosystem:, name:, version: nil } }
+        results = OSV.query_batch(packages)
+        id_evidence = T.let({}, T::Hash[String, T::Array[Evidence]])
+        subjects.values.zip(results).each do |rows, stubs|
+          Array(stubs).each do |stub|
+            id = stub["id"]
+            next unless id.is_a?(String)
+
+            (id_evidence[id] ||= []).concat(rows)
+          end
+        end
+        prefetch_vulnerabilities(id_evidence.keys)
+        identity = Identity.new(resource_packages: [], distro_packages: {})
+        hits = dedup_by_aliases(resolve_upstream(id_evidence, identity))
+        hits.select { |hit| records.any? { |record| record.upstream.intersect?(hit.identifiers) } }
+      end
+
+      sig { params(formula_name: String, identifiers: T::Array[String]).returns(T::Boolean) }
+      def preserve_homebrew_ranges?(formula_name, identifiers)
+        !!@overrides&.preserve_homebrew_ranges?(formula_name, identifiers)
+      end
+
+      sig { params(formula_name: String).returns(T::Boolean) }
+      def skip_formula?(formula_name)
+        !!@overrides&.skip_formula?(formula_name)
       end
 
       sig { params(identity: Identity).returns(T::Array[Evidence]) }
@@ -801,18 +844,29 @@ module Homebrew
       # Unlike first_fixed_version, this must visit builds before the first
       # transition, including below-introduced versions and removed resources.
       # An unresolved or protected result never supplies replacement boundaries.
-      sig { params(formula: Formula, hit: Hit).returns(ReconciledHistory) }
-      def reconcile_history(formula, hit)
-        if @overrides&.preserve_homebrew_ranges?(formula.name, hit.identifiers)
+      sig {
+        params(formula: Formula, hit: Hit, require_resource_presence: T::Boolean).returns(ReconciledHistory)
+      }
+      def reconcile_history(formula, hit, require_resource_presence: false)
+        if preserve_homebrew_ranges?(formula.name, hit.identifiers)
           return ReconciledHistory.new(state: :preserved, reasons: [])
         end
 
-        observations = [reconciliation_observation(formula, hit)]
+        unseen = require_resource_presence ? hit.evidence.select(&:resource).dup : []
+        observe = lambda do |build|
+          unseen.reject! do |ev|
+            present, version = subject_version_at(build, ev)
+            present && !version.nil?
+          end
+          reconciliation_observation(build, hit)
+        end
+        observations = [observe.call(formula)]
         result = @history.walk(formula, complete: true) do |old|
-          observations << reconciliation_observation(old, hit)
+          observations << observe.call(old)
           nil
         end
         reasons = observations.flat_map(&:reasons)
+        reasons << :resource_not_found if unseen.any?
         reasons << :history_unavailable unless result.nil?
         if @overrides&.advisory_override(formula.name, hit.identifiers)
           reasons << :upstream_override_requires_review

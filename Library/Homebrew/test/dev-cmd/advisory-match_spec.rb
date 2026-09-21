@@ -82,6 +82,166 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
       end
     end
 
+    context "when a stored resource is no longer in the formula" do
+      let(:resource_data) do
+        {
+          "id" => "CVE-2024-1234", "aliases" => ["GHSA-certifi"],
+          "affected" => [{ "package" => { "ecosystem" => "PyPI", "name" => "certifi" },
+                           "ranges"  => [{ "type" => "ECOSYSTEM", "events" => [
+                             { "introduced" => "0" }, { "fixed" => "1.2" }
+                           ] }] }]
+        }
+      end
+      let(:resource_vulnerability) { Homebrew::Vulns::Vulnerability.new(resource_data) }
+      let(:resource_evidence) do
+        Homebrew::Vulns::Match::Evidence.new(strategy: :registry, ecosystem: "PyPI", name: "certifi",
+                                             subject_version: "1.2", key: "pkg:pypi/certifi@1.2", resource: "certifi")
+      end
+      let(:stored) do
+        hit = Homebrew::Vulns::Match::Hit.new(vulnerability: resource_vulnerability, evidence: [resource_evidence])
+        JSON.parse(JSON.generate(matcher.to_brew_record(requests, hit, now: Time.utc(2020))))
+      end
+      let(:old_resource_version) { "1.0" }
+      let(:old_formula) do
+        resource_version = old_resource_version
+        formula("requests") do
+          T.bind(self, T.class_of(Formula))
+          url "https://github.com/psf/requests/archive/refs/tags/v2.29.0.tar.gz"
+          if resource_version
+            resource "certifi" do
+              url "https://files.pythonhosted.org/packages/11/22/33/certifi-#{resource_version}.tar.gz"
+            end
+          end
+        end
+      end
+
+      before do
+        allow(matcher).to receive(:reconcile_history).and_call_original
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
+          packages.map { |pkg| (pkg[:name] == "certifi") ? [{ "id" => "CVE-2024-1234" }] : [] }
+        end
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-1234")
+                                                              .and_return(resource_data)
+        versions = instance_double(FormulaVersions)
+        allow(FormulaVersions).to receive(:new).and_return(versions)
+        allow(versions).to receive(:rev_list) { |_, &block| block.call("old", "Formula/r/requests.rb") }
+        allow(versions).to receive(:formula_at_revision) { |_, _, &block| block.call(old_formula) }
+        allow(Utils).to receive(:popen_read).with(
+          "git", "-C", anything, "diff-tree", "--root", "--no-commit-id", "--name-only",
+          "--find-renames", "--diff-filter=AR", "-r", "old", safe: true
+        ).and_return("Formula/r/requests.rb\n")
+      end
+
+      it "reconciles the historical interval even with no current hits" do
+        reconcile_record do |path, _|
+          expect(JSON.parse(File.read(path)).dig("affected", 0, "ranges", 0, "events"))
+            .to eq [{ "introduced" => "2.29.0" }, { "fixed" => "2.31.0" }]
+        end
+      end
+
+      context "when every historical resource version was fixed" do
+        let(:old_resource_version) { "1.3" }
+
+        it "deletes only after proving the resource existed and was never affected" do
+          reconcile_record { |path, _| expect(File.exist?(path)).to be false }
+        end
+      end
+
+      context "when the stored resource identity never existed" do
+        let(:old_resource_version) { nil }
+
+        it "holds instead of interpreting absence as proof of never affected" do
+          expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+            .to output(/resource_not_found: 1/).to_stdout
+        end
+      end
+
+      it "holds when fresh queries no longer return the stored advisory" do
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch) { |packages| packages.map { [] } }
+        expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+          .to output(/resource_not_rediscovered: 1/).to_stdout
+      end
+
+      it "does not create records for additional fresh upstream hits" do
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
+          packages.map do |pkg|
+            (pkg[:name] == "certifi") ? [{ "id" => "CVE-2024-1234" }, { "id" => "CVE-2024-9999" }] : []
+          end
+        end
+        allow(Homebrew::Vulns::OSV).to receive(:vulnerability).with("CVE-2024-9999")
+                                                              .and_return(resource_data.merge(
+                                                                            "id" => "CVE-2024-9999", "aliases" => [],
+                                                                          ))
+        reconcile_record do |path, _|
+          expect(Dir.glob(File.join(File.dirname(path), "BREW-*.json"))).to eq [path]
+        end
+      end
+
+      it "holds if the resource is not witnessed on one platform" do
+        linux_formula = formula("requests") do
+          T.bind(self, T.class_of(Formula))
+          url "https://github.com/psf/requests/archive/refs/tags/v2.29.0.tar.gz"
+        end
+        versions = instance_double(FormulaVersions)
+        allow(FormulaVersions).to receive(:new).and_return(versions)
+        allow(versions).to receive(:rev_list) { |_, &block| block.call("old", "Formula/r/requests.rb") }
+        allow(versions).to receive(:formula_at_revision) do |_, _, &block|
+          block.call(Homebrew::SimulateSystem.simulating_or_running_on_linux? ? linux_formula : old_formula)
+        end
+        expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+          .to output(/resource_not_found: 1/).to_stdout
+      end
+
+      it "keeps unsupported mixed provenance outside fallback discovery" do
+        stored.fetch("database_specific").fetch("upstream_evidence").concat(reviewed_git_evidence)
+        reconcile_record { |path, original| expect(File.read(path)).to eq original }
+      end
+
+      it "leaves generated patch records outside fallback discovery" do
+        stored.fetch("database_specific")["source"] = "generated"
+        stored.fetch("affected").fetch(0).fetch("ecosystem_specific")["fix"] = "patch"
+        reconcile_record { |path, original| expect(File.read(path)).to eq original }
+      end
+
+      it "honours a preservation override before supplemental queries or history" do
+        overrides = Homebrew::Vulns::AdvisoryOverrides.new({ "requests" => { "advisories" => {
+          "GHSA-certifi" => { "preserve_homebrew_ranges" => true },
+        } } })
+        allow(matcher).to receive(:preserve_homebrew_ranges?) do |name, ids|
+          overrides.preserve_homebrew_ranges?(name, ids)
+        end
+        expect(matcher).not_to receive(:reconcile_history)
+        expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+          .with([{ ecosystem: "PyPI", name: "certifi", version: nil }])
+        reconcile_record { |path, original| expect(File.read(path)).to eq original }
+      end
+
+      it "honours a skipped formula with a stored removed-resource record" do
+        stored
+        allow(Homebrew::Vulns::Match).to receive(:new).and_call_original
+        Dir.mktmpdir do |dir|
+          path = File.join(dir, "#{stored.fetch("id")}.json")
+          original = JSON.generate(stored)
+          File.write(path, original)
+          overrides = File.join(dir, "overrides.yml")
+          File.write(overrides, "requests:\n  skip: true\n")
+          expect(Homebrew::Vulns::OSV).not_to receive(:query_batch)
+          cmd_for("requests", "--output", dir, "--overrides", overrides, "--reconcile-history").run
+          expect(File.read(path)).to eq original
+        end
+      end
+
+      it "holds the formula if the supplemental resource query fails" do
+        allow(Homebrew::Vulns::OSV).to receive(:query_batch) do |packages|
+          raise Homebrew::Vulns::OSV::Error, "unavailable" if packages.any? { |pkg| pkg[:name] == "certifi" }
+
+          packages.map { [] }
+        end
+        expect { reconcile_record { |path, original| expect(File.read(path)).to eq original } }
+          .to output(/upstream_unavailable: 1/).to_stdout
+      end
+    end
+
     it "requires an explicit overrides file" do
       expect { cmd_for("requests", "--output", "/unused", "--reconcile-history").run }
         .to raise_error(UsageError, /explicit.*--overrides/)
