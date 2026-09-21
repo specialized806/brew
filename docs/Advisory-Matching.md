@@ -43,7 +43,13 @@ It is an unchecked authoring mode, not a way to validate a skipped candidate.
 It requires complete formula history and matching provenance, with the same result on the latest supported macOS and Linux for both ARM and Intel.
 These simulations check declared formula and resource versions; they do not rebuild historical bottles or verify installation steps.
 It can narrow an affected interval or delete a record proven never affected; it preserves other fields and updates `modified` only for a range change.
-Generated records, patch fixes, open or multiple intervals and records no longer rediscovered by current matching are left unchanged.
+Generated records, patch fixes and open or multiple intervals are left unchanged.
+For records missed by current matching, complete registry-resource evidence can supply versionless upstream queries even after a resource has been removed.
+The fresh results must reproduce the stored upstream family and range basis, and every resource identity must occur in formula history on every platform.
+Stored subject versions only reproduce the range basis; historical decisions use versions from the formula sources.
+A missing historical resource holds the record as `resource_not_found`; a stored family absent from the fresh query results is `resource_not_rediscovered`.
+Mixed, incomplete or non-resource provenance still requires current discovery.
+These fallback queries cannot create records and respect formula skips and preserved Homebrew ranges.
 When a prerelease suffix changes a subject’s `SEMVER` range state compared with its release version, `prerelease_boundary` holds the record for review.
 The command reports skip reasons and the number of matched records it did not revisit; success does not establish complete coverage.
 

@@ -1602,6 +1602,40 @@ RSpec.describe Homebrew::Vulns::Match do
           .to have_attributes(state: :unresolved, introduced: nil, fixed: nil, reasons: [:subject_changed])
       end
 
+      it "requires every recovered resource identity to occur in history" do
+        stub_history([["2.31.0", "1.3"], ["2.30.0", "1.2"]])
+        hit = resource_hit
+        missing = ev(:registry, ecosystem: "PyPI", name: "missing", subject_version: "1.2", resource: "missing")
+        combined = make_hit(hit.vulnerability, *hit.evidence, missing)
+
+        expect(matcher.reconcile_history(requests, combined, require_resource_presence: true))
+          .to have_attributes(state: :unresolved, reasons: [:resource_not_found])
+      end
+
+      it "witnesses a renamed resource by its source package rather than its label" do
+        stub_history([["2.30.0", "1.2", "renamed"]])
+
+        expect(matcher.reconcile_history(requests, resource_hit, require_resource_presence: true))
+          .to have_attributes(state: :never_affected, reasons: [])
+      end
+
+      it "does not use a stale stored subject version as a historical verdict" do
+        stub_history([["2.30.0", "1.0"], ["2.29.0", "0.9"]])
+        hit = resource_hit
+        evidence = hit.evidence.fetch(0).to_h.merge(subject_version: "99.0")
+        stale = make_hit(hit.vulnerability, Homebrew::Vulns::Match::Evidence.new(**evidence))
+
+        expect(matcher.reconcile_history(requests, stale, require_resource_presence: true))
+          .to have_attributes(state: :range, introduced: "2.29.0", fixed: "2.31.0", reasons: [])
+      end
+
+      it "holds unreadable history even after witnessing a recovered resource" do
+        stub_history([["2.30.0", "1.3"], nil])
+
+        expect(matcher.reconcile_history(requests, resource_hit, require_resource_presence: true))
+          .to have_attributes(state: :unresolved, reasons: [:history_unavailable])
+      end
+
       it "still treats an absent resource as unaffected" do
         stub_history(["2.31.0", "2.30.0"])
 
