@@ -836,6 +836,20 @@ RSpec.describe Sandbox do
       expect(denied).not_to include(*allowed_dirs.map { |path| path.realpath.to_s })
     end
 
+    it "blocks sensitive paths when Git credentials are excepted" do
+      %w[.ssh .aws .config/gh].each { |path| (home/path).mkpath }
+
+      sandbox.deny_read_home(except: :git)
+
+      expect(sandbox.profile.rules.map { |rule| rule.filter&.path })
+        .to contain_exactly((home/".aws").to_s)
+    end
+
+    it "rejects unknown home credential exceptions" do
+      expect { sandbox.deny_read_home(except: :aws) }
+        .to raise_error(ArgumentError, "Unknown home credential exception: :aws")
+    end
+
     it "keeps Homebrew readable inside a sensitive home path" do
       stub_const("HOMEBREW_PREFIX", home/"Documents/homebrew")
       [HOMEBREW_PREFIX, home/".ssh"].each(&:mkpath)

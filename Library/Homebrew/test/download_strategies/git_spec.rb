@@ -39,94 +39,85 @@ RSpec.describe GitDownloadStrategy do
       allow(Sandbox).to receive(:isolate_operation?).and_return(true)
       allow(Dir).to receive(:home).with(ENV.fetch("USER")).and_return(home.to_s)
       allow(strategy).to receive(:fetching?).and_return(true)
-      %w[.ssh .config/gh .config/git .subversion].each { |path| (home/path).mkpath }
-      %w[.gitconfig .git-credentials .hgrc .cvspass .fossil].each { |path| (home/path).write("") }
     end
 
-    it "does not grant unused credentials to an HTTPS download" do
-      expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-        .not_to include(*%w[.ssh .config/gh .git-credentials .subversion .hgrc .cvspass .fossil].map do |path|
-          (home/path).realpath.to_s
-        end)
-    end
+    test_each(["git@git.example.com:repo.git", "https://git.example.com/repo.git"]) do |git_url|
+      context "with #{git_url}" do
+        let(:url) { git_url }
 
-    it "only grants the Git credential store when configured" do
-      (home/".gitconfig").write("[credential]\n\thelper = store\n")
-
-      expect(strategy.command_sandbox.profile.rules)
-        .to include(have_attributes(allow: true, operation: "file-read*",
-                                    filter: have_attributes(path: (home/".git-credentials").to_s)))
-    end
-
-    it "reads nested global includes and their credential helpers" do
-      (home/".gitconfig").write("[include]\n\tpath = ~/.config/git/work config\n")
-      (home/".config/git/work config").write("[include]\n\tpath = empty\n[credential]\n\thelper = store\n")
-      (home/".config/git/empty").write("")
-
-      expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-        .to include(*[".git-credentials", ".config/git/empty", ".config/git/work config"].map do |path|
-          (home/path).to_s
-        end)
-    end
-
-    it "uses the downloaded repository's context for conditional global includes" do
-      system "git", "init", "--quiet", cached_location
-      (home/".gitconfig").write <<~EOS
-        [includeIf "gitdir:#{cached_location}/.git"]
-          path = .config/git/work
-        [includeIf "hasconfig:remote.*.url:#{url}"]
-          path = .config/git/remote
-      EOS
-      (home/".config/git/work").write("[credential]\n\thelper = store\n")
-      (home/".config/git/remote").write("[credential]\n\thelper = !gh auth git-credential\n")
-      system "git", "-C", cached_location, "remote", "add", "origin", url
-
-      expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-        .to include(*%w[.config/git/work .config/git/remote .git-credentials .config/gh].map do |path|
-          (home/path).to_s
-        end)
-    end
-
-    it "grants the configured credential store file instead of the default stores" do
-      (home/".config/git/work credentials").write("")
-      ["store --file ~/.config/git/work\\ credentials",
-       "store --file='#{home}/.config/git/work credentials'"].each do |helper|
-        system "git", "config", "--file", home/".gitconfig", "credential.helper", helper
-
-        paths = strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow }
-        expect(paths).to include((home/".config/git/work credentials").to_s)
-        expect(paths).not_to include((home/".git-credentials").to_s, (home/".config/git/credentials").to_s)
+        it "allows user configuration and agent sockets during downloads" do
+          expect(strategy.command_sandbox.profile.rules.select do |rule|
+            rule.operation == "network*" || rule.filter&.path == home.to_s
+          end).to contain_exactly(
+            have_attributes(allow: true, operation: "network*",
+                            filter: have_attributes(path: "/", type: :subpath)),
+          )
+        end
       end
     end
 
-    it "does not derive credential grants from repository-local includes" do
-      system "git", "init", "--quiet", cached_location
-      (home/"local-config").write("[credential]\n\thelper = store\n")
-      system "git", "-C", cached_location, "config", "include.path", (home/"local-config").to_s
-
-      expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-        .not_to include((home/"local-config").to_s, (home/".git-credentials").to_s)
-    end
-
-    it "resolves relative credential stores from the clone or fetch working directory" do
-      (home/".gitconfig").write("[credential]\n\thelper = store --file creds\n")
-      (home/"creds").write("")
-      (cached_location/"creds").write("")
-
-      home.cd do
-        expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-          .to include((home/"creds").to_s)
-        system "git", "init", "--quiet", cached_location
-        expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-          .to include((cached_location/"creds").to_s)
+    it "blocks unrelated credentials while allowing Git and SSH configuration" do
+      %w[.aws/credentials .npmrc .ssh/config .gitconfig .git-credentials .netrc
+         .config/gh/hosts.yml dotfiles/ssh_config].each do |path|
+        (home/path).dirname.mkpath
+        (home/path).write("")
       end
+
+      expect(strategy.command_sandbox.profile.rules.filter_map do |rule|
+        rule.filter&.path if !rule.allow && rule.operation == "file-read*"
+      end).to contain_exactly((home/".aws").to_s, (home/".npmrc").to_s)
     end
 
-    it "does not grant credentials during local inspection" do
+    it "does not probe Git or SSH configuration" do
+      expect(SystemCommand).not_to receive(:run)
+
+      strategy.command_sandbox
+    end
+
+    it "keeps writes restricted to the cached repository" do
+      expect(strategy.command_sandbox.profile.rules.filter_map do |rule|
+        rule.filter&.path if rule.allow && rule.operation == "file-write*"
+      end).to eq([cached_location.to_s])
+    end
+
+    it "restricts home reads and network access during local inspection" do
       allow(strategy).to receive(:fetching?).and_return(false)
 
-      expect(strategy.command_sandbox.profile.rules.filter_map { |rule| rule.filter&.path if rule.allow })
-        .not_to include((home/".gitconfig").to_s, (home/".ssh").to_s)
+      expect(strategy.command_sandbox.profile.rules.select do |rule|
+        rule.operation == "network*" || rule.filter&.path == home.to_s
+      end).to contain_exactly(
+        have_attributes(allow: false, operation: "file-read*",
+                        filter: have_attributes(path: home.to_s, type: :subpath)),
+        have_attributes(allow: false, operation: "network*", filter: nil),
+      )
+    end
+  end
+
+  describe "#env" do
+    subject(:strategy) do
+      Class.new(described_class) do
+        T.bind(self, T.class_of(GitDownloadStrategy))
+        public :env
+      end.new(url, name, version)
+    end
+
+    before do
+      allow(Sandbox).to receive(:isolate_operation?).and_return(true)
+      ENV["SSH_AUTH_SOCK"] = "/path/to/agent.sock"
+    end
+
+    it "preserves HOME and SSH_AUTH_SOCK even for URLs that may be rewritten to SSH" do
+      allow(strategy).to receive(:fetching?).and_return(true)
+
+      expect(strategy.env).to eq(
+        "GIT_TERMINAL_PROMPT" => "0",
+        "HOME"                => Dir.home(ENV.fetch("USER")),
+        "SSH_AUTH_SOCK"       => ENV.fetch("SSH_AUTH_SOCK"),
+      )
+    end
+
+    it "does not restore credentials during local inspection" do
+      expect(strategy.env).to eq("GIT_TERMINAL_PROMPT" => "0")
     end
   end
 
