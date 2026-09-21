@@ -1235,7 +1235,7 @@ Package managers such as Cargo, Go modules, npm and Bundler download dependencie
 class Foo < Formula
   # ...
   def fetch
-    system "cargo", "fetch", "--locked", "--target", "host-tuple"
+    system "cargo", "fetch", *std_cargo_fetch_args
   end
 
   def install

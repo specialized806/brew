@@ -1668,7 +1668,7 @@ class Formula
   #
   # ```ruby
   # def fetch
-  #   system "cargo", "fetch", "--locked", "--target", "host-tuple"
+  #   system "cargo", "fetch", *std_cargo_fetch_args
   # end
   #
   # def install
@@ -2196,6 +2196,14 @@ class Formula
     args = ["--jobs=#{ENV.make_jobs}", "--max-backjumps=100000"]
     args += ["--install-method=copy", "--installdir=#{installdir}"] if installdir
     args
+  end
+
+  # Standard parameters for Cargo dependency fetches.
+  #
+  # @api public
+  sig { returns(T::Array[String]) }
+  def std_cargo_fetch_args
+    ["--locked", "--target", "host-tuple"]
   end
 
   # Standard parameters for Cargo builds.
