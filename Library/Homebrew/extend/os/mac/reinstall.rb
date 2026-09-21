@@ -26,7 +26,8 @@ module OS
 
           pkgconf = ::Formula["pkgconf"]
 
-          context = build_install_context(pkgconf, flags: [])
+          context = build_install_context(pkgconf, flags:                      [],
+                                                   build_from_source_formulae: [pkgconf.full_name])
 
           begin
             return if Homebrew::Install.fetch_formulae([context.formula_installer]).empty?
