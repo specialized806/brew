@@ -1340,6 +1340,21 @@ RSpec.describe Formula do
     expect(f2).not_to have_fetch_defined
   end
 
+  specify "#run_post_install provides a fallback git identity" do
+    email = +""
+    f = formula do
+      T.bind(self, T.class_of(Formula))
+      url "foo-1.0"
+    end
+
+    allow(f).to receive(:odeprecated)
+    allow(f).to receive(:post_install) { email.replace(Utils.safe_popen_read("git", "config", "user.email").chomp) }
+
+    f.run_post_install
+
+    expect(email).to eq("brew@example.com")
+  end
+
   specify "#run_post_install prevents build tools from reading user configuration" do
     env = {}
     f = formula do
@@ -1355,7 +1370,7 @@ RSpec.describe Formula do
     f.run_post_install
 
     expect(env).to include(
-      "GIT_CONFIG_GLOBAL"     => Utils::Git.no_global_config_file,
+      "GIT_CONFIG_GLOBAL"     => "#{env.fetch("HOME")}/.gitconfig",
       "GIT_TERMINAL_PROMPT"   => "0",
       "GOENV"                 => "off",
       "NPM_CONFIG_USERCONFIG" => File::NULL,
@@ -3877,7 +3892,7 @@ RSpec.describe Formula do
       home = mktmpdir
 
       expect(f.common_sandbox_env(home)).to include(
-        GIT_CONFIG_GLOBAL:     Utils::Git.no_global_config_file,
+        GIT_CONFIG_GLOBAL:     (home/".gitconfig").to_s,
         GIT_TERMINAL_PROMPT:   "0",
         GOENV:                 "off",
         NPM_CONFIG_USERCONFIG: File::NULL,

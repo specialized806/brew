@@ -3544,6 +3544,14 @@ class Formula
   def setup_home(home)
     # Don't let bazel write to tmp directories we don't control or clean.
     (home/".bazelrc").write "startup --output_user_root=#{home}/_bazel"
+    # Sandboxed `git commit` cannot auto-detect an identity from the hostname
+    # without network access, so provide one that `HOMEBREW_GIT_NAME`,
+    # `HOMEBREW_GIT_EMAIL` or a repository config can still override.
+    (home/".gitconfig").write <<~GITCONFIG
+      [user]
+        name = Homebrew
+        email = brew@example.com
+    GITCONFIG
   end
 
   # Returns a list of {Dependency} objects that are declared in the formula.
@@ -3868,7 +3876,7 @@ class Formula
       TMPDIR:                  HOMEBREW_TEMP.to_s,
       TEMP:                    HOMEBREW_TEMP.to_s,
       TMP:                     HOMEBREW_TEMP.to_s,
-      GIT_CONFIG_GLOBAL:       Utils::Git.no_global_config_file,
+      GIT_CONFIG_GLOBAL:       (home/".gitconfig").to_s,
       GIT_TERMINAL_PROMPT:     "0",
       GOENV:                   "off",
       # TODO: Enable when `min-publish-age` stabilises in Cargo 1.100,
