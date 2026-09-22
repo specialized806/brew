@@ -967,8 +967,8 @@ module Homebrew
           when "remove"
             step_paths(step, "paths").flat_map { |path| expand_path_glob(path) }.map(&:parent)
           when "inreplace", "change_dylib_id"
-            key = (step["type"] == "inreplace") ? "path" : "source"
-            [resolve_path(step_path(step, key))]
+            path = resolve_path(step_path(step, (step["type"] == "inreplace") ? "path" : "source"))
+            [path.exist? ? path : path.parent]
           when "link_dir", "link_children"
             [resolve_path(step_path(step, "target"))]
           when "run"
