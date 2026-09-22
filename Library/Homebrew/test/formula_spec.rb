@@ -37,6 +37,19 @@ RSpec.describe Formula do
     let(:f) { Testball.new }
     let(:testpath) { mktmpdir }
 
+    it "provides a fallback git identity" do
+      email = +""
+      allow(f).to receive(:test) { email.replace(Utils.safe_popen_read("git", "config", "user.email").chomp) }
+
+      f.run_test
+
+      expect(email).to eq("brew@example.com")
+    end
+
+    it "points git at a global config inside the test directory" do
+      expect(f.test_sandbox_env(testpath)).to include(GIT_CONFIG_GLOBAL: (testpath/".gitconfig").to_s)
+    end
+
     it "uses the test directory supplied by the parent" do
       ENV["HOMEBREW_TEST_PATH"] = testpath.to_s
       observed = []

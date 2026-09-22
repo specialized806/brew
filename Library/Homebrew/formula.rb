@@ -3441,6 +3441,14 @@ class Formula
       @testpath = T.let(testpath, T.nilable(Pathname))
       test_env.merge!(test_sandbox_env(testpath))
       setup_home testpath
+      # Sandboxed `git commit` cannot auto-detect an identity from the hostname
+      # without network access, so provide one that `HOMEBREW_GIT_NAME`,
+      # `HOMEBREW_GIT_EMAIL` or a repository config can still override.
+      (testpath/".gitconfig").write <<~GITCONFIG
+        [user]
+          name = Homebrew
+          email = brew@example.com
+      GITCONFIG
       begin
         with_logging("test") do
           with_env(test_env) do
@@ -3888,7 +3896,7 @@ class Formula
   # Environment variables for the sandboxed test phase, on top of {#common_sandbox_env}.
   sig { params(testpath: Pathname).returns(T::Hash[Symbol, String]) }
   def test_sandbox_env(testpath)
-    common_sandbox_env(testpath)
+    common_sandbox_env(testpath).merge(GIT_CONFIG_GLOBAL: (testpath/".gitconfig").to_s)
   end
 
   private
