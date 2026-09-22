@@ -20,15 +20,20 @@ module Homebrew
       tab = Tab.for_formula(pkgconf)
       return unless (built_on = tab.built_on)
 
-      built_on_version = built_on["os_version"]
-                         &.delete_prefix("macOS ")
-                         &.sub(/\.\d+$/, "")
-      return unless built_on_version
+      built_on_os_version = built_on["os_version"]&.delete_prefix("macOS ")
+      return unless built_on_os_version
 
-      current_version = MacOS.version.to_s
-      return if built_on_version == current_version
+      built_on_major = begin
+        Version.parse(built_on_os_version).major.to_s.presence
+      rescue
+        nil
+      end
+      return unless built_on_major
 
-      [built_on_version, current_version]
+      current_major = MacOS.version.major.to_s
+      return if built_on_major == current_major
+
+      [built_on_os_version, MacOS.version.to_s]
     end
 
     sig { params(mismatch: [String, String]).returns(String) }
