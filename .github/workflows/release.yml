@@ -138,6 +138,9 @@ jobs:
 
           echo "version=${homebrew_version}" >> "${GITHUB_OUTPUT}"
 
+          # Ship a stable checkout for hosts without Git or developer tools.
+          git -C brew checkout --force -B stable
+
       - name: Prepare Homebrew API cache for package
         run: |
           package_api_cache="${RUNNER_TEMP}/homebrew-api-cache"
@@ -280,6 +283,52 @@ jobs:
       - run: brew config
 
       - run: brew doctor
+
+      - name: Install Homebrew for a non-admin user
+        env:
+          INSTALLER_PATH: ${{ needs.build.outputs.installer_path }}
+        run: |
+          sudo sysadminctl -addUser brewtest -password "$(uuidgen)" -shell /bin/bash
+          test "$(id -gn brewtest)" = staff
+          if id -Gn brewtest | grep -Eq '(^| )(admin|sudo|wheel)( |$)'
+          then
+            echo "The test account must not be an administrator."
+            exit 1
+          fi
+          sudo defaults write /var/tmp/.homebrew_pkg_user HOMEBREW_PKG_USER brewtest
+          sudo chown root:wheel /var/tmp/.homebrew_pkg_user.plist
+          sudo chmod 600 /var/tmp/.homebrew_pkg_user.plist
+          sudo chmod -N /var/tmp/.homebrew_pkg_user.plist
+          sudo rm -rf /opt/homebrew
+          sudo installer -verbose -pkg "${INSTALLER_PATH}" -target /
+          sudo -i -u brewtest /usr/bin/env HOMEBREW_NO_SUDO=1 \
+            /opt/homebrew/bin/brew install --force-bottle hello
+          sudo -i -u brewtest /opt/homebrew/bin/hello --version
+          test -z "$(find /opt/homebrew ! -user brewtest -o ! -group "$(id -gn brewtest)")"
+
+      - name: Check non-admin permissions on installation and reinstallation
+        env:
+          INSTALLER_PATH: ${{ needs.build.outputs.installer_path }}
+        run: |
+          for phase in fresh reinstall
+          do
+            if [[ "${phase}" == reinstall ]]
+            then
+              sudo chmod go+w /opt/homebrew /opt/homebrew/bin /opt/homebrew/bin/brew \
+                /Users/brewtest/Library/Caches/Homebrew
+              sudo installer -verbose -pkg "${INSTALLER_PATH}" -target /
+            fi
+            writable_paths="$(sudo find /opt/homebrew /Users/brewtest/Library/Caches/Homebrew \
+              ! -type l \( -perm -0020 -o -perm -0002 \))"
+            if [[ -n "${writable_paths}" ]]
+            then
+              printf 'Unexpected writable paths:\n%s\n' "${writable_paths}"
+              exit 1
+            fi
+            test ! -w /opt/homebrew
+            test ! -w /opt/homebrew/bin
+            test ! -w /opt/homebrew/bin/brew
+          done
 
   upload:
     needs: [build, test]

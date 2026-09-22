@@ -28,6 +28,9 @@ RSpec.describe "package postinstall", type: :system do
   let(:child_umask) { "000" }
 
   sig { returns(T::Boolean) }
+  let(:developer_tools) { true }
+
+  sig { returns(T::Boolean) }
   let(:sudo_available) { true }
 
   sig { returns(Integer) }
@@ -35,6 +38,9 @@ RSpec.describe "package postinstall", type: :system do
 
   sig { returns(Integer) }
   let(:git_exit_status) { 0 }
+
+  sig { returns(String) }
+  let(:developer_dir) { "#{test_root}/Developer Tools" }
 
   sig { returns(Pathname) }
   let(:commands) { test_root/"commands" }
@@ -56,6 +62,10 @@ RSpec.describe "package postinstall", type: :system do
         command chmod "$@"
       }
       chown() { echo "chown $*" >> "#{commands}"; }
+      xcode-select() {
+        [[ "#{developer_tools}" == true ]] || return 1
+        echo "#{developer_dir}"
+      }
       git() {
         echo "git $*" >> "#{commands}"
         if [[ "$*" == *" tag "* ]]; then echo 7.0.3; fi
@@ -68,6 +78,7 @@ RSpec.describe "package postinstall", type: :system do
         [[ "#{sudo_available}" == true ]] || return 127
         echo "sudo $*" >> "#{commands}"
         if [[ "$*" == *" git "* || "$*" == *"/git "* ]]; then
+          [[ "#{developer_tools}" == true ]] || return 1
           if [[ "$*" == *" tag "* ]]; then echo 7.0.3; fi
         else
           shift 2
@@ -78,11 +89,7 @@ RSpec.describe "package postinstall", type: :system do
         echo "login $1 $2 $3 $4" >> "#{commands}"
         [[ "$1 $2 $3 $4" == "-f -l -q pkg-user" ]] || return 1
         shift 4
-        local args=("$@") i
-        for ((i=0; i<${#args[@]}; i++)); do
-          [[ "${args[i]}" != git ]] || args[i]="#{test_root}/git"
-        done
-        (umask #{child_umask}; "${args[@]}") || true
+        (umask #{child_umask}; "$@") || true
         return 0
       }
       source "#{test_root}/postinstall" "" "#{prefix}"
@@ -94,12 +101,13 @@ RSpec.describe "package postinstall", type: :system do
     (prefix/"bin").mkpath
     (prefix/"cache_api").mkpath
     (prefix/"cache_api/formula.json").write "{}"
-    (test_root/"git").write <<~SH
+    (test_root/"Developer Tools/usr/bin").mkpath
+    (test_root/"Developer Tools/usr/bin/git").write <<~SH
       #!/bin/bash
       if [[ "$*" == *" tag "* ]]; then echo 7.0.3; fi
       exit #{git_exit_status}
     SH
-    (test_root/"git").chmod(0755)
+    (test_root/"Developer Tools/usr/bin/git").chmod(0755)
     commands.write ""
     (test_root/"postinstall").write(
       (HOMEBREW_LIBRARY_PATH.parent.parent/"package/scripts/postinstall").read
@@ -115,9 +123,8 @@ RSpec.describe "package postinstall", type: :system do
   it "runs Git as the install user after setting ownership" do
     _, stderr, status = result
     git_command = "sudo -u pkg-user /usr/bin/env HOME=#{prefix} GIT_CONFIG_GLOBAL=/dev/null " \
-                  "PATH=/Library/Developer/CommandLineTools/usr/bin:" \
-                  "/Applications/Xcode.app/Contents/Developer/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin " \
-                  "git -c core.hooksPath=/dev/null -C #{prefix}"
+                  "PATH=/usr/bin:/bin:/usr/sbin:/sbin " \
+                  "#{test_root}/Developer Tools/usr/bin/git -c core.hooksPath=/dev/null -C #{prefix}"
 
     expect([status.exitstatus, stderr, commands.read.lines(chomp: true)]).to eq([
       0, "", [
@@ -130,6 +137,19 @@ RSpec.describe "package postinstall", type: :system do
         "sudo -u pkg-user cp -vpR #{prefix}/cache_api/. #{test_root}/Library/Caches/Homebrew/api",
       ]
     ])
+  end
+
+  context "when developer tools are not installed" do
+    sig { returns(T::Boolean) }
+    let(:developer_tools) { false }
+
+    it "installs and seeds the API cache without invoking Git" do
+      _, stderr, status = result
+
+      expect([status.exitstatus, stderr, (test_root/"Library/Caches/Homebrew/api/formula.json").file?]).to eq([
+        0, "", true
+      ])
+    end
   end
 
   context "when sudo is unavailable" do
@@ -157,6 +177,19 @@ RSpec.describe "package postinstall", type: :system do
       end
     end
 
+    context "when developer tools are also unavailable" do
+      sig { returns(T::Boolean) }
+      let(:developer_tools) { false }
+
+      it "installs and seeds the API cache" do
+        _, stderr, status = result
+
+        expect([status.exitstatus, stderr, (test_root/"Library/Caches/Homebrew/api/formula.json").file?]).to eq([
+          0, "", true
+        ])
+      end
+    end
+
     context "when the caller is not root" do
       sig { returns(Integer) }
       let(:caller_uid) { 502 }
@@ -168,6 +201,17 @@ RSpec.describe "package postinstall", type: :system do
           1, "Switching to the Homebrew installation user without sudo requires root.\n", ""
         ])
       end
+    end
+  end
+
+  context "when xcode-select points to the root directory" do
+    sig { returns(String) }
+    let(:developer_dir) { "/" }
+
+    it "does not invoke the system Git stub" do
+      result
+
+      expect(commands.read).not_to include("/usr/bin/git")
     end
   end
 
