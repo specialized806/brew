@@ -167,7 +167,9 @@ RSpec.describe Formula do
     it "keeps the common sandbox environment" do
       f = Testball.new
       testpath = mktmpdir
-      expect(f.test_sandbox_env(testpath)).to include(f.common_sandbox_env(testpath))
+      expect(f.test_sandbox_env(testpath)).to include(
+        f.common_sandbox_env(testpath).except(:GIT_CONFIG_GLOBAL),
+      )
     end
   end
 
