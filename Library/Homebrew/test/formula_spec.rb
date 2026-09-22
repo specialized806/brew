@@ -37,6 +37,19 @@ RSpec.describe Formula do
     let(:f) { Testball.new }
     let(:testpath) { mktmpdir }
 
+    it "provides a fallback git identity" do
+      email = +""
+      allow(f).to receive(:test) { email.replace(Utils.safe_popen_read("git", "config", "user.email").chomp) }
+
+      f.run_test
+
+      expect(email).to eq("brew@example.com")
+    end
+
+    it "points git at a global config inside the test directory" do
+      expect(f.test_sandbox_env(testpath)).to include(GIT_CONFIG_GLOBAL: (testpath/".gitconfig").to_s)
+    end
+
     it "uses the test directory supplied by the parent" do
       ENV["HOMEBREW_TEST_PATH"] = testpath.to_s
       observed = []
@@ -1340,21 +1353,6 @@ RSpec.describe Formula do
     expect(f2).not_to have_fetch_defined
   end
 
-  specify "#run_post_install provides a fallback git identity" do
-    email = +""
-    f = formula do
-      T.bind(self, T.class_of(Formula))
-      url "foo-1.0"
-    end
-
-    allow(f).to receive(:odeprecated)
-    allow(f).to receive(:post_install) { email.replace(Utils.safe_popen_read("git", "config", "user.email").chomp) }
-
-    f.run_post_install
-
-    expect(email).to eq("brew@example.com")
-  end
-
   specify "#run_post_install prevents build tools from reading user configuration" do
     env = {}
     f = formula do
@@ -1370,7 +1368,7 @@ RSpec.describe Formula do
     f.run_post_install
 
     expect(env).to include(
-      "GIT_CONFIG_GLOBAL"     => "#{env.fetch("HOME")}/.gitconfig",
+      "GIT_CONFIG_GLOBAL"     => Utils::Git.no_global_config_file,
       "GIT_TERMINAL_PROMPT"   => "0",
       "GOENV"                 => "off",
       "NPM_CONFIG_USERCONFIG" => File::NULL,
@@ -3892,7 +3890,7 @@ RSpec.describe Formula do
       home = mktmpdir
 
       expect(f.common_sandbox_env(home)).to include(
-        GIT_CONFIG_GLOBAL:     (home/".gitconfig").to_s,
+        GIT_CONFIG_GLOBAL:     Utils::Git.no_global_config_file,
         GIT_TERMINAL_PROMPT:   "0",
         GOENV:                 "off",
         NPM_CONFIG_USERCONFIG: File::NULL,
