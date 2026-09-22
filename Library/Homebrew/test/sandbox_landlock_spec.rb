@@ -3,6 +3,7 @@
 
 require "sandbox"
 require "extend/os/linux/sandbox/landlock"
+require "install_steps"
 
 RSpec.describe Sandbox::Landlock do
   subject(:landlock) { described_class.new(sandbox.profile) }
@@ -393,6 +394,38 @@ RSpec.describe Sandbox::Landlock do
   end
 
   describe "#command" do
+    it "limits an existing dylib symlink's write access to its resolved file" do
+      directory = mktmpdir
+      (directory/"target").mkpath
+      (directory/"target/example.dylib").write "Mach-O"
+      (directory/"example.dylib").make_symlink(directory/"target/example.dylib")
+      steps = Homebrew::InstallSteps::DSL.build do
+        change_dylib_id (directory/"example.dylib").to_s, "@rpath/example.dylib", resolve_source: true
+      end
+      Homebrew::InstallSteps::Runner.new(context: Object.new).sandbox_write_paths(steps).each do |path|
+        sandbox.allow_write_path path
+      end
+
+      expect(landlock.writable_paths).to eq((directory/"target/example.dylib").to_s => :subpath)
+    end
+
+    it "leaves missing install step files available for extraction" do
+      directory = mktmpdir
+      steps = Homebrew::InstallSteps::DSL.build do
+        inreplace (directory/"share/example.desktop").to_s, "before", "after"
+        change_dylib_id (directory/"lib/example.dylib").to_s, "@rpath/example.dylib"
+      end
+      Homebrew::InstallSteps::Runner.new(context: Object.new).sandbox_write_paths(steps).each do |path|
+        sandbox.allow_write_path path
+      end
+      landlock.command(["true"], mktmpdir.to_s)
+      (directory/"share/example.desktop").write "before"
+      (directory/"lib/example.dylib").write "Mach-O"
+
+      expect(directory.glob("**/*").select(&:file?))
+        .to contain_exactly(directory/"share/example.desktop", directory/"lib/example.dylib")
+    end
+
     it "prepares missing writable directories and removes them after running" do
       writable_dir = mktmpdir/"created"
       sandbox.allow_write_path writable_dir

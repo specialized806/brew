@@ -113,15 +113,28 @@ RSpec.describe Homebrew::InstallSteps do
     expect(paths).to contain_exactly(root/"prefix/one", root/"prefix/two")
   end
 
-  specify "resolves parent directory for inreplace and change_dylib_id sandbox write paths" do
+  specify "allows only the parent of missing inreplace and change_dylib_id sandbox write paths" do
     steps = Homebrew::InstallSteps::DSL.build(default_base: :prefix, default_source_base: :prefix) do
       inreplace "subdir/file.txt", "a", "b"
       change_dylib_id "lib/libfoo.dylib", "lib/libbar.dylib"
     end
 
-    paths = Homebrew::InstallSteps::Runner.new(context:).sandbox_write_paths(steps)
+    expect(Homebrew::InstallSteps::Runner.new(context:).sandbox_write_paths(steps))
+      .to contain_exactly(root/"prefix/subdir", root/"prefix/lib")
+  end
 
-    expect(paths).to contain_exactly(root/"prefix/subdir", root/"prefix/lib")
+  specify "keeps existing inreplace and change_dylib_id sandbox write paths restricted to their files" do
+    (root/"prefix/subdir").mkpath
+    (root/"prefix/subdir/file.txt").write "a"
+    (root/"prefix/lib").mkpath
+    (root/"prefix/lib/libfoo.dylib").write "Mach-O"
+    steps = Homebrew::InstallSteps::DSL.build(default_base: :prefix, default_source_base: :prefix) do
+      inreplace "subdir/file.txt", "a", "b"
+      change_dylib_id "lib/libfoo.dylib", "lib/libbar.dylib"
+    end
+
+    expect(Homebrew::InstallSteps::Runner.new(context:).sandbox_write_paths(steps))
+      .to contain_exactly(root/"prefix/subdir/file.txt", root/"prefix/lib/libfoo.dylib")
   end
 
   specify "resolves formula configuration paths without loading formula source" do
