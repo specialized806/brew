@@ -174,6 +174,13 @@ RSpec.describe Homebrew::Diagnostic::Checks do
       expect(checks.check_pkgconf_macos_sdk_mismatch&.to_s).to be_nil
     end
 
+    it "doesn't trigger when the same major version has a different minor version" do
+      allow(MacOS).to receive(:version).and_return(MacOSVersion.new("15.2"))
+      allow(tab).to receive(:built_on).and_return({ "os_version" => "15.1" })
+
+      expect(checks.check_pkgconf_macos_sdk_mismatch&.to_s).to be_nil
+    end
+
     it "triggers when built_on version differs from current macOS version" do
       allow(MacOS).to receive(:version).and_return(MacOSVersion.new("15"))
       allow(tab).to receive(:built_on).and_return({ "os_version" => "14" })

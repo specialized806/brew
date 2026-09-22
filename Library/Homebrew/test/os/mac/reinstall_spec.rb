@@ -16,6 +16,7 @@ RSpec.describe Homebrew::Reinstall do
     before do
       allow(Formula).to receive(:[]).with("pkgconf").and_return(formula)
       allow(Homebrew::Install).to receive(:fetch_formulae).with([formula_installer]).and_return([formula_installer])
+      allow(formula).to receive(:full_name).and_return("pkgconf")
       allow(described_class).to receive(:build_install_context).and_return(context)
     end
 
