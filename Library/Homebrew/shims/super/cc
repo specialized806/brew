@@ -99,7 +99,7 @@ class Cmd
       when "llvm_clang"
         "#{ENV["HOMEBREW_PREFIX"]}/opt/llvm/bin/clang++"
       when "swift_clang"
-        "#{ENV["HOMEBREW_PREFIX"]}/opt/swift/libexec/bin/clang++"
+        "#{ENV["HOMEBREW_PREFIX"]}/opt/swift/libexec/usr/bin/clang++"
       when /clang/
         "clang++"
       when /(g)?cc(-\d+(\.\d)?)?$/
@@ -111,7 +111,7 @@ class Cmd
       if ENV["HOMEBREW_CC"] == "llvm_clang"
         "#{ENV["HOMEBREW_PREFIX"]}/opt/llvm/bin/clang"
       elsif ENV["HOMEBREW_CC"] == "swift_clang"
-        "#{ENV["HOMEBREW_PREFIX"]}/opt/swift/libexec/bin/clang"
+        "#{ENV["HOMEBREW_PREFIX"]}/opt/swift/libexec/usr/bin/clang"
       else
         ENV["HOMEBREW_CC"]
       end
