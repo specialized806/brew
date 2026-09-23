@@ -486,12 +486,17 @@ RSpec.describe Homebrew::DevCmd::AdvisoryMatch do
 
     it "holds differing platform histories" do
       allow(matcher).to receive(:reconcile_history) do
-        Homebrew::Vulns::Match::ReconciledHistory.new(state: :range, introduced: "2.20.0",
-                                                      fixed: if Homebrew::SimulateSystem.simulating_or_running_on_linux?
-                                                               "2.29.0"
-                                                             else
-                                                               "2.28.1"
-                                                      end, reasons: [])
+        Homebrew::Vulns::Match::ReconciledHistory.new(
+          state:      :range,
+          introduced: "2.20.0",
+          fixed:
+            if Homebrew::SimulateSystem.simulating_or_running_on_linux?
+              "2.29.0"
+            else
+              "2.28.1"
+            end,
+          reasons:    [],
+        )
       end
       reconcile_record { |path, original| expect(File.read(path)).to eq original }
     end
