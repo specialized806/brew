@@ -279,6 +279,7 @@ class Sandbox
       @readable_paths = T.let([], T::Array[String])
       @socket_directory = T.let(nil, T.nilable(String))
       @deny_all_network = T.let(false, T::Boolean)
+      @warn_incomplete_network = T.let(false, T::Boolean)
       @deny_read = T.let(false, T::Boolean)
     end
 
@@ -291,6 +292,10 @@ class Sandbox
       @readable_paths = readable_paths(denied_read_paths)
       @deny_read = denied_read_paths.any?
       @deny_all_network = deny_all_network?
+      # Children cannot update the parent's cache, so reserve the warning before forking.
+      abi = self.class.abi_version
+      @warn_incomplete_network = @deny_all_network && !abi.nil? && abi < MINIMUM_FULL_NETWORK_ABI &&
+                                 Utils::Output.claim_warning("Landlock incomplete network denial")
       @socket_directory = tmpdir
       args
     end
@@ -302,7 +307,7 @@ class Sandbox
         raise self.class.failure_reason || "Landlock ABI #{MINIMUM_ABI} or later is required."
       end
 
-      if @deny_all_network && abi < MINIMUM_FULL_NETWORK_ABI
+      if @warn_incomplete_network
         network_restrictions = if abi >= MINIMUM_NETWORK_ABI
           "Applying the network restrictions supported by this kernel."
         else

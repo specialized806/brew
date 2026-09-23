@@ -333,6 +333,35 @@ RSpec.describe Sandbox::Landlock do
         expect { landlock.command(["true"], tmpdir.to_s) }.not_to output.to_stderr
       end
 
+      context "when preparing multiple sandboxed children" do
+        let(:second_landlock) { described_class.new(sandbox.profile) }
+
+        before do
+          allow(second_landlock).to receive(:open_path).and_return(18)
+          allow(second_landlock).to receive(:close_file_descriptor)
+          sandbox.deny_all_network
+          landlock.command(["true"], tmpdir.to_s)
+          second_landlock.command(["true"], tmpdir.to_s)
+        end
+
+        it "reserves the warning before either child applies the sandbox" do
+          expect { second_landlock.apply! }.not_to output.to_stderr
+        end
+
+        it "prints the warning in the first selected child" do
+          expect { landlock.apply! }
+            .to output(/Landlock ABI 10 or later is required to deny all network access; found ABI 7/).to_stderr
+        end
+
+        it "warns again after clearing the cache" do
+          Utils::Output.clear_cache
+          second_landlock.command(["true"], tmpdir.to_s)
+
+          expect { second_landlock.apply! }
+            .to output(/Landlock ABI 10 or later is required to deny all network access; found ABI 7/).to_stderr
+        end
+      end
+
       it "does not warn without network denial" do
         landlock.command(["true"], tmpdir.to_s)
 

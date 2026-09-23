@@ -9,6 +9,42 @@ RSpec.describe Utils::Output do
     /(?:\e\[\d+m)*\e\[#{code}m/
   end
 
+  describe "#opoo_once" do
+    it "prints the same warning once across receivers" do
+      expect do
+        2.times { Class.new { include Utils::Output::Mixin }.new.opoo_once("foo") }
+      end.to output("Warning: foo\n").to_stderr
+    end
+
+    it "prints distinct warnings" do
+      expect do
+        described_class.opoo_once("foo")
+        described_class.opoo_once("bar")
+      end.to output("Warning: foo\nWarning: bar\n").to_stderr
+    end
+
+    it "prints again after clearing the cache" do
+      allow(described_class).to receive(:opoo)
+      described_class.opoo_once("foo")
+      described_class.clear_cache
+
+      expect(described_class).to receive(:opoo).with("foo").once
+
+      described_class.opoo_once("foo")
+    end
+  end
+
+  describe ".claim_warning" do
+    it "allows only one concurrent caller to claim a warning" do
+      allow(described_class.cache).to receive(:[]).and_wrap_original do |original, message|
+        original.call(message).tap { Thread.pass }
+      end
+      threads = Array.new(8) { Thread.new { described_class.claim_warning("foo") } }
+
+      expect(threads.map(&:value).count(true)).to eq(1)
+    end
+  end
+
   describe "#pretty_installed" do
     subject(:pretty_installed_output) { described_class.pretty_installed("foo") }
 
@@ -286,6 +322,59 @@ RSpec.describe Utils::Output do
   end
 
   describe "#odeprecated" do
+    context "when deprecations are warnings" do
+      before do
+        Homebrew.raise_deprecation_exceptions = false
+        ENV.delete("HOMEBREW_DEVELOPER")
+      end
+
+      it "warns once across receivers and backtraces" do
+        expect do
+          2.times do |i|
+            Class.new { include Utils::Output::Mixin }.new
+                 .odeprecated("method", caller: ["formula.rb:12", "caller.rb:#{i}"])
+          end
+        end.to output("Warning: Calling method is deprecated! There is no replacement.\n").to_stderr
+      end
+
+      it "warns for each distinct tap location" do
+        expect(described_class).to receive(:opoo).exactly(3).times
+
+        %w[foo.rb:6 foo.rb:8 bar.rb:6].each do |location|
+          2.times do
+            described_class.odeprecated(
+              "method", caller: ["#{HOMEBREW_LIBRARY}/Taps/playbrew/homebrew-play/Casks/#{location}"]
+            )
+          end
+        end
+      end
+
+      it "does not cache warnings suppressed during auditing" do
+        allow(Homebrew).to receive(:auditing?).and_return(true, false)
+
+        expect do
+          2.times { described_class.odeprecated("method", caller: ["formula.rb:12"]) }
+        end.to output("Warning: Calling method is deprecated! There is no replacement.\n").to_stderr
+      end
+
+      it "raises after a warning when deprecation exceptions are enabled" do
+        allow(described_class).to receive(:opoo)
+        described_class.odeprecated("method", caller: ["formula.rb:12"])
+        Homebrew.raise_deprecation_exceptions = true
+
+        expect { described_class.odeprecated("method", caller: ["formula.rb:12"]) }
+          .to raise_error(MethodDeprecatedError)
+      end
+    end
+
+    it "raises on repeated calls to disabled methods" do
+      expect do
+        described_class.odisabled("method", caller: ["formula.rb:12"])
+      rescue MethodDeprecatedError
+        described_class.odisabled("method", caller: ["formula.rb:12"])
+      end.to raise_error(MethodDeprecatedError)
+    end
+
     it "annotates deprecations that are not ignored" do
       ENV["GITHUB_ACTIONS"] = "true"
       ENV.delete("HOMEBREW_TESTS")
