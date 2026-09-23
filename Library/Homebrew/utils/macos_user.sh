@@ -1,6 +1,30 @@
 # Used by `brew as-console-user` and macOS installer package scripts.
 # Keep this standalone: package scripts source it before Homebrew is installed.
 
+# macOS login discards the command's exit status, so return it through a file.
+homebrew-login() (
+  local user="$1" status_dir status
+  shift
+  status_dir="$(mktemp -d /tmp/homebrew-login.XXXXXX)" || return 1
+  trap 'rm -rf "${status_dir}"' EXIT
+  touch "${status_dir}/status" || return 1
+  chmod 600 "${status_dir}/status" || return 1
+  chown "${user}" "${status_dir}/status" || return 1
+  # Only root may replace the status file; the target user may write to it.
+  chmod 711 "${status_dir}" || return 1
+
+  # Expand arguments and capture status in the target user's shell.
+  # shellcheck disable=SC2016
+  login -f -l -q "${user}" /bin/bash -c '
+    status_file="$1"
+    shift
+    "$@"
+    printf "%s\n" "$?" > "$status_file"
+  ' -- "${status_dir}/status" "$@" || return "$?"
+  read -r status <"${status_dir}/status" || return 1
+  return "${status}"
+)
+
 # Print the active macOS console user, or fail for login-window/system users.
 homebrew-console-user() {
   local console_user

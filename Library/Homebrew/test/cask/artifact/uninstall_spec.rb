@@ -11,6 +11,24 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
 
     include_examples "#uninstall_phase or #zap_phase"
 
+    context "when sudo is disabled" do
+      let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-launchctl")) }
+
+      it "removes user services without probing system services" do
+        ENV["HOMEBREW_NO_SUDO"] = "1"
+        allow(Homebrew::Services::System).to receive(:launchctl_find_service)
+          .with("my.fancy.package.service", sudo: false)
+          .and_return(["", true, :launchctl_print])
+        allow(fake_system_command).to receive(:run)
+          .with("/bin/launchctl", args: ["remove", "my.fancy.package.service"],
+                must_succeed: false, sudo: false, sudo_as_root: false)
+          .and_return(instance_double(SystemCommand::Result, success?: true))
+        allow(artifact).to receive(:sleep)
+
+        expect { artifact.uninstall_phase(command: fake_system_command) }.not_to raise_error
+      end
+    end
+
     describe "upgrade/reinstall uninstall directives" do
       context "with-uninstall-quit" do
         let(:cask) { Cask::CaskLoader.load(cask_path("with-uninstall-quit")) }
