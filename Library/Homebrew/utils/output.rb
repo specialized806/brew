@@ -1,9 +1,33 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "cacheable"
+
 module Utils
   # Helper methods for outputting messages in Homebrew's formats.
   module Output
+    extend T::Generic
+    extend Cacheable
+
+    Cache = type_template { { fixed: T::Hash[String, T::Boolean] } }
+
+    @warnings_mutex = T.let(Thread::Mutex.new, Thread::Mutex)
+
+    # Reserve a warning for one caller in this process, including across threads.
+    sig { params(message: String).returns(T::Boolean) }
+    def self.claim_warning(message)
+      @warnings_mutex.synchronize do
+        return false if cache[message]
+
+        cache[message] = true
+      end
+    end
+
+    sig { override.void }
+    def self.clear_cache
+      @warnings_mutex.synchronize { super }
+    end
+
     sig {
       type_parameters(:U)
         .params(file: T.any(IO, Pathname, String), _block: T.proc.returns(T.type_parameter(:U)))
@@ -70,6 +94,14 @@ module Utils
         Tty.with($stderr) do |stderr|
           stderr.puts Formatter.warning(message, label: "Warning")
         end
+      end
+
+      # Print a warning message once per process.
+      #
+      # @api public
+      sig { params(message: T.any(String, Exception)).void }
+      def opoo_once(message)
+        opoo message if Utils::Output.claim_warning(message.to_s)
       end
 
       sig { params(message: T.any(String, Exception)).void }
@@ -234,7 +266,7 @@ module Utils
             Kernel.raise
           end
         elsif !Homebrew.auditing?
-          opoo message
+          opoo_once message
         end
       end
 

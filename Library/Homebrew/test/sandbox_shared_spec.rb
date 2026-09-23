@@ -302,11 +302,12 @@ RSpec.describe Sandbox do
       expect(described_class.use_for?("running install hooks")).to be(true)
     end
 
-    it "warns when the sandbox is unavailable" do
+    it "warns once when the sandbox is unavailable" do
       allow(described_class).to receive(:available?).and_return(false)
-      expect(described_class).to receive(:opoo).with("Sandbox unavailable: running install hooks without sandboxing!")
+      expect(described_class).to receive(:opoo)
+        .with("Sandbox unavailable: running install hooks without sandboxing!").once
 
-      expect(described_class.use_for?("running install hooks")).to be(false)
+      2.times { described_class.use_for?("running install hooks") }
     end
 
     it "can quietly fall back when the sandbox is unavailable" do
@@ -316,12 +317,12 @@ RSpec.describe Sandbox do
       expect(described_class.use_for?("testing a formula", warn_without_sandbox: false)).to be(false)
     end
 
-    it "warns when relying on an outer sandbox" do
+    it "warns once when relying on an outer sandbox" do
       allow(described_class).to receive_messages(available?: true, avoid_nested_sandboxing?: true)
       expect(described_class).to receive(:opoo)
-        .with("Running install hooks without Homebrew's sandbox; relying on the outer sandbox.")
+        .with("Running install hooks without Homebrew's sandbox; relying on the outer sandbox.").once
 
-      expect(described_class.use_for?("running install hooks")).to be(false)
+      2.times { described_class.use_for?("running install hooks") }
     end
   end
 
