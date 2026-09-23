@@ -36,6 +36,33 @@ RSpec.describe Homebrew::Cmd::Update do
     end
   end
 
+  it "installs Git when the Git wrapper cannot find an executable" do
+    setup_update_utils
+    (test_root/"Library/Homebrew/shims/shared").mkpath
+    (test_root/"Library/Homebrew/shims/shared/git").write "#!/bin/bash\nexit 1\n"
+    (test_root/"Library/Homebrew/shims/shared/git").chmod(0755)
+
+    stdout, stderr, status = run_update_shell(
+      <<~SH,
+        source "#{update_script}"
+        brew() { echo "$*"; }
+        setup_git() { echo git-ready; exit 0; }
+        homebrew-update
+      SH
+      {
+        "GIT_EXECUTABLE"                        => nil,
+        "HOMEBREW_CELLAR"                       => (test_root/"Cellar").to_s,
+        "HOMEBREW_FORCE_BREWED_CA_CERTIFICATES" => nil,
+        "HOMEBREW_FORCE_BREWED_CURL"            => nil,
+        "HOMEBREW_LIBRARY"                      => (test_root/"Library").to_s,
+        "HOMEBREW_NO_INSTALL_FROM_API"          => nil,
+        "HOMEBREW_REPOSITORY"                   => test_root.to_s,
+      },
+    )
+
+    expect([status.exitstatus, stdout, stderr]).to eq([0, "install git\ngit-ready\n", ""])
+  end
+
   it "detects shallow clones and their linked worktrees but not full clones" do
     setup_update_utils
     FileUtils.ln_s repository_root/"Library/Homebrew/shims", test_root/"Library/Homebrew/shims"
