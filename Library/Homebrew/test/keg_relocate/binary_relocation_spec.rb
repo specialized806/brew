@@ -43,13 +43,137 @@ RSpec.describe Keg do
       expect(new_prefix_matches.size).to eq 1
     end
 
-    specify "replace prefix in recorded files without scanning the keg" do
+    specify "replace prefix in recorded files" do
       setup_binary_file
 
-      expect(keg).not_to receive(:each_unique_file_matching)
       keg.relocate_build_prefix(keg, dir, newdir, files: [Pathname("file.bin")])
 
       expect(binary_file.binread).to eq "\x00#{padded_prefix}\x00\n"
+    end
+
+    context "with an x86-64 prefix split across movabs instructions" do
+      let(:old_prefix) { "/home/linuxbrew/.linuxbrew" }
+      let(:new_prefix) { "/home/u/.b" }
+      let(:instructions) do
+        "\x48\xb9/home/li\x48\x8b\x6c\x24\x08\x48\x89\x08" \
+        "\x48\xb9nuxbrew/\x48\x89\x48\x08" \
+        "\x48\xb9.linuxbr\x48\x89\x48\x10" \
+        "\x48\xb9ew/etc/f\x4c\x8b\x65\x00\x48\x89\x48\x18" \
+        "\x48\xb9c/fonts\x00\x48\x89\x48\x1d".b
+      end
+      let(:text_offset) do
+        binary_file.open("rb") do |stream|
+          ELFTools::ELFFile.new(stream).section_by_name(".text").header.sh_offset.to_i
+        end
+      end
+      let(:relocated_instructions) do
+        instructions.sub("/home/li", "/home/u/").sub("nuxbrew/", ".b//////")
+                    .sub(".linuxbr", "////////").sub("ew/etc/f", "///etc/f")
+      end
+
+      before do
+        require "elftools"
+
+        FileUtils.cp TEST_FIXTURE_DIR/"elf/hello", binary_file
+        binary_file.open("r+b") do |file|
+          file.seek(text_offset)
+          file.write(instructions)
+        end
+      end
+
+      it "relocates instruction operands without changing other bytes" do
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix)
+
+        expect(binary_file.binread).to eq original.sub(instructions, relocated_instructions)
+      end
+
+      it "finds split prefixes missing from older bottle metadata" do
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix, files: [])
+
+        expect(binary_file.binread).to eq original.sub(instructions, relocated_instructions)
+      end
+
+      it "preserves hardlinks and relocates both contiguous and split prefixes" do
+        binary_file.open("ab") { |file| file.write("\x00#{old_prefix}/etc/fonts\x00") }
+        FileUtils.ln binary_file, dir/"hardlink.bin"
+        original = binary_file.binread
+
+        patched = keg.relocate_build_prefix(keg, old_prefix, new_prefix, files: [Pathname("file.bin")])
+
+        expect(patched).to contain_exactly(Pathname("file.bin"), Pathname("hardlink.bin"))
+        expect((dir/"hardlink.bin").stat.ino).to eq binary_file.stat.ino
+        expect(binary_file.binread).to eq original.sub(instructions, relocated_instructions)
+                                                  .sub(old_prefix, new_prefix.ljust(old_prefix.bytesize, "/"))
+      end
+
+      it "relocates operands using extended registers" do
+        original = binary_file.binread.gsub("\x48\xb9".b, "\x49\xbf".b)
+        binary = original.dup
+
+        described_class.replace_x86_64_prefix!(binary, old_prefix, new_prefix)
+
+        expect(binary).to eq original.sub(instructions.gsub("\x48\xb9".b, "\x49\xbf".b),
+                                          relocated_instructions.gsub("\x48\xb9".b, "\x49\xbf".b))
+      end
+
+      it "does not skip intervening movabs operands" do
+        binary_file.open("r+b") do |file|
+          file.seek(text_offset)
+          file.write(instructions.sub("nuxbrew/", "ignored!\x48\xb9nuxbrew/".b))
+        end
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix)
+
+        expect(binary_file.binread).to eq original
+      end
+
+      it "leaves incomplete prefixes untouched" do
+        binary_file.binwrite binary_file.binread.sub(".linuxbr", ".otherbr")
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix)
+
+        expect(binary_file.binread).to eq original
+      end
+
+      it "leaves non-path prefixes untouched" do
+        binary_file.binwrite binary_file.binread.sub("ew/etc/f", "ew-extra")
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix)
+
+        expect(binary_file.binread).to eq original
+      end
+
+      it "leaves other ELF architectures untouched" do
+        binary_file.open("r+b") do |file|
+          file.seek(18)
+          file.write("\xb7\x00".b)
+        end
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix)
+
+        expect(binary_file.binread).to eq original
+      end
+
+      it "leaves instruction-like bytes outside executable sections untouched" do
+        binary_file.open("r+b") do |file|
+          file.seek(text_offset)
+          file.write("\x00" * instructions.bytesize)
+        end
+        binary_file.open("ab") { |file| file.write(instructions) }
+        original = binary_file.binread
+
+        keg.relocate_build_prefix(keg, old_prefix, new_prefix)
+
+        expect(binary_file.binread).to eq original
+      end
     end
 
     specify "replaces every occurrence in every string" do

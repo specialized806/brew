@@ -288,6 +288,20 @@ class Keg
   C_STRING_REGEX = /\A[\t\n\r\P{Cc}]*\z/
   private_constant :MAX_C_STRING_BYTESIZE, :C_STRING_REGEX
 
+  ELF64_LITTLE_ENDIAN_MAGIC = "\x7fELF\x02\x01"
+  MOVABS_REX_PREFIXES = [0x48, 0x49].freeze
+  MOVABS_REGISTER_OPCODES = T.let(0xb8..0xbf, T::Range[Integer])
+  MOVABS_INSTRUCTION_PREFIXES = T.let(
+    MOVABS_REX_PREFIXES.product(MOVABS_REGISTER_OPCODES.to_a).map { it.pack("C*") }.freeze,
+    T::Array[String],
+  )
+  MOVABS_INSTRUCTION_REGEX = /#{Regexp.union(MOVABS_INSTRUCTION_PREFIXES)}/n
+  MOVABS_OPERAND_BYTESIZE = 8
+  MOVABS_MAX_GAP_BYTESIZE = 32
+  private_constant :ELF64_LITTLE_ENDIAN_MAGIC, :MOVABS_REX_PREFIXES, :MOVABS_REGISTER_OPCODES,
+                   :MOVABS_INSTRUCTION_PREFIXES, :MOVABS_INSTRUCTION_REGEX,
+                   :MOVABS_OPERAND_BYTESIZE, :MOVABS_MAX_GAP_BYTESIZE
+
   # Returns the patched files relative to the keg.
   sig {
     params(keg: Keg, old_prefix: T.any(String, Pathname), new_prefix: T.any(String, Pathname),
@@ -311,12 +325,17 @@ class Keg
       raise ArgumentError, "Cannot relocate build prefix #{old_prefix} to longer prefix #{new_prefix}"
     end
 
+    # Older bottle metadata misses paths split across movabs operands.
+    prefix_patterns = MOVABS_INSTRUCTION_PREFIXES.map do |instruction_prefix|
+      "#{instruction_prefix}#{old_prefix.b.byteslice(0, MOVABS_OPERAND_BYTESIZE)}"
+    end
+    prefix_patterns << old_prefix.b if files.nil?
+
     # Hardlinked names share one inode: patch it once through the first name
     # and re-link the rest afterwards, as the patched file gets a new inode.
-    inode_groups = if files
-      # Metadata-driven pour: only the files recorded at bottle time carry raw
-      # prefix strings, so skip the whole-keg scan.
-      candidates = keg_files(files)
+    inode_groups = files_matching_by_inode(prefix_patterns.join("\n"))
+    if files
+      candidates = keg_files(files) | inode_groups.flatten
       # Bottle metadata records one name per inode, so the other names of a
       # hardlinked file are only found by a walk; do that only when needed.
       hardlinked_inodes = candidates.select { |file| file.stat.nlink > 1 }.to_set { |file| file.stat.ino }
@@ -327,9 +346,7 @@ class Keg
           candidates << file if hardlinked_inodes.include?(file.stat.ino)
         end
       end
-      candidates.uniq.group_by { |file| file.stat.ino }.values
-    else
-      files_matching_by_inode(old_prefix)
+      inode_groups = candidates.uniq.group_by { |file| file.stat.ino }.values
     end
 
     patched_groups = T.let([], T::Array[T::Array[Pathname]])
@@ -354,19 +371,16 @@ class Keg
           text.valid_encoding? && text.match?(C_STRING_REGEX)
         end
 
-        # Bottle metadata records files pinned by any prefix, cellar or
-        # repository reference, so a recorded file may not contain this
-        # particular string and must not be rewritten or re-signed.
-        next if match_indices.empty?
-
-        odebug "Replacing build prefix in: #{file}"
-
         match_indices.each do |i|
           binary_strings[i] = Keg.replace_prefix_preserving_length(binary_strings.fetch(i), old_prefix, new_prefix)
         end
 
         # Rejoin strings by null bytes.
         patched_binary = binary_strings.join(NULL_BYTE)
+        Keg.replace_x86_64_prefix!(patched_binary, old_prefix, new_prefix)
+        next if patched_binary == binary
+
+        odebug "Replacing build prefix in: #{file}"
         if patched_binary.bytesize != binary.bytesize
           raise <<~EOS
             Patching failed!  Original and patched binary sizes do not match.
@@ -390,6 +404,46 @@ class Keg
     end
 
     patched_groups.flatten.map { |file| file.relative_path_from(path) }
+  end
+
+  # Compilers can copy a path using successive movabs operands. Only replace
+  # complete prefixes in executable x86-64 ELF sections, keeping operand sizes.
+  sig { params(binary: String, old_prefix: String, new_prefix: String).void }
+  def self.replace_x86_64_prefix!(binary, old_prefix, new_prefix)
+    return unless binary.start_with?(ELF64_LITTLE_ENDIAN_MAGIC)
+
+    require "elftools"
+    require "stringio"
+
+    elf = ELFTools::ELFFile.new(StringIO.new(binary))
+    return if elf.header.e_machine.to_i != ELFTools::Constants::EM::EM_X86_64
+
+    # Allow intervening stores and loads, but never skip another movabs.
+    pattern = "#{old_prefix}/".b.bytes.each_slice(MOVABS_OPERAND_BYTESIZE).map do |bytes|
+      chunk = bytes.pack("C*")
+      "#{MOVABS_INSTRUCTION_REGEX}(#{Regexp.escape(chunk)}).{#{MOVABS_OPERAND_BYTESIZE - chunk.bytesize}}"
+    end
+    pattern = Regexp.new(pattern.join("(?:(?!#{MOVABS_INSTRUCTION_REGEX}).){0,#{MOVABS_MAX_GAP_BYTESIZE}}?"),
+                         Regexp::MULTILINE | Regexp::NOENCODING)
+    replacement = "#{new_prefix.b.ljust(old_prefix.bytesize, "/")}/"
+    elf.sections.each do |section|
+      next if section.header.sh_flags.to_i.nobits?(ELFTools::Constants::SHF::SHF_EXECINSTR)
+
+      section.data.scan(pattern) do
+        match = Regexp.last_match
+        next if match.nil?
+
+        match.captures.each_with_index do |chunk, index|
+          offset = match.begin(index + 1)
+          next if offset.nil?
+
+          binary[section.header.sh_offset.to_i + offset, chunk.bytesize] =
+            replacement.byteslice(index * MOVABS_OPERAND_BYTESIZE, chunk.bytesize).to_s
+        end
+      end
+    end
+  rescue ELFTools::ELFError, IOError
+    nil
   end
 
   # Pads path prefixes with separators to preserve string lengths and suffix
@@ -451,7 +505,7 @@ class Keg
   sig { params(string: T.any(String, Pathname)).returns(T::Array[T::Array[Pathname]]) }
   def files_matching_by_inode(string)
     files = T.let([], T::Array[Pathname])
-    Utils.popen_read("fgrep", recursive_fgrep_args, string, to_s) do |io|
+    Utils.popen_read({ "LC_ALL" => "C" }, "fgrep", recursive_fgrep_args, string, to_s) do |io|
       until io.eof?
         file = Pathname.new(io.readline.chomp)
         # Don't return symbolic links.

@@ -16,7 +16,7 @@ Bottles are not used when:
 - the formula requests it (with `pour_bottle?`),
 - any options are specified during installation (bottles are all compiled with default options),
 - the bottle is not up to date (e.g. missing or mismatched checksum),
-- the bottle's `cellar` is neither relocatable nor equal to the current `HOMEBREW_CELLAR`.
+- the bottle's `cellar` is neither relocatable nor compatible with the current `HOMEBREW_PREFIX` and `HOMEBREW_CELLAR`.
 
 ## Creation
 
